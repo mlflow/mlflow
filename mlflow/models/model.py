@@ -65,6 +65,8 @@ METADATA_FILES = [
     _REQUIREMENTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
 ]
+MODEL_CONFIG = "config"
+MODEL_CODE_PATH = "model_code_path"
 
 
 class ModelInfo:
@@ -698,8 +700,19 @@ class Model:
                 model_config = kwargs["model_config"]
                 if isinstance(model_config, str):
                     try:
-                        with open(model_config) as f:
-                            model_config = json.load(f)
+                        file_extension = os.path.splitext(model_config)[1].lower()
+                        if file_extension == ".json":
+                            with open(model_config) as f:
+                                model_config = json.load(f)
+                        elif file_extension in [".yaml", ".yml"]:
+                            with open(model_config) as f:
+                                model_config = yaml.safe_load(f)
+                        else:
+                            _logger.warning(
+                                "Unsupported file format for model config: %s. "
+                                "Failed to load model config.",
+                                model_config,
+                            )
                     except Exception as e:
                         _logger.warning("Failed to load model config from %s: %s", model_config, e)
                 try:
@@ -909,10 +922,15 @@ def set_model(model):
 
     if not isinstance(model, PythonModel):
         try:
-            from mlflow.langchain import _validate_and_wrap_lc_model
+            from mlflow.langchain import _validate_and_prepare_lc_model_or_path
 
-            # If its not a PyFuncModel, then it should be a Langchain model
-            _validate_and_wrap_lc_model(model, None)
+            # If its not a PyFuncModel, then it should be a Langchain model (not a path)
+            # Check this since the validation function does not
+            if isinstance(model, str):
+                raise mlflow.MlflowException(
+                    "Model should either be an instance of PyFuncModel or Langchain type."
+                )
+            model = _validate_and_prepare_lc_model_or_path(model, None)
         except Exception as e:
             raise mlflow.MlflowException(
                 "Model should either be an instance of PyFuncModel or Langchain type."

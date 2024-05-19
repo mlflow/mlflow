@@ -5,7 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import { RunTag, Experiment, RunInfo, Metric } from '../../sdk/MlflowMessages';
+import { RunTag, Metric } from '../../sdk/MlflowMessages';
 
 export const emptyState = {
   apis: {},
@@ -37,13 +37,13 @@ export const addExperimentToState = (state: any, experiment: any) => {
       ...state.entities,
       experimentsById: {
         ...oldExperiments,
-        [experiment.experiment_id]: experiment,
+        [experiment.experimentId]: experiment,
       },
     },
   };
 };
 
-export const addExperimentTagsToState = (state: any, experiment_id: any, tags: any) => {
+export const addExperimentTagsToState = (state: any, experimentId: any, tags: any) => {
   const oldExperimentTags = state.entities.experimentTagsByExperimentId;
   const tagsArrToObject = (tagsArr: any) => {
     const tagObj = {};
@@ -57,7 +57,7 @@ export const addExperimentTagsToState = (state: any, experiment_id: any, tags: a
       ...state.entities,
       experimentTagsByExperimentId: {
         ...oldExperimentTags,
-        [experiment_id]: tagsArrToObject(tags),
+        [experimentId]: tagsArrToObject(tags),
       },
     },
   };
@@ -68,7 +68,7 @@ export const createPendingApi = (id: any) => {
 };
 
 export const mockExperiment = (eid: any, name: any) => {
-  return (Experiment as any).fromJs({ experiment_id: eid, name: name });
+  return { experimentId: eid, name: name, allowedActions: [] };
 };
 
 export const mockRunInfo = (
@@ -77,12 +77,12 @@ export const mockRunInfo = (
   artifact_uri = undefined,
   lifecycle_stage = undefined,
 ) => {
-  return (RunInfo as any).fromJs({
-    run_uuid: run_id,
-    experiment_id: experiment_id,
-    artifact_uri: artifact_uri,
-    lifecycle_stage: lifecycle_stage,
-  });
+  return {
+    runUuid: run_id,
+    experimentId: experiment_id,
+    artifactUri: artifact_uri,
+    lifecycleStage: lifecycle_stage,
+  };
 };
 
 export const mockMetric = (params: any) => {

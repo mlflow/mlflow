@@ -19,7 +19,6 @@ const mockStore = configureStore([thunk, promiseMiddleware()]);
 
 describe('ModelListView', () => {
   let wrapper;
-  let instance;
   let minimalProps: any;
   let minimalStore: any;
   let onSearchSpy;
@@ -39,7 +38,7 @@ describe('ModelListView', () => {
       onClickPrev: jest.fn(),
       onClickSortableColumn: jest.fn(),
       onSetMaxResult: jest.fn(),
-      getMaxResultValue: jest.fn().mockReturnValue(10),
+      maxResultValue: 10,
       onStatusFilterChange: jest.fn(),
       onOwnerFilterChange: jest.fn(),
     };
@@ -67,21 +66,6 @@ describe('ModelListView', () => {
       showOnboardingHelper: false,
     });
     expect(wrapper.find("[data-testid='showOnboardingHelper']").length).toBe(0);
-  });
-  test('lastNavigationActionWasClickPrev is set properly on actions', () => {
-    // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
-    wrapper = setupModelListViewWithIntl();
-    instance = wrapper.find(ModelListViewImpl).instance();
-    expect(instance.state.lastNavigationActionWasClickPrev).toBe(false);
-    instance.handleClickPrev();
-    expect(instance.state.lastNavigationActionWasClickPrev).toBe(true);
-    instance.handleClickNext();
-    expect(instance.state.lastNavigationActionWasClickPrev).toBe(false);
-    const event = { preventDefault: () => {} };
-    instance.handleSearch(event);
-    expect(instance.state.lastNavigationActionWasClickPrev).toBe(false);
-    instance.handleTableChange(null, null, { field: 'name', order: 'ascend' });
-    expect(instance.state.lastNavigationActionWasClickPrev).toBe(false);
   });
   test('Page title is set', () => {
     const mockUpdatePageTitle = jest.fn();

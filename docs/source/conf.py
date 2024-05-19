@@ -340,6 +340,7 @@ nitpick_ignore = [
     ("py:class", "bytes"),
     ("py:class", "bytearray"),
     # Suppress warnings for missing references in type annotations
+    ("py:class", "dataclasses.dataclass"),
     ("py:class", "numpy.dtype"),
     ("py:class", "numpy.ndarray"),
     ("py:class", "pandas.core.series.Series"),
@@ -396,6 +397,28 @@ nitpick_ignore = [
     ("py:class", "pytorch_lightning.core.module.LightningModule"),
     ("py:class", "pytorch_lightning.core.LightningModule"),
     ("py:class", "torch.dtype"),
+    # Temporarily ignore trace references - remove prior to launch
+    ("py:func", "trace"),
+    ("py:func", "mlflow.start_span"),
+    ("py:class", "mlflow.entities.SpanType"),
+    ("py:func", "mlflow.client.MlflowClient.start_trace"),
+    ("py:func", "mlflow.client.MlflowClient.start_trace"),
+    ("py:class", "mlflow.entities.Span"),
+    ("py:class", "mlflow.entities.Trace"),
+    ("py:func", "mlflow.trace"),
+    ("py:func", "start_span"),
+    ("py:class", "mlflow.entities.SpanStatus"),
+    ("py:class", "mlflow.entities.SpanStatusCode"),
+    ("py:func", "mlflow.start_span"),
+    ("py:func", "start_trace"),
+    ("py:func", "end_span"),
+    ("py:class", "mlflow.entities.SpanType"),
+    ("py:func", "mlflow.client.MlflowClient.start_trace"),
+    ("py:func", "mlflow.client.MlflowClient.end_trace"),
+    ("py:func", "mlflow.client.MlflowClient.start_span"),
+    ("py:func", "mlflow.client.MlflowClient.start_span"),
+    ("py:func", "mlflow.client.MlflowClient.end_span"),
+    ("py:func", "mlflow.client.MlflowClient.end_trace"),
 ]
 
 

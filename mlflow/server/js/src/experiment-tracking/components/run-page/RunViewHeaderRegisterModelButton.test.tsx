@@ -1,5 +1,5 @@
 import { openDropdownMenu } from '@databricks/design-system/test-utils/rtl';
-import { MemoryRouter } from '../../../common/utils/RoutingUtils';
+import { MemoryRouter, createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { renderWithIntl, act, screen } from 'common/utils/TestUtils.react17';
 import Utils from '../../../common/utils/Utils';
@@ -98,7 +98,7 @@ describe('RunViewHeaderRegisterModelButton', () => {
     expect(screen.queryByRole('button', { name: 'Register model' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Model registered' })).toHaveAttribute(
       'href',
-      '/models/test-model/versions/7',
+      createMLflowRoutePath('/models/test-model/versions/7'),
     );
   });
 

@@ -42,7 +42,7 @@ describe('ShowArtifactTableView', () => {
       return Promise.resolve(fileContents);
     });
     const props = { ...minimalProps, getArtifact };
-    wrapper = mount(<ShowArtifactTableView {...props} />);
+    wrapper = mountWithIntl(<ShowArtifactTableView {...props} />);
     setImmediate(() => {
       wrapper.update();
       expect(wrapper.find('.ShowArtifactPage').length).toBe(1);

@@ -3,12 +3,11 @@ import { useInitializeUIState } from './useInitializeUIState';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 import { loadExperimentViewState } from '../utils/persistSearchFacets';
 import {
-  type ExperimentPageUIStateV2,
-  createExperimentPageUIStateV2,
+  type ExperimentPageUIState,
+  createExperimentPageUIState,
   RUNS_VISIBILITY_MODE,
-} from '../models/ExperimentPageUIStateV2';
-import { createExperimentPageSearchFacetsStateV2 } from '../models/ExperimentPageSearchFacetsStateV2';
-import { shouldEnableShareExperimentViewByTags } from '../../../../common/utils/FeatureUtils';
+} from '../models/ExperimentPageUIState';
+import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import { RunsChartType } from '../../runs-charts/runs-charts.types';
 
 const experimentIds = ['experiment_1'];
@@ -16,12 +15,11 @@ const experimentIds = ['experiment_1'];
 jest.mock('../utils/persistSearchFacets');
 jest.mock('../../../../common/utils/FeatureUtils');
 
-const initialUIState = createExperimentPageUIStateV2();
+const initialUIState = createExperimentPageUIState();
 
 describe('useInitializeUIState', () => {
   beforeEach(() => {
     jest.mocked(loadExperimentViewState).mockImplementation(() => ({}));
-    jest.mocked(shouldEnableShareExperimentViewByTags).mockImplementation(() => true);
   });
 
   const renderParametrizedHook = () => {
@@ -38,7 +36,7 @@ describe('useInitializeUIState', () => {
 
   test('should return persisted UI state when present', () => {
     const persistedState = {
-      ...createExperimentPageSearchFacetsStateV2(),
+      ...createExperimentPageSearchFacetsState(),
       ...initialUIState,
       orderByKey: 'metrics.m1',
       orderByAsc: true,
@@ -61,7 +59,7 @@ describe('useInitializeUIState', () => {
     const { result } = renderParametrizedHook();
     const [, setUIState] = result.current;
 
-    const customUIState: ExperimentPageUIStateV2 = {
+    const customUIState: ExperimentPageUIState = {
       runListHidden: true,
       runsPinned: ['run_1'],
       selectedColumns: ['metrics.m2'],
@@ -73,6 +71,7 @@ describe('useInitializeUIState', () => {
       isAccordionReordered: false,
       groupBy: '',
       groupsExpanded: {},
+      autoRefreshEnabled: true,
     };
 
     act(() => {
@@ -102,6 +101,7 @@ describe('useInitializeUIState', () => {
       isAccordionReordered: false,
       groupBy: '',
       groupsExpanded: {},
+      autoRefreshEnabled: true,
     });
   });
 });

@@ -16,8 +16,8 @@ describe('unit tests', () => {
   let instance;
   const minimalProps = {
     tags: {
-      tag1: { getKey: () => 'tag1', getValue: () => 'value1' },
-      tag2: { getKey: () => 'tag2', getValue: () => 'value2' },
+      tag1: { key: 'tag1', value: 'value1' },
+      tag2: { key: 'tag2', value: 'value2' },
     },
     // eslint-disable-next-line no-unused-vars
     form: { getFieldDecorator: jest.fn((opts) => (c: any) => c) },

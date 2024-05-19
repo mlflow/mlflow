@@ -1,4 +1,5 @@
 import base64
+import json
 import os
 import posixpath
 from unittest import mock
@@ -7,7 +8,8 @@ import pytest
 from azure.storage.blob import BlobPrefix, BlobProperties, BlobServiceClient
 
 from mlflow.entities.multipart_upload import MultipartUploadPart
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted
+from mlflow.store.artifact.artifact_repo import try_read_trace_data
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 
@@ -394,3 +396,24 @@ def test_complete_multipart_upload(mock_client, tmp_path):
     repo.complete_multipart_upload("local_file", "", parts)
     mock_client.get_blob_client.assert_called_with("container", f"{TEST_ROOT_PATH}/local_file")
     mock_client.get_blob_client().commit_block_list.assert_called_with(["a", "b"])
+
+
+def test_trace_data(mock_client, tmp_path):
+    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+    with pytest.raises(MlflowException, match=r"Trace data not found for path="):
+        repo.download_trace_data()
+    trace_data_path = tmp_path.joinpath("traces.json")
+    trace_data_path.write_text("invalid data")
+    with mock.patch(
+        "mlflow.store.artifact.artifact_repo.try_read_trace_data",
+        side_effect=lambda x: try_read_trace_data(trace_data_path),
+    ), pytest.raises(MlflowTraceDataCorrupted, match=r"Trace data is corrupted for path="):
+        repo.download_trace_data()
+
+    mock_trace_data = {"spans": [], "request": {"test": 1}, "response": {"test": 2}}
+    trace_data_path.write_text(json.dumps(mock_trace_data))
+    with mock.patch(
+        "mlflow.store.artifact.artifact_repo.try_read_trace_data",
+        side_effect=lambda x: try_read_trace_data(trace_data_path),
+    ):
+        assert repo.download_trace_data() == mock_trace_data

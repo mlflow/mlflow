@@ -63,6 +63,10 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.protos.service_pb2 import GetRun, MlflowService
+from mlflow.store._unity_catalog.lineage.constants import (
+    _DATABRICKS_LINEAGE_ID_HEADER,
+    _DATABRICKS_ORG_ID_HEADER,
+)
 from mlflow.store.artifact.presigned_url_artifact_repo import PresignedUrlArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.rest_store import BaseRestStore
@@ -71,7 +75,9 @@ from mlflow.utils._unity_catalog_utils import (
     get_artifact_repo_from_storage_info,
     get_full_name_from_sc,
     model_version_from_uc_proto,
+    model_version_search_from_uc_proto,
     registered_model_from_uc_proto,
+    registered_model_search_from_uc_proto,
     uc_model_version_tag_from_mlflow_tags,
     uc_registered_model_tag_from_mlflow_tags,
 )
@@ -91,8 +97,6 @@ from mlflow.utils.rest_utils import (
     verify_rest_response,
 )
 
-_DATABRICKS_ORG_ID_HEADER = "x-databricks-org-id"
-_DATABRICKS_LINEAGE_ID_HEADER = "X-Databricks-Lineage-Identifier"
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
@@ -169,13 +173,6 @@ def get_model_version_dependencies(model_dir):
     Gets the specified dependencies for a particular model version and formats them
     to be passed into CreateModelVersion.
     """
-    # import here to work around circular imports
-    from mlflow.langchain.databricks_dependencies import (
-        _DATABRICKS_CHAT_ENDPOINT_NAME_KEY,
-        _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY,
-        _DATABRICKS_LLM_ENDPOINT_NAME_KEY,
-        _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY,
-    )
     from mlflow.models.resources import ResourceType
 
     model = _load_model(model_dir)
@@ -197,8 +194,13 @@ def get_model_version_dependencies(model_dir):
         for endpoint_name in endpoint_names:
             dependencies.append({"type": "DATABRICKS_MODEL_ENDPOINT", **endpoint_name})
     else:
-        # import here to work around circular imports
-        from mlflow.langchain.databricks_dependencies import _DATABRICKS_DEPENDENCY_KEY
+        # These types of dependencies are required for old models that didn't use
+        # resources so they can be registered correctly to UC
+        _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY = "databricks_vector_search_index_name"
+        _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY = "databricks_embeddings_endpoint_name"
+        _DATABRICKS_LLM_ENDPOINT_NAME_KEY = "databricks_llm_endpoint_name"
+        _DATABRICKS_CHAT_ENDPOINT_NAME_KEY = "databricks_chat_endpoint_name"
+        _DATABRICKS_DEPENDENCY_KEY = "databricks_dependency"
 
         databricks_dependencies = model_info.flavors.get("langchain", {}).get(
             _DATABRICKS_DEPENDENCY_KEY, {}
@@ -338,11 +340,10 @@ class UcModelRegistryStore(BaseRestStore):
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        _raise_unsupported_method(
-            method="rename_registered_model",
-            message="Use the Databricks Python SDK or Unity Catalog REST API to "
-            "rename registered models in Unity Catalog",
-        )
+        full_name = get_full_name_from_sc(name, self.spark)
+        req_body = message_to_json(UpdateRegisteredModelRequest(name=full_name, new_name=new_name))
+        response_proto = self._call_endpoint(UpdateRegisteredModelRequest, req_body)
+        return registered_model_from_uc_proto(response_proto.registered_model)
 
     def delete_registered_model(self, name):
         """
@@ -389,7 +390,7 @@ class UcModelRegistryStore(BaseRestStore):
         )
         response_proto = self._call_endpoint(SearchRegisteredModelsRequest, req_body)
         registered_models = [
-            registered_model_from_uc_proto(registered_model)
+            registered_model_search_from_uc_proto(registered_model)
             for registered_model in response_proto.registered_models
         ]
         return PagedList(registered_models, response_proto.next_page_token)
@@ -767,11 +768,16 @@ class UcModelRegistryStore(BaseRestStore):
                 self.get_host_creds(), model_version.name, model_version.version
             )
 
-        scoped_token = self._get_temporary_model_version_write_credentials(
-            name=model_version.name, version=model_version.version
-        )
+        def base_credential_refresh_def():
+            return self._get_temporary_model_version_write_credentials(
+                name=model_version.name, version=model_version.version
+            )
+
+        scoped_token = base_credential_refresh_def()
         return get_artifact_repo_from_storage_info(
-            storage_location=model_version.storage_location, scoped_token=scoped_token
+            storage_location=model_version.storage_location,
+            scoped_token=scoped_token,
+            base_credential_refresh_def=base_credential_refresh_def,
         )
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
@@ -896,7 +902,9 @@ class UcModelRegistryStore(BaseRestStore):
             )
         )
         response_proto = self._call_endpoint(SearchModelVersionsRequest, req_body)
-        model_versions = [model_version_from_uc_proto(mvd) for mvd in response_proto.model_versions]
+        model_versions = [
+            model_version_search_from_uc_proto(mvd) for mvd in response_proto.model_versions
+        ]
         return PagedList(model_versions, response_proto.next_page_token)
 
     def set_model_version_tag(self, name, version, tag):

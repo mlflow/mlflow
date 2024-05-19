@@ -25,7 +25,7 @@ describe('useExperimentRuns', () => {
     let result: any;
 
     const params = {
-      experiments: experimentIds.map((id) => ({ experiment_id: id })),
+      experiments: experimentIds.map((id) => ({ experimentId: id })),
       ...filterParams,
     };
 
@@ -44,7 +44,7 @@ describe('useExperimentRuns', () => {
 
     expect(Object.keys(result.runInfos).length).toEqual(4);
 
-    expect(Object.values(result.runInfos).map((r) => r.experiment_id)).toEqual(expect.arrayContaining(['123456789']));
+    expect(Object.values(result.runInfos).map((r) => r.experimentId)).toEqual(expect.arrayContaining(['123456789']));
   });
   it('fetches experiment tags from the store properly', () => {
     const result = mountComponentWithExperimentRuns(['123456789']);

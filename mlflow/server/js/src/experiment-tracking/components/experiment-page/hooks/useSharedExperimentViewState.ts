@@ -2,8 +2,8 @@ import { useEffect, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { EXPERIMENT_PAGE_QUERY_PARAM_KEYS, useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';
 import { pick } from 'lodash';
-import { EXPERIMENT_PAGE_UI_STATE_FIELDS, ExperimentPageUIStateV2 } from '../models/ExperimentPageUIStateV2';
-import { ExperimentPageSearchFacetsStateV2 } from '../models/ExperimentPageSearchFacetsStateV2';
+import { EXPERIMENT_PAGE_UI_STATE_FIELDS, ExperimentPageUIState } from '../models/ExperimentPageUIState';
+import { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import { ExperimentEntity } from '../../../types';
 import { useNavigate, useSearchParams } from '../../../../common/utils/RoutingUtils';
 import Utils from '../../../../common/utils/Utils';
@@ -17,7 +17,7 @@ import Routes from '../../../routes';
  * Hook that handles loading shared view state from URL and updating the search facets/UI state accordingly
  */
 export const useSharedExperimentViewState = (
-  uiStateSetter: React.Dispatch<React.SetStateAction<ExperimentPageUIStateV2>>,
+  uiStateSetter: React.Dispatch<React.SetStateAction<ExperimentPageUIState>>,
   experiment?: ExperimentEntity,
   disabled = false,
 ) => {
@@ -53,10 +53,10 @@ export const useSharedExperimentViewState = (
         const sharedSearchFacetsState = pick(
           parsedSharedViewState,
           EXPERIMENT_PAGE_QUERY_PARAM_KEYS,
-        ) as ExperimentPageSearchFacetsStateV2;
+        ) as ExperimentPageSearchFacetsState;
 
         // Then, extract UI state part of the shared view state
-        const sharedUiState = pick(parsedSharedViewState, EXPERIMENT_PAGE_UI_STATE_FIELDS) as ExperimentPageUIStateV2;
+        const sharedUiState = pick(parsedSharedViewState, EXPERIMENT_PAGE_UI_STATE_FIELDS) as ExperimentPageUIState;
 
         return {
           sharedSearchFacetsState,
@@ -118,7 +118,7 @@ export const useSharedExperimentViewState = (
       // If there's an error with share key, remove it from the URL and notify user
       Utils.logErrorAndNotifyUser(new Error(sharedStateError));
       Utils.displayGlobalErrorNotification(sharedStateErrorMessage, 3);
-      navigate(Routes.getExperimentPageRoute(experiment.experiment_id), { replace: true });
+      navigate(Routes.getExperimentPageRoute(experiment.experimentId), { replace: true });
     }
   }, [sharedStateError, sharedStateErrorMessage, experiment, navigate, disabled]);
 

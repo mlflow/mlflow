@@ -1944,7 +1944,7 @@ def test_get_run_and_experiment_graphql(mlflow_client):
         f"{mlflow_client.tracking_uri}/graphql",
         json={
             "query": f"""
-                query testQuery {{
+                query testQuery @component(name: "Test") {{
                     mlflowGetRun(input: {{runId: "{run_id}"}}) {{
                         run {{
                             info {{

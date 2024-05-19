@@ -10,8 +10,9 @@ export declare const Arrow: React.ForwardRefExoticComponent<import("@radix-ui/re
 export declare const Sub: React.FC<import("@radix-ui/react-context-menu").ContextMenuSubProps>;
 export interface ContextMenuSubTriggerProps extends RadixContextMenuSubTriggerProps {
     disabledReason?: React.ReactNode;
+    withChevron?: boolean;
 }
-export declare const SubTrigger: ({ children, disabledReason, ...props }: ContextMenuSubTriggerProps) => import("@emotion/react/jsx-runtime").JSX.Element;
+export declare const SubTrigger: ({ children, disabledReason, withChevron, ...props }: ContextMenuSubTriggerProps) => import("@emotion/react/jsx-runtime").JSX.Element;
 export interface ContextMenuContentProps extends RadixContextMenuContentProps {
     minWidth?: number;
 }
@@ -52,7 +53,7 @@ export declare const ContextMenu: {
     Arrow: React.ForwardRefExoticComponent<import("@radix-ui/react-context-menu").ContextMenuArrowProps & React.RefAttributes<SVGSVGElement>>;
     Separator: () => import("@emotion/react/jsx-runtime").JSX.Element;
     Sub: React.FC<import("@radix-ui/react-context-menu").ContextMenuSubProps>;
-    SubTrigger: ({ children, disabledReason, ...props }: ContextMenuSubTriggerProps) => import("@emotion/react/jsx-runtime").JSX.Element;
+    SubTrigger: ({ children, disabledReason, withChevron, ...props }: ContextMenuSubTriggerProps) => import("@emotion/react/jsx-runtime").JSX.Element;
     SubContent: ({ children, minWidth, ...childrenProps }: ContextMenuSubContentProps) => import("@emotion/react/jsx-runtime").JSX.Element;
     Content: ({ children, minWidth, ...childrenProps }: ContextMenuContentProps) => import("@emotion/react/jsx-runtime").JSX.Element;
     Hint: ({ children }: {

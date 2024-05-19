@@ -5,6 +5,7 @@ import os
 import sys
 import types
 import uuid
+from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Tuple
 from unittest import mock
@@ -884,19 +885,21 @@ def test_save_model_with_no_artifacts_does_not_produce_artifacts_dir(model_path)
     assert mlflow.pyfunc.model.CONFIG_KEY_ARTIFACTS not in pyfunc_conf
 
 
-def test_save_model_with_python_model_argument_of_invalid_type_raises_exeption(tmp_path):
+def test_save_model_with_python_model_argument_of_invalid_type_raises_exception(tmp_path):
     with pytest.raises(
-        MlflowException, match="must be a PythonModel instance or a callable object"
+        MlflowException, match="must be a PythonModel instance, callable object, or path to a"
     ):
-        mlflow.pyfunc.save_model(
-            path=os.path.join(tmp_path, "model1"), python_model="not the right type"
-        )
+        mlflow.pyfunc.save_model(path=os.path.join(tmp_path, "model1"), python_model=5)
 
     with pytest.raises(
-        MlflowException, match="must be a PythonModel instance or a callable object"
+        MlflowException, match="must be a PythonModel instance, callable object, or path to a"
     ):
         mlflow.pyfunc.save_model(
-            path=os.path.join(tmp_path, "model2"), python_model="not the right type"
+            path=os.path.join(tmp_path, "model2"), python_model=["not a python model"]
+        )
+    with pytest.raises(MlflowException, match="If the provided model"):
+        mlflow.pyfunc.save_model(
+            path=os.path.join(tmp_path, "model3"), python_model="not a valid filepath"
         )
 
 
@@ -1548,6 +1551,22 @@ def test_streamable_model_save_load(iris_data, tmp_path):
     assert list(stream_result) == ["test1", "test2"]
 
 
+def test_streamable_model_save_load(tmp_path):
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
+
+    mlflow.pyfunc.save_model(
+        path=pyfunc_model_path,
+        python_model="tests/pyfunc/sample_code/streamable_model_code.py",
+    )
+
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
+
+    stream_result = loaded_pyfunc_model.predict_stream("single-input")
+    assert isinstance(stream_result, types.GeneratorType)
+
+    assert list(stream_result) == ["test1", "test2"]
+
+
 def test_model_save_load_with_resources(tmp_path):
     pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
     pyfunc_model_path_2 = os.path.join(tmp_path, "pyfunc_model_2")
@@ -1659,3 +1678,103 @@ def test_model_log_with_resources(tmp_path):
     pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
     assert reloaded_model.resources == expected_resources
+
+
+def test_pyfunc_as_code_log_and_load():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model="tests/pyfunc/sample_code/code.py",
+            artifact_path="model",
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "asdf"
+    expected_output = f"This was the input: {model_input}"
+    assert loaded_model.predict(model_input) == expected_output
+
+
+def test_pyfunc_as_code_log_and_load_with_path():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=Path("tests/pyfunc/sample_code/code.py"),
+            artifact_path="model",
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "asdf"
+    expected_output = f"This was the input: {model_input}"
+    assert loaded_model.predict(model_input) == expected_output
+
+
+def test_pyfunc_as_code_with_config(tmp_path):
+    temp_file = tmp_path / "config.yml"
+    temp_file.write_text("timeout: 400")
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model="tests/pyfunc/sample_code/code_with_config.py",
+            artifact_path="model",
+            model_config=str(temp_file),
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "input"
+    expected_output = f"Predict called with input {model_input}, timeout 400"
+    assert loaded_model.predict(model_input) == expected_output
+
+
+def test_pyfunc_as_code_with_path_config(tmp_path):
+    temp_file = tmp_path / "config.yml"
+    temp_file.write_text("timeout: 400")
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model="tests/pyfunc/sample_code/code_with_config.py",
+            artifact_path="model",
+            model_config=temp_file,
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "input"
+    expected_output = f"Predict called with input {model_input}, timeout 400"
+    assert loaded_model.predict(model_input) == expected_output
+
+
+def test_pyfunc_as_code_with_dict_config():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model="tests/pyfunc/sample_code/code_with_config.py",
+            artifact_path="model",
+            model_config={"timeout": 400},
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "input"
+    expected_output = f"Predict called with input {model_input}, timeout 400"
+    assert loaded_model.predict(model_input) == expected_output
+
+
+def test_pyfunc_as_code_log_and_load_with_code_paths():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model="tests/pyfunc/sample_code/code_using_utils.py",
+            artifact_path="model",
+            code_paths=["tests/pyfunc/sample_code/utils.py"],
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "asdf"
+    expected_output = f"My utils function received this input: {model_input}"
+    assert loaded_model.predict(model_input) == expected_output
+
+
+def test_pyfunc_as_code_log_and_load_wrong_path():
+    with pytest.raises(
+        MlflowException,
+        match="If the provided model",
+    ):
+        with mlflow.start_run():
+            mlflow.pyfunc.log_model(
+                python_model="asdf",
+                artifact_path="model",
+            )

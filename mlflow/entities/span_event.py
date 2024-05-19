@@ -1,7 +1,9 @@
+import json
 import sys
 import time
 import traceback
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Dict
 
 from opentelemetry.util.types import AttributeValue
@@ -23,6 +25,8 @@ class SpanEvent(_MlflowObject):
             attributes of the event, such as the exception stack trace.
             Attributes value must be one of ``[str, int, float, bool, bytes]``
             or a sequence of these types.
+
+    :meta private:
     """
 
     name: str
@@ -57,3 +61,28 @@ class SpanEvent(_MlflowObject):
             return (msg + "\n\n".join(tb)).strip()
         except Exception:
             return msg
+
+    def json(self):
+        return {
+            "name": self.name,
+            "timestamp": self.timestamp,
+            "attributes": json.dumps(self.attributes, cls=CustomEncoder)
+            if self.attributes
+            else None,
+        }
+
+
+class CustomEncoder(json.JSONEncoder):
+    """
+    Custom encoder to handle json serialization.
+    """
+
+    def default(self, o):
+        try:
+            return super().default(o)
+        except TypeError:
+            # convert datetime to string format by default
+            if isinstance(o, datetime):
+                return o.isoformat()
+            # convert object direct to string to avoid error in serialization
+            return str(o)

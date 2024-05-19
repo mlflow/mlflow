@@ -33,8 +33,6 @@ export const RunViewParentRunBox = ({ parentRunUuid }: { parentRunUuid: string }
     );
   }
   return (
-    <Link to={Routes.getRunPageRoute(parentRunInfo.experiment_id, parentRunInfo.run_uuid)}>
-      {parentRunInfo.run_name}
-    </Link>
+    <Link to={Routes.getRunPageRoute(parentRunInfo.experimentId, parentRunInfo.runUuid)}>{parentRunInfo.runName}</Link>
   );
 };

@@ -37,6 +37,8 @@ class _Trace:
 class InMemoryTraceManager:
     """
     Manage spans and traces created by the tracing system in memory.
+
+    :meta private:
     """
 
     _instance_lock = threading.Lock()
@@ -51,7 +53,7 @@ class InMemoryTraceManager:
         return cls._instance
 
     def __init__(self):
-        # Storing request_id -> trace mapping
+        # Storing request_id -> _Trace mapping
         self._traces: Dict[str, _Trace] = TTLCache(
             maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
             ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
@@ -72,6 +74,19 @@ class InMemoryTraceManager:
             self._traces[trace_info.request_id] = _Trace(trace_info)
             self._trace_id_to_request_id[trace_id] = trace_info.request_id
 
+    def update_trace_info(self, trace_info: TraceInfo):
+        """
+        Update the trace info object in the in-memory trace registry.
+
+        Args:
+            trace_info: The updated trace info object to be stored.
+        """
+        with self._lock:
+            if trace_info.request_id not in self._traces:
+                _logger.warning(f"Trace data with request ID {trace_info.request_id} not found.")
+                return
+            self._traces[trace_info.request_id].info = trace_info
+
     def register_span(self, span: LiveSpan):
         """
         Store the given span in the in-memory trace data.
@@ -88,7 +103,7 @@ class InMemoryTraceManager:
             trace_data_dict[span.span_id] = span
 
     @contextlib.contextmanager
-    def get_trace(self, request_id: str) -> Generator[Optional[Trace], None, None]:
+    def get_trace(self, request_id: str) -> Generator[Optional[_Trace], None, None]:
         """
         Yield the trace info for the given request_id.
         This is designed to be used as a context manager to ensure the trace info is accessed
@@ -125,6 +140,15 @@ class InMemoryTraceManager:
         Get the request ID for the given trace ID.
         """
         return self._trace_id_to_request_id.get(trace_id)
+
+    def get_mlflow_trace(self, request_id: int) -> Optional[Trace]:
+        """
+        Get the trace data for the given trace ID and return it as a ready-to-publish Trace object.
+        """
+        with self._lock:
+            trace = self._traces.get(request_id)
+
+        return trace.to_mlflow_trace() if trace else None
 
     def pop_trace(self, trace_id: int) -> Optional[Trace]:
         """

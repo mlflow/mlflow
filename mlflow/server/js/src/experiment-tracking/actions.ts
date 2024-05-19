@@ -6,7 +6,7 @@
  */
 
 import type { Dispatch, Action } from 'redux';
-import { AsyncAction, ThunkDispatch } from '../redux-types';
+import { AsyncAction, ReduxState, ThunkDispatch } from '../redux-types';
 import { MlflowService } from './sdk/MlflowService';
 import { getUUID } from '../common/utils/ActionUtils';
 import { ErrorCodes } from '../common/constants';
@@ -16,8 +16,9 @@ import { fetchEndpoint, jsonBigIntResponseParser } from '../common/utils/FetchUt
 import { stringify as queryStringStringify } from 'qs';
 import { fetchEvaluationTableArtifact } from './sdk/EvaluationArtifactService';
 import type { EvaluationDataReduxState } from './reducers/EvaluationDataReducer';
-import { EvaluationArtifactTable, KeyValueEntity } from './types';
+import { ArtifactListFilesResponse, EvaluationArtifactTable, KeyValueEntity } from './types';
 import { MLFLOW_PUBLISHED_VERSION } from '../common/mlflow-published-version';
+import { MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH } from './constants';
 export const RUNS_SEARCH_MAX_RESULTS = 100;
 
 export const SEARCH_EXPERIMENTS_API = 'SEARCH_EXPERIMENTS_API';
@@ -222,11 +223,11 @@ export const fetchMissingParents = (searchRunsResponse: any) =>
         getParentRunIdsToFetch(searchRunsResponse.runs).map((runId) =>
           MlflowService.getRun({ run_id: runId })
             .then((value) => {
-              searchRunsResponse.runs.push((value as any).run);
+              searchRunsResponse.runs.push(value.run);
               // Additional parent runs should be always visible
               // marked as those matching filter
               if (searchRunsResponse.runsMatchingFilter) {
-                searchRunsResponse.runsMatchingFilter.push((value as any).run);
+                searchRunsResponse.runsMatchingFilter.push(value.run);
               }
             })
             .catch((error) => {
@@ -360,6 +361,34 @@ export const listArtifactsApi = (runUuid: any, path?: any, id = getUUID()) => {
       ...(path && { path: path }),
     }),
     meta: { id: id, runUuid: runUuid, path: path },
+  };
+};
+
+/**
+ * Run this action only after verifying that the /images directory exists
+ * Reducer will populate image keys.
+ */
+export const LIST_IMAGES_API = 'LIST_IMAGES_API';
+export interface ListImagesAction
+  extends AsyncAction<ArtifactListFilesResponse, { id: string; runUuid: string; path?: string }> {
+  type: 'LIST_IMAGES_API';
+}
+export const listImagesApi = (runUuid: string, autorefresh = false, id = getUUID()) => {
+  return (dispatch: ThunkDispatch, getState: () => ReduxState) => {
+    const getExistingDataForRunUuid = getState().entities.imagesByRunUuid[runUuid];
+    // If the images for this runUuid already exists, return the existing data
+    if (!autorefresh && getExistingDataForRunUuid) {
+      return Promise.resolve();
+    }
+
+    return dispatch({
+      type: LIST_IMAGES_API,
+      payload: MlflowService.listArtifacts({
+        run_uuid: runUuid,
+        path: MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH,
+      }),
+      meta: { id: id, runUuid: runUuid, path: MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH },
+    });
   };
 };
 

@@ -349,20 +349,9 @@ export const truncateChartMetricString = (fullStr: string, strLen: number) => {
   return fullStr.substr(0, frontChars) + separator + fullStr.substr(fullStr.length - backChars);
 };
 
-export const normalizeMetricChartTooltipValue = (value: string | number, decimalPlaces = 6) => {
-  if (typeof value === 'number') {
-    return value.toFixed(decimalPlaces);
-  }
-  // cast to numbers that have for values that have been previously stringified
-  const castToNumber = Number(value);
-  if (!isNaN(castToNumber)) {
-    return castToNumber.toFixed(decimalPlaces);
-  }
-  // truncate strings that are too long
-  return truncateChartMetricString(value, 8);
-};
-
 const systemMetricPrefix = new RegExp(`^${MLFLOW_SYSTEM_METRIC_PREFIX}`);
 export const normalizeChartMetricKey = (metricKey: string) => metricKey.replace(systemMetricPrefix, '');
 
 export const isSystemMetricKey = (metricKey: string) => metricKey.match(systemMetricPrefix);
+
+export const EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL = 30000;

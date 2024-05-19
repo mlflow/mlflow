@@ -95,12 +95,14 @@ describe('SampledMetricsReducer', () => {
           DEFAULT: {
             loading: false,
             refreshing: false,
+            lastUpdatedTime: expect.anything(),
             metricsHistory: [{ run_id: testRunIds[0], key: testMetricKey, value: 123, step: 0, timestamp: 1 }],
           },
           '-100,200': {
             loading: true,
             refreshing: false,
             metricsHistory: undefined,
+            lastUpdatedTime: undefined,
           },
         },
       },
@@ -199,6 +201,7 @@ describe('SampledMetricsReducer', () => {
             loading: false,
             refreshing: false,
             metricsHistory: testMetricsHistory,
+            lastUpdatedTime: expect.anything(),
           },
         },
       },

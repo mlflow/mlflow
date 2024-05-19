@@ -11,7 +11,7 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowTraceDataCorrupted, MlflowTraceDataNotFound
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 
@@ -93,7 +93,7 @@ def test_download_trace_data(tmp_path, mock_store):
         tags={"mlflow.artifactLocation": "test"},
     )
     with mock.patch(
-        "mlflow.store.artifact.artifact_repo.ArtifactRepository.download_trace_data",
+        "mlflow.store.artifact.local_artifact_repo.LocalArtifactRepository.download_trace_data",
         return_value={"spans": []},
     ) as mock_download_trace_data:
         client = TrackingServiceClient(tmp_path.as_uri())
@@ -136,9 +136,8 @@ def test_upload_trace_data(tmp_path, mock_store):
         client = TrackingServiceClient(tmp_path.as_uri())
         client._upload_trace_data(trace_info=trace_info, trace_data=trace_data)
         mock_upload_trace_data.assert_called_once_with(trace_data_json)
-        # The TraceInfo is already fetched prior to the upload_trace_data call,
-        # so we should not call _get_trace_info again
-        mock_store.get_trace_info.assert_not_called()
+        # get_trace_info is called after tags are set
+        mock_store.get_trace_info.assert_called_once()
 
 
 def test_search_traces(tmp_path):
@@ -395,3 +394,36 @@ def test_search_traces_does_not_swallow_unexpected_exceptions(tmp_path):
 
         mock_search_traces.assert_called_once()
         mock_download_trace_data.assert_called_once()
+
+
+def test_search_traces_with_filestore(tmp_path):
+    client = TrackingServiceClient(tmp_path.as_uri())
+    exp_id = client.create_experiment("test_search_traces")
+    trace_infos = []
+    for i in range(3):
+        trace_infos.append(
+            client.start_trace(
+                exp_id,
+                i * 1000,
+                {SpanAttributeKey.REQUEST_ID: f"request_id_{i}"},
+                {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+            )
+        )
+
+    with mock.patch.object(
+        client,
+        "_download_trace_data",
+        side_effect=[
+            TraceData(),
+            TraceData(),
+            TraceData(),
+            TraceData(),
+        ],
+    ) as mock_download_trace_data:
+        res1 = client.search_traces(experiment_ids=[exp_id], max_results=2)
+        assert [res.info for res in res1] == trace_infos[::-1][:2]
+
+        res2 = client.search_traces(experiment_ids=[exp_id], max_results=2, page_token=res1.token)
+        assert res2[0].info == trace_infos[0]
+        assert res2.token is None
+        assert mock_download_trace_data.call_count == 3

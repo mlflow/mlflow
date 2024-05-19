@@ -2254,6 +2254,7 @@ def autolog(
         # TODO: Broaden this beyond pytorch_lightning as we add autologging support for more
         # Pytorch frameworks under mlflow.pytorch.autolog
         "pytorch_lightning": "mlflow.pytorch",
+        "lightning": "mlflow.pytorch",
         "setfit": "mlflow.transformers",
         "transformers": "mlflow.transformers",
         # do not enable langchain autologging by default

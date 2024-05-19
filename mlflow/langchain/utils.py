@@ -1,6 +1,5 @@
 """Utility functions for mlflow.langchain."""
 
-import base64
 import contextlib
 import importlib
 import json
@@ -8,12 +7,11 @@ import logging
 import os
 import re
 import shutil
-import tempfile
 import types
 import warnings
 from functools import lru_cache
 from importlib.util import find_spec
-from typing import Callable, NamedTuple
+from typing import Callable, List, NamedTuple, Optional
 
 import cloudpickle
 import yaml
@@ -22,7 +20,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.models.utils import _validate_model_code_from_notebook
+from mlflow.models.utils import _validate_and_get_model_code_path
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.utils.class_utils import _get_class_from_string
 
@@ -45,6 +43,7 @@ _MODEL_TYPE_KEY = "model_type"
 _RUNNABLE_LOAD_KEY = "runnable_load"
 _BASE_LOAD_KEY = "base_load"
 _CONFIG_LOAD_KEY = "config_load"
+_PICKLE_LOAD_KEY = "pickle_load"
 _MODEL_LOAD_KEY = "model_load"
 _UNSUPPORTED_MODEL_ERROR_MESSAGE = (
     "MLflow langchain flavor only supports subclasses of "
@@ -162,12 +161,22 @@ def lc_runnable_branch_types():
         return ()
 
 
+def lc_runnable_binding_types():
+    try:
+        from langchain.schema.runnable import RunnableBinding
+
+        return (RunnableBinding,)
+    except ImportError:
+        return ()
+
+
 def lc_runnables_types():
     return (
         picklable_runnable_types()
         + lc_runnable_with_steps_types()
         + lc_runnable_branch_types()
         + lc_runnable_assign_types()
+        + lc_runnable_binding_types()
     )
 
 
@@ -278,31 +287,7 @@ def _get_supported_llms():
     return supported_llms
 
 
-def _get_temp_file_with_content(file_name: str, content: str, content_format) -> str:
-    """
-    Write the contents to a temporary file and return the path to that file.
-
-    Args:
-        file_name: The name of the file to be created.
-        content: The contents to be written to the file.
-
-    Returns:
-        The string path to the file where the chain model is build.
-    """
-    # Get the temporary directory path
-    temp_dir = tempfile.gettempdir()
-
-    # Construct the full path where the temporary file will be created
-    temp_file_path = os.path.join(temp_dir, file_name)
-
-    # Create and write to the file
-    with open(temp_file_path, content_format) as tmp_file:
-        tmp_file.write(content)
-
-    return temp_file_path
-
-
-def _validate_and_wrap_lc_model(lc_model, loader_fn):
+def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn):
     import langchain.agents.agent
     import langchain.chains.base
     import langchain.chains.llm
@@ -312,33 +297,7 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
 
     # lc_model is a file path
     if isinstance(lc_model, str):
-        if not os.path.exists(lc_model):
-            raise mlflow.MlflowException.invalid_parameter_value(
-                f"If the provided model '{lc_model}' is a string, it must be a valid python "
-                "file path or a databricks notebook file path containing the code for defining "
-                "the chain instance."
-            )
-
-        try:
-            with open(lc_model) as _:
-                return lc_model
-        except Exception:
-            try:
-                from databricks.sdk import WorkspaceClient
-                from databricks.sdk.service.workspace import ExportFormat
-
-                w = WorkspaceClient()
-                response = w.workspace.export(path=lc_model, format=ExportFormat.SOURCE)
-                decoded_content = base64.b64decode(response.content)
-            except Exception:
-                raise mlflow.MlflowException.invalid_parameter_value(
-                    f"If the provided model '{lc_model}' is a string, it must be a valid python "
-                    "file path or a databricks notebook file path containing the code for defining "
-                    "the chain instance."
-                )
-
-            _validate_model_code_from_notebook(decoded_content.decode("utf-8"))
-            return _get_temp_file_with_content("lc_model.py", decoded_content, "wb")
+        return _validate_and_get_model_code_path(lc_model)
 
     if not isinstance(lc_model, supported_lc_types()):
         raise mlflow.MlflowException.invalid_parameter_value(
@@ -729,3 +688,51 @@ def register_pydantic_v1_serializer_cm():
         yield
     finally:
         unregister_pydantic_serializer()
+
+
+DATABRICKS_VECTOR_SEARCH_PRIMARY_KEY = "__databricks_vector_search_primary_key__"
+DATABRICKS_VECTOR_SEARCH_TEXT_COLUMN = "__databricks_vector_search_text_column__"
+DATABRICKS_VECTOR_SEARCH_DOC_URI = "__databricks_vector_search_doc_uri__"
+DATABRICKS_VECTOR_SEARCH_OTHER_COLUMNS = "__databricks_vector_search_other_columns__"
+
+
+def set_vector_search_schema(
+    primary_key: str,
+    text_column: str = "",
+    doc_uri: str = "",
+    other_columns: Optional[List[str]] = None,
+):
+    """
+    After defining your vector store in a Python file or notebook, call
+    set_vector_search_schema() so that we can correctly map the vector index
+    columns. These columns would be used during tracing and in the review UI.
+
+    Args:
+        primary_key: The primary key of the vector index.
+        text_column: The name of the text column to use for the embeddings.
+        doc_uri: The name of the column that contains the document URI.
+        other_columns: A list of other columns that are part of the vector index
+                          that need to be retrieved during trace logging.
+        Note: Make sure the text column specified is in the index.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow.langchain.utils import set_vector_search_schema
+
+            set_vector_search_schema(
+                primary_key="chunk_id",
+                text_column="chunk_text",
+                doc_uri="doc_uri",
+                other_columns=["title"],
+            )
+    """
+    globals()[DATABRICKS_VECTOR_SEARCH_PRIMARY_KEY] = primary_key
+    globals()[DATABRICKS_VECTOR_SEARCH_TEXT_COLUMN] = text_column
+    globals()[DATABRICKS_VECTOR_SEARCH_DOC_URI] = doc_uri
+    globals()[DATABRICKS_VECTOR_SEARCH_OTHER_COLUMNS] = other_columns or []
+
+
+def get_databricks_vector_search_key(key):
+    return globals().get(key)

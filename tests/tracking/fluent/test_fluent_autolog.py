@@ -6,6 +6,7 @@ from unittest import mock
 import fastai
 import keras
 import lightgbm
+import lightning
 import pyspark
 import pyspark.ml
 import pytest
@@ -40,6 +41,7 @@ library_to_mlflow_module_without_spark_datasource = {
     statsmodels: mlflow.statsmodels,
     pyspark.ml: mlflow.pyspark.ml,
     pytorch_lightning: mlflow.pytorch,
+    lightning: mlflow.pytorch,
     transformers: mlflow.transformers,
     setfit: mlflow.transformers,
 }

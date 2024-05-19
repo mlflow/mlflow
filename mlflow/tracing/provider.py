@@ -28,6 +28,8 @@ def start_span_in_context(name: str) -> trace.Span:
 
     Returns:
         The newly created OpenTelemetry span.
+
+    :meta private:
     """
     return _get_tracer(__name__).start_span(name)
 
@@ -46,6 +48,8 @@ def start_detached_span(
 
     Returns:
         The newly created OpenTelemetry span.
+
+    :meta private:
     """
     tracer = _get_tracer(__name__)
     context = trace.set_span_in_context(parent) if parent else None
@@ -91,6 +95,8 @@ def _setup_tracer_provider():
 def disable():
     """
     Disable tracing by setting the global tracer provider to NoOpTracerProvider.
+
+    :meta private:
     """
     if isinstance(trace.get_tracer_provider(), trace.NoOpTracerProvider):
         _logger.info("Tracing is already disabled")
@@ -105,6 +111,8 @@ def disable():
 def enable():
     """
     Enable tracing by setting the global tracer provider to the actual tracer provider.
+
+    :meta private:
     """
     from mlflow.tracing.provider import _setup_tracer_provider
 
