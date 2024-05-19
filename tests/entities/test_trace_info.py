@@ -94,6 +94,7 @@ def test_to_dict(trace_info):
 
 
 def test_trace_info_serialization_deserialization(trace_info_proto):
+    # trace info proto -> TraceInfo
     trace_info = TraceInfo.from_proto(trace_info_proto)
     assert trace_info.request_id == "request_id"
     assert trace_info.experiment_id == "test_experiment"
@@ -108,6 +109,7 @@ def test_trace_info_serialization_deserialization(trace_info_proto):
         "baz": "qux",
         "k" * 250: "v" * 250,
     }
+    # TraceInfo -> python native dictionary
     trace_info_as_dict = trace_info.to_dict()
     assert trace_info_as_dict == {
         "request_id": "request_id",
@@ -124,5 +126,7 @@ def test_trace_info_serialization_deserialization(trace_info_proto):
             "k" * 250: "v" * 250,
         },
     }
+    # python native dictionary -> TraceInfo
     assert TraceInfo.from_dict(trace_info_as_dict) == trace_info
+    # TraceInfo -> trace info proto
     assert trace_info.to_proto() == trace_info_proto
