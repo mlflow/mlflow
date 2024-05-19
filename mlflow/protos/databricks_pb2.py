@@ -185,7 +185,7 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   # `RegisterExtension` was removed in v26: https://github.com/protocolbuffers/protobuf/pull/15270
   # The following code is a workaround for this breaking change.
   import google.protobuf
-  if int(google.protobuf.__version__.split(".", 1)[0]) >= 5:
+  if int(google.protobuf.__version__.split(".", 1)[0]) < 5:
     google_dot_protobuf_dot_descriptor__pb2.FieldOptions.RegisterExtension(visibility)
     google_dot_protobuf_dot_descriptor__pb2.FieldOptions.RegisterExtension(validate_required)
     google_dot_protobuf_dot_descriptor__pb2.FieldOptions.RegisterExtension(json_inline)

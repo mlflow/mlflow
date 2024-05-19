@@ -30,7 +30,7 @@ def main():
   # `RegisterExtension` was removed in v26: https://github.com/protocolbuffers/protobuf/pull/15270
   # The following code is a workaround for this breaking change.
   import google.protobuf
-  if int(google.protobuf.__version__.split(".", 1)[0]) >= 5:
+  if int(google.protobuf.__version__.split(".", 1)[0]) < 5:
 {textwrap.indent(original_code, " " * 2)}"""
 
         with open(path) as f:
