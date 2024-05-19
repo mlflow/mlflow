@@ -6,7 +6,6 @@ from unittest import mock
 from unittest.mock import ANY, call, mock_open
 
 import pytest
-from pyarrow import HadoopFileSystem
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.hdfs_artifact_repo import (
@@ -19,7 +18,7 @@ from mlflow.store.artifact.hdfs_artifact_repo import (
 from mlflow.utils.file_utils import TempDir
 
 
-@mock.patch("pyarrow.hdfs.HadoopFileSystem")
+@mock.patch("pyarrow.fs.HadoopFileSystem")
 def test_log_artifact(hdfs_system_mock):
     repo = HdfsArtifactRepository("hdfs://host_name:8020/hdfs/path")
 
@@ -40,7 +39,7 @@ def test_log_artifact(hdfs_system_mock):
         assert isinstance(args[1], BufferedReader)
 
 
-@mock.patch("pyarrow.hdfs.HadoopFileSystem")
+@mock.patch("pyarrow.fs.HadoopFileSystem")
 def test_log_artifact_viewfs(hdfs_system_mock):
     repo = HdfsArtifactRepository("viewfs://host_name/mypath")
 
@@ -60,7 +59,7 @@ def test_log_artifact_viewfs(hdfs_system_mock):
         assert isinstance(args[1], BufferedReader)
 
 
-@mock.patch("pyarrow.hdfs.HadoopFileSystem")
+@mock.patch("pyarrow.fs.HadoopFileSystem")
 def test_log_artifact_with_kerberos_setup(hdfs_system_mock):
     if sys.platform == "win32":
         pytest.skip()
@@ -86,7 +85,7 @@ def test_log_artifact_with_kerberos_setup(hdfs_system_mock):
         upload_mock.assert_called_once()
 
 
-@mock.patch("pyarrow.hdfs.HadoopFileSystem")
+@mock.patch("pyarrow.fs.HadoopFileSystem")
 def test_log_artifact_with_invalid_local_dir(_):
     repo = HdfsArtifactRepository("hdfs://host_name:8020/maybe/path")
 
@@ -94,7 +93,7 @@ def test_log_artifact_with_invalid_local_dir(_):
         repo.log_artifact("/not/existing/local/path", "test_hdfs/some/path")
 
 
-@mock.patch("pyarrow.hdfs.HadoopFileSystem")
+@mock.patch("pyarrow.fs.HadoopFileSystem")
 def test_log_artifacts(hdfs_system_mock):
     os.environ["MLFLOW_KERBEROS_TICKET_CACHE"] = "/tmp/krb5cc_22222222"
     os.environ["MLFLOW_KERBEROS_USER"] = "some_kerberos_user"
@@ -136,7 +135,7 @@ def test_log_artifacts(hdfs_system_mock):
         assert isinstance(args[1], BufferedReader)
 
 
-@mock.patch("pyarrow.hdfs.HadoopFileSystem")
+@mock.patch("pyarrow.fs.HadoopFileSystem")
 def test_list_artifacts_root(hdfs_system_mock):
     repo = HdfsArtifactRepository("hdfs://host/some/path")
 
@@ -151,7 +150,7 @@ def test_list_artifacts_root(hdfs_system_mock):
     assert actual == expected
 
 
-@mock.patch("pyarrow.hdfs.HadoopFileSystem")
+@mock.patch("pyarrow.fs.HadoopFileSystem")
 def test_list_artifacts_nested(hdfs_system_mock):
     repo = HdfsArtifactRepository("hdfs:://host/some/path")
 
@@ -172,9 +171,9 @@ def test_list_artifacts_nested(hdfs_system_mock):
     assert actual == expected
 
 
-@mock.patch("pyarrow.hdfs.HadoopFileSystem", spec=HadoopFileSystem)
+@mock.patch("pyarrow.fs.HadoopFileSystem")
 def test_list_artifacts_empty_hdfs_dir(hdfs_system_mock):
-    hdfs_system_mock.return_value.exists.return_value = False
+    hdfs_system_mock.exists.return_value = False
 
     repo = HdfsArtifactRepository("hdfs:/some_path/maybe/path")
     actual = repo.list_artifacts()
@@ -215,7 +214,7 @@ def test_download_artifacts():
             assert expected_data == fd.read()
 
 
-@mock.patch("pyarrow.hdfs.HadoopFileSystem")
+@mock.patch("pyarrow.fs.HadoopFileSystem")
 def test_delete_artifacts(hdfs_system_mock):
     delete_mock = hdfs_system_mock.return_value.delete
     repo = HdfsArtifactRepository("hdfs:/some_path/maybe/path")
