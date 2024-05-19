@@ -93,8 +93,13 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                 )
             else:
                 # When parent_run_id is None, this is root component so start trace
+                dependencies_schema = self._prediction_context.dependencies_schema
                 span = self._mlflow_client.start_trace(
-                    name=span_name, span_type=span_type, inputs=inputs, attributes=attributes
+                    name=span_name,
+                    span_type=span_type,
+                    inputs=inputs,
+                    attributes=attributes,
+                    tags=dependencies_schema,
                 )
                 self._request_id = span.request_id
 

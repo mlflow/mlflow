@@ -15,6 +15,7 @@ LangChain (native) format
 import contextlib
 import functools
 import inspect
+import json
 import logging
 import os
 import warnings
@@ -603,8 +604,9 @@ def _load_model(local_model_path, flavor_conf):
 
 
 class _LangChainModelWrapper:
-    def __init__(self, lc_model):
+    def __init__(self, lc_model, model_path=None):
         self.lc_model = lc_model
+        self.model_path = model_path
 
     def predict(
         self,
@@ -638,6 +640,23 @@ class _LangChainModelWrapper:
 
         return self._predict_with_callbacks(data, params, callback_handlers=callbacks)
 
+    def _update_tracing_prediction_context(self, callback_handlers):
+        from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
+
+        if callback_handlers:
+            tracer = callback_handlers[0]
+            if isinstance(tracer, MlflowLangchainTracer) and self.model_path:
+                model = Model.load(self.model_path)
+                context = tracer._prediction_context
+                if model.metadata and context:
+                    dependencies_schema = model.metadata.get("dependencies_schemas", {})
+                    context.update(
+                        dependencies_schema={
+                            dependency: json.dumps(schema)
+                            for dependency, schema in dependencies_schema.items()
+                        }
+                    )
+
     @experimental
     def _predict_with_callbacks(
         self,
@@ -659,6 +678,7 @@ class _LangChainModelWrapper:
         """
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
+        self._update_tracing_prediction_context(callback_handlers)
         messages, return_first_element = self._prepare_predict_messages(data)
         results = process_api_requests(
             lc_model=self.lc_model,
@@ -751,6 +771,7 @@ class _LangChainModelWrapper:
             process_stream_request,
         )
 
+        self._update_tracing_prediction_context(callback_handlers)
         data = self._prepare_predict_stream_messages(data)
         return process_stream_request(
             lc_model=self.lc_model,
@@ -831,7 +852,7 @@ def _load_pyfunc(path: str, model_config: Optional[Dict[str, Any]] = None):
         path: Local filesystem path to the MLflow Model with the ``langchain`` flavor.
     """
     wrapper_cls = _TestLangChainWrapper if _MLFLOW_TESTING.get() else _LangChainModelWrapper
-    return wrapper_cls(_load_model_from_local_fs(path))
+    return wrapper_cls(_load_model_from_local_fs(path), path)
 
 
 def _load_model_from_local_fs(local_model_path):
