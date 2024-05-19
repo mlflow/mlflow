@@ -265,7 +265,7 @@ def test_autolog_record_exception(clear_trace_singleton):
     assert trace.data.spans[0].name == "always_fail"
 
 
-def test_llmchain_autolog2(clear_trace_singleton):
+def test_llmchain_autolog(clear_trace_singleton):
     mlflow.langchain.autolog(log_models=True)
     question = "MLflow"
     answer = {"product": "MLflow", "text": TEST_CONTENT}
