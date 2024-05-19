@@ -1,19 +1,27 @@
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Dict, List, Optional
 
-from mlflow.models.resources import ResourceType
 from mlflow.utils.annotations import experimental
 
-DATABRICKS_VECTOR_SEARCH_PRIMARY_KEY = "__databricks_vector_search_primary_key__"
-DATABRICKS_VECTOR_SEARCH_TEXT_COLUMN = "__databricks_vector_search_text_column__"
-DATABRICKS_VECTOR_SEARCH_DOC_URI = "__databricks_vector_search_doc_uri__"
-DATABRICKS_VECTOR_SEARCH_OTHER_COLUMNS = "__databricks_vector_search_other_columns__"
+DATABRICKS_RETRIEVER_PRIMARY_KEY = "__databricks_retriever_primary_key__"
+DATABRICKS_RETRIEVER_TEXT_COLUMN = "__databricks_retriever_text_column__"
+DATABRICKS_RETRIEVER_DOC_URI = "__databricks_retriever_doc_uri__"
+DATABRICKS_RETRIEVER_OTHER_COLUMNS = "__databricks_retriever_other_columns__"
+
+
+class DependenciesSchemasType(Enum):
+    """
+    Enum to define the different types of dependencies schemas for the model.
+    """
+
+    RETRIEVERS = "retrievers"
 
 
 @experimental
-def set_vector_search_schema(
+def set_retriever_schema(
     primary_key: str,
     text_column: str,
     doc_uri: Optional[str] = None,
@@ -21,7 +29,7 @@ def set_vector_search_schema(
 ):
     """
     After defining your vector store in a Python file or notebook, call
-    set_vector_search_schema() so that, when MLflow retrieves documents during
+    set_retriever_schema() so that, when MLflow retrieves documents during
     model inference, MLflow can interpret the fields in each retrieved document and
     determine which fields correspond to the document text, document URI, etc.
 
@@ -36,52 +44,52 @@ def set_vector_search_schema(
     .. code-block:: Python
             :caption: Example
 
-            from mlflow.models import set_vector_search_schema
+            from mlflow.models import set_retriever_schema
 
-            set_vector_search_schema(
+            set_retriever_schema(
                 primary_key="chunk_id",
                 text_column="chunk_text",
                 doc_uri="doc_uri",
                 other_columns=["title"],
             )
     """
-    globals()[DATABRICKS_VECTOR_SEARCH_PRIMARY_KEY] = primary_key
-    globals()[DATABRICKS_VECTOR_SEARCH_TEXT_COLUMN] = text_column
-    globals()[DATABRICKS_VECTOR_SEARCH_DOC_URI] = doc_uri
-    globals()[DATABRICKS_VECTOR_SEARCH_OTHER_COLUMNS] = other_columns or []
+    globals()[DATABRICKS_RETRIEVER_PRIMARY_KEY] = primary_key
+    globals()[DATABRICKS_RETRIEVER_TEXT_COLUMN] = text_column
+    globals()[DATABRICKS_RETRIEVER_DOC_URI] = doc_uri
+    globals()[DATABRICKS_RETRIEVER_OTHER_COLUMNS] = other_columns or []
 
 
-def _get_vector_search_schema():
+def _get_retriever_schema():
     """
     Get the vector search schema defined by the user.
 
     Returns:
         VectorSearchIndex: The vector search index schema.
     """
-    if not globals().get(DATABRICKS_VECTOR_SEARCH_PRIMARY_KEY, None) or not globals().get(
-        DATABRICKS_VECTOR_SEARCH_TEXT_COLUMN, None
+    if not globals().get(DATABRICKS_RETRIEVER_PRIMARY_KEY, None) or not globals().get(
+        DATABRICKS_RETRIEVER_TEXT_COLUMN, None
     ):
         return []
 
     return [
-        VectorSearchIndexSchema(
-            name="vector_search_index",
-            primary_key=globals().get(DATABRICKS_VECTOR_SEARCH_PRIMARY_KEY, None),
-            text_column=globals().get(DATABRICKS_VECTOR_SEARCH_TEXT_COLUMN, None),
-            doc_uri=globals().get(DATABRICKS_VECTOR_SEARCH_DOC_URI, None),
-            other_columns=globals().get(DATABRICKS_VECTOR_SEARCH_OTHER_COLUMNS, None),
+        RetrieverSchema(
+            name="retriever",
+            primary_key=globals().get(DATABRICKS_RETRIEVER_PRIMARY_KEY, None),
+            text_column=globals().get(DATABRICKS_RETRIEVER_TEXT_COLUMN, None),
+            doc_uri=globals().get(DATABRICKS_RETRIEVER_DOC_URI, None),
+            other_columns=globals().get(DATABRICKS_RETRIEVER_OTHER_COLUMNS, None),
         )
     ]
 
 
-def _clear_vector_search_schema():
+def _clear_retriever_schema():
     """
     Clear the vector search schema defined by the user.
     """
-    globals().pop(DATABRICKS_VECTOR_SEARCH_PRIMARY_KEY, None)
-    globals().pop(DATABRICKS_VECTOR_SEARCH_TEXT_COLUMN, None)
-    globals().pop(DATABRICKS_VECTOR_SEARCH_DOC_URI, None)
-    globals().pop(DATABRICKS_VECTOR_SEARCH_OTHER_COLUMNS, None)
+    globals().pop(DATABRICKS_RETRIEVER_PRIMARY_KEY, None)
+    globals().pop(DATABRICKS_RETRIEVER_TEXT_COLUMN, None)
+    globals().pop(DATABRICKS_RETRIEVER_DOC_URI, None)
+    globals().pop(DATABRICKS_RETRIEVER_OTHER_COLUMNS, None)
 
 
 def _clear_dependencies_schema():
@@ -89,14 +97,12 @@ def _clear_dependencies_schema():
     Clear all the dependencies schema defined by the user.
     """
     # Clear the vector search schema
-    _clear_vector_search_schema()
+    _clear_retriever_schema()
 
 
 @contextmanager
 def _get_dependencies_schema():
-    dependencies_schema = DependenciesSchemas(
-        vector_search_index_schemas=_get_vector_search_schema()
-    )
+    dependencies_schema = DependenciesSchemas(retriever_schemas=_get_retriever_schema())
     try:
         yield dependencies_schema
     finally:
@@ -112,7 +118,7 @@ class Schema(ABC):
         type (ResourceType): The type of the schema.
     """
 
-    type: ResourceType
+    type: DependenciesSchemasType
 
     @abstractmethod
     def to_dict(self):
@@ -131,7 +137,7 @@ class Schema(ABC):
 
 
 @dataclass
-class VectorSearchIndexSchema(Schema):
+class RetrieverSchema(Schema):
     """
     Define vector search index resource to serve a model.
 
@@ -151,7 +157,7 @@ class VectorSearchIndexSchema(Schema):
         doc_uri: Optional[str] = None,
         other_columns: Optional[List[str]] = None,
     ):
-        super().__init__(type=ResourceType.VECTOR_SEARCH_INDEX)
+        super().__init__(type=DependenciesSchemasType.RETRIEVERS)
         self.name = name
         self.primary_key = primary_key
         self.text_column = text_column
@@ -184,17 +190,17 @@ class VectorSearchIndexSchema(Schema):
 
 @dataclass
 class DependenciesSchemas:
-    vector_search_index_schemas: List[VectorSearchIndexSchema] = field(default_factory=list)
+    retriever_schemas: List[RetrieverSchema] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Dict[ResourceType, List[Dict]]]:
-        if not self.vector_search_index_schemas:
+    def to_dict(self) -> Dict[str, Dict[DependenciesSchemasType, List[Dict]]]:
+        if not self.retriever_schemas:
             return None
 
         return {
             "dependencies_schemas": {
-                ResourceType.VECTOR_SEARCH_INDEX.value: [
-                    index.to_dict()[ResourceType.VECTOR_SEARCH_INDEX.value][0]
-                    for index in self.vector_search_index_schemas
+                DependenciesSchemasType.RETRIEVERS.value: [
+                    index.to_dict()[DependenciesSchemasType.RETRIEVERS.value][0]
+                    for index in self.retriever_schemas
                 ],
             }
         }

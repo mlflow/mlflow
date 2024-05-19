@@ -57,6 +57,7 @@ from mlflow.langchain.utils import (
     IS_PICKLE_SERIALIZATION_RESTRICTED,
 )
 from mlflow.models import Model
+from mlflow.models.dependencies_schema import DependenciesSchemasType
 from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex, Resource
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.tracing.processor.inference_table import _HEADER_REQUEST_ID_KEY
@@ -2394,10 +2395,10 @@ def test_save_load_chain_as_code(chain_model_signature):
         "serving_endpoint": [{"name": "fake-endpoint"}]
     }
     assert reloaded_model.metadata["dependencies_schemas"] == {
-        "vector_search_index": [
+        DependenciesSchemasType.RETRIEVERS.value: [
             {
                 "doc_uri": "doc-uri",
-                "name": "vector_search_index",
+                "name": "retriever",
                 "other_columns": ["column1", "column2"],
                 "primary_key": "primary-key",
                 "text_column": "text-column",
