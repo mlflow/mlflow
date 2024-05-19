@@ -52,6 +52,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.api_request_parallel_processor import APIRequest
+from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.langchain.utils import (
     _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
     IS_PICKLE_SERIALIZATION_RESTRICTED,
@@ -59,6 +60,7 @@ from mlflow.langchain.utils import (
 from mlflow.models import Model
 from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex, Resource
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
+from mlflow.pyfunc.context import Context
 from mlflow.tracing.processor.inference_table import _HEADER_REQUEST_ID_KEY
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
@@ -72,6 +74,7 @@ from mlflow.utils.openai_utils import (
 )
 
 from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.tracing.conftest import clear_singleton as clear_trace_singleton  # noqa: F401
 from tests.tracing.export.test_inference_table_exporter import _REQUEST_ID
 
 # this kwarg was added in langchain_community 0.0.27, and
@@ -2404,6 +2407,25 @@ def test_save_load_chain_as_code(chain_model_signature):
             }
         ]
     }
+    request_id = "mock_request_id"
+    tracer = MlflowLangchainTracer(prediction_context=Context(request_id))
+    input_example = {"messages": [{"role": "user", "content": "What is MLflow?"}]}
+    response = pyfunc_loaded_model._model_impl._predict_with_callbacks(
+        data=input_example, callback_handlers=[tracer]
+    )
+    assert response["choices"][0]["message"]["content"] == "Databricks"
+    trace = mlflow.get_trace(tracer._request_id)
+    assert trace.info.tags["vector_search_index"] == json.dumps(
+        [
+            {
+                "doc_uri": "doc-uri",
+                "name": "vector_search_index",
+                "other_columns": ["column1", "column2"],
+                "primary_key": "primary-key",
+                "text_column": "text-column",
+            }
+        ]
+    )
 
 
 @pytest.mark.skipif(
@@ -2894,7 +2916,9 @@ def test_langchain_model_save_load_with_listeners(fake_chat_model):
     }
 
 
-def test_langchain_model_inject_callback_in_model_serving(monkeypatch, model_path):
+def test_langchain_model_inject_callback_in_model_serving(
+    clear_trace_singleton, monkeypatch, model_path
+):
     # Emulate the model serving environment
     monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
 
@@ -2914,10 +2938,11 @@ def test_langchain_model_inject_callback_in_model_serving(monkeypatch, model_pat
 
     assert len(_TRACE_BUFFER) == 1
     assert _REQUEST_ID in _TRACE_BUFFER
-    _TRACE_BUFFER.clear()
 
 
-def test_langchain_model_not_inject_callback_when_disabled(monkeypatch, model_path):
+def test_langchain_model_not_inject_callback_when_disabled(
+    clear_trace_singleton, monkeypatch, model_path
+):
     # Emulate the model serving environment
     monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
 
@@ -2934,7 +2959,6 @@ def test_langchain_model_not_inject_callback_when_disabled(monkeypatch, model_pa
     from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 
     assert _TRACE_BUFFER == {}
-    _TRACE_BUFFER.clear()
 
 
 @pytest.mark.skipif(
