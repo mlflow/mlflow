@@ -38,7 +38,9 @@ def _get_flavor_backend_for_local_model(model=None, build_docker=True, **kwargs)
 
 
 def get_flavor_backend(model_uri, **kwargs):
-    model = get_artifact_repository(artifact_uri=model_uri).download_artifacts(artifact_path=MLMODEL_FILE_NAME)
+    ml_model_file = (
+        get_artifact_repository(artifact_uri=model_uri).download_artifacts(artifact_path=MLMODEL_FILE_NAME))
+    model = Model.load(ml_model_file)
     flavor_name, flavor_backend = _get_flavor_backend_for_local_model(model, **kwargs)
     if flavor_backend is None:
         raise Exception("No suitable flavor backend was found for the model.")
