@@ -52,8 +52,8 @@ _sym_db.RegisterMessage(FieldOptions)
 if _descriptor._USE_C_DESCRIPTORS == False:
   # `RegisterExtension` was removed in v26: https://github.com/protocolbuffers/protobuf/pull/15270
   # The following code is a workaround for this breaking change.
-  import google.protobuf.__version__ as protobuf_version
-  if int(protobuf_version.split(".", 1)[0]) >= 5:
+  import google.protobuf
+  if int(google.protobuf.__version__.split(".", 1)[0]) >= 5:
     google_dot_protobuf_dot_descriptor__pb2.FileOptions.RegisterExtension(options)
     google_dot_protobuf_dot_descriptor__pb2.MessageOptions.RegisterExtension(message)
     google_dot_protobuf_dot_descriptor__pb2.FieldOptions.RegisterExtension(field)
