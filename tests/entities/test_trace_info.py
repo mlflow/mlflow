@@ -1,4 +1,5 @@
 import pytest
+
 from mlflow.entities import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
