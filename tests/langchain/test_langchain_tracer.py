@@ -1,7 +1,6 @@
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, List, Optional
-from unittest import mock
 
 import pytest
 from langchain.agents import AgentType, initialize_agent, load_tools
