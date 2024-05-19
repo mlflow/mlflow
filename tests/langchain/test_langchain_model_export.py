@@ -74,6 +74,7 @@ from mlflow.utils.openai_utils import (
 )
 
 from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.tracing.conftest import clear_singleton as clear_trace_singleton  # noqa: F401
 from tests.tracing.export.test_inference_table_exporter import _REQUEST_ID
 
 # this kwarg was added in langchain_community 0.0.27, and
@@ -2915,7 +2916,9 @@ def test_langchain_model_save_load_with_listeners(fake_chat_model):
     }
 
 
-def test_langchain_model_inject_callback_in_model_serving(monkeypatch, model_path):
+def test_langchain_model_inject_callback_in_model_serving(
+    clear_trace_singleton, monkeypatch, model_path
+):
     # Emulate the model serving environment
     monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
 
@@ -2935,10 +2938,11 @@ def test_langchain_model_inject_callback_in_model_serving(monkeypatch, model_pat
 
     assert len(_TRACE_BUFFER) == 1
     assert _REQUEST_ID in _TRACE_BUFFER
-    _TRACE_BUFFER.clear()
 
 
-def test_langchain_model_not_inject_callback_when_disabled(monkeypatch, model_path):
+def test_langchain_model_not_inject_callback_when_disabled(
+    clear_trace_singleton, monkeypatch, model_path
+):
     # Emulate the model serving environment
     monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
 
@@ -2955,7 +2959,6 @@ def test_langchain_model_not_inject_callback_when_disabled(monkeypatch, model_pa
     from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 
     assert _TRACE_BUFFER == {}
-    _TRACE_BUFFER.clear()
 
 
 @pytest.mark.skipif(
