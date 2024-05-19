@@ -57,7 +57,7 @@ scikit-learn:
 pyarrow:
   pip_release: pyarrow
   minimum: "4.0.0"
-  max_major_version: 16
+  max_major_version: 15
 
 markdown:
   pip_release: markdown
