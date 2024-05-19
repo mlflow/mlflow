@@ -83,7 +83,7 @@ class TraceInfo(_MlflowObject):
         Update status field to the string value for serialization.
         """
         trace_info_dict = asdict(self)
-        trace_info_dict["status"] = self.status
+        trace_info_dict["status"] = self.status.value
         return trace_info_dict
 
     @classmethod

@@ -1,10 +1,12 @@
+import pytest
 from mlflow.entities import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
 
 
-def helper_make_trace():
+@pytest.fixture
+def trace_info():
     return TraceInfo(
         request_id="request_id",
         experiment_id="test_experiment",
@@ -22,8 +24,7 @@ def helper_make_trace():
     )
 
 
-def test_to_proto():
-    trace_info = helper_make_trace()
+def test_to_proto(trace_info):
     proto = trace_info.to_proto()
     assert proto.request_id == "request_id"
     assert proto.experiment_id == "test_experiment"
@@ -48,8 +49,7 @@ def test_to_proto():
     assert tag_2.value == "v" * 250
 
 
-def test_to_dict():
-    trace_info = helper_make_trace()
+def test_to_dict(trace_info):
     trace_as_dict = trace_info.to_dict()
     assert trace_as_dict == {
         "request_id": "request_id",
