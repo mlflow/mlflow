@@ -1,5 +1,6 @@
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any, List, Optional
 from unittest import mock
 
 import pytest
@@ -541,3 +542,49 @@ def test_tracer_thread_safe(clear_singleton):
     traces = get_traces()
     assert len(traces) == 10
     assert all(len(trace.data.spans) == 1 for trace in traces)
+
+
+def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished(clear_singleton):
+    from langchain.callbacks.manager import CallbackManagerForLLMRun
+    from langchain.chat_models.base import SimpleChatModel
+    from langchain.schema.messages import BaseMessage
+
+    class FakeChatModel(SimpleChatModel):
+        """Fake Chat Model wrapper for testing purposes."""
+
+        def _call(
+            self,
+            messages: List[BaseMessage],
+            stop: Optional[List[str]] = None,
+            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            **kwargs: Any,
+        ) -> str:
+            return TEST_CONTENT
+
+        @property
+        def _llm_type(self) -> str:
+            return "fake chat model"
+
+    exception = None
+
+    class ExceptionCatchingTracer(MlflowLangchainTracer):
+        def on_chain_end(self, outputs, *, run_id, inputs=None, **kwargs):
+            try:
+                super().on_chain_end(outputs, run_id=run_id, inputs=inputs, **kwargs)
+            except Exception as e:
+                nonlocal exception
+                exception = e
+
+    prompt = SystemMessagePromptTemplate.from_template("You are a nice assistant.") + "{question}"
+    chain = prompt | FakeChatModel() | StrOutputParser()
+
+    tracer = ExceptionCatchingTracer()
+
+    chain.invoke(
+        "What is MLflow?",
+        config={"callbacks": [tracer]},
+    )
+
+    run_id = next(iter(tracer._run_span_mapping.keys()))
+    tracer.on_chain_end({"output": "test output"}, run_id=run_id, inputs=None)
+    assert not exception
