@@ -22,6 +22,7 @@ from openai.types.completion import Completion, CompletionChoice, CompletionUsag
 from mlflow.entities import Trace
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
+from mlflow.exceptions import MlflowException
 from mlflow.langchain import _LangChainModelWrapper
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.pyfunc.context import Context
@@ -565,15 +566,13 @@ def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished(clear_si
         def _llm_type(self) -> str:
             return "fake chat model"
 
-    exception = None
+    run_id_for_on_chain_end = None
 
     class ExceptionCatchingTracer(MlflowLangchainTracer):
         def on_chain_end(self, outputs, *, run_id, inputs=None, **kwargs):
-            try:
-                super().on_chain_end(outputs, run_id=run_id, inputs=inputs, **kwargs)
-            except Exception as e:
-                nonlocal exception
-                exception = e
+            nonlocal run_id_for_on_chain_end
+            run_id_for_on_chain_end = run_id
+            super().on_chain_end(outputs, run_id=run_id, inputs=inputs, **kwargs)
 
     prompt = SystemMessagePromptTemplate.from_template("You are a nice assistant.") + "{question}"
     chain = prompt | FakeChatModel() | StrOutputParser()
@@ -585,6 +584,7 @@ def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished(clear_si
         config={"callbacks": [tracer]},
     )
 
-    run_id = next(iter(tracer._run_span_mapping.keys()))
-    tracer.on_chain_end({"output": "test output"}, run_id=run_id, inputs=None)
-    assert not exception
+    with pytest.raises(MlflowException, match="Span for run_id .* not found."):
+        # After the chain is invoked, verify that the tracer no longer holds references to spans,
+        # ensuring that the tracer does not add spans to the trace after the root run has finished
+        tracer.on_chain_end({"output": "test output"}, run_id=run_id_for_on_chain_end, inputs=None)
