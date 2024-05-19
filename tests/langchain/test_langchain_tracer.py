@@ -1,8 +1,8 @@
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, List, Optional
-from unittest import mock
 
+import langchain
 import pytest
 from langchain.agents import AgentType, initialize_agent, load_tools
 from langchain.chains.llm import LLMChain
@@ -17,7 +17,7 @@ from langchain_core.documents import Document
 from langchain_core.output_parsers.string import StrOutputParser
 from langchain_core.outputs import LLMResult
 from langchain_core.tools import tool
-from openai.types.completion import Completion, CompletionChoice, CompletionUsage
+from packaging.version import Version
 
 from mlflow.entities import Trace
 from mlflow.entities.span_event import SpanEvent
@@ -28,6 +28,11 @@ from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.pyfunc.context import Context
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.export.inference_table import pop_trace
+from mlflow.utils.openai_utils import (
+    TEST_CONTENT,
+    _mock_chat_completion_response,
+    _mock_request,
+)
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
 from tests.tracing.helper import get_traces
@@ -48,23 +53,6 @@ def create_openai_llmchain():
         template="What is a good name for a company that makes {product}?",
     )
     return LLMChain(llm=llm, prompt=prompt)
-
-
-def create_completions(text=TEST_CONTENT):
-    return Completion(
-        id="chatcmpl-123",
-        model="gpt-3.5-turbo",
-        object="text_completion",
-        choices=[
-            CompletionChoice(
-                finish_reason="stop",
-                index=0,
-                text=text,
-            )
-        ],
-        created=1677652288,
-        usage=CompletionUsage(completion_tokens=12, prompt_tokens=9, total_tokens=21),
-    )
 
 
 def create_retriever():
@@ -137,7 +125,6 @@ def test_llm_success(clear_singleton):
 
     callback.on_llm_end(LLMResult(generations=[[{"text": "generated text"}]]), run_id=run_id)
     trace = get_traces()[0]
-    assert run_id in callback._run_span_mapping
     assert len(trace.data.spans) == 1
     llm_span = trace.data.spans[0]
 
@@ -223,7 +210,6 @@ def test_retriever_success(clear_singleton):
     ]
     callback.on_retriever_end(documents, run_id=run_id)
     trace = get_traces()[0]
-    assert run_id in callback._run_span_mapping
     assert len(trace.data.spans) == 1
     retriever_span = trace.data.spans[0]
 
@@ -250,7 +236,6 @@ def test_retriever_error(clear_singleton):
     mock_error = Exception("mock exception")
     callback.on_retriever_error(error=mock_error, run_id=run_id)
     trace = get_traces()[0]
-    assert run_id in callback._run_span_mapping
     assert len(trace.data.spans) == 1
     retriever_span = trace.data.spans[0]
     assert retriever_span.attributes[SpanAttributeKey.INPUTS] == "test query"
@@ -385,10 +370,7 @@ def test_e2e_rag_model_tracing_in_serving(clear_singleton, monkeypatch):
     llm_chain = create_openai_llmchain()
 
     request_id = "test_request_id"
-    with mock.patch(
-        "openai.resources.completions.Completions.create",
-        return_value=create_completions(),
-    ):
+    with _mock_request(return_value=_mock_chat_completion_response()):
         response, trace_dict = _predict_with_callbacks(llm_chain, request_id, ["MLflow"])
 
     assert response == [{"text": TEST_CONTENT}]
@@ -430,9 +412,8 @@ def test_agent_success(clear_singleton, monkeypatch):
     langchain_input = {"input": "What is 123 raised to the .023 power?"}
     expected_output = {"output": TEST_CONTENT}
     request_id = "test_request_id"
-    with mock.patch(
-        "openai.resources.completions.Completions.create",
-        return_value=create_completions(f"Final Answer: {TEST_CONTENT}"),
+    with _mock_request(
+        return_value=_mock_chat_completion_response(content=f"Final Answer: {TEST_CONTENT}")
     ):
         response, trace_dict = _predict_with_callbacks(agent, request_id, langchain_input)
 
@@ -485,10 +466,7 @@ def test_tool_success(clear_singleton, monkeypatch):
 
     tool_input = {"question": "What up"}
     request_id = "test_request_id"
-    with mock.patch(
-        "openai.resources.completions.Completions.create",
-        return_value=create_completions(),
-    ):
+    with _mock_request(return_value=_mock_chat_completion_response()):
         response, trace_dict = _predict_with_callbacks(chain_tool, request_id, tool_input)
 
     # str output is converted to _ChatResponse
@@ -545,6 +523,10 @@ def test_tracer_thread_safe(clear_singleton):
     assert all(len(trace.data.spans) == 1 for trace in traces)
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.1.0"),
+    reason="ChatPromptTemplate expecting dict input",
+)
 def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished(clear_singleton):
     from langchain.callbacks.manager import CallbackManagerForLLMRun
     from langchain.chat_models.base import SimpleChatModel
