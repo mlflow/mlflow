@@ -643,23 +643,25 @@ class _LangChainModelWrapper:
     def _update_dependencies_schema_in_prediction_context(self, callback_handlers):
         from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
-        if callback_handlers:
-            if (
+        if (
+            callback_handlers
+            and (
                 tracer := next(
                     (c for c in callback_handlers if isinstance(c, MlflowLangchainTracer)), None
                 )
-                and self.model_path
-            ):
-                model = Model.load(self.model_path)
-                context = tracer._prediction_context
-                if model.metadata and context:
-                    dependencies_schema = model.metadata.get("dependencies_schemas", {})
-                    context.update(
-                        dependencies_schema={
-                            dependency: json.dumps(schema)
-                            for dependency, schema in dependencies_schema.items()
-                        }
-                    )
+            )
+            and self.model_path
+        ):
+            model = Model.load(self.model_path)
+            context = tracer._prediction_context
+            if model.metadata and context:
+                dependencies_schema = model.metadata.get("dependencies_schemas", {})
+                context.update(
+                    dependencies_schema={
+                        dependency: json.dumps(schema)
+                        for dependency, schema in dependencies_schema.items()
+                    }
+                )
 
     @experimental
     def _predict_with_callbacks(
