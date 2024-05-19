@@ -48,6 +48,7 @@ from mlflow.langchain.utils import (
     register_pydantic_v1_serializer_cm,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
+from mlflow.models.dependencies_schema import _clear_dependencies_schema, _get_dependencies_schema
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
 from mlflow.models.resources import _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
@@ -322,6 +323,13 @@ def save_model(
         _save_example(mlflow_model, input_example, path, example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
+
+    with _get_dependencies_schema() as dependencies_schema:
+        schema = dependencies_schema.to_dict()
+        if schema is not None:
+            if mlflow_model.metadata is None:
+                mlflow_model.metadata = {}
+            mlflow_model.metadata.update(schema)
 
     streamable = isinstance(lc_model, lc_runnables_types())
 
@@ -843,7 +851,14 @@ def _load_model_from_local_fs(local_model_path):
             os.path.basename(flavor_code_path),
         )
 
-        return _load_model_code_path(code_path, model_config)
+        try:
+            model = _load_model_code_path(code_path, model_config)
+        finally:
+            # We would like to clean up the dependencies schema which is set to global
+            # after loading the mode to avoid the schema being used in the next model loading
+            _clear_dependencies_schema()
+
+        return model
     else:
         _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
         with patch_langchain_type_to_cls_dict():
