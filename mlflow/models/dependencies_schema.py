@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
@@ -32,9 +33,8 @@ def set_vector_search_schema(
                           that need to be retrieved during trace logging.
         Note: Make sure the text column specified is in the index.
 
-        Example:
-
-        .. code-block:: python
+    .. code-block:: Python
+            :caption: Example
 
             from mlflow.models import set_vector_search_schema
 
@@ -58,13 +58,49 @@ def _get_vector_search_schema():
     Returns:
         VectorSearchIndex: The vector search index schema.
     """
-    return VectorSearchIndexSchema(
-        name="vector_search_index",
-        primary_key=globals().get(DATABRICKS_VECTOR_SEARCH_PRIMARY_KEY),
-        text_column=globals().get(DATABRICKS_VECTOR_SEARCH_TEXT_COLUMN),
-        doc_uri=globals().get(DATABRICKS_VECTOR_SEARCH_DOC_URI),
-        other_columns=globals().get(DATABRICKS_VECTOR_SEARCH_OTHER_COLUMNS),
+    if not globals().get(DATABRICKS_VECTOR_SEARCH_PRIMARY_KEY, None) or not globals().get(
+        DATABRICKS_VECTOR_SEARCH_TEXT_COLUMN, None
+    ):
+        return []
+
+    return [
+        VectorSearchIndexSchema(
+            name="vector_search_index",
+            primary_key=globals().get(DATABRICKS_VECTOR_SEARCH_PRIMARY_KEY, None),
+            text_column=globals().get(DATABRICKS_VECTOR_SEARCH_TEXT_COLUMN, None),
+            doc_uri=globals().get(DATABRICKS_VECTOR_SEARCH_DOC_URI, None),
+            other_columns=globals().get(DATABRICKS_VECTOR_SEARCH_OTHER_COLUMNS, None),
+        )
+    ]
+
+
+def _clear_vector_search_schema():
+    """
+    Clear the vector search schema defined by the user.
+    """
+    globals().pop(DATABRICKS_VECTOR_SEARCH_PRIMARY_KEY, None)
+    globals().pop(DATABRICKS_VECTOR_SEARCH_TEXT_COLUMN, None)
+    globals().pop(DATABRICKS_VECTOR_SEARCH_DOC_URI, None)
+    globals().pop(DATABRICKS_VECTOR_SEARCH_OTHER_COLUMNS, None)
+
+
+def _clear_dependencies_schema():
+    """
+    Clear all the dependencies schema defined by the user.
+    """
+    # Clear the vector search schema
+    _clear_vector_search_schema()
+
+
+@contextmanager
+def _get_dependencies_schema():
+    dependencies_schema = DependenciesSchemas(
+        vector_search_index_schemas=_get_vector_search_schema()
     )
+    try:
+        yield dependencies_schema
+    finally:
+        _clear_dependencies_schema()
 
 
 @dataclass
@@ -151,6 +187,9 @@ class DependenciesSchemas:
     vector_search_index_schemas: List[VectorSearchIndexSchema] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Dict[ResourceType, List[Dict]]]:
+        if not self.vector_search_index_schemas:
+            return None
+
         return {
             "dependencies_schemas": {
                 ResourceType.VECTOR_SEARCH_INDEX.value: [
