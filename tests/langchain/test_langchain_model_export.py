@@ -2393,6 +2393,17 @@ def test_save_load_chain_as_code(chain_model_signature):
     assert reloaded_model.resources["databricks"] == {
         "serving_endpoint": [{"name": "fake-endpoint"}]
     }
+    assert reloaded_model.metadata["dependencies_schemas"] == {
+        "vector_search_index": [
+            {
+                "doc_uri": "doc-uri",
+                "name": "vector_search_index",
+                "other_columns": ["column1", "column2"],
+                "primary_key": "primary-key",
+                "text_column": "text-column",
+            }
+        ]
+    }
 
 
 @pytest.mark.skipif(
@@ -2565,7 +2576,7 @@ def test_save_load_chain_as_code_optional_code_path(chain_model_signature):
             }
         ]
     }
-    artifact_path = "model_path"
+    artifact_path = "new_model_path"
     with mlflow.start_run() as run:
         model_info = mlflow.langchain.log_model(
             lc_model="tests/langchain/no_config/chain.py",
@@ -2607,6 +2618,7 @@ def test_save_load_chain_as_code_optional_code_path(chain_model_signature):
     assert reloaded_model.resources["databricks"] == {
         "serving_endpoint": [{"name": "fake-endpoint"}]
     }
+    assert reloaded_model.metadata is None
 
 
 def get_fake_chat_stream_model(endpoint_name="fake-stream-endpoint"):
