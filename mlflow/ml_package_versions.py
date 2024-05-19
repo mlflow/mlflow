@@ -290,7 +290,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.3.0",
-            "maximum": "1.11.0"
+            "maximum": "1.10.1"
         }
     }
 }
