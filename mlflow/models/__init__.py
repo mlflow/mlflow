@@ -30,7 +30,7 @@ The built-in flavors are:
 
 For details, see `MLflow Models <../models.html>`_.
 """
-from mlflow.models.dependencies_schema import set_vector_search_schema
+from mlflow.models.dependencies_schema import set_retriever_schema
 from mlflow.models.evaluation import (
     EvaluationArtifact,
     EvaluationMetric,
@@ -58,7 +58,7 @@ __all__ = [
     "EvaluationResult",
     "get_model_info",
     "set_model",
-    "set_vector_search_schema",
+    "set_retriever_schema",
     "list_evaluators",
     "MetricThreshold",
     "build_docker",
