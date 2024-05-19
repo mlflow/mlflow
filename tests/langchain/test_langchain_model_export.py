@@ -2416,11 +2416,11 @@ def test_save_load_chain_as_code(chain_model_signature):
     )
     assert response["choices"][0]["message"]["content"] == "Databricks"
     trace = mlflow.get_trace(tracer._request_id)
-    assert trace.info.tags["vector_search_index"] == json.dumps(
+    assert trace.info.tags[DependenciesSchemasType.RETRIEVERS.value] == json.dumps(
         [
             {
                 "doc_uri": "doc-uri",
-                "name": "vector_search_index",
+                "name": "retriever",
                 "other_columns": ["column1", "column2"],
                 "primary_key": "primary-key",
                 "text_column": "text-column",
