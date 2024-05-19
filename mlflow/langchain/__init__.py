@@ -640,23 +640,28 @@ class _LangChainModelWrapper:
 
         return self._predict_with_callbacks(data, params, callback_handlers=callbacks)
 
-    def _update_tracing_prediction_context(self, callback_handlers):
+    def _update_dependencies_schema_in_prediction_context(self, callback_handlers):
         from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
-        if callback_handlers:
-            # TODO: fix this if callback_handlers contains multiple handlers
-            tracer = callback_handlers[0]
-            if isinstance(tracer, MlflowLangchainTracer) and self.model_path:
-                model = Model.load(self.model_path)
-                context = tracer._prediction_context
-                if model.metadata and context:
-                    dependencies_schema = model.metadata.get("dependencies_schemas", {})
-                    context.update(
-                        dependencies_schema={
-                            dependency: json.dumps(schema)
-                            for dependency, schema in dependencies_schema.items()
-                        }
-                    )
+        if (
+            callback_handlers
+            and (
+                tracer := next(
+                    (c for c in callback_handlers if isinstance(c, MlflowLangchainTracer)), None
+                )
+            )
+            and self.model_path
+        ):
+            model = Model.load(self.model_path)
+            context = tracer._prediction_context
+            if model.metadata and context:
+                dependencies_schema = model.metadata.get("dependencies_schemas", {})
+                context.update(
+                    dependencies_schema={
+                        dependency: json.dumps(schema)
+                        for dependency, schema in dependencies_schema.items()
+                    }
+                )
 
     @experimental
     def _predict_with_callbacks(
@@ -679,7 +684,7 @@ class _LangChainModelWrapper:
         """
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
-        self._update_tracing_prediction_context(callback_handlers)
+        self._update_dependencies_schema_in_prediction_context(callback_handlers)
         messages, return_first_element = self._prepare_predict_messages(data)
         results = process_api_requests(
             lc_model=self.lc_model,
@@ -772,7 +777,7 @@ class _LangChainModelWrapper:
             process_stream_request,
         )
 
-        self._update_tracing_prediction_context(callback_handlers)
+        self._update_dependencies_schema_in_prediction_context(callback_handlers)
         data = self._prepare_predict_stream_messages(data)
         return process_stream_request(
             lc_model=self.lc_model,
