@@ -644,6 +644,7 @@ class _LangChainModelWrapper:
         from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
         if callback_handlers:
+            # TODO: fix this if callback_handlers contains multiple handlers
             tracer = callback_handlers[0]
             if isinstance(tracer, MlflowLangchainTracer) and self.model_path:
                 model = Model.load(self.model_path)
