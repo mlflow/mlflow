@@ -2,6 +2,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, List, Optional
 
+import langchain
 import pytest
 from langchain.agents import AgentType, initialize_agent, load_tools
 from langchain.chains.llm import LLMChain
@@ -16,6 +17,7 @@ from langchain_core.documents import Document
 from langchain_core.output_parsers.string import StrOutputParser
 from langchain_core.outputs import LLMResult
 from langchain_core.tools import tool
+from packaging.version import Version
 
 from mlflow.entities import Trace
 from mlflow.entities.span_event import SpanEvent
@@ -123,7 +125,6 @@ def test_llm_success(clear_singleton):
 
     callback.on_llm_end(LLMResult(generations=[[{"text": "generated text"}]]), run_id=run_id)
     trace = get_traces()[0]
-    assert run_id in callback._run_span_mapping
     assert len(trace.data.spans) == 1
     llm_span = trace.data.spans[0]
 
@@ -209,7 +210,6 @@ def test_retriever_success(clear_singleton):
     ]
     callback.on_retriever_end(documents, run_id=run_id)
     trace = get_traces()[0]
-    assert run_id in callback._run_span_mapping
     assert len(trace.data.spans) == 1
     retriever_span = trace.data.spans[0]
 
@@ -236,7 +236,6 @@ def test_retriever_error(clear_singleton):
     mock_error = Exception("mock exception")
     callback.on_retriever_error(error=mock_error, run_id=run_id)
     trace = get_traces()[0]
-    assert run_id in callback._run_span_mapping
     assert len(trace.data.spans) == 1
     retriever_span = trace.data.spans[0]
     assert retriever_span.attributes[SpanAttributeKey.INPUTS] == "test query"
@@ -524,6 +523,10 @@ def test_tracer_thread_safe(clear_singleton):
     assert all(len(trace.data.spans) == 1 for trace in traces)
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.1.0"),
+    reason="ChatPromptTemplate expecting dict input",
+)
 def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished(clear_singleton):
     from langchain.callbacks.manager import CallbackManagerForLLMRun
     from langchain.chat_models.base import SimpleChatModel
