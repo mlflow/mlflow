@@ -12,14 +12,14 @@ With this release, we're happy to introduce several features that enhance the us
 
 - **Enhanced Code Dependency Inference**: A new feature for automatically inferrring code dependencies based on detected dependencies within a model's implementation. As a supplement to the `code_paths` parameter, the introduced `infer_model_code_paths` option when logging a model will determine which additional code modules are needed in order to ensure that your models can be loaded in isolation, deployed, and reliably stored.
 
--  **Standardization of MLflow Deployment Server**: Outputs from the Deployment Server's endpoints now conform to OpenAI's interfaces to provide a simpler integration with commonly used services.
+- **Standardization of MLflow Deployment Server**: Outputs from the Deployment Server's endpoints now conform to OpenAI's interfaces to provide a simpler integration with commonly used services.
 
 Features:
 
 - [Deployments] Update the MLflow Deployment Server interfaces to be OpenAI compatible (#12003, @harupy)
 - [Deployments] Add `Togetherai` as a supported provider for the MLflow Deployments Server (#11557, @FotiosBistas)
 - [Models] Add `predict_stream` API support for Python Models (#11791, @WeichenXu123)
-- [Models] Enhance the capabilities of logging code dependencies for MLFlow models (#11806, @WeichenXu123)
+- [Models] Enhance the capabilities of logging code dependencies for MLflow models (#11806, @WeichenXu123)
 - [Models] Add support for RunnableBinding models in LangChain (#11980, @serena-ruan)
 - [Model Registry / Databricks] Add support for renaming models registered to Unity Catalog (#11988, @artjen)
 - [Model Registry / Databricks] Improve the handling of searching for invalid components from Unity Catalog registered models (#11961, @artjen)
