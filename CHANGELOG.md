@@ -1,5 +1,42 @@
 # CHANGELOG
 
+## 2.13.0 (2024-05-20)
+
+MLflow 2.13.0 includes several major features and improvements
+
+Features:
+
+- [Tracking] [MLflow] Update mlflow langchain pyfunc.load_model to correctly write tags to Tracing Info (#12050, @sunishsheth2009)
+- [] Make deployment server OpenAI compatible (#12003, @harupy)
+- [Models] MLFlow model logging code path improvement (#11806, @WeichenXu123)
+- [] Support runnableBinding save load (#11980, @serena-ruan)
+- [Model Registry] Enable UC Model Registry registered model rename (#11988, @artjen)
+- [Model Registry] Raise exception when accessing tags and aliases from search rpcs (#11961, @artjen)
+- [Artifacts] [ML-37954] Add notebook/job lineage when loading a model from UC (#11305, @shichengzhou-db)
+- [Model Registry / Models] Add credential refresh for CloudArtifactRepositories (#11614, @artjen)
+- [Tracking] [MLflow] Updating Pyfunc to specify resources needed to serve the model (#11832, @sunishsheth2009)
+- [Models] Make PythonModel supporting streaming prediction (#11791, @WeichenXu123)
+- [Tracking] [MLflow] Ability to infer signature and streamable for langchain, model log as code (#11855, @sunishsheth2009)
+- [Deployments] Togetherai provider (#11557, @FotiosBistas)
+
+Bug fixes:
+
+- [Tracking] Bug fix: TraceStatus hydration from proto (#12044, @mparkhe)
+- [] Check for chunk size minimum before using multipart upload with S3 (#11975, @ian-ack-db)
+- [Model Registry] Ensure RegisteredModel, RegisteredModelSearch and ModelVersion, ModelVersionSearch equality (#12013, @artjen)
+- [Models] Provide support for hasattr references in AttrDict (#11999, @BenWilson2)
+
+Documentation updates:
+
+- [Docs] Simplify the main docs landing page (#12017, @BenWilson2)
+- [Docs] Add documentation for the expanded code path inference feature (#11997, @BenWilson2)
+- [Docs] Add documentation guidelines for the predict_stream API (#11976, @BenWilson2)
+- [Docs] Enhancing Documentation with JFrog MLFlow Plugin (Resolves #11425) (#11426, @yonarbel)
+
+Small bug fixes and documentation updates:
+
+#12052, #12053, #12022, #12029, #12024, #11992, #12004, #11958, #11957, #11850, #11938, #11924, #11922, #11920, #11820, #11822, #11798, @serena-ruan; #12054, #12051, #12045, #12043, #11987, #11888, #11876, #11913, #11868, @sunishsheth2009; #12049, #12046, #12037, #11831, @dbczumar; #12047, #12038, #12020, #12021, #11970, #11968, #11967, #11965, #11963, #11941, #11956, #11953, #11934, #11921, #11454, #11836, #11826, #11793, #11790, #11776, #11765, #11763, #11746, #11748, #11740, #11735, @harupy; #12025, #12034, #12027, #11914, #11899, #11866, @BenWilson2; #12026, #11991, #11979, #11964, #11939, #11894, @daniellok-db; #11951, #11974, #11916, @annzhang-db; #12015, #11931, #11627, @jessechancy; #12014, #11917, @prithvikannan; #12012, @AveshCSingh; #12001, @yunpark93; #11984, #11983, #11977, #11977, #11949, @edwardfeng-db; #11973, @bbqiu; #11902, #11835, #11775, @B-Step62; #11845, @lababidi
+
 ## 2.12.2 (2024-05-08)
 
 MLflow 2.12.2 is a patch release that includes several bug fixes and integration improvements to existing features. New features that are introduced in this patch release are intended to provide a foundation to further major features that will be released in the next 2 minor releases.
