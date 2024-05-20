@@ -45,7 +45,6 @@ class VolumesRestArtifactRepository(ArtifactRepository):
                 message="DBFS URI must be of the form dbfs:/Volumes/<path>",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        print("entry point")
 
         # The dbfs:/ path ultimately used for artifact operations should not contain the
         # Databricks profile info, so strip it before setting ``artifact_uri``.
@@ -83,9 +82,8 @@ class VolumesRestArtifactRepository(ArtifactRepository):
 
     def _volumes_is_dir(self, volume_path):
         response = self._databricks_api_request(
-            endpoint=f"{GET_STATUS_ENDPOINT}{volume_path}", method="HEAD"
+            endpoint=f"{LIST_API_ENDPOINT}{volume_path}", method="HEAD"
         )
-        print(response)
         try:
             return response.status_code == 200
         except KeyError:
@@ -133,7 +131,6 @@ class VolumesRestArtifactRepository(ArtifactRepository):
 
     def list_artifacts(self, path=None):
         volumes_path = self._get_volumes_path(path) if path else self._get_volumes_path("")
-        print(volumes_path)
         response = self._volumes_list_api(volumes_path)
         try:
             json_response = json.loads(response.text)

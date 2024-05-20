@@ -169,6 +169,9 @@ def http_request_safe(host_creds, endpoint, method, **kwargs):
 def verify_rest_response(response, endpoint):
     """Verify the return code and format, raise exception if the request was not successful."""
     if response.status_code != 200:
+        if response.status_code == 204 and endpoint.startswith(_REST_API_PATH_PREFIX + "/fs"):
+            # volume apis are expected to return 204 for PUT actions
+            return response
         if _can_parse_as_json_object(response.text):
             raise RestException(json.loads(response.text))
         else:
