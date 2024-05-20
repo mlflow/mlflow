@@ -144,7 +144,11 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws():
         )
 
 
-def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure():
+def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(monkeypatch):
+    monkeypatch.setenvs({
+        "DATABRICKS_HOST": "my-host",
+        "DATABRICKS_TOKEN": "my-token",
+    })
     artifact_location = "abfss://filesystem@account.dfs.core.windows.net"
     fake_sas_token = "fake_session_token"
     temporary_creds = {
@@ -153,7 +157,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure()
         },
     }
     fake_local_path = "/tmp/fake_path"
-    with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"), mock.patch.object(
+    with mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
         "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"

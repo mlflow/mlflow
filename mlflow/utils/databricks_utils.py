@@ -442,7 +442,6 @@ def get_workspace_info_from_databricks_secrets(tracking_uri):
 
 
 def _fail_malformed_databricks_auth(tracking_uri):
-    breakpoint()
     raise MlflowException(
         f"Reading databricks credential configuration failed using tracking URI {tracking_uri}, "
         "Please ensure that you installed 'databricks-sdk' library, set correct tracking "
@@ -843,9 +842,6 @@ def _get_databricks_creds_config(tracking_uri):
 
 
 def get_databricks_env_vars(tracking_uri):
-    if not mlflow.utils.uri.is_databricks_uri(tracking_uri):
-        return {}
-
     config = _get_databricks_creds_config(tracking_uri)
     # We set these via environment variables so that only the current profile is exposed, rather
     # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary

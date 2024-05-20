@@ -192,8 +192,7 @@ def test_get_store_databricks(monkeypatch):
         monkeypatch.setenv(k, v)
     store = _get_store()
     assert isinstance(store, RestStore)
-    assert store.get_host_creds().host == "https://my-tracking-server"
-    assert store.get_host_creds().token == "abcdef"
+    assert store.get_host_creds().databricks_workspace_client is not None
 
 
 def test_get_store_databricks_profile(monkeypatch):
