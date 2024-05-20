@@ -267,7 +267,7 @@ class AbstractStore:
             timestamp_ms: End time of the trace, in milliseconds. The execution time field
                 in the TraceInfo will be calculated by subtracting the start time from this.
             status: Status of the trace.
-            request_metadata: mMetadata of the trace. This will be merged with the existing
+            request_metadata: Metadata of the trace. This will be merged with the existing
                 metadata logged during the start_trace call.
             tags: Tags of the trace. This will be merged with the existing tags logged
                 during the start_trace or set_trace_tag calls.
