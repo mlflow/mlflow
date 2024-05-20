@@ -423,7 +423,10 @@ spark:
       # 'pytest tests/spark/autologging') not to share SparkSession across tests
       # `test_spark_datasource_autologging_crossframework.py` fails when run with other tests
       pytest tests/spark/autologging/datasource/test_spark_datasource_autologging_crossframework.py
-      find tests/spark/autologging -name 'test*.py' | grep -v crossframework | xargs -L 1 pytest
+      # `test_spark_disable_autologging.py` is flaky if it runs with other tests
+      # so run it individually too
+      pytest tests/spark/autologging/datasource/test_spark_disable_autologging.py
+      find tests/spark/autologging -name 'test*.py' | grep -v crossframework | grep -v  | xargs -L 1 pytest
 
 mleap:
   package_info:
