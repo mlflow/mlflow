@@ -426,7 +426,7 @@ spark:
       # `test_spark_disable_autologging.py` is flaky if it runs with other tests
       # so run it individually too
       pytest tests/spark/autologging/datasource/test_spark_disable_autologging.py
-      find tests/spark/autologging -name 'test*.py' | grep -v crossframework | grep -v  | xargs -L 1 pytest
+      find tests/spark/autologging -name 'test*.py' | grep -v crossframework | grep -v test_spark_disable_autologging | xargs -L 1 pytest
 
 mleap:
   package_info:
