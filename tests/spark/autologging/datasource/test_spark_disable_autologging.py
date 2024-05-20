@@ -99,3 +99,4 @@ def test_autologging_disabled_then_enabled(spark_session, format_to_file_path):
 def test_enabling_autologging_does_not_throw_when_spark_hasnt_been_started(spark_session):
     spark_session.stop()
     mlflow.spark.autolog(disable=True)
+
