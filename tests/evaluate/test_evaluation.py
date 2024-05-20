@@ -55,6 +55,7 @@ from mlflow.models.evaluation.base import (
 from mlflow.models.evaluation.base import (
     _normalize_evaluators_and_evaluator_config_args as _normalize_config,
 )
+from mlflow.models.evaluation.default_evaluator import DefaultEvaluator
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
@@ -504,6 +505,61 @@ def test_langchain_pyfunc_autologs_traces():
     assert len(get_traces()) == 1
     assert len(get_traces()[0].data.spans) == 3
     assert run.info.run_id == get_traces()[0].info.request_metadata["mlflow.sourceRun"]
+
+
+def test_langchain_evaluate_fails_with_an_exception():
+    # Check langchain autolog parameters are restored after evaluation
+    mlflow.langchain.autolog(log_models=True, log_inputs_outputs=True)
+
+    prompt = PromptTemplate(
+        input_variables=["input"],
+        template="Test Prompt {input}",
+    )
+    llm = FakeListLLM(responses=["response"])
+    chain = prompt | llm
+
+    with mock.patch("mlflow.langchain.log_model") as log_model_mock, mock.patch.object(
+        DefaultEvaluator, "evaluate", side_effect=MlflowException("evaluate mock error")
+    ):
+
+        def model(inputs):
+            return [chain.invoke({"input": input}) for input in inputs["inputs"]]
+
+        eval_data = pd.DataFrame(
+            {
+                "inputs": [
+                    "What is MLflow?",
+                    "What is Spark?",
+                ],
+                "ground_truth": ["What is MLflow?", "Not what is Spark?"],
+            }
+        )
+        with mlflow.start_run() as run:
+            with pytest.raises(MlflowException, match="evaluate mock error"):
+                evaluate(
+                    model,
+                    eval_data,
+                    targets="ground_truth",
+                    extra_metrics=[mlflow.metrics.exact_match()],
+                )
+            log_model_mock.assert_not_called()
+
+    assert len(get_traces()) == 0
+
+    TRACE_BUFFER.clear()
+
+    # Test original langchain autolog configs is restored
+    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
+        with mlflow.start_run() as run:
+            chain.invoke("text")
+
+            loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
+            loaded_dict = loaded_table.to_dict("records")
+            assert len(loaded_dict) == 1
+            assert loaded_dict[0]["input"] == "text"
+        log_model_mock.assert_called_once()
+        assert len(get_traces()) == 1
+        assert len(get_traces()[0].data.spans) == 3
 
 
 def test_evaluate_works_with_no_langchain_installed():
