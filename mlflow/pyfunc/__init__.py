@@ -412,6 +412,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
+from mlflow.models.dependencies_schema import _clear_dependencies_schema, _get_dependencies_schema
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import (
     _DATABRICKS_FS_LOADER_MODULE,
@@ -987,6 +988,10 @@ def load_model(
                 BAD_REQUEST,
             ) from None
         raise e
+    finally:
+        # clean up the dependencies schema which is set to global state after loading the model.
+        # This avoids the schema being used by other models loaded in the same process.
+        _clear_dependencies_schema()
     predict_fn = conf.get("predict_fn", "predict")
     streamable = conf.get("streamable", False)
     predict_stream_fn = conf.get("predict_stream_fn", "predict_stream") if streamable else None
@@ -2428,6 +2433,13 @@ def save_model(
         _save_example(mlflow_model, input_example, path, example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
+
+    with _get_dependencies_schema() as dependencies_schema:
+        schema = dependencies_schema.to_dict()
+        if schema is not None:
+            if mlflow_model.metadata is None:
+                mlflow_model.metadata = {}
+            mlflow_model.metadata.update(schema)
 
     if resources is not None:
         if isinstance(resources, (Path, str)):
