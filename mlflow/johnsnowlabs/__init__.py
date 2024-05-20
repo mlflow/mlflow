@@ -77,8 +77,8 @@ from mlflow.tracking.artifact_utils import (
 from mlflow.utils import databricks_utils
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
-    is_in_databricks_runtime,
     is_in_databricks_model_serving_environment,
+    is_in_databricks_runtime,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
