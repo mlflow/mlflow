@@ -862,8 +862,11 @@ def _load_model_from_local_fs(local_model_path):
     pyfunc_flavor_conf = _get_flavor_configuration(
         model_path=local_model_path, flavor_name=PYFUNC_FLAVOR_NAME
     )
+    # The model_code_path and the model_config were previously saved langchain flavor but now we
+    # also save them inside the pyfunc flavor. For backwards compatibility of previous models,
+    # we need to check both places.
     if MODEL_CODE_PATH in pyfunc_flavor_conf or MODEL_CODE_PATH in flavor_conf:
-        model_config = flavor_conf.get(MODEL_CONFIG, pyfunc_flavor_conf.get(MODEL_CONFIG, None))
+        model_config = pyfunc_flavor_conf.get(MODEL_CONFIG, flavor_conf.get(MODEL_CONFIG, None))
         if isinstance(model_config, str):
             config_path = os.path.join(
                 local_model_path,
@@ -871,8 +874,8 @@ def _load_model_from_local_fs(local_model_path):
             )
             model_config = _load_from_yaml(config_path)
 
-        flavor_code_path = pyfunc_flavor_conf.get(MODEL_CODE_PATH) or flavor_conf.get(
-            MODEL_CODE_PATH
+        flavor_code_path = pyfunc_flavor_conf.get(
+            MODEL_CODE_PATH, flavor_conf.get(MODEL_CODE_PATH, None)
         )
         code_path = os.path.join(
             local_model_path,
