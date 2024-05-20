@@ -29,7 +29,10 @@ import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE
-from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
+from mlflow.models.resources import (
+    DatabricksServingEndpoint,
+    DatabricksVectorSearchIndex,
+)
 from mlflow.models.utils import _read_example
 from mlflow.pyfunc.model import _load_pyfunc
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -312,7 +315,9 @@ def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_cla
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
         assert_register_model_called_with_local_model_path(
-            mlflow.tracking._model_registry.fluent._register_model, model_uri, "AdsModel1"
+            mlflow.tracking._model_registry.fluent._register_model,
+            model_uri,
+            "AdsModel1",
         )
         mlflow.end_run()
 
@@ -653,7 +658,9 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmp_path):
     with mlflow.start_run():
         mlflow.pyfunc.log_model("model", python_model=python_model, pip_requirements=str(req_file))
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
+            mlflow.get_artifact_uri("model"),
+            [expected_mlflow_version, "a"],
+            strict=True,
         )
 
     # List of requirements
@@ -662,7 +669,9 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmp_path):
             "model", python_model=python_model, pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
+            mlflow.get_artifact_uri("model"),
+            [expected_mlflow_version, "a", "b"],
+            strict=True,
         )
 
     # Constraints file
@@ -699,7 +708,8 @@ def test_log_model_with_extra_pip_requirements(
             extra_pip_requirements=str(req_file),
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
+            mlflow.get_artifact_uri("model"),
+            [expected_mlflow_version, *default_reqs, "a"],
         )
 
     # List of requirements
@@ -711,7 +721,8 @@ def test_log_model_with_extra_pip_requirements(
             extra_pip_requirements=[f"-r {req_file}", "b"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
+            mlflow.get_artifact_uri("model"),
+            [expected_mlflow_version, *default_reqs, "a", "b"],
         )
 
     # Constraints file
@@ -885,14 +896,18 @@ def test_save_model_with_no_artifacts_does_not_produce_artifacts_dir(model_path)
     assert mlflow.pyfunc.model.CONFIG_KEY_ARTIFACTS not in pyfunc_conf
 
 
-def test_save_model_with_python_model_argument_of_invalid_type_raises_exception(tmp_path):
+def test_save_model_with_python_model_argument_of_invalid_type_raises_exception(
+    tmp_path,
+):
     with pytest.raises(
-        MlflowException, match="must be a PythonModel instance, callable object, or path to a"
+        MlflowException,
+        match="must be a PythonModel instance, callable object, or path to a",
     ):
         mlflow.pyfunc.save_model(path=os.path.join(tmp_path, "model1"), python_model=5)
 
     with pytest.raises(
-        MlflowException, match="must be a PythonModel instance, callable object, or path to a"
+        MlflowException,
+        match="must be a PythonModel instance, callable object, or path to a",
     ):
         mlflow.pyfunc.save_model(
             path=os.path.join(tmp_path, "model2"), python_model=["not a python model"]
@@ -905,16 +920,20 @@ def test_save_model_with_python_model_argument_of_invalid_type_raises_exception(
 
 def test_save_model_with_unsupported_argument_combinations_throws_exception(model_path):
     with pytest.raises(
-        MlflowException, match="Either `loader_module` or `python_model` must be specified"
+        MlflowException,
+        match="Either `loader_module` or `python_model` must be specified",
     ) as exc_info:
         mlflow.pyfunc.save_model(
-            path=model_path, artifacts={"artifact": "/path/to/artifact"}, python_model=None
+            path=model_path,
+            artifacts={"artifact": "/path/to/artifact"},
+            python_model=None,
         )
 
     python_model = ModuleScopedSklearnModel(predict_fn=None)
     loader_module = __name__
     with pytest.raises(
-        MlflowException, match="The following sets of parameters cannot be specified together"
+        MlflowException,
+        match="The following sets of parameters cannot be specified together",
     ) as exc_info:
         mlflow.pyfunc.save_model(
             path=model_path, python_model=python_model, loader_module=loader_module
@@ -923,7 +942,8 @@ def test_save_model_with_unsupported_argument_combinations_throws_exception(mode
     assert str(loader_module) in str(exc_info)
 
     with pytest.raises(
-        MlflowException, match="The following sets of parameters cannot be specified together"
+        MlflowException,
+        match="The following sets of parameters cannot be specified together",
     ) as exc_info:
         mlflow.pyfunc.save_model(
             path=model_path,
@@ -933,7 +953,8 @@ def test_save_model_with_unsupported_argument_combinations_throws_exception(mode
         )
 
     with pytest.raises(
-        MlflowException, match="Either `loader_module` or `python_model` must be specified"
+        MlflowException,
+        match="Either `loader_module` or `python_model` must be specified",
     ):
         mlflow.pyfunc.save_model(path=model_path, python_model=None, loader_module=None)
 
@@ -966,7 +987,8 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
     assert str(loader_module) in str(exc_info)
 
     with mlflow.start_run(), pytest.raises(
-        MlflowException, match="The following sets of parameters cannot be specified together"
+        MlflowException,
+        match="The following sets of parameters cannot be specified together",
     ) as exc_info:
         mlflow.pyfunc.log_model(
             artifact_path="pyfunc_model",
@@ -976,7 +998,8 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
         )
 
     with mlflow.start_run(), pytest.raises(
-        MlflowException, match="Either `loader_module` or `python_model` must be specified"
+        MlflowException,
+        match="Either `loader_module` or `python_model` must be specified",
     ):
         mlflow.pyfunc.log_model(artifact_path="pyfunc_model", python_model=None, loader_module=None)
 
@@ -1315,7 +1338,9 @@ def test_functional_python_model_list_dict_invalid_example(
 
 def test_functional_python_model_list_dict_to_list(tmp_path):
     mlflow.pyfunc.save_model(
-        path=tmp_path, python_model=list_dict_to_list, input_example=[{"a": "x", "b": "y"}]
+        path=tmp_path,
+        python_model=list_dict_to_list,
+        input_example=[{"a": "x", "b": "y"}],
     )
     model = Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
@@ -1416,7 +1441,9 @@ def test_functional_python_model_infer_requirements(tmp_path):
 
 def test_functional_python_model_throws_when_required_arguments_are_missing(tmp_path):
     mlflow.pyfunc.save_model(
-        path=tmp_path / uuid.uuid4().hex, python_model=requires_sklearn, input_example=["a"]
+        path=tmp_path / uuid.uuid4().hex,
+        python_model=requires_sklearn,
+        input_example=["a"],
     )
     mlflow.pyfunc.save_model(
         path=tmp_path / uuid.uuid4().hex,
@@ -1460,7 +1487,10 @@ def test_python_model_predict_with_params():
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert loaded_model.predict(["a", "b"], params={"foo": [0, 1]}) == ["a", "b"]
-    assert loaded_model.predict(["a", "b"], params={"foo": np.array([0, 1])}) == ["a", "b"]
+    assert loaded_model.predict(["a", "b"], params={"foo": np.array([0, 1])}) == [
+        "a",
+        "b",
+    ]
 
 
 def test_artifact_path_posix(sklearn_knn_model, main_scoped_model_class, tmp_path):
@@ -1766,6 +1796,34 @@ def test_pyfunc_as_code_log_and_load_with_code_paths():
     model_input = "asdf"
     expected_output = f"My utils function received this input: {model_input}"
     assert loaded_model.predict(model_input) == expected_output
+
+
+def test_pyfunc_as_code_with_dependencies():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model="tests/pyfunc/sample_code/code_with_dependencies.py",
+            artifact_path="model",
+            pip_requirements=["pandas"],
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "user_123"
+    expected_output = f"Input: {model_input}. Retriever called with ID: {model_input}. Output: 42."
+    assert loaded_model.predict(model_input) == expected_output
+
+    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    assert reloaded_model.metadata["dependencies_schemas"] == {
+        "retrievers": [
+            {
+                "doc_uri": "doc-uri",
+                "name": "retriever",
+                "other_columns": ["column1", "column2"],
+                "primary_key": "primary-key",
+                "text_column": "text-column",
+            }
+        ]
+    }
 
 
 def test_pyfunc_as_code_log_and_load_wrong_path():
