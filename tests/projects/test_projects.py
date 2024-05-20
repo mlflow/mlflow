@@ -501,8 +501,7 @@ def test_parse_kubernetes_config_invalid_template_job_file():
 
 
 @pytest.mark.parametrize("synchronous", [True, False])
-@mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds")
-def test_credential_propagation(get_databricks_host_creds, synchronous):
+def test_credential_propagation(synchronous, monkeypatch):
     class DummyProcess:
         def wait(self):
             return 0
@@ -513,9 +512,10 @@ def test_credential_propagation(get_databricks_host_creds, synchronous):
         def communicate(self, _):
             return "", ""
 
-    get_databricks_host_creds.return_value = MlflowHostCreds(
-        host="host", token="mytoken", ignore_tls_verification=False
-    )
+    monkeypatch.setenvs({
+        'DATABRICKS_HOST': "host",
+        'DATABRICKS_TOKEN': "mytoken",
+    })
     with mock.patch("subprocess.Popen", return_value=DummyProcess()) as popen_mock, mock.patch(
         "mlflow.utils.uri.is_databricks_uri", return_value=True
     ):

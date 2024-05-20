@@ -442,6 +442,7 @@ def get_workspace_info_from_databricks_secrets(tracking_uri):
 
 
 def _fail_malformed_databricks_auth(tracking_uri):
+    breakpoint()
     raise MlflowException(
         f"Reading databricks credential configuration failed using tracking URI {tracking_uri}, "
         "Please ensure that you installed 'databricks-sdk' library, set correct tracking "
