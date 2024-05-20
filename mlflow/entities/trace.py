@@ -18,8 +18,6 @@ class Trace(_MlflowObject):
     Args:
         info: A lightweight object that contains the metadata of a trace.
         data: A container object that holds the spans data of a trace.
-
-    :meta private:
     """
 
     info: TraceInfo

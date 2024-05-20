@@ -25,8 +25,6 @@ class SpanEvent(_MlflowObject):
             attributes of the event, such as the exception stack trace.
             Attributes value must be one of ``[str, int, float, bool, bytes]``
             or a sequence of these types.
-
-    :meta private:
     """
 
     name: str

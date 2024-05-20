@@ -110,8 +110,6 @@ def trace(
         span_type: The type of the span. Can be either a string or a
             :py:class:`SpanType <mlflow.entities.SpanType>` enum value.
         attributes: A dictionary of attributes to set on the span.
-
-    :meta private:
     """
 
     def decorator(fn):
@@ -194,8 +192,6 @@ def start_span(
 
     Returns:
         Yields an :py:class:`mlflow.entities.Span` that represents the created span.
-
-    :meta private:
     """
     try:
         otel_span = provider.start_span_in_context(name)
@@ -228,8 +224,6 @@ def get_trace(request_id: str) -> Trace:
 
     Returns:
         A :py:class:`mlflow.entities.Trace` objects with the given request ID.
-
-    :meta private:
     """
     return TRACE_BUFFER.get(request_id, None)
 
@@ -291,8 +285,6 @@ def search_traces(
         mlflow.search_traces(
             extract_fields=["non_dict_span.inputs", "non_dict_span.outputs"],
         )
-
-    :meta private:
     """
     # Check if pandas is installed early to avoid unnecessary computation
     if importlib.util.find_spec("pandas") is None:
@@ -353,8 +345,6 @@ def get_current_active_span():
 
     Returns:
         The current active span if exists, otherwise None.
-
-    :meta private:
     """
     otel_span = trace_api.get_current_span()
     # NonRecordingSpan is returned if a tracer is not instantiated.

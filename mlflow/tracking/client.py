@@ -419,8 +419,6 @@ class MlflowClient:
 
         Returns:
             The number of traces deleted.
-
-        :meta private:
         """
         return self._tracking_client.delete_traces(
             experiment_id=experiment_id,
@@ -448,8 +446,6 @@ class MlflowClient:
             client = MlflowClient()
             request_id = "12345678"
             trace = client.get_trace(request_id)
-
-        :meta private:
         """
         trace = self._tracking_client.get_trace(request_id)
         get_display_handler().display_traces([trace])
@@ -482,8 +478,6 @@ class MlflowClient:
             next page may be obtained via the ``token`` attribute of the returned object; however,
             some store implementations may not support pagination and thus the returned token would
             not be meaningful in such cases.
-
-        :meta private:
         """
         traces = self._tracking_client.search_traces(
             experiment_ids=experiment_ids,
@@ -555,8 +549,6 @@ class MlflowClient:
                 client.end_span(request_id=request_id, span_id=child_span.span_id)
 
                 client.end_trace(request_id)
-
-        :meta private:
         """
         # Validate no active trace is set in the global context. If there is an active trace,
         # the span created by this method will be a child span under the active trace rather than
@@ -641,8 +633,6 @@ class MlflowClient:
                 representing the status code defined in
                 :py:class:`SpanStatusCode <mlflow.entities.SpanStatusCode>`
                 e.g. ``"OK"``, ``"ERROR"``. The default status is OK.
-
-        :meta private:
         """
         trace_manager = InMemoryTraceManager.get_instance()
         root_span_id = trace_manager.get_root_span_id(request_id)
@@ -767,7 +757,7 @@ class MlflowClient:
             attributes: A dictionary of attributes to set on the span.
 
         Returns:
-            A :py:class:`mlflow.entities.Span` object representing the span.
+            An :py:class:`mlflow.entities.Span` object representing the span.
 
         Example:
 
@@ -799,8 +789,6 @@ class MlflowClient:
                 )
 
                 client.end_trace(request_id)
-
-        :meta private:
         """
         if not parent_id:
             raise MlflowException(
@@ -864,8 +852,6 @@ class MlflowClient:
                 representing the status code defined in
                 :py:class:`SpanStatusCode <mlflow.entities.SpanStatusCode>`
                 e.g. ``"OK"``, ``"ERROR"``. The default status is OK.
-
-        :meta private:
         """
         trace_manager = InMemoryTraceManager.get_instance()
         span = trace_manager.get_span_from_id(request_id, span_id)
@@ -957,8 +943,6 @@ class MlflowClient:
                 it will be truncated when stored.
             value: The string value of the tag. Must be at most 250 characters long, otherwise
                 it will be truncated when stored.
-
-        :meta private:
         """
         if key.startswith("mlflow."):
             raise MlflowException(
@@ -999,8 +983,6 @@ class MlflowClient:
             request_id: The ID of the trace to delete the tag from.
             key: The string key of the tag. Must be at most 250 characters long, otherwise
                 it will be truncated when stored.
-
-        :meta private:
         """
         # Trying to delete the tag on the active trace first
         with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
