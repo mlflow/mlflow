@@ -397,7 +397,7 @@ def log_model(
     )
 
 
-def _update_load_kwargs():
+def _get_load_kwargs():
     import sentence_transformers
 
     load_kwargs = {}
@@ -420,7 +420,7 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     """
     import sentence_transformers
 
-    load_kwargs = _update_load_kwargs()
+    load_kwargs = _get_load_kwargs()
     model = sentence_transformers.SentenceTransformer(path, **load_kwargs)
     model_config = model_config or {}
     task = model_config.get("task", None)
@@ -465,7 +465,7 @@ def load_model(model_uri: str, dst_path: Optional[str] = None):
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
 
-    load_kwargs = _update_load_kwargs()
+    load_kwargs = _get_load_kwargs()
     return sentence_transformers.SentenceTransformer(str(local_model_dir), **load_kwargs)
 
 
