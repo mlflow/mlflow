@@ -708,12 +708,8 @@ class PyFuncModel:
         return data, params
 
     def _update_dependencies_schema_in_prediction_context(self):
-        if (
-            self._model_meta
-            and (metadata := self._model_meta.metadata)
-            and (context := get_prediction_context())
-        ):
-            dependencies_schema = metadata.get("dependencies_schemas", {})
+        if self._model_meta and self._model_meta.metadata and (context := get_prediction_context()):
+            dependencies_schema = self._model_meta.metadata.get("dependencies_schemas", {})
             context.update(
                 dependencies_schema={
                     dependency: json.dumps(schema)
