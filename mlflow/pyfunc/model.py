@@ -473,11 +473,15 @@ def _load_context_model_and_signature(
     pyfunc_config = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
+    signature = mlflow.models.Model.load(model_path).signature
 
     if MODEL_CODE_PATH in pyfunc_config:
         conf_model_code_path = pyfunc_config.get(MODEL_CODE_PATH)
         model_code_path = os.path.join(model_path, os.path.basename(conf_model_code_path))
         python_model = _load_model_code_path(model_code_path, model_config)
+
+        if callable(python_model):
+            python_model = _FunctionPythonModel(python_model, signature=signature)
     else:
         python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
         if python_model_cloudpickle_version is None:
@@ -513,7 +517,6 @@ def _load_context_model_and_signature(
 
     context = PythonModelContext(artifacts=artifacts, model_config=model_config)
     python_model.load_context(context=context)
-    signature = mlflow.models.Model.load(model_path).signature
 
     return context, python_model, signature
 
