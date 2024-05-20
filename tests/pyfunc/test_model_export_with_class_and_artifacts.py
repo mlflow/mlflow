@@ -26,16 +26,20 @@ import mlflow.pyfunc
 import mlflow.pyfunc.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
+from mlflow.entities import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
+from mlflow.models.dependencies_schema import DependenciesSchemasType
 from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE
 from mlflow.models.resources import (
     DatabricksServingEndpoint,
     DatabricksVectorSearchIndex,
 )
 from mlflow.models.utils import _read_example
+from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.pyfunc.model import _load_pyfunc
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
 )
@@ -54,6 +58,7 @@ from tests.helper_functions import (
     assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
 )
+from tests.tracing.conftest import clear_singleton  # noqa: F401
 
 
 def get_model_class():
@@ -1824,6 +1829,88 @@ def test_pyfunc_as_code_with_dependencies():
             }
         ]
     }
+
+
+def test_pyfunc_as_code_with_dependencies_store_dependencies_schema_in_trace_in_serving(
+    clear_singleton, monkeypatch
+):
+    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model="tests/pyfunc/sample_code/code_with_dependencies.py",
+            artifact_path="model",
+            pip_requirements=["pandas"],
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "user_123"
+    expected_output = f"Input: {model_input}. Retriever called with ID: {model_input}. Output: 42."
+    with set_prediction_context(Context(request_id="1234")):
+        assert loaded_model.predict(model_input) == expected_output
+
+    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    expected_dependencies_schemas = {
+        DependenciesSchemasType.RETRIEVERS.value: [
+            {
+                "doc_uri": "doc-uri",
+                "name": "retriever",
+                "other_columns": ["column1", "column2"],
+                "primary_key": "primary-key",
+                "text_column": "text-column",
+            }
+        ]
+    }
+    assert reloaded_model.metadata["dependencies_schemas"] == expected_dependencies_schemas
+
+    trace_dict = pop_trace("1234")
+    trace = Trace.from_dict(trace_dict)
+    tags = trace.info.tags
+    assert trace.info.request_id == "1234"
+    assert tags[DependenciesSchemasType.RETRIEVERS.value] == json.dumps(
+        expected_dependencies_schemas[DependenciesSchemasType.RETRIEVERS.value]
+    )
+
+
+def test_pyfunc_as_code_with_dependencies_store_dependencies_schema_in_trace_in_serving_with_stream(
+    clear_singleton, monkeypatch
+):
+    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model="tests/pyfunc/sample_code/code_with_dependencies.py",
+            artifact_path="model",
+            pip_requirements=["pandas"],
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "user_123"
+    expected_output = f"Input: {model_input}. Retriever called with ID: {model_input}. Output: 42."
+    with set_prediction_context(Context(request_id="1234")):
+        assert next(loaded_model.predict_stream(model_input)) == expected_output
+
+    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    expected_dependencies_schemas = {
+        DependenciesSchemasType.RETRIEVERS.value: [
+            {
+                "doc_uri": "doc-uri",
+                "name": "retriever",
+                "other_columns": ["column1", "column2"],
+                "primary_key": "primary-key",
+                "text_column": "text-column",
+            }
+        ]
+    }
+    assert reloaded_model.metadata["dependencies_schemas"] == expected_dependencies_schemas
+
+    trace_dict = pop_trace("1234")
+    trace = Trace.from_dict(trace_dict)
+    tags = trace.info.tags
+    assert trace.info.request_id == "1234"
+    assert tags[DependenciesSchemasType.RETRIEVERS.value] == json.dumps(
+        expected_dependencies_schemas[DependenciesSchemasType.RETRIEVERS.value]
+    )
 
 
 def test_pyfunc_as_code_log_and_load_wrong_path():
