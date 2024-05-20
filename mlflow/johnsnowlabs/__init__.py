@@ -76,6 +76,7 @@ from mlflow.tracking.artifact_utils import (
 )
 from mlflow.utils import databricks_utils
 from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -760,9 +761,26 @@ def _load_pyfunc(path, spark=None):
         None.
 
     """
+    if not is_in_databricks_runtime():
+        popped_envs = {}
+        try:
+            # Johnsnowlab code uses incorrect logic to check if it is in Databricks Runtime
+            # if there is any environmental variable key contains 'DATABRICKS', it is regarded
+            # as the databricks runtime.
+            # to fix this, we popped these environmental variables temporarily as the patch.
+            for k in os.environ:
+                if 'DATABRICKS' in k:
+                    v = os.environ.pop(k)
+                    popped_envs[k] = v
+            spark = spark or _get_or_create_sparksession(path)
+        finally:
+            os.environ.update(popped_envs)
+    else:
+        spark = spark or _get_or_create_sparksession(path)
+
     return _PyFuncModelWrapper(
         _load_model(model_uri=path),
-        spark or _get_or_create_sparksession(path),
+        spark,
     )
 
 
