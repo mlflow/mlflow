@@ -33,7 +33,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
 )
 from mlflow.utils.process import ShellCommandException
-from mlflow.utils.rest_utils import MlflowHostCreds
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, validate_exit_status
 
@@ -107,7 +106,11 @@ def test_expected_tags_logged_when_using_conda():
 @pytest.mark.usefixtures("patch_user")
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
 @pytest.mark.parametrize("version", [None, "master", "git-commit"])
-def test_run_local_git_repo(local_git_repo, local_git_repo_uri, use_start_run, version):
+def test_run_local_git_repo(local_git_repo, local_git_repo_uri, use_start_run, version, monkeypatch):
+    monkeypatch.setenvs({
+        "DATABRICKS_HOST": "my-host",
+        "DATABRICKS_TOKEN": "my-token",
+    })
     if version is not None:
         uri = local_git_repo_uri + "#" + TEST_PROJECT_NAME
     else:
