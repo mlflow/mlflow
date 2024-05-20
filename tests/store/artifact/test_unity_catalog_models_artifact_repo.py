@@ -101,7 +101,11 @@ def _mock_temporary_creds_response(temporary_creds):
     return mock_response
 
 
-def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws():
+def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(monkeypatch):
+    monkeypatch.setenvs({
+        "DATABRICKS_HOST": "my-host",
+        "DATABRICKS_TOKEN": "my-token",
+    })
     artifact_location = "s3://blah_bucket/"
     fake_key_id = "fake_key_id"
     fake_secret_access_key = "fake_secret_access_key"
@@ -186,7 +190,11 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(m
         )
 
 
-def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp():
+def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(monkeypatch):
+    monkeypatch.setenvs({
+        "DATABRICKS_HOST": "my-host",
+        "DATABRICKS_TOKEN": "my-token",
+    })
     artifact_location = "gs://test_bucket/some/path"
     fake_oauth_token = "fake_session_token"
     temporary_creds = {
@@ -248,7 +256,11 @@ def test_uc_models_artifact_repo_uses_active_catalog_and_schema():
         assert models_repo.model_name == "main.default.MyModel"
 
 
-def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds():
+def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds(monkeypatch):
+    monkeypatch.setenvs({
+        "DATABRICKS_HOST": "my-host",
+        "DATABRICKS_TOKEN": "my-token",
+    })
     artifact_location = "abfss://filesystem@account.dfs.core.windows.net"
     fake_sas_token = "fake_session_token"
     temporary_creds = {
