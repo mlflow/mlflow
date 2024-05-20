@@ -385,6 +385,7 @@ import collections
 import functools
 import importlib
 import inspect
+import json
 import logging
 import os
 import signal
@@ -448,6 +449,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     LineageHeaderInfo,
     Notebook,
 )
+from mlflow.pyfunc.context import get_prediction_context
 from mlflow.pyfunc.model import (
     ChatModel,
     PythonModel,
@@ -705,6 +707,16 @@ class PyFuncModel:
             )
         return data, params
 
+    def _update_dependencies_schema_in_prediction_context(self):
+        if self._model_meta and self._model_meta.metadata and (context := get_prediction_context()):
+            dependencies_schema = self._model_meta.metadata.get("dependencies_schemas", {})
+            context.update(
+                dependencies_schema={
+                    dependency: json.dumps(schema)
+                    for dependency, schema in dependencies_schema.items()
+                }
+            )
+
     def predict(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncOutput:
         """
         Generates model predictions.
@@ -733,7 +745,7 @@ class PyFuncModel:
         Returns:
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
-
+        self._update_dependencies_schema_in_prediction_context()
         data, params = self._validate_prediction_input(data, params)
         if inspect.signature(self._predict_fn).parameters.get("params"):
             return self._predict_fn(data, params=params)
@@ -764,6 +776,7 @@ class PyFuncModel:
         if self._predict_stream_fn is None:
             raise MlflowException("This model does not support predict_stream method.")
 
+        self._update_dependencies_schema_in_prediction_context()
         data, params = self._validate_prediction_input(data, params)
         data = _convert_llm_input_data(data)
         if isinstance(data, list):
