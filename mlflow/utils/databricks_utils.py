@@ -842,6 +842,9 @@ def _get_databricks_creds_config(tracking_uri):
 
 
 def get_databricks_env_vars(tracking_uri):
+    if not mlflow.utils.uri.is_databricks_uri(tracking_uri):
+        return {}
+
     config = _get_databricks_creds_config(tracking_uri)
     # We set these via environment variables so that only the current profile is exposed, rather
     # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary
