@@ -1778,6 +1778,27 @@ def test_malformed_run(store):
             store.get_run(rid)
 
 
+def test_malformed_metric(store):
+    exp_id = FileStore.DEFAULT_EXPERIMENT_ID
+    run_id = store.create_run(
+        experiment_id=exp_id,
+        user_id="user",
+        start_time=0,
+        tags=[],
+        run_name="first name",
+    ).info.run_id
+    store.log_metric(run_id, Metric("test", 1, 0, 0))
+    with mock.patch(
+        "mlflow.store.tracking.file_store.read_file_lines", return_value=["0 1 0 2\n"]
+    ), pytest.raises(
+        MlflowException,
+        match=f"Metric 'test' is malformed; persisted metric data contained "
+        f"4 fields. Expected 2 or 3 fields. "
+        f"Experiment id: {exp_id}",
+    ):
+        store.get_metric_history(run_id, "test")
+
+
 def test_mismatching_experiment_id(store):
     exp_0 = store.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
     assert exp_0.experiment_id == FileStore.DEFAULT_EXPERIMENT_ID

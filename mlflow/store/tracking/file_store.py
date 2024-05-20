@@ -749,10 +749,10 @@ class FileStore(AbstractStore):
         return source_dirs[0], file_names
 
     @staticmethod
-    def _get_metric_from_file(parent_path, metric_name):
+    def _get_metric_from_file(parent_path, metric_name, exp_id):
         _validate_metric_name(metric_name)
         metric_objs = [
-            FileStore._get_metric_from_line(metric_name, line)
+            FileStore._get_metric_from_line(metric_name, line, exp_id)
             for line in read_file_lines(parent_path, metric_name)
         ]
         if len(metric_objs) == 0:
@@ -772,16 +772,19 @@ class FileStore(AbstractStore):
         parent_path, metric_files = self._get_run_files(run_info, "metric")
         metrics = []
         for metric_file in metric_files:
-            metrics.append(self._get_metric_from_file(parent_path, metric_file))
+            metrics.append(
+                self._get_metric_from_file(parent_path, metric_file, run_info.experiment_id)
+            )
         return metrics
 
     @staticmethod
-    def _get_metric_from_line(metric_name, metric_line):
+    def _get_metric_from_line(metric_name, metric_line, exp_id):
         metric_parts = metric_line.strip().split(" ")
         if len(metric_parts) != 2 and len(metric_parts) != 3:
             raise MlflowException(
                 f"Metric '{metric_name}' is malformed; persisted metric data contained "
-                f"{len(metric_parts)} fields. Expected 2 or 3 fields.",
+                f"{len(metric_parts)} fields. Expected 2 or 3 fields. "
+                f"Experiment id: {exp_id}",
                 databricks_pb2.INTERNAL_ERROR,
             )
         ts = int(metric_parts[0])
@@ -826,7 +829,7 @@ class FileStore(AbstractStore):
             return PagedList([], None)
         return PagedList(
             [
-                FileStore._get_metric_from_line(metric_key, line)
+                FileStore._get_metric_from_line(metric_key, line, run_info.experiment_id)
                 for line in read_file_lines(parent_path, metric_key)
             ],
             None,
