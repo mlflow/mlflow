@@ -768,12 +768,14 @@ def _load_pyfunc(path, spark=None):
         if not is_in_databricks_runtime() or is_in_databricks_model_serving_environment():
             # Johnsnowlab code uses incorrect logic to check if it is in Databricks Runtime
             # if there is any environmental variable key contains 'DATABRICKS', it is regarded
-            # as the databricks runtime.
-            # to fix this, we popped these environmental variables temporarily as the patch.
+            # as the databricks runtime, see
+            # https://github.com/JohnSnowLabs/nlu/blob/909a4cc6d873e25233503ad2aa4592160d5b8c7e/nlu/__init__.py#L328
+            # and
+            # https://github.com/JohnSnowLabs/johnsnowlabs/blob/705f2772b8e60e40317931e63c86031bddd5c8cd/johnsnowlabs/utils/env_utils.py#L106
+            # to fix this, we popped these environmental variables temporarily.
             for k in os.environ:
                 if 'DATABRICKS' in k:
-                    v = os.environ.pop(k)
-                    popped_envs[k] = v
+                    popped_envs[k] = os.environ.pop(k)
         return _PyFuncModelWrapper(
             _load_model(model_uri=path),
             spark or _get_or_create_sparksession(path),
