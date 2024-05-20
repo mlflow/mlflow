@@ -351,11 +351,14 @@ def test_store_use_presigned_url_store_when_disabled(monkeypatch):
 
 
 def test_store_use_presigned_url_store_when_enabled(monkeypatch):
-    monkeypatch.setenv(MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.name, "True")
-    with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"):
-        uc_store = UnityCatalogModelsArtifactRepository(
-            "models:/catalog.schema.model/1", "databricks-uc"
-        )
-        presigned_store = uc_store._get_artifact_repo()
+    monkeypatch.setenvs({
+        MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.name: "True",
+        "DATABRICKS_HOST": "my-host",
+        "DATABRICKS_TOKEN": "my-token",
+    })
+    uc_store = UnityCatalogModelsArtifactRepository(
+        "models:/catalog.schema.model/1", "databricks-uc"
+    )
+    presigned_store = uc_store._get_artifact_repo()
 
-        assert type(presigned_store) is PresignedUrlArtifactRepository
+    assert type(presigned_store) is PresignedUrlArtifactRepository
