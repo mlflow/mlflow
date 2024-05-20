@@ -28,8 +28,6 @@ _logger = logging.getLogger(__name__)
 class SpanType:
     """
     Predefined set of span types.
-
-    :meta private:
     """
 
     LLM = "LLM"
@@ -52,8 +50,6 @@ class Span:
     This Span class represents immutable span data that is already finished and persisted.
     The "live" span that is being created and updated during the application runtime is
     represented by the :py:class:`LiveSpan <mlflow.entities.LiveSpan>` subclass.
-
-    :meta private:
     """
 
     def __init__(self, otel_span: OTelReadableSpan):
@@ -238,8 +234,6 @@ class LiveSpan(Span):
     The live spans are those being created and updated during the application runtime.
     When users start a new span using the tracing APIs within their code, this live span
     object is returned to get and set the span attributes, status, events, and etc.
-
-    :meta private:
     """
 
     def __init__(
@@ -369,7 +363,6 @@ class NoOpSpan(Span):
             span.set_inputs({"x": 1})
             # Do something
 
-    :meta private:
     """
 
     def __init__(self, *args, **kwargs):
@@ -438,8 +431,6 @@ class _SpanAttributesRegistry:
     Therefore, we serialize all values into JSON string before storing them in the span.
     This class provides simple getter and setter methods to interact with the span attributes
     without worrying about the serde process.
-
-    :meta private:
     """
 
     def __init__(self, otel_span: OTelSpan):
