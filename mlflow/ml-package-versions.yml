@@ -743,5 +743,6 @@ promptflow:
     requirements:
       # Requirements to run sparkudf predict test
       ">= 0.0.0": ["pyspark", "jinja2"]
+      ">= 1.11.0": ["openai>=1"]
     run: |
       pytest tests/promptflow/test_promptflow_model_export.py
