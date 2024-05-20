@@ -22,8 +22,6 @@ class TraceInfo(_MlflowObject):
           for immutable values like run ID associated with the trace.
         tags: Tags associated with the trace. Tags are designed for mutable values like trace name,
           that can be updated by the users after the trace is created, unlike request_metadata.
-
-    :meta private:
     """
 
     request_id: str

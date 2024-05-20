@@ -10,10 +10,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
 class SpanStatusCode(str, Enum):
-    """Enum for status code of a span
-
-    :meta private:
-    """
+    """Enum for status code of a span"""
 
     # Uses the same set of status codes as OpenTelemetry
     UNSET = "UNSET"
@@ -32,8 +29,6 @@ class SpanStatus:
             representation of it like "OK", "ERROR".
         description: Description of the status. This should be only set when the status
             is ERROR, otherwise it will be ignored.
-
-    :meta private:
     """
 
     status_code: SpanStatusCode
