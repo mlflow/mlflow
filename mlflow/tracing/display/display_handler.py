@@ -38,7 +38,7 @@ class IPythonTraceDisplayHandler:
 
             # Register a post-run cell display hook to display traces
             # after the cell has executed.
-            get_ipython().events.register("post_run_cell", self.display_traces_post_run)
+            get_ipython().events.register("post_run_cell", self._display_traces_post_run)
         except Exception:
             # swallow exceptions. this function is called as
             # a side-effect in a few other functions (e.g. log_trace,
@@ -46,7 +46,7 @@ class IPythonTraceDisplayHandler:
             # the core functionality if the display fails.
             _logger.debug("Failed to register post-run cell display hook", exc_info=True)
 
-    def display_traces_post_run(self):
+    def _display_traces_post_run(self):
         # this should do nothing if not in an IPython environment
         try:
             from IPython import get_ipython
