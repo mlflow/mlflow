@@ -25,8 +25,8 @@ from mlflow.utils.uri import (
 )
 
 # The following constants are defined as @developer_stable
-LIST_API_ENDPOINT = "/api/2.0/fs/directories"
-GET_STATUS_ENDPOINT = "/api/2.0/fs/files"
+DIR_API_ENDPOINT = "/api/2.0/fs/directories"
+FILE_API_ENDPOINT = "/api/2.0/fs/files"
 DOWNLOAD_CHUNK_SIZE = 1024
 
 
@@ -64,7 +64,7 @@ class VolumesRestArtifactRepository(ArtifactRepository):
     def _volumes_list_api(self, path):
         host_creds = self.get_host_creds()
         return http_request(
-            host_creds=host_creds, endpoint=f"{LIST_API_ENDPOINT}{path}", method="GET"
+            host_creds=host_creds, endpoint=f"{DIR_API_ENDPOINT}{path}", method="GET"
         )
 
     def _volumes_download(self, output_path, endpoint):
@@ -82,7 +82,7 @@ class VolumesRestArtifactRepository(ArtifactRepository):
 
     def _volumes_is_dir(self, volume_path):
         response = self._databricks_api_request(
-            endpoint=f"{LIST_API_ENDPOINT}{volume_path}", method="HEAD"
+            endpoint=f"{DIR_API_ENDPOINT}{volume_path}", method="HEAD"
         )
         try:
             return response.status_code == 200
@@ -96,7 +96,7 @@ class VolumesRestArtifactRepository(ArtifactRepository):
         )
 
     def _get_volumes_endpoint(self, artifact_path):
-        return f"{GET_STATUS_ENDPOINT}{self._get_volumes_path(artifact_path)}"
+        return f"{FILE_API_ENDPOINT}{self._get_volumes_path(artifact_path)}"
 
     def log_artifact(self, local_file, artifact_path=None):
         basename = os.path.basename(local_file)

@@ -191,7 +191,10 @@ def verify_rest_response(response, endpoint):
             "API request to endpoint was successful but the response body was not "
             "in a valid JSON format"
         )
-        raise MlflowException(f"{base_msg}. Response body: '{response.text}'")
+        # no longer raising an exception for a succesfful operation
+        # consider adding warning as alternative?
+        # raise MlflowException(f"{base_msg}. Response body: '{response.text}'")
+        pass
 
     return response
 
