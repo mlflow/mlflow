@@ -171,7 +171,19 @@ def is_in_databricks_job():
 
 
 def is_in_databricks_model_serving_environment():
-    return "IS_IN_DATABRICKS_MODEL_SERVING_ENV" in os.environ
+    """
+    Check if the code is running in Databricks Model Serving environment.
+    The environment variable set by Databricks when starting the serving container.
+    """
+    val = (
+        os.environ.get("IS_IN_DB_MODEL_SERVING_ENV")
+        # Checking the old env var name for backward compatibility. The env var was renamed once
+        # to fix a model loading issue, but we still need to support it for a while.
+        # TODO: Remove this once the new env var is fully rolled out.
+        or os.environ.get("IS_IN_DATABRICKS_MODEL_SERVING_ENV")
+        or "false"
+    )
+    return val.lower() == "true"
 
 
 # this should only be the case when we are in model serving environment
