@@ -20,8 +20,6 @@ class TraceInfo(_MlflowObject):
         status: status of the trace.
         request_metadata: request metadata associated with the trace.
         tags: tags associated with the trace.
-
-    :meta private:
     """
 
     request_id: str
