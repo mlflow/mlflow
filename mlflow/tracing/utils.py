@@ -187,7 +187,7 @@ def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
     return context.request_id
 
 
-def maybe_get_dependencies_schema() -> Optional[Dict[str, str]]:
+def maybe_get_dependencies_schema() -> Optional[dict]:
     context = _try_get_prediction_context()
     if context and context.dependencies_schema:
         return context.dependencies_schema
