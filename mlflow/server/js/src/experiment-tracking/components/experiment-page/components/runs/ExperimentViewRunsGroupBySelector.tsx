@@ -8,21 +8,26 @@ import {
   ListBorderIcon,
   SearchIcon,
   Spinner,
+  Tag,
   Tooltip,
   XCircleFillIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { compact, isEmpty, keys, uniq, values } from 'lodash';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { compact, isEmpty, isString, keys, uniq, values } from 'lodash';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MLFLOW_INTERNAL_PREFIX } from '../../../../../common/utils/TagUtils';
-import { createRunsGroupByKey, parseRunsGroupByKey } from '../../utils/experimentPage.group-row-utils';
+import {
+  RunsGroupByConfig,
+  createRunsGroupByKey,
+  normalizeRunsGroupByKey,
+} from '../../utils/experimentPage.group-row-utils';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { RunGroupingAggregateFunction, RunGroupingMode } from '../../utils/experimentPage.row-types';
 
 export interface ExperimentViewRunsGroupBySelectorProps {
   runsData: ExperimentRunsSelectorResult;
-  groupBy: string;
-  onChange: (newGroupByKey: string) => void;
+  groupBy: RunsGroupByConfig | null | string;
+  onChange: (newGroupByConfig: RunsGroupByConfig | null) => void;
 }
 
 const messages = defineMessages({
@@ -77,8 +82,8 @@ const GroupBySelectorBody = ({
   onChange,
   groupBy,
 }: {
-  groupBy: string;
-  onChange: (newGroupByKey: string) => void;
+  groupBy: RunsGroupByConfig;
+  onChange: (newGroupBy: RunsGroupByConfig | null) => void;
   runsData: ExperimentRunsSelectorResult;
 }) => {
   const intl = useIntl();
@@ -101,11 +106,7 @@ const GroupBySelectorBody = ({
       ),
     [runsData.tagsList],
   );
-  const {
-    aggregateFunction = RunGroupingAggregateFunction.Average,
-    groupByData,
-    mode,
-  } = parseRunsGroupByKey(groupBy) || {};
+  const { aggregateFunction = RunGroupingAggregateFunction.Average, groupByKeys = [] } = groupBy || {};
 
   const currentAggregateFunctionLabel = {
     min: minimumLabel,
@@ -113,7 +114,6 @@ const GroupBySelectorBody = ({
     average: averageLabel,
   }[aggregateFunction];
 
-  const groupByValue = groupByData || '';
   const { theme } = useDesignSystemTheme();
   const [filter, setFilter] = useState('');
 
@@ -133,6 +133,51 @@ const GroupBySelectorBody = ({
 
   const hasAnyResults = filteredTagNames.length > 0 || filteredParamNames.length > 0 || attributesMatchFilter;
 
+  const groupByToggle = useCallback(
+    (mode: RunGroupingMode, groupByData: string, checked: boolean) => {
+      if (checked) {
+        // Scenario #1: user selected new grouping key
+        const newGroupByKeys = [...groupByKeys];
+
+        // If the key is already present, we should not add it again
+        if (!newGroupByKeys.some((key) => key.mode === mode && key.groupByData === groupByData)) {
+          newGroupByKeys.push({ mode, groupByData });
+        }
+
+        onChange({
+          aggregateFunction,
+          groupByKeys: newGroupByKeys,
+        });
+      } else {
+        // Scenario #2: user deselected a grouping key
+        const newGroupByKeys = groupByKeys.filter((key) => !(key.mode === mode && key.groupByData === groupByData));
+
+        // If no keys are left, we should reset the group by and set it to null
+        if (!newGroupByKeys.length) {
+          onChange(null);
+          return;
+        }
+        onChange({
+          aggregateFunction,
+          groupByKeys: newGroupByKeys,
+        });
+      }
+    },
+    [aggregateFunction, groupByKeys, onChange],
+  );
+
+  const aggregateFunctionChanged = (aggregateFunctionString: string) => {
+    if (values<string>(RunGroupingAggregateFunction).includes(aggregateFunctionString)) {
+      const newFunction = aggregateFunctionString as RunGroupingAggregateFunction;
+      const newGroupBy: RunsGroupByConfig = { ...groupBy, aggregateFunction: newFunction };
+      onChange(newGroupBy);
+    }
+  };
+
+  const isGroupedBy = (mode: RunGroupingMode, groupByData: string) => {
+    return groupByKeys.some((key) => key.mode === mode && key.groupByData === groupByData);
+  };
+
   return (
     <>
       <div css={{ display: 'flex', gap: theme.spacing.xs, padding: theme.spacing.sm }}>
@@ -149,7 +194,9 @@ const GroupBySelectorBody = ({
               firstItem?.focus();
               return;
             }
-            e.stopPropagation();
+            if (e.key !== 'Escape') {
+              e.stopPropagation();
+            }
           }}
         />
         <DropdownMenu.Root>
@@ -174,27 +221,27 @@ const GroupBySelectorBody = ({
             </DropdownMenu.Trigger>
           </Tooltip>
           <DropdownMenu.Content align="start" side="right">
-            <DropdownMenu.RadioGroup value={groupBy} onValueChange={onChange}>
+            <DropdownMenu.RadioGroup value={aggregateFunction} onValueChange={aggregateFunctionChanged}>
               <DropdownMenu.RadioItem
-                disabled={!groupByValue}
-                value={createRunsGroupByKey(mode, groupByValue, RunGroupingAggregateFunction.Min) || minimumLabel}
-                key={createRunsGroupByKey(mode, groupByValue, RunGroupingAggregateFunction.Min) || minimumLabel}
+                disabled={!groupByKeys.length}
+                value={RunGroupingAggregateFunction.Min}
+                key={RunGroupingAggregateFunction.Min}
               >
                 <DropdownMenu.ItemIndicator />
                 {minimumLabel}
               </DropdownMenu.RadioItem>
               <DropdownMenu.RadioItem
-                disabled={!groupByValue}
-                value={createRunsGroupByKey(mode, groupByValue, RunGroupingAggregateFunction.Max) || maximumLabel}
-                key={createRunsGroupByKey(mode, groupByValue, RunGroupingAggregateFunction.Max) || maximumLabel}
+                disabled={!groupByKeys.length}
+                value={RunGroupingAggregateFunction.Max}
+                key={RunGroupingAggregateFunction.Max}
               >
                 <DropdownMenu.ItemIndicator />
                 {maximumLabel}
               </DropdownMenu.RadioItem>
               <DropdownMenu.RadioItem
-                disabled={!groupByValue}
-                value={createRunsGroupByKey(mode, groupByValue, RunGroupingAggregateFunction.Average) || averageLabel}
-                key={createRunsGroupByKey(mode, groupByValue, RunGroupingAggregateFunction.Average) || averageLabel}
+                disabled={!groupByKeys.length}
+                value={RunGroupingAggregateFunction.Average}
+                key={RunGroupingAggregateFunction.Average}
               >
                 <DropdownMenu.ItemIndicator />
                 {averageLabel}
@@ -204,84 +251,85 @@ const GroupBySelectorBody = ({
         </DropdownMenu.Root>
       </div>
       <DropdownMenu.Group css={{ maxHeight: 400, overflowY: 'scroll' }}>
-        <DropdownMenu.RadioGroup value={groupBy} onValueChange={onChange}>
-          {attributesMatchFilter && (
-            <>
-              <DropdownMenu.Label>
-                <FormattedMessage {...messages.attributes} />
-              </DropdownMenu.Label>
-              {datasetLabel.toLowerCase().includes(filter.toLowerCase()) && (
-                <DropdownMenu.RadioItem
-                  value={createRunsGroupByKey(RunGroupingMode.Dataset, 'dataset', aggregateFunction)}
-                  key={createRunsGroupByKey(RunGroupingMode.Dataset, 'dataset', aggregateFunction)}
-                  ref={attributeElementRef}
+        {attributesMatchFilter && (
+          <>
+            <DropdownMenu.Label>
+              <FormattedMessage {...messages.attributes} />
+            </DropdownMenu.Label>
+            {datasetLabel.toLowerCase().includes(filter.toLowerCase()) && (
+              <DropdownMenu.CheckboxItem
+                checked={isGroupedBy(RunGroupingMode.Dataset, 'dataset')}
+                key={createRunsGroupByKey(RunGroupingMode.Dataset, 'dataset', aggregateFunction)}
+                ref={attributeElementRef}
+                onCheckedChange={(checked) => groupByToggle(RunGroupingMode.Dataset, 'dataset', checked)}
+              >
+                <DropdownMenu.ItemIndicator />
+                {datasetLabel}
+              </DropdownMenu.CheckboxItem>
+            )}
+            <DropdownMenu.Separator />
+          </>
+        )}
+        {filteredTagNames.length > 0 && (
+          <>
+            <DropdownMenu.Label>
+              <FormattedMessage {...messages.tags} />
+            </DropdownMenu.Label>
+
+            {filteredTagNames.map((tagName, index) => {
+              const groupByKey = createRunsGroupByKey(RunGroupingMode.Tag, tagName, aggregateFunction);
+              return (
+                <DropdownMenu.CheckboxItem
+                  checked={isGroupedBy(RunGroupingMode.Tag, tagName)}
+                  key={groupByKey}
+                  ref={index === 0 ? tagElementRef : undefined}
+                  onCheckedChange={(checked) => groupByToggle(RunGroupingMode.Tag, tagName, checked)}
                 >
                   <DropdownMenu.ItemIndicator />
-                  {datasetLabel}
-                </DropdownMenu.RadioItem>
-              )}
-              <DropdownMenu.Separator />
-            </>
-          )}
-          {filteredTagNames.length > 0 && (
-            <>
-              <DropdownMenu.Label>
-                <FormattedMessage {...messages.tags} />
-              </DropdownMenu.Label>
+                  {tagName}
+                </DropdownMenu.CheckboxItem>
+              );
+            })}
+            {!tagNames.length && (
+              <DropdownMenu.Item disabled>
+                <DropdownMenu.ItemIndicator /> <FormattedMessage {...messages.noTags} />
+              </DropdownMenu.Item>
+            )}
+            <DropdownMenu.Separator />
+          </>
+        )}
+        {filteredParamNames.length > 0 && (
+          <>
+            <DropdownMenu.Label>
+              <FormattedMessage {...messages.params} />
+            </DropdownMenu.Label>
 
-              {filteredTagNames.map((tagName, index) => {
-                const groupByKey = createRunsGroupByKey(RunGroupingMode.Tag, tagName, aggregateFunction);
-                return (
-                  <DropdownMenu.RadioItem
-                    value={groupByKey}
-                    key={groupByKey}
-                    ref={index === 0 ? tagElementRef : undefined}
-                  >
-                    <DropdownMenu.ItemIndicator />
-                    {tagName}
-                  </DropdownMenu.RadioItem>
-                );
-              })}
-              {!tagNames.length && (
-                <DropdownMenu.Item disabled>
-                  <DropdownMenu.ItemIndicator /> <FormattedMessage {...messages.noTags} />
-                </DropdownMenu.Item>
-              )}
-              <DropdownMenu.Separator />
-            </>
-          )}
-          {filteredParamNames.length > 0 && (
-            <>
-              <DropdownMenu.Label>
-                <FormattedMessage {...messages.params} />
-              </DropdownMenu.Label>
-
-              {filteredParamNames.map((paramName, index) => {
-                const groupByKey = createRunsGroupByKey(RunGroupingMode.Param, paramName, aggregateFunction);
-                return (
-                  <DropdownMenu.RadioItem
-                    value={groupByKey}
-                    key={groupByKey}
-                    ref={index === 0 ? paramElementRef : undefined}
-                  >
-                    <DropdownMenu.ItemIndicator />
-                    {paramName}
-                  </DropdownMenu.RadioItem>
-                );
-              })}
-              {!runsData.paramKeyList.length && (
-                <DropdownMenu.Item disabled>
-                  <FormattedMessage {...messages.noParams} />
-                </DropdownMenu.Item>
-              )}
-            </>
-          )}
-          {!hasAnyResults && (
-            <DropdownMenu.Item disabled>
-              <FormattedMessage {...messages.noResults} />
-            </DropdownMenu.Item>
-          )}
-        </DropdownMenu.RadioGroup>
+            {filteredParamNames.map((paramName, index) => {
+              const groupByKey = createRunsGroupByKey(RunGroupingMode.Param, paramName, aggregateFunction);
+              return (
+                <DropdownMenu.CheckboxItem
+                  checked={isGroupedBy(RunGroupingMode.Param, paramName)}
+                  key={groupByKey}
+                  ref={index === 0 ? paramElementRef : undefined}
+                  onCheckedChange={(checked) => groupByToggle(RunGroupingMode.Param, paramName, checked)}
+                >
+                  <DropdownMenu.ItemIndicator />
+                  {paramName}
+                </DropdownMenu.CheckboxItem>
+              );
+            })}
+            {!runsData.paramKeyList.length && (
+              <DropdownMenu.Item disabled>
+                <FormattedMessage {...messages.noParams} />
+              </DropdownMenu.Item>
+            )}
+          </>
+        )}
+        {!hasAnyResults && (
+          <DropdownMenu.Item disabled>
+            <FormattedMessage {...messages.noResults} />
+          </DropdownMenu.Item>
+        )}
       </DropdownMenu.Group>
     </>
   );
@@ -294,16 +342,20 @@ export const ExperimentViewRunsGroupBySelector = React.memo(
   ({
     runsData,
     groupBy,
-    onChange,
     isLoading,
+    onChange,
   }: ExperimentViewRunsGroupBySelectorProps & {
-    groupBy: string;
-    onChange: (newGroupByKey: string) => void;
     isLoading: boolean;
   }) => {
-    const intl = useIntl();
     const { theme } = useDesignSystemTheme();
-    const { mode, groupByData } = parseRunsGroupByKey(groupBy) || {};
+
+    // In case we encounter deprecated string-based group by descriptor
+    const normalizedGroupBy = normalizeRunsGroupByKey(groupBy) || {
+      aggregateFunction: RunGroupingAggregateFunction.Average,
+      groupByKeys: [],
+    };
+
+    const isGroupedBy = normalizedGroupBy && !isEmpty(normalizedGroupBy.groupByKeys);
 
     return (
       <DropdownMenu.Root modal={false}>
@@ -315,12 +367,13 @@ export const ExperimentViewRunsGroupBySelector = React.memo(
             data-testid="column-selection-dropdown"
             endIcon={<ChevronDownIcon />}
           >
-            {groupByData ? (
+            {isGroupedBy ? (
               <FormattedMessage
-                defaultMessage="Group: {value}"
+                defaultMessage="Group by: {value}"
                 description="Experiment page > group by runs control > trigger button label > with value"
                 values={{
-                  value: mode === RunGroupingMode.Dataset ? intl.formatMessage(messages.dataset) : groupByData,
+                  value: normalizedGroupBy.groupByKeys[0].groupByData,
+                  // value: mode === RunGroupingMode.Dataset ? intl.formatMessage(messages.dataset) : groupByData,
                 }}
               />
             ) : (
@@ -328,6 +381,9 @@ export const ExperimentViewRunsGroupBySelector = React.memo(
                 defaultMessage="Group by"
                 description="Experiment page > group by runs control > trigger button label > empty"
               />
+            )}
+            {normalizedGroupBy.groupByKeys.length > 1 && (
+              <Tag css={{ marginLeft: 4, marginRight: 0 }}>+{normalizedGroupBy.groupByKeys.length - 1}</Tag>
             )}
             {groupBy && (
               <XCircleFillIcon
@@ -343,7 +399,7 @@ export const ExperimentViewRunsGroupBySelector = React.memo(
                 }}
                 role="button"
                 onClick={() => {
-                  onChange('');
+                  onChange(null);
                 }}
                 onPointerDownCapture={(e) => {
                   // Prevents the dropdown from opening when clearing
@@ -359,7 +415,7 @@ export const ExperimentViewRunsGroupBySelector = React.memo(
               <Spinner />
             </DropdownMenu.Item>
           ) : (
-            <GroupBySelectorBody groupBy={groupBy} onChange={onChange} runsData={runsData} />
+            <GroupBySelectorBody groupBy={normalizedGroupBy} onChange={onChange} runsData={runsData} />
           )}
         </DropdownMenu.Content>
       </DropdownMenu.Root>

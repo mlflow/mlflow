@@ -34,7 +34,7 @@ import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
-import type { ModelEntity } from '../../experiment-tracking/types';
+import type { ModelEntity, RunInfoEntity } from '../../experiment-tracking/types';
 import { ReduxState } from '../../redux-types';
 
 type ModelVersionPageImplProps = WithRouterNextProps & {
@@ -256,12 +256,12 @@ const mapStateToProps = (state: ReduxState, ownProps: WithRouterNextProps<{ mode
   const { version } = ownProps.params;
   const modelVersion = getModelVersion(state, modelName, version);
   const schema = getModelVersionSchemas(state, modelName, version);
-  let runInfo = null;
+  let runInfo: RunInfoEntity | null = null;
   if (modelVersion && !modelVersion.run_link) {
     runInfo = getRunInfo(modelVersion && modelVersion.run_id, state);
   }
-  const tags = runInfo && getRunTags(runInfo.getRunUuid(), state);
-  const runDisplayName = tags && Utils.getRunDisplayName(runInfo, runInfo.getRunUuid());
+  const tags = runInfo && getRunTags(runInfo.runUuid, state);
+  const runDisplayName = tags && runInfo && Utils.getRunDisplayName(runInfo, runInfo.runUuid);
   const modelEntity = state.entities.modelByName[modelName];
   const { apis } = state;
   return {
@@ -290,3 +290,5 @@ const mapDispatchToProps = {
 const ModelVersionPageWithRouter = withRouterNext(connect(mapStateToProps, mapDispatchToProps)(ModelVersionPageImpl));
 
 export const ModelVersionPage = withErrorBoundary(ErrorUtils.mlflowServices.MODEL_REGISTRY, ModelVersionPageWithRouter);
+
+export default ModelVersionPage;

@@ -6,7 +6,10 @@ from mlflow.protos.service_pb2 import TraceStatus as ProtoTraceStatus
 
 
 class TraceStatus(str, Enum):
-    """Enum for status of an :py:class:`mlflow.entities.TraceInfo`."""
+    """Enum for status of an :py:class:`mlflow.entities.TraceInfo`.
+
+    :meta private:
+    """
 
     UNSPECIFIED = "TRACE_STATUS_UNSPECIFIED"
     OK = "OK"
@@ -18,7 +21,7 @@ class TraceStatus(str, Enum):
 
     @staticmethod
     def from_proto(proto_status):
-        return ProtoTraceStatus.Name(proto_status)
+        return TraceStatus(ProtoTraceStatus.Name(proto_status))
 
     @staticmethod
     def from_otel_status(otel_status: trace_api.Status):

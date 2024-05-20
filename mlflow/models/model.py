@@ -910,6 +910,7 @@ def update_model_requirements(
 __mlflow_model__ = None
 
 
+@experimental
 def set_model(model):
     """
     When logging model as code, this function can be used to set the model object

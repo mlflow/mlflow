@@ -37,7 +37,7 @@ pytorch:
 
   models:
     minimum: "1.9.0"
-    maximum: "2.2.2"
+    maximum: "2.3.0"
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
@@ -47,7 +47,7 @@ pytorch:
 
   autologging:
     minimum: "1.9.0"
-    maximum: "2.2.2"
+    maximum: "2.3.0"
     requirements:
       ">= 0.0.0": ["tensorboard"]
     run: |
@@ -62,7 +62,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.9.0"
-    maximum: "2.2.2"
+    maximum: "2.2.4"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
       # torchmetrics==0.8.0 released a breaking change for versions 1.3 and 1.4 where
@@ -86,7 +86,7 @@ keras:
 
   models:
     minimum: "3.0.2"
-    maximum: "3.2.1"
+    maximum: "3.3.3"
     python:
       "== dev": "3.9"
     requirements:
@@ -97,7 +97,7 @@ keras:
 
   autologging:
     minimum: "3.0.2"
-    maximum: "3.2.1"
+    maximum: "3.3.3"
     python:
       "== dev": "3.9"
     requirements:
@@ -218,7 +218,7 @@ catboost:
 
   models:
     minimum: "1.0.0"
-    maximum: "1.2.3"
+    maximum: "1.2.5"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
       "< 1.1": ["pandas<2"]
@@ -262,7 +262,7 @@ fastai:
 
   models:
     minimum: "2.4.1"
-    maximum: "2.7.14"
+    maximum: "2.7.15"
     requirements:
       "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
       ">= 2.8.0": ["torch", "torchvision"]
@@ -271,7 +271,7 @@ fastai:
 
   autologging:
     minimum: "2.4.1"
-    maximum: "2.7.14"
+    maximum: "2.7.15"
     requirements:
       "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
       ">= 2.8.0": ["torch", "torchvision"]
@@ -333,7 +333,7 @@ statsmodels:
 
   models:
     minimum: "0.11.1"
-    maximum: "0.14.1"
+    maximum: "0.14.2"
     python:
       "== dev": "3.9"
     requirements:
@@ -343,7 +343,7 @@ statsmodels:
 
   autologging:
     minimum: "0.11.1"
-    maximum: "0.14.1"
+    maximum: "0.14.2"
     python:
       "== dev": "3.9"
     requirements:
@@ -509,7 +509,7 @@ h2o:
     pip_release: "h2o"
   models:
     minimum: "3.40.0.1"
-    maximum: "3.46.0.1"
+    maximum: "3.46.0.2"
     run: |
       pytest tests/h2o
 
@@ -518,7 +518,7 @@ shap:
     pip_release: "shap"
   models:
     minimum: "0.41.0"
-    maximum: "0.45.0"
+    maximum: "0.45.1"
     requirements:
       "<= 0.41.0": ["numpy<1.24.0"]
     run: |
@@ -547,7 +547,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.25.1"
-    maximum: "4.39.3"
+    maximum: "4.41.0"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -584,7 +584,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.25.1"
-    maximum: "4.39.3"
+    maximum: "4.41.0"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -621,7 +621,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "0.27.2"
-    maximum: "1.19.0"
+    maximum: "1.30.1"
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
     run: |
@@ -634,7 +634,7 @@ langchain:
       pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/langchain
   models:
     minimum: "0.0.244"
-    maximum: "0.1.16"
+    maximum: "0.2.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -650,20 +650,24 @@ langchain:
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
         ]
     run: |
+      LANGCHAIN_NEW=$(python -c "from packaging.version import Version;import langchain;print(Version(langchain.__version__) >= Version('0.0.267'))")
       pytest tests/langchain/test_langchain_model_export.py
       pytest tests/langchain/test_langchain_databricks_dependency_extraction.py
+      if [[ $LANGCHAIN_NEW = "True" ]]; then
+        pytest tests/langchain/test_langchain_tracer.py
+      fi
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
-      LANGCHAIN_NEW=$(python -c "from packaging.version import Version;import langchain;print(Version(langchain.__version__) >= Version('0.0.267'))")
       if [[ $PYDANTIC_VERSION == 1.* && $LANGCHAIN_NEW = "True" ]]; then
         pip install 'pydantic>2'
         echo "Testing langchain model export with pydantic v2"
         pytest tests/langchain/test_langchain_model_export.py
+        pytest tests/langchain/test_langchain_tracer.py
         pytest tests/langchain/test_langchain_databricks_dependency_extraction.py
       fi
   autologging:
     minimum: "0.1.4"
-    maximum: "0.1.16"
+    maximum: "0.2.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -698,7 +702,7 @@ sentence_transformers:
       pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
     minimum: "2.2.2"
-    maximum: "2.6.1"
+    maximum: "2.7.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -716,7 +720,7 @@ johnsnowlabs:
     pip_release: "johnsnowlabs"
   models:
     minimum: "4.4.6"
-    maximum: "5.3.4"
+    maximum: "5.3.5"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
       "< 5.2.8": ["pyspark<3.4"]
@@ -735,7 +739,7 @@ promptflow:
       pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow
   models:
     minimum: "1.3.0"
-    maximum: "1.8.0"
+    maximum: "1.10.1"
     requirements:
       # Requirements to run sparkudf predict test
       ">= 0.0.0": ["pyspark", "jinja2"]

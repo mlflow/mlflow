@@ -2,9 +2,9 @@ import { assign, entries, isNil, keys, omitBy, pick } from 'lodash';
 import { useMemo } from 'react';
 import { NavigateOptions, useParams, useSearchParams } from '../../../../common/utils/RoutingUtils';
 import {
-  ExperimentPageSearchFacetsStateV2,
-  createExperimentPageSearchFacetsStateV2,
-} from '../models/ExperimentPageSearchFacetsStateV2';
+  ExperimentPageSearchFacetsState,
+  createExperimentPageSearchFacetsState,
+} from '../models/ExperimentPageSearchFacetsState';
 import {
   deserializeFieldsFromQueryString,
   serializeFieldsToQueryString,
@@ -22,7 +22,7 @@ export const EXPERIMENT_PAGE_QUERY_PARAM_KEYS = [
 
 export type ExperimentPageQueryParams = any;
 
-export type ExperimentQueryParamsSearchFacets = ExperimentPageSearchFacetsStateV2 & {
+export type ExperimentQueryParamsSearchFacets = ExperimentPageSearchFacetsState & {
   experimentIds?: string[];
 };
 
@@ -81,10 +81,10 @@ export const useExperimentPageSearchFacets = (): [ExperimentQueryParamsSearchFac
         },
         isNil,
       ),
-    ) as ExperimentPageSearchFacetsStateV2;
+    ) as ExperimentPageSearchFacetsState;
 
     // If not all fields are provided, fill the gaps with default values
-    return assign(createExperimentPageSearchFacetsStateV2(), deserializedFields);
+    return assign(createExperimentPageSearchFacetsState(), deserializedFields);
   }, [
     // Use exact values to avoid unnecessary re-renders
     searchFilter,
@@ -103,7 +103,7 @@ export const useExperimentPageSearchFacets = (): [ExperimentQueryParamsSearchFac
 export const useUpdateExperimentPageSearchFacets = () => {
   const [, setParams] = useSearchParams();
 
-  return (partialFacets: Partial<ExperimentPageSearchFacetsStateV2>, options?: NavigateOptions) => {
+  return (partialFacets: Partial<ExperimentPageSearchFacetsState>, options?: NavigateOptions) => {
     const newParams = serializeFieldsToQueryString(partialFacets);
     setParams((currentParams) => {
       entries(newParams).forEach(([key, value]) => {

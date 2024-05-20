@@ -7,13 +7,13 @@
  *   place these generated enums in the correct location shortly.
  */
 
-export const SourceType = {
-  NOTEBOOK: 'NOTEBOOK',
-  JOB: 'JOB',
-  PROJECT: 'PROJECT',
-  LOCAL: 'LOCAL',
-  UNKNOWN: 'UNKNOWN',
-};
+export enum SourceType {
+  NOTEBOOK = 'NOTEBOOK',
+  JOB = 'JOB',
+  PROJECT = 'PROJECT',
+  LOCAL = 'LOCAL',
+  UNKNOWN = 'UNKNOWN',
+}
 
 export const RunStatus = {
   RUNNING: 'RUNNING',

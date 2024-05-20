@@ -16,12 +16,14 @@ from test_langchain_model_export import FAISS, DeterministicDummyEmbeddings
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.langchain._langchain_autolog import (
     INFERENCE_FILE_NAME,
     UNSUPPORT_LOG_MODEL_MESSAGE,
     _combine_input_and_output,
     _resolve_tags,
 )
+from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.models import Model
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
@@ -891,5 +893,106 @@ def test_langchain_autolog_callback_injection_in_stream(invoke_arg, generate_con
     expected_logs = ["chain_start", "chain_end"]
     if isinstance(callbacks, BaseCallbackManager):
         assert callbacks.handlers[0].logs == expected_logs
+        assert (
+            sum(isinstance(handler, MlflowLangchainTracer) for handler in callbacks.handlers) == 1
+        )
     else:
         assert callbacks[0].logs == expected_logs
+        assert sum(isinstance(handler, MlflowLangchainTracer) for handler in callbacks) == 1
+
+
+def test_langchain_autolog_produces_expected_traces_with_streaming(tmp_path):
+    from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnablePassthrough
+
+    mlflow.langchain.autolog()
+    retriever, _ = create_retriever(tmp_path)
+    prompt = ChatPromptTemplate.from_template(
+        "Answer the following question based on the context: {context}\nQuestion: {question}"
+    )
+    chat_model = create_fake_chat_model()
+    retrieval_chain = (
+        {
+            "context": retriever,
+            "question": RunnablePassthrough(),
+        }
+        | prompt
+        | chat_model
+        | StrOutputParser()
+    )
+    question = "What is a good name for a company that makes MLflow?"
+    with _mock_request(return_value=_mock_chat_completion_response()):
+        list(retrieval_chain.stream(question))
+        retrieval_chain.invoke(question)
+
+    traces = get_traces()
+    assert len(traces) == 2
+    stream_trace = traces[0]
+    invoke_trace = traces[1]
+
+    assert stream_trace.info.status == invoke_trace.info.status == TraceStatus.OK
+    assert stream_trace.data.request == invoke_trace.data.request
+    assert stream_trace.data.response == invoke_trace.data.response
+    assert len(stream_trace.data.spans) == len(invoke_trace.data.spans)
+
+
+def test_langchain_tracer_injection_for_arbitrary_runnables():
+    from langchain.schema.runnable import RouterRunnable, RunnableLambda
+
+    mlflow.langchain.autolog()
+
+    add = RunnableLambda(func=lambda x: x + 1)
+    square = RunnableLambda(func=lambda x: x**2)
+    model = RouterRunnable(runnables={"add": add, "square": square})
+
+    with mock.patch("mlflow.langchain._langchain_autolog._logger.debug") as mock_debug:
+        model.invoke({"key": "square", "input": 3})
+        mock_debug.assert_called_once_with("Injected MLflow callbacks into the model.")
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].data.spans[0].attributes[SpanAttributeKey.SPAN_TYPE] == "CHAIN"
+
+
+def test_langchain_autolog_extra_model_classes_no_duplicate_patching():
+    from langchain.schema.runnable import Runnable
+
+    class CustomRunnable(Runnable):
+        def invoke(self, input, config=None):
+            return "test"
+
+        def _type(self):
+            return "CHAIN"
+
+    class AnotherRunnable(CustomRunnable):
+        def invoke(self, input, config=None):
+            return super().invoke(input)
+
+        def _type(self):
+            return "CHAT_MODEL"
+
+    mlflow.langchain.autolog(extra_model_classes=[CustomRunnable, AnotherRunnable])
+    model = AnotherRunnable()
+    with mock.patch("mlflow.langchain._langchain_autolog._logger.debug") as mock_debug:
+        assert model.invoke("test") == "test"
+        mock_debug.assert_called_once_with("Injected MLflow callbacks into the model.")
+        assert mock_debug.call_count == 1
+
+
+def test_langchain_autolog_extra_model_classes_warning():
+    from langchain.schema.runnable import Runnable
+
+    class NotARunnable:
+        def __init__(self, x):
+            self.x = x
+
+    with mock.patch("mlflow.langchain.logger.warning") as mock_warning:
+        mlflow.langchain.autolog(extra_model_classes=[NotARunnable])
+        mock_warning.assert_called_once_with(
+            "Unsupported classes found in extra_model_classes: ['NotARunnable']. "
+            "Only subclasses of Runnable are supported."
+        )
+        mock_warning.reset_mock()
+
+        mlflow.langchain.autolog(extra_model_classes=[Runnable])
+        mock_warning.assert_not_called()

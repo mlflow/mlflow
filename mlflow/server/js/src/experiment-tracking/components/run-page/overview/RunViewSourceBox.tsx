@@ -1,7 +1,17 @@
-import { BranchIcon, GitCommitIcon, Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  BranchIcon,
+  CopyIcon,
+  GitCommitIcon,
+  Tag,
+  Tooltip,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import Utils from '../../../../common/utils/Utils';
 import type { KeyValueEntity } from '../../../types';
 import { MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG } from '../../../constants';
+import { CopyButton } from 'shared/building_blocks/CopyButton';
+import { ExperimentSourceTypeIcon } from '../../ExperimentSourceTypeIcon';
 
 export const RunViewSourceBox = ({
   runUuid,
@@ -13,7 +23,7 @@ export const RunViewSourceBox = ({
   search: string;
 }) => {
   const branchName = tags?.[MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG]?.value;
-  const commitName = tags?.[Utils.gitCommitTag]?.value;
+  const commitHash = tags?.[Utils.gitCommitTag]?.value;
   const runSource = Utils.renderSource(tags, search, runUuid, branchName);
 
   const { theme } = useDesignSystemTheme();
@@ -28,21 +38,40 @@ export const RunViewSourceBox = ({
         flexWrap: 'wrap',
       }}
     >
-      <span css={{ color: theme.colors.primary }}>{Utils.renderSourceTypeIconV2(tags)}</span> {runSource}{' '}
+      <ExperimentSourceTypeIcon
+        sourceType={tags[Utils.sourceTypeTag]?.value}
+        css={{ color: theme.colors.actionPrimaryBackgroundDefault }}
+      />
+      {runSource}{' '}
       {branchName && (
         <Tooltip title={branchName}>
-          <Tag>
+          <Tag css={{ marginRight: 0 }}>
             <div css={{ display: 'flex', gap: 4, whiteSpace: 'nowrap' }}>
               <BranchIcon /> {branchName}
             </div>
           </Tag>
         </Tooltip>
       )}
-      {commitName && (
-        <Tooltip title={commitName}>
-          <Tag>
+      {commitHash && (
+        <Tooltip
+          dangerouslySetAntdProps={{ overlayStyle: { maxWidth: 'none' } }}
+          title={
+            <div css={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              {commitHash}
+              <CopyButton
+                css={{ flex: '0 0 auto' }}
+                showLabel={false}
+                size="small"
+                type="tertiary"
+                copyText={commitHash}
+                icon={<CopyIcon />}
+              />
+            </div>
+          }
+        >
+          <Tag css={{ marginRight: 0 }}>
             <div css={{ display: 'flex', gap: 4, whiteSpace: 'nowrap' }}>
-              <GitCommitIcon /> {commitName}
+              <GitCommitIcon /> {commitHash.slice(0, 7)}
             </div>
           </Tag>
         </Tooltip>

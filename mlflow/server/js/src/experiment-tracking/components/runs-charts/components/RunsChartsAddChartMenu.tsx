@@ -6,7 +6,11 @@ import { ReactComponent as ChartContourIcon } from '../../../../common/static/ch
 import { ReactComponent as ChartLineIcon } from '../../../../common/static/chart-line.svg';
 import { ReactComponent as ChartParallelIcon } from '../../../../common/static/chart-parallel.svg';
 import { ReactComponent as ChartScatterIcon } from '../../../../common/static/chart-scatter.svg';
+import { ReactComponent as ChartDifferenceIcon } from '../../../../common/static/chart-difference.svg';
+import { ReactComponent as ChartImageIcon } from '../../../../common/static/chart-image.svg';
 import { RunsChartType } from '../runs-charts.types';
+import { shouldEnableDifferenceViewCharts, shouldEnableImageGridCharts } from 'common/utils/FeatureUtils';
+import { FormattedMessage } from 'react-intl';
 
 export interface RunsChartsAddChartMenuProps {
   onAddChart: (type: RunsChartType) => void;
@@ -24,7 +28,10 @@ export const RunsChartsAddChartMenu = ({ onAddChart, supportedChartTypes }: Runs
           icon={<PlusIcon />}
           data-testid="experiment-view-compare-runs-add-chart"
         >
-          Add chart
+          <FormattedMessage
+            defaultMessage="Add chart"
+            description="Experiment tracking > runs charts > add chart menu"
+          />
         </Button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end">
@@ -36,7 +43,10 @@ export const RunsChartsAddChartMenu = ({ onAddChart, supportedChartTypes }: Runs
             <DropdownMenu.IconWrapper css={styles.iconWrapper}>
               <ChartBarIcon />
             </DropdownMenu.IconWrapper>
-            Bar chart
+            <FormattedMessage
+              defaultMessage="Bar chart"
+              description="Experiment tracking > runs charts > add chart menu > bar chart"
+            />
           </DropdownMenu.Item>
         )}
         {isChartTypeSupported(RunsChartType.LINE) && (
@@ -47,7 +57,10 @@ export const RunsChartsAddChartMenu = ({ onAddChart, supportedChartTypes }: Runs
             <DropdownMenu.IconWrapper css={styles.iconWrapper}>
               <ChartLineIcon />
             </DropdownMenu.IconWrapper>
-            Line chart
+            <FormattedMessage
+              defaultMessage="Line chart"
+              description="Experiment tracking > runs charts > add chart menu > line chart"
+            />
           </DropdownMenu.Item>
         )}
         {isChartTypeSupported(RunsChartType.PARALLEL) && (
@@ -58,7 +71,10 @@ export const RunsChartsAddChartMenu = ({ onAddChart, supportedChartTypes }: Runs
             <DropdownMenu.IconWrapper css={styles.iconWrapper}>
               <ChartParallelIcon />
             </DropdownMenu.IconWrapper>
-            Parallel coordinates
+            <FormattedMessage
+              defaultMessage="Parallel coordinates"
+              description="Experiment tracking > runs charts > add chart menu > parallel coordinates"
+            />
           </DropdownMenu.Item>
         )}
         {isChartTypeSupported(RunsChartType.SCATTER) && (
@@ -69,7 +85,10 @@ export const RunsChartsAddChartMenu = ({ onAddChart, supportedChartTypes }: Runs
             <DropdownMenu.IconWrapper css={styles.iconWrapper}>
               <ChartScatterIcon />
             </DropdownMenu.IconWrapper>
-            Scatter chart
+            <FormattedMessage
+              defaultMessage="Scatter chart"
+              description="Experiment tracking > runs charts > add chart menu > scatter plot"
+            />
           </DropdownMenu.Item>
         )}
         {isChartTypeSupported(RunsChartType.CONTOUR) && (
@@ -80,7 +99,38 @@ export const RunsChartsAddChartMenu = ({ onAddChart, supportedChartTypes }: Runs
             <DropdownMenu.IconWrapper css={styles.iconWrapper}>
               <ChartContourIcon />
             </DropdownMenu.IconWrapper>
-            Contour chart
+            <FormattedMessage
+              defaultMessage="Contour chart"
+              description="Experiment tracking > runs charts > add chart menu > contour chart"
+            />
+          </DropdownMenu.Item>
+        )}
+        {shouldEnableDifferenceViewCharts() && isChartTypeSupported(RunsChartType.DIFFERENCE) && (
+          <DropdownMenu.Item
+            onClick={() => onAddChart(RunsChartType.DIFFERENCE)}
+            data-testid="experiment-view-compare-runs-chart-type-difference"
+          >
+            <DropdownMenu.IconWrapper css={styles.iconWrapper}>
+              <ChartDifferenceIcon />
+            </DropdownMenu.IconWrapper>
+            <FormattedMessage
+              defaultMessage="Difference view"
+              description="Experiment tracking > runs charts > add chart menu > difference view"
+            />
+          </DropdownMenu.Item>
+        )}
+        {shouldEnableImageGridCharts() && isChartTypeSupported(RunsChartType.IMAGE) && (
+          <DropdownMenu.Item
+            onClick={() => onAddChart(RunsChartType.IMAGE)}
+            data-testid="experiment-view-compare-runs-chart-type-image"
+          >
+            <DropdownMenu.IconWrapper css={styles.iconWrapper}>
+              <ChartImageIcon />
+            </DropdownMenu.IconWrapper>
+            <FormattedMessage
+              defaultMessage="Image grid"
+              description="Experiment tracking > runs charts > add chart menu > image grid"
+            />
           </DropdownMenu.Item>
         )}
       </DropdownMenu.Content>

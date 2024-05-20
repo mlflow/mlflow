@@ -8,7 +8,7 @@ from langchain.schema.runnable import RunnablePassthrough
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
 
-from mlflow.models import ModelConfig, set_model
+from mlflow.models import ModelConfig, set_model, set_retriever_schema
 
 base_config = ModelConfig(development_config="tests/langchain/config.yml")
 
@@ -74,3 +74,9 @@ retrieval_chain = (
 )
 
 set_model(retrieval_chain)
+set_retriever_schema(
+    primary_key="primary-key",
+    text_column="text-column",
+    doc_uri="doc-uri",
+    other_columns=["column1", "column2"],
+)
