@@ -1783,7 +1783,7 @@ def test_pyfunc_as_code_log_and_load_wrong_path():
 def test_predict_as_code():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            python_model="tests/pyfunc/sample_code/predict_code.py",
+            python_model="tests/pyfunc/sample_code/func_code.py",
             artifact_path="model",
             input_example="string",
         )
@@ -1797,7 +1797,7 @@ def test_predict_as_code():
 def test_predict_as_code_with_config():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            python_model="tests/pyfunc/sample_code/predict_code_with_config.py",
+            python_model="tests/pyfunc/sample_code/func_code_with_config.py",
             artifact_path="model",
             input_example="string",
             model_config="tests/pyfunc/sample_code/config.yml",

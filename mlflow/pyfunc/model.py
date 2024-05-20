@@ -481,9 +481,7 @@ def _load_context_model_and_signature(
         python_model = _load_model_code_path(model_code_path, model_config)
 
         if callable(python_model):
-            # hints initialized to None, but _get_type_hints will extract them from the function
-            hints = None
-            python_model = _FunctionPythonModel(python_model, hints, signature)
+            python_model = _FunctionPythonModel(python_model, signature=signature)
     else:
         python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
         if python_model_cloudpickle_version is None:
