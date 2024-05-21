@@ -131,7 +131,7 @@ def deduplicate_span_names_in_place(spans: List[LiveSpan]):
         ["red", "red", "blue"] -> ["red_1", "red_2", "blue"]
 
     Args:
-        trace_data: The trace data object to deduplicate span names.
+        spans: A list of spans to deduplicate.
     """
     span_name_counter = Counter(span.name for span in spans)
     # Apply renaming only for duplicated spans
