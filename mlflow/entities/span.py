@@ -156,8 +156,8 @@ class Span:
 
     def __repr__(self):
         return (
-            f'{type(self).__name__}(name="{self.name}", request_id={self.request_id}, '
-            f"span_id={self.span_id}, parent_id={self.parent_id})"
+            f"{type(self).__name__}(name={self.name!r}, request_id={self.request_id!r}, "
+            f"span_id={self.span_id!r}, parent_id={self.parent_id!r})"
         )
 
     def get_attribute(self, key: str) -> Optional[Any]:
