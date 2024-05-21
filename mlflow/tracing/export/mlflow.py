@@ -46,7 +46,7 @@ class MlflowSpanExporter(SpanExporter):
         Export the spans to MLflow backend.
 
         Args:
-            spans: A sequence of OpenTelemetry ReadableSpan objects to be exported.
+            root_spans: A sequence of OpenTelemetry ReadableSpan objects to be exported.
                 Only root spans for each trace are passed to this method.
         """
         for span in root_spans:
