@@ -939,20 +939,26 @@ def load_model(
     """
 
     lineage_header_info = None
-    if databricks_utils.is_in_databricks_runtime() and (
-        databricks_utils.is_in_databricks_notebook() or databricks_utils.is_in_databricks_job()
-    ):
-        entity_list = []
-        # Get notebook id and job id, pack them into lineage_header_info
-        if notebook_id := databricks_utils.get_notebook_id():
-            notebook_entity = Notebook(id=notebook_id)
-            entity_list.append(Entity(notebook=notebook_entity))
+    if databricks_utils.is_in_databricks_runtime():
+        from mlflow.utils.logging_utils import eprint
+        is_in_notebook = databricks_utils.is_in_databricks_notebook()
+        eprint("is_in_notebook:", is_in_notebook)
+        is_in__job = databricks_utils.is_in_databricks_job()
+        eprint("is_in_job:", is_in__job)
+        if is_in_notebook or is_in__job:
+            entity_list = []
+            # Get notebook id and job id, pack them into lineage_header_info
+            if notebook_id := databricks_utils.get_notebook_id():
+                eprint("notebook id:", notebook_id)
+                notebook_entity = Notebook(id=notebook_id)
+                entity_list.append(Entity(notebook=notebook_entity))
 
-        if job_id := databricks_utils.get_job_id():
-            job_entity = Job(id=job_id)
-            entity_list.append(Entity(job=job_entity))
+            if job_id := databricks_utils.get_job_id():
+                eprint("job id:", notebook_id)
+                job_entity = Job(id=job_id)
+                entity_list.append(Entity(job=job_entity))
 
-        lineage_header_info = LineageHeaderInfo(entities=entity_list) if entity_list else None
+            lineage_header_info = LineageHeaderInfo(entities=entity_list) if entity_list else None
 
     local_path = _download_artifact_from_uri(
         artifact_uri=model_uri, output_path=dst_path, lineage_header_info=lineage_header_info
