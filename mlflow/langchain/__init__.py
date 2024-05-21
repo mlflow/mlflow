@@ -846,7 +846,6 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         return result
 
 
-# TODO: Support loading langchain with model_config. For now, this is a no-op.
 def _load_pyfunc(path: str, model_config: Optional[Dict[str, Any]] = None):
     """Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
 
@@ -854,10 +853,10 @@ def _load_pyfunc(path: str, model_config: Optional[Dict[str, Any]] = None):
         path: Local filesystem path to the MLflow Model with the ``langchain`` flavor.
     """
     wrapper_cls = _TestLangChainWrapper if _MLFLOW_TESTING.get() else _LangChainModelWrapper
-    return wrapper_cls(_load_model_from_local_fs(path), path)
+    return wrapper_cls(_load_model_from_local_fs(path, model_config), path)
 
 
-def _load_model_from_local_fs(local_model_path):
+def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     pyfunc_flavor_conf = _get_flavor_configuration(
         model_path=local_model_path, flavor_name=PYFUNC_FLAVOR_NAME
@@ -883,7 +882,9 @@ def _load_model_from_local_fs(local_model_path):
         )
 
         try:
-            model = _load_model_code_path(code_path, model_config)
+            model = _load_model_code_path(
+                code_path, {**(model_config or {}), **(model_config_overrides or {})}
+            )
         finally:
             # We would like to clean up the dependencies schema which is set to global
             # after loading the mode to avoid the schema being used in the next model loading
