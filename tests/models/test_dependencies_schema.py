@@ -1,4 +1,4 @@
-from mlflow.models.dependencies_schema import (
+from mlflow.models.dependencies_schemas import (
     DependenciesSchemas,
     DependenciesSchemasType,
     RetrieverSchema,

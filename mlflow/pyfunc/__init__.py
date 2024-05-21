@@ -413,7 +413,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
-from mlflow.models.dependencies_schema import _clear_dependencies_schema, _get_dependencies_schema
+from mlflow.models.dependencies_schemas import _clear_dependencies_schema, _get_dependencies_schema
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import (
     _DATABRICKS_FS_LOADER_MODULE,
@@ -709,11 +709,11 @@ class PyFuncModel:
 
     def _update_dependencies_schema_in_prediction_context(self):
         if self._model_meta and self._model_meta.metadata and (context := get_prediction_context()):
-            dependencies_schema = self._model_meta.metadata.get("dependencies_schemas", {})
+            dependencies_schemas = self._model_meta.metadata.get("dependencies_schemas", {})
             context.update(
-                dependencies_schema={
+                dependencies_schemas={
                     dependency: json.dumps(schema)
-                    for dependency, schema in dependencies_schema.items()
+                    for dependency, schema in dependencies_schemas.items()
                 }
             )
 
@@ -2447,8 +2447,8 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    with _get_dependencies_schema() as dependencies_schema:
-        schema = dependencies_schema.to_dict()
+    with _get_dependencies_schema() as dependencies_schemas:
+        schema = dependencies_schemas.to_dict()
         if schema is not None:
             if mlflow_model.metadata is None:
                 mlflow_model.metadata = {}

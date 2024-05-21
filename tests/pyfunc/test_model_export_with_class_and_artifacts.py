@@ -29,7 +29,7 @@ import mlflow.sklearn
 from mlflow.entities import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
-from mlflow.models.dependencies_schema import DependenciesSchemasType
+from mlflow.models.dependencies_schemas import DependenciesSchemasType
 from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE
 from mlflow.models.resources import (
     DatabricksServingEndpoint,

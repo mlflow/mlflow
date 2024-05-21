@@ -49,7 +49,7 @@ from mlflow.langchain.utils import (
     register_pydantic_v1_serializer_cm,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
-from mlflow.models.dependencies_schema import _clear_dependencies_schema, _get_dependencies_schema
+from mlflow.models.dependencies_schemas import _clear_dependencies_schema, _get_dependencies_schema
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
 from mlflow.models.resources import _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
@@ -325,8 +325,8 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    with _get_dependencies_schema() as dependencies_schema:
-        schema = dependencies_schema.to_dict()
+    with _get_dependencies_schema() as dependencies_schemas:
+        schema = dependencies_schemas.to_dict()
         if schema is not None:
             if mlflow_model.metadata is None:
                 mlflow_model.metadata = {}
@@ -655,11 +655,11 @@ class _LangChainModelWrapper:
             model = Model.load(self.model_path)
             context = tracer._prediction_context
             if model.metadata and context:
-                dependencies_schema = model.metadata.get("dependencies_schemas", {})
+                dependencies_schemas = model.metadata.get("dependencies_schemas", {})
                 context.update(
-                    dependencies_schema={
+                    dependencies_schemas={
                         dependency: json.dumps(schema)
-                        for dependency, schema in dependencies_schema.items()
+                        for dependency, schema in dependencies_schemas.items()
                     }
                 )
 

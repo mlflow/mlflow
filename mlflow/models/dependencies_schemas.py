@@ -102,9 +102,9 @@ def _clear_dependencies_schema():
 
 @contextmanager
 def _get_dependencies_schema():
-    dependencies_schema = DependenciesSchemas(retriever_schemas=_get_retriever_schema())
+    dependencies_schemas = DependenciesSchemas(retriever_schemas=_get_retriever_schema())
     try:
-        yield dependencies_schema
+        yield dependencies_schemas
     finally:
         _clear_dependencies_schema()
 
