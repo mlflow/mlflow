@@ -671,41 +671,38 @@ test('getLoggedModelsFromTags should correctly dedup and sort logged models', ()
   ]);
 });
 
-test('mergeLoggedAndRegisteredModels should merge logged and registered model', () => {
-  const tags = {
-    'mlflow.log-model.history': (RunTag as any).fromJs({
-      key: 'mlflow.log-model.history',
-      value: JSON.stringify([
-        {
-          run_id: 'run-uuid',
-          artifact_path: 'somePath',
-          utc_time_created: '2020-10-31',
-          flavors: { keras: {}, python_function: {} },
-        },
-      ]),
-    }),
-  };
-  const modelVersions = [
+test('getLoggedModelsFromTags should not crash on invalid JSON', () => {
+  const tagValue = JSON.stringify([
     {
-      name: 'someModel',
-      version: '3',
-      source: 'nananaBatman/artifacts/somePath',
-      creation_timestamp: 123456,
       run_id: 'run-uuid',
+      artifact_path: 'somePath',
+      utc_time_created: '2020-10-29',
+      flavors: { keras: {}, python_function: {} },
     },
-  ];
-  const loggedModels = Utils.getLoggedModelsFromTags(tags);
-  const models = Utils.mergeLoggedAndRegisteredModels(loggedModels, modelVersions);
-  expect(models).toEqual([
     {
-      artifactPath: 'somePath',
-      flavors: ['keras'],
-      utcTimeCreated: 1604102400,
-      registeredModelName: 'someModel',
-      registeredModelVersion: '3',
-      registeredModelCreationTimestamp: 123456,
+      run_id: 'run-uuid',
+      artifact_path: 'somePath',
+      utc_time_created: '2020-10-30',
+      flavors: { sklearn: {}, python_function: {} },
+    },
+    {
+      run_id: 'run-uuid',
+      artifact_path: 'someOtherPath',
+      utc_time_created: '2020-10-31',
+      flavors: { python_function: {} },
     },
   ]);
+
+  const tags = {
+    'mlflow.log-model.history': {
+      key: 'mlflow.log-model.history',
+      value: tagValue.slice(10), // truncate the JSON string to make it invalid
+    },
+  };
+
+  // it should just return an empty array
+  const models = Utils.getLoggedModelsFromTags(tags);
+  expect(models.length).toEqual(0);
 });
 
 test('mergeLoggedAndRegisteredModels should output 2 logged and 1 registered model', () => {
