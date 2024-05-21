@@ -3123,7 +3123,7 @@ def test_langchain_2_12_model_loads():
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-def test_save_load_chain_as_code_with_config_override(chain_model_signature):
+def test_load_chain_with_model_config_overrides_saved_config(chain_model_signature):
     input_example = {
         "messages": [
             {
