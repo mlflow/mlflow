@@ -726,8 +726,7 @@ class PyFuncModel:
         # set context for prediction if it's not set
         # NB: in model serving the prediction context must be set
         # with a request_id
-        if (context := _try_get_prediction_context()) is None:
-            context = Context()
+        context = _try_get_prediction_context() or Context()
         with set_prediction_context(context):
             yield context
 
