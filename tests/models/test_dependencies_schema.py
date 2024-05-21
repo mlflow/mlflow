@@ -1,8 +1,8 @@
-from mlflow.models.dependencies_schema import (
+from mlflow.models.dependencies_schemas import (
     DependenciesSchemas,
     DependenciesSchemasType,
     RetrieverSchema,
-    _get_dependencies_schema,
+    _get_dependencies_schemas,
     _get_retriever_schema,
     set_retriever_schema,
 )
@@ -93,7 +93,7 @@ def test_set_retriever_schema_creation():
         doc_uri="doc-uri",
         other_columns=["column1", "column2"],
     )
-    with _get_dependencies_schema() as schema:
+    with _get_dependencies_schemas() as schema:
         assert schema.retriever_schemas[0].to_dict() == {
             DependenciesSchemasType.RETRIEVERS.value: [
                 {
@@ -106,11 +106,11 @@ def test_set_retriever_schema_creation():
             ]
         }
 
-    with _get_dependencies_schema() as schema:
+    with _get_dependencies_schemas() as schema:
         assert schema.to_dict() is None
     assert _get_retriever_schema() == []
 
 
 def test_set_retriever_schema_empty_creation():
-    with _get_dependencies_schema() as schema:
+    with _get_dependencies_schemas() as schema:
         assert schema.to_dict() is None

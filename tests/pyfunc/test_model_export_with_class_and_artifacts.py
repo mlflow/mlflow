@@ -29,7 +29,7 @@ import mlflow.sklearn
 from mlflow.entities import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
-from mlflow.models.dependencies_schema import DependenciesSchemasType
+from mlflow.models.dependencies_schemas import DependenciesSchemasType
 from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE
 from mlflow.models.resources import (
     DatabricksServingEndpoint,
@@ -1831,7 +1831,7 @@ def test_pyfunc_as_code_with_dependencies():
     }
 
 
-def test_pyfunc_as_code_with_dependencies_store_dependencies_schema_in_trace_in_serving(
+def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace_in_serving(
     clear_singleton, monkeypatch
 ):
     monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
@@ -1872,7 +1872,7 @@ def test_pyfunc_as_code_with_dependencies_store_dependencies_schema_in_trace_in_
     )
 
 
-def test_pyfunc_as_code_with_dependencies_store_dependencies_schema_in_trace_in_serving_with_stream(
+def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace_in_serving_stream(
     clear_singleton, monkeypatch
 ):
     monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
