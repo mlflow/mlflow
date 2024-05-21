@@ -1831,7 +1831,7 @@ def test_pyfunc_as_code_with_dependencies():
     }
 
 
-def test_pyfunc_as_code_with_dependencies_store_dependencies_schema_in_trace_in_serving(
+def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace_in_serving(
     clear_singleton, monkeypatch
 ):
     monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
@@ -1872,7 +1872,7 @@ def test_pyfunc_as_code_with_dependencies_store_dependencies_schema_in_trace_in_
     )
 
 
-def test_pyfunc_as_code_with_dependencies_store_dependencies_schema_in_trace_in_serving_with_stream(
+def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace_in_serving_stream(
     clear_singleton, monkeypatch
 ):
     monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
