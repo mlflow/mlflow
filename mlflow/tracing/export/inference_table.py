@@ -55,8 +55,7 @@ class InferenceTableSpanExporter(SpanExporter):
 
         Args:
             root_spans: A sequence of OpenTelemetry ReadableSpan objects to be exported.
-                Only root spans for each trace are passed to this method. The root spans are
-                the spans that have no parent span.
+                Only root spans for each trace are passed to this method.
         """
         for span in root_spans:
             if span._parent is not None:
