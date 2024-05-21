@@ -7,4 +7,5 @@ type Input struct {
 	SourceID        *string `db:"source_id"        gorm:"column:source_id;primaryKey"`
 	DestinationType *string `db:"destination_type" gorm:"column:destination_type;primaryKey"`
 	DestinationID   *string `db:"destination_id"   gorm:"column:destination_id;primaryKey"`
+	Tags            []InputTag
 }

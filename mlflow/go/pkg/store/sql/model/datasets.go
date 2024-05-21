@@ -1,5 +1,7 @@
 package model
 
+import "github.com/mlflow/mlflow/mlflow/go/pkg/protos"
+
 // Dataset mapped from table <datasets>.
 type Dataset struct {
 	DatasetUUID       *string `db:"dataset_uuid"        gorm:"column:dataset_uuid;not null"`
@@ -10,4 +12,19 @@ type Dataset struct {
 	DatasetSource     *string `db:"dataset_source"      gorm:"column:dataset_source;not null"`
 	DatasetSchema     *string `db:"dataset_schema"      gorm:"column:dataset_schema"`
 	DatasetProfile    *string `db:"dataset_profile"     gorm:"column:dataset_profile"`
+}
+
+func (d Dataset) ToProto() *protos.DatasetInput {
+	// TODO: tags
+	return &protos.DatasetInput{
+		Dataset: &protos.Dataset{
+			Name:       d.Name,
+			Digest:     d.Digest,
+			SourceType: d.DatasetSourceType,
+			Source:     d.DatasetSource,
+			Schema:     d.DatasetSchema,
+			Profile:    d.DatasetProfile,
+		},
+		Tags: make([]*protos.InputTag, 0),
+	}
 }
