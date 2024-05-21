@@ -20,6 +20,7 @@ from google.protobuf.json_format import ParseError
 from mlflow.entities import DatasetInput, ExperimentTag, FileInfo, Metric, Param, RunTag, ViewType
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.multipart_upload import MultipartUploadPart
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_TARGET
 from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.models import Model
@@ -70,11 +71,13 @@ from mlflow.protos.service_pb2 import (
     DeleteExperiment,
     DeleteRun,
     DeleteTag,
+    EndTrace,
     GetExperiment,
     GetExperimentByName,
     GetMetricHistory,
     GetMetricHistoryBulkInterval,
     GetRun,
+    GetTraceInfo,
     ListArtifacts,
     LogBatch,
     LogInputs,
@@ -88,6 +91,7 @@ from mlflow.protos.service_pb2 import (
     SearchRuns,
     SetExperimentTag,
     SetTag,
+    StartTrace,
     UpdateExperiment,
     UpdateRun,
 )
@@ -338,6 +342,12 @@ def _assert_floatlike(x):
 
 def _assert_array(x):
     assert isinstance(x, list)
+
+
+def _assert_map_key_present(x):
+    _assert_array(x)
+    for entry in x:
+        _assert_required(entry.get("key"))
 
 
 def _assert_required(x):
@@ -2249,6 +2259,79 @@ def _abort_multipart_upload_artifact(artifact_path):
     return _wrap_response(AbortMultipartUpload.Response())
 
 
+# MLflow Tracing APIs
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _start_trace():
+    """
+    A request handler for `POST /mlflow/traces` to create a new TraceInfo record in tracking store.
+    """
+    request_message = _get_request_message(
+        StartTrace(),
+        schema={
+            "experiment_id": [_assert_string],
+            "timestamp_ms": [_assert_intlike],
+            "request_metadata": [_assert_map_key_present],
+            "tags": [_assert_map_key_present],
+        },
+    )
+    request_metadata = {e.key: e.value for e in request_message.request_metadata}
+    tags = {e.key: e.value for e in request_message.tags}
+
+    trace_info = _get_tracking_store().start_trace(
+        experiment_id=request_message.experiment_id,
+        timestamp_ms=request_message.timestamp_ms,
+        request_metadata=request_metadata,
+        tags=tags,
+    )
+    response_message = StartTrace.Response(trace_info=trace_info.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _end_trace(request_id):
+    """
+    A request handler for `PATCH /mlflow/traces/{request_id}` to mark an existing TraceInfo
+    record completed in tracking store.
+    """
+    request_message = _get_request_message(
+        EndTrace(),
+        schema={
+            "timestamp_ms": [_assert_intlike],
+            "status": [_assert_string],
+            "request_metadata": [_assert_map_key_present],
+            "tags": [_assert_map_key_present],
+        },
+    )
+    request_metadata = {e.key: e.value for e in request_message.request_metadata}
+    tags = {e.key: e.value for e in request_message.tags}
+
+    trace_info = _get_tracking_store().end_trace(
+        request_id=request_id,
+        timestamp_ms=request_message.timestamp_ms,
+        status=TraceStatus.from_proto(request_message.status),
+        request_metadata=request_metadata,
+        tags=tags,
+    )
+    response_message = EndTrace.Response(trace_info=trace_info.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_trace_info(request_id):
+    """
+    A request handler for `GET /mlflow/traces/{request_id}/info` to retrieve
+    an existing TraceInfo record from tracking store.
+    """
+    trace_info = _get_tracking_store().get_trace_info(request_id)
+    response_message = GetTraceInfo.Response(trace_info=trace_info.to_proto())
+    return _wrap_response(response_message)
+
+
 def _get_rest_path(base_path):
     return f"/api/2.0{base_path}"
 
@@ -2270,7 +2353,20 @@ def _get_paths(base_path):
     We should register paths like /api/2.0/mlflow/experiment and
     /ajax-api/2.0/mlflow/experiment in the Flask router.
     """
+    base_path = _convert_path_parameter_to_flask_format(base_path)
     return [_get_rest_path(base_path), _get_ajax_path(base_path)]
+
+
+def _convert_path_parameter_to_flask_format(path):
+    """
+    Converts path parameter format to Flask compatible format.
+
+    Some protobuf endpoint paths contain parameters like /mlflow/trace/{request_id}.
+    This can be interpreted correctly by gRPC framework like Armeria, but Flask does
+    not understand it. Instead, we need to specify it with a different format,
+    like /mlflow/trace/<request_id>.
+    """
+    return re.sub(r"{(\w+)}", r"<\1>", path)
 
 
 def get_handler(request_class):
@@ -2361,4 +2457,8 @@ HANDLERS = {
     CreateMultipartUpload: _create_multipart_upload_artifact,
     CompleteMultipartUpload: _complete_multipart_upload_artifact,
     AbortMultipartUpload: _abort_multipart_upload_artifact,
+    # MLflow Tracing APIs
+    StartTrace: _start_trace,
+    EndTrace: _end_trace,
+    GetTraceInfo: _get_trace_info,
 }

@@ -11,6 +11,7 @@ import posixpath
 import sys
 import time
 import urllib.parse
+from typing import Dict
 from unittest import mock
 
 import flask
@@ -33,6 +34,7 @@ from mlflow.entities import (
     RunTag,
     ViewType,
 )
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.server.handlers import _get_sampled_steps_from_steps
@@ -1970,3 +1972,72 @@ def test_get_run_and_experiment_graphql(mlflow_client):
     assert json["data"]["mlflowGetRun"]["run"]["info"]["status"] == created_run.info.status
     assert json["data"]["mlflowGetRun"]["run"]["experiment"]["name"] == name
     assert json["data"]["mlflowGetRun"]["run"]["modelVersions"][0]["name"] == name
+
+
+def test_start_and_end_trace(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("start end trace")
+
+    # Trace CRUD APIs are not directly exposed as public API of MlflowClient,
+    # so we use the underlying tracking client to test them.
+    client = mlflow_client._tracking_client
+
+    # Helper function to remove auto-added system tags (mlflow.xxx) from testing
+    def _exclude_system_tags(tags: Dict[str, str]):
+        return {k: v for k, v in tags.items() if not k.startswith("mlflow.")}
+
+    trace_info = client.start_trace(
+        experiment_id=experiment_id,
+        timestamp_ms=1000,
+        request_metadata={
+            "meta1": "apple",
+            "meta2": "grape",
+        },
+        tags={
+            "tag1": "football",
+            "tag2": "basketball",
+        },
+    )
+    assert trace_info.request_id is not None
+    assert trace_info.experiment_id == experiment_id
+    assert trace_info.timestamp_ms == 1000
+    assert trace_info.execution_time_ms == 0
+    assert trace_info.status == TraceStatus.IN_PROGRESS
+    assert trace_info.request_metadata == {
+        "meta1": "apple",
+        "meta2": "grape",
+    }
+    assert _exclude_system_tags(trace_info.tags) == {
+        "tag1": "football",
+        "tag2": "basketball",
+    }
+
+    trace_info = client.end_trace(
+        request_id=trace_info.request_id,
+        timestamp_ms=3000,
+        status=TraceStatus.OK,
+        request_metadata={
+            "meta1": "orange",
+            "meta3": "banana",
+        },
+        tags={
+            "tag1": "soccer",
+            "tag3": "tennis",
+        },
+    )
+    assert trace_info.request_id is not None
+    assert trace_info.experiment_id == experiment_id
+    assert trace_info.timestamp_ms == 1000
+    assert trace_info.execution_time_ms == 2000
+    assert trace_info.status == TraceStatus.OK
+    assert trace_info.request_metadata == {
+        "meta1": "orange",
+        "meta2": "grape",
+        "meta3": "banana",
+    }
+    assert _exclude_system_tags(trace_info.tags) == {
+        "tag1": "soccer",
+        "tag2": "basketball",
+        "tag3": "tennis",
+    }
+
+    assert trace_info == client.get_trace_info(trace_info.request_id)
