@@ -154,6 +154,38 @@ def test_dict_conversion(clear_singleton):
         recovered_span.set_status("OK")
 
 
+def test_to_immutable_span(clear_singleton):
+    request_id = "tr-12345"
+
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("parent") as parent_span:
+        live_span = LiveSpan(parent_span, request_id=request_id, span_type=SpanType.LLM)
+        live_span.set_inputs({"input": 1})
+        live_span.set_outputs(2)
+        live_span.set_attribute("key", 3)
+        live_span.set_status("OK")
+        live_span.add_event(SpanEvent("test_event", timestamp=0, attributes={"foo": "bar"}))
+
+    span = live_span.to_immutable_span()
+
+    assert isinstance(span, Span)
+    assert span.request_id == request_id
+    assert span._trace_id == encode_trace_id(parent_span.context.trace_id)
+    assert span.span_id == encode_span_id(parent_span.context.span_id)
+    assert span.name == "parent"
+    assert span.start_time_ns == parent_span.start_time
+    assert span.end_time_ns is not None
+    assert span.parent_id is None
+    assert span.inputs == {"input": 1}
+    assert span.outputs == 2
+    assert span.get_attribute("key") == 3
+    assert span.status == SpanStatus(SpanStatusCode.OK, description="")
+    assert span.events == [SpanEvent("test_event", timestamp=0, attributes={"foo": "bar"})]
+
+    with pytest.raises(AttributeError, match="set_attribute"):
+        span.set_attribute("OK")
+
+
 def test_from_dict_raises_when_request_id_is_empty():
     with pytest.raises(MlflowException, match=r"Failed to create a Span object from "):
         Span.from_dict(
