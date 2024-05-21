@@ -631,6 +631,13 @@ openai:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
     run: |
       pytest tests/openai/test_openai_model_export.py
+  autologging:
+    minimum: "1.17.0"
+    maximum: "1.27.0"
+    requirements:
+      ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
+    run: |
+      pytest tests/openai/test_openai_autolog.py
 
 langchain:
   package_info:
