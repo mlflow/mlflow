@@ -25,6 +25,7 @@ type Run struct {
 	Tags           []Tag
 	Metrics        []Metric
 	LatestMetrics  []LatestMetric
+	Inputs         []Input `gorm:"foreignKey:DestinationID"`
 }
 
 func RunStatusToProto(status *string) *protos.RunStatus {
@@ -45,7 +46,7 @@ func RunStatusToProto(status *string) *protos.RunStatus {
 	}
 }
 
-func (r Run) ToProto(datasetInputs []*protos.DatasetInput) *protos.Run {
+func (r Run) ToProto() *protos.Run {
 	info := &protos.RunInfo{
 		RunId:          r.ID,
 		RunUuid:        r.ID,
@@ -78,6 +79,11 @@ func (r Run) ToProto(datasetInputs []*protos.DatasetInput) *protos.Run {
 		Metrics: metrics,
 		Params:  params,
 		Tags:    tags,
+	}
+
+	datasetInputs := make([]*protos.DatasetInput, 0, len(r.Inputs))
+	for _, input := range r.Inputs {
+		datasetInputs = append(datasetInputs, input.ToProto())
 	}
 
 	inputs := &protos.RunInputs{

@@ -158,6 +158,9 @@ func (s Store) SearchRuns(
 	tx.Preload("LatestMetrics").
 		Preload("Params").
 		Preload("Tags").
+		Preload("Inputs").
+		Preload("Inputs.Dataset").
+		Preload("Inputs.Tags").
 		Find(&runs)
 
 	if tx.Error != nil {
@@ -168,53 +171,9 @@ func (s Store) SearchRuns(
 		)
 	}
 
-	runIDs := make([]*string, 0, len(runs))
-	for _, run := range runs {
-		runIDs = append(runIDs, run.ID)
-	}
-
-	type runDataset struct {
-		model.Dataset
-		RunUUID *string
-	}
-
-	var datasets []runDataset
-	if err := s.db.
-		Joins(
-			"JOIN inputs ON source_id = dataset_uuid "+
-				"WHERE destination_type = 'RUN' "+
-				"AND source_type = 'DATASET' "+
-				"AND destination_id IN ?",
-			runIDs,
-		).
-		Select("*", "inputs.destination_id AS run_uuid").
-		Model(&model.Dataset{}).
-		Find(&datasets).
-		Error; err != nil {
-		return nil, nil, contract.NewErrorWith(
-			protos.ErrorCode_INTERNAL_ERROR,
-			"Failed to query datasets for runs",
-			err,
-		)
-	}
-
-	runToDatasets := make(map[string][]*protos.DatasetInput, len(datasets))
-	for _, dataset := range datasets {
-		if entry, ok := runToDatasets[*dataset.RunUUID]; ok {
-			runToDatasets[*dataset.RunUUID] = append(entry, dataset.Dataset.ToProto())
-		} else {
-			runToDatasets[*dataset.RunUUID] = []*protos.DatasetInput{dataset.ToProto()}
-		}
-	}
-
 	contractRuns := make([]*protos.Run, 0, len(runs))
 	for _, run := range runs {
-		runDatasets, ok := runToDatasets[*run.ID]
-		if ok {
-			contractRuns = append(contractRuns, run.ToProto(runDatasets))
-		} else {
-			contractRuns = append(contractRuns, run.ToProto(make([]*protos.DatasetInput, 0)))
-		}
+		contractRuns = append(contractRuns, run.ToProto())
 	}
 
 	return contractRuns, nil, nil
