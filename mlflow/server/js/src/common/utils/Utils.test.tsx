@@ -740,7 +740,7 @@ test('mergeLoggedAndRegisteredModels should merge logged and registered model', 
       registeredModelCreationTimestamp: 123456,
     },
   ]);
-})
+});
 
 test('mergeLoggedAndRegisteredModels should output 2 logged and 1 registered model', () => {
   const tags = {
