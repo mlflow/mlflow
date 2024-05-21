@@ -889,7 +889,16 @@ class Utils {
   }[] {
     const modelsTag = tags[Utils.loggedModelsTag];
     if (modelsTag) {
-      const models = JSON.parse(modelsTag.value);
+      let models = null;
+      try {
+        models = JSON.parse(modelsTag.value);
+      } catch (e) {
+        // TODO: for now, we ignore parsing errors to prevent
+        // crashing the page. However, we should come up with
+        // a better solution (e.g. keep only the last X entries
+        // to prevent exceeding tag value limits).
+        // See https://github.com/mlflow/mlflow/issues/12032
+      }
       if (models) {
         // extract artifact path, flavors and creation time from tag.
         // 'python_function' should be interpreted as pyfunc flavor
