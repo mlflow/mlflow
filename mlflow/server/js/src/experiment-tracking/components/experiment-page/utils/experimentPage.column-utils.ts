@@ -401,7 +401,7 @@ export const useRunsColumnDefinitions = ({
       initialWidth: 300,
       initialHide: true,
       sortable: true,
-      headerComponentParams:{
+      headerComponentParams: {
         canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.DESCRIPTION,
       },
       cellClassRules: {
