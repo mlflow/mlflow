@@ -23,7 +23,11 @@ from mlflow.llama_index.serialize_objects import (
 )
 
 from tests.llama_index._llama_index_test_fixtures import (
+    embed_model,  # noqa: F401
+    llm,  # noqa: F401
     qa_prompt_template,
+    settings,  # noqa: F401
+    single_index,  # noqa: F401
 )
 
 

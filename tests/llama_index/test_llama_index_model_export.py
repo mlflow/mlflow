@@ -9,6 +9,13 @@ from mlflow.models.model import Model
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 
+from tests.llama_index._llama_index_test_fixtures import (
+    embed_model,  # noqa: F401
+    llm,  # noqa: F401
+    settings,  # noqa: F401
+    single_index,  # noqa: F401
+)
+
 
 @pytest.mark.parametrize(
     ("index_fixture", "should_start_run"),
@@ -45,3 +52,29 @@ def test_log_and_load_single_index_pyfunc(request, tmp_path, index_fixture, shou
 
     finally:
         mlflow.end_run()
+
+
+# def test_spark_udf_chat(tmp_path, spark):
+#     # TODO
+#     mlflow.openai.save_model(
+#         model="gpt-3.5-turbo",
+#         task="chat.completions",
+#         path=tmp_path,
+#         messages=[
+#             {"role": "user", "content": "{x} {y}"},
+#         ],
+#     )
+#     udf = mlflow.pyfunc.spark_udf(spark, tmp_path, result_type="string")
+#     df = spark.createDataFrame(
+#         [
+#             ("a", "b"),
+#             ("c", "d"),
+#         ],
+#         ["x", "y"],
+#     )
+#     df = df.withColumn("z", udf())
+#     pdf = df.toPandas()
+#     assert list(map(json.loads, pdf["z"])) == [
+#         [{"content": "a b", "role": "user"}],
+#         [{"content": "c d", "role": "user"}],
+#     ]
