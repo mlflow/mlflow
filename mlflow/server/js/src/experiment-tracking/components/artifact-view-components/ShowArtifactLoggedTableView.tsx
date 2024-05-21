@@ -120,16 +120,21 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
               accessorKey: col_string,
               minSize: MIN_COLUMN_WIDTH,
               cell: (row: any) => {
-                const { filepath, compressed_filepath } = row.getValue() as ArtifactLogTableImageObject;
-                const imageUrl = getArtifactLocationUrl(filepath, runUuid);
-                const compressedImageUrl = getArtifactLocationUrl(compressed_filepath, runUuid);
-                return (
-                  <ImagePlot
-                    imageUrl={imageUrl}
-                    compressedImageUrl={compressedImageUrl}
-                    maxImageSize={MAX_IMAGE_SIZE}
-                  />
-                );
+                try {
+                  const parsedRowValue = JSON.parse(row.getValue());
+                  const { filepath, compressed_filepath } = parsedRowValue as ArtifactLogTableImageObject;
+                  const imageUrl = getArtifactLocationUrl(filepath, runUuid);
+                  const compressedImageUrl = getArtifactLocationUrl(compressed_filepath, runUuid);
+                  return (
+                    <ImagePlot
+                      imageUrl={imageUrl}
+                      compressedImageUrl={compressedImageUrl}
+                      maxImageSize={MAX_IMAGE_SIZE}
+                    />
+                  );
+                } catch {
+                  return row.getValue();
+                }
               },
             };
           }
