@@ -75,6 +75,7 @@ class Trace(_MlflowObject):
     def to_pandas_dataframe_row(self) -> Dict[str, Any]:
         return {
             "request_id": self.info.request_id,
+            "trace": self,
             "timestamp_ms": self.info.timestamp_ms,
             "status": self.info.status,
             "execution_time_ms": self.info.execution_time_ms,
