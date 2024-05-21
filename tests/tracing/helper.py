@@ -117,6 +117,5 @@ def get_traces() -> List[Trace]:
 
 
 def get_first_trace() -> Optional[Trace]:
-    traces = get_traces()
-    if traces:
+    if traces := get_traces():
         return traces[0]
