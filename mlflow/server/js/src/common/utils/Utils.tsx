@@ -23,6 +23,7 @@ import { ErrorWrapper } from './ErrorWrapper';
 import { shouldUsePathRouting } from './FeatureUtils';
 import { KeyValueEntity } from '../../experiment-tracking/types';
 import { FileCodeIcon, FolderBranchIcon, NotebookIcon, WorkflowsIcon } from '@databricks/design-system';
+import { NOTE_CONTENT_TAG } from '../../experiment-tracking/utils/NoteUtils';
 
 class Utils {
   /**
@@ -81,7 +82,6 @@ class Utils {
   static loggedModelsTag = 'mlflow.log-model.history';
   static pipelineProfileNameTag = 'mlflow.pipeline.profile.name';
   static pipeLineStepNameTag = 'mlflow.pipeline.step.name';
-  static runDescriptionTag = 'mlflow.note.content';
 
   static formatMetric(value: any) {
     if (value === 0) {
@@ -667,7 +667,7 @@ class Utils {
   }
 
   static getRunDescriptionFromTags(runTags: any) {
-    const runDescriptionTag = runTags[Utils.runDescriptionTag];
+    const runDescriptionTag = runTags[NOTE_CONTENT_TAG];
     if (runDescriptionTag) {
       return runDescriptionTag.value;
     }

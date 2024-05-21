@@ -400,6 +400,13 @@ export const useRunsColumnDefinitions = ({
       cellRenderer: 'RunDescriptionCellRenderer',
       initialWidth: 300,
       initialHide: true,
+      sortable: true,
+      headerComponentParams:{
+        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.DESCRIPTION,
+      },
+      cellClassRules: {
+        'is-ordered-by': cellClassIsOrderedBy,
+      },
     });
 
     const { metricKeys, paramKeys, tagKeys } = cumulativeColumns;
