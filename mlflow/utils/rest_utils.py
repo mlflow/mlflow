@@ -403,7 +403,7 @@ class MlflowHostCreds:
 
     def __init__(
         self,
-        host=None,
+        host,
         username=None,
         password=None,
         token=None,
@@ -414,10 +414,9 @@ class MlflowHostCreds:
         server_cert_path=None,
         databricks_workspace_client=None,
     ):
-        if not host and not databricks_workspace_client:
+        if not host:
             raise MlflowException(
-                message="Either 'host' or 'databricks_workspace_client' is required for "
-                        "MlflowHostCreds",
+                message="host is a required parameter for MlflowHostCreds",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         if ignore_tls_verification and (server_cert_path is not None):
@@ -449,6 +448,9 @@ class MlflowHostCreds:
 
     @property
     def verify(self):
+        if self.databricks_workspace_client is not None:
+            # Let databricks-sdk to set HTTP request `verify` param.
+            return None
         if self.server_cert_path is None:
             return not self.ignore_tls_verification
         else:

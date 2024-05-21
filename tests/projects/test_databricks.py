@@ -271,7 +271,7 @@ def test_run_databricks(
     monkeypatch,
 ):
     """Test running on Databricks with mocks."""
-    monkeypatch.setenv("DATABRICKS_HOST", "test-host")
+    monkeypatch.setenv("DATABRICKS_HOST", "https://test-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "foo")
     mlflow.set_tracking_uri("databricks")
     # Test that MLflow gets the correct run status when performing a Databricks run
@@ -287,7 +287,7 @@ def test_run_databricks(
             tags[call_args[1]] = call_args[2]
         assert tags[MLFLOW_DATABRICKS_RUN_URL] == "test_url"
         assert tags[MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID] == "-1"
-        assert tags[MLFLOW_DATABRICKS_WEBAPP_URL] == "test-host"
+        assert tags[MLFLOW_DATABRICKS_WEBAPP_URL] == "https://test-host"
         set_tag_mock.reset_mock()
         runs_submit_mock.reset_mock()
         databricks_cluster_mlflow_run_cmd_mock.reset_mock()
