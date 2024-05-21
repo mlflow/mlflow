@@ -60,13 +60,15 @@ def _init_server(backend_uri, root_artifact_uri, extra_env=None, app="mlflow.ser
             **(extra_env or {}),
         },
     ) as proc:
-        _await_server_up_or_die(server_port)
-        url = f"http://{LOCALHOST}:{server_port}"
-        _logger.info(
-            f"Launching tracking server against backend URI {backend_uri}. Server URL: {url}"
-        )
-        yield url
-        proc.terminate()
+        try:
+            _await_server_up_or_die(server_port)
+            url = f"http://{LOCALHOST}:{server_port}"
+            _logger.info(
+             f"Launching tracking server against backend URI {backend_uri}. Server URL: {url}"
+            )
+            yield url
+        finally:
+            proc.terminate()
 
 
 def _send_rest_tracking_post_request(tracking_server_uri, api_path, json_payload, auth=None):
