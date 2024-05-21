@@ -705,6 +705,43 @@ test('getLoggedModelsFromTags should not crash on invalid JSON', () => {
   expect(models.length).toEqual(0);
 });
 
+test('mergeLoggedAndRegisteredModels should merge logged and registered model', () => {
+  const tags = {
+    'mlflow.log-model.history': (RunTag as any).fromJs({
+      key: 'mlflow.log-model.history',
+      value: JSON.stringify([
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'somePath',
+          utc_time_created: '2020-10-31',
+          flavors: { keras: {}, python_function: {} },
+        },
+      ]),
+    }),
+  };
+  const modelVersions = [
+    {
+      name: 'someModel',
+      version: '3',
+      source: 'nananaBatman/artifacts/somePath',
+      creation_timestamp: 123456,
+      run_id: 'run-uuid',
+    },
+  ];
+  const loggedModels = Utils.getLoggedModelsFromTags(tags);
+  const models = Utils.mergeLoggedAndRegisteredModels(loggedModels, modelVersions);
+  expect(models).toEqual([
+    {
+      artifactPath: 'somePath',
+      flavors: ['keras'],
+      utcTimeCreated: 1604102400,
+      registeredModelName: 'someModel',
+      registeredModelVersion: '3',
+      registeredModelCreationTimestamp: 123456,
+    },
+  ]);
+})
+
 test('mergeLoggedAndRegisteredModels should output 2 logged and 1 registered model', () => {
   const tags = {
     'mlflow.log-model.history': (RunTag as any).fromJs({
