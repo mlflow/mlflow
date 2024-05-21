@@ -61,6 +61,7 @@ from mlflow.models.utils import (
     _load_model_code_path,
     _save_example,
 )
+from mlflow.pyfunc import FLAVOR_NAME as PYFUNC_FLAVOR_NAME
 from mlflow.pyfunc.context import get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -260,20 +261,21 @@ def save_model(
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
 
+    if isinstance(model_config, str):
+        if os.path.exists(model_config):
+            model_config = _load_from_yaml(model_config)
+        else:
+            raise mlflow.MlflowException.invalid_parameter_value(
+                f"Model config path '{model_config}' provided is not a valid file path. "
+                "Please provide a valid model configuration."
+            )
+
     model_code_path = None
     if isinstance(lc_model_or_path, str):
         # The LangChain model is defined as Python code located in the file at the path
         # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
         # model directory along with any other specified code modules
         model_code_path = lc_model_or_path
-        if isinstance(model_config, str):
-            if os.path.exists(model_config):
-                model_config = _load_from_yaml(model_config)
-            else:
-                raise mlflow.MlflowException.invalid_parameter_value(
-                    f"Model config path '{model_config}' provided is not a valid file path. "
-                    "Please provide a valid model configuration."
-                )
 
         lc_model = _load_model_code_path(model_code_path, model_config)
         _validate_and_copy_file_to_directory(model_code_path, path, "code")
@@ -337,23 +339,14 @@ def save_model(
 
     streamable = isinstance(lc_model, lc_runnables_types())
 
+    model_data_kwargs = {}
+    flavor_conf = {}
     if not isinstance(model_code_path, str):
         model_data_kwargs = _save_model(lc_model, path, loader_fn, persist_dir)
         flavor_conf = {
             _MODEL_TYPE_KEY: lc_model.__class__.__name__,
             **model_data_kwargs,
         }
-    else:
-        # If the model is a string, we expect the code_path which is ideally config.yml
-        # would be used in the model. We set the code_path here so it can be set
-        # globally when the model is loaded with the local path. So the consumer
-        # can use that path instead of the config.yml path when the model is loaded
-        flavor_conf = (
-            {MODEL_CONFIG: model_config, MODEL_CODE_PATH: model_code_path}
-            if model_config
-            else {MODEL_CONFIG: None, MODEL_CODE_PATH: model_code_path}
-        )
-        model_data_kwargs = {}
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -866,8 +859,14 @@ def _load_pyfunc(path: str, model_config: Optional[Dict[str, Any]] = None):
 
 def _load_model_from_local_fs(local_model_path):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    if MODEL_CODE_PATH in flavor_conf:
-        model_config = flavor_conf.get(MODEL_CONFIG, None)
+    pyfunc_flavor_conf = _get_flavor_configuration(
+        model_path=local_model_path, flavor_name=PYFUNC_FLAVOR_NAME
+    )
+    # The model_code_path and the model_config were previously saved langchain flavor but now we
+    # also save them inside the pyfunc flavor. For backwards compatibility of previous models,
+    # we need to check both places.
+    if MODEL_CODE_PATH in pyfunc_flavor_conf or MODEL_CODE_PATH in flavor_conf:
+        model_config = pyfunc_flavor_conf.get(MODEL_CONFIG, flavor_conf.get(MODEL_CONFIG, None))
         if isinstance(model_config, str):
             config_path = os.path.join(
                 local_model_path,
@@ -875,7 +874,9 @@ def _load_model_from_local_fs(local_model_path):
             )
             model_config = _load_from_yaml(config_path)
 
-        flavor_code_path = flavor_conf.get(MODEL_CODE_PATH)
+        flavor_code_path = pyfunc_flavor_conf.get(
+            MODEL_CODE_PATH, flavor_conf.get(MODEL_CODE_PATH, None)
+        )
         code_path = os.path.join(
             local_model_path,
             os.path.basename(flavor_code_path),
