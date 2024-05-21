@@ -177,11 +177,11 @@ func (p *parser) parseExpression() (*CompareExpr, error) {
 	}
 }
 
-func (p *parser) parse() (AndExpr, error) {
+func (p *parser) parse() (*AndExpr, error) {
 	exprs := make([]*CompareExpr, 0)
 	leftExpr, err := p.parseExpression()
 	if err != nil {
-		return AndExpr{}, err
+		return nil, err
 	}
 
 	exprs = append(exprs, leftExpr)
@@ -191,19 +191,19 @@ func (p *parser) parse() (AndExpr, error) {
 		p.advance() // Consume the AND
 		rightExpr, err := p.parseExpression()
 		if err != nil {
-			return AndExpr{}, err
+			return nil, err
 		}
 		exprs = append(exprs, rightExpr)
 	}
 
 	if p.hasTokens() {
-		return AndExpr{}, fmt.Errorf("Unexpected leftover token(s) after parsing: %s", p.printCurrentToken())
+		return nil, fmt.Errorf("Unexpected leftover token(s) after parsing: %s", p.printCurrentToken())
 	}
 
-	return AndExpr{Exprs: exprs}, nil
+	return &AndExpr{Exprs: exprs}, nil
 }
 
-func Parse(tokens []lexer.Token) (AndExpr, error) {
+func Parse(tokens []lexer.Token) (*AndExpr, error) {
 	parser := newParser(tokens)
 	return parser.parse()
 }

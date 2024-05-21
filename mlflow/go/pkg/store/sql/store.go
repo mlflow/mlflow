@@ -20,6 +20,7 @@ import (
 	"github.com/mlflow/mlflow/mlflow/go/pkg/config"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/contract"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
+	"github.com/mlflow/mlflow/mlflow/go/pkg/query"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/store"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/store/sql/model"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/utils"
@@ -161,6 +162,15 @@ func (s Store) SearchRuns(
 	tx.Offset(offset)
 
 	// Filter
+	filterAst, err := query.ParseFilter(filter)
+	if err != nil {
+		return nil, nil, contract.NewErrorWith(
+			protos.ErrorCode_INVALID_PARAMETER_VALUE,
+			"error lexing filter",
+			err,
+		)
+	}
+	log.Debugf("Filter AST: %#v", filterAst)
 
 	// OrderBy
 	startTimeOrder := false

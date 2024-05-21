@@ -14,12 +14,12 @@ type regexPattern struct {
 type lexer struct {
 	patterns []regexPattern
 	Tokens   []Token
-	source   string
+	source   *string
 	pos      int
 	line     int
 }
 
-func Tokenize(source string) ([]Token, error) {
+func Tokenize(source *string) ([]Token, error) {
 	lex := createLexer(source)
 
 	for !lex.at_eof() {
@@ -47,16 +47,8 @@ func (lex *lexer) advanceN(n int) {
 	lex.pos += n
 }
 
-func (lex *lexer) at() byte {
-	return lex.source[lex.pos]
-}
-
-func (lex *lexer) advance() {
-	lex.pos += 1
-}
-
 func (lex *lexer) remainder() string {
-	return lex.source[lex.pos:]
+	return (*lex.source)[lex.pos:]
 }
 
 func (lex *lexer) push(token Token) {
@@ -64,10 +56,10 @@ func (lex *lexer) push(token Token) {
 }
 
 func (lex *lexer) at_eof() bool {
-	return lex.pos >= len(lex.source)
+	return lex.pos >= len(*lex.source)
 }
 
-func createLexer(source string) *lexer {
+func createLexer(source *string) *lexer {
 	return &lexer{
 		pos:    0,
 		line:   1,

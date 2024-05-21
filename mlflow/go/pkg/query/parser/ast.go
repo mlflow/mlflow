@@ -31,7 +31,7 @@ type StringExpr struct {
 func (n StringExpr) value() {}
 
 func (n StringExpr) String() string {
-	return fmt.Sprint("\"%s\"", n.Value)
+	return fmt.Sprintf("\"%s\"", n.Value)
 }
 
 type StringListExpr struct {
@@ -52,7 +52,7 @@ func (n StringListExpr) String() string {
 // Identifier Expressions
 // ----------------------
 
-// indentifier.key expression, like metric.foo
+// identifier.key expression, like metric.foo.
 type Identifier struct {
 	Identifier string
 	Key        string
@@ -111,7 +111,7 @@ func (op OperatorKind) String() string {
 	}
 }
 
-// a operator b
+// a operator b.
 type CompareExpr struct {
 	Left     Identifier
 	Operator OperatorKind
@@ -122,7 +122,7 @@ func (expr *CompareExpr) String() string {
 	return fmt.Sprintf("%s %s %s", expr.Left, expr.Operator, expr.Right)
 }
 
-// AND
+// AND.
 type AndExpr struct {
 	Exprs []*CompareExpr
 }

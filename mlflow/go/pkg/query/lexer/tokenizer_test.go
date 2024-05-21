@@ -55,7 +55,7 @@ func TestQueries(t *testing.T) {
 
 	for _, sample := range samples {
 		t.Run(sample.input, func(t *testing.T) {
-			tokens, err := lexer.Tokenize(sample.input)
+			tokens, err := lexer.Tokenize(&sample.input)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
@@ -84,7 +84,7 @@ func TestInvalidInput(t *testing.T) {
 
 	for _, sample := range samples {
 		t.Run(sample, func(t *testing.T) {
-			_, err := lexer.Tokenize(sample)
+			_, err := lexer.Tokenize(&sample)
 			if err == nil {
 				t.Errorf("expected error, got nil")
 			}

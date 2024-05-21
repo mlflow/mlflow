@@ -3,9 +3,6 @@ package parser
 import (
 	"fmt"
 	"strings"
-
-	"github.com/mlflow/mlflow/mlflow/go/pkg/contract"
-	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 )
 
 /*
@@ -145,7 +142,7 @@ func parseKey(identifier, key string) (result string, error error) {
 	return
 }
 
-// Returns a standardized LongIdentifierExpr
+// Returns a standardized LongIdentifierExpr.
 func validatedIdentifier(identifier Identifier) error {
 	if identifier.Key == "" {
 		identifier.Key = attributeIdentifier
@@ -181,7 +178,7 @@ otherwise string
 
 */
 
-// Port of _get_value in search_utils.py
+// Port of _get_value in search_utils.py.
 func validateValue(expression *CompareExpr) error {
 	switch expression.Left.Identifier {
 	case metricIdentifier:
@@ -243,23 +240,15 @@ func validateValue(expression *CompareExpr) error {
 // Not every identifier is valid according to the mlflow domain.
 // The same for the value part.
 // The identifier is sanitized and will be mutated to use the standard identifier.
-func ValidateExpression(expression *CompareExpr) *contract.Error {
+func ValidateExpression(expression *CompareExpr) error {
 	err := validatedIdentifier(expression.Left)
-	if err == nil {
-		return contract.NewErrorWith(
-			protos.ErrorCode_INVALID_PARAMETER_VALUE,
-			fmt.Sprintf("Error on parsing filter expression: %s", expression),
-			err,
-		)
+	if err != nil {
+		return fmt.Errorf("Error on parsing filter expression: %s", err)
 	}
 
 	err = validateValue(expression)
 	if err != nil {
-		return contract.NewErrorWith(
-			protos.ErrorCode_INVALID_PARAMETER_VALUE,
-			fmt.Sprintf("Error on parsing filter expression: %s", expression),
-			err,
-		)
+		return fmt.Errorf("Error on parsing filter expression: %s", err)
 	}
 
 	return nil

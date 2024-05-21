@@ -10,25 +10,25 @@ const (
 	STRING
 	IDENTIFIER
 
-	// Grouping & Braces
+	// Grouping & Braces.
 	OPEN_PAREN
 	CLOSE_PAREN
 
-	// Equivilance
+	// Equivilance.
 	EQUALS
 	NOT_EQUALS
 
-	// Conditional
+	// Conditional.
 	LESS
 	LESS_EQUALS
 	GREATER
 	GREATER_EQUALS
 
-	// Symbols
+	// Symbols.
 	DOT
 	COMMA
 
-	// Reserved Keywords
+	// Reserved Keywords.
 	IN
 	NOT
 	LIKE
