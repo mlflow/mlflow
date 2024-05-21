@@ -374,7 +374,7 @@ nitpick_ignore = [
     ("py:class", "mlflow.models.signature.ModelSignature"),
     ("py:class", "mlflow.models.resources.Resource"),
     ("py:class", "mlflow.models.resources.ResourceType"),
-    ("py:class", "mlflow.models.dependencies_schema.set_retriever_schema"),
+    ("py:class", "mlflow.models.dependencies_schemas.set_retriever_schema"),
     ("py:class", "mlflow.metrics.genai.base.EvaluationExample"),
     ("py:class", "mlflow.models.evaluation.base.EvaluationMetric"),
     ("py:class", "MlflowInferableDataset"),
