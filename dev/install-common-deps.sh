@@ -52,7 +52,7 @@ if [[ "$SKINNY" == "true" ]]; then
   cat pyproject.skinny.toml > pyproject.toml
   pip install . --upgrade 'requests<2.32.0'
 else
-  pip install .[extras] --upgrade 'requests<=2.32.0'
+  pip install .[extras] --upgrade 'requests<2.32.0'
 fi
 
 req_files=""
