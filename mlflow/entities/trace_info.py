@@ -18,8 +18,10 @@ class TraceInfo(_MlflowObject):
         timestamp_ms: start time of the trace, in milliseconds.
         execution_time_ms: duration of the trace, in milliseconds.
         status: status of the trace.
-        request_metadata: request metadata associated with the trace.
-        tags: tags associated with the trace.
+        request_metadata: Key-value pairs associated with the trace. Request metadata are designed
+            for immutable values like run ID associated with the trace.
+        tags: Tags associated with the trace. Tags are designed for mutable values like trace name,
+            that can be updated by the users after the trace is created, unlike request_metadata.
     """
 
     request_id: str
