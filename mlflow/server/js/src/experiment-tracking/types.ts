@@ -5,9 +5,9 @@
  * Note: this could be automatically generated in the future.
  */
 
-import { SearchExperimentRunsFacetsState } from './components/experiment-page/models/SearchExperimentRunsFacetsState';
-import { SearchExperimentRunsViewState } from './components/experiment-page/models/SearchExperimentRunsViewState';
+import { ExperimentPageViewState } from './components/experiment-page/models/ExperimentPageViewState';
 import { RawEvaluationArtifact } from './sdk/EvaluationArtifactService';
+import { type ArtifactNode } from './utils/ArtifactUtils';
 
 /**
  * Simple key/value model enhanced with immutable.js
@@ -16,9 +16,6 @@ import { RawEvaluationArtifact } from './sdk/EvaluationArtifactService';
 export interface KeyValueEntity {
   key: string;
   value: string;
-
-  getKey(): string;
-  getValue(): string;
 }
 
 export type ModelAliasMap = { alias: string; version: string }[];
@@ -64,6 +61,10 @@ export interface ModelVersionInfoEntity {
 /**
  * A run entity as seen in the API response
  */
+
+export interface RunInfoInputsEntity {
+  datasetInputs?: RunDatasetWithTags[];
+}
 export interface RunEntity {
   data: {
     params: KeyValueEntity[];
@@ -71,25 +72,18 @@ export interface RunEntity {
     metrics: MetricEntity[];
   };
   info: RunInfoEntity;
+  inputs?: RunInfoInputsEntity;
 }
 
 export interface RunInfoEntity {
-  artifact_uri: string;
-  end_time: number;
-  experiment_id: string;
-  lifecycle_stage: string;
-  run_uuid: string;
-  run_name: string;
-  start_time: number;
+  artifactUri: string;
+  endTime: number;
+  experimentId: string;
+  lifecycleStage: string;
+  runUuid: string;
+  runName: string;
+  startTime: number;
   status: 'SCHEDULED' | 'FAILED' | 'FINISHED' | 'RUNNING' | 'KILLED';
-
-  getArtifactUri(): string;
-  getEndTime(): string;
-  getExperimentId(): string;
-  getLifecycleStage(): string;
-  getRunUuid(): string;
-  getStartTime(): string;
-  getStatus(): string;
 }
 
 export interface RunDatasetWithTags {
@@ -99,7 +93,7 @@ export interface RunDatasetWithTags {
     profile: string;
     schema: string;
     source: string;
-    source_type: string;
+    sourceType: string;
   };
   tags: KeyValueEntity[];
 }
@@ -122,23 +116,14 @@ export type MetricEntitiesByName = Record<string, MetricEntity>;
 export type MetricHistoryByName = Record<string, MetricEntity[]>;
 
 export interface ExperimentEntity {
-  allowed_actions: string[];
-  artifact_location: string;
-  creation_time: number;
-  experiment_id: string;
-  last_update_time: number;
-  lifecycle_stage: string;
+  allowedActions: string[];
+  artifactLocation: string;
+  creationTime: number;
+  experimentId: string;
+  lastUpdateTime: number;
+  lifecycleStage: string;
   name: string;
   tags: KeyValueEntity[];
-
-  getAllowedActions(): string[];
-  getArtifactLocation(): string;
-  getCreationTime(): number;
-  getExperimentId(): string;
-  getLastUpdateTime(): number;
-  getLifecycleStage(): string;
-  getName(): string;
-  getTags(): KeyValueEntity[];
 }
 
 export type SampledMetricsByRunUuidState = {
@@ -149,6 +134,7 @@ export type SampledMetricsByRunUuidState = {
         refreshing?: boolean;
         error?: any;
         metricsHistory?: MetricEntity[];
+        lastUpdatedTime?: number;
       };
     };
   };
@@ -207,6 +193,12 @@ export interface ExperimentStoreEntities {
   tagsByRunUuid: Record<string, Record<string, KeyValueEntity>>;
 
   /**
+   * Dictionary of images for runs. The keys are Run UUID, image name, and
+   * metadata filename respectively.
+   */
+  imagesByRunUuid: Record<string, Record<string, Record<string, ImageEntity>>>;
+
+  /**
    * Dictionary of tags for experiments. Experiment ID serves is a first key,
    * tag name is the second one.
    */
@@ -249,6 +241,16 @@ export interface ExperimentStoreEntities {
    * Dictionary of artifact root URIs by run UUIDs.
    */
   artifactRootUriByRunUuid: Record<string, string>;
+
+  /**
+   * Dictionary of artifact root URIs by run UUIDs.
+   */
+  artifactsByRunUuid: Record<string, ArtifactNode>;
+
+  /**
+   * Easy-access dictionary of assigned run colors keyed by run UUIDs.
+   */
+  colorByRunUuid: Record<string, string>;
 }
 
 export enum LIFECYCLE_FILTER {
@@ -270,25 +272,10 @@ export type ExperimentCategorizedUncheckedKeys = {
 };
 
 /**
- * Function used to update the filter set and fetch new set of runs.
- * First parameter is the subset of fields that the current sort/filter model will be merged with.
- * If the second parameter is set to true, it will force re-fetching even if there
- * are no sufficient changes to the model.
- */
-export type UpdateExperimentSearchFacetsFn = (
-  newFilterModel: Partial<SearchExperimentRunsFacetsState> | React.SetStateAction<SearchExperimentRunsFacetsState>,
-  updateOptions?: {
-    forceRefresh?: boolean;
-    preservePristine?: boolean;
-    replaceHistory?: boolean;
-  },
-) => void;
-
-/**
  * Function used to update the local (non-persistable) view state.
  * First parameter is the subset of fields that the current view state model will be merged with.
  */
-export type UpdateExperimentViewStateFn = (newPartialViewState: Partial<SearchExperimentRunsViewState>) => void;
+export type UpdateExperimentViewStateFn = (newPartialViewState: Partial<ExperimentPageViewState>) => void;
 
 /**
  * Enum representing the different types of dataset sources.
@@ -301,13 +288,14 @@ export enum DatasetSourceTypes {
   HTTP = 'http',
   S3 = 's3',
   HUGGING_FACE = 'hugging_face',
+  UC = 'uc_volume',
 }
 
 /**
  * Describes a single entry in the text evaluation artifact
  */
 export interface EvaluationArtifactTableEntry {
-  [fieldName: string]: string;
+  [fieldName: string]: any;
 }
 
 /**
@@ -348,7 +336,7 @@ export type RunLoggedArtifactsDeclaration = {
   type: RunLoggedArtifactType;
 }[];
 
-export type ExperimentViewRunsCompareMode = undefined | 'ARTIFACT' | 'CHART';
+export type ExperimentViewRunsCompareMode = 'TABLE' | 'ARTIFACT' | 'CHART' | 'TRACES';
 
 /**
  * Describes a section of the compare runs view
@@ -364,3 +352,50 @@ export type RunViewMetricConfig = {
   metricKey: string; // key of the metric
   sectionKey: string; // key of the section initialized with prefix of metricKey
 };
+
+export interface ImageEntity {
+  key: string;
+  filepath: string;
+  compressed_filepath: string;
+  step: number;
+  timestamp: number;
+}
+
+export interface ArtifactFileInfo {
+  path: string;
+  is_dir: boolean;
+  file_size: number;
+}
+
+export interface ArtifactListFilesResponse {
+  root_uri: string;
+  files: ArtifactFileInfo[];
+}
+
+export interface ArtifactLogTableImageObject {
+  type: string;
+  filepath: string;
+  compressed_filepath: string;
+}
+
+export interface EvaluateCellImage {
+  url: string;
+  compressed_url: string;
+}
+
+export interface GetRunApiResponse {
+  run: RunEntity;
+}
+
+export interface SearchRunsApiResponse {
+  runs?: RunEntity[];
+  next_page_token?: string;
+}
+
+export interface SearchExperimentsApiResponse {
+  experiments: ExperimentEntity[];
+}
+
+export interface GetExperimentApiResponse {
+  experiment: ExperimentEntity;
+}

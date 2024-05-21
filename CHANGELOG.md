@@ -1,5 +1,86 @@
 # CHANGELOG
 
+## 2.13.0 (2024-05-20)
+
+MLflow 2.13.0 includes several major features and improvements
+
+With this release, we're happy to introduce several features that enhance the usability of MLflow broadly across a range of use cases. 
+
+### Major Features and Improvements:
+
+- **Streamable Python Models**: The newly introduced `predict_stream` API for Python Models allows for custom model implementations that support the return of a generator object, permitting full customization for GenAI applications. 
+
+- **Enhanced Code Dependency Inference**: A new feature for automatically inferrring code dependencies based on detected dependencies within a model's implementation. As a supplement to the `code_paths` parameter, the introduced `infer_model_code_paths` option when logging a model will determine which additional code modules are needed in order to ensure that your models can be loaded in isolation, deployed, and reliably stored.
+
+- **Standardization of MLflow Deployment Server**: Outputs from the Deployment Server's endpoints now conform to OpenAI's interfaces to provide a simpler integration with commonly used services.
+
+Features:
+
+- [Deployments] Update the MLflow Deployment Server interfaces to be OpenAI compatible (#12003, @harupy)
+- [Deployments] Add `Togetherai` as a supported provider for the MLflow Deployments Server (#11557, @FotiosBistas)
+- [Models] Add `predict_stream` API support for Python Models (#11791, @WeichenXu123)
+- [Models] Enhance the capabilities of logging code dependencies for MLflow models (#11806, @WeichenXu123)
+- [Models] Add support for RunnableBinding models in LangChain (#11980, @serena-ruan)
+- [Model Registry / Databricks] Add support for renaming models registered to Unity Catalog (#11988, @artjen)
+- [Model Registry / Databricks] Improve the handling of searching for invalid components from Unity Catalog registered models (#11961, @artjen)
+- [Model Registry] Enhance retry logic and credential refresh to mitigate cloud provider token expiration failures when uploading or downloading artifacts (#11614, @artjen)
+- [Artifacts / Databricks] Add enhanced lineage tracking for models loaded from Unity Catalog (#11305, @shichengzhou-db)
+- [Tracking] Add resourcing metadata to Pyfunc models to aid in model serving environment configuration (#11832, @sunishsheth2009)
+- [Tracking] Enhance LangChain signature inference for models as code (#11855, @sunishsheth2009)
+
+Bug fixes:
+
+- [Artifacts] Prohibit invalid configuration options for multi-part upload on AWS (#11975, @ian-ack-db)
+- [Model Registry] Enforce registered model metadata equality (#12013, @artjen)
+- [Models] Correct an issue with `hasattr` references in `AttrDict` usages (#11999, @BenWilson2)
+
+Documentation updates:
+
+- [Docs] Simplify the main documentation landing page (#12017, @BenWilson2)
+- [Docs] Add documentation for the expanded code path inference feature (#11997, @BenWilson2)
+- [Docs] Add documentation guidelines for the `predict_stream` API (#11976, @BenWilson2)
+- [Docs] Add support for enhanced Documentation with the `JFrog` MLflow Plugin (#11426, @yonarbel)
+
+Small bug fixes and documentation updates:
+
+#12052, #12053, #12022, #12029, #12024, #11992, #12004, #11958, #11957, #11850, #11938, #11924, #11922, #11920, #11820, #11822, #11798, @serena-ruan; #12054, #12051, #12045, #12043, #11987, #11888, #11876, #11913, #11868, @sunishsheth2009; #12049, #12046, #12037, #11831, @dbczumar; #12047, #12038, #12020, #12021, #11970, #11968, #11967, #11965, #11963, #11941, #11956, #11953, #11934, #11921, #11454, #11836, #11826, #11793, #11790, #11776, #11765, #11763, #11746, #11748, #11740, #11735, @harupy; #12025, #12034, #12027, #11914, #11899, #11866, @BenWilson2; #12026, #11991, #11979, #11964, #11939, #11894, @daniellok-db; #11951, #11974, #11916, @annzhang-db; #12015, #11931, #11627, @jessechancy; #12014, #11917, @prithvikannan; #12012, @AveshCSingh; #12001, @yunpark93; #11984, #11983, #11977, #11977, #11949, @edwardfeng-db; #11973, @bbqiu; #11902, #11835, #11775, @B-Step62; #11845, @lababidi
+
+## 2.12.2 (2024-05-08)
+
+MLflow 2.12.2 is a patch release that includes several bug fixes and integration improvements to existing features. New features that are introduced in this patch release are intended to provide a foundation to further major features that will be released in the next 2 minor releases.
+
+Features:
+
+- [Models] Add an environment configuration flag to enable raising an exception instead of a warning for failures in model dependency inference (#11903, @BenWilson2)
+- [Models] Add support for the `llm/v1/embeddings` task in the Transformers flavor to unify the input and output structures for embedding models (#11795, @B-Step62)
+- [Models] Introduce model streaming return via `predict_stream()` for custom `pyfunc` models capable of returning a stream response (#11791, #11895, @WeichenXu123)
+- [Evaluate] Add support for overriding the entire model evaluation judgment prompt within `mlflow.evaluate` for GenAI models (#11912, @apurva-koti)
+- [Tracking] Add support for defining deployment resource metadata to configure deployment resources within `pyfunc` models (#11832, #11825, #11804, @sunishsheth2009)
+- [Tracking] Add support for logging `LangChain` and custom `pyfunc` models as code (#11855, #11842, @sunishsheth2009)
+- [Tracking] Modify MLflow client's behavior to read from a global asynchronous configuration state (#11778, #11780, @chenmoneygithub)
+- [Tracking] Enhance system metrics data collection to include a GPU power consumption metric (#11747, @chenmoneygithub)
+
+
+Bug fixes:
+
+- [Models] Fix a validation issue when performing signature validation if `params` are specified (#11838, @WeichenXu123)
+- [Databricks] Fix an issue where models cannot be loaded in the Databricks serverless runtime (#11758, @WeichenXu123)
+- [Databricks] Fix an issue with the Databricks serverless runtime where scaled workers do not have authorization to read from the driver NFS mount (#11757, @WeichenXu123)
+- [Databricks] Fix an issue in the Databricks serverless runtime where a model loaded via a `spark_udf` for inference fails due to a configuration issue (#11752, @WeichenXu123)
+- [Server-infra] Upgrade the gunicorn dependency to version 22 to address a third-party security issue (#11742, @maitreyakv)
+
+
+Documentation updates:
+
+- [Docs] Add additional guidance on search syntax restrictions for search APIs (#11892, @BenWilson2)
+- [Docs] Fix an issue with the quickstart guide where the Keras example model is defined incorrectly (#11848, @horw)
+- [Docs] Provide fixes and updates to LangChain tutorials and guides (#11802, @BenWilson2)
+- [Docs] Fix the model registry example within the docs for correct type formatting (#11789, @80rian)
+
+Small bug fixes and documentation updates:
+
+#11928, @apurva-koti; #11910, #11915, #11864, #11893, #11875, #11744, @BenWilson2; #11913, #11918, #11869, #11873, #11867, @sunishsheth2009; #11916, #11879, #11877, #11860, #11843, #11844, #11817, #11841, @annzhang-db; #11822, #11861, @serena-ruan; #11890, #11819, #11794, #11774, @B-Step62; #11880, @prithvikannan; #11833, #11818, #11954, @harupy; #11831, @dbczumar; #11812, #11816, #11800, @daniellok-db; #11788, @smurching; #11756, @IgorMilavec; #11627, @jessechancy
+
 ## 2.12.1 (2024-04-17)
 
 MLflow 2.12.1 includes several major features and improvements

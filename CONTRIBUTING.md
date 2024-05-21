@@ -204,7 +204,7 @@ match those in the mlflow CI, refer to [lint-requirements.txt](https://github.co
 You can compare these versions with your local using pip:
 
 ```bash
-pip show pylint
+pip show ruff
 ```
 
 ## Setting up the repository
@@ -337,7 +337,7 @@ git config --global user.email yourname@example.com
 ```
 
 For convenience, we provide a pre-commit git hook that validates that
-commits are signed-off and runs `black --check` and `pylint` to ensure the
+commits are signed-off and runs `ruff check --fix` and `ruff format` to ensure the
 code will pass the lint check for python. You can enable it by running:
 
 ```bash
@@ -589,11 +589,12 @@ disable this behavior, decorate your test function with
 Verify that the unit tests & linter pass before submitting a pull
 request by running:
 
-We use [Black](https://black.readthedocs.io/en/stable/) to ensure a
+We use [ruff](https://docs.astral.sh/ruff/) to ensure a
 consistent code format. You can auto-format your code by running:
 
 ```bash
-black .
+ruff format .
+ruff check .
 ```
 
 Then, verify that the unit tests & linter pass before submitting a pull

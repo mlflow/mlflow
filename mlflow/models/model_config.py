@@ -3,12 +3,12 @@ from typing import Any, Dict, Optional, Union
 
 import yaml
 
-import mlflow
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 __mlflow_model_config__ = None
 
 
-# TODO: Let ModelConfig take in a dictionary instead of a file path
 class ModelConfig:
     """
     ModelConfig used in code to read a YAML configuration file, and this configuration file can be
@@ -17,9 +17,6 @@ class ModelConfig:
 
     def __init__(self, *, development_config: Optional[Union[str, Dict[str, Any]]] = None):
         config = globals().get("__mlflow_model_config__", None)
-        # backwards compatibility
-        rag_config = getattr(mlflow.langchain._rag_utils, "__databricks_rag_config_path__", None)
-
         # Here mlflow_model_config have 3 states:
         # 1. None, this means if the mlflow_model_config is None, use development_config if
         # available
@@ -29,8 +26,6 @@ class ModelConfig:
         # model so use that path
         if config is not None:
             self.config = config
-        elif rag_config is not None:
-            self.config = rag_config
         else:
             self.config = development_config
 
@@ -61,7 +56,9 @@ class ModelConfig:
             try:
                 return yaml.safe_load(file)
             except yaml.YAMLError as e:
-                raise yaml.YAMLError(f"Error parsing YAML file: {e}")
+                raise MlflowException(
+                    f"Error parsing YAML file: {e}", error_code=INVALID_PARAMETER_VALUE
+                )
 
     def get(self, key):
         """Gets the value of a top-level parameter in the configuration."""

@@ -83,6 +83,7 @@ export const MLFLOW_LOGGED_ARTIFACTS_TAG = 'mlflow.loggedArtifacts';
 export const EXPERIMENT_PAGE_FEEDBACK_URL = 'https://github.com/mlflow/mlflow/issues/6348';
 
 export const MLFLOW_RUN_TYPE_TAG = 'mlflow.runType';
+export const MLFLOW_RUN_COLOR_TAG = 'mlflow.runColor';
 export const MLFLOW_RUN_SOURCE_TYPE_TAG = 'mlflow.runSourceType';
 export const MLFLOW_RUN_TYPE_VALUE_EVALUATION = 'evaluation';
 
@@ -111,3 +112,23 @@ export const MLFLOW_MODEL_METRIC_NAME = 'Model metrics';
 
 export const EXPERIMENT_PAGE_VIEW_STATE_SHARE_URL_PARAM_KEY = 'viewStateShareKey';
 export const EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX = 'mlflow.sharedViewState.';
+
+export const MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH = 'images';
+export const IMAGE_FILE_EXTENSION = 'png';
+export const IMAGE_COMPRESSED_FILE_EXTENSION = 'webp';
+export const EXPERIMENT_RUNS_IMAGE_AUTO_REFRESH_INTERVAL = 30000;
+export const DEFAULT_IMAGE_GRID_CHART_NAME = 'Image grid';
+
+export const LOG_TABLE_IMAGE_COLUMN_TYPE = 'image';
+export const LOG_IMAGE_TAG_INDICATOR = 'mlflow.loggedImages';
+export const NUM_RUNS_TO_SUPPORT_FOR_LOG_IMAGE = 10;
+
+/**
+ * This is a timestamp that is used as the base for relative time calculations.
+ * It is the number of milliseconds since the Unix epoch. It is used to
+ * create a timestamp that is 00:00:00.000 and works with plotly. The date
+ * doesn't matter because it will be hidden in relative time displays.
+ */
+export const EPOCH_RELATIVE_TIME = 28800000;
+export const LINE_CHART_RELATIVE_TIME_THRESHOLD = 1000 * 60 * 60 * 24; // 1 day
+export const HOUR_IN_MILLISECONDS = 1000 * 60 * 60; // 1 hour

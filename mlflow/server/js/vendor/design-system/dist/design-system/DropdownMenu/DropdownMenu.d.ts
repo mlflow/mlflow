@@ -1,21 +1,25 @@
-import type { CSSObject, Interpolation } from '@emotion/react';
+import { type CSSObject, type Interpolation } from '@emotion/react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import React from 'react';
 import type { Theme } from '../../theme';
+import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
+import type { AnalyticsEventOptionalProps, AnalyticsEventValueChangeNoPiiFlagOptionalProps } from '../types';
 export declare const Root: React.FC<DropdownMenu.DropdownMenuProps>;
 export interface DropdownMenuProps extends DropdownMenu.MenuContentProps {
     minWidth?: number;
     isInsideModal?: boolean;
 }
-export interface DropdownMenuItemProps extends DropdownMenu.DropdownMenuItemProps {
+export interface DropdownMenuItemProps extends DropdownMenu.DropdownMenuItemProps, AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
     danger?: boolean;
     disabledReason?: React.ReactNode;
 }
 export interface DropdownMenuSubTriggerProps extends DropdownMenu.DropdownMenuSubTriggerProps {
     disabledReason?: React.ReactNode;
 }
-export interface DropdownMenuCheckboxItemProps extends DropdownMenu.DropdownMenuCheckboxItemProps {
+export interface DropdownMenuCheckboxItemProps extends DropdownMenu.DropdownMenuCheckboxItemProps, AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     disabledReason?: React.ReactNode;
+}
+export interface DropdownMenuRadioGroupProps extends DropdownMenu.DropdownMenuRadioGroupProps, AnalyticsEventValueChangeNoPiiFlagOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
 }
 export interface DropdownMenuRadioItemProps extends DropdownMenu.DropdownMenuRadioItemProps {
     disabledReason?: React.ReactNode;
@@ -33,12 +37,12 @@ export declare const SubTrigger: React.ForwardRefExoticComponent<DropdownMenuSub
  */
 export declare const TriggerItem: React.ForwardRefExoticComponent<DropdownMenuSubTriggerProps & React.RefAttributes<HTMLDivElement>>;
 export declare const CheckboxItem: React.ForwardRefExoticComponent<DropdownMenuCheckboxItemProps & React.RefAttributes<HTMLDivElement>>;
+export declare const RadioGroup: React.ForwardRefExoticComponent<DropdownMenuRadioGroupProps & React.RefAttributes<HTMLDivElement>>;
 export declare const ItemIndicator: React.ForwardRefExoticComponent<DropdownMenu.DropdownMenuItemIndicatorProps & React.RefAttributes<HTMLDivElement>>;
 export declare const Arrow: React.ForwardRefExoticComponent<DropdownMenu.DropdownMenuArrowProps & React.RefAttributes<SVGSVGElement>>;
 export declare const RadioItem: React.ForwardRefExoticComponent<DropdownMenuRadioItemProps & React.RefAttributes<HTMLDivElement>>;
+export declare const Sub: ({ children, onOpenChange, ...props }: DropdownMenu.DropdownMenuSubProps) => import("@emotion/react/jsx-runtime").JSX.Element;
 export declare const Group: React.ForwardRefExoticComponent<DropdownMenu.DropdownMenuGroupProps & React.RefAttributes<HTMLDivElement>>;
-export declare const RadioGroup: React.ForwardRefExoticComponent<DropdownMenu.DropdownMenuRadioGroupProps & React.RefAttributes<HTMLDivElement>>;
-export declare const Sub: React.FC<DropdownMenu.DropdownMenuSubProps>;
 export declare const HintColumn: React.ForwardRefExoticComponent<Pick<Pick<React.DetailedHTMLProps<React.HTMLAttributes<HTMLDivElement>, HTMLDivElement>, "key" | keyof React.HTMLAttributes<HTMLDivElement>> & {
     ref?: ((instance: HTMLDivElement | null) => void) | React.RefObject<HTMLDivElement> | null | undefined;
 }, "key" | keyof React.HTMLAttributes<HTMLDivElement>> & React.RefAttributes<HTMLDivElement>>;

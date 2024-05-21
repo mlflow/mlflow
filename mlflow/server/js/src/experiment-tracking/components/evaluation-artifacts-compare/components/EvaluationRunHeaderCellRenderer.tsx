@@ -21,6 +21,8 @@ import React, { useMemo } from 'react';
 import { EvaluationTableHeader } from './EvaluationTableHeader';
 import { useCreateNewRun } from '../../experiment-page/hooks/useCreateNewRun';
 import { canEvaluateOnRun } from '../../prompt-engineering/PromptEngineering.utils';
+import { useGetExperimentRunColor } from '../../experiment-page/hooks/useExperimentRunColor';
+import { RunColorPill } from '../../experiment-page/components/RunColorPill';
 
 interface EvaluationRunHeaderCellRendererProps {
   run: RunRowType;
@@ -45,6 +47,7 @@ export const EvaluationRunHeaderCellRenderer = ({
     usePromptEngineeringContext();
   const intl = useIntl();
   const evaluableRowCount = getEvaluableRowCount(run);
+  const getRunColor = useGetExperimentRunColor();
   const evaluateAllButtonEnabled = evaluableRowCount > 0;
 
   const evaluatingAllInProgress = runColumnsBeingEvaluated.includes(run.runUuid);
@@ -91,29 +94,20 @@ export const EvaluationRunHeaderCellRenderer = ({
           display: 'flex',
         }}
       >
-        <Link
-          css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}
-          to={ExperimentRoutes.getRunPageRoute(run.experimentId || '', run.runUuid)}
-          target="_blank"
-        >
-          <div
-            css={{
-              backgroundColor: run.color,
-              width: 12,
-              height: 12,
-              borderRadius: 6,
-            }}
-          />
-
-          {run.runName}
-        </Link>
-        <div css={{ flexBasis: theme.spacing.sm }} />
+        <span css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+          <RunColorPill color={getRunColor(run.runUuid)} />
+          <Link to={ExperimentRoutes.getRunPageRoute(run.experimentId || '', run.runUuid)} target="_blank">
+            {run.runName}
+          </Link>
+        </span>
+        <div css={{ flexBasis: theme.spacing.sm, flexShrink: 0 }} />
 
         <Button
           componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationrunheadercellrenderer.tsx_112"
           onClick={() => onHideRun(run.runUuid)}
           size="small"
           icon={<VisibleIcon />}
+          css={{ flexShrink: 0 }}
         />
         <div css={{ flex: 1 }} />
         {shouldEnablePromptLab() && canEvaluateInRunColumn(run) && (

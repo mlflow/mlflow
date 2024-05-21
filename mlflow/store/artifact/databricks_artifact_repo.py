@@ -3,9 +3,7 @@ import json
 import logging
 import os
 import posixpath
-import tempfile
 import uuid
-from pathlib import Path
 from typing import Any, Dict
 
 import requests
@@ -41,10 +39,12 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
 )
 from mlflow.protos.service_pb2 import GetRun, ListArtifacts, MlflowService
+from mlflow.store.artifact.artifact_repo import write_local_temp_trace_data_file
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
     _complete_futures,
     _compute_num_chunks,
+    _validate_chunk_size_aws,
 )
 from mlflow.utils import chunk_list
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -258,11 +258,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
     def upload_trace_data(self, trace_data: str) -> None:
         cred = self._get_upload_trace_data_cred_info()
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_file = Path(temp_dir, "traces.json")
-            with temp_file.open("w") as f:
-                f.write(trace_data)
-
+        with write_local_temp_trace_data_file(trace_data) as temp_file:
             if cred.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
                 self._azure_adls_gen2_upload_file(
                     credentials=cred,
@@ -550,6 +546,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             )
         elif cloud_credential_info.type == ArtifactCredentialType.AWS_PRESIGNED_URL:
             if os.path.getsize(src_file_path) > MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get():
+                _validate_chunk_size_aws(MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
                 self._multipart_upload(src_file_path, artifact_file_path)
             else:
                 self._signed_url_upload_file(cloud_credential_info, src_file_path)

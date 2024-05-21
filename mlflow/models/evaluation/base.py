@@ -492,13 +492,15 @@ def _hash_ndarray_as_bytes(nd_array):
 
 
 def _hash_data_as_bytes(data):
-    if isinstance(data, (list, np.ndarray)):
-        return _hash_ndarray_as_bytes(data)
-    if isinstance(data, dict):
-        return _hash_dict_as_bytes(data)
-    if np.isscalar(data):
-        return _hash_uint64_ndarray_as_bytes(pd.util.hash_array(np.array([data])))
-    raise MlflowException(f"Unsupported data type for hashing: `{type(data)}`")
+    try:
+        if isinstance(data, (list, np.ndarray)):
+            return _hash_ndarray_as_bytes(data)
+        if isinstance(data, dict):
+            return _hash_dict_as_bytes(data)
+        if np.isscalar(data):
+            return _hash_uint64_ndarray_as_bytes(pd.util.hash_array(np.array([data])))
+    finally:
+        return b""  # Skip unsupported types by returning an empty byte string
 
 
 def _hash_dict_as_bytes(data_dict):
@@ -531,7 +533,13 @@ def _hash_array_like_obj_as_bytes(data):
                     return _hash_ndarray_as_bytes(v.toArray())
             if isinstance(v, (dict, list, np.ndarray)):
                 return _hash_data_as_bytes(v)
-            return v
+
+            try:
+                # Attempt to hash the value, if it fails, return an empty byte string
+                pd.util.hash_array(np.array([v]))
+                return v
+            except TypeError:
+                return b""  # Skip unhashable types by returning an empty byte string
 
         if Version(pd.__version__) >= Version("2.1.0"):
             data = data.map(_hash_array_like_element_as_bytes)
@@ -1009,7 +1017,7 @@ def _normalize_evaluators_and_evaluator_config_args(
     if evaluators is None:
         evaluator_name_list = list(_model_evaluation_registry._registry.keys())
         if len(evaluator_name_list) > 1:
-            _logger.info(
+            _logger.debug(
                 f"Multiple registered evaluators have been configured: {evaluator_name_list}. "
                 "Each evaluator will be used for evaluation if the specified model type is "
                 "compatible with the evaluator definition. If you are intending to override "
@@ -1297,7 +1305,7 @@ def _evaluate(
 
         _last_failed_evaluator = evaluator_name
         if evaluator.can_evaluate(model_type=model_type, evaluator_config=config):
-            _logger.info(f"Evaluating the model with the {evaluator_name} evaluator.")
+            _logger.debug(f"Evaluating the model with the {evaluator_name} evaluator.")
             eval_result = evaluator.evaluate(
                 model=model,
                 model_type=model_type,

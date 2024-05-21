@@ -1,11 +1,14 @@
+import re
+
 import pytest
 
 from mlflow.entities import LiveSpan
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.utils import (
+    _parse_fields,
     deduplicate_span_names_in_place,
     encode_span_id,
-    maybe_get_evaluation_request_id,
+    maybe_get_request_id,
 )
 
 from tests.tracing.helper import create_mock_otel_span
@@ -32,8 +35,8 @@ def test_deduplicate_span_names():
     assert [span.span_id for span in spans] == [encode_span_id(i) for i in [0, 1, 2, 3, 4, 5]]
 
 
-def test_maybe_get_evaluation_request_id():
-    assert maybe_get_evaluation_request_id() is None
+def test_maybe_get_request_id():
+    assert maybe_get_request_id(is_evaluate=True) is None
 
     try:
         from mlflow.pyfunc.context import Context, set_prediction_context
@@ -41,11 +44,37 @@ def test_maybe_get_evaluation_request_id():
         pytest.skip("Skipping the rest of tests as mlflow.pyfunc module is not available.")
 
     with set_prediction_context(Context(request_id="eval", is_evaluate=True)):
-        assert maybe_get_evaluation_request_id() == "eval"
+        assert maybe_get_request_id(is_evaluate=True) == "eval"
 
     with set_prediction_context(Context(request_id="non_eval", is_evaluate=False)):
-        assert maybe_get_evaluation_request_id() is None
+        assert maybe_get_request_id(is_evaluate=True) is None
 
-    with pytest.raises(MlflowException, match="When prediction request context"):
+    with pytest.raises(MlflowException, match="Missing request_id for context"):
         with set_prediction_context(Context(request_id=None, is_evaluate=True)):
-            maybe_get_evaluation_request_id()
+            maybe_get_request_id(is_evaluate=True)
+
+
+def test_parse_fields():
+    fields = ["span1.inputs", "span2.outputs.field1", "span3.outputs"]
+    parsed_fields = _parse_fields(fields)
+
+    assert len(parsed_fields) == 3
+
+    assert parsed_fields[0].span_name == "span1"
+    assert parsed_fields[0].field_type == "inputs"
+    assert parsed_fields[0].field_name is None
+
+    assert parsed_fields[1].span_name == "span2"
+    assert parsed_fields[1].field_type == "outputs"
+    assert parsed_fields[1].field_name == "field1"
+
+    assert parsed_fields[2].span_name == "span3"
+    assert parsed_fields[2].field_type == "outputs"
+    assert parsed_fields[2].field_name is None
+
+    # Test invalid fields
+    with pytest.raises(
+        MlflowException,
+        match=re.escape("Field must be of the form 'span_name.[inputs|outputs]'"),
+    ):
+        _parse_fields(["span1"])

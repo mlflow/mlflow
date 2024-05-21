@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, List, Optional
 
 from mlflow.entities import DatasetInput, Experiment, Metric, Run, RunInfo, TraceInfo, ViewType
@@ -52,6 +53,7 @@ from mlflow.utils.rest_utils import (
 )
 
 _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
+_logger = logging.getLogger(__name__)
 
 
 class RestStore(AbstractStore):

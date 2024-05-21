@@ -2,9 +2,9 @@ import { RunsChartsRunData } from '../RunsCharts.common';
 import LazyParallelCoordinatesPlot, { processParallelCoordinateData } from '../charts/LazyParallelCoordinatesPlot';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import { RunsChartsParallelCardConfig } from '../../runs-charts.types';
-import { shouldEnableRunGrouping } from '../../../../../common/utils/FeatureUtils';
 import { useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
+import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 
 export const RunsChartsConfigureParallelChartPreview = ({
   previewData,
@@ -13,7 +13,7 @@ export const RunsChartsConfigureParallelChartPreview = ({
 }: {
   previewData: RunsChartsRunData[];
   cardConfig: RunsChartsParallelCardConfig;
-  groupBy: string;
+  groupBy: RunsGroupByConfig | null;
 }) => {
   const selectedParamsCount = cardConfig.selectedParams?.length || 0;
   const selectedMetricsCount = cardConfig.selectedMetrics?.length || 0;
@@ -31,7 +31,7 @@ export const RunsChartsConfigureParallelChartPreview = ({
     [cardConfig.selectedParams, previewData],
   );
 
-  if (containsStringValues && groupBy && shouldEnableRunGrouping()) {
+  if (containsStringValues && groupBy) {
     return (
       <div css={{ display: 'flex', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
         <FormattedMessage

@@ -505,6 +505,12 @@ MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE = _EnvironmentVariable(
     "MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE", int, 500 * 1024**2
 )
 
+#: Specifies the minimum file size in bytes to use multipart download when downloading artifacts
+#: (default: ``524_288_000`` (500 MB))
+MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE = _EnvironmentVariable(
+    "MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE", int, 500 * 1024**2
+)
+
 #: Specifies the chunk size in bytes to use when performing multipart upload
 #: (default: ``104_857_60`` (10 MB))
 MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE = _EnvironmentVariable(
@@ -597,4 +603,11 @@ _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS = _BooleanEnvironmentVariable(
 #: inference or the process of capturing imported modules encounters any errors.
 MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS = _BooleanEnvironmentVariable(
     "MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", False
+)
+
+#: Private configuration option.
+#: Whether to use mlflow langchain tracer for rag tracing. This should be set in model
+#: serving for rag models.
+_USE_MLFLOW_LANGCHAIN_TRACER_FOR_RAG_TRACING = _BooleanEnvironmentVariable(
+    "USE_MLFLOW_LANGCHAIN_TRACER_FOR_RAG_TRACING", False
 )

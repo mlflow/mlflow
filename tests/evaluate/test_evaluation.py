@@ -32,6 +32,7 @@ from sklearn.metrics import (
 import mlflow
 from mlflow import MlflowClient
 from mlflow.data.pandas_dataset import from_pandas
+from mlflow.entities import Trace, TraceData
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import (
     EvaluationArtifact,
@@ -59,6 +60,7 @@ from mlflow.tracking.artifact_utils import get_artifact_uri
 from mlflow.utils import insecure_hash
 from mlflow.utils.file_utils import TempDir
 
+from tests.tracing.helper import create_test_trace_info
 from tests.utils.test_file_utils import spark_session  # noqa: F401
 
 
@@ -699,6 +701,27 @@ def test_dataset_hash(
     assert diabetes_spark_dataset.hash == "ebfb050519e7e5b463bd38b0c8d04243"
 
 
+def test_trace_dataset_hash():
+    # Validates that a dataset containing Traces can be hashed.
+    df = pd.DataFrame(
+        {
+            "request": ["Hello"],
+            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([], "", ""))],
+        }
+    )
+    dataset = EvaluationDataset(data=df)
+    assert dataset.hash == "757c14bf38aa42d36b93ccd70b1ea719"
+    # Hash of a dataset with a different column should be different
+    df2 = pd.DataFrame(
+        {
+            "request": ["Hi"],
+            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([], "", ""))],
+        }
+    )
+    dataset2 = EvaluationDataset(data=df2)
+    assert dataset2.hash != dataset.hash
+
+
 def test_dataset_with_pandas_dataframe():
     data = pd.DataFrame({"f1": [1, 2], "f2": [3, 4], "f3": [5, 6], "label": [0, 1]})
     eval_dataset = EvaluationDataset(data=data, targets="label")
@@ -1116,10 +1139,10 @@ def test_normalize_evaluators_and_evaluator_config_args():
         {"default": {"a": 3}},
     )
 
-    with mock.patch.object(_base_logger, "info") as patched_info_fn:
+    with mock.patch.object(_base_logger, "debug") as patched_debug_fn:
         _normalize_config(None, None)
-        patched_info_fn.assert_called_once()
-        assert "Multiple registered evaluators have been" in patched_info_fn.call_args[0][0]
+        patched_debug_fn.assert_called_once()
+        assert "Multiple registered evaluators have been" in patched_debug_fn.call_args[0][0]
 
     assert _normalize_config("dummy_evaluator", {"a": 3}) == (
         ["dummy_evaluator"],

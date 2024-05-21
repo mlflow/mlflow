@@ -696,8 +696,8 @@ class Model:
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
             # if the model_config kwarg is passed in, then log the model config as an params
-            if MODEL_CONFIG in kwargs:
-                model_config = kwargs[MODEL_CONFIG]
+            if "model_config" in kwargs:
+                model_config = kwargs["model_config"]
                 if isinstance(model_config, str):
                     try:
                         file_extension = os.path.splitext(model_config)[1].lower()
@@ -910,6 +910,7 @@ def update_model_requirements(
 __mlflow_model__ = None
 
 
+@experimental
 def set_model(model):
     """
     When logging model as code, this function can be used to set the model object
@@ -920,12 +921,17 @@ def set_model(model):
     """
     from mlflow.pyfunc import PythonModel
 
-    if not isinstance(model, PythonModel):
+    if not (isinstance(model, PythonModel) or callable(model)):
         try:
-            from mlflow.langchain import _validate_and_wrap_lc_model
+            from mlflow.langchain import _validate_and_prepare_lc_model_or_path
 
-            # If its not a PyFuncModel, then it should be a Langchain model
-            _validate_and_wrap_lc_model(model, None)
+            # If its not a PyFuncModel, then it should be a Langchain model (not a path)
+            # Check this since the validation function does not
+            if isinstance(model, str):
+                raise mlflow.MlflowException(
+                    "Model should either be an instance of PyFuncModel or Langchain type."
+                )
+            model = _validate_and_prepare_lc_model_or_path(model, None)
         except Exception as e:
             raise mlflow.MlflowException(
                 "Model should either be an instance of PyFuncModel or Langchain type."

@@ -50,7 +50,7 @@ export const EvaluationCreatePromptParameters = ({
                 min={parameterDef.min}
                 step={parameterDef.step}
                 defaultValue={parameters[parameterDef.name] || 0}
-                handleLineSmoothChange={(value) => updateParameter(parameterDef.name, value)}
+                onChange={(value) => updateParameter(parameterDef.name, value)}
               />
             )}
             {parameterDef.type === 'input' && (

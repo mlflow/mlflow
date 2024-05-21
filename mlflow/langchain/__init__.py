@@ -14,13 +14,11 @@ LangChain (native) format
 
 import contextlib
 import functools
-import importlib.util
+import inspect
+import json
 import logging
 import os
-import sys
-import uuid
 import warnings
-from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, Optional, Union
 
 import cloudpickle
@@ -36,30 +34,30 @@ from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
     patched_inference,
 )
-from mlflow.langchain._rag_utils import _CODE_CONFIG, _CODE_PATH, _set_config_path
-from mlflow.langchain.databricks_dependencies import (
-    _DATABRICKS_DEPENDENCY_KEY,
-    _detect_databricks_dependencies,
-)
+from mlflow.langchain.databricks_dependencies import _detect_databricks_dependencies
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
     _BASE_LOAD_KEY,
     _MODEL_LOAD_KEY,
     _RUNNABLE_LOAD_KEY,
-    _get_temp_file_with_content,
     _load_base_lcs,
+    _load_from_yaml,
     _save_base_lcs,
-    _validate_and_wrap_lc_model,
+    _validate_and_prepare_lc_model_or_path,
     lc_runnables_types,
     patch_langchain_type_to_cls_dict,
     register_pydantic_v1_serializer_cm,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
+from mlflow.models.dependencies_schema import _clear_dependencies_schema, _get_dependencies_schema
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
-from mlflow.models.model_config import _set_model_config
 from mlflow.models.resources import _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
-from mlflow.models.utils import _convert_llm_input_data, _save_example
+from mlflow.models.utils import (
+    _convert_llm_input_data,
+    _load_model_code_path,
+    _save_example,
+)
 from mlflow.pyfunc.context import get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -85,11 +83,10 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
-    FLAVOR_CONFIG_CODE,
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
-    _validate_and_copy_model_code_and_config_paths,
+    _validate_and_copy_file_to_directory,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -253,53 +250,32 @@ def save_model(
     import langchain
     from langchain.schema import BaseRetriever
 
-    lc_model = _validate_and_wrap_lc_model(lc_model, loader_fn)
+    lc_model_or_path = _validate_and_prepare_lc_model_or_path(lc_model, loader_fn)
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
 
-    model_config_path = None
     model_code_path = None
-    if isinstance(lc_model, str):
+    if isinstance(lc_model_or_path, str):
         # The LangChain model is defined as Python code located in the file at the path
         # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
         # model directory along with any other specified code modules
-
-        if os.path.exists(lc_model):
-            model_code_path = lc_model
-        else:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                f"If the provided model '{lc_model}' is a string, it must be a valid python "
-                "file path or a databricks notebook file path containing the code for defining "
-                "the chain instance."
-            )
-
-        if isinstance(model_config, dict):
-            model_config_path = _get_temp_file_with_content(
-                "config.yml", yaml.dump(model_config), "w"
-            )
-        elif isinstance(model_config, str):
+        model_code_path = lc_model_or_path
+        if isinstance(model_config, str):
             if os.path.exists(model_config):
-                model_config_path = model_config
+                model_config = _load_from_yaml(model_config)
             else:
                 raise mlflow.MlflowException.invalid_parameter_value(
                     f"Model config path '{model_config}' provided is not a valid file path. "
                     "Please provide a valid model configuration."
                 )
-        elif not model_config:
-            # If the model_config is not provided we fallback to getting the config path
-            # from code_paths so that is backwards compatible.
-            if code_paths and len(code_paths) == 1 and os.path.exists(code_paths[0]):
-                model_config_path = code_paths[0]
 
-        lc_model = (
-            _load_model_code_path(model_code_path, model_config_path)
-            if model_config_path
-            else _load_model_code_path(model_code_path)
-        )
-        _validate_and_copy_model_code_and_config_paths(model_code_path, model_config_path, path)
+        lc_model = _load_model_code_path(model_code_path, model_config)
+        _validate_and_copy_file_to_directory(model_code_path, path, "code")
+    else:
+        lc_model = lc_model_or_path
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
@@ -349,6 +325,13 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
+    with _get_dependencies_schema() as dependencies_schema:
+        schema = dependencies_schema.to_dict()
+        if schema is not None:
+            if mlflow_model.metadata is None:
+                mlflow_model.metadata = {}
+            mlflow_model.metadata.update(schema)
+
     streamable = isinstance(lc_model, lc_runnables_types())
 
     if not isinstance(model_code_path, str):
@@ -362,15 +345,13 @@ def save_model(
         # would be used in the model. We set the code_path here so it can be set
         # globally when the model is loaded with the local path. So the consumer
         # can use that path instead of the config.yml path when the model is loaded
-        # TODO: what if model_config is not a string / file path?
         flavor_conf = (
-            {MODEL_CONFIG: model_config_path, MODEL_CODE_PATH: model_code_path}
-            if model_config_path
+            {MODEL_CONFIG: model_config, MODEL_CODE_PATH: model_code_path}
+            if model_config
             else {MODEL_CONFIG: None, MODEL_CODE_PATH: model_code_path}
         )
         model_data_kwargs = {}
 
-    # TODO: Pass model_config to pyfunc
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.langchain",
@@ -380,14 +361,12 @@ def save_model(
         predict_stream_fn="predict_stream",
         streamable=streamable,
         model_code_path=model_code_path,
+        model_config=model_config,
         **model_data_kwargs,
     )
 
     if Version(langchain.__version__) >= Version("0.0.311"):
-        (databricks_dependency, databricks_resources) = _detect_databricks_dependencies(lc_model)
-        if databricks_dependency:
-            flavor_conf[_DATABRICKS_DEPENDENCY_KEY] = databricks_dependency
-        if databricks_resources:
+        if databricks_resources := _detect_databricks_dependencies(lc_model):
             serialized_databricks_resources = _ResourceBuilder.from_resources(databricks_resources)
             mlflow_model.resources = serialized_databricks_resources
 
@@ -560,13 +539,13 @@ def log_model(
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
-    lc_model = _validate_and_wrap_lc_model(lc_model, loader_fn)
+    lc_model_or_path = _validate_and_prepare_lc_model_or_path(lc_model, loader_fn)
 
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.langchain,
         registered_model_name=registered_model_name,
-        lc_model=lc_model,
+        lc_model=lc_model_or_path,
         conda_env=conda_env,
         code_paths=code_paths,
         signature=signature,
@@ -615,18 +594,19 @@ def _load_model(local_model_path, flavor_conf):
                 "Failed to load LangChain model. Unknown model type: "
                 f"{flavor_conf.get(_MODEL_TYPE_KEY)}"
             )
-    # To avoid double logging, we set model_logged to True
+    # To avoid double logging, we set _mlflow_model_logged to True
     # when the model is loaded
     if not autologging_is_disabled(FLAVOR_NAME):
         if _update_langchain_model_config(model):
-            model.model_logged = True
+            model._mlflow_model_logged = True
             model.run_id = get_model_info(local_model_path).run_id
     return model
 
 
 class _LangChainModelWrapper:
-    def __init__(self, lc_model):
+    def __init__(self, lc_model, model_path=None):
         self.lc_model = lc_model
+        self.model_path = model_path
 
     def predict(
         self,
@@ -660,6 +640,29 @@ class _LangChainModelWrapper:
 
         return self._predict_with_callbacks(data, params, callback_handlers=callbacks)
 
+    def _update_dependencies_schema_in_prediction_context(self, callback_handlers):
+        from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
+
+        if (
+            callback_handlers
+            and (
+                tracer := next(
+                    (c for c in callback_handlers if isinstance(c, MlflowLangchainTracer)), None
+                )
+            )
+            and self.model_path
+        ):
+            model = Model.load(self.model_path)
+            context = tracer._prediction_context
+            if model.metadata and context:
+                dependencies_schema = model.metadata.get("dependencies_schemas", {})
+                context.update(
+                    dependencies_schema={
+                        dependency: json.dumps(schema)
+                        for dependency, schema in dependencies_schema.items()
+                    }
+                )
+
     @experimental
     def _predict_with_callbacks(
         self,
@@ -681,6 +684,7 @@ class _LangChainModelWrapper:
         """
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
+        self._update_dependencies_schema_in_prediction_context(callback_handlers)
         messages, return_first_element = self._prepare_predict_messages(data)
         results = process_api_requests(
             lc_model=self.lc_model,
@@ -773,6 +777,7 @@ class _LangChainModelWrapper:
             process_stream_request,
         )
 
+        self._update_dependencies_schema_in_prediction_context(callback_handlers)
         data = self._prepare_predict_stream_messages(data)
         return process_stream_request(
             lc_model=self.lc_model,
@@ -845,27 +850,27 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         return result
 
 
-def _load_pyfunc(path):
+# TODO: Support loading langchain with model_config. For now, this is a no-op.
+def _load_pyfunc(path: str, model_config: Optional[Dict[str, Any]] = None):
     """Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
 
     Args:
         path: Local filesystem path to the MLflow Model with the ``langchain`` flavor.
     """
     wrapper_cls = _TestLangChainWrapper if _MLFLOW_TESTING.get() else _LangChainModelWrapper
-    return wrapper_cls(_load_model_from_local_fs(path))
+    return wrapper_cls(_load_model_from_local_fs(path), path)
 
 
 def _load_model_from_local_fs(local_model_path):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     if MODEL_CODE_PATH in flavor_conf:
-        flavor_config_path = flavor_conf.get(MODEL_CONFIG, None)
-        if flavor_config_path is not None:
+        model_config = flavor_conf.get(MODEL_CONFIG, None)
+        if isinstance(model_config, str):
             config_path = os.path.join(
                 local_model_path,
-                os.path.basename(flavor_config_path),
+                os.path.basename(model_config),
             )
-        else:
-            config_path = None
+            model_config = _load_from_yaml(config_path)
 
         flavor_code_path = flavor_conf.get(MODEL_CODE_PATH)
         code_path = os.path.join(
@@ -873,28 +878,14 @@ def _load_model_from_local_fs(local_model_path):
             os.path.basename(flavor_code_path),
         )
 
-        return _load_model_code_path(code_path, config_path)
-    # Code for backwards compatibility, relies on RAG utils - remove in the future
-    elif _CODE_CONFIG in flavor_conf:
-        path = flavor_conf.get(_CODE_CONFIG)
-        flavor_code_config = flavor_conf.get(FLAVOR_CONFIG_CODE)
-        if path is not None:
-            config_path = os.path.join(
-                local_model_path,
-                flavor_code_config,
-                os.path.basename(path),
-            )
-        else:
-            config_path = None
+        try:
+            model = _load_model_code_path(code_path, model_config)
+        finally:
+            # We would like to clean up the dependencies schema which is set to global
+            # after loading the mode to avoid the schema being used in the next model loading
+            _clear_dependencies_schema()
 
-        flavor_code_path = flavor_conf.get(_CODE_PATH, "chain.py")
-        code_path = os.path.join(
-            local_model_path,
-            flavor_code_config,
-            os.path.basename(flavor_code_path),
-        )
-
-        return _load_model_code_path(code_path, config_path)
+        return model
     else:
         _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
         with patch_langchain_type_to_cls_dict():
@@ -928,53 +919,40 @@ def load_model(model_uri, dst_path=None):
     return _load_model_from_local_fs(local_model_path)
 
 
-@contextmanager
-def _config_path_context(config_path: Optional[str] = None):
-    # Check if config_path is None and set it to "" so when loading the model
-    # the config_path is set to "" so the ModelConfig can correctly check if the
-    # config is set or not
-    if config_path is None:
-        config_path = ""
-
-    _set_model_config(config_path)
-    # set rag utils global for backwards compatibility
-    _set_config_path(config_path)
-    try:
-        yield
-    finally:
-        _set_model_config(None)
-        # unset rag utils global for backwards compatibility
-        _set_config_path(None)
+def _patch_runnable_cls(cls):
+    """
+    For classes that are subclasses of Runnable, we patch the `invoke`, `batch`, and `stream`
+    methods for autologging.
+    """
+    for func_name in ["invoke", "batch", "stream"]:
+        if hasattr(cls, func_name):
+            safe_patch(
+                FLAVOR_NAME,
+                cls,
+                func_name,
+                functools.partial(patched_inference, func_name),
+            )
 
 
-# In the Python's module caching mechanism, which by default, prevents the
-# re-importation of previously loaded modules. This is particularly
-# problematic in contexts where it's necessary to reload a module (in this case,
-# the `model code path` module) multiple times within the same Python
-# runtime environment.
-# The issue at hand arises from the desire to import the `model code path` module
-# multiple times during a single runtime session. Normally, once a module is
-# imported, it's added to `sys.modules`, and subsequent import attempts retrieve
-# the cached module rather than re-importing it.
-# To address this, the function dynamically imports the `model code path` module
-# under unique, dynamically generated module names. This is achieved by creating
-# a unique name for each import using a combination of the original module name
-# and a randomly generated UUID. This approach effectively bypasses the caching
-# mechanism, as each import is considered as a separate module by the Python interpreter.
-def _load_model_code_path(code_path: str, config_path: Optional[str] = None):
-    with _config_path_context(config_path):
-        try:
-            new_module_name = f"code_model_{uuid.uuid4().hex}"
-            spec = importlib.util.spec_from_file_location(new_module_name, code_path)
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[new_module_name] = module
-            spec.loader.exec_module(module)
-        except ImportError as e:
-            raise mlflow.MlflowException("Failed to import LangChain model.") from e
+def _inspect_module_and_patch_cls(module, inspected_modules, patched_classes):
+    """
+    Internal method to inspect the module and patch classes that are
+    subclasses of Runnable for autologging.
+    """
+    from langchain.schema.runnable import Runnable
 
-    return (
-        mlflow.models.model.__mlflow_model__ or mlflow.langchain._rag_utils.__databricks_rag_chain__
-    )
+    if module.__name__ not in inspected_modules:
+        inspected_modules.add(module.__name__)
+        for _, obj in inspect.getmembers(module):
+            if inspect.ismodule(obj) and (obj.__name__.startswith("langchain")):
+                _inspect_module_and_patch_cls(obj, inspected_modules, patched_classes)
+            elif (
+                inspect.isclass(obj)
+                and obj.__name__ not in patched_classes
+                and issubclass(obj, Runnable)
+            ):
+                _patch_runnable_cls(obj)
+                patched_classes.add(obj.__name__)
 
 
 @experimental
@@ -995,6 +973,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     extra_tags=None,
+    extra_model_classes=None,
 ):
     """
     Enables (or disables) and configures autologging from Langchain to MLflow.
@@ -1037,37 +1016,42 @@ def autolog(
             new model version of the registered model with this name.
             The registered model is created if it does not already exist.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+        extra_model_classes: A list of langchain classes to log in addition to the default classes.
+            We do not guarantee classes specified in this list can be logged as a model, but tracing
+            will be supported. Note that all classes within the list must be subclasses of Runnable,
+            and we only patch `invoke`, `batch`, and `stream` methods for tracing.
     """
-
     with contextlib.suppress(ImportError):
+        import langchain
+        import langchain_community
         from langchain.agents.agent import AgentExecutor
         from langchain.chains.base import Chain
         from langchain.schema import BaseRetriever
+        from langchain.schema.runnable import Runnable
 
-        classes = lc_runnables_types() + (AgentExecutor, Chain)
-        for cls in classes:
-            # If runnable also contains loader_fn and persist_dir, warn
-            # BaseRetrievalQA, BaseRetriever, ...
-            safe_patch(
-                FLAVOR_NAME,
-                cls,
-                "invoke",
-                functools.partial(patched_inference, "invoke"),
-            )
+        # avoid duplicate patching
+        patched_classes = set()
+        # avoid infinite recursion
+        inspected_modules = set()
 
-            safe_patch(
-                FLAVOR_NAME,
-                cls,
-                "batch",
-                functools.partial(patched_inference, "batch"),
-            )
+        for module in [langchain, langchain_community]:
+            _inspect_module_and_patch_cls(module, inspected_modules, patched_classes)
 
-            safe_patch(
-                FLAVOR_NAME,
-                cls,
-                "stream",
-                functools.partial(patched_inference, "stream"),
-            )
+        if extra_model_classes:
+            unsupported_classes = []
+            for cls in extra_model_classes:
+                if cls.__name__ in patched_classes:
+                    continue
+                elif inspect.isclass(cls) and issubclass(cls, Runnable):
+                    _patch_runnable_cls(cls)
+                    patched_classes.add(cls.__name__)
+                else:
+                    unsupported_classes.append(cls.__name__)
+            if unsupported_classes:
+                logger.warning(
+                    f"Unsupported classes found in extra_model_classes: {unsupported_classes}. "
+                    "Only subclasses of Runnable are supported."
+                )
 
         for cls in [AgentExecutor, Chain]:
             safe_patch(

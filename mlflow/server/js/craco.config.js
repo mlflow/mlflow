@@ -293,6 +293,10 @@ module.exports = function () {
         webpackConfig.resolve = {
           ...webpackConfig.resolve,
           plugins: [new TsconfigPathsPlugin(), ...webpackConfig.resolve.plugins],
+          fallback: {
+            // Required by 'plotly.js' download image feature
+            stream: require.resolve('stream-browserify'),
+          },
           alias: {
             ...webpackConfig.resolve.alias,
             // Fix integration with react 18 and react-dnd@15
