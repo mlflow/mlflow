@@ -16,6 +16,15 @@ class Context:
     request_id: str
     # Whether the current prediction request is as a part of MLflow model evaluation.
     is_evaluate: bool = False
+    # The schema of the dependencies to be added into the tag of trace info.
+    dependencies_schema: Optional[dict] = None
+
+    def update(self, **kwargs):
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+            else:
+                raise AttributeError(f"Context has no attribute named '{key}'")
 
 
 @contextlib.contextmanager

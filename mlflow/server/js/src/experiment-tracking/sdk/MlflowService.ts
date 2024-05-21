@@ -13,8 +13,14 @@
  *   Aug 1, 2018 3:42:41 PM. We will update the generation pipeline to actually
  *   place these generated objects in the correct location shortly.
  */
-import { getBigIntJson, getJson, postJson } from '../../common/utils/FetchUtils';
+import { deleteJson, getBigIntJson, getJson, patchJson, postJson } from '../../common/utils/FetchUtils';
 import { RunInfoEntity } from '../types';
+import {
+  transformGetExperimentResponse,
+  transformGetRunResponse,
+  transformSearchExperimentsResponse,
+  transformSearchRunsResponse,
+} from './FieldNameTransformers';
 
 type CreateRunApiRequest = {
   experiment_id: string;
@@ -43,18 +49,23 @@ export class MlflowService {
    * Search mlflow experiments
    */
   static searchExperiments = (data: any) =>
-    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/search', data });
+    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/search', data }).then(
+      transformSearchExperimentsResponse,
+    );
 
   /**
    * Get mlflow experiment
    */
-  static getExperiment = (data: any) => getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/get', data });
+  static getExperiment = (data: any) =>
+    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/get', data }).then(transformGetExperimentResponse);
 
   /**
    * Get mlflow experiment by name
    */
   static getExperimentByName = (data: any) =>
-    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/get-by-name', data });
+    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/get-by-name', data }).then(
+      transformGetExperimentResponse,
+    );
 
   /**
    * Create a mlflow experiment run
@@ -98,12 +109,14 @@ export class MlflowService {
   /**
    * Get mlflow experiment run
    */
-  static getRun = (data: any) => getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/get', data });
+  static getRun = (data: any) =>
+    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/get', data }).then(transformGetRunResponse);
 
   /**
    * Search mlflow experiment runs
    */
-  static searchRuns = (data: any) => postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/search', data });
+  static searchRuns = (data: any) =>
+    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/search', data }).then(transformSearchRunsResponse);
 
   /**
    * List model artifacts

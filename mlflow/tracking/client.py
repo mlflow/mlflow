@@ -38,7 +38,7 @@ from mlflow.entities import (
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import LiveSpan, NoOpSpan
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENABLE_ASYNC_LOGGING
+from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -60,6 +60,7 @@ from mlflow.tracing.constant import (
     TRACE_SCHEMA_VERSION,
     TRACE_SCHEMA_VERSION_KEY,
     SpanAttributeKey,
+    TraceTagKey,
 )
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -598,9 +599,11 @@ class MlflowClient:
 
             return mlflow_span
         except Exception as e:
-            _logger.warning(f"Failed to start span {name}: {e}")
-            if _MLFLOW_TESTING.get():
-                raise
+            _logger.warning(
+                f"Failed to start trace {name}: {e}. "
+                "For full traceback, set logging level to debug.",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )
             return NoOpSpan()
 
     @experimental
@@ -647,6 +650,29 @@ class MlflowClient:
                 )
 
         self.end_span(request_id, root_span_id, outputs, attributes, status)
+
+    def _upload_trace_spans_as_tag(self, trace_info: TraceInfo, trace_data: TraceData):
+        # When a trace is logged, we set a mlflow.traceSpans tag via SetTraceTag API
+        # https://databricks.atlassian.net/browse/ML-40306
+        parsed_spans = []
+        for span in trace_data.spans:
+            parsed_span = {}
+
+            parsed_span["name"] = span.name
+            parsed_span["type"] = span.get_attribute(SpanAttributeKey.SPAN_TYPE)
+            span_inputs = span.get_attribute(SpanAttributeKey.INPUTS)
+            if span_inputs and isinstance(span_inputs, dict):
+                parsed_span["inputs"] = list(span_inputs.keys())
+            span_outputs = span.get_attribute(SpanAttributeKey.OUTPUTS)
+            if span_outputs and isinstance(span_outputs, dict):
+                parsed_span["outputs"] = list(span_outputs.keys())
+
+            parsed_spans.append(parsed_span)
+
+        # Directly set the tag on the trace in the backend
+        self._tracking_client.set_trace_tag(
+            trace_info.request_id, TraceTagKey.TRACE_SPANS, json.dumps(parsed_spans)
+        )
 
     @experimental
     def start_span(
@@ -795,9 +821,11 @@ class MlflowClient:
             trace_manager.register_span(span)
             return span
         except Exception as e:
-            _logger.warning(f"Failed to start span {name}: {e}")
-            if _MLFLOW_TESTING.get():
-                raise
+            _logger.warning(
+                f"Failed to start span {name}: {e}. "
+                "For full traceback, set logging level to debug.",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )
             return NoOpSpan()
 
     @experimental

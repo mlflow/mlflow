@@ -7,18 +7,17 @@ import {
   useDesignSystemTheme,
   InfoTooltip,
   FullscreenIcon,
+  Switch,
+  Spinner,
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import { PropsWithChildren, ReactNode } from 'react';
 import { useDragAndDropElement } from '../../../../../common/hooks/useDragAndDropElement';
-import {
-  shouldEnableDeepLearningUI,
-  shouldEnableDeepLearningUIPhase2,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../../common/utils/FeatureUtils';
+import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/FeatureUtils';
 import { FormattedMessage } from 'react-intl';
 import { RunsChartsRunData } from '../RunsCharts.common';
 import type { RunsChartsCardConfig } from '../../runs-charts.types';
+import type { ExperimentChartImageDownloadFileFormat } from '../../hooks/useChartImageDownloadHandler';
 
 export enum RunsChartsChartsDragGroup {
   PARALLEL_CHARTS_AREA = 'PARALLEL_CHARTS_AREA',
@@ -44,6 +43,12 @@ export interface RunsChartCardFullScreenProps {
   setFullScreenChart?: RunsChartCardSetFullscreenFn;
 }
 
+export interface ChartCardToggleProps {
+  toggleLabel: string;
+  currentToggle: boolean;
+  setToggle: () => void;
+}
+
 export interface ChartCardWrapperProps extends RunsChartCardReorderProps {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
@@ -54,6 +59,10 @@ export interface ChartCardWrapperProps extends RunsChartCardReorderProps {
   dragGroupKey: RunsChartsChartsDragGroup;
   additionalMenuContent?: React.ReactNode;
   toggleFullScreenChart?: () => void;
+  toggles?: ChartCardToggleProps[];
+  isRefreshing?: boolean;
+  onClickDownload?: (format: ExperimentChartImageDownloadFileFormat | 'csv' | 'csv-full') => void;
+  supportedDownloadFormats?: (ExperimentChartImageDownloadFileFormat | 'csv' | 'csv-full')[];
 }
 
 export const ChartRunsCountIndicator = ({ runsOrGroups }: { runsOrGroups: RunsChartsRunData[] }) => {
@@ -106,15 +115,18 @@ export const RunsChartCardWrapper = ({
   onMoveUp,
   additionalMenuContent,
   toggleFullScreenChart,
+  toggles,
+  supportedDownloadFormats = [],
+  onClickDownload,
+  isRefreshing = false,
 }: PropsWithChildren<ChartCardWrapperProps>) => {
   const { theme } = useDesignSystemTheme();
-  const isDragAndDropEnabled = shouldEnableDeepLearningUI();
 
   const { dragHandleRef, dragPreviewRef, dropTargetRef, isDraggingOtherGroup, isOver } = useDragAndDropElement({
     dragGroupKey,
     dragKey: uuid || '',
     onDrop: onReorderWith,
-    disabled: !isDragAndDropEnabled,
+    disabled: false,
   });
 
   return (
@@ -125,13 +137,14 @@ export const RunsChartCardWrapper = ({
         display: 'grid',
         gridTemplateRows: 'auto 1fr',
         backgroundColor: theme.colors.backgroundPrimary,
-        padding: isDragAndDropEnabled ? 12 : theme.spacing.md,
+        padding: 12,
         // have a slightly smaller padding when the enableDeepLearningUI
         // flag is on to accomodate the legend in the charts
-        paddingBottom: isDragAndDropEnabled ? theme.spacing.sm : theme.spacing.md,
+        paddingBottom: theme.spacing.sm,
         border: `1px solid ${theme.colors.border}`,
         borderRadius: theme.general.borderRadiusBase,
         transition: 'opacity 0.12s',
+        position: 'relative',
       }}
       style={{
         opacity: isDraggingOtherGroup ? 0.1 : isOver ? 0.5 : 1,
@@ -145,25 +158,22 @@ export const RunsChartCardWrapper = ({
     >
       <div
         css={{
-          display: 'grid',
-          // one extra column to accomodate the drag handle
-          gridTemplateColumns: isDragAndDropEnabled ? 'auto 1fr auto auto' : '1fr auto auto',
+          display: 'flex',
+          overflow: 'hidden',
         }}
       >
-        {isDragAndDropEnabled && (
-          <div
-            ref={dragHandleRef}
-            data-testid="experiment-view-compare-runs-card-drag-handle"
-            css={{
-              marginTop: theme.spacing.xs,
-              marginRight: theme.spacing.sm,
-              cursor: 'grab',
-            }}
-          >
-            <DragIcon />
-          </div>
-        )}
-        <div css={{ overflow: 'hidden', flex: 1 }}>
+        <div
+          ref={dragHandleRef}
+          data-testid="experiment-view-compare-runs-card-drag-handle"
+          css={{
+            marginTop: theme.spacing.xs,
+            marginRight: theme.spacing.sm,
+            cursor: 'grab',
+          }}
+        >
+          <DragIcon />
+        </div>
+        <div css={{ overflow: 'hidden', flex: 1, flexShrink: 1 }}>
           <Typography.Title
             title={String(title)}
             level={4}
@@ -179,14 +189,46 @@ export const RunsChartCardWrapper = ({
           {subtitle && <span css={styles.subtitle(theme)}>{subtitle}</span>}
           {tooltip && <InfoTooltip css={{ verticalAlign: 'middle' }} title={tooltip} />}
         </div>
-        {shouldEnableDeepLearningUIPhase2() && (
-          <Button
-            componentId="fullscreen_button_chartcard"
-            icon={<FullscreenIcon />}
-            onClick={toggleFullScreenChart}
-            disabled={!toggleFullScreenChart}
-          />
+        {isRefreshing && (
+          <div
+            css={{
+              width: theme.general.heightSm,
+              height: theme.general.heightSm,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Spinner />
+          </div>
         )}
+        {toggles && (
+          <div
+            css={{
+              display: 'flex',
+              padding: `0px ${theme.spacing.lg}px`,
+              gap: theme.spacing.md,
+              alignItems: 'flex-start',
+            }}
+          >
+            {toggles.map((toggle) => {
+              return (
+                <Switch
+                  key={toggle.toggleLabel}
+                  checked={toggle.currentToggle}
+                  onChange={toggle.setToggle}
+                  label={toggle.toggleLabel}
+                />
+              );
+            })}
+          </div>
+        )}
+        <Button
+          componentId="fullscreen_button_chartcard"
+          icon={<FullscreenIcon />}
+          onClick={toggleFullScreenChart}
+          disabled={!toggleFullScreenChart}
+        />
         <DropdownMenu.Root modal={false}>
           <DropdownMenu.Trigger asChild>
             <Button
@@ -203,31 +245,56 @@ export const RunsChartCardWrapper = ({
             <DropdownMenu.Item onClick={onDelete} data-testid="experiment-view-compare-runs-card-delete">
               Delete
             </DropdownMenu.Item>
-            {isDragAndDropEnabled && (
+            {supportedDownloadFormats.length > 0 && onClickDownload && (
               <>
                 <DropdownMenu.Separator />
-                <DropdownMenu.Item
-                  disabled={!canMoveUp}
-                  onClick={onMoveUp}
-                  data-testid="experiment-view-compare-runs-move-up"
-                >
-                  <FormattedMessage
-                    defaultMessage="Move up"
-                    description="Experiment page > compare runs tab > chart header > move up option"
-                  />
-                </DropdownMenu.Item>
-                <DropdownMenu.Item
-                  disabled={!canMoveDown}
-                  onClick={onMoveDown}
-                  data-testid="experiment-view-compare-runs-move-down"
-                >
-                  <FormattedMessage
-                    defaultMessage="Move down"
-                    description="Experiment page > compare runs tab > chart header > move down option"
-                  />
-                </DropdownMenu.Item>
+                {supportedDownloadFormats.includes('csv') && (
+                  <DropdownMenu.Item onClick={() => onClickDownload('csv')}>
+                    <FormattedMessage
+                      defaultMessage="Export as CSV"
+                      description="Experiment page > compare runs tab > chart header > export CSV data option"
+                    />
+                  </DropdownMenu.Item>
+                )}
+                {supportedDownloadFormats.includes('svg') && (
+                  <DropdownMenu.Item onClick={() => onClickDownload('svg')}>
+                    <FormattedMessage
+                      defaultMessage="Download as SVG"
+                      description="Experiment page > compare runs tab > chart header > download as SVG option"
+                    />
+                  </DropdownMenu.Item>
+                )}
+                {supportedDownloadFormats.includes('png') && (
+                  <DropdownMenu.Item onClick={() => onClickDownload('png')}>
+                    <FormattedMessage
+                      defaultMessage="Download as PNG"
+                      description="Experiment page > compare runs tab > chart header > download as PNG option"
+                    />
+                  </DropdownMenu.Item>
+                )}
               </>
             )}
+            <DropdownMenu.Separator />
+            <DropdownMenu.Item
+              disabled={!canMoveUp}
+              onClick={onMoveUp}
+              data-testid="experiment-view-compare-runs-move-up"
+            >
+              <FormattedMessage
+                defaultMessage="Move up"
+                description="Experiment page > compare runs tab > chart header > move up option"
+              />
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              disabled={!canMoveDown}
+              onClick={onMoveDown}
+              data-testid="experiment-view-compare-runs-move-down"
+            >
+              <FormattedMessage
+                defaultMessage="Move down"
+                description="Experiment page > compare runs tab > chart header > move down option"
+              />
+            </DropdownMenu.Item>
             {additionalMenuContent}
           </DropdownMenu.Content>
         </DropdownMenu.Root>

@@ -161,26 +161,36 @@ def get_otel_attribute(span: trace_api.Span, key: str) -> Optional[str]:
         _logger.debug(f"Failed to get attribute {key} with from span {span}.", exc_info=True)
 
 
-def maybe_get_evaluation_request_id() -> Optional[str]:
-    """Get the request ID if the current prediction is as a part of MLflow model evaluation."""
+def _try_get_prediction_context():
     # NB: Tracing is enabled in mlflow-skinny, but the pyfunc module cannot be imported as it
     #     relies on numpy, which is not installed in skinny.
     try:
         from mlflow.pyfunc.context import get_prediction_context
     except ImportError:
-        return None
+        return
 
-    context = get_prediction_context()
-    if not context or not context.is_evaluate:
+    return get_prediction_context()
+
+
+def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
+    """Get the request ID if the current prediction is as a part of MLflow model evaluation."""
+    context = _try_get_prediction_context()
+    if not context or (is_evaluate and not context.is_evaluate):
         return None
 
     if not context.request_id:
         raise MlflowException(
-            "When prediction request context has is_evaluate set to True, request ID must be set.",
+            f"Missing request_id for context {context}.",
             error_code=BAD_REQUEST,
         )
 
     return context.request_id
+
+
+def maybe_get_dependencies_schema() -> Optional[dict]:
+    context = _try_get_prediction_context()
+    if context:
+        return context.dependencies_schema
 
 
 def traces_to_df(traces: List[Trace]) -> "pandas.DataFrame":

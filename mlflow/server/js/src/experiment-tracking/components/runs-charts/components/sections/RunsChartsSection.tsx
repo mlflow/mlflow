@@ -1,6 +1,7 @@
+import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import { RunsChartsCardConfig } from '../../runs-charts.types';
 import { RunsChartsRunData } from '../RunsCharts.common';
-import { RunsChartsV2 } from '../RunsChartsV2';
+import { RunsCharts } from '../RunsCharts';
 import type { RunsChartCardSetFullscreenFn } from '../cards/ChartCard.common';
 
 export interface RunsChartsSectionProps {
@@ -12,9 +13,10 @@ export interface RunsChartsSectionProps {
   chartData: RunsChartsRunData[];
   startEditChart: (chartCard: RunsChartsCardConfig) => void;
   removeChart: (configToDelete: RunsChartsCardConfig) => void;
-  groupBy: string;
+  groupBy: RunsGroupByConfig | null;
   sectionIndex: number;
   setFullScreenChart: RunsChartCardSetFullscreenFn;
+  autoRefreshEnabled?: boolean;
 }
 
 export const RunsChartsSection = ({
@@ -29,9 +31,10 @@ export const RunsChartsSection = ({
   groupBy,
   sectionIndex,
   setFullScreenChart,
+  autoRefreshEnabled,
 }: RunsChartsSectionProps) => {
   return (
-    <RunsChartsV2
+    <RunsCharts
       sectionId={sectionId}
       chartRunData={chartData}
       cardsConfig={sectionCharts}
@@ -43,6 +46,7 @@ export const RunsChartsSection = ({
       groupBy={groupBy}
       sectionIndex={sectionIndex}
       setFullScreenChart={setFullScreenChart}
+      autoRefreshEnabled={autoRefreshEnabled}
     />
   );
 };

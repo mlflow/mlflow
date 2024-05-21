@@ -2,6 +2,8 @@ import datetime
 import json
 import math
 import re
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -11,6 +13,7 @@ import pytest
 from scipy.sparse import csc_matrix, csr_matrix
 
 from mlflow.exceptions import MlflowException
+from mlflow.models import rag_signatures
 from mlflow.models.utils import _enforce_tensor_spec
 from mlflow.pyfunc import _parse_spark_datatype
 from mlflow.types import DataType
@@ -23,6 +26,7 @@ from mlflow.types.schema import (
     Property,
     Schema,
     TensorSpec,
+    convert_dataclass_to_schema,
 )
 from mlflow.types.utils import (
     _get_tensor_shape,
@@ -1734,3 +1738,111 @@ def test_repr_of_objects():
 
     arr = Array(obj)
     assert repr(arr) == f"Array({obj_repr})"
+
+
+def test_convert_dataclass_to_schema_for_rag():
+    schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionRequest())
+    schema_dict = schema.to_dict()
+    assert schema_dict == [
+        {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "content": {"type": "string", "required": True},
+                    "role": {"type": "string", "required": True},
+                },
+            },
+            "name": "messages",
+            "required": True,
+        }
+    ]
+
+    schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionResponse())
+    schema_dict = schema.to_dict()
+    assert schema_dict == [
+        {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "finish_reason": {"type": "string", "required": True},
+                    "index": {"type": "integer", "required": True},
+                    "message": {
+                        "type": "object",
+                        "properties": {
+                            "content": {"type": "string", "required": True},
+                            "role": {"type": "string", "required": True},
+                        },
+                        "required": True,
+                    },
+                },
+            },
+            "name": "choices",
+            "required": True,
+        }
+    ]
+
+
+def test_convert_dataclass_to_schema_complex():
+    @dataclass
+    class Settings:
+        baz: Optional[bool] = True
+
+    @dataclass
+    class Config:
+        bar: int = 2
+        config_settings: Settings = field(default_factory=Settings)
+
+    @dataclass
+    class MainTask:
+        foo: str = "1"
+        process_configs: List[Config] = field(default_factory=lambda: [Config()])
+
+    schema = convert_dataclass_to_schema(MainTask)
+    schema_dict = schema.to_dict()
+    assert schema_dict == [
+        {"type": "string", "name": "foo", "required": True},
+        {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "bar": {"type": "integer", "required": True},
+                    "config_settings": {
+                        "type": "object",
+                        "properties": {"baz": {"type": "boolean", "required": False}},
+                        "required": True,
+                    },
+                },
+            },
+            "name": "process_configs",
+            "required": True,
+        },
+    ]
+
+
+def test_convert_dataclass_to_schema_invalid():
+    # Invalid dataclass with Union
+    @dataclass
+    class InvalidDataclassWithUnion:
+        foo: Union[str, int] = "1"
+
+    with pytest.raises(
+        MlflowException,
+        match=re.escape(r"Only Optional[...] is supported as a Union type in dataclass fields"),
+    ):
+        convert_dataclass_to_schema(InvalidDataclassWithUnion)
+
+    # Invalid dataclass with Dict
+    @dataclass
+    class InvalidDataclassWithDict:
+        foo: Dict[str, int] = field(default_factory=dict)
+
+    with pytest.raises(
+        MlflowException,
+        match=re.escape(
+            r"Unsupported field type typing.Dict[str, int] in dataclass InvalidDataclass"
+        ),
+    ):
+        convert_dataclass_to_schema(InvalidDataclassWithDict)

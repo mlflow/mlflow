@@ -62,6 +62,7 @@ decorators.Header = ({ style, node }: DecoratorStyle) => {
       data-test-id="artifact-tree-node"
       // eslint-disable-next-line react/no-unknown-property
       artifact-name={node.name}
+      aria-label={node.name}
     >
       <div style={style.title}>
         <i className={iconClass} style={iconStyle} />

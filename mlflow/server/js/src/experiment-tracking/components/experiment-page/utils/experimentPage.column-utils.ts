@@ -1,5 +1,12 @@
-import type { CellClassParams, ColDef, ColGroupDef, ColumnApi, IsFullWidthRowParams } from '@ag-grid-community/core';
-import { Spinner, SpinnerProps, Typography } from '@databricks/design-system';
+import type {
+  CellClassParams,
+  ColDef,
+  ColGroupDef,
+  ColumnApi,
+  IsFullWidthRowParams,
+  SuppressKeyboardEventParams,
+} from '@ag-grid-community/core';
+import { Spinner, SpinnerProps, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import React, { useEffect, useMemo, useRef } from 'react';
 import { capitalize, isEqual } from 'lodash';
 import Utils from '../../../../common/utils/Utils';
@@ -18,15 +25,25 @@ import {
   makeCanonicalSortKey,
 } from './experimentPage.common-utils';
 import { RunRowType } from './experimentPage.row-types';
-import { RowActionsCellRenderer } from '../components/runs/cells/RowActionsCellRenderer';
+import {
+  RowActionsCellRenderer,
+  RowActionsCellRendererSuppressKeyboardEvents,
+} from '../components/runs/cells/RowActionsCellRenderer';
 import { RowActionsHeaderCellRenderer } from '../components/runs/cells/RowActionsHeaderCellRenderer';
 import { RunNameCellRenderer } from '../components/runs/cells/RunNameCellRenderer';
 import { LoadMoreRowRenderer } from '../components/runs/cells/LoadMoreRowRenderer';
-import { shouldUseNewRunRowsVisibilityModel } from '../../../../common/utils/FeatureUtils';
-import { DatasetsCellRenderer } from '../components/runs/cells/DatasetsCellRenderer';
+import {
+  shouldEnableRunsTableRunNameColumnResize,
+  shouldUseNewRunRowsVisibilityModel,
+} from '../../../../common/utils/FeatureUtils';
+import {
+  DatasetsCellRenderer,
+  DatasetsCellRendererSuppressKeyboardEvents,
+} from '../components/runs/cells/DatasetsCellRenderer';
 import { RunDatasetWithTags } from '../../../types';
 import { AggregateMetricValueCell } from '../components/runs/cells/AggregateMetricValueCell';
-import { type RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIStateV2';
+import { type RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
+import { useMediaQuery } from '@databricks/web-shared/hooks';
 
 const cellClassIsOrderedBy = ({ colDef, context }: CellClassParams) =>
   context.orderByKey === colDef.headerComponentParams?.canonicalSortKey;
@@ -62,6 +79,13 @@ const createTagFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_TAG}-${ke
 const UntrackedSpinner: React.FC<SpinnerProps> = ({ loading, ...props }) => {
   return Spinner({ loading: false, ...props });
 };
+
+/**
+ * A default listener that suppresses default agGrid keyboard events on the row actions cell renderer.
+ * If the focus is on a cell, the tab key should be allowed to navigate to the next focusable element instead of a next cell.
+ */
+const defaultKeyboardNavigationSuppressor = ({ event }: SuppressKeyboardEventParams) =>
+  event.key === 'Tab' && event.target instanceof HTMLElement && event.target.classList.contains('ag-cell');
 
 /**
  * Functions returns all framework components to be used by agGrid
@@ -222,11 +246,16 @@ export const useRunsColumnDefinitions = ({
   allRunsHidden,
   runsHiddenMode,
 }: UseRunsColumnDefinitionsParams) => {
+  const { theme } = useDesignSystemTheme();
+
   const cumulativeColumns = useCumulativeColumnKeys({
     metricKeyList,
     tagKeyList,
     paramKeyList,
   });
+
+  // Generate columns differently on super small viewport sizes
+  const usingCompactViewport = useMediaQuery(`(max-width: ${theme.responsive.breakpoints.sm}px)`);
 
   const columnSet = useMemo(() => {
     const columns: (ColDef | ColGroupDef)[] = [];
@@ -242,19 +271,22 @@ export const useRunsColumnDefinitions = ({
       cellClass: 'is-checkbox-cell',
       cellRenderer: 'RowActionsCellRenderer',
       cellRendererParams: { onTogglePin, onToggleVisibility },
-      pinned: 'left',
+      pinned: usingCompactViewport ? undefined : 'left',
       minWidth: getActionsColumnWidth(isComparingRuns),
       width: getActionsColumnWidth(isComparingRuns),
       maxWidth: getActionsColumnWidth(isComparingRuns),
       resizable: false,
+      suppressKeyboardEvent: RowActionsCellRendererSuppressKeyboardEvents,
     });
+
+    const isRunColumnDynamicSized = isComparingRuns && shouldEnableRunsTableRunNameColumnResize();
 
     // Run name column
     columns.push({
       headerName: ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
-      colId: TAGS_TO_COLUMNS_MAP[ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME],
+      colId: isRunColumnDynamicSized ? undefined : TAGS_TO_COLUMNS_MAP[ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME],
       headerTooltip: ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME,
-      pinned: 'left',
+      pinned: usingCompactViewport ? undefined : 'left',
       sortable: true,
       cellRenderer: 'RunNameCellRenderer',
       cellRendererParams: { onExpand, isComparingRuns },
@@ -266,8 +298,10 @@ export const useRunsColumnDefinitions = ({
       cellClassRules: {
         'is-ordered-by': cellClassIsOrderedBy,
       },
-      initialWidth: RUN_NAME_COLUMN_WIDTH,
+      initialWidth: isRunColumnDynamicSized ? undefined : RUN_NAME_COLUMN_WIDTH,
+      flex: isRunColumnDynamicSized ? 1 : undefined,
       resizable: !isComparingRuns,
+      suppressKeyboardEvent: defaultKeyboardNavigationSuppressor,
     });
 
     // If we are only comparing runs, that's it - we cut off the list after the run name column.
@@ -280,7 +314,7 @@ export const useRunsColumnDefinitions = ({
     columns.push({
       headerName: ATTRIBUTE_COLUMN_LABELS.DATE,
       headerTooltip: ATTRIBUTE_COLUMN_SORT_KEY.DATE,
-      pinned: 'left',
+      pinned: usingCompactViewport ? undefined : 'left',
       sortable: true,
       field: 'runDateAndNestInfo',
       cellRenderer: 'DateCellRenderer',
@@ -306,6 +340,7 @@ export const useRunsColumnDefinitions = ({
       cellRendererParams: { onDatasetSelected, expandRows },
       cellClass: 'is-multiline-cell',
       initialWidth: 300,
+      suppressKeyboardEvent: DatasetsCellRendererSuppressKeyboardEvents,
     });
 
     // Duration column
@@ -325,6 +360,7 @@ export const useRunsColumnDefinitions = ({
         equals: (experimentName1, experimentName2) => isEqual(experimentName1, experimentName2),
         initialWidth: 140,
         initialHide: true,
+        suppressKeyboardEvent: defaultKeyboardNavigationSuppressor,
       });
     }
 
@@ -359,6 +395,7 @@ export const useRunsColumnDefinitions = ({
         'is-ordered-by': cellClassIsOrderedBy,
       },
       initialHide: true,
+      suppressKeyboardEvent: defaultKeyboardNavigationSuppressor,
     });
 
     // Version column
@@ -387,6 +424,7 @@ export const useRunsColumnDefinitions = ({
       initialWidth: 200,
       equals: (models1 = {}, models2 = {}) => isEqual(models1, models2),
       initialHide: true,
+      suppressKeyboardEvent: defaultKeyboardNavigationSuppressor,
     });
 
     const { metricKeys, paramKeys, tagKeys } = cumulativeColumns;
@@ -480,6 +518,7 @@ export const useRunsColumnDefinitions = ({
     onDatasetSelected,
     expandRows,
     allRunsHidden,
+    usingCompactViewport,
   ]);
 
   const canonicalSortKeys = useMemo(

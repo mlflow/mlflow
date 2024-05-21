@@ -179,7 +179,7 @@ class Span:
             "parent_id": self.parent_id,
             "start_time": self.start_time_ns,
             "end_time": self.end_time_ns,
-            "status_code": self.status.status_code,
+            "status_code": self.status.status_code.value,
             "status_message": self.status.description,
             "attributes": dict(self._span.attributes),
             "events": [asdict(event) for event in self.events],
@@ -441,7 +441,14 @@ class _SpanAttributesRegistry:
 
     def get(self, key: str):
         serialized_value = self._span.attributes.get(key)
-        return json.loads(serialized_value) if serialized_value else None
+        if serialized_value:
+            try:
+                return json.loads(serialized_value)
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to get value for key {key}, make sure you set the attribute "
+                    f"on mlflow Span class instead of directly to the OpenTelemetry span. {e}"
+                )
 
     def set(self, key: str, value: Any):
         if not isinstance(key, str):

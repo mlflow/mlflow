@@ -1,6 +1,6 @@
 import { Button, ChevronLeftIcon, ChevronRightIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { UpdateExperimentViewStateFn } from '../../../../types';
-import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
+import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 
 /**
  * Component used to expand/collapse runs list (table) when in compare runs mode.

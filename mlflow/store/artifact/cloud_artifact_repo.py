@@ -7,7 +7,6 @@ from collections import namedtuple
 from concurrent.futures import as_completed
 
 from mlflow.environment_variables import (
-    MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
     MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE,
@@ -29,6 +28,25 @@ _logger = logging.getLogger(__name__)
 _ARTIFACT_UPLOAD_BATCH_SIZE = (
     50  # Max number of artifacts for which to fetch write credentials at once.
 )
+_AWS_MIN_CHUNK_SIZE = 5 * 1024**2  # 5 MB is the minimum chunk size for S3 multipart uploads
+_AWS_MAX_CHUNK_SIZE = 5 * 1024**3  # 5 GB is the maximum chunk size for S3 multipart uploads
+
+
+def _readable_size(size: int) -> str:
+    return f"{size / 1024**2:.2f} MB"
+
+
+def _validate_chunk_size_aws(chunk_size: int) -> None:
+    """
+    Validates the specified chunk size in bytes is in valid range for AWS multipart uploads.
+    """
+    if chunk_size < _AWS_MIN_CHUNK_SIZE or chunk_size > _AWS_MAX_CHUNK_SIZE:
+        raise MlflowException(
+            message=(
+                f"Multipart chunk size {_readable_size(chunk_size)} must be in range: "
+                f"{_readable_size(_AWS_MIN_CHUNK_SIZE)} to {_readable_size(_AWS_MAX_CHUNK_SIZE)}."
+            )
+        )
 
 
 def _compute_num_chunks(local_file: os.PathLike, chunk_size: int) -> int:
@@ -158,11 +176,6 @@ class CloudArtifactRepository(ArtifactRepository):
         with ArtifactProgressBar.files(
             desc="Uploading artifacts", total=len(staged_uploads)
         ) as pbar:
-            if len(staged_uploads) >= 10 and pbar.pbar:
-                _logger.info(
-                    "The progress bar can be disabled by setting the environment "
-                    f"variable {MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR} to false"
-                )
             for src_file_path, upload_future in upload_artifacts_iter():
                 try:
                     upload_future.result()

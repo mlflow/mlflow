@@ -20,8 +20,7 @@ import _ from 'lodash';
 import { ErrorCodes, SupportPageUrl } from '../constants';
 import { FormattedMessage } from 'react-intl';
 import { ErrorWrapper } from './ErrorWrapper';
-import { shouldUsePathRouting } from './FeatureUtils';
-import { KeyValueEntity } from '../../experiment-tracking/types';
+import { KeyValueEntity, RunInfoEntity } from '../../experiment-tracking/types';
 import { FileCodeIcon, FolderBranchIcon, NotebookIcon, WorkflowsIcon } from '@databricks/design-system';
 
 class Utils {
@@ -557,58 +556,6 @@ class Utils {
   }
 
   /**
-   * Returns an svg with some styling applied.
-   */
-  static renderSourceTypeIcon(tags: any) {
-    const imageStyle = {
-      height: '20px',
-      marginRight: '4px',
-    };
-
-    const sourceType = Utils.getSourceType(tags);
-    if (sourceType === 'NOTEBOOK') {
-      if (Utils.getNotebookRevisionId(tags)) {
-        return <img alt="Notebook Revision Icon" title="Notebook Revision" style={imageStyle} src={revisionSvg} />;
-      } else {
-        return <img alt="Notebook Icon" title="Notebook" style={imageStyle} src={notebookSvg} />;
-      }
-    } else if (sourceType === 'LOCAL') {
-      return <img alt="Local Source Icon" title="Local Source" style={imageStyle} src={laptopSvg} />;
-    } else if (sourceType === 'PROJECT') {
-      return <img alt="Project Icon" title="Project" style={imageStyle} src={projectSvg} />;
-    } else if (sourceType === 'JOB') {
-      return <img alt="Job Icon" title="Job" style={imageStyle} src={workflowsIconSvg} />;
-    }
-    return <img alt="No icon" style={imageStyle} src={emptySvg} />;
-  }
-
-  // New version of renderSourceTypeIcon that uses icons from design system
-  static renderSourceTypeIconV2(tags: any) {
-    const sourceType = Utils.getSourceType(tags);
-
-    if (sourceType === 'NOTEBOOK') {
-      return <NotebookIcon />;
-    } else if (sourceType === 'LOCAL') {
-      // TODO: missing icon for local source
-      return (
-        <img
-          alt="Local Source Icon"
-          title="Local Source"
-          css={{
-            width: 16,
-          }}
-          src={laptopSvg}
-        />
-      );
-    } else if (sourceType === 'PROJECT') {
-      return <FolderBranchIcon />;
-    } else if (sourceType === 'JOB') {
-      return <WorkflowsIcon />;
-    }
-    return null;
-  }
-
-  /**
    * Renders the source name and entry point into a string. Used for sorting.
    * @param run MlflowMessages.RunInfo
    */
@@ -653,8 +600,8 @@ class Utils {
     return Utils.getRunName(runInfo) || 'Run ' + runUuid;
   }
 
-  static getRunName(runInfo: any) {
-    return runInfo.run_name || '';
+  static getRunName(runInfo: RunInfoEntity) {
+    return runInfo.runName || '';
   }
 
   static getRunNameFromTags(runTags: any) {
@@ -898,10 +845,10 @@ class Utils {
     return stepResult === 0 ? history1.timestamp - history2.timestamp : stepResult;
   }
 
-  static getVisibleTagValues(tags: any) {
+  static getVisibleTagValues(tags: Record<string, KeyValueEntity>) {
     // Collate tag objects into list of [key, value] lists and filter MLflow-internal tags
     return Object.values(tags)
-      .map((t) => [(t as any).key || (t as any).getKey(), (t as any).value || (t as any).getValue()])
+      .map((t) => [t.key, t.value])
       .filter((t) => !t[0].startsWith(MLFLOW_INTERNAL_PREFIX));
   }
 
@@ -1062,15 +1009,15 @@ class Utils {
   }
 
   static sortExperimentsById = (experiments: any) => {
-    return _.sortBy(experiments, [({ experiment_id }) => experiment_id]);
+    return _.sortBy(experiments, [({ experimentId }) => experimentId]);
   };
 
   static getExperimentNameMap = (experiments: any) => {
     // Input:
     // [
-    //  { experiment_id: 1, name: '/1/bar' },
-    //  { experiment_id: 2, name: '/2/foo' },
-    //  { experiment_id: 3, name: '/3/bar' },
+    //  { experimentId: 1, name: '/1/bar' },
+    //  { experimentId: 2, name: '/2/foo' },
+    //  { experimentId: 3, name: '/3/bar' },
     // ]
     //
     // Output:
@@ -1090,9 +1037,9 @@ class Utils {
     const idToNames = {};
     Object.entries(experimentsByBasename).forEach(([basename, exps]) => {
       const isUnique = (exps as any).length === 1;
-      (exps as any).forEach(({ experiment_id, name }: any, index: any) => {
+      (exps as any).forEach(({ experimentId, name }: any, index: any) => {
         // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-        idToNames[experiment_id] = {
+        idToNames[experimentId] = {
           name,
           basename: isUnique ? basename : `${basename} (${index + 1})`,
         };
@@ -1140,8 +1087,8 @@ class Utils {
   }
 
   static compareExperiments(a: any, b: any) {
-    const aId = typeof a.getExperimentId === 'function' ? a.getExperimentId() : a.experiment_id;
-    const bId = typeof b.getExperimentId === 'function' ? b.getExperimentId() : b.experiment_id;
+    const aId = a.experimentId;
+    const bId = b.experimentId;
 
     const aIntId = parseInt(aId, 10);
     const bIntId = parseInt(bId, 10);
@@ -1170,20 +1117,6 @@ class Utils {
     }
 
     return false;
-  }
-
-  static getIframeCorrectedRoute(route: any) {
-    if (shouldUsePathRouting()) {
-      // After enabling path routing, we don't need any hash splitting etc.
-      return route;
-    }
-    if (Utils.isUsingExternalRouter()) {
-      // If using external routing, include the parent params and assume mlflow served at #
-      const parentHref = window.parent.location.href;
-      const parentHrefBeforeMlflowHash = parentHref.split('#')[0];
-      return `${parentHrefBeforeMlflowHash}#mlflow${route}`;
-    }
-    return `./#${route}`; // issue-2213 use relative path in case there is a url prefix
   }
 
   static isValidHttpUrl(str: any) {
