@@ -432,7 +432,7 @@ class DatabricksSubmittedRun(SubmittedRun):
         run_info = self._job_runner.jobs_runs_get(self._databricks_run_id)
         jobs_page_url = run_info["run_page_url"]
         _logger.info("=== Check the run's status at %s ===", jobs_page_url)
-        host = databricks_utils.get_databricks_env_vars("databricks")["DATABRICKS_HOST"]
+        host = databricks_utils._get_databricks_host(self._job_runner.databricks_profile_uri)
         tracking.MlflowClient().set_tag(
             self._mlflow_run_id, MLFLOW_DATABRICKS_RUN_URL, jobs_page_url
         )

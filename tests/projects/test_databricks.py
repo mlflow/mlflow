@@ -273,6 +273,7 @@ def test_run_databricks(
     """Test running on Databricks with mocks."""
     monkeypatch.setenv("DATABRICKS_HOST", "test-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "foo")
+    mlflow.set_tracking_uri("databricks")
     # Test that MLflow gets the correct run status when performing a Databricks run
     for run_succeeded, expect_status in [(True, RunStatus.FINISHED), (False, RunStatus.FAILED)]:
         runs_get_mock.return_value = mock_runs_get_result(succeeded=run_succeeded)

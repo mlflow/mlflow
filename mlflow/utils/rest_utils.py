@@ -98,9 +98,10 @@ def http_request(
     if host_creds.databricks_workspace_client:
         try:
             if method == "GET":
-                extra_kwargs = {"query": kwargs["params"]}
+                query = kwargs.get("params") or kwargs.get("json")
+                extra_kwargs = {"query": query}
             else:
-                extra_kwargs = {"body": kwargs["json"]}
+                extra_kwargs = {"body": kwargs.get("json")}
 
             raw_response = host_creds.databricks_workspace_client.api_client.do(
                 method=method,

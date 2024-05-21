@@ -872,6 +872,13 @@ def get_databricks_env_vars(tracking_uri):
     return env_vars
 
 
+def _get_databricks_host(tracking_uri):
+    if not mlflow.utils.uri.is_databricks_uri(tracking_uri):
+        return None
+
+    return _get_databricks_creds_config(tracking_uri).host
+
+
 class DatabricksRuntimeVersion(NamedTuple):
     is_client_image: bool
     major: int
