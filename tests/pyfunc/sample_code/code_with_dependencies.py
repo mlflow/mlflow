@@ -4,7 +4,7 @@ import mlflow
 from mlflow.models import set_model, set_retriever_schema
 from mlflow.pyfunc import PythonModel
 
-test_trace = os.environ.get("TEST_TRACE", "false").lower() == "true"
+test_trace = os.environ.get("TEST_TRACE", "true").lower() == "true"
 
 
 class MyModel(PythonModel):
