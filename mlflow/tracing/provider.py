@@ -43,6 +43,8 @@ def start_detached_span(
         name: The name of the span.
         parent: The parent OpenTelemetry span. If not provided, the span will be created as a root
                 span.
+        experiment_id: The ID of the experiment. This is used to associate the span with a specific
+            experiment in MLflow.
 
     Returns:
         The newly created OpenTelemetry span.
