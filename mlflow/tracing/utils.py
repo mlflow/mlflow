@@ -187,10 +187,10 @@ def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
     return context.request_id
 
 
-def maybe_get_dependencies_schema() -> Optional[dict]:
+def maybe_get_dependencies_schemas() -> Optional[dict]:
     context = _try_get_prediction_context()
     if context:
-        return context.dependencies_schema
+        return context.dependencies_schemas
 
 
 def traces_to_df(traces: List[Trace]) -> "pandas.DataFrame":

@@ -17,7 +17,7 @@ class Context:
     # Whether the current prediction request is as a part of MLflow model evaluation.
     is_evaluate: bool = False
     # The schema of the dependencies to be added into the tag of trace info.
-    dependencies_schema: Optional[dict] = None
+    dependencies_schemas: Optional[dict] = None
 
     def update(self, **kwargs):
         for key, value in kwargs.items():
