@@ -53,7 +53,7 @@ from mlflow.utils.mlflow_tags import (
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
 from tests.tracing.conftest import mock_store as mock_store_for_tracing  # noqa: F401
-from tests.tracing.helper import create_test_trace_info, get_traces
+from tests.tracing.helper import create_test_trace_info, get_first_trace, get_traces
 
 
 @pytest.fixture(autouse=True)
@@ -623,7 +623,7 @@ def test_set_and_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
     client.set_trace_tag(request_id, "foo", "bar")
     client.end_trace(request_id)
 
-    trace = get_traces()[0]
+    trace = get_first_trace()
     assert trace.info.tags == {
         "mlflow.traceName": "test",
         "foo": "bar",
@@ -648,7 +648,7 @@ def test_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
     client.delete_trace_tag(request_id, "foo")
     client.end_trace(request_id)
 
-    trace = get_traces()[0]
+    trace = get_first_trace()
     assert trace.info.tags == {
         "baz": "qux",
         "mlflow.traceName": "test",  # Added by MLflow
