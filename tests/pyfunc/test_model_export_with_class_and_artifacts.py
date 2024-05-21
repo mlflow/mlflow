@@ -59,6 +59,7 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
 )
 from tests.tracing.conftest import clear_singleton  # noqa: F401
+from tests.tracing.helper import get_traces
 
 
 def get_model_class():
@@ -1831,10 +1832,12 @@ def test_pyfunc_as_code_with_dependencies():
     }
 
 
-def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace_in_serving(
-    clear_singleton, monkeypatch
+@pytest.mark.parametrize("is_in_db_model_serving", ["true", "false"])
+def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace(
+    clear_singleton, monkeypatch, is_in_db_model_serving
 ):
-    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", is_in_db_model_serving)
+    is_in_db_model_serving = is_in_db_model_serving == "true"
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             python_model="tests/pyfunc/sample_code/code_with_dependencies.py",
@@ -1845,7 +1848,10 @@ def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace_in
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     model_input = "user_123"
     expected_output = f"Input: {model_input}. Retriever called with ID: {model_input}. Output: 42."
-    with set_prediction_context(Context(request_id="1234")):
+    if is_in_db_model_serving:
+        with set_prediction_context(Context(request_id="1234")):
+            assert loaded_model.predict(model_input) == expected_output
+    else:
         assert loaded_model.predict(model_input) == expected_output
 
     pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
@@ -1863,19 +1869,23 @@ def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace_in
     }
     assert reloaded_model.metadata["dependencies_schemas"] == expected_dependencies_schemas
 
-    trace_dict = pop_trace("1234")
-    trace = Trace.from_dict(trace_dict)
-    tags = trace.info.tags
-    assert trace.info.request_id == "1234"
-    assert tags[DependenciesSchemasType.RETRIEVERS.value] == json.dumps(
+    if is_in_db_model_serving:
+        trace_dict = pop_trace("1234")
+        trace = Trace.from_dict(trace_dict)
+        assert trace.info.request_id == "1234"
+    else:
+        trace = get_traces()[0]
+    assert trace.info.tags[DependenciesSchemasType.RETRIEVERS.value] == json.dumps(
         expected_dependencies_schemas[DependenciesSchemasType.RETRIEVERS.value]
     )
 
 
-def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace_in_serving_stream(
-    clear_singleton, monkeypatch
+@pytest.mark.parametrize("is_in_db_model_serving", ["true", "false"])
+def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace_stream(
+    clear_singleton, monkeypatch, is_in_db_model_serving
 ):
-    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", is_in_db_model_serving)
+    is_in_db_model_serving = is_in_db_model_serving == "true"
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             python_model="tests/pyfunc/sample_code/code_with_dependencies.py",
@@ -1886,7 +1896,10 @@ def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace_in
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     model_input = "user_123"
     expected_output = f"Input: {model_input}. Retriever called with ID: {model_input}. Output: 42."
-    with set_prediction_context(Context(request_id="1234")):
+    if is_in_db_model_serving:
+        with set_prediction_context(Context(request_id="1234")):
+            assert next(loaded_model.predict_stream(model_input)) == expected_output
+    else:
         assert next(loaded_model.predict_stream(model_input)) == expected_output
 
     pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
@@ -1904,11 +1917,13 @@ def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace_in
     }
     assert reloaded_model.metadata["dependencies_schemas"] == expected_dependencies_schemas
 
-    trace_dict = pop_trace("1234")
-    trace = Trace.from_dict(trace_dict)
-    tags = trace.info.tags
-    assert trace.info.request_id == "1234"
-    assert tags[DependenciesSchemasType.RETRIEVERS.value] == json.dumps(
+    if is_in_db_model_serving:
+        trace_dict = pop_trace("1234")
+        trace = Trace.from_dict(trace_dict)
+        assert trace.info.request_id == "1234"
+    else:
+        trace = get_traces()[0]
+    assert trace.info.tags[DependenciesSchemasType.RETRIEVERS.value] == json.dumps(
         expected_dependencies_schemas[DependenciesSchemasType.RETRIEVERS.value]
     )
 
