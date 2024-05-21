@@ -17,7 +17,7 @@ class MockEventRegistry:
 
     def trigger(self, event):
         for callback in self.events[event]:
-            callback()
+            callback(None)
 
 
 class MockIPython:
