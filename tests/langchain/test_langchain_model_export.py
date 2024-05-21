@@ -58,7 +58,7 @@ from mlflow.langchain.utils import (
     IS_PICKLE_SERIALIZATION_RESTRICTED,
 )
 from mlflow.models import Model
-from mlflow.models.dependencies_schema import DependenciesSchemasType
+from mlflow.models.dependencies_schemas import DependenciesSchemasType
 from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex, Resource
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.pyfunc.context import Context

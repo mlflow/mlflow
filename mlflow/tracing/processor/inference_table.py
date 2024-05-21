@@ -14,7 +14,7 @@ from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
     get_otel_attribute,
-    maybe_get_dependencies_schema,
+    maybe_get_dependencies_schemas,
     maybe_get_request_id,
 )
 
@@ -75,7 +75,7 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                 return
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
         tags = {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}
-        if depedencies_schema := maybe_get_dependencies_schema():
+        if depedencies_schema := maybe_get_dependencies_schemas():
             tags.update(depedencies_schema)
 
         if span._parent is None:

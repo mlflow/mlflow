@@ -92,7 +92,7 @@ def _clear_retriever_schema():
     globals().pop(DATABRICKS_RETRIEVER_OTHER_COLUMNS, None)
 
 
-def _clear_dependencies_schema():
+def _clear_dependencies_schemas():
     """
     Clear all the dependencies schema defined by the user.
     """
@@ -101,12 +101,12 @@ def _clear_dependencies_schema():
 
 
 @contextmanager
-def _get_dependencies_schema():
-    dependencies_schema = DependenciesSchemas(retriever_schemas=_get_retriever_schema())
+def _get_dependencies_schemas():
+    dependencies_schemas = DependenciesSchemas(retriever_schemas=_get_retriever_schema())
     try:
-        yield dependencies_schema
+        yield dependencies_schemas
     finally:
-        _clear_dependencies_schema()
+        _clear_dependencies_schemas()
 
 
 @dataclass
