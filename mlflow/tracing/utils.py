@@ -382,4 +382,3 @@ def exclude_immutable_tags(tags: Dict[str, str]) -> Dict[str, str]:
 
 def generate_request_id() -> str:
     return uuid.uuid4().hex
-           
