@@ -154,7 +154,7 @@ def test_dict_conversion(clear_singleton):
         recovered_span.set_status("OK")
 
 
-def test_completed_span(clear_singleton):
+def test_to_immutable_span(clear_singleton):
     request_id = "tr-12345"
 
     tracer = _get_tracer("test")
@@ -166,7 +166,7 @@ def test_completed_span(clear_singleton):
         live_span.set_status("OK")
         live_span.add_event(SpanEvent("test_event", timestamp=0, attributes={"foo": "bar"}))
 
-    span = live_span.to_completed_span()
+    span = live_span.to_immutable_span()
 
     assert isinstance(span, Span)
     assert span.request_id == request_id

@@ -345,7 +345,7 @@ class LiveSpan(Span):
     def from_dict(cls, data: Dict[str, Any]) -> "Span":
         raise NotImplementedError("The `from_dict` method is not supported for the LiveSpan class.")
 
-    def to_completed_span(self) -> "Span":
+    def to_immutable_span(self) -> "Span":
         """
         Downcast the live span object to the immutable span.
 
