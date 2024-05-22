@@ -2458,6 +2458,8 @@ def save_model(
                 mlflow_model.signature = signature
             elif input_example is not None:
                 try:
+                    context = PythonModelContext(artifacts, model_config)
+                    python_model.load_context(context)
                     mlflow_model.signature = _infer_signature_from_input_example(
                         input_example,
                         _PythonModelPyfuncWrapper(python_model, None, None),
