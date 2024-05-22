@@ -151,16 +151,16 @@ func (p *parser) parseExpression() (*CompareExpr, error) {
 		p.advance() // Consume the NOT
 		if p.currentTokenKind() != lexer.IN {
 			return nil, fmt.Errorf("Expected IN after NOT, got %s", p.printCurrentToken())
-		} else {
-			p.advance() // Consume the IN
-			expr, err := p.parseInSetExpr(ident)
-			if err != nil {
-				return nil, err
-			}
-
-			expr.Operator = NOT_IN
-			return expr, nil
 		}
+
+		p.advance() // Consume the IN
+		expr, err := p.parseInSetExpr(ident)
+		if err != nil {
+			return nil, err
+		}
+
+		expr.Operator = NOT_IN
+		return expr, nil
 
 	} else {
 		operator, err := p.parseOperator()

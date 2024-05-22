@@ -42,7 +42,7 @@ func (s Store) GetExperiment(id string) (*protos.Experiment, *contract.Error) {
 		)
 	}
 
-	experiment := model.Experiment{ExperimentID: utils.PtrTo(int32(idInt))}
+	experiment := model.Experiment{ID: utils.PtrTo(int32(idInt))}
 	if err := s.db.Preload("Tags").First(&experiment).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, contract.NewError(
@@ -69,7 +69,7 @@ func (s Store) CreateExperiment(input *protos.CreateExperiment) (string, *contra
 		}
 
 		if utils.IsNilOrEmptyString(experiment.ArtifactLocation) {
-			artifactLocation, err := url.JoinPath(s.config.DefaultArtifactRoot, strconv.Itoa(int(*experiment.ExperimentID)))
+			artifactLocation, err := url.JoinPath(s.config.DefaultArtifactRoot, strconv.Itoa(int(*experiment.ID)))
 			if err != nil {
 				return fmt.Errorf("failed to join artifact location: %w", err)
 			}
@@ -89,18 +89,9 @@ func (s Store) CreateExperiment(input *protos.CreateExperiment) (string, *contra
 		}
 		return "", contract.NewErrorWith(protos.ErrorCode_INTERNAL_ERROR, "failed to create experiment", err)
 	}
-	return strconv.Itoa(int(*experiment.ExperimentID)), nil
+	return strconv.Itoa(int(*experiment.ID)), nil
 }
 
-// TODO: is this the right place?
-type LifecycleStage string
-
-const (
-	LifecycleStageActive  LifecycleStage = "active"
-	LifecycleStageDeleted LifecycleStage = "deleted"
-)
-
-// TODO: is this the right place? Keep here for now?
 type PageToken struct {
 	Offset int32 `json:"offset"`
 }
@@ -116,26 +107,25 @@ func (s Store) SearchRuns(
 	maxResults int,
 	orderBy []string,
 	pageToken *string,
-) ([]*protos.Run, *string, *contract.Error) {
+) (*store.PagedList[*protos.Run], *contract.Error) {
 	// ViewType
-	var lifecyleStages []LifecycleStage
+	var lifecyleStages []model.LifecycleStage
 	switch runViewType {
 	case protos.ViewType_ACTIVE_ONLY:
-		lifecyleStages = []LifecycleStage{
-			LifecycleStageActive,
+		lifecyleStages = []model.LifecycleStage{
+			model.LifecycleStageActive,
 		}
 	case protos.ViewType_DELETED_ONLY:
-		lifecyleStages = []LifecycleStage{
-			LifecycleStageDeleted,
+		lifecyleStages = []model.LifecycleStage{
+			model.LifecycleStageDeleted,
 		}
 	case protos.ViewType_ALL:
-		lifecyleStages = []LifecycleStage{
-			LifecycleStageActive,
-			LifecycleStageDeleted,
+		lifecyleStages = []model.LifecycleStage{
+			model.LifecycleStageActive,
+			model.LifecycleStageDeleted,
 		}
 	}
 
-	// TODO: does we use constants for the column names here?
 	tx := s.db.Where("experiment_id IN ?", experimentIDs).Where("lifecycle_stage IN ?", lifecyleStages)
 
 	// MaxResults
@@ -151,7 +141,7 @@ func (s Store) SearchRuns(
 				strings.NewReader(*pageToken),
 			),
 		).Decode(&token); err != nil {
-			return nil, nil, contract.NewErrorWith(
+			return nil, contract.NewErrorWith(
 				protos.ErrorCode_INVALID_PARAMETER_VALUE,
 				fmt.Sprintf("invalid page_token: \"%s\"", *pageToken),
 				err,
@@ -164,13 +154,20 @@ func (s Store) SearchRuns(
 	// Filter
 	filterAst, err := query.ParseFilter(filter)
 	if err != nil {
-		return nil, nil, contract.NewErrorWith(
+		return nil, contract.NewErrorWith(
 			protos.ErrorCode_INVALID_PARAMETER_VALUE,
-			"error lexing filter",
+			"error parsing search filter",
 			err,
 		)
 	}
 	log.Debugf("Filter AST: %#v", filterAst)
+
+	// for _, clause := range filterAst.Exprs {
+	// 	switch clause.Left.Identifier {
+	// 	case "metric":
+
+	// 	}
+	// }
 
 	// OrderBy
 	startTimeOrder := false
@@ -178,7 +175,7 @@ func (s Store) SearchRuns(
 		components := runOrder.FindStringSubmatch(o)
 		log.Debugf("Components: %#v", components)
 		if len(components) < 3 {
-			return nil, nil, contract.NewError(
+			return nil, contract.NewError(
 				protos.ErrorCode_INVALID_PARAMETER_VALUE,
 				"invalid order by clause: "+o,
 			)
@@ -199,7 +196,7 @@ func (s Store) SearchRuns(
 		case "tag":
 			kind = &model.Tag{}
 		default:
-			return nil, nil, contract.NewError(
+			return nil, contract.NewError(
 				protos.ErrorCode_INVALID_PARAMETER_VALUE,
 				fmt.Sprintf(
 					"invalid entity type '%s'. Valid values are ['metric', 'parameter', 'tag', 'attribute']",
@@ -238,7 +235,7 @@ func (s Store) SearchRuns(
 		Find(&runs)
 
 	if tx.Error != nil {
-		return nil, nil, contract.NewErrorWith(
+		return nil, contract.NewErrorWith(
 			protos.ErrorCode_INTERNAL_ERROR,
 			"Failed to query search runs",
 			tx.Error,
@@ -258,7 +255,7 @@ func (s Store) SearchRuns(
 		).Encode(PageToken{
 			Offset: int32(offset + maxResults),
 		}); err != nil {
-			return nil, nil, contract.NewErrorWith(
+			return nil, contract.NewErrorWith(
 				protos.ErrorCode_INTERNAL_ERROR,
 				"error encoding 'nextPageToken' value",
 				err,
@@ -267,7 +264,10 @@ func (s Store) SearchRuns(
 		nextPageToken = token.String()
 	}
 
-	return contractRuns, &nextPageToken, nil
+	return &store.PagedList[*protos.Run]{
+		Items:         contractRuns,
+		NextPageToken: &nextPageToken,
+	}, nil
 }
 
 func NewSQLStore(config *config.Config) (store.MlflowStore, error) {

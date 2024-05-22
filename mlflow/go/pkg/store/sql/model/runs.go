@@ -1,6 +1,8 @@
 package model
 
 import (
+	"strings"
+
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/utils"
 )
@@ -29,21 +31,13 @@ type Run struct {
 }
 
 func RunStatusToProto(status *string) *protos.RunStatus {
-	switch *status {
-	case "RUNNING":
-		return utils.PtrTo(protos.RunStatus_RUNNING)
-	case "SCHEDULED":
-		return utils.PtrTo(protos.RunStatus_SCHEDULED)
-	case "FINISHED":
-		return utils.PtrTo(protos.RunStatus_FINISHED)
-	case "FAILED":
-		return utils.PtrTo(protos.RunStatus_FAILED)
-	case "KILLED":
-		return utils.PtrTo(protos.RunStatus_KILLED)
-	default:
-		// TODO: what is good default here
-		return utils.PtrTo(protos.RunStatus_FAILED)
+	if status == nil {
+		return nil
 	}
+	if protoStatus, ok := protos.RunStatus_value[strings.ToUpper(*status)]; ok {
+		return (*protos.RunStatus)(&protoStatus)
+	}
+	return nil
 }
 
 func (r Run) ToProto() *protos.Run {

@@ -75,7 +75,7 @@ func contains[T comparable](s []T, elem T) bool {
 
 func parseValidIdentifier(identifier string) (string, error) {
 	switch identifier {
-	case metricIdentifier:
+	case metricIdentifier, "metrics":
 		return metricIdentifier, nil
 	case parameterIdentifier:
 		return parameterIdentifier, nil
@@ -143,7 +143,7 @@ func parseKey(identifier, key string) (result string, error error) {
 }
 
 // Returns a standardized LongIdentifierExpr.
-func validatedIdentifier(identifier Identifier) error {
+func validatedIdentifier(identifier *Identifier) error {
 	if identifier.Key == "" {
 		identifier.Key = attributeIdentifier
 	}
@@ -241,7 +241,7 @@ func validateValue(expression *CompareExpr) error {
 // The same for the value part.
 // The identifier is sanitized and will be mutated to use the standard identifier.
 func ValidateExpression(expression *CompareExpr) error {
-	err := validatedIdentifier(expression.Left)
+	err := validatedIdentifier(&expression.Left)
 	if err != nil {
 		return fmt.Errorf("Error on parsing filter expression: %s", err)
 	}

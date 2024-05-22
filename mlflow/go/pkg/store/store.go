@@ -19,5 +19,10 @@ type MlflowStore interface {
 		maxResults int,
 		orderBy []string,
 		pageToken *string,
-	) (runs []*protos.Run, nextPageToken *string, err *contract.Error) // TODO: not sure if this should be something more straightforward.
+	) (pagedList *PagedList[*protos.Run], err *contract.Error)
+}
+
+type PagedList[T any] struct {
+	Items         []T
+	NextPageToken *string
 }

@@ -90,7 +90,7 @@ func (m MlflowService) SearchRuns(input *protos.SearchRuns) (*protos.SearchRuns_
 
 	// TODO: should the offset be in this service?
 
-	runs, nextPageToken, err := m.store.SearchRuns(
+	page, err := m.store.SearchRuns(
 		input.ExperimentIds,
 		input.Filter,
 		runViewType,
@@ -103,8 +103,8 @@ func (m MlflowService) SearchRuns(input *protos.SearchRuns) (*protos.SearchRuns_
 	}
 
 	response := protos.SearchRuns_Response{
-		Runs:          runs,
-		NextPageToken: nextPageToken,
+		Runs:          page.Items,
+		NextPageToken: page.NextPageToken,
 	}
 
 	return &response, nil

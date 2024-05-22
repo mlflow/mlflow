@@ -10,7 +10,7 @@ import (
 
 // Experiment mapped from table <experiments>.
 type Experiment struct {
-	ExperimentID     *int32  `gorm:"column:experiment_id;primaryKey;autoIncrement:true"`
+	ID               *int32  `gorm:"column:experiment_id;primaryKey;autoIncrement:true"`
 	Name             *string `gorm:"column:name;not null"`
 	ArtifactLocation *string `gorm:"column:artifact_location"`
 	LifecycleStage   *string `gorm:"column:lifecycle_stage"`
@@ -21,7 +21,7 @@ type Experiment struct {
 }
 
 func (e Experiment) ToProto() *protos.Experiment {
-	id := strconv.FormatInt(int64(*e.ExperimentID), 10)
+	id := strconv.FormatInt(int64(*e.ID), 10)
 	tags := make([]*protos.ExperimentTag, len(e.Tags))
 	for i, tag := range e.Tags {
 		tags[i] = &protos.ExperimentTag{

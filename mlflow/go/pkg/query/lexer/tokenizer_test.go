@@ -13,6 +13,7 @@ type Sample struct {
 	expected string
 }
 
+//nolint:lll
 func TestQueries(t *testing.T) {
 	samples := []Sample{
 		{
