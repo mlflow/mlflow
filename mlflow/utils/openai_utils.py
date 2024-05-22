@@ -170,11 +170,11 @@ def _mock_request(**kwargs):
 @contextmanager
 def _mock_openai_arequest(**kwargs):
     with mock.patch("aiohttp.ClientSession.request", **kwargs) as mock_request:
-        mock_request.side_effect = _mock_chat_completion_response
+        mock_request.side_effect = _mock_async_chat_completion_response
         yield mock_request
 
 
-async def _mock_chat_completion_response(content=TEST_CONTENT, **kwargs):
+async def _mock_async_chat_completion_response(content=TEST_CONTENT, **kwargs):
     resp = AsyncMock()
     json_data = _chat_completion_json_sample(content)
     resp.status = 200
