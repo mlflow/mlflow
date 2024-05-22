@@ -538,6 +538,7 @@ def get_databricks_host_creds(server_uri=None):
     """
 
     from databricks.sdk import WorkspaceClient
+    from databricks.sdk.config import Config
 
     profile, _ = get_db_info_from_uri(server_uri)
     try:
@@ -555,9 +556,8 @@ def get_databricks_host_creds(server_uri=None):
         # support various authentication ways, so that it does not provide API
         # to get credential values. Instead, we can use ``WorkspaceClient``
         # API to invoke databricks shard restful APIs.
-        ws_client = WorkspaceClient(profile=profile)
-        ws_client.config.retry_timeout_seconds = \
-            MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get()
+        config = Config(retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get())
+        ws_client = WorkspaceClient(profile=profile, config=config)
         host = ws_client.config.host
         return MlflowHostCreds(host=host, databricks_workspace_client=ws_client)
     except Exception as e:
@@ -830,7 +830,7 @@ def _construct_databricks_model_version_url(
 def _get_databricks_creds_config(tracking_uri):
     # Note:
     # `_get_databricks_creds_config` reads credential token values or password and
-    # generates environmental variables.
+    # returns a `DatabricksConfig` object
     # Databricks-SDK API doesn't support reading credential token values,
     # so that in this function we still have to use
     # configuration providers defined in legacy Databricks CLI python library to

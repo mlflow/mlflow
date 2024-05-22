@@ -38,19 +38,13 @@ _REST_API_PATH_PREFIX = "/api/2.0"
 _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
 
 
-@dataclass
-class _DatabricksSdkAPIErrorResponse:
-    status_code: int
-    reason: str
-    text: str
-
-    def raise_for_status(self):
-        if self.status_code == 200:
-            return
-
-        http_error_msg = f"{self.status_code} Error: {self.reason}"
-
-        raise HTTPError(http_error_msg)
+class _DatabricksSdkAPIErrorResponse(requests.Response):
+    def __init__(self, status_code, reason, content):
+        super().__init__()
+        self.status_code = status_code
+        self.reason = reason
+        self.encoding = "UTF-8"
+        self._content = content.encode(self.encoding)
 
 
 def http_request(
@@ -116,7 +110,7 @@ def http_request(
                 return _DatabricksSdkAPIErrorResponse(
                     status_code=ErrorCode.Value(e.error_code),
                     reason=str(e),
-                    text=json.dumps({
+                    content=json.dumps({
                         "error_code": e.error_code,
                         "message": str(e),
                     })

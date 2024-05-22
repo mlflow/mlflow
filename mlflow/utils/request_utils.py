@@ -65,8 +65,8 @@ def augmented_raise_for_status(response):
         if response.text:
             raise HTTPError(
                 f"{e}. Response text: {response.text}",
-                request=getattr(e, "request", None),
-                response=getattr(e, "response", None),
+                request=e.request,
+                response=e.response,
             )
         else:
             raise e
