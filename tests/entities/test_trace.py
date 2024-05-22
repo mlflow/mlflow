@@ -67,6 +67,7 @@ def test_json_deserialization(clear_singleton, monkeypatch):
                 "mlflow.traceName": "predict",
                 "mlflow.source.name": "test",
                 "mlflow.source.type": "LOCAL",
+                "mlflow.user": "bob",
                 TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
             },
         },
