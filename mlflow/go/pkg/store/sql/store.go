@@ -188,9 +188,11 @@ func (s Store) SearchRuns(
 			key = "mlflow.runName"
 		}
 
+		isSqliteAndILike := s.db.Dialector.Name() == "sqlite" && comparison == "ILIKE"
+
 		switch {
 		case kind == nil:
-			if s.db.Dialector.Name() == "sqlite" && comparison == "ILIKE" {
+			if isSqliteAndILike {
 				key = fmt.Sprintf("LOWER(runs.%s)", key)
 				comparison = "LIKE"
 				value = strings.ToLower(value.(string))
@@ -208,14 +210,19 @@ func (s Store) SearchRuns(
 			//
 			// columns: name, digest, context
 			table := fmt.Sprintf("filter_%d", n)
+			where := key + " " + comparison + " ?"
+			if isSqliteAndILike {
+				where = "LOWER(" + key + ") LIKE ?"
+				value = strings.ToLower(value.(string))
+			}
 			tx.Joins(
 				fmt.Sprintf("JOIN (?) AS %s ON runs.experiment_id = %s.experiment_id", table, table),
-				s.db.Select("experiment_id", key).Where(key+" "+comparison+" ?", value).Model(kind),
+				s.db.Select("experiment_id", key).Where(where, value).Model(kind),
 			)
 		default:
 			table := fmt.Sprintf("filter_%d", n)
 			where := fmt.Sprintf("value %s ?", comparison)
-			if s.db.Dialector.Name() == "sqlite" && comparison == "ILIKE" {
+			if isSqliteAndILike {
 				where = "LOWER(value) LIKE ?"
 				value = strings.ToLower(value.(string))
 			}
