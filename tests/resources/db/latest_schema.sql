@@ -199,7 +199,7 @@ CREATE TABLE trace_request_metadata (
 	value VARCHAR(8000),
 	request_id VARCHAR(50) NOT NULL,
 	CONSTRAINT trace_request_metadata_pk PRIMARY KEY (key, request_id),
-	CONSTRAINT fk_trace_request_metadata_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id)
+	CONSTRAINT fk_trace_request_metadata_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
 
 
@@ -208,6 +208,6 @@ CREATE TABLE trace_tags (
 	value VARCHAR(8000),
 	request_id VARCHAR(50) NOT NULL,
 	CONSTRAINT trace_tag_pk PRIMARY KEY (key, request_id),
-	CONSTRAINT fk_trace_tags_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id)
+	CONSTRAINT fk_trace_tags_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
 
