@@ -178,9 +178,10 @@ def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
     if not context or (is_evaluate and not context.is_evaluate):
         return None
 
-    if not context.request_id:
+    if not context.request_id and is_evaluate:
         raise MlflowException(
-            f"Missing request_id for context {context}.",
+            f"Missing request_id for context {context}. "
+            "request_id can't be None when is_evaluate=True.",
             error_code=BAD_REQUEST,
         )
 

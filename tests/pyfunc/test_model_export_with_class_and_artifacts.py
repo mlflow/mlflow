@@ -59,6 +59,7 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
 )
 from tests.tracing.conftest import clear_singleton  # noqa: F401
+from tests.tracing.helper import get_traces
 
 
 def get_model_class():
@@ -1831,10 +1832,13 @@ def test_pyfunc_as_code_with_dependencies():
     }
 
 
-def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace_in_serving(
-    clear_singleton, monkeypatch
+@pytest.mark.parametrize("is_in_db_model_serving", ["true", "false"])
+@pytest.mark.parametrize("stream", [True, False])
+def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace(
+    clear_singleton, monkeypatch, is_in_db_model_serving, stream
 ):
-    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", is_in_db_model_serving)
+    is_in_db_model_serving = is_in_db_model_serving == "true"
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             python_model="tests/pyfunc/sample_code/code_with_dependencies.py",
@@ -1845,7 +1849,62 @@ def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace_in
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     model_input = "user_123"
     expected_output = f"Input: {model_input}. Retriever called with ID: {model_input}. Output: 42."
-    with set_prediction_context(Context(request_id="1234")):
+    func = loaded_model.predict_stream if stream else loaded_model.predict
+
+    def _get_result(output):
+        return next(output) if stream else output
+
+    if is_in_db_model_serving:
+        with set_prediction_context(Context(request_id="1234")):
+            assert _get_result(func(model_input)) == expected_output
+    else:
+        assert _get_result(func(model_input)) == expected_output
+
+    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    expected_dependencies_schemas = {
+        DependenciesSchemasType.RETRIEVERS.value: [
+            {
+                "doc_uri": "doc-uri",
+                "name": "retriever",
+                "other_columns": ["column1", "column2"],
+                "primary_key": "primary-key",
+                "text_column": "text-column",
+            }
+        ]
+    }
+    assert reloaded_model.metadata["dependencies_schemas"] == expected_dependencies_schemas
+
+    if is_in_db_model_serving:
+        trace_dict = pop_trace("1234")
+        trace = Trace.from_dict(trace_dict)
+        assert trace.info.request_id == "1234"
+    else:
+        trace = get_traces()[0]
+    assert trace.info.tags[DependenciesSchemasType.RETRIEVERS.value] == json.dumps(
+        expected_dependencies_schemas[DependenciesSchemasType.RETRIEVERS.value]
+    )
+
+
+@pytest.mark.parametrize("stream", [True, False])
+def test_no_traces_collected_for_pyfunc_as_code_with_dependencies_if_no_tracing_enabled(
+    clear_singleton, monkeypatch, stream
+):
+    # This sets model without trace inside code_with_dependencies.py file
+    monkeypatch.setenv("TEST_TRACE", "false")
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model="tests/pyfunc/sample_code/code_with_dependencies.py",
+            artifact_path="model",
+            pip_requirements=["pandas"],
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "user_123"
+    expected_output = f"Input: {model_input}. Retriever called with ID: {model_input}. Output: 42."
+    if stream:
+        assert next(loaded_model.predict_stream(model_input)) == expected_output
+    else:
         assert loaded_model.predict(model_input) == expected_output
 
     pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
@@ -1863,54 +1922,9 @@ def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace_in
     }
     assert reloaded_model.metadata["dependencies_schemas"] == expected_dependencies_schemas
 
-    trace_dict = pop_trace("1234")
-    trace = Trace.from_dict(trace_dict)
-    tags = trace.info.tags
-    assert trace.info.request_id == "1234"
-    assert tags[DependenciesSchemasType.RETRIEVERS.value] == json.dumps(
-        expected_dependencies_schemas[DependenciesSchemasType.RETRIEVERS.value]
-    )
-
-
-def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace_in_serving_stream(
-    clear_singleton, monkeypatch
-):
-    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
-    with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model(
-            python_model="tests/pyfunc/sample_code/code_with_dependencies.py",
-            artifact_path="model",
-            pip_requirements=["pandas"],
-        )
-
-    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    model_input = "user_123"
-    expected_output = f"Input: {model_input}. Retriever called with ID: {model_input}. Output: 42."
-    with set_prediction_context(Context(request_id="1234")):
-        assert next(loaded_model.predict_stream(model_input)) == expected_output
-
-    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
-    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
-    expected_dependencies_schemas = {
-        DependenciesSchemasType.RETRIEVERS.value: [
-            {
-                "doc_uri": "doc-uri",
-                "name": "retriever",
-                "other_columns": ["column1", "column2"],
-                "primary_key": "primary-key",
-                "text_column": "text-column",
-            }
-        ]
-    }
-    assert reloaded_model.metadata["dependencies_schemas"] == expected_dependencies_schemas
-
-    trace_dict = pop_trace("1234")
-    trace = Trace.from_dict(trace_dict)
-    tags = trace.info.tags
-    assert trace.info.request_id == "1234"
-    assert tags[DependenciesSchemasType.RETRIEVERS.value] == json.dumps(
-        expected_dependencies_schemas[DependenciesSchemasType.RETRIEVERS.value]
-    )
+    # no traces will be logged at all
+    traces = get_traces()
+    assert len(traces) == 0
 
 
 def test_pyfunc_as_code_log_and_load_wrong_path():
