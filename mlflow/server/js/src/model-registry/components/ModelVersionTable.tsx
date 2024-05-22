@@ -27,7 +27,6 @@ import { KeyValueEntity, ModelEntity, ModelVersionInfoEntity, ModelAliasMap } fr
 import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { RegisteringModelDocUrl } from '../../common/constants';
-import { useNextModelsUIContext } from '../hooks/useNextModelsUI';
 import {
   ACTIVE_STAGES,
   EMPTY_CELL_PLACEHOLDER,

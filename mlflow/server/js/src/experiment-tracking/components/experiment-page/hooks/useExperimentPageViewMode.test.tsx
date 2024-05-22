@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react-hooks';
-import { useExperimentPageViewMode } from './useExperimentPageViewMode';
-import { MemoryRouter, Routes, Route, useLocation } from '../../../../common/utils/RoutingUtils';
+import { getExperimentPageDefaultViewMode, useExperimentPageViewMode } from './useExperimentPageViewMode';
+import { useLocation } from '../../../../common/utils/RoutingUtils';
+import { TestRouter, testRoute } from '../../../../common/utils/RoutingTestUtils';
 import { useEffect } from 'react';
 
 describe('useExperimentPageViewMode', () => {
@@ -13,22 +14,29 @@ describe('useExperimentPageViewMode', () => {
     return null;
   };
 
-  const mountHook = (initialPath = '/') => {
-    return renderHook(() => useExperimentPageViewMode(), {
+  const mountHook = async (initialPath = '/') => {
+    const renderResult = renderHook(() => useExperimentPageViewMode(), {
       wrapper: ({ children }) => (
-        <MemoryRouter initialEntries={[initialPath]}>
-          <LocationSpy />
-          <Routes>
-            <Route path="*" element={<div>{children}</div>} />
-          </Routes>
-        </MemoryRouter>
+        <TestRouter
+          initialEntries={[initialPath]}
+          routes={[
+            testRoute(
+              <>
+                <LocationSpy />
+                <div>{children}</div>
+              </>,
+            ),
+          ]}
+        />
       ),
     });
+
+    return renderResult;
   };
-  test('start with uninitialized state and cycle through modes', () => {
-    const { result } = mountHook();
+  test('start with uninitialized state and cycle through modes', async () => {
+    const { result } = await mountHook();
     const [, setMode] = result.current;
-    expect(result.current[0]).toEqual(undefined);
+    expect(result.current[0]).toEqual(getExperimentPageDefaultViewMode());
 
     act(() => {
       setMode('ARTIFACT');
@@ -43,15 +51,15 @@ describe('useExperimentPageViewMode', () => {
     expect(locationSpyFn).toHaveBeenLastCalledWith('/?compareRunsMode=CHART');
 
     act(() => {
-      setMode(undefined);
+      setMode('TABLE');
     });
 
-    expect(result.current[0]).toEqual(undefined);
-    expect(locationSpyFn).toHaveBeenLastCalledWith('/?compareRunsMode=');
+    expect(result.current[0]).toEqual('TABLE');
+    expect(locationSpyFn).toHaveBeenLastCalledWith('/?compareRunsMode=TABLE');
   });
 
-  test('correctly return preinitialized state', () => {
-    const { result } = mountHook('/something/?compareRunsMode=ARTIFACT');
+  test('correctly return preinitialized state', async () => {
+    const { result } = await mountHook('/something/?compareRunsMode=ARTIFACT');
     expect(result.current[0]).toEqual('ARTIFACT');
   });
 });

@@ -13,6 +13,7 @@ from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.models import add_libraries_to_model
 from mlflow.models.utils import (
+    _config_context,
     _enforce_array,
     _enforce_datatype,
     _enforce_object,
@@ -471,3 +472,10 @@ def test_model_code_validation():
         code_with_magic_command
     ).decode("utf-8")
     assert validated_code_with_magic_command == expected_validated_code
+
+
+def test_config_context():
+    with _config_context("tests/langchain/config.yml"):
+        assert mlflow.models.model_config.__mlflow_model_config__ == "tests/langchain/config.yml"
+
+    assert mlflow.models.model_config.__mlflow_model_config__ is None

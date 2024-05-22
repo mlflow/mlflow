@@ -3,10 +3,12 @@ from typing import Any, Dict, Optional, Union
 
 import yaml
 
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
 __mlflow_model_config__ = None
 
 
-# TODO: Let ModelConfig take in a dictionary instead of a file path
 class ModelConfig:
     """
     ModelConfig used in code to read a YAML configuration file, and this configuration file can be
@@ -54,7 +56,9 @@ class ModelConfig:
             try:
                 return yaml.safe_load(file)
             except yaml.YAMLError as e:
-                raise yaml.YAMLError(f"Error parsing YAML file: {e}")
+                raise MlflowException(
+                    f"Error parsing YAML file: {e}", error_code=INVALID_PARAMETER_VALUE
+                )
 
     def get(self, key):
         """Gets the value of a top-level parameter in the configuration."""

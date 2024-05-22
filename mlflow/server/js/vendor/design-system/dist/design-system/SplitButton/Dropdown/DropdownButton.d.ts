@@ -1,5 +1,7 @@
 import type { DropdownMenuProps } from '@radix-ui/react-dropdown-menu';
 import * as React from 'react';
+import type { DesignSystemEventProviderAnalyticsEventTypes } from '../../DesignSystemEventProvider/DesignSystemEventProvider';
+import type { AnalyticsEventOptionalProps } from '../../types';
 type SizeType = 'small' | 'middle' | undefined;
 interface ButtonGroupProps {
     size?: SizeType;
@@ -46,7 +48,7 @@ interface DropdownProps {
     children?: React.ReactNode;
     leftButtonIcon?: React.ReactNode;
 }
-export interface DropdownButtonProps extends ButtonGroupProps, DropdownProps {
+export interface DropdownButtonProps extends ButtonGroupProps, DropdownProps, AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
     type?: 'primary';
     htmlType?: 'submit' | 'reset' | 'button';
     danger?: boolean;

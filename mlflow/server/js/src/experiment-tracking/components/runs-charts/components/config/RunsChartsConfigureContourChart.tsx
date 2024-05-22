@@ -11,7 +11,6 @@ import {
   RunsChartsConfigureField,
   RunsChartsRunNumberSelect,
 } from './RunsChartsConfigure.common';
-import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
 
 type ValidAxis = keyof Pick<RunsChartsContourCardConfig, 'xaxis' | 'yaxis' | 'zaxis'>;
 
@@ -30,8 +29,7 @@ export const RunsChartsConfigureContourChart = ({
   onStateChange: (setter: (current: RunsChartsCardConfig) => RunsChartsContourCardConfig) => void;
 }) => {
   const { formatMessage } = useIntl();
-  const usingV2ChartImprovements = shouldEnableDeepLearningUI();
-  const runSelectOptions = usingV2ChartImprovements ? [5, 10, 20, 50, 100] : [5, 10, 20];
+  const runSelectOptions = [5, 10, 20, 50, 100];
 
   /**
    * Callback for updating X or Y axis

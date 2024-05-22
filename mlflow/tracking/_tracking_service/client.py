@@ -222,6 +222,7 @@ class TrackingServiceClient:
         Returns:
             The updated TraceInfo object.
         """
+        tags = exclude_immutable_tags(tags or {})
         return self.store.end_trace(
             request_id=request_id,
             timestamp_ms=timestamp_ms,

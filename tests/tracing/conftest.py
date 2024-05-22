@@ -8,6 +8,7 @@ import mlflow
 from mlflow.entities import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.display import IPythonTraceDisplayHandler
+from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -23,6 +24,7 @@ def clear_singleton():
     InMemoryTraceManager._instance = None
     IPythonTraceDisplayHandler._instance = None
     TRACE_BUFFER.clear()
+    _TRACE_BUFFER.clear()
 
     # Tracer provider also needs to be reset as it may hold reference to the singleton
     with _TRACER_PROVIDER_SET_ONCE._lock:

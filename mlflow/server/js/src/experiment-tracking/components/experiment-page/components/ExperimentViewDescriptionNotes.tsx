@@ -20,7 +20,7 @@ import { forceAnchorTagNewTab, getConverter, sanitizeConvertedHtml } from '../..
 import { FormattedMessage } from 'react-intl';
 
 const extractNoteFromTags = (tags: Record<string, KeyValueEntity>) =>
-  Object.values(tags).find((t) => t.getKey() === NOTE_CONTENT_TAG)?.value || undefined;
+  Object.values(tags).find((t) => t.key === NOTE_CONTENT_TAG)?.value || undefined;
 
 const toolbarCommands = [
   ['header', 'bold', 'italic', 'strikethrough'],
@@ -50,7 +50,7 @@ export const ExperimentViewDescriptionNotes = ({
   setShowAddDescriptionButton: (show: boolean) => void;
 }) => {
   const storedNote = useSelector((state) => {
-    const tags = getExperimentTags(experiment.experiment_id, state);
+    const tags = getExperimentTags(experiment.experimentId, state);
     return tags ? extractNoteFromTags(tags) : '';
   });
   setShowAddDescriptionButton(!storedNote);
@@ -77,10 +77,10 @@ export const ExperimentViewDescriptionNotes = ({
     (updatedNote: any) => {
       setEditing(false);
       setShowAddDescriptionButton(!updatedNote);
-      const action = setExperimentTagApi(experiment.experiment_id, NOTE_CONTENT_TAG, updatedNote);
+      const action = setExperimentTagApi(experiment.experimentId, NOTE_CONTENT_TAG, updatedNote);
       dispatch(action);
     },
-    [experiment.experiment_id, setExperimentTagApi, dispatch, setEditing, setShowAddDescriptionButton],
+    [experiment.experimentId, setExperimentTagApi, dispatch, setEditing, setShowAddDescriptionButton],
   );
 
   return (

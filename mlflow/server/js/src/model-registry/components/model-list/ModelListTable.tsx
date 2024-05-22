@@ -8,6 +8,7 @@ import {
   Empty,
   PlusIcon,
   TableSkeletonRows,
+  WarningIcon,
 } from '@databricks/design-system';
 import { Interpolation, Theme } from '@emotion/react';
 import { ColumnDef, flexRender, getCoreRowModel, SortingState, useReactTable } from '@tanstack/react-table';
@@ -46,6 +47,7 @@ export interface ModelListTableProps {
   orderByKey: string;
   orderByAsc: boolean;
   isLoading: boolean;
+  error?: Error;
   isFiltered: boolean;
   onSortChange: (params: { orderByKey: string; orderByAsc: boolean }) => void;
 }
@@ -61,6 +63,7 @@ export const ModelListTable = ({
   orderByKey,
   onSortChange,
   isLoading,
+  error,
   isFiltered,
   pagination,
 }: ModelListTableProps) => {
@@ -221,7 +224,18 @@ export const ModelListTable = ({
       />
     );
   })();
-  const emptyComponent = isFiltered ? (
+  const emptyComponent = error ? (
+    <Empty
+      image={<WarningIcon />}
+      description={error.message}
+      title={
+        <FormattedMessage
+          defaultMessage="Error fetching models"
+          description="Workspace models page > Error empty state title"
+        />
+      }
+    />
+  ) : isFiltered ? (
     // Displayed when there is no results, but any filters have been applied
     <Empty description={noResultsDescription} image={<SearchIcon />} data-testid="model-list-no-results" />
   ) : (
@@ -252,7 +266,7 @@ export const ModelListTable = ({
     />
   );
 
-  const isEmpty = () => !isLoading && table.getRowModel().rows.length === 0;
+  const isEmpty = () => (!isLoading && table.getRowModel().rows.length === 0) || error;
 
   const table = useReactTable<ModelEntity>({
     data: modelsData,

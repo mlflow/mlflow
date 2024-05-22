@@ -30,17 +30,23 @@ export const KeyValueTag = ({
   onClose,
   tag,
   enableFullViewModal = false,
+  charLimit = TRUNCATE_ON_CHARS_LENGTH,
+  maxWidth = 300,
+  className,
 }: {
   isClosable?: boolean;
   onClose?: () => void;
   tag: KeyValueEntity;
   enableFullViewModal?: boolean;
+  charLimit?: number;
+  maxWidth?: number;
+  className?: string;
 }) => {
   const intl = useIntl();
 
   const [isKeyValueTagFullViewModalVisible, setIsKeyValueTagFullViewModalVisible] = useState(false);
 
-  const { shouldTruncateKey, shouldTruncateValue } = getKeyAndValueComplexTruncation(tag);
+  const { shouldTruncateKey, shouldTruncateValue } = getKeyAndValueComplexTruncation(tag, charLimit);
   const allowFullViewModal = enableFullViewModal && (shouldTruncateKey || shouldTruncateValue);
 
   const fullViewModalLabel = intl.formatMessage({
@@ -50,10 +56,10 @@ export const KeyValueTag = ({
 
   return (
     <div>
-      <Tag closable={isClosable} onClose={onClose} title={tag.key}>
+      <Tag closable={isClosable} onClose={onClose} title={tag.key} className={className}>
         <Tooltip title={allowFullViewModal ? fullViewModalLabel : ''}>
           <span
-            css={{ maxWidth: 300, display: 'inline-flex' }}
+            css={{ maxWidth, display: 'inline-flex' }}
             onClick={() => (allowFullViewModal ? setIsKeyValueTagFullViewModalVisible(true) : undefined)}
           >
             <Typography.Text bold title={tag.key} css={getTruncatedStyles(shouldTruncateKey)}>
