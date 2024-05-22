@@ -33,8 +33,12 @@ class _ChatModelPyfuncWrapper:
         self.signature = signature
 
     def _convert_input(self, model_input):
-        # model_input should be correct from signature validation, so just convert it to dict here
-        dict_input = {key: value[0] for key, value in model_input.to_dict(orient="list").items()}
+        if isinstance(model_input, dict):
+            dict_input = model_input
+        else:
+            dict_input = {
+                key: value[0] for key, value in model_input.to_dict(orient="list").items()
+            }
 
         messages = [ChatMessage(**message) for message in dict_input.pop("messages", [])]
         params = ChatParams(**dict_input)

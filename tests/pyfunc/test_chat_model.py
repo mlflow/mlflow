@@ -7,6 +7,7 @@ import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.models.model import Model
 from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc.loaders.chat_model import _ChatModelPyfuncWrapper
 from mlflow.types.llm import (
@@ -223,3 +224,23 @@ def test_chat_model_works_in_serving(tmp_path):
         **DEFAULT_PARAMS,
         **params_subset,
     }
+
+
+def test_chat_model_works_with_infer_signature_input_example(tmp_path):
+    model = TestChatModel()
+    input_example = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "What is Retrieval-augmented Generation?",
+            }
+        ]
+    }
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path, input_example=input_example)
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    input_schema = loaded_model.metadata.get_input_schema()
+    output_schema = loaded_model.metadata.get_output_schema()
+    assert input_schema == CHAT_MODEL_INPUT_SCHEMA
+    assert output_schema == CHAT_MODEL_OUTPUT_SCHEMA
+    mlflow_model = Model.load(tmp_path)
+    assert mlflow_model.load_input_example(tmp_path).to_dict(orient="records")[0] == input_example

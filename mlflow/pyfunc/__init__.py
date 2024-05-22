@@ -2429,12 +2429,16 @@ def save_model(
                 CHAT_MODEL_INPUT_SCHEMA,
                 CHAT_MODEL_OUTPUT_SCHEMA,
             )
-            input_example = CHAT_MODEL_INPUT_EXAMPLE
+            input_example = input_example or CHAT_MODEL_INPUT_EXAMPLE
 
-            # perform output validation and throw if
-            # output is not coercable to ChatResponse
-            messages = [ChatMessage(**m) for m in input_example["messages"]]
-            params = ChatParams(**{k: v for k, v in input_example.items() if k != "messages"})
+            if isinstance(input_example, list) and isinstance(input_example[0], ChatMessage):
+                example = {"messages": [each_message.to_dict() for each_message in input_example]}
+                params = ChatParams(**{k: v for k, v in example.items() if k != "messages"})
+                messages = input_example
+            else:
+                # If the input example is a dictionary, convert it to ChatMessage format
+                messages = [ChatMessage(**m) for m in input_example["messages"]]
+                params = ChatParams(**{k: v for k, v in input_example.items() if k != "messages"})
 
             # call load_context() first, as predict may depend on it
             _logger.info("Predicting on input example to validate output")
