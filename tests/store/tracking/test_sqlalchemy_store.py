@@ -4148,8 +4148,12 @@ def test_delete_traces(store):
     exp2 = store.create_experiment("exp2")
 
     for i in range(10):
-        _create_trace(store, f"tr-exp1-{i}", exp1)
-        _create_trace(store, f"tr-exp2-{i}", exp2)
+        _create_trace(
+            store, f"tr-exp1-{i}", exp1, tags={"tag": "apple"}, request_metadata={"rq": "foo"}
+        )
+        _create_trace(
+            store, f"tr-exp2-{i}", exp2, tags={"tag": "orange"}, request_metadata={"rq": "bar"}
+        )
 
     traces, _ = store.search_traces([exp1, exp2])
     assert len(traces) == 20
