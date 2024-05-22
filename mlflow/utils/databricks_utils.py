@@ -8,7 +8,10 @@ from sys import stderr
 from typing import NamedTuple, Optional, TypeVar
 
 import mlflow.utils
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.environment_variables import (
+    MLFLOW_TRACKING_URI,
+    MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.legacy_databricks_cli.configure.provider import (
     DatabricksConfig,
@@ -541,6 +544,8 @@ def get_databricks_host_creds(server_uri=None):
         # to get credential values. Instead, we can use ``WorkspaceClient``
         # API to invoke databricks shard restful APIs.
         ws_client = WorkspaceClient(profile=profile)
+        ws_client.config.retry_timeout_seconds = \
+            MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get()
         host = ws_client.config.host
         return MlflowHostCreds(host=host, databricks_workspace_client=ws_client)
     except Exception as e:

@@ -604,3 +604,9 @@ _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS = _BooleanEnvironmentVariable(
 MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS = _BooleanEnvironmentVariable(
     "MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", False
 )
+
+
+# Specify the timeout in seconds for Databricks endpoint HTTP request retries.
+MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT", int, 500
+)
