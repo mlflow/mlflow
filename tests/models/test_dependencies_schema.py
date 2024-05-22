@@ -106,6 +106,34 @@ def test_set_retriever_schema_creation():
             ]
         }
 
+    # Schema is automatically reset
+    with _get_dependencies_schemas() as schema:
+        assert schema.to_dict() is None
+    assert _get_retriever_schema() == []
+
+
+def test_set_retriever_schema_creation_with_name():
+    set_retriever_schema(
+        name="my_ret_2",
+        primary_key="primary-key",
+        text_column="text-column",
+        doc_uri="doc-uri",
+        other_columns=["column1", "column2"],
+    )
+    with _get_dependencies_schemas() as schema:
+        assert schema.retriever_schemas[0].to_dict() == {
+            DependenciesSchemasType.RETRIEVERS.value: [
+                {
+                    "doc_uri": "doc-uri",
+                    "name": "my_ret_2",
+                    "other_columns": ["column1", "column2"],
+                    "primary_key": "primary-key",
+                    "text_column": "text-column",
+                }
+            ]
+        }
+
+    # Schema is automatically reset
     with _get_dependencies_schemas() as schema:
         assert schema.to_dict() is None
     assert _get_retriever_schema() == []
