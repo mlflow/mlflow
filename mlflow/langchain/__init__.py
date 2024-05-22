@@ -15,6 +15,7 @@ LangChain (native) format
 import contextlib
 import functools
 import inspect
+import json
 import logging
 import os
 import warnings
@@ -48,6 +49,10 @@ from mlflow.langchain.utils import (
     register_pydantic_v1_serializer_cm,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
+from mlflow.models.dependencies_schemas import (
+    _clear_dependencies_schemas,
+    _get_dependencies_schemas,
+)
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
 from mlflow.models.resources import _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
@@ -56,6 +61,7 @@ from mlflow.models.utils import (
     _load_model_code_path,
     _save_example,
 )
+from mlflow.pyfunc import FLAVOR_NAME as PYFUNC_FLAVOR_NAME
 from mlflow.pyfunc.context import get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -255,20 +261,21 @@ def save_model(
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
 
+    if isinstance(model_config, str):
+        if os.path.exists(model_config):
+            model_config = _load_from_yaml(model_config)
+        else:
+            raise mlflow.MlflowException.invalid_parameter_value(
+                f"Model config path '{model_config}' provided is not a valid file path. "
+                "Please provide a valid model configuration."
+            )
+
     model_code_path = None
     if isinstance(lc_model_or_path, str):
         # The LangChain model is defined as Python code located in the file at the path
         # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
         # model directory along with any other specified code modules
         model_code_path = lc_model_or_path
-        if isinstance(model_config, str):
-            if os.path.exists(model_config):
-                model_config = _load_from_yaml(model_config)
-            else:
-                raise mlflow.MlflowException.invalid_parameter_value(
-                    f"Model config path '{model_config}' provided is not a valid file path. "
-                    "Please provide a valid model configuration."
-                )
 
         lc_model = _load_model_code_path(model_code_path, model_config)
         _validate_and_copy_file_to_directory(model_code_path, path, "code")
@@ -323,25 +330,23 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
+    with _get_dependencies_schemas() as dependencies_schemas:
+        schema = dependencies_schemas.to_dict()
+        if schema is not None:
+            if mlflow_model.metadata is None:
+                mlflow_model.metadata = {}
+            mlflow_model.metadata.update(schema)
+
     streamable = isinstance(lc_model, lc_runnables_types())
 
+    model_data_kwargs = {}
+    flavor_conf = {}
     if not isinstance(model_code_path, str):
         model_data_kwargs = _save_model(lc_model, path, loader_fn, persist_dir)
         flavor_conf = {
             _MODEL_TYPE_KEY: lc_model.__class__.__name__,
             **model_data_kwargs,
         }
-    else:
-        # If the model is a string, we expect the code_path which is ideally config.yml
-        # would be used in the model. We set the code_path here so it can be set
-        # globally when the model is loaded with the local path. So the consumer
-        # can use that path instead of the config.yml path when the model is loaded
-        flavor_conf = (
-            {MODEL_CONFIG: model_config, MODEL_CODE_PATH: model_code_path}
-            if model_config
-            else {MODEL_CONFIG: None, MODEL_CODE_PATH: model_code_path}
-        )
-        model_data_kwargs = {}
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -595,8 +600,9 @@ def _load_model(local_model_path, flavor_conf):
 
 
 class _LangChainModelWrapper:
-    def __init__(self, lc_model):
+    def __init__(self, lc_model, model_path=None):
         self.lc_model = lc_model
+        self.model_path = model_path
 
     def predict(
         self,
@@ -630,6 +636,29 @@ class _LangChainModelWrapper:
 
         return self._predict_with_callbacks(data, params, callback_handlers=callbacks)
 
+    def _update_dependencies_schemas_in_prediction_context(self, callback_handlers):
+        from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
+
+        if (
+            callback_handlers
+            and (
+                tracer := next(
+                    (c for c in callback_handlers if isinstance(c, MlflowLangchainTracer)), None
+                )
+            )
+            and self.model_path
+        ):
+            model = Model.load(self.model_path)
+            context = tracer._prediction_context
+            if model.metadata and context:
+                dependencies_schemas = model.metadata.get("dependencies_schemas", {})
+                context.update(
+                    dependencies_schemas={
+                        dependency: json.dumps(schema)
+                        for dependency, schema in dependencies_schemas.items()
+                    }
+                )
+
     @experimental
     def _predict_with_callbacks(
         self,
@@ -651,6 +680,7 @@ class _LangChainModelWrapper:
         """
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
+        self._update_dependencies_schemas_in_prediction_context(callback_handlers)
         messages, return_first_element = self._prepare_predict_messages(data)
         results = process_api_requests(
             lc_model=self.lc_model,
@@ -743,6 +773,7 @@ class _LangChainModelWrapper:
             process_stream_request,
         )
 
+        self._update_dependencies_schemas_in_prediction_context(callback_handlers)
         data = self._prepare_predict_stream_messages(data)
         return process_stream_request(
             lc_model=self.lc_model,
@@ -815,7 +846,6 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         return result
 
 
-# TODO: Support loading langchain with model_config. For now, this is a no-op.
 def _load_pyfunc(path: str, model_config: Optional[Dict[str, Any]] = None):
     """Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
 
@@ -823,13 +853,19 @@ def _load_pyfunc(path: str, model_config: Optional[Dict[str, Any]] = None):
         path: Local filesystem path to the MLflow Model with the ``langchain`` flavor.
     """
     wrapper_cls = _TestLangChainWrapper if _MLFLOW_TESTING.get() else _LangChainModelWrapper
-    return wrapper_cls(_load_model_from_local_fs(path))
+    return wrapper_cls(_load_model_from_local_fs(path, model_config), path)
 
 
-def _load_model_from_local_fs(local_model_path):
+def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    if MODEL_CODE_PATH in flavor_conf:
-        model_config = flavor_conf.get(MODEL_CONFIG, None)
+    pyfunc_flavor_conf = _get_flavor_configuration(
+        model_path=local_model_path, flavor_name=PYFUNC_FLAVOR_NAME
+    )
+    # The model_code_path and the model_config were previously saved langchain flavor but now we
+    # also save them inside the pyfunc flavor. For backwards compatibility of previous models,
+    # we need to check both places.
+    if MODEL_CODE_PATH in pyfunc_flavor_conf or MODEL_CODE_PATH in flavor_conf:
+        model_config = pyfunc_flavor_conf.get(MODEL_CONFIG, flavor_conf.get(MODEL_CONFIG, None))
         if isinstance(model_config, str):
             config_path = os.path.join(
                 local_model_path,
@@ -837,13 +873,24 @@ def _load_model_from_local_fs(local_model_path):
             )
             model_config = _load_from_yaml(config_path)
 
-        flavor_code_path = flavor_conf.get(MODEL_CODE_PATH)
+        flavor_code_path = pyfunc_flavor_conf.get(
+            MODEL_CODE_PATH, flavor_conf.get(MODEL_CODE_PATH, None)
+        )
         code_path = os.path.join(
             local_model_path,
             os.path.basename(flavor_code_path),
         )
 
-        return _load_model_code_path(code_path, model_config)
+        try:
+            model = _load_model_code_path(
+                code_path, {**(model_config or {}), **(model_config_overrides or {})}
+            )
+        finally:
+            # We would like to clean up the dependencies schema which is set to global
+            # after loading the mode to avoid the schema being used in the next model loading
+            _clear_dependencies_schemas()
+
+        return model
     else:
         _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
         with patch_langchain_type_to_cls_dict():

@@ -171,10 +171,7 @@ class _UnsupportedMultipartUploadException(MlflowException):
 
 
 class MlflowTraceDataException(MlflowException):
-    """Exception thrown for trace data related error
-
-    :meta private:
-    """
+    """Exception thrown for trace data related error"""
 
     def __init__(
         self, error_code: str, request_id: Optional[str] = None, artifact_path: Optional[str] = None
@@ -191,20 +188,14 @@ class MlflowTraceDataException(MlflowException):
 
 
 class MlflowTraceDataNotFound(MlflowTraceDataException):
-    """Exception thrown when trace data is not found
-
-    :meta private:
-    """
+    """Exception thrown when trace data is not found"""
 
     def __init__(self, request_id: Optional[str] = None, artifact_path: Optional[str] = None):
         super().__init__(NOT_FOUND, request_id, artifact_path)
 
 
 class MlflowTraceDataCorrupted(MlflowTraceDataException):
-    """Exception thrown when trace data is corrupted
-
-    :meta private:
-    """
+    """Exception thrown when trace data is corrupted"""
 
     def __init__(self, request_id: Optional[str] = None, artifact_path: Optional[str] = None):
         super().__init__(INVALID_STATE, request_id, artifact_path)

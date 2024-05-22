@@ -380,11 +380,11 @@ In summary, use the function-based Model when you have a simple function to seri
 If you need more power, use  the class-based model.
 
 """
-
 import collections
 import functools
 import importlib
 import inspect
+import json
 import logging
 import os
 import signal
@@ -393,6 +393,7 @@ import sys
 import tempfile
 import threading
 import warnings
+from contextlib import contextmanager
 from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
@@ -412,6 +413,10 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
+from mlflow.models.dependencies_schemas import (
+    _clear_dependencies_schemas,
+    _get_dependencies_schemas,
+)
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import (
     _DATABRICKS_FS_LOADER_MODULE,
@@ -447,6 +452,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     LineageHeaderInfo,
     Notebook,
 )
+from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.pyfunc.model import (
     ChatModel,
     PythonModel,
@@ -456,6 +462,7 @@ from mlflow.pyfunc.model import (
     get_default_conda_env,  # noqa: F401
     get_default_pip_requirements,
 )
+from mlflow.tracing.utils import _try_get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import (
@@ -704,7 +711,31 @@ class PyFuncModel:
             )
         return data, params
 
+    def _update_dependencies_schemas_in_prediction_context(self, context: Context):
+        if self._model_meta and self._model_meta.metadata:
+            dependencies_schemas = self._model_meta.metadata.get("dependencies_schemas", {})
+            context.update(
+                dependencies_schemas={
+                    dependency: json.dumps(schema)
+                    for dependency, schema in dependencies_schemas.items()
+                }
+            )
+
+    @contextmanager
+    def _try_get_or_generate_prediction_context(self):
+        # set context for prediction if it's not set
+        # NB: in model serving the prediction context must be set
+        # with a request_id
+        context = _try_get_prediction_context() or Context()
+        with set_prediction_context(context):
+            yield context
+
     def predict(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncOutput:
+        with self._try_get_or_generate_prediction_context() as context:
+            self._update_dependencies_schemas_in_prediction_context(context)
+            return self._predict(data, params)
+
+    def _predict(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncOutput:
         """
         Generates model predictions.
 
@@ -732,7 +763,6 @@ class PyFuncModel:
         Returns:
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
-
         data, params = self._validate_prediction_input(data, params)
         if inspect.signature(self._predict_fn).parameters.get("params"):
             return self._predict_fn(data, params=params)
@@ -741,6 +771,13 @@ class PyFuncModel:
         return self._predict_fn(data)
 
     def predict_stream(
+        self, data: PyFuncLLMSingleInput, params: Optional[Dict[str, Any]] = None
+    ) -> Iterator[PyFuncLLMOutputChunk]:
+        with self._try_get_or_generate_prediction_context() as context:
+            self._update_dependencies_schemas_in_prediction_context(context)
+            return self._predict_stream(data, params)
+
+    def _predict_stream(
         self, data: PyFuncLLMSingleInput, params: Optional[Dict[str, Any]] = None
     ) -> Iterator[PyFuncLLMOutputChunk]:
         """
@@ -987,6 +1024,10 @@ def load_model(
                 BAD_REQUEST,
             ) from None
         raise e
+    finally:
+        # clean up the dependencies schema which is set to global state after loading the model.
+        # This avoids the schema being used by other models loaded in the same process.
+        _clear_dependencies_schemas()
     predict_fn = conf.get("predict_fn", "predict")
     streamable = conf.get("streamable", False)
     predict_stream_fn = conf.get("predict_stream_fn", "predict_stream") if streamable else None
@@ -2417,6 +2458,8 @@ def save_model(
                 mlflow_model.signature = signature
             elif input_example is not None:
                 try:
+                    context = PythonModelContext(artifacts, model_config)
+                    python_model.load_context(context)
                     mlflow_model.signature = _infer_signature_from_input_example(
                         input_example,
                         _PythonModelPyfuncWrapper(python_model, None, None),
@@ -2428,6 +2471,13 @@ def save_model(
         _save_example(mlflow_model, input_example, path, example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
+
+    with _get_dependencies_schemas() as dependencies_schemas:
+        schema = dependencies_schemas.to_dict()
+        if schema is not None:
+            if mlflow_model.metadata is None:
+                mlflow_model.metadata = {}
+            mlflow_model.metadata.update(schema)
 
     if resources is not None:
         if isinstance(resources, (Path, str)):

@@ -910,6 +910,7 @@ def update_model_requirements(
 __mlflow_model__ = None
 
 
+@experimental
 def set_model(model):
     """
     When logging model as code, this function can be used to set the model object
@@ -920,7 +921,7 @@ def set_model(model):
     """
     from mlflow.pyfunc import PythonModel
 
-    if not isinstance(model, PythonModel):
+    if not (isinstance(model, PythonModel) or callable(model)):
         try:
             from mlflow.langchain import _validate_and_prepare_lc_model_or_path
 

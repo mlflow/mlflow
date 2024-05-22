@@ -2,6 +2,7 @@ const CORE_MAINTAINERS = new Set([
   "B-Step62",
   "BenWilson2",
   "daniellok-db",
+  "dbczumar",
   "harupy",
   "serena-ruan",
   "WeichenXu123",

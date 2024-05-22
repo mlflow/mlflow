@@ -28,8 +28,6 @@ _logger = logging.getLogger(__name__)
 class SpanType:
     """
     Predefined set of span types.
-
-    :meta private:
     """
 
     LLM = "LLM"
@@ -52,8 +50,6 @@ class Span:
     This Span class represents immutable span data that is already finished and persisted.
     The "live" span that is being created and updated during the application runtime is
     represented by the :py:class:`LiveSpan <mlflow.entities.LiveSpan>` subclass.
-
-    :meta private:
     """
 
     def __init__(self, otel_span: OTelReadableSpan):
@@ -158,6 +154,12 @@ class Span:
             for event in self._span.events
         ]
 
+    def __repr__(self):
+        return (
+            f"{type(self).__name__}(name={self.name!r}, request_id={self.request_id!r}, "
+            f"span_id={self.span_id!r}, parent_id={self.parent_id!r})"
+        )
+
     def get_attribute(self, key: str) -> Optional[Any]:
         """
         Get a single attribute value from the span.
@@ -238,8 +240,6 @@ class LiveSpan(Span):
     The live spans are those being created and updated during the application runtime.
     When users start a new span using the tracing APIs within their code, this live span
     object is returned to get and set the span attributes, status, events, and etc.
-
-    :meta private:
     """
 
     def __init__(
@@ -351,6 +351,15 @@ class LiveSpan(Span):
     def from_dict(cls, data: Dict[str, Any]) -> "Span":
         raise NotImplementedError("The `from_dict` method is not supported for the LiveSpan class.")
 
+    def to_immutable_span(self) -> "Span":
+        """
+        Downcast the live span object to the immutable span.
+
+        :meta private:
+        """
+        # All state of the live span is already persisted in the OpenTelemetry span object.
+        return Span(self._span)
+
 
 class NoOpSpan(Span):
     """
@@ -369,7 +378,6 @@ class NoOpSpan(Span):
             span.set_inputs({"x": 1})
             # Do something
 
-    :meta private:
     """
 
     def __init__(self, *args, **kwargs):
@@ -438,8 +446,6 @@ class _SpanAttributesRegistry:
     Therefore, we serialize all values into JSON string before storing them in the span.
     This class provides simple getter and setter methods to interact with the span attributes
     without worrying about the serde process.
-
-    :meta private:
     """
 
     def __init__(self, otel_span: OTelSpan):

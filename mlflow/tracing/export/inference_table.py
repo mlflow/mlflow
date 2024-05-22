@@ -18,8 +18,6 @@ def pop_trace(request_id: str) -> Optional[Dict[str, Any]]:
     """
     Pop the completed trace data from the buffer. This method is used in
     the Databricks model serving so please be careful when modifying it.
-
-    :meta private:
     """
     return _TRACE_BUFFER.pop(request_id, None)
 
@@ -46,8 +44,6 @@ class InferenceTableSpanExporter(SpanExporter):
     but rather actively fetches the trace during the prediction process. In the
     future, we may consider using collector-based approach and this exporter should
     send the traces instead of storing them in the buffer.
-
-    :meta private:
     """
 
     def __init__(self):
@@ -58,7 +54,7 @@ class InferenceTableSpanExporter(SpanExporter):
         Export the spans to MLflow backend.
 
         Args:
-            spans: A sequence of OpenTelemetry ReadableSpan objects to be exported.
+            root_spans: A sequence of OpenTelemetry ReadableSpan objects to be exported.
                 Only root spans for each trace are passed to this method.
         """
         for span in root_spans:
