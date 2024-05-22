@@ -2323,7 +2323,11 @@ def test_pyfunc_model_serving_with_lists_of_dicts(data, schema, format_key):
 )
 def test_pyfunc_model_schema_enforcement_with_objects_and_arrays(data, schema):
     class MyModel(mlflow.pyfunc.PythonModel):
+        def load_context(self, context):
+            self.pipeline = "pipeline"
+
         def predict(self, context, model_input, params=None):
+            assert self.pipeline == "pipeline"
             return model_input
 
     signature = infer_signature(data)
