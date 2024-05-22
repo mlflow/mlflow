@@ -129,7 +129,7 @@ func (s Store) SearchRuns(
 		}
 	}
 
-	tx := s.db.Where("experiment_id IN ?", experimentIDs).Where("lifecycle_stage IN ?", lifecyleStages)
+	tx := s.db.Where("runs.experiment_id IN ?", experimentIDs).Where("lifecycle_stage IN ?", lifecyleStages)
 
 	// MaxResults
 	tx.Limit(maxResults)
@@ -188,7 +188,8 @@ func (s Store) SearchRuns(
 			key = "mlflow.runName"
 		}
 
-		if kind == nil {
+		switch {
+		case kind == nil:
 			if s.db.Dialector.Name() == "sqlite" && comparison == "ILIKE" {
 				key = fmt.Sprintf("LOWER(runs.%s)", key)
 				comparison = "LIKE"
@@ -197,7 +198,21 @@ func (s Store) SearchRuns(
 			} else {
 				tx.Where(fmt.Sprintf("runs.%s %s ?", key, comparison), value)
 			}
-		} else {
+		case clause.Identifier == parser.Dataset:
+			// add join with datasets
+			// JOIN (
+			// 		SELECT "experiment_id", key
+			//		FROM datasests
+			//		WHERE key comparison value
+			// ) AS filter_0 ON runs.experiment_id = dataset.experiment_id
+			//
+			// columns: name, digest, context
+			table := fmt.Sprintf("filter_%d", n)
+			tx.Joins(
+				fmt.Sprintf("JOIN (?) AS %s ON runs.experiment_id = %s.experiment_id", table, table),
+				s.db.Select("experiment_id", key).Where(key+" "+comparison+" ?", value).Model(kind),
+			)
+		default:
 			table := fmt.Sprintf("filter_%d", n)
 			where := fmt.Sprintf("value %s ?", comparison)
 			if s.db.Dialector.Name() == "sqlite" && comparison == "ILIKE" {
@@ -226,6 +241,7 @@ func (s Store) SearchRuns(
 		column := strings.Trim(components[2], "`\"")
 
 		var kind any
+
 		switch components[1] {
 		case "attribute":
 			if column == "start_time" {

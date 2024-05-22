@@ -51,6 +51,10 @@ func TestQueries(t *testing.T) {
 			input:    "datasets.digest NOT IN ('s8ds293b', 'jks834s2')",
 			expected: "identifier(datasets) dot identifier(digest) not in open_paren string('s8ds293b') comma string('jks834s2') close_paren eof",
 		},
+		{
+			input:    "params.`random_state` = \"8888\"",
+			expected: "identifier(params) dot identifier(random_state) equals string(\"8888\") eof",
+		},
 	}
 
 	for _, sample := range samples {
