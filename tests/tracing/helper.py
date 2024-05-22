@@ -5,7 +5,6 @@ from typing import List, Optional
 import opentelemetry.trace as trace_api
 from opentelemetry.sdk.trace import ReadableSpan
 
-import mlflow
 from mlflow.entities import Trace, TraceData, TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.fluent import TRACE_BUFFER
@@ -120,11 +119,3 @@ def get_traces() -> List[Trace]:
 def get_first_trace() -> Optional[Trace]:
     if traces := get_traces():
         return traces[0]
-
-
-def _set_tracking_uri_and_reset_tracer(tracking_uri):
-    # NB: MLflow tracer does not handle the change of tracking URI well,
-    # so we need to reset the tracer to switch the tracking URI during testing.
-    mlflow.tracing.disable()
-    mlflow.set_tracking_uri(tracking_uri)
-    mlflow.tracing.enable()

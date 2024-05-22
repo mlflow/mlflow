@@ -1,4 +1,5 @@
 import json
+import os
 import pickle
 import sys
 import time
@@ -55,7 +56,6 @@ from mlflow.utils.mlflow_tags import (
 from tests.tracing.conftest import clear_singleton  # noqa: F401
 from tests.tracing.conftest import mock_store as mock_store_for_tracing  # noqa: F401
 from tests.tracing.helper import (
-    _set_tracking_uri_and_reset_tracer,
     create_test_trace_info,
     get_first_trace,
     get_traces,
@@ -301,27 +301,42 @@ def test_client_delete_traces(mock_store):
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
-def mlflow_client(request, tmp_path):
-    """Provides an MLflow Tracking URI with different type of backend."""
+def tracking_uri(request, tmp_path):
+    """Set an MLflow Tracking URI with different type of backend."""
+    if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
+        pytest.skip("SQLAlchemy store is not available in skinny.")
+
+    original_tracking_uri = mlflow.get_tracking_uri()
+
     if request.param == "file":
-        backend_uri = tmp_path.joinpath("file").as_uri()
+        tracking_uri = tmp_path.joinpath("file").as_uri()
     elif request.param == "sqlalchemy":
         path = tmp_path.joinpath("sqlalchemy.db").as_uri()
-        backend_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
+        tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
             len("file://") :
         ]
-    return MlflowClient(backend_uri)
+
+    # NB: MLflow tracer does not handle the change of tracking URI well,
+    # so we need to reset the tracer to switch the tracking URI during testing.
+    mlflow.tracing.disable()
+    mlflow.set_tracking_uri(tracking_uri)
+    mlflow.tracing.enable()
+
+    yield tracking_uri
+
+    # Reset tracking URI
+    mlflow.set_tracking_uri(original_tracking_uri)
 
 
 @pytest.mark.parametrize("with_active_run", [True, False])
-def test_start_and_end_trace(mlflow_client, with_active_run):
-    _set_tracking_uri_and_reset_tracer(mlflow_client.tracking_uri)
+def test_start_and_end_trace(tracking_uri, with_active_run):
+    client = MlflowClient(tracking_uri)
 
-    experiment_id = mlflow_client.create_experiment("test_experiment")
+    experiment_id = client.create_experiment("test_experiment")
 
     class TestModel:
         def predict(self, x, y):
-            root_span = mlflow_client.start_trace(
+            root_span = client.start_trace(
                 name="predict",
                 inputs={"x": x, "y": y},
                 tags={"tag": "tag_value"},
@@ -331,7 +346,7 @@ def test_start_and_end_trace(mlflow_client, with_active_run):
 
             z = x + y
 
-            child_span = mlflow_client.start_span(
+            child_span = client.start_span(
                 "child_span_1",
                 span_type=SpanType.LLM,
                 request_id=request_id,
@@ -341,7 +356,7 @@ def test_start_and_end_trace(mlflow_client, with_active_run):
 
             z = z + 2
 
-            mlflow_client.end_span(
+            client.end_span(
                 request_id=request_id,
                 span_id=child_span.span_id,
                 outputs={"output": z},
@@ -349,11 +364,11 @@ def test_start_and_end_trace(mlflow_client, with_active_run):
             )
 
             res = self.square(z, request_id, root_span.span_id)
-            mlflow_client.end_trace(request_id, outputs={"output": res}, status="OK")
+            client.end_trace(request_id, outputs={"output": res}, status="OK")
             return res
 
         def square(self, t, request_id, parent_id):
-            span = mlflow_client.start_span(
+            span = client.start_span(
                 "child_span_2",
                 request_id=request_id,
                 parent_id=parent_id,
@@ -363,7 +378,7 @@ def test_start_and_end_trace(mlflow_client, with_active_run):
             res = t**2
             time.sleep(0.1)
 
-            mlflow_client.end_span(
+            client.end_span(
                 request_id=request_id,
                 span_id=span.span_id,
                 outputs={"output": res},
@@ -381,7 +396,7 @@ def test_start_and_end_trace(mlflow_client, with_active_run):
     request_id = get_first_trace().info.request_id
 
     # Validate that trace is logged to the backend
-    trace = mlflow_client.get_trace(request_id)
+    trace = client.get_trace(request_id)
     assert trace is not None
 
     assert trace.info.request_id is not None

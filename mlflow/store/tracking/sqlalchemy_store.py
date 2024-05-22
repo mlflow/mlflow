@@ -1560,7 +1560,7 @@ class SqlAlchemyStore(AbstractStore):
 
             return trace_info.to_mlflow_entity()
 
-    def _get_trace_artifact_location_tag(experiment, request_id: str) -> SqlTraceTag:
+    def _get_trace_artifact_location_tag(self, experiment, request_id: str) -> SqlTraceTag:
         # Trace data is stored as file artifacts regardless of the tracking backend choice.
         # We use subdirectory "/traces" under the experiment's artifact location to isolate
         # them from run artifacts.
