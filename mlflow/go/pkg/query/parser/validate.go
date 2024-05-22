@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -26,6 +27,40 @@ if the identifier is dataset, the allowed keys are: name, digest and context.
 
 */
 
+type ValidIdentifier int
+
+const (
+	Metric ValidIdentifier = iota
+	Parameter
+	Tag
+	Attribute
+	Dataset
+)
+
+func (v ValidIdentifier) String() string {
+	switch v {
+	case Metric:
+		return "metric"
+	case Parameter:
+		return "parameter"
+	case Tag:
+		return "tag"
+	case Attribute:
+		return "attribute"
+	case Dataset:
+		return "dataset"
+	default:
+		return "unknown"
+	}
+}
+
+type ValidCompareExpr struct {
+	Identifier ValidIdentifier
+	Key        string
+	Operator   OperatorKind
+	Value      interface{}
+}
+
 var (
 	metricIdentifier    = "metric"
 	parameterIdentifier = "parameter"
@@ -42,63 +77,20 @@ var identifiers = []string{
 	datasetIdentifier,
 }
 
-var (
-	alternateMetricIdentifiers    = []string{"metrics"}
-	alternateParamIdentifiers     = []string{"parameters", "param", "params"}
-	alternateTagIdentifiers       = []string{"tags"}
-	alternateAttributeIdentifiers = []string{"attr", "attributes", "run"}
-	alternateDatassetIdentifiers  = []string{"datasets"}
-)
-
-func mkValidIdentifiers() []string {
-	len := len(identifiers) + len(alternateMetricIdentifiers) + len(alternateParamIdentifiers) + len(alternateTagIdentifiers) + len(alternateAttributeIdentifiers) + len(alternateDatassetIdentifiers)
-	validIdentifiers := make([]string, 0, len)
-	validIdentifiers = append(validIdentifiers, identifiers...)
-	validIdentifiers = append(validIdentifiers, alternateMetricIdentifiers...)
-	validIdentifiers = append(validIdentifiers, alternateParamIdentifiers...)
-	validIdentifiers = append(validIdentifiers, alternateTagIdentifiers...)
-	validIdentifiers = append(validIdentifiers, alternateAttributeIdentifiers...)
-	validIdentifiers = append(validIdentifiers, alternateDatassetIdentifiers...)
-	return validIdentifiers
-}
-
-var validIdentifiers = mkValidIdentifiers()
-
-func contains[T comparable](s []T, elem T) bool {
-	for _, e := range s {
-		if e == elem {
-			return true
-		}
-	}
-	return false
-}
-
-func parseValidIdentifier(identifier string) (string, error) {
+func parseValidIdentifier(identifier string) (ValidIdentifier, error) {
 	switch identifier {
 	case metricIdentifier, "metrics":
-		return metricIdentifier, nil
-	case parameterIdentifier:
-		return parameterIdentifier, nil
-	case tagIdentifier:
-		return tagIdentifier, nil
-	case attributeIdentifier:
-		return attributeIdentifier, nil
-	case datasetIdentifier:
-		return datasetIdentifier, nil
+		return Metric, nil
+	case parameterIdentifier, "parameters", "param", "params":
+		return Parameter, nil
+	case tagIdentifier, "tags":
+		return Tag, nil
+	case attributeIdentifier, "attr", "attributes", "run":
+		return Attribute, nil
+	case datasetIdentifier, "datasets":
+		return Dataset, nil
 	default:
-		if contains(alternateMetricIdentifiers, identifier) {
-			return metricIdentifier, nil
-		} else if contains(alternateParamIdentifiers, identifier) {
-			return parameterIdentifier, nil
-		} else if contains(alternateTagIdentifiers, identifier) {
-			return tagIdentifier, nil
-		} else if contains(alternateAttributeIdentifiers, identifier) {
-			return attributeIdentifier, nil
-		} else if contains(alternateDatassetIdentifiers, identifier) {
-			return datasetIdentifier, nil
-		} else {
-			return "", fmt.Errorf("invalid identifier: %s", identifier)
-		}
+		return -1, fmt.Errorf("invalid identifier: %s", identifier)
 	}
 }
 
@@ -115,52 +107,59 @@ var searchableRunAttributes = []string{
 	"lifecycle_stage",
 }
 
-var (
-	builtinNumericAttributes   = []string{"start_time", "end_time"}
-	alternateNumericAttributes = []string{"created", "Created"}
-	alternateStringAttributes  = []string{"run name", "Run name", "Run Name"} // Accurate?
-)
-
-var numericAttributes = append(builtinNumericAttributes, alternateNumericAttributes...)
-
 var datasetAttributes = []string{"name", "digest", "context"}
 
-func parseKey(identifier, key string) (result string, error error) {
-	switch identifier {
-	case attributeIdentifier:
-		if !(contains(searchableRunAttributes, key)) && !(contains(alternateNumericAttributes, key)) && !(contains(alternateStringAttributes, key)) {
-			error = fmt.Errorf("Invalid attribute key valid: %s. Allowed values are %v", key, searchableRunAttributes)
-		}
-	case datasetIdentifier:
-		if !(contains(datasetAttributes, key)) {
-			error = fmt.Errorf("Invalid dataset attribute key: %s. Allowed values are %v", key, datasetAttributes)
-		}
-	default:
-		result = key
+func parseKey(identifier ValidIdentifier, key string) (string, error) {
+	if key == "" {
+		return attributeIdentifier, nil
 	}
 
-	return
+	switch identifier {
+	case Attribute:
+		switch key {
+		case "run_id",
+			"experiment_id",
+			"run_name",
+			"user_id",
+			"status",
+			"start_time",
+			"end_time",
+			"artifact_uri",
+			"lifecycle_stage":
+			return key, nil
+		case "created", "Created":
+			return "created", nil
+		case "run name", "Run name", "Run Name":
+			return "run_name", nil
+		default:
+			return "", fmt.Errorf("Invalid attribute key valid: %s. Allowed values are %v", key, searchableRunAttributes)
+		}
+	case Dataset:
+		switch key {
+		case "name", "digest", "context":
+			return key, nil
+		default:
+			return "", fmt.Errorf("Invalid dataset attribute key: %s. Allowed values are %v", key, datasetAttributes)
+		}
+	default:
+		return key, nil
+	}
 }
 
 // Returns a standardized LongIdentifierExpr.
-func validatedIdentifier(identifier *Identifier) error {
-	if identifier.Key == "" {
-		identifier.Key = attributeIdentifier
-	}
-
+func validatedIdentifier(identifier *Identifier) (ValidIdentifier, string, error) {
 	validIdentifier, err := parseValidIdentifier(identifier.Identifier)
 	if err != nil {
-		return err
+		return -1, "", err
 	}
-	identifier.Identifier = validIdentifier
 
 	validKey, err := parseKey(validIdentifier, identifier.Key)
 	if err != nil {
-		return err
+		return -1, "", err
 	}
 	identifier.Key = validKey
 
-	return nil
+	return validIdentifier, validKey, nil
 }
 
 /*
@@ -170,7 +169,7 @@ The value part is determined by the identifier
 "metric" takes numbers
 "parameter" and "tag" takes strings
 
-"attribute" could be either string or number
+"attribute" could be either string or number,
 number when "start_time", "end_time" or "created", "Created"
 otherwise string
 
@@ -179,77 +178,87 @@ otherwise string
 */
 
 // Port of _get_value in search_utils.py.
-func validateValue(expression *CompareExpr) error {
-	switch expression.Left.Identifier {
-	case metricIdentifier:
-		if _, ok := expression.Right.(NumberExpr); !ok {
-			return fmt.Errorf("Expected numeric value type for metric. Found %s", expression.Right)
+func validateValue(identifier ValidIdentifier, key string, v Value) (interface{}, error) {
+	switch identifier {
+	case Metric:
+		if _, ok := v.(NumberExpr); !ok {
+			return nil, fmt.Errorf("Expected numeric value type for metric. Found %s", v)
 		}
-	case parameterIdentifier, tagIdentifier:
-		if _, ok := expression.Right.(StringExpr); !ok {
-			return fmt.Errorf(
+		return v.value(), nil
+	case Parameter, Tag:
+		if _, ok := v.(StringExpr); !ok {
+			return nil, fmt.Errorf(
 				"Expected a quoted string value for %s. Found %s",
-				expression.Left.Identifier, expression.Right,
+				identifier, v,
 			)
 		}
-	case attributeIdentifier:
-		if contains(numericAttributes, expression.Left.Key) {
-			if _, ok := expression.Right.(NumberExpr); !ok {
-				return fmt.Errorf(
+		return v.value(), nil
+	case Attribute:
+		switch key {
+		case "start_time", "end_time", "created":
+			if _, ok := v.(NumberExpr); !ok {
+				return nil, fmt.Errorf(
 					"Expected numeric value type for numeric attribute: %s. Found %s",
-					expression.Left.Key,
-					expression.Right,
+					key,
+					v,
 				)
 			}
+			return v.value(), nil
+		default:
+			if _, ok := v.(StringListExpr); key != "run_name" && ok {
+				return nil, errors.New(
+					"only the 'run_id' attribute supports comparison with a list of quoted string values",
+				)
+			}
+			return v.value(), nil
 		}
 
-		if _, ok := expression.Right.(StringListExpr); expression.Left.Key != "run_name" && ok {
-			return fmt.Errorf(
-				"Only the 'run_id' attribute supports comparison with a list of quoted string values.",
-			)
-		}
-	case datasetIdentifier:
-		if !contains(datasetAttributes, expression.Left.Key) {
-			return fmt.Errorf(
+	case Dataset:
+		switch key {
+		case "name", "digest", "context":
+			if _, ok := v.(NumberExpr); ok {
+				return nil, fmt.Errorf(
+					"Expected dataset.%s to be either a string or list of strings. Found %s",
+					key,
+					v,
+				)
+			}
+			return v.value(), nil
+		default:
+			return nil, fmt.Errorf(
 				"Expected dataset attribute key to be one of %s. Found %s",
 				strings.Join(datasetAttributes, ", "),
-				expression.Left.Key,
-			)
-		}
-
-		if _, ok := expression.Right.(NumberExpr); ok {
-			return fmt.Errorf(
-				"Expected dataset.%s to be either a string or list of strings. Found %s",
-				expression.Left.Key,
-				expression.Right,
+				key,
 			)
 		}
 	default:
-		return fmt.Errorf(
+		return nil, fmt.Errorf(
 			"Invalid identifier type %s. Expected one of %s",
-			expression.Left.Identifier,
+			identifier,
 			strings.Join(identifiers, ", "),
 		)
 	}
-
-	return nil
 }
 
 // Validate an expression according to the mlflow domain.
 // This represent is a simple type-checker for the expression.
 // Not every identifier is valid according to the mlflow domain.
 // The same for the value part.
-// The identifier is sanitized and will be mutated to use the standard identifier.
-func ValidateExpression(expression *CompareExpr) error {
-	err := validatedIdentifier(&expression.Left)
+func ValidateExpression(expression *CompareExpr) (*ValidCompareExpr, error) {
+	validIdentifier, validKey, err := validatedIdentifier(&expression.Left)
 	if err != nil {
-		return fmt.Errorf("Error on parsing filter expression: %s", err)
+		return nil, fmt.Errorf("Error on parsing filter expression: %s", err)
 	}
 
-	err = validateValue(expression)
+	value, err := validateValue(validIdentifier, validKey, expression.Right)
 	if err != nil {
-		return fmt.Errorf("Error on parsing filter expression: %s", err)
+		return nil, fmt.Errorf("Error on parsing filter expression: %s", err)
 	}
 
-	return nil
+	return &ValidCompareExpr{
+		Identifier: validIdentifier,
+		Key:        validKey,
+		Operator:   expression.Operator,
+		Value:      value,
+	}, nil
 }

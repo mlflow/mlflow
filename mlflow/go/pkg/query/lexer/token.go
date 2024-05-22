@@ -6,42 +6,42 @@ type TokenKind int
 
 const (
 	EOF TokenKind = iota
-	NUMBER
-	STRING
-	IDENTIFIER
+	Number
+	String
+	Identifier
 
 	// Grouping & Braces.
-	OPEN_PAREN
-	CLOSE_PAREN
+	OpenParen
+	CloseParen
 
 	// Equivilance.
-	EQUALS
-	NOT_EQUALS
+	Equals
+	NotEquals
 
 	// Conditional.
-	LESS
-	LESS_EQUALS
-	GREATER
-	GREATER_EQUALS
+	Less
+	LessEquals
+	Greater
+	GreaterEquals
 
 	// Symbols.
-	DOT
-	COMMA
+	Dot
+	Comma
 
 	// Reserved Keywords.
-	IN
-	NOT
-	LIKE
-	ILIKE
-	AND
+	In
+	Not
+	Like
+	ILike
+	And
 )
 
-var reserved_lu map[string]TokenKind = map[string]TokenKind{
-	"AND":   AND,
-	"NOT":   NOT,
-	"IN":    IN,
-	"LIKE":  LIKE,
-	"ILIKE": ILIKE,
+var reservedLu = map[string]TokenKind{
+	"AND":   And,
+	"NOT":   Not,
+	"IN":    In,
+	"LIKE":  Like,
+	"ILIKE": ILike,
 }
 
 type Token struct {
@@ -50,52 +50,52 @@ type Token struct {
 }
 
 func (token Token) Debug() string {
-	if token.Kind == IDENTIFIER || token.Kind == NUMBER || token.Kind == STRING {
+	if token.Kind == Identifier || token.Kind == Number || token.Kind == String {
 		return fmt.Sprintf("%s(%s)", TokenKindString(token.Kind), token.Value)
-	} else {
-		return TokenKindString(token.Kind)
 	}
+
+	return TokenKindString(token.Kind)
 }
 
 func TokenKindString(kind TokenKind) string {
 	switch kind {
 	case EOF:
 		return "eof"
-	case NUMBER:
+	case Number:
 		return "number"
-	case STRING:
+	case String:
 		return "string"
-	case IDENTIFIER:
+	case Identifier:
 		return "identifier"
-	case OPEN_PAREN:
+	case OpenParen:
 		return "open_paren"
-	case CLOSE_PAREN:
+	case CloseParen:
 		return "close_paren"
-	case EQUALS:
+	case Equals:
 		return "equals"
-	case NOT_EQUALS:
+	case NotEquals:
 		return "not_equals"
-	case LESS:
+	case Less:
 		return "less"
-	case LESS_EQUALS:
+	case LessEquals:
 		return "less_equals"
-	case GREATER:
+	case Greater:
 		return "greater"
-	case GREATER_EQUALS:
+	case GreaterEquals:
 		return "greater_equals"
-	case AND:
+	case And:
 		return "and"
-	case DOT:
+	case Dot:
 		return "dot"
-	case COMMA:
+	case Comma:
 		return "comma"
-	case IN:
+	case In:
 		return "in"
-	case NOT:
+	case Not:
 		return "not"
-	case LIKE:
+	case Like:
 		return "like"
-	case ILIKE:
+	case ILike:
 		return "ilike"
 	default:
 		return fmt.Sprintf("unknown(%d)", kind)

@@ -25,8 +25,8 @@ func (f FakeStore) SearchRuns(
 	_ int,
 	_ []string,
 	_ *string,
-) (runs []*protos.Run, nextPageToken *string, err *contract.Error) {
-	return nil, nil, nil
+) (pagedList *store.PagedList[*protos.Run], err *contract.Error) {
+	return nil, nil
 }
 
 func toPtr(s string) *string {

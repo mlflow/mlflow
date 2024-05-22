@@ -88,8 +88,6 @@ func (m MlflowService) SearchRuns(input *protos.SearchRuns) (*protos.SearchRuns_
 		maxResults = int(*input.MaxResults)
 	}
 
-	// TODO: should the offset be in this service?
-
 	page, err := m.store.SearchRuns(
 		input.ExperimentIds,
 		input.Filter,

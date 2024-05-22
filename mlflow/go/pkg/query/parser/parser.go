@@ -42,19 +42,19 @@ func (p *parser) advance() lexer.Token {
 }
 
 func (p *parser) parseIdentifier() (Identifier, error) {
-	if p.hasTokens() && p.currentTokenKind() != lexer.IDENTIFIER {
+	if p.hasTokens() && p.currentTokenKind() != lexer.Identifier {
 		return Identifier{}, fmt.Errorf("Expected identifier, got %s", p.printCurrentToken())
 	}
 
 	identToken := p.advance()
 
-	if p.currentTokenKind() == lexer.DOT {
+	if p.currentTokenKind() == lexer.Dot {
 		p.advance() // Consume the DOT
 		switch p.currentTokenKind() {
-		case lexer.IDENTIFIER:
+		case lexer.Identifier:
 			column := p.advance().Value
 			return Identifier{Identifier: identToken.Value, Key: column}, nil
-		case lexer.STRING:
+		case lexer.String:
 			column := p.advance().Value
 			column = column[1 : len(column)-1] // Remove quotes
 			return Identifier{Identifier: identToken.Value, Key: column}, nil
@@ -68,54 +68,54 @@ func (p *parser) parseIdentifier() (Identifier, error) {
 
 func (p *parser) parseOperator() (OperatorKind, error) {
 	switch p.advance().Kind {
-	case lexer.EQUALS:
-		return EQUALS, nil
-	case lexer.NOT_EQUALS:
-		return NOT_EQUALS, nil
-	case lexer.LESS:
-		return LESS, nil
-	case lexer.LESS_EQUALS:
-		return LESS_EQUALS, nil
-	case lexer.GREATER:
-		return GREATER, nil
-	case lexer.GREATER_EQUALS:
-		return GREATER_EQUALS, nil
-	case lexer.LIKE:
-		return LIKE, nil
-	case lexer.ILIKE:
-		return ILIKE, nil
+	case lexer.Equals:
+		return Equals, nil
+	case lexer.NotEquals:
+		return NotEquals, nil
+	case lexer.Less:
+		return Less, nil
+	case lexer.LessEquals:
+		return LessEquals, nil
+	case lexer.Greater:
+		return Greater, nil
+	case lexer.GreaterEquals:
+		return GreaterEquals, nil
+	case lexer.Like:
+		return Like, nil
+	case lexer.ILike:
+		return ILike, nil
 	default:
 		return -1, fmt.Errorf("Expected operator, got %s", p.printCurrentToken())
 	}
 }
 
 func (p *parser) parseValue() (Value, error) {
-	if p.currentTokenKind() == lexer.NUMBER {
+	switch p.currentTokenKind() {
+	case lexer.Number:
 		n, err := strconv.ParseFloat(p.advance().Value, 64)
 		if err != nil {
 			return nil, err
-		} else {
-			return NumberExpr{Value: n}, nil
 		}
-	} else if p.currentTokenKind() == lexer.STRING {
+		return NumberExpr{Value: n}, nil
+	case lexer.String:
 		value := p.advance().Value
 		value = value[1 : len(value)-1] // Remove quotes
 		return StringExpr{Value: value}, nil
-	} else {
+	default:
 		return nil, fmt.Errorf("Expected NUMBER or STRING, got %s", p.printCurrentToken())
 	}
 }
 
 func (p *parser) parseInSetExpr(ident Identifier) (*CompareExpr, error) {
-	if p.currentTokenKind() != lexer.OPEN_PAREN {
+	if p.currentTokenKind() != lexer.OpenParen {
 		return nil, fmt.Errorf("Expected '(', got %s", p.printCurrentToken())
 	}
 
 	p.advance() // Consume the OPEN_PAREN
 
 	set := make([]string, 0)
-	for p.hasTokens() && p.currentTokenKind() != lexer.CLOSE_PAREN {
-		if p.currentTokenKind() != lexer.STRING {
+	for p.hasTokens() && p.currentTokenKind() != lexer.CloseParen {
+		if p.currentTokenKind() != lexer.String {
 			return nil, fmt.Errorf("Expected STRING, got %s", p.printCurrentToken())
 		}
 
@@ -124,18 +124,18 @@ func (p *parser) parseInSetExpr(ident Identifier) (*CompareExpr, error) {
 
 		set = append(set, value)
 
-		if p.currentTokenKind() == lexer.COMMA {
+		if p.currentTokenKind() == lexer.Comma {
 			p.advance() // Consume the COMMA
 		}
 	}
 
-	if p.currentTokenKind() != lexer.CLOSE_PAREN {
+	if p.currentTokenKind() != lexer.CloseParen {
 		return nil, fmt.Errorf("Expected ')', got %s", p.printCurrentToken())
 	}
 
 	p.advance() // Consume the CLOSE_PAREN
 
-	return &CompareExpr{Left: ident, Operator: IN, Right: StringListExpr{Values: set}}, nil
+	return &CompareExpr{Left: ident, Operator: In, Right: StringListExpr{Values: set}}, nil
 }
 
 func (p *parser) parseExpression() (*CompareExpr, error) {
@@ -144,12 +144,13 @@ func (p *parser) parseExpression() (*CompareExpr, error) {
 		return nil, err
 	}
 
-	if p.currentTokenKind() == lexer.IN {
+	switch p.currentTokenKind() {
+	case lexer.In:
 		p.advance() // Consume the IN
 		return p.parseInSetExpr(ident)
-	} else if p.currentTokenKind() == lexer.NOT {
+	case lexer.Not:
 		p.advance() // Consume the NOT
-		if p.currentTokenKind() != lexer.IN {
+		if p.currentTokenKind() != lexer.In {
 			return nil, fmt.Errorf("Expected IN after NOT, got %s", p.printCurrentToken())
 		}
 
@@ -159,10 +160,9 @@ func (p *parser) parseExpression() (*CompareExpr, error) {
 			return nil, err
 		}
 
-		expr.Operator = NOT_IN
+		expr.Operator = NotIn
 		return expr, nil
-
-	} else {
+	default:
 		operator, err := p.parseOperator()
 		if err != nil {
 			return nil, err
@@ -187,7 +187,7 @@ func (p *parser) parse() (*AndExpr, error) {
 	exprs = append(exprs, leftExpr)
 
 	// While there are tokens and the next token is AND
-	for p.currentTokenKind() == lexer.AND {
+	for p.currentTokenKind() == lexer.And {
 		p.advance() // Consume the AND
 		rightExpr, err := p.parseExpression()
 		if err != nil {

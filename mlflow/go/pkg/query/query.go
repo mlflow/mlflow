@@ -6,11 +6,9 @@ import (
 	"github.com/mlflow/mlflow/mlflow/go/pkg/utils"
 )
 
-func ParseFilter(input *string) (*parser.AndExpr, error) {
+func ParseFilter(input *string) ([]*parser.ValidCompareExpr, error) {
 	if utils.IsNilOrEmptyString(input) {
-		return &parser.AndExpr{
-			Exprs: []*parser.CompareExpr{},
-		}, nil
+		return make([]*parser.ValidCompareExpr, 0), nil
 	}
 
 	tokens, err := lexer.Tokenize(input)
@@ -23,11 +21,14 @@ func ParseFilter(input *string) (*parser.AndExpr, error) {
 		return nil, err
 	}
 
+	validExpressions := make([]*parser.ValidCompareExpr, 0, len(ast.Exprs))
 	for _, expr := range ast.Exprs {
-		if err := parser.ValidateExpression(expr); err != nil {
+		ve, err := parser.ValidateExpression(expr)
+		if err != nil {
 			return nil, err
 		}
+		validExpressions = append(validExpressions, ve)
 	}
 
-	return ast, nil
+	return validExpressions, nil
 }

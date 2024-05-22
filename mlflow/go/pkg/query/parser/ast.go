@@ -10,7 +10,7 @@ import (
 // --------------------
 
 type Value interface {
-	value()
+	value() interface{}
 	fmt.Stringer
 }
 
@@ -18,7 +18,9 @@ type NumberExpr struct {
 	Value float64
 }
 
-func (n NumberExpr) value() {}
+func (n NumberExpr) value() interface{} {
+	return n.Value
+}
 
 func (n NumberExpr) String() string {
 	return fmt.Sprintf("%f", n.Value)
@@ -28,7 +30,9 @@ type StringExpr struct {
 	Value string
 }
 
-func (n StringExpr) value() {}
+func (n StringExpr) value() interface{} {
+	return n.Value
+}
 
 func (n StringExpr) String() string {
 	return fmt.Sprintf("\"%s\"", n.Value)
@@ -38,7 +42,9 @@ type StringListExpr struct {
 	Values []string
 }
 
-func (n StringListExpr) value() {}
+func (n StringListExpr) value() interface{} {
+	return n.Values
+}
 
 func (n StringListExpr) String() string {
 	items := make([]string, 0, len(n.Values))
@@ -72,39 +78,39 @@ func (i Identifier) String() string {
 type OperatorKind int
 
 const (
-	EQUALS OperatorKind = iota
-	NOT_EQUALS
-	LESS
-	LESS_EQUALS
-	GREATER
-	GREATER_EQUALS
-	LIKE
-	ILIKE
-	IN
-	NOT_IN
+	Equals OperatorKind = iota
+	NotEquals
+	Less
+	LessEquals
+	Greater
+	GreaterEquals
+	Like
+	ILike
+	In
+	NotIn
 )
 
 func (op OperatorKind) String() string {
 	switch op {
-	case EQUALS:
+	case Equals:
 		return "="
-	case NOT_EQUALS:
+	case NotEquals:
 		return "!="
-	case LESS:
+	case Less:
 		return "<"
-	case LESS_EQUALS:
+	case LessEquals:
 		return "<="
-	case GREATER:
+	case Greater:
 		return ">"
-	case GREATER_EQUALS:
+	case GreaterEquals:
 		return ">="
-	case LIKE:
+	case Like:
 		return "LIKE"
-	case ILIKE:
+	case ILike:
 		return "ILIKE"
-	case IN:
+	case In:
 		return "IN"
-	case NOT_IN:
+	case NotIn:
 		return "NOT IN"
 	default:
 		return "UNKNOWN"

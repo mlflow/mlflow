@@ -1,7 +1,6 @@
 package lexer_test
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -62,7 +61,7 @@ func TestQueries(t *testing.T) {
 			}
 			output := ""
 			for _, token := range tokens {
-				output += fmt.Sprintf(" %s", token.Debug())
+				output += " " + token.Debug()
 			}
 
 			output = strings.TrimLeft(output, " ")

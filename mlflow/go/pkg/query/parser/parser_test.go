@@ -21,7 +21,7 @@ func TestQueries(t *testing.T) {
 				Exprs: []*parser.CompareExpr{
 					{
 						Left:     parser.Identifier{"metrics", "accuracy"},
-						Operator: parser.GREATER,
+						Operator: parser.Greater,
 						Right:    parser.NumberExpr{Value: 0.72},
 					},
 				},
@@ -33,7 +33,7 @@ func TestQueries(t *testing.T) {
 				Exprs: []*parser.CompareExpr{
 					{
 						Left:     parser.Identifier{"metrics", "accuracy"},
-						Operator: parser.GREATER,
+						Operator: parser.Greater,
 						Right:    parser.NumberExpr{Value: 0.72},
 					},
 				},
@@ -45,12 +45,12 @@ func TestQueries(t *testing.T) {
 				Exprs: []*parser.CompareExpr{
 					{
 						Left:     parser.Identifier{"metrics", "accuracy"},
-						Operator: parser.GREATER,
+						Operator: parser.Greater,
 						Right:    parser.NumberExpr{Value: 0.72},
 					},
 					{
 						Left:     parser.Identifier{"metrics", "loss"},
-						Operator: parser.LESS_EQUALS,
+						Operator: parser.LessEquals,
 						Right:    parser.NumberExpr{Value: 0.15},
 					},
 				},
@@ -62,7 +62,7 @@ func TestQueries(t *testing.T) {
 				Exprs: []*parser.CompareExpr{
 					{
 						Left:     parser.Identifier{"params", "batch_size"},
-						Operator: parser.EQUALS,
+						Operator: parser.Equals,
 						Right:    parser.StringExpr{Value: "2"},
 					},
 				},
@@ -74,7 +74,7 @@ func TestQueries(t *testing.T) {
 				Exprs: []*parser.CompareExpr{
 					{
 						Left:     parser.Identifier{"tags", "task"},
-						Operator: parser.ILIKE,
+						Operator: parser.ILike,
 						Right:    parser.StringExpr{Value: "classif%"},
 					},
 				},
@@ -86,7 +86,7 @@ func TestQueries(t *testing.T) {
 				Exprs: []*parser.CompareExpr{
 					{
 						Left:     parser.Identifier{"datasets", "digest"},
-						Operator: parser.IN,
+						Operator: parser.In,
 						Right:    parser.StringListExpr{Values: []string{"s8ds293b", "jks834s2"}},
 					},
 				},
@@ -98,7 +98,7 @@ func TestQueries(t *testing.T) {
 				[]*parser.CompareExpr{
 					{
 						Left:     parser.Identifier{"attributes", "created"},
-						Operator: parser.GREATER,
+						Operator: parser.Greater,
 						Right:    parser.NumberExpr{Value: 1664067852747},
 					},
 				},
@@ -110,7 +110,7 @@ func TestQueries(t *testing.T) {
 				Exprs: []*parser.CompareExpr{
 					{
 						Left:     parser.Identifier{"params", "batch_size"},
-						Operator: parser.NOT_EQUALS,
+						Operator: parser.NotEquals,
 						Right:    parser.StringExpr{Value: "None"},
 					},
 				},
@@ -122,7 +122,7 @@ func TestQueries(t *testing.T) {
 				Exprs: []*parser.CompareExpr{
 					{
 						Left:     parser.Identifier{"datasets", "digest"},
-						Operator: parser.NOT_IN,
+						Operator: parser.NotIn,
 						Right:    parser.StringListExpr{Values: []string{"s8ds293b", "jks834s2"}},
 					},
 				},

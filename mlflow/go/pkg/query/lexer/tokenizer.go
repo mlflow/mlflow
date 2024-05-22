@@ -22,7 +22,7 @@ type lexer struct {
 func Tokenize(source *string) ([]Token, error) {
 	lex := createLexer(source)
 
-	for !lex.at_eof() {
+	for !lex.atEOF() {
 		matched := false
 
 		for _, pattern := range lex.patterns {
@@ -55,7 +55,7 @@ func (lex *lexer) push(token Token) {
 	lex.Tokens = append(lex.Tokens, token)
 }
 
-func (lex *lexer) at_eof() bool {
+func (lex *lexer) atEOF() bool {
 	return lex.pos >= len(*lex.source)
 }
 
@@ -71,23 +71,24 @@ func createLexer(source *string) *lexer {
 			{regexp.MustCompile(`'[^\']*\'`), stringHandler},
 			{regexp.MustCompile(`[0-9]+(\.[0-9]+)?`), numberHandler},
 			{regexp.MustCompile(`[a-zA-Z_][a-zA-Z0-9_]*`), symbolHandler},
-			{regexp.MustCompile(`\(`), defaultHandler(OPEN_PAREN, "(")},
-			{regexp.MustCompile(`\)`), defaultHandler(CLOSE_PAREN, ")")},
-			{regexp.MustCompile(`!=`), defaultHandler(NOT_EQUALS, "!=")},
-			{regexp.MustCompile(`=`), defaultHandler(EQUALS, "=")},
-			{regexp.MustCompile(`<=`), defaultHandler(LESS_EQUALS, "<=")},
-			{regexp.MustCompile(`<`), defaultHandler(LESS, "<")},
-			{regexp.MustCompile(`>=`), defaultHandler(GREATER_EQUALS, ">=")},
-			{regexp.MustCompile(`>`), defaultHandler(GREATER, ">")},
-			{regexp.MustCompile(`\.`), defaultHandler(DOT, ".")},
-			{regexp.MustCompile(`,`), defaultHandler(COMMA, ",")},
+			{regexp.MustCompile(`\(`), defaultHandler(OpenParen, "(")},
+			{regexp.MustCompile(`\)`), defaultHandler(CloseParen, ")")},
+			{regexp.MustCompile(`!=`), defaultHandler(NotEquals, "!=")},
+			{regexp.MustCompile(`=`), defaultHandler(Equals, "=")},
+			{regexp.MustCompile(`<=`), defaultHandler(LessEquals, "<=")},
+			{regexp.MustCompile(`<`), defaultHandler(Less, "<")},
+			{regexp.MustCompile(`>=`), defaultHandler(GreaterEquals, ">=")},
+			{regexp.MustCompile(`>`), defaultHandler(Greater, ">")},
+			{regexp.MustCompile(`\.`), defaultHandler(Dot, ".")},
+			{regexp.MustCompile(`,`), defaultHandler(Comma, ",")},
 		},
 	}
 }
 
 type regexHandler func(lex *lexer, regex *regexp.Regexp)
 
-// Created a default handler which will simply create a token with the matched contents. This handler is used with most simple tokens.
+// Created a default handler which will simply create a token with the matched contents.
+// This handler is used with most simple tokens.
 func defaultHandler(kind TokenKind, value string) regexHandler {
 	return func(lex *lexer, _ *regexp.Regexp) {
 		lex.advanceN(len(value))
@@ -99,26 +100,24 @@ func stringHandler(lex *lexer, regex *regexp.Regexp) {
 	match := regex.FindStringIndex(lex.remainder())
 	stringLiteral := lex.remainder()[match[0]:match[1]]
 
-	lex.push(newUniqueToken(STRING, stringLiteral))
+	lex.push(newUniqueToken(String, stringLiteral))
 	lex.advanceN(len(stringLiteral))
 }
 
 func numberHandler(lex *lexer, regex *regexp.Regexp) {
 	match := regex.FindString(lex.remainder())
-	lex.push(newUniqueToken(NUMBER, match))
+	lex.push(newUniqueToken(Number, match))
 	lex.advanceN(len(match))
 }
 
 func symbolHandler(lex *lexer, regex *regexp.Regexp) {
 	match := regex.FindString(lex.remainder())
-	// TODO: keywords are not case sensitive right now.
-	// Do we want this?
 	keyword := strings.ToUpper(match)
 
-	if kind, found := reserved_lu[keyword]; found {
+	if kind, found := reservedLu[keyword]; found {
 		lex.push(newUniqueToken(kind, match))
 	} else {
-		lex.push(newUniqueToken(IDENTIFIER, match))
+		lex.push(newUniqueToken(Identifier, match))
 	}
 
 	lex.advanceN(len(match))
