@@ -13,7 +13,7 @@ _PREDICTION_REQUEST_CTX = ContextVar("mlflow_prediction_request_context", defaul
 @dataclass
 class Context:
     # A unique identifier for the current prediction request.
-    request_id: str
+    request_id: Optional[str] = None
     # Whether the current prediction request is as a part of MLflow model evaluation.
     is_evaluate: bool = False
     # The schema of the dependencies to be added into the tag of trace info.
