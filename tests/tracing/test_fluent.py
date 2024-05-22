@@ -611,6 +611,7 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
     df = mlflow.search_traces()
     assert df.columns.tolist() == [
         "request_id",
+        "trace",
         "timestamp_ms",
         "status",
         "execution_time_ms",
@@ -622,6 +623,7 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
     ]
     for idx, trace in enumerate(traces_to_return):
         assert df.iloc[idx].request_id == trace.info.request_id
+        assert df.iloc[idx].trace == trace
         assert df.iloc[idx].timestamp_ms == trace.info.timestamp_ms
         assert df.iloc[idx].status == trace.info.status
         assert df.iloc[idx].execution_time_ms == trace.info.execution_time_ms
