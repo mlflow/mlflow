@@ -85,7 +85,7 @@ func parseValidIdentifier(identifier string) (ValidIdentifier, error) {
 		return Parameter, nil
 	case tagIdentifier, "tags":
 		return Tag, nil
-	case attributeIdentifier, "attr", "attributes", "run":
+	case "", attributeIdentifier, "attr", "attributes", "run":
 		return Attribute, nil
 	case datasetIdentifier, "datasets":
 		return Dataset, nil
@@ -117,9 +117,9 @@ func parseKey(identifier ValidIdentifier, key string) (string, error) {
 	switch identifier {
 	case Attribute:
 		switch key {
-		case "run_id",
-			"experiment_id",
-			"run_name",
+		case "run_id":
+			return "run_uuid", nil
+		case "experiment_id",
 			"user_id",
 			"status",
 			"start_time",
@@ -129,7 +129,7 @@ func parseKey(identifier ValidIdentifier, key string) (string, error) {
 			return key, nil
 		case "created", "Created":
 			return "created", nil
-		case "run name", "Run name", "Run Name":
+		case "run_name", "run name", "Run name", "Run Name":
 			return "run_name", nil
 		default:
 			return "", fmt.Errorf("Invalid attribute key valid: %s. Allowed values are %v", key, searchableRunAttributes)

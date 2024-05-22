@@ -55,7 +55,7 @@ func (r Run) ToProto() *protos.Run {
 	}
 
 	metrics := make([]*protos.Metric, 0, len(r.Metrics))
-	for _, metric := range r.Metrics {
+	for _, metric := range r.LatestMetrics {
 		metrics = append(metrics, metric.ToProto())
 	}
 

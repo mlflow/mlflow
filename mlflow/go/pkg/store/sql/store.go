@@ -23,6 +23,7 @@ import (
 	"github.com/mlflow/mlflow/mlflow/go/pkg/contract"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/query"
+	"github.com/mlflow/mlflow/mlflow/go/pkg/query/parser"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/store"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/store/sql/model"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/utils"
@@ -154,7 +155,7 @@ func (s Store) SearchRuns(
 	tx.Offset(offset)
 
 	// Filter
-	filterAst, err := query.ParseFilter(filter)
+	filterConditions, err := query.ParseFilter(filter)
 	if err != nil {
 		return nil, contract.NewErrorWith(
 			protos.ErrorCode_INVALID_PARAMETER_VALUE,
@@ -162,14 +163,53 @@ func (s Store) SearchRuns(
 			err,
 		)
 	}
-	log.Debugf("Filter AST: %#v", filterAst)
+	log.Debugf("Filter conditions: %#v", filterConditions)
 
-	// for _, clause := range filterAst.Exprs {
-	// 	switch clause.Left.Identifier {
-	// 	case "metric":
+	for n, clause := range filterConditions {
+		var kind any
+		key := clause.Key
+		comparison := strings.ToUpper(clause.Operator.String())
+		value := clause.Value
 
-	// 	}
-	// }
+		switch clause.Identifier {
+		case parser.Metric:
+			kind = &model.LatestMetric{}
+		case parser.Parameter:
+			kind = &model.Param{}
+		case parser.Tag:
+			kind = &model.Tag{}
+		case parser.Dataset:
+			kind = &model.Dataset{}
+		}
+
+		if key == "run_name" {
+			fmt.Println("yow!")
+			kind = &model.Tag{}
+			key = "mlflow.runName"
+		}
+
+		if kind == nil {
+			if s.db.Dialector.Name() == "sqlite" && comparison == "ILIKE" {
+				key = fmt.Sprintf("LOWER(runs.%s)", key)
+				comparison = "LIKE"
+				value = strings.ToLower(value.(string))
+				tx.Where(fmt.Sprintf("%s %s ?", key, comparison), value)
+			} else {
+				tx.Where(fmt.Sprintf("runs.%s %s ?", key, comparison), value)
+			}
+		} else {
+			table := fmt.Sprintf("filter_%d", n)
+			where := fmt.Sprintf("value %s ?", comparison)
+			if s.db.Dialector.Name() == "sqlite" && comparison == "ILIKE" {
+				where = "LOWER(value) LIKE ?"
+				value = strings.ToLower(value.(string))
+			}
+			tx.Joins(
+				fmt.Sprintf("JOIN (?) AS %s ON runs.run_uuid = %s.run_uuid", table, table),
+				s.db.Select("run_uuid", "value").Where("key = ?", key).Where(where, value).Model(kind),
+			)
+		}
+	}
 
 	// OrderBy
 	startTimeOrder := false
@@ -249,7 +289,7 @@ func (s Store) SearchRuns(
 		contractRuns = append(contractRuns, run.ToProto())
 	}
 
-	var nextPageToken string
+	var nextPageToken *string
 	if len(runs) == maxResults {
 		var token strings.Builder
 		if err := json.NewEncoder(
@@ -263,12 +303,12 @@ func (s Store) SearchRuns(
 				err,
 			)
 		}
-		nextPageToken = token.String()
+		nextPageToken = utils.PtrTo(token.String())
 	}
 
 	return &store.PagedList[*protos.Run]{
 		Items:         contractRuns,
-		NextPageToken: &nextPageToken,
+		NextPageToken: nextPageToken,
 	}, nil
 }
 
