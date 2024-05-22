@@ -35,7 +35,7 @@ from mlflow.utils.openai_utils import (
 )
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import get_first_trace, get_traces
 
 TEST_CONTENT = "test"
 
@@ -124,7 +124,7 @@ def test_llm_success(clear_singleton):
     callback.on_llm_new_token("test", run_id=run_id)
 
     callback.on_llm_end(LLMResult(generations=[[{"text": "generated text"}]]), run_id=run_id)
-    trace = get_traces()[0]
+    trace = get_first_trace()
     assert len(trace.data.spans) == 1
     llm_span = trace.data.spans[0]
 
@@ -156,7 +156,7 @@ def test_llm_error(clear_singleton):
     mock_error = Exception("mock exception")
     callback.on_llm_error(error=mock_error, run_id=run_id)
 
-    trace = get_traces()[0]
+    trace = get_first_trace()
     error_event = SpanEvent.from_exception(mock_error)
     assert len(trace.data.spans) == 1
     llm_span = trace.data.spans[0]
@@ -209,7 +209,7 @@ def test_retriever_success(clear_singleton):
         ),
     ]
     callback.on_retriever_end(documents, run_id=run_id)
-    trace = get_traces()[0]
+    trace = get_first_trace()
     assert len(trace.data.spans) == 1
     retriever_span = trace.data.spans[0]
 
@@ -235,7 +235,7 @@ def test_retriever_error(clear_singleton):
     )
     mock_error = Exception("mock exception")
     callback.on_retriever_error(error=mock_error, run_id=run_id)
-    trace = get_traces()[0]
+    trace = get_first_trace()
     assert len(trace.data.spans) == 1
     retriever_span = trace.data.spans[0]
     assert retriever_span.attributes[SpanAttributeKey.INPUTS] == "test query"
@@ -319,7 +319,7 @@ def test_multiple_components(clear_singleton):
         outputs={"output": "test output"},
         run_id=chain_run_id,
     )
-    trace = get_traces()[0]
+    trace = get_first_trace()
     assert len(trace.data.spans) == 5
     chain_span = trace.data.spans[0]
     assert chain_span.start_time_ns is not None
