@@ -114,3 +114,8 @@ def create_test_trace_info(
 def get_traces() -> List[Trace]:
     # Get all traces from the trace buffer
     return list(TRACE_BUFFER.values())
+
+
+def get_first_trace() -> Optional[Trace]:
+    if traces := get_traces():
+        return traces[0]
