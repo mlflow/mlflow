@@ -4,6 +4,7 @@ import re
 import shutil
 from unittest import mock
 
+import numpy as np
 import pandas as pd
 import pytest
 import yaml
@@ -289,9 +290,12 @@ def test_generate_worst_examples_dataframe():
     )
     target_col = "b"
     predictions = [5, 3, 4]
-
     result_df = BaseStep._generate_worst_examples_dataframe(
-        test_df, predictions, predictions - test_df[target_col].to_numpy(), target_col, worst_k=2
+        test_df,
+        predictions,
+        predictions - test_df[target_col].to_numpy(),
+        target_col,
+        worst_k=2,
     )
 
     def assert_result_correct(df):
@@ -303,12 +307,76 @@ def test_generate_worst_examples_dataframe():
         assert df.index.tolist() == [0, 1]
 
     assert_result_correct(result_df)
-
     test_df2 = test_df.set_axis([2, 1, 0], axis="index")
     result_df2 = BaseStep._generate_worst_examples_dataframe(
-        test_df2, predictions, predictions - test_df2[target_col].to_numpy(), target_col, worst_k=2
+        test_df2,
+        predictions,
+        predictions - test_df2[target_col].to_numpy(),
+        target_col,
+        worst_k=2,
     )
     assert_result_correct(result_df2)
+
+    # Test case with matrix predictions
+    test_df3 = pd.DataFrame(
+        {
+            "a": [3, 2, 5],
+            "b": [6, 9, 1],
+            "c": [4, 7, 2],
+        }
+    )
+    target_col = "c"
+    predictions = [[5, 6, 3], [3, 4, 1], [4, 5, 2]]
+    result_df3 = BaseStep._generate_worst_examples_dataframe(
+        test_df3,
+        predictions,
+        predictions - test_df3[target_col].to_numpy()[:, np.newaxis],
+        target_col,
+        worst_k=2,
+    )
+
+    def assert_result_correct_matrix(df):
+        assert df.columns.tolist() == ["absolute_error", "prediction", "c", "a", "b"]
+        assert df.absolute_error.tolist() == [
+            6,
+            3,
+        ]
+        assert df.prediction.tolist() == [[3, 4, 1], [4, 5, 2]]
+        assert df.c.tolist() == [7, 2]
+        assert df.a.tolist() == [2, 5]
+        assert df.b.tolist() == [9, 1]
+        assert df.index.tolist() == [0, 1]
+
+    assert_result_correct_matrix(result_df3)
+
+    # Test case with matrix inputs
+    test_df4 = pd.DataFrame(
+        {
+            "a": [[3, 1], [2, 4], [5, 6]],
+            "b": [[6, 8], [9, 7], [1, 2]],
+            "c": [[4, 3], [7, 5], [2, 1]],
+        }
+    )
+    target_col = "c"
+    predictions = [[5, 6], [3, 4], [4, 5]]
+    result_df4 = BaseStep._generate_worst_examples_dataframe(
+        test_df4,
+        predictions,
+        np.abs(np.array(predictions) - np.array(test_df4[target_col].tolist())),
+        target_col,
+        worst_k=2,
+    )
+
+    def assert_result_correct_matrix_input(df):
+        assert df.columns.tolist() == ["absolute_error", "prediction", "c", "a", "b"]
+        assert df.absolute_error.tolist() == [4, 4]
+        assert all(pred in df.prediction.tolist() for pred in [[3, 4], [4, 5]])
+        assert all(c in df.c.tolist() for c in [[7, 5], [2, 1]])
+        assert all(a in df.a.tolist() for a in [[2, 4], [5, 6]])
+        assert all(b in df.b.tolist() for b in [[9, 7], [1, 2]])
+        assert df.index.tolist() == [0, 1]
+
+    assert_result_correct_matrix_input(result_df4)
 
 
 @pytest.mark.usefixtures("enter_recipe_example_directory")

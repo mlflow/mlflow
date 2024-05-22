@@ -379,22 +379,22 @@ class BaseStep(metaclass=abc.ABCMeta):
         import numpy as np
 
         abs_error = np.abs(error)
-
-        is_multidimensional = np.array(predictions).ndim > 1
-
+        if np.array(dataframe).ndim > 2:
+            abs_error = np.max(abs_error, axis=1)
+        if np.array(predictions).ndim > 1:
+            abs_error = np.max(abs_error, axis=1)
         worst_k_indices = np.argsort(abs_error)[-worst_k:][::-1]
-
-        worst_k_row_indices = worst_k_indices if is_multidimensional else worst_k_indices
+        worst_k_row_indices = worst_k_indices
 
         result_df = dataframe.iloc[worst_k_row_indices].copy()
-
         result_df["prediction"] = [predictions[i] for i in worst_k_row_indices]
         result_df["absolute_error"] = abs_error[worst_k_indices]
-
         front_columns = ["absolute_error", "prediction", target_col]
-        reordered_columns = front_columns + [
-            col for col in result_df.columns if col not in front_columns
-        ]
-        result_df = result_df[reordered_columns]
 
-        return result_df.reset_index(drop=True)
+        return (
+            result_df[
+                front_columns + [col for col in result_df.columns if col not in front_columns]
+            ]
+            .sort_values(by="absolute_error", ascending=False)
+            .reset_index(drop=True)
+        )
