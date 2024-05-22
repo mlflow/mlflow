@@ -2286,7 +2286,7 @@ type SearchRuns struct {
 	// All servers are guaranteed to support a `max_results` threshold of at least 50,000
 	// but may support more. Callers of this endpoint are encouraged to pass max_results
 	// explicitly and leverage page_token to iterate through experiments.
-	MaxResults *int32 `protobuf:"varint,5,opt,name=max_results,json=maxResults,def=1000" json:"max_results,omitempty" query:"max_results" validate:"lte=50000"`
+	MaxResults *int32 `protobuf:"varint,5,opt,name=max_results,json=maxResults,def=1000" json:"max_results,omitempty" query:"max_results" validate:"lte=1000"`
 	// List of columns to be ordered by, including attributes, params, metrics, and tags with an
 	// optional "DESC" or "ASC" annotation, where "ASC" is the default.
 	// Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]

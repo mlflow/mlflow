@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	MaxResultsPerPage = 50000
+	MaxResultsPerPage = 1000
 )
 
 var validations = map[string]string{

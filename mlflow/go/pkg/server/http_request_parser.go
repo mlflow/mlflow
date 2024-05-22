@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -64,6 +65,14 @@ func (p *HTTPRequestParser) ParseQuery(ctx *fiber.Ctx, input interface{}) *contr
 	return nil
 }
 
+func dereference(value interface{}) interface{} {
+	v := reflect.ValueOf(value)
+	if v.Kind() == reflect.Ptr {
+		return v.Elem().Interface()
+	}
+	return value
+}
+
 func newErrorFromValidationError(err error) *contract.Error {
 	errs, ok := err.(validator.ValidationErrors)
 	if !ok {
@@ -74,13 +83,13 @@ func newErrorFromValidationError(err error) *contract.Error {
 	for _, err := range errs {
 		field := err.Field()
 		tag := err.Tag()
-		value := err.Value()
+		value := dereference(err.Value())
 		var vErr string
 		switch tag {
 		case "required":
 			vErr = fmt.Sprintf("Missing value for required parameter '%s'", field)
 		default:
-			vErr = fmt.Sprintf("%s should be %s, got %v", field, tag, value)
+			vErr = fmt.Sprintf("Invalid value %v for parameter '%s' supplied", value, field)
 		}
 		validationErrors = append(validationErrors, vErr)
 	}
