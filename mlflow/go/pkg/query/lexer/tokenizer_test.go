@@ -53,7 +53,7 @@ func TestQueries(t *testing.T) {
 		},
 		{
 			input:    "params.`random_state` = \"8888\"",
-			expected: "identifier(params) dot identifier(random_state) equals string(\"8888\") eof",
+			expected: "identifier(params) dot string(`random_state`) equals string(\"8888\") eof",
 		},
 	}
 
