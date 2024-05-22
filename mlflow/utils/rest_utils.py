@@ -86,6 +86,8 @@ def http_request(
     url = f"{cleaned_hostname}{endpoint}"
 
     if host_creds.databricks_workspace_client:
+        from databricks.sdk.errors import DatabricksError
+
         try:
             if method == "GET":
                 query = kwargs.get("params") or kwargs.get("json")
@@ -101,7 +103,7 @@ def http_request(
                 **extra_kwargs,
             )
             return raw_response["contents"]._response
-        except Exception as e:
+        except DatabricksError as e:
             if hasattr(e, "error_code"):
                 response = requests.Response()
                 response.url = url
