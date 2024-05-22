@@ -3,7 +3,7 @@ package server
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type PositiveInteger struct {
@@ -20,7 +20,7 @@ func runscenarios(t *testing.T, scenarios []validationScenario) {
 	t.Helper()
 
 	validator, err := NewValidator()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
