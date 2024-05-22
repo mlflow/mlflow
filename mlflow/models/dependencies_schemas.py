@@ -6,10 +6,11 @@ from typing import Dict, List, Optional
 
 from mlflow.utils.annotations import experimental
 
-DATABRICKS_RETRIEVER_PRIMARY_KEY = "__databricks_retriever_primary_key__"
-DATABRICKS_RETRIEVER_TEXT_COLUMN = "__databricks_retriever_text_column__"
-DATABRICKS_RETRIEVER_DOC_URI = "__databricks_retriever_doc_uri__"
-DATABRICKS_RETRIEVER_OTHER_COLUMNS = "__databricks_retriever_other_columns__"
+_RETRIEVER_PRIMARY_KEY = "__retriever_primary_key__"
+_RETRIEVER_TEXT_COLUMN = "__retriever_text_column__"
+_RETRIEVER_DOC_URI = "__retriever_doc_uri__"
+_RETRIEVER_OTHER_COLUMNS = "__retriever_other_columns__"
+_RETRIEVER_NAME = "__retriever_name__"
 
 
 class DependenciesSchemasType(Enum):
@@ -22,10 +23,12 @@ class DependenciesSchemasType(Enum):
 
 @experimental
 def set_retriever_schema(
+    *,
     primary_key: str,
     text_column: str,
     doc_uri: Optional[str] = None,
     other_columns: Optional[List[str]] = None,
+    name: Optional[str] = "retriever",
 ):
     """
     After defining your vector store in a Python file or notebook, call
@@ -34,12 +37,12 @@ def set_retriever_schema(
     determine which fields correspond to the document text, document URI, etc.
 
     Args:
-        primary_key: The primary key of the vector index.
+        primary_key: The primary key of the retriever or vector index.
         text_column: The name of the text column to use for the embeddings.
         doc_uri: The name of the column that contains the document URI.
         other_columns: A list of other columns that are part of the vector index
                           that need to be retrieved during trace logging.
-        Note: Make sure the text column specified is in the index.
+        name: The name of the retriever or vector store.
 
     .. code-block:: Python
             :caption: Example
@@ -53,10 +56,11 @@ def set_retriever_schema(
                 other_columns=["title"],
             )
     """
-    globals()[DATABRICKS_RETRIEVER_PRIMARY_KEY] = primary_key
-    globals()[DATABRICKS_RETRIEVER_TEXT_COLUMN] = text_column
-    globals()[DATABRICKS_RETRIEVER_DOC_URI] = doc_uri
-    globals()[DATABRICKS_RETRIEVER_OTHER_COLUMNS] = other_columns or []
+    globals()[_RETRIEVER_PRIMARY_KEY] = primary_key
+    globals()[_RETRIEVER_TEXT_COLUMN] = text_column
+    globals()[_RETRIEVER_DOC_URI] = doc_uri
+    globals()[_RETRIEVER_OTHER_COLUMNS] = other_columns or []
+    globals()[_RETRIEVER_NAME] = name
 
 
 def _get_retriever_schema():
@@ -66,18 +70,18 @@ def _get_retriever_schema():
     Returns:
         VectorSearchIndex: The vector search index schema.
     """
-    if not globals().get(DATABRICKS_RETRIEVER_PRIMARY_KEY, None) or not globals().get(
-        DATABRICKS_RETRIEVER_TEXT_COLUMN, None
+    if not globals().get(_RETRIEVER_PRIMARY_KEY, None) or not globals().get(
+        _RETRIEVER_TEXT_COLUMN, None
     ):
         return []
 
     return [
         RetrieverSchema(
-            name="retriever",
-            primary_key=globals().get(DATABRICKS_RETRIEVER_PRIMARY_KEY, None),
-            text_column=globals().get(DATABRICKS_RETRIEVER_TEXT_COLUMN, None),
-            doc_uri=globals().get(DATABRICKS_RETRIEVER_DOC_URI, None),
-            other_columns=globals().get(DATABRICKS_RETRIEVER_OTHER_COLUMNS, None),
+            name=globals().get(_RETRIEVER_NAME, None),
+            primary_key=globals().get(_RETRIEVER_PRIMARY_KEY, None),
+            text_column=globals().get(_RETRIEVER_TEXT_COLUMN, None),
+            doc_uri=globals().get(_RETRIEVER_DOC_URI, None),
+            other_columns=globals().get(_RETRIEVER_OTHER_COLUMNS, None),
         )
     ]
 
@@ -86,10 +90,11 @@ def _clear_retriever_schema():
     """
     Clear the vector search schema defined by the user.
     """
-    globals().pop(DATABRICKS_RETRIEVER_PRIMARY_KEY, None)
-    globals().pop(DATABRICKS_RETRIEVER_TEXT_COLUMN, None)
-    globals().pop(DATABRICKS_RETRIEVER_DOC_URI, None)
-    globals().pop(DATABRICKS_RETRIEVER_OTHER_COLUMNS, None)
+    globals().pop(_RETRIEVER_PRIMARY_KEY, None)
+    globals().pop(_RETRIEVER_TEXT_COLUMN, None)
+    globals().pop(_RETRIEVER_DOC_URI, None)
+    globals().pop(_RETRIEVER_OTHER_COLUMNS, None)
+    globals().pop(_RETRIEVER_NAME, None)
 
 
 def _clear_dependencies_schemas():
