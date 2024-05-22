@@ -1,7 +1,7 @@
 import { isArray } from 'lodash';
 import { atobUtf8, btoaUtf8 } from '../../../../common/utils/StringUtils';
-import { SearchExperimentRunsFacetsState } from '../models/SearchExperimentRunsFacetsState';
-import { DatasetSummary } from '../../../types';
+import { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
+import { ExperimentPageUIState } from '../models/ExperimentPageUIState';
 
 type PersistSearchSerializeFunctions<Serialized = any, Unserialized = any> = {
   serializeLocalStorage?(input: Unserialized): Serialized;
@@ -37,7 +37,7 @@ const persistSearchStateFieldSerializers: Record<string, PersistSearchSerializeF
     },
   },
   datasetsFilter: {
-    serializeQueryString(inputs: SearchExperimentRunsFacetsState['datasetsFilter']) {
+    serializeQueryString(inputs: ExperimentPageSearchFacetsState['datasetsFilter']) {
       const inputsWithoutExperimentId = inputs.map(({ name, digest, context }) => ({
         name,
         digest,
@@ -45,7 +45,7 @@ const persistSearchStateFieldSerializers: Record<string, PersistSearchSerializeF
       }));
       return btoaUtf8(JSON.stringify(inputsWithoutExperimentId));
     },
-    deserializeQueryString(input: string): SearchExperimentRunsFacetsState['datasetsFilter'] {
+    deserializeQueryString(input: string): ExperimentPageSearchFacetsState['datasetsFilter'] {
       try {
         // Process the URL defensively against intended and unintended malformation
         const parsedResult = JSON.parse(atobUtf8(input));
@@ -62,10 +62,10 @@ const persistSearchStateFieldSerializers: Record<string, PersistSearchSerializeF
    * Array of visible configured charts are serialized into base64-encoded JSON when put into query string
    */
   compareRunCharts: {
-    serializeQueryString(input: SearchExperimentRunsFacetsState['compareRunCharts']) {
+    serializeQueryString(input: ExperimentPageUIState['compareRunCharts']) {
       return btoaUtf8(JSON.stringify(input));
     },
-    deserializeQueryString(input: string): SearchExperimentRunsFacetsState['compareRunCharts'] {
+    deserializeQueryString(input: string): ExperimentPageUIState['compareRunCharts'] {
       try {
         // Process the URL defensively against intended and unintended malformation
         const parsedResult = JSON.parse(atobUtf8(input));
@@ -89,14 +89,14 @@ const persistSearchStateFieldSerializers: Record<string, PersistSearchSerializeF
   },
 };
 
-type StateKey = keyof Partial<SearchExperimentRunsFacetsState>;
+type StateKey = keyof Partial<ExperimentPageSearchFacetsState>;
 
 /**
  * Consumes an object with persistable search facets and transforms relevant fields
  * with the registered serialization functions specific to query string.
  * Example scenario: serializing an array of visible configured charts into base64-encoded JSON.
  */
-export const serializeFieldsToQueryString = (input: Partial<SearchExperimentRunsFacetsState>) => {
+export const serializeFieldsToQueryString = (input: Partial<ExperimentPageSearchFacetsState>) => {
   const resultObject: Partial<Record<StateKey, any>> = { ...input };
   for (const field of Object.keys(resultObject) as StateKey[]) {
     const serializeFn = persistSearchStateFieldSerializers[field]?.serializeQueryString;
@@ -113,7 +113,7 @@ export const serializeFieldsToQueryString = (input: Partial<SearchExperimentRuns
  * visible configured charts from base64-encoded JSON.
  */
 export const deserializeFieldsFromQueryString = (
-  input: Partial<SearchExperimentRunsFacetsState> | Record<string, any>,
+  input: Partial<ExperimentPageSearchFacetsState> | Record<string, any>,
 ) => {
   const resultObject: Partial<Record<StateKey, any>> = { ...input };
   for (const field of Object.keys(resultObject) as StateKey[]) {
@@ -130,7 +130,7 @@ export const deserializeFieldsFromQueryString = (
  * with the registered serialization functions specific to local storage.
  * Example scenario: serializing an array of visible configured charts into base64-encoded JSON.
  */
-export const serializeFieldsToLocalStorage = (input: Partial<SearchExperimentRunsFacetsState>) => {
+export const serializeFieldsToLocalStorage = (input: Partial<ExperimentPageSearchFacetsState>) => {
   const resultObject: Partial<Record<StateKey, any>> = { ...input };
   for (const field of Object.keys(resultObject) as StateKey[]) {
     const serializeFn = persistSearchStateFieldSerializers[field]?.serializeLocalStorage;
@@ -147,7 +147,7 @@ export const serializeFieldsToLocalStorage = (input: Partial<SearchExperimentRun
  * visible configured charts from base64-encoded JSON.
  */
 export const deserializeFieldsFromLocalStorage = (
-  input: Partial<SearchExperimentRunsFacetsState> | Record<string, any>,
+  input: Partial<ExperimentPageSearchFacetsState> | Record<string, any>,
 ) => {
   const resultObject: Partial<Record<StateKey, any>> = { ...input };
   for (const field of Object.keys(resultObject) as StateKey[]) {

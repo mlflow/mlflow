@@ -4,19 +4,22 @@ import { RunsChartsRunData } from './RunsCharts.common';
 import { Modal, useDesignSystemTheme } from '@databricks/design-system';
 import { RunsChartsTooltipBodyProps, RunsChartsTooltipWrapper } from '../hooks/useRunsChartsTooltip';
 import { RunsChartsCard } from './cards/RunsChartsCard';
+import type { RunsGroupByConfig } from '../../experiment-page/utils/experimentPage.group-row-utils';
 
 export const RunsChartsFullScreenModal = <TContext,>({
   chartData,
   isMetricHistoryLoading = false,
-  groupBy = '',
+  groupBy,
   fullScreenChart,
   onCancel,
   tooltipContextValue,
   tooltipComponent,
+  autoRefreshEnabled,
 }: {
   chartData: RunsChartsRunData[];
   isMetricHistoryLoading?: boolean;
-  groupBy?: string;
+  groupBy: RunsGroupByConfig | null;
+  autoRefreshEnabled?: boolean;
   fullScreenChart: { config: RunsChartsCardConfig; title: string; subtitle: ReactNode } | undefined;
   onCancel: () => void;
   tooltipContextValue: TContext;
@@ -74,11 +77,11 @@ export const RunsChartsFullScreenModal = <TContext,>({
         <RunsChartsCard
           cardConfig={fullScreenChart.config}
           chartRunData={chartData}
-          isMetricHistoryLoading={isMetricHistoryLoading}
           groupBy={groupBy}
           index={0}
           sectionIndex={0}
           fullScreen
+          autoRefreshEnabled={autoRefreshEnabled}
           {...emptyConfigureProps}
           {...emptyReorderProps}
         />

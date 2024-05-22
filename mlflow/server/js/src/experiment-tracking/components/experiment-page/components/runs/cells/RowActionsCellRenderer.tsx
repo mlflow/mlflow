@@ -8,6 +8,7 @@ import {
   Icon,
   visuallyHidden,
 } from '@databricks/design-system';
+import type { SuppressKeyboardEventParams } from '@ag-grid-community/core';
 
 // TODO: Import this icon from design system when added
 import { ReactComponent as VisibleFillIcon } from '../../../../../../common/static/icon-visible-fill.svg';
@@ -15,12 +16,9 @@ import { Theme } from '@emotion/react';
 import React from 'react';
 import { FormattedMessage, defineMessages } from 'react-intl';
 import { RunRowType } from '../../../utils/experimentPage.row-types';
-import {
-  shouldEnableShareExperimentViewByTags,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../../../common/utils/FeatureUtils';
+import { shouldUseNewRunRowsVisibilityModel } from '../../../../../../common/utils/FeatureUtils';
 import { useUpdateExperimentViewUIState } from '../../../contexts/ExperimentPageUIStateContext';
-import { RUNS_VISIBILITY_MODE } from '../../../models/ExperimentPageUIStateV2';
+import { RUNS_VISIBILITY_MODE } from '../../../models/ExperimentPageUIState';
 import { isRemainingRunsGroup } from '../../../utils/experimentPage.group-row-utils';
 
 const labels = {
@@ -83,7 +81,6 @@ export const RowActionsCellRenderer = React.memo(
     onTogglePin: (runUuid: string) => void;
     onToggleVisibility: (runUuidOrToggle: string | RUNS_VISIBILITY_MODE, runUuid?: string) => void;
   }) => {
-    const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
     const updateUIState = useUpdateExperimentViewUIState();
     const { theme } = useDesignSystemTheme();
 
@@ -121,7 +118,7 @@ export const RowActionsCellRenderer = React.memo(
       <div css={styles.actionsContainer}>
         {/* Hide/show icon is part of compare runs UI */}
         {!displayVisibilityCheckbox ? (
-          <div css={{ width: theme.general.iconFontSize }} />
+          <div css={[styles.showOnlyInCompareMode, { width: theme.general.iconFontSize }]} />
         ) : (
           <Tooltip
             dangerouslySetAntdProps={MOUSE_DELAYS}
@@ -141,6 +138,7 @@ export const RowActionsCellRenderer = React.memo(
               </span>
               <input
                 type="checkbox"
+                className="is-visibility-toggle-checkbox"
                 checked={!hidden}
                 onChange={() => {
                   if (runUuidToToggle) {
@@ -173,24 +171,18 @@ export const RowActionsCellRenderer = React.memo(
                 type="checkbox"
                 checked={pinned}
                 onChange={() => {
-                  // If using new view state model, update the pinned runs in the UI state.
-                  // TODO: Remove this once we migrate to the new view state model
-                  if (usingNewViewStateModel) {
-                    const uuidToPin = groupParentInfo ? props.data.rowUuid : runUuid;
-                    updateUIState((existingState) => {
-                      if (uuidToPin) {
-                        return {
-                          ...existingState,
-                          runsPinned: !existingState.runsPinned.includes(uuidToPin)
-                            ? [...existingState.runsPinned, uuidToPin]
-                            : existingState.runsPinned.filter((r) => r !== uuidToPin),
-                        };
-                      }
-                      return existingState;
-                    });
-                  } else if (runUuid) {
-                    props.onTogglePin(runUuid);
-                  }
+                  const uuidToPin = groupParentInfo ? props.data.rowUuid : runUuid;
+                  updateUIState((existingState) => {
+                    if (uuidToPin) {
+                      return {
+                        ...existingState,
+                        runsPinned: !existingState.runsPinned.includes(uuidToPin)
+                          ? [...existingState.runsPinned, uuidToPin]
+                          : existingState.runsPinned.filter((r) => r !== uuidToPin),
+                      };
+                    }
+                    return existingState;
+                  });
                 }}
               />
               {pinned ? <PinFillIcon /> : <PinIcon />}
@@ -203,6 +195,23 @@ export const RowActionsCellRenderer = React.memo(
   (prevProps, nextProps) =>
     prevProps.value.hidden === nextProps.value.hidden && prevProps.value.pinned === nextProps.value.pinned,
 );
+
+/**
+ * A utility function that enables custom keyboard navigation for the row actions cell renderer by providing
+ * conditional suppression of default events.
+ */
+export const RowActionsCellRendererSuppressKeyboardEvents = ({ event }: SuppressKeyboardEventParams) => {
+  if (
+    event.key === 'Tab' &&
+    event.target instanceof HTMLElement &&
+    // Let's suppress the default action if the focus is on cell or on visibility toggle checkbox, allowing
+    // tab to move to the next focusable element.
+    (event.target.classList.contains('ag-cell') || event.target.classList.contains('is-visibility-toggle-checkbox'))
+  ) {
+    return true;
+  }
+  return false;
+};
 
 const styles = {
   actionsContainer: {
@@ -239,6 +248,9 @@ const styles = {
       },
     },
     '& input:checked + span svg': {
+      color: theme.colors.grey500,
+    },
+    '& input:focus-visible + span svg': {
       color: theme.colors.grey500,
     },
   }),

@@ -1,18 +1,31 @@
 import json
+from collections import defaultdict
 from unittest.mock import Mock
 
 import mlflow
-from mlflow.tracing.display import get_display_handler
+from mlflow.tracing.display import IPythonTraceDisplayHandler, get_display_handler
 
 from tests.tracing.helper import create_trace
 
 
+class MockEventRegistry:
+    def __init__(self):
+        self.events = defaultdict(list)
+
+    def register(self, event, callback):
+        self.events[event].append(callback)
+
+    def trigger(self, event):
+        for callback in self.events[event]:
+            callback(None)
+
+
 class MockIPython:
     def __init__(self):
-        self.execution_count = 0
+        self.events = MockEventRegistry()
 
     def mock_run_cell(self):
-        self.execution_count += 1
+        self.events.trigger("post_run_cell")
 
 
 def test_display_is_not_called_without_ipython(monkeypatch):
@@ -26,12 +39,22 @@ def test_display_is_not_called_without_ipython(monkeypatch):
     handler.display_traces([create_trace("a")])
     assert mock_display.call_count == 0
 
-    monkeypatch.setattr("IPython.get_ipython", lambda: MockIPython())
+    mock_ipython = MockIPython()
+    monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
+
+    # reset the singleton so the handler
+    # can register the post-display hook
+    IPythonTraceDisplayHandler._instance = None
+    handler = get_display_handler()
     handler.display_traces([create_trace("b")])
+
+    # simulate cell execution
+    mock_ipython.mock_run_cell()
+
     assert mock_display.call_count == 1
 
 
-def test_ipython_client_only_logs_once_per_execution(monkeypatch):
+def test_ipython_client_clears_display_after_execution(monkeypatch):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
     handler = get_display_handler()
@@ -43,27 +66,31 @@ def test_ipython_client_only_logs_once_per_execution(monkeypatch):
     handler.display_traces([create_trace("b")])
     handler.display_traces([create_trace("c")])
 
-    # there should be one display and two updates
-    assert mock_display.call_count == 1
-    assert mock_display_handle.update.call_count == 2
-
-    # after incrementing the execution count,
-    # the next log should call display again
     mock_ipython.mock_run_cell()
-    handler.display_traces([create_trace("a")])
-    assert mock_display.call_count == 2
+    # despite many calls to `display_traces`,
+    # there should only be one call to `display`
+    assert mock_display.call_count == 1
+
+    mock_ipython.mock_run_cell()
+    # expect that display is not called,
+    # since no traces should be present
+    assert mock_display.call_count == 1
 
 
 def test_display_is_called_in_correct_functions(monkeypatch):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
-    handler = get_display_handler()
-
     mock_display_handle = Mock()
     mock_display = Mock(return_value=mock_display_handle)
     monkeypatch.setattr("IPython.display.display", mock_display)
-    trace = create_trace("a")
-    handler.display_traces([trace])
+
+    @mlflow.trace
+    def foo():
+        return 3
+
+    # display should be called after trace creation
+    foo()
+    mock_ipython.mock_run_cell()
     assert mock_display.call_count == 1
 
     class MockMlflowClient:
@@ -71,9 +98,9 @@ def test_display_is_called_in_correct_functions(monkeypatch):
             return [create_trace("a"), create_trace("b"), create_trace("c")]
 
     monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
-
-    mock_ipython.mock_run_cell()
     mlflow.search_traces(["123"])
+    mock_ipython.mock_run_cell()
+
     assert mock_display.call_count == 2
 
 
@@ -82,8 +109,7 @@ def test_display_deduplicates_traces(monkeypatch):
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
     handler = get_display_handler()
 
-    mock_display_handle = Mock()
-    mock_display = Mock(return_value=mock_display_handle)
+    mock_display = Mock()
     monkeypatch.setattr("IPython.display.display", mock_display)
 
     trace_a = create_trace("a")
@@ -95,12 +121,12 @@ def test_display_deduplicates_traces(monkeypatch):
     handler.display_traces([trace_b])
     handler.display_traces([trace_c])
     handler.display_traces([trace_a, trace_b, trace_c])
+    mock_ipython.mock_run_cell()
 
     expected = [trace_a, trace_b, trace_c]
 
     assert mock_display.call_count == 1
-    assert mock_display_handle.update.call_count == 3
-    assert mock_display_handle.update.call_args[0][0] == {
+    assert mock_display.call_args[0][0] == {
         "application/databricks.mlflow.trace": json.dumps(
             [json.loads(t.to_json()) for t in expected]
         ),

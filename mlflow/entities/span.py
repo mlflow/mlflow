@@ -154,6 +154,12 @@ class Span:
             for event in self._span.events
         ]
 
+    def __repr__(self):
+        return (
+            f"{type(self).__name__}(name={self.name!r}, request_id={self.request_id!r}, "
+            f"span_id={self.span_id!r}, parent_id={self.parent_id!r})"
+        )
+
     def get_attribute(self, key: str) -> Optional[Any]:
         """
         Get a single attribute value from the span.
@@ -179,7 +185,7 @@ class Span:
             "parent_id": self.parent_id,
             "start_time": self.start_time_ns,
             "end_time": self.end_time_ns,
-            "status_code": self.status.status_code,
+            "status_code": self.status.status_code.value,
             "status_message": self.status.description,
             "attributes": dict(self._span.attributes),
             "events": [asdict(event) for event in self.events],
@@ -345,6 +351,15 @@ class LiveSpan(Span):
     def from_dict(cls, data: Dict[str, Any]) -> "Span":
         raise NotImplementedError("The `from_dict` method is not supported for the LiveSpan class.")
 
+    def to_immutable_span(self) -> "Span":
+        """
+        Downcast the live span object to the immutable span.
+
+        :meta private:
+        """
+        # All state of the live span is already persisted in the OpenTelemetry span object.
+        return Span(self._span)
+
 
 class NoOpSpan(Span):
     """
@@ -441,7 +456,14 @@ class _SpanAttributesRegistry:
 
     def get(self, key: str):
         serialized_value = self._span.attributes.get(key)
-        return json.loads(serialized_value) if serialized_value else None
+        if serialized_value:
+            try:
+                return json.loads(serialized_value)
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to get value for key {key}, make sure you set the attribute "
+                    f"on mlflow Span class instead of directly to the OpenTelemetry span. {e}"
+                )
 
     def set(self, key: str, value: Any):
         if not isinstance(key, str):

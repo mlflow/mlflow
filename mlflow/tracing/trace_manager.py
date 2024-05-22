@@ -26,7 +26,8 @@ class _Trace:
     def to_mlflow_trace(self) -> Trace:
         trace_data = TraceData()
         for span in self.span_dict.values():
-            trace_data.spans.append(span)
+            # Convert LiveSpan, mutable objects, into immutable Span objects before persisting.
+            trace_data.spans.append(span.to_immutable_span())
             if span.parent_id is None:
                 # Accessing the OTel span directly get serialized value directly.
                 trace_data.request = span._span.attributes.get(SpanAttributeKey.INPUTS)
@@ -138,6 +139,15 @@ class InMemoryTraceManager:
         Get the request ID for the given trace ID.
         """
         return self._trace_id_to_request_id.get(trace_id)
+
+    def get_mlflow_trace(self, request_id: int) -> Optional[Trace]:
+        """
+        Get the trace data for the given trace ID and return it as a ready-to-publish Trace object.
+        """
+        with self._lock:
+            trace = self._traces.get(request_id)
+
+        return trace.to_mlflow_trace() if trace else None
 
     def pop_trace(self, trace_id: int) -> Optional[Trace]:
         """

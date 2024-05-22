@@ -26,7 +26,7 @@ from mlflow.langchain.utils import (
     _load_from_yaml,
     _patch_loader,
     _save_base_lcs,
-    _validate_and_wrap_lc_model,
+    _validate_and_prepare_lc_model_or_path,
     base_lc_types,
     custom_type_to_loader_dict,
     lc_runnable_assign_types,
@@ -241,7 +241,7 @@ def _save_internal_runnables(runnable, path, loader_fn, persist_dir):
         conf[_MODEL_TYPE_KEY] = runnable.__class__.__name__
         conf.update(_save_runnables(runnable, path, loader_fn, persist_dir))
     elif isinstance(runnable, base_lc_types()):
-        lc_model = _validate_and_wrap_lc_model(runnable, loader_fn)
+        lc_model = _validate_and_prepare_lc_model_or_path(runnable, loader_fn)
         conf[_MODEL_TYPE_KEY] = lc_model.__class__.__name__
         conf.update(_save_base_lcs(lc_model, path, loader_fn, persist_dir))
     else:

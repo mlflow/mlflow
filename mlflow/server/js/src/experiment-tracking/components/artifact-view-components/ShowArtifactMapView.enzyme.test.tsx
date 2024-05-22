@@ -8,6 +8,7 @@
 import React from 'react';
 import { shallow, mount } from 'enzyme';
 import ShowArtifactMapView from './ShowArtifactMapView';
+import { mountWithIntl } from '../../../common/utils/TestUtils.enzyme';
 
 describe('ShowArtifactMapView', () => {
   let wrapper: any;
@@ -73,7 +74,7 @@ describe('ShowArtifactMapView', () => {
     const div = global.document.createElement('div');
     global.document.body.appendChild(div);
     const props = { ...minimalProps, getArtifact: getArtifact };
-    wrapper = mount(<ShowArtifactMapView {...props} />, {
+    wrapper = mountWithIntl(<ShowArtifactMapView {...props} />, {
       attachTo: div,
     });
 

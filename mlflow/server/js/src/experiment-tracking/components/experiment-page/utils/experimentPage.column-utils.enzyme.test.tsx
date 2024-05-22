@@ -1,6 +1,5 @@
 import { mount } from 'enzyme';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../constants';
-import { SearchExperimentRunsFacetsState } from '../models/SearchExperimentRunsFacetsState';
 import { useRunsColumnDefinitions, UseRunsColumnDefinitionsParams } from './experimentPage.column-utils';
 import {
   EXPERIMENT_FIELD_PREFIX_METRIC,
@@ -9,6 +8,7 @@ import {
   makeCanonicalSortKey,
 } from './experimentPage.common-utils';
 import { ColDef, ColGroupDef } from '@ag-grid-community/core';
+import { createExperimentPageUIState } from '../models/ExperimentPageUIState';
 
 const getHookResult = (params: UseRunsColumnDefinitionsParams) => {
   let result = null;
@@ -37,7 +37,7 @@ describe('ExperimentViewRuns column utils', () => {
       onExpand: jest.fn(),
       onSortBy: jest.fn(),
       onTogglePin: jest.fn(),
-      selectedColumns: new SearchExperimentRunsFacetsState().selectedColumns,
+      selectedColumns: createExperimentPageUIState().selectedColumns,
     });
   });
 

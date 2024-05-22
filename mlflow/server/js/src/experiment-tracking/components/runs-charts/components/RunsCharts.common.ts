@@ -2,12 +2,21 @@ import { compact, throttle } from 'lodash';
 import { Dash, Layout, Margin } from 'plotly.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PlotParams } from 'react-plotly.js';
-import { MetricEntitiesByName, MetricEntity, MetricHistoryByName, RunInfoEntity } from '../../../types';
+import {
+  ImageEntity,
+  KeyValueEntity,
+  MetricEntitiesByName,
+  MetricEntity,
+  MetricHistoryByName,
+  RunInfoEntity,
+} from '../../../types';
 import { Theme } from '@emotion/react';
 import { LegendLabelData } from './RunsMetricsLegend';
 import { RunGroupParentInfo, RunGroupingAggregateFunction } from '../../experiment-page/utils/experimentPage.row-types';
 import { RunsChartsChartMouseEvent } from '../hooks/useRunsChartsTooltip';
 import { defineMessages } from 'react-intl';
+import type { ExperimentChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
+import { shouldEnableRelativeTimeDateAxis } from 'common/utils/FeatureUtils';
 
 /**
  * Common props for all charts used in experiment runs
@@ -67,6 +76,11 @@ export interface RunsPlotsCommonProps {
    * If set to true, the chart will be displayed in full screen mode
    */
   fullScreen?: boolean;
+
+  /**
+   * Updates the download handler for the chart. See `ExperimentChartImageDownloadHandler` for the callback signature.
+   */
+  onSetDownloadHandler?: (downloadHandler: ExperimentChartImageDownloadHandler) => void;
 }
 
 /**
@@ -119,6 +133,17 @@ export interface RunsChartsRunData {
    * Object containing run's params by key
    */
   params: Record<string, { key: string; value: string | number }>;
+  /**
+   * Object containing run's tags by key
+   */
+  tags: Record<string, KeyValueEntity>;
+  /**
+   * Object containing run's images by key. The first key is the imageKey,
+   * the second key is the filename without extension for metadata file and image.
+   * E.g. if metadata file is dog_step_1_WHDA.json and image file is
+   * dog_step_1_WHDA.png, then truncated name is dog_step_1_WHDA.
+   */
+  images: Record<string, Record<string, ImageEntity>>;
   /**
    * Color corresponding to the run
    */
@@ -393,6 +418,7 @@ export enum RunsChartsLineChartXAxisType {
   STEP = 'step',
   TIME = 'time',
   TIME_RELATIVE = 'time-relative',
+  TIME_RELATIVE_HOURS = 'time-relative-hours',
   METRIC = 'metric',
 }
 
@@ -402,8 +428,12 @@ const axisKeyToLabel = defineMessages<Exclude<RunsChartsLineChartXAxisType, Runs
     description: 'Label for the time axis on the runs compare chart',
   },
   [RunsChartsLineChartXAxisType.TIME_RELATIVE]: {
-    defaultMessage: 'Time (s)',
+    defaultMessage: 'Relative Time',
     description: 'Label for the relative axis on the runs compare chart',
+  },
+  [RunsChartsLineChartXAxisType.TIME_RELATIVE_HOURS]: {
+    defaultMessage: 'Relative Time (hours)',
+    description: 'Label for the relative axis on the runs compare chart in hours',
   },
   [RunsChartsLineChartXAxisType.STEP]: {
     defaultMessage: 'Step',
@@ -413,4 +443,6 @@ const axisKeyToLabel = defineMessages<Exclude<RunsChartsLineChartXAxisType, Runs
 
 export const getChartAxisLabelDescriptor = (
   axisKey: Exclude<RunsChartsLineChartXAxisType, RunsChartsLineChartXAxisType.METRIC>,
-) => axisKeyToLabel[axisKey];
+) => {
+  return axisKeyToLabel[axisKey];
+};
