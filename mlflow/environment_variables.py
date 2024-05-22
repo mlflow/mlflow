@@ -581,7 +581,7 @@ MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZ
 
 #: Whether or not to enable trace logging in model serving.
 #: The default value is set to False to ensure that this flag is only enabled
-#: by our internal safety mechanism on Databricks.
+#: when our internal safety mechanism on Databricks explicitly sets it to True.
 MLFLOW_ENABLE_TRACE_IN_SERVING = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_TRACE_IN_SERVING", False
 )
