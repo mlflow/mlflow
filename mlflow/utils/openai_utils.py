@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from enum import Enum
 from typing import NamedTuple, Optional
 from unittest import mock
+from unittest.mock import AsyncMock
 
 import requests
 
@@ -164,6 +165,26 @@ def _mock_models_retrieve_response():
 def _mock_request(**kwargs):
     with mock.patch("requests.Session.request", **kwargs) as m:
         yield m
+
+
+@contextmanager
+def _mock_openai_arequest(**kwargs):
+    with mock.patch("aiohttp.ClientSession.request", **kwargs) as mock_request:
+        mock_request.side_effect = _mock_chat_completion_response
+        yield mock_request
+
+
+async def _mock_chat_completion_response(content=TEST_CONTENT, **kwargs):
+    resp = AsyncMock()
+    json_data = _chat_completion_json_sample(content)
+    resp.status = 200
+    resp.content = json.dumps(json_data).encode()
+    resp.headers = {"Content-Type": "application/json"}
+    resp.text = mlflow.__version__
+    resp.json_data = json_data
+    resp.json.return_value = json_data
+    resp.read.return_value = resp.content
+    return resp
 
 
 @contextmanager
