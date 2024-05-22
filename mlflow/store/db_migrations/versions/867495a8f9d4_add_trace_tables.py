@@ -51,7 +51,6 @@ def upgrade():
             sa.ForeignKey(
                 column=SqlTraceInfo.request_id,
                 name=f"fk_{SqlTraceTag.__tablename__}_request_id",
-                ondelete="CASCADE",
             ),
             nullable=False,
             primary_key=True,
@@ -73,7 +72,6 @@ def upgrade():
             sa.ForeignKey(
                 column=SqlTraceInfo.request_id,
                 name=f"fk_{SqlTraceRequestMetadata.__tablename__}_request_id",
-                ondelete="CASCADE",
             ),
             nullable=False,
             primary_key=True,
