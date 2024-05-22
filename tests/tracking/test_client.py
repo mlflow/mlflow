@@ -43,6 +43,7 @@ from mlflow.tracking._model_registry.utils import (
 from mlflow.tracking._tracking_service.utils import _register, _use_tracking_uri
 from mlflow.utils.databricks_utils import _construct_databricks_run_url
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_GIT_COMMIT,
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_PROJECT_ENTRY_POINT,
@@ -624,6 +625,7 @@ def test_set_and_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
     client.end_trace(request_id)
 
     trace = get_first_trace()
+    assert trace.info.tags.pop(MLFLOW_ARTIFACT_LOCATION) is not None
     assert trace.info.tags == {
         "mlflow.traceName": "test",
         "foo": "bar",
@@ -649,6 +651,7 @@ def test_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
     client.end_trace(request_id)
 
     trace = get_first_trace()
+    assert trace.info.tags.pop(MLFLOW_ARTIFACT_LOCATION) is not None
     assert trace.info.tags == {
         "baz": "qux",
         "mlflow.traceName": "test",  # Added by MLflow

@@ -63,6 +63,7 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.tracing.utils import generate_request_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_LOGGED_MODELS,
     MLFLOW_RUN_NAME,
@@ -1548,6 +1549,11 @@ class SqlAlchemyStore(AbstractStore):
             )
 
             trace_info.tags = [SqlTraceTag(key=k, value=v) for k, v in tags.items()]
+            trace_info.tags.append(
+                SqlTraceTag(
+                    key=MLFLOW_ARTIFACT_LOCATION, value=self._get_artifact_location(experiment_id)
+                )
+            )
             trace_info.request_metadata = [
                 SqlTraceRequestMetadata(key=k, value=v) for k, v in request_metadata.items()
             ]
