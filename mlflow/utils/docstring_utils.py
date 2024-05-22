@@ -150,6 +150,7 @@ def format_docstring(param_docs):
         ...     '''
         >>> import textwrap
         >>> print(textwrap.dedent(func.__doc__).strip())
+
         Args:
             p1: doc1
             p2: doc2
@@ -244,6 +245,9 @@ dataset, for example:
     signature = infer_signature(train, predictions)
 """
         ),
+        "metadata": (
+            "Custom metadata dictionary passed to the model and stored in the MLmodel file."
+        ),
         "input_example": (
             """one or several instances of valid model input. The input example is used
 as a hint of what data to feed the model. It will be converted to a Pandas
@@ -272,6 +276,45 @@ Currently, only the following pipeline types are supported:
 - `summarization <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.SummarizationPipeline>`_
 - `text2text-generation <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.Text2TextGenerationPipeline>`_
 - `text-generation <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.TextGenerationPipeline>`_
+"""
+        ),
+        "code_paths": (
+            """A list of local filesystem paths to Python file dependencies (or directories
+containing file dependencies). These files are *prepended* to the system path when the model
+is loaded. Files declared as dependencies for a given model should have relative
+imports declared from a common root path if multiple files are defined with import dependencies
+between them to avoid import errors when loading the model.
+
+You can leave ``code_paths`` argument unset but set ``infer_code_paths`` to ``True`` to let MLflow
+infer the model code paths. See ``infer_code_paths`` argument doc for details.
+
+For a detailed explanation of ``code_paths`` functionality, recommended usage patterns and
+limitations, see the
+`code_paths usage guide <https://mlflow.org/docs/latest/model/dependencies.html?highlight=code_paths#saving-extra-code-with-an-mlflow-model>`_.
+"""
+        ),
+        "infer_code_paths": (
+            """If set to ``True``, MLflow automatically infers model code paths. The inferred
+            code path files only include necessary python module files. Only python code files
+            under current working directory are automatically inferrable. Default value is
+            ``False``.
+
+.. warning::
+    Please ensure that the custom python module code does not contain sensitive data such as
+    credential token strings, otherwise they might be included in the automatic inferred code
+    path files and be logged to MLflow artifact repository.
+
+    If your custom python module depends on non-python files (e.g. a JSON file) with a relative
+    path to the module code file path, the non-python files can't be automatically inferred as the
+    code path file. To address this issue, you should put all used non-python files outside
+    your custom code directory.
+
+    If a python code file is loaded as the python ``__main__`` module, then this code file can't be
+    inferred as the code path file. If your model depends on classes / functions defined in
+    ``__main__`` module, you should use `cloudpickle` to dump your model instance in order to pickle
+    classes / functions in ``__main__``.
+
+.. Note:: Experimental: This parameter may change or be removed in a future release without warning.
 """
         ),
         "save_pretrained": (

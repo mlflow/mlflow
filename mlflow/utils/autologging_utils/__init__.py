@@ -493,8 +493,10 @@ def disable_autologging():
     """
     global _AUTOLOGGING_GLOBALLY_DISABLED
     _AUTOLOGGING_GLOBALLY_DISABLED = True
-    yield None
-    _AUTOLOGGING_GLOBALLY_DISABLED = False
+    try:
+        yield None
+    finally:
+        _AUTOLOGGING_GLOBALLY_DISABLED = False
 
 
 @contextlib.contextmanager

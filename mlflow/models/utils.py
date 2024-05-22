@@ -1,16 +1,25 @@
+import base64
 import datetime as dt
 import decimal
+import importlib
 import json
 import logging
 import os
+import re
+import sys
+import tempfile
+import uuid
+from contextlib import contextmanager
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 
+import mlflow
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
+from mlflow.models.model_config import _set_model_config
 from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.types import DataType, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.types.schema import Array, Map, Object, Property
@@ -61,6 +70,20 @@ EXAMPLE_FILENAME = "input_example.json"
 
 ModelInputExample = Union[
     pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes, tuple
+]
+
+PyFuncLLMSingleInput = Union[
+    Dict[str, Any],
+    bool,
+    bytes,
+    float,
+    int,
+    str,
+]
+
+PyFuncLLMOutputChunk = Union[
+    Dict[str, Any],
+    str,
 ]
 
 PyFuncInput = Union[
@@ -1123,7 +1146,7 @@ def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
         raise MlflowException(f"Missing required properties: {missing_props}")
     if invalid_props := data.keys() - properties.keys():
         raise MlflowException(
-            "Invalid properties not defined in the schema found: " f"{invalid_props}"
+            f"Invalid properties not defined in the schema found: {invalid_props}"
         )
     for k, v in data.items():
         try:
@@ -1389,3 +1412,203 @@ def convert_complex_types_pyspark_to_pandas(value, dataType):
     if converter:
         return converter(value)
     return value
+
+
+def _is_in_comment(line, start):
+    """
+    Check if the code at the index "start" of the line is in a comment.
+
+    Limitations: This function does not handle multi-line comments, and the # symbol could be in a
+    string, or otherwise not indicate a comment.
+    """
+    return "#" in line[:start]
+
+
+def _is_in_string_only(line, search_string):
+    """
+    Check is the search_string
+
+    Limitations: This function does not handle multi-line strings.
+    """
+    # Regex for matching double quotes and everything inside
+    double_quotes_regex = r"\"(\\.|[^\"])*\""
+
+    # Regex for matching single quotes and everything inside
+    single_quotes_regex = r"\'(\\.|[^\'])*\'"
+
+    # Regex for matching search_string exactly
+    search_string_regex = rf"({re.escape(search_string)})"
+
+    # Concatenate the patterns using the OR operator '|'
+    # This will matches left to right - on quotes first, search_string last
+    pattern = double_quotes_regex + r"|" + single_quotes_regex + r"|" + search_string_regex
+
+    # Iterate through all matches in the line
+    for match in re.finditer(pattern, line):
+        # If the regex matched on the search_string, we know that it did not match in quotes since
+        # that is the order. So we know that the search_string exists outside of quotes
+        # (at least once).
+        if match.group() == search_string:
+            return False
+    return True
+
+
+def _validate_model_code_from_notebook(code):
+    """
+    Validate there isn't any code that would work in a notebook but not as exported Python file.
+    For now, this checks for dbutils and magic commands.
+    """
+    error_message = (
+        "The model file uses 'dbutils' command which is not supported. To ensure your code "
+        "functions correctly, remove or comment out usage of 'dbutils' command."
+    )
+
+    output_code_list = []
+    for line in code.splitlines():
+        for match in re.finditer(r"\bdbutils\b", line):
+            start = match.start()
+            if not _is_in_comment(line, start) and not _is_in_string_only(line, "dbutils"):
+                raise ValueError(error_message)
+        # Prefix any line containing MAGIC commands with a comment. When there is better support
+        # for the Databricks workspace export API, we can get rid of this.
+        if line.startswith("%"):
+            output_code_list.append("# MAGIC " + line)
+        else:
+            output_code_list.append(line)
+    output_code = "\n".join(output_code_list)
+
+    magic_regex = r"^# MAGIC %\S+.*"
+    if re.search(magic_regex, output_code, re.MULTILINE):
+        _logger.warning(
+            "The model file uses magic commands which have been commented out. To ensure your code "
+            "functions correctly, make sure that it does not rely on these magic commands for "
+            "correctness."
+        )
+
+    return output_code.encode("utf-8")
+
+
+# Convert llm input data:
+# numpy array is not json serializable, so we convert it to list
+# then send it to the model
+def _convert_llm_ndarray_to_list(data):
+    import numpy as np
+
+    if isinstance(data, np.ndarray):
+        return data.tolist()
+    if isinstance(data, list):
+        return [_convert_llm_ndarray_to_list(d) for d in data]
+    if isinstance(data, dict):
+        return {k: _convert_llm_ndarray_to_list(v) for k, v in data.items()}
+    return data
+
+
+def _convert_llm_input_data(data):
+    import pandas as pd
+
+    # This handles spark_udf inputs and input_example inputs
+    if isinstance(data, pd.DataFrame):
+        # if the data only contains a single key as 0, we assume the input
+        # is either a string or list of strings
+        if list(data.columns) == [0]:
+            data = data.to_dict("list")[0]
+        else:
+            data = data.to_dict(orient="records")
+
+    return _convert_llm_ndarray_to_list(data)
+
+
+def _get_temp_file_with_content(file_name: str, content: str, content_format) -> str:
+    """
+    Write the contents to a temporary file and return the path to that file.
+
+    Args:
+        file_name: The name of the file to be created.
+        content: The contents to be written to the file.
+
+    Returns:
+        The string path to the file where the chain model is build.
+    """
+    # Get the temporary directory path
+    temp_dir = tempfile.gettempdir()
+
+    # Construct the full path where the temporary file will be created
+    temp_file_path = os.path.join(temp_dir, file_name)
+
+    # Create and write to the file
+    with open(temp_file_path, content_format) as tmp_file:
+        tmp_file.write(content)
+
+    return temp_file_path
+
+
+def _validate_and_get_model_code_path(model_code_path: str) -> str:
+    """
+    Validate model code path exists. Creates a temp file and validate its contents if it's a
+    notebook.
+
+    Returns either `model_code_path` or a temp file path with the contents of the notebook.
+    """
+    if not os.path.exists(model_code_path):
+        raise MlflowException.invalid_parameter_value(
+            f"If the provided model '{model_code_path}' is a string, it must be a valid python "
+            "file path or a databricks notebook file path containing the code for defining "
+            "the chain instance."
+        )
+
+    try:
+        with open(model_code_path) as _:
+            return model_code_path
+    except Exception:
+        try:
+            from databricks.sdk import WorkspaceClient
+            from databricks.sdk.service.workspace import ExportFormat
+
+            w = WorkspaceClient()
+            response = w.workspace.export(path=model_code_path, format=ExportFormat.SOURCE)
+            decoded_content = base64.b64decode(response.content)
+        except Exception:
+            raise MlflowException.invalid_parameter_value(
+                f"If the provided model '{model_code_path}' is a string, it must be a valid python "
+                "file path or a databricks notebook file path containing the code for defining "
+                "the chain instance."
+            )
+
+        _validate_model_code_from_notebook(decoded_content.decode("utf-8"))
+        return _get_temp_file_with_content("model.py", decoded_content, "wb")
+
+
+@contextmanager
+def _config_context(config: Optional[Union[str, Dict[str, Any]]] = None):
+    # Check if config_path is None and set it to "" so when loading the model
+    # the config_path is set to "" so the ModelConfig can correctly check if the
+    # config is set or not
+    if config is None:
+        config = ""
+
+    _set_model_config(config)
+    try:
+        yield
+    finally:
+        _set_model_config(None)
+
+
+# Python's module caching mechanism prevents the re-importation of previously loaded modules by
+# default. Once a module is imported, it's added to `sys.modules`, and subsequent import attempts
+# retrieve the cached module rather than re-importing it.
+# Here, we want to import the `code path` module multiple times during a single runtime session.
+# This function addresses this by dynamically importing the `code path` module under a unique,
+# dynamically generated module name. This bypasses the caching mechanism, as each import is
+# considered a separate module by the Python interpreter.
+def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, Any]]]):
+    with _config_context(config):
+        try:
+            new_module_name = f"code_model_{uuid.uuid4().hex}"
+            spec = importlib.util.spec_from_file_location(new_module_name, code_path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[new_module_name] = module
+            spec.loader.exec_module(module)
+        except ImportError as e:
+            raise MlflowException(f"Failed to import model from {code_path}.") from e
+
+    return mlflow.models.model.__mlflow_model__

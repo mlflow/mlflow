@@ -1,9 +1,11 @@
+import json
 import os
 import posixpath
 from unittest import mock
 from unittest.mock import ANY
 
 import pytest
+import requests
 from azure.core.credentials import AzureSasCredential
 from azure.storage.filedatalake import (
     DataLakeDirectoryClient,
@@ -13,9 +15,10 @@ from azure.storage.filedatalake import (
     PathProperties,
 )
 
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.protos.service_pb2 import FileInfo
+from mlflow.store.artifact.artifact_repo import try_read_trace_data
 from mlflow.store.artifact.azure_data_lake_artifact_repo import (
     AzureDataLakeArtifactRepository,
     _parse_abfss_uri,
@@ -361,3 +364,56 @@ def test_download_directory_artifact(mock_filesystem_client, mock_file_client, t
     assert dir_name in dir_contents
     subdir_contents = os.listdir(dest_dir.joinpath(dir_name))
     assert dir_file_name in subdir_contents
+
+
+def test_refresh_credentials():
+    dl_client = mock.MagicMock()
+    with mock.patch(
+        f"{ADLS_REPOSITORY_PACKAGE}._get_data_lake_client", return_value=dl_client
+    ) as get_data_lake_client_mock:
+        fs_client = mock.MagicMock()
+        dl_client.get_file_system_client.return_value = fs_client
+        resp = requests.Response()
+        resp.status_code = 401
+        err = requests.HTTPError(response=resp)
+        fs_client.get_directory_client.side_effect = err
+
+        second_credential = AzureSasCredential("new_fake_token")
+
+        def credential_refresh():
+            return {"credential": second_credential}
+
+        first_credential = AzureSasCredential("fake_token")
+        repo = AzureDataLakeArtifactRepository(
+            TEST_DATA_LAKE_URI, first_credential, credential_refresh
+        )
+
+        get_data_lake_client_mock.assert_called_with(account_url=ANY, credential=first_credential)
+
+        try:
+            repo._download_from_cloud("test.txt", "local_path")
+        except requests.HTTPError as e:
+            assert e == err
+
+        get_data_lake_client_mock.assert_called_with(account_url=ANY, credential=second_credential)
+
+
+def test_trace_data(mock_data_lake_client, tmp_path):
+    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
+    with pytest.raises(MlflowException, match=r"Trace data not found for path="):
+        repo.download_trace_data()
+    trace_data_path = tmp_path.joinpath("traces.json")
+    trace_data_path.write_text("invalid data")
+    with mock.patch(
+        "mlflow.store.artifact.artifact_repo.try_read_trace_data",
+        side_effect=lambda x: try_read_trace_data(trace_data_path),
+    ), pytest.raises(MlflowTraceDataCorrupted, match=r"Trace data is corrupted for path="):
+        repo.download_trace_data()
+
+    mock_trace_data = {"spans": [], "request": {"test": 1}, "response": {"test": 2}}
+    trace_data_path.write_text(json.dumps(mock_trace_data))
+    with mock.patch(
+        "mlflow.store.artifact.artifact_repo.try_read_trace_data",
+        side_effect=lambda x: try_read_trace_data(trace_data_path),
+    ):
+        assert repo.download_trace_data() == mock_trace_data

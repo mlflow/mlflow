@@ -3,7 +3,7 @@ import type { EvaluationDataReduxState } from '../../reducers/EvaluationDataRedu
 import { EvaluationArtifactCompareView } from './EvaluationArtifactCompareView';
 import configureStore from 'redux-mock-store';
 import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
-import { SearchExperimentRunsViewState } from '../experiment-page/models/SearchExperimentRunsViewState';
+import { ExperimentPageViewState } from '../experiment-page/models/ExperimentPageViewState';
 import { renderWithIntl, act, within, screen } from 'common/utils/TestUtils.react18';
 import { getEvaluationTableArtifact } from '../../actions';
 import { MLFLOW_LOGGED_ARTIFACTS_TAG, MLFLOW_RUN_SOURCE_TYPE_TAG, MLflowRunSourceType } from '../../constants';
@@ -42,7 +42,7 @@ jest.mock('./components/EvaluationArtifactCompareTable', () => ({
             <button
               key={`result-${runUuid}-${result.key}`}
               data-testid={`result-${runUuid}-${result.key}`}
-              onClick={() => onCellClick?.(result.cellValues[runUuid], runUuid)}
+              onClick={() => onCellClick?.(result.cellValues[runUuid].toString(), runUuid)}
             >
               {`row ${result.key}, run ${runUuid}, result ${result.cellValues[runUuid] || '(empty)'}`}
             </button>
@@ -129,9 +129,9 @@ describe('EvaluationArtifactCompareView', () => {
   const mountTestComponent = ({
     comparedRuns = SAMPLE_COMPARED_RUNS,
     mockState = SAMPLE_STATE,
-    viewState = new SearchExperimentRunsViewState(),
+    viewState = new ExperimentPageViewState(),
   }: {
-    viewState?: SearchExperimentRunsViewState;
+    viewState?: ExperimentPageViewState;
     mockState?: EvaluationDataReduxState;
     comparedRuns?: RunRowType[];
   } = {}) => {
@@ -149,7 +149,6 @@ describe('EvaluationArtifactCompareView', () => {
         <Provider store={mockStore}>
           <EvaluationArtifactCompareView
             comparedRuns={visibleRuns}
-            updateSearchFacets={updateSearchFacetsMock}
             updateViewState={updateViewStateMock}
             viewState={viewState}
             onDatasetSelected={() => {}}
@@ -239,7 +238,7 @@ describe('EvaluationArtifactCompareView', () => {
 
   test('checks if the preview sidebar renders proper details', async () => {
     const { renderResult } = mountTestComponent({
-      viewState: Object.assign(new SearchExperimentRunsViewState(), { previewPaneVisible: true }),
+      viewState: Object.assign(new ExperimentPageViewState(), { previewPaneVisible: true }),
     });
 
     const previewSidebar = renderResult.getByTestId('preview-sidebar-content');

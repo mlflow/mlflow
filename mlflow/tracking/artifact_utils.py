@@ -1,6 +1,7 @@
 """
 Utilities for dealing with artifacts in the context of a Run.
 """
+
 import os
 import pathlib
 import posixpath
@@ -15,6 +16,7 @@ from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.file_utils import path_to_local_file_uri
+from mlflow.utils.os import is_windows
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, append_to_uri_path
 
 
@@ -65,7 +67,7 @@ def _get_root_uri_and_artifact_path(artifact_uri):
         artifact_uri: The *absolute* URI of the artifact.
     """
     if os.path.exists(artifact_uri):
-        if os.name != "nt":
+        if not is_windows():
             # If we're dealing with local files, just reference the direct pathing.
             # non-nt-based file systems can directly reference path information, while nt-based
             # systems need to url-encode special characters in directory listings to be able to
@@ -94,17 +96,24 @@ def _get_root_uri_and_artifact_path(artifact_uri):
     return root_uri, artifact_path
 
 
-def _download_artifact_from_uri(artifact_uri, output_path=None):
+def _download_artifact_from_uri(artifact_uri, output_path=None, lineage_header_info=None):
     """
     Args:
         artifact_uri: The *absolute* URI of the artifact to download.
         output_path: The local filesystem path to which to download the artifact. If unspecified,
             a local output path will be created.
+        lineage_header_info: The model lineage header info to be consumed by lineage services.
     """
     root_uri, artifact_path = _get_root_uri_and_artifact_path(artifact_uri)
-    return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
-        artifact_path=artifact_path, dst_path=output_path
-    )
+    repo = get_artifact_repository(artifact_uri=root_uri)
+
+    if isinstance(repo, ModelsArtifactRepository):
+        return repo.download_artifacts(
+            artifact_path=artifact_path,
+            dst_path=output_path,
+            lineage_header_info=lineage_header_info,
+        )
+    return repo.download_artifacts(artifact_path=artifact_path, dst_path=output_path)
 
 
 def _upload_artifact_to_uri(local_path, artifact_uri):

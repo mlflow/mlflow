@@ -340,6 +340,7 @@ nitpick_ignore = [
     ("py:class", "bytes"),
     ("py:class", "bytearray"),
     # Suppress warnings for missing references in type annotations
+    ("py:class", "dataclasses.dataclass"),
     ("py:class", "numpy.dtype"),
     ("py:class", "numpy.ndarray"),
     ("py:class", "pandas.core.series.Series"),
@@ -360,11 +361,20 @@ nitpick_ignore = [
     ("py:class", "mlflow.types.schema.Object"),
     ("py:class", "mlflow.types.schema.ParamSchema"),
     ("py:class", "mlflow.types.schema.ParamSpec"),
+    ("py:class", "opentelemetry.trace.span.Span"),
+    ("py:class", "opentelemetry.trace.status.Status"),
+    ("py:class", "opentelemetry.trace.status.StatusCode"),
+    ("py:class", "opentelemetry.sdk.trace.ReadableSpan"),
+    ("py:class", "mlflow.entities.trace_status.TraceStatus"),
     ("py:class", "ModelSignature"),
     ("py:class", "ModelInputExample"),
+    ("py:class", "abc.ABC"),
     ("py:class", "Model"),
     ("py:class", "mlflow.models.model.Model"),
     ("py:class", "mlflow.models.signature.ModelSignature"),
+    ("py:class", "mlflow.models.resources.Resource"),
+    ("py:class", "mlflow.models.resources.ResourceType"),
+    ("py:class", "mlflow.models.dependencies_schemas.set_retriever_schema"),
     ("py:class", "mlflow.metrics.genai.base.EvaluationExample"),
     ("py:class", "mlflow.models.evaluation.base.EvaluationMetric"),
     ("py:class", "MlflowInferableDataset"),
@@ -387,6 +397,7 @@ nitpick_ignore = [
     ("py:class", "pytorch_lightning.trainer.trainer.Trainer"),
     ("py:class", "pytorch_lightning.core.module.LightningModule"),
     ("py:class", "pytorch_lightning.core.LightningModule"),
+    ("py:class", "torch.dtype"),
 ]
 
 

@@ -22,11 +22,17 @@ from packaging.requirements import Requirement
 from packaging.version import InvalidVersion, Version
 
 import mlflow
-from mlflow.environment_variables import MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT
+from mlflow.environment_variables import (
+    MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
+    MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils.versioning import _strip_dev_version_suffix
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.databricks_utils import (
+    get_databricks_env_vars,
+    is_in_databricks_runtime,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -248,7 +254,7 @@ def _get_installed_version(package, module=None):
     return version
 
 
-def _capture_imported_modules(model_uri, flavor):
+def _capture_imported_modules(model_uri, flavor, record_full_module=False):
     """Runs `_capture_modules.py` in a subprocess and captures modules imported during the model
     loading procedure.
     If flavor is `transformers`, `_capture_transformers_modules.py` is run instead.
@@ -264,6 +270,7 @@ def _capture_imported_modules(model_uri, flavor):
     local_model_path = _download_artifact_from_uri(model_uri)
 
     process_timeout = MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT.get()
+    raise_on_error = MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS.get()
 
     # Run `_capture_modules.py` to capture modules imported during the loading procedure
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -275,6 +282,11 @@ def _capture_imported_modules(model_uri, flavor):
         # See: ``https://github.com/mlflow/mlflow/issues/6905`` for context on minio configuration
         # resolution in a subprocess based on PATH entries.
         main_env["PATH"] = "/usr/sbin:/sbin:" + main_env["PATH"]
+        # Add databricks env, for langchain models loading we might need CLI configurations
+        if is_in_databricks_runtime():
+            main_env.update(get_databricks_env_vars(mlflow.get_tracking_uri()))
+
+        record_full_module_args = ["--record-full-module"] if record_full_module else []
 
         if flavor == mlflow.transformers.FLAVOR_NAME:
             # Lazily import `_capture_transformers_module` here to avoid circular imports.
@@ -304,6 +316,7 @@ def _capture_imported_modules(model_uri, flavor):
                             json.dumps(sys.path),
                             "--module-to-throw",
                             module_to_throw,
+                            *record_full_module_args,
                         ],
                         timeout_seconds=process_timeout,
                         env={**main_env, **transformer_env},
@@ -317,6 +330,7 @@ def _capture_imported_modules(model_uri, flavor):
         # Lazily import `_capture_module` here to avoid circular imports.
         from mlflow.utils import _capture_modules
 
+        error_file = os.path.join(tmpdir, "error.txt")
         _run_command(
             [
                 sys.executable,
@@ -327,12 +341,25 @@ def _capture_imported_modules(model_uri, flavor):
                 flavor,
                 "--output-file",
                 output_file,
+                "--error-file",
+                error_file,
                 "--sys-path",
                 json.dumps(sys.path),
+                *record_full_module_args,
             ],
             timeout_seconds=process_timeout,
             env=main_env,
         )
+
+        if os.path.exists(error_file):
+            with open(error_file) as f:
+                errors = f.read()
+            if errors:
+                if raise_on_error:
+                    raise MlflowException(
+                        f"Encountered an error while capturing imported modules: {errors}"
+                    )
+                _logger.warning(errors)
 
         with open(output_file) as f:
             return f.read().splitlines()
@@ -418,6 +445,7 @@ def _infer_requirements(model_uri, flavor):
         A list of inferred pip requirements.
 
     """
+    raise_on_error = MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS.get()
     _init_modules_to_packages_map()
     global _PYPI_PACKAGE_INDEX
     if _PYPI_PACKAGE_INDEX is None:
@@ -443,6 +471,11 @@ def _infer_requirements(model_uri, flavor):
     # manually exclude mlflow[gateway] as it isn't listed separately in PYPI_PACKAGE_INDEX
     unrecognized_packages = packages - _PYPI_PACKAGE_INDEX.package_names - {"mlflow[gateway]"}
     if unrecognized_packages:
+        if raise_on_error:
+            raise MlflowException(
+                "Failed to infer requirements for the model due to unrecognized packages: "
+                f"{unrecognized_packages}"
+            )
         _logger.warning(
             "The following packages were not found in the public PyPI package index as of"
             " %s; if these packages are not present in the public PyPI index, you must install"
@@ -566,7 +599,9 @@ def _check_requirement_satisfied(requirement_str):
             from mlflow import gateway  # noqa: F401
         except ModuleNotFoundError:
             return _MismatchedPackageInfo(
-                package_name="mlflow[gateway]", installed_version=None, requirement=requirement_str
+                package_name="mlflow[gateway]",
+                installed_version=None,
+                requirement=requirement_str,
             )
 
     if (

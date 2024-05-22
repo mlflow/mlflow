@@ -439,15 +439,20 @@ def test_load_spark_model_from_models_uri(
         mlflow.spark.load_model(f"models:/{model_name}/1")
         # Assert that we downloaded both the MLmodel file and the whole model itself using
         # the models:/ URI
+        kwargs = (
+            {"lineage_header_info": None}
+            if artifact_repo_class is UnityCatalogModelsArtifactRepository
+            else {}
+        )
         assert mock_download_artifacts.mock_calls == [
-            mock.call("MLmodel", None),
-            mock.call("", None),
+            mock.call("MLmodel", None, **kwargs),
+            mock.call("", None, **kwargs),
         ]
         mock_download_artifacts.reset_mock()
         mlflow.spark.load_model(f"models:/{model_name}@Champion")
         assert mock_download_artifacts.mock_calls == [
-            mock.call("MLmodel", None),
-            mock.call("", None),
+            mock.call("MLmodel", None, **kwargs),
+            mock.call("", None, **kwargs),
         ]
         assert get_model_version_by_alias_mock.called_with(model_name, "Champion")
 

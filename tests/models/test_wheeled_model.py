@@ -14,7 +14,8 @@ from sklearn import datasets
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
-from mlflow.models.wheeled_model import _WHEELS_FOLDER_NAME, WheeledModel
+from mlflow.models.model import METADATA_FILES
+from mlflow.models.wheeled_model import _ORIGINAL_REQ_FILE_NAME, _WHEELS_FOLDER_NAME, WheeledModel
 from mlflow.pyfunc.model import MLMODEL_FILE_NAME, Model
 from mlflow.store.artifact.utils.models import _improper_model_uri_msg
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -379,3 +380,19 @@ def test_wheel_download_override_option_works(tmp_path):
     os.environ["MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS"] = "--prefer-binary"
     WheeledModel._download_wheels(requirements_file, wheel_dir)
     assert len(os.listdir(wheel_dir))  # Wheel dir is not empty
+
+
+def test_copy_metadata(sklearn_knn_model):
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            sk_model=sklearn_knn_model.model,
+            artifact_path="model",
+            registered_model_name="sklearn_knn_model",
+        )
+
+    with mlflow.start_run():
+        model_info = WheeledModel.log_model(model_uri="models:/sklearn_knn_model/1")
+        artifact_path = mlflow.artifacts.download_artifacts(model_info.model_uri)
+        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == set(
+            METADATA_FILES + [_ORIGINAL_REQ_FILE_NAME]
+        )

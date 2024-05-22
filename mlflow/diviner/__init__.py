@@ -68,8 +68,6 @@ _MODEL_TYPE_KEY = "model_type"
 _FLAVOR_KEY = "flavors"
 _SPARK_MODEL_INDICATOR = "fit_with_spark"
 
-model_data_artifact_paths = [_MODEL_BINARY_FILE_NAME]
-
 _logger = logging.getLogger(__name__)
 
 
@@ -113,9 +111,7 @@ def save_model(
             ``DataFrame``.
         path: Local path destination for the serialized model is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` the flavor that this model is being added to.
         signature: :py:class:`Model Signature <mlflow.models.ModelSignature>` describes model
             input and output :py:class:`Schema <mlflow.types.Schema>`. The model
@@ -135,11 +131,7 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
-
+        metadata: {{ metadata }}
         kwargs: Optional configurations for Spark DataFrame storage iff the model has
             been fit in Spark.
             Current supported options:
@@ -374,9 +366,7 @@ def log_model(
         diviner_model: ``Diviner`` model that has been ``fit`` on a grouped temporal ``DataFrame``.
         artifact_path: Run-relative artifact path to save the model instance to.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
             future release without warning. If given, create a model
             version under ``registered_model_name``, also creating a
@@ -411,11 +401,7 @@ def log_model(
             Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
-
+        metadata: {{ metadata }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
             Additionally, for models that have been fit in Spark, the following supported
             configuration options are available to set.
@@ -487,9 +473,6 @@ class _DivinerModelWrapper:
                 Will generate 30 days of forecasted values for each group that the model
                 was trained on.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             A Pandas DataFrame containing the forecasted values for each group key that was

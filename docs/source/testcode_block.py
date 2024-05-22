@@ -44,7 +44,6 @@ def _func():           # <- obj_line
         :test:
         ...
     """
-    pass
 # fmt: on
 
 

@@ -29,7 +29,7 @@ from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signat
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
-from mlflow.tensorflow.callback import MLflowCallback, MlflowModelCheckpointCallback  # noqa: F401
+from mlflow.tensorflow.callback import MlflowCallback, MlflowModelCheckpointCallback  # noqa: F401
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
@@ -95,7 +95,8 @@ _MODEL_TYPE_TF2_MODULE = "tf2-module"
 _KERAS_MODEL_DATA_PATH = "data"
 _TF2MODEL_SUBPATH = "tf2model"
 
-model_data_artifact_paths = [_KERAS_MODEL_DATA_PATH, _TF2MODEL_SUBPATH]
+
+MLflowCallback = MlflowCallback  # for backwards compatibility
 
 
 def get_default_pip_requirements(include_cloudpickle=False):
@@ -191,9 +192,7 @@ def log_model(
             when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
             :py:func:`mlflow.pyfunc.load_model`.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
@@ -206,10 +205,7 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
         keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                        .. Note:: Experimental: This parameter may change or be removed in a future
-                                                release without warning.
+        metadata: {{ metadata }}
 
     Returns
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -314,9 +310,7 @@ def save_model(
         model: The Keras model or Tensorflow module to be saved.
         path: Local path where the MLflow model is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: MLflow model configuration to which to add the ``tensorflow`` flavor.
         custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
             custom classes or functions associated with the Keras model. MLflow saves
@@ -331,10 +325,7 @@ def save_model(
             if the model to be saved is a Tensorflow module.
         keras_model_kwargs: a dict of kwargs to pass to ``model.save`` method if the model
             to be saved is a keras model.
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
     """
     import tensorflow as tf
     from tensorflow.keras.models import Model as KerasModel
@@ -781,9 +772,6 @@ class _TF2Wrapper:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
-
         Returns:
             Model predictions.
         """
@@ -837,9 +825,6 @@ class _TF2ModuleWrapper:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
-
         Returns:
             Model predictions.
         """
@@ -872,9 +857,6 @@ class _KerasModelWrapper:
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
 
         Returns
             Model predictions.
@@ -935,16 +917,16 @@ def _setup_callbacks(callbacks, log_every_epoch, log_every_n_steps):
     input list, and returns the new list and appropriate log directory.
     """
     from mlflow.tensorflow.autologging import _TensorBoard
-    from mlflow.tensorflow.callback import MLflowCallback, MlflowModelCheckpointCallback
+    from mlflow.tensorflow.callback import MlflowCallback, MlflowModelCheckpointCallback
 
     tb = _get_tensorboard_callback(callbacks)
     for callback in callbacks:
-        if isinstance(callback, MLflowCallback):
+        if isinstance(callback, MlflowCallback):
             raise MlflowException(
-                "MLflow autologging must be turned off if an `MLflowCallback` is explicitly added "
-                "to the callback list. You are creating an `MLflowCallback` while having "
+                "MLflow autologging must be turned off if an `MlflowCallback` is explicitly added "
+                "to the callback list. You are creating an `MlflowCallback` while having "
                 "autologging enabled. Please either call `mlflow.tensorflow.autolog(disable=True)` "
-                "to disable autologging or remove `MLflowCallback` from the callback list. "
+                "to disable autologging or remove `MlflowCallback` from the callback list. "
             )
     if tb is None:
         log_dir = _TensorBoardLogDir(location=tempfile.mkdtemp(), is_temp=True)
@@ -953,7 +935,7 @@ def _setup_callbacks(callbacks, log_every_epoch, log_every_n_steps):
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
 
     callbacks.append(
-        MLflowCallback(
+        MlflowCallback(
             log_every_epoch=log_every_epoch,
             log_every_n_steps=log_every_n_steps,
         )
@@ -1050,8 +1032,8 @@ def autolog(
     <https://www.mlflow.org/docs/latest/tracking.html#tensorflow-and-keras-experimental>`_.
 
     Note that autologging cannot be used together with explicit MLflow callback, i.e.,
-    `mlflow.tensorflow.MLflowCallback`, because it will cause the same metrics to be logged twice.
-    If you want to include `mlflow.tensorflow.MLflowCallback` in the callback list, please turn off
+    `mlflow.tensorflow.MlflowCallback`, because it will cause the same metrics to be logged twice.
+    If you want to include `mlflow.tensorflow.MlflowCallback` in the callback list, please turn off
     autologging by calling `mlflow.tensorflow.autolog(disable=True)`.
 
     Args:

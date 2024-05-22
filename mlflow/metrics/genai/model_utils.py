@@ -80,7 +80,7 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
             #   - No engine + correct deployment_id
             if deployment_id is not None:
                 _logger.warning(
-                    "Both engine and deployment_id are set. " "Using engine as it takes precedence."
+                    "Both engine and deployment_id are set. Using engine as it takes precedence."
                 )
             payload = {"engine": engine, **payload}
         elif deployment_id is None:
@@ -123,6 +123,7 @@ def _call_deployments_api(deployment_uri, payload, eval_parameters, wrap_payload
         wrap_payload: Whether to wrap the payload in a expected key by the endpoint,
             e.g. "prompt" for completions or "messages" for chat. If False, the specified
             payload is directly sent to the endpoint combined with the eval_parameters.
+
     Returns:
         The unpacked response from the endpoint.
     """

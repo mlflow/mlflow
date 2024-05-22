@@ -32,6 +32,7 @@ from sklearn.metrics import (
 import mlflow
 from mlflow import MlflowClient
 from mlflow.data.pandas_dataset import from_pandas
+from mlflow.entities import Trace, TraceData
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import (
     EvaluationArtifact,
@@ -59,6 +60,7 @@ from mlflow.tracking.artifact_utils import get_artifact_uri
 from mlflow.utils import insecure_hash
 from mlflow.utils.file_utils import TempDir
 
+from tests.tracing.helper import create_test_trace_info
 from tests.utils.test_file_utils import spark_session  # noqa: F401
 
 
@@ -699,6 +701,27 @@ def test_dataset_hash(
     assert diabetes_spark_dataset.hash == "ebfb050519e7e5b463bd38b0c8d04243"
 
 
+def test_trace_dataset_hash():
+    # Validates that a dataset containing Traces can be hashed.
+    df = pd.DataFrame(
+        {
+            "request": ["Hello"],
+            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([], "", ""))],
+        }
+    )
+    dataset = EvaluationDataset(data=df)
+    assert dataset.hash == "757c14bf38aa42d36b93ccd70b1ea719"
+    # Hash of a dataset with a different column should be different
+    df2 = pd.DataFrame(
+        {
+            "request": ["Hi"],
+            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([], "", ""))],
+        }
+    )
+    dataset2 = EvaluationDataset(data=df2)
+    assert dataset2.hash != dataset.hash
+
+
 def test_dataset_with_pandas_dataframe():
     data = pd.DataFrame({"f1": [1, 2], "f2": [3, 4], "f3": [5, 6], "label": [0, 1]})
     eval_dataset = EvaluationDataset(data=data, targets="label")
@@ -1035,6 +1058,46 @@ def test_evaluate_with_multi_evaluators(
                     )
 
 
+def test_custom_evaluators_no_model_or_preds(multiclass_logistic_regressor_model_uri, iris_dataset):
+    """
+    Tests that custom evaluators are called correctly when no model or predictions are provided
+    """
+    with mock.patch.object(
+        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
+    ):
+        with mock.patch.object(
+            FakeEvauator1, "can_evaluate", return_value=True
+        ) as mock_can_evaluate, mock.patch.object(FakeEvauator1, "evaluate") as mock_evaluate:
+            with mlflow.start_run() as run:
+                evaluate(
+                    model=None,
+                    data=iris_dataset._constructor_args["data"],
+                    predictions=None,
+                    model_type="classifier",
+                    targets=iris_dataset._constructor_args["targets"],
+                    evaluators="test_evaluator1",
+                    evaluator_config=None,
+                    extra_metrics=None,
+                    baseline_model=None,
+                )
+
+                mock_can_evaluate.assert_called_once_with(
+                    model_type="classifier", evaluator_config={}
+                )
+                mock_evaluate.assert_called_once_with(
+                    model=None,
+                    dataset=iris_dataset,
+                    predictions=None,
+                    model_type="classifier",
+                    run_id=run.info.run_id,
+                    evaluator_config={},
+                    custom_metrics=None,
+                    extra_metrics=None,
+                    custom_artifacts=None,
+                    baseline_model=None,
+                )
+
+
 def test_start_run_or_reuse_active_run():
     with _start_run_or_reuse_active_run() as run_id:
         assert mlflow.active_run().info.run_id == run_id
@@ -1076,10 +1139,10 @@ def test_normalize_evaluators_and_evaluator_config_args():
         {"default": {"a": 3}},
     )
 
-    with mock.patch.object(_base_logger, "warning") as patched_warning_fn:
+    with mock.patch.object(_base_logger, "debug") as patched_debug_fn:
         _normalize_config(None, None)
-        patched_warning_fn.assert_called_once()
-        assert "Multiple registered evaluators are found" in patched_warning_fn.call_args[0][0]
+        patched_debug_fn.assert_called_once()
+        assert "Multiple registered evaluators have been" in patched_debug_fn.call_args[0][0]
 
     assert _normalize_config("dummy_evaluator", {"a": 3}) == (
         ["dummy_evaluator"],
@@ -1468,58 +1531,11 @@ def test_evaluate_with_static_mlflow_dataset_input():
     assert "root_mean_squared_error" in run.data.metrics
 
 
-def test_evaluate_with_static_spark_dataset_unsupported():
-    data = sklearn.datasets.load_diabetes()
-    spark = SparkSession.builder.master("local[*]").getOrCreate()
-    rows = [
-        (Vectors.dense(features), float(label), float(label))
-        for features, label in zip(data.data, data.target)
-    ]
-    spark_dataframe = spark.createDataFrame(
-        spark.sparkContext.parallelize(rows, 1), ["features", "label", "model_output"]
-    )
-    with mlflow.start_run():
-        with pytest.raises(
-            MlflowException,
-            match="The data must be a pandas dataframe or mlflow.data."
-            "pandas_dataset.PandasDataset when model=None.",
-        ):
-            mlflow.evaluate(
-                data=spark_dataframe,
-                targets="label",
-                predictions="model_output",
-                model_type="regressor",
-            )
-
-
 def test_evaluate_with_static_dataset_error_handling_pandas_dataframe():
     X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
     X = X[::5]
     y = y[::5]
     with mlflow.start_run():
-        with pytest.raises(
-            MlflowException,
-            match="The model output must be specified in the "
-            "predictions parameter when model=None.",
-        ):
-            mlflow.evaluate(
-                data=X.assign(y=y, model_output=y),
-                targets="y",
-                model_type="regressor",
-            )
-
-        with pytest.raises(
-            MlflowException,
-            match="The data must be a pandas dataframe or "
-            "mlflow.data.pandas_dataset.PandasDataset when model=None.",
-        ):
-            mlflow.evaluate(
-                data=X.assign(y=y, model_output=y).to_numpy(),
-                targets="y",
-                predictions="model_output",
-                model_type="regressor",
-            )
-
         with pytest.raises(MlflowException, match="The data argument cannot be None."):
             mlflow.evaluate(
                 data=None,
@@ -1568,6 +1584,63 @@ def test_evaluate_with_static_dataset_error_handling_pandas_dataset():
                 model_type="regressor",
                 predictions="model_output",
             )
+
+
+@pytest.mark.parametrize(
+    "baseline_model_uri",
+    [("None"), ("binary_logistic_regressor_model_uri")],
+    indirect=["baseline_model_uri"],
+)
+def test_binary_classification_missing_minority_class_exception_override(
+    binary_logistic_regressor_model_uri, breast_cancer_dataset, baseline_model_uri, monkeypatch
+):
+    monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", True)
+
+    ds_targets = breast_cancer_dataset._constructor_args["targets"]
+    # Simulate a missing target label
+    ds_targets = np.where(ds_targets == 0, 1, ds_targets)
+
+    with mlflow.start_run() as run:
+        eval_result = evaluate(
+            binary_logistic_regressor_model_uri,
+            breast_cancer_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=ds_targets,
+            evaluators=["default"],
+            baseline_model=baseline_model_uri,
+        )
+    _, saved_metrics, _, _ = get_run_data(run.info.run_id)
+
+    assert saved_metrics == eval_result.metrics
+
+
+@pytest.mark.parametrize(
+    "baseline_model_uri",
+    [("None"), ("multiclass_logistic_regressor_baseline_model_uri_4")],
+    indirect=["baseline_model_uri"],
+)
+def test_multiclass_classification_missing_minority_class_exception_override(
+    multiclass_logistic_regressor_model_uri, iris_dataset, baseline_model_uri, monkeypatch
+):
+    monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", True)
+
+    ds_targets = iris_dataset._constructor_args["targets"]
+    # Simulate a missing target label
+    ds_targets = np.where(ds_targets == 0, 1, ds_targets)
+
+    with mlflow.start_run() as run:
+        eval_result = evaluate(
+            multiclass_logistic_regressor_model_uri,
+            iris_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=ds_targets,
+            evaluators=["default"],
+            baseline_model=baseline_model_uri,
+        )
+    _, saved_metrics, _, saved_artifacts = get_run_data(run.info.run_id)
+
+    assert saved_metrics == eval_result.metrics
+    assert "shap_beeswarm_plot.png" not in saved_artifacts
 
 
 @pytest.mark.parametrize(

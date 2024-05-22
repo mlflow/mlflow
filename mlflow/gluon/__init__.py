@@ -46,8 +46,6 @@ _MODEL_SAVE_PATH = "net"
 
 _MODEL_DATA_PATH = "data"
 
-model_data_artifact_paths = [_MODEL_DATA_PATH]
-
 
 @deprecated(since="2.5.0")
 def load_model(model_uri, ctx, dst_path=None):
@@ -121,9 +119,6 @@ class _GluonModelWrapper:
                 `ndarray = df.values`.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
-
         Returns:
             Model predictions. If the input is a pandas.DataFrame, the predictions are returned
             in a pandas.DataFrame. If the input is a numpy array, the predictions are returned
@@ -186,17 +181,12 @@ def save_model(
         path: Local path where the model is to be saved.
         mlflow_model: MLflow model config this flavor is being added to.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         signature: {{ signature }}
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
+        metadata:  {{ metadata }}
 
     .. code-block:: python
         :caption: Example
@@ -335,9 +325,7 @@ def log_model(
         gluon_model: Gluon model to be saved. Must be already hybridized.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
@@ -345,10 +333,7 @@ def log_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
+        metadata: {{ metadata }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -436,10 +421,10 @@ def autolog(
 
     from mxnet.gluon.contrib.estimator import Estimator
 
-    from mlflow.gluon._autolog import __MLflowGluonCallback
+    from mlflow.gluon._autolog import __MlflowGluonCallback
 
     def getGluonCallback(metrics_logger):
-        return __MLflowGluonCallback(log_models, metrics_logger)
+        return __MlflowGluonCallback(log_models, metrics_logger)
 
     def fit(original, self, *args, **kwargs):
         # Wrap `fit` execution within a batch metrics logger context.

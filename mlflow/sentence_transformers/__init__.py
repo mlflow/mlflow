@@ -1,11 +1,13 @@
 import json
 import logging
 import pathlib
+import re
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 import yaml
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
@@ -15,6 +17,11 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.transformers.llm_inference_utils import (
+    _LLM_INFERENCE_TASK_EMBEDDING,
+    _LLM_V1_EMBEDDING_INPUT_KEY,
+    postprocess_output_for_llm_v1_embedding_task,
+)
 from mlflow.types.llm import (
     EMBEDDING_MODEL_INPUT_SCHEMA,
     EMBEDDING_MODEL_OUTPUT_SCHEMA,
@@ -48,12 +55,16 @@ from mlflow.utils.model_utils import (
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "sentence_transformers"
+_TRANSFORMER_SOURCE_MODEL_NAME_KEY = "source_model_name"
+_TRANSFORMER_MODEL_TYPE_KEY = "pipeline_model_type"
+
 SENTENCE_TRANSFORMERS_DATA_PATH = "model.sentence_transformer"
 _INFERENCE_CONFIG_PATH = "inference_config"
-_LLM_INFERENCE_TASK_EMBEDDING = "llm/v1/embeddings"
-_LLM_V1_EMBEDDING_INPUT_KEY = "input"
 
-model_data_artifact_paths = [SENTENCE_TRANSFORMERS_DATA_PATH]
+# Patterns to extract HuggingFace model repository name from the local snapshot path.
+# The path format would be like /path/to/{username}_{modelname}, where user name can
+# only contain number, letters, and dashes.
+_LOCAL_SNAPSHOT_PATH_PATTERN = re.compile(r"/([0-9a-zA-Z-]+)_([^\/]+)/$")
 
 _logger = logging.getLogger(__name__)
 
@@ -121,6 +132,12 @@ def save_model(
     metadata: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
+    .. note::
+
+        Saving Sentence Transformers models with custom code (i.e. models that require
+        ``trust_remote_code=True``) is supported in MLflow 2.12.0 and above.
+
+
     Save a trained ``sentence-transformers`` model to a path on the local file system.
 
     Args:
@@ -135,9 +152,7 @@ def save_model(
             Model or for use in Spark.
             These values are not applied to a returned model from a call to
             ``mlflow.sentence_transformers.load_model()``
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: An MLflow model object that specifies the flavor that this model is being
             added to.
         signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -153,11 +168,7 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
-
+        metadata: {{ metadata }}
     """
     import sentence_transformers
 
@@ -206,10 +217,12 @@ def save_model(
         model_config=model_config,
         code=code_dir_subpath,
     )
+
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         sentence_transformers_version=sentence_transformers.__version__,
         code=code_dir_subpath,
+        **_get_transformers_model_metadata(model),
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -242,6 +255,46 @@ def save_model(
     _PythonEnv.current().to_yaml(str(path.joinpath(_PYTHON_ENV_FILE_NAME)))
 
 
+def _get_transformers_model_metadata(model) -> Dict[str, str]:
+    """
+    Extract metadata about the underlying Transformers model, such as the model class name
+    and the repository id.
+
+    Args:
+        model: A SentenceTransformer model instance.
+
+    Returns:
+        A dictionary containing metadata about the Transformers model.
+    """
+    from sentence_transformers.models import Transformer
+
+    # NB: We assume the SentenceTransformer model contains only up to one Transformer model.
+    for module in model.modules():
+        if isinstance(module, Transformer):
+            model_instance = module.auto_model
+            return {
+                _TRANSFORMER_SOURCE_MODEL_NAME_KEY: _get_transformers_model_name(
+                    model_instance.name_or_path
+                ),
+                _TRANSFORMER_MODEL_TYPE_KEY: model_instance.__class__.__name__,
+            }
+    return {}
+
+
+def _get_transformers_model_name(model_name_or_path):
+    """
+    Extract the Transformers model name from name_or_path attribute of a Transformer model.
+
+    Normally the name_or_path attribute just points to the model name, but in Sentence
+    Transformers < 2.3.0, the library loads the Transformers model after local snapshot
+    download, so the name_or_path attribute points to the local filepath.
+    https://github.com/UKPLab/sentence-transformers/commit/9db0f205adcf315d16961fea7e9e6906cb950d43
+    """
+    if m := _LOCAL_SNAPSHOT_PATH_PATTERN.search(model_name_or_path):
+        return f"{m.group(1)}/{m.group(2)}"
+    return model_name_or_path
+
+
 @experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -261,8 +314,12 @@ def log_model(
     metadata: Optional[Dict[str, Any]] = None,
 ):
     """
-    Log a ``sentence_transformers`` model as an MLflow artifact for the current run.
+    .. note::
 
+        Logging Sentence Transformers models with custom code (i.e. models that require
+        ``trust_remote_code=True``) is supported in MLflow 2.12.0 and above.
+
+    Log a ``sentence_transformers`` model as an MLflow artifact for the current run.
 
     .. code-block:: python
 
@@ -300,9 +357,7 @@ def log_model(
             Model or for use in Spark.
             These values are not applied to a returned model from a call to
             ``mlflow.sentence_transformers.load_model()``
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
             future release without warning. If given, create a model
             version under ``registered_model_name``, also creating a
@@ -320,11 +375,7 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
-
+        metadata: {{ metadata }}
     """
     if task is not None:
         metadata = _verify_task_and_update_metadata(task, metadata)
@@ -346,6 +397,20 @@ def log_model(
     )
 
 
+def _get_load_kwargs():
+    import sentence_transformers
+
+    load_kwargs = {}
+    # The trust_remote_code is supported since Sentence Transformers 2.3.0
+    if Version(sentence_transformers.__version__) >= Version("2.3.0"):
+        # Always set trust_remote_code=True because we save the entire repository files in
+        # the model artifacts, so there is no risk of running untrusted code unless the logged
+        # artifact is modified by a malicious actor, which is much more broader security
+        # concern that even cannot be prevented by setting trust_remote_code=False.
+        load_kwargs["trust_remote_code"] = True
+    return load_kwargs
+
+
 def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     """
     Load PyFunc implementation for SentenceTransformer. Called by ``pyfunc.load_model``.
@@ -355,7 +420,8 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     """
     import sentence_transformers
 
-    model = sentence_transformers.SentenceTransformer.load(path)
+    load_kwargs = _get_load_kwargs()
+    model = sentence_transformers.SentenceTransformer(path, **load_kwargs)
     model_config = model_config or {}
     task = model_config.get("task", None)
     return _SentenceTransformerModelWrapper(model, task)
@@ -399,7 +465,8 @@ def load_model(model_uri: str, dst_path: Optional[str] = None):
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
 
-    return sentence_transformers.SentenceTransformer.load(str(local_model_dir))
+    load_kwargs = _get_load_kwargs()
+    return sentence_transformers.SentenceTransformer(str(local_model_dir), **load_kwargs)
 
 
 def _get_default_signature():
@@ -423,10 +490,6 @@ class _SentenceTransformerModelWrapper:
         Args:
             sentences: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
-
 
         Returns:
             Model predictions.
@@ -455,56 +518,7 @@ class _SentenceTransformerModelWrapper:
             output_data = self.model.encode(sentences)
 
         if convert_output_to_llm_v1_format:
-            output_data = self.postprocess_output_for_llm_v1_embedding_task(sentences, output_data)
+            output_data = postprocess_output_for_llm_v1_embedding_task(
+                sentences, output_data, self.model.tokenizer
+            )
         return output_data
-
-    def postprocess_output_for_llm_v1_embedding_task(
-        self, input_prompts: Union[str, List[str]], output_tensers: List[List[int]]
-    ):
-        """
-        Wrap output data with usage information.
-
-        Examples:
-            .. code-block:: python
-                input_prompt = ["hello world and hello mlflow"]
-                output_embedding = [0.47137904, 0.4669448, ..., 0.69726706]
-                output_dicts = postprocess_output_for_llm_v1_embedding_task(
-                    input_prompt, output_embedding
-                )
-                assert output_dicts == [
-                    {
-                        "object": "list",
-                        "data": [
-                            {
-                                "object": "embedding",
-                                "index": 0,
-                                "embedding": [0.47137904, 0.4669448, ..., 0.69726706],
-                            }
-                        ],
-                        "usage": {"prompt_tokens": 8, "total_tokens": 8},
-                    }
-                ]
-
-        Args:
-            input_prompts: text input prompts
-            output_tensers: List of output tensors that contain the generated embeddings
-
-        Returns:
-             Dictionaries containing the output embedding and usage information for each
-             input prompt.
-        """
-        prompt_tokens = sum(
-            [len(self.model.tokenizer(prompt)["input_ids"]) for prompt in input_prompts]
-        )
-        return {
-            "object": "list",
-            "data": [
-                {
-                    "object": "embedding",
-                    "index": i,
-                    "embedding": tensor,
-                }
-                for i, tensor in enumerate(output_tensers)
-            ],
-            "usage": {"prompt_tokens": prompt_tokens, "total_tokens": prompt_tokens},
-        }

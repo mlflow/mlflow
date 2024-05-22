@@ -31,6 +31,7 @@ When the logged model is served on Databricks, each secret will be resolved and 
 corresponding environment variable. See https://docs.databricks.com/security/secrets/index.html
 for how to set up secrets on Databricks.
 """
+
 import itertools
 import logging
 import os
@@ -48,11 +49,13 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
+from mlflow.openai._openai_autolog import patched_call
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, Schema, TensorSpec
 from mlflow.utils.annotations import experimental
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
     is_in_databricks_runtime,
@@ -91,8 +94,6 @@ FLAVOR_NAME = "openai"
 MODEL_FILENAME = "model.yaml"
 _PYFUNC_SUPPORTED_TASKS = ("chat.completions", "embeddings", "completions")
 
-model_data_artifact_paths = []
-
 _logger = logging.getLogger(__name__)
 
 
@@ -118,8 +119,6 @@ def get_default_conda_env():
 
 
 def _get_obj_to_task_mapping():
-    import openai
-
     if Version(_get_openai_package_version()).major < 1:
         from openai import api_resources as ar
 
@@ -138,17 +137,19 @@ def _get_obj_to_task_mapping():
             ar.Moderation: "moderations",
         }
     else:
+        from openai import resources as r
+
         return {
-            openai.audio: "audio",
-            openai.chat.completions: "chat.completions",
-            openai.completions: "completions",
-            openai.images.edit: "images.edit",
-            openai.embeddings: "embeddings",
-            openai.files: "files",
-            openai.images: "images",
-            openai.fine_tuning: "fine_tuning",
-            openai.moderations: "moderations",
-            openai.models: "models",
+            r.Audio: "audio",
+            r.chat.Completions: "chat.completions",
+            r.Completions: "completions",
+            r.Images.edit: "images.edit",
+            r.Embeddings: "embeddings",
+            r.Files: "files",
+            r.Images: "images",
+            r.FineTuning: "fine_tuning",
+            r.Moderations: "moderations",
+            r.Models: "models",
         }
 
 
@@ -175,7 +176,11 @@ def _get_task_name(task):
             )
         return task
     else:
-        task_name = mapping.get(task)
+        task_name = (
+            mapping.get(task)
+            or mapping.get(task.__class__)
+            or mapping.get(getattr(task, "__func__"))  # if task is a method
+        )
         if task_name is None:
             raise mlflow.MlflowException(
                 f"Unsupported task object: {task}", error_code=INVALID_PARAMETER_VALUE
@@ -273,9 +278,7 @@ def save_model(
             ``'chat.completions'``.
         path: Local path where the model is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
             describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
@@ -294,10 +297,7 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
         example_no_conversion: {{ example_no_conversion }}
         kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
             :ref:`mlflow.openai.messages` for more details on this parameter)
@@ -473,9 +473,7 @@ def log_model(
             ``'chat.completions'``.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
@@ -500,10 +498,7 @@ def log_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
         example_no_conversion: {{ example_no_conversion }}
         kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
             :ref:`mlflow.openai.messages` for more details on this parameter)
@@ -797,9 +792,6 @@ class _OpenAIWrapper:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
 
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                           release without warning.
-
         Returns:
             Model predictions.
         """
@@ -850,3 +842,74 @@ def load_model(model_uri, dst_path=None):
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     model_data_path = os.path.join(local_model_path, flavor_conf.get("data", MODEL_FILENAME))
     return _load_model(model_data_path)
+
+
+@experimental
+@autologging_integration(FLAVOR_NAME)
+def autolog(
+    log_input_examples=False,
+    log_model_signatures=False,
+    log_models=False,
+    log_datasets=False,
+    disable=False,
+    exclusive=False,
+    disable_for_unsupported_versions=True,
+    silent=False,
+    registered_model_name=None,
+    extra_tags=None,
+):
+    """
+    Enables (or disables) and configures autologging from OpenAI to MLflow.
+    Raises :py:class:`MlflowException <mlflow.exceptions.MlflowException>`
+    if the OpenAI version < 1.0.
+
+    Args:
+        log_input_examples: If ``True``, input examples from inference data are collected and
+            logged along with Langchain model artifacts during inference. If
+            ``False``, input examples are not logged.
+            Note: Input examples are MLflow model attributes
+            and are only collected if ``log_models`` is also ``True``.
+        log_model_signatures: If ``True``,
+            :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+            describing model inputs and outputs are collected and logged along
+            with OpenAI model artifacts during inference. If ``False``,
+            signatures are not logged.
+            Note: Model signatures are MLflow model attributes
+            and are only collected if ``log_models`` is also ``True``.
+        log_models: If ``True``, OpenAI models are logged as MLflow model artifacts.
+            If ``False``, OpenAI models are not logged.
+            Input examples and model signatures, which are attributes of MLflow models,
+            are also omitted when ``log_models`` is ``False``.
+        log_datasets: If ``True``, dataset information is logged to MLflow Tracking
+            if applicable. If ``False``, dataset information is not logged.
+        disable: If ``True``, disables the OpenAI autologging integration. If ``False``,
+            enables the OpenAI autologging integration.
+        exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+            If ``False``, autologged content is logged to the active fluent run,
+            which may be user-created.
+        disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+            OpenAI that have not been tested against this version of the MLflow
+            client or are incompatible.
+        silent: If ``True``, suppress all event logs and warnings from MLflow during OpenAI
+            autologging. If ``False``, show all events and warnings during OpenAI
+            autologging.
+        registered_model_name: If given, each time a model is trained, it is registered as a
+            new model version of the registered model with this name.
+            The registered model is created if it does not already exist.
+        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+    """
+
+    if Version(_get_openai_package_version()).major < 1:
+        raise MlflowException("OpenAI autologging is only supported for openai >= 1.0.0")
+
+    from openai.resources.chat.completions import Completions as ChatCompletions
+    from openai.resources.completions import Completions
+    from openai.resources.embeddings import Embeddings
+
+    for task in (ChatCompletions, Completions, Embeddings):
+        safe_patch(
+            FLAVOR_NAME,
+            task,
+            "create",
+            patched_call,
+        )

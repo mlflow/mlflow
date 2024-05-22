@@ -9,7 +9,9 @@ import pytest
 
 import mlflow
 import mlflow.utils.requirements_utils
+from mlflow.exceptions import MlflowException
 from mlflow.utils.environment import infer_pip_requirements
+from mlflow.utils.os import is_windows
 from mlflow.utils.requirements_utils import (
     _capture_imported_modules,
     _get_installed_version,
@@ -141,8 +143,8 @@ line-cont-eof\
     # pip's requirements parser collapses an absolute requirements file path:
     # https://github.com/pypa/pip/issues/10121
     # As a workaround, use a relative path on Windows.
-    absolute_req = abs_req.name if os.name == "nt" else str(abs_req)
-    absolute_con = abs_con.name if os.name == "nt" else str(abs_con)
+    absolute_req = abs_req.name if is_windows() else str(abs_req)
+    absolute_con = abs_con.name if is_windows() else str(abs_con)
     root_req.write_text(
         root_req_src.format(
             relative_req=rel_req.name,
@@ -313,6 +315,19 @@ def test_infer_requirements_does_not_print_warning_for_recognized_packages():
     ), mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
         _infer_requirements("path/to/model", "sklearn")
         mock_warning.assert_not_called()
+
+
+def test_infer_requirements_raises_when_env_var_set(monkeypatch):
+    monkeypatch.setenv("MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", "True")
+
+    with mock.patch(
+        "mlflow.utils.requirements_utils._capture_imported_modules",
+        return_value=["sklearn"],
+    ), mock.patch(
+        "mlflow.utils.requirements_utils._PYPI_PACKAGE_INDEX",
+        _PyPIPackageIndex(date="2022-01-01", package_names=set()),
+    ), pytest.raises(MlflowException, match="Failed to infer requirements for the model"):
+        _infer_requirements("path/to/model", "sklearn")
 
 
 def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmp_path):
@@ -577,3 +592,69 @@ To fix the mismatches, call `mlflow.pyfunc.get_model_dependencies(model_uri)` to
 model's environment and install dependencies using the resulting environment file.
 """.strip().format(cloudpickle_version=cloudpickle.__version__)
             )
+
+
+def test_capture_imported_modules_with_exception():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            import pandas  # noqa: F401
+
+            raise Exception("Test exception")
+            import sklearn  # noqa: F401
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            input_example="test",
+        )
+
+    with mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
+        modules = _capture_imported_modules(model_info.model_uri, mlflow.pyfunc.FLAVOR_NAME)
+        assert "pandas" in modules
+        assert (
+            "Failed to run predict on input_example, dependencies "
+            "introduced in predict are not captured.\n" in mock_warning.call_args[0][0]
+        )
+        assert "sklearn" not in modules
+
+
+def test_capture_imported_modules_raises_when_env_var_set(monkeypatch):
+    monkeypatch.setenv("MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", "True")
+
+    class BadModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            raise Exception("Intentional")
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=BadModel(),
+            input_example="test",
+        )
+    with pytest.raises(
+        MlflowException, match="Encountered an error while capturing imported modules"
+    ):
+        _capture_imported_modules(model_info.model_uri, mlflow.pyfunc.FLAVOR_NAME)
+
+
+def test_capture_imported_modules_correct():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            import pandas  # noqa: F401
+            import sklearn  # noqa: F401
+
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            input_example="test",
+        )
+
+    with mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
+        modules = _capture_imported_modules(model_info.model_uri, mlflow.pyfunc.FLAVOR_NAME)
+        mock_warning.assert_not_called()
+        assert "pandas" in modules
+        assert "sklearn" in modules

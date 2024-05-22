@@ -7,9 +7,7 @@ import promiseMiddleware from 'redux-promise-middleware';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
 import { ExperimentViewRunsControlsFilters } from './ExperimentViewRunsControlsFilters';
 import { experimentRunsSelector } from '../../utils/experimentRuns.selector';
-import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
-import { UpdateExperimentSearchFacetsFn } from '../../../../types';
-import { GetExperimentRunsContextProvider } from '../../contexts/GetExperimentRunsContext';
+import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 
 const MOCK_EXPERIMENT = EXPERIMENT_RUNS_MOCK_STORE.entities.experimentsById['123456789'];
 
@@ -29,24 +27,8 @@ export default {
 };
 
 export const Default = () => {
-  const [searchFacetsState, setSearchFacetsState] = useState<SearchExperimentRunsFacetsState>(
-    new SearchExperimentRunsFacetsState(),
-  );
-  const [messages, setMessages] = useState<string[]>([]);
-  const updateSearchFacets: UpdateExperimentSearchFacetsFn = (updatedFacetsState) => {
-    if (typeof updatedFacetsState === 'function') {
-      setSearchFacetsState(updatedFacetsState);
-
-      setMessages((currentMessages) => ['updateSearchFacets() called with setter function', ...currentMessages]);
-    } else {
-      setSearchFacetsState((s) => ({ ...s, ...updatedFacetsState }));
-
-      setMessages((currentMessages) => [
-        `updateSearchFacets() called while updating state ${JSON.stringify(updatedFacetsState)}`,
-        ...currentMessages,
-      ]);
-    }
-  };
+  const [searchFacetsState] = useState(() => createExperimentPageSearchFacetsState());
+  const [messages] = useState<string[]>([]);
 
   return (
     <Provider
@@ -59,49 +41,46 @@ export const Default = () => {
     >
       <IntlProvider locale="en">
         <MemoryRouter>
-          <GetExperimentRunsContextProvider actions={MOCK_ACTIONS as any}>
-            <div
-              css={{
-                marginBottom: 20,
-                paddingBottom: 10,
-                borderBottom: '1px solid #ccc',
-              }}
-            >
-              <h2>Component:</h2>
-            </div>
-            <ExperimentViewRunsControlsFilters
-              runsData={MOCK_RUNS_DATA}
-              searchFacetsState={searchFacetsState}
-              updateSearchFacets={updateSearchFacets}
-              experimentId="123"
-              viewState={{} as any}
-              updateViewState={() => {}}
-              onDownloadCsv={() => {
-                // eslint-disable-next-line no-alert
-                window.alert('Downloading dummy CSV...');
-              }}
-              requestError={null}
-              refreshRuns={() => {}}
-              viewMaximized={false}
-            />
-            <div
-              css={{
-                marginTop: 20,
-                paddingTop: 10,
-                borderTop: '1px solid #ccc',
-              }}
-            >
-              <h2>Debug info:</h2>
-              <h3>Current search-sort-filter state:</h3>
-              <div css={{ fontFamily: 'monospace', marginBottom: 10 }}>{JSON.stringify(searchFacetsState)}</div>
-              <h3>Log:</h3>
-              {messages.map((m, i) => (
-                <div key={i} css={{ fontFamily: 'monospace' }}>
-                  - {m}
-                </div>
-              ))}
-            </div>
-          </GetExperimentRunsContextProvider>
+          <div
+            css={{
+              marginBottom: 20,
+              paddingBottom: 10,
+              borderBottom: '1px solid #ccc',
+            }}
+          >
+            <h2>Component:</h2>
+          </div>
+          <ExperimentViewRunsControlsFilters
+            runsData={MOCK_RUNS_DATA}
+            searchFacetsState={searchFacetsState}
+            experimentId="123"
+            viewState={{} as any}
+            updateViewState={() => {}}
+            onDownloadCsv={() => {
+              // eslint-disable-next-line no-alert
+              window.alert('Downloading dummy CSV...');
+            }}
+            requestError={null}
+            refreshRuns={() => {}}
+            viewMaximized={false}
+          />
+          <div
+            css={{
+              marginTop: 20,
+              paddingTop: 10,
+              borderTop: '1px solid #ccc',
+            }}
+          >
+            <h2>Debug info:</h2>
+            <h3>Current search-sort-filter state:</h3>
+            <div css={{ fontFamily: 'monospace', marginBottom: 10 }}>{JSON.stringify(searchFacetsState)}</div>
+            <h3>Log:</h3>
+            {messages.map((m, i) => (
+              <div key={i} css={{ fontFamily: 'monospace' }}>
+                - {m}
+              </div>
+            ))}
+          </div>
         </MemoryRouter>
       </IntlProvider>
     </Provider>

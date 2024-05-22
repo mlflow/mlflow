@@ -11,6 +11,7 @@ import os
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
+import mlflow
 from mlflow.data.dataset import Dataset
 from mlflow.entities import (
     DatasetInput,
@@ -37,7 +38,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.tracking import _get_store, artifact_utils
+from mlflow.tracking import _get_artifact_repo, _get_store, artifact_utils
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.default_experiment import registry as default_experiment_registry
@@ -233,7 +234,7 @@ def start_run(
             environment variable, ``MLFLOW_EXPERIMENT_ID`` environment variable,
             or the default experiment as defined by the tracking server.
         run_name: Name of new run. Used only when ``run_id`` is unspecified. If a new run is
-            created and ``run_name`` is not specified, a unique name will be generated for the run.
+            created and ``run_name`` is not specified, a random name will be generated for the run.
         nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
         tags: An optional dictionary of string keys and values to set as tags on the run.
             If a run is being resumed, these tags are set on the resumed run. If a new run is
@@ -666,6 +667,14 @@ def flush_async_logging() -> None:
     _get_store().flush_async_logging()
 
 
+def flush_artifact_async_logging() -> None:
+    """Flush all pending artifact async logging."""
+    run_id = _get_or_start_run().info.run_id
+    _artifact_repo = _get_artifact_repo(run_id)
+    if _artifact_repo:
+        _artifact_repo.flush_async_logging()
+
+
 def set_experiment_tag(key: str, value: Any) -> None:
     """
     Set a tag on the current experiment. Value is converted to a string.
@@ -869,7 +878,7 @@ def log_metrics(
 
 
 def log_params(
-    params: Dict[str, Any], synchronous: Optional[bool] = None
+    params: Dict[str, Any], synchronous: Optional[bool] = None, run_id: Optional[str] = None
 ) -> Optional[RunOperations]:
     """
     Log a batch of params for the current run. If no run is active, this method will create a
@@ -882,6 +891,8 @@ def log_params(
             successfully. If False, logs the parameters asynchronously and
             returns a future representing the logging operation. If None, read from environment
             variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
+        run_id: Run ID. If specified, log params to the specified run. If not specified, log
+            params to the currently active run.
 
     Returns:
         When `synchronous=True`, returns None. When `synchronous=False`, returns an
@@ -904,7 +915,7 @@ def log_params(
         with mlflow.start_run():
             mlflow.log_params(params, synchronous=False)
     """
-    run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     params_arr = [Param(key, str(value)) for key, value in params.items()]
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_batch(
@@ -1216,21 +1227,27 @@ def log_figure(
 
 
 def log_image(
-    image: Union["numpy.ndarray", "PIL.Image.Image"],
+    image: Union["numpy.ndarray", "PIL.Image.Image", "mlflow.Image"],
     artifact_file: Optional[str] = None,
     key: Optional[str] = None,
     step: Optional[int] = None,
     timestamp: Optional[int] = None,
+    synchronous: Optional[bool] = False,
 ) -> None:
     """
     Logs an image in MLflow, supporting two use cases:
 
-    1. Time-stepped image logging: ideal for tracking changes or progressions through iterative
-        processes (e.g., during model training phases).
-        - Usage: `log_image(image, key=key, step=step, timestamp=timestamp)`
-    2. Artifact file image logging: best suited for static image logging where the image
-        is saved directly as a file artifact.
-        - Usage: `log_image(image, artifact_file)`
+    1. Time-stepped image logging:
+        Ideal for tracking changes or progressions through iterative processes (e.g.,
+        during model training phases).
+
+        - Usage: :code:`log_image(image, key=key, step=step, timestamp=timestamp)`
+
+    2. Artifact file image logging:
+        Best suited for static image logging where the image is saved directly as a file
+        artifact.
+
+        - Usage: :code:`log_image(image, artifact_file)`
 
     The following image formats are supported:
         - `numpy.ndarray`_
@@ -1241,6 +1258,8 @@ def log_image(
 
         .. _PIL.Image.Image:
             https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
+
+        - :class:`mlflow.Image`: An MLflow wrapper around PIL image for convenient image logging.
 
     Numpy array support
         - data types:
@@ -1269,10 +1288,13 @@ def log_image(
             will be stored as an artifact relative to the run's root directory (for
             example, "dir/image.png"). This parameter is kept for backward compatibility
             and should not be used together with `key`, `step`, or `timestamp`.
-        key: Image name for time-stepped image logging.
+        key: Image name for time-stepped image logging. This string may only contain
+            alphanumerics, underscores (_), dashes (-), periods (.), spaces ( ), and
+            slashes (/).
         step: Integer training step (iteration) at which the image was saved.
             Defaults to 0.
         timestamp: Time when this image was saved. Defaults to the current system time.
+        synchronous: *Experimental* If True, blocks until the image is logged successfully.
 
     .. code-block:: python
         :caption: Time-stepped image logging numpy example
@@ -1297,6 +1319,19 @@ def log_image(
             mlflow.log_image(image, key="dogs", step=3)
 
     .. code-block:: python
+        :caption: Time-stepped image logging with mlflow.Image example
+
+        import mlflow
+        from PIL import Image
+
+        # If you have a preexisting saved image
+        Image.new("RGB", (100, 100)).save("image.png")
+
+        image = mlflow.Image("image.png")
+        with mlflow.start_run() as run:
+            mlflow.log_image(run.info.run_id, image, key="dogs", step=3)
+
+    .. code-block:: python
         :caption: Legacy artifact file image logging numpy example
 
         import mlflow
@@ -1319,7 +1354,7 @@ def log_image(
             mlflow.log_image(image, "image.png")
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_image(run_id, image, artifact_file, key, step, timestamp)
+    MlflowClient().log_image(run_id, image, artifact_file, key, step, timestamp, synchronous)
 
 
 @experimental
@@ -2219,6 +2254,7 @@ def autolog(
         # TODO: Broaden this beyond pytorch_lightning as we add autologging support for more
         # Pytorch frameworks under mlflow.pytorch.autolog
         "pytorch_lightning": "mlflow.pytorch",
+        "lightning": "mlflow.pytorch",
         "setfit": "mlflow.transformers",
         "transformers": "mlflow.transformers",
         # do not enable langchain autologging by default

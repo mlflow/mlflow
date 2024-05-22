@@ -28,6 +28,7 @@ from mlflow import pyfunc
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, infer_signature
+from mlflow.models.model import METADATA_FILES
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.transformers import (
@@ -58,8 +59,6 @@ from tests.helper_functions import (
 )
 from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API, flaky
 from tests.transformers.test_transformers_peft_model import SKIP_IF_PEFT_NOT_AVAILABLE
-
-_IS_PIPELINE_DTYPE_SUPPORTED_VERSION = Version(transformers.__version__) >= Version("4.26.1")
 
 # NB: Some pipelines under test in this suite come very close or outright exceed the
 # default runner containers specs of 7GB RAM. Due to this inability to run the suite without
@@ -402,6 +401,21 @@ def test_basic_save_model_and_load_text_pipeline(small_seq2seq_pipeline, model_p
     result = loaded("MLflow is a really neat tool!")
     assert result[0]["label"] == "happy"
     assert result[0]["score"] > 0.5
+
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float64])
+def test_basic_save_model_with_torch_dtype(text2text_generation_pipeline, model_path, dtype):
+    mlflow.transformers.save_model(
+        transformers_model=text2text_generation_pipeline,
+        path=model_path,
+        torch_dtype=dtype,
+    )
+
+    loaded = mlflow.transformers.load_model(model_path)
+    assert loaded.model.dtype == dtype
+
+    loaded = mlflow.transformers.load_model(model_path, torch_dtype=torch.float32)
+    assert loaded.model.dtype == torch.float32
 
 
 def test_basic_save_model_and_load_vision_pipeline(small_vision_model, model_path, image_for_test):
@@ -2455,72 +2469,6 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
     assert "\n\n" in inference[0]
 
 
-@pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
-@flaky()
-def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
-    task = "translation_en_to_fr"
-
-    # Many of the 'full configuration' arguments specified are not stored as instance arguments
-    # for a pipeline; rather, they are only used when acquiring the pipeline components from
-    # the huggingface hub at initial pipeline creation. If a pipeline is specified, it is
-    # irrelevant to store these.
-    full_config_pipeline = transformers.pipeline(
-        task=task,
-        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
-        tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
-        framework="pt",
-        torch_dtype=torch.bfloat16,
-    )
-
-    mlflow.transformers.save_model(
-        transformers_model=full_config_pipeline,
-        path=model_path,
-    )
-
-    base_loaded = mlflow.transformers.load_model(model_path)
-    assert base_loaded.torch_dtype == torch.bfloat16
-    assert base_loaded.framework == "pt"
-    assert base_loaded.model.dtype == torch.bfloat16
-
-    loaded_pipeline = mlflow.transformers.load_model(model_path, torch_dtype=torch.float64)
-
-    assert loaded_pipeline.torch_dtype == torch.float64
-    assert loaded_pipeline.framework == "pt"
-    assert loaded_pipeline.model.dtype == torch.float64
-
-    prediction = loaded_pipeline.predict("Hello there. How are you today?")
-    assert prediction[0]["translation_text"].startswith("Bonjour")
-
-
-@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float64])
-@pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
-@flaky()
-def test_load_pyfunc_mutate_torch_dtype(model_path, dtype):
-    task = "translation_en_to_fr"
-
-    full_config_pipeline = transformers.pipeline(
-        task=task,
-        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
-        tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
-        framework="pt",
-        torch_dtype=dtype,
-    )
-
-    mlflow.transformers.save_model(
-        transformers_model=full_config_pipeline,
-        path=model_path,
-    )
-
-    # Since we can't directly access the underlying wrapped model instance, evaluate the
-    # ability to generate an inference with a specific dtype to ensure that there are no
-    # complications with setting different types within pyfunc.
-    loaded_pipeline = mlflow.pyfunc.load_model(model_path)
-
-    prediction = loaded_pipeline.predict("Hello there. How are you today?")
-
-    assert prediction[0].startswith("Bonjour")
-
-
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
@@ -3407,12 +3355,37 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
     assert mlmodel["model_size_bytes"] == expected_size
 
 
-@pytest.mark.parametrize("task", ["llm/v1/completions", "llm/v1/chat"])
-def test_text_generation_save_model_with_inference_task(task, text_generation_pipeline, model_path):
+@pytest.mark.parametrize(
+    ("task", "input_example"),
+    [
+        (
+            "llm/v1/completions",
+            {
+                "prompt": "How to learn Python in 3 weeks?",
+                "max_tokens": 10,
+                "stop": "Python",
+            },
+        ),
+        (
+            "llm/v1/chat",
+            {
+                "messages": [
+                    {"role": "system", "content": "Hello, how are you?"},
+                ],
+                "temperature": 0.5,
+                "max_tokens": 50,
+            },
+        ),
+    ],
+)
+def test_text_generation_save_model_with_inference_task(
+    task, input_example, text_generation_pipeline, model_path
+):
     mlflow.transformers.save_model(
         transformers_model=text_generation_pipeline,
         path=model_path,
         task=task,
+        input_example=input_example,
     )
 
     mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
@@ -3421,6 +3394,9 @@ def test_text_generation_save_model_with_inference_task(task, text_generation_pi
     assert flavor_config["inference_task"] == task
 
     assert mlmodel["metadata"]["task"] == task
+
+    saved_input_example = json.loads(model_path.joinpath("input_example.json").read_text())
+    assert saved_input_example == input_example
 
 
 def test_text_generation_save_model_with_invalid_inference_task(
@@ -3434,6 +3410,20 @@ def test_text_generation_save_model_with_invalid_inference_task(
             path=model_path,
             task="llm/v1/invalid",
         )
+
+
+def test_text_generation_log_model_with_mismatched_task(text_generation_pipeline):
+    with pytest.raises(
+        MlflowException, match=r"LLM v1 task type 'llm/v1/chat' is specified in metadata, but"
+    ):
+        with mlflow.start_run():
+            mlflow.transformers.log_model(
+                transformers_model=text_generation_pipeline,
+                artifact_path="model",
+                # Task argument and metadata task are different
+                task=None,
+                metadata={"task": "llm/v1/chat"},
+            )
 
 
 def test_text_generation_task_completions_predict_with_max_tokens(
@@ -3468,10 +3458,10 @@ def test_text_generation_task_completions_predict_with_stop(text_generation_pipe
         transformers_model=text_generation_pipeline,
         path=model_path,
         task="llm/v1/completions",
+        metadata={"foo": "bar"},
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
-
     inference = pyfunc_loaded.predict(
         {"prompt": "How to learn Python in 3 weeks?", "stop": ["Python"]},
     )
@@ -3506,6 +3496,142 @@ def test_text_generation_task_completions_serve(text_generation_pipeline):
     assert output_dict["choices"][0]["text"] is not None
     assert output_dict["choices"][0]["finish_reason"] == "stop"
     assert output_dict["usage"]["prompt_tokens"] < 20
+
+
+def test_llm_v1_task_embeddings_predict(feature_extraction_pipeline, model_path):
+    mlflow.transformers.save_model(
+        transformers_model=feature_extraction_pipeline,
+        path=model_path,
+        input_examples=["Football", "Soccer"],
+        task="llm/v1/embeddings",
+    )
+
+    mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
+
+    flavor_config = mlmodel["flavors"]["transformers"]
+    assert flavor_config["inference_task"] == "llm/v1/embeddings"
+    assert mlmodel["metadata"]["task"] == "llm/v1/embeddings"
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    # Predict with single string input
+    prediction = pyfunc_loaded.predict({"input": "A great day"})
+    assert prediction["object"] == "list"
+    assert len(prediction["data"]) == 1
+    assert prediction["data"][0]["object"] == "embedding"
+    assert prediction["usage"]["prompt_tokens"] == 5
+    assert len(prediction["data"][0]["embedding"]) == 384
+
+    # Predict with list of string input
+    prediction = pyfunc_loaded.predict({"input": ["A great day", "A bad day"]})
+    assert prediction["object"] == "list"
+    assert len(prediction["data"]) == 2
+    assert prediction["data"][0]["object"] == "embedding"
+    assert prediction["usage"]["prompt_tokens"] == 10
+    assert len(prediction["data"][0]["embedding"]) == 384
+
+    # Predict with pandas dataframe input
+    df = pd.DataFrame({"input": ["A great day", "A bad day", "A good day"]})
+    prediction = pyfunc_loaded.predict(df)
+    assert prediction["object"] == "list"
+    assert len(prediction["data"]) == 3
+    assert prediction["data"][0]["object"] == "embedding"
+    assert prediction["usage"]["prompt_tokens"] == 15
+    assert len(prediction["data"][0]["embedding"]) == 384
+
+
+@pytest.mark.parametrize(
+    "request_payload",
+    [
+        {"input": "A single string"},
+        {
+            "inputs": {"input": ["A list of strings"]},
+        },
+    ],
+)
+def test_llm_v1_task_embeddings_serve(feature_extraction_pipeline, request_payload):
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=feature_extraction_pipeline,
+            artifact_path="model",
+            input_examples=["Football", "Soccer"],
+            task="llm/v1/embeddings",
+        )
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps(request_payload),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    response = json.loads(response.content.decode("utf-8"))
+    prediction = response["predictions"] if "inputs" in request_payload else response
+
+    assert prediction["object"] == "list"
+    assert len(prediction["data"]) == 1
+    assert prediction["data"][0]["object"] == "embedding"
+    assert len(prediction["data"][0]["embedding"]) == 384
+
+
+def test_local_custom_model_save_and_load(text_generation_pipeline, model_path, tmp_path):
+    local_repo_path = tmp_path / "local_repo"
+    text_generation_pipeline.save_pretrained(local_repo_path)
+
+    locally_loaded_model = transformers.AutoModelWithLMHead.from_pretrained(local_repo_path)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(local_repo_path)
+    model_dict = {"model": locally_loaded_model, "tokenizer": tokenizer}
+
+    # 1. Save local custom model without specifying task -> raises MlflowException
+    with pytest.raises(MlflowException, match=r"The task could not be inferred"):
+        mlflow.transformers.save_model(transformers_model=model_dict, path=model_path)
+
+    # 2. Save local custom model with task -> saves successfully
+    mlflow.transformers.save_model(
+        transformers_model=model_dict,
+        path=model_path,
+        task="text-generation",
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict("How to save Transformer model?")
+    assert isinstance(inference[0], str)
+    assert inference[0].startswith("How to save Transformer model?")
+
+    if Version(transformers.__version__) < Version("4.34.0"):
+        # Chat model is not supported for Transformers < 4.34.0
+        return
+
+    # 3. Save local custom model with LLM v1 chat inference task -> saves successfully
+    #    with the corresponding Transformers task
+    shutil.rmtree(model_path)
+
+    mlflow.transformers.save_model(
+        transformers_model=model_dict,
+        path=model_path,
+        task="llm/v1/chat",
+    )
+
+    mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
+    flavor_config = mlmodel["flavors"]["transformers"]
+    assert flavor_config["task"] == "text-generation"
+    assert flavor_config["inference_task"] == "llm/v1/chat"
+    assert mlmodel["metadata"]["task"] == "llm/v1/chat"
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "How to save Transformer model?",
+                }
+            ]
+        }
+    )
+    assert isinstance(inference[0], dict)
+    assert inference[0]["choices"][0]["message"]["role"] == "assistant"
 
 
 def test_model_config_is_not_mutated_after_prediction(text2text_generation_pipeline):
@@ -3725,15 +3851,7 @@ def test_small_qa_pipeline_copy_metadata(small_qa_pipeline, tmp_path):
         artifact_path = mlflow.artifacts.download_artifacts(
             artifact_uri=model_info.model_uri, dst_path=tmp_path.as_posix()
         )
-        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == {
-            "LICENSE.txt",
-            "MLmodel",
-            "conda.yaml",
-            "model_card.md",
-            "model_card_data.yaml",
-            "python_env.yaml",
-            "requirements.txt",
-        }
+        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == set(METADATA_FILES)
 
 
 def test_peft_pipeline_copy_metadata(peft_pipeline, tmp_path):
@@ -3747,12 +3865,4 @@ def test_peft_pipeline_copy_metadata(peft_pipeline, tmp_path):
         artifact_path = mlflow.artifacts.download_artifacts(
             artifact_uri=model_info.model_uri, dst_path=tmp_path.as_posix()
         )
-        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == {
-            "LICENSE.txt",
-            "MLmodel",
-            "conda.yaml",
-            "model_card.md",
-            "model_card_data.yaml",
-            "python_env.yaml",
-            "requirements.txt",
-        }
+        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == set(METADATA_FILES)

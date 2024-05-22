@@ -1,8 +1,6 @@
-import { Input, SearchIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { Input, SearchIcon, ToggleButton, useDesignSystemTheme } from '@databricks/design-system';
 import { compact, mapValues, values } from 'lodash';
 import { ReactNode, useEffect, useMemo, useState } from 'react';
-import { DndProvider } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 import { ReduxState } from '../../../redux-types';
@@ -12,7 +10,7 @@ import { RunsChartsTooltipWrapper } from '../runs-charts/hooks/useRunsChartsTool
 import { RunViewChartTooltipBody } from './RunViewChartTooltipBody';
 import { RunsChartType, RunsChartsCardConfig } from '../runs-charts/runs-charts.types';
 import type { RunsChartsRunData } from '../runs-charts/components/RunsCharts.common';
-import type { ExperimentRunsChartsUIConfiguration } from '../experiment-page/models/ExperimentPageUIStateV2';
+import type { ExperimentRunsChartsUIConfiguration } from '../experiment-page/models/ExperimentPageUIState';
 import { RunsChartsSectionAccordion } from '../runs-charts/components/sections/RunsChartsSectionAccordion';
 import { RunsChartsConfigureModal } from '../runs-charts/components/RunsChartsConfigureModal';
 import {
@@ -25,6 +23,10 @@ import {
 import { MLFLOW_MODEL_METRIC_NAME, MLFLOW_SYSTEM_METRIC_NAME, MLFLOW_SYSTEM_METRIC_PREFIX } from '../../constants';
 import LocalStorageUtils from '../../../common/utils/LocalStorageUtils';
 import { RunsChartsFullScreenModal } from '../runs-charts/components/RunsChartsFullScreenModal';
+import { useIsTabActive } from '../../../common/hooks/useIsTabActive';
+import { shouldEnableImageGridCharts, shouldEnableRunDetailsPageAutoRefresh } from '../../../common/utils/FeatureUtils';
+import { usePopulateImagesByRunUuid } from '../experiment-page/hooks/usePopulateImagesByRunUuid';
+import { DragAndDropProvider } from '../../../common/hooks/useDragAndDropElement';
 
 interface RunViewMetricChartsV2Props {
   metricKeys: string[];
@@ -61,7 +63,7 @@ export const RunViewMetricChartsV2Impl = ({
   >(undefined);
 
   const metricsForRun = useSelector(({ entities }: ReduxState) => {
-    return mapValues(entities.sampledMetricsByRunUuid[runInfo.run_uuid], (metricsByRange) => {
+    return mapValues(entities.sampledMetricsByRunUuid[runInfo.runUuid], (metricsByRange) => {
       return compact(
         values(metricsByRange)
           .map(({ metricsHistory }) => metricsHistory)
@@ -72,10 +74,14 @@ export const RunViewMetricChartsV2Impl = ({
 
   const tooltipContextValue = useMemo(() => ({ runInfo, metricsForRun }), [runInfo, metricsForRun]);
 
-  const { paramsByRunUuid, latestMetricsByRunUuid } = useSelector((state: ReduxState) => ({
-    paramsByRunUuid: state.entities.paramsByRunUuid,
-    latestMetricsByRunUuid: state.entities.latestMetricsByRunUuid,
-  }));
+  const { paramsByRunUuid, latestMetricsByRunUuid, tagsByRunUuid, imagesByRunUuid } = useSelector(
+    (state: ReduxState) => ({
+      paramsByRunUuid: state.entities.paramsByRunUuid,
+      latestMetricsByRunUuid: state.entities.latestMetricsByRunUuid,
+      tagsByRunUuid: state.entities.tagsByRunUuid,
+      imagesByRunUuid: state.entities.imagesByRunUuid,
+    }),
+  );
 
   const [configuredCardConfig, setConfiguredCardConfig] = useState<RunsChartsCardConfig | null>(null);
 
@@ -103,16 +109,18 @@ export const RunViewMetricChartsV2Impl = ({
   const chartData: RunsChartsRunData[] = useMemo(
     () => [
       {
-        displayName: runInfo.run_name,
-        metrics: latestMetricsByRunUuid[runInfo.run_uuid] || {},
-        params: paramsByRunUuid[runInfo.run_uuid] || {},
+        displayName: runInfo.runName,
+        metrics: latestMetricsByRunUuid[runInfo.runUuid] || {},
+        params: paramsByRunUuid[runInfo.runUuid] || {},
+        tags: tagsByRunUuid[runInfo.runUuid] || {},
+        images: imagesByRunUuid[runInfo.runUuid] || {},
         metricHistory: {},
-        uuid: runInfo.run_uuid,
+        uuid: runInfo.runUuid,
         color: theme.colors.primary,
         runInfo,
       },
     ],
-    [runInfo, latestMetricsByRunUuid, paramsByRunUuid, theme],
+    [runInfo, latestMetricsByRunUuid, paramsByRunUuid, tagsByRunUuid, imagesByRunUuid, theme],
   );
 
   useEffect(() => {
@@ -166,6 +174,16 @@ export const RunViewMetricChartsV2Impl = ({
     });
   }, [chartData, updateChartsUIState, mode]);
 
+  const isTabActive = useIsTabActive();
+  const autoRefreshEnabled = chartUIState.autoRefreshEnabled && shouldEnableRunDetailsPageAutoRefresh() && isTabActive;
+
+  usePopulateImagesByRunUuid({
+    runUuids: [runInfo.runUuid],
+    runUuidsIsActive: [runInfo.status === 'RUNNING'],
+    autoRefreshEnabled,
+    enabled: shouldEnableImageGridCharts(),
+  });
+
   return (
     <div
       css={{
@@ -194,7 +212,19 @@ export const RunViewMetricChartsV2Impl = ({
             description: 'Run page > Charts tab > Filter metric charts input > placeholder',
           })}
         />
-        {/* TODO: implement refreshing charts */}
+        {shouldEnableRunDetailsPageAutoRefresh() && (
+          <ToggleButton
+            pressed={chartUIState.autoRefreshEnabled}
+            onPressedChange={(pressed) => {
+              updateChartsUIState((current) => ({ ...current, autoRefreshEnabled: pressed }));
+            }}
+          >
+            {formatMessage({
+              defaultMessage: 'Auto-refresh',
+              description: 'Run page > Charts tab > Auto-refresh toggle button',
+            })}
+          </ToggleButton>
+        )}
       </div>
       <div
         css={{
@@ -203,7 +233,7 @@ export const RunViewMetricChartsV2Impl = ({
         }}
       >
         <RunsChartsTooltipWrapper contextData={tooltipContextValue} component={RunViewChartTooltipBody}>
-          <DndProvider backend={HTML5Backend}>
+          <DragAndDropProvider>
             <RunsChartsSectionAccordion
               compareRunSections={compareRunSections}
               compareRunCharts={compareRunCharts}
@@ -214,10 +244,12 @@ export const RunViewMetricChartsV2Impl = ({
               removeChart={removeChart}
               addNewChartCard={addNewChartCard}
               search={search}
-              supportedChartTypes={[RunsChartType.LINE, RunsChartType.BAR]}
+              supportedChartTypes={[RunsChartType.LINE, RunsChartType.BAR, RunsChartType.IMAGE]}
               setFullScreenChart={setFullScreenChart}
+              autoRefreshEnabled={autoRefreshEnabled}
+              groupBy={null}
             />
-          </DndProvider>
+          </DragAndDropProvider>
         </RunsChartsTooltipWrapper>
       </div>
       {configuredCardConfig && (
@@ -228,7 +260,8 @@ export const RunViewMetricChartsV2Impl = ({
           config={configuredCardConfig}
           onSubmit={submitForm}
           onCancel={() => setConfiguredCardConfig(null)}
-          supportedChartTypes={[RunsChartType.LINE, RunsChartType.BAR]}
+          groupBy={null}
+          supportedChartTypes={[RunsChartType.LINE, RunsChartType.BAR, RunsChartType.IMAGE]}
         />
       )}
       <RunsChartsFullScreenModal
@@ -237,13 +270,15 @@ export const RunViewMetricChartsV2Impl = ({
         chartData={chartData}
         tooltipContextValue={tooltipContextValue}
         tooltipComponent={RunViewChartTooltipBody}
+        autoRefreshEnabled={autoRefreshEnabled}
+        groupBy={null}
       />
     </div>
   );
 };
 
 export const RunViewMetricChartsV2 = (props: RunViewMetricChartsV2Props) => {
-  const persistenceIdentifier = `${props.runInfo.run_uuid}-${props.mode}`;
+  const persistenceIdentifier = `${props.runInfo.runUuid}-${props.mode}`;
 
   const localStore = useMemo(
     () => LocalStorageUtils.getStoreForComponent('RunPage', persistenceIdentifier),
@@ -251,10 +286,12 @@ export const RunViewMetricChartsV2 = (props: RunViewMetricChartsV2Props) => {
   );
 
   const [chartUIState, updateChartsUIState] = useState<ExperimentRunsChartsUIConfiguration>(() => {
-    const defaultChartState = {
+    const defaultChartState: ExperimentRunsChartsUIConfiguration = {
       isAccordionReordered: false,
       compareRunCharts: undefined,
       compareRunSections: undefined,
+      // Auto-refresh is enabled by default only if the flag is set
+      autoRefreshEnabled: shouldEnableRunDetailsPageAutoRefresh(),
     };
     try {
       const persistedChartState = localStore.getItem('chartUIState');

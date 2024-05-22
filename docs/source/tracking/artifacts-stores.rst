@@ -2,7 +2,7 @@
 Artifact Stores
 ===============
 
-The artifact store is a core component in `MLflow Tracking <../index.html>`_ where MLflow stores (typicaly large) arifacts
+The artifact store is a core component in `MLflow Tracking <../index.html>`_ where MLflow stores (typicaly large) artifacts
 for each run such as model weights (e.g. a pickled scikit-learn model), images (e.g. PNGs), model and data files (e.g. `Parquet <https://parquet.apache.org/>`_ file). 
 Note that metadata like parameters, metrics, and tags are stored in a `backend store <backend-stores.html>`_ (e.g., PostGres, MySQL, or MSSQL Database), the other component of the MLflow Tracking.
 

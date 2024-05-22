@@ -61,10 +61,7 @@ _SAVE_FORMAT_KEY = "save_format"
 _MODEL_BINARY_KEY = "data"
 _MODEL_BINARY_FILE_NAME = "model.cb"
 
-model_data_artifact_paths = [_MODEL_BINARY_FILE_NAME]
-
 _logger = logging.getLogger(__name__)
-_DUMMY = "hoge"
 
 
 def get_default_pip_requirements():
@@ -115,10 +112,7 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
+        metadata: {{ metadata }}
         kwargs: kwargs to pass to `CatBoost.save_model`_ method.
 
     """
@@ -240,10 +234,7 @@ def log_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
+        metadata: {{ metadata }}
         kwargs: kwargs to pass to `CatBoost.save_model`_ method.
 
     Returns:
@@ -349,9 +340,6 @@ class _CatboostModelWrapper:
         Args:
             dataframe: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             Model predictions.

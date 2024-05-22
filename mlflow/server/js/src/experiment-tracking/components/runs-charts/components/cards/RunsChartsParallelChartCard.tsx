@@ -12,13 +12,11 @@ import {
   RunsChartCardFullScreenProps,
 } from './ChartCard.common';
 import { useIsInViewport } from '../../hooks/useIsInViewport';
-import {
-  shouldEnableDeepLearningUI,
-  shouldEnableRunGrouping,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../../common/utils/FeatureUtils';
+import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/FeatureUtils';
 import { FormattedMessage } from 'react-intl';
 import { useUpdateExperimentViewUIState } from '../../../experiment-page/contexts/ExperimentPageUIStateContext';
+import { downloadChartDataCsv } from '../../../experiment-page/utils/experimentPage.common-utils';
+import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 
 export interface RunsChartsParallelChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
   config: RunsChartsParallelCardConfig;
@@ -26,7 +24,7 @@ export interface RunsChartsParallelChartCardProps extends RunsChartCardReorderPr
 
   onDelete: () => void;
   onEdit: () => void;
-  groupBy?: string;
+  groupBy: RunsGroupByConfig | null;
 }
 
 /**
@@ -149,12 +147,11 @@ export const RunsChartsParallelChartCard = ({
     return [configured, data];
   }, [config, configuredChartRunData]);
 
-  const usingV2ChartImprovements = shouldEnableDeepLearningUI();
-  const { elementRef, isInViewport } = useIsInViewport({ enabled: usingV2ChartImprovements });
+  const { elementRef, isInViewport } = useIsInViewport();
 
   const { setTooltip, resetTooltip, selectedRunUuid, closeContextMenu } = useRunsChartsTooltip(config);
 
-  const containsUnsupportedValues = containsStringValues && groupBy && shouldEnableRunGrouping();
+  const containsUnsupportedValues = containsStringValues && groupBy;
   const displaySubtitle = isConfigured && !containsUnsupportedValues;
 
   const subtitle = shouldUseNewRunRowsVisibilityModel() ? (
@@ -249,6 +246,14 @@ export const RunsChartsParallelChartCard = ({
           </>
         ) : null
       }
+      supportedDownloadFormats={['csv']}
+      onClickDownload={(format) => {
+        const savedChartTitle = [...config.selectedMetrics, ...config.selectedParams].join('-');
+
+        if (format === 'csv') {
+          downloadChartDataCsv(configuredChartRunData, config.selectedMetrics, config.selectedParams, savedChartTitle);
+        }
+      }}
     >
       {chartBody}
     </RunsChartCardWrapper>

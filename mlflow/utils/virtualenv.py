@@ -24,7 +24,8 @@ from mlflow.utils.environment import (
     _PythonEnv,
 )
 from mlflow.utils.file_utils import remove_on_error
-from mlflow.utils.process import _IS_UNIX, _exec_cmd, _join_commands
+from mlflow.utils.os import is_windows
+from mlflow.utils.process import _exec_cmd, _join_commands
 from mlflow.utils.requirements_utils import _parse_requirements
 
 _logger = logging.getLogger(__name__)
@@ -57,7 +58,7 @@ def _validate_pyenv_is_available():
     """
     url = (
         "https://github.com/pyenv/pyenv#installation"
-        if _IS_UNIX
+        if not is_windows()
         else "https://github.com/pyenv-win/pyenv-win#installation"
     )
     if not _is_pyenv_available():
@@ -101,7 +102,7 @@ def _find_latest_installable_python_version(version_prefix):
     lines = _exec_cmd(
         [_get_pyenv_bin_path(), "install", "--list"],
         capture_output=True,
-        shell=not _IS_UNIX,
+        shell=is_windows(),
     ).stdout.splitlines()
     semantic_versions = filter(_SEMANTIC_VERSION_REGEX.match, map(str.strip, lines))
     matched = [v for v in semantic_versions if v.startswith(version_prefix)]
@@ -131,18 +132,18 @@ def _install_python(version, pyenv_root=None, capture_output=False):
     _logger.info("Installing python %s if it does not exist", version)
     # pyenv-win doesn't support `--skip-existing` but its behavior is enabled by default
     # https://github.com/pyenv-win/pyenv-win/pull/314
-    pyenv_install_options = ("--skip-existing",) if _IS_UNIX else ()
+    pyenv_install_options = ("--skip-existing",) if not is_windows() else ()
     extra_env = {"PYENV_ROOT": pyenv_root} if pyenv_root else None
     pyenv_bin_path = _get_pyenv_bin_path()
     _exec_cmd(
         [pyenv_bin_path, "install", *pyenv_install_options, version],
         capture_output=capture_output,
         # Windows fails to find pyenv and throws `FileNotFoundError` without `shell=True`
-        shell=not _IS_UNIX,
+        shell=is_windows(),
         extra_env=extra_env,
     )
 
-    if _IS_UNIX:
+    if not is_windows():
         if pyenv_root is None:
             pyenv_root = _exec_cmd([pyenv_bin_path, "root"], capture_output=True).stdout.strip()
         path_to_bin = ("bin", "python")
@@ -236,9 +237,9 @@ def _create_virtualenv(
     local_model_path, python_bin_path, env_dir, python_env, extra_env=None, capture_output=False
 ):
     # Created a command to activate the environment
-    paths = ("bin", "activate") if _IS_UNIX else ("Scripts", "activate.bat")
+    paths = ("bin", "activate") if not is_windows() else ("Scripts", "activate.bat")
     activate_cmd = env_dir.joinpath(*paths)
-    activate_cmd = f"source {activate_cmd}" if _IS_UNIX else str(activate_cmd)
+    activate_cmd = f"source {activate_cmd}" if not is_windows() else str(activate_cmd)
 
     if env_dir.exists():
         _logger.info("Environment %s already exists", env_dir)

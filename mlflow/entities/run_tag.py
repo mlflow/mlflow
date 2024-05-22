@@ -1,8 +1,8 @@
-from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 
 
-class RunTag(_MLflowObject):
+class RunTag(_MlflowObject):
     """Tag object associated with a run."""
 
     def __init__(self, key, value):

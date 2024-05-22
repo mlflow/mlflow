@@ -111,6 +111,26 @@ MLFLOW_HTTP_REQUEST_BACKOFF_JITTER = _EnvironmentVariable(
 #: (default: ``120``)
 MLFLOW_HTTP_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_TIMEOUT", int, 120)
 
+#: Specifies whether to respect Retry-After header on status codes defined as
+#: Retry.RETRY_AFTER_STATUS_CODES or not for MLflow HTTP request
+#: (default: ``True``)
+MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER = _BooleanEnvironmentVariable(
+    "MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER", True
+)
+
+#: Internal-only configuration that sets an upper bound to the allowable maximum
+#: retries for HTTP requests
+#: (default: ``10``)
+_MLFLOW_HTTP_REQUEST_MAX_RETRIES_LIMIT = _EnvironmentVariable(
+    "_MLFLOW_HTTP_REQUEST_MAX_RETRIES_LIMIT", int, 10
+)
+
+#: Internal-only configuration that sets the upper bound for an HTTP backoff_factor
+#: (default: ``120``)
+_MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT = _EnvironmentVariable(
+    "_MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT", int, 120
+)
+
 #: Specifies whether MLflow HTTP requests should be signed using AWS signature V4. It will overwrite
 #: (default: ``False``). When set, it will overwrite the "Authorization" HTTP header.
 #: See https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html for more information.
@@ -485,6 +505,12 @@ MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE = _EnvironmentVariable(
     "MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE", int, 500 * 1024**2
 )
 
+#: Specifies the minimum file size in bytes to use multipart download when downloading artifacts
+#: (default: ``524_288_000`` (500 MB))
+MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE = _EnvironmentVariable(
+    "MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE", int, 500 * 1024**2
+)
+
 #: Specifies the chunk size in bytes to use when performing multipart upload
 #: (default: ``104_857_60`` (10 MB))
 MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE = _EnvironmentVariable(
@@ -515,6 +541,11 @@ MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
 MLFLOW_ENABLE_ASYNC_LOGGING = _BooleanEnvironmentVariable("MLFLOW_ENABLE_ASYNC_LOGGING", False)
 
+#: Number of workers in the thread pool used for asynchronous logging, defaults to 10.
+MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE = _EnvironmentVariable(
+    "MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE", int, 10
+)
+
 #: Specifies whether or not to have mlflow configure logging on import.
 #: If set to True, mlflow will configure ``mlflow.<module_name>`` loggers with
 #: logging handlers and formatters.
@@ -536,3 +567,47 @@ _MLFLOW_RUN_SLOW_TESTS = _BooleanEnvironmentVariable("MLFLOW_RUN_SLOW_TESTS", Fa
 #: The OpenJDK version to install in the Docker image used for MLflow models.
 #: (default: ``11``)
 MLFLOW_DOCKER_OPENJDK_VERSION = _EnvironmentVariable("MLFLOW_DOCKER_OPENJDK_VERSION", str, "11")
+
+# How many traces to be buffered at the Trace Client.
+MLFLOW_TRACING_CLIENT_BUFFER_SIZE = _EnvironmentVariable(
+    "MLFLOW_TRACING_CLIENT_BUFFER_SIZE", int, 1000
+)
+
+# How long a trace can be buffered at the in-memory trace client before being abandoned.
+MLFLOW_TRACE_BUFFER_TTL_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_TTL_SECONDS", int, 3600)
+
+# How many traces to be buffered at the in-memory trace client.
+MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZE", int, 1000)
+
+# Whether or not to enable trace logging in MLflow in served models.
+# TODO: Document the behavior of this flag.
+MLFLOW_ENABLE_TRACE_IN_SERVING = _BooleanEnvironmentVariable("MLFLOW_ENABLE_TRACE_IN_SERVING", True)
+
+# Whether to use presigned URLs to interact with the Unity Catalog
+MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED = _BooleanEnvironmentVariable(
+    "MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED", False
+)
+
+#: Private configuration option.
+#: Enables the ability to catch exceptions within MLflow evaluate for classification models
+#: where a class imbalance due to a missing target class would raise an error in the
+#: underlying metrology modules (scikit-learn). If set to True, specific exceptions will be
+#: caught, alerted via the warnings module, and evaluation will resume.
+#: (default: ``False``)
+_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS = _BooleanEnvironmentVariable(
+    "_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", False
+)
+
+#: Whether to warn (default) or raise (opt-in) for unresolvable requirements inference for
+#: a model's dependency inference. If set to True, an exception will be raised if requirements
+#: inference or the process of capturing imported modules encounters any errors.
+MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS = _BooleanEnvironmentVariable(
+    "MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", False
+)
+
+#: Private configuration option.
+#: Whether to use mlflow langchain tracer for rag tracing. This should be set in model
+#: serving for rag models.
+_USE_MLFLOW_LANGCHAIN_TRACER_FOR_RAG_TRACING = _BooleanEnvironmentVariable(
+    "USE_MLFLOW_LANGCHAIN_TRACER_FOR_RAG_TRACING", False
+)

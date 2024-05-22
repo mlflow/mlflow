@@ -119,11 +119,14 @@ def _get_extra_context(context_key):
 
 
 def _get_context_tag(context_tag_key):
-    tag_opt = _get_command_context().tags().get(context_tag_key)
-    if tag_opt.isDefined():
-        return tag_opt.get()
-    else:
-        return None
+    try:
+        tag_opt = _get_command_context().tags().get(context_tag_key)
+        if tag_opt.isDefined():
+            return tag_opt.get()
+    except Exception:
+        pass
+
+    return None
 
 
 @_use_repl_context_if_available("aclPathOfAclRoot")
@@ -168,7 +171,19 @@ def is_in_databricks_job():
 
 
 def is_in_databricks_model_serving_environment():
-    return "IS_IN_DATABRICKS_MODEL_SERVING_ENV" in os.environ
+    """
+    Check if the code is running in Databricks Model Serving environment.
+    The environment variable set by Databricks when starting the serving container.
+    """
+    val = (
+        os.environ.get("IS_IN_DB_MODEL_SERVING_ENV")
+        # Checking the old env var name for backward compatibility. The env var was renamed once
+        # to fix a model loading issue, but we still need to support it for a while.
+        # TODO: Remove this once the new env var is fully rolled out.
+        or os.environ.get("IS_IN_DATABRICKS_MODEL_SERVING_ENV")
+        or "false"
+    )
+    return val.lower() == "true"
 
 
 # this should only be the case when we are in model serving environment
@@ -212,6 +227,11 @@ def get_databricks_runtime_version():
 
 def is_in_databricks_runtime():
     return get_databricks_runtime_version() is not None
+
+
+def is_in_databricks_serverless():
+    dbr_version = get_databricks_runtime_version()
+    return dbr_version and dbr_version.startswith("client.")
 
 
 def is_dbfs_fuse_available():
@@ -262,17 +282,6 @@ def get_notebook_path():
         return _get_command_context().notebookPath().get()
     except Exception:
         return _get_extra_context("notebook_path")
-
-
-@_use_repl_context_if_available("runtimeVersion")
-def get_databricks_runtime():
-    if is_in_databricks_runtime():
-        spark_session = _get_active_spark_session()
-        if spark_session is not None:
-            return spark_session.conf.get(
-                "spark.databricks.clusterUsageTags.sparkVersion", default=None
-            )
-    return None
 
 
 @_use_repl_context_if_available("clusterId")
