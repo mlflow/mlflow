@@ -612,8 +612,7 @@ _USE_MLFLOW_LANGCHAIN_TRACER_FOR_RAG_TRACING = _BooleanEnvironmentVariable(
     "USE_MLFLOW_LANGCHAIN_TRACER_FOR_RAG_TRACING", False
 )
 
-# Specify the timeout in seconds for Databricks endpoint HTTP request retries.
+#: Specify the timeout in seconds for Databricks endpoint HTTP request retries.
 MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT", int, 500
 )
-
