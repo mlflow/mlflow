@@ -68,6 +68,9 @@ func (p *HTTPRequestParser) ParseQuery(ctx *fiber.Ctx, input interface{}) *contr
 func dereference(value interface{}) interface{} {
 	v := reflect.ValueOf(value)
 	if v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return ""
+		}
 		return v.Elem().Interface()
 	}
 	return value
@@ -88,8 +91,10 @@ func newErrorFromValidationError(err error) *contract.Error {
 		switch tag {
 		case "required":
 			vErr = fmt.Sprintf("Missing value for required parameter '%s'", field)
-		default:
+		case "lte":
 			vErr = fmt.Sprintf("Invalid value %v for parameter '%s' supplied", value, field)
+		default:
+			vErr = fmt.Sprintf("%s should be %s, got %v", field, tag, value)
 		}
 		validationErrors = append(validationErrors, vErr)
 	}
