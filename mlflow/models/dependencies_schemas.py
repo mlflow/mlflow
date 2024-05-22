@@ -37,12 +37,12 @@ def set_retriever_schema(
     determine which fields correspond to the document text, document URI, etc.
 
     Args:
-        primary_key: The primary key of the vector index.
+        primary_key: The primary key of the retriever or vector index.
         text_column: The name of the text column to use for the embeddings.
         doc_uri: The name of the column that contains the document URI.
         other_columns: A list of other columns that are part of the vector index
                           that need to be retrieved during trace logging.
-        Note: Make sure the text column specified is in the index.
+        name: The name of the retriever or vector store.
 
     .. code-block:: Python
             :caption: Example
