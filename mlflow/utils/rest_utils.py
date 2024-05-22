@@ -20,9 +20,10 @@ from mlflow.exceptions import (
     MlflowException,
     RestException,
     get_error_code,
+    ERROR_CODE_TO_HTTP_STATUS,
 )
 from mlflow.protos import databricks_pb2
-from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, INVALID_PARAMETER_VALUE, ErrorCode
+from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.request_utils import (
     _TRANSIENT_FAILURE_RESPONSE_CODES,
@@ -36,15 +37,6 @@ from mlflow.utils.string_utils import strip_suffix
 RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
 _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
-
-
-class _DatabricksSdkAPIErrorResponse(requests.Response):
-    def __init__(self, status_code, reason, content):
-        super().__init__()
-        self.status_code = status_code
-        self.reason = reason
-        self.encoding = "UTF-8"
-        self._content = content.encode(self.encoding)
 
 
 def http_request(
@@ -89,6 +81,10 @@ def http_request(
     Returns:
         requests.Response object.
     """
+    hostname = host_creds.host
+    cleaned_hostname = strip_suffix(hostname, "/")
+    url = f"{cleaned_hostname}{endpoint}"
+
     if host_creds.databricks_workspace_client:
         try:
             if method == "GET":
@@ -107,14 +103,17 @@ def http_request(
             return raw_response["contents"]._response
         except Exception as e:
             if hasattr(e, "error_code"):
-                return _DatabricksSdkAPIErrorResponse(
-                    status_code=ErrorCode.Value(e.error_code),
-                    reason=str(e),
-                    content=json.dumps({
-                        "error_code": e.error_code,
-                        "message": str(e),
-                    })
-                )
+                response = requests.Response()
+                response.url = url
+                response.status_code = ERROR_CODE_TO_HTTP_STATUS.get(e.error_code, 500)
+                response.reason = str(e)
+                response.encoding = "UTF-8"
+                response._content = json.dumps({
+                    "error_code": e.error_code,
+                    "message": str(e),
+                }).encode("UTF-8")
+
+                return response
 
             raise MlflowException(
                 f"API request to endpoint '{endpoint}' failed with exception {e}"
@@ -136,7 +135,6 @@ def http_request(
     )
 
     timeout = MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout
-    hostname = host_creds.host
     auth_str = None
     if host_creds.username and host_creds.password:
         basic_auth_str = f"{host_creds.username}:{host_creds.password}".encode()
@@ -166,8 +164,6 @@ def http_request(
 
         kwargs["auth"] = fetch_auth(host_creds.auth)
 
-    cleaned_hostname = strip_suffix(hostname, "/")
-    url = f"{cleaned_hostname}{endpoint}"
     try:
         return _get_http_response_with_retries(
             method,
@@ -330,7 +326,6 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
     # Convert json string to json dictionary, to pass to requests
     if json_body:
         json_body = json.loads(json_body)
-
     call_kwargs = {
         "host_creds": host_creds,
         "endpoint": endpoint,
@@ -347,7 +342,6 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
 
     response = verify_rest_response(response, endpoint)
     js_dict = json.loads(response.text)
-
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
 

@@ -608,13 +608,6 @@ MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS = _BooleanEnvironmentVariable(
     "MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", False
 )
 
-#: Private configuration option.
-#: Whether to use mlflow langchain tracer for rag tracing. This should be set in model
-#: serving for rag models.
-_USE_MLFLOW_LANGCHAIN_TRACER_FOR_RAG_TRACING = _BooleanEnvironmentVariable(
-    "USE_MLFLOW_LANGCHAIN_TRACER_FOR_RAG_TRACING", False
-)
-
 #: Specify the timeout in seconds for Databricks endpoint HTTP request retries.
 MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT", int, 500
