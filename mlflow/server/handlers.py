@@ -71,6 +71,8 @@ from mlflow.protos.service_pb2 import (
     DeleteExperiment,
     DeleteRun,
     DeleteTag,
+    DeleteTraces,
+    DeleteTraceTag,
     EndTrace,
     GetExperiment,
     GetExperimentByName,
@@ -89,8 +91,10 @@ from mlflow.protos.service_pb2 import (
     RestoreRun,
     SearchExperiments,
     SearchRuns,
+    SearchTraces,
     SetExperimentTag,
     SetTag,
+    SetTraceTag,
     StartTrace,
     UpdateExperiment,
     UpdateRun,
@@ -2332,6 +2336,107 @@ def _get_trace_info(request_id):
     return _wrap_response(response_message)
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _search_traces():
+    """
+    A request handler for `GET /mlflow/traces` to search for TraceInfo records in tracking store.
+    """
+    request_message = _get_request_message(
+        SearchTraces(),
+        schema={
+            "experiment_ids": [_assert_array, _assert_item_type_string, _assert_required],
+            "filter": [_assert_string],
+            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(int(x), 500)],
+            "order_by": [_assert_array, _assert_item_type_string],
+            "page_token": [_assert_string],
+        },
+    )
+    traces, token = _get_tracking_store().search_traces(
+        experiment_ids=request_message.experiment_ids,
+        filter_string=request_message.filter,
+        max_results=request_message.max_results,
+        order_by=request_message.order_by,
+        page_token=request_message.page_token,
+    )
+    response_message = SearchTraces.Response()
+    response_message.traces.extend([e.to_proto() for e in traces])
+    if token:
+        response_message.next_page_token = token
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_traces():
+    """
+    A request handler for `POST /mlflow/traces/delete-traces` to delete TraceInfo records
+    from tracking store.
+    """
+    request_message = _get_request_message(
+        DeleteTraces(),
+        schema={
+            "experiment_id": [_assert_string, _assert_required],
+            "max_timestamp_millis": [_assert_intlike],
+            "max_traces": [_assert_intlike],
+            "request_ids": [_assert_array, _assert_item_type_string],
+        },
+    )
+
+    # NB: Interestingly, the field accessor for the message object returns the default
+    #   value for optional field if it's not set. For example, `request_message.max_traces`
+    #   returns 0 if max_traces is not specified in the request. This is not desirable,
+    #   because null and 0 means completely opposite i.e. the former is 'delete nothing'
+    #   while the latter is 'delete all'. To handle this, we need to explicitly check
+    #   if the field is set or not using `HasField` method and return None if not.
+    def _get_nullable_field(field):
+        if request_message.HasField(field):
+            return getattr(request_message, field)
+        return None
+
+    traces_deleted = _get_tracking_store().delete_traces(
+        experiment_id=request_message.experiment_id,
+        max_timestamp_millis=_get_nullable_field("max_timestamp_millis"),
+        max_traces=_get_nullable_field("max_traces"),
+        request_ids=request_message.request_ids,
+    )
+    return _wrap_response(DeleteTraces.Response(traces_deleted=traces_deleted))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _set_trace_tag(request_id):
+    """
+    A request handler for `PATCH /mlflow/traces/{request_id}/tags` to set tags on a TraceInfo record
+    """
+    request_message = _get_request_message(
+        SetTraceTag(),
+        schema={
+            "key": [_assert_string, _assert_required],
+            "value": [_assert_string],
+        },
+    )
+    _get_tracking_store().set_trace_tag(request_id, request_message.key, request_message.value)
+    return _wrap_response(SetTraceTag.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_trace_tag(request_id):
+    """
+    A request handler for `DELETE /mlflow/traces/{request_id}/tags` to delete tags from a TraceInfo
+    record.
+    """
+    request_message = _get_request_message(
+        DeleteTraceTag(),
+        schema={
+            "key": [_assert_string, _assert_required],
+        },
+    )
+    _get_tracking_store().delete_trace_tag(request_id, request_message.key)
+    return _wrap_response(DeleteTraceTag.Response())
+
+
 def _get_rest_path(base_path):
     return f"/api/2.0{base_path}"
 
@@ -2461,4 +2566,8 @@ HANDLERS = {
     StartTrace: _start_trace,
     EndTrace: _end_trace,
     GetTraceInfo: _get_trace_info,
+    SearchTraces: _search_traces,
+    DeleteTraces: _delete_traces,
+    SetTraceTag: _set_trace_tag,
+    DeleteTraceTag: _delete_trace_tag,
 }

@@ -35,7 +35,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, RestException
 from mlflow.models import Model
 from mlflow.server.handlers import _get_sampled_steps_from_steps
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -2041,3 +2041,131 @@ def test_start_and_end_trace(mlflow_client):
     }
 
     assert trace_info == client.get_trace_info(trace_info.request_id)
+
+
+def _set_tracking_uri_and_reset_tracer(tracking_uri):
+    # NB: MLflow tracer does not handle the change of tracking URI well,
+    # so we need to reset the tracer to switch the tracking URI during testing.
+    mlflow.tracing.disable()
+    mlflow.set_tracking_uri(tracking_uri)
+    mlflow.tracing.enable()
+
+
+def test_search_traces(mlflow_client):
+    _set_tracking_uri_and_reset_tracer(mlflow_client.tracking_uri)
+
+    experiment_id = mlflow_client.create_experiment("search traces")
+
+    # Create test traces
+    def _create_trace(name, status):
+        span = mlflow_client.start_trace(name=name, experiment_id=experiment_id)
+        mlflow_client.end_trace(request_id=span.request_id, status=status)
+        return span.request_id
+
+    request_id_1 = _create_trace(name="trace1", status=TraceStatus.OK)
+    request_id_2 = _create_trace(name="trace2", status=TraceStatus.OK)
+    request_id_3 = _create_trace(name="trace3", status=TraceStatus.ERROR)
+
+    def _get_request_ids(traces):
+        return [t.info.request_id for t in traces]
+
+    # Validate search
+    traces = mlflow_client.search_traces(experiment_ids=[experiment_id])
+    assert _get_request_ids(traces) == [request_id_3, request_id_2, request_id_1]
+    assert traces.token is None
+
+    traces = mlflow_client.search_traces(
+        experiment_ids=[experiment_id],
+        filter_string="status = 'OK'",
+        order_by=["timestamp ASC"],
+    )
+    assert _get_request_ids(traces) == [request_id_1, request_id_2]
+    assert traces.token is None
+
+    traces = mlflow_client.search_traces(
+        experiment_ids=[experiment_id],
+        max_results=2,
+    )
+    assert _get_request_ids(traces) == [request_id_3, request_id_2]
+    assert traces.token is not None
+    traces = mlflow_client.search_traces(
+        experiment_ids=[experiment_id],
+        page_token=traces.token,
+    )
+    assert _get_request_ids(traces) == [request_id_1]
+    assert traces.token is None
+
+
+def test_delete_traces(mlflow_client):
+    _set_tracking_uri_and_reset_tracer(mlflow_client.tracking_uri)
+
+    experiment_id = mlflow_client.create_experiment("delete traces")
+
+    def _create_trace(name, status):
+        span = mlflow_client.start_trace(name=name, experiment_id=experiment_id)
+        mlflow_client.end_trace(request_id=span.request_id, status=status)
+        return span.request_id
+
+    def _is_trace_exists(request_id):
+        try:
+            trace_info = mlflow_client._tracking_client.get_trace_info(request_id)
+            return trace_info is not None
+        except RestException:
+            return False
+
+    # Case 1: Delete all traces under experiment ID
+    request_id_1 = _create_trace(name="trace1", status=TraceStatus.OK)
+    request_id_2 = _create_trace(name="trace2", status=TraceStatus.OK)
+    assert _is_trace_exists(request_id_1)
+    assert _is_trace_exists(request_id_2)
+
+    deleted_count = mlflow_client.delete_traces(experiment_id, max_timestamp_millis=int(1e15))
+    assert deleted_count == 2
+    assert not _is_trace_exists(request_id_1)
+    assert not _is_trace_exists(request_id_2)
+
+    # Case 2: Delete with max_traces limit
+    request_id_1 = _create_trace(name="trace1", status=TraceStatus.OK)
+    time.sleep(0.1) # Add some time gap to avoid timestamp collision in file store
+    request_id_2 = _create_trace(name="trace2", status=TraceStatus.OK)
+
+    deleted_count = mlflow_client.delete_traces(
+        experiment_id, max_traces=1, max_timestamp_millis=int(1e15)
+    )
+    assert deleted_count == 1
+    assert not _is_trace_exists(request_id_1)  # Old created trace should be deleted
+    assert _is_trace_exists(request_id_2)
+
+    # Case 3: Delete with explicit request ID
+    request_id_1 = _create_trace(name="trace1", status=TraceStatus.OK)
+    request_id_2 = _create_trace(name="trace2", status=TraceStatus.OK)
+
+    deleted_count = mlflow_client.delete_traces(experiment_id, request_ids=[request_id_1])
+    assert deleted_count == 1
+    assert not _is_trace_exists(request_id_1)
+    assert _is_trace_exists(request_id_2)
+
+
+def test_set_and_delete_trace_tag(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("set delete tag")
+
+    # Create test trace
+    trace_info = mlflow_client._tracking_client.start_trace(
+        experiment_id=experiment_id,
+        timestamp_ms=1000,
+        request_metadata={},
+        tags={
+            "tag1": "red",
+            "tag2": "blue",
+        },
+    )
+
+    # Validate set tag
+    mlflow_client.set_trace_tag(trace_info.request_id, "tag1", "green")
+    trace_info = mlflow_client._tracking_client.get_trace_info(trace_info.request_id)
+    assert trace_info.tags["tag1"] == "green"
+
+    # Validate delete tag
+    mlflow_client.delete_trace_tag(trace_info.request_id, "tag2")
+    trace_info = mlflow_client._tracking_client.get_trace_info(trace_info.request_id)
+    assert "tag2" not in trace_info.tags
