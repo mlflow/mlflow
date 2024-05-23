@@ -568,16 +568,16 @@ _MLFLOW_RUN_SLOW_TESTS = _BooleanEnvironmentVariable("MLFLOW_RUN_SLOW_TESTS", Fa
 #: (default: ``11``)
 MLFLOW_DOCKER_OPENJDK_VERSION = _EnvironmentVariable("MLFLOW_DOCKER_OPENJDK_VERSION", str, "11")
 
-# How many traces to be buffered at the Trace Client.
-MLFLOW_TRACING_CLIENT_BUFFER_SIZE = _EnvironmentVariable(
-    "MLFLOW_TRACING_CLIENT_BUFFER_SIZE", int, 1000
-)
+# How long a trace can be buffered at the in-memory trace buffer before being abandoned.
+MLFLOW_TRACE_BUFFER_TTL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_TRACE_BUFFER_TTL_SECONDS", int, 3600
+)  # 1 hour
 
-# How long a trace can be buffered at the in-memory trace client before being abandoned.
-MLFLOW_TRACE_BUFFER_TTL_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_TTL_SECONDS", int, 3600)
-
-# How many traces to be buffered at the in-memory trace client.
-MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZE", int, 1000)
+# The maximum size of the trace buffer in bytes. If the buffer exceeds this size, the oldest
+# traces will be dropped.
+MLFLOW_TRACE_BUFFER_MAX_SIZE_BYTES = _EnvironmentVariable(
+    "MLFLOW_TRACE_BUFFER_MAX_SIZE_BYTES", int, 100_000_000
+)  # 100 MB
 
 #: Whether or not to enable trace logging in model serving.
 #: The default value is set to False to ensure that this flag is only enabled

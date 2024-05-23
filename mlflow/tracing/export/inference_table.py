@@ -1,20 +1,21 @@
+import json
 import logging
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
-from cachetools import TTLCache
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.environment_variables import (
-    MLFLOW_TRACE_BUFFER_MAX_SIZE,
+    MLFLOW_TRACE_BUFFER_MAX_SIZE_BYTES,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
+from mlflow.tracing.cache import SizedTTLCache
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 _logger = logging.getLogger(__name__)
 
 
-def pop_trace(request_id: str) -> Optional[Dict[str, Any]]:
+def pop_trace(request_id: str) -> Optional[List[Dict[str, Any]]]:
     """
     Pop the completed trace data from the buffer. This method is used in
     the Databricks model serving so please be careful when modifying it.
@@ -27,9 +28,10 @@ def pop_trace(request_id: str) -> Optional[Dict[str, Any]]:
 # in the buffer are not Trace dataclass, but rather a dictionary with the schema
 # that is used within Databricks model serving.
 def _initialize_trace_buffer():  # Define as a function for testing purposes
-    return TTLCache(
-        maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
+    return SizedTTLCache(
+        maxsize_bytes=MLFLOW_TRACE_BUFFER_MAX_SIZE_BYTES.get(),
         ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
+        serializer=lambda x: json.dumps(x, default=str),
     )
 
 

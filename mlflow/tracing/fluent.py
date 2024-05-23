@@ -7,18 +7,18 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
-from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
 from mlflow import MlflowClient
 from mlflow.entities import LiveSpan, NoOpSpan, SpanType, Trace
 from mlflow.environment_variables import (
-    MLFLOW_TRACE_BUFFER_MAX_SIZE,
+    MLFLOW_TRACE_BUFFER_MAX_SIZE_BYTES,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
+from mlflow.tracing.cache import SizedTTLCache
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -43,9 +43,10 @@ if TYPE_CHECKING:
 # Traces are stored in memory after completion so they can be retrieved conveniently.
 # For example, Databricks model serving fetches the trace data from the buffer after
 # making the prediction request, and logging them into the Inference Table.
-TRACE_BUFFER = TTLCache(
-    maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
+TRACE_BUFFER = SizedTTLCache(
+    maxsize_bytes=MLFLOW_TRACE_BUFFER_MAX_SIZE_BYTES.get(),
     ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
+    serializer=lambda x: x.to_json(),
 )
 
 
@@ -182,7 +183,7 @@ def start_span(
         All spans created under the root span (i.e. a single trace) are buffered in memory and
         not exported until the root span is ended. The buffer has a default size of 1000 traces
         and TTL of 1 hour. You can configure the buffer size and TTL using the environment variables
-        ``MLFLOW_TRACE_BUFFER_MAX_SIZE`` and ``MLFLOW_TRACE_BUFFER_TTL_SECONDS`` respectively.
+        ``MLFLOW_TRACE_BUFFER_MAX_SIZE_BYTES`` and ``MLFLOW_TRACE_BUFFER_TTL_SECONDS`` respectively.
 
     Args:
         name: The name of the span.

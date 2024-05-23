@@ -9,7 +9,7 @@ from mlflow.tracing.export.inference_table import (
     pop_trace,
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import encode_span_id, encode_trace_id
+from mlflow.tracing.utils import encode_span_id, encode_trace_id, size
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
@@ -98,7 +98,12 @@ def test_export_warn_invalid_attributes():
 
 
 def test_export_trace_buffer_not_exceeds_max_size(monkeypatch):
-    monkeypatch.setenv("MLFLOW_TRACE_BUFFER_MAX_SIZE", "1")
+    # Get rough estimate of the size of a trace and a span
+    span = LiveSpan(create_mock_otel_span(name="1", trace_id=_TRACE_ID, span_id=1), _REQUEST_ID)
+    trace_info = create_test_trace_info(_REQUEST_ID)
+    trace_size = size(trace_info.to_dict()) + size(span.to_dict())
+
+    monkeypatch.setenv("MLFLOW_TRACE_BUFFER_MAX_SIZE_BYTES", int(trace_size * 1.5))
     monkeypatch.setattr(
         mlflow.tracing.export.inference_table, "_TRACE_BUFFER", _initialize_trace_buffer()
     )

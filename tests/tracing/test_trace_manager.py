@@ -4,6 +4,7 @@ from typing import Optional
 
 from mlflow.entities import LiveSpan, Span, Trace
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import size
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
@@ -125,9 +126,14 @@ def test_traces_buffer_expires_after_ttl(monkeypatch):
 
 
 def test_traces_buffer_max_size_limit(monkeypatch):
+    # Get rough estimate of the size of a trace and a span
+    trace_size = size(create_test_trace_info("tr").to_dict()) + size(
+        _create_test_span("tr").to_dict()
+    )
+
     # Clear singleton instance to patch buffer size
     InMemoryTraceManager._instance = None
-    monkeypatch.setenv("MLFLOW_TRACE_BUFFER_MAX_SIZE", "1")
+    monkeypatch.setenv("MLFLOW_TRACE_BUFFER_MAX_SIZE_BYTES", int(trace_size * 1.5))
 
     trace_manager = InMemoryTraceManager.get_instance()
     request_id_1 = "tr-1"

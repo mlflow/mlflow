@@ -1,16 +1,17 @@
 import contextlib
+import json
 import logging
+import sys
 import threading
 from dataclasses import dataclass, field
 from typing import Dict, Generator, Optional
 
-from cachetools import TTLCache
-
 from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfo
 from mlflow.environment_variables import (
-    MLFLOW_TRACE_BUFFER_MAX_SIZE,
+    MLFLOW_TRACE_BUFFER_MAX_SIZE_BYTES,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
+from mlflow.tracing.cache import SizedTTLCache
 from mlflow.tracing.constant import SpanAttributeKey
 
 _logger = logging.getLogger(__name__)
@@ -34,6 +35,15 @@ class _Trace:
                 trace_data.response = span._span.attributes.get(SpanAttributeKey.OUTPUTS)
         return Trace(self.info, trace_data)
 
+    def to_json(self) -> str:
+        return json.dumps(
+            {
+                "info": self.info.to_dict(),
+                "span_dict": {span_id: span.to_dict() for span_id, span in self.span_dict.items()},
+            },
+            default=str,
+        )
+
 
 class InMemoryTraceManager:
     """
@@ -53,9 +63,10 @@ class InMemoryTraceManager:
 
     def __init__(self):
         # Storing request_id -> _Trace mapping
-        self._traces: Dict[str, _Trace] = TTLCache(
-            maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
+        self._traces: Dict[str, _Trace] = SizedTTLCache(
+            maxsize_bytes=MLFLOW_TRACE_BUFFER_MAX_SIZE_BYTES.get(),
             ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
+            serializer=lambda x: x.to_json(),
         )
         # Store mapping between OpenTelemetry trace ID and MLflow request ID
         self._trace_id_to_request_id: Dict[int, str] = {}
@@ -100,6 +111,12 @@ class InMemoryTraceManager:
         with self._lock:
             trace_data_dict = self._traces[span.request_id].span_dict
             trace_data_dict[span.span_id] = span
+            # NB: The trace buffer does not reflect the size update of underlying container
+            # i.e. span_dict. In order to avoid breaching the max size silently, we need to
+            # add the size of span manually here.
+            self._traces.update_size(
+                key=span.request_id, delta=sys.getsizeof(json.dumps(span.to_dict()))
+            )
 
     @contextlib.contextmanager
     def get_trace(self, request_id: str) -> Generator[Optional[_Trace], None, None]:

@@ -3,10 +3,11 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import sys
 import uuid
 from collections import Counter, defaultdict
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, NamedTuple, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, NamedTuple, Optional, Union
 
 from opentelemetry import trace as trace_api
 from packaging.version import Version
@@ -383,3 +384,17 @@ def exclude_immutable_tags(tags: Dict[str, str]) -> Dict[str, str]:
 
 def generate_request_id() -> str:
     return uuid.uuid4().hex
+
+
+def size(x: Any, serializer: Callable[[Any], str] = lambda x: json.dumps(x, default=str)) -> int:
+    """
+    Get the size of any object in bytes.
+
+    Args:
+        x: The object to get the size of.
+        serializer: A function that serializes the object to a string. Default is json.dumps.
+
+    Returns:
+        The size of the object in bytes.
+    """
+    return sys.getsizeof(serializer(x))
