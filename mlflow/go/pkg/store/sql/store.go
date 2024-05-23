@@ -129,7 +129,7 @@ func (s Store) SearchRuns(
 		}
 	}
 
-	tx := s.db.Where("runs.experiment_id IN ?", experimentIDs).Where("lifecycle_stage IN ?", lifecyleStages)
+	tx := s.db.Where("runs.experiment_id IN ?", experimentIDs).Where("runs.lifecycle_stage IN ?", lifecyleStages)
 
 	// MaxResults
 	tx.Limit(maxResults)
@@ -182,13 +182,8 @@ func (s Store) SearchRuns(
 			kind = &model.Dataset{}
 		}
 
-		if key == "run_name" {
-			fmt.Println("yow!")
-			kind = &model.Tag{}
-			key = "mlflow.runName"
-		}
-
 		isSqliteAndILike := s.db.Dialector.Name() == "sqlite" && comparison == "ILIKE"
+		table := fmt.Sprintf("filter_%d", n)
 
 		switch {
 		case kind == nil:
@@ -200,6 +195,36 @@ func (s Store) SearchRuns(
 			} else {
 				tx.Where(fmt.Sprintf("runs.%s %s ?", key, comparison), value)
 			}
+		case clause.Identifier == parser.Dataset && key == "context":
+			// SELECT *
+			// FROM runs
+			// JOIN (
+			//   SELECT datasets.experiment_id
+			//   FROM datasets
+			//   JOIN inputs
+			//   ON datasets.dataset_uuid = inputs.source_id
+			//   JOIN input_tags
+			//   ON inputs.input_uuid = input_tags.input_uuid
+			//   WHERE input_tags.name = 'mlflow.data.context'
+			//   AND input_tags.value = 'twisted'
+			// ) AS filter_0
+			// ON runs.experiment_id = filter_0.experiment_id
+			whereColumn := "input_tags.value"
+			if isSqliteAndILike {
+				whereColumn = "LOWER(input_tags.value)"
+				value = strings.ToLower(value.(string))
+			}
+			tx.Joins(
+				fmt.Sprintf("JOIN (?) AS %s ON runs.experiment_id = %s.experiment_id", table, table),
+				s.db.Select("datasets.experiment_id").
+					Joins("JOIN inputs ON datasets.dataset_uuid = inputs.source_id").
+					Joins("JOIN input_tags ON inputs.input_uuid = input_tags.input_uuid").
+					Where(
+						fmt.Sprintf("input_tags.name = 'mlflow.data.context' AND %s %s ?", whereColumn, comparison),
+						value,
+					).
+					Model(kind),
+			)
 		case clause.Identifier == parser.Dataset:
 			// add join with datasets
 			// JOIN (
@@ -209,7 +234,6 @@ func (s Store) SearchRuns(
 			// ) AS filter_0 ON runs.experiment_id = dataset.experiment_id
 			//
 			// columns: name, digest, context
-			table := fmt.Sprintf("filter_%d", n)
 			where := key + " " + comparison + " ?"
 			if isSqliteAndILike {
 				where = "LOWER(" + key + ") LIKE ?"
@@ -220,7 +244,6 @@ func (s Store) SearchRuns(
 				s.db.Select("experiment_id", key).Where(where, value).Model(kind),
 			)
 		default:
-			table := fmt.Sprintf("filter_%d", n)
 			where := fmt.Sprintf("value %s ?", comparison)
 			if isSqliteAndILike {
 				where = "LOWER(value) LIKE ?"
@@ -294,7 +317,7 @@ func (s Store) SearchRuns(
 	tx.Preload("LatestMetrics").
 		Preload("Params").
 		Preload("Tags").
-		Preload("Inputs").
+		Preload("Inputs"). // Add condition inside the preload
 		Preload("Inputs.Dataset").
 		Preload("Inputs.Tags").
 		Find(&runs)

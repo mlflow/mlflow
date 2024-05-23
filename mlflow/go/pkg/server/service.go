@@ -83,7 +83,7 @@ func (m MlflowService) SearchRuns(input *protos.SearchRuns) (*protos.SearchRuns_
 		runViewType = *input.RunViewType
 	}
 
-	maxResults := 1000
+	maxResults := contract.MaxResultsPerPage
 	if input.MaxResults != nil {
 		maxResults = int(*input.MaxResults)
 	}
