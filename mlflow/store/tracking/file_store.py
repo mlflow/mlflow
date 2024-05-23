@@ -1685,6 +1685,8 @@ class FileStore(AbstractStore):
     def _list_trace_infos(self, experiment_id):
         experiment_path = self._get_experiment_path(experiment_id, assert_exists=True)
         traces_path = os.path.join(experiment_path, FileStore.TRACES_FOLDER_NAME)
+        if not os.path.exists(traces_path):
+            return []
         trace_paths = list_all(traces_path, lambda x: os.path.isdir(x), full_path=True)
         trace_infos = []
         for trace_path in trace_paths:

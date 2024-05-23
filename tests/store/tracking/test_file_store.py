@@ -2909,6 +2909,11 @@ def _validate_search_traces(store, exp_ids, filter_string, expected_traces, orde
     assert traces == expected_traces
 
 
+def test_search_traces(store):
+    traces, _token = store.search_traces(["0"])
+    assert traces == []
+
+
 def test_search_traces_filter(generate_trace_infos):
     trace_infos = generate_trace_infos.trace_infos
     store = generate_trace_infos.store
