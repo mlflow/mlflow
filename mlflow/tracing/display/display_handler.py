@@ -3,9 +3,7 @@ import logging
 from typing import List
 
 from mlflow.entities import Trace
-
-MAX_TRACES_TO_DISPLAY = 100
-
+from mlflow.environment_variables import MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK
 
 _logger = logging.getLogger(__name__)
 
@@ -55,6 +53,7 @@ class IPythonTraceDisplayHandler:
             if get_ipython() is None:
                 return
 
+            MAX_TRACES_TO_DISPLAY = MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK.get()
             traces_to_display = list(self.traces_to_display.values())[:MAX_TRACES_TO_DISPLAY]
             if len(traces_to_display) == 0:
                 self.traces_to_display = {}
