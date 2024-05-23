@@ -584,11 +584,10 @@ def process_stream_request(
     callback_handlers: Optional[List[BaseCallbackHandler]] = None,
     convert_chat_responses: bool = False,
 ):
-    from mlflow.langchain.utils import lc_runnables_types
-
-    if not isinstance(lc_model, lc_runnables_types()):
+    if not hasattr(lc_model, "stream"):
         raise MlflowException(
-            f"Model {lc_model.__class__.__name__} does not support streaming prediction output."
+            f"Model {lc_model.__class__.__name__} does not support streaming prediction output. "
+            "No `stream` method found."
         )
 
     (

@@ -155,6 +155,7 @@ def save_model(
     persist_dir=None,
     example_no_conversion=False,
     model_config=None,
+    streamable=None,
 ):
     """
     Save a LangChain model to a path on the local file system.
@@ -339,7 +340,7 @@ def save_model(
                 mlflow_model.metadata = {}
             mlflow_model.metadata.update(schema)
 
-    streamable = isinstance(lc_model, lc_runnables_types())
+    streamable = isinstance(lc_model, lc_runnables_types()) or streamable
 
     model_data_kwargs = {}
     flavor_conf = {}
@@ -424,6 +425,7 @@ def log_model(
     example_no_conversion=False,
     run_id=None,
     model_config=None,
+    streamable=None,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -557,6 +559,7 @@ def log_model(
         example_no_conversion=example_no_conversion,
         run_id=run_id,
         model_config=model_config,
+        streamable=streamable,
     )
 
 
