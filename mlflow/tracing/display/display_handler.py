@@ -4,7 +4,7 @@ from typing import List
 
 from mlflow.entities import Trace
 
-MAX_TRACES_TO_DISPLAY = 100
+MAX_TRACES_TO_DISPLAY = 10
 
 
 _logger = logging.getLogger(__name__)
