@@ -132,3 +132,26 @@ def test_display_deduplicates_traces(monkeypatch):
         ),
         "text/plain": expected.__repr__(),
     }
+
+
+def test_display_respects_max_limit(monkeypatch):
+    mock_ipython = MockIPython()
+    monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
+    handler = get_display_handler()
+
+    mock_display = Mock()
+    monkeypatch.setattr("IPython.display.display", mock_display)
+
+    monkeypatch.setenv("MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK", 1)
+
+    trace_a = create_trace("a")
+    trace_b = create_trace("b")
+    trace_c = create_trace("c")
+    handler.display_traces([trace_a, trace_b, trace_c])
+    mock_ipython.mock_run_cell()
+
+    assert mock_display.call_count == 1
+    assert mock_display.call_args[0][0] == {
+        "application/databricks.mlflow.trace": trace_a.to_json(),
+        "text/plain": trace_a.__repr__(),
+    }
