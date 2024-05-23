@@ -1198,6 +1198,7 @@ and a Config class that inherits from ``mlflow.deployments.server.base_models.Pr
     :caption: Example
 
     from typing import AsyncIterable
+
     from pydantic import validator
     from mlflow.deployments.server.base_models import ProviderConfigModel
     from mlflow.deployments.server.config import RouteConfig, _resolve_api_key_from_input
@@ -1253,7 +1254,7 @@ Then, you need to create a Python package that contains the plugin implementatio
 .. code-block:: python
     :caption: setup.py
 
-    from setuptools import setup, find_packages
+    from setuptools import find_packages, setup
 
     setup(
         name="my-provider",
