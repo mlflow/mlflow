@@ -13,7 +13,6 @@ from packaging.version import Version
 from pydantic import (
     ConfigDict,
     Field,
-    SerializeAsAny,
     ValidationError,
     root_validator,
     validator,
@@ -313,7 +312,13 @@ class Model(ConfigModel):
     name: Optional[str] = None
     provider: Union[str, Provider]
     config_model: Optional[str] = None
-    config: Optional[SerializeAsAny[ProviderConfigModel]] = None
+
+    if IS_PYDANTIC_V2:
+        from pydantic import SerializeAsAny
+
+        config: Optional[SerializeAsAny[ProviderConfigModel]] = None
+    else:
+        config: Optional[ProviderConfigModel] = None
 
     @validator("provider", pre=True)
     def validate_provider(cls, value):
