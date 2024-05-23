@@ -34,12 +34,6 @@ jest.mock('../../common/utils/ArtifactUtils', () => ({
   getArtifactBytesContent: jest.fn().mockResolvedValue(),
 }));
 
-// mock this as feature-flags are hard-coded
-jest.mock('../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../common/utils/FeatureUtils'),
-  shouldEnableLoggedArtifactTableView: jest.fn(() => false),
-}));
-
 describe('ArtifactView', () => {
   let wrapper;
   let minimalProps: any;
@@ -86,9 +80,7 @@ describe('ArtifactView', () => {
     });
 
     if (jest.isMockFunction(Utils.isModelRegistryEnabled)) {
-      // if jest.isMockFunction returns true, then .mockRestore exists
-      // @ts-expect-error TS(2339): Property 'mockRestore' does not exist on type '() => boolean'.
-      Utils.isModelRegistryEnabled.mockRestore();
+      jest.mocked(Utils.isModelRegistryEnabled).mockRestore();
     }
   });
   const getTestArtifactNode = () => {
@@ -123,25 +115,7 @@ describe('ArtifactView', () => {
     const emptyNode = new ArtifactNode(true, undefined);
     const props = { ...minimalProps, artifactNode: emptyNode };
     wrapper = getWrapper(getMockStore(emptyNode), props);
-    expect(wrapper.find('.no-artifacts')).toHaveLength(1);
-  });
-  test('should render selected file artifact', () => {
-    const props = { ...minimalProps };
-    wrapper = getWrapper(minimalStore, props);
-    const file1Element = wrapper.find('NodeHeader').at(0);
-    file1Element.simulate('click');
-    expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/file1');
-    expect(
-      wrapper.containsMatchingElement(
-        // @ts-expect-error TS(2322): Type '{ children: string; ellipsis: true; copyable... Remove this comment to see the full error message
-        <Text ellipsis copyable>
-          test_root/file1
-        </Text>,
-      ),
-    ).toEqual(true);
-    expect(wrapper.find('.artifact-info-size').html()).toContain('159B');
-    // Selecting a file artifact should display a download link
-    expect(wrapper.find('.artifact-info-link')).toHaveLength(1);
+    expect(wrapper.find('Empty')).toHaveLength(1);
   });
   test('should render text file in text artifact view', () => {
     // @ts-expect-error TS(2554): Expected 3 arguments, but got 2.
@@ -206,143 +180,5 @@ describe('ArtifactView', () => {
     const geojsonFileElement = wrapper.find('NodeHeader').at(0);
     geojsonFileElement.simulate('click');
     expect(wrapper.find(LazyShowArtifactMapView)).toHaveLength(1);
-  });
-  test('should render selected directory artifact', () => {
-    const props = { ...minimalProps };
-    wrapper = getWrapper(minimalStore, props);
-    const dir1Element = wrapper.find('NodeHeader').at(1);
-    dir1Element.simulate('click');
-    expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir1');
-    // Now that `dir1` has been selected, we expect the visible artifact tree
-    // to contain 5 elements: file1, dir2, dir1, file2, and file3
-    expect(wrapper.find('NodeHeader')).toHaveLength(5);
-    // Size info should not be displayed
-    expect(wrapper.find('.artifact-info-size')).toHaveLength(0);
-  });
-  test('should not render register model button for directory with no MLmodel file', () => {
-    expect(Utils.isModelRegistryEnabled()).toEqual(true);
-    const props = { ...minimalProps };
-    wrapper = getWrapper(minimalStore, props);
-    const dir1Element = wrapper.find('NodeHeader').at(1);
-    dir1Element.simulate('click');
-    expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir1');
-    expect(wrapper.find('.register-model-btn-wrapper')).toHaveLength(0);
-  });
-  test('should render register model button for directory with MLmodel file', () => {
-    expect(Utils.isModelRegistryEnabled()).toEqual(true);
-    const props = { ...minimalProps };
-    wrapper = getWrapper(minimalStore, props);
-    const dir2Element = wrapper.find('NodeHeader').at(2);
-    dir2Element.simulate('click');
-    expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir2');
-    expect(wrapper.find('.register-model-btn-wrapper')).toHaveLength(1);
-  });
-  test('should not render register model button for directory when registry is disabled', () => {
-    const enabledSpy = jest.spyOn(Utils, 'isModelRegistryEnabled').mockImplementation(() => false);
-    expect(Utils.isModelRegistryEnabled()).toEqual(false);
-    const props = { ...minimalProps };
-    wrapper = getWrapper(minimalStore, props);
-    const dir1Element = wrapper.find('NodeHeader').at(1);
-    dir1Element.simulate('click');
-    expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir1');
-    expect(wrapper.find('.register-model-btn-wrapper')).toHaveLength(0);
-    enabledSpy.mockRestore();
-  });
-  test('should render model version link for directory when version is present', () => {
-    expect(Utils.isModelRegistryEnabled()).toEqual(true);
-    const modelVersionsBySource = {
-      'test_root/dir2': [mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY)],
-    };
-    const props = { ...minimalProps, modelVersionsBySource };
-    const entities = {
-      ...minimalEntities,
-      modelVersionsByModel: {
-        'Model A': {
-          1: {
-            ...mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
-            source: 'test_root/dir2',
-          },
-        },
-      },
-    };
-    const store = mockStore({
-      entities: entities,
-    });
-    wrapper = getWrapper(store, props);
-    const dir2Element = wrapper.find('NodeHeader').at(2);
-    dir2Element.simulate('click');
-    expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir2');
-    expect(wrapper.find('.model-version-info')).toHaveLength(1);
-    expect(wrapper.find('.model-version-link')).toHaveLength(1);
-    expect(wrapper.find('.model-version-link').html()).toContain('Model A');
-    expect(wrapper.find('.model-version-link').html()).toContain('v1');
-  });
-  /**
-   * A model version's source may be semantically equivalent to a run artifact path
-   * but syntactically distinct; this occurs when there are redundant or trailing
-   * slashes present in the version source or run artifact path. This test verifies that,
-   * in these cases, model version information is still displayed correctly for a run artifact.
-   */
-  test('should render model version link for semantically equivalent artifact paths', () => {
-    expect(Utils.isModelRegistryEnabled()).toEqual(true);
-    // Construct a model version source that is semantically equivalent to a run artifact path
-    // but syntactically different because it contains extra slashes. We expect that the UI
-    // should still render the version source for this artifact
-    const modelVersionSource = 'test_root////dir2///';
-    const modelVersionsBySource = {
-      modelVersionSource: [mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY)],
-    };
-    const props = { ...minimalProps, modelVersionsBySource };
-    const entities = {
-      ...minimalEntities,
-      modelVersionsByModel: {
-        'Model A': {
-          1: {
-            ...mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
-            source: modelVersionSource,
-          },
-        },
-      },
-    };
-    const store = mockStore({
-      entities: entities,
-    });
-    wrapper = getWrapper(store, props);
-    const dir2Element = wrapper.find('NodeHeader').at(2);
-    dir2Element.simulate('click');
-    expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir2');
-    expect(wrapper.find('.model-version-info')).toHaveLength(1);
-    expect(wrapper.find('.model-version-link')).toHaveLength(1);
-    expect(wrapper.find('.model-version-link').html()).toContain('Model A');
-    expect(wrapper.find('.model-version-link').html()).toContain('v1');
-  });
-  test('should not render model version link for file under valid model version directory', () => {
-    expect(Utils.isModelRegistryEnabled()).toEqual(true);
-    const modelVersionsBySource = {
-      'test_root/dir2': [mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY)],
-    };
-    const props = { ...minimalProps, modelVersionsBySource };
-    const entities = {
-      ...minimalEntities,
-      modelVersionsByModel: {
-        'Model A': {
-          1: {
-            ...mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
-            source: 'test_root/dir2',
-          },
-        },
-      },
-    };
-    const store = mockStore({
-      entities: entities,
-    });
-    wrapper = getWrapper(store, props);
-    const dir2Element = wrapper.find('NodeHeader').at(2);
-    dir2Element.simulate('click');
-    const file4Element = wrapper.find('NodeHeader').at(3);
-    file4Element.simulate('click');
-    expect(wrapper.find('.model-version-info')).toHaveLength(0);
-    expect(wrapper.find('.model-version-link')).toHaveLength(0);
-    expect(wrapper.find('.artifact-info-link')).toHaveLength(1);
   });
 });

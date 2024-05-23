@@ -505,6 +505,12 @@ MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE = _EnvironmentVariable(
     "MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE", int, 500 * 1024**2
 )
 
+#: Specifies the minimum file size in bytes to use multipart download when downloading artifacts
+#: (default: ``524_288_000`` (500 MB))
+MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE = _EnvironmentVariable(
+    "MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE", int, 500 * 1024**2
+)
+
 #: Specifies the chunk size in bytes to use when performing multipart upload
 #: (default: ``104_857_60`` (10 MB))
 MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE = _EnvironmentVariable(
@@ -562,6 +568,24 @@ _MLFLOW_RUN_SLOW_TESTS = _BooleanEnvironmentVariable("MLFLOW_RUN_SLOW_TESTS", Fa
 #: (default: ``11``)
 MLFLOW_DOCKER_OPENJDK_VERSION = _EnvironmentVariable("MLFLOW_DOCKER_OPENJDK_VERSION", str, "11")
 
+# How many traces to be buffered at the Trace Client.
+MLFLOW_TRACING_CLIENT_BUFFER_SIZE = _EnvironmentVariable(
+    "MLFLOW_TRACING_CLIENT_BUFFER_SIZE", int, 1000
+)
+
+# How long a trace can be buffered at the in-memory trace client before being abandoned.
+MLFLOW_TRACE_BUFFER_TTL_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_TTL_SECONDS", int, 3600)
+
+# How many traces to be buffered at the in-memory trace client.
+MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZE", int, 1000)
+
+#: Whether or not to enable trace logging in model serving.
+#: The default value is set to False to ensure that this flag is only enabled
+#: when our internal safety mechanism on Databricks explicitly sets it to True.
+MLFLOW_ENABLE_TRACE_IN_SERVING = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_TRACE_IN_SERVING", False
+)
+
 # Whether to use presigned URLs to interact with the Unity Catalog
 MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED = _BooleanEnvironmentVariable(
     "MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED", False
@@ -575,4 +599,11 @@ MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED = _BooleanEnvironmentVariable(
 #: (default: ``False``)
 _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS = _BooleanEnvironmentVariable(
     "_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", False
+)
+
+#: Whether to warn (default) or raise (opt-in) for unresolvable requirements inference for
+#: a model's dependency inference. If set to True, an exception will be raised if requirements
+#: inference or the process of capturing imported modules encounters any errors.
+MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS = _BooleanEnvironmentVariable(
+    "MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", False
 )

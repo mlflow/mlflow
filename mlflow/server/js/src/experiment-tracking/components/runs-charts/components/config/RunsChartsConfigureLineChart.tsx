@@ -7,14 +7,17 @@ import {
   Form,
   useDesignSystemTheme,
   ThemeType,
+  SegmentedControlGroup,
+  SegmentedControlButton,
+  InfoIcon,
 } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useCallback, useEffect, useState } from 'react';
 import type { RunsChartsCardConfig, RunsChartsLineCardConfig } from '../../runs-charts.types';
 import { RunsChartsConfigureField, RunsChartsRunNumberSelect } from './RunsChartsConfigure.common';
-import { LineSmoothSlider } from '../../../LineSmoothSlider';
-import { shouldEnableDeepLearningUI, shouldEnableDeepLearningUIPhase3 } from 'common/utils/FeatureUtils';
+import { shouldEnableDeepLearningUIPhase3 } from 'common/utils/FeatureUtils';
 import { RunsChartsLineChartXAxisType } from 'experiment-tracking/components/runs-charts/components/RunsCharts.common';
+import { LineSmoothSlider } from 'experiment-tracking/components/LineSmoothSlider';
 
 const renderMetricSelectorV1 = ({
   metricKeyList,
@@ -156,10 +159,10 @@ export const RunsChartsConfigureLineChart = ({
   state: Partial<RunsChartsLineCardConfig>;
   onStateChange: (setter: (current: RunsChartsCardConfig) => RunsChartsLineCardConfig) => void;
 }) => {
-  const usingV2ChartImprovements = shouldEnableDeepLearningUI();
   const shouldEnableMetricsOnXAxis = shouldEnableDeepLearningUIPhase3();
   const { theme } = useDesignSystemTheme();
-  const runSelectOptions = usingV2ChartImprovements ? [5, 10, 20, 50, 100] : [5, 10, 20];
+  const intl = useIntl();
+  const runSelectOptions = [5, 10, 20, 50, 100];
 
   /**
    * Callback for updating metric key
@@ -188,6 +191,16 @@ export const RunsChartsConfigureLineChart = ({
         ...(current as RunsChartsLineCardConfig),
         xAxisKey,
         selectedXAxisMetricKey: '',
+      }));
+    },
+    [onStateChange],
+  );
+
+  const updateXAxisScaleType = useCallback(
+    (isLogType: boolean) => {
+      onStateChange((current) => ({
+        ...(current as RunsChartsLineCardConfig),
+        xAxisScaleType: isLogType ? 'log' : 'linear',
       }));
     },
     [onStateChange],
@@ -249,26 +262,19 @@ export const RunsChartsConfigureLineChart = ({
   // for backwards compatibility, if selectedMetricKeys
   // is not present, set it using metricKey.
   useEffect(() => {
-    if (
-      usingV2ChartImprovements &&
-      state.selectedMetricKeys === undefined &&
-      state.metricKey !== undefined &&
-      state.metricKey !== ''
-    ) {
+    if (state.selectedMetricKeys === undefined && state.metricKey !== undefined && state.metricKey !== '') {
       updateSelectedMetrics([state.metricKey]);
     }
-  }, [state.selectedMetricKeys, state.metricKey, updateSelectedMetrics, usingV2ChartImprovements]);
+  }, [state.selectedMetricKeys, state.metricKey, updateSelectedMetrics]);
 
   return (
     <>
       <RunsChartsConfigureField title="Metric (Y-axis)">
-        {usingV2ChartImprovements
-          ? renderMetricSelectorV2({
-              metricKeyList,
-              selectedMetricKeys: state.selectedMetricKeys,
-              updateSelectedMetrics,
-            })
-          : renderMetricSelectorV1({ metricKeyList, metricKey: state.metricKey, updateMetric })}
+        {renderMetricSelectorV2({
+          metricKeyList,
+          selectedMetricKeys: state.selectedMetricKeys,
+          updateSelectedMetrics,
+        })}
       </RunsChartsConfigureField>
       <RunsChartsConfigureField title="X-axis">
         <Radio.Group
@@ -327,15 +333,105 @@ export const RunsChartsConfigureLineChart = ({
             })}
         </Radio.Group>
       </RunsChartsConfigureField>
+      {state.xAxisKey === RunsChartsLineChartXAxisType.STEP && (
+        <RunsChartsConfigureField title="X-axis log scale">
+          <Switch checked={state.xAxisScaleType === 'log'} onChange={updateXAxisScaleType} label="Enabled" />
+        </RunsChartsConfigureField>
+      )}
       <RunsChartsConfigureField title="Y-axis log scale">
         <Switch checked={state.scaleType === 'log'} onChange={updateYAxisType} label="Enabled" />
+      </RunsChartsConfigureField>
+      <RunsChartsConfigureField
+        title={intl.formatMessage({
+          defaultMessage: 'Display points',
+          description: 'Runs charts > line chart > display points > label',
+        })}
+      >
+        <SegmentedControlGroup
+          name={intl.formatMessage({
+            defaultMessage: 'Display points',
+            description: 'Runs charts > line chart > display points > label',
+          })}
+          value={state.displayPoints}
+          onChange={({ target }) => {
+            onStateChange((current) => ({
+              ...(current as RunsChartsLineCardConfig),
+              displayPoints: target.value,
+            }));
+          }}
+        >
+          <SegmentedControlButton
+            value={undefined}
+            aria-label={[
+              intl.formatMessage({
+                defaultMessage: 'Display points',
+                description: 'Runs charts > line chart > display points > label',
+              }),
+              intl.formatMessage({
+                defaultMessage: 'Auto',
+                description: 'Runs charts > line chart > display points > auto setting label',
+              }),
+            ].join(': ')}
+          >
+            <FormattedMessage
+              defaultMessage="Auto"
+              description="Runs charts > line chart > display points > auto setting label"
+            />{' '}
+            <Tooltip
+              title={
+                <FormattedMessage
+                  defaultMessage="Show points on line charts if there are fewer than 60 data points per trace"
+                  description="Runs charts > line chart > display points > auto tooltip"
+                />
+              }
+            >
+              <InfoIcon />
+            </Tooltip>
+          </SegmentedControlButton>
+          <SegmentedControlButton
+            value
+            aria-label={[
+              intl.formatMessage({
+                defaultMessage: 'Display points',
+                description: 'Runs charts > line chart > display points > label',
+              }),
+              intl.formatMessage({
+                defaultMessage: 'On',
+                description: 'Runs charts > line chart > display points > on setting label',
+              }),
+            ].join(': ')}
+          >
+            <FormattedMessage
+              defaultMessage="On"
+              description="Runs charts > line chart > display points > on setting label"
+            />
+          </SegmentedControlButton>
+          <SegmentedControlButton
+            value={false}
+            aria-label={[
+              intl.formatMessage({
+                defaultMessage: 'Display points',
+                description: 'Runs charts > line chart > display points > label',
+              }),
+              intl.formatMessage({
+                defaultMessage: 'Off',
+                description: 'Runs charts > line chart > display points > off setting label',
+              }),
+            ].join(': ')}
+          >
+            <FormattedMessage
+              defaultMessage="Off"
+              description="Runs charts > line chart > display points > off setting label"
+            />
+          </SegmentedControlButton>
+        </SegmentedControlGroup>
       </RunsChartsConfigureField>
       <RunsChartsConfigureField title="Line smoothness">
         <LineSmoothSlider
           data-testid="smoothness-toggle"
           min={0}
           max={100}
-          handleLineSmoothChange={updateSmoothing}
+          onChange={updateSmoothing}
           defaultValue={state.lineSmoothness ? state.lineSmoothness : 0}
         />
       </RunsChartsConfigureField>

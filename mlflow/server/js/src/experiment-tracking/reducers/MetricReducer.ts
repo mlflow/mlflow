@@ -13,7 +13,7 @@ import {
   LOAD_MORE_RUNS_API,
   SEARCH_RUNS_API,
 } from '../actions';
-import { RunInfo, Metric } from '../sdk/MlflowMessages';
+import { Metric } from '../sdk/MlflowMessages';
 import { fulfilled } from '../../common/utils/ActionUtils';
 
 export const getMetricsByKey = (runUuid: any, key: any, state: any) => {
@@ -51,8 +51,8 @@ export const latestMetricsByRunUuid = (state = {}, action: any) => {
   };
   switch (action.type) {
     case fulfilled(GET_RUN_API): {
-      const runInfo = (RunInfo as any).fromJs(action.payload.run.info);
-      const runUuid = runInfo.getRunUuid();
+      const runInfo = action.payload.run.info;
+      const runUuid = runInfo.runUuid;
       const metrics = action.payload.run.data.metrics || [];
       return {
         ...state,
@@ -64,7 +64,7 @@ export const latestMetricsByRunUuid = (state = {}, action: any) => {
       const newState = { ...state };
       if (action.payload.runs) {
         action.payload.runs.forEach((rJson: any) => {
-          const runUuid = rJson.info.run_uuid;
+          const runUuid = rJson.info.runUuid;
           const metrics = rJson.data.metrics || [];
           // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
           newState[runUuid] = metricArrToObject(metrics);

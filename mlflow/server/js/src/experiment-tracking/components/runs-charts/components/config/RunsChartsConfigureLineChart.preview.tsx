@@ -6,16 +6,11 @@ import { MetricHistoryByName } from '../../../../types';
 import { RunsChartsLineChartXAxisType, type RunsChartsRunData } from '../RunsCharts.common';
 import { RunsMetricsLinePlot } from '../RunsMetricsLinePlot';
 import { RunsChartsTooltipMode, useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
-import { useFetchCompareRunsMetricHistory } from '../../../runs-compare/hooks/useFetchCompareRunsMetricHistory';
 import { RunsChartsLineCardConfig } from '../../runs-charts.types';
-import {
-  shouldEnableDeepLearningUI,
-  shouldEnableRunGrouping,
-  shouldEnableDeepLearningUIPhase3,
-} from '../../../../../common/utils/FeatureUtils';
+import { shouldEnableDeepLearningUIPhase3 } from '../../../../../common/utils/FeatureUtils';
 import { useSampledMetricHistory } from '../../hooks/useSampledMetricHistory';
 import { compact, uniq } from 'lodash';
-import { parseRunsGroupByKey } from '../../../experiment-page/utils/experimentPage.group-row-utils';
+import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import { useGroupedChartRunData } from '../../../runs-compare/hooks/useGroupedChartRunData';
 
 export const RunsChartsConfigureLineChartPreviewImpl = ({
@@ -26,72 +21,42 @@ export const RunsChartsConfigureLineChartPreviewImpl = ({
 }: {
   previewData: RunsChartsRunData[];
   cardConfig: RunsChartsLineCardConfig;
-  groupBy: string;
+  groupBy: RunsGroupByConfig | null;
 
   metricsByRunUuid: Record<string, MetricHistoryByName>;
 }) => {
-  const usingV2ChartImprovements = shouldEnableDeepLearningUI();
   const usingMultipleRunsHoverTooltip = shouldEnableDeepLearningUIPhase3();
 
-  const isGrouped = useMemo(
-    () => shouldEnableRunGrouping() && previewData.some((r) => r.groupParentInfo),
-    [previewData],
-  );
+  const isGrouped = useMemo(() => previewData.some((r) => r.groupParentInfo), [previewData]);
 
-  const { aggregateFunction } = parseRunsGroupByKey(groupBy) || {};
+  const { aggregateFunction } = groupBy || {};
 
   const runUuidsToFetch = useMemo(() => {
     if (isGrouped) {
       const runsInGroups = compact(previewData.map((r) => r.groupParentInfo)).flatMap((g) => g.runUuids);
       const ungroupedRuns = compact(
-        previewData.filter((r) => !r.groupParentInfo && !r.belongsToGroup).map((r) => r.runInfo?.run_uuid),
+        previewData.filter((r) => !r.groupParentInfo && !r.belongsToGroup).map((r) => r.runInfo?.runUuid),
       );
       return [...runsInGroups, ...ungroupedRuns];
     }
-    return compact(previewData.map((r) => r.runInfo)).map((g) => g.run_uuid);
+    return compact(previewData.map((r) => r.runInfo)).map((g) => g.runUuid);
   }, [previewData, isGrouped]);
 
   const metricKeysToFetch = useMemo(() => {
     const fallback = [cardConfig.metricKey];
 
-    if (!usingV2ChartImprovements) {
-      return fallback;
-    }
-
     const yAxisKeys = cardConfig.selectedMetricKeys ?? fallback;
     const xAxisKeys = !cardConfig.selectedXAxisMetricKey ? [] : [cardConfig.selectedXAxisMetricKey];
     return yAxisKeys.concat(xAxisKeys);
-  }, [
-    cardConfig.metricKey,
-    cardConfig.selectedMetricKeys,
-    cardConfig.selectedXAxisMetricKey,
-    usingV2ChartImprovements,
-  ]);
+  }, [cardConfig.metricKey, cardConfig.selectedMetricKeys, cardConfig.selectedXAxisMetricKey]);
 
-  const { resultsByRunUuid, isLoading: isLoadingSampledMetrics } = useSampledMetricHistory({
+  const { resultsByRunUuid, isLoading } = useSampledMetricHistory({
     runUuids: runUuidsToFetch,
     metricKeys: metricKeysToFetch,
-    enabled: usingV2ChartImprovements,
+    enabled: true,
     maxResults: 320,
+    autoRefreshEnabled: false,
   });
-
-  const { isLoading: isLoadingUnsampledMetrics, error } = useFetchCompareRunsMetricHistory(
-    metricKeysToFetch,
-    previewData,
-    undefined,
-    true,
-  );
-
-  const isLoading = usingV2ChartImprovements ? isLoadingSampledMetrics : isLoadingUnsampledMetrics;
-
-  const previewDataWithHistory = useMemo<RunsChartsRunData[]>(
-    () =>
-      previewData.map((previewRun) => ({
-        ...previewRun,
-        metricsHistory: metricsByRunUuid[previewRun.uuid],
-      })),
-    [previewData, metricsByRunUuid],
-  );
 
   const sampledData = useMemo(
     () =>
@@ -122,13 +87,8 @@ export const RunsChartsConfigureLineChartPreviewImpl = ({
       cardConfig.xAxisKey === RunsChartsLineChartXAxisType.METRIC ? cardConfig.selectedXAxisMetricKey : undefined,
   });
 
-  const chartData = isGrouped
-    ? // Use grouped data traces only if enabled and if there are any groups
-      sampledGroupData
-    : // Otherwise, determine whether to use sampled data based on the flag
-    usingV2ChartImprovements
-    ? sampledData
-    : previewDataWithHistory;
+  // Use grouped data traces only if enabled and if there are any groups
+  const chartData = isGrouped ? sampledGroupData : sampledData;
 
   const { setTooltip, resetTooltip } = useRunsChartsTooltip(
     cardConfig,
@@ -139,19 +99,17 @@ export const RunsChartsConfigureLineChartPreviewImpl = ({
     return <LegacySkeleton />;
   }
 
-  if (error) {
-    return <>Error occured!</>;
-  }
-
   return (
     <RunsMetricsLinePlot
       runsData={chartData}
       metricKey={cardConfig.metricKey}
       selectedMetricKeys={cardConfig.selectedMetricKeys}
       scaleType={cardConfig.scaleType}
+      xAxisScaleType={cardConfig.xAxisScaleType}
       lineSmoothness={cardConfig.lineSmoothness}
       xAxisKey={cardConfig.xAxisKey}
       selectedXAxisMetricKey={cardConfig.selectedXAxisMetricKey}
+      displayPoints={cardConfig.displayPoints}
       useDefaultHoverBox={false}
       onHover={setTooltip}
       onUnhover={resetTooltip}

@@ -20,6 +20,12 @@ from mlflow.entities.run_inputs import RunInputs
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.run_tag import RunTag
 from mlflow.entities.source_type import SourceType
+from mlflow.entities.span import LiveSpan, NoOpSpan, Span, SpanType
+from mlflow.entities.span_event import SpanEvent
+from mlflow.entities.span_status import SpanStatus, SpanStatusCode
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.view_type import ViewType
 
 __all__ = [
@@ -40,5 +46,15 @@ __all__ = [
     "InputTag",
     "DatasetInput",
     "RunInputs",
+    "Span",
+    "LiveSpan",
+    "NoOpSpan",
+    "SpanEvent",
+    "SpanStatus",
+    "SpanType",
+    "Trace",
+    "TraceData",
+    "TraceInfo",
+    "SpanStatusCode",
     "_DatasetSummary",
 ]

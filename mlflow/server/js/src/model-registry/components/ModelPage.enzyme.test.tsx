@@ -28,6 +28,7 @@ describe('ModelPage', () => {
   const navigate = jest.fn();
 
   beforeEach(() => {
+    jest.resetAllMocks();
     minimalProps = {
       searchModelVersionsApi: jest.fn(() => Promise.resolve({})),
       getRegisteredModelDetailsApi: jest.fn(() => Promise.resolve({})),

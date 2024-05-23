@@ -12,7 +12,6 @@ import promiseMiddleware from 'redux-promise-middleware';
 import configureStore from 'redux-mock-store';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
-import { RunInfo } from '../../experiment-tracking/sdk/MlflowMessages';
 import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
 
 describe('unconnected tests', () => {
@@ -39,7 +38,7 @@ describe('unconnected tests', () => {
     };
     minimalStore = mockStore({
       entities: {
-        runInfosByUuid: { 123: (RunInfo as any).fromJs({ dummy_key: 'dummy_value' }) },
+        runInfosByUuid: { 123: { dummy_key: 'dummy_value' } },
         latestMetricsByRunUuid: {
           123: [{ key: 'test_metric', value: 0.0 }],
         },
@@ -52,19 +51,19 @@ describe('unconnected tests', () => {
     commonProps = {
       ...minimumProps,
       runInfos: [
-        (RunInfo as any).fromJs({
-          run_uuid: '123',
-          experiment_id: '0',
-          user_id: 'test.user',
+        {
+          runUuid: '123',
+          experimentId: '0',
+          userId: 'test.user',
           status: 'FINISHED',
-          start_time: '0',
-          end_time: '21',
-          artifact_uri: './mlruns',
-          lifecycle_stage: 'active',
-        }),
-        (RunInfo as any).fromJs({
-          run_uuid: 'somebadrunID',
-        }),
+          startTime: '0',
+          endTime: '21',
+          artifactUri: './mlruns',
+          lifecycleStage: 'active',
+        },
+        {
+          runUuid: 'somebadrunID',
+        },
       ],
       runInfosValid: [true, false],
       metricLists: [[{ key: 'test_metric', value: 0.0 }]],
@@ -114,7 +113,7 @@ describe('connected tests', () => {
     };
     minimalStore = mockStore({
       entities: {
-        runInfosByUuid: { 123: (RunInfo as any).fromJs({ dummy_key: 'dummy_value' }) },
+        runInfosByUuid: { 123: { dummy_key: 'dummy_value' } },
         latestMetricsByRunUuid: {
           123: [{ key: 'test_metric', value: 0.0 }],
         },
@@ -127,16 +126,16 @@ describe('connected tests', () => {
     commonStore = mockStore({
       entities: {
         runInfosByUuid: {
-          123: (RunInfo as any).fromJs({
-            run_uuid: '123',
-            experiment_id: '0',
-            user_id: 'test.user',
+          123: {
+            runUuid: '123',
+            experimentId: '0',
+            userId: 'test.user',
             status: 'FINISHED',
-            start_time: '0',
-            end_time: '21',
-            artifact_uri: './mlruns',
-            lifecycle_stage: 'active',
-          }),
+            startTime: '0',
+            endTime: '21',
+            artifactUri: './mlruns',
+            lifecycleStage: 'active',
+          },
         },
         latestMetricsByRunUuid: {
           123: [{ key: 'test_metric', value: 0.0, timestamp: '321', step: '42' }],

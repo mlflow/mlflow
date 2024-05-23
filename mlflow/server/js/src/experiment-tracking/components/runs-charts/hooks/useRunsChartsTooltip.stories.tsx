@@ -25,7 +25,7 @@ const ContextMenuComponent = ({
   isHovering,
   closeContextMenu,
 }: RunsChartsTooltipBodyProps<{ runs: ReturnType<typeof createMockData> }>) => {
-  const run = contextData?.runs.find((x: any) => x.runInfo.run_uuid === runUuid);
+  const run = contextData?.runs.find((x: any) => x.runInfo.runUuid === runUuid);
 
   if (!run) {
     return null;
@@ -33,7 +33,7 @@ const ContextMenuComponent = ({
 
   return (
     <div>
-      <div>name: {run.runInfo.run_name}</div>
+      <div>name: {run.runInfo.runName}</div>
       <div>uuid: {runUuid}</div>
       <div>hovered menu id: {hoverData}</div>
       <div>mode: {isHovering ? 'hovering' : 'context menu'}</div>
@@ -78,8 +78,8 @@ const createMockData = (numRuns: number, numValues: number, negative = false) =>
 
     return {
       runInfo: {
-        run_uuid: `id-for-run-${runName}`,
-        run_name: runName,
+        runUuid: `id-for-run-${runName}`,
+        runName: runName,
       } as RunInfoEntity,
       metricsHistory: { metric1: metricsHistory },
       metrics: {
@@ -122,8 +122,8 @@ const withChartMenuContext =
                   .slice()
                   .reverse()
                   .map((run) => (
-                    <li key={run.runInfo.run_uuid} style={{ fontWeight: 'bold', color: run.color }}>
-                      {run.runInfo.run_name}
+                    <li key={run.runInfo.runUuid} style={{ fontWeight: 'bold', color: run.color }}>
+                      {run.runInfo.runName}
                     </li>
                   ))}
               </ul>

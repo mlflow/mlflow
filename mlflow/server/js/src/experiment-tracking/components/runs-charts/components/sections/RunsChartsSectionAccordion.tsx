@@ -13,7 +13,7 @@ import {
 import MetricChartsAccordion, { METRIC_CHART_SECTION_HEADER_SIZE } from '../../../MetricChartsAccordion';
 import { RunsChartsSectionHeader } from './RunsChartsSectionHeader';
 import { RunsChartsSection } from './RunsChartsSection';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { getUUID } from 'common/utils/ActionUtils';
 import { useState } from 'react';
 import { Button, PlusIcon } from '@databricks/design-system';
@@ -24,6 +24,7 @@ import { Spacer } from '@databricks/design-system';
 import { useUpdateRunsChartsUIConfiguration } from '../../hooks/useRunsChartsUIConfiguration';
 import { isArray } from 'lodash';
 import { RunsChartCardSetFullscreenFn } from '../cards/ChartCard.common';
+import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 
 const chartMatchesFilter = (filter: string, config: RunsChartsCardConfig) => {
   const filterLowerCase = filter.toLowerCase();
@@ -67,7 +68,8 @@ export interface RunsChartsSectionAccordionProps {
   removeChart: (configToDelete: RunsChartsCardConfig) => void;
   addNewChartCard: (metricSectionId: string) => (type: RunsChartType) => void;
   search: string;
-  groupBy?: string;
+  groupBy: RunsGroupByConfig | null;
+  autoRefreshEnabled?: boolean;
   supportedChartTypes?: RunsChartType[] | undefined;
   setFullScreenChart: RunsChartCardSetFullscreenFn;
 }
@@ -79,19 +81,18 @@ export const RunsChartsSectionAccordion = ({
   insertCharts,
   chartData,
   isMetricHistoryLoading = false,
+  autoRefreshEnabled = false,
   startEditChart,
   removeChart,
   addNewChartCard,
   search,
-  groupBy = '',
+  groupBy,
   supportedChartTypes,
   setFullScreenChart = () => {},
 }: RunsChartsSectionAccordionProps) => {
   const updateUIState = useUpdateRunsChartsUIConfiguration();
   const [editSection, setEditSection] = useState(-1);
   const { theme } = useDesignSystemTheme();
-
-  // Filter the sections and chart by search
 
   /**
    * Get the active (expanded) panels for the accordion
@@ -361,6 +362,7 @@ export const RunsChartsSectionAccordion = ({
                   groupBy={groupBy}
                   sectionIndex={index}
                   setFullScreenChart={setFullScreenChart}
+                  autoRefreshEnabled={autoRefreshEnabled}
                 />
               </Accordion.Panel>
             );
@@ -410,6 +412,7 @@ export const RunsChartsSectionAccordion = ({
                 groupBy={groupBy}
                 sectionIndex={index}
                 setFullScreenChart={setFullScreenChart}
+                autoRefreshEnabled={autoRefreshEnabled}
               />
             </Accordion.Panel>
           );

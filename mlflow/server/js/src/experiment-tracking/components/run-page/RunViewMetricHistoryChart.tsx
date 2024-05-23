@@ -38,8 +38,8 @@ export const RunViewMetricHistoryChart = ({
   const chartData = useMemo(
     () => [
       {
-        uuid: runInfo.run_uuid,
-        displayName: runInfo.run_name,
+        uuid: runInfo.runUuid,
+        displayName: runInfo.runName,
         runInfo,
         metricsHistory: { [metricKey]: metricsHistory },
         color: theme.colors.primary,
