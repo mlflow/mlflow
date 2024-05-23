@@ -29,6 +29,10 @@ func (f FakeStore) SearchRuns(
 	return nil, nil
 }
 
+func (f FakeStore) DeleteExperiment(_ string) *contract.Error {
+	return nil
+}
+
 func toPtr(s string) *string {
 	return &s
 }

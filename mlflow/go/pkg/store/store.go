@@ -20,6 +20,8 @@ type MlflowStore interface {
 		orderBy []string,
 		pageToken *string,
 	) (pagedList *PagedList[*protos.Run], err *contract.Error)
+
+	DeleteExperiment(id string) *contract.Error
 }
 
 type PagedList[T any] struct {

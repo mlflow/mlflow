@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/ncruces/go-sqlite3/gormlite"
@@ -39,9 +40,10 @@ type Store struct {
 func (s Store) GetExperiment(id string) (*protos.Experiment, *contract.Error) {
 	idInt, err := strconv.ParseInt(id, 10, 32)
 	if err != nil {
-		return nil, contract.NewError(
+		return nil, contract.NewErrorWith(
 			protos.ErrorCode_INVALID_PARAMETER_VALUE,
-			fmt.Sprintf("failed to convert experiment id to int: %v", err),
+			fmt.Sprintf("failed to convert experiment id (%s) to int", id),
+			err,
 		)
 	}
 
@@ -363,6 +365,51 @@ func (s Store) SearchRuns(
 		Items:         contractRuns,
 		NextPageToken: nextPageToken,
 	}, nil
+}
+
+func (s Store) DeleteExperiment(id string) *contract.Error {
+	idInt, err := strconv.ParseInt(id, 10, 32)
+	if err != nil {
+		return contract.NewErrorWith(
+			protos.ErrorCode_INVALID_PARAMETER_VALUE,
+			fmt.Sprintf("failed to convert experiment id (%s) to int", id),
+			err,
+		)
+	}
+
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		// Update experiment
+		if err := tx.Model(&model.Experiment{}).Where("experiment_id = ?", idInt).Updates(map[string]interface{}{
+			"lifecycle_stage":  string(model.LifecycleStageDeleted),
+			"last_update_time": time.Now().UnixMilli(),
+		}).Error; err != nil {
+			return fmt.Errorf("failed to update experiment (%d) during delete: %w", idInt, err)
+		}
+
+		if tx.RowsAffected != 1 {
+			return fmt.Errorf("failed to update experiment during delete: %w", gorm.ErrRecordNotFound)
+		}
+
+		// Update runs: mark as deleted using subquery
+		subQuery := tx.Model(&model.Run{}).Select("run_uuid").Where("experiment_id = ?", idInt)
+		if err := tx.Exec("UPDATE runs SET lifecycle_stage = ?, deleted_time = ? WHERE run_uuid IN (?)",
+			string(model.LifecycleStageDeleted),
+			time.Now().UnixMilli(),
+			subQuery,
+		).Error; err != nil {
+			return fmt.Errorf("failed to update runs during delete: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return contract.NewErrorWith(
+			protos.ErrorCode_INTERNAL_ERROR,
+			"failed to delete experiment",
+			err,
+		)
+	}
+
+	return nil
 }
 
 func NewSQLStore(config *config.Config) (store.MlflowStore, error) {
