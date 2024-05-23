@@ -25,6 +25,7 @@ from mlflow.langchain._langchain_autolog import (
 )
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.models import Model
+from mlflow.models.dependencies_schemas import DependenciesSchemasType, set_retriever_schema
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.pyfunc.context import Context, set_prediction_context
@@ -38,7 +39,7 @@ from mlflow.utils.openai_utils import (
 
 # TODO: This test helper is used outside the tracing module, we should move it to a common utils
 from tests.tracing.conftest import clear_singleton as clear_trace_singleton  # noqa: F401
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import get_first_trace, get_traces
 
 MODEL_DIR = "model"
 TEST_CONTENT = "test"
@@ -996,3 +997,27 @@ def test_langchain_autolog_extra_model_classes_warning():
 
         mlflow.langchain.autolog(extra_model_classes=[Runnable])
         mock_warning.assert_not_called()
+
+
+def test_set_retriever_schema_work_for_langchain_model(clear_trace_singleton):
+    set_retriever_schema(
+        primary_key="primary-key",
+        text_column="text-column",
+        doc_uri="doc-uri",
+        other_columns=["column1", "column2"],
+    )
+
+    model = create_openai_llmchain()
+    with _mock_request(return_value=_mock_chat_completion_response()):
+        model.invoke("MLflow")
+
+        with mlflow.start_run():
+            model_info = mlflow.langchain.log_model(model, "model", input_example="MLflow")
+
+        mlflow.langchain.autolog()
+
+        pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+        pyfunc_model.predict("MLflow")
+
+    trace = get_first_trace()
+    assert DependenciesSchemasType.RETRIEVERS.value in trace.info.tags

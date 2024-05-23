@@ -35,6 +35,11 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.pyfunc.context import (
+    Context,
+    get_prediction_context,
+    potentially_set_prediction_context,
+)
 from mlflow.types.schema import Array, ColSpec, DataType, Schema
 
 _logger = logging.getLogger(__name__)
@@ -194,6 +199,7 @@ class APIRequest:
     convert_chat_responses: bool
     did_perform_chat_conversion: bool
     stream: bool
+    prediction_context: Optional[Context]
 
     def _prepare_to_serialize(self, response: dict):
         """
@@ -316,7 +322,8 @@ class APIRequest:
         _logger.debug(f"Request #{self.index} started with payload: {self.request_json}")
 
         try:
-            response = self.single_call_api(callback_handlers)
+            with potentially_set_prediction_context(self.prediction_context):
+                response = self.single_call_api(callback_handlers)
             _logger.debug(f"Request #{self.index} succeeded with response: {response}")
             self.results.append((self.index, response))
             status_tracker.complete_task(success=True)
@@ -539,6 +546,7 @@ def process_api_requests(
                     convert_chat_responses=convert_chat_responses,
                     did_perform_chat_conversion=did_perform_chat_conversion,
                     stream=False,
+                    prediction_context=get_prediction_context(),
                 )
                 status_tracker.start_task()
             else:
@@ -597,6 +605,7 @@ def process_stream_request(
         convert_chat_responses=convert_chat_responses,
         did_perform_chat_conversion=did_perform_chat_conversion,
         stream=True,
+        prediction_context=get_prediction_context(),
     )
-
-    return api_request.single_call_api(callback_handlers)
+    with potentially_set_prediction_context(api_request.prediction_context):
+        return api_request.single_call_api(callback_handlers)
