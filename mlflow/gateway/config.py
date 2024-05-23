@@ -45,6 +45,10 @@ _logger = logging.getLogger(__name__)
 IS_PYDANTIC_V2 = version.parse(pydantic.version.VERSION) >= version.parse("2.0")
 
 
+if IS_PYDANTIC_V2:
+    from pydantic import SerializeAsAny
+
+
 class Provider(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
@@ -314,8 +318,6 @@ class Model(ConfigModel):
     config_model: Optional[str] = None
 
     if IS_PYDANTIC_V2:
-        from pydantic import SerializeAsAny
-
         config: Optional[SerializeAsAny[ProviderConfigModel]] = None
     else:
         config: Optional[ProviderConfigModel] = None
