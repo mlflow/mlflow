@@ -181,12 +181,12 @@ def test_trace_in_databricks_model_serving(clear_singleton, monkeypatch):
 
         prediction = TestModel().predict(**data)
 
-        trace = pop_trace(request_id=request_id)
+        traces = pop_trace(request_id=request_id)
 
         result = json.dumps(
             {
                 "prediction": prediction,
-                "trace": trace,
+                "traces": traces,
             },
             default=str,
         )
@@ -220,8 +220,9 @@ def test_trace_in_databricks_model_serving(clear_singleton, monkeypatch):
     assert response.status_code == 200
     assert response.json["prediction"] == 64
 
-    trace_dict = response.json["trace"]
-    trace = Trace.from_dict(trace_dict)
+    trace_dicts = response.json["traces"]
+    assert len(trace_dicts) == 1
+    trace = Trace.from_dict(trace_dicts[0])
     assert trace.info.request_id == databricks_request_id
     assert trace.info.tags[TRACE_SCHEMA_VERSION_KEY] == "2"
     assert len(trace.data.spans) == 3
@@ -273,6 +274,70 @@ def test_trace_in_databricks_model_serving(clear_singleton, monkeypatch):
     # In model serving, the traces should not be stored in the fluent API buffer
     traces = get_traces()
     assert len(traces) == 0
+
+
+def test_trace_in_databricks_model_serving_multiple_traces_per_request(
+    clear_singleton, monkeypatch
+):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+
+    # Dummy flask app for prediction
+    import flask
+
+    from mlflow.tracing.export.inference_table import pop_trace
+
+    app = flask.Flask(__name__)
+
+    @app.route("/invocations", methods=["POST"])
+    def predict():
+        data = json.loads(flask.request.data.decode("utf-8"))
+        request_id = flask.request.headers.get("X-Request-ID")
+
+        prediction = TestModel().predict(**data)
+
+        traces = pop_trace(request_id=request_id)
+
+        result = json.dumps(
+            {
+                "prediction": prediction,
+                "traces": traces,
+            },
+            default=str,
+        )
+        return flask.Response(response=result, status=200, mimetype="application/json")
+
+    class TestModel:
+        def predict(self, x):
+            # Each add_one() call generates a trace
+            x = self.add_one(x)
+            x = self.add_one(x)
+            return self.add_one(x)
+
+        @mlflow.trace(name="custom")
+        def add_one(self, x):
+            return x + 1
+
+    # Mimic scoring request
+    databricks_request_id = "request-12345"
+    response = app.test_client().post(
+        "/invocations",
+        headers={"X-Request-ID": databricks_request_id},
+        data=json.dumps({"x": 0}),
+    )
+
+    assert response.status_code == 200
+    assert response.json["prediction"] == 3
+
+    trace_dicts = response.json["traces"]
+    assert len(trace_dicts) == 3
+
+    for i, trace_dict in enumerate(trace_dicts):
+        trace = Trace.from_dict(trace_dict)
+        assert trace.info.request_id == databricks_request_id
+        assert len(trace.data.spans) == 1
+        span = trace.data.spans[0]
+        assert span.inputs == {"x": i}
+        assert span.outputs == i + 1
 
 
 def test_trace_in_model_evaluation(clear_singleton, mock_store, monkeypatch):

@@ -50,12 +50,13 @@ def test_export():
 
     # Trace should be added to the in-memory buffer and can be extracted
     assert len(_TRACE_BUFFER) == 1
-    trace_dict = pop_trace(_REQUEST_ID)
-    trace_info = trace_dict["info"]
+    trace_dicts = pop_trace(_REQUEST_ID)
+    assert len(trace_dicts) == 1
+    trace_info = trace_dicts[0]["info"]
     assert trace_info["timestamp_ms"] == 0
     assert trace_info["execution_time_ms"] == 1
 
-    spans = trace_dict["data"]["spans"]
+    spans = trace_dicts[0]["data"]["spans"]
     assert len(spans) == 2
     assert spans[0]["name"] == "root"
     assert spans[0]["context"] == {
@@ -63,6 +64,38 @@ def test_export():
         "span_id": encode_span_id(1),
     }
     assert isinstance(spans[0]["attributes"], dict)
+
+
+def test_export_multiple_traces_per_request_id():
+    exporter = InferenceTableSpanExporter()
+
+    trace_id_1 = 12345
+    otel_span_1 = create_mock_otel_span(trace_id=trace_id_1, span_id=1)
+    span1 = LiveSpan(otel_span_1, request_id=_REQUEST_ID)
+    _register_span_and_trace(span1)
+
+    exporter.export([otel_span_1])
+
+    trace_id_2 = 23456
+    otel_span_2 = create_mock_otel_span(trace_id=trace_id_2, span_id=1)
+    span2 = LiveSpan(otel_span_2, request_id=_REQUEST_ID)
+    _register_span_and_trace(span2)
+
+    exporter.export([otel_span_2])
+
+    # Spans should be cleared from the trace manager
+    assert len(exporter._trace_manager._traces) == 0
+
+    # Trace should be added to the in-memory buffer and can be extracted
+    assert len(_TRACE_BUFFER) == 1
+    trace_dicts = pop_trace(_REQUEST_ID)
+    assert len(trace_dicts) == 2
+
+    trace_info = trace_dicts[0]["info"]
+    assert trace_info["request_id"] == _REQUEST_ID
+
+    trace_info = trace_dicts[1]["info"]
+    assert trace_info["request_id"] == _REQUEST_ID
 
 
 def test_export_warn_invalid_attributes():
@@ -77,8 +110,9 @@ def test_export_warn_invalid_attributes():
     exporter = InferenceTableSpanExporter()
     exporter.export([otel_span])
 
-    trace_dict = pop_trace(_REQUEST_ID)
-    trace = Trace.from_dict(trace_dict)
+    trace_dicts = pop_trace(_REQUEST_ID)
+    assert len(trace_dicts) == 1
+    trace = Trace.from_dict(trace_dicts[0])
     stored_span = trace.data.spans[0]
     assert stored_span.attributes == {
         "mlflow.traceRequestId": _REQUEST_ID,
