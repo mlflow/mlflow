@@ -379,29 +379,38 @@ func (s Store) DeleteExperiment(id string) *contract.Error {
 
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
 		// Update experiment
-		if err := tx.Model(&model.Experiment{}).Where("experiment_id = ?", idInt).Updates(map[string]interface{}{
-			"lifecycle_stage":  string(model.LifecycleStageDeleted),
-			"last_update_time": time.Now().UnixMilli(),
-		}).Error; err != nil {
+		if err := tx.Model(&model.Experiment{}).
+			Where("experiment_id = ?", idInt).
+			Updates(&model.Experiment{
+				LifecycleStage: utils.PtrTo(string(model.LifecycleStageDeleted)),
+				LastUpdateTime: utils.PtrTo(time.Now().UnixMilli()),
+			}).Error; err != nil {
 			return fmt.Errorf("failed to update experiment (%d) during delete: %w", idInt, err)
 		}
 
 		if tx.RowsAffected != 1 {
-			return fmt.Errorf("failed to update experiment during delete: %w", gorm.ErrRecordNotFound)
+			return gorm.ErrRecordNotFound
 		}
 
 		// Update runs: mark as deleted using subquery
-		subQuery := tx.Model(&model.Run{}).Select("run_uuid").Where("experiment_id = ?", idInt)
-		if err := tx.Exec("UPDATE runs SET lifecycle_stage = ?, deleted_time = ? WHERE run_uuid IN (?)",
-			string(model.LifecycleStageDeleted),
-			time.Now().UnixMilli(),
-			subQuery,
-		).Error; err != nil {
+		if err := tx.Model(&model.Run{}).
+			Where("experiment_id = ?", idInt).
+			Updates(&model.Run{
+				LifecycleStage: utils.PtrTo(string(model.LifecycleStageDeleted)),
+				DeletedTime:    utils.PtrTo(time.Now().UnixMilli()),
+			}).Error; err != nil {
 			return fmt.Errorf("failed to update runs during delete: %w", err)
 		}
 
 		return nil
 	}); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return contract.NewError(
+				protos.ErrorCode_RESOURCE_DOES_NOT_EXIST,
+				fmt.Sprintf("No Experiment with id=%d exists", idInt),
+			)
+		}
+
 		return contract.NewErrorWith(
 			protos.ErrorCode_INTERNAL_ERROR,
 			"failed to delete experiment",
