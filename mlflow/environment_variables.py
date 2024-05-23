@@ -607,3 +607,8 @@ _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS = _BooleanEnvironmentVariable(
 MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS = _BooleanEnvironmentVariable(
     "MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", False
 )
+
+# How many traces to display in Databricks Notebooks
+MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK = _EnvironmentVariable(
+    "MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK", int, 10
+)
