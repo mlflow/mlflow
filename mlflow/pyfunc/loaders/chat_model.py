@@ -33,8 +33,20 @@ class _ChatModelPyfuncWrapper:
         self.signature = signature
 
     def _convert_input(self, model_input):
-        # model_input should be correct from signature validation, so just convert it to dict here
-        dict_input = {key: value[0] for key, value in model_input.to_dict(orient="list").items()}
+        import pandas
+
+        if isinstance(model_input, dict):
+            dict_input = model_input
+        elif isinstance(model_input, pandas.DataFrame):
+            dict_input = {
+                key: value[0] for key, value in model_input.to_dict(orient="list").items()
+            }
+        else:
+            raise MlflowException(
+                "Unsupported model input type. Expected a dict or pandas.DataFrame, "
+                f"but got {type(model_input)} instead.",
+                error_code=INTERNAL_ERROR,
+            )
 
         messages = [ChatMessage(**message) for message in dict_input.pop("messages", [])]
         params = ChatParams(**dict_input)
