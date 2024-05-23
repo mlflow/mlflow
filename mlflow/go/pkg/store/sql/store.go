@@ -182,6 +182,13 @@ func (s Store) SearchRuns(
 			kind = &model.Dataset{}
 		}
 
+		// Treat "attributes.run_name == <value>" as "tags.`mlflow.runName` == <value>".
+		// The name column in the runs table is empty for runs logged in MLflow <= 1.29.0.
+		if key == "run_name" {
+			kind = &model.Tag{}
+			key = "mlflow.runName"
+		}
+
 		isSqliteAndILike := s.db.Dialector.Name() == "sqlite" && comparison == "ILIKE"
 		table := fmt.Sprintf("filter_%d", n)
 
