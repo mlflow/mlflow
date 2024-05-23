@@ -2431,10 +2431,13 @@ def save_model(
             )
             input_example = input_example or CHAT_MODEL_INPUT_EXAMPLE
 
-            if isinstance(input_example, list) and isinstance(input_example[0], ChatMessage):
-                example = {"messages": [each_message.to_dict() for each_message in input_example]}
-                params = ChatParams(**{k: v for k, v in example.items() if k != "messages"})
-                messages = input_example
+            if isinstance(input_example, list):
+                params = ChatParams()
+                messages = [
+                    each_message
+                    for each_message in input_example
+                    if isinstance(each_message, ChatMessage)
+                ]
             else:
                 # If the input example is a dictionary, convert it to ChatMessage format
                 messages = [ChatMessage(**m) for m in input_example["messages"]]
