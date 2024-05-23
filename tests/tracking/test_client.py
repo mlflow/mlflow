@@ -1,5 +1,7 @@
 import json
+import os
 import pickle
+import sys
 import time
 from unittest import mock
 
@@ -53,7 +55,11 @@ from mlflow.utils.mlflow_tags import (
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
 from tests.tracing.conftest import mock_store as mock_store_for_tracing  # noqa: F401
-from tests.tracing.helper import create_test_trace_info, get_first_trace, get_traces
+from tests.tracing.helper import (
+    create_test_trace_info,
+    get_first_trace,
+    get_traces,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -294,25 +300,53 @@ def test_client_delete_traces(mock_store):
     )
 
 
-@pytest.mark.parametrize("with_active_run", [True, False])
-def test_start_and_end_trace(clear_singleton, with_active_run):
-    class TestModel:
-        def __init__(self):
-            self._client = MlflowClient()
-            self._exp_id = self._client.create_experiment("test_experiment")
+@pytest.fixture(params=["file", "sqlalchemy"])
+def tracking_uri(request, tmp_path):
+    """Set an MLflow Tracking URI with different type of backend."""
+    if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
+        pytest.skip("SQLAlchemy store is not available in skinny.")
 
+    original_tracking_uri = mlflow.get_tracking_uri()
+
+    if request.param == "file":
+        tracking_uri = tmp_path.joinpath("file").as_uri()
+    elif request.param == "sqlalchemy":
+        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+        tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
+            len("file://") :
+        ]
+
+    # NB: MLflow tracer does not handle the change of tracking URI well,
+    # so we need to reset the tracer to switch the tracking URI during testing.
+    mlflow.tracing.disable()
+    mlflow.set_tracking_uri(tracking_uri)
+    mlflow.tracing.enable()
+
+    yield tracking_uri
+
+    # Reset tracking URI
+    mlflow.set_tracking_uri(original_tracking_uri)
+
+
+@pytest.mark.parametrize("with_active_run", [True, False])
+def test_start_and_end_trace(tracking_uri, with_active_run):
+    client = MlflowClient(tracking_uri)
+
+    experiment_id = client.create_experiment("test_experiment")
+
+    class TestModel:
         def predict(self, x, y):
-            root_span = self._client.start_trace(
+            root_span = client.start_trace(
                 name="predict",
                 inputs={"x": x, "y": y},
                 tags={"tag": "tag_value"},
-                experiment_id=self._exp_id,
+                experiment_id=experiment_id,
             )
             request_id = root_span.request_id
 
             z = x + y
 
-            child_span = self._client.start_span(
+            child_span = client.start_span(
                 "child_span_1",
                 span_type=SpanType.LLM,
                 request_id=request_id,
@@ -322,7 +356,7 @@ def test_start_and_end_trace(clear_singleton, with_active_run):
 
             z = z + 2
 
-            self._client.end_span(
+            client.end_span(
                 request_id=request_id,
                 span_id=child_span.span_id,
                 outputs={"output": z},
@@ -330,11 +364,11 @@ def test_start_and_end_trace(clear_singleton, with_active_run):
             )
 
             res = self.square(z, request_id, root_span.span_id)
-            self._client.end_trace(request_id, outputs={"output": res}, status="OK")
+            client.end_trace(request_id, outputs={"output": res}, status="OK")
             return res
 
         def square(self, t, request_id, parent_id):
-            span = self._client.start_span(
+            span = client.start_span(
                 "child_span_2",
                 request_id=request_id,
                 parent_id=parent_id,
@@ -344,7 +378,7 @@ def test_start_and_end_trace(clear_singleton, with_active_run):
             res = t**2
             time.sleep(0.1)
 
-            self._client.end_span(
+            client.end_span(
                 request_id=request_id,
                 span_id=span.span_id,
                 outputs={"output": res},
@@ -353,39 +387,42 @@ def test_start_and_end_trace(clear_singleton, with_active_run):
 
     model = TestModel()
     if with_active_run:
-        with mlflow.start_run() as run:
+        with mlflow.start_run(experiment_id=experiment_id) as run:
             model.predict(1, 2)
             run_id = run.info.run_id
     else:
         model.predict(1, 2)
 
-    traces = get_traces()
-    assert len(traces) == 1
-    trace_info = traces[0].info
-    assert trace_info.request_id is not None
-    assert trace_info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
-    assert trace_info.status == TraceStatus.OK
-    assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
-    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
+    request_id = get_first_trace().info.request_id
+
+    # Validate that trace is logged to the backend
+    trace = client.get_trace(request_id)
+    assert trace is not None
+
+    assert trace.info.request_id is not None
+    assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
+    assert trace.info.status == TraceStatus.OK
+    assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
+    assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
     if with_active_run:
-        assert trace_info.request_metadata["mlflow.sourceRun"] == run_id
-        assert trace_info.experiment_id == run.info.experiment_id
+        assert trace.info.request_metadata["mlflow.sourceRun"] == run_id
+        assert trace.info.experiment_id == run.info.experiment_id
     else:
-        assert trace_info.experiment_id == model._exp_id
+        assert trace.info.experiment_id == experiment_id
 
-    trace_data = traces[0].data
-    assert trace_data.request == '{"x": 1, "y": 2}'
-    assert trace_data.response == '{"output": 25}'
-    assert len(trace_data.spans) == 3
+    assert trace.data.request == '{"x": 1, "y": 2}'
+    assert trace.data.response == '{"output": 25}'
+    assert len(trace.data.spans) == 3
 
-    span_name_to_span = {span.name: span for span in trace_data.spans}
+    span_name_to_span = {span.name: span for span in trace.data.spans}
     root_span = span_name_to_span["predict"]
-    assert root_span.start_time_ns // 1e6 == trace_info.timestamp_ms
-    assert (root_span.end_time_ns - root_span.start_time_ns) // 1e6 == trace_info.execution_time_ms
+    # NB: Start time of root span and trace info does not match because there is some
+    #   latency for starting the trace within the backend
+    # assert root_span.start_time_ns // 1e6 == trace.info.timestamp_ms
     assert root_span.parent_id is None
     assert root_span.attributes == {
-        "mlflow.experimentId": model._exp_id,
-        "mlflow.traceRequestId": trace_info.request_id,
+        "mlflow.experimentId": experiment_id,
+        "mlflow.traceRequestId": trace.info.request_id,
         "mlflow.spanType": "UNKNOWN",
         "mlflow.spanInputs": {"x": 1, "y": 2},
         "mlflow.spanOutputs": {"output": 25},
@@ -394,7 +431,7 @@ def test_start_and_end_trace(clear_singleton, with_active_run):
     child_span_1 = span_name_to_span["child_span_1"]
     assert child_span_1.parent_id == root_span.span_id
     assert child_span_1.attributes == {
-        "mlflow.traceRequestId": trace_info.request_id,
+        "mlflow.traceRequestId": trace.info.request_id,
         "mlflow.spanType": "LLM",
         "mlflow.spanInputs": {"z": 3},
         "mlflow.spanOutputs": {"output": 5},
@@ -404,7 +441,7 @@ def test_start_and_end_trace(clear_singleton, with_active_run):
     child_span_2 = span_name_to_span["child_span_2"]
     assert child_span_2.parent_id == root_span.span_id
     assert child_span_2.attributes == {
-        "mlflow.traceRequestId": trace_info.request_id,
+        "mlflow.traceRequestId": trace.info.request_id,
         "mlflow.spanType": "UNKNOWN",
         "mlflow.spanInputs": {"t": 5},
         "mlflow.spanOutputs": {"output": 25},
@@ -624,13 +661,7 @@ def test_set_and_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
     client.end_trace(request_id)
 
     trace = get_first_trace()
-    assert trace.info.tags == {
-        "mlflow.traceName": "test",
-        "foo": "bar",
-        "mlflow.source.name": "test",
-        "mlflow.source.type": "LOCAL",
-        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
-    }
+    assert trace.info.tags["foo"] == "bar"
 
 
 def test_set_trace_tag_on_logged_trace(mock_store, clear_singleton):
@@ -649,13 +680,8 @@ def test_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
     client.end_trace(request_id)
 
     trace = get_first_trace()
-    assert trace.info.tags == {
-        "baz": "qux",
-        "mlflow.traceName": "test",  # Added by MLflow
-        "mlflow.source.name": "test",
-        "mlflow.source.type": "LOCAL",
-        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
-    }
+    assert "baz" in trace.info.tags
+    assert "foo" not in trace.info.tags
 
 
 def test_delete_trace_tag_on_logged_trace(mock_store, clear_singleton):

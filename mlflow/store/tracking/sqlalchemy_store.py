@@ -63,6 +63,7 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.tracing.utils import generate_request_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_LOGGED_MODELS,
     MLFLOW_RUN_NAME,
@@ -127,6 +128,7 @@ class SqlAlchemyStore(AbstractStore):
     """
 
     ARTIFACTS_FOLDER_NAME = "artifacts"
+    TRACE_FOLDER_NAME = "traces"
     DEFAULT_EXPERIMENT_ID = "0"
     _db_uri_sql_alchemy_engine_map = {}
     _db_uri_sql_alchemy_engine_map_lock = threading.Lock()
@@ -1539,8 +1541,9 @@ class SqlAlchemyStore(AbstractStore):
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
+            request_id = generate_request_id()
             trace_info = SqlTraceInfo(
-                request_id=generate_request_id(),
+                request_id=request_id,
                 experiment_id=experiment_id,
                 timestamp_ms=timestamp_ms,
                 execution_time_ms=None,
@@ -1548,12 +1551,26 @@ class SqlAlchemyStore(AbstractStore):
             )
 
             trace_info.tags = [SqlTraceTag(key=k, value=v) for k, v in tags.items()]
+            trace_info.tags.append(self._get_trace_artifact_location_tag(experiment, request_id))
+
             trace_info.request_metadata = [
                 SqlTraceRequestMetadata(key=k, value=v) for k, v in request_metadata.items()
             ]
             session.add(trace_info)
 
             return trace_info.to_mlflow_entity()
+
+    def _get_trace_artifact_location_tag(self, experiment, request_id: str) -> SqlTraceTag:
+        # Trace data is stored as file artifacts regardless of the tracking backend choice.
+        # We use subdirectory "/traces" under the experiment's artifact location to isolate
+        # them from run artifacts.
+        artifact_uri = append_to_uri_path(
+            experiment.artifact_location,
+            SqlAlchemyStore.TRACE_FOLDER_NAME,
+            request_id,
+            SqlAlchemyStore.ARTIFACTS_FOLDER_NAME,
+        )
+        return SqlTraceTag(key=MLFLOW_ARTIFACT_LOCATION, value=artifact_uri)
 
     def end_trace(
         self,
