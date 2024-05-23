@@ -574,11 +574,10 @@ def get_databricks_host_creds(server_uri=None):
             SparkTaskContextConfigProvider(),
             DatabricksModelServingConfigProvider(),
         ]:
-            if provider:
-                _config = provider.get_config()
-                if _config is not None and _config.is_valid:
-                    config = _config
-                    break
+            _config = provider.get_config()
+            if _config is not None and _config.is_valid:
+                config = _config
+                break
 
         if not config or not config.host:
             _fail_malformed_databricks_auth(profile)
