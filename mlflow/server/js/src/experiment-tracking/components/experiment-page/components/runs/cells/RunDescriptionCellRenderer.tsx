@@ -10,7 +10,7 @@ export const RunDescriptionCellRenderer = React.memo(({ value }: { value: RunRow
     <>
       <Tooltip title={description}>
         <span>
-          <TrimmedText text={description} maxSize={50} className="model-name" />
+          <TrimmedText text={description} maxSize={50} />
         </span>
       </Tooltip>
     </>
