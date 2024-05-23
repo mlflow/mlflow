@@ -1,7 +1,7 @@
 from pydantic import validator
 
-from mlflow.gateway.base_models import ProviderConfigModel
-from mlflow.gateway.config import _resolve_api_key_from_input
+from mlflow.deployments.server.base_models import ProviderConfigModel
+from mlflow.deployments.server.config import _resolve_api_key_from_input
 
 
 class FooConfig(ProviderConfigModel):

@@ -1,10 +1,9 @@
 import time
 
-from mlflow.gateway.config import RouteConfig
-from mlflow.gateway.providers import BaseProvider
-from mlflow.gateway.schemas import chat
-
 from foo.config import FooConfig
+from mlflow.deployments.server.config import RouteConfig
+from mlflow.deployments.server.providers import BaseProvider
+from mlflow.deployments.server.schemas import chat
 
 
 class FooProvider(BaseProvider):

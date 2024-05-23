@@ -1,7 +1,12 @@
 from typing import Optional
 
 from mlflow.gateway.base_models import ResponseModel
-from mlflow.gateway.config import Limit, RouteModelInfo
+from mlflow.gateway.config import (
+    Limit,
+    RouteConfig,  # noqa: F401
+    RouteModelInfo,
+    _resolve_api_key_from_input,  # noqa: F401
+)
 
 
 class Endpoint(ResponseModel):
