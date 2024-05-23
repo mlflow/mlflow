@@ -2922,6 +2922,7 @@ def test_langchain_model_inject_callback_in_model_serving(
 ):
     # Emulate the model serving environment
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("MLFLOW_ENABLE_TRACE_IN_SERVING", "true")
 
     model = create_openai_llmchain()
     mlflow.langchain.save_model(model, model_path)
