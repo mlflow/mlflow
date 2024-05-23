@@ -1,6 +1,6 @@
 endpoints:
-  - name: completions
-    endpoint_type: llm/v1/completions
+  - name: chat
+    endpoint_type: llm/v1/chat
     model:
       provider: plugin:foo.providers:FooProvider
       config_model: plugin:foo.config:FooConfig
