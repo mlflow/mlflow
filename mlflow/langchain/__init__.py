@@ -122,11 +122,13 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-def _infer_signature_from_input_example_for_lc_model(input_example, wrapped_model):
+def _infer_signature_from_input_example_for_lc_model(
+    input_example, wrapped_model, example_no_conversion=False
+):
     from mlflow.langchain.api_request_parallel_processor import _ChatResponse
 
     signature, prediction = _infer_signature_from_input_example(
-        input_example, wrapped_model, return_prediction=True
+        input_example, wrapped_model, return_prediction=True, no_conversion=example_no_conversion
     )
     # try assign output schema if failing to infer it from prediction
     if signature.outputs is None:
@@ -288,7 +290,7 @@ def save_model(
         if input_example is not None:
             wrapped_model = _LangChainModelWrapper(lc_model)
             signature = _infer_signature_from_input_example_for_lc_model(
-                input_example, wrapped_model
+                input_example, wrapped_model, example_no_conversion=example_no_conversion
             )
         else:
             if hasattr(lc_model, "input_keys"):
