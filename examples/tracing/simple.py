@@ -1,3 +1,5 @@
+import json
+
 import mlflow
 
 mlflow.set_experiment("tracing")
@@ -16,4 +18,5 @@ def f2(x: int) -> int:
 assert f2(1) == 4
 
 traces = mlflow.search_traces()
-print(traces)
+trace = traces.iloc[0]["trace"]
+print(json.dumps(trace.to_dict(), indent=2))
