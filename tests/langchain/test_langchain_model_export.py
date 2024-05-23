@@ -2922,6 +2922,7 @@ def test_langchain_model_inject_callback_in_model_serving(
 ):
     # Emulate the model serving environment
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("MLFLOW_ENABLE_TRACE_IN_SERVING", "true")
 
     model = create_openai_llmchain()
     mlflow.langchain.save_model(model, model_path)
@@ -3123,7 +3124,7 @@ def test_langchain_2_12_model_loads():
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-def test_save_load_chain_as_code_with_config_override(chain_model_signature):
+def test_load_chain_with_model_config_overrides_saved_config(chain_model_signature):
     input_example = {
         "messages": [
             {

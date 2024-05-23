@@ -28,7 +28,7 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 
-from tests.tracing.helper import create_test_trace_info, create_trace, get_traces
+from tests.tracing.helper import create_test_trace_info, create_trace, get_first_trace, get_traces
 
 
 class DefaultTestModel:
@@ -67,7 +67,7 @@ def test_trace(clear_singleton, with_active_run):
     else:
         model.predict(2, 5)
 
-    trace = get_traces()[0]
+    trace = get_first_trace()
     trace_info = trace.info
     assert trace_info.request_id is not None
     assert trace_info.experiment_id == "0"  # default experiment
@@ -338,7 +338,7 @@ def test_trace_handle_exception_during_prediction(clear_singleton):
         model.predict(2, 5)
 
     # Trace should be logged even if the function fails, with status code ERROR
-    trace = get_traces()[0]
+    trace = get_first_trace()
     assert trace.info.request_id is not None
     assert trace.info.status == TraceStatus.ERROR
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
@@ -371,7 +371,7 @@ def test_trace_ignore_exception_from_tracing_logic(clear_singleton):
         output = model.predict(2, 5)
 
     assert output == 7
-    trace = get_traces()[0]
+    trace = get_first_trace()
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == "{}"
     assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "7"
 
@@ -406,7 +406,7 @@ def test_start_span_context_manager(clear_singleton):
     model = TestModel()
     model.predict(1, 2)
 
-    trace = get_traces()[0]
+    trace = get_first_trace()
     assert trace.info.request_id is not None
     assert trace.info.experiment_id == "0"  # default experiment
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
@@ -488,7 +488,7 @@ def test_start_span_context_manager_with_imperative_apis(clear_singleton):
     model = TestModel()
     model.predict(1, 2)
 
-    trace = get_traces()[0]
+    trace = get_first_trace()
     assert trace.info.request_id is not None
     assert trace.info.experiment_id == "0"  # default experiment
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
@@ -611,6 +611,7 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
     df = mlflow.search_traces()
     assert df.columns.tolist() == [
         "request_id",
+        "trace",
         "timestamp_ms",
         "status",
         "execution_time_ms",
@@ -622,6 +623,7 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
     ]
     for idx, trace in enumerate(traces_to_return):
         assert df.iloc[idx].request_id == trace.info.request_id
+        assert df.iloc[idx].trace == trace
         assert df.iloc[idx].timestamp_ms == trace.info.timestamp_ms
         assert df.iloc[idx].status == trace.info.status
         assert df.iloc[idx].execution_time_ms == trace.info.execution_time_ms

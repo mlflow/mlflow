@@ -706,7 +706,9 @@ class SqlTraceTag(Base):
     """
     Value associated with tag: `String` (limit 250 characters). Could be *null*.
     """
-    request_id = Column(String(50), ForeignKey("trace_info.request_id"), nullable=False)
+    request_id = Column(
+        String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=False
+    )
     """
     Request ID to which this tag belongs: *Foreign Key* into ``trace_info`` table.
     """
@@ -734,7 +736,9 @@ class SqlTraceRequestMetadata(Base):
     """
     Value associated with metadata: `String` (limit 250 characters). Could be *null*.
     """
-    request_id = Column(String(50), ForeignKey("trace_info.request_id"), nullable=False)
+    request_id = Column(
+        String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=False
+    )
     """
     Request ID to which this metadata belongs: *Foreign Key* into ``trace_info`` table.
     """

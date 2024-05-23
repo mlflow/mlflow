@@ -25,6 +25,7 @@ from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
     encode_trace_id,
     get_otel_attribute,
+    maybe_get_dependencies_schemas,
     maybe_get_request_id,
 )
 from mlflow.tracking.client import MlflowClient
@@ -92,14 +93,16 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 "To avoid performance and disambiguation issues, set the experiment for "
                 "your environment using `mlflow.set_experiment()` API."
             )
-        default_tags = resolve_tags()
-        default_tags.update({TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)})
+        tags = resolve_tags()
+        tags.update({TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)})
 
         # If the trace is created in the context of MLflow model evaluation, we extract the request
         # ID from the prediction context. Otherwise, we create a new trace info by calling the
         # backend API.
         if request_id := maybe_get_request_id(is_evaluate=True):
-            default_tags.update({TraceTagKey.EVAL_REQUEST_ID: request_id})
+            tags.update({TraceTagKey.EVAL_REQUEST_ID: request_id})
+        if depedencies_schema := maybe_get_dependencies_schemas():
+            tags.update(depedencies_schema)
         try:
             trace_info = self._client._start_tracked_trace(
                 experiment_id=experiment_id,
@@ -109,7 +112,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 #   updating the trace start time.
                 timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
                 request_metadata=metadata,
-                tags=default_tags,
+                tags=tags,
             )
 
         # TODO: This catches all exceptions from the tracking server so the in-memory tracing
@@ -127,7 +130,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 span,
                 experiment_id,
                 metadata,
-                tags=default_tags,
+                tags=tags,
             )
 
         return trace_info
