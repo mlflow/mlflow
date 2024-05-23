@@ -317,8 +317,9 @@ As of now, the MLflow Deployments Server supports the following providers:
 More providers are being added continually. Check the latest version of the MLflow Deployments Server Docs for the
 most up-to-date list of supported providers.
 
-Remember, the provider you specify must be one that the MLflow Deployments Server supports. If the provider
-is not supported, the deployments server will return an error when trying to route requests to that provider.
+If you would like to use a LLM model that is not offered by the above providers, or if you
+would like to integrate a private LLM model, you can create a :ref:`provider plugin <deployments_plugin>`
+to integrate with the MLflow Deployments Server.
 
 .. _deployments-endpoints:
 
