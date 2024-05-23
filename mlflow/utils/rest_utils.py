@@ -92,7 +92,7 @@ def http_request(
         from databricks.sdk.errors import DatabricksError
 
         config = Config(retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get())
-        ws_client = WorkspaceClient(profile=host_creds.profile, config=config)
+        ws_client = WorkspaceClient(profile=host_creds.databricks_auth_profile, config=config)
 
         try:
             if method == "GET":
