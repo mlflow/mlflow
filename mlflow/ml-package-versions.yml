@@ -376,7 +376,8 @@ spark:
     # prior to their release on PyPI (e.g. Databricks)
     allow_unreleased_max_version: True
     requirements:
-      ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow"]
+      # TODO: Remove version pinning for `requests` once https://github.com/docker/docker-py/issues/3256 is resolved
+      ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow", "requests<2.32.0"]
       "< 3.4.0": ["pandas<2"]
       ">= 3.5.0": ["torch", "scikit-learn", "torcheval"]
       ">= 3.5.0, < dev": ["pyspark[connect]"]
