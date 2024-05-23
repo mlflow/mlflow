@@ -317,7 +317,7 @@ func (s Store) SearchRuns(
 	tx.Preload("LatestMetrics").
 		Preload("Params").
 		Preload("Tags").
-		Preload("Inputs"). // Add condition inside the preload
+		Preload("Inputs", "inputs.destination_type = 'RUN'").
 		Preload("Inputs.Dataset").
 		Preload("Inputs.Tags").
 		Find(&runs)
