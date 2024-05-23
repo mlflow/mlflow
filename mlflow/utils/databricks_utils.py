@@ -947,14 +947,14 @@ if is_in_databricks_runtime():
         pass
 
 
-def get_databricks_nfs_tmp_dir():
+def get_databricks_nfs_temp_dir():
     entry_point = _get_dbutils().entry_point
     if getpass.getuser() == 'ROOT':
         return entry_point.getReplNFSTempDir()
     else:
         try:
-            # If it is not ROOT user, it means the code runs in Safe-spark.
-            # in this case, we should get temporary directory of current user.
+            # If it is not ROOT user, it means the code is running in Safe-spark.
+            # In this case, we should get temporary directory of current user.
             # and `getReplNFSTempDir` will be deprecated for this case.
             return entry_point.getUserNFSTempDir()
         except Exception:
@@ -962,14 +962,14 @@ def get_databricks_nfs_tmp_dir():
             return entry_point.getReplNFSTempDir()
 
 
-def get_databricks_local_tmp_dir():
+def get_databricks_local_temp_dir():
     entry_point = _get_dbutils().entry_point
     if getpass.getuser() == 'ROOT':
         return entry_point.getReplLocalTempDir()
     else:
         try:
-            # If it is not ROOT user, it means the code runs in Safe-spark.
-            # in this case, we should get temporary directory of current user.
+            # If it is not ROOT user, it means the code is running in Safe-spark.
+            # In this case, we should get temporary directory of current user.
             # and `getReplLocalTempDir` will be deprecated for this case.
             return entry_point.getUserLocalTempDir()
         except Exception:

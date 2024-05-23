@@ -50,8 +50,8 @@ from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.utils import download_cloud_file_chunk, merge_dicts
 from mlflow.utils.databricks_utils import (
     _get_dbutils,
-    get_databricks_local_tmp_dir,
-    get_databricks_nfs_tmp_dir,
+    get_databricks_local_temp_dir,
+    get_databricks_nfs_temp_dir,
 )
 from mlflow.utils.os import is_windows
 from mlflow.utils.process import cache_return_value_per_process
@@ -862,7 +862,7 @@ def _get_tmp_dir():
 
     if is_in_databricks_runtime():
         try:
-            return get_databricks_local_tmp_dir()
+            return get_databricks_local_temp_dir()
         except Exception:
             pass
 
@@ -894,7 +894,7 @@ def get_or_create_tmp_dir():
         # The temp directory is designed to be used by all kinds of applications,
         # so create a child directory "mlflow" for storing mlflow temp data.
         try:
-            repl_local_tmp_dir = get_databricks_local_tmp_dir()
+            repl_local_tmp_dir = get_databricks_local_temp_dir()
         except Exception:
             repl_local_tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id())
 
@@ -927,7 +927,7 @@ def get_or_create_nfs_tmp_dir():
         # The temp directory is designed to be used by all kinds of applications,
         # so create a child directory "mlflow" for storing mlflow temp data.
         try:
-            repl_nfs_tmp_dir = get_databricks_nfs_tmp_dir()
+            repl_nfs_tmp_dir = get_databricks_nfs_temp_dir()
         except Exception:
             repl_nfs_tmp_dir = os.path.join(nfs_root_dir, "repl_tmp_data", get_repl_id())
 
