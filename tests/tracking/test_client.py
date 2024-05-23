@@ -632,6 +632,18 @@ def test_end_trace_raise_error_when_trace_not_exist(clear_singleton):
         client.end_trace("test")
 
 
+def test_end_trace_works_for_in_progress_trace(clear_singleton):
+    client = mlflow.tracking.MlflowClient()
+    mock_tracking_client = mock.MagicMock()
+    mock_tracking_client.get_trace.return_value = Trace(
+        info=create_test_trace_info("test", status=TraceStatus.IN_PROGRESS), data=None
+    )
+    client._tracking_client = mock_tracking_client
+    client.end_span = lambda *args: None
+
+    client.end_trace("test")
+
+
 def test_end_trace_raise_error_when_trace_finished_twice(clear_singleton):
     client = mlflow.tracking.MlflowClient()
     mock_tracking_client = mock.MagicMock()
