@@ -2,7 +2,7 @@ import time
 
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.providers import BaseProvider
-from mlflow.gateway.schemas import completions
+from mlflow.gateway.schemas import chat
 
 from foo.config import FooConfig
 
@@ -16,15 +16,22 @@ class FooProvider(BaseProvider):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.foo_config: FooConfig = config.model.config
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        return completions.ResponsePayload(
+    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        return chat.ResponsePayload(
             id="id-123",
             created=int(time.time()),
             model=self.config.model.name,
-            choices=[completions.Choice(index=0, text="This is a response from FooProvider")],
-            usage=completions.CompletionsUsage(
-                prompt_tokens=12,
-                completion_tokens=34,
-                total_tokens=46,
+            choices=[
+                chat.Choice(
+                    index=0,
+                    message=chat.ResponseMessage(
+                        role="assistant", content="This is a response from FooProvider"
+                    ),
+                )
+            ],
+            usage=chat.ChatUsage(
+                prompt_tokens=10,
+                completion_tokens=18,
+                total_tokens=28,
             ),
         )
