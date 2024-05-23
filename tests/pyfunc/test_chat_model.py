@@ -7,6 +7,7 @@ import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.models.model import Model
 from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc.loaders.chat_model import _ChatModelPyfuncWrapper
 from mlflow.types.llm import (
@@ -219,6 +220,118 @@ def test_chat_model_works_in_serving(tmp_path):
     expect_status_code(response, 200)
     choices = json.loads(response.content)["choices"]
     assert choices[0]["message"]["content"] == json.dumps(messages)
+    assert json.loads(choices[1]["message"]["content"]) == {
+        **DEFAULT_PARAMS,
+        **params_subset,
+    }
+
+
+def test_chat_model_works_with_infer_signature_input_example(tmp_path):
+    model = TestChatModel()
+    params_subset = {
+        "max_tokens": 100,
+    }
+    input_example = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "What is Retrieval-augmented Generation?",
+            }
+        ],
+        **params_subset,
+    }
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path, input_example=input_example)
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    input_schema = loaded_model.metadata.get_input_schema()
+    output_schema = loaded_model.metadata.get_output_schema()
+    assert input_schema == CHAT_MODEL_INPUT_SCHEMA
+    assert output_schema == CHAT_MODEL_OUTPUT_SCHEMA
+    mlflow_model = Model.load(tmp_path)
+    assert mlflow_model.load_input_example(tmp_path).to_dict(orient="records")[0] == input_example
+
+    response = pyfunc_serve_and_score_model(
+        model_uri=tmp_path,
+        data=json.dumps(input_example),
+        content_type="application/json",
+        extra_args=["--env-manager", "local"],
+    )
+
+    expect_status_code(response, 200)
+    choices = json.loads(response.content)["choices"]
+    assert choices[0]["message"]["content"] == json.dumps(input_example["messages"])
+    assert json.loads(choices[1]["message"]["content"]) == {
+        **DEFAULT_PARAMS,
+        **params_subset,
+    }
+
+
+def test_chat_model_works_with_chat_message_input_example(tmp_path):
+    model = TestChatModel()
+    input_example = [
+        ChatMessage(role="user", content="What is Retrieval-augmented Generation?", name="chat")
+    ]
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path, input_example=input_example)
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    input_schema = loaded_model.metadata.get_input_schema()
+    output_schema = loaded_model.metadata.get_output_schema()
+    assert input_schema == CHAT_MODEL_INPUT_SCHEMA
+    assert output_schema == CHAT_MODEL_OUTPUT_SCHEMA
+    mlflow_model = Model.load(tmp_path)
+    assert (
+        mlflow_model.load_input_example(tmp_path).to_dict(orient="records")[0]
+        == input_example[0].to_dict()
+    )
+
+    convert_input_example = {"messages": [each_message.to_dict() for each_message in input_example]}
+    response = pyfunc_serve_and_score_model(
+        model_uri=tmp_path,
+        data=json.dumps(convert_input_example),
+        content_type="application/json",
+        extra_args=["--env-manager", "local"],
+    )
+
+    expect_status_code(response, 200)
+    choices = json.loads(response.content)["choices"]
+    assert choices[0]["message"]["content"] == json.dumps(convert_input_example["messages"])
+
+
+def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
+    model = TestChatModel()
+    params_subset = {
+        "max_tokens": 100,
+    }
+    input_example = {
+        "messages": [
+            {
+                "role": "assistant",
+                "content": "You are in helpful assistant!",
+            },
+            {
+                "role": "user",
+                "content": "What is Retrieval-augmented Generation?",
+            },
+        ],
+        **params_subset,
+    }
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path, input_example=input_example)
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    input_schema = loaded_model.metadata.get_input_schema()
+    output_schema = loaded_model.metadata.get_output_schema()
+    assert input_schema == CHAT_MODEL_INPUT_SCHEMA
+    assert output_schema == CHAT_MODEL_OUTPUT_SCHEMA
+    mlflow_model = Model.load(tmp_path)
+    assert mlflow_model.load_input_example(tmp_path).to_dict(orient="records")[0] == input_example
+
+    response = pyfunc_serve_and_score_model(
+        model_uri=tmp_path,
+        data=json.dumps(input_example),
+        content_type="application/json",
+        extra_args=["--env-manager", "local"],
+    )
+
+    expect_status_code(response, 200)
+    choices = json.loads(response.content)["choices"]
+    assert choices[0]["message"]["content"] == json.dumps(input_example["messages"])
     assert json.loads(choices[1]["message"]["content"]) == {
         **DEFAULT_PARAMS,
         **params_subset,
