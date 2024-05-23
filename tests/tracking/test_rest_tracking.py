@@ -2126,7 +2126,7 @@ def test_delete_traces(mlflow_client):
 
     # Case 2: Delete with max_traces limit
     request_id_1 = _create_trace(name="trace1", status=TraceStatus.OK)
-    time.sleep(0.1) # Add some time gap to avoid timestamp collision in file store
+    time.sleep(0.1)  # Add some time gap to avoid timestamp collision in file store
     request_id_2 = _create_trace(name="trace2", status=TraceStatus.OK)
 
     deleted_count = mlflow_client.delete_traces(
