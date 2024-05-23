@@ -13,6 +13,7 @@ from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
     MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER,
+    MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT,
 )
 from mlflow.exceptions import (
     INVALID_PARAMETER_VALUE,
@@ -85,8 +86,13 @@ def http_request(
     cleaned_hostname = strip_suffix(hostname, "/")
     url = f"{cleaned_hostname}{endpoint}"
 
-    if host_creds.databricks_workspace_client:
+    if host_creds.auth_by_databricks_sdk:
+        from databricks.sdk import WorkspaceClient
+        from databricks.sdk.config import Config
         from databricks.sdk.errors import DatabricksError
+
+        config = Config(retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get())
+        ws_client = WorkspaceClient(profile=host_creds.profile, config=config)
 
         try:
             if method == "GET":
@@ -95,7 +101,7 @@ def http_request(
             else:
                 extra_kwargs = {"body": kwargs.get("json")}
 
-            raw_response = host_creds.databricks_workspace_client.api_client.do(
+            raw_response = ws_client.api_client.do(
                 method=method,
                 path=endpoint,
                 headers=extra_headers,
@@ -402,7 +408,8 @@ class MlflowHostCreds:
         ignore_tls_verification=False,
         client_cert_path=None,
         server_cert_path=None,
-        databricks_workspace_client=None,
+        auth_by_databricks_sdk=False,
+        databricks_auth_profile=None,
     ):
         if not host:
             raise MlflowException(
@@ -429,7 +436,8 @@ class MlflowHostCreds:
         self.ignore_tls_verification = ignore_tls_verification
         self.client_cert_path = client_cert_path
         self.server_cert_path = server_cert_path
-        self.databricks_workspace_client = databricks_workspace_client
+        self.auth_by_databricks_sdk = auth_by_databricks_sdk
+        self.databricks_auth_profile = databricks_auth_profile
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -438,7 +446,7 @@ class MlflowHostCreds:
 
     @property
     def verify(self):
-        if self.databricks_workspace_client is not None:
+        if self.auth_by_databricks_sdk:
             # Let databricks-sdk to set HTTP request `verify` param.
             return None
         if self.server_cert_path is None:

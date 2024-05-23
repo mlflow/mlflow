@@ -532,8 +532,8 @@ def get_databricks_host_creds(server_uri=None):
             requests.
 
     Returns:
-        MlflowHostCreds which includes the constructed Databricks SDK workspace client instance,
-        or the hostname and authentication information necessary to
+        MlflowHostCreds which includes the hostname if databricks sdk authentication is available,
+        otherwise includes the hostname and authentication information necessary to
         talk to the Databricks server.
     """
 
@@ -556,10 +556,11 @@ def get_databricks_host_creds(server_uri=None):
         # support various authentication ways, so that it does not provide API
         # to get credential values. Instead, we can use ``WorkspaceClient``
         # API to invoke databricks shard restful APIs.
-        config = Config(retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get())
-        ws_client = WorkspaceClient(profile=profile, config=config)
+        ws_client = WorkspaceClient(profile=profile)
         host = ws_client.config.host
-        return MlflowHostCreds(host=host, databricks_workspace_client=ws_client)
+        return MlflowHostCreds(
+            host=host, auth_by_databricks_sdk=True, databricks_auth_profile=profile
+        )
     except Exception as e:
         _logger.info(f"Creating databricks SDK workspace client failed, error: {repr(e)}")
         # There are a few other ways to read credentials that databricks-sdk hasn't supported yet,

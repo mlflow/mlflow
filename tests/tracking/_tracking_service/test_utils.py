@@ -192,7 +192,7 @@ def test_get_store_databricks(monkeypatch):
         monkeypatch.setenv(k, v)
     store = _get_store()
     assert isinstance(store, RestStore)
-    assert store.get_host_creds().databricks_workspace_client is not None
+    assert store.get_host_creds().auth_by_databricks_sdk
 
 
 def test_get_store_databricks_profile(monkeypatch):
