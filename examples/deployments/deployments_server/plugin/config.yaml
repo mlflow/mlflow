@@ -1,6 +1,6 @@
 endpoints:
   - name: completions
-    route_type: llm/v1/completions
+    endpoint_type: llm/v1/completions
     model:
       provider: plugin:foo.providers:FooProvider
       config_model: plugin:foo.config:FooConfig
