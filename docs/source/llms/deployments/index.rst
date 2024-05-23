@@ -1180,25 +1180,28 @@ Here are some examples for how you might use curl to interact with the MLflow De
 
 .. _deployments_plugin:
 
-Plugin LLM Provider
-===================
+Plugin LLM Provider (Experimental)
+==================================
+
+.. attention::
+    This feature is in active development and is marked as Experimental. It may change in a future release without warning.
 
 The MLflow Deployments Server supports the use of custom language model providers through the use of plugins.
 A plugin is a Python package that provides a custom implementation of a language model provider.
 This allows users to integrate their own language model services with the MLflow Deployments Server.
 
-To create a custom plugin, you need to implement a Provider class that inherits from ``mlflow.gateway.providers.BaseProvider``,
-and a Config class that inherits from ``mlflow.gateway.base_models.ProviderConfigModel``.
+To create a custom plugin, you need to implement a Provider class that inherits from ``mlflow.deployments.server.providers.BaseProvider``,
+and a Config class that inherits from ``mlflow.deployments.server.base_models.ProviderConfigModel``.
 
 .. code-block:: python
     :caption: Example
 
     from typing import AsyncIterable
     from pydantic import validator
-    from mlflow.gateway.base_models import ProviderConfigModel
-    from mlflow.gateway.config import RouteConfig, _resolve_api_key_from_input
-    from mlflow.gateway.providers import BaseProvider
-    from mlflow.gateway.schemas import completions
+    from mlflow.deployments.server.base_models import ProviderConfigModel
+    from mlflow.deployments.server.config import RouteConfig, _resolve_api_key_from_input
+    from mlflow.deployments.server.providers import BaseProvider
+    from mlflow.deployments.server.schemas import chat, completions, embeddings
 
 
     class MyConfig(ProviderConfigModel):
