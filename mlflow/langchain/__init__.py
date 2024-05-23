@@ -929,7 +929,7 @@ def _patch_runnable_cls(cls):
     For classes that are subclasses of Runnable, we patch the `invoke`, `batch`, and `stream`
     methods for autologging.
     """
-    for func_name in ["invoke", "batch", "stream", "ainvoke", "abatch", "astream"]:
+    for func_name in ["invoke", "batch", "stream"]:
         if hasattr(cls, func_name):
             safe_patch(
                 FLAVOR_NAME,
@@ -967,6 +967,10 @@ def autolog(
     log_model_signatures=False,
     log_models=False,
     log_datasets=False,
+    # TODO: log_inputs_outputs was originally defaulted to True in the production version of
+    # the LangChain autologging, as it is a common use case to log input/output table for
+    # evaluation. Once tracing is fully launched, this should be supported by the tracer
+    # but we should design it to be compatible with the existing UJ.
     log_inputs_outputs=False,
     disable=False,
     exclusive=False,
