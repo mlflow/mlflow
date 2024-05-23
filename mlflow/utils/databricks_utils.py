@@ -467,7 +467,9 @@ def _fail_malformed_databricks_auth(tracking_uri):
         "variables DATABRICKS_HOST + DATABRICKS_TOKEN, or set environmental variables "
         "DATABRICKS_HOST + DATABRICKS_CLIENT_ID + DATABRICKS_CLIENT_SECRET, or you can "
         "edit '~/.databrickscfg' file to set host + token or host + client_id + client_secret "
-        "for specific profile section."
+        "for specific profile section. For details of these authentication types, please "
+        "refer to document 'https://docs.databricks.com/en/dev-tools/sdk-python.html"
+        "#use-the-databricks-sdk-for-python-from-a-databricks-notebook'."
     )
 
 
