@@ -1,6 +1,6 @@
 ## Example endpoint configuration for plugin provider
 
-To see an example of specifying the chat endpoint for a plugin provider, 
+To see an example of specifying the chat endpoint for a plugin provider,
 see [the configuration](config.yaml) YAML file.
 
 We implement our plugin provider package `foo` under `./foo-provider` folder. It implements the chat method.
@@ -21,7 +21,7 @@ Then, start the server:
 FOO_API_KEY=my-key mlflow deployments start-server --config-path config.yaml --port 7000
 ```
 
-To clean up the installed package after the example, run 
+To clean up the installed package after the example, run
 
 ```sh
 pip uninstall foo
