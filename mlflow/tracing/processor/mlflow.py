@@ -28,6 +28,7 @@ from mlflow.tracing.utils import (
     maybe_get_dependencies_schemas,
     maybe_get_request_id,
 )
+from mlflow.tracking._tracking_service.utils import _is_databricks_tracking_uri
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.registry import resolve_tags
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
@@ -85,7 +86,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
 
         if experiment_id == DEFAULT_EXPERIMENT_ID:
             _logger.warning(
-                "Creating a trace within the default experiment with id "
+                "Trying to create a trace within the default experiment with id "
                 f"'{DEFAULT_EXPERIMENT_ID}'. It is strongly recommended to not use "
                 "the default experiment to log traces due to ambiguous search results and "
                 "probable performance issues over time due to directory table listing performance "
@@ -93,6 +94,11 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 "To avoid performance and disambiguation issues, set the experiment for "
                 "your environment using `mlflow.set_experiment()` API."
             )
+
+        if _is_databricks_tracking_uri(mlflow.get_tracking_uri()):
+            # Verify the experiment exists. This throws if the experiment does not exist.
+            self._client.get_experiment(experiment_id=experiment_id)
+
         tags = resolve_tags()
         tags.update({TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)})
 

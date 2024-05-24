@@ -841,6 +841,7 @@ class MlflowClient:
     ):
         """
         End the span with the given trace ID and span ID.
+        Throws if Span with span ID is not found or already finished.
 
         Args:
             request_id: The ID of the trace to end.

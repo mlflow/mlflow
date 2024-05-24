@@ -69,6 +69,10 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
     _tracking_uri = uri
 
 
+def _is_databricks_tracking_uri(uri: str) -> bool:
+    return uri == "databricks" or uri.startswith("databricks://")
+
+
 @contextmanager
 def _use_tracking_uri(uri: str) -> None:
     """Temporarily use the specified tracking URI.

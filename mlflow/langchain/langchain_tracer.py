@@ -16,7 +16,7 @@ from tenacity import RetryCallState
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
+from mlflow.entities import LiveSpan, NoOpSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
@@ -137,6 +137,10 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         status=SpanStatus(SpanStatusCode.OK),
     ):
         """Close MLflow Span (or Trace if it is root component)"""
+        if isinstance(span, NoOpSpan):
+            # The span creation failed, do not try to end it. Do no-op.
+            return
+
         root_run_active = str(self._root_run_id) in self._run_span_mapping
         self._run_span_mapping.pop(str(run_id), None)
         if not root_run_active:
