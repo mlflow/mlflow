@@ -613,7 +613,9 @@ class _PythonModelPyfuncWrapper:
         elif issubclass(hints.input, ChatCompletionRequest) or issubclass(
             hints.input, MultiturnChatRequest
         ):
+            # If the type hint is a RAG dataclass, we hydrate it
             if isinstance(model_input, pd.DataFrame):
+                # Since single input is expected, we take the first row
                 return _hydrate_dataclass(hints.input, model_input.iloc[0])
         return model_input
 
