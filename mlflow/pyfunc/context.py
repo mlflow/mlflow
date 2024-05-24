@@ -55,3 +55,16 @@ def get_prediction_context() -> Optional[Context]:
         The context for the current prediction request, or None if no context is set.
     """
     return _PREDICTION_REQUEST_CTX.get()
+
+
+@contextlib.contextmanager
+def maybe_set_prediction_context(context: Optional[Context]):
+    """
+    Set the prediction context if the given context
+    is not None. Otherwise no-op.
+    """
+    if context:
+        with set_prediction_context(context):
+            yield
+    else:
+        yield
