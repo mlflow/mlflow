@@ -1152,7 +1152,6 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                 )
                 mock_evaluate.assert_called_once_with(
                     model=PyFuncModelMatcher(),
-                    model_predict_func=ModelPredictFuncMatcher(),
                     model_type="classifier",
                     dataset=iris_dataset,
                     run_id=run.info.run_id,
@@ -1235,7 +1234,6 @@ def test_evaluate_with_multi_evaluators(
         def get_evaluate_call_arg(model, evaluator_config):
             return {
                 "model": model,
-                "model_predict_func": ModelPredictFuncMatcher(),
                 "model_type": "classifier",
                 "dataset": iris_dataset,
                 "run_id": run.info.run_id,
