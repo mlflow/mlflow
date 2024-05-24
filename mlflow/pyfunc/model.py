@@ -586,18 +586,6 @@ class _PythonModelPyfuncWrapper:
             elif isinstance(model_input, list) and all(isinstance(x, dict) for x in model_input):
                 keys = [x.name for x in self.signature.inputs]
                 return [{k: d[k] for k in keys} for d in model_input]
-        elif hints.input == mlflow.models.rag_signatures.ChatCompletionsInput:
-            if isinstance(model_input, pd.DataFrame):
-                # use ChatCompletionsInput dataclass to convert to the right format
-                return mlflow.models.rag_signatures.ChatCompletionsInput(
-                    completions=model_input.to_dict(orient="records")
-                )
-        elif hints.input == mlflow.models.rag_signatures.MultiTurnMessage:
-            if isinstance(model_input, pd.DataFrame):
-                # use ChatCompletionsOutput dataclass to convert to the right format
-                return mlflow.models.rag_signatures.MultiTurnMessage(
-                    completions=model_input.to_dict(orient="records")
-                )
         return model_input
 
     def predict(self, model_input, params: Optional[Dict[str, Any]] = None):
@@ -615,9 +603,7 @@ class _PythonModelPyfuncWrapper:
                 self.context, self._convert_input(model_input), params=params
             )
         _log_warning_if_params_not_in_predict_signature(_logger, params)
-        response =  self.python_model.predict(self.context, self._convert_input(model_input))
-        # if the predict fn signature says ChatCompletionsOutput and its not a ChatCompletionsOutput
-        if isinstance(response, mlflow.models.rag_signatures.ChatCompletionsOutput):
+        return self.python_model.predict(self.context, self._convert_input(model_input))
 
     def predict_stream(self, model_input, params: Optional[Dict[str, Any]] = None):
         """
