@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -10,10 +11,12 @@ type Duration struct {
 	time.Duration
 }
 
+var ErrDuration = errors.New("invalid duration")
+
 func (d *Duration) UnmarshalJSON(b []byte) error {
 	var v interface{}
 	if err := json.Unmarshal(b, &v); err != nil {
-		return err
+		return fmt.Errorf("could not unmarshall duration: %w", err)
 	}
 	switch value := v.(type) {
 	case float64:
@@ -23,11 +26,11 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 		var err error
 		d.Duration, err = time.ParseDuration(value)
 		if err != nil {
-			return err
+			return fmt.Errorf("could not parse duration \"%s\": %w", value, err)
 		}
 		return nil
 	default:
-		return errors.New("invalid duration")
+		return ErrDuration
 	}
 }
 

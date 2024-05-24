@@ -423,6 +423,8 @@ func (s Store) DeleteExperiment(id string) *contract.Error {
 	return nil
 }
 
+var ErrSQLStore = errors.New("sql store error")
+
 func NewSQLStore(config *config.Config) (store.MlflowStore, error) {
 	uri, err := url.Parse(config.StoreURL)
 	if err != nil {
@@ -445,7 +447,7 @@ func NewSQLStore(config *config.Config) (store.MlflowStore, error) {
 		uri.Path = uri.Path[1:]
 		dialector = gormlite.Open(uri.String())
 	default:
-		return nil, fmt.Errorf("unsupported store URL scheme %q", uri.Scheme)
+		return nil, fmt.Errorf("unsupported store URL scheme %q: %w", uri.Scheme, ErrSQLStore)
 	}
 	db, err := gorm.Open(dialector, &gorm.Config{
 		TranslateError: true,

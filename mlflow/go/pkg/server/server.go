@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"path/filepath"
 	"time"
@@ -74,13 +75,14 @@ func launchServer(ctx context.Context, cfg *config.Config) error {
 			break
 		}
 		if errors.Is(err, context.Canceled) {
-			return err
+			return fmt.Errorf("could not dial Python server: %w", err)
 		}
 		time.Sleep(1 * time.Second)
 	}
 	logrus.Debugf("Python server is ready")
 
-	return app.Listen(cfg.Address)
+	err = app.Listen(cfg.Address)
+	return fmt.Errorf("failed to start MLflow experimental Go server: %w", err)
 }
 
 func newAPIApp(cfg *config.Config) (*fiber.App, error) {

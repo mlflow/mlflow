@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -41,9 +42,11 @@ func (p *parser) advance() lexer.Token {
 	return tk
 }
 
+var ErrParserError = errors.New("parser error")
+
 func (p *parser) parseIdentifier() (Identifier, error) {
 	if p.hasTokens() && p.currentTokenKind() != lexer.Identifier {
-		return Identifier{}, fmt.Errorf("Expected identifier, got %s", p.printCurrentToken())
+		return Identifier{}, fmt.Errorf("expected identifier, got %s: %w", p.printCurrentToken(), ErrParserError)
 	}
 
 	identToken := p.advance()
@@ -59,7 +62,7 @@ func (p *parser) parseIdentifier() (Identifier, error) {
 			column = column[1 : len(column)-1] // Remove quotes
 			return Identifier{Identifier: identToken.Value, Key: column}, nil
 		default:
-			return Identifier{}, fmt.Errorf("Expected IDENTIFIER or STRING, got %s", p.printCurrentToken())
+			return Identifier{}, fmt.Errorf("expected IDENTIFIER or STRING, got %s: %w", p.printCurrentToken(), ErrParserError)
 		}
 	} else {
 		return Identifier{Key: identToken.Value}, nil
@@ -85,7 +88,7 @@ func (p *parser) parseOperator() (OperatorKind, error) {
 	case lexer.ILike:
 		return ILike, nil
 	default:
-		return -1, fmt.Errorf("Expected operator, got %s", p.printCurrentToken())
+		return -1, fmt.Errorf("expected operator, got %s: %w", p.printCurrentToken(), ErrParserError)
 	}
 }
 
@@ -94,7 +97,7 @@ func (p *parser) parseValue() (Value, error) {
 	case lexer.Number:
 		n, err := strconv.ParseFloat(p.advance().Value, 64)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("number token could not be parsed to float: %w", err)
 		}
 		return NumberExpr{Value: n}, nil
 	case lexer.String:
@@ -102,13 +105,21 @@ func (p *parser) parseValue() (Value, error) {
 		value = value[1 : len(value)-1] // Remove quotes
 		return StringExpr{Value: value}, nil
 	default:
-		return nil, fmt.Errorf("Expected NUMBER or STRING, got %s", p.printCurrentToken())
+		return nil, fmt.Errorf(
+			"Expected NUMBER or STRING, got %s: %w",
+			p.printCurrentToken(),
+			ErrParserError,
+		)
 	}
 }
 
 func (p *parser) parseInSetExpr(ident Identifier) (*CompareExpr, error) {
 	if p.currentTokenKind() != lexer.OpenParen {
-		return nil, fmt.Errorf("Expected '(', got %s", p.printCurrentToken())
+		return nil, fmt.Errorf(
+			"Expected '(', got %s: %w",
+			p.printCurrentToken(),
+			ErrParserError,
+		)
 	}
 
 	p.advance() // Consume the OPEN_PAREN
@@ -116,7 +127,11 @@ func (p *parser) parseInSetExpr(ident Identifier) (*CompareExpr, error) {
 	set := make([]string, 0)
 	for p.hasTokens() && p.currentTokenKind() != lexer.CloseParen {
 		if p.currentTokenKind() != lexer.String {
-			return nil, fmt.Errorf("Expected STRING, got %s", p.printCurrentToken())
+			return nil, fmt.Errorf(
+				"Expected STRING, got %s: %w",
+				p.printCurrentToken(),
+				ErrParserError,
+			)
 		}
 
 		value := p.advance().Value
@@ -130,7 +145,10 @@ func (p *parser) parseInSetExpr(ident Identifier) (*CompareExpr, error) {
 	}
 
 	if p.currentTokenKind() != lexer.CloseParen {
-		return nil, fmt.Errorf("Expected ')', got %s", p.printCurrentToken())
+		return nil, fmt.Errorf(
+			"Expected ')', got %s: %w",
+			p.printCurrentToken(),
+			ErrParserError)
 	}
 
 	p.advance() // Consume the CLOSE_PAREN
@@ -151,7 +169,11 @@ func (p *parser) parseExpression() (*CompareExpr, error) {
 	case lexer.Not:
 		p.advance() // Consume the NOT
 		if p.currentTokenKind() != lexer.In {
-			return nil, fmt.Errorf("Expected IN after NOT, got %s", p.printCurrentToken())
+			return nil, fmt.Errorf(
+				"Expected IN after NOT, got %s: %w",
+				p.printCurrentToken(),
+				ErrParserError,
+			)
 		}
 
 		p.advance() // Consume the IN
@@ -181,7 +203,7 @@ func (p *parser) parse() (*AndExpr, error) {
 	exprs := make([]*CompareExpr, 0)
 	leftExpr, err := p.parseExpression()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while parsing initial expression: %w", err)
 	}
 
 	exprs = append(exprs, leftExpr)
@@ -197,7 +219,11 @@ func (p *parser) parse() (*AndExpr, error) {
 	}
 
 	if p.hasTokens() {
-		return nil, fmt.Errorf("Unexpected leftover token(s) after parsing: %s", p.printCurrentToken())
+		return nil, fmt.Errorf(
+			"Unexpected leftover token(s) after parsing: %s: %w",
+			p.printCurrentToken(),
+			ErrParserError,
+		)
 	}
 
 	return &AndExpr{Exprs: exprs}, nil
