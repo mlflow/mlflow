@@ -1265,7 +1265,6 @@ def _validate_dataset_type_supports_predictions(data, supported_predictions_data
 def _evaluate(
     *,
     model,
-    model_predict_func,
     model_type,
     dataset,
     run_id,
@@ -1309,7 +1308,6 @@ def _evaluate(
             _logger.debug(f"Evaluating the model with the {evaluator_name} evaluator.")
             eval_result = evaluator.evaluate(
                 model=model,
-                model_predict_func=model_predict_func,
                 model_type=model_type,
                 dataset=dataset,
                 run_id=run_id,
@@ -2060,16 +2058,6 @@ def evaluate(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    model_predict_func = None
-    if model is not None and hasattr(model, "predict") and callable(model.predict):
-        # Store reference to original predict method
-        predict_func = model.predict
-
-        def model_predict_func(x):
-            # Disable all autologging except for traces
-            with mlflow.utils.autologging_utils.restrict_langchain_autologging_to_traces_only():
-                return predict_func(x)
-
     if validation_thresholds:
         try:
             assert type(validation_thresholds) is dict
@@ -2142,7 +2130,6 @@ def evaluate(
         try:
             evaluate_result = _evaluate(
                 model=model,
-                model_predict_func=model_predict_func,
                 model_type=model_type,
                 dataset=dataset,
                 run_id=run_id,
