@@ -1,10 +1,11 @@
 import inspect
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.pyfunc.model import (
+    _get_first_string_column,
     _log_warning_if_params_not_in_predict_signature,
 )
 
@@ -36,26 +37,68 @@ class _ObjectModelPyfuncWrapper:
         self.context = context
         self.signature = signature
 
+    # def _convert_input(self, model_input):
+    #     """
+    #     Convert the input back into an object which the model can understand.
+    #     """
+    #     import pandas
+
+    #     if isinstance(model_input, dict):
+    #         dict_input = model_input
+    #     elif isinstance(model_input, pandas.DataFrame):
+    #         dict_input = {
+    #             key: value[0] for key, value in model_input.to_dict(orient="list").items()
+    #         }
+    #     else:
+    #         raise MlflowException(
+    #             "Unsupported model input type. Expected a dict or pandas.DataFrame, "
+    #             f"but got {type(model_input)} instead.",
+    #             error_code=INTERNAL_ERROR,
+    #         )
+
+    #     return dict_input
+
     def _convert_input(self, model_input):
-        """
-        Convert the input back into an object which the model can understand.
-        """
-        import pandas
+        import pandas as pd
 
-        if isinstance(model_input, dict):
-            dict_input = model_input
-        elif isinstance(model_input, pandas.DataFrame):
-            dict_input = {
-                key: value[0] for key, value in model_input.to_dict(orient="list").items()
-            }
-        else:
-            raise MlflowException(
-                "Unsupported model input type. Expected a dict or pandas.DataFrame, "
-                f"but got {type(model_input)} instead.",
-                error_code=INTERNAL_ERROR,
-            )
+        hints = self.python_model._get_type_hints()
+        if hints.input == List[str]:
+            if isinstance(model_input, pd.DataFrame):
+                first_string_column = _get_first_string_column(model_input)
+                if first_string_column is None:
+                    raise MlflowException.invalid_parameter_value(
+                        "Expected model input to contain at least one string column"
+                    )
+                return model_input[first_string_column].tolist()
+            elif isinstance(model_input, list):
+                if all(isinstance(x, dict) for x in model_input):
+                    return [next(iter(d.values())) for d in model_input]
+                elif all(isinstance(x, str) for x in model_input):
+                    return model_input
+        elif hints.input == List[Dict[str, str]]:
+            if isinstance(model_input, pd.DataFrame):
+                if (
+                    len(self.signature.inputs) == 1
+                    and next(iter(self.signature.inputs)).name is None
+                ):
+                    first_string_column = _get_first_string_column(model_input)
+                    return model_input[[first_string_column]].to_dict(orient="records")
+                columns = [x.name for x in self.signature.inputs]
+                return model_input[columns].to_dict(orient="records")
+            elif isinstance(model_input, list) and all(isinstance(x, dict) for x in model_input):
+                keys = [x.name for x in self.signature.inputs]
+                return [{k: d[k] for k in keys} for d in model_input]
+        # TODO: handle the List[Dict[str, Any]] case
+        # handle the Dict[str, Any] case
+        elif hints.input == Dict[str, Any]:
+            if isinstance(model_input, pd.DataFrame):
+                if len(model_input.columns) == 1:
+                    return model_input.iloc[:, 0].to_dict()
+                return model_input.to_dict(orient="list")
+            elif isinstance(model_input, dict):
+                return model_input
 
-        return dict_input
+        return model_input
 
     def predict(self, model_input, params: Optional[Dict[str, Any]] = None):
         """
