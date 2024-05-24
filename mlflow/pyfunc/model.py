@@ -610,8 +610,9 @@ class _PythonModelPyfuncWrapper:
             elif isinstance(model_input, list) and all(isinstance(x, dict) for x in model_input):
                 keys = [x.name for x in self.signature.inputs]
                 return [{k: d[k] for k in keys} for d in model_input]
-        elif issubclass(hints.input, ChatCompletionRequest) or issubclass(
-            hints.input, MultiturnChatRequest
+        elif isinstance(hints.input, type) and (
+            issubclass(hints.input, ChatCompletionRequest)
+            or issubclass(hints.input, MultiturnChatRequest)
         ):
             # If the type hint is a RAG dataclass, we hydrate it
             if isinstance(model_input, pd.DataFrame):
