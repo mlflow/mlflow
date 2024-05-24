@@ -379,16 +379,18 @@ func (s Store) DeleteExperiment(id string) *contract.Error {
 
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
 		// Update experiment
-		if err := tx.Model(&model.Experiment{}).
+		uex := tx.Model(&model.Experiment{}).
 			Where("experiment_id = ?", idInt).
 			Updates(&model.Experiment{
 				LifecycleStage: utils.PtrTo(string(model.LifecycleStageDeleted)),
 				LastUpdateTime: utils.PtrTo(time.Now().UnixMilli()),
-			}).Error; err != nil {
+			})
+
+		if uex.Error != nil {
 			return fmt.Errorf("failed to update experiment (%d) during delete: %w", idInt, err)
 		}
 
-		if tx.RowsAffected != 1 {
+		if uex.RowsAffected != 1 {
 			return gorm.ErrRecordNotFound
 		}
 
