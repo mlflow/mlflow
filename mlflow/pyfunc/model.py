@@ -243,12 +243,12 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
             the model's response(s), as well as other metadata.
         """
 
-    @abstractmethod
     def predict_stream(
         self, context, messages: List[ChatMessage], params: ChatParams
     ) -> Iterator[ChatResponse]:
         """
         Evaluates a chat input and produces a chat output.
+        Overrides this function to implement a real stream prediction.
 
         Args:
             messages (List[:py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`]):
@@ -263,6 +263,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
             An iterator over :py:class:`ChatResponse <mlflow.types.llm.ChatResponse>` object
             containing the model's response(s), as well as other metadata.
         """
+        return iter([self.predict(context, messages, params)])
 
 
 def _save_model_with_class_artifacts_params(
