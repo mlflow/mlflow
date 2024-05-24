@@ -92,9 +92,10 @@ class _ObjectModelPyfuncWrapper:
         # handle the Dict[str, Any] case
         elif hints.input == Dict[str, Any]:
             if isinstance(model_input, pd.DataFrame):
-                if len(model_input.columns) == 1:
-                    return model_input.iloc[:, 0].to_dict()
-                return model_input.to_dict(orient="list")
+                dict_input = {
+                    key: value[0] for key, value in model_input.to_dict(orient="list").items()
+                }
+                return dict_input
             elif isinstance(model_input, dict):
                 return model_input
 
