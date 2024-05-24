@@ -4,5 +4,5 @@ Mlflow has a [query syntax](https://mlflow.org/docs/latest/search-runs.html#sear
 
 This package is meant to lex and parse this query dialect.
 
-The code is slightly on the https://github.com/tlaceby/parser-series.
+The code is slightly based on the https://github.com/tlaceby/parser-series.
 I did not implement a proper Pratt parser because of how limited the query language is.
