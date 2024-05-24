@@ -38,6 +38,7 @@ from mlflow.entities import (
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import LiveSpan, NoOpSpan
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -648,15 +649,16 @@ class MlflowClient:
         root_span_id = trace_manager.get_root_span_id(request_id)
 
         if root_span_id is None:
-            if self.get_trace(request_id=request_id):
-                raise MlflowException(
-                    f"Trace with ID {request_id} already finished.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            else:
+            trace = self.get_trace(request_id=request_id)
+            if trace is None:
                 raise MlflowException(
                     f"Trace with ID {request_id} not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            elif trace.info.status == TraceStatus.OK or trace.info.status == TraceStatus.ERROR:
+                raise MlflowException(
+                    f"Trace with ID {request_id} already finished.",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
 
         self.end_span(request_id, root_span_id, outputs, attributes, status)
