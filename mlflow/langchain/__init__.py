@@ -125,11 +125,13 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-def _infer_signature_from_input_example_for_lc_model(input_example, wrapped_model):
+def _infer_signature_from_input_example_for_lc_model(
+    input_example, wrapped_model, example_no_conversion=False
+):
     from mlflow.langchain.api_request_parallel_processor import _ChatResponse
 
     signature, prediction = _infer_signature_from_input_example(
-        input_example, wrapped_model, return_prediction=True
+        input_example, wrapped_model, return_prediction=True, no_conversion=example_no_conversion
     )
     # try assign output schema if failing to infer it from prediction
     if signature.outputs is None:
@@ -156,6 +158,7 @@ def save_model(
     persist_dir=None,
     example_no_conversion=False,
     model_config=None,
+    streamable: Optional[bool] = None,
 ):
     """
     Save a LangChain model to a path on the local file system.
@@ -253,6 +256,9 @@ def save_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
+        streamable: A boolean value indicating if the model supports streaming prediction. If
+            True, the model must implement `stream` method. If None, the model's streamability
+            is inferred from the model type. Default to `None`.
     """
     import langchain
     from langchain.schema import BaseRetriever
@@ -291,7 +297,7 @@ def save_model(
         if input_example is not None:
             wrapped_model = _LangChainModelWrapper(lc_model)
             signature = _infer_signature_from_input_example_for_lc_model(
-                input_example, wrapped_model
+                input_example, wrapped_model, example_no_conversion=example_no_conversion
             )
         else:
             if hasattr(lc_model, "input_keys"):
@@ -340,7 +346,8 @@ def save_model(
                 mlflow_model.metadata = {}
             mlflow_model.metadata.update(schema)
 
-    streamable = isinstance(lc_model, lc_runnables_types())
+    if streamable is None:
+        streamable = isinstance(lc_model, lc_runnables_types())
 
     model_data_kwargs = {}
     flavor_conf = {}
@@ -425,6 +432,7 @@ def log_model(
     example_no_conversion=False,
     run_id=None,
     model_config=None,
+    streamable=None,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -533,6 +541,9 @@ def log_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
+        streamable: A boolean value indicating if the model supports streaming prediction. If
+            True, the model must implement `stream` method. If None, the model's streamability
+            is inferred from the model type. Default to `None`.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -558,6 +569,7 @@ def log_model(
         example_no_conversion=example_no_conversion,
         run_id=run_id,
         model_config=model_config,
+        streamable=streamable,
     )
 
 
