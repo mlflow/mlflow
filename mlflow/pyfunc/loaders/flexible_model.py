@@ -78,6 +78,8 @@ class _FlexibleModelPyfuncWrapper:
                 f"but got {type(model_input)} instead.",
                 error_code=INTERNAL_ERROR,
             )
+        
+        return dict_input
 
     def predict(self, model_input, params: Optional[Dict[str, Any]] = None):
         """
