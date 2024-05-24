@@ -10,7 +10,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, get_args, get_origin
 
 import cloudpickle
 import yaml
@@ -558,15 +558,40 @@ class _PythonModelPyfuncWrapper:
     def _convert_input(self, model_input):
         import pandas as pd
 
-        def _hydrate_dataclass(dataclass_type, data):
+        # def _hydrate_dataclass(dataclass_type, data):
+        #     """
+        #     Dynamically create an instance of the dataclass_type from data.
+        #     """
+        #     if not is_dataclass(dataclass_type):
+        #         raise ValueError(f"{dataclass_type} is not a dataclass")
+
+        #     field_names = {f.name for f in fields(dataclass_type)}
+        #     kwargs = {key: value for key, value in data.items() if key in field_names}
+        #     return dataclass_type(**kwargs)
+
+        def hydrate_dataclass(dataclass_type, data):
             """
-            Dynamically create an instance of the dataclass_type from data.
+            Recursively create an instance of the dataclass_type from data.
             """
             if not is_dataclass(dataclass_type):
                 raise ValueError(f"{dataclass_type} is not a dataclass")
 
-            field_names = {f.name for f in fields(dataclass_type)}
-            kwargs = {key: value for key, value in data.items() if key in field_names}
+            field_names = {f.name: f.type for f in fields(dataclass_type)}
+            kwargs = {}
+            for key, field_type in field_names.items():
+                if key in data:
+                    value = data[key]
+                    if is_dataclass(field_type):
+                        kwargs[key] = hydrate_dataclass(field_type, value)
+                    elif get_origin(field_type) == list:
+                        item_type = get_args(field_type)[0]
+                        if is_dataclass(item_type):
+                            kwargs[key] = [hydrate_dataclass(item_type, item) for item in value]
+                        else:
+                            kwargs[key] = value
+                    else:
+                        kwargs[key] = value
+
             return dataclass_type(**kwargs)
 
         hints = self.python_model._get_type_hints()
