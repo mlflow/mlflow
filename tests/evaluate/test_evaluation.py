@@ -567,7 +567,10 @@ def test_langchain_evaluate_fails_with_an_exception():
 
 
 def test_langchain_autolog_parameters_matches_default_parameters():
-    # get parameters from mlflow.langchain.autolog
+    # The custom config is to restrict langchain autologging to only log traces.
+    # The parameters in this configuration should match the signature of
+    # mlflow.langchain.autolog exactly. The values of the parameters should be set
+    # in a way that disables logging anything but traces.
     params = inspect.signature(mlflow.langchain.autolog).parameters
     for name in params:
         assert name in MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG
