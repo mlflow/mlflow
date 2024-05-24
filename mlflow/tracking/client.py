@@ -655,7 +655,7 @@ class MlflowClient:
                     f"Trace with ID {request_id} not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
-            elif trace.info.status == TraceStatus.OK or trace.info.status == TraceStatus.ERROR:
+            elif trace.info.status in TraceStatus.end_statuses():
                 raise MlflowException(
                     f"Trace with ID {request_id} already finished.",
                     error_code=INVALID_PARAMETER_VALUE,
