@@ -3,6 +3,7 @@ The ``mlflow.pyfunc.model`` module defines logic for saving and loading custom "
 models with a user-defined ``PythonModel`` subclass.
 """
 
+from dataclasses import fields, is_dataclass
 import inspect
 import logging
 import os
@@ -557,6 +558,17 @@ class _PythonModelPyfuncWrapper:
     def _convert_input(self, model_input):
         import pandas as pd
 
+        def _hydrate_dataclass(dataclass_type, data):
+            """
+            Dynamically create an instance of the dataclass_type from data.
+            """
+            if not is_dataclass(dataclass_type):
+                raise ValueError(f"{dataclass_type} is not a dataclass")
+
+            field_names = {f.name for f in fields(dataclass_type)}
+            kwargs = {key: value for key, value in data.items() if key in field_names}
+            return dataclass_type(**kwargs)
+
         hints = self.python_model._get_type_hints()
         if hints.input == List[str]:
             if isinstance(model_input, pd.DataFrame):
@@ -584,11 +596,9 @@ class _PythonModelPyfuncWrapper:
             elif isinstance(model_input, list) and all(isinstance(x, dict) for x in model_input):
                 keys = [x.name for x in self.signature.inputs]
                 return [{k: d[k] for k in keys} for d in model_input]
-        elif hints.input == ChatCompletionRequest:
+        elif issubclass(hints.input, ChatCompletionRequest):
             if isinstance(model_input, pd.DataFrame):
-                messages = [Message(**message) for message in model_input.iloc[0].messages]
-                # use ChatCompletionRequest dataclass to convert to the right format
-                return ChatCompletionRequest(messages=messages)
+                return _hydrate_dataclass(hints.input, model_input.iloc[0])
         elif hints.input == MultiturnChatRequest:
             if isinstance(model_input, pd.DataFrame):
                 history = [Message(**message) for message in model_input.iloc[0].history]
