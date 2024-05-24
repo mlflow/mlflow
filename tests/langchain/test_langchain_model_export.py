@@ -2921,7 +2921,7 @@ def test_langchain_model_inject_callback_in_model_serving(
     clear_trace_singleton, monkeypatch, model_path
 ):
     # Emulate the model serving environment
-    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("MLFLOW_ENABLE_TRACE_IN_SERVING", "true")
 
     model = create_openai_llmchain()
@@ -2946,7 +2946,7 @@ def test_langchain_model_not_inject_callback_when_disabled(
     clear_trace_singleton, monkeypatch, model_path
 ):
     # Emulate the model serving environment
-    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
 
     # Disable tracing
     monkeypatch.setenv("MLFLOW_ENABLE_TRACE_IN_SERVING", "false")
