@@ -38,7 +38,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.context import (
     Context,
     get_prediction_context,
-    potentially_set_prediction_context,
+    maybe_set_prediction_context,
 )
 from mlflow.types.schema import Array, ColSpec, DataType, Schema
 
@@ -322,7 +322,7 @@ class APIRequest:
         _logger.debug(f"Request #{self.index} started with payload: {self.request_json}")
 
         try:
-            with potentially_set_prediction_context(self.prediction_context):
+            with maybe_set_prediction_context(self.prediction_context):
                 response = self.single_call_api(callback_handlers)
             _logger.debug(f"Request #{self.index} succeeded with response: {response}")
             self.results.append((self.index, response))
@@ -606,5 +606,5 @@ def process_stream_request(
         stream=True,
         prediction_context=get_prediction_context(),
     )
-    with potentially_set_prediction_context(api_request.prediction_context):
+    with maybe_set_prediction_context(api_request.prediction_context):
         return api_request.single_call_api(callback_handlers)

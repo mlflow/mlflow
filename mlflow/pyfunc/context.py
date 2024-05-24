@@ -58,7 +58,7 @@ def get_prediction_context() -> Optional[Context]:
 
 
 @contextlib.contextmanager
-def potentially_set_prediction_context(context: Optional[Context]):
+def maybe_set_prediction_context(context: Optional[Context]):
     """
     Only override the prediction context if it is provided. Otherwise, use the existing
     prediction context or no prediction context at all.

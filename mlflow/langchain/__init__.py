@@ -155,7 +155,7 @@ def save_model(
     persist_dir=None,
     example_no_conversion=False,
     model_config=None,
-    streamable=None,
+    streamable: Optional[bool] = None,
 ):
     """
     Save a LangChain model to a path on the local file system.
@@ -253,6 +253,9 @@ def save_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
+        streamable: A boolean value indicating if the model supports streaming prediction. If
+            True, the model must contain `stream` method. If None, MLflow will try to inspect
+            the model's streamability is inferred from the model type. Default to `None`.
     """
     import langchain
     from langchain.schema import BaseRetriever
@@ -340,7 +343,7 @@ def save_model(
                 mlflow_model.metadata = {}
             mlflow_model.metadata.update(schema)
 
-    streamable = isinstance(lc_model, lc_runnables_types()) or streamable
+    streamable = streamable or isinstance(lc_model, lc_runnables_types())
 
     model_data_kwargs = {}
     flavor_conf = {}
