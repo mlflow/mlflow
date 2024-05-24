@@ -18,7 +18,6 @@ from mlflow.tracing.constant import (
 )
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import encode_trace_id
 from mlflow.utils.os import is_windows
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info

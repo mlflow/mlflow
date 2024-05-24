@@ -23,7 +23,6 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
 from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
-    encode_trace_id,
     get_otel_attribute,
     maybe_get_dependencies_schemas,
     maybe_get_request_id,
@@ -118,7 +117,6 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             request_metadata=metadata,
             tags=tags,
         )
-
 
     def on_end(self, span: OTelReadableSpan) -> None:
         """
