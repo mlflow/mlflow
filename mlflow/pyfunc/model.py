@@ -38,7 +38,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.models.rag_signatures import ChatCompletionRequest, MultiturnChatRequest
+from mlflow.models.rag_signatures import ChatCompletionRequest, MultiturnChatRequest, Message
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
@@ -586,9 +586,11 @@ class _PythonModelPyfuncWrapper:
                 return [{k: d[k] for k in keys} for d in model_input]
         elif hints.input == ChatCompletionRequest:
             if isinstance(model_input, pd.DataFrame):
+                # convert to Message objects
+                messages = [Message(**message) for message in model_input.iloc[0].messages]
                 # use ChatCompletionRequest dataclass to convert to the right format
                 return ChatCompletionRequest(
-                    messages=model_input.to_dict(orient="records")
+                    messages=messages
                 )
         elif hints.input == MultiturnChatRequest:
             if isinstance(model_input, pd.DataFrame):
