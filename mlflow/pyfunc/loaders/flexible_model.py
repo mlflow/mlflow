@@ -2,6 +2,7 @@ import inspect
 import logging
 from typing import Any, Dict, List, Optional
 
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.pyfunc.model import (
@@ -20,7 +21,7 @@ _SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
 _logger = logging.getLogger(__name__)
 
 
-class _ObjectModelPyfuncWrapper:
+class _OompaLoopaModelPyfuncWrapper:
     """
     Flexible wrapper class
     """
@@ -59,6 +60,8 @@ class _ObjectModelPyfuncWrapper:
     #     return dict_input
 
     def _convert_input(self, model_input):
+        # this will NEVER return a dataframe
+        # this will only return an object
         import pandas as pd
 
         hints = self.python_model._get_type_hints()
@@ -90,6 +93,17 @@ class _ObjectModelPyfuncWrapper:
                 return [{k: d[k] for k in keys} for d in model_input]
         # TODO: handle the List[Dict[str, Any]] case
         # handle the Dict[str, Any] case
+        # cc
+        elif hints.input == Dict[str,List[Dict[str,str]]]:
+            # TODO: fill in
+        # split completions
+        elif hints.input == mlflow.models.rag_signatures.ChatCompletionsInput:
+            if isinstance(model_input, pd.DataFrame):
+                # use ChatCompletionsInput dataclass to convert to the right format
+                return mlflow.models.rag_signatures.ChatCompletionsInput(
+                    completions=model_input.to_dict(orient="records")
+                )
+            # Turn into ChatCompletionsInput
         elif hints.input == Dict[str, Any]:
             if isinstance(model_input, pd.DataFrame):
                 dict_input = {
@@ -98,8 +112,10 @@ class _ObjectModelPyfuncWrapper:
                 return dict_input
             elif isinstance(model_input, dict):
                 return model_input
+            
+        # next quarter we add ssmth
 
-        return model_input
+        raise MlflowException
 
     def predict(self, model_input, params: Optional[Dict[str, Any]] = None):
         """
