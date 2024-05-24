@@ -171,7 +171,7 @@ def is_in_databricks_job():
 
 
 def is_in_databricks_model_serving_environment():
-    return "IS_IN_DATABRICKS_MODEL_SERVING_ENV" in os.environ
+    return os.environ.get("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "false").lower() == "true"
 
 
 # this should only be the case when we are in model serving environment
