@@ -139,7 +139,7 @@ def _extract_raw_model(model):
         return model_loader_module, None
 
 
-def _extract_predict_fn(model, raw_model, model_predict_fn):
+def _extract_predict_fn(model, raw_model, model_predict_fn=None):
     predict_fn = model.predict if model is not None else None
     if model_predict_fn is not None:
         predict_fn = model_predict_fn
