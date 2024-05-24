@@ -199,7 +199,7 @@ class APIRequest:
     convert_chat_responses: bool
     did_perform_chat_conversion: bool
     stream: bool
-    prediction_context: Optional[Context]
+    prediction_context: Optional[Context] = None
 
     def _prepare_to_serialize(self, response: dict):
         """

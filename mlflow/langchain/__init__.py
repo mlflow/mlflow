@@ -254,8 +254,8 @@ def save_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         streamable: A boolean value indicating if the model supports streaming prediction. If
-            True, the model must contain `stream` method. If None, MLflow will try to inspect
-            the model's streamability is inferred from the model type. Default to `None`.
+            True, the model must implement `stream` method. If None, the model's streamability
+            is inferred from the model type. Default to `None`.
     """
     import langchain
     from langchain.schema import BaseRetriever
@@ -538,6 +538,9 @@ def log_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
+        streamable: A boolean value indicating if the model supports streaming prediction. If
+            True, the model must implement `stream` method. If None, the model's streamability
+            is inferred from the model type. Default to `None`.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the

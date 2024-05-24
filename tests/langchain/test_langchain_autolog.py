@@ -1,5 +1,4 @@
 import os
-import threading
 from operator import itemgetter
 from typing import Any, Dict, List, Optional
 from unittest import mock
@@ -52,21 +51,6 @@ from langchain_community.callbacks.mlflow_callback import (
 
 MLFLOW_CALLBACK_METRICS = mlflow_callback_metrics()
 TEXT_COMPLEXITY_METRICS = get_text_complexity_metrics()
-
-test_lock = threading.Lock()
-
-
-@pytest.fixture
-def lock_test():
-    """
-    This fixture should be applied to tests that containing
-    mlflow.pyfunc.load_model to avoid clearing dependencies schemas
-    after loading the model.
-    """
-    test_lock.acquire()
-    yield
-    # Release the lock after the test
-    test_lock.release()
 
 
 def get_mlflow_model(artifact_uri, model_subpath=MODEL_DIR):
