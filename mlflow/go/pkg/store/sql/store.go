@@ -206,31 +206,31 @@ func (s Store) SearchRuns(
 			// SELECT *
 			// FROM runs
 			// JOIN (
-			//   SELECT datasets.experiment_id
-			//   FROM datasets
-			//   JOIN inputs
-			//   ON datasets.dataset_uuid = inputs.source_id
+			//   SELECT inputs.destination_id AS run_uuid
+			//   FROM inputs
 			//   JOIN input_tags
 			//   ON inputs.input_uuid = input_tags.input_uuid
-			//   WHERE input_tags.name = 'mlflow.data.context'
-			//   AND input_tags.value = 'twisted'
+			//   AND input_tags.name = 'mlflow.data.context'
+			//   AND input_tags.value %s ?
+			//   WHERE inputs.destination_type = 'RUN'
 			// ) AS filter_0
-			// ON runs.experiment_id = filter_0.experiment_id
-			whereColumn := "input_tags.value"
+			// ON runs.run_uuid = filter_0.run_uuid
+			valueColumn := "input_tags.value "
 			if isSqliteAndILike {
-				whereColumn = "LOWER(input_tags.value)"
+				valueColumn = "LOWER(input_tags.value) "
 				value = strings.ToLower(value.(string))
 			}
 			tx.Joins(
-				fmt.Sprintf("JOIN (?) AS %s ON runs.experiment_id = %s.experiment_id", table, table),
-				s.db.Select("datasets.experiment_id").
-					Joins("JOIN inputs ON datasets.dataset_uuid = inputs.source_id").
-					Joins("JOIN input_tags ON inputs.input_uuid = input_tags.input_uuid").
-					Where(
-						fmt.Sprintf("input_tags.name = 'mlflow.data.context' AND %s %s ?", whereColumn, comparison),
+				fmt.Sprintf("JOIN (?) AS %s ON runs.run_uuid = %s.run_uuid", table, table),
+				s.db.Select("inputs.destination_id AS run_uuid").
+					Joins(
+						"JOIN input_tags ON inputs.input_uuid = input_tags.input_uuid"+
+							" AND input_tags.name = 'mlflow.data.context'"+
+							" AND "+valueColumn+comparison+" ?",
 						value,
 					).
-					Model(kind),
+					Where("inputs.destination_type = 'RUN'").
+					Model(&model.Input{}),
 			)
 		case clause.Identifier == parser.Dataset:
 			// add join with datasets
