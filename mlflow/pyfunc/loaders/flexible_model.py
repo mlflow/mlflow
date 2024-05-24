@@ -19,7 +19,7 @@ _SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
 _logger = logging.getLogger(__name__)
 
 
-class _FlexibleModelPyfuncWrapper:
+class _ObjectModelPyfuncWrapper:
     """
     Flexible wrapper class
     """
