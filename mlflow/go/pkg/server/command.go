@@ -37,5 +37,9 @@ func launchCommand(ctx context.Context, cfg *config.Config) error {
 	}
 
 	err := cmd.Wait()
-	return fmt.Errorf("command exited with error: %w", err)
+	if err != nil {
+		return fmt.Errorf("command exited with error: %w", err)
+	}
+
+	return nil
 }

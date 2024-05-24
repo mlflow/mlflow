@@ -92,7 +92,7 @@ func parseValidIdentifier(identifier string) (ValidIdentifier, error) {
 	case datasetIdentifier, "datasets":
 		return Dataset, nil
 	default:
-		return -1, fmt.Errorf("invalid identifier \"%s\": %w", identifier, ErrValidation)
+		return -1, fmt.Errorf("invalid identifier %q: %w", identifier, ErrValidation)
 	}
 }
 

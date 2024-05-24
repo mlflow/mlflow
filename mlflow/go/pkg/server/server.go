@@ -75,14 +75,17 @@ func launchServer(ctx context.Context, cfg *config.Config) error {
 			break
 		}
 		if errors.Is(err, context.Canceled) {
-			return fmt.Errorf("could not dial Python server: %w", err)
+			return fmt.Errorf("could not connect to Python server: %w", err)
 		}
 		time.Sleep(1 * time.Second)
 	}
 	logrus.Debugf("Python server is ready")
 
 	err = app.Listen(cfg.Address)
-	return fmt.Errorf("failed to start MLflow experimental Go server: %w", err)
+	if err != nil {
+		return fmt.Errorf("failed to start MLflow experimental Go server: %w", err)
+	}
+	return nil
 }
 
 func newAPIApp(cfg *config.Config) (*fiber.App, error) {

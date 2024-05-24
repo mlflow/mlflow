@@ -34,7 +34,7 @@ func NewValidator() (*validator.Validate, error) {
 			return value > -1
 		},
 	); err != nil {
-		return nil, fmt.Errorf("validation registration for 'stringAsPositiveInteger' failed %w", err)
+		return nil, fmt.Errorf("validation registration for 'stringAsPositiveInteger' failed: %w", err)
 	}
 
 	// Verify that the input string, if present, is a Url without fragment or query parameters
@@ -54,7 +54,7 @@ func NewValidator() (*validator.Validate, error) {
 			return u.Fragment == "" && u.RawQuery == "" && !strings.Contains(u.RawQuery, "..")
 		},
 	); err != nil {
-		return nil, fmt.Errorf("validation registration for 'uriWithoutFragmentsOrParamsOrDotDotInQuery' failed %w", err)
+		return nil, fmt.Errorf("validation registration for 'uriWithoutFragmentsOrParamsOrDotDotInQuery' failed: %w", err)
 	}
 
 	return validate, nil
