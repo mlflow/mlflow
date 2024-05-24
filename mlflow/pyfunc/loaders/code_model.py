@@ -5,7 +5,6 @@ from mlflow.pyfunc.loaders.flexible_model import _FlexibleModelPyfuncWrapper
 from mlflow.pyfunc.model import (
     ChatModel,
     _load_context_model_and_signature,
-    _PythonModelPyfuncWrapper,
 )
 
 

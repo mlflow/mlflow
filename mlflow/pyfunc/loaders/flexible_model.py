@@ -1,40 +1,12 @@
-
 import inspect
 import logging
-import os
-import shutil
-from abc import ABCMeta, abstractmethod
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-import cloudpickle
-import yaml
-
-import mlflow.pyfunc
-from mlflow.pyfunc.model import _get_first_string_column, _log_warning_if_params_not_in_predict_signature
-import mlflow.utils
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
-from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
-from mlflow.models.signature import _extract_type_hints
-from mlflow.models.utils import _load_model_code_path
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
-from mlflow.utils.annotations import experimental
-from mlflow.utils.environment import (
-    _CONDA_ENV_FILE_NAME,
-    _CONSTRAINTS_FILE_NAME,
-    _PYTHON_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
-    _mlflow_conda_env,
-    _process_conda_env,
-    _process_pip_requirements,
-    _PythonEnv,
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
+from mlflow.pyfunc.model import (
+    _log_warning_if_params_not_in_predict_signature,
 )
-from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
-from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
-from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
@@ -45,6 +17,7 @@ _SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
 
 
 _logger = logging.getLogger(__name__)
+
 
 class _FlexibleModelPyfuncWrapper:
     """
@@ -64,6 +37,9 @@ class _FlexibleModelPyfuncWrapper:
         self.signature = signature
 
     def _convert_input(self, model_input):
+        """
+        Convert the input back into an object which the model can understand.
+        """
         import pandas
 
         if isinstance(model_input, dict):
@@ -78,7 +54,7 @@ class _FlexibleModelPyfuncWrapper:
                 f"but got {type(model_input)} instead.",
                 error_code=INTERNAL_ERROR,
             )
-        
+
         return dict_input
 
     def predict(self, model_input, params: Optional[Dict[str, Any]] = None):
@@ -113,4 +89,3 @@ class _FlexibleModelPyfuncWrapper:
             )
         _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self.python_model.predict_stream(self.context, self._convert_input(model_input))
-    
