@@ -3,12 +3,12 @@ The ``mlflow.pyfunc.model`` module defines logic for saving and loading custom "
 models with a user-defined ``PythonModel`` subclass.
 """
 
-from dataclasses import fields, is_dataclass
 import inspect
 import logging
 import os
 import shutil
 from abc import ABCMeta, abstractmethod
+from dataclasses import fields, is_dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, get_args, get_origin
 
@@ -20,7 +20,7 @@ import mlflow.utils
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
-from mlflow.models.rag_signatures import ChatCompletionRequest, Message, MultiturnChatRequest
+from mlflow.models.rag_signatures import ChatCompletionRequest, MultiturnChatRequest
 from mlflow.models.signature import _extract_type_hints
 from mlflow.models.utils import _load_model_code_path
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -558,17 +558,6 @@ class _PythonModelPyfuncWrapper:
     def _convert_input(self, model_input):
         import pandas as pd
 
-        # def _hydrate_dataclass(dataclass_type, data):
-        #     """
-        #     Dynamically create an instance of the dataclass_type from data.
-        #     """
-        #     if not is_dataclass(dataclass_type):
-        #         raise ValueError(f"{dataclass_type} is not a dataclass")
-
-        #     field_names = {f.name for f in fields(dataclass_type)}
-        #     kwargs = {key: value for key, value in data.items() if key in field_names}
-        #     return dataclass_type(**kwargs)
-
         def _hydrate_dataclass(dataclass_type, data):
             """
             Recursively create an instance of the dataclass_type from data.
@@ -621,17 +610,11 @@ class _PythonModelPyfuncWrapper:
             elif isinstance(model_input, list) and all(isinstance(x, dict) for x in model_input):
                 keys = [x.name for x in self.signature.inputs]
                 return [{k: d[k] for k in keys} for d in model_input]
-        elif issubclass(hints.input, ChatCompletionRequest):
+        elif issubclass(hints.input, ChatCompletionRequest) or issubclass(
+            hints.input, MultiturnChatRequest
+        ):
             if isinstance(model_input, pd.DataFrame):
                 return _hydrate_dataclass(hints.input, model_input.iloc[0])
-        elif hints.input == MultiturnChatRequest:
-            if isinstance(model_input, pd.DataFrame):
-                history = [Message(**message) for message in model_input.iloc[0].history]
-                # use MultiturnChatRequest dataclass to convert to the right format
-                return MultiturnChatRequest(
-                    query=model_input.iloc[0].query,
-                    history=history,
-                )
         return model_input
 
     def predict(self, model_input, params: Optional[Dict[str, Any]] = None):
