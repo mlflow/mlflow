@@ -658,6 +658,16 @@ def test_end_trace_raise_error_for_trace_in_end_status(clear_singleton, status):
         client.end_trace("test")
 
 
+def test_trace_status_either_pending_or_end():
+    all_statuses = {status.value for status in TraceStatus}
+    pending_or_end_statuses = TraceStatus.pending_statuses() + TraceStatus.end_statuses()
+    unclassified_statuses = all_statuses - pending_or_end_statuses
+    assert len(unclassified_statuses) == 0, (
+        f"Please add {unclassified_statuses} to "
+        "either pending_statuses or end_statuses in TraceStatus class definition"
+    )
+
+
 def test_start_span_raise_error_when_parent_id_is_not_provided():
     with pytest.raises(MlflowException, match=r"start_span\(\) must be called with"):
         mlflow.tracking.MlflowClient().start_span("span_name", request_id="test", parent_id=None)
