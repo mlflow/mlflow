@@ -38,27 +38,6 @@ class _OompaLoopaModelPyfuncWrapper:
         self.context = context
         self.signature = signature
 
-    # def _convert_input(self, model_input):
-    #     """
-    #     Convert the input back into an object which the model can understand.
-    #     """
-    #     import pandas
-
-    #     if isinstance(model_input, dict):
-    #         dict_input = model_input
-    #     elif isinstance(model_input, pandas.DataFrame):
-    #         dict_input = {
-    #             key: value[0] for key, value in model_input.to_dict(orient="list").items()
-    #         }
-    #     else:
-    #         raise MlflowException(
-    #             "Unsupported model input type. Expected a dict or pandas.DataFrame, "
-    #             f"but got {type(model_input)} instead.",
-    #             error_code=INTERNAL_ERROR,
-    #         )
-
-    #     return dict_input
-
     def _convert_input(self, model_input):
         # this will NEVER return a dataframe
         # this will only return an object
