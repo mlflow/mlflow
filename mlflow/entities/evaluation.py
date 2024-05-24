@@ -66,7 +66,43 @@ class Evaluation(_MlflowObject):
         if self.ground_truths:
             evaluation_dict["ground_truths"] = self.ground_truths
         if self.feedback:
-            evaluation_dict["feedback"] = [fb.__dict__ for fb in self.feedback]
+            evaluation_dict["feedback"] = [fb.to_dictionary() for fb in self.feedback]
         if self.metrics:
             evaluation_dict["metrics"] = self.metrics
         return evaluation_dict
+
+    @classmethod
+    def from_dictionary(cls, evaluation_dict):
+        """
+        Create an Evaluation object from a dictionary.
+
+        Args:
+            evaluation_dict (dict): Dictionary containing evaluation information.
+
+        Returns:
+            Evaluation: The Evaluation object created from the dictionary.
+        """
+        evaluation_id = evaluation_dict["evaluation_id"]
+        run_id = evaluation_dict["run_id"]
+        inputs_id = evaluation_dict["inputs_id"]
+        inputs = evaluation_dict["inputs"]
+        outputs = evaluation_dict["outputs"]
+        request_id = evaluation_dict.get("request_id")
+        ground_truths = evaluation_dict.get("ground_truths")
+        feedback = None
+        if "feedback" in evaluation_dict:
+            feedback = [Feedback.from_dictionary(fb) for fb in evaluation_dict["feedback"]]
+        metrics = None
+        if "metrics" in evaluation_dict:
+            metrics = [Metric.from_dictionary(metric) for metric in evaluation_dict["metrics"]]
+        return cls(
+            evaluation_id=evaluation_id,
+            run_id=run_id,
+            inputs_id=inputs_id,
+            inputs=inputs,
+            outputs=outputs,
+            request_id=request_id,
+            ground_truths=ground_truths,
+            feedback=feedback,
+            metrics=metrics,
+        )

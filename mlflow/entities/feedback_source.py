@@ -1,3 +1,5 @@
+from typing import Any, Dict, Optional
+
 from mlflow.entities._mlflow_object import _MlflowObject
 
 
@@ -6,7 +8,7 @@ class FeedbackSource(_MlflowObject):
     Source of the feedback (human, LLM as a judge with GPT-4, etc).
     """
 
-    def __init__(self, source_type, source_id, metadata=None):
+    def __init__(self, source_type: str, source_id: str, metadata: Optional[Dict[str, Any]] = None):
         """Construct a new mlflow.entities.FeedbackSource instance.
 
         Args:
@@ -19,12 +21,28 @@ class FeedbackSource(_MlflowObject):
         self.source_id = source_id
         self.metadata = metadata or {}
 
-    def to_dictionary(self):
+    def to_dictionary(self) -> Dict[str, Any]:
         return {
             "source_type": self.source_type,
             "source_id": self.source_id,
             "metadata": self.metadata,
         }
+
+    @classmethod
+    def from_dictionary(cls, source_dict: Dict[str, Any]) -> "FeedbackSource":
+        """
+        Create a FeedbackSource object from a dictionary.
+
+        Args:
+            source_dict (dict): Dictionary containing feedback source information.
+
+        Returns:
+            FeedbackSource: The FeedbackSource object created from the dictionary.
+        """
+        source_type = source_dict["source_type"]
+        source_id = source_dict["source_id"]
+        metadata = source_dict.get("metadata")
+        return cls(source_type=source_type, source_id=source_id, metadata=metadata)
 
 
 class FeedbackSourceType:

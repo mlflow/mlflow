@@ -1,4 +1,7 @@
+from typing import Any, Dict, Optional
+
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.entities.feedback_source import FeedbackSource
 
 
 class Feedback(_MlflowObject):
@@ -8,14 +11,14 @@ class Feedback(_MlflowObject):
 
     def __init__(
         self,
-        evaluation_id,
-        name,
-        boolean_value=None,
-        numeric_value=None,
-        string_value=None,
-        rationale=None,
-        source=None,
-        metadata=None,
+        evaluation_id: str,
+        name: str,
+        boolean_value: Optional[bool] = None,
+        numeric_value: Optional[float] = None,
+        string_value: Optional[str] = None,
+        rationale: Optional[str] = None,
+        source: Optional[FeedbackSource] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ):
         """Construct a new mlflow.entities.Feedback instance.
 
@@ -29,7 +32,6 @@ class Feedback(_MlflowObject):
             source: The source of the feedback (FeedbackSource instance).
             metadata: Additional metadata for the feedback, e.g. the index of the chunk in the
                       retrieved documents that the feedback applies to.
-
         """
         self.evaluation_id = evaluation_id
         self.name = name
@@ -40,7 +42,7 @@ class Feedback(_MlflowObject):
         self.source = source
         self.metadata = metadata or {}
 
-    def to_dictionary(self):
+    def to_dictionary(self) -> Dict[str, Any]:
         feedback_dict = {
             "evaluation_id": self.evaluation_id,
             "name": self.name,
@@ -53,3 +55,34 @@ class Feedback(_MlflowObject):
         }
         # Remove keys with None values
         return {k: v for k, v in feedback_dict.items() if v is not None}
+
+    @classmethod
+    def from_dictionary(cls, feedback_dict: Dict[str, Any]) -> "Feedback":
+        """
+        Create a Feedback object from a dictionary.
+
+        Args:
+            feedback_dict (dict): Dictionary containing feedback information.
+
+        Returns:
+            Feedback: The Feedback object created from the dictionary.
+        """
+        evaluation_id = feedback_dict["evaluation_id"]
+        name = feedback_dict["name"]
+        boolean_value = feedback_dict.get("boolean_value")
+        numeric_value = feedback_dict.get("numeric_value")
+        string_value = feedback_dict.get("string_value")
+        rationale = feedback_dict.get("rationale")
+        source_dict = feedback_dict.get("source")
+        source = FeedbackSource.from_dictionary(source_dict) if source_dict else None
+        metadata = feedback_dict.get("metadata")
+        return cls(
+            evaluation_id=evaluation_id,
+            name=name,
+            boolean_value=boolean_value,
+            numeric_value=numeric_value,
+            string_value=string_value,
+            rationale=rationale,
+            source=source,
+            metadata=metadata,
+        )
