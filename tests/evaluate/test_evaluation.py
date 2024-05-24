@@ -48,6 +48,9 @@ from mlflow.models.evaluation.base import (
     _start_run_or_reuse_active_run,
 )
 from mlflow.models.evaluation.base import (
+    _logger as _base_logger,
+)
+from mlflow.models.evaluation.base import (
     _normalize_evaluators_and_evaluator_config_args as _normalize_config,
 )
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
@@ -1135,6 +1138,11 @@ def test_normalize_evaluators_and_evaluator_config_args():
         ["default", "dummy_evaluator"],
         {"default": {"a": 3}},
     )
+
+    with mock.patch.object(_base_logger, "debug") as patched_debug_fn:
+        _normalize_config(None, None)
+        patched_debug_fn.assert_called_once()
+        assert "Multiple registered evaluators have been" in patched_debug_fn.call_args[0][0]
 
     assert _normalize_config("dummy_evaluator", {"a": 3}) == (
         ["dummy_evaluator"],
