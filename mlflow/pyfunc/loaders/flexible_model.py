@@ -11,6 +11,7 @@ import cloudpickle
 import yaml
 
 import mlflow.pyfunc
+from mlflow.pyfunc.model import _get_first_string_column, _log_warning_if_params_not_in_predict_signature
 import mlflow.utils
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -47,8 +48,7 @@ _logger = logging.getLogger(__name__)
 
 class _FlexibleModelPyfuncWrapper:
     """
-    Wrapper class that creates a predict function such that
-    predict(model_input: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)
+    Flexible wrapper class
     """
 
     def __init__(self, python_model, context, signature):
@@ -64,36 +64,6 @@ class _FlexibleModelPyfuncWrapper:
         self.signature = signature
 
     def _convert_input(self, model_input):
-        import pandas as pd
-
-        hints = self.python_model._get_type_hints()
-        if hints.input == List[str]:
-            if isinstance(model_input, pd.DataFrame):
-                first_string_column = _get_first_string_column(model_input)
-                if first_string_column is None:
-                    raise MlflowException.invalid_parameter_value(
-                        "Expected model input to contain at least one string column"
-                    )
-                return model_input[first_string_column].tolist()
-            elif isinstance(model_input, list):
-                if all(isinstance(x, dict) for x in model_input):
-                    return [next(iter(d.values())) for d in model_input]
-                elif all(isinstance(x, str) for x in model_input):
-                    return model_input
-        elif hints.input == List[Dict[str, str]]:
-            if isinstance(model_input, pd.DataFrame):
-                if (
-                    len(self.signature.inputs) == 1
-                    and next(iter(self.signature.inputs)).name is None
-                ):
-                    first_string_column = _get_first_string_column(model_input)
-                    return model_input[[first_string_column]].to_dict(orient="records")
-                columns = [x.name for x in self.signature.inputs]
-                return model_input[columns].to_dict(orient="records")
-            elif isinstance(model_input, list) and all(isinstance(x, dict) for x in model_input):
-                keys = [x.name for x in self.signature.inputs]
-                return [{k: d[k] for k in keys} for d in model_input]
-
         return model_input
 
     def predict(self, model_input, params: Optional[Dict[str, Any]] = None):
@@ -128,3 +98,4 @@ class _FlexibleModelPyfuncWrapper:
             )
         _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self.python_model.predict_stream(self.context, self._convert_input(model_input))
+    
