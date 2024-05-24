@@ -19,6 +19,7 @@ import mlflow.utils
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
+from mlflow.models.rag_signatures import ChatCompletionRequest, Message, MultiturnChatRequest
 from mlflow.models.signature import _extract_type_hints
 from mlflow.models.utils import _load_model_code_path
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -38,7 +39,6 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.models.rag_signatures import ChatCompletionRequest, MultiturnChatRequest, Message
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
@@ -586,18 +586,16 @@ class _PythonModelPyfuncWrapper:
                 return [{k: d[k] for k in keys} for d in model_input]
         elif hints.input == ChatCompletionRequest:
             if isinstance(model_input, pd.DataFrame):
-                # convert to Message objects
                 messages = [Message(**message) for message in model_input.iloc[0].messages]
                 # use ChatCompletionRequest dataclass to convert to the right format
-                return ChatCompletionRequest(
-                    messages=messages
-                )
+                return ChatCompletionRequest(messages=messages)
         elif hints.input == MultiturnChatRequest:
             if isinstance(model_input, pd.DataFrame):
+                history = [Message(**message) for message in model_input.iloc[0].history]
                 # use MultiturnChatRequest dataclass to convert to the right format
                 return MultiturnChatRequest(
                     query=model_input.iloc[0].query,
-                    history=model_input.iloc[0].history,
+                    history=history,
                 )
         return model_input
 
