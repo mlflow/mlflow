@@ -19,7 +19,7 @@ class ChatCompletionRequest:
 
 @dataclass
 @experimental
-class MultiturnChatRequest:
+class SplitChatMessagesRequest:
     query: str = "What is mlflow?"
     history: Optional[List[Message]] = field(default_factory=list)
 
