@@ -1,3 +1,4 @@
+import inspect
 import io
 import json
 import os
@@ -62,6 +63,9 @@ from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracking.artifact_utils import get_artifact_uri
 from mlflow.utils import insecure_hash
+from mlflow.utils.autologging_utils import (
+    MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG,
+)
 from mlflow.utils.file_utils import TempDir
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
@@ -560,6 +564,15 @@ def test_langchain_evaluate_fails_with_an_exception():
         log_model_mock.assert_called_once()
         assert len(get_traces()) == 1
         assert len(get_traces()[0].data.spans) == 3
+
+
+def test_langchain_autolog_parameters_matches_default_parameters():
+    # get parameters from mlflow.langchain.autolog
+    params = inspect.signature(mlflow.langchain.autolog).parameters
+    for name in params:
+        assert name in MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG
+    for name in MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG:
+        assert name in params
 
 
 def test_evaluate_works_with_no_langchain_installed():
