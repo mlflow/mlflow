@@ -49,7 +49,6 @@ from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.utils import download_cloud_file_chunk, merge_dicts
 from mlflow.utils.databricks_utils import (
-    _get_dbutils,
     get_databricks_local_temp_dir,
     get_databricks_nfs_temp_dir,
 )
