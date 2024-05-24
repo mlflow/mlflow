@@ -15,8 +15,8 @@ from langchain_core.callbacks.base import BaseCallbackHandler, BaseCallbackManag
 from test_langchain_model_export import FAISS, DeterministicDummyEmbeddings
 
 import mlflow
+from mlflow import MlflowClient
 from mlflow.entities.trace_status import TraceStatus
-from mlflow import MlflowClient, evaluate
 from mlflow.langchain._langchain_autolog import (
     INFERENCE_FILE_NAME,
     UNSUPPORT_LOG_MODEL_MESSAGE,
