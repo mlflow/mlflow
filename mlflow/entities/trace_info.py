@@ -44,7 +44,10 @@ class TraceInfo(_MlflowObject):
         proto.request_id = self.request_id
         proto.experiment_id = self.experiment_id
         proto.timestamp_ms = self.timestamp_ms
-        proto.execution_time_ms = self.execution_time_ms
+        # NB: Proto setter does not support nullable fields (even with 'optional' keyword),
+        # so we substitute None with 0 for execution_time_ms. This should be not too confusing
+        # as we only put None when starting a trace i.e. the execution time is actually 0.
+        proto.execution_time_ms = self.execution_time_ms or 0
         proto.status = self.status.to_proto()
 
         request_metadata = []
