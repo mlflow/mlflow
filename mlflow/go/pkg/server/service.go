@@ -108,6 +108,17 @@ func (m MlflowService) SearchRuns(input *protos.SearchRuns) (*protos.SearchRuns_
 	return &response, nil
 }
 
+func (m MlflowService) DeleteExperiment(
+	input *protos.DeleteExperiment,
+) (*protos.DeleteExperiment_Response, *contract.Error) {
+	err := m.store.DeleteExperiment(*input.ExperimentId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &protos.DeleteExperiment_Response{}, nil
+}
+
 var (
 	modelRegistryService   contract.ModelRegistryService
 	mlflowArtifactsService contract.MlflowArtifactsService

@@ -12,4 +12,5 @@ var validations = map[string]string{
 	"CreateExperiment_ArtifactLocation": "omitempty,uriWithoutFragmentsOrParamsOrDotDotInQuery",
 	"SearchRuns_RunViewType":            "omitempty",
 	"SearchRuns_MaxResults":             fmt.Sprintf("lte=%d", contract.MaxResultsPerPage),
+	"DeleteExperiment_ExperimentId":     "required,stringAsPositiveInteger",
 }

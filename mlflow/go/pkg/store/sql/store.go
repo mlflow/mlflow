@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/ncruces/go-sqlite3/gormlite"
@@ -39,9 +40,10 @@ type Store struct {
 func (s Store) GetExperiment(id string) (*protos.Experiment, *contract.Error) {
 	idInt, err := strconv.ParseInt(id, 10, 32)
 	if err != nil {
-		return nil, contract.NewError(
+		return nil, contract.NewErrorWith(
 			protos.ErrorCode_INVALID_PARAMETER_VALUE,
-			fmt.Sprintf("failed to convert experiment id to int: %v", err),
+			fmt.Sprintf("failed to convert experiment id (%s) to int", id),
+			err,
 		)
 	}
 
@@ -363,6 +365,62 @@ func (s Store) SearchRuns(
 		Items:         contractRuns,
 		NextPageToken: nextPageToken,
 	}, nil
+}
+
+func (s Store) DeleteExperiment(id string) *contract.Error {
+	idInt, err := strconv.ParseInt(id, 10, 32)
+	if err != nil {
+		return contract.NewErrorWith(
+			protos.ErrorCode_INVALID_PARAMETER_VALUE,
+			fmt.Sprintf("failed to convert experiment id (%s) to int", id),
+			err,
+		)
+	}
+
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		// Update experiment
+		uex := tx.Model(&model.Experiment{}).
+			Where("experiment_id = ?", idInt).
+			Updates(&model.Experiment{
+				LifecycleStage: utils.PtrTo(string(model.LifecycleStageDeleted)),
+				LastUpdateTime: utils.PtrTo(time.Now().UnixMilli()),
+			})
+
+		if uex.Error != nil {
+			return fmt.Errorf("failed to update experiment (%d) during delete: %w", idInt, err)
+		}
+
+		if uex.RowsAffected != 1 {
+			return gorm.ErrRecordNotFound
+		}
+
+		// Update runs: mark as deleted using subquery
+		if err := tx.Model(&model.Run{}).
+			Where("experiment_id = ?", idInt).
+			Updates(&model.Run{
+				LifecycleStage: utils.PtrTo(string(model.LifecycleStageDeleted)),
+				DeletedTime:    utils.PtrTo(time.Now().UnixMilli()),
+			}).Error; err != nil {
+			return fmt.Errorf("failed to update runs during delete: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return contract.NewError(
+				protos.ErrorCode_RESOURCE_DOES_NOT_EXIST,
+				fmt.Sprintf("No Experiment with id=%d exists", idInt),
+			)
+		}
+
+		return contract.NewErrorWith(
+			protos.ErrorCode_INTERNAL_ERROR,
+			"failed to delete experiment",
+			err,
+		)
+	}
+
+	return nil
 }
 
 func NewSQLStore(config *config.Config) (store.MlflowStore, error) {
