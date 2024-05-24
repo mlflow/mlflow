@@ -40,6 +40,7 @@ from mlflow.protos.model_registry_pb2 import (
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
 from mlflow.server import BACKEND_STORE_URI_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR, app
 from mlflow.server.handlers import (
+    _convert_path_parameter_to_flask_format,
     _create_experiment,
     _create_model_version,
     _create_registered_model,
@@ -130,6 +131,17 @@ def test_get_endpoints():
     endpoints = get_endpoints()
     create_experiment_endpoint = [e for e in endpoints if e[1] == _create_experiment]
     assert len(create_experiment_endpoint) == 2
+
+
+def test_convert_path_parameter_to_flask_format():
+    converted = _convert_path_parameter_to_flask_format("/mlflow/trace")
+    assert "/mlflow/trace" == converted
+
+    converted = _convert_path_parameter_to_flask_format("/mlflow/trace/{request_id}")
+    assert "/mlflow/trace/<request_id>" == converted
+
+    converted = _convert_path_parameter_to_flask_format("/mlflow/{foo}/{bar}/{baz}")
+    assert "/mlflow/<foo>/<bar>/<baz>" == converted
 
 
 def test_all_model_registry_endpoints_available():
