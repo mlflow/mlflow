@@ -64,6 +64,9 @@ class TestChatModel(mlflow.pyfunc.ChatModel):
         mock_response = get_mock_response(messages, params)
         return ChatResponse(**mock_response)
 
+    def predict_stream(self, context, messages, params):
+        return iter([self.predict(context, messages, params)])
+
 
 class ChatModelWithContext(mlflow.pyfunc.ChatModel):
     def load_context(self, context):
@@ -336,3 +339,18 @@ def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
         **DEFAULT_PARAMS,
         **params_subset,
     }
+
+
+def test_chat_model_predict_stream(tmp_path):
+    model = TestChatModel()
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
+
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant"},
+        {"role": "user", "content": "Hello!"},
+    ]
+
+    response = list(loaded_model.predict_stream({"messages": messages}))
+    assert len(response) == 1
+    assert response[0]["choices"][0]["message"]["content"] == json.dumps(messages)
