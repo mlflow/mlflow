@@ -11,4 +11,18 @@ type MlflowStore interface {
 	GetExperiment(id string) (*protos.Experiment, *contract.Error)
 
 	CreateExperiment(input *protos.CreateExperiment) (string, *contract.Error)
+
+	SearchRuns(
+		experimentIDs []string,
+		filter *string,
+		runViewType protos.ViewType,
+		maxResults int,
+		orderBy []string,
+		pageToken *string,
+	) (pagedList *PagedList[*protos.Run], err *contract.Error)
+}
+
+type PagedList[T any] struct {
+	Items         []T
+	NextPageToken *string
 }

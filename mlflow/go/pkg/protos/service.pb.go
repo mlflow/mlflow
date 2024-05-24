@@ -2281,12 +2281,12 @@ type SearchRuns struct {
 	Filter *string `protobuf:"bytes,4,opt,name=filter" json:"filter,omitempty" query:"filter"`
 	// Whether to display only active, only deleted, or all runs.
 	// Defaults to only active runs.
-	RunViewType *ViewType `protobuf:"varint,3,opt,name=run_view_type,json=runViewType,enum=mlflow.ViewType,def=1" json:"run_view_type,omitempty" query:"run_view_type"`
+	RunViewType *ViewType `protobuf:"varint,3,opt,name=run_view_type,json=runViewType,enum=mlflow.ViewType,def=1" json:"run_view_type,omitempty" query:"run_view_type" validate:"omitempty,oneof=3 1 2"`
 	// Maximum number of runs desired. If unspecified, defaults to 1000.
 	// All servers are guaranteed to support a `max_results` threshold of at least 50,000
 	// but may support more. Callers of this endpoint are encouraged to pass max_results
 	// explicitly and leverage page_token to iterate through experiments.
-	MaxResults *int32 `protobuf:"varint,5,opt,name=max_results,json=maxResults,def=1000" json:"max_results,omitempty" query:"max_results"`
+	MaxResults *int32 `protobuf:"varint,5,opt,name=max_results,json=maxResults,def=1000" json:"max_results,omitempty" query:"max_results" validate:"lte=1000"`
 	// List of columns to be ordered by, including attributes, params, metrics, and tags with an
 	// optional "DESC" or "ASC" annotation, where "ASC" is the default.
 	// Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]

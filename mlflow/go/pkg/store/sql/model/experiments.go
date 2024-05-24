@@ -10,19 +10,20 @@ import (
 
 // Experiment mapped from table <experiments>.
 type Experiment struct {
-	ExperimentID     *int32          `gorm:"column:experiment_id;primaryKey;autoIncrement:true"`
-	Name             *string         `gorm:"column:name;not null"`
-	ArtifactLocation *string         `gorm:"column:artifact_location"`
-	LifecycleStage   *string         `gorm:"column:lifecycle_stage"`
-	CreationTime     *int64          `gorm:"column:creation_time"`
-	LastUpdateTime   *int64          `gorm:"column:last_update_time"`
-	ExperimentTags   []ExperimentTag `gorm:"foreignKey:experiment_id;references:experiment_id"`
+	ID               *int32  `gorm:"column:experiment_id;primaryKey;autoIncrement:true"`
+	Name             *string `gorm:"column:name;not null"`
+	ArtifactLocation *string `gorm:"column:artifact_location"`
+	LifecycleStage   *string `gorm:"column:lifecycle_stage"`
+	CreationTime     *int64  `gorm:"column:creation_time"`
+	LastUpdateTime   *int64  `gorm:"column:last_update_time"`
+	Tags             []ExperimentTag
+	Runs             []Run
 }
 
 func (e Experiment) ToProto() *protos.Experiment {
-	id := strconv.FormatInt(int64(*e.ExperimentID), 10)
-	tags := make([]*protos.ExperimentTag, len(e.ExperimentTags))
-	for i, tag := range e.ExperimentTags {
+	id := strconv.FormatInt(int64(*e.ID), 10)
+	tags := make([]*protos.ExperimentTag, len(e.Tags))
+	for i, tag := range e.Tags {
 		tags[i] = &protos.ExperimentTag{
 			Key:   tag.Key,
 			Value: tag.Value,
@@ -55,6 +56,6 @@ func NewExperimentFromProto(proto *protos.CreateExperiment) Experiment {
 		LifecycleStage:   utils.PtrTo("active"),
 		CreationTime:     utils.PtrTo(time.Now().UnixMilli()),
 		LastUpdateTime:   utils.PtrTo(time.Now().UnixMilli()),
-		ExperimentTags:   tags,
+		Tags:             tags,
 	}
 }

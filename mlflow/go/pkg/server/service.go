@@ -75,6 +75,39 @@ func (m MlflowService) GetExperiment(input *protos.GetExperiment) (*protos.GetEx
 	return &response, nil
 }
 
+func (m MlflowService) SearchRuns(input *protos.SearchRuns) (*protos.SearchRuns_Response, *contract.Error) {
+	var runViewType protos.ViewType
+	if input.RunViewType == nil {
+		runViewType = protos.ViewType_ALL
+	} else {
+		runViewType = *input.RunViewType
+	}
+
+	maxResults := contract.MaxResultsPerPage
+	if input.MaxResults != nil {
+		maxResults = int(*input.MaxResults)
+	}
+
+	page, err := m.store.SearchRuns(
+		input.ExperimentIds,
+		input.Filter,
+		runViewType,
+		maxResults,
+		input.OrderBy,
+		input.PageToken,
+	)
+	if err != nil {
+		return nil, contract.NewError(protos.ErrorCode_INTERNAL_ERROR, fmt.Sprintf("error getting runs: %v", err))
+	}
+
+	response := protos.SearchRuns_Response{
+		Runs:          page.Items,
+		NextPageToken: page.NextPageToken,
+	}
+
+	return &response, nil
+}
+
 var (
 	modelRegistryService   contract.ModelRegistryService
 	mlflowArtifactsService contract.MlflowArtifactsService

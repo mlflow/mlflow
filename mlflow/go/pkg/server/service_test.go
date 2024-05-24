@@ -18,6 +18,17 @@ func (f FakeStore) CreateExperiment(_ *protos.CreateExperiment) (string, *contra
 	return "", nil
 }
 
+func (f FakeStore) SearchRuns(
+	_ []string,
+	_ *string,
+	_ protos.ViewType,
+	_ int,
+	_ []string,
+	_ *string,
+) (pagedList *store.PagedList[*protos.Run], err *contract.Error) {
+	return nil, nil
+}
+
 func toPtr(s string) *string {
 	return &s
 }

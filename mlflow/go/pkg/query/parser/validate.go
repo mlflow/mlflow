@@ -1,0 +1,264 @@
+package parser
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
+
+/*
+
+This is the equivalent of type-checking the untyped tree.
+Not every parsed tree is a valid one.
+
+Grammar rule: identifier.key operator value
+
+The rules are:
+
+For identifiers:
+
+identifier.key
+
+Or if only key is passed, the identifier is "attribute"
+
+Identifiers can have aliases.
+
+if the identifier is dataset, the allowed keys are: name, digest and context.
+
+*/
+
+type ValidIdentifier int
+
+const (
+	Metric ValidIdentifier = iota
+	Parameter
+	Tag
+	Attribute
+	Dataset
+)
+
+func (v ValidIdentifier) String() string {
+	switch v {
+	case Metric:
+		return "metric"
+	case Parameter:
+		return "parameter"
+	case Tag:
+		return "tag"
+	case Attribute:
+		return "attribute"
+	case Dataset:
+		return "dataset"
+	default:
+		return "unknown"
+	}
+}
+
+type ValidCompareExpr struct {
+	Identifier ValidIdentifier
+	Key        string
+	Operator   OperatorKind
+	Value      interface{}
+}
+
+var (
+	metricIdentifier    = "metric"
+	parameterIdentifier = "parameter"
+	tagIdentifier       = "tag"
+	attributeIdentifier = "attribute"
+	datasetIdentifier   = "dataset"
+)
+
+var identifiers = []string{
+	metricIdentifier,
+	parameterIdentifier,
+	tagIdentifier,
+	attributeIdentifier,
+	datasetIdentifier,
+}
+
+func parseValidIdentifier(identifier string) (ValidIdentifier, error) {
+	switch identifier {
+	case metricIdentifier, "metrics":
+		return Metric, nil
+	case parameterIdentifier, "parameters", "param", "params":
+		return Parameter, nil
+	case tagIdentifier, "tags":
+		return Tag, nil
+	case "", attributeIdentifier, "attr", "attributes", "run":
+		return Attribute, nil
+	case datasetIdentifier, "datasets":
+		return Dataset, nil
+	default:
+		return -1, fmt.Errorf("invalid identifier: %s", identifier)
+	}
+}
+
+// This should be configurable and only applies to the runs table.
+var searchableRunAttributes = []string{
+	"run_id",
+	"experiment_id",
+	"run_name",
+	"user_id",
+	"status",
+	"start_time",
+	"end_time",
+	"artifact_uri",
+	"lifecycle_stage",
+}
+
+var datasetAttributes = []string{"name", "digest", "context"}
+
+func parseKey(identifier ValidIdentifier, key string) (string, error) {
+	if key == "" {
+		return attributeIdentifier, nil
+	}
+
+	switch identifier {
+	case Attribute:
+		switch key {
+		case "run_id":
+			return "run_uuid", nil
+		case "experiment_id",
+			"user_id",
+			"status",
+			"start_time",
+			"end_time",
+			"artifact_uri",
+			"lifecycle_stage":
+			return key, nil
+		case "created", "Created":
+			return "created", nil
+		case "run_name", "run name", "Run name", "Run Name":
+			return "run_name", nil
+		default:
+			return "", fmt.Errorf("Invalid attribute key valid: %s. Allowed values are %v", key, searchableRunAttributes)
+		}
+	case Dataset:
+		switch key {
+		case "name", "digest", "context":
+			return key, nil
+		default:
+			return "", fmt.Errorf("Invalid dataset attribute key: %s. Allowed values are %v", key, datasetAttributes)
+		}
+	default:
+		return key, nil
+	}
+}
+
+// Returns a standardized LongIdentifierExpr.
+func validatedIdentifier(identifier *Identifier) (ValidIdentifier, string, error) {
+	validIdentifier, err := parseValidIdentifier(identifier.Identifier)
+	if err != nil {
+		return -1, "", err
+	}
+
+	validKey, err := parseKey(validIdentifier, identifier.Key)
+	if err != nil {
+		return -1, "", err
+	}
+	identifier.Key = validKey
+
+	return validIdentifier, validKey, nil
+}
+
+/*
+
+The value part is determined by the identifier
+
+"metric" takes numbers
+"parameter" and "tag" takes strings
+
+"attribute" could be either string or number,
+number when "start_time", "end_time" or "created", "Created"
+otherwise string
+
+"dataset" takes strings for "name", "digest" and "context"
+
+*/
+
+// Port of _get_value in search_utils.py.
+func validateValue(identifier ValidIdentifier, key string, v Value) (interface{}, error) {
+	switch identifier {
+	case Metric:
+		if _, ok := v.(NumberExpr); !ok {
+			return nil, fmt.Errorf("Expected numeric value type for metric. Found %s", v)
+		}
+		return v.value(), nil
+	case Parameter, Tag:
+		if _, ok := v.(StringExpr); !ok {
+			return nil, fmt.Errorf(
+				"Expected a quoted string value for %s. Found %s",
+				identifier, v,
+			)
+		}
+		return v.value(), nil
+	case Attribute:
+		switch key {
+		case "start_time", "end_time", "created":
+			if _, ok := v.(NumberExpr); !ok {
+				return nil, fmt.Errorf(
+					"Expected numeric value type for numeric attribute: %s. Found %s",
+					key,
+					v,
+				)
+			}
+			return v.value(), nil
+		default:
+			if _, ok := v.(StringListExpr); key != "run_name" && ok {
+				return nil, errors.New(
+					"only the 'run_id' attribute supports comparison with a list of quoted string values",
+				)
+			}
+			return v.value(), nil
+		}
+
+	case Dataset:
+		switch key {
+		case "name", "digest", "context":
+			if _, ok := v.(NumberExpr); ok {
+				return nil, fmt.Errorf(
+					"Expected dataset.%s to be either a string or list of strings. Found %s",
+					key,
+					v,
+				)
+			}
+			return v.value(), nil
+		default:
+			return nil, fmt.Errorf(
+				"Expected dataset attribute key to be one of %s. Found %s",
+				strings.Join(datasetAttributes, ", "),
+				key,
+			)
+		}
+	default:
+		return nil, fmt.Errorf(
+			"Invalid identifier type %s. Expected one of %s",
+			identifier,
+			strings.Join(identifiers, ", "),
+		)
+	}
+}
+
+// Validate an expression according to the mlflow domain.
+// This represent is a simple type-checker for the expression.
+// Not every identifier is valid according to the mlflow domain.
+// The same for the value part.
+func ValidateExpression(expression *CompareExpr) (*ValidCompareExpr, error) {
+	validIdentifier, validKey, err := validatedIdentifier(&expression.Left)
+	if err != nil {
+		return nil, fmt.Errorf("Error on parsing filter expression: %s", err)
+	}
+
+	value, err := validateValue(validIdentifier, validKey, expression.Right)
+	if err != nil {
+		return nil, fmt.Errorf("Error on parsing filter expression: %s", err)
+	}
+
+	return &ValidCompareExpr{
+		Identifier: validIdentifier,
+		Key:        validKey,
+		Operator:   expression.Operator,
+		Value:      value,
+	}, nil
+}

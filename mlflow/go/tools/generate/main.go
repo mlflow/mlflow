@@ -356,7 +356,7 @@ func addQueryAnnotation(generatedGoFile string) error {
 			hasQuery := strings.Contains(tagValue, "query:")
 			hasValidate := strings.Contains(tagValue, "validate:")
 			validationKey := fmt.Sprintf("%s_%s", ts.Name, field.Names[0])
-			validationRule, needsValidation := Validations[validationKey]
+			validationRule, needsValidation := validations[validationKey]
 
 			if hasQuery && (!needsValidation || needsValidation && hasValidate) {
 				continue
