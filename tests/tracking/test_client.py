@@ -632,11 +632,12 @@ def test_end_trace_raise_error_when_trace_not_exist(clear_singleton):
         client.end_trace("test")
 
 
-def test_end_trace_works_for_in_progress_trace(clear_singleton):
+@pytest.mark.parametrize("status", TraceStatus.pending_statuses())
+def test_end_trace_works_for_trace_in_pending_status(clear_singleton, status):
     client = mlflow.tracking.MlflowClient()
     mock_tracking_client = mock.MagicMock()
     mock_tracking_client.get_trace.return_value = Trace(
-        info=create_test_trace_info("test", status=TraceStatus.IN_PROGRESS), data=None
+        info=create_test_trace_info("test", status=status), data=None
     )
     client._tracking_client = mock_tracking_client
     client.end_span = lambda *args: None
@@ -644,16 +645,27 @@ def test_end_trace_works_for_in_progress_trace(clear_singleton):
     client.end_trace("test")
 
 
-def test_end_trace_raise_error_when_trace_finished_twice(clear_singleton):
+@pytest.mark.parametrize("status", TraceStatus.end_statuses())
+def test_end_trace_raise_error_for_trace_in_end_status(clear_singleton, status):
     client = mlflow.tracking.MlflowClient()
     mock_tracking_client = mock.MagicMock()
     mock_tracking_client.get_trace.return_value = Trace(
-        info=create_test_trace_info("test"), data=None
+        info=create_test_trace_info("test", status=status), data=None
     )
     client._tracking_client = mock_tracking_client
 
     with pytest.raises(MlflowException, match=r"Trace with ID test already finished"):
         client.end_trace("test")
+
+
+def test_trace_status_either_pending_or_end():
+    all_statuses = {status.value for status in TraceStatus}
+    pending_or_end_statuses = TraceStatus.pending_statuses() | TraceStatus.end_statuses()
+    unclassified_statuses = all_statuses - pending_or_end_statuses
+    assert len(unclassified_statuses) == 0, (
+        f"Please add {unclassified_statuses} to "
+        "either pending_statuses or end_statuses in TraceStatus class definition"
+    )
 
 
 def test_start_span_raise_error_when_parent_id_is_not_provided():
