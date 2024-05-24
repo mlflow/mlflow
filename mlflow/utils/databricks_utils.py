@@ -1,4 +1,5 @@
 import functools
+import getpass
 import json
 import logging
 import os
@@ -932,3 +933,33 @@ if is_in_databricks_runtime():
         # in this case, we don't need to initialize databricks token because
         # there is no backend mlflow service available.
         pass
+
+
+def get_databricks_nfs_temp_dir():
+    entry_point = _get_dbutils().entry_point
+    if getpass.getuser() == "ROOT":
+        return entry_point.getReplNFSTempDir()
+    else:
+        try:
+            # If it is not ROOT user, it means the code is running in Safe-spark.
+            # In this case, we should get temporary directory of current user.
+            # and `getReplNFSTempDir` will be deprecated for this case.
+            return entry_point.getUserNFSTempDir()
+        except Exception:
+            # fallback
+            return entry_point.getReplNFSTempDir()
+
+
+def get_databricks_local_temp_dir():
+    entry_point = _get_dbutils().entry_point
+    if getpass.getuser() == "ROOT":
+        return entry_point.getReplLocalTempDir()
+    else:
+        try:
+            # If it is not ROOT user, it means the code is running in Safe-spark.
+            # In this case, we should get temporary directory of current user.
+            # and `getReplLocalTempDir` will be deprecated for this case.
+            return entry_point.getUserLocalTempDir()
+        except Exception:
+            # fallback
+            return entry_point.getReplLocalTempDir()
