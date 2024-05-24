@@ -21,6 +21,12 @@ class FeedbackSource(_MlflowObject):
         self.source_id = source_id
         self.metadata = metadata or {}
 
+    def __eq__(self, __o):
+        if isinstance(__o, self.__class__):
+            return self.to_dictionary() == __o.to_dictionary()
+
+        return False
+
     def to_dictionary(self) -> Dict[str, Any]:
         return {
             "source_type": self.source_type,

@@ -33,14 +33,60 @@ class Feedback(_MlflowObject):
             metadata: Additional metadata for the feedback, e.g. the index of the chunk in the
                       retrieved documents that the feedback applies to.
         """
-        self.evaluation_id = evaluation_id
-        self.name = name
-        self.boolean_value = boolean_value
-        self.numeric_value = numeric_value
-        self.string_value = string_value
-        self.rationale = rationale
-        self.source = source
-        self.metadata = metadata or {}
+        self._evaluation_id = evaluation_id
+        self._name = name
+        self._boolean_value = boolean_value
+        self._numeric_value = numeric_value
+        self._string_value = string_value
+        self._rationale = rationale
+        self._source = source
+        self._metadata = metadata or {}
+
+    @property
+    def evaluation_id(self) -> str:
+        """Get the evaluation ID."""
+        return self._evaluation_id
+
+    @property
+    def name(self) -> str:
+        """Get the name of the feedback."""
+        return self._name
+
+    @property
+    def boolean_value(self) -> Optional[bool]:
+        """Get the boolean feedback value."""
+        return self._boolean_value
+
+    @property
+    def numeric_value(self) -> Optional[float]:
+        """Get the numeric feedback value."""
+        return self._numeric_value
+
+    @property
+    def string_value(self) -> Optional[str]:
+        """Get the string feedback value."""
+        return self._string_value
+
+    @property
+    def rationale(self) -> Optional[str]:
+        """Get the rationale / justification for the feedback."""
+        return self._rationale
+
+    @property
+    def source(self) -> Optional[FeedbackSource]:
+        """Get the source of the feedback."""
+        return self._source
+
+    @property
+    def metadata(self) -> Dict[str, Any]:
+        """Get the metadata associated with the feedback."""
+        return self._metadata
+
+    def __eq__(self, __o):
+        if isinstance(__o, self.__class__):
+            return self.to_dictionary() == __o.to_dictionary()
+
+        return False
 
     def to_dictionary(self) -> Dict[str, Any]:
         feedback_dict = {

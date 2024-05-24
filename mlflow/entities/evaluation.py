@@ -37,15 +37,66 @@ class Evaluation(_MlflowObject):
             metrics: Objective numerical metrics for the row, e.g., "number of input tokens",
                 "number of output tokens".
         """
-        self.evaluation_id = evaluation_id
-        self.run_id = run_id
-        self.inputs_id = inputs_id
-        self.inputs = inputs
-        self.outputs = outputs
-        self.request_id = request_id
-        self.ground_truths = ground_truths
-        self.feedback = feedback
-        self.metrics = metrics
+        self._evaluation_id = evaluation_id
+        self._run_id = run_id
+        self._inputs_id = inputs_id
+        self._inputs = inputs
+        self._outputs = outputs
+        self._request_id = request_id
+        self._ground_truths = ground_truths
+        self._feedback = feedback
+        self._metrics = metrics
+
+    @property
+    def evaluation_id(self) -> str:
+        """Get the evaluation ID."""
+        return self._evaluation_id
+
+    @property
+    def run_id(self) -> str:
+        """Get the run ID."""
+        return self._run_id
+
+    @property
+    def inputs_id(self) -> str:
+        """Get the inputs ID."""
+        return self._inputs_id
+
+    @property
+    def inputs(self) -> Dict[str, Any]:
+        """Get the inputs."""
+        return self._inputs
+
+    @property
+    def outputs(self) -> Dict[str, Any]:
+        """Get the outputs."""
+        return self._outputs
+
+    @property
+    def request_id(self) -> Optional[str]:
+        """Get the request ID."""
+        return self._request_id
+
+    @property
+    def ground_truths(self) -> Optional[Dict[str, Any]]:
+        """Get the ground truths."""
+        return self._ground_truths
+
+    @property
+    def feedback(self) -> Optional[List[Feedback]]:
+        """Get the feedback."""
+        return self._feedback
+
+    @property
+    def metrics(self) -> Optional[List[Metric]]:
+        """Get the metrics."""
+        return self._metrics
+
+    def __eq__(self, __o):
+        if isinstance(__o, self.__class__):
+            return self.to_dictionary() == __o.to_dictionary()
+
+        return False
 
     def to_dictionary(self) -> Dict[str, Any]:
         """
@@ -68,11 +119,11 @@ class Evaluation(_MlflowObject):
         if self.feedback:
             evaluation_dict["feedback"] = [fb.to_dictionary() for fb in self.feedback]
         if self.metrics:
-            evaluation_dict["metrics"] = self.metrics
+            evaluation_dict["metrics"] = [metric.to_dictionary() for metric in self.metrics]
         return evaluation_dict
 
     @classmethod
-    def from_dictionary(cls, evaluation_dict):
+    def from_dictionary(cls, evaluation_dict: Dict[str, Any]):
         """
         Create an Evaluation object from a dictionary.
 
