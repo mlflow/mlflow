@@ -7,14 +7,11 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Optional
 
-from packaging.version import Version
-
 import mlflow
 from mlflow.entities import RunTag
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.runnables import get_runnable_steps
-from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import name_utils
 from mlflow.utils.autologging_utils import (
@@ -23,9 +20,6 @@ from mlflow.utils.autologging_utils import (
     get_autologging_config,
 )
 from mlflow.utils.autologging_utils.safety import _resolve_extra_tags
-
-MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["langchain"]["autologging"]["minimum"])
-MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["langchain"]["autologging"]["maximum"])
 
 _logger = logging.getLogger(__name__)
 
@@ -75,15 +69,6 @@ def patched_inference(func_name, original, self, *args, **kwargs):
 
     We patch inference functions for different models based on their usage.
     """
-    import langchain
-
-    if not MIN_REQ_VERSION <= Version(langchain.__version__) <= MAX_REQ_VERSION:
-        warnings.warn(
-            "Autologging is known to be compatible with langchain versions between "
-            f"{MIN_REQ_VERSION} and {MAX_REQ_VERSION} and may not succeed with packages "
-            "outside this range."
-        )
-
     # Inject MLflow tracer into the model
     from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
