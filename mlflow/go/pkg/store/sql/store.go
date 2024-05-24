@@ -42,7 +42,7 @@ func (s Store) GetExperiment(id string) (*protos.Experiment, *contract.Error) {
 	if err != nil {
 		return nil, contract.NewErrorWith(
 			protos.ErrorCode_INVALID_PARAMETER_VALUE,
-			fmt.Sprintf("failed to convert experiment id (%s) to int", id),
+			fmt.Sprintf("failed to convert experiment id %q to int", id),
 			err,
 		)
 	}
@@ -394,7 +394,7 @@ func (s Store) DeleteExperiment(id string) *contract.Error {
 			return gorm.ErrRecordNotFound
 		}
 
-		// Update runs: mark as deleted using subquery
+		// Update runs
 		if err := tx.Model(&model.Run{}).
 			Where("experiment_id = ?", idInt).
 			Updates(&model.Run{
