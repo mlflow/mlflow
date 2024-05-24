@@ -8,16 +8,13 @@ _logger = logging.getLogger(__name__)
 
 def _get_embedding_model_endpoint_names(index):
     embedding_model_endpoint_names = []
-    try:
-        desc = index.describe()
-        delta_sync_index_spec = desc.get('delta_sync_index_spec', {})
-        embedding_source_columns = delta_sync_index_spec.get('embedding_source_columns', [])
-        for column in embedding_source_columns:
-            embedding_model_endpoint_name = column.get('embedding_model_endpoint_name')
-            if embedding_model_endpoint_name:
-                embedding_model_endpoint_names.append(embedding_model_endpoint_name)
-    except:
-        _logger.warning("Failed to get embedding model endpoint names from index")
+    desc = index.describe()
+    delta_sync_index_spec = desc.get("delta_sync_index_spec", {})
+    embedding_source_columns = delta_sync_index_spec.get("embedding_source_columns", [])
+    for column in embedding_source_columns:
+        embedding_model_endpoint_name = column.get("embedding_model_endpoint_name", None)
+        if embedding_model_endpoint_name:
+            embedding_model_endpoint_names.append(embedding_model_endpoint_name)
     return embedding_model_endpoint_names
 
 
