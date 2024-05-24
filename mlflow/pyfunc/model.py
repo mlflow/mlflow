@@ -569,7 +569,7 @@ class _PythonModelPyfuncWrapper:
         #     kwargs = {key: value for key, value in data.items() if key in field_names}
         #     return dataclass_type(**kwargs)
 
-        def hydrate_dataclass(dataclass_type, data):
+        def _hydrate_dataclass(dataclass_type, data):
             """
             Recursively create an instance of the dataclass_type from data.
             """
@@ -582,11 +582,11 @@ class _PythonModelPyfuncWrapper:
                 if key in data:
                     value = data[key]
                     if is_dataclass(field_type):
-                        kwargs[key] = hydrate_dataclass(field_type, value)
+                        kwargs[key] = _hydrate_dataclass(field_type, value)
                     elif get_origin(field_type) == list:
                         item_type = get_args(field_type)[0]
                         if is_dataclass(item_type):
-                            kwargs[key] = [hydrate_dataclass(item_type, item) for item in value]
+                            kwargs[key] = [_hydrate_dataclass(item_type, item) for item in value]
                         else:
                             kwargs[key] = value
                     else:
