@@ -14,6 +14,7 @@ class Feedback(_MlflowObject):
         evaluation_id: str,
         name: str,
         source: FeedbackSource,
+        timestamp: int,
         boolean_value: Optional[bool] = None,
         numeric_value: Optional[float] = None,
         string_value: Optional[str] = None,
@@ -26,6 +27,7 @@ class Feedback(_MlflowObject):
             evaluation_id: The ID of the evaluation result with which the feedback is associated.
             name: The name of the piece of feedback.
             source: The source of the feedback (FeedbackSource instance).
+            timestamp: The timestamp when the feedback was given.
             boolean_value: The boolean feedback value, if applicable.
             numeric_value: The numeric feedback value, if applicable.
             string_value: The string feedback value, if applicable.
@@ -36,6 +38,7 @@ class Feedback(_MlflowObject):
         self._evaluation_id = evaluation_id
         self._name = name
         self._source = source
+        self._timestamp = timestamp
         self._boolean_value = boolean_value
         self._numeric_value = numeric_value
         self._string_value = string_value
@@ -51,6 +54,11 @@ class Feedback(_MlflowObject):
     def name(self) -> str:
         """Get the name of the feedback."""
         return self._name
+
+    @property
+    def timestamp(self) -> int:
+        """Get the timestamp of the feedback."""
+        return self._timestamp
 
     @property
     def boolean_value(self) -> Optional[bool]:
@@ -85,7 +93,6 @@ class Feedback(_MlflowObject):
     def __eq__(self, __o):
         if isinstance(__o, self.__class__):
             return self.to_dictionary() == __o.to_dictionary()
-
         return False
 
     def to_dictionary(self) -> Dict[str, Any]:
@@ -93,6 +100,7 @@ class Feedback(_MlflowObject):
             "evaluation_id": self.evaluation_id,
             "name": self.name,
             "source": self.source.to_dictionary(),
+            "timestamp": self.timestamp,
             "boolean_value": self.boolean_value,
             "numeric_value": self.numeric_value,
             "string_value": self.string_value,
@@ -117,6 +125,7 @@ class Feedback(_MlflowObject):
         name = feedback_dict["name"]
         source_dict = feedback_dict["source"]
         source = FeedbackSource.from_dictionary(source_dict)
+        timestamp = feedback_dict["timestamp"]
         boolean_value = feedback_dict.get("boolean_value")
         numeric_value = feedback_dict.get("numeric_value")
         string_value = feedback_dict.get("string_value")
@@ -126,6 +135,7 @@ class Feedback(_MlflowObject):
             evaluation_id=evaluation_id,
             name=name,
             source=source,
+            timestamp=timestamp,
             boolean_value=boolean_value,
             numeric_value=numeric_value,
             string_value=string_value,
