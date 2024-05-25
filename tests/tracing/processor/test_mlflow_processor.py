@@ -18,7 +18,6 @@ from mlflow.tracing.constant import (
 )
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import encode_trace_id
 from mlflow.utils.os import is_windows
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
@@ -74,7 +73,7 @@ def test_on_start_adjust_span_timestamp_to_exclude_backend_latency(clear_singlet
     trace_info = create_test_trace_info(_REQUEST_ID, 0)
     mock_client = mock.MagicMock()
 
-    def _mock_start_tracked_trace():
+    def _mock_start_tracked_trace(*args, **kwargs):
         time.sleep(0.5)  # Simulate backend latency
         return trace_info
 
@@ -123,41 +122,6 @@ def test_on_start_with_experiment_id(clear_singleton, monkeypatch):
     )
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
     assert _REQUEST_ID in InMemoryTraceManager.get_instance()._traces
-
-
-def test_on_start_fallback_to_client_side_request_id(clear_singleton, monkeypatch):
-    monkeypatch.setenv("MLFLOW_TESTING", "false")
-    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
-    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
-    span = create_mock_otel_span(
-        trace_id=_TRACE_ID, span_id=1, parent_id=None, start_time=5_000_000
-    )
-
-    mock_client = mock.MagicMock()
-    mock_client._start_tracked_trace.side_effect = Exception("error")
-    processor = MlflowSpanProcessor(span_exporter=mock.MagicMock(), client=mock_client)
-
-    processor.on_start(span)
-
-    mock_client._start_tracked_trace.assert_called_once_with(
-        experiment_id="0",
-        timestamp_ms=5,
-        request_metadata={},
-        tags={
-            "mlflow.user": "bob",
-            "mlflow.source.name": "test",
-            "mlflow.source.type": "LOCAL",
-            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
-        },
-    )
-    # When the backend returns an error, the request_id is generated at client side from trace_id
-    expected_request_id = encode_trace_id(_TRACE_ID)
-    assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(expected_request_id)
-    with InMemoryTraceManager.get_instance().get_trace(expected_request_id) as trace:
-        assert trace.info.experiment_id == "0"
-        assert trace.info.timestamp_ms == 5
-        assert trace.info.execution_time_ms is None
-        assert trace.info.status == TraceStatus.IN_PROGRESS
 
 
 def test_on_start_during_model_evaluation(clear_singleton):

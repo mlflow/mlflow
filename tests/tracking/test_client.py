@@ -36,6 +36,8 @@ from mlflow.store.model_registry.sqlalchemy_store import (
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey
+from mlflow.tracing.fluent import TRACE_BUFFER
+from mlflow.tracing.provider import _get_tracer
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking import set_registry_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -671,6 +673,43 @@ def test_trace_status_either_pending_or_end():
 def test_start_span_raise_error_when_parent_id_is_not_provided():
     with pytest.raises(MlflowException, match=r"start_span\(\) must be called with"):
         mlflow.tracking.MlflowClient().start_span("span_name", request_id="test", parent_id=None)
+
+
+def test_ignore_exception_from_tracing_logic(clear_singleton, monkeypatch):
+    exp_id = mlflow.set_experiment("test_experiment_1").experiment_id
+    client = MlflowClient()
+    TRACE_BUFFER.clear()
+
+    class TestModel:
+        def predict(self, x):
+            root_span = client.start_trace(experiment_id=exp_id, name="predict")
+            request_id = root_span.request_id
+            child_span = client.start_span(
+                name="child", request_id=request_id, parent_id=root_span.span_id
+            )
+            client.end_span(request_id, child_span.span_id)
+            client.end_trace(request_id)
+            return x
+
+    model = TestModel()
+
+    # Mock the span processor's on_end handler to raise an exception
+    processor = _get_tracer(__name__).span_processor
+
+    def _always_fail(*args, **kwargs):
+        raise ValueError("Some error")
+
+    # Exception while starting the trace should be caught not raise
+    monkeypatch.setattr(processor, "on_start", _always_fail)
+    response = model.predict(1)
+    assert response == 1
+    assert len(TRACE_BUFFER) == 0
+
+    # Exception while ending the trace should be caught not raise
+    monkeypatch.setattr(processor, "on_end", _always_fail)
+    response = model.predict(1)
+    assert response == 1
+    assert len(TRACE_BUFFER) == 0
 
 
 def test_set_and_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
