@@ -17,9 +17,24 @@ class FeedbackSource(_MlflowObject):
             metadata: Additional metadata about the source, e.g. human-readable name, inlined LLM
             judge parameters, etc.
         """
-        self.source_type = source_type
-        self.source_id = source_id
-        self.metadata = metadata or {}
+        self._source_type = source_type
+        self._source_id = source_id
+        self._metadata = metadata or {}
+
+    @property
+    def source_type(self) -> str:
+        """Get the type of the feedback source."""
+        return self._source_type
+
+    @property
+    def source_id(self) -> str:
+        """Get the identifier for the source."""
+        return self._source_id
+
+    @property
+    def metadata(self) -> Dict[str, Any]:
+        """Get the additional metadata about the source."""
+        return self._metadata
 
     def __eq__(self, __o):
         if isinstance(__o, self.__class__):
