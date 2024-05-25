@@ -1,3 +1,4 @@
+import time
 import uuid
 from typing import Any, Dict, List, Optional, Union
 
@@ -51,7 +52,9 @@ def log_evaluation(
         feedback = [Feedback.from_dictionary(fb) for fb in feedback]
 
     if metrics and isinstance(metrics, dict):
-        metrics = [Metric(key=k, value=v, timestamp=0, step=0) for k, v in metrics.items()]
+        metrics = [
+            Metric(key=k, value=v, timestamp=time.time() * 1000, step=0) for k, v in metrics.items()
+        ]
 
     evaluation = Evaluation(
         inputs=inputs,
@@ -77,7 +80,7 @@ def log_evaluations(*, evaluations: List[Evaluation], run_id: Optional[str] = No
     """
     run_id = run_id if run_id is not None else _get_or_start_run().info.run_id
     evaluation_entities = [
-        evaluation.to_entity(run_id=run_id, evaluation_id=uuid.uuid4().hex)
+        evaluation._to_entity(run_id=run_id, evaluation_id=uuid.uuid4().hex)
         for evaluation in evaluations
     ]
     evaluations_df, metrics_df, feedback_df = evaluations_to_dataframes(evaluation_entities)
@@ -190,7 +193,7 @@ def log_feedback(
         )
 
     with client._log_artifact_helper(run_id, "_feedback.json") as tmp_path:
-        feedback_df.to_json(tmp_path, orient="records", lines=True)
+        feedback_df.to_json(tmp_path, orient="split")
 
 
 def _add_feedback_to_df(
