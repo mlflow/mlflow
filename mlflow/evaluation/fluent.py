@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
+from mlflow.entities import Evaluation as EvaluationEntity
 from mlflow.entities import Metric
 from mlflow.evaluation.evaluation import Evaluation, Feedback
 from mlflow.evaluation.utils import evaluations_to_dataframes
@@ -182,7 +183,7 @@ def log_feedback(
 
     if isinstance(feedback, dict):
         feedback = [Feedback.from_dictionary(feedback)]
-    elif isinstance(feedback, list):
+    elif isinstance(feedback, list) and any(isinstance(fb, dict) for fb in feedback):
         if not all(isinstance(fb, dict) for fb in feedback):
             raise ValueError(
                 "If `feedback` contains a dictionary, all elements must be dictionaries."
@@ -235,7 +236,7 @@ def _add_feedback_to_df(
     return feedback_df
 
 
-def get_evaluation(run_id: str, evaluation_id: str) -> Evaluation:
+def get_evaluation(run_id: str, evaluation_id: str) -> EvaluationEntity:
     """
     Retrieves an Evaluation object from an MLflow Run.
 
@@ -248,7 +249,11 @@ def get_evaluation(run_id: str, evaluation_id: str) -> Evaluation:
     """
 
     def _contains_evaluation_artifacts(client: MlflowClient, run_id: str) -> bool:
-        return any(file.path == "_evaluations.json" for file in client.list_artifacts(run_id))
+        return (
+            any(file.path == "_evaluations.json" for file in client.list_artifacts(run_id))
+            and any(file.path == "_metrics.json" for file in client.list_artifacts(run_id))
+            and any(file.path == "_feedback.json" for file in client.list_artifacts(run_id))
+        )
 
     client = MlflowClient()
     if not _contains_evaluation_artifacts(client, run_id):
@@ -269,4 +274,20 @@ def get_evaluation(run_id: str, evaluation_id: str) -> Evaluation:
         )
 
     evaluation_dict = evaluation_row.to_dict(orient="records")[0]
-    return Evaluation.from_dictionary(evaluation_dict)
+
+    # Extract metrics and feedback
+    metrics_file = client.download_artifacts(run_id=run_id, path="_metrics.json")
+    metrics_df = pd.read_json(metrics_file, orient="split")
+    metrics_list = metrics_df[metrics_df["evaluation_id"] == evaluation_id].to_dict(
+        orient="records"
+    )
+    evaluation_dict["metrics"] = metrics_list
+
+    feedback_file = client.download_artifacts(run_id=run_id, path="_feedback.json")
+    feedback_df = pd.read_json(feedback_file, orient="split")
+    feedback_list = feedback_df[feedback_df["evaluation_id"] == evaluation_id].to_dict(
+        orient="records"
+    )
+    evaluation_dict["feedback"] = feedback_list
+
+    return EvaluationEntity.from_dictionary(evaluation_dict)

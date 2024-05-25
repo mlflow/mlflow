@@ -101,12 +101,15 @@ def dataframes_to_evaluations(
 
 
 def _get_empty_feedback_dataframe() -> pd.DataFrame:
+    """
+    Creates an empty DataFrame with columns for evaluation feedback data.
+    """
     return pd.DataFrame(
         columns=[
             "evaluation_id",
             "name",
             "source",
-            "value",
+            "timestamp",
             "boolean_value",
             "numeric_value",
             "string_value",
@@ -117,4 +120,7 @@ def _get_empty_feedback_dataframe() -> pd.DataFrame:
 
 
 def _get_empty_metrics_dataframe() -> pd.DataFrame:
+    """
+    Creates an empty DataFrame with columns for evaluation metric data.
+    """
     return pd.DataFrame(columns=["evaluation_id", "name", "value", "timestamp"])
