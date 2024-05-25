@@ -57,7 +57,7 @@ def test_parsing_dependency_from_databricks_llm(monkeypatch: pytest.MonkeyPatch)
 
 
 class MockVectorSearchIndex:
-    def __init__(self, endpoint_name, index_name, has_embedding_endpoint) -> None:
+    def __init__(self, endpoint_name, index_name, has_embedding_endpoint=False) -> None:
         self.endpoint_name = endpoint_name
         self.name = index_name
         self.has_embedding_endpoint = has_embedding_endpoint
@@ -91,13 +91,11 @@ class MockVectorSearchIndex:
             return {
                 "name": self.name,
                 "endpoint_name": self.endpoint_name,
-                "primary_key": "chunk_id",
+                "primary_key": "id",
                 "index_type": "DELTA_SYNC",
                 "delta_sync_index_spec": {
                     "source_table": "ml.schema.databricks_documentation",
-                    "embedding_vector_columns": [
-                        {"name": "chunk_embedding", "embedding_dimension": 1024}
-                    ],
+                    "embedding_vector_columns": [],
                     "pipeline_type": "TRIGGERED",
                     "pipeline_id": "fbbd5bf1-2b9b-4a7e-8c8d-c0f6cc1030de",
                 },
@@ -149,18 +147,12 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint(
-    monkeypatch: pytest.MonkeyPatch,
-):
+def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.MonkeyPatch):
     from langchain_community.embeddings import DatabricksEmbeddings
     from langchain_community.vectorstores import DatabricksVectorSearch
 
     vsc = MockVectorSearchClient()
-    vs_index = vsc.get_index(
-        endpoint_name="dbdemos_vs_endpoint",
-        index_name="mlflow.rag.vs_index",
-        has_embedding_endpoint=True,
-    )
+    vs_index = vsc.get_index(endpoint_name="dbdemos_vs_endpoint", index_name="mlflow.rag.vs_index")
     mock_get_deploy_client = MagicMock()
 
     monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
@@ -177,8 +169,73 @@ def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint(
     _extract_databricks_dependencies_from_retriever(retriever, resources)
     assert resources == [
         DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
-        DatabricksServingEndpoint(endpoint_name="embedding-model"),
         DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
+    ]
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in_index(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from langchain.vectorstores import DatabricksVectorSearch
+
+    vsc = MockVectorSearchClient()
+    vs_index = vsc.get_index(
+        endpoint_name="dbdemos_vs_endpoint",
+        index_name="mlflow.rag.vs_index",
+        has_embedding_endpoint=True,
+    )
+    mock_get_deploy_client = MagicMock()
+
+    monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
+
+    mock_module = MagicMock()
+    mock_module.VectorSearchIndex = MockVectorSearchIndex
+
+    monkeypatch.setitem(sys.modules, "databricks.vector_search.client", mock_module)
+
+    vectorstore = DatabricksVectorSearch(vs_index, text_column="content")
+    retriever = vectorstore.as_retriever()
+    resources = []
+    _extract_databricks_dependencies_from_retriever(retriever, resources)
+    assert resources == [
+        DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
+        DatabricksServingEndpoint(endpoint_name="embedding-model"),
+    ]
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in_index(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from langchain_community.vectorstores import DatabricksVectorSearch
+
+    vsc = MockVectorSearchClient()
+    vs_index = vsc.get_index(
+        endpoint_name="dbdemos_vs_endpoint",
+        index_name="mlflow.rag.vs_index",
+        has_embedding_endpoint=True,
+    )
+    mock_get_deploy_client = MagicMock()
+
+    monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
+
+    mock_module = MagicMock()
+    mock_module.VectorSearchIndex = MockVectorSearchIndex
+
+    monkeypatch.setitem(sys.modules, "databricks.vector_search.client", mock_module)
+
+    vectorstore = DatabricksVectorSearch(vs_index, text_column="content")
+    retriever = vectorstore.as_retriever()
+    resources = []
+    _extract_databricks_dependencies_from_retriever(retriever, resources)
+    assert resources == [
+        DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
+        DatabricksServingEndpoint(endpoint_name="embedding-model"),
     ]
 
 
