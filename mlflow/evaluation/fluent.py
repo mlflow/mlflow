@@ -8,13 +8,14 @@ from mlflow.entities import Evaluation as EvaluationEntity
 from mlflow.entities import Metric
 from mlflow.evaluation.evaluation import Evaluation, Feedback
 from mlflow.evaluation.utils import (
+    dataframes_to_evaluations,
     evaluations_to_dataframes,
     read_evaluations_dataframe,
     read_feedback_dataframe,
     read_metrics_dataframe,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _get_or_start_run
 
@@ -278,21 +279,29 @@ def get_evaluation(run_id: str, evaluation_id: str) -> EvaluationEntity:
             error_code=RESOURCE_DOES_NOT_EXIST,
         )
 
-    evaluation_dict = evaluation_row.to_dict(orient="records")[0]
-
     # Extract metrics and feedback
     metrics_file = client.download_artifacts(run_id=run_id, path="_metrics.json")
     metrics_df = read_metrics_dataframe(metrics_file)
-    metrics_list = metrics_df[metrics_df["evaluation_id"] == evaluation_id].to_dict(
-        orient="records"
-    )
-    evaluation_dict["metrics"] = metrics_list
+    # metrics_list = metrics_df[metrics_df["evaluation_id"] == evaluation_id].to_dict(
+    #     orient="records"
+    # )
+    # evaluation_dict["metrics"] = metrics_list
 
     feedback_file = client.download_artifacts(run_id=run_id, path="_feedback.json")
     feedback_df = read_feedback_dataframe(feedback_file)
-    feedback_list = feedback_df[feedback_df["evaluation_id"] == evaluation_id].to_dict(
-        orient="records"
-    )
-    evaluation_dict["feedback"] = feedback_list
+    # feedback_list = feedback_df[feedback_df["evaluation_id"] == evaluation_id].to_dict(
+    #     orient="records"
+    # )
+    # evaluation_dict["feedback"] = feedback_list
 
-    return EvaluationEntity.from_dictionary(evaluation_dict)
+    evaluations: List[Evaluation] = dataframes_to_evaluations(
+        evaluations_df=evaluations_df, metrics_df=metrics_df, feedback_df=feedback_df
+    )
+    if len(evaluations) != 1:
+        raise MlflowException(
+            f"Expected to find a single evaluation with ID '{evaluation_id}', but found "
+            f"{len(evaluations)} evaluations.",
+            error_code=INTERNAL_ERROR,
+        )
+
+    return evaluations[0]

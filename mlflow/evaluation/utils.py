@@ -92,9 +92,7 @@ def dataframes_to_evaluations(
             Dict[str, List]: A dictionary with 'evaluation_id' as keys and lists of entity
                 instances as values.
         """
-        grouped = df.groupby("evaluation_id").apply(
-            lambda x: [entity_cls.from_dictionary(row) for row in x.to_dict(orient="records")]
-        )
+        grouped = df.groupby("evaluation_id").apply(lambda x: x.to_dict(orient="records"))
         return grouped.to_dict()
 
     # Group metrics and feedback by evaluation_id
