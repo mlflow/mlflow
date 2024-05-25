@@ -45,8 +45,8 @@ def evaluations_to_dataframes(
             feedback_data.append(fb_dict)
 
     main_df = pd.DataFrame(main_data)
-    metrics_df = pd.DataFrame(metrics_data)
-    feedback_df = pd.DataFrame(feedback_data)
+    metrics_df = pd.DataFrame(metrics_data) if metrics_data else _get_empty_metrics_dataframe()
+    feedback_df = pd.DataFrame(feedback_data) if feedback_data else _get_empty_feedback_dataframe()
 
     return main_df, metrics_df, feedback_df
 
@@ -98,3 +98,23 @@ def dataframes_to_evaluations(
         evaluations.append(Evaluation.from_dictionary(eval_dict))
 
     return evaluations
+
+
+def _get_empty_feedback_dataframe() -> pd.DataFrame:
+    return pd.DataFrame(
+        columns=[
+            "evaluation_id",
+            "name",
+            "source",
+            "value",
+            "boolean_value",
+            "numeric_value",
+            "string_value",
+            "rationale",
+            "metadata",
+        ]
+    )
+
+
+def _get_empty_metrics_dataframe() -> pd.DataFrame:
+    return pd.DataFrame(columns=["evaluation_id", "name", "value", "timestamp"])
