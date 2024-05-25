@@ -7,7 +7,12 @@ import pandas as pd
 from mlflow.entities import Evaluation as EvaluationEntity
 from mlflow.entities import Metric
 from mlflow.evaluation.evaluation import Evaluation, Feedback
-from mlflow.evaluation.utils import evaluations_to_dataframes
+from mlflow.evaluation.utils import (
+    evaluations_to_dataframes,
+    read_evaluations_dataframe,
+    read_feedback_dataframe,
+    read_metrics_dataframe,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.client import MlflowClient
@@ -264,7 +269,7 @@ def get_evaluation(run_id: str, evaluation_id: str) -> EvaluationEntity:
         )
 
     evaluations_file = client.download_artifacts(run_id=run_id, path="_evaluations.json")
-    evaluations_df = pd.read_json(evaluations_file, orient="split")
+    evaluations_df = read_evaluations_dataframe(evaluations_file)
 
     evaluation_row = evaluations_df[evaluations_df["evaluation_id"] == evaluation_id]
     if evaluation_row.empty:
@@ -277,14 +282,14 @@ def get_evaluation(run_id: str, evaluation_id: str) -> EvaluationEntity:
 
     # Extract metrics and feedback
     metrics_file = client.download_artifacts(run_id=run_id, path="_metrics.json")
-    metrics_df = pd.read_json(metrics_file, orient="split")
+    metrics_df = read_metrics_dataframe(metrics_file)
     metrics_list = metrics_df[metrics_df["evaluation_id"] == evaluation_id].to_dict(
         orient="records"
     )
     evaluation_dict["metrics"] = metrics_list
 
     feedback_file = client.download_artifacts(run_id=run_id, path="_feedback.json")
-    feedback_df = pd.read_json(feedback_file, orient="split")
+    feedback_df = read_feedback_dataframe(feedback_file)
     feedback_list = feedback_df[feedback_df["evaluation_id"] == evaluation_id].to_dict(
         orient="records"
     )
