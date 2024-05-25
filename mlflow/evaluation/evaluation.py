@@ -4,8 +4,8 @@ from typing import Any, Dict, List, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.evaluation import Evaluation as EvaluationEntity
-from mlflow.entities.feedback import Feedback
 from mlflow.entities.metric import Metric
+from mlflow.evaluation.feedback import Feedback
 
 
 class Evaluation(_MlflowObject):
@@ -24,7 +24,7 @@ class Evaluation(_MlflowObject):
         metrics: Optional[List[Metric]] = None,
     ):
         """
-        Construct a new mlflow.entities.Evaluation instance.
+        Construct a new Evaluation instance.
 
         Args:
             inputs_id: A unique identifier for the input names and values for evaluation.
@@ -100,7 +100,9 @@ class Evaluation(_MlflowObject):
             outputs=self.outputs,
             request_id=self.request_id,
             ground_truths=self.ground_truths,
-            feedback=self.feedback,
+            feedback=[fb._to_entity(evaluation_id) for fb in self.feedback]
+            if self.feedback
+            else None,
             metrics=self.metrics,
         )
 

@@ -4,8 +4,8 @@ from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
-from mlflow.entities import Feedback, Metric
-from mlflow.evaluation.evaluation import Evaluation
+from mlflow.entities import Metric
+from mlflow.evaluation.evaluation import Evaluation, Feedback
 from mlflow.evaluation.utils import evaluations_to_dataframes
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _get_or_start_run
