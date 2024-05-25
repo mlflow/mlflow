@@ -37,7 +37,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
-from mlflow.entities.span import LiveSpan, NoOpSpan
+from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID, LiveSpan, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
@@ -645,6 +645,12 @@ class MlflowClient:
 
         :meta private:
         """
+        # NB: If the specified request ID is of no-op span, this means something went wrong in
+        #     the span start logic. We should simply ignore it as the upstream should already
+        #     have logged the error.
+        if request_id == NO_OP_SPAN_REQUEST_ID:
+            return
+
         trace_manager = InMemoryTraceManager.get_instance()
         root_span_id = trace_manager.get_root_span_id(request_id)
 
@@ -804,6 +810,10 @@ class MlflowClient:
 
         :meta private:
         """
+        # If parent span is no-op span, the child should also be no-op too
+        if request_id == NO_OP_SPAN_REQUEST_ID:
+            return NoOpSpan()
+
         if not parent_id:
             raise MlflowException(
                 "start_span() must be called with an explicit parent_id."
@@ -869,6 +879,9 @@ class MlflowClient:
 
         :meta private:
         """
+        if request_id == NO_OP_SPAN_REQUEST_ID:
+            return
+
         trace_manager = InMemoryTraceManager.get_instance()
         span = trace_manager.get_span_from_id(request_id, span_id)
 
@@ -884,7 +897,14 @@ class MlflowClient:
             span.set_outputs(outputs)
         span.set_status(status)
 
-        span.end()
+        try:
+            span.end()
+        except Exception as e:
+            _logger.warning(
+                f"Failed to end span {span_id}: {e}. "
+                "For full traceback, set logging level to debug.",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )
 
     def _start_tracked_trace(
         self,
