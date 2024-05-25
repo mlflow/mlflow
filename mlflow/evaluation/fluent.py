@@ -282,17 +282,9 @@ def get_evaluation(run_id: str, evaluation_id: str) -> EvaluationEntity:
     # Extract metrics and feedback
     metrics_file = client.download_artifacts(run_id=run_id, path="_metrics.json")
     metrics_df = read_metrics_dataframe(metrics_file)
-    # metrics_list = metrics_df[metrics_df["evaluation_id"] == evaluation_id].to_dict(
-    #     orient="records"
-    # )
-    # evaluation_dict["metrics"] = metrics_list
 
     feedback_file = client.download_artifacts(run_id=run_id, path="_feedback.json")
     feedback_df = read_feedback_dataframe(feedback_file)
-    # feedback_list = feedback_df[feedback_df["evaluation_id"] == evaluation_id].to_dict(
-    #     orient="records"
-    # )
-    # evaluation_dict["feedback"] = feedback_list
 
     evaluations: List[Evaluation] = dataframes_to_evaluations(
         evaluations_df=evaluations_df, metrics_df=metrics_df, feedback_df=feedback_df
