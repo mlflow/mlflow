@@ -1,5 +1,6 @@
 # Define all the service endpoint handlers here.
 import bisect
+import io
 import json
 import logging
 import os
@@ -26,6 +27,7 @@ from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadExcept
 from mlflow.models import Model
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
@@ -103,6 +105,7 @@ from mlflow.server.validation import _validate_content_type
 from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.tracing.artifact_utils import TRACE_DATA_FILE_NAME, get_artifact_uri_for_trace
 from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service import utils
@@ -2435,6 +2438,42 @@ def _delete_trace_tag(request_id):
     )
     _get_tracking_store().delete_trace_tag(request_id, request_message.key)
     return _wrap_response(DeleteTraceTag.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def get_trace_artifact_handler():
+    from querystring_parser import parser
+
+    query_string = request.query_string.decode("utf-8")
+    request_dict = parser.parse(query_string, normalized=True)
+    request_id = request_dict.get("request_id")
+
+    if not request_id:
+        raise MlflowException(
+            'Request must include the "request_id" query parameter.', error_code=BAD_REQUEST
+        )
+
+    trace_info = _get_tracking_store().get_trace_info(request_id)
+    artifact_uri = get_artifact_uri_for_trace(trace_info)
+
+    if _is_servable_proxied_run_artifact_root(artifact_uri):
+        artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    else:
+        artifact_repo = get_artifact_repository(artifact_uri)
+
+    buf = io.BytesIO()
+    trace_data = artifact_repo.download_trace_data()
+    buf.write(json.dumps(trace_data).encode())
+    buf.seek(0)
+
+    file_sender_response = send_file(
+        buf,
+        mimetype="application/octet-stream",
+        as_attachment=True,
+        download_name=TRACE_DATA_FILE_NAME,
+    )
+    return _response_with_file_attachment_headers(TRACE_DATA_FILE_NAME, file_sender_response)
 
 
 def _get_rest_path(base_path):
