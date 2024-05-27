@@ -72,7 +72,7 @@ class Evaluation(_MlflowObject):
     @property
     def assessments(self) -> Optional[List[Assessment]]:
         """Get the assessments."""
-        return self._assessment
+        return self._assessments
 
     @property
     def metrics(self) -> Optional[List[Metric]]:

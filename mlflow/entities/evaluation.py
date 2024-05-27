@@ -142,7 +142,9 @@ class Evaluation(_MlflowObject):
         targets = evaluation_dict.get("targets")
         assessments = None
         if "assessments" in evaluation_dict:
-            assessments = [Assessment.from_dictionary(fb) for fb in evaluation_dict["assessments"]]
+            assessments = [
+                Assessment.from_dictionary(assess) for assess in evaluation_dict["assessments"]
+            ]
         metrics = None
         if "metrics" in evaluation_dict:
             metrics = [Metric.from_dictionary(metric) for metric in evaluation_dict["metrics"]]

@@ -106,7 +106,7 @@ def dataframes_to_evaluations(
     for eval_dict in evaluations_df.to_dict(orient="records"):
         evaluation_id = eval_dict["evaluation_id"]
         eval_dict["metrics"] = metrics_by_eval.get(evaluation_id, [])
-        eval_dict["assessment"] = assessments_by_eval.get(evaluation_id, [])
+        eval_dict["assessments"] = assessments_by_eval.get(evaluation_id, [])
         evaluations.append(Evaluation.from_dictionary(eval_dict))
 
     return evaluations
