@@ -64,9 +64,6 @@ class TestChatModel(mlflow.pyfunc.ChatModel):
         mock_response = get_mock_response(messages, params)
         return ChatResponse(**mock_response)
 
-    def predict_stream(self, context, messages, params):
-        return iter([self.predict(context, messages, params)])
-
 
 class ChatModelWithContext(mlflow.pyfunc.ChatModel):
     def load_context(self, context):

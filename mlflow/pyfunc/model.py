@@ -263,7 +263,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
             An iterator over :py:class:`ChatResponse <mlflow.types.llm.ChatResponse>` object
             containing the model's response(s), as well as other metadata.
         """
-        return iter([self.predict(context, messages, params)])
+        yield self.predict(context, messages, params)
 
 
 def _save_model_with_class_artifacts_params(
