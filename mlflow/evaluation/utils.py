@@ -192,7 +192,7 @@ def read_metrics_dataframe(path: str) -> pd.DataFrame:
         pd.DataFrame: The metrics DataFrame.
     """
     schema = _get_metrics_dataframe_schema()
-    return pd.read_json(path, orient="split", dtype=schema)
+    return pd.read_json(path, orient="split", dtype=schema).replace(pd.NA, None)
 
 
 def _get_evaluation_dataframe_schema() -> Dict[str, Any]:
@@ -223,7 +223,7 @@ def _apply_schema_to_dataframe(df: pd.DataFrame, schema: Dict[str, Any]) -> pd.D
     """
     for column in df.columns:
         df[column] = df[column].astype(schema[column])
-    return df
+    return df.replace(pd.NA, None)
 
 
 def _get_assessments_dataframe_schema() -> Dict[str, Any]:
@@ -393,7 +393,7 @@ def compute_assessment_stats_by_source(
 
     assessment_stats_by_source = {}
     for source, assessments in matching_assessments_by_source.items():
-        assessment_stats_by_source[source] = compute_stats(source, assessment_name, assessments)
+        assessment_stats_by_source[source] = compute_stats(assessment_name, source, assessments)
     return assessment_stats_by_source
 
 
