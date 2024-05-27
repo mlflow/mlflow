@@ -18,7 +18,7 @@ class Evaluation(_MlflowObject):
         inputs: Dict[str, Any],
         outputs: Dict[str, Any],
         request_id: Optional[str] = None,
-        ground_truths: Optional[Dict[str, Any]] = None,
+        targets: Optional[Dict[str, Any]] = None,
         feedback: Optional[List[Feedback]] = None,
         metrics: Optional[List[Metric]] = None,
     ):
@@ -32,7 +32,7 @@ class Evaluation(_MlflowObject):
             inputs: Input names and values for evaluation.
             outputs: Outputs obtained during inference.
             request_id: The ID of an MLflow Trace corresponding to the inputs and outputs.
-            ground_truths: Expected values that the GenAI app should produce during inference.
+            targets: Expected values that the model should produce during inference.
             feedback: Feedback for the given row.
             metrics: Objective numerical metrics for the row, e.g., "number of input tokens",
                 "number of output tokens".
@@ -43,7 +43,7 @@ class Evaluation(_MlflowObject):
         self._inputs = inputs
         self._outputs = outputs
         self._request_id = request_id
-        self._ground_truths = ground_truths
+        self._targets = targets
         self._feedback = feedback
         self._metrics = metrics
 
@@ -78,9 +78,9 @@ class Evaluation(_MlflowObject):
         return self._request_id
 
     @property
-    def ground_truths(self) -> Optional[Dict[str, Any]]:
-        """Get the ground truths."""
-        return self._ground_truths
+    def targets(self) -> Optional[Dict[str, Any]]:
+        """Get the targets."""
+        return self._targets
 
     @property
     def feedback(self) -> Optional[List[Feedback]]:
@@ -114,8 +114,8 @@ class Evaluation(_MlflowObject):
         }
         if self.request_id:
             evaluation_dict["request_id"] = self.request_id
-        if self.ground_truths:
-            evaluation_dict["ground_truths"] = self.ground_truths
+        if self.targets:
+            evaluation_dict["targets"] = self.targets
         if self.feedback:
             evaluation_dict["feedback"] = [fb.to_dictionary() for fb in self.feedback]
         if self.metrics:
@@ -139,7 +139,7 @@ class Evaluation(_MlflowObject):
         inputs = evaluation_dict["inputs"]
         outputs = evaluation_dict["outputs"]
         request_id = evaluation_dict.get("request_id")
-        ground_truths = evaluation_dict.get("ground_truths")
+        targets = evaluation_dict.get("targets")
         feedback = None
         if "feedback" in evaluation_dict:
             feedback = [Feedback.from_dictionary(fb) for fb in evaluation_dict["feedback"]]
@@ -153,7 +153,7 @@ class Evaluation(_MlflowObject):
             inputs=inputs,
             outputs=outputs,
             request_id=request_id,
-            ground_truths=ground_truths,
+            targets=targets,
             feedback=feedback,
             metrics=metrics,
         )

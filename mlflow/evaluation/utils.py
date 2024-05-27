@@ -163,7 +163,7 @@ def _get_evaluation_dataframe_schema() -> Dict[str, Any]:
         "inputs": "object",
         "outputs": "object",
         "request_id": "object",
-        "ground_truths": "object",
+        "targets": "object",
     }
 
 
