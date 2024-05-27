@@ -1,21 +1,29 @@
 import time
 import uuid
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Set, Union
 
 import pandas as pd
 
+from mlflow.entities import Assessment as AssessmentEntity
 from mlflow.entities import Evaluation as EvaluationEntity
 from mlflow.entities import Metric
 from mlflow.evaluation.evaluation import Assessment, Evaluation
 from mlflow.evaluation.utils import (
+    append_to_assessments_dataframe,
+    compute_assessment_stats_by_source,
     dataframes_to_evaluations,
     evaluations_to_dataframes,
     read_assessments_dataframe,
     read_evaluations_dataframe,
     read_metrics_dataframe,
+    verify_assessments_have_same_value_type,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _get_or_start_run
 
@@ -55,10 +63,12 @@ def log_evaluation(
     """
     if assessments and isinstance(assessments[0], dict):
         if not all(isinstance(assess, dict) for assess in assessments):
-            raise ValueError(
-                "If `assessments` contains a dictionary, all elements must be dictionaries."
+            raise MlflowException(
+                "If `assessments` contains a dictionary, all elements must be dictionaries.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
         assessments = [Assessment.from_dictionary(assess) for assess in assessments]
+    verify_assessments_have_same_value_type(assessments)
 
     if metrics and isinstance(metrics, dict):
         metrics = [
@@ -88,14 +98,15 @@ def log_evaluations(*, evaluations: List[Evaluation], run_id: Optional[str] = No
           current active run is used.
     """
     run_id = run_id if run_id is not None else _get_or_start_run().info.run_id
+    client = MlflowClient()
     evaluation_entities = [
         evaluation._to_entity(run_id=run_id, evaluation_id=uuid.uuid4().hex)
         for evaluation in evaluations
     ]
     evaluations_df, metrics_df, assessments_df = evaluations_to_dataframes(evaluation_entities)
-    MlflowClient().log_table(run_id=run_id, data=evaluations_df, artifact_file="_evaluations.json")
-    MlflowClient().log_table(run_id=run_id, data=metrics_df, artifact_file="_metrics.json")
-    MlflowClient().log_table(run_id=run_id, data=assessments_df, artifact_file="_assessments.json")
+    client.log_table(run_id=run_id, data=evaluations_df, artifact_file="_evaluations.json")
+    client.log_table(run_id=run_id, data=metrics_df, artifact_file="_metrics.json")
+    client.log_table(run_id=run_id, data=assessments_df, artifact_file="_assessments.json")
     return evaluation_entities
 
 
@@ -198,18 +209,24 @@ def log_assessments(
     assessments = [assess._to_entity(evaluation_id=evaluation_id) for assess in assessments]
 
     assessments_file = client.download_artifacts(run_id=run_id, path="_assessments.json")
-    assessments_df = pd.read_json(assessments_file, orient="split")
+    assessments_df = read_assessments_dataframe(assessments_file)
     for assessment in assessments:
         assessments_df = _add_assessment_to_df(
             assessments_df=assessments_df, assessment=assessment, evaluation_id=evaluation_id
         )
+
+    _update_assessments_stats(
+        run_id=run_id,
+        assessments_df=assessments_df,
+        assessment_names={assess.name for assess in assessments},
+    )
 
     with client._log_artifact_helper(run_id, "_assessments.json") as tmp_path:
         assessments_df.to_json(tmp_path, orient="split")
 
 
 def _add_assessment_to_df(
-    assessments_df: pd.DataFrame, assessment: Assessment, evaluation_id: str
+    assessments_df: pd.DataFrame, assessment: AssessmentEntity, evaluation_id: str
 ) -> pd.DataFrame:
     """
     Adds or updates an assessment in the assessments DataFrame.
@@ -222,26 +239,70 @@ def _add_assessment_to_df(
     Returns:
         pd.DataFrame: The updated DataFrame with the new or updated assessment.
     """
-    # Check if assessment already exists
+    # Get assessments with the same name and verify that the type is the same (boolean,
+    # numeric, or string)
+    existing_assessments_matching_name_df = assessments_df[
+        (assessments_df["evaluation_id"] == evaluation_id)
+        & (assessments_df["name"] == assessment.name)
+    ]
+    existing_assessments_matching_name = [
+        Assessment.from_dictionary(assess)
+        for assess in existing_assessments_matching_name_df.to_dict(orient="records")
+    ]
+    if existing_assessments_matching_name:
+        existing_assessments_value_type = existing_assessments_matching_name[0].get_value_type()
+        if not all(
+            assessment.get_value_type() == existing_assessment.get_value_type()
+            for existing_assessment in existing_assessments_matching_name
+        ):
+            raise MlflowException(
+                f"Assessment with name '{assessment.name}' has value type"
+                f"'{assessment.get_value_type()}' that does not match the value type "
+                f"'{existing_assessments_value_type}' of existing assessments with the same name.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    # Check if assessment with the same name and source already exists
     existing_assessment_index = assessments_df[
         (assessments_df["evaluation_id"] == evaluation_id)
         & (assessments_df["name"] == assessment.name)
         & (assessments_df["source"] == assessment.source.to_dictionary())
     ].index
 
-    assessment_dict = assessment.to_dictionary()
-    assessment_dict["evaluation_id"] = evaluation_id
-
     if not existing_assessment_index.empty:
         # Update existing assessment
+        # TODO: Move this into a util function and refactor for schema maintenance
+        assessment_dict = assessment.to_dictionary()
+        assessment_dict["evaluation_id"] = evaluation_id
         assessments_df.loc[
             existing_assessment_index, assessment_dict.keys()
         ] = assessment_dict.values()
     else:
         # Append new assessment
-        assessments_df = assessments_df.append(assessment_dict, ignore_index=True)
+        assessments_df = append_to_assessments_dataframe(assessments_df, [assessment])
 
     return assessments_df
+
+
+def _update_assessments_stats(
+    run_id: str, assessments_df: pd.DataFrame, assessment_names: Set[str]
+):
+    """
+    Updates the specified MLflow Run by logging MLflow Metrics with statistics for the
+    specified assessment names, aggregated by source.
+
+    Args:
+        run_id (str): ID of the MLflow Run to update.
+        assessments_df (pd.DataFrame): DataFrame containing the assessments.
+        assessment_names (Set[str]): Names of the assessments for which to update statistics.
+    """
+    client = MlflowClient()
+    for assessment_name in assessment_names:
+        assessment_stats_by_source = compute_assessment_stats_by_source(
+            assessments_df=assessments_df, assessment_name=assessment_name
+        )
+        for stats in assessment_stats_by_source.values():
+            client.log_batch(run_id=run_id, metrics=stats.to_metrics())
 
 
 def get_evaluation(run_id: str, evaluation_id: str) -> EvaluationEntity:

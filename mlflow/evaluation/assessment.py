@@ -40,12 +40,16 @@ class Assessment(_MlflowObject):
         self._boolean_value = None
         self._numeric_value = None
         self._string_value = None
+        self._value_type = None
         if isinstance(value, bool):
             self._boolean_value = value
+            self._value_type = "boolean"
         elif isinstance(value, float):
             self._numeric_value = value
+            self._value_type = "numeric"
         elif value is not None:
             self._string_value = str(value)
+            self._value_type = "string"
         else:
             raise MlflowException(
                 "Assessment must specify a boolean, numeric, or string value.",
@@ -81,6 +85,15 @@ class Assessment(_MlflowObject):
         if isinstance(__o, self.__class__):
             return self.to_dictionary() == __o.to_dictionary()
         return False
+
+    def get_value_type(self) -> str:
+        """
+        Get the type of the assessment value.
+
+        Returns:
+            str: The type of the assessment value.
+        """
+        return self._value_type
 
     def to_dictionary(self) -> Dict[str, Any]:
         assessment_dict = {

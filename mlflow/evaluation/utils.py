@@ -1,10 +1,16 @@
-from typing import Any, Dict, List, Tuple
+import time
+from collections import defaultdict
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple, Union
 
+import numpy as np
 import pandas as pd
 
 from mlflow.entities.assessment import Assessment
 from mlflow.entities.evaluation import Evaluation
 from mlflow.entities.metric import Metric
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
 def evaluations_to_dataframes(
@@ -112,6 +118,27 @@ def dataframes_to_evaluations(
     return evaluations
 
 
+def verify_assessments_have_same_value_type(assessments: Optional[List[Assessment]]):
+    """
+    Verifies that all assessments with the same name have the same value type.
+    """
+    if assessments is None:
+        return
+
+    assessment_value_types_by_key = defaultdict(list)
+
+    for assessment in assessments:
+        assessment_value_types_by_key[assessment.name].append(assessment.value_type)
+
+    for assessment_name, value_types in assessment_value_types_by_key.items():
+        if len(set(value_types)) > 1:
+            raise MlflowException(
+                f"Assessments with name '{assessment_name}' have different value"
+                f" types: {set(value_types)}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+
 def read_evaluations_dataframe(path: str) -> pd.DataFrame:
     """
     Reads an evaluations DataFrame from a file.
@@ -138,6 +165,20 @@ def read_assessments_dataframe(path: str) -> pd.DataFrame:
     """
     schema = _get_assessments_dataframe_schema()
     return pd.read_json(path, orient="split", dtype=schema)
+
+
+def append_to_assessments_dataframe(
+    assessments_df: pd.DataFrame, assessments: List[Assessment]
+) -> pd.DataFrame:
+    """
+    Appends assessments to an assessments DataFrame.
+
+    Args:
+        assessments_df (pd.DataFrame): Assessments DataFrame to append assessments to.
+    """
+    new_assessments_data = [assess.to_dictionary() for assess in assessments]
+    new_assessments_df = pd.DataFrame(new_assessments_data)
+    return pd.concat([assessments_df, new_assessments_df])
 
 
 def read_metrics_dataframe(path: str) -> pd.DataFrame:
@@ -230,3 +271,196 @@ def _get_empty_metrics_dataframe() -> pd.DataFrame:
     schema = _get_metrics_dataframe_schema()
     df = pd.DataFrame(columns=schema.keys())
     return _apply_schema_to_dataframe(df, schema)
+
+
+@dataclass
+class _BaseStats:
+    """
+    Base class for statistics.
+    """
+
+    assessment_name: str
+    assessment_source: str
+
+    def _get_metric(self, stat_name) -> Metric:
+        """
+        Get metrics for the statistics.
+        """
+        key = f"{self.assessment_name}_{stat_name}_{self.assessment_source}"
+        return Metric(
+            key=key, value=getattr(self, stat_name), timestamp=int(time.time() * 1000), step=0
+        )
+
+    def to_metrics(self) -> List[Metric]:
+        """
+        Get loggable metrics for the statistics.
+        """
+        raise NotImplementedError
+
+
+@dataclass
+class BooleanAssessmentStats(_BaseStats):
+    """
+    Statistics for boolean assessments.
+    """
+
+    true_count: int
+    false_count: int
+    ratio: float
+
+    def to_metrics(self) -> List[Metric]:
+        return [
+            self._get_metric("true_count"),
+            self._get_metric("false_count"),
+            self._get_metric("ratio"),
+        ]
+
+
+@dataclass
+class NumericAssessmentStats(_BaseStats):
+    """
+    Statistics for numeric assessments.
+    """
+
+    min: float
+    mean: float
+    p50: float
+    p90: float
+    max: float
+
+    def to_metrics(self) -> List[Metric]:
+        return [
+            self._get_metric("min"),
+            self._get_metric("mean"),
+            self._get_metric("p50"),
+            self._get_metric("p90"),
+            self._get_metric("max"),
+        ]
+
+
+@dataclass
+class StringAssessmentStats:
+    """
+    Statistics for string assessments.
+    """
+
+    assessment_name: str
+    assessment_source: str
+    distinct_values_count: int
+
+    def to_metrics(self) -> List[Metric]:
+        return []
+
+
+def compute_assessment_stats_by_source(
+    assessments_df: pd.DataFrame, assessment_name: str
+) -> Dict[str, Union[BooleanAssessmentStats, NumericAssessmentStats, StringAssessmentStats]]:
+    """
+    Computes statistics for a given assessment by source.
+
+    Args:
+        assessments_df (pd.DataFrame): DataFrame with assessments.
+        assessment_name (str): Name of the assessment.
+
+    Returns:
+        Dict[str, Union[BooleanAssessmentStats, NumericAssessmentStats, StringAssessmentStats]]:
+            A dictionary with statistics for the assessment by source name.
+    """
+    matching_assessments_df = assessments_df[assessments_df["name"] == assessment_name]
+    if matching_assessments_df.empty:
+        raise ValueError(f"No assessments found for '{assessment_name}'.")
+
+    matching_assessments = [
+        Assessment.from_dictionary(assess)
+        for assess in matching_assessments_df.to_dict(orient="records")
+    ]
+
+    def compute_stats(assessment_name: str, assessment_source: str, assessments: List[Assessment]):
+        if matching_assessments[0].get_value_type() == "boolean":
+            return compute_boolean_assessment_stats(assessment_name, assessment_source, assessments)
+        elif matching_assessments[0].get_value_type() == "numeric":
+            return compute_numeric_assessment_stats(assessment_name, assessment_source, assessments)
+        elif matching_assessments[0].get_value_type() == "string":
+            return compute_string_assessment_stats(assessment_name, assessment_source, assessments)
+        else:
+            raise ValueError(
+                f"Unsupported assessment value type: {matching_assessments[0].get_value_type()}."
+            )
+
+    matching_assessments_by_source = defaultdict(list)
+    for assessment in matching_assessments:
+        matching_assessments_by_source[assessment.source.source_id].append(assessment)
+
+    assessment_stats_by_source = {}
+    for source, assessments in matching_assessments_by_source.items():
+        assessment_stats_by_source[source] = compute_stats(source, assessment_name, assessments)
+    return assessment_stats_by_source
+
+
+def compute_boolean_assessment_stats(
+    assessment_name: str, assessment_source: str, assessments: List[Assessment]
+) -> BooleanAssessmentStats:
+    """
+    Computes statistics for boolean assessments.
+
+    Args:
+        assessment_name (str): Name of the assessment.
+        assessment_source (str): Source of the assessment.
+        assessments (List[Assessment]): List of boolean assessments.
+    """
+    true_count = sum(assess.boolean_value for assess in assessments)
+    false_count = len(assessments) - true_count
+    ratio = float(true_count) / len(assessments)
+    return BooleanAssessmentStats(
+        assessment_name=assessment_name,
+        assessment_source=assessment_source,
+        true_count=true_count,
+        false_count=false_count,
+        ratio=ratio,
+    )
+
+
+def compute_numeric_assessment_stats(
+    assessment_name: str, assessment_source: str, assessments: List[Assessment]
+) -> NumericAssessmentStats:
+    """
+    Computes statistics for numeric assessments.
+
+    Args:
+        assessment_name (str): Name of the assessment.
+        assessment_source (str): Source of the assessment.
+        assessments (List[Assessment]): List of numeric assessments.
+    """
+    min_value = min(assess.numeric_value for assess in assessments)
+    mean = np.mean([assess.numeric_value for assess in assessments])
+    p50 = np.percentile([assess.numeric_value for assess in assessments], 50)
+    p90 = np.percentile([assess.numeric_value for assess in assessments], 90)
+    max_value = max(assess.numeric_value for assess in assessments)
+    return NumericAssessmentStats(
+        assessment_name=assessment_name,
+        assessment_source=assessment_source,
+        min=min_value,
+        mean=mean,
+        p50=p50,
+        p90=p90,
+        max=max_value,
+    )
+
+
+def compute_string_assessment_stats(
+    assessment_name: str, assessment_source: str, assessments: List[Assessment]
+) -> StringAssessmentStats:
+    """
+    Computes statistics for string assessments.
+
+    Args:
+        assessment_name (str): Name of the assessment.
+        assessment_source (str): Source of the assessment.
+        assessments (List[Assessment]): List of string assessments.
+    """
+    distinct_values_count = len({assess.string_value for assess in assessments})
+    return StringAssessmentStats(
+        assessment_name=assessment_name,
+        assessment_source=assessment_source,
+        distinct_values_count=distinct_values_count,
+    )

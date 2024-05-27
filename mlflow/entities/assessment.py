@@ -95,8 +95,24 @@ class Assessment(_MlflowObject):
             return self.to_dictionary() == __o.to_dictionary()
         return False
 
+    def get_value_type(self) -> str:
+        """
+        Get the type of the assessment value.
+
+        Returns:
+            str: The type of the assessment value.
+        """
+        if self.boolean_value is not None:
+            return "boolean"
+        elif self.numeric_value is not None:
+            return "numeric"
+        elif self.string_value is not None:
+            return "string"
+        else:
+            raise ValueError("Assessment value is not set to a recognized type.")
+
     def to_dictionary(self) -> Dict[str, Any]:
-        assessment_dict = {
+        return {
             "evaluation_id": self.evaluation_id,
             "name": self.name,
             "source": self.source.to_dictionary(),
@@ -107,8 +123,6 @@ class Assessment(_MlflowObject):
             "rationale": self.rationale,
             "metadata": self.metadata,
         }
-        # Remove keys with None values
-        return {k: v for k, v in assessment_dict.items() if v is not None}
 
     @classmethod
     def from_dictionary(cls, assessment_dict: Dict[str, Any]) -> "Assessment":
