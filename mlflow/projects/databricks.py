@@ -323,7 +323,7 @@ os.chdir({project_dir})
             "new_cluster": cluster_spec,
             "libraries": libraries_config,
             "spark_python_task": {
-                "python_file": str(job_code_file_dbfs_fuse_uri),
+                "python_file": f"dbfs:/{dbfs_job_code_file_path}",
                 "parameters": databricks_spark_job_spec.parameters,
             },
         }
