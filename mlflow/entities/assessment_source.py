@@ -3,16 +3,16 @@ from typing import Any, Dict, Optional
 from mlflow.entities._mlflow_object import _MlflowObject
 
 
-class FeedbackSource(_MlflowObject):
+class AssessmentSource(_MlflowObject):
     """
-    Source of the feedback (human, LLM as a judge with GPT-4, etc).
+    Source of an assessment (human, LLM as a judge with GPT-4, etc).
     """
 
     def __init__(self, source_type: str, source_id: str, metadata: Optional[Dict[str, Any]] = None):
-        """Construct a new mlflow.entities.FeedbackSource instance.
+        """Construct a new mlflow.entities.AssessmentSource instance.
 
         Args:
-            source_type: The type of the feedback source (FeedbackSourceType).
+            source_type: The type of the assessment source (AssessmentSourceType).
             source_id: An identifier for the source, e.g. Databricks user ID or LLM judge ID.
             metadata: Additional metadata about the source, e.g. human-readable name, inlined LLM
             judge parameters, etc.
@@ -23,7 +23,7 @@ class FeedbackSource(_MlflowObject):
 
     @property
     def source_type(self) -> str:
-        """Get the type of the feedback source."""
+        """Get the type of the assessment source."""
         return self._source_type
 
     @property
@@ -50,15 +50,15 @@ class FeedbackSource(_MlflowObject):
         }
 
     @classmethod
-    def from_dictionary(cls, source_dict: Dict[str, Any]) -> "FeedbackSource":
+    def from_dictionary(cls, source_dict: Dict[str, Any]) -> "AssessmentSource":
         """
-        Create a FeedbackSource object from a dictionary.
+        Create a AssessmentSource object from a dictionary.
 
         Args:
-            source_dict (dict): Dictionary containing feedback source information.
+            source_dict (dict): Dictionary containing assessment source information.
 
         Returns:
-            FeedbackSource: The FeedbackSource object created from the dictionary.
+            AssessmentSource: The AssessmentSource object created from the dictionary.
         """
         source_type = source_dict["source_type"]
         source_id = source_dict["source_id"]
@@ -66,6 +66,6 @@ class FeedbackSource(_MlflowObject):
         return cls(source_type=source_type, source_id=source_id, metadata=metadata)
 
 
-class FeedbackSourceType:
+class AssessmentSourceType:
     AI_JUDGE = "AI_JUDGE"
     HUMAN = "HUMAN"

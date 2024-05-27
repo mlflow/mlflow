@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.entities.feedback import Feedback
+from mlflow.entities.assessment import Assessment
 from mlflow.entities.metric import Metric
 
 
@@ -19,7 +19,7 @@ class Evaluation(_MlflowObject):
         outputs: Dict[str, Any],
         request_id: Optional[str] = None,
         targets: Optional[Dict[str, Any]] = None,
-        feedback: Optional[List[Feedback]] = None,
+        assessments: Optional[List[Assessment]] = None,
         metrics: Optional[List[Metric]] = None,
     ):
         """
@@ -33,7 +33,7 @@ class Evaluation(_MlflowObject):
             outputs: Outputs obtained during inference.
             request_id: The ID of an MLflow Trace corresponding to the inputs and outputs.
             targets: Expected values that the model should produce during inference.
-            feedback: Feedback for the given row.
+            assessments: Assessments for the given row.
             metrics: Objective numerical metrics for the row, e.g., "number of input tokens",
                 "number of output tokens".
         """
@@ -44,7 +44,7 @@ class Evaluation(_MlflowObject):
         self._outputs = outputs
         self._request_id = request_id
         self._targets = targets
-        self._feedback = feedback
+        self._assessments = assessments
         self._metrics = metrics
 
     @property
@@ -83,9 +83,9 @@ class Evaluation(_MlflowObject):
         return self._targets
 
     @property
-    def feedback(self) -> Optional[List[Feedback]]:
-        """Get the feedback."""
-        return self._feedback
+    def assessments(self) -> Optional[List[Assessment]]:
+        """Get the assessments."""
+        return self._assessments
 
     @property
     def metrics(self) -> Optional[List[Metric]]:
@@ -116,8 +116,8 @@ class Evaluation(_MlflowObject):
             evaluation_dict["request_id"] = self.request_id
         if self.targets:
             evaluation_dict["targets"] = self.targets
-        if self.feedback:
-            evaluation_dict["feedback"] = [fb.to_dictionary() for fb in self.feedback]
+        if self.assessments:
+            evaluation_dict["assessments"] = [assess.to_dictionary() for assess in self.assessments]
         if self.metrics:
             evaluation_dict["metrics"] = [metric.to_dictionary() for metric in self.metrics]
         return evaluation_dict
@@ -140,9 +140,9 @@ class Evaluation(_MlflowObject):
         outputs = evaluation_dict["outputs"]
         request_id = evaluation_dict.get("request_id")
         targets = evaluation_dict.get("targets")
-        feedback = None
-        if "feedback" in evaluation_dict:
-            feedback = [Feedback.from_dictionary(fb) for fb in evaluation_dict["feedback"]]
+        assessments = None
+        if "assessments" in evaluation_dict:
+            assessments = [Assessment.from_dictionary(fb) for fb in evaluation_dict["assessments"]]
         metrics = None
         if "metrics" in evaluation_dict:
             metrics = [Metric.from_dictionary(metric) for metric in evaluation_dict["metrics"]]
@@ -154,6 +154,6 @@ class Evaluation(_MlflowObject):
             outputs=outputs,
             request_id=request_id,
             targets=targets,
-            feedback=feedback,
+            assessments=assessments,
             metrics=metrics,
         )

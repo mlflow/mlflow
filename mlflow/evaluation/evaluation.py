@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.evaluation import Evaluation as EvaluationEntity
 from mlflow.entities.metric import Metric
-from mlflow.evaluation.feedback import Feedback
+from mlflow.evaluation.assessment import Assessment
 
 
 class Evaluation(_MlflowObject):
@@ -20,7 +20,7 @@ class Evaluation(_MlflowObject):
         inputs_id: Optional[str] = None,
         request_id: Optional[str] = None,
         targets: Optional[Dict[str, Any]] = None,
-        feedback: Optional[List[Feedback]] = None,
+        assessments: Optional[List[Assessment]] = None,
         metrics: Optional[List[Metric]] = None,
     ):
         """
@@ -32,7 +32,7 @@ class Evaluation(_MlflowObject):
             outputs: Outputs obtained during inference.
             request_id: The ID of an MLflow Trace corresponding to the inputs and outputs.
             targets: Expected values that the model should produce during inference.
-            feedback: Feedback for the given row.
+            assessments: Assessments for the given row.
             metrics: Objective numerical metrics for the row, e.g., "number of input tokens",
                 "number of output tokens".
         """
@@ -41,7 +41,7 @@ class Evaluation(_MlflowObject):
         self._outputs = outputs
         self._request_id = request_id
         self._targets = targets
-        self._feedback = feedback
+        self._assessments = assessments
         self._metrics = metrics
 
     @property
@@ -70,9 +70,9 @@ class Evaluation(_MlflowObject):
         return self._targets
 
     @property
-    def feedback(self) -> Optional[List[Feedback]]:
-        """Get the feedback."""
-        return self._feedback
+    def assessments(self) -> Optional[List[Assessment]]:
+        """Get the assessments."""
+        return self._assessment
 
     @property
     def metrics(self) -> Optional[List[Metric]]:
@@ -100,8 +100,8 @@ class Evaluation(_MlflowObject):
             outputs=self.outputs,
             request_id=self.request_id,
             targets=self.targets,
-            feedback=[fb._to_entity(evaluation_id) for fb in self.feedback]
-            if self.feedback
+            assessments=[assess._to_entity(evaluation_id) for assess in self.assessments]
+            if self.assessments
             else None,
             metrics=self.metrics,
         )

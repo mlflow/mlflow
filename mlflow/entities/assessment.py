@@ -1,19 +1,19 @@
 from typing import Any, Dict, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.entities.feedback_source import FeedbackSource
+from mlflow.entities.assessment_source import AssessmentSource
 
 
-class Feedback(_MlflowObject):
+class Assessment(_MlflowObject):
     """
-    Feedback data associated with an evaluation result.
+    Assessment data associated with an evaluation result.
     """
 
     def __init__(
         self,
         evaluation_id: str,
         name: str,
-        source: FeedbackSource,
+        source: AssessmentSource,
         timestamp: int,
         boolean_value: Optional[bool] = None,
         numeric_value: Optional[float] = None,
@@ -21,19 +21,19 @@ class Feedback(_MlflowObject):
         rationale: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ):
-        """Construct a new mlflow.entities.Feedback instance.
+        """Construct a new mlflow.entities.Assessment instance.
 
         Args:
-            evaluation_id: The ID of the evaluation result with which the feedback is associated.
-            name: The name of the piece of feedback.
-            source: The source of the feedback (FeedbackSource instance).
-            timestamp: The timestamp when the feedback was given.
-            boolean_value: The boolean feedback value, if applicable.
-            numeric_value: The numeric feedback value, if applicable.
-            string_value: The string feedback value, if applicable.
+            evaluation_id: The ID of the evaluation result with which the assessment is associated.
+            name: The name of the piece of assessment.
+            source: The source of the assessment (AssessmentSource instance).
+            timestamp: The timestamp when the assessment was given.
+            boolean_value: The boolean assessment value, if applicable.
+            numeric_value: The numeric assessment value, if applicable.
+            string_value: The string assessment value, if applicable.
             rationale: The rationale / justification for the value.
-            metadata: Additional metadata for the feedback, e.g. the index of the chunk in the
-                      retrieved documents that the feedback applies to.
+            metadata: Additional metadata for the assessment, e.g. the index of the chunk in the
+                      retrieved documents that the assessment applies to.
         """
         self._evaluation_id = evaluation_id
         self._name = name
@@ -52,42 +52,42 @@ class Feedback(_MlflowObject):
 
     @property
     def name(self) -> str:
-        """Get the name of the feedback."""
+        """Get the name of the assessment."""
         return self._name
 
     @property
     def timestamp(self) -> int:
-        """Get the timestamp of the feedback."""
+        """Get the timestamp of the assessment."""
         return self._timestamp
 
     @property
     def boolean_value(self) -> Optional[bool]:
-        """Get the boolean feedback value."""
+        """Get the boolean assessment value."""
         return self._boolean_value
 
     @property
     def numeric_value(self) -> Optional[float]:
-        """Get the numeric feedback value."""
+        """Get the numeric assessment value."""
         return self._numeric_value
 
     @property
     def string_value(self) -> Optional[str]:
-        """Get the string feedback value."""
+        """Get the string assessment value."""
         return self._string_value
 
     @property
     def rationale(self) -> Optional[str]:
-        """Get the rationale / justification for the feedback."""
+        """Get the rationale / justification for the assessment."""
         return self._rationale
 
     @property
-    def source(self) -> FeedbackSource:
-        """Get the source of the feedback."""
+    def source(self) -> AssessmentSource:
+        """Get the source of the assessment."""
         return self._source
 
     @property
     def metadata(self) -> Dict[str, Any]:
-        """Get the metadata associated with the feedback."""
+        """Get the metadata associated with the assessment."""
         return self._metadata
 
     def __eq__(self, __o):
@@ -96,7 +96,7 @@ class Feedback(_MlflowObject):
         return False
 
     def to_dictionary(self) -> Dict[str, Any]:
-        feedback_dict = {
+        assessment_dict = {
             "evaluation_id": self.evaluation_id,
             "name": self.name,
             "source": self.source.to_dictionary(),
@@ -108,29 +108,29 @@ class Feedback(_MlflowObject):
             "metadata": self.metadata,
         }
         # Remove keys with None values
-        return {k: v for k, v in feedback_dict.items() if v is not None}
+        return {k: v for k, v in assessment_dict.items() if v is not None}
 
     @classmethod
-    def from_dictionary(cls, feedback_dict: Dict[str, Any]) -> "Feedback":
+    def from_dictionary(cls, assessment_dict: Dict[str, Any]) -> "Assessment":
         """
-        Create a Feedback object from a dictionary.
+        Create a Assessment object from a dictionary.
 
         Args:
-            feedback_dict (dict): Dictionary containing feedback information.
+            assessment_dict (dict): Dictionary containing assessment information.
 
         Returns:
-            Feedback: The Feedback object created from the dictionary.
+            Assessment: The Assessment object created from the dictionary.
         """
-        evaluation_id = feedback_dict["evaluation_id"]
-        name = feedback_dict["name"]
-        source_dict = feedback_dict["source"]
-        source = FeedbackSource.from_dictionary(source_dict)
-        timestamp = feedback_dict["timestamp"]
-        boolean_value = feedback_dict.get("boolean_value")
-        numeric_value = feedback_dict.get("numeric_value")
-        string_value = feedback_dict.get("string_value")
-        rationale = feedback_dict.get("rationale")
-        metadata = feedback_dict.get("metadata")
+        evaluation_id = assessment_dict["evaluation_id"]
+        name = assessment_dict["name"]
+        source_dict = assessment_dict["source"]
+        source = AssessmentSource.from_dictionary(source_dict)
+        timestamp = assessment_dict["timestamp"]
+        boolean_value = assessment_dict.get("boolean_value")
+        numeric_value = assessment_dict.get("numeric_value")
+        string_value = assessment_dict.get("string_value")
+        rationale = assessment_dict.get("rationale")
+        metadata = assessment_dict.get("metadata")
         return cls(
             evaluation_id=evaluation_id,
             name=name,
