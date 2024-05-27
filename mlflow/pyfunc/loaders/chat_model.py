@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterator, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
@@ -68,14 +68,30 @@ class _ChatModelPyfuncWrapper:
         """
         messages, params = self._convert_input(model_input)
         response = self.chat_model.predict(self.context, messages, params)
+        return self._response_to_dict(response)
 
+    def _response_to_dict(self, response: ChatResponse) -> Dict[str, Any]:
         if not isinstance(response, ChatResponse):
-            # shouldn't happen since there is validation at save time ensuring that
-            # the output is a ChatResponse, so raise an exception if it isn't
             raise MlflowException(
                 "Model returned an invalid response. Expected a ChatResponse, but "
                 f"got {type(response)} instead.",
                 error_code=INTERNAL_ERROR,
             )
-
         return response.to_dict()
+
+    def predict_stream(
+        self, model_input: Dict[str, Any], params: Optional[Dict[str, Any]] = None
+    ) -> Iterator[Dict[str, Any]]:
+        """
+        Args:
+            model_input: Model input data in the form of a chat request.
+            params: Additional parameters to pass to the model for inference.
+                       Unused in this implementation, as the params are handled
+                       via ``self._convert_input()``.
+
+        Returns:
+            Iterator over model predictions in :py:class:`~ChatResponse` format.
+        """
+        messages, params = self._convert_input(model_input)
+        response = self.chat_model.predict_stream(self.context, messages, params)
+        return map(self._response_to_dict, response)

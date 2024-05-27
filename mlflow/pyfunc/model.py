@@ -9,7 +9,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 import cloudpickle
 import yaml
@@ -242,6 +242,29 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
             A :py:class:`ChatResponse <mlflow.types.llm.ChatResponse>` object containing
             the model's response(s), as well as other metadata.
         """
+
+    def predict_stream(
+        self, context, messages: List[ChatMessage], params: ChatParams
+    ) -> Iterator[ChatResponse]:
+        """
+        Evaluates a chat input and produces a chat output.
+        Overrides this function to implement a real stream prediction.
+        By default, this function just yields result of `predict` function.
+
+        Args:
+            messages (List[:py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`]):
+                A list of :py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`
+                objects representing chat history.
+            params (:py:class:`ChatParams <mlflow.types.llm.ChatParams>`):
+                A :py:class:`ChatParams <mlflow.types.llm.ChatParams>` object
+                containing various parameters used to modify model behavior during
+                inference.
+
+        Returns:
+            An iterator over :py:class:`ChatResponse <mlflow.types.llm.ChatResponse>` object
+            containing the model's response(s), as well as other metadata.
+        """
+        yield self.predict(context, messages, params)
 
 
 def _save_model_with_class_artifacts_params(
