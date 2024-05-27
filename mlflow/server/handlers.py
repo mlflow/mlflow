@@ -27,6 +27,7 @@ from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadExcept
 from mlflow.models import Model
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
@@ -2449,7 +2450,9 @@ def get_trace_artifact_handler():
     request_id = request_dict.get("request_id")
 
     if not request_id:
-        raise MlflowException('Request must include the "request_id" query parameter.')
+        raise MlflowException(
+            'Request must include the "request_id" query parameter.', error_code=BAD_REQUEST
+        )
 
     trace_info = _get_tracking_store().get_trace_info(request_id)
     artifact_uri = get_artifact_uri_for_trace(trace_info)

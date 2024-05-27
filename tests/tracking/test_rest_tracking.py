@@ -2197,4 +2197,4 @@ def test_get_trace_artifact_handler(mlflow_client):
 
     # Validate content
     trace_data = TraceData.from_dict(json.loads(response.text))
-    assert trace_data.spans[0].attributes["fruit"] == "apple"
+    assert trace_data.spans[0].to_dict() == span.to_dict()
