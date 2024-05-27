@@ -261,14 +261,13 @@ config_types = {
 }
 
 
-def get_config_model(config_model: str) -> Optional[Type[ProviderConfigModel]]:
-    if string_is_plugin_obj(config_model):
-        conf = import_plugin_obj(config_model)
-        if not (isinstance(conf, type) and issubclass(conf, ProviderConfigModel)):
-            raise MlflowException.invalid_parameter_value(
-                f"Plugin config model {conf} is not a subclass of ProviderConfigModel"
-            )
-        return conf
+def _get_plugin_config_model(config_model: str) -> Type[ProviderConfigModel]:
+    conf = import_plugin_obj(config_model)
+    if not (isinstance(conf, type) and issubclass(conf, ProviderConfigModel)):
+        raise MlflowException.invalid_parameter_value(
+            f"Plugin config model {conf} is not a subclass of ProviderConfigModel"
+        )
+    return conf
 
 
 class ModelInfo(ResponseModel):
@@ -335,9 +334,10 @@ class Model(ConfigModel):
 
     @classmethod
     def _validate_config(cls, info, values):
-        if config_model := values.get("config_model"):
-            if config_type := get_config_model(config_model):
-                return config_type(**info)
+        config_model = values.get("config_model")
+        if config_model and string_is_plugin_obj(config_model):
+            config_type = _get_plugin_config_model(config_model)
+            return config_type(**info)
         if provider := values.get("provider"):
             config_type = config_types[provider]
             return config_type(**info)
