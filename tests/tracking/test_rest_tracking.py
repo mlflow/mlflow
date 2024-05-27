@@ -34,6 +34,7 @@ from mlflow.entities import (
     RunTag,
     ViewType,
 )
+from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.models import Model
@@ -2175,3 +2176,25 @@ def test_set_and_delete_trace_tag(mlflow_client):
     mlflow_client.delete_trace_tag(trace_info.request_id, "tag2")
     trace_info = mlflow_client._tracking_client.get_trace_info(trace_info.request_id)
     assert "tag2" not in trace_info.tags
+
+
+def test_get_trace_artifact_handler(mlflow_client):
+    _set_tracking_uri_and_reset_tracer(mlflow_client.tracking_uri)
+
+    experiment_id = mlflow_client.create_experiment("get trace artifact")
+
+    span = mlflow_client.start_trace(name="test", experiment_id=experiment_id)
+    request_id = span.request_id
+    span.set_attributes({"fruit": "apple"})
+    mlflow_client.end_trace(request_id=request_id)
+
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/get-trace-artifact",
+        params={"request_id": request_id},
+    )
+    assert response.status_code == 200
+    assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"
+
+    # Validate content
+    trace_data = TraceData.from_dict(json.loads(response.text))
+    assert trace_data.spans[0].to_dict() == span.to_dict()
