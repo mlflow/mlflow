@@ -1,4 +1,4 @@
-from mlflow.entities import AssessmentSource
+from mlflow.entities import AssessmentSource, AssessmentSourceType
 from mlflow.evaluation.assessment import Assessment
 from mlflow.evaluation.evaluation import Evaluation
 from mlflow.evaluation.fluent import (
@@ -13,6 +13,7 @@ __all__ = [
     "Evaluation",
     "Assessment",
     "AssessmentSource",
+    "AssessmentSourceType",
     "get_evaluation",
     "log_evaluation",
     "log_evaluations",

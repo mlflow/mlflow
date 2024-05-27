@@ -150,7 +150,7 @@ def read_evaluations_dataframe(path: str) -> pd.DataFrame:
         pd.DataFrame: The evaluations DataFrame.
     """
     schema = _get_evaluation_dataframe_schema()
-    return pd.read_json(path, orient="split", dtype=schema)
+    return pd.read_json(path, orient="split", dtype=schema).replace(pd.NA, None)
 
 
 def read_assessments_dataframe(path: str) -> pd.DataFrame:
@@ -164,7 +164,7 @@ def read_assessments_dataframe(path: str) -> pd.DataFrame:
         pd.DataFrame: The assessments DataFrame.
     """
     schema = _get_assessments_dataframe_schema()
-    return pd.read_json(path, orient="split", dtype=schema)
+    return pd.read_json(path, orient="split", dtype=schema).replace(pd.NA, None)
 
 
 def append_to_assessments_dataframe(
@@ -238,7 +238,7 @@ def _get_assessments_dataframe_schema() -> Dict[str, Any]:
         "boolean_value": "object",
         "numeric_value": "object",
         "string_value": "object",
-        "rationale": "str",
+        "rationale": "object",
         "metadata": "object",
     }
 

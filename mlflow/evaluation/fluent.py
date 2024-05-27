@@ -107,6 +107,12 @@ def log_evaluations(*, evaluations: List[Evaluation], run_id: Optional[str] = No
     client.log_table(run_id=run_id, data=evaluations_df, artifact_file="_evaluations.json")
     client.log_table(run_id=run_id, data=metrics_df, artifact_file="_metrics.json")
     client.log_table(run_id=run_id, data=assessments_df, artifact_file="_assessments.json")
+
+    _update_assessments_stats(
+        run_id=run_id,
+        assessments_df=assessments_df,
+        assessment_names=assessments_df["name"].unique(),
+    )
     return evaluation_entities
 
 
@@ -246,7 +252,7 @@ def _add_assessment_to_df(
         & (assessments_df["name"] == assessment.name)
     ]
     existing_assessments_matching_name = [
-        Assessment.from_dictionary(assess)
+        AssessmentEntity.from_dictionary(assess)
         for assess in existing_assessments_matching_name_df.to_dict(orient="records")
     ]
     if existing_assessments_matching_name:
@@ -256,7 +262,7 @@ def _add_assessment_to_df(
             for existing_assessment in existing_assessments_matching_name
         ):
             raise MlflowException(
-                f"Assessment with name '{assessment.name}' has value type"
+                f"Assessment with name '{assessment.name}' has value type "
                 f"'{assessment.get_value_type()}' that does not match the value type "
                 f"'{existing_assessments_value_type}' of existing assessments with the same name.",
                 error_code=INVALID_PARAMETER_VALUE,
@@ -350,7 +356,7 @@ def get_evaluation(run_id: str, evaluation_id: str) -> EvaluationEntity:
     assessments_df = read_assessments_dataframe(assessments_file)
 
     evaluations: List[Evaluation] = dataframes_to_evaluations(
-        evaluations_df=evaluations_df, metrics_df=metrics_df, assessments_df=assessments_df
+        evaluations_df=evaluation_row, metrics_df=metrics_df, assessments_df=assessments_df
     )
     if len(evaluations) != 1:
         raise MlflowException(

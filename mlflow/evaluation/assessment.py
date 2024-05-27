@@ -1,3 +1,4 @@
+import numbers
 import time
 from typing import Any, Dict, Optional, Union
 
@@ -44,8 +45,8 @@ class Assessment(_MlflowObject):
         if isinstance(value, bool):
             self._boolean_value = value
             self._value_type = "boolean"
-        elif isinstance(value, float):
-            self._numeric_value = value
+        elif isinstance(value, numbers.Number):
+            self._numeric_value = float(value)
             self._value_type = "numeric"
         elif value is not None:
             self._string_value = str(value)
@@ -96,15 +97,13 @@ class Assessment(_MlflowObject):
         return self._value_type
 
     def to_dictionary(self) -> Dict[str, Any]:
-        assessment_dict = {
+        return {
             "name": self.name,
             "source": self.source.to_dictionary(),
             "value": self.value,
             "rationale": self.rationale,
             "metadata": self.metadata,
         }
-        # Remove keys with None values
-        return {k: v for k, v in assessment_dict.items() if v is not None}
 
     @classmethod
     def from_dictionary(cls, assessment_dict: Dict[str, Any]) -> "Assessment":
