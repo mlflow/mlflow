@@ -1192,7 +1192,7 @@ A plugin is a Python package that provides a custom implementation of a language
 This allows users to integrate their own language model services with the MLflow Deployments Server.
 
 To create a custom plugin, you need to implement a Provider class that inherits from ``mlflow.deployments.server.providers.BaseProvider``,
-and a Config class that inherits from ``mlflow.deployments.server.base_models.ProviderConfigModel``.
+and a Config class that inherits from ``mlflow.deployments.server.base_models.ConfigModel``.
 
 .. code-block:: python
     :caption: Example
@@ -1200,13 +1200,13 @@ and a Config class that inherits from ``mlflow.deployments.server.base_models.Pr
     from typing import AsyncIterable
 
     from pydantic import validator
-    from mlflow.deployments.server.base_models import ProviderConfigModel
+    from mlflow.deployments.server.base_models import ConfigModel
     from mlflow.deployments.server.config import RouteConfig, _resolve_api_key_from_input
     from mlflow.deployments.server.providers import BaseProvider
     from mlflow.deployments.server.schemas import chat, completions, embeddings
 
 
-    class MyConfig(ProviderConfigModel):
+    class MyConfig(ConfigModel):
         my_api_key: str
 
         @validator("my_api_key", pre=True)

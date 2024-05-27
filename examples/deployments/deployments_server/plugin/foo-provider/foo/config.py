@@ -1,10 +1,10 @@
 from pydantic import validator
 
-from mlflow.deployments.server.base_models import ProviderConfigModel
+from mlflow.deployments.server.base_models import ConfigModel
 from mlflow.deployments.server.config import _resolve_api_key_from_input
 
 
-class FooConfig(ProviderConfigModel):
+class FooConfig(ConfigModel):
     foo_api_key: str
 
     @validator("foo_api_key", pre=True)

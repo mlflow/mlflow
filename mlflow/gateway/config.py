@@ -23,7 +23,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import (
     ConfigModel,
     LimitModel,
-    ProviderConfigModel,
     ResponseModel,
 )
 from mlflow.gateway.constants import (
@@ -71,7 +70,7 @@ class Provider(str, Enum):
         return {p.value for p in cls}
 
 
-class TogetherAIConfig(ProviderConfigModel):
+class TogetherAIConfig(ConfigModel):
     togetherai_api_key: str
 
     @validator("togetherai_api_key", pre=True)
@@ -85,7 +84,7 @@ class RouteType(str, Enum):
     LLM_V1_EMBEDDINGS = "llm/v1/embeddings"
 
 
-class CohereConfig(ProviderConfigModel):
+class CohereConfig(ConfigModel):
     cohere_api_key: str
 
     @validator("cohere_api_key", pre=True)
@@ -93,7 +92,7 @@ class CohereConfig(ProviderConfigModel):
         return _resolve_api_key_from_input(value)
 
 
-class AI21LabsConfig(ProviderConfigModel):
+class AI21LabsConfig(ConfigModel):
     ai21labs_api_key: str
 
     @validator("ai21labs_api_key", pre=True)
@@ -101,7 +100,7 @@ class AI21LabsConfig(ProviderConfigModel):
         return _resolve_api_key_from_input(value)
 
 
-class MosaicMLConfig(ProviderConfigModel):
+class MosaicMLConfig(ConfigModel):
     mosaicml_api_key: str
     mosaicml_api_base: Optional[str] = None
 
@@ -127,7 +126,7 @@ class OpenAIAPIType(str, Enum):
         raise MlflowException.invalid_parameter_value(f"Invalid OpenAI API type '{value}'")
 
 
-class OpenAIConfig(ProviderConfigModel):
+class OpenAIConfig(ConfigModel):
     openai_api_key: str
     openai_api_type: OpenAIAPIType = OpenAIAPIType.OPENAI
     openai_api_base: Optional[str] = None
@@ -188,7 +187,7 @@ class OpenAIConfig(ProviderConfigModel):
             return cls._validate_field_compatibility(config)
 
 
-class AnthropicConfig(ProviderConfigModel):
+class AnthropicConfig(ConfigModel):
     anthropic_api_key: str
     anthropic_version: str = "2023-06-01"
 
@@ -197,7 +196,7 @@ class AnthropicConfig(ProviderConfigModel):
         return _resolve_api_key_from_input(value)
 
 
-class PaLMConfig(ProviderConfigModel):
+class PaLMConfig(ConfigModel):
     palm_api_key: str
 
     @validator("palm_api_key", pre=True)
@@ -205,7 +204,7 @@ class PaLMConfig(ProviderConfigModel):
         return _resolve_api_key_from_input(value)
 
 
-class MlflowModelServingConfig(ProviderConfigModel):
+class MlflowModelServingConfig(ConfigModel):
     model_server_url: str
 
     # Workaround to suppress warning that Pydantic raises when a field name starts with "model_".
@@ -213,7 +212,7 @@ class MlflowModelServingConfig(ProviderConfigModel):
     model_config = pydantic.ConfigDict(protected_namespaces=())
 
 
-class HuggingFaceTextGenerationInferenceConfig(ProviderConfigModel):
+class HuggingFaceTextGenerationInferenceConfig(ConfigModel):
     hf_server_url: str
 
 
@@ -232,12 +231,12 @@ class AWSIdAndKey(AWSBaseConfig):
     aws_session_token: Optional[str] = None
 
 
-class AmazonBedrockConfig(ProviderConfigModel):
+class AmazonBedrockConfig(ConfigModel):
     # order here is important, at least for pydantic<2
     aws_config: Union[AWSRole, AWSIdAndKey, AWSBaseConfig]
 
 
-class MistralConfig(ProviderConfigModel):
+class MistralConfig(ConfigModel):
     mistral_api_key: str
 
     @validator("mistral_api_key", pre=True)
@@ -261,11 +260,11 @@ config_types = {
 }
 
 
-def _get_plugin_config_model(config_model: str) -> Type[ProviderConfigModel]:
+def _get_plugin_config_model(config_model: str) -> Type[ConfigModel]:
     conf = import_plugin_obj(config_model)
-    if not (isinstance(conf, type) and issubclass(conf, ProviderConfigModel)):
+    if not (isinstance(conf, type) and issubclass(conf, ConfigModel)):
         raise MlflowException.invalid_parameter_value(
-            f"Plugin config model {conf} is not a subclass of ProviderConfigModel"
+            f"Plugin config model {conf} is not a subclass of ConfigModel"
         )
     return conf
 
@@ -317,9 +316,9 @@ class Model(ConfigModel):
     config_model: Optional[str] = None
 
     if IS_PYDANTIC_V2:
-        config: Optional[SerializeAsAny[ProviderConfigModel]] = None
+        config: Optional[SerializeAsAny[ConfigModel]] = None
     else:
-        config: Optional[ProviderConfigModel] = None
+        config: Optional[ConfigModel] = None
 
     @validator("provider", pre=True)
     def validate_provider(cls, value):

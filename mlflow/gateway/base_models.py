@@ -33,14 +33,7 @@ class ConfigModel(
 ):
     """
     A pydantic model representing Gateway configuration data, such as an OpenAI completions
-    route definition including route name, model name, etc.
-    """
-
-
-class ProviderConfigModel(ConfigModel):
-    """
-    A pydantic model representing Gateway configuration data for a specific provider model, such as
-    API keys, API versions, etc.
+    route definition including route name, model name, API keys, etc.
     """
 
 
