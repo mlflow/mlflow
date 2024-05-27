@@ -133,6 +133,7 @@ def _run(
     if run_name is not None:
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_RUN_NAME, run_name)
 
+    breakpoint()
     if backend_name == "databricks":
         tracking.MlflowClient().set_tag(
             active_run.info.run_id, MLFLOW_PROJECT_BACKEND, "databricks"
