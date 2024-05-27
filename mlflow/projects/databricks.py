@@ -277,11 +277,12 @@ class DatabricksJobRunner:
             MLFLOW_EXPERIMENT_ID.name: experiment_id,
             MLFLOW_RUN_ID.name: run_id,
         }
-        _logger.info("=== Running databricks spark job %s of project %s on Databricks ===", uri)
+        _logger.info("=== Running databricks spark job of project %s on Databricks ===", project_uri)
 
         tmp_dir = Path(get_or_create_tmp_dir())
-        origin_job_code = (work_dir / databricks_spark_job_spec.python_file).read_text()
-        new_job_code_file = tmp_dir / f"{uuid.uuid4().hex}.py"
+        origin_job_code = (Path(work_dir) / databricks_spark_job_spec.python_file).read_text()
+        job_code_filename = f"{uuid.uuid4().hex}.py"
+        new_job_code_file = tmp_dir / job_code_filename
 
         project_dir, extracting_tar_command = _get_project_dir_and_extracting_tar_command(dbfs_fuse_uri)
 
@@ -292,7 +293,7 @@ import os
 import subprocess
 os.environ.update({env_vars_str})
 
-extracting_tar_command = f\"\"\"
+extracting_tar_command = \"\"\"
 {extracting_tar_command}
 \"\"\"
 subprocess.check_call(extracting_tar_command, shell=True)
@@ -301,6 +302,16 @@ os.chdir({project_dir})
 {origin_job_code}
 """
         )
+
+        dbfs_job_code_file_path = posixpath.join(
+            DBFS_EXPERIMENT_DIR_BASE,
+            str(experiment_id),
+            "projects-code",
+            job_code_filename,
+        )
+        job_code_file_dbfs_fuse_uri = posixpath.join("/dbfs", dbfs_job_code_file_path)
+        if not self._dbfs_path_exists(dbfs_job_code_file_path):
+            self._upload_to_dbfs(str(new_job_code_file), job_code_file_dbfs_fuse_uri)
 
         libraries_config = [
             {"pypi": {"package": python_lib}}
@@ -312,10 +323,11 @@ os.chdir({project_dir})
             "new_cluster": cluster_spec,
             "libraries": libraries_config,
             "spark_python_task": {
-                "python_file": str(new_job_code_file),
+                "python_file": str(job_code_file_dbfs_fuse_uri),
                 "parameters": databricks_spark_job_spec.parameters,
             },
         }
+
         _logger.info("=== Submitting a run to execute the MLflow project... ===")
         run_submit_res = self._jobs_runs_submit(req_body_json)
         return run_submit_res["run_id"]
