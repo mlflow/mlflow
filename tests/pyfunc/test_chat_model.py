@@ -348,6 +348,6 @@ def test_chat_model_predict_stream(tmp_path):
         {"role": "user", "content": "Hello!"},
     ]
 
-    response = list(loaded_model.predict_stream({"messages": messages}))
+    response = next(loaded_model.predict_stream({"messages": messages}))
     assert len(response) == 1
     assert response[0]["choices"][0]["message"]["content"] == json.dumps(messages)

@@ -249,6 +249,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
         """
         Evaluates a chat input and produces a chat output.
         Overrides this function to implement a real stream prediction.
+        By default, this function just yields result of `predict` function.
 
         Args:
             messages (List[:py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`]):
