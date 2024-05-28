@@ -80,7 +80,7 @@ def _cached_get_s3_client(
 
 
 def _get_s3_client(
-    addressing_style="virtual",
+    addressing_style="auto",
     access_key_id=None,
     secret_access_key=None,
     session_token=None,
