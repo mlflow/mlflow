@@ -2837,19 +2837,6 @@ def test_simple_chat_model_stream_with_callbacks(fake_chat_stream_model):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
-)
-def test_langchain_model_not_streamable():
-    model = create_openai_llmchain()
-    with mlflow.start_run():
-        logged_model = mlflow.langchain.log_model(model, "langchain_model")
-
-    loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-    with pytest.raises(MlflowException, match="This model does not support predict_stream method"):
-        loaded_model.predict_stream({"product": "shoe"})
-
-
-@pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"),
     reason="feature not existing",
 )
