@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated, experimental
 
 
 @dataclass
@@ -20,6 +20,14 @@ class ChatCompletionRequest:
 @dataclass
 @experimental
 class SplitChatMessagesRequest:
+    query: str = "What is mlflow?"
+    history: Optional[List[Message]] = field(default_factory=list)
+
+
+@dataclass
+@experimental
+@deprecated(since="2.13.1", reason="Use SplitChatMessagesRequest instead.")
+class MultiturnChatRequest:
     query: str = "What is mlflow?"
     history: Optional[List[Message]] = field(default_factory=list)
 
