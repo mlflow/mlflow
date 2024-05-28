@@ -202,9 +202,10 @@ def _get_trace_artifact_repo(trace_info: TraceInfo):
         # we need to resolve it to the actual artifact location.
         from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR
 
-        if not (path := _get_proxied_run_artifact_destination_path(artifact_uri)):
+        path = _get_proxied_run_artifact_destination_path(artifact_uri)
+        if not path:
             raise MlflowException(
-                f"Failed to resolve the proxied run artifact URI: {artifact_uri}.",
+                f"Failed to resolve the proxied run artifact URI: {artifact_uri}. ",
                 "Trace artifact URI must contain subpath to the trace data directory.",
                 error_code=BAD_REQUEST,
             )
