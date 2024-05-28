@@ -26,7 +26,7 @@ class SplitChatMessagesRequest:
 
 @dataclass
 @experimental
-@deprecated(since="2.13.1", reason="Use SplitChatMessagesRequest instead.")
+@deprecated(since="2.13.1")
 class MultiturnChatRequest:
     query: str = "What is mlflow?"
     history: Optional[List[Message]] = field(default_factory=list)
