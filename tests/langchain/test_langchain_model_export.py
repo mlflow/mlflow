@@ -3147,6 +3147,32 @@ def test_load_chain_with_model_config_overrides_saved_config(chain_model_signatu
 )
 @pytest.mark.parametrize("streamable", [True, False, None])
 def test_langchain_model_streamable_param_in_log_model(streamable, fake_chat_model):
+    from langchain.chat_models import ChatOpenAI
+    from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnableParallel
+
+    prompt = ChatPromptTemplate.from_template("What's your favorite {industry} company?")
+    chain = prompt | fake_chat_model | StrOutputParser()
+
+    runnable = RunnableParallel({"llm": lambda _: "completion"})
+
+    llm = ChatOpenAI(temperature=0.9)
+    llm_chain = LLMChain(llm=llm, prompt=prompt)
+
+    for model in [chain, runnable, llm_chain]:
+        with mock.patch("mlflow.langchain._save_model"), mlflow.start_run():
+            model_info = mlflow.langchain.log_model(
+                lc_model=model,
+                artifact_path="model",
+                streamable=streamable,
+                pip_requirements=[],
+            )
+
+            expected = (streamable is None) or streamable
+            assert model_info.flavors["langchain"]["streamable"] is expected
+
+    # test all runnable types
     for model_type in lc_runnables_types():
         with mock.patch("mlflow.langchain._save_model"), mlflow.start_run():
             model = mock.MagicMock(spec=model_type)
