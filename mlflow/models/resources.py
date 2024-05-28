@@ -150,6 +150,8 @@ class _ResourceBuilder:
     def from_yaml_file(path: str) -> Dict[str, Dict[ResourceType, List[Dict]]]:
         if not os.path.exists(path):
             raise OSError(f"No such file or directory: '{path}'")
+        if not os.path.isabs(path):
+            path = os.path.abspath(path)
         with open(path) as file:
             data = yaml.safe_load(file)
             return _ResourceBuilder.from_dict(data)
