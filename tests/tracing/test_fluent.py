@@ -553,6 +553,8 @@ def test_test_search_traces_empty(mock_client):
     traces = mlflow.search_traces(extract_fields=["foo.inputs.bar"])
     assert traces.columns.tolist() == [*default_columns, "foo.inputs.bar"]
 
+    mock_client.search_traces.assert_called()
+
 
 def test_search_traces(mock_client):
     mock_client.search_traces.return_value = PagedList(
