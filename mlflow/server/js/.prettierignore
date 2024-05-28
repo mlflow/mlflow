@@ -18,3 +18,5 @@ __generated__
 *.md
 *.css
 *.html
+
+*.gql	

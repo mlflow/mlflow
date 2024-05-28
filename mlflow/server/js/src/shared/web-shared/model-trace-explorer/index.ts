@@ -1,3 +1,5 @@
+export { ModelTraceExplorerFrameRenderer } from './ModelTraceExplorerFrameRenderer';
+
 export enum ModelSpanType {
   LLM = 'LLM',
   CHAIN = 'CHAIN',
