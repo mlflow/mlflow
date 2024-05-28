@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, get_type_hin
 import numpy as np
 import pandas as pd
 
+import mlflow
 from mlflow import environment_variables
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -376,7 +377,9 @@ def _infer_signature_from_input_example(
             input_example = deepcopy(example.inference_data)
         input_schema = _infer_schema(input_example)
         params_schema = _infer_param_schema(params) if params else None
-        prediction = wrapped_model.predict(input_example, params=params)
+        # Avoid rendering traces when inferring the signature
+        with mlflow.tracing.disabled():
+            prediction = wrapped_model.predict(input_example, params=params)
         # For column-based inputs, 1D numpy arrays likely signify row-based predictions. Thus, we
         # convert them to a Pandas series for inferring as a single ColSpec Schema.
         if (

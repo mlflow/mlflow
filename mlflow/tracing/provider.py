@@ -1,3 +1,4 @@
+import contextlib
 import json
 import logging
 from typing import Optional, Tuple
@@ -126,6 +127,18 @@ def enable():
         return
 
     _setup_tracer_provider()
+
+
+@contextlib.contextmanager
+def disabled():
+    """
+    Temporarily disable tracing for the duration of the context manager.
+    """
+    try:
+        disable()
+        yield
+    finally:
+        enable()
 
 
 def reset_tracer_setup():
