@@ -361,6 +361,9 @@ class LiveSpan(Span):
         return Span(self._span)
 
 
+NO_OP_SPAN_REQUEST_ID = "MLFLOW_NO_OP_SPAN_REQUEST_ID"
+
+
 class NoOpSpan(Span):
     """
     No-op implementation of the Span interface.
@@ -382,6 +385,13 @@ class NoOpSpan(Span):
 
     def __init__(self, *args, **kwargs):
         self._attributes = {}
+
+    @property
+    def request_id(self):
+        """
+        No-op span returns a special request ID to distinguish it from the real spans.
+        """
+        return NO_OP_SPAN_REQUEST_ID
 
     @property
     def span_id(self):

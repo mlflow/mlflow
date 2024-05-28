@@ -203,7 +203,11 @@ def start_span(
         InMemoryTraceManager.get_instance().register_span(mlflow_span)
 
     except Exception as e:
-        _logger.debug("Failed to start span: %s", e, exc_info=True)
+        _logger.warning(
+            f"Failed to start span: {e}. ",
+            "For full traceback, set logging level to debug.",
+            exc_info=_logger.isEnabledFor(logging.DEBUG),
+        )
         mlflow_span = NoOpSpan()
         yield mlflow_span
         return
@@ -214,7 +218,14 @@ def start_span(
         with trace_api.use_span(mlflow_span._span, end_on_exit=False):
             yield mlflow_span
     finally:
-        mlflow_span.end()
+        try:
+            mlflow_span.end()
+        except Exception as e:
+            _logger.warning(
+                f"Failed to end span {mlflow_span.span_id}: {e}. "
+                "For full traceback, set logging level to debug.",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )
 
 
 @experimental

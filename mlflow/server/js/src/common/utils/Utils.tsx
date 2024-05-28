@@ -22,6 +22,7 @@ import { FormattedMessage } from 'react-intl';
 import { ErrorWrapper } from './ErrorWrapper';
 import { KeyValueEntity, RunInfoEntity } from '../../experiment-tracking/types';
 import { FileCodeIcon, FolderBranchIcon, NotebookIcon, WorkflowsIcon } from '@databricks/design-system';
+import { NOTE_CONTENT_TAG } from '../../experiment-tracking/utils/NoteUtils';
 
 class Utils {
   /**
@@ -608,6 +609,14 @@ class Utils {
     const runNameTag = runTags[Utils.runNameTag];
     if (runNameTag) {
       return runNameTag.value;
+    }
+    return '';
+  }
+
+  static getRunDescriptionFromTags(runTags: any) {
+    const runDescriptionTag = runTags[NOTE_CONTENT_TAG];
+    if (runDescriptionTag) {
+      return runDescriptionTag.value;
     }
     return '';
   }

@@ -351,7 +351,7 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
 
 
 def _infer_signature_from_input_example(
-    input_example: ModelInputExample, wrapped_model, return_prediction=False
+    input_example: ModelInputExample, wrapped_model, return_prediction=False, no_conversion=False
 ) -> Optional[ModelSignature]:
     """
     Infer the signature from an example input and a PyFunc wrapped model. Catches all exceptions.
@@ -370,9 +370,10 @@ def _infer_signature_from_input_example(
             input_example, params = input_example
         else:
             params = None
-        example = _Example(input_example)
-        # Copy the input example so that it is not mutated by predict()
-        input_example = deepcopy(example.inference_data)
+        if not no_conversion:
+            example = _Example(input_example)
+            # Copy the input example so that it is not mutated by predict()
+            input_example = deepcopy(example.inference_data)
         input_schema = _infer_schema(input_example)
         params_schema = _infer_param_schema(params) if params else None
         prediction = wrapped_model.predict(input_example, params=params)

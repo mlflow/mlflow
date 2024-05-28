@@ -140,15 +140,6 @@ class InMemoryTraceManager:
         """
         return self._trace_id_to_request_id.get(trace_id)
 
-    def get_mlflow_trace(self, request_id: int) -> Optional[Trace]:
-        """
-        Get the trace data for the given trace ID and return it as a ready-to-publish Trace object.
-        """
-        with self._lock:
-            trace = self._traces.get(request_id)
-
-        return trace.to_mlflow_trace() if trace else None
-
     def pop_trace(self, trace_id: int) -> Optional[Trace]:
         """
         Pop the trace data for the given id and return it as a ready-to-publish Trace object.
