@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import List
 
 import pandas as pd
@@ -22,8 +23,6 @@ def test_hydrate_dataclass_input_no_dataclass():
 
 def test_hydrate_dataclass_simple():
     # Define a dataclass
-    from dataclasses import dataclass
-
     @dataclass
     class MyDataclass:
         a: int
@@ -38,9 +37,7 @@ def test_hydrate_dataclass_simple():
 
 
 def test_hydrate_dataclass_complex():
-    # Define a dataclass
-    from dataclasses import dataclass
-
+    # Define a more complex dataclass
     @dataclass
     class MyDataclass:
         a: int
