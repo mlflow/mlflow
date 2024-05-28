@@ -705,6 +705,8 @@ class Model:
                             with open(model_config) as f:
                                 model_config = json.load(f)
                         elif file_extension in [".yaml", ".yml"]:
+                            if not os.path.isabs(model_config):
+                                model_config = os.path.abspath(model_config)
                             with open(model_config) as f:
                                 model_config = yaml.safe_load(f)
                         else:

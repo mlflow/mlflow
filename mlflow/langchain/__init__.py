@@ -271,6 +271,8 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
 
     if isinstance(model_config, str):
+        if not os.path.isabs(model_config):
+            model_config = os.path.abspath(model_config)
         if os.path.exists(model_config):
             model_config = _load_from_yaml(model_config)
         else:
