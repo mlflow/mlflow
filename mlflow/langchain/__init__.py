@@ -257,8 +257,8 @@ def save_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         streamable: A boolean value indicating if the model supports streaming prediction. If
-            True, the model must implement `stream` method. If None, the model's streamability
-            is inferred from the model type. Default to `None`.
+            True, the model must implement `stream` method. If None, streamable is
+            set to True if the model implements `stream` method. Default to `None`.
     """
     import langchain
     from langchain.schema import BaseRetriever
@@ -543,7 +543,7 @@ def log_model(
                                     release without warning.
         streamable: A boolean value indicating if the model supports streaming prediction. If
             True, the model must implement `stream` method. If None, If None, streamable is
-            set to True if the model has the stream attribute. Default to `None`.
+            set to True if the model implements `stream` method. Default to `None`.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
