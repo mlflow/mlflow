@@ -36,7 +36,7 @@ def test_log_and_load_single_index_pyfunc(request, tmp_path, index_fixture, shou
             index=index,
             artifact_path=artifact_path,
             engine_type="query",
-            engine_kwargs={},
+            model_config={},
             conda_env=str(conda_env),
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"

@@ -9,10 +9,8 @@ import mlflow
 import mlflow.exceptions
 from mlflow import pyfunc
 from mlflow.llama_index.serialize_objects import (
-    deserialize_json_to_engine_kwargs,
-    deserialize_json_to_settings,
-    serialize_engine_kwargs_to_json,
-    serialize_settings_to_json,
+    deserialize_settings,
+    serialize_settings,
 )
 from mlflow.llama_index.signature import (
     infer_signature_from_input_example,
@@ -54,7 +52,6 @@ _SUPPORTED_ENGINES = {_CHAT_ENGINE_NAME, _QUERY_ENGINE_NAME, _RETRIEVER_ENGINE_N
 FLAVOR_NAME = "llama_index"
 _INDEX_PERSIST_FOLDER = "index"
 _SETTINGS_DIRECTORY = "settings"
-_ENGINE_KWARGS_DIRECTORY = "engine_kwargs"
 
 
 _logger = logging.getLogger(__name__)
@@ -79,11 +76,24 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-def _should_add_pyfunc_to_model(index):
-    """
-    PLACEHOLDER: validate whether the desired index being logged should be supported by pyfunc
-    """
-    return True
+def _validate_engine_type(engine_type: str):
+    if engine_type not in _SUPPORTED_ENGINES:
+        raise ValueError(
+            f"Currently mlflow only supports the following engine types: "
+            f"{_SUPPORTED_ENGINES}. {engine_type} is not supported, so please"
+            "use one of the above types"
+        )
+
+
+def _get_llama_index_version() -> str:
+    try:
+        import llama_index.core
+
+        return llama_index.core.__version__
+    except ImportError:
+        raise ImportError("The llama_index module is not installed.")
+    except AttributeError:
+        raise AttributeError("The llama_index module does not have a __version__ attribute.")
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -91,7 +101,7 @@ def save_model(
     index,
     path: str,
     engine_type: str,
-    engine_kwargs: Optional[Dict[str, any]] = None,
+    model_config: Optional[Dict[str, Any]] = None,
     code_paths=None,
     mlflow_model: Optional[Model] = None,
     signature: Optional[ModelSignature] = None,
@@ -115,10 +125,11 @@ def save_model(
             - "query": instantiate the object as a llama_index ``query_engine``.
             - "retriever": instantiate the object as a llama_index ``retriever``.
 
-        engine_kwargs: Keyword arguments to be passed to the llama_index engine at instantiation.
+        model_config: Keyword arguments to be passed to the llama_index engine at instantiation.
             Note that not all llama index objects have supported serialization; when an object is
             not supported, an info log message will be emitted and the unsupported object will be
             dropped.
+
         code_paths: {{ code_paths }}
         mlflow_model: An MLflow model object that specifies the flavor that this model is being
             added to.
@@ -130,17 +141,9 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
-        : Optional additional configurations for transformers serialization.
     """
-    import llama_index
 
-    if engine_type not in _SUPPORTED_ENGINES:
-        raise ValueError(
-            f"Currently mlflow only supports the following engine types: "
-            f"{_SUPPORTED_ENGINES}. {engine_type} is not supported, so please"
-            "use one of the above types"
-        )
-
+    _validate_engine_type(engine_type)
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
@@ -163,38 +166,28 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    engine_kwargs_path = os.path.join(path, _ENGINE_KWARGS_DIRECTORY)
-    serialize_engine_kwargs_to_json(engine_kwargs, engine_kwargs_path)
-
-    from llama_index.core import Settings
-
+    # NB: llama_index.core.Settings is a singleton that manages the storage/service context
+    # for a given llama_index application. Given it holds the required objects for most of
+    # the index's functionality, we look to serialize the entire object. For components of
+    # the object that are not serializable, we log a warning.
     settings_path = os.path.join(path, _SETTINGS_DIRECTORY)
-    serialize_settings_to_json(Settings, settings_path)
+    serialize_settings(settings_path)
 
-    model_data_path = path
-    _save_model(index, model_data_path)
+    _save_model(index, path)
 
-    flavor_conf = {"engine_type": engine_type}
-    if _should_add_pyfunc_to_model(index):
-        if mlflow_model.signature is None:
-            mlflow_model.signature = infer_signature_from_input_example(
-                index=index,
-                example=input_example,
-                flavor_config=flavor_conf,
-            )
-
+    model_config.update({"engine_type": engine_type})
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.llama_index",
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
+        model_config=model_config,
     )
     mlflow_model.add_flavor(
         FLAVOR_NAME,
-        llama_index_version=llama_index.core.__version__,
+        llama_index_version=_get_llama_index_version(),
         code=code_dir_subpath,
-        **flavor_conf,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -228,7 +221,7 @@ def log_model(
     index,
     artifact_path: str,
     engine_type: str,
-    engine_kwargs: Optional[Dict[str, any]] = None,
+    model_config: Optional[Dict[str, any]] = None,
     code_paths: Optional[List[str]] = None,
     registered_model_name: Optional[str] = None,
     signature: Optional[ModelSignature] = None,
@@ -253,7 +246,7 @@ def log_model(
             - "query": instantiate the object as a llama_index `query_engine`.
             - "retriever": instantiate the object as a llama_index `retriever`.
 
-        engine_kwargs: Keyword arguments to be passed to the llama_index engine at instantiation.
+        model_config: Keyword arguments to be passed to the llama_index engine at instantiation.
             Note that not all llama index objects have supported serialization; when an object is
             not supported, an info log message will be emitted and the unsupported object will be
             dropped.
@@ -280,7 +273,7 @@ def log_model(
     return Model.log(
         artifact_path=artifact_path,
         engine_type=engine_type,
-        engine_kwargs=engine_kwargs,
+        model_config=model_config,
         flavor=mlflow.llama_index,
         registered_model_name=registered_model_name,
         index=index,
@@ -338,23 +331,20 @@ def load_model(model_uri, dst_path=None):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
 
     settings_path = os.path.join(local_model_path, _SETTINGS_DIRECTORY)
-    # Settings is a singleton, so it does not need to be passed
-    _ = deserialize_json_to_settings(settings_path)
+    # Settings is a singleton
+    deserialize_settings(settings_path)
 
     return _load_model(local_model_path, flavor_conf)
 
 
-def _load_pyfunc(path):
-    engine_kwargs_path = os.path.join(path, _ENGINE_KWARGS_DIRECTORY)
-    engine_kwargs = deserialize_json_to_engine_kwargs(engine_kwargs_path)
-
+def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
-    engine_type = flavor_conf["engine_type"]
-    return _LlamaIndexModelWrapper(_load_model(path, flavor_conf), engine_type, engine_kwargs)
+    engine_type = model_config.pop("engine_type")
+    return _LlamaIndexModelWrapper(_load_model(path, flavor_conf), engine_type, model_config)
 
 
 class _LlamaIndexModelWrapper:
-    def __init__(self, index, engine_type, engine_kwargs):
+    def __init__(self, index, engine_type, model_config):
         """
         PLACEHOLDER
         - Convert to a builder class
@@ -372,7 +362,7 @@ class _LlamaIndexModelWrapper:
 
         engine_method_name = _engine_to_instantiation_method[engine_type]
         engine_method = getattr(index, engine_method_name)
-        engine = engine_method(**engine_kwargs)
+        engine = engine_method(**model_config)
 
         engine_interaction_method = _engine_to_interaction_method[engine_type]
         self.predict_method = getattr(engine, engine_interaction_method)

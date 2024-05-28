@@ -2,58 +2,38 @@ import importlib
 import inspect
 import json
 import logging
-from typing import Callable, Dict, Set, Tuple
+from typing import Callable, Dict
 
-from llama_index.core import PromptTemplate, Settings
+import llama_index
+from llama_index.core import PromptTemplate
 
 _logger = logging.getLogger(__name__)
 
-_SUPPORTED_SERIALIZATION_METHODS = ["to_dict", "dict"]
+OBJECT_DICT_METHOD_MAP = {
+    llama_index.core.llms.llm.LLM: ("to_dict", "from_dict"),
+    llama_index.core.base.embeddings.base.BaseEmbedding: ("to_dict", "from_dict"),
+    llama_index.core.node_parser.interface.NodeParser: ("to_dict", "from_dict"),
+    llama_index.core.indices.prompt_helper.PromptHelper: ("to_dict", "from_dict"),
+}
 
 
-def _extract_constructor_from_object(o: object) -> Callable:
-    if hasattr(o, "__class__"):
-        for cls in inspect.getmro(o.__class__):
-            if hasattr(cls, "__init__"):
-                return cls
-        raise AttributeError(
-            f"Class {o.__class} does not have a __init__ method and thereby cannot "
-            "be concerted to a callable."
-        )
-    else:
-        raise AttributeError(
-            f"Object {o} does not have __class__ attribute and thereby cannot be "
-            "converted to callable."
-        )
+def _object_to_dict(obj: object) -> Dict[str, any]:
+    for k, v in OBJECT_DICT_METHOD_MAP.items():
+        if isinstance(obj, k):
+            if not hasattr(obj, v[0]):
+                raise AttributeError(
+                    f"Object {obj} was inferred to be of type {k} but does not "
+                    "have a {v[0]} method. Ensure that `OBJECT_DICT_METHOD_MAP` is "
+                    "correct and the object is of type {k}."
+                )
 
+            return getattr(obj, v[0])()
 
-def _get_dict_method_if_exists(o: object) -> Dict[str, any]:
-    for method in _SUPPORTED_SERIALIZATION_METHODS:
-        if hasattr(o, method):
-            return getattr(o, method)()
-
-    raise AttributeError(f"Object {o} does not have a supported deserialization method.")
-
-
-def _get_kwargs(c: Callable) -> Tuple[Set]:
-    params = inspect.signature(c).parameters
-    required_kwargs, optional_kwargs = [], []
-
-    for name, param in params.items():
-        if name != "self":
-            if param.default is inspect.Parameter.empty:
-                required_kwargs.append(name)
-            else:
-                optional_kwargs.append(name)
-
-    return (required_kwargs, optional_kwargs)
+    raise AttributeError(f"Object {obj} does not have a supported deserialization method.")
 
 
 def _get_object_import_path(o: object, do_validate_import: bool = False) -> str:
     """Return an import path to the object."""
-    # TODO: class_name is in the to_dict() payload. If we can traverse the dependency
-    # tree to get an object constructor by class name, that might be more robust given
-    # import paths can change
     if not inspect.isclass(o):
         o = o.__class__
 
@@ -69,55 +49,25 @@ def _get_object_import_path(o: object, do_validate_import: bool = False) -> str:
     return f"{module_name}.{class_name}"
 
 
-def _sanitize_api_key(d: Dict[str, str]) -> Dict[str, str]:
-    # TODO: drop API key and make a note that it must be in an enviornment variable
-    return d
+def _sanitize_api_key(object_as_dict: Dict[str, str]) -> Dict[str, str]:
+    keys_to_remove = [k for k in object_as_dict.keys() if "api_key" in k.lower()]
 
+    for k in keys_to_remove:
+        if object_as_dict.pop(k, None):
+            _logger.info(
+                "API key removed from object serialization. At inference time,"
+                " the key must be passed as an environment variable or via inference"
+                " parameters."
+            )
 
-def _has_arg_unpacking(c: Callable) -> bool:
-    """
-    If the passed callable is a wrapped function, the kwargs unpack will operate on the
-    wrapping function.
-    """
-    params = inspect.signature(c).parameters.values()
-    return any(p.kind == p.VAR_POSITIONAL for p in params)
-
-
-def _has_kwarg_unpacking(c: Callable) -> bool:
-    """
-    If the passed callable is a wrapped function, the kwargs unpack will operate on the
-    wrapping function.
-    """
-    params = inspect.signature(c).parameters.values()
-    return any(p.kind == p.VAR_KEYWORD for p in params)
-
-
-def _sanitize_kwargs(o: object, o_state_as_dict: Dict[str, any]) -> Dict[str, any]:
-    """
-    Sanitize the object kwargs by...
-    1. Asserting that all required kwargs exist in the object state dict.
-    2. Dropping all state that is not an argument in the object constructor signature.
-    """
-    o_callable = _extract_constructor_from_object(o)
-    required_kwargs, optional_kwargs = _get_kwargs(o_callable)
-    missing_kwargs = set(required_kwargs) - set(o_state_as_dict.keys())
-    if len(missing_kwargs) > 0:
-        raise ValueError(
-            f"When trying to validate {o.__class__} payload, the following required kwargs "
-            f"were missing: {missing_kwargs}. It is possible that the incorrect constructor "
-            f"{o_callable.__class__} is being used for the inferred kwargs."
-        )
-
-    if _has_kwarg_unpacking(o_callable) or _has_arg_unpacking(o_callable):
-        # If there is argument unpacking, we can't condense the payload to kwargs in the constructor
-        return o_state_as_dict
-    else:
-        return {k: v for k, v in o_state_as_dict.items() if k in required_kwargs + optional_kwargs}
+    return object_as_dict
 
 
 def object_to_dict(o: object) -> None:
     try:
-        o_state_as_dict = _get_dict_method_if_exists(o)
+        o_state_as_dict = _object_to_dict(o)
+        o_state_as_dict = _sanitize_api_key(o_state_as_dict)
+        o_state_as_dict.pop("class_name")
     except AttributeError as e:
         if "does not have a supported deserialization method" in str(e):
             _logger.info(str(e))
@@ -127,18 +77,20 @@ def object_to_dict(o: object) -> None:
 
     return {
         "object_constructor": _get_object_import_path(o, do_validate_import=True),
-        "object_kwargs": _sanitize_kwargs(o, o_state_as_dict),
+        "object_kwargs": o_state_as_dict,
     }
 
 
-def _construct_prompt_template_object(c: Callable, kwargs: Dict[str, any]) -> PromptTemplate:
+def _construct_prompt_template_object(
+    constructor: Callable, kwargs: Dict[str, any]
+) -> PromptTemplate:
     """Construct a PromptTemplate object based on the constructor and kwargs.
 
     This method is necessary because the `template_vars` cannot be passed directly to the
     constructor and needs to be set on an instantiated object.
     """
     if template := kwargs.pop("template", None):
-        prompt_template = c(template)
+        prompt_template = constructor(template)
         for k, v in kwargs.items():
             setattr(prompt_template, k, v)
 
@@ -149,27 +101,38 @@ def _construct_prompt_template_object(c: Callable, kwargs: Dict[str, any]) -> Pr
         )
 
 
-def dict_to_object(d: Dict[str, str]) -> object:
-    if "object_constructor" not in d:
+def dict_to_object(object_representation: Dict[str, str]) -> object:
+    if "object_constructor" not in object_representation:
         raise ValueError("'object_constructor' key not found in dict.")
-    if "object_kwargs" not in d:
+    if "object_kwargs" not in object_representation:
         raise ValueError("'object_kwargs' key not found in dict.")
 
-    constructor = d["object_constructor"]
-    kwargs = d["object_kwargs"]
+    constructor_str = object_representation["object_constructor"]
+    kwargs = object_representation["object_kwargs"]
 
-    import_path, class_name = constructor.rsplit(".", 1)
+    import_path, class_name = constructor_str.rsplit(".", 1)
     module = importlib.import_module(import_path)
 
     if isinstance(module, PromptTemplate):
         return _construct_prompt_template_object(module, kwargs)
     else:
-        # Generic object that can be constructed from class __init__ method
-        callable = getattr(module, class_name)
-        return callable(**kwargs)
+        object_class = getattr(module, class_name)
+
+        for k, v in OBJECT_DICT_METHOD_MAP.items():
+            if isinstance(object_class, k):
+                if not hasattr(object_class, v[1]):
+                    raise AttributeError(
+                        f"Object {object_class} was inferred to be of type {k} but does not "
+                        "have a {v[1]} method. Ensure that `OBJECT_DICT_METHOD_MAP` is "
+                        "correct and the object is of type {k}."
+                    )
+
+                return object_class.from_dict(kwargs)
+
+        return object_class(**kwargs)
 
 
-def _deserialize_json_to_dict_of_objects(path: str) -> Dict[str, any]:
+def _deserialize_dict_of_objects(path: str) -> Dict[str, any]:
     with open(path) as f:
         to_deserialize = json.load(f)
 
@@ -183,7 +146,7 @@ def _deserialize_json_to_dict_of_objects(path: str) -> Dict[str, any]:
         return output
 
 
-def _serialize_dict_of_objects_to_json(dict_of_objects: Dict[str, object], path: str) -> None:
+def _serialize_dict_of_objects(dict_of_objects: Dict[str, object], path: str) -> None:
     to_serialize = {}
 
     for k, v in dict_of_objects.items():
@@ -203,22 +166,18 @@ def _serialize_dict_of_objects_to_json(dict_of_objects: Dict[str, object], path:
         json.dump(to_serialize, f, indent=2)
 
 
-def serialize_settings_to_json(settings: Settings, path: str) -> None:
-    _serialize_dict_of_objects_to_json(settings.__dict__, path)
+def serialize_settings(path: str) -> None:
+    from llama_index.core import Settings
+
+    _serialize_dict_of_objects(Settings.__dict__, path)
 
 
-def deserialize_json_to_settings(path: str) -> Settings:
-    settings_dict = _deserialize_json_to_dict_of_objects(path)
+def deserialize_settings(path: str):
+    settings_dict = _deserialize_dict_of_objects(path)
+
+    from llama_index.core import Settings
 
     for k, v in settings_dict.items():
         setattr(Settings, k, v)
 
     return Settings
-
-
-def serialize_engine_kwargs_to_json(engine_kwargs: Dict[str, object], path: str) -> None:
-    _serialize_dict_of_objects_to_json(engine_kwargs, path)
-
-
-def deserialize_json_to_engine_kwargs(path: str) -> Dict[str, object]:
-    return _deserialize_json_to_dict_of_objects(path)

@@ -17,8 +17,6 @@ def generate_signature_output(index, data, model_config=None, flavor_config=None
     """
     PLACEHOLDER
     """
-    # Lazy import to avoid circular dependencies. Ideally we should move _LlamaIndexModelWrapper
-    # out from __init__.py to avoid this.
     from mlflow.llama_index import _LlamaIndexModelWrapper
 
     return _LlamaIndexModelWrapper(
