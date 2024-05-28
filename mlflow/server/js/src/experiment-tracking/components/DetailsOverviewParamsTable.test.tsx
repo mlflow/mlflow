@@ -44,8 +44,8 @@ describe('DetailsOverviewParamsTable', () => {
     expect(screen.getAllByRole('row')).toHaveLength(10); // 9 rows + 1 header row
 
     // Expect rows to be sorted
-    expect(screen.getAllByRole('row')[1].getElementsByTagName("span")[0].textContent).toEqual("param_a1");
-    expect(screen.getAllByRole('row')[9].getElementsByTagName("span")[0].textContent).toEqual("param_c3");
+    expect(screen.getAllByRole('row')[1]).toHaveTextContent("param_a1");
+    expect(screen.getAllByRole('row')[9]).toHaveTextContent("param_c3");
 
     await fastFillInput(screen.getByRole('textbox'), 'param_a');
 

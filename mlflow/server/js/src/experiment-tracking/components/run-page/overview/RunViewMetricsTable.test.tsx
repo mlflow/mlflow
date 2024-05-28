@@ -52,8 +52,8 @@ describe('RunViewMetricsTable', () => {
     expect(screen.getAllByRole('row')).toHaveLength(9 + 1);
 
     // Expect rows to be sorted
-    expect(screen.getAllByRole('row')[1].getElementsByTagName("span")[0].textContent).toEqual("metric_a1");
-    expect(screen.getAllByRole('row')[9].getElementsByTagName("span")[0].textContent).toEqual("metric_c3");
+    expect(screen.getAllByRole('row')[1]).toHaveTextContent("metric_a1");
+    expect(screen.getAllByRole('row')[9]).toHaveTextContent("metric_c3");
 
     // Change the filter query
     await fastFillInput(screen.getByRole('textbox'), 'metric_a');
