@@ -47,12 +47,11 @@ python --version
 pip install --upgrade pip wheel
 pip --version
 
-# TODO: Remove version pinning for `requests` once https://github.com/docker/docker-py/issues/3256 is resolved
 if [[ "$SKINNY" == "true" ]]; then
   cat pyproject.skinny.toml > pyproject.toml
-  pip install . --upgrade 'requests<2.32.0'
+  pip install . --upgrade
 else
-  pip install .[extras] --upgrade 'requests<2.32.0'
+  pip install .[extras] --upgrade
 fi
 
 req_files=""

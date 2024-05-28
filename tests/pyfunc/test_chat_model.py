@@ -336,3 +336,17 @@ def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
         **DEFAULT_PARAMS,
         **params_subset,
     }
+
+
+def test_chat_model_predict_stream(tmp_path):
+    model = TestChatModel()
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
+
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant"},
+        {"role": "user", "content": "Hello!"},
+    ]
+
+    response = next(loaded_model.predict_stream({"messages": messages}))
+    assert response["choices"][0]["message"]["content"] == json.dumps(messages)

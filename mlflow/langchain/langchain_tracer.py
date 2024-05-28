@@ -18,7 +18,7 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.exceptions import MlflowException
-from mlflow.pyfunc.context import Context, set_prediction_context
+from mlflow.pyfunc.context import Context, maybe_set_prediction_context
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
 
 _logger = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         attributes: Optional[Dict[str, Any]] = None,
     ) -> LiveSpan:
         """Start MLflow Span (or Trace if it is root component)"""
-        with set_prediction_context(self._prediction_context):
+        with maybe_set_prediction_context(self._prediction_context):
             parent = self._get_parent_span(parent_run_id)
             if parent:
                 span = self._mlflow_client.start_span(
@@ -146,7 +146,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             # if the generator returned by stream() is not consumed completely
             return
 
-        with set_prediction_context(self._prediction_context):
+        with maybe_set_prediction_context(self._prediction_context):
             self._mlflow_client.end_span(
                 request_id=span.request_id,
                 span_id=span.span_id,
