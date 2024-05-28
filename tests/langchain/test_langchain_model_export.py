@@ -56,6 +56,7 @@ from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.langchain.utils import (
     _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
     IS_PICKLE_SERIALIZATION_RESTRICTED,
+    lc_runnables_types,
 )
 from mlflow.models import Model
 from mlflow.models.dependencies_schemas import DependenciesSchemasType
@@ -3159,34 +3160,26 @@ def test_load_chain_with_model_config_overrides_saved_config(chain_model_signatu
 )
 @pytest.mark.parametrize("streamable", [True, False, None])
 def test_langchain_model_streamable_param_in_log_model(streamable, fake_chat_model):
-    from langchain.prompts import ChatPromptTemplate
-    from langchain.schema.output_parser import StrOutputParser
+    for model_type in lc_runnables_types():
+        with mock.patch("mlflow.langchain._save_model"), mlflow.start_run():
+            model = mock.MagicMock(spec=model_type)
+            assert hasattr(model, "stream") is True
+            model_info = mlflow.langchain.log_model(
+                lc_model=model,
+                artifact_path="model",
+                streamable=streamable,
+                pip_requirements=[],
+            )
 
-    prompt = ChatPromptTemplate.from_template("What's your favorite {industry} company?")
-    chain = prompt | fake_chat_model | StrOutputParser()
-    with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(
-            lc_model=chain,
-            artifact_path="model",
-            streamable=streamable,
-        )
+            expected = (streamable is None) or streamable
+            assert model_info.flavors["langchain"]["streamable"] is expected
 
-    if streamable is False:
-        assert model_info.flavors["langchain"]["streamable"] is False
-    else:
-        assert model_info.flavors["langchain"]["streamable"] is True
-
-    with mock.patch("mlflow.langchain._save_runnables"), mlflow.start_run():
-        model = mock.MagicMock(spec=prompt)
-        del model.stream
-        assert hasattr(model, "stream") is False
-        model_info = mlflow.langchain.log_model(
-            lc_model=model,
-            artifact_path="model",
-            streamable=streamable,
-        )
-
-        if streamable is True:
-            assert model_info.flavors["langchain"]["streamable"] is True
-        else:
-            assert model_info.flavors["langchain"]["streamable"] is False
+            del model.stream
+            assert hasattr(model, "stream") is False
+            model_info = mlflow.langchain.log_model(
+                lc_model=model,
+                artifact_path="model",
+                streamable=streamable,
+                pip_requirements=[],
+            )
+            assert model_info.flavors["langchain"]["streamable"] is bool(streamable)
