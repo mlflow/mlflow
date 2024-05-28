@@ -298,7 +298,7 @@ extracting_tar_command = \"\"\"
 \"\"\"
 subprocess.check_call(extracting_tar_command, shell=True)
 
-os.chdir({project_dir})
+os.chdir('{project_dir}')
 {origin_job_code}
 """
         )
