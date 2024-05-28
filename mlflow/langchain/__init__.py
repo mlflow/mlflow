@@ -347,7 +347,7 @@ def save_model(
             mlflow_model.metadata.update(schema)
 
     if streamable is None:
-        streamable = isinstance(lc_model, lc_runnables_types())
+        streamable = hasattr(lc_model, "stream")
 
     model_data_kwargs = {}
     flavor_conf = {}
