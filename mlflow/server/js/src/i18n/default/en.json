@@ -71,6 +71,10 @@
     "defaultMessage": "Model",
     "description": "Run page > Overview > Logged models > Unknown model flavor"
   },
+  "0HqSXX": {
+    "defaultMessage": "Request ID",
+    "description": "Experiment page > traces table > request id column header"
+  },
   "0IQod2": {
     "defaultMessage": "Add",
     "description": "Run page > Overview > Tags cell > 'Add' button label"
@@ -187,6 +191,10 @@
     "defaultMessage": "Load the model",
     "description": "Heading text for stating how to load the model from the experiment run"
   },
+  "2Ofya9": {
+    "defaultMessage": "Search traces using a simplified version of the SQL {whereBold} clause.",
+    "description": "Tooltip string to explain how to search runs from the experiments table"
+  },
   "2Us2jl": {
     "defaultMessage": "X axis",
     "description": "Label for X axis in Contour chart configurator in compare runs chart config modal"
@@ -287,6 +295,10 @@
     "defaultMessage": "Add",
     "description": "Add button text in editable tags table view in MLflow"
   },
+  "4qVc2+": {
+    "defaultMessage": "Tags",
+    "description": "Experiment page > traces table > tags column header"
+  },
   "4tpkvx": {
     "defaultMessage": "Show change from baseline",
     "description": "Runs charts > components > cards > RunsChartsDifferenceChartCard > Show change from baseline toggle label"
@@ -311,6 +323,10 @@
     "defaultMessage": "Schema {sectionName}",
     "description": "Field name text for schema table in the model comparison page"
   },
+  "5TRN+F": {
+    "defaultMessage": "Columns",
+    "description": "Experiment page > traces table > column selector > title"
+  },
   "5YOBk/": {
     "defaultMessage": "Export as CSV",
     "description": "Experiment page > compare runs tab > chart header > export CSV data option"
@@ -334,6 +350,10 @@
   "5yWkFd": {
     "defaultMessage": "Increase or decrease the confidence level of the language model.",
     "description": "Experiment page > prompt lab > temperature parameter help text"
+  },
+  "60C/WF": {
+    "defaultMessage": "Trace name",
+    "description": "Experiment page > traces table > trace name column header"
   },
   "656rRX": {
     "defaultMessage": "Go back to <link>the home page.</link>",
@@ -374,6 +394,10 @@
   "6kSKRk": {
     "defaultMessage": "Comparing {numVersions} Versions",
     "description": "Text for main title for the model comparison page"
+  },
+  "6oYktw": {
+    "defaultMessage": "Execution time",
+    "description": "Experiment page > traces table > latency column header"
   },
   "6xPc4W": {
     "defaultMessage": "Predict on a Spark DataFrame:",
@@ -434,6 +458,10 @@
   "7m2B5x": {
     "defaultMessage": "There are no evaluable rows within this column",
     "description": "Experiment page > artifact compare view > run column header > Disabled \"Evaluate all\" button tooltip when no rows are evaluable"
+  },
+  "7mo4P0": {
+    "defaultMessage": "Notebook",
+    "description": "Experiment page > traces table > notebook column header"
   },
   "7nAMnb": {
     "defaultMessage": "Please input a name for the new model.",
@@ -587,6 +615,10 @@
     "defaultMessage": "Group by: {value}",
     "description": "Experiment page > group by runs control > trigger button label > with value"
   },
+  "AGQOPV": {
+    "defaultMessage": "Traces",
+    "description": "A button enabling traces mode on the experiment page"
+  },
   "AM8DuO": {
     "defaultMessage": "Failed",
     "description": "Run page > Overview > Run status cell > Value for failed state"
@@ -662,6 +694,10 @@
   "CevPsF": {
     "defaultMessage": "Add section above",
     "description": "Experiment page > compare runs > chart section > add section above label"
+  },
+  "Cj2i02": {
+    "defaultMessage": "Error",
+    "description": "Experiment page > traces table > error state title"
   },
   "CpLnGS": {
     "defaultMessage": "Metrics",
@@ -751,6 +787,10 @@
     "defaultMessage": "No results",
     "description": "Experiment page > sort selector > no results after filtering by search query"
   },
+  "EpFST9": {
+    "defaultMessage": "No trace data recorded",
+    "description": "Experiment page > traces data drawer > no trace data recorded empty state"
+  },
   "EwAZgg": {
     "defaultMessage": "Edit tags",
     "description": "Run page > Overview > Tags cell > 'Edit' button label"
@@ -778,6 +818,10 @@
   "FFe+Ug": {
     "defaultMessage": "Type a value",
     "description": "Key-value tag editor modal > Value input placeholder"
+  },
+  "FPMrvd": {
+    "defaultMessage": "Search traces",
+    "description": "Experiment page > traces view filters > filter string input placeholder"
   },
   "FZubuU": {
     "defaultMessage": "Input an experiment name",
@@ -1003,6 +1047,10 @@
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
     "description": "Breadcrumb nav item to link to the compare-experiments page on compare runs page"
   },
+  "LTe7m4": {
+    "defaultMessage": "No traces found with the current filter query. <button>Reset filters</button> to see all traces.",
+    "description": "Experiment page > traces table > no traces recorded"
+  },
   "Li72QU": {
     "defaultMessage": "Add",
     "description": "Key-value tag table cell > 'add' button label"
@@ -1042,6 +1090,10 @@
   "Mm7PVx": {
     "defaultMessage": "baseline",
     "description": "Runs charts > components > charts > DifferenceViewPlot > baseline tag"
+  },
+  "Mn7Kss": {
+    "defaultMessage": "OK",
+    "description": "Experiment page > traces table > status label > ok"
   },
   "Mtj9Ay": {
     "defaultMessage": "Edit description",
@@ -1103,6 +1155,10 @@
     "defaultMessage": "Load model as a Spark UDF. Override result_type if the model does not return double values.",
     "description": "Code comment which states how to load model using spark UDF"
   },
+  "O5FKCr": {
+    "defaultMessage": "Tokens",
+    "description": "Experiment page > traces table > tokens column header"
+  },
   "O9r1RR": {
     "defaultMessage": "Start Time:",
     "description": "Row title for the start time of runs on the experiment compare runs page"
@@ -1135,6 +1191,10 @@
     "defaultMessage": "Please select parameters",
     "description": "Placeholder text for parameters in parallel coordinates plot in MLflow"
   },
+  "PBkS4s": {
+    "defaultMessage": "Status",
+    "description": "Experiment page > traces table > status column header"
+  },
   "PEYesH": {
     "defaultMessage": "New run",
     "description": "Button used to pop up a modal to create a new run"
@@ -1142,6 +1202,10 @@
   "PGbCZD": {
     "defaultMessage": "Production",
     "description": "Column title for production phase version in the registered model page"
+  },
+  "PHfEFY": {
+    "defaultMessage": "{hiddenColumns} hidden",
+    "description": "Experiment page > traces table > column selector > hidden columns indicator"
   },
   "PKYh23": {
     "defaultMessage": "Additional runs",
@@ -1299,6 +1363,10 @@
     "defaultMessage": "Deleting the section will permanently remove it and the charts it contains. This cannot be undone.",
     "description": "Experiment page > compare runs > chart section > delete section warning message"
   },
+  "TQZ+X6": {
+    "defaultMessage": "Request",
+    "description": "Experiment page > traces table > input column header"
+  },
   "TfuAgs": {
     "defaultMessage": "Hide group",
     "description": "A tooltip for the visibility icon button in the runs table next to the visible run group"
@@ -1358,6 +1426,10 @@
   "UzZf+2": {
     "defaultMessage": "Add chart",
     "description": "Confirm button label within a modal when adding a new runs comparison chart"
+  },
+  "V3BImd": {
+    "defaultMessage": "Time created",
+    "description": "Experiment page > traces table > time created column header"
   },
   "V4CsL/": {
     "defaultMessage": "Unable to list artifacts stored under {artifactUri} for the current run. Please contact your tracking server administrator to notify them of this error, which can happen when the tracking server lacks permission to list artifacts under the current run's root artifact directory.",
@@ -1627,6 +1699,10 @@
     "defaultMessage": "See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor.",
     "description": "Subtext heading for a list of documents that describe how to customize the model using the mlflow.pyfunc module"
   },
+  "bQSJKh": {
+    "defaultMessage": "Permission denied for {modelName} version {version}. Error: \"{errorMsg}\"",
+    "description": "Permission denied error message on model version detail page"
+  },
   "bQZDSv": {
     "defaultMessage": "Enter aliases (champion, challenger, etc)",
     "description": "Model registry > model version alias select > Alias input placeholder"
@@ -1798,6 +1874,10 @@
   "ea5zBl": {
     "defaultMessage": "Run page loading",
     "description": "Run page > Loading state"
+  },
+  "eavoW/": {
+    "defaultMessage": "Error",
+    "description": "Experiment page > traces data drawer > error state title"
   },
   "eeLqSn": {
     "defaultMessage": "Submit",
@@ -1991,6 +2071,10 @@
     "defaultMessage": "collapse {title}",
     "description": "Common component > collapsible section > alternative label when expand"
   },
+  "igK5Su": {
+    "defaultMessage": "Error",
+    "description": "Experiment page > traces table > status label > error"
+  },
   "iwD/Dv": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text to cancel the flow to register the model"
@@ -2155,6 +2239,10 @@
     "defaultMessage": "Reset filters",
     "description": "Reset filters button in list"
   },
+  "n31miD": {
+    "defaultMessage": "No traces recorded",
+    "description": "Experiment page > traces table > no traces recorded"
+  },
   "nC54Nf": {
     "defaultMessage": "Tags",
     "description": "Column title for model tags in the registered model page"
@@ -2270,6 +2358,10 @@
   "pEpexK": {
     "defaultMessage": "Clear filters",
     "description": "Label for a button that clears all filters, visible on a experiment runs page next to a empty state when all runs have been filtered out"
+  },
+  "pHAqL+": {
+    "defaultMessage": "Response",
+    "description": "Experiment page > traces table > output column header"
   },
   "pTDM+x": {
     "defaultMessage": "Select LLM model endpoint",
@@ -2591,6 +2683,10 @@
     "defaultMessage": "Comparing first {count} groups and runs",
     "description": "Experiment page > compare runs > chart header > compared groups and runs count label"
   },
+  "y56Vz9": {
+    "defaultMessage": "In progress",
+    "description": "Experiment page > traces table > status label > in progress"
+  },
   "yAuDRt": {
     "defaultMessage": "Evaluation is not possible because values for the following inputs cannot be determined: {missingParamList}. Add input columns to the \"group by\" settings or use \"Add row\" button to define new parameter set.",
     "description": "Experiment page > artifact compare view > text cell > missing evaluation parameter values tooltip"
@@ -2615,9 +2711,17 @@
     "defaultMessage": "Output",
     "description": "Experiment page > new run modal > evaluation output field label"
   },
+  "yeEPjS": {
+    "defaultMessage": "No traces found",
+    "description": "Experiment page > traces table > no traces recorded"
+  },
   "yjerKR": {
     "defaultMessage": "<link>Version {versionNumber}</link>",
     "description": "Link to model version in the model version table"
+  },
+  "yltHdB": {
+    "defaultMessage": "Run name",
+    "description": "Experiment page > traces table > run name column header"
   },
   "ynkoR7": {
     "defaultMessage": "No models versions are registered yet. <link>Learn more</link> about how to register a model version.",
