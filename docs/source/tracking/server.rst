@@ -114,10 +114,6 @@ Example
 
 This will create a SQLite database ``my.db`` in the current directory, and logging requests from clients will be pointed to this database.
 
-.. note::
-  If you are using a SQL-based backend store, the artifact store URI has to be specified, otherwise the server will fail to start (because we can't store artifacts to a SQL database).
-  Refer to the section below for details on how to configure the artifact store URI when using a SQL-based backend store.
-
 .. _tracking-server-artifact-store:
 
 Remote artifacts store
