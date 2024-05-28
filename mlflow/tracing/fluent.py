@@ -93,6 +93,8 @@ def trace(
 
 
         with mlflow.start_span("my_function") as span:
+            x = 1
+            y = 2
             span.set_inputs({"x": x, "y": y})
             result = my_function(x, y)
             span.set_outputs({"output": result})
@@ -163,7 +165,9 @@ def start_span(
         import mlflow
 
         with mlflow.start_span("my_span") as span:
-            span.set_inputs({"x": 1, "y": 2})
+            x = 1
+            y = 2
+            span.set_inputs({"x": x, "y": y})
 
             z = x + y
 
