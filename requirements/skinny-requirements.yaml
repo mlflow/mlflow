@@ -67,12 +67,13 @@ cachetools:
   minimum: "5.0.0"
   max_major_version: 5
 
+# 1.9.0 is the minimum supported version as NoOpTracer was introduced in 1.9.0
 opentelemetry-api:
   pip_release: opentelemetry-api
-  minimum: "1.0.0"
+  minimum: "1.9.0"
   max_major_version: 2
 
 opentelemetry-sdk:
   pip_release: opentelemetry-sdk
-  minimum: "1.0.0"
+  minimum: "1.9.0"
   max_major_version: 2
