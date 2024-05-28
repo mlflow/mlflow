@@ -50,7 +50,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         secret_access_key=None,
         session_token=None,
         credential_refresh_def=None,
-        addressing_style="virtual",
+        addressing_style="auto",
         s3_endpoint_url=None,
     ):
         super().__init__(artifact_uri)
