@@ -56,6 +56,7 @@ from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.langchain.utils import (
     _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
     IS_PICKLE_SERIALIZATION_RESTRICTED,
+    lc_runnables_types,
 )
 from mlflow.models import Model
 from mlflow.models.dependencies_schemas import DependenciesSchemasType
@@ -2836,19 +2837,6 @@ def test_simple_chat_model_stream_with_callbacks(fake_chat_stream_model):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
-)
-def test_langchain_model_not_streamable():
-    model = create_openai_llmchain()
-    with mlflow.start_run():
-        logged_model = mlflow.langchain.log_model(model, "langchain_model")
-
-    loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-    with pytest.raises(MlflowException, match="This model does not support predict_stream method"):
-        loaded_model.predict_stream({"product": "shoe"})
-
-
-@pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"),
     reason="feature not existing",
 )
@@ -3152,3 +3140,71 @@ def test_load_chain_with_model_config_overrides_saved_config(chain_model_signatu
             "context: {context}\nQuestion: {question}",
             "response": "Databricks",
         }
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+@pytest.mark.parametrize("streamable", [True, False, None])
+def test_langchain_model_streamable_param_in_log_model(streamable, fake_chat_model):
+    from langchain.chat_models import ChatOpenAI
+    from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnableParallel
+
+    prompt = ChatPromptTemplate.from_template("What's your favorite {industry} company?")
+    chain = prompt | fake_chat_model | StrOutputParser()
+
+    runnable = RunnableParallel({"llm": lambda _: "completion"})
+
+    llm = ChatOpenAI(temperature=0.9)
+    llm_chain = LLMChain(llm=llm, prompt=prompt)
+
+    for model in [chain, runnable, llm_chain]:
+        with mock.patch("mlflow.langchain._save_model"), mlflow.start_run():
+            model_info = mlflow.langchain.log_model(
+                lc_model=model,
+                artifact_path="model",
+                streamable=streamable,
+                pip_requirements=[],
+            )
+
+            expected = (streamable is None) or streamable
+            assert model_info.flavors["langchain"]["streamable"] is expected
+
+
+@pytest.fixture
+def model_type(request):
+    return lc_runnables_types()[request.param]
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+@pytest.mark.parametrize("streamable", [True, False, None])
+@pytest.mark.parametrize("model_type", range(len(lc_runnables_types())), indirect=True)
+def test_langchain_model_streamable_param_in_log_model_for_lc_runnable_types(
+    streamable, model_type
+):
+    with mock.patch("mlflow.langchain._save_model"), mlflow.start_run():
+        model = mock.MagicMock(spec=model_type)
+        assert hasattr(model, "stream") is True
+        model_info = mlflow.langchain.log_model(
+            lc_model=model,
+            artifact_path="model",
+            streamable=streamable,
+            pip_requirements=[],
+        )
+
+        expected = (streamable is None) or streamable
+        assert model_info.flavors["langchain"]["streamable"] is expected
+
+        del model.stream
+        assert hasattr(model, "stream") is False
+        model_info = mlflow.langchain.log_model(
+            lc_model=model,
+            artifact_path="model",
+            streamable=streamable,
+            pip_requirements=[],
+        )
+        assert model_info.flavors["langchain"]["streamable"] is bool(streamable)
