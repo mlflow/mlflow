@@ -85,3 +85,18 @@ class Trace(_MlflowObject):
             "spans": [span.to_dict() for span in self.data.spans],
             "tags": self.info.tags,
         }
+
+    @staticmethod
+    def pandas_dataframe_columns():
+        return [
+            "request_id",
+            "trace",
+            "timestamp_ms",
+            "status",
+            "execution_time_ms",
+            "request",
+            "response",
+            "request_metadata",
+            "spans",
+            "tags",
+        ]
