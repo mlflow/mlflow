@@ -32,7 +32,7 @@ def test_span_processor_and_exporter_default():
 
 
 def test_span_processor_and_exporter_model_serving(monkeypatch):
-    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "True")
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "True")
 
     _TRACER_PROVIDER_INITIALIZED._done = False
     tracer = _get_tracer("test")
