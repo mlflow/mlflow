@@ -157,7 +157,7 @@ export const ExperimentViewRunsTable = React.memo(
     );
 
     // A modern version of row visibility toggle function, supports "show all", "show first n runs" options
-    const toggleRowVisibilityV2 = useToggleRowVisibilityCallback(rowsData);
+    const toggleRowVisibilityV2 = useToggleRowVisibilityCallback(rowsData, uiState.useGroupedValuesInCharts);
 
     // This callback toggles visibility of runs: either all of them or a particular one
     // TODO: remove after new run row visibility model is rolled out completely
@@ -373,7 +373,10 @@ export const ExperimentViewRunsTable = React.memo(
             css={[styles.agGridOverrides(theme), { display: displayRunsTable ? 'block' : 'hidden', height: '100%' }]}
             aria-hidden={!displayRunsTable}
           >
-            <ExperimentViewRunsTableHeaderContextProvider runsHiddenMode={uiState.runsHiddenMode}>
+            <ExperimentViewRunsTableHeaderContextProvider
+              runsHiddenMode={uiState.runsHiddenMode}
+              useGroupedValuesInCharts={Boolean(uiState.groupBy) && uiState.useGroupedValuesInCharts}
+            >
               <MLFlowAgGridLoader
                 context={tableContext}
                 defaultColDef={EXPERIMENTS_DEFAULT_COLUMN_SETUP}

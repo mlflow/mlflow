@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ErrorCodes } from '../../../common/constants';
 import NotFoundPage from '../NotFoundPage';
 import { PermissionDeniedView } from '../PermissionDeniedView';
+import { ExperimentViewTraces } from './components/traces/ExperimentViewTraces';
 import { ExperimentViewHeaderCompare } from './components/header/ExperimentViewHeaderCompare';
 import { ExperimentViewRuns } from './components/runs/ExperimentViewRuns';
 import { useExperiments } from './hooks/useExperiments';
@@ -13,6 +14,7 @@ import { searchDatasetsApi } from '../../actions';
 import Utils from '../../../common/utils/Utils';
 import { ExperimentPageUIStateContextProvider } from './contexts/ExperimentPageUIStateContext';
 import { first } from 'lodash';
+import { shouldEnableTracingUI } from '../../../common/utils/FeatureUtils';
 import { useExperimentPageSearchFacets } from './hooks/useExperimentPageSearchFacets';
 import { usePersistExperimentPageViewState } from './hooks/usePersistExperimentPageViewState';
 import { useDispatch } from 'react-redux';
@@ -129,6 +131,9 @@ export const ExperimentView = () => {
   );
 
   const getRenderedView = () => {
+    if (shouldEnableTracingUI() && viewMode === 'TRACES') {
+      return <ExperimentViewTraces experimentIds={experimentIds} />;
+    }
     return (
       <ExperimentViewRuns
         isLoading={false}

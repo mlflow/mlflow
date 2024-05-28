@@ -14,6 +14,7 @@ import { EXPERIMENT_LOG_MODEL_HISTORY_TAG } from './experimentPage.common-utils'
 import { ThunkDispatch } from '../../../../redux-types';
 import type { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import { RUNS_SEARCH_MAX_RESULTS } from '../../../actions';
+import { getUUID } from '../../../../common/utils/ActionUtils';
 
 const START_TIME_COLUMN_OFFSET = {
   ALL: null,
@@ -173,7 +174,15 @@ export const fetchModelVersionsForRuns = (
   );
 
   chunk(runsWithLogModelHistory, MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER).forEach((runsChunk) => {
-    const action = actionCreator({ run_id: runsChunk.map((run) => run.info.run_id) });
+    // eslint-disable-next-line prefer-const
+    let maxResults = undefined;
+    const action = actionCreator(
+      {
+        run_id: runsChunk.map((run) => run.info.run_id),
+      },
+      getUUID(),
+      maxResults,
+    );
     dispatch(action);
   });
 };
