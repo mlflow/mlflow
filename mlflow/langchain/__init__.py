@@ -542,8 +542,8 @@ def log_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         streamable: A boolean value indicating if the model supports streaming prediction. If
-            True, the model must implement `stream` method. If None, we set streamable=True if
-            the model has `stream` attribute. Default to `None`.
+            True, the model must implement `stream` method. If None, If None, streamable is
+            set to True if the model has the stream attribute. Default to `None`.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
