@@ -8,9 +8,8 @@ import logging
 import os
 import shutil
 from abc import ABCMeta, abstractmethod
-from dataclasses import fields, is_dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, get_args, get_origin
+from typing import Any, Dict, List, Optional
 
 import cloudpickle
 import yaml
@@ -24,6 +23,7 @@ from mlflow.models.rag_signatures import ChatCompletionRequest, MultiturnChatReq
 from mlflow.models.signature import _extract_type_hints
 from mlflow.models.utils import _load_model_code_path
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
 from mlflow.utils.annotations import experimental
@@ -557,31 +557,6 @@ class _PythonModelPyfuncWrapper:
 
     def _convert_input(self, model_input):
         import pandas as pd
-
-        def _hydrate_dataclass(dataclass_type, data):
-            """
-            Recursively create an instance of the dataclass_type from data.
-            """
-            if not is_dataclass(dataclass_type):
-                raise ValueError(f"{dataclass_type} is not a dataclass")
-
-            field_names = {f.name: f.type for f in fields(dataclass_type)}
-            kwargs = {}
-            for key, field_type in field_names.items():
-                if key in data:
-                    value = data[key]
-                    if is_dataclass(field_type):
-                        kwargs[key] = _hydrate_dataclass(field_type, value)
-                    elif get_origin(field_type) == list:
-                        item_type = get_args(field_type)[0]
-                        if is_dataclass(item_type):
-                            kwargs[key] = [_hydrate_dataclass(item_type, item) for item in value]
-                        else:
-                            kwargs[key] = value
-                    else:
-                        kwargs[key] = value
-
-            return dataclass_type(**kwargs)
 
         hints = self.python_model._get_type_hints()
         if hints.input == List[str]:
