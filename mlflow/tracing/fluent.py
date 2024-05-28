@@ -69,9 +69,11 @@ def trace(
     For example, the following code will yield a span with the name ``"my_function"``,
     capturing the input arguments ``x`` and ``y``, and the output of the function.
 
-    .. test-block:: python
+    .. code-block:: python
+        :test:
 
         import mlflow
+
 
         @mlflow.trace
         def my_function(x, y):
@@ -80,7 +82,8 @@ def trace(
     This is equivalent to doing the following using the :py:func:`mlflow.start_span` context
     manager, but requires less boilerplate code.
 
-    .. test-block:: python
+    .. code-block:: python
+        :test:
 
         import mlflow
 
@@ -103,7 +106,8 @@ def trace(
         instead of using as the decorator. This will create the exact same span as the
         one created by the decorator i.e. captures information from the function call.
 
-        .. test-block:: python
+        .. code-block:: python
+            :test:
 
             import math
 
@@ -153,7 +157,8 @@ def start_span(
     New spans can be created within the context manager, then they will be assigned as child
     spans.
 
-    .. test-block:: python
+    .. code-block:: python
+        :test:
 
         import mlflow
 
@@ -281,7 +286,8 @@ def search_traces(
     Returns:
         A Pandas DataFrame containing information about traces that satisfy the search expressions.
 
-    .. test-block:: python
+    .. code-block:: python
+        :test:
         :caption: Search traces with extract_fields
 
         import mlflow
@@ -295,7 +301,8 @@ def search_traces(
         )
 
 
-    .. test-block:: python
+    .. code-block:: python
+        :test:
         :caption: Search traces with extract_fields and non-dictionary span inputs and outputs
 
         import mlflow
