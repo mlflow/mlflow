@@ -10,22 +10,27 @@ import {
 } from '@databricks/design-system';
 import { getRunGroupDisplayName, isRemainingRunsGroup } from '../../../utils/experimentPage.group-row-utils';
 import { useUpdateExperimentViewUIState } from '../../../contexts/ExperimentPageUIStateContext';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { RunColorPill } from '../../RunColorPill';
 import { isObject } from 'lodash';
 import invariant from 'invariant';
 import { FormattedMessage } from 'react-intl';
 import { useGetExperimentRunColor, useSaveExperimentRunColor } from '../../../hooks/useExperimentRunColor';
+import { useExperimentViewRunsTableHeaderContext } from '../ExperimentViewRunsTableHeaderContext';
+import { shouldEnableToggleIndividualRunsInGroups } from '../../../../../../common/utils/FeatureUtils';
 
 export interface GroupParentCellRendererProps extends ICellRendererParams {
   data: RunRowType;
+  isComparingRuns?: boolean;
 }
 
-export const GroupParentCellRenderer = ({ data }: GroupParentCellRendererProps) => {
+export const GroupParentCellRenderer = ({ data, isComparingRuns }: GroupParentCellRendererProps) => {
   const groupParentInfo = data.groupParentInfo;
+  const hidden = data.hidden;
   invariant(groupParentInfo, 'groupParentInfo should be defined');
   const { theme } = useDesignSystemTheme();
 
+  const { useGroupedValuesInCharts } = useExperimentViewRunsTableHeaderContext();
   const getRunColor = useGetExperimentRunColor();
   const saveRunColor = useSaveExperimentRunColor();
   const updateUIState = useUpdateExperimentViewUIState();
@@ -43,6 +48,13 @@ export const GroupParentCellRenderer = ({ data }: GroupParentCellRendererProps) 
   );
 
   const groupName = getRunGroupDisplayName(groupParentInfo);
+  const groupIsDisplayedInCharts = useMemo(() => {
+    if (shouldEnableToggleIndividualRunsInGroups()) {
+      return useGroupedValuesInCharts && !isRemainingRunsGroup(groupParentInfo);
+    }
+
+    return !isRemainingRunsGroup(groupParentInfo);
+  }, [groupParentInfo, useGroupedValuesInCharts]);
 
   return (
     <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
@@ -61,10 +73,11 @@ export const GroupParentCellRenderer = ({ data }: GroupParentCellRendererProps) 
           }}
         />
       )}
-      {/* Display color pill only for non-remaining runs groups */}
-      {!isRemainingRunsGroup(groupParentInfo) && (
+      {/* Display color pill only when it's displayed in chart area */}
+      {groupIsDisplayedInCharts && (
         <RunColorPill
           color={getRunColor(groupParentInfo.groupId)}
+          hidden={isComparingRuns && hidden}
           onChangeColor={(colorValue) => {
             saveRunColor({ groupUuid: groupParentInfo.groupId, colorValue });
           }}
