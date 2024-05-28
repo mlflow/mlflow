@@ -10,7 +10,7 @@ def _hydrate_dataclass(dataclass_type, data):
     Recursively create an instance of the dataclass_type from data.
     """
     if not is_dataclass(dataclass_type):
-        raise ValueError(f"{dataclass_type} is not a dataclass")
+        raise ValueError(f"{dataclass_type.__name__} is not a dataclass")
 
     field_names = {f.name: f.type for f in fields(dataclass_type)}
     kwargs = {}

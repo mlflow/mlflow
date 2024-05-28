@@ -8,6 +8,10 @@ import pytest
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import Model
+from mlflow.models.rag_signatures import (
+    ChatCompletionRequest,
+    ChatCompletionResponse,
+)
 from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc.loaders.chat_model import _ChatModelPyfuncWrapper
 from mlflow.types.llm import (
@@ -63,6 +67,21 @@ class TestChatModel(mlflow.pyfunc.ChatModel):
     def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
         mock_response = get_mock_response(messages, params)
         return ChatResponse(**mock_response)
+
+
+class TestRagModel(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input: ChatCompletionRequest) -> ChatCompletionResponse:
+        return {
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "Hello!",
+                    },
+                }
+            ]
+        }
 
 
 class ChatModelWithContext(mlflow.pyfunc.ChatModel):
@@ -336,3 +355,27 @@ def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
         **DEFAULT_PARAMS,
         **params_subset,
     }
+
+
+def test_rag_model_works_with_type_hint(tmp_path):
+    model = TestRagModel()
+    signature = ModelSignature(inputs=ChatCompletionRequest(), outputs=ChatCompletionResponse())
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path, signature=signature)
+
+    # test that the model can be loaded and invoked
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    request = {"messages": [{"role": "user", "content": "What is mlflow?"}]}
+
+    response = loaded_model.predict(request)
+    assert response["choices"][0]["message"]["content"] == "Hello!"
+
+    # test that the model can be served
+    response = pyfunc_serve_and_score_model(
+        model_uri=tmp_path,
+        data=json.dumps(request),
+        content_type="application/json",
+        extra_args=["--env-manager", "local"],
+    )
+
+    expect_status_code(response, 200)
+    assert json.loads(response.content)["choices"][0]["message"]["content"] == "Hello!"

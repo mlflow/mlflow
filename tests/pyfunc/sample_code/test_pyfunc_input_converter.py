@@ -16,7 +16,7 @@ def test_hydrate_dataclass_input_no_dataclass():
     df = pd.DataFrame(data, index=[0])
 
     # Check that an error is raised when trying to hydrate the dataclass
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="NotADataclass is not a dataclass"):
         _hydrate_dataclass(NotADataclass, df.iloc[0])
 
 
