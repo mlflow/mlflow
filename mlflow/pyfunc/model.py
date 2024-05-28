@@ -591,6 +591,11 @@ class _PythonModelPyfuncWrapper:
         ):
             # If the type hint is a RAG dataclass, we hydrate it
             if isinstance(model_input, pd.DataFrame):
+                # If there are multiple rows, we should throw
+                if len(model_input) > 1:
+                    raise MlflowException(
+                        "Expected a single input for dataclass type hint, but got multiple rows"
+                    )
                 # Since single input is expected, we take the first row
                 return _hydrate_dataclass(hints.input, model_input.iloc[0])
         return model_input
