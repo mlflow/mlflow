@@ -1,6 +1,7 @@
 import json
 import pathlib
 import pickle
+from dataclasses import asdict
 from typing import List
 
 import pytest
@@ -9,8 +10,10 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import Model
 from mlflow.models.rag_signatures import (
+    ChainCompletionChoice,
     ChatCompletionRequest,
     ChatCompletionResponse,
+    Message,
 )
 from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc.loaders.chat_model import _ChatModelPyfuncWrapper
@@ -70,18 +73,14 @@ class TestChatModel(mlflow.pyfunc.ChatModel):
 
 
 class TestRagModel(mlflow.pyfunc.PythonModel):
-    def predict(self, context, model_input: ChatCompletionRequest) -> ChatCompletionResponse:
-        return {
-            "choices": [
-                {
-                    "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": "Hello!",
-                    },
-                }
-            ]
-        }
+    def predict(self, context, model_input: ChatCompletionRequest):
+        message = model_input.messages[0].content
+        # return the message back
+        return asdict(
+            ChatCompletionResponse(
+                choices=[ChainCompletionChoice(message=Message(role="assistant", content=message))]
+            )
+        )
 
 
 class ChatModelWithContext(mlflow.pyfunc.ChatModel):
@@ -367,7 +366,7 @@ def test_rag_model_works_with_type_hint(tmp_path):
     request = {"messages": [{"role": "user", "content": "What is mlflow?"}]}
 
     response = loaded_model.predict(request)
-    assert response["choices"][0]["message"]["content"] == "Hello!"
+    assert response["choices"][0]["message"]["content"] == "What is mlflow?"
 
     # test that the model can be served
     response = pyfunc_serve_and_score_model(
@@ -378,4 +377,4 @@ def test_rag_model_works_with_type_hint(tmp_path):
     )
 
     expect_status_code(response, 200)
-    assert json.loads(response.content)["choices"][0]["message"]["content"] == "Hello!"
+    assert json.loads(response.content)["choices"][0]["message"]["content"] == "What is mlflow?"
