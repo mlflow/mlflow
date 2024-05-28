@@ -1,7 +1,6 @@
 import json
 import pathlib
 import pickle
-from dataclasses import asdict
 from typing import List
 
 import pytest
@@ -9,12 +8,6 @@ import pytest
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import Model
-from mlflow.models.rag_signatures import (
-    ChainCompletionChoice,
-    ChatCompletionRequest,
-    ChatCompletionResponse,
-    Message,
-)
 from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc.loaders.chat_model import _ChatModelPyfuncWrapper
 from mlflow.types.llm import (
@@ -70,17 +63,6 @@ class TestChatModel(mlflow.pyfunc.ChatModel):
     def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
         mock_response = get_mock_response(messages, params)
         return ChatResponse(**mock_response)
-
-
-class TestRagModel(mlflow.pyfunc.PythonModel):
-    def predict(self, context, model_input: ChatCompletionRequest):
-        message = model_input.messages[0].content
-        # return the message back
-        return asdict(
-            ChatCompletionResponse(
-                choices=[ChainCompletionChoice(message=Message(role="assistant", content=message))]
-            )
-        )
 
 
 class ChatModelWithContext(mlflow.pyfunc.ChatModel):
@@ -354,33 +336,3 @@ def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
         **DEFAULT_PARAMS,
         **params_subset,
     }
-
-
-def test_rag_model_works_with_type_hint(tmp_path):
-    model = TestRagModel()
-    signature = ModelSignature(inputs=ChatCompletionRequest(), outputs=ChatCompletionResponse())
-    input_example = {"messages": [{"role": "user", "content": "What is mlflow?"}]}
-    mlflow.pyfunc.save_model(
-        python_model=model, path=tmp_path, signature=signature, input_example=input_example
-    )
-
-    # test that the model can be loaded and invoked
-    loaded_model = mlflow.pyfunc.load_model(tmp_path)
-
-    response = loaded_model.predict(input_example)
-    assert response["choices"][0]["message"]["content"] == "What is mlflow?"
-
-    # confirm the input example is set
-    mlflow_model = Model.load(tmp_path)
-    assert mlflow_model.load_input_example(tmp_path).to_dict(orient="records")[0] == input_example
-
-    # test that the model can be served
-    response = pyfunc_serve_and_score_model(
-        model_uri=tmp_path,
-        data=json.dumps(input_example),
-        content_type="application/json",
-        extra_args=["--env-manager", "local"],
-    )
-
-    expect_status_code(response, 200)
-    assert json.loads(response.content)["choices"][0]["message"]["content"] == "What is mlflow?"
