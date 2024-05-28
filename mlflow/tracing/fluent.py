@@ -146,7 +146,9 @@ def start_span(
     New spans can be created within the context manager, then they will be assigned as child
     spans.
 
-    .. code-block:: python
+    .. test-block:: python
+
+        import mlflow
 
         with mlflow.start_span("my_span") as span:
             span.set_inputs({"x": 1, "y": 2})
@@ -272,7 +274,7 @@ def search_traces(
     Returns:
         A Pandas DataFrame containing information about traces that satisfy the search expressions.
 
-    .. code-block:: python
+    .. test-block:: python
         :caption: Search traces with extract_fields
 
         import mlflow
@@ -280,6 +282,7 @@ def search_traces(
         with mlflow.start_span(name="span1") as span:
             span.set_inputs({"a": 1, "b": 2})
             span.set_outputs({"c": 3, "d": 4})
+
         mlflow.search_traces(
             extract_fields=["span1.inputs", "span1.outputs", "span1.outputs.c"]
         )
@@ -293,6 +296,7 @@ def search_traces(
         with mlflow.start_span(name="non_dict_span") as span:
             span.set_inputs(["a", "b"])
             span.set_outputs([1, 2, 3])
+
         mlflow.search_traces(
             extract_fields=["non_dict_span.inputs", "non_dict_span.outputs"],
         )
