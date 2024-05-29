@@ -139,16 +139,36 @@ def _extract_raw_model(model):
         return model_loader_module, None
 
 
-def _extract_predict_fn(model, raw_model, model_predict_fn=None):
-    predict_fn = model.predict if model is not None else None
-    if model_predict_fn is not None:
-        predict_fn = model_predict_fn
+def _extract_predict_fn(
+    model: Optional[object],
+    raw_model: Optional[object],
+    model_predict_fn: Optional[Callable] = None,
+) -> Tuple[Optional[Callable], Optional[Callable]]:
+    """
+    Extracts the predict function from the given model or raw_model.
+
+    Precedence order:
+    1. If raw_model is specified, its predict function is used.
+    2. If model_predict_fn is specified, it is used as the predict function.
+    3. If model is specified, its predict function is used.
+    4. If none of the above, predict function is None.
+
+    Args:
+        model: A model object that has a predict method.
+        raw_model: A raw model object that has a predict method.
+        model_predict_fn: A callable to be used as the predict function.
+
+    Returns:
+        A tuple of two elements:
+        - The predict function.
+        - The predict_proba function, if it exists in the raw_model; None otherwise.
+    """
+    predict_fn = None
     predict_proba_fn = None
 
     if raw_model is not None:
         predict_fn = raw_model.predict
         predict_proba_fn = getattr(raw_model, "predict_proba", None)
-
         try:
             import xgboost
 
@@ -160,6 +180,10 @@ def _extract_predict_fn(model, raw_model, model_predict_fn=None):
                     predict_proba_fn = partial(predict_proba_fn, validate_features=False)
         except ImportError:
             pass
+    elif model_predict_fn is not None:
+        predict_fn = model_predict_fn
+    elif model is not None:
+        predict_fn = model.predict
 
     return predict_fn, predict_proba_fn
 

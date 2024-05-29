@@ -1328,7 +1328,6 @@ def test_custom_evaluators_no_model_or_preds(multiclass_logistic_regressor_model
                 )
                 mock_evaluate.assert_called_once_with(
                     model=None,
-                    model_predict_func=None,
                     dataset=iris_dataset,
                     predictions=None,
                     model_type="classifier",
