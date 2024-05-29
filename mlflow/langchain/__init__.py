@@ -271,14 +271,7 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
 
     if isinstance(model_config, str):
-        model_config = os.path.abspath(model_config)
-        if os.path.exists(model_config):
-            model_config = _validate_and_get_model_config_from_file(model_config)
-        else:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                f"Model config path '{model_config}' provided is not a valid file path. "
-                "Please provide a valid model configuration."
-            )
+        model_config = _validate_and_get_model_config_from_file(model_config)
 
     model_code_path = None
     if isinstance(lc_model_or_path, str):
