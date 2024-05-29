@@ -6,6 +6,7 @@ from mlflow.entities import LiveSpan
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.utils import (
     _parse_fields,
+    _ParsedField,
     deduplicate_span_names_in_place,
     encode_span_id,
     maybe_get_request_id,
@@ -52,6 +53,30 @@ def test_maybe_get_request_id():
     with pytest.raises(MlflowException, match="Missing request_id for context"):
         with set_prediction_context(Context(request_id=None, is_evaluate=True)):
             maybe_get_request_id(is_evaluate=True)
+
+
+@pytest.mark.parametrize(
+    ("field", "expected"),
+    [
+        # no dot
+        ("span.inputs", _ParsedField("span", "inputs", None)),
+        ("span.outputs", _ParsedField("span", "outputs", None)),
+        ("`span`.inputs", _ParsedField("span", "inputs", None)),
+        ("`span`.outputs", _ParsedField("span", "outputs", None)),
+        ("span.inputs.field", _ParsedField("span", "inputs", "field")),
+        ("`span`.inputs.field", _ParsedField("span", "inputs", "field")),
+        ("span.inputs.`field`", _ParsedField("span", "inputs", "field")),
+        ("`span`.inputs.`field`", _ParsedField("span", "inputs", "field")),
+        # dot in span name
+        ("`span.name`.inputs.field", _ParsedField("span.name", "outputs", "field")),
+        # dot in field name
+        ("span.inputs.`field.name`", _ParsedField("span", "outputs", "field.name")),
+        # dot in both span and field name
+        ("`span.name`.inputs.`field.name`", _ParsedField("span.name", "outputs", "field.name")),
+    ],
+)
+def test_parse_field_from_string(field, expected):
+    assert _ParsedField.from_string(field) == expected
 
 
 def test_parse_fields():
