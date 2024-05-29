@@ -36,8 +36,6 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     DeleteRegisteredModelAliasRequest,
     DeleteRegisteredModelRequest,
     DeleteRegisteredModelTagRequest,
-    DmkEncryptionDetails,
-    EncryptionDetails,
     Entity,
     FinalizeModelVersionRequest,
     FinalizeModelVersionResponse,
@@ -57,6 +55,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     SetModelVersionTagRequest,
     SetRegisteredModelAliasRequest,
     SetRegisteredModelTagRequest,
+    StorageMode,
     TemporaryCredentials,
     UpdateModelVersionRequest,
     UpdateRegisteredModelRequest,
@@ -1637,9 +1636,7 @@ def test_store_use_presigned_url_store_when_disabled():
 
 def test_store_use_presigned_url_store_when_enabled():
     store_package = "mlflow.store._unity_catalog.registry.rest_store"
-    creds = TemporaryCredentials(
-        encryption_details=EncryptionDetails(dmk_encryption_details=DmkEncryptionDetails())
-    )
+    creds = TemporaryCredentials(storage_mode=StorageMode.DEFAULT_STORAGE)
     with mock.patch("mlflow.utils.databricks_utils.get_config"), mock.patch(
         f"{store_package}.UcModelRegistryStore._get_temporary_model_version_write_credentials",
         return_value=creds,

@@ -6,6 +6,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     MODEL_VERSION_OPERATION_READ,
     GenerateTemporaryModelVersionCredentialsRequest,
     GenerateTemporaryModelVersionCredentialsResponse,
+    StorageMode,
 )
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store._unity_catalog.lineage.constants import _DATABRICKS_LINEAGE_ID_HEADER
@@ -120,8 +121,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         storage
         """
         scoped_token = self._get_scoped_token(lineage_header_info=lineage_header_info)
-        encryption_details = scoped_token.encryption_details.WhichOneof("encryption_details_type")
-        if encryption_details == "dmk_encryption_details":
+        if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:
             return PresignedUrlArtifactRepository(
                 get_databricks_host_creds(self.registry_uri), self.model_name, self.model_version
             )

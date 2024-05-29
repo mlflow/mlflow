@@ -11,8 +11,7 @@ from mlflow.entities.file_info import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     AwsCredentials,
-    DmkEncryptionDetails,
-    EncryptionDetails,
+    StorageMode,
     TemporaryCredentials,
 )
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
@@ -339,9 +338,7 @@ def test_store_use_presigned_url_store_when_disabled():
 
 def test_store_use_presigned_url_store_when_enabled():
     store_package = "mlflow.store.artifact.unity_catalog_models_artifact_repo"
-    creds = TemporaryCredentials(
-        encryption_details=EncryptionDetails(dmk_encryption_details=DmkEncryptionDetails())
-    )
+    creds = TemporaryCredentials(storage_mode=StorageMode.DEFAULT_STORAGE)
     with mock.patch("mlflow.utils.databricks_utils.get_config"), mock.patch(
         f"{store_package}.UnityCatalogModelsArtifactRepository._get_scoped_token",
         return_value=creds,

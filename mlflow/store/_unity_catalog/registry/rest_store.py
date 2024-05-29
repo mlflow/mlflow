@@ -53,6 +53,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     SetRegisteredModelAliasResponse,
     SetRegisteredModelTagRequest,
     SetRegisteredModelTagResponse,
+    StorageMode,
     Table,
     TemporaryCredentials,
     UpdateModelVersionRequest,
@@ -768,8 +769,7 @@ class UcModelRegistryStore(BaseRestStore):
             )
 
         scoped_token = base_credential_refresh_def()
-        encryption_details = scoped_token.encryption_details.WhichOneof("encryption_details_type")
-        if encryption_details == "dmk_encryption_details":
+        if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:
             return PresignedUrlArtifactRepository(
                 self.get_host_creds(), model_version.name, model_version.version
             )

@@ -140,7 +140,7 @@ message TemporaryCredentials {
   // The API client is advised to cache the credential given this expiration time.
   optional int64 expiration_time = 1;
 
-  optional EncryptionDetails encryption_details = 6;
+  optional StorageMode storage_mode = 6;
 }
 
 // AWS temporary credentials for API authentication.
@@ -182,13 +182,13 @@ message R2Credentials {
   optional string session_token = 3;
 }
 
-message EncryptionDetails {
-  oneof encryption_details_type {
-    DmkEncryptionDetails dmk_encryption_details = 1;
-  }
+enum StorageMode {
+  STORAGE_MODE_UNSPECIFIED = 0;
+  // The storage resources of the workspace are hosted by customers.
+  CUSTOMER_HOSTED = 1;
+  // Default storage
+  DEFAULT_STORAGE = 2;
 }
-
-message DmkEncryptionDetails {}
 
 message CreateRegisteredModelRequest {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[CreateRegisteredModelResponse]";
