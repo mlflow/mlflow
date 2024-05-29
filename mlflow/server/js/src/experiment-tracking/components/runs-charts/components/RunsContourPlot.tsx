@@ -15,8 +15,8 @@ import {
   useDynamicPlotSize,
   getLegendDataFromRuns,
 } from './RunsCharts.common';
-import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
+import { createChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
 
 export interface RunsContourPlotProps extends RunsPlotsCommonProps {
   /**
@@ -54,6 +54,7 @@ export interface RunsContourPlotProps extends RunsPlotsCommonProps {
 const PLOT_CONFIG = {
   displaylogo: false,
   scrollZoom: false,
+  modeBarButtonsToRemove: ['toImage'],
 };
 
 const DEFAULT_COLOR_SCALE: [number, string][] = [
@@ -95,10 +96,9 @@ export const RunsContourPlot = React.memo(
     height,
     useDefaultHoverBox = true,
     selectedRunUuid,
+    onSetDownloadHandler,
   }: RunsContourPlotProps) => {
     const { theme } = useDesignSystemTheme();
-
-    const usingV2ChartImprovements = shouldEnableDeepLearningUI();
 
     const { layoutHeight, layoutWidth, setContainerDiv, containerDiv, isDynamicSizeSupported } = useDynamicPlotSize();
 
@@ -137,11 +137,13 @@ export const RunsContourPlot = React.memo(
           x: xValues,
           y: yValues,
           customdata: tooltipData,
+          text: runsData.map(({ displayName }) => displayName),
           hovertemplate: useDefaultHoverBox ? createTooltipTemplate(zAxis.key) : undefined,
           hoverinfo: useDefaultHoverBox ? undefined : 'none',
           hoverlabel: useDefaultHoverBox ? runsChartHoverlabel : undefined,
           type: 'scatter',
           mode: 'markers',
+          textposition: 'bottom center',
           marker: {
             size: markerSize,
             color: colors,
@@ -267,6 +269,14 @@ export const RunsContourPlot = React.memo(
 
     const legendLabelData = useMemo(() => getLegendDataFromRuns(runsData), [runsData]);
 
+    useEffect(() => {
+      const dataToExport: Data[] = plotData.map((trace: Data) => ({
+        ...trace,
+        mode: 'text+markers',
+      }));
+      onSetDownloadHandler?.(createChartImageDownloadHandler(dataToExport, layout));
+    }, [layout, onSetDownloadHandler, plotData]);
+
     const chart = (
       <div
         css={[commonRunsChartStyles.chartWrapper(theme), commonRunsChartStyles.scatterChartHighlightStyles]}
@@ -286,10 +296,6 @@ export const RunsContourPlot = React.memo(
       </div>
     );
 
-    return usingV2ChartImprovements ? (
-      <RunsMetricsLegendWrapper labelData={legendLabelData}>{chart}</RunsMetricsLegendWrapper>
-    ) : (
-      chart
-    );
+    return <RunsMetricsLegendWrapper labelData={legendLabelData}>{chart}</RunsMetricsLegendWrapper>;
   },
 );

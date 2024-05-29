@@ -584,10 +584,10 @@ test('getSearchUrlFromState', () => {
 });
 
 test('compareExperiments', () => {
-  const exp0 = { experiment_id: '0' };
-  const exp1 = { experiment_id: '1' };
-  const expA = { experiment_id: 'A' };
-  const expB = { experiment_id: 'B' };
+  const exp0 = { experimentId: '0' };
+  const exp1 = { experimentId: '1' };
+  const expA = { experimentId: 'A' };
+  const expB = { experimentId: 'B' };
 
   expect(Utils.compareExperiments(exp0, exp1)).toEqual(-1);
   expect(Utils.compareExperiments(exp1, exp0)).toEqual(1);
@@ -669,6 +669,40 @@ test('getLoggedModelsFromTags should correctly dedup and sort logged models', ()
       utcTimeCreated: 1604016000,
     },
   ]);
+});
+
+test('getLoggedModelsFromTags should not crash on invalid JSON', () => {
+  const tagValue = JSON.stringify([
+    {
+      run_id: 'run-uuid',
+      artifact_path: 'somePath',
+      utc_time_created: '2020-10-29',
+      flavors: { keras: {}, python_function: {} },
+    },
+    {
+      run_id: 'run-uuid',
+      artifact_path: 'somePath',
+      utc_time_created: '2020-10-30',
+      flavors: { sklearn: {}, python_function: {} },
+    },
+    {
+      run_id: 'run-uuid',
+      artifact_path: 'someOtherPath',
+      utc_time_created: '2020-10-31',
+      flavors: { python_function: {} },
+    },
+  ]);
+
+  const tags = {
+    'mlflow.log-model.history': {
+      key: 'mlflow.log-model.history',
+      value: tagValue.slice(10), // truncate the JSON string to make it invalid
+    },
+  };
+
+  // it should just return an empty array
+  const models = Utils.getLoggedModelsFromTags(tags);
+  expect(models.length).toEqual(0);
 });
 
 test('mergeLoggedAndRegisteredModels should merge logged and registered model', () => {

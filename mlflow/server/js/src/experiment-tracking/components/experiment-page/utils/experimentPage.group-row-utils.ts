@@ -1,38 +1,25 @@
-import {
-  compact,
-  entries,
-  isObject,
-  isNil,
-  isSymbol,
-  isUndefined,
-  keyBy,
-  keys,
-  mapValues,
-  reject,
-  uniqBy,
-  values,
-  Dictionary,
-} from 'lodash';
-import { EXPERIMENT_PARENT_ID_TAG } from './experimentPage.common-utils';
+import { compact, entries, isObject, isNil, isUndefined, reject, values, Dictionary, isEqual, sortBy } from 'lodash';
 import {
   type RowGroupRenderMetadata,
   type RowRenderMetadata,
-  type RunGroupByValueType,
   type RunGroupParentInfo,
   RunGroupingAggregateFunction,
   RunGroupingMode,
+  RunGroupByGroupingValue,
 } from './experimentPage.row-types';
 import type { SingleRunData } from './experimentPage.row-utils';
-import type { MetricEntity } from '../../../types';
+import type { MetricEntity, RunDatasetWithTags } from '../../../types';
 import type { SampledMetricsByRun } from 'experiment-tracking/components/runs-charts/hooks/useSampledMetricHistory';
 
 type AggregableParamEntity = { key: string; value: string };
 type AggregableMetricEntity = { key: string; value: number; step: number };
 
-export type GroupByConfig = {
-  mode: RunGroupingMode;
+export type RunsGroupByConfig = {
   aggregateFunction: RunGroupingAggregateFunction;
-  groupByData: string;
+  groupByKeys: {
+    mode: RunGroupingMode;
+    groupByData: string;
+  }[];
 };
 
 /**
@@ -45,20 +32,27 @@ export const createRunsGroupByKey = (
   aggregateFunction: RunGroupingAggregateFunction,
 ) => (mode ? [mode, aggregateFunction, groupByData].join('.') : '');
 
-const createGroupId = (mode: RunGroupingMode, groupByName: string, groupByValue?: string) =>
-  groupByValue ? `${mode}.${groupByName}.${groupByValue}` : `${mode}.${groupByName}`;
+const createGroupValueId = ({ groupByData, mode, value }: RunGroupByGroupingValue) =>
+  `${mode}.${groupByData}.${value || null}`;
 
-const RUN_GROUP_REMAINING_RUNS_SYMBOL = Symbol('REMAINING_RUNS_GROUP');
+const createGroupId = (groupingValues: RunGroupByGroupingValue[]) => groupingValues.map(createGroupValueId).join(',');
+
+const createEmptyGroupId = (groupByConfig: RunsGroupByConfig) =>
+  groupByConfig.groupByKeys.map(({ mode, groupByData }) => [mode, groupByData].join('.')).join(',');
 
 /**
- * Parses the group by key into the mode, aggregate function and group by data.
- * E.g. "tags.some_tag.min" -> {mode: "tags", aggregateFunction: "min", groupByData: "some_tag"}
+ * Parses the legacy group by string key into the mode, aggregate function and group by data.
+ * E.g. "tags.some_tag.min" -> { aggregateFunction: "min", groupByKeys: [mode: "tags", groupByData: "some_tag"] }
  */
-export const parseRunsGroupByKey = (groupByKey?: string): GroupByConfig | null => {
-  if (!groupByKey) {
+export const normalizeRunsGroupByKey = (groupBy?: string | RunsGroupByConfig | null): RunsGroupByConfig | null => {
+  if (!groupBy) {
     return null;
   }
-  const [, mode, aggregateFunction, groupByData] = groupByKey.match(/([a-z]+)\.([a-z]+)\.(.+)/) || [];
+  if (isObject(groupBy)) {
+    return groupBy;
+  }
+
+  const [, mode, aggregateFunction, groupByData] = groupBy.match(/([a-z]+)\.([a-z]+)\.(.+)/) || [];
 
   if (
     !values<string>(RunGroupingMode).includes(mode) ||
@@ -68,9 +62,13 @@ export const parseRunsGroupByKey = (groupByKey?: string): GroupByConfig | null =
   }
 
   return {
-    mode: mode as RunGroupingMode,
     aggregateFunction: aggregateFunction as RunGroupingAggregateFunction,
-    groupByData,
+    groupByKeys: [
+      {
+        mode: mode as RunGroupingMode,
+        groupByData: groupByData,
+      },
+    ],
   };
 };
 
@@ -79,8 +77,8 @@ export const createGroupRenderMetadata = (
   expanded: boolean,
   runsInGroup: SingleRunData[],
   aggregateFunction: RunGroupingAggregateFunction,
-  groupValue: RunGroupByValueType,
   isRemainingRowsGroup: boolean,
+  groupingKeys: RunGroupByGroupingValue[],
 ): (RowRenderMetadata | RowGroupRenderMetadata)[] => {
   const metricsByRun = runsInGroup.map((run) => run.metrics || []);
   const paramsByRun = runsInGroup.map((run) => run.params || []);
@@ -89,10 +87,12 @@ export const createGroupRenderMetadata = (
     groupId,
     isGroup: true,
     expanderOpen: expanded,
-    runUuids: runsInGroup.map((run) => run.runInfo.run_uuid),
+    aggregateFunction,
+    runUuids: runsInGroup.map((run) => run.runInfo.runUuid),
     aggregatedMetricEntities: aggregateValues(metricsByRun, aggregateFunction),
     aggregatedParamEntities: aggregateValues(paramsByRun, aggregateFunction),
-    value: groupValue,
+    groupingValues: groupingKeys,
+    isRemainingRunsGroup: isRemainingRowsGroup,
   };
 
   const result: (RowRenderMetadata | RowGroupRenderMetadata)[] = [groupHeaderMetadata];
@@ -105,12 +105,12 @@ export const createGroupRenderMetadata = (
           level: 0,
           runInfo,
           belongsToGroup: !isRemainingRowsGroup,
-          isPinnable: !tags[EXPERIMENT_PARENT_ID_TAG]?.value,
+          isPinnable: true,
           metrics: metrics,
           params: params,
           tags: tags,
           datasets: datasets,
-          rowUuid: `${groupId}.${runInfo.run_uuid}`,
+          rowUuid: `${groupId}.${runInfo.runUuid}`,
         };
       }),
     );
@@ -118,142 +118,7 @@ export const createGroupRenderMetadata = (
   return result;
 };
 
-const createRunsGroupedByValue = (
-  valueGetter: (run: SingleRunData) => string | symbol | undefined,
-  runData: SingleRunData[],
-  groupsExpanded: Record<string, boolean>,
-  aggregateFunction: RunGroupingAggregateFunction,
-  groupByMode: RunGroupingMode.Tag | RunGroupingMode.Param,
-  groupByKey: string,
-) => {
-  const groups: Record<string | symbol, SingleRunData[]> = {};
-
-  const ungroupedRuns: SingleRunData[] = [];
-
-  for (const run of runData) {
-    const valueForRun = valueGetter(run);
-
-    if (!valueForRun) {
-      ungroupedRuns.push(run);
-      continue;
-    }
-
-    if (!groups[valueForRun]) {
-      groups[valueForRun] = [];
-    }
-    groups[valueForRun].push(run);
-  }
-
-  const groupKeys: string[] = keys(groups);
-
-  const result: (RowGroupRenderMetadata | RowRenderMetadata)[] = [];
-  groupKeys.forEach((tagValue) => {
-    const groupId = createGroupId(groupByMode, groupByKey, tagValue);
-    const isGroupExpanded = isUndefined(groupsExpanded[groupId]) || groupsExpanded[groupId] === true;
-
-    result.push(
-      ...createGroupRenderMetadata(groupId, isGroupExpanded, groups[tagValue], aggregateFunction, tagValue, false),
-    );
-  });
-
-  if (ungroupedRuns.length) {
-    const groupId = createGroupId(groupByMode, groupByKey);
-    // By default (if not explicitly set), we collapse the "remaining runs" group
-    const isGroupExpanded = groupsExpanded[groupId] === true;
-
-    result.push(
-      ...createGroupRenderMetadata(
-        groupId,
-        isGroupExpanded,
-        ungroupedRuns,
-        aggregateFunction,
-        RUN_GROUP_REMAINING_RUNS_SYMBOL,
-        true,
-      ),
-    );
-  }
-
-  return result;
-};
-
-const getUniqueDatasets = (runData: SingleRunData[]) => {
-  const allDatasets = compact(
-    runData.flatMap((r) =>
-      (r.datasets || []).map(({ dataset }) => ({ dataset, identifier: `${dataset.name}.${dataset.digest}` })),
-    ),
-  );
-
-  return uniqBy(allDatasets, 'identifier');
-};
-
-const createRunsGroupedByDataset = (
-  runData: SingleRunData[],
-  groupsExpanded: Record<string, boolean>,
-  aggregateFunction: RunGroupingAggregateFunction,
-  groupByKey: string,
-) => {
-  const uniqueDatasets = getUniqueDatasets(runData);
-
-  const groups: Record<
-    string,
-    {
-      dataset: { name: string; digest: string };
-      runs: SingleRunData[];
-    }
-  > = mapValues(keyBy(uniqueDatasets, 'identifier'), ({ dataset }) => ({ dataset, runs: [] }));
-
-  const ungroupedRuns: SingleRunData[] = [];
-
-  for (const run of runData) {
-    const runDatasetIdenfifiers = run.datasets?.map(({ dataset }) => `${dataset.name}.${dataset.digest}`) || [];
-    for (const datasetIdentifier of runDatasetIdenfifiers) {
-      if (groups[datasetIdentifier] && !groups[datasetIdentifier].runs.includes(run)) {
-        groups[datasetIdentifier].runs.push(run);
-      }
-    }
-    if (!runDatasetIdenfifiers.length) {
-      ungroupedRuns.push(run);
-    }
-  }
-
-  const groupKeys: string[] = keys(groups);
-
-  const result: (RowGroupRenderMetadata | RowRenderMetadata)[] = [];
-  groupKeys.forEach((datasetDigest) => {
-    const groupId = createGroupId(RunGroupingMode.Dataset, groupByKey, datasetDigest);
-    const isGroupExpanded = isUndefined(groupsExpanded[groupId]) || groupsExpanded[groupId] === true;
-
-    result.push(
-      ...createGroupRenderMetadata(
-        groupId,
-        isGroupExpanded,
-        groups[datasetDigest].runs,
-        aggregateFunction,
-        groups[datasetDigest].dataset,
-        false,
-      ),
-    );
-  });
-
-  if (ungroupedRuns.length) {
-    const groupId = createGroupId(RunGroupingMode.Dataset, groupByKey);
-    // By default (if not explicitly set), we collapse the "remaining runs" group
-    const isGroupExpanded = groupsExpanded[groupId] === true;
-
-    result.push(
-      ...createGroupRenderMetadata(
-        groupId,
-        isGroupExpanded,
-        ungroupedRuns,
-        aggregateFunction,
-        RUN_GROUP_REMAINING_RUNS_SYMBOL,
-        true,
-      ),
-    );
-  }
-
-  return result;
-};
+const getDatasetHash = ({ dataset }: RunDatasetWithTags) => `${dataset.name}.${dataset.digest}`;
 
 /**
  * Utility function that aggregates the values (metrics, params) for the given list of runs.
@@ -324,62 +189,40 @@ const aggregateValues = <T extends AggregableParamEntity | AggregableMetricEntit
 /**
  * Determines if the given group parent row is the "remaining runs" group
  */
-export const isRemainingRunsGroup = (group: RunGroupParentInfo) => group.value === RUN_GROUP_REMAINING_RUNS_SYMBOL;
+export const isRemainingRunsGroup = (group: RunGroupParentInfo) => group.isRemainingRunsGroup;
 
 /**
- * Generates the row render metadata for the grouped rows.
+ * Gets the value for the given param/tag group key from the run data.
  */
-export const getGroupedRowRenderMetadata = ({
-  groupsExpanded,
-  runData,
-  groupByConfig,
-}: {
-  groupsExpanded: Record<string, boolean>;
-  runData: SingleRunData[];
-  groupByConfig: GroupByConfig;
-}) => {
-  // Branch for grouping by tag or param
-  if (groupByConfig.mode === RunGroupingMode.Tag || groupByConfig.mode === RunGroupingMode.Param) {
-    // If grouping by tag or param, determine function that will extract the value to group by
-    const valueGetter =
-      groupByConfig.mode === RunGroupingMode.Tag
-        ? ({ tags }: SingleRunData) => tags?.[groupByConfig.groupByData]?.value
-        : ({ params }: SingleRunData) => params.find((param) => param.key === groupByConfig.groupByData)?.value;
-
-    return createRunsGroupedByValue(
-      valueGetter,
-      runData,
-      groupsExpanded,
-      groupByConfig.aggregateFunction,
-      groupByConfig.mode,
-      groupByConfig.groupByData,
-    );
+const getGroupValueForGroupKey = (runData: SingleRunData, groupKey: RunsGroupByConfig['groupByKeys'][number]) => {
+  if (groupKey.mode === RunGroupingMode.Tag) {
+    const groupByTagName = groupKey.groupByData;
+    return runData.tags?.[groupByTagName]?.value;
   }
-
-  // Branch for grouping by dataset
-  if (groupByConfig?.mode === RunGroupingMode.Dataset) {
-    return createRunsGroupedByDataset(
-      runData,
-      groupsExpanded,
-      groupByConfig.aggregateFunction,
-      groupByConfig.groupByData,
-    );
+  if (groupKey.mode === RunGroupingMode.Param) {
+    const groupByParamName = groupKey.groupByData;
+    return runData.params.find((param) => param.key === groupByParamName)?.value;
   }
-
-  // Mode is unknown, return null so the overarching logic can render the flat list of runs
   return null;
 };
 
-export const getRunGroupDisplayName = (group?: RunGroupParentInfo) => {
-  if (!group || isSymbol(group.value)) {
+export const getRunGroupDisplayName = (group?: RunGroupParentInfo | RowGroupRenderMetadata) => {
+  if (!group || group.isRemainingRunsGroup) {
     return '';
   }
 
-  if (isObject(group.value)) {
-    return group.value.name;
+  if (group.groupingValues.length === 1) {
+    const groupingKey = group.groupingValues[0];
+    if (isObject(groupingKey.value)) {
+      return groupingKey.value.name;
+    }
+
+    return groupingKey.value || '(none)';
   }
 
-  return group.value;
+  return group.groupingValues
+    .map(({ groupByData, value }) => `${groupByData}: ${isObject(value) ? value.name : value || '(none)'}`)
+    .join(', ');
 };
 
 export type SyntheticMetricHistory = {
@@ -540,4 +383,149 @@ export const createValueAggregatedMetricHistory = (
     [RunGroupingAggregateFunction.Max]: syntheticHistoryMaxValues,
     [RunGroupingAggregateFunction.Average]: syntheticHistoryAverageValues,
   };
+};
+
+/**
+ * Does the grouping logic and generates the rows metadata for the runs based on grouping configuration.
+ */
+export const getGroupedRowRenderMetadata = ({
+  groupsExpanded,
+  runData,
+  groupBy,
+}: {
+  groupsExpanded: Record<string, boolean>;
+  runData: SingleRunData[];
+  groupBy: null | RunsGroupByConfig | string;
+}) => {
+  // First, make sure we have a valid "group by" configuration.
+  const groupByConfig = normalizeRunsGroupByKey(groupBy);
+
+  // If the group by configuration is empty or invalid, do not group the rows.
+  if (!groupByConfig) {
+    return null;
+  }
+
+  // Prepare a key-value map for all detected run groups.
+  // The key is a stringified version of the grouping values hash.
+  const groupsMap: Record<
+    string,
+    {
+      groupingValues: RunGroupByGroupingValue[];
+      runs: SingleRunData[];
+    }
+  > = {};
+
+  // For the ungrouped runs, we will store them separately.
+  const ungroupedRuns: SingleRunData[] = [];
+
+  // Check if we are grouping by datasets. If so, we need to handle the grouping differently since run
+  // can have multiple datasets and we need to group the run by each dataset.
+  const isGroupingByDatasets = groupByConfig.groupByKeys.some(({ mode }) => mode === RunGroupingMode.Dataset);
+
+  // Get all possible grouping keys for tags and params.
+  const groupKeysForTagsAndParams = groupByConfig.groupByKeys.filter(
+    ({ mode }) => mode === RunGroupingMode.Tag || mode === RunGroupingMode.Param,
+  );
+
+  for (const run of runData) {
+    // Get the grouping values for tags and params.
+    const groupingValuesForTagsAndParams: RunGroupByGroupingValue[] = groupKeysForTagsAndParams.map((groupKey) => ({
+      mode: groupKey.mode,
+      groupByData: groupKey.groupByData,
+      value: getGroupValueForGroupKey(run, groupKey) || null,
+    }));
+
+    // Get the grouping values for datasets, i.e. calculate hashes for each found dataset.
+    // Skip calculating the hashes if we are not grouping by datasets at all.
+    const groupingValuesForDatasets: RunGroupByGroupingValue[] = !isGroupingByDatasets
+      ? []
+      : (run.datasets || []).map((dataset) => ({
+          mode: RunGroupingMode.Dataset,
+          groupByData: 'dataset',
+          value: getDatasetHash(dataset),
+        }));
+
+    // Check if the run contains any values for any group.
+    const containsDatasetValues = groupingValuesForDatasets.length > 0;
+    const containsParamOrTagValues = groupingValuesForTagsAndParams.filter(({ value }) => value).length > 0;
+
+    // If not, add the run to the ungrouped runs list and continue with the next run.
+    if (!(containsParamOrTagValues || (isGroupingByDatasets && containsDatasetValues))) {
+      ungroupedRuns.push(run);
+      continue;
+    }
+
+    // First, handle the case when we are grouping by datasets. This is different case because
+    // we need to iterate over all datasets.
+    if (isGroupingByDatasets) {
+      // If there are no datasets found in the run but it's still not considered ungrouped (contains other group values),
+      // we need to add a special "empty" dataset group key.
+      const groupingValuesForDatasetsWithEmptyGroup = containsDatasetValues
+        ? groupingValuesForDatasets
+        : [{ mode: RunGroupingMode.Dataset, groupByData: 'dataset', value: null }];
+
+      for (const groupingValueForDataset of groupingValuesForDatasetsWithEmptyGroup) {
+        // For every dataset group key, calculate a group hash.
+        const groupHash = JSON.stringify([...groupingValuesForTagsAndParams, groupingValueForDataset]);
+
+        // Either add a run to existing group or create a new one.
+        if (groupsMap[groupHash]) {
+          groupsMap[groupHash].runs.push(run);
+        } else {
+          groupsMap[groupHash] = {
+            groupingValues: [...groupingValuesForTagsAndParams, groupingValueForDataset],
+            runs: [run],
+          };
+        }
+      }
+    } else {
+      // If not grouping by datasets, we can simply calculate the group hash based on the grouping values.
+      // The order of grouping values should be stable for all runs.
+      const groupHash = JSON.stringify(groupingValuesForTagsAndParams);
+
+      // Either add a run to existing group or create a new one.
+      if (groupsMap[groupHash]) {
+        groupsMap[groupHash].runs.push(run);
+      } else {
+        groupsMap[groupHash] = {
+          groupingValues: groupingValuesForTagsAndParams,
+          runs: [run],
+        };
+      }
+    }
+  }
+
+  const result: (RowGroupRenderMetadata | RowRenderMetadata)[] = [];
+
+  // Iterate across all groups and create the render metadata for each group and included runs.
+  values(groupsMap).forEach((group) => {
+    // Generate a unique group ID based on the grouping values.
+    const groupId = createGroupId(group.groupingValues);
+
+    // Determine if the group is expanded or not.
+    const isGroupExpanded = isUndefined(groupsExpanded[groupId]) || groupsExpanded[groupId] === true;
+
+    result.push(
+      ...createGroupRenderMetadata(
+        groupId,
+        isGroupExpanded,
+        group.runs,
+        groupByConfig.aggregateFunction,
+        false,
+        group.groupingValues,
+      ),
+    );
+  });
+
+  // If there are any ungrouped runs, create a group for them as well.
+  if (ungroupedRuns.length) {
+    const groupId = createEmptyGroupId(groupByConfig);
+    const isGroupExpanded = groupsExpanded[groupId] === true;
+
+    result.push(
+      ...createGroupRenderMetadata(groupId, isGroupExpanded, ungroupedRuns, groupByConfig.aggregateFunction, true, []),
+    );
+  }
+
+  return result;
 };

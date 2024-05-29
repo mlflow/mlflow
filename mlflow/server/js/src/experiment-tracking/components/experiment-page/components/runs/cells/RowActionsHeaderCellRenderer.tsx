@@ -8,7 +8,7 @@ import {
 import { Theme } from '@emotion/react';
 import React, { useEffect } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { RUNS_VISIBILITY_MODE } from 'experiment-tracking/components/experiment-page/models/ExperimentPageUIStateV2';
+import { RUNS_VISIBILITY_MODE } from 'experiment-tracking/components/experiment-page/models/ExperimentPageUIState';
 import { shouldUseNewRunRowsVisibilityModel } from '../../../../../../common/utils/FeatureUtils';
 // TODO: Import this icon from design system when added
 import { ReactComponent as VisibleFillIcon } from '../../../../../../common/static/icon-visible-fill.svg';

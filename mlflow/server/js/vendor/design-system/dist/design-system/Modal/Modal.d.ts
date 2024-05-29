@@ -1,8 +1,9 @@
 /// <reference types="react" />
 import type { ModalProps as AntDModalProps } from 'antd';
 import type { ButtonProps } from '../Button';
-import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
-export interface ModalProps extends HTMLDataAttributes, DangerouslySetAntdProps<AntDModalProps> {
+import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
+import type { AnalyticsEventOptionalPropsWithStartInteraction, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
+export interface ModalProps extends HTMLDataAttributes, DangerouslySetAntdProps<AntDModalProps>, AnalyticsEventOptionalPropsWithStartInteraction<DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     /** Whether or not the modal is currently open. Use together with onOk and onCancel to control the modal state. */
     visible?: AntDModalProps['visible'];
     /** Function called when the primary button is clicked */
@@ -53,6 +54,6 @@ export interface ModalProps extends HTMLDataAttributes, DangerouslySetAntdProps<
     /** Specify whether to truncate the Modal title when it is too long */
     truncateTitle?: boolean;
 }
-export declare function Modal({ okButtonProps, cancelButtonProps, dangerouslySetAntdProps, children, title, footer, size, verticalSizing, autoFocusButton, truncateTitle, ...props }: ModalProps): JSX.Element;
+export declare function Modal(props: ModalProps): JSX.Element;
 export declare function DangerModal(props: Omit<ModalProps, 'footer'>): JSX.Element;
 //# sourceMappingURL=Modal.d.ts.map

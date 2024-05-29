@@ -1,5 +1,5 @@
 import React from 'react';
-import { RUNS_VISIBILITY_MODE } from '../../models/ExperimentPageUIStateV2';
+import { RUNS_VISIBILITY_MODE } from '../../models/ExperimentPageUIState';
 
 const ExperimentViewRunsTableHeaderContext = React.createContext({
   runsHiddenMode: RUNS_VISIBILITY_MODE.FIRST_10_RUNS,

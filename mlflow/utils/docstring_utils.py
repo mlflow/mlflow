@@ -285,9 +285,36 @@ is loaded. Files declared as dependencies for a given model should have relative
 imports declared from a common root path if multiple files are defined with import dependencies
 between them to avoid import errors when loading the model.
 
+You can leave ``code_paths`` argument unset but set ``infer_code_paths`` to ``True`` to let MLflow
+infer the model code paths. See ``infer_code_paths`` argument doc for details.
+
 For a detailed explanation of ``code_paths`` functionality, recommended usage patterns and
 limitations, see the
 `code_paths usage guide <https://mlflow.org/docs/latest/model/dependencies.html?highlight=code_paths#saving-extra-code-with-an-mlflow-model>`_.
+"""
+        ),
+        "infer_code_paths": (
+            """If set to ``True``, MLflow automatically infers model code paths. The inferred
+            code path files only include necessary python module files. Only python code files
+            under current working directory are automatically inferrable. Default value is
+            ``False``.
+
+.. warning::
+    Please ensure that the custom python module code does not contain sensitive data such as
+    credential token strings, otherwise they might be included in the automatic inferred code
+    path files and be logged to MLflow artifact repository.
+
+    If your custom python module depends on non-python files (e.g. a JSON file) with a relative
+    path to the module code file path, the non-python files can't be automatically inferred as the
+    code path file. To address this issue, you should put all used non-python files outside
+    your custom code directory.
+
+    If a python code file is loaded as the python ``__main__`` module, then this code file can't be
+    inferred as the code path file. If your model depends on classes / functions defined in
+    ``__main__`` module, you should use `cloudpickle` to dump your model instance in order to pickle
+    classes / functions in ``__main__``.
+
+.. Note:: Experimental: This parameter may change or be removed in a future release without warning.
 """
         ),
         "save_pretrained": (

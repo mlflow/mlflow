@@ -12,14 +12,14 @@ export const ExperimentViewDescriptions = React.memo(({ experiment }: { experime
         defaultMessage="Experiment ID"
         description="Label for displaying the current experiment in view"
       />
-      : {experiment.experiment_id}
+      : {experiment.experimentId}
     </Typography.Text>
     <Typography.Text color="secondary">
       <FormattedMessage
         defaultMessage="Artifact Location"
         description="Label for displaying the experiment artifact location"
       />
-      : <ExperimentViewArtifactLocation artifactLocation={experiment.artifact_location} />
+      : <ExperimentViewArtifactLocation artifactLocation={experiment.artifactLocation} />
     </Typography.Text>
   </div>
 ));

@@ -3,10 +3,10 @@ import { isUndefined } from 'lodash';
 import { RunsCompareMultipleTracesTooltipData } from './RunsMetricsLinePlot';
 import React from 'react';
 import { TraceLabelColorIndicator } from './RunsMetricsLegend';
-import { normalizeMetricChartTooltipValue } from '../../../utils/MetricsUtils';
-import { FormattedDate, FormattedTime, defineMessages, useIntl } from 'react-intl';
+import { FormattedDate, FormattedTime, useIntl } from 'react-intl';
 import { getChartAxisLabelDescriptor, RunsChartsLineChartXAxisType } from './RunsCharts.common';
 import { useDesignSystemTheme } from '@databricks/design-system';
+import { shouldEnableRelativeTimeDateAxis } from 'common/utils/FeatureUtils';
 
 // Sadly when hovering outside data point, we can't get the date-time value from Plotly chart
 // so we have to format it ourselves in a way that resembles Plotly's logic
@@ -15,6 +15,17 @@ const PlotlyLikeFormattedTime = ({ value }: { value: string | number }) => (
     <FormattedDate value={value} year="numeric" />-
     <FormattedDate value={value} month="2-digit" />-
     <FormattedDate value={value} day="2-digit" /> <FormattedTime value={value} hour="numeric" hourCycle="h24" />:
+    <FormattedTime value={value} minute="2-digit" />:
+    {/* @ts-expect-error "fractionalSecondDigits" is supported but missing from TS types */}
+    <FormattedTime value={value} second="2-digit" fractionalSecondDigits={3} />
+  </>
+);
+
+// Sadly when hovering outside data point, we can't get the date-time value from Plotly chart
+// so we have to format it ourselves in a way that resembles Plotly's logic
+const PlotlyLikeFormattedTimestamp = ({ value }: { value: string | number }) => (
+  <>
+    <FormattedTime value={value} hour="2-digit" hourCycle="h23" />:
     <FormattedTime value={value} minute="2-digit" />:
     {/* @ts-expect-error "fractionalSecondDigits" is supported but missing from TS types */}
     <FormattedTime value={value} second="2-digit" fractionalSecondDigits={3} />
@@ -44,7 +55,14 @@ export const RunsMultipleTracesTooltipBody = ({ hoverData }: { hoverData: RunsCo
         {!isUndefined(xValue) && (
           <div css={{ marginBottom: theme.spacing.xs }}>
             <span css={{ fontWeight: 'bold' }}>{displayedXValueLabel}</span>{' '}
-            {hoverData.xAxisKey === 'time' ? <PlotlyLikeFormattedTime value={xValue} /> : xValue}
+            {hoverData.xAxisKey === RunsChartsLineChartXAxisType.TIME ? (
+              <PlotlyLikeFormattedTime value={xValue} />
+            ) : shouldEnableRelativeTimeDateAxis() &&
+              hoverData.xAxisKey === RunsChartsLineChartXAxisType.TIME_RELATIVE ? (
+              <PlotlyLikeFormattedTimestamp value={xValue} />
+            ) : (
+              xValue
+            )}
           </div>
         )}
         <div
@@ -77,7 +95,7 @@ export const RunsMultipleTracesTooltipBody = ({ hoverData }: { hoverData: RunsCo
                       color: hoveredTraceUuid === uuid ? 'unset' : theme.colors.textPlaceholder,
                     }}
                   >
-                    {normalizeMetricChartTooltipValue(value, 2)}
+                    {value}
                   </span>
                 )}
               </div>

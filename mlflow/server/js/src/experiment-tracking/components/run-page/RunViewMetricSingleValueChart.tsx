@@ -23,8 +23,8 @@ export const RunViewMetricSingleValueChart = ({ runInfo, metricKey, metricEntry 
       metricEntry
         ? [
             {
-              uuid: runInfo.run_uuid,
-              displayName: runInfo.run_name,
+              uuid: runInfo.runUuid,
+              displayName: runInfo.runName,
               runInfo,
               metrics: { [metricKey]: metricEntry },
               color: theme.colors.primary,

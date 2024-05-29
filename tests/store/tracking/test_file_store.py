@@ -13,6 +13,7 @@ from unittest import mock
 
 import pytest
 
+import mlflow
 from mlflow.entities import (
     Dataset,
     DatasetInput,
@@ -41,6 +42,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
+from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.utils import insecure_hash
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri, read_yaml, write_yaml
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME
@@ -50,6 +52,7 @@ from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import append_to_uri_path
 
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
+from tests.tracing.conftest import clear_singleton  # noqa: F401
 
 FILESTORE_PACKAGE = "mlflow.store.tracking.file_store"
 
@@ -1775,6 +1778,27 @@ def test_malformed_run(store):
             store.get_run(rid)
 
 
+def test_malformed_metric(store):
+    exp_id = FileStore.DEFAULT_EXPERIMENT_ID
+    run_id = store.create_run(
+        experiment_id=exp_id,
+        user_id="user",
+        start_time=0,
+        tags=[],
+        run_name="first name",
+    ).info.run_id
+    store.log_metric(run_id, Metric("test", 1, 0, 0))
+    with mock.patch(
+        "mlflow.store.tracking.file_store.read_file_lines", return_value=["0 1 0 2\n"]
+    ), pytest.raises(
+        MlflowException,
+        match=f"Metric 'test' is malformed; persisted metric data contained "
+        f"4 fields. Expected 2 or 3 fields. "
+        f"Experiment id: {exp_id}",
+    ):
+        store.get_metric_history(run_id, "test")
+
+
 def test_mismatching_experiment_id(store):
     exp_0 = store.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
     assert exp_0.experiment_id == FileStore.DEFAULT_EXPERIMENT_ID
@@ -2885,6 +2909,11 @@ def _validate_search_traces(store, exp_ids, filter_string, expected_traces, orde
     assert traces == expected_traces
 
 
+def test_search_traces(store):
+    traces, _token = store.search_traces(["0"])
+    assert traces == []
+
+
 def test_search_traces_filter(generate_trace_infos):
     trace_infos = generate_trace_infos.trace_infos
     store = generate_trace_infos.store
@@ -3106,3 +3135,14 @@ def test_search_traces_pagination(generate_trace_infos):
     traces, token = store.search_traces([exp_id], None, max_results=5, page_token=token)
     assert traces == trace_infos[::-1][5:]
     assert token is None
+
+
+def test_traces_not_listed_as_runs(clear_singleton, tmp_path):
+    with _use_tracking_uri(tmp_path.joinpath("mlruns").as_uri()):
+        client = mlflow.MlflowClient()
+        with mlflow.start_run() as run:
+            client.start_trace("test")
+
+        with mock.patch("mlflow.store.tracking.file_store.logging.debug") as mock_debug:
+            client.search_runs([run.info.experiment_id], "", ViewType.ALL, max_results=1)
+            mock_debug.assert_not_called()

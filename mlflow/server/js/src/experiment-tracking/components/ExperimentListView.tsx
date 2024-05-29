@@ -158,7 +158,7 @@ export class ExperimentListView extends Component<Props, State> {
     // Use the parents props to index.
     const item = parent.props.data[index];
     const { activeExperimentIds } = this.props;
-    const isActive = activeExperimentIds.includes(item.experiment_id);
+    const isActive = activeExperimentIds.includes(item.experimentId);
     const dataTestId = isActive ? 'active-experiment-list-item' : 'experiment-list-item';
     // Clicking the link removes all checks and marks other experiments
     // as not active.
@@ -170,23 +170,23 @@ export class ExperimentListView extends Component<Props, State> {
         style={style}
       >
         <List.Item
-          key={item.experiment_id}
+          key={item.experimentId}
           // @ts-expect-error TS(2322): Type '{ key: any; bordered: string; prefixCls: str... Remove this comment to see the full error message
           bordered="false"
           prefixCls="experiment-list-meta"
           css={classNames.experimentListItem}
           actions={[
             <Checkbox
-              id={item.experiment_id}
-              key={item.experiment_id}
-              onChange={(isChecked) => this.handleCheck(isChecked, item.experiment_id)}
+              id={item.experimentId}
+              key={item.experimentId}
+              onChange={(isChecked) => this.handleCheck(isChecked, item.experimentId)}
               isChecked={isActive}
               data-testid={`${dataTestId}-check-box`}
             ></Checkbox>,
             <Link
               className="experiment-link"
-              to={Routes.getExperimentPageRoute(item.experiment_id)}
-              onClick={() => this.setState({ checkedKeys: [item.experiment_id] })}
+              to={Routes.getExperimentPageRoute(item.experimentId)}
+              onClick={() => this.setState({ checkedKeys: [item.experimentId] })}
               title={item.name}
               data-testid={`${dataTestId}-link`}
             >
@@ -195,14 +195,14 @@ export class ExperimentListView extends Component<Props, State> {
             <IconButton
               icon={<PencilIcon />}
               // @ts-expect-error TS(2322): Type '{ icon: Element; onClick: () => void; "data-... Remove this comment to see the full error message
-              onClick={this.handleRenameExperiment(item.experiment_id, item.name)}
+              onClick={this.handleRenameExperiment(item.experimentId, item.name)}
               data-testid="rename-experiment-button"
               css={classNames.renameExperiment}
             />,
             <IconButton
               icon={<i className="far fa-trash-o" />}
               // @ts-expect-error TS(2322): Type '{ icon: Element; onClick: () => void; css: {... Remove this comment to see the full error message
-              onClick={this.handleDeleteExperiment(item.experiment_id, item.name)}
+              onClick={this.handleDeleteExperiment(item.experimentId, item.name)}
               css={classNames.deleteExperiment}
               data-testid="delete-experiment-button"
             />,

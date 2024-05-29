@@ -1,8 +1,8 @@
 import {
-  ExperimentPageSearchFacetsStateV2,
-  createExperimentPageSearchFacetsStateV2,
-} from '../../models/ExperimentPageSearchFacetsStateV2';
-import { ExperimentPageUIStateV2, createExperimentPageUIStateV2 } from '../../models/ExperimentPageUIStateV2';
+  ExperimentPageSearchFacetsState,
+  createExperimentPageSearchFacetsState,
+} from '../../models/ExperimentPageSearchFacetsState';
+import { ExperimentPageUIState, createExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { ExperimentGetShareLinkModal } from './ExperimentGetShareLinkModal';
 import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils';
 import { renderWithIntl, act, screen, waitFor } from 'common/utils/TestUtils.react17';
@@ -47,15 +47,15 @@ describe('ExperimentGetShareLinkModal', () => {
   });
 
   const renderExperimentGetShareLinkModal = (
-    searchFacetsState = createExperimentPageSearchFacetsStateV2(),
-    uiState = createExperimentPageUIStateV2(),
+    searchFacetsState = createExperimentPageSearchFacetsState(),
+    uiState = createExperimentPageUIState(),
   ) => {
     const Component = ({
       searchFacetsState,
       uiState,
     }: {
-      searchFacetsState: ExperimentPageSearchFacetsStateV2;
-      uiState: ExperimentPageUIStateV2;
+      searchFacetsState: ExperimentPageSearchFacetsState;
+      uiState: ExperimentPageUIState;
     }) => {
       const [visible, setVisible] = useState(false);
       return (
@@ -74,16 +74,16 @@ describe('ExperimentGetShareLinkModal', () => {
     const { rerender } = renderWithIntl(<Component searchFacetsState={searchFacetsState} uiState={uiState} />);
     return {
       rerender: (
-        searchFacetsState = createExperimentPageSearchFacetsStateV2(),
-        uiState = createExperimentPageUIStateV2(),
+        searchFacetsState = createExperimentPageSearchFacetsState(),
+        uiState = createExperimentPageUIState(),
       ) => rerender(<Component searchFacetsState={searchFacetsState} uiState={uiState} />),
     };
   };
 
   test('copies the shareable URL and expects to reuse the same tag for identical view state', async () => {
     // Initial facets and UI state
-    const initialSearchState = { ...createExperimentPageSearchFacetsStateV2(), searchFilter: 'metrics.m1 = 2' };
-    const initialUIState = { ...createExperimentPageUIStateV2(), viewMaximized: true };
+    const initialSearchState = { ...createExperimentPageSearchFacetsState(), searchFilter: 'metrics.m1 = 2' };
+    const initialUIState = { ...createExperimentPageUIState(), viewMaximized: true };
 
     // Render the modal and open it
     renderExperimentGetShareLinkModal(initialSearchState, initialUIState);
@@ -119,8 +119,8 @@ describe('ExperimentGetShareLinkModal', () => {
 
   test('reuse the same tag for identical view state', async () => {
     // Initial facets and UI state
-    const initialSearchState = { ...createExperimentPageSearchFacetsStateV2(), searchFilter: 'metrics.m1 = 2' };
-    const initialUIState = { ...createExperimentPageUIStateV2(), viewMaximized: true };
+    const initialSearchState = { ...createExperimentPageSearchFacetsState(), searchFilter: 'metrics.m1 = 2' };
+    const initialUIState = { ...createExperimentPageUIState(), viewMaximized: true };
 
     // Render the modal and open it
     const { rerender } = renderExperimentGetShareLinkModal(initialSearchState, initialUIState);

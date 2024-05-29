@@ -29,7 +29,7 @@ export interface RunRowType {
   hidden: boolean;
   pinnable: boolean;
   runName?: string;
-  color?: string;
+  defaultColor?: string;
   tags?: Record<string, { key: string; value: string }>;
   params?: KeyValueEntity[];
 
@@ -105,15 +105,20 @@ export enum RunGroupingAggregateFunction {
 }
 export type RunGroupByValueType =
   | string
-  | symbol
   | {
       name: string;
       digest: string;
     };
 
+export type RunGroupByGroupingValue = {
+  mode: RunGroupingMode;
+  groupByData: any;
+  value: RunGroupByValueType | null;
+};
+
 export interface RunGroupParentInfo {
-  groupingMode: RunGroupingMode;
-  value: RunGroupByValueType;
+  isRemainingRunsGroup: boolean;
+  groupingValues: RunGroupByGroupingValue[];
   groupId: string;
   expanderOpen?: boolean;
   runUuids: string[];
@@ -160,5 +165,7 @@ export interface RowGroupRenderMetadata {
     key: string;
     value: number;
   }[];
-  value: RunGroupByValueType;
+  aggregateFunction: RunGroupingAggregateFunction;
+  groupingValues: RunGroupByGroupingValue[];
+  isRemainingRunsGroup: boolean;
 }

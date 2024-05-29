@@ -1,13 +1,11 @@
 import type { ReactWrapper } from 'enzyme';
 import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils';
 import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
-import { GetExperimentRunsContext } from '../../contexts/GetExperimentRunsContext';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
-import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
-import type { GetExperimentRunsContextType } from '../../contexts/GetExperimentRunsContext';
-import { ExperimentViewRunsImpl as ExperimentViewRuns, ExperimentViewRunsProps } from './ExperimentViewRuns';
+import { ExperimentViewRuns, ExperimentViewRunsProps } from './ExperimentViewRuns';
 import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
-import { createExperimentPageUIStateV2 } from '../../models/ExperimentPageUIStateV2';
+import { createExperimentPageUIState } from '../../models/ExperimentPageUIState';
+import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 
 /**
  * Mock all expensive utility functions
@@ -77,7 +75,6 @@ jest.mock('../../hooks/useFetchedRunsNotification', () => {
 const mockTagKeys = Object.keys(EXPERIMENT_RUNS_MOCK_STORE.entities.tagsByRunUuid['experiment123456789_run1']);
 
 describe('ExperimentViewRuns', () => {
-  let contextValue: Partial<GetExperimentRunsContextType> = {};
   const loadMoreRunsMockFn = jest.fn();
 
   beforeAll(() => {
@@ -93,17 +90,6 @@ describe('ExperimentViewRuns', () => {
     mockedShowNotification.mockClear();
     mockPrepareRunsGridData.mockClear();
     mockPrepareRunsGridData.mockImplementation(() => []);
-
-    contextValue = {
-      actions: {},
-      searchFacetsState: Object.assign(new SearchExperimentRunsFacetsState(), {
-        runsPinned: ['experiment123456789_run1'],
-      }),
-      fetchExperimentRuns: jest.fn(),
-      updateSearchFacets: jest.fn(),
-      loadMoreRuns: loadMoreRunsMockFn,
-      isPristine: jest.fn(),
-    } as any;
   });
 
   const defaultProps: ExperimentViewRunsProps = {
@@ -118,14 +104,14 @@ describe('ExperimentViewRuns', () => {
       paramsList: [[{ key: 'p1', value: 'pv1' }]],
       metricsList: [[{ key: 'm1', value: 'mv1' }]],
       datasetsList: [[{ dataset: { digest: 'ab12', name: 'dataset_name' } }]],
+      experimentTags: {},
     } as any,
     isLoading: false,
-    searchFacetsState: new SearchExperimentRunsFacetsState(),
-    uiState: Object.assign(createExperimentPageUIStateV2(), {
+    searchFacetsState: createExperimentPageSearchFacetsState(),
+    uiState: Object.assign(createExperimentPageUIState(), {
       runsPinned: ['experiment123456789_run1'],
     }),
     isLoadingRuns: false,
-    isPristine: () => false,
     loadMoreRuns: loadMoreRunsMockFn,
     refreshRuns: jest.fn(),
     requestError: null,
@@ -134,9 +120,7 @@ describe('ExperimentViewRuns', () => {
   const ProxyComponent = (additionalProps: Partial<ExperimentViewRunsProps> = {}) => (
     <MemoryRouter>
       <MockedReduxStoreProvider state={{ entities: {} }}>
-        <GetExperimentRunsContext.Provider value={contextValue as any}>
-          <ExperimentViewRuns {...defaultProps} {...additionalProps} />
-        </GetExperimentRunsContext.Provider>
+        <ExperimentViewRuns {...defaultProps} {...additionalProps} />
       </MockedReduxStoreProvider>
     </MemoryRouter>
   );
@@ -184,10 +168,7 @@ describe('ExperimentViewRuns', () => {
   });
 
   test('displays "(...) fetched more runs" notification when necessary', async () => {
-    contextValue.moreRunsAvailable = true;
-    contextValue.isLoadingRuns = false;
-
-    loadMoreRunsMockFn.mockResolvedValue([{ info: { run_uuid: 'new' } }]);
+    loadMoreRunsMockFn.mockResolvedValue([{ info: { runUuid: 'new' } }]);
     const wrapper = createWrapper({
       moreRunsAvailable: true,
       isLoadingRuns: false,
@@ -199,7 +180,7 @@ describe('ExperimentViewRuns', () => {
     await loadMoreRunsMockFn();
 
     expect(mockedShowNotification).toBeCalledWith(
-      [{ info: { run_uuid: 'new' } }],
+      [{ info: { runUuid: 'new' } }],
       [EXPERIMENT_RUNS_MOCK_STORE.entities.runInfosByUuid['experiment123456789_run1']],
     );
   });

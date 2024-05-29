@@ -14,6 +14,7 @@ import { getLatestMetrics, getMinMetrics, getMaxMetrics } from '../reducers/Metr
 import Utils from '../../common/utils/Utils';
 import { Link } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
+import type { RunInfoEntity } from '../types';
 
 const maxTableHeight = 300;
 // Because we make the table body scrollable, column widths must be fixed
@@ -237,9 +238,9 @@ const mapStateToProps = (state: any, ownProps: any) => {
   const minMetrics = {};
   const maxMetrics = {};
   runUuids.forEach((runUuid: any) => {
-    const runInfo = getRunInfo(runUuid, state);
+    const runInfo = getRunInfo(runUuid, state) as RunInfoEntity;
     // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-    runExperimentIds[runUuid] = runInfo && runInfo.getExperimentId();
+    runExperimentIds[runUuid] = runInfo && runInfo.experimentId;
     // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
     latestMetrics[runUuid] = getLatestMetrics(runUuid, state);
     // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message

@@ -1,12 +1,11 @@
 import os
-from subprocess import PIPE, STDOUT, Popen
+from subprocess import Popen
 from typing import Optional, Union
 from urllib.parse import urlparse
 
 from mlflow.environment_variables import MLFLOW_DOCKER_OPENJDK_VERSION
 from mlflow.utils import env_manager as em
 from mlflow.utils.file_utils import _copy_project
-from mlflow.utils.logging_utils import eprint
 from mlflow.version import VERSION
 
 UBUNTU_BASE_IMAGE = "ubuntu:20.04"
@@ -227,9 +226,6 @@ def build_image_from_context(context_dir: str, image_name: str):
         *platform_option,
         ".",
     ]
-    proc = Popen(commands, cwd=context_dir, stdout=PIPE, stderr=STDOUT, text=True, encoding="utf-8")
-    for x in iter(proc.stdout.readline, ""):
-        eprint(x, end="")
-
+    proc = Popen(commands, cwd=context_dir)
     if proc.wait():
         raise RuntimeError("Docker build failed.")

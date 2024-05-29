@@ -1,16 +1,11 @@
-import {
-  shouldEnableRunGrouping,
-  shouldEnableShareExperimentViewByTags,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../common/utils/FeatureUtils';
+import { shouldUseNewRunRowsVisibilityModel } from '../../../../common/utils/FeatureUtils';
 import Utils from '../../../../common/utils/Utils';
-import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIStateV2';
+import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
+import { RunGroupingAggregateFunction, RunGroupingMode } from './experimentPage.row-types';
 import { SingleRunData, prepareRunsGridData } from './experimentPage.row-utils';
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual('../../../../common/utils/FeatureUtils'),
-  shouldEnableShareExperimentViewByTags: jest.fn().mockImplementation(() => false),
-  shouldEnableRunGrouping: jest.fn().mockImplementation(() => false),
   shouldUseNewRunRowsVisibilityModel: jest.fn().mockImplementation(() => false),
 }));
 
@@ -21,11 +16,11 @@ Utils.getLoggedModelsFromTags = jest.fn().mockReturnValue([LOGGED_MODEL]);
 
 const MOCK_EXPERIMENTS = [
   {
-    experiment_id: '1',
+    experimentId: '1',
     name: '/Users/john.doe@databricks.com/test-experiment-1',
   },
   {
-    experiment_id: '2',
+    experimentId: '2',
     name: '/Users/john.doe@databricks.com/test-experiment-2',
   },
 ];
@@ -39,13 +34,13 @@ const MOCK_MODEL_MAP = {
 
 const MOCK_RUN_DATA = [
   {
-    runInfo: { experiment_id: '1', run_uuid: 'run1_1' },
+    runInfo: { experimentId: '1', runUuid: 'run1_1' },
     metrics: [{ key: 'met1', value: 111.123456789 }],
     params: [{ key: 'p1', value: '123' }],
     tags: { testtag1: { key: 'testtag1', value: 'testval1' } },
   },
   {
-    runInfo: { experiment_id: '1', run_uuid: 'run1_2' },
+    runInfo: { experimentId: '1', runUuid: 'run1_2' },
     metrics: [{ key: 'met1', value: 222 }],
     tags: {
       testtag1: { key: 'testtag1', value: 'testval2' },
@@ -53,14 +48,14 @@ const MOCK_RUN_DATA = [
     },
   },
   {
-    runInfo: { experiment_id: '1', run_uuid: 'run1_3' },
+    runInfo: { experimentId: '1', runUuid: 'run1_3' },
     tags: {
       testtag1: { key: 'testtag1', value: 'testval3' },
       'mlflow.parentRunId': { key: 'mlflow.parentRunId', value: 'run1_1' },
     },
   },
   {
-    runInfo: { experiment_id: '1', run_uuid: 'run1_4' },
+    runInfo: { experimentId: '1', runUuid: 'run1_4' },
     metrics: [
       { key: 'met1', value: 1122 },
       { key: 'met2', value: 2211 },
@@ -72,10 +67,10 @@ const MOCK_RUN_DATA = [
     tags: { 'mlflow.parentRunId': { key: 'mlflow.parentRunId', value: 'run1_2' } },
   },
   {
-    runInfo: { experiment_id: '2', run_uuid: 'run2_1' },
+    runInfo: { experimentId: '2', runUuid: 'run2_1' },
   },
   {
-    runInfo: { experiment_id: '2', run_uuid: 'run2_2' },
+    runInfo: { experimentId: '2', runUuid: 'run2_2' },
   },
 ];
 
@@ -95,9 +90,10 @@ const commonPrepareRunsGridDataParams = {
   runsExpanded: {},
   runsPinned: [],
   runsHidden: [],
-  runUuidsMatchingFilter: MOCK_RUN_DATA.map((r) => r.runInfo.run_uuid),
-  groupBy: '',
+  runUuidsMatchingFilter: MOCK_RUN_DATA.map((r) => r.runInfo.runUuid),
+  groupBy: null,
   groupsExpanded: {},
+  colorByRunUuid: {},
 };
 
 describe('ExperimentViewRuns row utils, nested and flat run hierarchies', () => {
@@ -285,22 +281,22 @@ describe('ExperimentViewRuns row utils, nested and flat run hierarchies', () => 
       ...commonPrepareRunsGridDataParams,
       runData: [
         {
-          runInfo: { experiment_id: '1', run_uuid: 'run1_1' },
+          runInfo: { experimentId: '1', runUuid: 'run1_1' },
         },
         {
-          runInfo: { experiment_id: '1', run_uuid: 'run1_2' },
+          runInfo: { experimentId: '1', runUuid: 'run1_2' },
           tags: {
             'mlflow.parentRunId': { key: 'mlflow.parentRunId', value: 'run1_4' },
           },
         },
         {
-          runInfo: { experiment_id: '1', run_uuid: 'run1_3' },
+          runInfo: { experimentId: '1', runUuid: 'run1_3' },
           tags: {
             'mlflow.parentRunId': { key: 'mlflow.parentRunId', value: 'run1_2' },
           },
         },
         {
-          runInfo: { experiment_id: '1', run_uuid: 'run1_4' },
+          runInfo: { experimentId: '1', runUuid: 'run1_4' },
           tags: {
             'mlflow.parentRunId': { key: 'mlflow.parentRunId', value: 'run1_3' },
           },
@@ -319,19 +315,19 @@ describe('ExperimentViewRuns row utils, nested and flat run hierarchies', () => 
       ...commonPrepareRunsGridDataParams,
       runData: [
         {
-          runInfo: { experiment_id: '1', run_uuid: 'run1_1' },
+          runInfo: { experimentId: '1', runUuid: 'run1_1' },
         },
         {
-          runInfo: { experiment_id: '1', run_uuid: 'run1_2' },
+          runInfo: { experimentId: '1', runUuid: 'run1_2' },
           tags: {
             'mlflow.parentRunId': { key: 'mlflow.parentRunId', value: 'run1_1' },
           },
         },
         {
-          runInfo: { experiment_id: '1', run_uuid: 'run1_3' },
+          runInfo: { experimentId: '1', runUuid: 'run1_3' },
         },
         {
-          runInfo: { experiment_id: '1', run_uuid: 'run1_4' },
+          runInfo: { experimentId: '1', runUuid: 'run1_4' },
           tags: {
             'mlflow.parentRunId': { key: 'mlflow.parentRunId', value: 'run1_3' },
           },
@@ -384,16 +380,16 @@ describe('ExperimentViewRuns row utils, nested and flat run hierarchies', () => 
       ...commonPrepareRunsGridDataParams,
       runData: [
         {
-          runInfo: { experiment_id: '1', run_uuid: 'run1_1' },
+          runInfo: { experimentId: '1', runUuid: 'run1_1' },
         },
         {
-          runInfo: { experiment_id: '1', run_uuid: 'run1_2' },
+          runInfo: { experimentId: '1', runUuid: 'run1_2' },
         },
         {
-          runInfo: { experiment_id: '1', run_uuid: 'run1_3' },
+          runInfo: { experimentId: '1', runUuid: 'run1_3' },
         },
         {
-          runInfo: { experiment_id: '1', run_uuid: 'run1_4' },
+          runInfo: { experimentId: '1', runUuid: 'run1_4' },
         },
       ] as any,
       runsPinned: ['run1_2', 'run1_3'],
@@ -418,16 +414,21 @@ describe('ExperimentViewRuns row utils, nested and flat run hierarchies', () => 
 
 describe('ExperimentViewRuns row utils, grouped run hierarchy', () => {
   beforeEach(() => {
-    // Enable run grouping by switching the flag
-    jest.mocked(shouldEnableShareExperimentViewByTags).mockImplementation(() => true);
-    jest.mocked(shouldEnableRunGrouping).mockImplementation(() => true);
     jest.mocked(shouldUseNewRunRowsVisibilityModel).mockImplementation(() => false);
   });
 
   test('it creates proper row set for runs grouped by a tag', () => {
     const runsGridData = prepareRunsGridData({
       ...commonPrepareRunsGridDataParams,
-      groupBy: 'tag.min.testtag1',
+      groupBy: {
+        aggregateFunction: RunGroupingAggregateFunction.Min,
+        groupByKeys: [
+          {
+            mode: RunGroupingMode.Tag,
+            groupByData: 'testtag1',
+          },
+        ],
+      },
     });
 
     // We expect 7 rows - 4 groups and 3 runs. Ungrouped runs are hidden by default.
@@ -439,7 +440,14 @@ describe('ExperimentViewRuns row utils, grouped run hierarchy', () => {
         aggregateFunction: 'min',
         expanderOpen: true,
         groupId: 'tag.testtag1.testval1',
-        groupingMode: 'tag',
+        groupingValues: [
+          {
+            groupByData: 'testtag1',
+            mode: 'tag',
+            value: 'testval1',
+          },
+        ],
+        isRemainingRunsGroup: false,
         aggregatedMetricData: {
           met1: {
             key: 'met1',
@@ -490,6 +498,7 @@ describe('ExperimentViewRuns row utils, grouped run hierarchy', () => {
     expect(runsGridData[6].groupParentInfo).toEqual(
       expect.objectContaining({
         groupId: 'tag.testtag1',
+        isRemainingRunsGroup: true,
         expanderOpen: false,
         runUuids: ['run1_4', 'run2_1', 'run2_2'],
       }),
@@ -499,7 +508,15 @@ describe('ExperimentViewRuns row utils, grouped run hierarchy', () => {
   test('it creates proper row dataset for runs grouped by a tag when expanded configuration is provided', () => {
     const runsGridData = prepareRunsGridData({
       ...commonPrepareRunsGridDataParams,
-      groupBy: 'tag.min.testtag1',
+      groupBy: {
+        aggregateFunction: RunGroupingAggregateFunction.Min,
+        groupByKeys: [
+          {
+            mode: RunGroupingMode.Tag,
+            groupByData: 'testtag1',
+          },
+        ],
+      },
       // Contract all groups but expand "remaining runs" group
       groupsExpanded: {
         'tag.testtag1.testval1': false,
@@ -521,7 +538,15 @@ describe('ExperimentViewRuns row utils, grouped run hierarchy', () => {
   test('it properly hoists pinned runs within a certain group', () => {
     const runsGridData = prepareRunsGridData({
       ...commonPrepareRunsGridDataParams,
-      groupBy: 'tag.min.testtag1',
+      groupBy: {
+        aggregateFunction: RunGroupingAggregateFunction.Min,
+        groupByKeys: [
+          {
+            mode: RunGroupingMode.Tag,
+            groupByData: 'testtag1',
+          },
+        ],
+      },
       groupsExpanded: {
         'tag.testtag1.testval1': false,
         'tag.testtag1.testval2': false,
@@ -542,7 +567,15 @@ describe('ExperimentViewRuns row utils, grouped run hierarchy', () => {
   test('it properly hoists pinned group runs', () => {
     const runsGridData = prepareRunsGridData({
       ...commonPrepareRunsGridDataParams,
-      groupBy: 'tag.min.testtag1',
+      groupBy: {
+        aggregateFunction: RunGroupingAggregateFunction.Min,
+        groupByKeys: [
+          {
+            mode: RunGroupingMode.Tag,
+            groupByData: 'testtag1',
+          },
+        ],
+      },
       groupsExpanded: {
         'tag.testtag1.testval1': false,
         'tag.testtag1.testval2': false,
@@ -568,7 +601,7 @@ describe('ExperimentViewRuns row utils, grouped run hierarchy', () => {
     });
 
     const fiftyRuns: SingleRunData[] = new Array(50).fill(0).map((_, i) => ({
-      runInfo: { experiment_id: '1', run_uuid: `run1_${i}` } as any,
+      runInfo: { experimentId: '1', runUuid: `run1_${i}` } as any,
       datasets: [],
       metrics: [],
       params: [],
@@ -581,7 +614,7 @@ describe('ExperimentViewRuns row utils, grouped run hierarchy', () => {
       let runsGridData = prepareRunsGridData({
         ...commonPrepareRunsGridDataParams,
         runsHiddenMode: RUNS_VISIBILITY_MODE[`FIRST_${amount}_RUNS`],
-        runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.run_uuid),
+        runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.runUuid),
         runData: fiftyRuns,
         runsHidden: userSelectedRunsHidden,
       });
@@ -594,7 +627,7 @@ describe('ExperimentViewRuns row utils, grouped run hierarchy', () => {
       runsGridData = prepareRunsGridData({
         ...commonPrepareRunsGridDataParams,
         runsHiddenMode: RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
-        runUuidsMatchingFilter: fiftyRunsReversed.map((r) => r.runInfo.run_uuid),
+        runUuidsMatchingFilter: fiftyRunsReversed.map((r) => r.runInfo.runUuid),
         runData: fiftyRunsReversed,
         runsHidden: userSelectedRunsHidden,
       });
@@ -607,7 +640,7 @@ describe('ExperimentViewRuns row utils, grouped run hierarchy', () => {
       const runsGridData = prepareRunsGridData({
         ...commonPrepareRunsGridDataParams,
         runsHiddenMode: RUNS_VISIBILITY_MODE.CUSTOM,
-        runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.run_uuid),
+        runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.runUuid),
         runData: fiftyRuns,
         runsHidden: userSelectedRunsHidden,
       });
@@ -626,7 +659,7 @@ describe('ExperimentViewRuns row utils, grouped run hierarchy', () => {
       const runsGridData = prepareRunsGridData({
         ...commonPrepareRunsGridDataParams,
         runsHiddenMode: RUNS_VISIBILITY_MODE.HIDEALL,
-        runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.run_uuid),
+        runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.runUuid),
         runData: fiftyRuns,
         runsHidden: userSelectedRunsHidden,
       });
@@ -639,7 +672,7 @@ describe('ExperimentViewRuns row utils, grouped run hierarchy', () => {
       const runsGridData = prepareRunsGridData({
         ...commonPrepareRunsGridDataParams,
         runsHiddenMode: RUNS_VISIBILITY_MODE.SHOWALL,
-        runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.run_uuid),
+        runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.runUuid),
         runData: fiftyRuns,
         runsHidden: userSelectedRunsHidden,
       });

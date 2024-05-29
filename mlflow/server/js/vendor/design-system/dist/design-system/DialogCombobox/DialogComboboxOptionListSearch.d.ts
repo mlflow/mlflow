@@ -1,6 +1,6 @@
 import React from 'react';
 import type { InputProps } from '../Input';
-export interface DialogComboboxOptionListSearchProps extends InputProps {
+export interface DialogComboboxOptionListSearchProps extends Omit<InputProps, 'componentId' | 'analyticsEvents'> {
     children: any;
     hasWrapper?: boolean;
     virtualized?: boolean;

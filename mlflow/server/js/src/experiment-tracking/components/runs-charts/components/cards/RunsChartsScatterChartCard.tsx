@@ -11,10 +11,9 @@ import {
 import { RunsScatterPlot } from '../RunsScatterPlot';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import { useIsInViewport } from '../../hooks/useIsInViewport';
-import {
-  shouldEnableDeepLearningUI,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../../common/utils/FeatureUtils';
+import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/FeatureUtils';
+import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
+import { downloadChartDataCsv } from '../../../experiment-page/utils/experimentPage.common-utils';
 
 export interface RunsChartsScatterChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
   config: RunsChartsScatterCardConfig;
@@ -56,8 +55,9 @@ export const RunsChartsScatterChartCard = ({
 
   const { setTooltip, resetTooltip, selectedRunUuid } = useRunsChartsTooltip(config);
 
-  const usingV2ChartImprovements = shouldEnableDeepLearningUI();
-  const { elementRef, isInViewport } = useIsInViewport({ enabled: usingV2ChartImprovements });
+  const { elementRef, isInViewport } = useIsInViewport();
+
+  const [imageDownloadHandler, setImageDownloadHandler] = useChartImageDownloadHandler();
 
   const chartBody = (
     <div
@@ -78,6 +78,7 @@ export const RunsChartsScatterChartCard = ({
           onUnhover={resetTooltip}
           useDefaultHoverBox={false}
           selectedRunUuid={selectedRunUuid}
+          onSetDownloadHandler={setImageDownloadHandler}
         />
       ) : null}
     </div>
@@ -101,6 +102,24 @@ export const RunsChartsScatterChartCard = ({
       onMoveDown={onMoveDown}
       onMoveUp={onMoveUp}
       toggleFullScreenChart={toggleFullScreenChart}
+      supportedDownloadFormats={['png', 'svg', 'csv']}
+      onClickDownload={(format) => {
+        const savedChartTitle = [config.xaxis.key, config.yaxis.key].join('-');
+        if (format === 'csv' || format === 'csv-full') {
+          const paramsToExport = [];
+          const metricsToExport = [];
+          for (const axis of ['xaxis' as const, 'yaxis' as const]) {
+            if (config[axis].type === 'PARAM') {
+              paramsToExport.push(config[axis].key);
+            } else {
+              metricsToExport.push(config[axis].key);
+            }
+          }
+          downloadChartDataCsv(slicedRuns, metricsToExport, paramsToExport, savedChartTitle);
+          return;
+        }
+        imageDownloadHandler?.(format, savedChartTitle);
+      }}
     >
       {chartBody}
     </RunsChartCardWrapper>

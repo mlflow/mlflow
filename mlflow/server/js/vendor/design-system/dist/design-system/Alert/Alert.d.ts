@@ -1,8 +1,9 @@
 /// <reference types="react" />
 import type { AlertProps as AntDAlertProps } from 'antd';
-import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
+import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
+import type { AnalyticsEventOptionalProps, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
 type AlertType = NonNullable<Exclude<AntDAlertProps['type'], 'success'>>;
-export interface AlertProps extends Omit<AntDAlertProps, 'closeText' | 'showIcon' | 'type' | 'icon'>, HTMLDataAttributes, DangerouslySetAntdProps<AntDAlertProps> {
+export interface AlertProps extends Omit<AntDAlertProps, 'closeText' | 'showIcon' | 'type' | 'icon'>, HTMLDataAttributes, DangerouslySetAntdProps<AntDAlertProps>, AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     type: AlertType;
     closeIconLabel?: string;
 }

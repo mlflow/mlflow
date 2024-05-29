@@ -4,8 +4,11 @@ import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
 import { experimentRunsSelector } from '../../utils/experimentRuns.selector';
 import { RunsSearchAutoComplete } from './RunsSearchAutoComplete';
-import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
 import { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
+import {
+  ExperimentPageSearchFacetsState,
+  createExperimentPageSearchFacetsState,
+} from '../../models/ExperimentPageSearchFacetsState';
 
 const MOCK_EXPERIMENT = EXPERIMENT_RUNS_MOCK_STORE.entities.experimentsById['123456789'];
 
@@ -22,13 +25,11 @@ const doStatefulMock = (additionalProps?: any) => {
   const getCurrentState = () => currentState;
 
   const Component = () => {
-    const [searchFacetsState, setSearchFacetsState] = useState<SearchExperimentRunsFacetsState>(
-      new SearchExperimentRunsFacetsState(),
-    );
+    const [searchFacetsState, setSearchFacetsState] = useState(() => createExperimentPageSearchFacetsState());
 
     currentState = searchFacetsState;
 
-    const updateSearchFacets = (updatedFilterState: Partial<SearchExperimentRunsFacetsState>) => {
+    const updateSearchFacets = (updatedFilterState: Partial<ExperimentPageSearchFacetsState>) => {
       mockUpdateSearchFacets(updatedFilterState);
       if (typeof updatedFilterState === 'function') {
         setSearchFacetsState(updatedFilterState);
@@ -218,8 +219,6 @@ describe('AutoComplete', () => {
 
 describe('Input', () => {
   test('should update search facets model when searching by query', () => {
-    const searchFacetsState = new SearchExperimentRunsFacetsState();
-
     const props = {
       runsData: MOCK_RUNS_DATA,
       onSearchFilterChange: jest.fn(),
@@ -256,7 +255,7 @@ describe('Input', () => {
   });
 
   test('should pop up tooltip when search returns error', () => {
-    const searchFacetsState = new SearchExperimentRunsFacetsState();
+    const searchFacetsState = createExperimentPageSearchFacetsState();
 
     const props = {
       runsData: MOCK_RUNS_DATA,

@@ -32,6 +32,7 @@ from sklearn.metrics import (
 import mlflow
 from mlflow import MlflowClient
 from mlflow.data.pandas_dataset import from_pandas
+from mlflow.entities import Trace, TraceData
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import (
     EvaluationArtifact,
@@ -59,6 +60,7 @@ from mlflow.tracking.artifact_utils import get_artifact_uri
 from mlflow.utils import insecure_hash
 from mlflow.utils.file_utils import TempDir
 
+from tests.tracing.helper import create_test_trace_info
 from tests.utils.test_file_utils import spark_session  # noqa: F401
 
 
@@ -697,6 +699,27 @@ def test_dataset_hash(
     assert iris_pandas_df_dataset.hash == "799d4f50e2e353127f94a0e5300add06"
     assert iris_pandas_df_num_cols_dataset.hash == "3c5fc56830a0646001253e25e17bdce4"
     assert diabetes_spark_dataset.hash == "ebfb050519e7e5b463bd38b0c8d04243"
+
+
+def test_trace_dataset_hash():
+    # Validates that a dataset containing Traces can be hashed.
+    df = pd.DataFrame(
+        {
+            "request": ["Hello"],
+            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([], "", ""))],
+        }
+    )
+    dataset = EvaluationDataset(data=df)
+    assert dataset.hash == "757c14bf38aa42d36b93ccd70b1ea719"
+    # Hash of a dataset with a different column should be different
+    df2 = pd.DataFrame(
+        {
+            "request": ["Hi"],
+            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([], "", ""))],
+        }
+    )
+    dataset2 = EvaluationDataset(data=df2)
+    assert dataset2.hash != dataset.hash
 
 
 def test_dataset_with_pandas_dataframe():

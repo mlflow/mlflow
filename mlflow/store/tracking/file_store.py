@@ -157,13 +157,17 @@ class FileStore(AbstractStore):
     EXPERIMENT_TAGS_FOLDER_NAME = "tags"
     DATASETS_FOLDER_NAME = "datasets"
     INPUTS_FOLDER_NAME = "inputs"
-    RESERVED_EXPERIMENT_FOLDERS = [EXPERIMENT_TAGS_FOLDER_NAME, DATASETS_FOLDER_NAME]
     META_DATA_FILE_NAME = "meta.yaml"
     DEFAULT_EXPERIMENT_ID = "0"
     TRACE_INFO_FILE_NAME = "trace_info.yaml"
     TRACES_FOLDER_NAME = "traces"
     TRACE_TAGS_FOLDER_NAME = "tags"
     TRACE_REQUEST_METADATA_FOLDER_NAME = "request_metadata"
+    RESERVED_EXPERIMENT_FOLDERS = [
+        EXPERIMENT_TAGS_FOLDER_NAME,
+        DATASETS_FOLDER_NAME,
+        TRACES_FOLDER_NAME,
+    ]
 
     def __init__(self, root_directory=None, artifact_root_uri=None):
         """
@@ -745,10 +749,10 @@ class FileStore(AbstractStore):
         return source_dirs[0], file_names
 
     @staticmethod
-    def _get_metric_from_file(parent_path, metric_name):
+    def _get_metric_from_file(parent_path, metric_name, exp_id):
         _validate_metric_name(metric_name)
         metric_objs = [
-            FileStore._get_metric_from_line(metric_name, line)
+            FileStore._get_metric_from_line(metric_name, line, exp_id)
             for line in read_file_lines(parent_path, metric_name)
         ]
         if len(metric_objs) == 0:
@@ -768,16 +772,19 @@ class FileStore(AbstractStore):
         parent_path, metric_files = self._get_run_files(run_info, "metric")
         metrics = []
         for metric_file in metric_files:
-            metrics.append(self._get_metric_from_file(parent_path, metric_file))
+            metrics.append(
+                self._get_metric_from_file(parent_path, metric_file, run_info.experiment_id)
+            )
         return metrics
 
     @staticmethod
-    def _get_metric_from_line(metric_name, metric_line):
+    def _get_metric_from_line(metric_name, metric_line, exp_id):
         metric_parts = metric_line.strip().split(" ")
         if len(metric_parts) != 2 and len(metric_parts) != 3:
             raise MlflowException(
                 f"Metric '{metric_name}' is malformed; persisted metric data contained "
-                f"{len(metric_parts)} fields. Expected 2 or 3 fields.",
+                f"{len(metric_parts)} fields. Expected 2 or 3 fields. "
+                f"Experiment id: {exp_id}",
                 databricks_pb2.INTERNAL_ERROR,
             )
         ts = int(metric_parts[0])
@@ -822,7 +829,7 @@ class FileStore(AbstractStore):
             return PagedList([], None)
         return PagedList(
             [
-                FileStore._get_metric_from_line(metric_key, line)
+                FileStore._get_metric_from_line(metric_key, line, run_info.experiment_id)
                 for line in read_file_lines(parent_path, metric_key)
             ],
             None,
@@ -909,9 +916,11 @@ class FileStore(AbstractStore):
                 if LifecycleStage.matches_view_type(view_type, run_info.lifecycle_stage):
                     run_infos.append(run_info)
             except MissingConfigException as rnfe:
-                # trap malformed run exception and log warning
+                # trap malformed run exception and log
+                # this is at debug level because if the same store is used for
+                # artifact storage, it's common the folder is not a run folder
                 r_id = os.path.basename(r_dir)
-                logging.warning(
+                logging.debug(
                     "Malformed run '%s'. Detailed error %s", r_id, str(rnfe), exc_info=True
                 )
         return run_infos
@@ -1456,7 +1465,7 @@ class FileStore(AbstractStore):
             timestamp_ms: End time of the trace, in milliseconds. The execution time field
                 in the TraceInfo will be calculated by subtracting the start time from this.
             status: Status of the trace.
-            request_metadata: mMetadata of the trace. This will be merged with the existing
+            request_metadata: Metadata of the trace. This will be merged with the existing
                 metadata logged during the start_trace call.
             tags: Tags of the trace. This will be merged with the existing tags logged
                 during the start_trace or set_trace_tag calls.
@@ -1676,6 +1685,8 @@ class FileStore(AbstractStore):
     def _list_trace_infos(self, experiment_id):
         experiment_path = self._get_experiment_path(experiment_id, assert_exists=True)
         traces_path = os.path.join(experiment_path, FileStore.TRACES_FOLDER_NAME)
+        if not os.path.exists(traces_path):
+            return []
         trace_paths = list_all(traces_path, lambda x: os.path.isdir(x), full_path=True)
         trace_infos = []
         for trace_path in trace_paths:

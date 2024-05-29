@@ -118,6 +118,61 @@ Integrating Azure OpenAI models within MLflow follows similar procedures to dire
 .. literalinclude:: ../../../../../examples/openai/azure_openai.py
     :language: python
 
+OpenAI Autologging
+------------------
+
+.. attention::
+    Autologging is only supported for OpenAI >= 1.17.
+
+OpenAI autologging integration allows for seamless logging of OpenAI models within MLflow.
+MLflow will automatically log a model upon calling the OpenAI API.
+Each time a request is made, the inputs and outputs will be logged as artifacts.
+
+Currently, the following tasks are supported for autologging:
+
+- Chat completions
+- Completions
+- Embeddings
+
+If streaming is enabled on chat completions and completions, the output artifact will contain
+all streaming chunks as a list of JSON objects.
+
+Note that async clients like `openai.AsyncOpenAI()` are not supported for autologging.
+
+Below is an example script that logs the model, inputs and outputs.
+
+.. code-block:: python
+
+    import mlflow
+    import openai
+
+    mlflow.openai.autolog(
+        log_input_examples=True,
+        log_model_signatures=True,
+        log_models=True,
+        registered_model_name="openai_model",
+    )
+    client = openai.OpenAI(api_key="your-api-key")
+
+    # First inference.
+    # The input and output will be logged as artifacts in `artifacts/artifacts-<session_id>-0/`.
+    # Also, the model will be logged as `models:/openai_model/1`.
+    response1 = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": "tell me a joke"}],
+        temperature=0,
+    )
+
+    # Second inference.
+    # The input and output will be logged as artifacts in `artifacts/artifacts-<session_id>-1/`.
+    response2 = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": "tell me the capital of France"}],
+        temperature=0,
+    )
+
+For more examples, please click `here <https://github.com/mlflow/mlflow/blob/master/examples/openai/autologging>`_.
+
 Next Steps in Your NLP Journey
 ------------------------------
 We invite you to harness the combined power of MLflow and OpenAI for developing innovative NLP applications. Whether it's creating interactive 

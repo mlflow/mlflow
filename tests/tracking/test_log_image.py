@@ -55,6 +55,12 @@ def test_log_image_pillow(subdir):
         assert ImageChops.difference(loaded_image, image).getbbox() is None
 
 
+def test_log_image_raises_for_unsupported_objects():
+    with mlflow.start_run():
+        with pytest.raises(TypeError, match="Unsupported image object type"):
+            mlflow.log_image("not_image", "image.png")
+
+
 @pytest.mark.parametrize(
     "size",
     [

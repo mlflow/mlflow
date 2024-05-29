@@ -26,7 +26,8 @@ class _Trace:
     def to_mlflow_trace(self) -> Trace:
         trace_data = TraceData()
         for span in self.span_dict.values():
-            trace_data.spans.append(span)
+            # Convert LiveSpan, mutable objects, into immutable Span objects before persisting.
+            trace_data.spans.append(span.to_immutable_span())
             if span.parent_id is None:
                 # Accessing the OTel span directly get serialized value directly.
                 trace_data.request = span._span.attributes.get(SpanAttributeKey.INPUTS)
@@ -81,7 +82,7 @@ class InMemoryTraceManager:
         """
         with self._lock:
             if trace_info.request_id not in self._traces:
-                _logger.warning(f"Trace data with request ID {trace_info.request_id} not found.")
+                _logger.debug(f"Trace data with request ID {trace_info.request_id} not found.")
                 return
             self._traces[trace_info.request_id].info = trace_info
 
@@ -93,7 +94,7 @@ class InMemoryTraceManager:
             span: The span to be stored.
         """
         if not isinstance(span, LiveSpan):
-            _logger.warning(f"Invalid span object {type(span)} is passed. Skipping.")
+            _logger.debug(f"Invalid span object {type(span)} is passed. Skipping.")
             return
 
         with self._lock:

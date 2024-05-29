@@ -1,9 +1,9 @@
 import { renderHook, act, type RenderHookResult } from '@testing-library/react-for-react-18';
 import {
-  ExperimentPageSearchFacetsStateV2,
-  createExperimentPageSearchFacetsStateV2,
-} from '../models/ExperimentPageSearchFacetsStateV2';
-import { ExperimentPageUIStateV2, createExperimentPageUIStateV2 } from '../models/ExperimentPageUIStateV2';
+  ExperimentPageSearchFacetsState,
+  createExperimentPageSearchFacetsState,
+} from '../models/ExperimentPageSearchFacetsState';
+import { ExperimentPageUIState, createExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { useExperimentRuns } from './useExperimentRuns';
 import { loadMoreRunsApi, searchRunsApi } from '../../../actions';
 import { applyMiddleware, combineReducers, createStore } from 'redux';
@@ -23,11 +23,18 @@ import { latestMetricsByRunUuid, metricsByRunUuid } from '../../../reducers/Metr
 import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 import Utils from '../../../../common/utils/Utils';
 import { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
+import { RUNS_AUTO_REFRESH_INTERVAL } from '../utils/experimentPage.fetch-utils';
+import { shouldEnableExperimentPageAutoRefresh } from '../../../../common/utils/FeatureUtils';
 
 jest.mock('../../../actions', () => ({
   ...jest.requireActual('../../../actions'),
   searchRunsApi: jest.fn(),
   loadMoreRunsApi: jest.fn(),
+}));
+
+jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual('../../../../common/utils/FeatureUtils'),
+  shouldEnableExperimentPageAutoRefresh: jest.fn(),
 }));
 
 const MOCK_RESPONSE_DELAY = 1000;
@@ -41,10 +48,10 @@ const createInitialRunsResponse = () =>
           runs: [
             {
               info: {
-                run_uuid: 'run_1',
-                experiment_id: 'test-experiment',
-                run_name: 'run_1_name',
-                lifecycle_stage: 'active',
+                runUuid: 'run_1',
+                experimentId: 'test-experiment',
+                runName: 'run_1_name',
+                lifecycleStage: 'active',
               },
               data: {
                 metrics: [{ key: 'm1', value: 100, timestamp: 100, step: 1 }],
@@ -54,10 +61,10 @@ const createInitialRunsResponse = () =>
             },
             {
               info: {
-                run_uuid: 'run_2',
-                experiment_id: 'test-experiment',
-                run_name: 'run_2_name',
-                lifecycle_stage: 'active',
+                runUuid: 'run_2',
+                experimentId: 'test-experiment',
+                runName: 'run_2_name',
+                lifecycleStage: 'active',
               },
               data: {
                 metrics: [{ key: 'm2', value: 200, timestamp: 100, step: 1 }],
@@ -66,16 +73,36 @@ const createInitialRunsResponse = () =>
             },
             {
               info: {
-                run_uuid: 'run_3',
-                experiment_id: 'test-experiment',
-                run_name: 'run_3_name',
-                lifecycle_stage: 'deleted',
+                runUuid: 'run_3',
+                experimentId: 'test-experiment',
+                runName: 'run_3_name',
+                lifecycleStage: 'deleted',
               },
               data: {
                 tags: [],
               },
             },
           ],
+        }),
+      MOCK_RESPONSE_DELAY,
+    ),
+  );
+
+const createNRunsResponse = (n = 100) =>
+  new Promise((resolve) =>
+    setTimeout(
+      () =>
+        resolve({
+          next_page_token: 'some_page_token',
+          runs: new Array(n).fill({}).map((_, index) => ({
+            info: {
+              runUuid: `run_${index}`,
+              experimentId: 'test-experiment',
+              runName: `run_${index}_name`,
+              lifecycleStage: 'active',
+            },
+            data: { metrics: [], params: [], tags: [] },
+          })),
         }),
       MOCK_RESPONSE_DELAY,
     ),
@@ -89,10 +116,10 @@ const createLoadMoreRunsResponse = () =>
           runs: [
             {
               info: {
-                run_uuid: 'run_4',
-                experiment_id: 'test-experiment',
-                run_name: 'run_4_name',
-                lifecycle_stage: 'active',
+                runUuid: 'run_4',
+                experimentId: 'test-experiment',
+                runName: 'run_4_name',
+                lifecycleStage: 'active',
               },
               data: {
                 metrics: [{ key: 'm4', value: 400, timestamp: 100, step: 1 }],
@@ -125,18 +152,13 @@ const store = createStore(
 );
 
 const testExperimentIds = ['test-experiment'];
-const testUiState = createExperimentPageUIStateV2();
-const testSearchFacets = createExperimentPageSearchFacetsStateV2();
+const testUiState = createExperimentPageUIState();
+const testSearchFacets = createExperimentPageSearchFacetsState();
 
 // This suite tests useExperimentRuns hook, related reducers, actions and selectors.
 describe('useExperimentRuns - integration test', () => {
-  beforeAll(() => {
-    jest.useFakeTimers();
-  });
-  afterAll(() => {
-    jest.useRealTimers();
-  });
   beforeEach(() => {
+    jest.useFakeTimers();
     jest
       .mocked(searchRunsApi)
       .mockReturnValue({ type: 'SEARCH_RUNS_API', payload: Promise.resolve({}), meta: { id: 0 } });
@@ -144,6 +166,11 @@ describe('useExperimentRuns - integration test', () => {
       .mocked(loadMoreRunsApi)
       .mockReturnValue({ type: 'LOAD_MORE_RUNS_API', payload: Promise.resolve({}), meta: { id: 0 } });
   });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   const renderTestHook = async (
     initialUiState = testUiState,
     initialSearchFacets = testSearchFacets,
@@ -157,8 +184,8 @@ describe('useExperimentRuns - integration test', () => {
           searchFacets,
           uiState,
         }: {
-          uiState: ExperimentPageUIStateV2;
-          searchFacets: ExperimentPageSearchFacetsStateV2;
+          uiState: ExperimentPageUIState;
+          searchFacets: ExperimentPageSearchFacetsState;
           experimentIds: string[];
         }) => useExperimentRuns(uiState, searchFacets, experimentIds),
         {
@@ -209,7 +236,7 @@ describe('useExperimentRuns - integration test', () => {
 
     // Advance timers to trigger the first response
     await act(async () => {
-      jest.advanceTimersByTime(1500);
+      jest.advanceTimersByTime(MOCK_RESPONSE_DELAY);
     });
 
     // Check that the hook is no longer loading
@@ -354,5 +381,140 @@ describe('useExperimentRuns - integration test', () => {
     const { result } = await renderTestHook();
     expect(result.current.requestError?.getMessageField()).toEqual('request failure');
     expect(Utils.logErrorAndNotifyUser).toHaveBeenCalled();
+  });
+
+  describe('useExperimentRuns auto-refresh', () => {
+    beforeEach(() => {
+      jest.mocked(shouldEnableExperimentPageAutoRefresh).mockImplementation(() => true);
+      jest.mocked(searchRunsApi).mockClear();
+
+      // Mock the response to be a success with 100 runs
+      jest.mocked(searchRunsApi).mockImplementation(() => ({
+        type: 'SEARCH_RUNS_API',
+        payload: createNRunsResponse(100),
+        meta: { id: 0 },
+      }));
+    });
+
+    test('should query for the new runs', async () => {
+      // Render the hook
+      const { unmount } = await renderTestHook({
+        ...testUiState,
+        autoRefreshEnabled: true,
+      });
+
+      // The initial call for runs should go through
+      expect(searchRunsApi).toBeCalledTimes(1);
+
+      // Wait for the initial runs to be fetched
+      await act(async () => {
+        jest.advanceTimersByTime(MOCK_RESPONSE_DELAY);
+      });
+
+      // Wait for the auto-refresh interval to pass
+      await act(async () => {
+        jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL);
+      });
+
+      // We should get another call for runs
+      expect(searchRunsApi).toBeCalledTimes(2);
+      await act(async () => {
+        jest.advanceTimersByTime(MOCK_RESPONSE_DELAY);
+      });
+
+      // Wait for the auto-refresh interval to pass
+      await act(async () => {
+        jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL);
+      });
+
+      // We should get another call for runs
+      expect(searchRunsApi).toBeCalledTimes(3);
+
+      // Unmount the hook
+      unmount();
+
+      // Wait for the auto-refresh interval to pass
+      await act(async () => {
+        jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL * 10);
+      });
+
+      // No new calls should be made
+      expect(searchRunsApi).toBeCalledTimes(3);
+    });
+
+    test('should not replace results when user has refreshed runs manually by changing facets', async () => {
+      const uiState = {
+        ...testUiState,
+        autoRefreshEnabled: true,
+      };
+
+      // Render the hook
+      const { rerender } = await renderTestHook(uiState);
+
+      // The initial call for runs should go through
+      expect(searchRunsApi).toBeCalledTimes(1);
+
+      // Wait for the initial runs to be fetched
+      await act(async () => {
+        jest.advanceTimersByTime(MOCK_RESPONSE_DELAY);
+      });
+
+      // Wait for half of the interval to pass
+      await act(async () => {
+        jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL / 2);
+      });
+
+      const updatedSearchFacets = { ...testSearchFacets, orderByKey: 'abc' };
+
+      // Change the search facets to include a new filter
+      await act(async () => {
+        rerender({
+          uiState,
+          searchFacets: updatedSearchFacets,
+          experimentIds: testExperimentIds,
+        });
+      });
+
+      // We should get another call with new facets
+      expect(searchRunsApi).toBeCalledTimes(2);
+
+      // Wait for results to be loaded
+      await act(async () => {
+        jest.advanceTimersByTime(MOCK_RESPONSE_DELAY);
+      });
+
+      // Wait for the remaining time of auto-refresh interval to pass
+      await act(async () => {
+        jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL / 2);
+      });
+
+      // We should get no new calls for runs
+      expect(searchRunsApi).toBeCalledTimes(2);
+
+      // Wait for another interval to pass
+      await act(async () => {
+        jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL);
+      });
+
+      // We should get another automatic call for runs
+      expect(searchRunsApi).toBeCalledTimes(3);
+
+      // Disable auto refresh completely
+      await act(async () => {
+        rerender({
+          uiState: { ...testUiState, autoRefreshEnabled: false },
+          searchFacets: updatedSearchFacets,
+          experimentIds: testExperimentIds,
+        });
+      });
+
+      // Wait for a few intervals to pass
+      await act(async () => {
+        jest.advanceTimersByTime(10 * RUNS_AUTO_REFRESH_INTERVAL);
+      });
+
+      // We should not have any new calls
+      expect(searchRunsApi).toBeCalledTimes(3);
+    });
   });
 });

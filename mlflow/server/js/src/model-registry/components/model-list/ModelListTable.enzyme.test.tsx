@@ -50,6 +50,7 @@ const MODELS = [
 describe('ModelListTable', () => {
   const minimalProps: ModelListTableProps = {
     isLoading: false,
+    error: undefined,
     modelsData: MODELS as any,
     onSortChange: jest.fn(),
     orderByAsc: false,
@@ -91,15 +92,19 @@ describe('ModelListTable', () => {
 
   it('checks if the model link is rendered', () => {
     const wrapper = createComponentWrapper({});
-    expect(getTableRowByCellText(wrapper, 'test_model_1').find('a[href="/models/test_model_1"]').exists()).toBeTruthy();
-    expect(getTableRowByCellText(wrapper, 'test_model_2').find('a[href="/models/test_model_2"]').exists()).toBeTruthy();
+    expect(
+      getTableRowByCellText(wrapper, 'test_model_1').find('a[href$="/models/test_model_1"]').exists(),
+    ).toBeTruthy();
+    expect(
+      getTableRowByCellText(wrapper, 'test_model_2').find('a[href$="/models/test_model_2"]').exists(),
+    ).toBeTruthy();
   });
 
   it('checks if the simple model version links are rendered', () => {
     const wrapper = createComponentWrapper({});
     // Model #1 contains only one version
     expect(
-      getTableRowByCellText(wrapper, 'test_model_1').find('a[href="/models/test_model_1/versions/1"]').exists(),
+      getTableRowByCellText(wrapper, 'test_model_1').find('a[href$="/models/test_model_1/versions/1"]').exists(),
     ).toBeTruthy();
   });
 
@@ -108,9 +113,9 @@ describe('ModelListTable', () => {
     const wrapper = createComponentWrapper({});
     // Model #2 contains versions 2 and 3 in staging in production, but version 1 is not shown
     const row = getTableRowByCellText(wrapper, 'test_model_2');
-    expect(row.find('a[href="/models/test_model_2/versions/1"]').exists()).toBeFalsy();
-    expect(row.find('a[href="/models/test_model_2/versions/2"]').exists()).toBeTruthy();
-    expect(row.find('a[href="/models/test_model_2/versions/3"]').exists()).toBeTruthy();
+    expect(row.find('a[href$="/models/test_model_2/versions/1"]').exists()).toBeFalsy();
+    expect(row.find('a[href$="/models/test_model_2/versions/2"]').exists()).toBeTruthy();
+    expect(row.find('a[href$="/models/test_model_2/versions/3"]').exists()).toBeTruthy();
   });
 
   it('checks if the tags are rendered correctly and are expanding', () => {
@@ -145,6 +150,14 @@ describe('ModelListTable', () => {
   test('should display no results message when search results are empty', () => {
     const wrapper = createComponentWrapper({ modelsData: [], isFiltered: true });
     expect(wrapper.html()).toContain('No results. Try using a different keyword or adjusting your filters.');
+  });
+
+  test('should display error message on API errors', () => {
+    const errMsg = 'TEMPORARILY_UNAVAILABLE: Backend unavailable';
+    const wrapper = createComponentWrapper({ error: new Error(errMsg) });
+    const wrapperHtml = wrapper.html();
+    expect(wrapperHtml).toContain('Error fetching models');
+    expect(wrapperHtml).toContain(errMsg);
   });
 
   test('should display aliases column instead of stage in new models UI', async () => {

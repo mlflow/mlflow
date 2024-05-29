@@ -13,6 +13,8 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
     TRUNCATION_SUFFIX,
     SpanAttributeKey,
     TraceMetadataKey,
@@ -21,9 +23,9 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
 from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
-    encode_trace_id,
     get_otel_attribute,
-    maybe_get_evaluation_request_id,
+    maybe_get_dependencies_schemas,
+    maybe_get_request_id,
 )
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.registry import resolve_tags
@@ -90,44 +92,27 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 "To avoid performance and disambiguation issues, set the experiment for "
                 "your environment using `mlflow.set_experiment()` API."
             )
-        default_tags = resolve_tags()
+        tags = resolve_tags()
+        tags.update({TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)})
 
         # If the trace is created in the context of MLflow model evaluation, we extract the request
         # ID from the prediction context. Otherwise, we create a new trace info by calling the
         # backend API.
-        if request_id := maybe_get_evaluation_request_id():
-            default_tags.update({TraceTagKey.EVAL_REQUEST_ID: request_id})
-        try:
-            trace_info = self._client._start_tracked_trace(
-                experiment_id=experiment_id,
-                # TODO: This timestamp is not accurate because it is not adjusted to exclude the
-                #   latency of the backend API call. We do this adjustment for span start time
-                #   above, but can't do it for trace start time until the backend API supports
-                #   updating the trace start time.
-                timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
-                request_metadata=metadata,
-                tags=default_tags,
-            )
+        if request_id := maybe_get_request_id(is_evaluate=True):
+            tags.update({TraceTagKey.EVAL_REQUEST_ID: request_id})
+        if depedencies_schema := maybe_get_dependencies_schemas():
+            tags.update(depedencies_schema)
 
-        # TODO: This catches all exceptions from the tracking server so the in-memory tracing
-        # still works if the backend APIs are not ready. Once backend is ready, we should
-        # catch more specific exceptions and handle them accordingly.
-        except Exception:
-            _logger.debug(
-                "Failed to start a trace in the tracking server. This may be because the "
-                "backend APIs are not available. Fallback to client-side generation",
-                exc_info=True,
-            )
-            request_id = encode_trace_id(span.context.trace_id)
-            trace_info = self._create_trace_info(
-                request_id,
-                span,
-                experiment_id,
-                metadata,
-                tags=default_tags,
-            )
-
-        return trace_info
+        return self._client._start_tracked_trace(
+            experiment_id=experiment_id,
+            # TODO: This timestamp is not accurate because it is not adjusted to exclude the
+            #   latency of the backend API call. We do this adjustment for span start time
+            #   above, but can't do it for trace start time until the backend API supports
+            #   updating the trace start time.
+            timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
+            request_metadata=metadata,
+            tags=tags,
+        )
 
     def on_end(self, span: OTelReadableSpan) -> None:
         """

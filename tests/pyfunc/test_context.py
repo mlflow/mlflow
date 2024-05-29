@@ -16,6 +16,8 @@ def test_prediction_context_thread_safe():
         with set_prediction_context(context):
             time.sleep(0.2 * random.random())
             assert get_prediction_context() == context
+            context.update(is_evaluate=not context.is_evaluate)
+            assert get_prediction_context() == context
 
     threads = []
     for i in range(10):

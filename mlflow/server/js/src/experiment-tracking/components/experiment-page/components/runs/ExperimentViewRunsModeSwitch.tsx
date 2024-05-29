@@ -1,27 +1,25 @@
 import { Button, Popover, Tabs, Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import React, { useState, useEffect, useCallback } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
+import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
-import { shouldEnableShareExperimentViewByTags } from '../../../../../common/utils/FeatureUtils';
 import type { ExperimentViewRunsCompareMode } from '../../../../types';
 import { PreviewBadge } from 'shared/building_blocks/PreviewBadge';
-import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
+import { getExperimentPageDefaultViewMode, useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
 
 const COMPARE_RUNS_TOOLTIP_STORAGE_KEY = 'compareRunsTooltip';
 const COMPARE_RUNS_TOOLTIP_STORAGE_ITEM = 'seenBefore';
 
 export interface ExperimentViewRunsModeSwitchProps {
-  compareRunsMode: ExperimentViewRunsCompareMode;
-  setCompareRunsMode: (newCompareRunsMode: ExperimentViewRunsCompareMode) => void;
-  viewState: SearchExperimentRunsViewState;
+  viewState?: ExperimentPageViewState;
   runsAreGrouped?: boolean;
+  hideBorder?: boolean;
 }
 
 const ChartViewButtonTooltip: React.FC<{
-  isComparingRuns: boolean;
+  isTableMode: boolean;
   multipleRunsSelected: boolean;
-}> = ({ multipleRunsSelected, isComparingRuns }) => {
+}> = ({ multipleRunsSelected, isTableMode }) => {
   const seenTooltipStore = useExperimentViewLocalStore(COMPARE_RUNS_TOOLTIP_STORAGE_KEY);
   const [isToolTipOpen, setToolTipOpen] = useState(
     multipleRunsSelected && !seenTooltipStore.getItem(COMPARE_RUNS_TOOLTIP_STORAGE_ITEM),
@@ -29,12 +27,12 @@ const ChartViewButtonTooltip: React.FC<{
 
   useEffect(() => {
     const hasSeenTooltipBefore = seenTooltipStore.getItem(COMPARE_RUNS_TOOLTIP_STORAGE_ITEM);
-    if (multipleRunsSelected && !isComparingRuns && !hasSeenTooltipBefore) {
+    if (multipleRunsSelected && isTableMode && !hasSeenTooltipBefore) {
       setToolTipOpen(true);
     } else {
       setToolTipOpen(false);
     }
-  }, [multipleRunsSelected, isComparingRuns, seenTooltipStore]);
+  }, [multipleRunsSelected, isTableMode, seenTooltipStore]);
 
   const updateIsTooltipOpen = useCallback(
     (isOpen) => {
@@ -76,41 +74,36 @@ const ChartViewButtonTooltip: React.FC<{
 };
 
 /**
- * Allows switching between "table", "chart" and "evaluation" modes of experiment view
+ * Allows switching between "table", "chart", "evaluation" and "traces" modes of experiment view
  */
 export const ExperimentViewRunsModeSwitch = ({
-  compareRunsMode: compareRunsModeFromProps,
-  setCompareRunsMode,
   viewState,
   runsAreGrouped,
+  hideBorder = true,
 }: ExperimentViewRunsModeSwitchProps) => {
-  const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
-  const [viewModeFromURL, setViewModeInURL] = useExperimentPageViewMode();
-
-  // In the new view state model, use the view mode serialized in the URL
-  const compareRunsMode = usingNewViewStateModel ? compareRunsModeFromProps : viewModeFromURL;
-
-  const isComparingRuns = compareRunsMode !== undefined;
+  const [viewMode, setViewModeInURL] = useExperimentPageViewMode();
   const { classNamePrefix } = useDesignSystemTheme();
-
-  const activeTab = (usingNewViewStateModel ? viewModeFromURL : compareRunsMode) || 'TABLE';
+  const activeTab = viewMode || getExperimentPageDefaultViewMode();
 
   return (
     <Tabs
       dangerouslyAppendEmotionCSS={{
         [`.${classNamePrefix}-tabs-nav`]: {
           marginBottom: 0,
-          '::before': { border: 'none' },
+          '::before': {
+            display: hideBorder ? 'none' : 'block',
+          },
         },
       }}
       activeKey={activeTab}
       onChange={(tabKey) => {
-        const newValue = (tabKey === 'TABLE' ? undefined : tabKey) as ExperimentViewRunsCompareMode;
-        if (usingNewViewStateModel) {
-          setViewModeInURL(newValue);
-        } else {
-          setCompareRunsMode(newValue);
+        const newValue = tabKey as ExperimentViewRunsCompareMode;
+
+        if (activeTab === newValue) {
+          return;
         }
+
+        setViewModeInURL(newValue);
       }}
     >
       <Tabs.TabPane
@@ -134,8 +127,8 @@ export const ExperimentViewRunsModeSwitch = ({
               />
             </span>
             <ChartViewButtonTooltip
-              isComparingRuns={isComparingRuns}
-              multipleRunsSelected={Object.keys(viewState.runsSelected).length > 1}
+              isTableMode={viewMode === 'TABLE'}
+              multipleRunsSelected={viewState ? Object.keys(viewState.runsSelected).length > 1 : false}
             />
           </>
         }

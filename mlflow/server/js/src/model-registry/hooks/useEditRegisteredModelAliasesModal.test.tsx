@@ -1,8 +1,13 @@
-import userEvent from '@testing-library/user-event';
+import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event-14';
 
 import { useEditRegisteredModelAliasesModal } from './useEditRegisteredModelAliasesModal';
 import { ModelEntity } from '../../experiment-tracking/types';
-import { renderWithIntl, type RenderResult, act } from 'common/utils/TestUtils.react17';
+import {
+  fastFillInput,
+  findAntdOptionContaining,
+  renderWithIntl,
+  type RenderResult,
+} from 'common/utils/TestUtils.react18';
 import { Services } from '../services';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { Provider } from 'react-redux';
@@ -38,7 +43,12 @@ const MOCK_MODEL_MANY_ALIASES = {
 };
 
 describe('useEditRegisteredModelAliasesModal', () => {
+  let userEvent: ReturnType<typeof userEventGlobal.setup>;
+
   beforeEach(() => {
+    // Remove pointer event check otherwise there's some div that and pointer-events: none that blocks clicks
+    userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+
     jest.spyOn(Services, 'deleteModelVersionAlias').mockReturnThis();
     jest.spyOn(Services, 'setModelVersionAlias').mockReturnThis();
   });
@@ -76,13 +86,13 @@ describe('useEditRegisteredModelAliasesModal', () => {
   test('should initialize and render modal with properly displayed tags', async () => {
     const component = renderComponentWithHook(MOCK_MODEL);
 
-    userEvent.click(component.getByText('edit version 1 aliases'));
+    await userEvent.click(component.getByText('edit version 1 aliases'));
 
     expect(component.getByRole('status', { name: 'champion' })).toBeInTheDocument();
 
-    userEvent.click(component.getByText('Cancel'));
+    await userEvent.click(component.getByText('Cancel'));
 
-    userEvent.click(component.getByText('edit version 2 aliases'));
+    await userEvent.click(component.getByText('edit version 2 aliases'));
 
     expect(component.getByRole('status', { name: 'challenger' })).toBeInTheDocument();
     expect(component.getByRole('status', { name: 'latest' })).toBeInTheDocument();
@@ -91,16 +101,14 @@ describe('useEditRegisteredModelAliasesModal', () => {
   test('should display warning for conflicting aliases', async () => {
     const component = renderComponentWithHook(MOCK_MODEL);
 
-    userEvent.click(component.getByText('edit version 1 aliases'));
+    await userEvent.click(component.getByText('edit version 1 aliases'));
 
     expect(component.getByTitle('champion')).toBeInTheDocument();
 
-    userEvent.click(component.getByRole('combobox'));
+    await userEvent.click(component.getByRole('combobox'));
 
-    await userEvent.type(component.getByRole('combobox'), 'challenger{enter}', {
-      // Antd <Select />'s input gets lost without a non-zero delay
-      delay: 1,
-    });
+    await userEvent.type(component.getByRole('combobox'), 'challenger');
+    await userEvent.click(await findOption(component, 'challenger'));
 
     expect(
       component.getByText(
@@ -112,16 +120,14 @@ describe('useEditRegisteredModelAliasesModal', () => {
   test('should select a new alias', async () => {
     const component = renderComponentWithHook(MOCK_MODEL);
 
-    userEvent.click(component.getByText('edit version 1 aliases'));
+    await userEvent.click(component.getByText('edit version 1 aliases'));
 
     expect(component.getByTitle('champion')).toBeInTheDocument();
 
-    userEvent.click(component.getByRole('combobox'));
+    await userEvent.click(component.getByRole('combobox'));
 
-    await userEvent.type(component.getByRole('combobox'), 'new_alias_for_v1{enter}', {
-      // Antd <Select />'s input gets lost without a non-zero delay
-      delay: 1,
-    });
+    await fastFillInput(component.getByRole('combobox') as HTMLInputElement, 'new_alias_for_v1');
+    await userEvent.click(await findAntdOptionContaining('new_alias_for_v1'));
 
     expect(component.getByRole('status', { name: 'champion' })).toBeInTheDocument();
     expect(component.getByRole('status', { name: 'new_alias_for_v1' })).toBeInTheDocument();
@@ -130,13 +136,9 @@ describe('useEditRegisteredModelAliasesModal', () => {
   test('should not be able to add too many aliases', async () => {
     const component = renderComponentWithHook(MOCK_MODEL_MANY_ALIASES);
 
-    userEvent.click(component.getByText('edit version 1 aliases'));
-    userEvent.click(component.getByRole('combobox'));
-
-    await act(async () => {
-      // Select 11th alias
-      userEvent.click(findOption(component, 'challenger'));
-    });
+    await userEvent.click(component.getByText('edit version 1 aliases'));
+    await userEvent.click(component.getByRole('combobox'));
+    await userEvent.click(findOption(component, 'challenger'));
 
     expect(component.getByText(/You are exceeding a limit of \d+ aliases/)).toBeInTheDocument();
     expect(component.getByRole('button', { name: 'Save aliases' })).toBeDisabled();
@@ -145,19 +147,17 @@ describe('useEditRegisteredModelAliasesModal', () => {
   test('should invoke proper API requests for adding and removing aliases', async () => {
     const component = renderComponentWithHook(MOCK_MODEL);
 
-    userEvent.click(component.getByText('edit version 1 aliases'));
+    await userEvent.click(component.getByText('edit version 1 aliases'));
 
     expect(component.getByTitle('champion')).toBeInTheDocument();
 
     expect(component.getByRole('button', { name: 'Save aliases' })).toBeDisabled();
 
-    userEvent.click(component.getByRole('combobox'));
-    userEvent.click(findOption(component, 'champion'));
-    userEvent.click(findOption(component, 'challenger'));
+    await userEvent.click(component.getByRole('combobox'));
+    await userEvent.click(findOption(component, 'champion'));
+    await userEvent.click(findOption(component, 'challenger'));
 
-    await act(async () => {
-      userEvent.click(component.getByText('Save aliases'));
-    });
+    await userEvent.click(component.getByText('Save aliases'));
 
     expect(Services.deleteModelVersionAlias).toBeCalledWith({
       alias: 'champion',
@@ -178,14 +178,12 @@ describe('useEditRegisteredModelAliasesModal', () => {
 
     const component = renderComponentWithHook(MOCK_MODEL);
 
-    userEvent.click(component.getByText('edit version 1 aliases'));
+    await userEvent.click(component.getByText('edit version 1 aliases'));
 
-    userEvent.click(component.getByRole('combobox'));
-    userEvent.click(findOption(component, 'challenger'));
+    await userEvent.click(component.getByRole('combobox'));
+    await userEvent.click(findOption(component, 'challenger'));
 
-    await act(async () => {
-      userEvent.click(component.getByText('Save aliases'));
-    });
+    await userEvent.click(component.getByText('Save aliases'));
 
     expect(await component.findByText(/some error message/)).toBeInTheDocument();
   });

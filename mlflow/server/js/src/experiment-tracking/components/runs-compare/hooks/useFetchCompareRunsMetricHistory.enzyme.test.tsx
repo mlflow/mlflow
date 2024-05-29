@@ -59,7 +59,7 @@ describe('useFetchCompareRunsMetricHistory', () => {
     );
   };
 
-  const mockRun = (id: string) => ({ runInfo: { run_uuid: id } } as any);
+  const mockRun = (id: string) => ({ runInfo: { runUuid: id } } as any);
 
   beforeEach(() => {
     getMetricHistoryApiMock.mockClear();

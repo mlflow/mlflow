@@ -1,4 +1,4 @@
-import { LegacySelect, Typography } from '@databricks/design-system';
+import { LegacySelect, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import React, { ComponentProps, PropsWithChildren } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { makeCanonicalSortKey } from '../../../experiment-page/utils/experimentPage.common-utils';
@@ -14,11 +14,9 @@ export const RunsChartsConfigureField = ({
 }: PropsWithChildren<{
   title: string;
 }>) => {
+  const { theme } = useDesignSystemTheme();
   return (
-    <div
-      css={(theme) => ({ marginBottom: theme.spacing.md * 2 })}
-      data-testid="experiment-view-compare-runs-config-field"
-    >
+    <div css={{ marginBottom: theme.spacing.md * 2 }} data-testid="experiment-view-compare-runs-config-field">
       <Typography.Title level={4}>{title}:</Typography.Title>
       {children}
     </div>

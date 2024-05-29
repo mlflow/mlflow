@@ -38,7 +38,7 @@ import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
 import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
 import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
 import { ModelVersionViewAliasEditor } from './aliases/ModelVersionViewAliasEditor';
-import type { ModelEntity } from '../../experiment-tracking/types';
+import type { ModelEntity, RunInfoEntity } from '../../experiment-tracking/types';
 
 type ModelVersionViewImplProps = {
   modelName?: string;
@@ -50,7 +50,7 @@ type ModelVersionViewImplProps = {
   onCreateComment: (...args: any[]) => any;
   onEditComment: (...args: any[]) => any;
   onDeleteComment: (...args: any[]) => any;
-  runInfo?: any;
+  runInfo?: RunInfoEntity;
   runDisplayName?: string;
   handleStageTransitionDropdownSelect: (...args: any[]) => any;
   deleteModelVersionApi: (...args: any[]) => any;
@@ -449,10 +449,10 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
       let artifactPath = null;
       const modelSource = this.props.modelVersion?.source;
       if (modelSource) {
-        artifactPath = extractArtifactPathFromModelSource(modelSource, runInfo.getRunUuid());
+        artifactPath = extractArtifactPathFromModelSource(modelSource, runInfo.runUuid);
       }
       return (
-        <Link to={Routers.getRunPageRoute(runInfo.getExperimentId(), runInfo.getRunUuid(), artifactPath)}>
+        <Link to={Routers.getRunPageRoute(runInfo.experimentId, runInfo.runUuid, artifactPath)}>
           {this.resolveRunName()}
         </Link>
       );
@@ -467,7 +467,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
       // Run: [ID]
       return modelVersion.run_link.substr(0, 37) + '...';
     } else if (runInfo) {
-      return runDisplayName || runInfo.getRunUuid();
+      return runDisplayName || runInfo.runUuid;
     } else {
       return null;
     }

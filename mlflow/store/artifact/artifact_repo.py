@@ -11,9 +11,9 @@ from typing import Any, Dict, List, Optional
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.multipart_upload import CreateMultipartUploadResponse, MultipartUploadPart
-from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.tracing.artifact_utils import TRACE_DATA_FILE_NAME
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.async_logging.async_artifacts_logging_queue import AsyncArtifactsLoggingQueue
 from mlflow.utils.file_utils import ArtifactProgressBar, create_tmp_dir
@@ -28,7 +28,6 @@ assert _NUM_MAX_THREADS >= _NUM_MAX_THREADS_PER_CPU
 assert _NUM_MAX_THREADS_PER_CPU > 0
 # Default number of CPUs to assume on the machine if unavailable to fetch it using os.cpu_count()
 _NUM_DEFAULT_CPUS = _NUM_MAX_THREADS // _NUM_MAX_THREADS_PER_CPU
-TRACE_DATA_FILE_NAME = "traces.json"
 _logger = logging.getLogger(__name__)
 
 
@@ -259,11 +258,6 @@ class ArtifactRepository:
         # Wait for downloads to complete and collect failures
         failed_downloads = {}
         with ArtifactProgressBar.files(desc="Downloading artifacts", total=len(futures)) as pbar:
-            if len(futures) >= 10 and pbar.pbar:
-                _logger.info(
-                    "The progress bar can be disabled by setting the environment "
-                    f"variable {MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR} to false"
-                )
             for f in as_completed(futures):
                 try:
                     f.result()

@@ -5,7 +5,7 @@ import shutil
 import sqlite3
 from contextlib import contextmanager
 from operator import itemgetter
-from typing import Any, DefaultDict, Dict, Iterator, List, Mapping, Optional
+from typing import Any, Dict, Iterator, List, Mapping, Optional
 from unittest import mock
 
 import langchain
@@ -39,6 +39,7 @@ from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.tools import Tool
 from langchain.vectorstores import FAISS
+from langchain_core.callbacks.base import BaseCallbackHandler
 from langchain_experimental.sql import SQLDatabaseChain
 from packaging import version
 from packaging.version import Version
@@ -51,13 +52,17 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.api_request_parallel_processor import APIRequest
+from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.langchain.utils import (
     _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
     IS_PICKLE_SERIALIZATION_RESTRICTED,
+    lc_runnables_types,
 )
 from mlflow.models import Model
+from mlflow.models.dependencies_schemas import DependenciesSchemasType
 from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex, Resource
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
+from mlflow.pyfunc.context import Context
 from mlflow.tracing.processor.inference_table import _HEADER_REQUEST_ID_KEY
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
@@ -71,6 +76,7 @@ from mlflow.utils.openai_utils import (
 )
 
 from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.tracing.conftest import clear_singleton as clear_trace_singleton  # noqa: F401
 from tests.tracing.export.test_inference_table_exporter import _REQUEST_ID
 
 # this kwarg was added in langchain_community 0.0.27, and
@@ -1558,6 +1564,7 @@ def test_save_load_rag(tmp_path, spark, fake_chat_model):
             loader_fn=load_retriever,
             persist_dir=persist_dir,
             input_example=question,
+            example_no_conversion=False,
         )
 
     # Remove the persist_dir
@@ -1781,11 +1788,8 @@ def test_chat_with_history(spark, fake_chat_model):
     }
 
 
-def _extract_endpoint_name_from_lc_model(
-    lc_model, dependency_dict: DefaultDict[str, List[Any]], dependency_list: List[Resource]
-):
+def _extract_endpoint_name_from_lc_model(lc_model, dependency_list: List[Resource]):
     if type(lc_model).__name__ == type(get_fake_chat_model()).__name__:
-        dependency_dict["fake_chat_model_endpoint_name"].append(lc_model.endpoint_name)
         dependency_list.append(DatabricksServingEndpoint(endpoint_name=lc_model.endpoint_name))
 
 
@@ -1793,7 +1797,7 @@ def _extract_endpoint_name_from_lc_model(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
 @mock.patch(
-    "mlflow.langchain.databricks_dependencies._extract_dependency_dict_from_lc_model",
+    "mlflow.langchain.databricks_dependencies._extract_dependency_list_from_lc_model",
     _extract_endpoint_name_from_lc_model,
 )
 def test_databricks_dependency_extraction_from_lcel_chain():
@@ -1813,16 +1817,7 @@ def test_databricks_dependency_extraction_from_lcel_chain():
 
     pyfunc_artifact_path = "basic_chain"
     with mlflow.start_run() as run:
-        model_info = mlflow.langchain.log_model(chain, pyfunc_artifact_path)
-
-    langchain_flavor = model_info.flavors["langchain"]
-    assert langchain_flavor["databricks_dependency"] == {
-        "fake_chat_model_endpoint_name": [
-            "fake-endpoint-1",
-            "fake-endpoint-2",
-            "fake-endpoint-3",
-        ]
-    }
+        mlflow.langchain.log_model(chain, pyfunc_artifact_path)
     pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
     pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
@@ -1835,28 +1830,21 @@ def test_databricks_dependency_extraction_from_lcel_chain():
     }
 
 
-def _extract_databricks_dependencies_from_retriever(
-    retriever, dependency_dict: DefaultDict[str, List[Any]], dependency_list: List[Resource]
-):
+def _extract_databricks_dependencies_from_retriever(retriever, dependency_list: List[Resource]):
     import langchain_community
 
     vectorstore = getattr(retriever, "vectorstore", None)
     if vectorstore:
         if isinstance(vectorstore, langchain_community.vectorstores.faiss.FAISS):
-            dependency_dict["fake_index"].append("faiss-index")
             dependency_list.append(DatabricksVectorSearchIndex(index_name="faiss-index"))
 
         embeddings = getattr(vectorstore, "embeddings", None)
         if isinstance(embeddings, FakeEmbeddings):
-            dependency_dict["fake_embeddings_size"].append(embeddings.size)
             dependency_list.append(DatabricksServingEndpoint(endpoint_name="fake-embeddings"))
 
 
-def _extract_databricks_dependencies_from_llm(
-    llm, dependency_dict: DefaultDict[str, List[Any]], dependency_list: List[Resource]
-):
+def _extract_databricks_dependencies_from_llm(llm, dependency_list: List[Resource]):
     if isinstance(llm, FakeLLM):
-        dependency_dict["fake_llm_endpoint_name"].append(llm.endpoint_name)
         dependency_list.append(DatabricksServingEndpoint(endpoint_name=llm.endpoint_name))
 
 
@@ -1893,18 +1881,12 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
 
     pyfunc_artifact_path = "retrieval_qa_chain"
     with mlflow.start_run() as run:
-        logged_model = mlflow.langchain.log_model(
+        mlflow.langchain.log_model(
             retrievalQA,
             pyfunc_artifact_path,
             loader_fn=load_retriever,
             persist_dir=persist_dir,
         )
-    langchain_flavor = logged_model.flavors["langchain"]
-    assert langchain_flavor["databricks_dependency"] == {
-        "fake_llm_endpoint_name": ["fake-llm-endpoint"],
-        "fake_index": ["faiss-index"],
-        "fake_embeddings_size": [5],
-    }
     pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
     pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
@@ -1931,10 +1913,7 @@ def _error_func(*args, **kwargs):
 )
 @mock.patch("mlflow.langchain.databricks_dependencies._logger.warning")
 def test_databricks_dependency_extraction_log_errors_as_warnings(mock_warning):
-    from mlflow.langchain.databricks_dependencies import (
-        _DATABRICKS_DEPENDENCY_KEY,
-        _detect_databricks_dependencies,
-    )
+    from mlflow.langchain.databricks_dependencies import _detect_databricks_dependencies
 
     model = create_openai_llmchain()
 
@@ -1949,8 +1928,7 @@ def test_databricks_dependency_extraction_log_errors_as_warnings(mock_warning):
 
     pyfunc_artifact_path = "langchain_model"
     with mlflow.start_run() as run:
-        logged_model = mlflow.langchain.log_model(model, pyfunc_artifact_path)
-    assert logged_model.flavors["langchain"].get(_DATABRICKS_DEPENDENCY_KEY) is None
+        mlflow.langchain.log_model(model, pyfunc_artifact_path)
     pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
     pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
@@ -2384,11 +2362,11 @@ def test_save_load_chain_as_code(chain_model_signature):
     artifact_path = "model_path"
     with mlflow.start_run() as run:
         model_info = mlflow.langchain.log_model(
-            lc_model="tests/langchain/chain.py",
+            lc_model="tests/langchain/sample_code/chain.py",
             artifact_path=artifact_path,
             signature=chain_model_signature,
             input_example=input_example,
-            model_config="tests/langchain/config.yml",
+            model_config="tests/langchain/sample_code/config.yml",
         )
 
     assert mlflow.models.model_config.__mlflow_model_config__ is None
@@ -2415,16 +2393,42 @@ def test_save_load_chain_as_code(chain_model_signature):
         "predictions": [APIRequest._try_transform_response_to_chat_format(answer)]
     }
 
-    langchain_flavor = model_info.flavors["langchain"]
-    assert langchain_flavor["databricks_dependency"] == {
-        "databricks_chat_endpoint_name": ["fake-endpoint"]
-    }
     pyfunc_model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
     pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
     assert reloaded_model.resources["databricks"] == {
         "serving_endpoint": [{"name": "fake-endpoint"}]
     }
+    assert reloaded_model.metadata["dependencies_schemas"] == {
+        DependenciesSchemasType.RETRIEVERS.value: [
+            {
+                "doc_uri": "doc-uri",
+                "name": "retriever",
+                "other_columns": ["column1", "column2"],
+                "primary_key": "primary-key",
+                "text_column": "text-column",
+            }
+        ]
+    }
+    request_id = "mock_request_id"
+    tracer = MlflowLangchainTracer(prediction_context=Context(request_id))
+    input_example = {"messages": [{"role": "user", "content": "What is MLflow?"}]}
+    response = pyfunc_loaded_model._model_impl._predict_with_callbacks(
+        data=input_example, callback_handlers=[tracer]
+    )
+    assert response["choices"][0]["message"]["content"] == "Databricks"
+    trace = mlflow.get_trace(tracer._request_id)
+    assert trace.info.tags[DependenciesSchemasType.RETRIEVERS.value] == json.dumps(
+        [
+            {
+                "doc_uri": "doc-uri",
+                "name": "retriever",
+                "other_columns": ["column1", "column2"],
+                "primary_key": "primary-key",
+                "text_column": "text-column",
+            }
+        ]
+    )
 
 
 @pytest.mark.skipif(
@@ -2441,7 +2445,7 @@ def test_save_load_chain_as_code_model_config_dict(chain_model_signature):
     }
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
-            lc_model="tests/langchain/chain.py",
+            lc_model="tests/langchain/sample_code/chain.py",
             artifact_path="model_path",
             signature=chain_model_signature,
             input_example=input_example,
@@ -2479,7 +2483,7 @@ def test_save_load_chain_as_code_with_different_names(tmp_path, chain_model_sign
     }
 
     # Read the contents of the original chain file
-    with open("tests/langchain/chain.py") as chain_file:
+    with open("tests/langchain/sample_code/chain.py") as chain_file:
         chain_file_content = chain_file.read()
 
     temp_file = tmp_path / "model.py"
@@ -2491,7 +2495,7 @@ def test_save_load_chain_as_code_with_different_names(tmp_path, chain_model_sign
             artifact_path="model_path",
             signature=chain_model_signature,
             input_example=input_example,
-            model_config="tests/langchain/config.yml",
+            model_config="tests/langchain/sample_code/config.yml",
         )
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
@@ -2511,7 +2515,7 @@ def test_save_load_chain_as_code_with_different_names(tmp_path, chain_model_sign
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
 def test_save_load_chain_as_code_multiple_times(tmp_path, chain_model_signature):
-    config_path = "tests/langchain/config.yml"
+    config_path = "tests/langchain/sample_code/config.yml"
     input_example = {
         "messages": [
             {
@@ -2522,7 +2526,7 @@ def test_save_load_chain_as_code_multiple_times(tmp_path, chain_model_signature)
     }
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
-            lc_model="tests/langchain/chain.py",
+            lc_model="tests/langchain/sample_code/chain.py",
             artifact_path="model_path",
             signature=chain_model_signature,
             input_example=input_example,
@@ -2545,7 +2549,7 @@ def test_save_load_chain_as_code_multiple_times(tmp_path, chain_model_signature)
 
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
-            lc_model="tests/langchain/chain.py",
+            lc_model="tests/langchain/sample_code/chain.py",
             artifact_path="model_path",
             signature=chain_model_signature,
             input_example=input_example,
@@ -2569,7 +2573,7 @@ def test_save_load_chain_errors(chain_model_signature):
         ]
     }
     with mlflow.start_run():
-        incorrect_path = "tests/langchain1/chain.py"
+        incorrect_path = "tests/langchain1/sample_code/chain.py"
         with pytest.raises(
             MlflowException,
             match=f"If the provided model '{incorrect_path}' is a string, it must be a valid "
@@ -2597,10 +2601,10 @@ def test_save_load_chain_as_code_optional_code_path(chain_model_signature):
             }
         ]
     }
-    artifact_path = "model_path"
+    artifact_path = "new_model_path"
     with mlflow.start_run() as run:
         model_info = mlflow.langchain.log_model(
-            lc_model="tests/langchain/no_config/chain.py",
+            lc_model="tests/langchain/sample_code/no_config/chain.py",
             artifact_path=artifact_path,
             signature=chain_model_signature,
             input_example=input_example,
@@ -2633,23 +2637,13 @@ def test_save_load_chain_as_code_optional_code_path(chain_model_signature):
     expected_prediction["created"] = 123
     assert prediction_result == {"predictions": [expected_prediction]}
 
-    langchain_flavor = model_info.flavors["langchain"]
-    assert langchain_flavor["databricks_dependency"] == {
-        "databricks_chat_endpoint_name": ["fake-endpoint"]
-    }
     pyfunc_model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
     pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
     assert reloaded_model.resources["databricks"] == {
         "serving_endpoint": [{"name": "fake-endpoint"}]
     }
-
-
-def test_config_path_context():
-    with mlflow.langchain._config_path_context("tests/langchain/config.yml"):
-        assert mlflow.models.model_config.__mlflow_model_config__ == "tests/langchain/config.yml"
-
-    assert mlflow.models.model_config.__mlflow_model_config__ is None
+    assert reloaded_model.metadata is None
 
 
 def get_fake_chat_stream_model(endpoint_name="fake-stream-endpoint"):
@@ -2844,19 +2838,6 @@ def test_simple_chat_model_stream_with_callbacks(fake_chat_stream_model):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
-)
-def test_langchain_model_not_streamable():
-    model = create_openai_llmchain()
-    with mlflow.start_run():
-        logged_model = mlflow.langchain.log_model(model, "langchain_model")
-
-    loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-    with pytest.raises(MlflowException, match="This model does not support predict_stream method"):
-        loaded_model.predict_stream({"product": "shoe"})
-
-
-@pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"),
     reason="feature not existing",
 )
@@ -2881,7 +2862,7 @@ def test_langchain_model_save_exception(fake_chat_model):
     Version(langchain.__version__) < Version("0.0.311"),
     reason="feature not existing",
 )
-def test_langchain_model_save_throws_exception_on_unsupported_runnables(fake_chat_model):
+def test_langchain_model_save_load_with_listeners(fake_chat_model):
     from langchain.prompts import ChatPromptTemplate
     from langchain.schema.output_parser import StrOutputParser
     from langchain.schema.runnable import RunnableLambda, RunnablePassthrough
@@ -2907,20 +2888,30 @@ def test_langchain_model_save_throws_exception_on_unsupported_runnables(fake_cha
     input_example = {"question": "Who owns MLflow?", "name": ""}
     assert chain.invoke(input_example) == "Databricks"
 
-    with pytest.raises(
-        MlflowException,
-        match=r"Failed to save runnable sequence: {'1': 'RunnableSequence "
-        r"-- Cannot save runnable without `save` method.'",
-    ), mlflow.start_run():
-        mlflow.langchain.log_model(
-            chain,
-            artifact_path="chain",
-        )
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(chain, "model_path", input_example=input_example)
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert loaded_model.invoke(input_example) == "Databricks"
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_loaded_model.predict(input_example) == ["Databricks"]
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"inputs": input_example}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
+        "predictions": ["Databricks"]
+    }
 
 
-def test_langchain_model_inject_callback_in_model_serving(monkeypatch, model_path):
+def test_langchain_model_inject_callback_in_model_serving(
+    clear_trace_singleton, monkeypatch, model_path
+):
     # Emulate the model serving environment
-    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("MLFLOW_ENABLE_TRACE_IN_SERVING", "true")
 
     model = create_openai_llmchain()
     mlflow.langchain.save_model(model, model_path)
@@ -2938,12 +2929,13 @@ def test_langchain_model_inject_callback_in_model_serving(monkeypatch, model_pat
 
     assert len(_TRACE_BUFFER) == 1
     assert _REQUEST_ID in _TRACE_BUFFER
-    _TRACE_BUFFER.clear()
 
 
-def test_langchain_model_not_inject_callback_when_disabled(monkeypatch, model_path):
+def test_langchain_model_not_inject_callback_when_disabled(
+    clear_trace_singleton, monkeypatch, model_path
+):
     # Emulate the model serving environment
-    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
 
     # Disable tracing
     monkeypatch.setenv("MLFLOW_ENABLE_TRACE_IN_SERVING", "false")
@@ -2958,7 +2950,6 @@ def test_langchain_model_not_inject_callback_when_disabled(monkeypatch, model_pa
     from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 
     assert _TRACE_BUFFER == {}
-    _TRACE_BUFFER.clear()
 
 
 @pytest.mark.skipif(
@@ -2967,10 +2958,11 @@ def test_langchain_model_not_inject_callback_when_disabled(monkeypatch, model_pa
 def test_save_model_as_code_correct_streamable(chain_model_signature):
     input_example = {"messages": [{"role": "user", "content": "Who owns MLflow?"}]}
     answer = "Databricks"
-    with mlflow.start_run():
+    artifact_path = "model_path"
+    with mlflow.start_run() as run:
         model_info = mlflow.langchain.log_model(
-            lc_model="tests/langchain/no_config/chain.py",
-            artifact_path="model_path",
+            lc_model="tests/langchain/sample_code/no_config/chain.py",
+            artifact_path=artifact_path,
             signature=chain_model_signature,
             input_example=input_example,
             example_no_conversion=True,
@@ -3012,7 +3004,210 @@ def test_save_model_as_code_correct_streamable(chain_model_signature):
     expected_prediction["created"] = 123
     assert prediction_result == {"predictions": [expected_prediction]}
 
-    langchain_flavor = model_info.flavors["langchain"]
-    assert langchain_flavor["databricks_dependency"] == {
-        "databricks_chat_endpoint_name": ["fake-endpoint"]
+    pyfunc_model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
+    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    assert reloaded_model.resources["databricks"] == {
+        "serving_endpoint": [{"name": "fake-endpoint"}]
     }
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_save_load_langchain_binding(fake_chat_model):
+    from langchain_core.output_parsers import StrOutputParser
+    from langchain_core.runnables import RunnableBinding
+
+    runnable_binding = RunnableBinding(bound=fake_chat_model, kwargs={"stop": ["-"]})
+    model = runnable_binding | StrOutputParser()
+    assert model.invoke("Say something") == "Databricks"
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            model, "model_path", input_example="Say something", example_no_conversion=False
+        )
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert loaded_model.first.kwargs == {"stop": ["-"]}
+    assert loaded_model.invoke("hello") == "Databricks"
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_loaded_model.predict("hello") == ["Databricks"]
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"inputs": "hello"}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
+        "predictions": ["Databricks"]
+    }
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_langchain_bindings_save_load_with_config_and_types(fake_chat_model):
+    from langchain_core.output_parsers import StrOutputParser
+
+    class CustomCallbackHandler(BaseCallbackHandler):
+        def __init__(self):
+            self.count = 0
+
+        def on_chain_start(
+            self, serialized: Dict[str, Any], inputs: Dict[str, Any], **kwargs: Any
+        ) -> None:
+            self.count += 1
+
+        def on_chain_end(self, outputs: Dict[str, Any], **kwargs: Any) -> None:
+            self.count += 1
+
+    model = fake_chat_model | StrOutputParser()
+    callback = CustomCallbackHandler()
+    model = model.with_config(run_name="test_run", callbacks=[callback]).with_types(
+        input_type=str, output_type=str
+    )
+    assert model.invoke("Say something") == "Databricks"
+    assert callback.count == 4
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(model, "model_path")
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert loaded_model.config["run_name"] == "test_run"
+    assert loaded_model.custom_input_type == str
+    assert loaded_model.custom_output_type == str
+    callback = loaded_model.config["callbacks"][0]
+    assert loaded_model.invoke("hello") == "Databricks"
+    assert callback.count == 8  # accumulated count
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_loaded_model.predict("hello") == "Databricks"
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"inputs": "hello"}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
+        "predictions": "Databricks"
+    }
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_langchain_2_12_model_loads():
+    TEST_DIR = "tests"
+    TEST_MLFLOW_12_2_LANGCHAIN_MODEL = os.path.join(
+        TEST_DIR, "resources", "example_mlflow_2.12_langchain_model"
+    )
+
+    model = mlflow.langchain.load_model(TEST_MLFLOW_12_2_LANGCHAIN_MODEL)
+    pyfunc_model = mlflow.pyfunc.load_model(TEST_MLFLOW_12_2_LANGCHAIN_MODEL)
+    assert (
+        model.invoke({"messages": [{"role": "user", "content": "Who owns MLflow?"}]})
+        == "Databricks"
+    )
+    output = pyfunc_model.predict({"messages": [{"role": "user", "content": "Who owns MLflow?"}]})
+    assert output[0]["choices"][0]["message"]["content"] == "Databricks"
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_load_chain_with_model_config_overrides_saved_config(chain_model_signature):
+    input_example = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "What is a good name for a company that makes MLflow?",
+            }
+        ]
+    }
+    artifact_path = "model_path"
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            lc_model="tests/langchain/sample_code/chain.py",
+            artifact_path=artifact_path,
+            signature=chain_model_signature,
+            input_example=input_example,
+            model_config="tests/langchain/sample_code/config.yml",
+        )
+
+    with mock.patch("mlflow.langchain._load_model_code_path") as load_model_code_path_mock:
+        mlflow.pyfunc.load_model(model_info.model_uri, model_config={"embedding_size": 2})
+        args, kwargs = load_model_code_path_mock.call_args
+        assert args[1] == {
+            "embedding_size": 2,
+            "llm_prompt_template": "Answer the following question based on the "
+            "context: {context}\nQuestion: {question}",
+            "response": "Databricks",
+        }
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+@pytest.mark.parametrize("streamable", [True, False, None])
+def test_langchain_model_streamable_param_in_log_model(streamable, fake_chat_model):
+    from langchain.chat_models import ChatOpenAI
+    from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnableParallel
+
+    prompt = ChatPromptTemplate.from_template("What's your favorite {industry} company?")
+    chain = prompt | fake_chat_model | StrOutputParser()
+
+    runnable = RunnableParallel({"llm": lambda _: "completion"})
+
+    llm = ChatOpenAI(temperature=0.9)
+    llm_chain = LLMChain(llm=llm, prompt=prompt)
+
+    for model in [chain, runnable, llm_chain]:
+        with mock.patch("mlflow.langchain._save_model"), mlflow.start_run():
+            model_info = mlflow.langchain.log_model(
+                lc_model=model,
+                artifact_path="model",
+                streamable=streamable,
+                pip_requirements=[],
+            )
+
+            expected = (streamable is None) or streamable
+            assert model_info.flavors["langchain"]["streamable"] is expected
+
+
+@pytest.fixture
+def model_type(request):
+    return lc_runnables_types()[request.param]
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+@pytest.mark.parametrize("streamable", [True, False, None])
+@pytest.mark.parametrize("model_type", range(len(lc_runnables_types())), indirect=True)
+def test_langchain_model_streamable_param_in_log_model_for_lc_runnable_types(
+    streamable, model_type
+):
+    with mock.patch("mlflow.langchain._save_model"), mlflow.start_run():
+        model = mock.MagicMock(spec=model_type)
+        assert hasattr(model, "stream") is True
+        model_info = mlflow.langchain.log_model(
+            lc_model=model,
+            artifact_path="model",
+            streamable=streamable,
+            pip_requirements=[],
+        )
+
+        expected = (streamable is None) or streamable
+        assert model_info.flavors["langchain"]["streamable"] is expected
+
+        del model.stream
+        assert hasattr(model, "stream") is False
+        model_info = mlflow.langchain.log_model(
+            lc_model=model,
+            artifact_path="model",
+            streamable=streamable,
+            pip_requirements=[],
+        )
+        assert model_info.flavors["langchain"]["streamable"] is bool(streamable)

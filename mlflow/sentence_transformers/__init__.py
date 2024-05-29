@@ -397,6 +397,20 @@ def log_model(
     )
 
 
+def _get_load_kwargs():
+    import sentence_transformers
+
+    load_kwargs = {}
+    # The trust_remote_code is supported since Sentence Transformers 2.3.0
+    if Version(sentence_transformers.__version__) >= Version("2.3.0"):
+        # Always set trust_remote_code=True because we save the entire repository files in
+        # the model artifacts, so there is no risk of running untrusted code unless the logged
+        # artifact is modified by a malicious actor, which is much more broader security
+        # concern that even cannot be prevented by setting trust_remote_code=False.
+        load_kwargs["trust_remote_code"] = True
+    return load_kwargs
+
+
 def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     """
     Load PyFunc implementation for SentenceTransformer. Called by ``pyfunc.load_model``.
@@ -406,7 +420,8 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     """
     import sentence_transformers
 
-    model = sentence_transformers.SentenceTransformer.load(path)
+    load_kwargs = _get_load_kwargs()
+    model = sentence_transformers.SentenceTransformer(path, **load_kwargs)
     model_config = model_config or {}
     task = model_config.get("task", None)
     return _SentenceTransformerModelWrapper(model, task)
@@ -450,14 +465,7 @@ def load_model(model_uri: str, dst_path: Optional[str] = None):
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
 
-    load_kwargs = {}
-    # The trust_remote_code is supported since Sentence Transformers 2.3.0
-    if Version(sentence_transformers.__version__) >= Version("2.3.0"):
-        # Always set trust_remote_code=True because we save the entire repository files in
-        # the model artifacts, so there is no risk of running untrusted code unless the logged
-        # artifact is modified by a malicious actor, which is much more broader security
-        # concern that even cannot be prevented by setting trust_remote_code=False.
-        load_kwargs["trust_remote_code"] = True
+    load_kwargs = _get_load_kwargs()
     return sentence_transformers.SentenceTransformer(str(local_model_dir), **load_kwargs)
 
 

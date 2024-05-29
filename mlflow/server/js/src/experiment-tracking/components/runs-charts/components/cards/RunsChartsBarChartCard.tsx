@@ -4,10 +4,7 @@ import { RunsMetricsBarPlot } from '../RunsMetricsBarPlot';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import type { RunsChartsBarCardConfig } from '../../runs-charts.types';
 import { useIsInViewport } from '../../hooks/useIsInViewport';
-import {
-  shouldEnableDeepLearningUI,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../../common/utils/FeatureUtils';
+import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/FeatureUtils';
 import {
   RunsChartCardWrapper,
   type RunsChartCardReorderProps,
@@ -15,6 +12,8 @@ import {
   ChartRunsCountIndicator,
   RunsChartCardFullScreenProps,
 } from './ChartCard.common';
+import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
+import { downloadChartDataCsv } from '../../../experiment-page/utils/experimentPage.common-utils';
 
 export interface RunsChartsBarChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
   config: RunsChartsBarCardConfig;
@@ -62,8 +61,9 @@ export const RunsChartsBarChartCard = ({
 
   const { setTooltip, resetTooltip, selectedRunUuid } = useRunsChartsTooltip(config);
 
-  const usingV2ChartImprovements = shouldEnableDeepLearningUI();
-  const { elementRef, isInViewport } = useIsInViewport({ enabled: usingV2ChartImprovements });
+  const { elementRef, isInViewport } = useIsInViewport();
+
+  const [imageDownloadHandler, setImageDownloadHandler] = useChartImageDownloadHandler();
 
   const chartBody = (
     <div
@@ -86,6 +86,7 @@ export const RunsChartsBarChartCard = ({
           onHover={setTooltip}
           onUnhover={resetTooltip}
           selectedRunUuid={selectedRunUuid}
+          onSetDownloadHandler={setImageDownloadHandler}
         />
       ) : null}
     </div>
@@ -109,6 +110,15 @@ export const RunsChartsBarChartCard = ({
       onMoveDown={onMoveDown}
       onMoveUp={onMoveUp}
       toggleFullScreenChart={toggleFullScreenChart}
+      supportedDownloadFormats={['png', 'svg', 'csv']}
+      onClickDownload={(format) => {
+        if (format === 'csv' || format === 'csv-full') {
+          const runsToExport = [...slicedRuns].reverse();
+          downloadChartDataCsv(runsToExport, [config.metricKey], [], config.metricKey);
+          return;
+        }
+        imageDownloadHandler?.(format, config.metricKey);
+      }}
     >
       {chartBody}
     </RunsChartCardWrapper>

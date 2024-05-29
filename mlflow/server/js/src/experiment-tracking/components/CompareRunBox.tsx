@@ -1,69 +1,86 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
 import React, { useState } from 'react';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 
-import { LegacySelect, Typography, Row, Col } from '@databricks/design-system';
-import { RunInfo } from '../sdk/MlflowMessages';
+import {
+  Typography,
+  Row,
+  Col,
+  SimpleSelect,
+  SimpleSelectOptionGroup,
+  SimpleSelectOption,
+  FormUI,
+} from '@databricks/design-system';
 import { LazyPlot } from './LazyPlot';
-
-const { Option, OptGroup } = LegacySelect;
+import { RunInfoEntity } from '../types';
 
 type Props = {
   runUuids: string[];
-  runInfos: any[]; // TODO: PropTypes.instanceOf(RunInfo)
+  runInfos: RunInfoEntity[];
   metricLists: any[][];
   paramLists: any[][];
 };
 
-export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }: Props) => {
-  const [xAxis, setXAxis] = useState({ key: undefined, isParam: undefined });
-  const [yAxis, setYAxis] = useState({ key: undefined, isParam: undefined });
+type Axis = {
+  key?: string;
+  isParam?: boolean;
+};
+
+const paramOptionPrefix = 'param-';
+const metricOptionPrefix = 'metric-';
+
+// Note: This component does not pass the value of the parent component to the child component.
+// Doing so will cause weird rendering issues with the label and updating of the value.
+const Selector = ({
+  id,
+  onChange,
+  paramKeys,
+  metricKeys,
+}: {
+  id: string;
+  onChange: (axis: Axis) => void;
+  paramKeys: string[];
+  metricKeys: string[];
+}) => {
+  const intl = useIntl();
+  return (
+    <SimpleSelect
+      id={id}
+      css={{ width: '100%', marginBottom: '16px' }}
+      placeholder={intl.formatMessage({
+        defaultMessage: 'Select parameter or metric',
+        description: 'Placeholder text for parameter/metric selector in box plot comparison in MLflow',
+      })}
+      onChange={({ target }) => {
+        const { value } = target;
+        const [_prefix, key] = value.split('-');
+        const isParam = value.startsWith(paramOptionPrefix);
+        onChange({ key, isParam });
+      }}
+    >
+      <SimpleSelectOptionGroup label="Parameters">
+        {paramKeys.map((key) => (
+          <SimpleSelectOption key={key} value={paramOptionPrefix + key}>
+            {key}
+          </SimpleSelectOption>
+        ))}
+      </SimpleSelectOptionGroup>
+      <SimpleSelectOptionGroup label="Metrics">
+        {metricKeys.map((key) => (
+          <SimpleSelectOption key={key} value={metricOptionPrefix + key}>
+            {key}
+          </SimpleSelectOption>
+        ))}
+      </SimpleSelectOptionGroup>
+    </SimpleSelect>
+  );
+};
+
+export const CompareRunBox = ({ runInfos, metricLists, paramLists }: Props) => {
+  const [xAxis, setXAxis] = useState<Axis>({ key: undefined, isParam: undefined });
+  const [yAxis, setYAxis] = useState<Axis>({ key: undefined, isParam: undefined });
 
   const paramKeys = Array.from(new Set(paramLists.flat().map(({ key }) => key))).sort();
   const metricKeys = Array.from(new Set(metricLists.flat().map(({ key }) => key))).sort();
-
-  const paramOptionPrefix = 'param-';
-  const metricOptionPrefix = 'metric-';
-
-  const handleXAxisChange = (_: any, { value, key }: any) => {
-    const isParam = value.startsWith(paramOptionPrefix);
-    setXAxis({ key, isParam });
-  };
-
-  const handleYAxisChange = (_: any, { value, key }: any) => {
-    const isParam = value.startsWith(paramOptionPrefix);
-    setYAxis({ key, isParam });
-  };
-
-  const renderSelector = (onChange: any, selectedValue: any) => (
-    <LegacySelect
-      css={{ width: '100%', marginBottom: '16px' }}
-      placeholder="Select"
-      onChange={onChange}
-      value={selectedValue}
-    >
-      <OptGroup label="Parameters" key="parameters">
-        {paramKeys.map((key) => (
-          <Option key={key} value={paramOptionPrefix + key}>
-            <div data-test-id="axis-option">{key}</div>
-          </Option>
-        ))}
-      </OptGroup>
-      <OptGroup label="Metrics">
-        {metricKeys.map((key) => (
-          <Option key={key} value={metricOptionPrefix + key}>
-            <div data-test-id="axis-option">{key}</div>
-          </Option>
-        ))}
-      </OptGroup>
-    </LegacySelect>
-  );
 
   const getBoxPlotData = () => {
     const data = {};
@@ -160,24 +177,24 @@ export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }: P
       <Col span={6}>
         <div css={styles.borderSpacer}>
           <div>
-            <label htmlFor="x-axis-selector">
+            <FormUI.Label htmlFor="x-axis-selector">
               <FormattedMessage
                 defaultMessage="X-axis:"
                 description="Label text for X-axis in box plot comparison in MLflow"
               />
-            </label>
+            </FormUI.Label>
           </div>
-          {renderSelector(handleXAxisChange, (xAxis as any).value)}
+          <Selector id="x-axis-selector" onChange={setXAxis} paramKeys={paramKeys} metricKeys={metricKeys} />
 
           <div>
-            <label htmlFor="y-axis-selector">
+            <FormUI.Label htmlFor="y-axis-selector">
               <FormattedMessage
                 defaultMessage="Y-axis:"
                 description="Label text for Y-axis in box plot comparison in MLflow"
               />
-            </label>
+            </FormUI.Label>
           </div>
-          {renderSelector(handleYAxisChange, (yAxis as any).value)}
+          <Selector id="y-axis-selector" onChange={setYAxis} paramKeys={paramKeys} metricKeys={metricKeys} />
         </div>
       </Col>
       <Col span={18}>{renderPlot()}</Col>

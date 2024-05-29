@@ -4,6 +4,7 @@ import { type DownshiftToggleButtonProps } from './TypeaheadComboboxToggleButton
 export interface TypeaheadComboboxControlsProps {
     getDownshiftToggleButtonProps: (options?: UseComboboxGetToggleButtonPropsOptions) => DownshiftToggleButtonProps;
     showClearSelectionButton?: boolean;
+    showComboboxToggleButton?: boolean;
     handleClear?: (e: any) => void;
     disabled?: boolean;
 }

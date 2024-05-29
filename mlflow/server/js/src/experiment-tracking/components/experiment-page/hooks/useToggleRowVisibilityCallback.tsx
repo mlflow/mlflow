@@ -1,6 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { useUpdateExperimentViewUIState } from '../contexts/ExperimentPageUIStateContext';
-import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIStateV2';
+import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import type { RunRowType } from '../utils/experimentPage.row-types';
 
 export const useToggleRowVisibilityCallback = (tableRows: RunRowType[]) => {

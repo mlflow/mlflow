@@ -4,7 +4,6 @@ import { OverflowMenu, PageHeader } from '../../../shared/building_blocks/PageHe
 import Routes from '../../routes';
 import { ExperimentEntity, KeyValueEntity } from '../../types';
 import { RunViewModeSwitch } from './RunViewModeSwitch';
-import { shouldEnableDeepLearningUI } from '../../../common/utils/FeatureUtils';
 import Utils from '../../../common/utils/Utils';
 import { RunViewHeaderRegisterModelButton } from './RunViewHeaderRegisterModelButton';
 
@@ -17,6 +16,7 @@ export const RunViewHeader = ({
   experiment,
   runDisplayName,
   runTags,
+  runParams,
   runUuid,
   handleRenameRunClick,
   handleDeleteRunClick,
@@ -26,6 +26,7 @@ export const RunViewHeader = ({
   runDisplayName: string;
   runUuid: string;
   runTags: Record<string, KeyValueEntity>;
+  runParams: Record<string, KeyValueEntity>;
   experiment: ExperimentEntity;
   handleRenameRunClick: () => void;
   handleDeleteRunClick?: () => void;
@@ -43,7 +44,7 @@ export const RunViewHeader = ({
         />
       </Link>
     ) : (
-      <Link to={Routes.getExperimentPageRoute(experiment.experiment_id)} data-test-id="experiment-runs-link">
+      <Link to={Routes.getExperimentPageRoute(experiment.experimentId)} data-test-id="experiment-runs-link">
         {experiment.name}
       </Link>
     );
@@ -67,7 +68,7 @@ export const RunViewHeader = ({
                 <FormattedMessage defaultMessage="Rename" description="Menu item to rename an experiment run" />
               ),
             },
-            ...(shouldEnableDeepLearningUI() && handleDeleteRunClick
+            ...(handleDeleteRunClick
               ? [
                   {
                     id: 'overflow-delete-button',
@@ -80,13 +81,10 @@ export const RunViewHeader = ({
               : []),
           ]}
         />
-        {shouldEnableDeepLearningUI() && (
-          <>
-            <RunViewHeaderRegisterModelButton runUuid={runUuid} experimentId={experiment.experiment_id} />
-          </>
-        )}
+
+        <RunViewHeaderRegisterModelButton runUuid={runUuid} experimentId={experiment.experimentId} />
       </PageHeader>
-      {shouldEnableDeepLearningUI() && <RunViewModeSwitch />}
+      <RunViewModeSwitch />
     </div>
   );
 };

@@ -1,23 +1,24 @@
 import logging
-from collections import defaultdict
-from typing import Any, DefaultDict, Dict, List, Set
+from typing import List, Set
 
 from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex, Resource
-
-_DATABRICKS_DEPENDENCY_KEY = "databricks_dependency"
-_DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY = "databricks_vector_search_index_name"
-_DATABRICKS_VECTOR_SEARCH_ENDPOINT_NAME_KEY = "databricks_vector_search_endpoint_name"
-_DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY = "databricks_embeddings_endpoint_name"
-_DATABRICKS_LLM_ENDPOINT_NAME_KEY = "databricks_llm_endpoint_name"
-_DATABRICKS_CHAT_ENDPOINT_NAME_KEY = "databricks_chat_endpoint_name"
-
 
 _logger = logging.getLogger(__name__)
 
 
-def _extract_databricks_dependencies_from_retriever(
-    retriever, dependency_dict: DefaultDict[str, List[Any]], dependency_list: List[Resource]
-):
+def _get_embedding_model_endpoint_names(index):
+    embedding_model_endpoint_names = []
+    desc = index.describe()
+    delta_sync_index_spec = desc.get("delta_sync_index_spec", {})
+    embedding_source_columns = delta_sync_index_spec.get("embedding_source_columns", [])
+    for column in embedding_source_columns:
+        embedding_model_endpoint_name = column.get("embedding_model_endpoint_name", None)
+        if embedding_model_endpoint_name:
+            embedding_model_endpoint_names.append(embedding_model_endpoint_name)
+    return embedding_model_endpoint_names
+
+
+def _extract_databricks_dependencies_from_retriever(retriever, dependency_list: List[Resource]):
     try:
         from langchain.embeddings import DatabricksEmbeddings as LegacyDatabricksEmbeddings
         from langchain.vectorstores import (
@@ -38,19 +39,16 @@ def _extract_databricks_dependencies_from_retriever(
     if vectorstore:
         if isinstance(vectorstore, (DatabricksVectorSearch, LegacyDatabricksVectorSearch)):
             index = vectorstore.index
-            dependency_dict[_DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY].append(index.name)
-            dependency_dict[_DATABRICKS_VECTOR_SEARCH_ENDPOINT_NAME_KEY].append(index.endpoint_name)
             dependency_list.append(DatabricksVectorSearchIndex(index_name=index.name))
+            for embedding_endpoint in _get_embedding_model_endpoint_names(index):
+                dependency_list.append(DatabricksServingEndpoint(endpoint_name=embedding_endpoint))
 
         embeddings = getattr(vectorstore, "embeddings", None)
         if isinstance(embeddings, (DatabricksEmbeddings, LegacyDatabricksEmbeddings)):
-            dependency_dict[_DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY].append(embeddings.endpoint)
             dependency_list.append(DatabricksServingEndpoint(endpoint_name=embeddings.endpoint))
 
 
-def _extract_databricks_dependencies_from_llm(
-    llm, dependency_dict: DefaultDict[str, List[Any]], dependency_list: List[Resource]
-):
+def _extract_databricks_dependencies_from_llm(llm, dependency_list: List[Resource]):
     try:
         from langchain.llms import Databricks as LegacyDatabricks
     except ImportError:
@@ -59,13 +57,10 @@ def _extract_databricks_dependencies_from_llm(
     from langchain_community.llms import Databricks
 
     if isinstance(llm, (LegacyDatabricks, Databricks)):
-        dependency_dict[_DATABRICKS_LLM_ENDPOINT_NAME_KEY].append(llm.endpoint_name)
         dependency_list.append(DatabricksServingEndpoint(endpoint_name=llm.endpoint_name))
 
 
-def _extract_databricks_dependencies_from_chat_model(
-    chat_model, dependency_dict: DefaultDict[str, List[Any]], dependency_list: List[Resource]
-):
+def _extract_databricks_dependencies_from_chat_model(chat_model, dependency_list: List[Resource]):
     try:
         from langchain.chat_models import ChatDatabricks as LegacyChatDatabricks
     except ImportError:
@@ -76,7 +71,6 @@ def _extract_databricks_dependencies_from_chat_model(
     from langchain_community.chat_models import ChatDatabricks
 
     if isinstance(chat_model, (LegacyChatDatabricks, ChatDatabricks)):
-        dependency_dict[_DATABRICKS_CHAT_ENDPOINT_NAME_KEY].append(chat_model.endpoint)
         dependency_list.append(DatabricksServingEndpoint(endpoint_name=chat_model.endpoint))
 
 
@@ -93,9 +87,7 @@ _LEGACY_MODEL_ATTR_SET = {
 }
 
 
-def _extract_dependency_dict_from_lc_model(
-    lc_model, dependency_dict: DefaultDict[str, List[Any]], dependency_list: List[Resource]
-):
+def _extract_dependency_list_from_lc_model(lc_model, dependency_list: List[Resource]):
     """
     This function contains the logic to examine a non-Runnable component of a langchain model.
     The logic here does not cover all legacy chains. If you need to support a custom chain,
@@ -105,26 +97,23 @@ def _extract_dependency_dict_from_lc_model(
         return
 
     # leaf node
-    _extract_databricks_dependencies_from_chat_model(lc_model, dependency_dict, dependency_list)
-    _extract_databricks_dependencies_from_retriever(lc_model, dependency_dict, dependency_list)
-    _extract_databricks_dependencies_from_llm(lc_model, dependency_dict, dependency_list)
+    _extract_databricks_dependencies_from_chat_model(lc_model, dependency_list)
+    _extract_databricks_dependencies_from_retriever(lc_model, dependency_list)
+    _extract_databricks_dependencies_from_llm(lc_model, dependency_list)
 
     # recursively inspect legacy chain
     for attr_name in _LEGACY_MODEL_ATTR_SET:
-        _extract_dependency_dict_from_lc_model(
-            getattr(lc_model, attr_name, None), dependency_dict, dependency_list
-        )
+        _extract_dependency_list_from_lc_model(getattr(lc_model, attr_name, None), dependency_list)
 
 
 def _traverse_runnable(
     lc_model,
-    dependency_dict: DefaultDict[str, List[Any]],
     dependency_list: List[Resource],
     visited: Set[str],
 ):
     """
     This function contains the logic to traverse a langchain_core.runnables.RunnableSerializable
-    object. It first inspects the current object using _extract_dependency_dict_from_lc_model
+    object. It first inspects the current object using _extract_dependency_list_from_lc_model
     and then, if the current object is a Runnable, it recursively inspects its children returned
     by lc_model.get_graph().nodes.values().
     This function supports arbitrary LCEL chain.
@@ -137,21 +126,19 @@ def _traverse_runnable(
 
     # Visit the current object
     visited.add(current_object_id)
-    _extract_dependency_dict_from_lc_model(lc_model, dependency_dict, dependency_list)
+    _extract_dependency_list_from_lc_model(lc_model, dependency_list)
 
     if isinstance(lc_model, Runnable):
         # Visit the returned graph
         for node in lc_model.get_graph().nodes.values():
-            _traverse_runnable(node.data, dependency_dict, dependency_list, visited)
+            _traverse_runnable(node.data, dependency_list, visited)
     else:
         # No-op for non-runnable, if any
         pass
     return
 
 
-def _detect_databricks_dependencies(
-    lc_model, log_errors_as_warnings=True
-) -> (Dict[str, List[Any]], List[Resource]):
+def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> List[Resource]:
     """
     Detects the databricks dependencies of a langchain model and returns a dictionary of
     detected endpoint names and index names.
@@ -162,7 +149,7 @@ def _detect_databricks_dependencies(
     support. Only RetrievalQA, StuffDocumentsChain, ReduceDocumentsChain, RefineDocumentsChain,
     MapRerankDocumentsChain, MapReduceDocumentsChain, BaseConversationalRetrievalChain are
     supported. If you need to support a custom chain, you need to monkey patch
-    the function mlflow.langchain.databricks_dependencies._extract_dependency_dict_from_lc_model().
+    the function mlflow.langchain.databricks_dependencies._extract_dependency_list_from_lc_model().
 
     For an LCEL chain, all the langchain_core.runnables.RunnableSerializable nodes will be
     traversed.
@@ -173,10 +160,9 @@ def _detect_databricks_dependencies(
     If a chat_model is found, it will be used to extract the databricks chat dependencies.
     """
     try:
-        dependency_dict = defaultdict(list)
         dependency_list = []
-        _traverse_runnable(lc_model, dependency_dict, dependency_list, set())
-        return (dict(dependency_dict), dependency_list)
+        _traverse_runnable(lc_model, dependency_list, set())
+        return dependency_list
     except Exception:
         if log_errors_as_warnings:
             _logger.warning(
@@ -184,5 +170,5 @@ def _detect_databricks_dependencies(
                 "Set logging level to DEBUG to see the full traceback."
             )
             _logger.debug("", exc_info=True)
-            return {}, []
+            return []
         raise

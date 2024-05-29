@@ -12,6 +12,102 @@ Find out about the details of major features, changes, and deprecations below.
             <div class="grid-card">
                 <div class="content-container">
                     <div class="header">
+                        Fully Customizable GenAI Metrics
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
+                    <div class="body">
+                        <p>The <a href="../llms/llm-evaluate/index.html">MLflow evaluate API</a> 
+                        now supports fully customizable system prompts to create entirely novel evaluation metrics for GenAI use cases.</p>
+                    </div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.13.0">released in 2.12.2</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        Together.ai added to MLflow Deployments Server
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/togetherai-logo.png" alt="Together.ai"></img>
+                    <div class="body">
+                        <p>The <a href="../llms/deployments/index.html">MLflow Deployments Server</a> can now 
+                        accept <a href="https://www.together.ai/">together.ai</a> endpoints.  
+                        </p>
+                    </div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.12.2">released in 2.12.2</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        Streaming Output support for LangChain and Python Models
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/langchain-logo.png" alt="LangChain"></img>
+                    <div class="body">
+                        <p>
+                        LangChain models and custom Python Models now support a <b>predict_stream</b> API, allowing for generator return types for streaming outputs.
+                        </p>
+                    </div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.12.2">released in 2.12.2</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        LangChain Models as Code
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/langchain-logo.png" alt="LangChain"></img>
+                    <div class="body">
+                        <p>The <a href="../llms/langchain/index.html">LangChain flavor</a> 
+                        in MLflow now supports defining a model as a code file to simplify logging and loading of LangChain models.</p>
+                    </div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.12.2">released in 2.12.2</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        Aynchronous Artifact Logging
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
+                    <div class="body">
+                        <p>
+                        MLflow now supports asynchronous artifact logging, allowing for faster and more efficient logging of models with many artifacts.
+                        </p>
+                    </div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.12.2">released in 2.12.2</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        MLflow Transformers Embedding Model Standardization
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/huggingface-logo.svg" alt="HuggingFace transformers"></img>
+                    <div class="body">
+                        <p>The <a href="../llms/transformers/index.html">transformers flavor</a> 
+                        has received standardization support for embedding models.</p>
+                        <p>
+                        Embedding models now return a standard <b>llm/v1/embeddings</b> output format to conform to OpenAI embedding response structures.
+                        </p>
+                    </div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.12.2">released in 2.12.2</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
                         MLflow Transformers Feature Enhancements
                     </div>
                     <img class="card-image" src="../_static/images/logos/huggingface-logo.svg" alt="HuggingFace transformers"></img>

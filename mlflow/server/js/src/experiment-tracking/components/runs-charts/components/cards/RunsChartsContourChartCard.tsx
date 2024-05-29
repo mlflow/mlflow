@@ -11,6 +11,8 @@ import {
 import { RunsContourPlot } from '../RunsContourPlot';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/FeatureUtils';
+import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
+import { downloadChartDataCsv } from '../../../experiment-page/utils/experimentPage.common-utils';
 
 export interface RunsChartsContourChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
   config: RunsChartsContourCardConfig;
@@ -52,6 +54,8 @@ export const RunsChartsContourChartCard = ({
 
   const { setTooltip, resetTooltip, selectedRunUuid } = useRunsChartsTooltip(config);
 
+  const [imageDownloadHandler, setImageDownloadHandler] = useChartImageDownloadHandler();
+
   const chartBody = (
     <div
       css={[
@@ -70,6 +74,7 @@ export const RunsChartsContourChartCard = ({
         onHover={setTooltip}
         onUnhover={resetTooltip}
         selectedRunUuid={selectedRunUuid}
+        onSetDownloadHandler={setImageDownloadHandler}
       />
     </div>
   );
@@ -92,6 +97,24 @@ export const RunsChartsContourChartCard = ({
       onMoveDown={onMoveDown}
       onMoveUp={onMoveUp}
       toggleFullScreenChart={toggleFullScreenChart}
+      supportedDownloadFormats={['png', 'svg', 'csv']}
+      onClickDownload={(format) => {
+        const savedChartTitle = [config.xaxis.key, config.yaxis.key, config.zaxis.key].join('-');
+        if (format === 'csv' || format === 'csv-full') {
+          const paramsToExport = [];
+          const metricsToExport = [];
+          for (const axis of ['xaxis' as const, 'yaxis' as const, 'zaxis' as const]) {
+            if (config[axis].type === 'PARAM') {
+              paramsToExport.push(config[axis].key);
+            } else {
+              metricsToExport.push(config[axis].key);
+            }
+          }
+          downloadChartDataCsv(slicedRuns, metricsToExport, paramsToExport, savedChartTitle);
+          return;
+        }
+        imageDownloadHandler?.(format, savedChartTitle);
+      }}
     >
       {chartBody}
     </RunsChartCardWrapper>

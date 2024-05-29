@@ -1,3 +1,4 @@
+# TODO: Split this file into multiple files and move under utils directory.
 from __future__ import annotations
 
 import inspect
@@ -131,7 +132,7 @@ def deduplicate_span_names_in_place(spans: List[LiveSpan]):
         ["red", "red", "blue"] -> ["red_1", "red_2", "blue"]
 
     Args:
-        trace_data: The trace data object to deduplicate span names.
+        spans: A list of spans to deduplicate.
     """
     span_name_counter = Counter(span.name for span in spans)
     # Apply renaming only for duplicated spans
@@ -161,26 +162,37 @@ def get_otel_attribute(span: trace_api.Span, key: str) -> Optional[str]:
         _logger.debug(f"Failed to get attribute {key} with from span {span}.", exc_info=True)
 
 
-def maybe_get_evaluation_request_id() -> Optional[str]:
-    """Get the request ID if the current prediction is as a part of MLflow model evaluation."""
+def _try_get_prediction_context():
     # NB: Tracing is enabled in mlflow-skinny, but the pyfunc module cannot be imported as it
     #     relies on numpy, which is not installed in skinny.
     try:
         from mlflow.pyfunc.context import get_prediction_context
     except ImportError:
+        return
+
+    return get_prediction_context()
+
+
+def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
+    """Get the request ID if the current prediction is as a part of MLflow model evaluation."""
+    context = _try_get_prediction_context()
+    if not context or (is_evaluate and not context.is_evaluate):
         return None
 
-    context = get_prediction_context()
-    if not context or not context.is_evaluate:
-        return None
-
-    if not context.request_id:
+    if not context.request_id and is_evaluate:
         raise MlflowException(
-            "When prediction request context has is_evaluate set to True, request ID must be set.",
+            f"Missing request_id for context {context}. "
+            "request_id can't be None when is_evaluate=True.",
             error_code=BAD_REQUEST,
         )
 
     return context.request_id
+
+
+def maybe_get_dependencies_schemas() -> Optional[dict]:
+    context = _try_get_prediction_context()
+    if context:
+        return context.dependencies_schemas
 
 
 def traces_to_df(traces: List[Trace]) -> "pandas.DataFrame":
@@ -190,8 +202,10 @@ def traces_to_df(traces: List[Trace]) -> "pandas.DataFrame":
     """
     import pandas as pd
 
+    from mlflow.entities.trace import Trace  # import here to avoid circular import
+
     rows = [trace.to_pandas_dataframe_row() for trace in traces]
-    return pd.DataFrame.from_records(rows)
+    return pd.DataFrame.from_records(data=rows, columns=Trace.pandas_dataframe_columns())
 
 
 def extract_span_inputs_outputs(

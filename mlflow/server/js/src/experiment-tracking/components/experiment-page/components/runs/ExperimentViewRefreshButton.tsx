@@ -1,58 +1,16 @@
 import { Button, SyncIcon, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
-import React, { useCallback, useEffect, useState } from 'react';
-// TODO: de-antd-ify Badge as soon as it appears in the design system
-import { Theme } from '@emotion/react';
-import { Badge } from 'antd';
+import React, { useEffect, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { connect } from 'react-redux';
 import { MAX_DETECT_NEW_RUNS_RESULTS, POLL_INTERVAL } from '../../../../constants';
 import { ExperimentStoreEntities } from '../../../../types';
 import { useExperimentIds } from '../../hooks/useExperimentIds';
-import { useFetchExperimentRuns } from '../../hooks/useFetchExperimentRuns';
-import { shouldEnableShareExperimentViewByTags } from '../../../../../common/utils/FeatureUtils';
-import { searchRunsPayload as searchRunsPayloadDirect } from '../../../../actions';
+import { searchRunsPayload } from '../../../../actions';
 
 export interface ExperimentViewRefreshButtonProps {
   runInfos: ExperimentStoreEntities['runInfosByUuid'];
   refreshRuns?: () => void;
 }
-
-// Local hook that returns proper variant of refresh runs function based on the feature flag.
-const useGetRefreshFn = (props: ExperimentViewRefreshButtonProps) => {
-  const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
-  const { refreshRuns: refreshRunsFromProps } = props;
-  if (usingNewViewStateModel && refreshRunsFromProps) {
-    return refreshRunsFromProps;
-  }
-  // We can disable this eslint rule because condition uses a stable feature flag evaluation
-  /* eslint-disable react-hooks/rules-of-hooks */
-  const { updateSearchFacets } = useFetchExperimentRuns();
-  return useCallback(
-    () =>
-      updateSearchFacets(
-        {},
-        {
-          forceRefresh: true,
-          preservePristine: true,
-        },
-      ),
-    [updateSearchFacets],
-  );
-};
-
-const useGetSearchRunsAction = () => {
-  const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
-
-  const {
-    actions: { searchRunsPayload: searchRunsPayloadFromContext },
-  } = useFetchExperimentRuns();
-
-  if (usingNewViewStateModel) {
-    return searchRunsPayloadDirect;
-  }
-
-  return searchRunsPayloadFromContext;
-};
 
 /**
  * A component that displays "refresh runs" button with the relevant number
@@ -63,8 +21,7 @@ export const ExperimentViewRefreshButtonImpl = React.memo(
     const { runInfos } = props;
     const { theme } = useDesignSystemTheme();
 
-    const searchRunsPayload = useGetSearchRunsAction();
-    const refreshRuns = useGetRefreshFn(props);
+    const { refreshRuns } = props;
 
     const experimentIds = useExperimentIds();
 
@@ -102,16 +59,40 @@ export const ExperimentViewRefreshButtonImpl = React.memo(
         return () => clearInterval(interval);
       },
       // We're resetting the interval each time the reference time or experiment IDs have changed
-      [lastFetchTime, searchRunsPayload, experimentIds],
+      [lastFetchTime, experimentIds],
     );
 
     return (
-      <Badge
-        count={newRunsCount}
-        offset={[-5, 5]}
-        css={styles.pill(theme)}
-        overflowCount={MAX_DETECT_NEW_RUNS_RESULTS - 1}
-      >
+      <div css={{ position: 'relative' }}>
+        {/* Replace this bespoke Badge item with Dubois component if it ever becomes available. */}
+        {newRunsCount > 0 && (
+          <div
+            title={
+              MAX_DETECT_NEW_RUNS_RESULTS > newRunsCount ? `${newRunsCount}` : `${MAX_DETECT_NEW_RUNS_RESULTS - 1}+`
+            }
+            css={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              transform: 'translate(50%, -50%)',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              width: newRunsCount > 9 ? 28 : 20, // Makes the badge wider when count is more than 2 digits
+              height: 20,
+              borderRadius: 10,
+              border: `1px solid ${theme.colors.white}`,
+              backgroundColor: theme.colors.lime, // Why lime?
+              color: theme.colors.white,
+              fontSize: 10,
+              fontWeight: 'bold',
+              userSelect: 'none',
+              zIndex: 1,
+            }}
+          >
+            {MAX_DETECT_NEW_RUNS_RESULTS > newRunsCount ? newRunsCount : `${MAX_DETECT_NEW_RUNS_RESULTS - 1}+`}
+          </div>
+        )}
         <Tooltip
           title={
             <FormattedMessage
@@ -128,14 +109,10 @@ export const ExperimentViewRefreshButtonImpl = React.memo(
             icon={<SyncIcon />}
           />
         </Tooltip>
-      </Badge>
+      </div>
     );
   },
 );
-
-const styles = {
-  pill: (theme: Theme) => ({ sup: { backgroundColor: theme.colors.lime, zIndex: 1 } }),
-};
 
 /**
  * The only thing that we're interested in the store is the current set of runInfos.

@@ -40,7 +40,6 @@ the :py:func:`mlflow.langchain.save_model()` and :py:func:`mlflow.langchain.log_
 functions also adds the ``python_function`` flavor to the MLflow Models that they produce, allowing the model to be
 interpreted as a generic Python function for inference via :py:func:`mlflow.pyfunc.load_model()`.
 
-
 You can also use the :py:func:`mlflow.langchain.load_model()` function to load a saved or logged MLflow
 Model with the ``langchain`` flavor as a dictionary of the model's attributes.
 
@@ -129,6 +128,89 @@ What the Simple Agent Example Showcases
 - **Integration of Advanced Tools**: Showcases the use of additional tools like 'serpapi' and 'llm-math' with a LangChain agent, emphasizing the framework's capability to integrate complex functionalities.
 - **Agent Initialization and Usage**: Details the initialization process of a LangChain agent with specific tools and model settings, and how it can be used to perform complex queries.
 - **Efficient Model Management and Deployment**: Illustrates the ease with which complex LangChain agents can be managed and deployed using MLflow, from logging to prediction.
+
+Real-Time Streaming Outputs with LangChain and GenAI LLMs
+---------------------------------------------------------
+
+.. note::
+  Stream responses via the ``predict_stream`` API are only available in MLflow versions >= 2.12.2. Previous versions of MLflow do not support streaming responses.
+
+Overview of Streaming Output Capabilities
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+LangChain integration within MLflow enables real-time streaming outputs from various GenAI language models (LLMs) that support such functionality. 
+This feature is essential for applications that require immediate, incremental responses, facilitating dynamic interactions such as conversational 
+agents or live content generation.
+
+Supported Streaming Models
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+LangChain is designed to work seamlessly with any LLM that offers streaming output capabilities. This includes certain models from providers 
+like OpenAI (e.g., specific versions of ChatGPT), as well as other LLMs from different vendors that support similar functionalities.
+
+Using ``predict_stream`` for Streaming Outputs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``predict_stream`` method within the MLflow pyfunc LangChain flavor is designed to handle synchronous inputs and provide outputs in a streaming manner. This method is particularly 
+useful for maintaining an engaging user experience by delivering parts of the model's response as they become available, rather than waiting for the 
+entire completion of the response generation.
+
+Example Usage
+^^^^^^^^^^^^^
+The following example demonstrates setting up and using the ``predict_stream`` function with a LangChain model managed in MLflow, highlighting 
+the real-time response generation:
+
+.. code-block:: python
+
+    from langchain.chains import LLMChain
+    from langchain.prompts import PromptTemplate
+    from langchain_openai import OpenAI
+    import mlflow
+
+
+    template_instructions = "Provide brief answers to technical questions about {topic} and do not answer non-technical questions."
+    prompt = PromptTemplate(
+        input_variables=["topic"],
+        template=template_instructions,
+    )
+    chain = LLMChain(llm=OpenAI(temperature=0.05), prompt=prompt)
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(chain, "tech_chain")
+
+    # Assuming the model is already logged in MLflow and loaded
+    loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+
+    # Simulate a single synchronous input
+    input_data = "Hello, can you explain streaming outputs?"
+
+    # Generate responses in a streaming fashion
+    response_stream = loaded_model.predict_stream(input_data)
+    for response_part in response_stream:
+        print("Streaming Response Part:", response_part)
+        # Each part of the response is handled as soon as it is generated
+
+Advanced Integration with Callbacks
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+LangChain's architecture also supports the use of callbacks within the streaming output context. These callbacks can be used to enhance 
+functionality by allowing actions to be triggered during the streaming process, such as logging intermediate responses or modifying them before delivery.
+
+.. note:: 
+
+  Most uses of callback handlers involve logging of traces involved in the various calls to services and tools within a Chain or Retriever. For purposes
+  of simplicity, a simple ``stdout`` callback handler is shown below. Real-world callback handlers must be subclasses of the ``BaseCallbackHandler`` class 
+  from LangChain.
+
+.. code-block:: python
+
+    from langchain_core.callbacks import StdOutCallbackHandler
+
+    handler = StdOutCallbackHandler()
+
+    # Attach callback to enhance the streaming process
+    response_stream = loaded_model.predict_stream(input_data, callback_handlers=[handler])
+    for enhanced_response in response_stream:
+        print("Enhanced Streaming Response:", enhanced_response)
+
+These examples and explanations show how developers can utilize the real-time streaming output capabilities of LangChain models within MLflow, 
+enabling the creation of highly responsive and interactive applications.
 
 
 Enhanced Management of RetrievalQA Chains with MLflow

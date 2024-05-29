@@ -1,17 +1,12 @@
 import importlib
 import json
-import subprocess
-import sys
-import time
 from unittest import mock
 
 import numpy as np
 import openai
 import pandas as pd
 import pytest
-import requests
 import yaml
-from packaging.version import Version
 from pyspark.sql import SparkSession
 
 import mlflow
@@ -20,16 +15,14 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
 
-from tests.helper_functions import get_safe_port, pyfunc_serve_and_score_model
+from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.openai.conftest import is_v1
 
 
 @pytest.fixture(scope="module")
 def spark():
     with SparkSession.builder.master("local[*]").getOrCreate() as s:
         yield s
-
-
-is_v1 = Version(mlflow.openai._get_openai_package_version()).major >= 1
 
 
 def chat_completions():
@@ -42,37 +35,6 @@ def completions():
 
 def embeddings():
     return openai.embeddings if is_v1 else openai.Embedding
-
-
-@pytest.fixture(scope="module", autouse=True)
-def mock_openai():
-    port = get_safe_port()
-    with subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "tests.openai.mock_openai:app",
-            "--host",
-            "localhost",
-            "--port",
-            str(port),
-        ]
-    ) as proc:
-        base_url = f"http://localhost:{port}"
-        for _ in range(3):
-            try:
-                resp = requests.get(f"{base_url}/health")
-            except requests.ConnectionError:
-                time.sleep(1)
-                continue
-            if resp.ok:
-                break
-        else:
-            raise RuntimeError("Failed to start mock OpenAI server")
-
-        yield base_url
-        proc.kill()
 
 
 @pytest.fixture(autouse=True)

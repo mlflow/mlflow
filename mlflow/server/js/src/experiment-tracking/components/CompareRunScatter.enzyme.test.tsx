@@ -12,7 +12,7 @@ import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { mount } from 'enzyme';
-import { Experiment, Metric, Param, RunInfo } from '../sdk/MlflowMessages';
+import { Metric, Param } from '../sdk/MlflowMessages';
 import { CompareRunScatter, CompareRunScatterImpl } from './CompareRunScatter';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
@@ -31,26 +31,26 @@ describe('CompareRunScatter', () => {
     minimalStoreRaw = {
       entities: {
         runInfosByUuid: {
-          'uuid-1234-5678-9012': (RunInfo as any).fromJs({
-            run_uuid: 'uuid-1234-5678-9012',
-            experiment_id: '12345',
-            user_id: 'me@me.com',
+          'uuid-1234-5678-9012': {
+            runUuid: 'uuid-1234-5678-9012',
+            experimentId: '12345',
+            userId: 'me@me.com',
             status: 'RUNNING',
-            start_time: 12345678990,
-            end_time: 12345678999,
-            artifact_uri: 'dbfs:/databricks/abc/uuid-1234-5678-9012',
-            lifecycle_stage: 'active',
-          }),
-          'uuid-1234-5678-9013': (RunInfo as any).fromJs({
-            run_uuid: 'uuid-1234-5678-9013',
-            experiment_id: '12345',
-            user_id: 'me@me.com',
+            startTime: 12345678990,
+            endTime: 12345678999,
+            artifactUri: 'dbfs:/databricks/abc/uuid-1234-5678-9012',
+            lifecycleStage: 'active',
+          },
+          'uuid-1234-5678-9013': {
+            runUuid: 'uuid-1234-5678-9013',
+            experimentId: '12345',
+            userId: 'me@me.com',
             status: 'RUNNING',
-            start_time: 12345678990,
-            end_time: 12345678999,
-            artifact_uri: 'dbfs:/databricks/abc/uuid-1234-5678-9013',
-            lifecycle_stage: 'active',
-          }),
+            startTime: 12345678990,
+            endTime: 12345678999,
+            artifactUri: 'dbfs:/databricks/abc/uuid-1234-5678-9013',
+            lifecycleStage: 'active',
+          },
         },
         artifactsByRunUuid: {
           // @ts-expect-error TS(2554): Expected 3 arguments, but got 1.
@@ -59,15 +59,15 @@ describe('CompareRunScatter', () => {
           'uuid-1234-5678-9013': new ArtifactNode(true),
         },
         experimentsById: {
-          12345: (Experiment as any).fromJs({
-            experiment_id: 12345,
+          12345: {
+            experimentId: 12345,
             name: 'my experiment',
-            artifact_location: 'dbfs:/databricks/abc',
-            lifecycle_stage: 'active',
-            last_update_time: 12345678999,
-            creation_time: 12345678900,
+            artifactLocation: 'dbfs:/databricks/abc',
+            lifecycleStage: 'active',
+            lastUpdateTime: 12345678999,
+            creationTime: 12345678900,
             tags: [],
-          }),
+          },
         },
         tagsByRunUuid: {
           'uuid-1234-5678-9012': {},

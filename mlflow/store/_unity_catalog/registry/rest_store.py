@@ -173,13 +173,6 @@ def get_model_version_dependencies(model_dir):
     Gets the specified dependencies for a particular model version and formats them
     to be passed into CreateModelVersion.
     """
-    # import here to work around circular imports
-    from mlflow.langchain.databricks_dependencies import (
-        _DATABRICKS_CHAT_ENDPOINT_NAME_KEY,
-        _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY,
-        _DATABRICKS_LLM_ENDPOINT_NAME_KEY,
-        _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY,
-    )
     from mlflow.models.resources import ResourceType
 
     model = _load_model(model_dir)
@@ -201,8 +194,13 @@ def get_model_version_dependencies(model_dir):
         for endpoint_name in endpoint_names:
             dependencies.append({"type": "DATABRICKS_MODEL_ENDPOINT", **endpoint_name})
     else:
-        # import here to work around circular imports
-        from mlflow.langchain.databricks_dependencies import _DATABRICKS_DEPENDENCY_KEY
+        # These types of dependencies are required for old models that didn't use
+        # resources so they can be registered correctly to UC
+        _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY = "databricks_vector_search_index_name"
+        _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY = "databricks_embeddings_endpoint_name"
+        _DATABRICKS_LLM_ENDPOINT_NAME_KEY = "databricks_llm_endpoint_name"
+        _DATABRICKS_CHAT_ENDPOINT_NAME_KEY = "databricks_chat_endpoint_name"
+        _DATABRICKS_DEPENDENCY_KEY = "databricks_dependency"
 
         databricks_dependencies = model_info.flavors.get("langchain", {}).get(
             _DATABRICKS_DEPENDENCY_KEY, {}

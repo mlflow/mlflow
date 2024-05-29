@@ -56,6 +56,8 @@ export interface ContentProps {
     children?: React.ReactNode;
     /** Applies emotion styles to the top-level element in the component. Ask in #dubois before using. */
     dangerouslyAppendEmotionCSS?: Interpolation<EmotionTheme>;
+    /** For migration purposes. Enables updates where panel is overlay and toggleable for non closable panel in compact mode */
+    enableCompact?: boolean;
     /** Applies styles to the react-resizable container */
     resizeBoxStyle?: CSSProperties;
 }
@@ -95,7 +97,7 @@ export interface PanelBodyProps {
 }
 export declare function Nav({ children, dangerouslyAppendEmotionCSS }: NavProps): JSX.Element;
 export declare function NavButton({ active, disabled, icon, onClick, children, dangerouslyAppendEmotionCSS, 'aria-label': ariaLabel, ...restProps }: NavButtonProps): JSX.Element;
-export declare function Content({ disableResize, openPanelId, closable, onClose, onResizeStart, onResizeStop, width, minWidth, maxWidth, destroyInactivePanels, children, dangerouslyAppendEmotionCSS, resizeBoxStyle, }: ContentProps): JSX.Element;
+export declare function Content({ disableResize, openPanelId, closable, onClose, onResizeStart, onResizeStop, width, minWidth, maxWidth, destroyInactivePanels, children, dangerouslyAppendEmotionCSS, enableCompact, resizeBoxStyle, }: ContentProps): JSX.Element;
 export declare function Panel({ panelId, children, forceRender, dangerouslyAppendEmotionCSS, ...delegated }: PanelProps): JSX.Element | null;
 export declare function PanelHeader({ children, dangerouslyAppendEmotionCSS }: PanelHeaderProps): JSX.Element;
 export declare function PanelHeaderTitle({ title, dangerouslyAppendEmotionCSS }: PanelHeaderTitleProps): import("@emotion/react/jsx-runtime").JSX.Element;

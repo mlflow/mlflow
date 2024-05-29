@@ -12,8 +12,6 @@ describe('KeyValueTag', () => {
     return {
       key,
       value,
-      getKey: () => key,
-      getValue: () => value,
     } as KeyValueEntity;
   }
 

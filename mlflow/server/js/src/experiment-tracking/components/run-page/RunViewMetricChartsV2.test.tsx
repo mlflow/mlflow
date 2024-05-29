@@ -4,7 +4,6 @@ import { render, screen, cleanup } from '../../../common/utils/TestUtils.react18
 import { RunViewMetricChartsV2 } from './RunViewMetricChartsV2';
 import { DeepPartial } from 'redux';
 import { ReduxState } from '../../../redux-types';
-import { shouldEnableDeepLearningUI, shouldEnableDeepLearningUIPhase2 } from '../../../common/utils/FeatureUtils';
 import { type RunsChartsBarChartCardProps } from '../runs-charts/components/cards/RunsChartsBarChartCard';
 import { RunsChartsLineChartCardProps } from '../runs-charts/components/cards/RunsChartsLineChartCard';
 import userEvent from '@testing-library/user-event-14';
@@ -56,19 +55,13 @@ const testReduxStore: DeepPartial<ReduxState> = {
       },
     },
     paramsByRunUuid: {},
+    tagsByRunUuid: {},
+    imagesByRunUuid: {},
   },
 };
 
-jest.mock('../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../common/utils/FeatureUtils'),
-  shouldEnableDeepLearningUI: jest.fn(),
-  shouldEnableDeepLearningUIPhase2: jest.fn(),
-}));
-
 describe('RunViewMetricChartsV2', () => {
   beforeEach(() => {
-    jest.mocked(shouldEnableDeepLearningUI).mockImplementation(() => true);
-    jest.mocked(shouldEnableDeepLearningUIPhase2).mockImplementation(() => true);
     localStorage.clear();
   });
   const renderComponent = ({
@@ -81,7 +74,7 @@ describe('RunViewMetricChartsV2', () => {
     store?: DeepPartial<ReduxState>;
   } = {}) => {
     const runInfo = {
-      run_uuid: testRunUuid,
+      runUuid: testRunUuid,
     } as any;
     return render(<RunViewMetricChartsV2 runInfo={runInfo} metricKeys={metricKeys} mode={mode} />, {
       wrapper: ({ children }) => (

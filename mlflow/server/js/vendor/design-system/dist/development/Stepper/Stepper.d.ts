@@ -3,21 +3,30 @@ export interface Step {
     /**
      * Title of the step
      */
-    title: string;
+    title: React.ReactNode;
     /**
      * Optional description of the step
      */
-    description?: string;
+    description?: React.ReactNode;
     /**
      * Status of the step. This will change the icon and text color of the step.
      *
      * @default 'upcoming'
      */
     status?: 'completed' | 'loading' | 'upcoming' | 'error';
+    /**
+     * Custom icon to display in the step. If provided, the `icon` prop will be used instead of the default icon.
+     */
     icon?: React.ComponentType<{
         statusColor: string;
         status: Step['status'];
     }>;
+    /**
+     * Additional content displayed beneath the step description a vertical stepper
+     *
+     * This can be used to create a vertical wizard
+     */
+    additionalVerticalContent?: React.ReactNode;
 }
 export interface StepperProps {
     /**

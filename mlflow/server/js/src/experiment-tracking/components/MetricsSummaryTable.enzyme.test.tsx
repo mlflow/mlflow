@@ -13,7 +13,7 @@ import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import MetricsSummaryTable from './MetricsSummaryTable';
 import { HtmlTableView } from './HtmlTableView';
-import { Metric, RunInfo } from '../sdk/MlflowMessages';
+import { Metric } from '../sdk/MlflowMessages';
 import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
 
 describe('MetricsSummaryTable', () => {
@@ -24,8 +24,8 @@ describe('MetricsSummaryTable', () => {
   const minimalStoreRaw = {
     entities: {
       runInfosByUuid: {
-        'uuid-1234-5678-9012': (RunInfo as any).fromJs({ experiment_id: '1' }),
-        'uuid-1234-5678-9013': (RunInfo as any).fromJs({ experiment_id: '1' }),
+        'uuid-1234-5678-9012': { experimentId: '1' },
+        'uuid-1234-5678-9013': { experimentId: '1' },
       },
       latestMetricsByRunUuid: { 'uuid-1234-5678-9012': {} },
       minMetricsByRunUuid: { 'uuid-1234-5678-9012': {} },

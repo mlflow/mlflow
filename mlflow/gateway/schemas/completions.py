@@ -17,6 +17,7 @@ _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
 
 class RequestPayload(BaseRequestPayload):
     prompt: str
+    model: Optional[str] = None
 
     class Config:
         if IS_PYDANTIC_V2:

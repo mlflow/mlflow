@@ -52,12 +52,11 @@ export const RunViewDatasetBox = ({
     setSelectedDatasetWithRun({
       datasetWithTags: dataset,
       runData: {
-        experimentId: runInfo.experiment_id,
-        runUuid: runInfo.run_uuid,
-        runName: runInfo.run_name,
+        experimentId: runInfo.experimentId,
+        runUuid: runInfo.runUuid,
+        runName: runInfo.runName,
         datasets: datasets,
         tags: tags,
-        color: getStableColorForRun(runInfo.run_uuid),
       },
     });
     setIsDrawerOpen(true);

@@ -26,9 +26,9 @@ jest.mock('../../sdk/SampledMetricHistoryService', () => ({
 jest.mock('../../../common/utils/FeatureUtils');
 
 const testRunInfo: RunInfoEntity = {
-  experiment_id: 123,
-  run_uuid: 'run_1',
-  run_name: 'test_run_name',
+  experimentId: 123,
+  runUuid: 'run_1',
+  runName: 'test_run_name',
 } as any;
 
 const defaultRangeKey = createChartAxisRangeKey();

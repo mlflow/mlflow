@@ -292,7 +292,14 @@ class AttrDict(dict):
     """
 
     def __getattr__(self, attr):
-        value = self[attr]
+        try:
+            value = self[attr]
+        except KeyError:
+            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
         if isinstance(value, dict):
             return AttrDict(value)
         return value
+
+
+def get_parent_module(module):
+    return module[0 : module.rindex(".")]

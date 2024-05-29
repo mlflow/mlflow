@@ -1,25 +1,11 @@
-import { shouldEnableShareExperimentViewByTags } from '../../../../../common/utils/FeatureUtils';
 import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
 import { renderWithIntl, act, screen } from 'common/utils/TestUtils.react17';
 import { searchRunsPayload } from '../../../../actions';
 import { POLL_INTERVAL } from '../../../../constants';
 import { ExperimentViewRefreshButtonImpl } from './ExperimentViewRefreshButton';
 
-const mockRunsContext = {
-  actions: { searchRunsPayload: jest.fn().mockResolvedValue({}) },
-  updateSearchFacets: jest.fn(),
-};
-
-jest.mock('../../../../../common/utils/FeatureUtils', () => ({
-  shouldEnableShareExperimentViewByTags: jest.fn().mockReturnValue(false),
-}));
-
 jest.mock('../../../../actions', () => ({
   searchRunsPayload: jest.fn().mockResolvedValue({ type: 'mockedAction' }),
-}));
-
-jest.mock('../../hooks/useFetchExperimentRuns', () => ({
-  useFetchExperimentRuns: () => mockRunsContext,
 }));
 
 jest.mock('../../hooks/useExperimentIds', () => ({
@@ -41,13 +27,13 @@ describe('ExperimentViewRefreshButton', () => {
     jest.advanceTimersByTime(POLL_INTERVAL / 2);
 
     // No calls expected
-    expect(mockRunsContext.actions.searchRunsPayload).toBeCalledTimes(0);
+    expect(searchRunsPayload).toBeCalledTimes(0);
 
     // Wait another half
     jest.advanceTimersByTime(POLL_INTERVAL / 2);
 
     // One call expected
-    expect(mockRunsContext.actions.searchRunsPayload).toBeCalledTimes(1);
+    expect(searchRunsPayload).toBeCalledTimes(1);
   });
 
   // TODO: Remove/migrate to RTL once we fully migrate to the new view state model
@@ -58,7 +44,7 @@ describe('ExperimentViewRefreshButton', () => {
     jest.advanceTimersByTime(POLL_INTERVAL / 2);
 
     // No calls expected
-    expect(mockRunsContext.actions.searchRunsPayload).toBeCalledTimes(0);
+    expect(searchRunsPayload).toBeCalledTimes(0);
 
     // In the meanwhile, update run infos in the "store"
     wrapper.setProps({ runInfos: {} } as any);
@@ -67,14 +53,14 @@ describe('ExperimentViewRefreshButton', () => {
     jest.advanceTimersByTime(POLL_INTERVAL / 2);
 
     // Still no calls expected
-    expect(mockRunsContext.actions.searchRunsPayload).toBeCalledTimes(0);
+    expect(searchRunsPayload).toBeCalledTimes(0);
   });
 
   // TODO: Remove/migrate to RTL once we fully migrate to the new view state model
   test('does the correct call for new runs', () => {
     const dateNowSpy = jest.spyOn(Date, 'now').mockImplementation(() => 1000);
 
-    mockRunsContext.actions.searchRunsPayload.mockResolvedValue({
+    jest.mocked(searchRunsPayload).mockResolvedValue({
       runs: [{}, {}, {}, {}],
     });
     mountWithIntl(<ExperimentViewRefreshButtonImpl runInfos={{}} />);
@@ -83,8 +69,8 @@ describe('ExperimentViewRefreshButton', () => {
     jest.advanceTimersByTime(POLL_INTERVAL);
 
     // One call expected
-    expect(mockRunsContext.actions.searchRunsPayload).toBeCalledTimes(1);
-    expect(mockRunsContext.actions.searchRunsPayload).toBeCalledWith(
+    expect(searchRunsPayload).toBeCalledTimes(1);
+    expect(searchRunsPayload).toBeCalledWith(
       expect.objectContaining({
         experimentIds: [1, 2, 3],
         filter: 'attributes.start_time > 1000',
@@ -96,20 +82,15 @@ describe('ExperimentViewRefreshButton', () => {
 
   // TODO: Remove/migrate to RTL once we fully migrate to the new view state model
   test('refreshes the runs when clicked', () => {
-    const wrapper = mountWithIntl(<ExperimentViewRefreshButtonImpl runInfos={{}} />);
+    const refreshRuns = jest.fn();
+    const wrapper = mountWithIntl(<ExperimentViewRefreshButtonImpl runInfos={{}} refreshRuns={refreshRuns} />);
+    expect(refreshRuns).not.toBeCalled();
     wrapper.find('button').simulate('click');
-    expect(mockRunsContext.updateSearchFacets).toBeCalledWith(
-      {},
-      {
-        forceRefresh: true,
-        preservePristine: true,
-      },
-    );
+    expect(refreshRuns).toBeCalled();
   });
 
   describe('using new view state model', () => {
     beforeEach(() => {
-      jest.mocked(shouldEnableShareExperimentViewByTags).mockReturnValue(true);
       jest.mocked(searchRunsPayload).mockClear();
     });
 

@@ -13,17 +13,13 @@ import { MLFlowAgGridLoader } from '../../../../../common/components/ag-grid/AgG
 import Utils from '../../../../../common/utils/Utils';
 import {
   ExperimentEntity,
-  UpdateExperimentSearchFacetsFn,
   UpdateExperimentViewStateFn,
   RunDatasetWithTags,
+  ExperimentViewRunsCompareMode,
 } from '../../../../types';
 
-import {
-  clearSearchExperimentsFacetsFilters,
-  isSearchFacetsFilterUsed,
-  SearchExperimentRunsFacetsState,
-} from '../../models/SearchExperimentRunsFacetsState';
-import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
+import { isSearchFacetsFilterUsed } from '../../utils/experimentPage.fetch-utils';
+import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import {
   EXPERIMENTS_DEFAULT_COLUMN_SETUP,
   getFrameworkComponents,
@@ -34,7 +30,7 @@ import {
 } from '../../utils/experimentPage.column-utils';
 import { makeCanonicalSortKey } from '../../utils/experimentPage.common-utils';
 import { EXPERIMENT_RUNS_TABLE_ROW_HEIGHT } from '../../utils/experimentPage.common-utils';
-import { RUNS_VISIBILITY_MODE } from '../../models/ExperimentPageUIStateV2';
+import { RUNS_VISIBILITY_MODE } from '../../models/ExperimentPageUIState';
 import { RunRowType } from '../../utils/experimentPage.row-types';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { createLoadMoreRow } from './cells/LoadMoreRowRenderer';
@@ -43,20 +39,22 @@ import { ExperimentViewRunsTableCollapse } from './ExperimentViewRunsTableCollap
 import { ExperimentViewRunsTableAddColumnCTA } from './ExperimentViewRunsTableAddColumnCTA';
 import { ExperimentViewRunsTableStatusBar } from './ExperimentViewRunsTableStatusBar';
 import {
-  shouldEnableRunGrouping,
-  shouldEnableShareExperimentViewByTags,
+  shouldEnableRunsTableRunNameColumnResize,
   shouldUseNewRunRowsVisibilityModel,
 } from '../../../../../common/utils/FeatureUtils';
 import { getDatasetsCellHeight } from './cells/DatasetsCellRenderer';
 import { PreviewSidebar } from '../../../../../common/components/PreviewSidebar';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../../constants';
-import { Empty } from '@databricks/design-system';
+import { Empty, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
-import { ExperimentPageUIStateV2 } from '../../models/ExperimentPageUIStateV2';
+import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 import { useUpdateExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
-import { createExperimentPageSearchFacetsStateV2 } from '../../models/ExperimentPageSearchFacetsStateV2';
+import {
+  createExperimentPageSearchFacetsState,
+  ExperimentPageSearchFacetsState,
+} from '../../models/ExperimentPageSearchFacetsState';
 import { useExperimentTableSelectRowHandler } from '../../hooks/useExperimentTableSelectRowHandler';
 import { useToggleRowVisibilityCallback } from '../../hooks/useToggleRowVisibilityCallback';
 import { ExperimentViewRunsTableHeaderContextProvider } from './ExperimentViewRunsTableHeaderContext';
@@ -76,17 +74,17 @@ export interface ExperimentViewRunsTableProps {
   runsData: ExperimentRunsSelectorResult;
 
   experiments: ExperimentEntity[];
-  searchFacetsState: SearchExperimentRunsFacetsState;
-  viewState: SearchExperimentRunsViewState;
+  searchFacetsState: ExperimentPageSearchFacetsState;
+  viewState: ExperimentPageViewState;
   updateViewState: UpdateExperimentViewStateFn;
   isLoading: boolean;
   moreRunsAvailable: boolean;
-  updateSearchFacets: UpdateExperimentSearchFacetsFn;
   onAddColumnClicked: () => void;
   loadMoreRunsFunc: () => void;
   onDatasetSelected?: (dataset: RunDatasetWithTags, run: RunRowType) => void;
   expandRows: boolean;
-  uiState: ExperimentPageUIStateV2;
+  uiState: ExperimentPageUIState;
+  compareRunsMode: ExperimentViewRunsCompareMode;
 }
 
 export const ExperimentViewRunsTable = React.memo(
@@ -97,7 +95,6 @@ export const ExperimentViewRunsTable = React.memo(
     runsData,
     isLoading,
     moreRunsAvailable,
-    updateSearchFacets,
     updateViewState,
     onAddColumnClicked,
     rowsData,
@@ -106,35 +103,25 @@ export const ExperimentViewRunsTable = React.memo(
     expandRows,
     viewState,
     uiState,
+    compareRunsMode,
   }: ExperimentViewRunsTableProps) => {
-    const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
-    const [viewModeFromURL] = useExperimentPageViewMode();
+    const { theme } = useDesignSystemTheme();
     const updateUIState = useUpdateExperimentViewUIState();
     const setUrlSearchFacets = useUpdateExperimentPageSearchFacets();
 
     const { orderByKey, orderByAsc } = searchFacetsState;
 
     // If using new view state model, get column and run info from `uiState` instead of `searchFacetsState`
-    const { selectedColumns, runsPinned, runsHidden } = usingNewViewStateModel ? uiState : searchFacetsState;
-
-    // If using new view state model, get "runs hidden" from uiState instead of legacy viewState
-    const runListHidden = usingNewViewStateModel ? uiState.runListHidden : viewState.runListHidden;
+    const { selectedColumns, runsPinned, runsHidden, runListHidden } = uiState;
 
     const updateRunListHidden = useCallback(
       (value: boolean) => {
-        if (usingNewViewStateModel) {
-          updateUIState((state) => ({ ...state, runListHidden: value }));
-        } else {
-          updateViewState({ runListHidden: value });
-        }
+        updateUIState((state) => ({ ...state, runListHidden: value }));
       },
-      [updateUIState, updateViewState, usingNewViewStateModel],
+      [updateUIState],
     );
 
-    // Use modernized view mode value getter if flag is set
-    const compareRunsMode = usingNewViewStateModel ? viewModeFromURL : searchFacetsState.compareRunsMode;
-
-    const isComparingRuns = compareRunsMode !== undefined;
+    const isComparingRuns = compareRunsMode !== 'TABLE';
 
     const { paramKeyList, metricKeyList, tagsList } = runsData;
 
@@ -144,114 +131,29 @@ export const ExperimentViewRunsTable = React.memo(
 
     const filteredTagKeys = useMemo(() => Utils.getVisibleTagKeyList(tagsList), [tagsList]);
 
-    // Determine function for updating UI state based on feature flag
-    const uiStateUpdaterFn = useMemo(
-      () => (usingNewViewStateModel ? updateUIState : updateSearchFacets),
-      [usingNewViewStateModel, updateUIState, updateSearchFacets],
-    );
-
     const containerElement = useRef<HTMLDivElement>(null);
     // Flag indicating if there are any rows that can be expanded
     const expandersVisible = useMemo(() => rowsData.some((row) => row.runDateAndNestInfo?.hasExpander), [rowsData]);
 
-    /**
-     * Updates selected rows in the view state
-     */
-    const onSelectionChange = useCallback(
-      ({ api }: SelectionChangedEvent) => {
-        const selectedUUIDs: string[] = api
-          .getSelectedRows()
-          // Filter out load more row as it's not a real run
-          .filter((row) => !row.isLoadMoreRow)
-          .map(({ runInfo }) => runInfo.run_uuid);
-        updateViewState({
-          runsSelected: selectedUUIDs.reduce((aggregate, curr) => ({ ...aggregate, [curr]: true }), {}),
-        });
-        prevSelectRunUuids.current = selectedUUIDs;
-      },
-      [updateViewState],
-    );
-
-    /**
-     * A onRowSelected event handler that runs before onSelectionChange.
-     * It checks if the currently (de)selected row contains any children
-     * and if true, (de)select them as well.
-     */
-    const handleRowSelected = useCallback((event: RowSelectedEvent) => {
-      const selectedRunRows = event.api.getSelectedRows().filter((row) => !row.isLoadMoreRow);
-
-      // Let's check if the actual number of selected rows have changed
-      // to avoid empty runs
-      if (prevSelectRunUuids.current && selectedRunRows.length !== prevSelectRunUuids.current.length) {
-        const isSelected = Boolean(event.node.isSelected());
-
-        // We will continue only if the selected row has properly set runDateInfo
-        const { runDateAndNestInfo } = event.data as RunRowType;
-        if (!runDateAndNestInfo) {
-          return;
-        }
-        const { isParent, expanderOpen, childrenIds } = runDateAndNestInfo;
-
-        // We will continue only if the selected row is a parent containing
-        // children and is actually expanded
-        if (isParent && expanderOpen && childrenIds) {
-          const childrenIdsToSelect = childrenIds;
-
-          event.api.forEachNode((node) => {
-            if (node.data?.isLoadMoreRow) {
-              return;
-            }
-            const { runInfo, runDateAndNestInfo: childRunDateInfo } = node.data as RunRowType;
-
-            if (!runInfo) {
-              return;
-            }
-
-            const childrenRunUuid = runInfo.run_uuid;
-            if (childrenIdsToSelect.includes(childrenRunUuid)) {
-              // If we found children being parents, mark their children
-              // to be selected as well.
-              if (childRunDateInfo?.childrenIds) {
-                childrenIdsToSelect.push(...childRunDateInfo.childrenIds);
-              }
-
-              node.setSelected(isSelected, false, true);
-            }
-          });
-        }
-      }
-    }, []);
-
     const toggleRowExpanded = useCallback(
       (parentId: string) =>
-        uiStateUpdaterFn(({ runsExpanded: currentRunsExpanded, ...state }: ExperimentPageUIStateV2) => ({
+        updateUIState(({ runsExpanded: currentRunsExpanded, ...state }: ExperimentPageUIState) => ({
           ...state,
           runsExpanded: { ...currentRunsExpanded, [parentId]: !currentRunsExpanded[parentId] },
         })),
-      [uiStateUpdaterFn],
+      [updateUIState],
     );
 
     const togglePinnedRow = useCallback(
       (uuid: string) => {
-        uiStateUpdaterFn((existingFacets: ExperimentPageUIStateV2) => ({
+        updateUIState((existingFacets: ExperimentPageUIState) => ({
           ...existingFacets,
           runsPinned: !existingFacets.runsPinned.includes(uuid)
             ? [...existingFacets.runsPinned, uuid]
             : existingFacets.runsPinned.filter((r) => r !== uuid),
         }));
-        // In the next frame, redraw the toggled row in to update the hover state
-        // and tooltips so they won't dangle in the previous mouse position.
-        requestAnimationFrame(() => {
-          if (!gridApi) {
-            return;
-          }
-          const rowNode = gridApi.getRowNode(uuid);
-          if (rowNode) {
-            gridApi.redrawRows({ rowNodes: [rowNode] });
-          }
-        });
       },
-      [gridApi, uiStateUpdaterFn],
+      [updateUIState],
     );
 
     // A modern version of row visibility toggle function, supports "show all", "show first n runs" options
@@ -262,7 +164,7 @@ export const ExperimentViewRunsTable = React.memo(
     const toggleRowVisibilityV1 = useCallback(
       // `runUuidOrToggle` param can be a run ID or a keyword value indicating that all/none should be hidden
       (runUuidOrToggle: string) => {
-        uiStateUpdaterFn((existingFacets: ExperimentPageUIStateV2) => {
+        updateUIState((existingFacets: ExperimentPageUIState) => {
           if (runUuidOrToggle === RUNS_VISIBILITY_MODE.SHOWALL) {
             // Case #1: Showing all runs by clearing `runsHidden` array
             return {
@@ -273,7 +175,7 @@ export const ExperimentViewRunsTable = React.memo(
             // Case #2: Hiding all runs by fully populating `runsHidden` array
             return {
               ...existingFacets,
-              runsHidden: runsData.runInfos.map(({ run_uuid }) => run_uuid),
+              runsHidden: runsData.runInfos.map(({ runUuid }) => runUuid),
             };
           }
 
@@ -287,7 +189,7 @@ export const ExperimentViewRunsTable = React.memo(
           };
         });
       },
-      [uiStateUpdaterFn, runsData],
+      [updateUIState, runsData],
     );
 
     // Determine toggle version to use based on the feature flag
@@ -298,10 +200,9 @@ export const ExperimentViewRunsTable = React.memo(
       setColumnApi(params.columnApi);
     }, []);
 
-    const { handleRowSelected: handleRowSelectedV2, onSelectionChange: onSelectionChangeV2 } =
-      useExperimentTableSelectRowHandler(updateViewState);
+    const { handleRowSelected, onSelectionChange } = useExperimentTableSelectRowHandler(updateViewState);
 
-    const allRunsHidden = runsData.runInfos.every(({ run_uuid }) => runsHidden.includes(run_uuid));
+    const allRunsHidden = runsData.runInfos.every(({ runUuid }) => runsHidden.includes(runUuid));
 
     const columnDefs = useRunsColumnDefinitions({
       selectedColumns,
@@ -320,6 +221,18 @@ export const ExperimentViewRunsTable = React.memo(
       runsHiddenMode: uiState.runsHiddenMode,
     });
 
+    const gridSizeHandler = useCallback(
+      (api: GridApi) => {
+        if (!shouldEnableRunsTableRunNameColumnResize()) {
+          return;
+        }
+        if (api && isComparingRuns) {
+          api.sizeColumnsToFit();
+        }
+      },
+      [isComparingRuns],
+    );
+
     useEffect(() => {
       if (!gridApi) {
         return;
@@ -334,12 +247,14 @@ export const ExperimentViewRunsTable = React.memo(
         // additional special row that will display "Load more" button
         if (rowsData.length && moreRunsAvailable) {
           gridApi.setRowData([...rowsData, createLoadMoreRow()]);
+          gridSizeHandler(gridApi);
           return;
         }
 
         gridApi.setRowData(rowsData);
+        gridSizeHandler(gridApi);
       }
-    }, [gridApi, rowsData, isLoading, moreRunsAvailable, loadMoreRunsFunc]);
+    }, [gridApi, rowsData, isLoading, moreRunsAvailable, loadMoreRunsFunc, gridSizeHandler]);
 
     // Count all columns available for selection
     const allAvailableColumnsCount = useMemo(() => {
@@ -357,7 +272,7 @@ export const ExperimentViewRunsTable = React.memo(
     const allRunsCount = useMemo(
       () =>
         runsData.runInfos.filter(
-          (r) => runsPinned.includes(r.run_uuid) || runsData.runUuidsMatchingFilter.includes(r.run_uuid),
+          (r) => runsPinned.includes(r.runUuid) || runsData.runUuidsMatchingFilter.includes(r.runUuid),
         ).length,
       [runsData, runsPinned],
     );
@@ -427,7 +342,7 @@ export const ExperimentViewRunsTable = React.memo(
     const displayPreviewSidebar = !isComparingRuns && viewState.previewPaneVisible;
     const displayRunsTable = !runListHidden || !isComparingRuns;
     const displayStatusBar = !runListHidden;
-    const displayRunListCollapse = isComparingRuns;
+    const displayRunListCollapse = isComparingRuns && !shouldEnableRunsTableRunNameColumnResize();
     const displayEmptyState = rowsData.length < 1 && !isLoading && !runListHidden;
 
     const tableContext = useMemo(() => ({ orderByAsc, orderByKey }), [orderByAsc, orderByKey]);
@@ -436,19 +351,26 @@ export const ExperimentViewRunsTable = React.memo(
       <div
         css={(theme) => ({
           display: 'grid',
+          flex: 1,
           gridTemplateColumns: displayPreviewSidebar ? '1fr auto' : '1fr',
           borderTop: `1px solid ${theme.colors.border}`,
         })}
         className={isComparingRuns && shouldUseNewRunRowsVisibilityModel() ? 'is-table-comparing-runs-mode' : undefined}
       >
-        <div css={styles.tableAreaWrapper}>
+        <div
+          css={{
+            display: 'flex',
+            flexDirection: 'column',
+            position: 'relative',
+          }}
+        >
           <div
             ref={containerElement}
             className={cx('ag-theme-balham ag-grid-sticky', {
               'ag-grid-expanders-visible': expandersVisible,
               'is-table-comparing-runs-mode': isComparingRuns && shouldUseNewRunRowsVisibilityModel(),
             })}
-            css={[styles.agGridOverrides, { display: displayRunsTable ? 'block' : 'hidden', height: '100%' }]}
+            css={[styles.agGridOverrides(theme), { display: displayRunsTable ? 'block' : 'hidden', height: '100%' }]}
             aria-hidden={!displayRunsTable}
           >
             <ExperimentViewRunsTableHeaderContextProvider runsHiddenMode={uiState.runsHiddenMode}>
@@ -458,10 +380,10 @@ export const ExperimentViewRunsTable = React.memo(
                 columnDefs={columnDefs}
                 rowSelection="multiple"
                 onGridReady={gridReadyHandler}
-                onSelectionChanged={shouldEnableRunGrouping() ? onSelectionChangeV2 : onSelectionChange}
+                onSelectionChanged={onSelectionChange}
                 getRowHeight={rowHeightGetterFn}
                 headerHeight={EXPERIMENT_RUNS_TABLE_ROW_HEIGHT}
-                onRowSelected={shouldEnableRunGrouping() ? handleRowSelectedV2 : handleRowSelected}
+                onRowSelected={handleRowSelected}
                 suppressRowClickSelection
                 suppressColumnMoveAnimation
                 suppressScrollOnNewData
@@ -477,6 +399,7 @@ export const ExperimentViewRunsTable = React.memo(
                 getRowId={getRowId}
                 rowBuffer={ROW_BUFFER}
                 onCellClicked={handleCellClicked}
+                onGridSizeChanged={({ api }) => gridSizeHandler(api)}
               />
             </ExperimentViewRunsTableHeaderContextProvider>
             {displayAddColumnsCTA && (
@@ -493,12 +416,7 @@ export const ExperimentViewRunsTable = React.memo(
           {displayEmptyState && (
             <ExperimentViewRunsEmptyTable
               onClearFilters={() => {
-                if (usingNewViewStateModel) {
-                  // In the new view state version, reset URL search state directly
-                  setUrlSearchFacets(createExperimentPageSearchFacetsStateV2());
-                } else {
-                  updateSearchFacets(clearSearchExperimentsFacetsFilters);
-                }
+                setUrlSearchFacets(createExperimentPageSearchFacetsState());
               }}
               isFiltered={isSearchFacetsFilterUsed(searchFacetsState)}
             />
@@ -553,11 +471,6 @@ const getGridColors = (theme: Theme) => ({
 });
 
 const styles = {
-  tableAreaWrapper: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    position: 'relative' as const,
-  },
   agGridOverrides: (theme: Theme): Interpolation<Theme> => {
     const gridColors = getGridColors(theme);
     return {

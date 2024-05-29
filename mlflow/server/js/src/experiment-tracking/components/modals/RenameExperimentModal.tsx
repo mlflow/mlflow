@@ -66,7 +66,7 @@ export class RenameExperimentModalImpl extends Component<RenameExperimentModalIm
 
 const mapStateToProps = (state: any) => {
   const experiments = getExperiments(state);
-  const experimentNames = experiments.map((e) => (e as any).getName());
+  const experimentNames = experiments.map((e) => e.name);
   return { experimentNames };
 };
 

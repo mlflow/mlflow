@@ -3,7 +3,7 @@ import { DesignSystemEventProviderAnalyticsEventTypes } from '../../design-syste
 import type { AnalyticsEventProps } from '../../design-system/types';
 export declare const BANNER_MIN_HEIGHT = 68;
 export declare const BANNER_MAX_HEIGHT = 82;
-export type BannerLevel = 'info' | 'warning' | 'error';
+export type BannerLevel = 'info' | 'warning' | 'error' | 'info_light_purple' | 'info_dark_purple';
 export interface BannerProps extends AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     level: BannerLevel;
     message: string;

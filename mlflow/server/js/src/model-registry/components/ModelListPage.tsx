@@ -8,7 +8,6 @@
 import React from 'react';
 import { ModelListView } from './ModelListView';
 import { connect } from 'react-redux';
-import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import { getUUID } from '../../common/utils/ActionUtils';
 import Utils from '../../common/utils/Utils';
 import { getCombinedSearchFilter, constructSearchInputFromURLState } from '../utils/SearchUtils';
@@ -21,8 +20,6 @@ import { searchRegisteredModelsApi } from '../actions';
 import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
-import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
-import ErrorUtils from '../../common/utils/ErrorUtils';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import { createMLflowRoutePath } from '../../common/utils/RoutingUtils';
 
@@ -31,7 +28,16 @@ type ModelListPageImplProps = WithRouterNextProps & {
   searchRegisteredModelsApi: (...args: any[]) => any;
 };
 
-type ModelListPageImplState = any;
+type ModelListPageImplState = {
+  orderByKey: string;
+  orderByAsc: boolean;
+  currentPage: number;
+  maxResultsSelection: number;
+  pageTokens: Record<number, string | null>;
+  loading: boolean;
+  error: Error | undefined;
+  searchInput: string;
+};
 
 export class ModelListPageImpl extends React.Component<ModelListPageImplProps, ModelListPageImplState> {
   constructor(props: ModelListPageImplProps) {
@@ -40,9 +46,10 @@ export class ModelListPageImpl extends React.Component<ModelListPageImplProps, M
       orderByKey: REGISTERED_MODELS_SEARCH_NAME_FIELD,
       orderByAsc: true,
       currentPage: 1,
-      maxResultsSelection: REGISTERED_MODELS_PER_PAGE_COMPACT,
+      maxResultsSelection: this.getPersistedMaxResults(),
       pageTokens: {},
-      loading: false,
+      loading: true,
+      error: undefined,
       searchInput: constructSearchInputFromURLState(this.getUrlState()),
     };
   }
@@ -68,8 +75,7 @@ export class ModelListPageImpl extends React.Component<ModelListPageImplProps, M
         orderByAsc:
           // @ts-expect-error TS(4111): Property 'orderByAsc' comes from an index signatur... Remove this comment to see the full error message
           urlState.orderByAsc === undefined
-            ? // @ts-expect-error TS(4111): Property 'orderByAsc' comes from an index signatur... Remove this comment to see the full error message
-              this.state.orderByAsc
+            ? this.state.orderByAsc
             : // @ts-expect-error TS(4111): Property 'orderByAsc' comes from an index signatur... Remove this comment to see the full error message
               urlState.orderByAsc === 'true',
         currentPage:
@@ -77,8 +83,7 @@ export class ModelListPageImpl extends React.Component<ModelListPageImplProps, M
           urlState.page !== undefined && (urlState as any).page in persistedPageTokens
             ? // @ts-expect-error TS(2345): Argument of type 'unknown' is not assignable to pa... Remove this comment to see the full error message
               parseInt(urlState.page, 10)
-            : // @ts-expect-error TS(4111): Property 'currentPage' comes from an index signatu... Remove this comment to see the full error message
-              this.state.currentPage,
+            : this.state.currentPage,
         maxResultsSelection: maxResultsForTokens,
         pageTokens: persistedPageTokens,
       },
@@ -128,8 +133,7 @@ export class ModelListPageImpl extends React.Component<ModelListPageImplProps, M
 
   // Loads the initial set of models.
   loadModels(isInitialLoading = false) {
-    // @ts-expect-error TS(4111): Property 'currentPage' comes from an index signatu... Remove this comment to see the full error message
-    this.loadPage(this.state.currentPage, undefined, undefined, isInitialLoading);
+    this.loadPage(this.state.currentPage, isInitialLoading);
   }
 
   resetHistoryState() {
@@ -180,34 +184,16 @@ export class ModelListPageImpl extends React.Component<ModelListPageImplProps, M
         },
       }),
       () => {
-        // @ts-expect-error TS(4111): Property 'pageTokens' comes from an index signatur... Remove this comment to see the full error message
         this.setPersistedPageTokens(this.state.pageTokens);
       },
     );
   };
 
-  handleSearch = (callback: any, errorCallback: any, searchInput: any) => {
+  handleSearch = (searchInput: any) => {
     this.resetHistoryState();
     this.setState({ searchInput: searchInput }, () => {
-      // @ts-expect-error TS(2554): Expected 4 arguments, but got 3.
-      this.loadPage(1, callback, errorCallback);
+      this.loadPage(1, false);
     });
-  };
-
-  handleClear = (callback: any, errorCallback: any) => {
-    this.setState(
-      {
-        orderByKey: REGISTERED_MODELS_SEARCH_NAME_FIELD,
-        orderByAsc: true,
-        searchInput: '',
-        // eslint-disable-nextline
-      },
-      () => {
-        this.updateUrlWithSearchFilter('', REGISTERED_MODELS_SEARCH_NAME_FIELD, true, 1);
-        // @ts-expect-error TS(2554): Expected 4 arguments, but got 3.
-        this.loadPage(1, callback, errorCallback);
-      },
-    );
   };
 
   // Note: this method is no longer used by the UI but is used in tests. Probably best to refactor at some point.
@@ -239,43 +225,38 @@ export class ModelListPageImpl extends React.Component<ModelListPageImplProps, M
     }
   };
 
-  handleMaxResultsChange = (key: any, callback: any, errorCallback: any) => {
+  handleMaxResultsChange = (key: any) => {
     this.setState({ maxResultsSelection: parseInt(key, 10) }, () => {
       this.resetHistoryState();
       const { maxResultsSelection } = this.state;
       this.setMaxResultsInStore(maxResultsSelection);
-      // @ts-expect-error TS(2554): Expected 4 arguments, but got 3.
-      this.loadPage(1, callback, errorCallback);
+      this.loadPage(1, false);
     });
   };
 
-  handleClickNext = (callback: any, errorCallback: any) => {
+  handleClickNext = () => {
     const { currentPage } = this.state;
-    // @ts-expect-error TS(2554): Expected 4 arguments, but got 3.
-    this.loadPage(currentPage + 1, callback, errorCallback);
+    this.loadPage(currentPage + 1, false);
   };
 
-  handleClickPrev = (callback: any, errorCallback: any) => {
+  handleClickPrev = () => {
     const { currentPage } = this.state;
-    // @ts-expect-error TS(2554): Expected 4 arguments, but got 3.
-    this.loadPage(currentPage - 1, callback, errorCallback);
+    this.loadPage(currentPage - 1, false);
   };
 
-  handleClickSortableColumn = (orderByKey: any, sortOrder: any, callback: any, errorCallback: any) => {
+  handleClickSortableColumn = (orderByKey: any, sortOrder: any) => {
     const orderByAsc = sortOrder !== AntdTableSortOrder.DESC; // default to true
     this.setState({ orderByKey, orderByAsc }, () => {
       this.resetHistoryState();
-      // @ts-expect-error TS(2554): Expected 4 arguments, but got 3.
-      this.loadPage(1, callback, errorCallback);
+      this.loadPage(1, false);
     });
   };
 
   getMaxResultsSelection = () => {
-    // @ts-expect-error TS(4111): Property 'maxResultsSelection' comes from an index... Remove this comment to see the full error message
     return this.state.maxResultsSelection;
   };
 
-  loadPage(page: any, callback: any, errorCallback: any, isInitialLoading: any) {
+  loadPage(page: any, isInitialLoading: any) {
     const {
       searchInput,
       pageTokens,
@@ -283,7 +264,7 @@ export class ModelListPageImpl extends React.Component<ModelListPageImplProps, M
       orderByAsc,
       // eslint-disable-nextline
     } = this.state;
-    this.setState({ loading: true });
+    this.setState({ loading: true, error: undefined });
     this.updateUrlWithSearchFilter(searchInput, orderByKey, orderByAsc, page);
     this.props
       .searchRegisteredModelsApi(
@@ -291,7 +272,6 @@ export class ModelListPageImpl extends React.Component<ModelListPageImplProps, M
           query: searchInput,
           // eslint-disable-nextline
         }),
-        // @ts-expect-error TS(4111): Property 'maxResultsSelection' comes from an index... Remove this comment to see the full error message
         this.state.maxResultsSelection,
         ModelListPageImpl.getOrderByExpr(orderByKey, orderByAsc),
         pageTokens[page],
@@ -299,14 +279,13 @@ export class ModelListPageImpl extends React.Component<ModelListPageImplProps, M
       )
       .then((r: any) => {
         this.updatePageState(page, r);
-        this.setState({ loading: false });
-        callback && callback();
       })
       .catch((e: any) => {
-        Utils.logErrorAndNotifyUser(e);
-        this.setState({ currentPage: 1 });
+        this.setState({ currentPage: 1, error: e });
         this.resetHistoryState();
-        errorCallback && errorCallback();
+      })
+      .finally(() => {
+        this.setState({ loading: false });
       });
   }
 
@@ -322,28 +301,23 @@ export class ModelListPageImpl extends React.Component<ModelListPageImplProps, M
     const { models } = this.props;
     return (
       <ScrollablePageWrapper>
-        <RequestStateWrapper
-          requestIds={[this.criticalInitialRequestIds]}
-          // eslint-disable-next-line no-trailing-spaces
-        >
-          <ModelListView
-            // @ts-expect-error TS(2322): Type '{ models: any[] | undefined; loading: any; e... Remove this comment to see the full error message
-            models={models}
-            // @ts-expect-error TS(4111): Property 'loading' comes from an index signature, ... Remove this comment to see the full error message
-            loading={this.state.loading}
-            searchInput={searchInput}
-            orderByKey={orderByKey}
-            orderByAsc={orderByAsc}
-            currentPage={currentPage}
-            nextPageToken={pageTokens[currentPage + 1]}
-            onSearch={this.handleSearch}
-            onClickNext={this.handleClickNext}
-            onClickPrev={this.handleClickPrev}
-            onClickSortableColumn={this.handleClickSortableColumn}
-            onSetMaxResult={this.handleMaxResultsChange}
-            getMaxResultValue={this.getMaxResultsSelection}
-          />
-        </RequestStateWrapper>
+        <ModelListView
+          // @ts-expect-error TS(2322): Type '{ models: any[] | undefined; loading: any; e... Remove this comment to see the full error message
+          models={models}
+          loading={this.state.loading}
+          error={this.state.error}
+          searchInput={searchInput}
+          orderByKey={orderByKey}
+          orderByAsc={orderByAsc}
+          currentPage={currentPage}
+          nextPageToken={pageTokens[currentPage + 1]}
+          onSearch={this.handleSearch}
+          onClickNext={this.handleClickNext}
+          onClickPrev={this.handleClickPrev}
+          onClickSortableColumn={this.handleClickSortableColumn}
+          onSetMaxResult={this.handleMaxResultsChange}
+          maxResultValue={this.getMaxResultsSelection()}
+        />
       </ScrollablePageWrapper>
     );
   }
@@ -362,4 +336,4 @@ const mapDispatchToProps = {
 
 const ModelListPageWithRouter = withRouterNext(connect(mapStateToProps, mapDispatchToProps)(ModelListPageImpl));
 
-export const ModelListPage = withErrorBoundary(ErrorUtils.mlflowServices.MODEL_REGISTRY, ModelListPageWithRouter);
+export const ModelListPage = ModelListPageWithRouter;

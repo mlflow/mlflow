@@ -57,33 +57,6 @@ div.artifact-view {
   margin-top: 6px;
 }
 
-.empty-artifact-outer-container {
-  height: 558px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border: solid 1px #ccc;
-  background-color: #fafafa;
-}
-
-.empty-artifact-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.no-artifacts {
-  width: 255px;
-  font-size: 24px;
-  margin: 0 auto;
-}
-
-.no-artifacts-info {
-  font-size: 16px;
-  padding-top: 8px;
-  color: #888888;
-}
-
 .loading-spinner {
   height: 20px;
   opacity: 0;

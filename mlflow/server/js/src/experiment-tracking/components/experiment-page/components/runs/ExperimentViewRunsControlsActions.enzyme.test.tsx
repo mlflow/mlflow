@@ -7,19 +7,17 @@ import { applyMiddleware, compose, createStore } from 'redux';
 import promiseMiddleware from 'redux-promise-middleware';
 import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
-import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
-import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
+// import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
+import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { experimentRunsSelector } from '../../utils/experimentRuns.selector';
 import {
   ExperimentViewRunsControlsActions,
   ExperimentViewRunsControlsActionsProps,
 } from './ExperimentViewRunsControlsActions';
-
-jest.mock('../../hooks/useFetchExperimentRuns', () => ({
-  useFetchExperimentRuns: jest.fn(() => ({
-    searchFacetsState: {},
-  })),
-}));
+import {
+  ExperimentPageSearchFacetsState,
+  createExperimentPageSearchFacetsState,
+} from '../../models/ExperimentPageSearchFacetsState';
 
 jest.mock('./ExperimentViewRefreshButton', () => ({
   ExperimentViewRefreshButton: () => <div />,
@@ -31,7 +29,7 @@ const MOCK_RUNS_DATA = experimentRunsSelector(EXPERIMENT_RUNS_MOCK_STORE, {
   experiments: [MOCK_EXPERIMENT],
 });
 
-const DEFAULT_VIEW_STATE = new SearchExperimentRunsViewState();
+const DEFAULT_VIEW_STATE = new ExperimentPageViewState();
 
 const doMock = (additionalProps: Partial<ExperimentViewRunsControlsActionsProps> = {}) => {
   const mockUpdateSearchFacets = jest.fn();
@@ -40,19 +38,11 @@ const doMock = (additionalProps: Partial<ExperimentViewRunsControlsActionsProps>
   const getCurrentState = () => currentState;
 
   const Component = () => {
-    const [searchFacetsState, setSearchFacetsState] = useState<SearchExperimentRunsFacetsState>(
-      new SearchExperimentRunsFacetsState(),
+    const [searchFacetsState, setSearchFacetsState] = useState<ExperimentPageSearchFacetsState>(
+      createExperimentPageSearchFacetsState(),
     );
 
     currentState = searchFacetsState;
-
-    const updateSearchFacets: any = (
-      updatedFacetsState: Partial<SearchExperimentRunsFacetsState>,
-      forceRefresh?: boolean,
-    ) => {
-      mockUpdateSearchFacets(updatedFacetsState, forceRefresh);
-      setSearchFacetsState((s: any) => ({ ...s, ...updatedFacetsState }));
-    };
 
     const props: ExperimentViewRunsControlsActionsProps = {
       runsData: MOCK_RUNS_DATA,
@@ -102,8 +92,6 @@ describe('ExperimentViewRunsControlsFilters', () => {
         columnSelectorVisible: false,
         previewPaneVisible: false,
         artifactViewState: {},
-        viewMaximized: false,
-        runListHidden: false,
       },
     });
 
@@ -128,8 +116,6 @@ describe('ExperimentViewRunsControlsFilters', () => {
         columnSelectorVisible: false,
         previewPaneVisible: false,
         artifactViewState: {},
-        viewMaximized: false,
-        runListHidden: false,
       },
     });
 
@@ -154,8 +140,6 @@ describe('ExperimentViewRunsControlsFilters', () => {
         columnSelectorVisible: false,
         previewPaneVisible: false,
         artifactViewState: {},
-        viewMaximized: false,
-        runListHidden: false,
       },
     });
 
@@ -171,8 +155,6 @@ describe('ExperimentViewRunsControlsFilters', () => {
         columnSelectorVisible: false,
         previewPaneVisible: false,
         artifactViewState: {},
-        viewMaximized: false,
-        runListHidden: false,
       },
     });
 

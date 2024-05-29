@@ -1,6 +1,5 @@
 import json
 import logging
-import math
 import os
 import posixpath
 import urllib.parse
@@ -17,7 +16,9 @@ from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
     _complete_futures,
+    _compute_num_chunks,
     _retry_with_new_creds,
+    _validate_chunk_size_aws,
 )
 from mlflow.store.artifact.s3_artifact_repo import _get_s3_client
 from mlflow.utils.file_utils import read_chunk
@@ -195,16 +196,15 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         response = s3_client.create_multipart_upload(Bucket=bucket, Key=key)
         upload_id = response["UploadId"]
 
-        # Create presigned URL for each part
-        num_parts = math.ceil(
-            os.path.getsize(local_file) / MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
-        )
+        num_parts = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
+        _validate_chunk_size_aws(MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
 
         # define helper functions for uploading data
         def _upload_part(part_number, local_file, start_byte, size):
             data = read_chunk(local_file, size, start_byte)
 
             def try_func(creds):
+                # Create presigned URL for each part
                 presigned_url = creds.generate_presigned_url(
                     "upload_part",
                     Params={

@@ -4,6 +4,9 @@ import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selecto
 import { ExperimentViewRunsGroupBySelector } from './ExperimentViewRunsGroupBySelector';
 import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event-14';
 import { DesignSystemProvider } from '@databricks/design-system';
+import type { RunsGroupByConfig } from '../../utils/experimentPage.group-row-utils';
+import { RunGroupingAggregateFunction, RunGroupingMode } from '../../utils/experimentPage.row-types';
+import { useState } from 'react';
 
 const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 
@@ -12,7 +15,7 @@ describe('ExperimentViewRunsGroupBySelector', () => {
     datasetsList: [
       [
         {
-          dataset: { digest: 'abcdef', name: 'eval-dataset', profile: '', schema: '', source: '', source_type: '' },
+          dataset: { digest: 'abcdef', name: 'eval-dataset', profile: '', schema: '', source: '', sourceType: '' },
           tags: [],
         },
       ],
@@ -34,52 +37,79 @@ describe('ExperimentViewRunsGroupBySelector', () => {
     ...runsDataTags,
   } as any;
 
-  const renderComponent = (initialGroupBy = '', runsData = defaultRunsData, onChange = jest.fn()) => {
-    return render(
-      <ExperimentViewRunsGroupBySelector
-        groupBy={initialGroupBy}
-        isLoading={false}
-        onChange={onChange}
-        runsData={runsData}
-      />,
-      {
-        wrapper: ({ children }) => (
-          <IntlProvider locale="en">
-            <DesignSystemProvider>{children}</DesignSystemProvider>
-          </IntlProvider>
-        ),
-      },
-    );
+  const renderComponent = (
+    initialGroupBy: RunsGroupByConfig | string | null = null,
+    runsData = defaultRunsData,
+    onChangeListener = jest.fn(),
+  ) => {
+    const TestComponent = () => {
+      const [groupBy, setGroupBy] = useState<RunsGroupByConfig | string | null>(initialGroupBy);
+      return (
+        <ExperimentViewRunsGroupBySelector
+          groupBy={groupBy}
+          isLoading={false}
+          runsData={runsData}
+          onChange={(data) => {
+            setGroupBy(data);
+            onChangeListener(data);
+          }}
+        />
+      );
+    };
+    return render(<TestComponent />, {
+      wrapper: ({ children }) => (
+        <IntlProvider locale="en">
+          <DesignSystemProvider>{children}</DesignSystemProvider>
+        </IntlProvider>
+      ),
+    });
   };
+
   test('displays selector for dataset, tags and params with nothing checked', async () => {
     renderComponent();
 
     await userEvent.click(screen.getByRole('button', { name: /Group by/ }));
 
-    expect(screen.getByRole('menuitemradio', { name: 'tag1' })).not.toBeChecked();
-    expect(screen.getByRole('menuitemradio', { name: 'tag2' })).not.toBeChecked();
-    expect(screen.getByRole('menuitemradio', { name: 'param1' })).not.toBeChecked();
-    expect(screen.getByRole('menuitemradio', { name: 'param2' })).not.toBeChecked();
-    expect(screen.getByRole('menuitemradio', { name: 'Dataset' })).not.toBeChecked();
+    expect(screen.getByRole('menuitemcheckbox', { name: 'tag1' })).not.toBeChecked();
+    expect(screen.getByRole('menuitemcheckbox', { name: 'tag2' })).not.toBeChecked();
+    expect(screen.getByRole('menuitemcheckbox', { name: 'param1' })).not.toBeChecked();
+    expect(screen.getByRole('menuitemcheckbox', { name: 'param2' })).not.toBeChecked();
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Dataset' })).not.toBeChecked();
+  });
+
+  test('displays selector for dataset, tags and params with group by already set (legacy group by key)', async () => {
+    renderComponent('param.min.param1');
+
+    await userEvent.click(screen.getByRole('button', { name: /^Group by:/ }));
+
+    expect(screen.getByRole('menuitemcheckbox', { name: 'param1' })).toBeChecked();
   });
 
   test('displays selector for dataset, tags and params with group by already set', async () => {
-    renderComponent('param.min.param1');
+    renderComponent({
+      aggregateFunction: RunGroupingAggregateFunction.Min,
+      groupByKeys: [
+        {
+          mode: RunGroupingMode.Param,
+          groupByData: 'param1',
+        },
+      ],
+    });
 
-    await userEvent.click(screen.getByRole('button', { name: /^Group:/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Group by:/ }));
 
-    expect(screen.getByRole('menuitemradio', { name: 'param1' })).toBeChecked();
+    expect(screen.getByRole('menuitemcheckbox', { name: 'param1' })).toBeChecked();
   });
 
   test('displays selector with no datasets present', async () => {
-    renderComponent('', {
+    renderComponent(null, {
       ...defaultRunsData,
       datasetsList: [],
     });
 
     await userEvent.click(screen.getByRole('button', { name: /Group by/ }));
 
-    expect(screen.queryByRole('menuitemradio', { name: 'Dataset' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'Dataset' })).not.toBeInTheDocument();
   });
 
   test('selects group by tag option', async () => {
@@ -87,9 +117,12 @@ describe('ExperimentViewRunsGroupBySelector', () => {
     renderComponent(undefined, undefined, onChange);
 
     await userEvent.click(screen.getByText('Group by'));
-    await userEvent.click(screen.getByRole('menuitemradio', { name: 'tag1' }));
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'tag1' }));
 
-    expect(onChange).toBeCalledWith('tag.average.tag1');
+    expect(onChange).toBeCalledWith({
+      aggregateFunction: 'average',
+      groupByKeys: [{ groupByData: 'tag1', mode: 'tag' }],
+    });
   });
 
   test('selects group by parameter option', async () => {
@@ -97,9 +130,12 @@ describe('ExperimentViewRunsGroupBySelector', () => {
     renderComponent(undefined, undefined, onChange);
 
     await userEvent.click(screen.getByRole('button', { name: /Group by/ }));
-    await userEvent.click(screen.getByRole('menuitemradio', { name: 'param2' }));
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'param2' }));
 
-    expect(onChange).toBeCalledWith('param.average.param2');
+    expect(onChange).toBeCalledWith({
+      aggregateFunction: 'average',
+      groupByKeys: [{ groupByData: 'param2', mode: 'param' }],
+    });
   });
 
   test('selects group by dataset option', async () => {
@@ -107,25 +143,34 @@ describe('ExperimentViewRunsGroupBySelector', () => {
     renderComponent(undefined, undefined, onChange);
 
     await userEvent.click(screen.getByRole('button', { name: /Group by/ }));
-    await userEvent.click(screen.getByRole('menuitemradio', { name: 'Dataset' }));
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Dataset' }));
 
-    expect(onChange).toBeCalledWith('dataset.average.dataset');
+    expect(onChange).toBeCalledWith({
+      aggregateFunction: 'average',
+      groupByKeys: [{ groupByData: 'dataset', mode: 'dataset' }],
+    });
   });
 
   test('changes aggregation function', async () => {
     const onChange = jest.fn();
     renderComponent('param.min.param1', undefined, onChange);
 
-    await userEvent.click(screen.getByRole('button', { name: /^Group:/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Group by:/ }));
     await userEvent.click(screen.getByLabelText('Change aggregation function'));
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Maximum' }));
 
-    expect(onChange).toHaveBeenLastCalledWith('param.max.param1');
+    expect(onChange).toHaveBeenLastCalledWith({
+      aggregateFunction: 'max',
+      groupByKeys: [{ groupByData: 'param1', mode: 'param' }],
+    });
 
     await userEvent.click(screen.getByLabelText('Change aggregation function'));
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Average' }));
 
-    expect(onChange).toHaveBeenLastCalledWith('param.average.param1');
+    expect(onChange).toHaveBeenLastCalledWith({
+      aggregateFunction: 'average',
+      groupByKeys: [{ groupByData: 'param1', mode: 'param' }],
+    });
   });
 
   test('filters by param name', async () => {
@@ -134,12 +179,12 @@ describe('ExperimentViewRunsGroupBySelector', () => {
     await userEvent.click(screen.getByRole('button', { name: /Group by/ }));
     await userEvent.type(screen.getByRole('textbox'), 'param2');
 
-    expect(screen.queryByRole('menuitemradio', { name: 'param2' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'param2' })).toBeInTheDocument();
 
-    expect(screen.queryByRole('menuitemradio', { name: 'Dataset' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('menuitemradio', { name: 'param1' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('menuitemradio', { name: 'tag1' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('menuitemradio', { name: 'tag2' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'Dataset' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'param1' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'tag1' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'tag2' })).not.toBeInTheDocument();
   });
 
   test('cannot change aggregation function when grouping is disabled', async () => {
@@ -151,5 +196,65 @@ describe('ExperimentViewRunsGroupBySelector', () => {
     expect(screen.getByRole('menuitemradio', { name: 'Maximum' })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByRole('menuitemradio', { name: 'Minimum' })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByRole('menuitemradio', { name: 'Average' })).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  test('selects multiple group by keys and remove them one by one', async () => {
+    const onChange = jest.fn();
+    renderComponent(undefined, undefined, onChange);
+
+    await userEvent.click(screen.getByRole('button', { name: /Group by/ }));
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Dataset' }));
+
+    expect(onChange).toBeCalledWith({
+      aggregateFunction: 'average',
+      groupByKeys: [{ groupByData: 'dataset', mode: 'dataset' }],
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /Group by/ }));
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'tag1' }));
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      aggregateFunction: 'average',
+      groupByKeys: [
+        { groupByData: 'dataset', mode: 'dataset' },
+        { groupByData: 'tag1', mode: 'tag' },
+      ],
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /Group by/ }));
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'param2' }));
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      aggregateFunction: 'average',
+      groupByKeys: [
+        { groupByData: 'dataset', mode: 'dataset' },
+        { groupByData: 'tag1', mode: 'tag' },
+        { groupByData: 'param2', mode: 'param' },
+      ],
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /Group by/ }));
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'tag1' }));
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      aggregateFunction: 'average',
+      groupByKeys: [
+        { groupByData: 'dataset', mode: 'dataset' },
+        { groupByData: 'param2', mode: 'param' },
+      ],
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /Group by/ }));
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Dataset' }));
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      aggregateFunction: 'average',
+      groupByKeys: [{ groupByData: 'param2', mode: 'param' }],
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /Group by/ }));
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'param2' }));
+
+    expect(onChange).toHaveBeenLastCalledWith(null);
   });
 });

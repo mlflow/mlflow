@@ -219,6 +219,16 @@ I can't load the model logged by mlflow langchain autologging
     consistent between the saving and loading environments to ensure that object references resolve properly. For further guarantees of correct object representation, you should ensure that your
     environment has `pydantic` installed with at least version 2. 
 
+How can I use a streaming API with LangChain?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Streaming with LangChain Models**: Ensure that the LangChain model supports a streaming response and use an MLflow version >= 2.12.2.
+
+    As of the MLflow 2.12.2 release, LangChain models that support streaming responses that have been saved using MLflow 2.12.2 (or higher) can be loaded and used for 
+    streamable inference using the ``predict_stream`` API. Ensure that you are consuming the return type correctly, as the return from these models is a ``Generator`` object.
+    To learn more, refer to the `predict_stream guide <https://mlflow.org/docs/latest/models.html#how-to-load-and-score-python-function-models>`_.
+
+
 How does MLflow langchain autologging interact with callbacks?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

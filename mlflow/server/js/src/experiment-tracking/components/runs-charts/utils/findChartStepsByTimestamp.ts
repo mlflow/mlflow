@@ -116,6 +116,7 @@ export const findAbsoluteTimestampRangeForRelativeRange = (
   currentlyVisibleMetrics: Dictionary<SampledMetricsByRun>,
   runUuids: string[],
   relativeRange: [number, number],
+  multiplier = 1000,
 ): [number, number] | undefined => {
   const stepRangesPerRun = compact(
     runUuids.map((runUuid) => {
@@ -136,7 +137,10 @@ export const findAbsoluteTimestampRangeForRelativeRange = (
 
       // Convert relative time range to timestamp range. Relative range comes
       // in seconds so we have to multiply it by 1000 to get milliseconds.
-      return [relativeRange[0] * 1000 + timestampOffset, relativeRange[1] * 1000 + timestampOffset] as [number, number];
+      return [relativeRange[0] * multiplier + timestampOffset, relativeRange[1] * multiplier + timestampOffset] as [
+        number,
+        number,
+      ];
     }),
   );
   const lowerBound = min(stepRangesPerRun.map(([bound]) => bound));

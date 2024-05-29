@@ -479,7 +479,7 @@ module.exports = {
     'yield-star-spacing': 2,
     yoda: 2,
     'function-paren-newline': 'off',
-    complexity: ['error', 20],
+    complexity: 'off',
     'no-multi-assign': 'off',
     'no-useless-return': 'off',
     'prefer-destructuring': 'off',

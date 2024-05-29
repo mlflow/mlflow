@@ -52,11 +52,11 @@ const aParent = { info: { run_id: 'aParent' } };
 const bParent = { info: { run_id: 'bParent' } };
 
 beforeEach(() => {
-  jest.spyOn(MlflowService, 'searchRuns').mockImplementation(() => Promise.resolve({ runs: [a, b, aParent] }));
+  jest.spyOn(MlflowService, 'searchRuns').mockImplementation(() => Promise.resolve({ runs: [a, b, aParent] } as any));
 
   jest
     .spyOn(MlflowService, 'getRun')
-    .mockImplementation((data) => Promise.resolve({ run: { info: { run_id: data.run_id } } }));
+    .mockImplementation((data) => Promise.resolve({ run: { info: { run_id: data.run_id } } } as any));
 
   jest.spyOn(MlflowService, 'createRun').mockImplementation((data) =>
     Promise.resolve({
@@ -108,7 +108,7 @@ describe('fetchMissingParents', () => {
 
     jest.spyOn(MlflowService, 'getRun').mockImplementation((data) => {
       if (data.run_id === 'aParent') {
-        return Promise.resolve({ run: { info: { run_id: data.run_id } } });
+        return Promise.resolve({ run: { info: { run_id: data.run_id } } }) as any;
       } else {
         return Promise.reject(mockParentRunDeletedError);
       }
@@ -207,9 +207,9 @@ describe('searchRunsPayload', () => {
     // a specialized set of runs when asked for pinned runs
     jest.spyOn(MlflowService, 'searchRuns').mockImplementation(({ filter }) => {
       if (filter?.includes('run_id IN')) {
-        return Promise.resolve({ runs: [b] });
+        return Promise.resolve({ runs: [b] }) as any;
       }
-      return Promise.resolve({ runs: [a] });
+      return Promise.resolve({ runs: [a] }) as any;
     });
     const result = await searchRunsPayload({
       runsPinned: [b.info.run_id],
@@ -245,13 +245,15 @@ describe('searchRunsPayload', () => {
     );
   });
   it('should mark additionally fetched parent runs as correctly filtered ones', async () => {
-    jest.spyOn(MlflowService, 'searchRuns').mockImplementation(() => Promise.resolve({ runs: [a] }));
-    jest.spyOn(MlflowService, 'getRun').mockImplementation((data) => Promise.resolve({ run: aParent }));
+    jest.spyOn(MlflowService, 'searchRuns').mockImplementation(() => Promise.resolve({ runs: [a] } as any));
+    jest.spyOn(MlflowService, 'getRun').mockImplementation((data) => Promise.resolve({ run: aParent } as any));
     const result = await searchRunsPayload({ shouldFetchParents: true });
     expect(result.runsMatchingFilter).toEqual(expect.arrayContaining([aParent]));
   });
   it('throws proper error when received an invalid response', async () => {
-    jest.spyOn(MlflowService, 'searchRuns').mockImplementation(() => Promise.resolve('this is a non-object response'));
+    jest
+      .spyOn(MlflowService, 'searchRuns')
+      .mockImplementation(() => Promise.resolve('this is a non-object response') as any);
     await expect(async () => searchRunsPayload({ shouldFetchParents: true })).rejects.toThrow(
       /Invalid format of the runs search response/,
     );

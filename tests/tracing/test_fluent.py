@@ -1,5 +1,6 @@
 import json
 import time
+from dataclasses import asdict
 from datetime import datetime
 from unittest import mock
 
@@ -20,9 +21,16 @@ from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import (
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
+    TraceMetadataKey,
+    TraceTagKey,
+)
+from mlflow.tracing.fluent import TRACE_BUFFER
+from mlflow.tracing.provider import _get_tracer
 
-from tests.tracing.helper import create_test_trace_info, create_trace, get_traces
+from tests.tracing.helper import create_test_trace_info, create_trace, get_first_trace, get_traces
 
 
 class DefaultTestModel:
@@ -61,7 +69,7 @@ def test_trace(clear_singleton, with_active_run):
     else:
         model.predict(2, 5)
 
-    trace = get_traces()[0]
+    trace = get_first_trace()
     trace_info = trace.info
     assert trace_info.request_id is not None
     assert trace_info.experiment_id == "0"  # default experiment
@@ -145,6 +153,7 @@ def test_trace_with_databricks_tracking_uri(
         "mlflow.source.name": "test",
         "mlflow.source.type": "LOCAL",
         "mlflow.user": "bob",
+        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
     }
 
     trace_data = traces[0].data
@@ -158,7 +167,7 @@ def test_trace_with_databricks_tracking_uri(
 
 
 def test_trace_in_databricks_model_serving(clear_singleton, monkeypatch):
-    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
 
     # Dummy flask app for prediction
     import flask
@@ -213,31 +222,32 @@ def test_trace_in_databricks_model_serving(clear_singleton, monkeypatch):
     assert response.status_code == 200
     assert response.json["prediction"] == 64
 
-    trace = response.json["trace"]
-    assert trace[TRACE_SCHEMA_VERSION_KEY] == 2
-    assert len(trace["spans"]) == 3
+    trace_dict = response.json["trace"]
+    trace = Trace.from_dict(trace_dict)
+    assert trace.info.request_id == databricks_request_id
+    assert trace.info.tags[TRACE_SCHEMA_VERSION_KEY] == "2"
+    assert len(trace.data.spans) == 3
 
-    span_name_to_span = {span["name"]: span for span in trace["spans"]}
+    span_name_to_span = {span.name: span for span in trace.data.spans}
     root_span = span_name_to_span["predict"]
-    assert isinstance(root_span["context"]["trace_id"], str)
-    assert isinstance(root_span["context"]["span_id"], str)
-    assert root_span["parent_id"] is None
-    assert isinstance(root_span["start_time"], int)
-    assert isinstance(root_span["end_time"], int)
-    assert root_span["status_code"] == "OK"
-    assert root_span["status_message"] == ""
-    assert json.loads(root_span["attributes"]) == {
+    assert isinstance(root_span._trace_id, str)
+    assert isinstance(root_span.span_id, str)
+    assert isinstance(root_span.start_time_ns, int)
+    assert isinstance(root_span.end_time_ns, int)
+    assert root_span.status.status_code.value == "OK"
+    assert root_span.status.description == ""
+    assert root_span.attributes == {
         "mlflow.traceRequestId": databricks_request_id,
         "mlflow.spanType": SpanType.UNKNOWN,
         "mlflow.spanFunctionName": "predict",
         "mlflow.spanInputs": {"x": 2, "y": 5},
         "mlflow.spanOutputs": 64,
     }
-    assert root_span["events"] == []
+    assert root_span.events == []
 
     child_span_1 = span_name_to_span["custom"]
-    assert child_span_1["parent_id"] == root_span["context"]["span_id"]
-    assert json.loads(child_span_1["attributes"]) == {
+    assert child_span_1.parent_id == root_span.span_id
+    assert child_span_1.attributes == {
         "delta": 1,
         "mlflow.traceRequestId": databricks_request_id,
         "mlflow.spanType": SpanType.LLM,
@@ -245,21 +255,19 @@ def test_trace_in_databricks_model_serving(clear_singleton, monkeypatch):
         "mlflow.spanInputs": {"z": 7},
         "mlflow.spanOutputs": 8,
     }
-    assert child_span_1["events"] == []
+    assert child_span_1.events == []
 
     child_span_2 = span_name_to_span["square"]
-    assert child_span_2["parent_id"] == root_span["context"]["span_id"]
-    assert json.loads(child_span_2["attributes"]) == {
+    assert child_span_2.parent_id == root_span.span_id
+    assert child_span_2.attributes == {
         "mlflow.traceRequestId": databricks_request_id,
         "mlflow.spanType": SpanType.UNKNOWN,
     }
-    assert child_span_2["events"] == [
-        {
-            "name": "event",
-            "timestamp": 0,
-            "attributes": {"foo": "bar"},
-        }
-    ]
+    assert asdict(child_span_2.events[0]) == {
+        "name": "event",
+        "timestamp": 0,
+        "attributes": {"foo": "bar"},
+    }
 
     # The trace should be removed from the buffer after being retrieved
     assert pop_trace(request_id=databricks_request_id) is None
@@ -299,6 +307,7 @@ def test_trace_in_model_evaluation(clear_singleton, mock_store, monkeypatch):
         "mlflow.source.type": "LOCAL",
         "mlflow.user": "bob",
         "mlflow.artifactLocation": "test",
+        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
     }
 
     trace = mlflow.get_trace(request_id_1)
@@ -331,7 +340,7 @@ def test_trace_handle_exception_during_prediction(clear_singleton):
         model.predict(2, 5)
 
     # Trace should be logged even if the function fails, with status code ERROR
-    trace = get_traces()[0]
+    trace = get_first_trace()
     assert trace.info.request_id is not None
     assert trace.info.status == TraceStatus.ERROR
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
@@ -342,7 +351,7 @@ def test_trace_handle_exception_during_prediction(clear_singleton):
     assert len(trace.data.spans) == 2
 
 
-def test_trace_ignore_exception_from_tracing_logic(clear_singleton):
+def test_trace_ignore_exception_from_tracing_logic(clear_singleton, monkeypatch):
     # This test is to make sure that the main prediction logic is not affected
     # by the exception raised by the tracing logic.
     class TestModel:
@@ -358,15 +367,31 @@ def test_trace_ignore_exception_from_tracing_logic(clear_singleton):
 
     assert output == 7
     assert get_traces() == []
+    TRACE_BUFFER.clear()
 
     # Exception during inspecting inputs: trace is logged without inputs field
     with mock.patch("mlflow.tracing.utils.inspect.signature", side_effect=ValueError("Some error")):
         output = model.predict(2, 5)
 
     assert output == 7
-    trace = get_traces()[0]
+    trace = get_first_trace()
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == "{}"
     assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "7"
+    TRACE_BUFFER.clear()
+
+    # Exception during ending span: trace is not logged
+    # Mock the span processor's on_end handler to raise an exception
+    tracer = _get_tracer(__name__)
+
+    def _always_fail(*args, **kwargs):
+        raise ValueError("Some error")
+
+    monkeypatch.setattr(tracer.span_processor, "on_end", _always_fail)
+
+    output = model.predict(2, 5)
+    assert output == 7
+    assert get_traces() == []
+    TRACE_BUFFER.clear()
 
 
 def test_start_span_context_manager(clear_singleton):
@@ -399,7 +424,7 @@ def test_start_span_context_manager(clear_singleton):
     model = TestModel()
     model.predict(1, 2)
 
-    trace = get_traces()[0]
+    trace = get_first_trace()
     assert trace.info.request_id is not None
     assert trace.info.experiment_id == "0"  # default experiment
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
@@ -481,7 +506,7 @@ def test_start_span_context_manager_with_imperative_apis(clear_singleton):
     model = TestModel()
     model.predict(1, 2)
 
-    trace = get_traces()[0]
+    trace = get_first_trace()
     assert trace.info.request_id is not None
     assert trace.info.experiment_id == "0"  # default experiment
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
@@ -514,6 +539,21 @@ def test_start_span_context_manager_with_imperative_apis(clear_singleton):
         "mlflow.spanInputs": 3,
         "mlflow.spanOutputs": 5,
     }
+
+
+def test_test_search_traces_empty(mock_client):
+    mock_client.search_traces.return_value = PagedList([], token=None)
+
+    traces = mlflow.search_traces()
+    assert traces.empty
+
+    default_columns = Trace.pandas_dataframe_columns()
+    assert traces.columns.tolist() == default_columns
+
+    traces = mlflow.search_traces(extract_fields=["foo.inputs.bar"])
+    assert traces.columns.tolist() == [*default_columns, "foo.inputs.bar"]
+
+    mock_client.search_traces.assert_called()
 
 
 def test_search_traces(mock_client):
@@ -604,6 +644,7 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
     df = mlflow.search_traces()
     assert df.columns.tolist() == [
         "request_id",
+        "trace",
         "timestamp_ms",
         "status",
         "execution_time_ms",
@@ -615,6 +656,7 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
     ]
     for idx, trace in enumerate(traces_to_return):
         assert df.iloc[idx].request_id == trace.info.request_id
+        assert df.iloc[idx].trace == trace
         assert df.iloc[idx].timestamp_ms == trace.info.timestamp_ms
         assert df.iloc[idx].status == trace.info.status
         assert df.iloc[idx].execution_time_ms == trace.info.execution_time_ms

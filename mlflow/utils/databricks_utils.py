@@ -1,4 +1,5 @@
 import functools
+import getpass
 import json
 import logging
 import os
@@ -171,7 +172,19 @@ def is_in_databricks_job():
 
 
 def is_in_databricks_model_serving_environment():
-    return "IS_IN_DATABRICKS_MODEL_SERVING_ENV" in os.environ
+    """
+    Check if the code is running in Databricks Model Serving environment.
+    The environment variable set by Databricks when starting the serving container.
+    """
+    val = (
+        os.environ.get("IS_IN_DB_MODEL_SERVING_ENV")
+        # Checking the old env var name for backward compatibility. The env var was renamed once
+        # to fix a model loading issue, but we still need to support it for a while.
+        # TODO: Remove this once the new env var is fully rolled out.
+        or os.environ.get("IS_IN_DATABRICKS_MODEL_SERVING_ENV")
+        or "false"
+    )
+    return val.lower() == "true"
 
 
 # this should only be the case when we are in model serving environment
@@ -932,3 +945,33 @@ if is_in_databricks_runtime():
         # in this case, we don't need to initialize databricks token because
         # there is no backend mlflow service available.
         pass
+
+
+def get_databricks_nfs_temp_dir():
+    entry_point = _get_dbutils().entry_point
+    if getpass.getuser() == "ROOT":
+        return entry_point.getReplNFSTempDir()
+    else:
+        try:
+            # If it is not ROOT user, it means the code is running in Safe-spark.
+            # In this case, we should get temporary directory of current user.
+            # and `getReplNFSTempDir` will be deprecated for this case.
+            return entry_point.getUserNFSTempDir()
+        except Exception:
+            # fallback
+            return entry_point.getReplNFSTempDir()
+
+
+def get_databricks_local_temp_dir():
+    entry_point = _get_dbutils().entry_point
+    if getpass.getuser() == "ROOT":
+        return entry_point.getReplLocalTempDir()
+    else:
+        try:
+            # If it is not ROOT user, it means the code is running in Safe-spark.
+            # In this case, we should get temporary directory of current user.
+            # and `getReplLocalTempDir` will be deprecated for this case.
+            return entry_point.getUserLocalTempDir()
+        except Exception:
+            # fallback
+            return entry_point.getReplLocalTempDir()

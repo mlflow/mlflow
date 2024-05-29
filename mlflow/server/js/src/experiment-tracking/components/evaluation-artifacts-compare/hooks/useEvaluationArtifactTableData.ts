@@ -1,13 +1,20 @@
-import { fromPairs, isObject, sortBy } from 'lodash';
+import { fromPairs, isNil, isObject, isString, sortBy } from 'lodash';
 import { useMemo } from 'react';
 
-import { EvaluationArtifactTableEntry, PendingEvaluationArtifactTableEntry } from '../../../types';
+import {
+  ArtifactLogTableImageObject,
+  EvaluateCellImage,
+  EvaluationArtifactTableEntry,
+  PendingEvaluationArtifactTableEntry,
+} from '../../../types';
 import type { EvaluationDataReduxState } from '../../../reducers/EvaluationDataReducer';
 import { shouldEnablePromptLab } from '../../../../common/utils/FeatureUtils';
 import {
   PROMPTLAB_METADATA_COLUMN_LATENCY,
   PROMPTLAB_METADATA_COLUMN_TOTAL_TOKENS,
 } from '../../prompt-engineering/PromptEngineering.utils';
+import { LOG_TABLE_IMAGE_COLUMN_TYPE } from 'experiment-tracking/constants';
+import { getArtifactLocationUrl } from 'common/utils/ArtifactUtils';
 
 type ArtifactsByRun = EvaluationDataReduxState['evaluationArtifactsByRunUuid'];
 type PendingDataByRun = EvaluationDataReduxState['evaluationPendingDataByRunUuid'];
@@ -21,7 +28,7 @@ export type UseEvaluationArtifactTableDataResult = {
   groupByCellValues: Record<string, string>;
 
   // Values of output columns. The run uuid is the key.
-  cellValues: Record<string, string>;
+  cellValues: Record<string, string | EvaluateCellImage>;
 
   // Contains data describing additional metadata for output: evaluation time, total tokens and a flag
   // indicating if the run was evaluated in this session and is unsynced
@@ -31,7 +38,10 @@ export type UseEvaluationArtifactTableDataResult = {
 }[];
 
 const extractGroupByValuesFromEntry = (entry: EvaluationArtifactTableEntry, groupByCols: string[]) => {
-  const groupByMappings = groupByCols.map<[string, string]>((groupBy) => [groupBy, entry[groupBy]?.toString()]);
+  const groupByMappings = groupByCols.map<[string, string]>((groupBy) => {
+    const value = entry[groupBy];
+    return [groupBy, isString(value) ? value : JSON.stringify(value)];
+  });
 
   // Next, let's calculate a unique hash for values of those columns - it will serve as
   // an identifier of each result row.
@@ -71,14 +81,14 @@ export const useEvaluationArtifactTableData = (
      * The first level key is the combined hash of all group by values,
      * the second level key is the run UUID. A leaf of this tree corresponds to the output cell value.
      */
-    const outputCellsValueMap: Record<string, Record<string, string>> = {};
+    const outputCellsValueMap: Record<string, Record<string, any>> = {};
 
     /**
      * An aggregate object containing values of the "group by" columns.
      * The first level key is the combined hash of all group by values,
      * the second level key is the "group by" column name. A leaf of this tree corresponds to the cell value.
      */
-    const groupByCellsValueMap: Record<string, Record<string, string>> = {};
+    const groupByCellsValueMap: Record<string, Record<string, any>> = {};
 
     /**
      * This array contains all "group by" keys that were freshly added or evaluated, i.e. they are not found
@@ -158,7 +168,7 @@ export const useEvaluationArtifactTableData = (
 
         // Use the data from the other set if present, but only if there
         // is no value assigned already. This way we will proritize prepended values.
-        cellsEntry[runUuid] = cellsEntry[runUuid] || entry[outputColumn]?.toString();
+        cellsEntry[runUuid] = cellsEntry[runUuid] || entry[outputColumn];
       }
     }
 
@@ -194,7 +204,7 @@ export const useEvaluationArtifactTableData = (
 
         const cellsEntry = outputCellsValueMap[key];
         // Use pending data to overwrite already existing result
-        cellsEntry[runUuid] = entryData[outputColumn]?.toString() || cellsEntry[runUuid];
+        cellsEntry[runUuid] = entryData[outputColumn] || cellsEntry[runUuid];
       }
     }
 
@@ -212,6 +222,31 @@ export const useEvaluationArtifactTableData = (
         existingTableRow.cellValues = outputCellsValueMap[key];
         existingTableRow.outputMetadataByRunUuid = outputMetadataByCellsValueMap[key];
       } else {
+        const cellsEntry = outputCellsValueMap[key];
+        Object.keys(cellsEntry || {}).forEach((runUuid: string) => {
+          if (cellsEntry[runUuid] !== null && typeof cellsEntry[runUuid] === 'object') {
+            try {
+              const { type, filepath, compressed_filepath } = cellsEntry[runUuid] as ArtifactLogTableImageObject;
+              if (type === LOG_TABLE_IMAGE_COLUMN_TYPE) {
+                cellsEntry[runUuid] = {
+                  url: getArtifactLocationUrl(filepath, runUuid),
+                  compressed_url: getArtifactLocationUrl(compressed_filepath, runUuid),
+                };
+              } else {
+                cellsEntry[runUuid] = JSON.stringify(cellsEntry[runUuid]);
+              }
+            } catch {
+              cellsEntry[runUuid] = '';
+            }
+          } else if (!isNil(cellsEntry[runUuid]) && !isString(cellsEntry[runUuid])) {
+            // stringify non-empty values so that the value
+            // doesn't appear as (empty) in the output cell
+            // also don't stringify strings, since they'll have
+            // an extra quote around them
+            cellsEntry[runUuid] = JSON.stringify(cellsEntry[runUuid]);
+          }
+        });
+
         results.push({
           key,
           groupByCellValues,

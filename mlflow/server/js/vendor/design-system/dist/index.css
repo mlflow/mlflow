@@ -15566,6 +15566,11 @@ span.du-bois-light-typography-ellipsis-single-line {
   -webkit-box-orient: vertical;
 }
 
+[data-dubois-show-outline] {
+  outline: 1px dashed #308613 !important;
+  outline-offset: 2px !important;
+}
+
 /* stylelint-disable at-rule-empty-line-before,at-rule-name-space-after,at-rule-no-unknown */
 /* stylelint-disable no-duplicate-selectors */
 /* stylelint-disable */
