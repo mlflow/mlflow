@@ -47,6 +47,12 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         self._client = client or MlflowClient()
         self._trace_manager = InMemoryTraceManager.get_instance()
 
+        # We issue a warning when a trace is created under the default experiment.
+        # We only want to issue it once, but de-duplication of warnings module does
+        # not work in notebooks (https://github.com/ipython/ipython/issues/11207).
+        # Therefore, we keep track of the warning issuance state manually.
+        self._issued_default_exp_warning = False
+
     def on_start(self, span: OTelSpan, parent_context: Optional[Context] = None):
         """
         Handle the start of a span. This method is called when an OpenTelemetry span is started.
@@ -82,7 +88,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             # take precendence over the environment experiment id
             experiment_id = run.info.experiment_id
 
-        if experiment_id == DEFAULT_EXPERIMENT_ID:
+        if experiment_id == DEFAULT_EXPERIMENT_ID and not self._issued_default_exp_warning:
             _logger.warning(
                 "Creating a trace within the default experiment with id "
                 f"'{DEFAULT_EXPERIMENT_ID}'. It is strongly recommended to not use "
@@ -92,6 +98,8 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 "To avoid performance and disambiguation issues, set the experiment for "
                 "your environment using `mlflow.set_experiment()` API."
             )
+            self._issued_default_exp_warning = True
+
         tags = resolve_tags()
         tags.update({TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)})
 
