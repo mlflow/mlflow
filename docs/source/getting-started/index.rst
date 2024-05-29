@@ -239,4 +239,3 @@ understanding of MLflow and its APIs.
     :hidden:
 
     logging-first-model/index
-

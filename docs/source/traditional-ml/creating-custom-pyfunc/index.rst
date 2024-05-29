@@ -33,4 +33,3 @@ ensuring flexibility without compromising on the ease of use.
     Models, Flavors, and PyFuncs in MLflow <part1-named-flavors>
     Understanding Pyfunc Components <part2-pyfunc-components>
     Full Notebooks <notebooks/index>
-
