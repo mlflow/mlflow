@@ -8,13 +8,12 @@ Not all flavors have a flavor backend.
 """
 import logging
 
-from mlflow.artifacts import download_artifacts
-from mlflow.models.model import MLMODEL_FILE_NAME, Model
+from mlflow.models.model import Model
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _get_root_uri_and_artifact_path
+from mlflow.tracking.artifact_utils import (
+    _get_root_uri_and_artifact_path,
+)
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.uri import append_to_uri_path, is_databricks_unity_catalog_uri
 
 _logger = logging.getLogger(__name__)
 
