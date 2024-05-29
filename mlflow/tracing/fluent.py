@@ -251,6 +251,9 @@ def get_trace(request_id: str) -> Optional[Trace]:
     """
     Get a trace by the given request ID if it exists.
 
+    Args:
+        request_id: The request ID of the trace.
+
     Returns:
         A :py:class:`mlflow.entities.Trace` objects with the given request ID.
     """
