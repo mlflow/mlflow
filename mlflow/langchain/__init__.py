@@ -126,7 +126,7 @@ def get_default_conda_env():
 
 
 def _infer_signature_from_input_example_for_lc_model(
-    input_example, wrapped_model, example_no_conversion=False
+    input_example, wrapped_model, example_no_conversion=True
 ):
     from mlflow.langchain.api_request_parallel_processor import _ChatResponse
 
@@ -156,7 +156,7 @@ def save_model(
     metadata=None,
     loader_fn=None,
     persist_dir=None,
-    example_no_conversion=False,
+    example_no_conversion=True,
     model_config=None,
     streamable: Optional[bool] = None,
 ):
@@ -250,15 +250,18 @@ def save_model(
                     )
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
-        example_no_conversion: {{ example_no_conversion }}
+        example_no_conversion: If ``False``, the input example will be converted to a Pandas
+                DataFrame format when saving. This is useful when the model expects a DataFrame
+                input and the input example could be passed directly to the model.
+                Defaults to ``True``.
         model_config: The model configuration to apply to the model if saving model as code. This
             configuration is available during model loading.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         streamable: A boolean value indicating if the model supports streaming prediction. If
-            True, the model must implement `stream` method. If None, the model's streamability
-            is inferred from the model type. Default to `None`.
+            True, the model must implement `stream` method. If None, streamable is
+            set to True if the model implements `stream` method. Default to `None`.
     """
     import langchain
     from langchain.schema import BaseRetriever
@@ -347,7 +350,7 @@ def save_model(
             mlflow_model.metadata.update(schema)
 
     if streamable is None:
-        streamable = isinstance(lc_model, lc_runnables_types())
+        streamable = hasattr(lc_model, "stream")
 
     model_data_kwargs = {}
     flavor_conf = {}
@@ -429,7 +432,7 @@ def log_model(
     metadata=None,
     loader_fn=None,
     persist_dir=None,
-    example_no_conversion=False,
+    example_no_conversion=True,
     run_id=None,
     model_config=None,
     streamable=None,
@@ -532,7 +535,10 @@ def log_model(
                     )
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
-        example_no_conversion: {{ example_no_conversion }}
+        example_no_conversion: If ``False``, the input example will be converted to a Pandas
+                DataFrame format when saving. This is useful when the model expects a DataFrame
+                input and the input example could be passed directly to the model.
+                Defaults to ``True``.
         run_id: run_id to associate with this model version. If specified, we resume the
                 run and log the model to that run. Otherwise, a new run is created.
                 Default to None.
@@ -542,8 +548,8 @@ def log_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         streamable: A boolean value indicating if the model supports streaming prediction. If
-            True, the model must implement `stream` method. If None, the model's streamability
-            is inferred from the model type. Default to `None`.
+            True, the model must implement `stream` method. If None, If None, streamable is
+            set to True if the model implements `stream` method. Default to `None`.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the

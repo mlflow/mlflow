@@ -21,6 +21,7 @@ from google.protobuf.json_format import ParseError
 from mlflow.entities import DatasetInput, ExperimentTag, FileInfo, Metric, Param, RunTag, ViewType
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.multipart_upload import MultipartUploadPart
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_TARGET
 from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
@@ -185,6 +186,39 @@ def _get_artifact_repo_mlflow_artifacts():
     if _artifact_repo is None:
         _artifact_repo = get_artifact_repository(os.environ[ARTIFACTS_DESTINATION_ENV_VAR])
     return _artifact_repo
+
+
+def _get_trace_artifact_repo(trace_info: TraceInfo):
+    """
+    Resolve the artifact repository for fetching data for the given trace.
+
+    Args:
+        trace_info: The trace info object containing metadata about the trace.
+    """
+    artifact_uri = get_artifact_uri_for_trace(trace_info)
+
+    if _is_servable_proxied_run_artifact_root(artifact_uri):
+        # If the artifact location is a proxied run artifact root (e.g. mlflow-artifacts://...),
+        # we need to resolve it to the actual artifact location.
+        from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR
+
+        path = _get_proxied_run_artifact_destination_path(artifact_uri)
+        if not path:
+            raise MlflowException(
+                f"Failed to resolve the proxied run artifact URI: {artifact_uri}. ",
+                "Trace artifact URI must contain subpath to the trace data directory.",
+                error_code=BAD_REQUEST,
+            )
+        root = os.environ[ARTIFACTS_DESTINATION_ENV_VAR]
+        artifact_uri = posixpath.join(root, path)
+
+        # We don't set it to global var unlike run artifact, because the artifact repo has
+        # to be created with full trace artifact URI including request_id.
+        # e.g. s3://<experiment_id>/traces/<request_id>
+        artifact_repo = get_artifact_repository(artifact_uri)
+    else:
+        artifact_repo = get_artifact_repository(artifact_uri)
+    return artifact_repo
 
 
 def _is_serving_proxied_artifacts():
@@ -2455,15 +2489,10 @@ def get_trace_artifact_handler():
         )
 
     trace_info = _get_tracking_store().get_trace_info(request_id)
-    artifact_uri = get_artifact_uri_for_trace(trace_info)
+    trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
 
-    if _is_servable_proxied_run_artifact_root(artifact_uri):
-        artifact_repo = _get_artifact_repo_mlflow_artifacts()
-    else:
-        artifact_repo = get_artifact_repository(artifact_uri)
-
+    # Write data to a BytesIO buffer instead of needing to save a temp file
     buf = io.BytesIO()
-    trace_data = artifact_repo.download_trace_data()
     buf.write(json.dumps(trace_data).encode())
     buf.seek(0)
 
