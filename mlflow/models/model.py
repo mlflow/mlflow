@@ -655,7 +655,7 @@ class Model:
         """
         from mlflow.models.wheeled_model import _ORIGINAL_REQ_FILE_NAME, WheeledModel
         from mlflow.utils.model_utils import _validate_and_get_model_config_from_file
-        
+
         with TempDir() as tmp:
             local_path = tmp.path("model")
             if run_id is None:
