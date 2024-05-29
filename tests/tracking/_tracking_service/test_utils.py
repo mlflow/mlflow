@@ -376,7 +376,6 @@ def test_set_tracking_uri_with_path(tmp_path, monkeypatch, absolute):
 def test_set_tracking_uri_update_trace_provider():
     default_uri = mlflow.get_tracking_uri()
     try:
-        mlflow.tracing.enable()
         assert get_tracer_tracking_uri() != "file:///tmp"
 
         set_tracking_uri("file:///tmp")
