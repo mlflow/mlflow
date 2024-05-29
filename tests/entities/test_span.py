@@ -9,7 +9,7 @@ import mlflow
 from mlflow.entities import LiveSpan, Span, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.entities.span import NoOpSpan, create_mlflow_span
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.provider import _get_tracer
+from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracing.utils import encode_span_id, encode_trace_id
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
@@ -111,7 +111,7 @@ def test_create_non_live_span():
 
 
 def test_create_noop_span():
-    with mlflow.tracing.disabled():
+    with trace_disabled():
         request_id = "tr-12345"
         tracer = _get_tracer("test")
         with tracer.start_as_current_span("span") as otel_span:

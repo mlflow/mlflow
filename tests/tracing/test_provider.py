@@ -7,7 +7,12 @@ from mlflow.tracing.export.mlflow import MlflowSpanExporter
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
-from mlflow.tracing.provider import _TRACER_PROVIDER_INITIALIZED, _get_tracer, _is_enabled, trace_disabled
+from mlflow.tracing.provider import (
+    _TRACER_PROVIDER_INITIALIZED,
+    _get_tracer,
+    _is_enabled,
+    trace_disabled,
+)
 
 
 # Mock client getter just to count the number of calls

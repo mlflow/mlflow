@@ -164,7 +164,7 @@ def _is_enabled() -> bool:
     Check if tracing is enabled based on whether the global tracer
     is instantiated or not.
 
-    Trace is considered as "on" if the followings
+    Trace is considered as "enabled" if the followings
     1. The default state (before any tracing operation)
     2. The tracer is not either ProxyTracer or NoOpTracer
     """
