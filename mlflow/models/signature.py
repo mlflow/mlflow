@@ -22,6 +22,7 @@ from mlflow.models.utils import ModelInputExample, _contains_params, _Example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
+from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
 from mlflow.types.schema import ParamSchema, Schema, convert_dataclass_to_schema
 from mlflow.types.utils import _infer_param_schema, _infer_schema, _infer_schema_from_type_hint
@@ -376,7 +377,9 @@ def _infer_signature_from_input_example(
             input_example = deepcopy(example.inference_data)
         input_schema = _infer_schema(input_example)
         params_schema = _infer_param_schema(params) if params else None
-        prediction = wrapped_model.predict(input_example, params=params)
+        # Avoid rendering traces when inferring the signature
+        with trace_disabled():
+            prediction = wrapped_model.predict(input_example, params=params)
         # For column-based inputs, 1D numpy arrays likely signify row-based predictions. Thus, we
         # convert them to a Pandas series for inferring as a single ColSpec Schema.
         if (

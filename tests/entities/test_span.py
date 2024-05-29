@@ -7,19 +7,21 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
 from mlflow.entities import LiveSpan, Span, SpanEvent, SpanStatus, SpanStatusCode, SpanType
+from mlflow.entities.span import NoOpSpan, create_mlflow_span
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.provider import _get_tracer
+from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracing.utils import encode_span_id, encode_trace_id
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
 
 
-def test_wrap_live_span(clear_singleton):
+def test_create_live_span(clear_singleton):
     request_id = "tr-12345"
 
     tracer = _get_tracer("test")
     with tracer.start_as_current_span("parent") as parent_span:
-        span = LiveSpan(parent_span, request_id=request_id, span_type=SpanType.LLM)
+        span = create_mlflow_span(parent_span, request_id=request_id, span_type=SpanType.LLM)
+        assert isinstance(span, LiveSpan)
         assert span.request_id == request_id
         assert span._trace_id == encode_trace_id(parent_span.context.trace_id)
         assert span.span_id == encode_span_id(parent_span.context.span_id)
@@ -60,12 +62,13 @@ def test_wrap_live_span(clear_singleton):
 
         # Test child span
         with tracer.start_as_current_span("child") as child_span:
-            span = LiveSpan(child_span, request_id=request_id)
+            span = create_mlflow_span(child_span, request_id=request_id)
+            assert isinstance(span, LiveSpan)
             assert span.name == "child"
             assert span.parent_id == encode_span_id(parent_span.context.span_id)
 
 
-def test_wrap_non_live_span():
+def test_create_non_live_span():
     request_id = "tr-12345"
     parent_span_context = trace_api.SpanContext(
         trace_id=12345, span_id=111, is_remote=False, trace_flags=trace_api.TraceFlags(1)
@@ -85,8 +88,11 @@ def test_wrap_non_live_span():
         start_time=99999,
         end_time=100000,
     )
-    span = Span(readable_span)
+    span = create_mlflow_span(readable_span, request_id)
 
+    assert isinstance(span, Span)
+    assert not isinstance(span, LiveSpan)
+    assert not isinstance(span, NoOpSpan)
     assert span.request_id == request_id
     assert span._trace_id == encode_trace_id(12345)
     assert span.span_id == encode_span_id(222)
@@ -104,9 +110,22 @@ def test_wrap_non_live_span():
         span.set_inputs({"input": 1})
 
 
-def test_wrap_raise_for_invalid_otel_span():
-    with pytest.raises(MlflowException, match=r"The `otel_span` argument for the LiveSpan class"):
-        LiveSpan(None, request_id="tr-12345")
+def test_create_noop_span():
+    with trace_disabled():
+        request_id = "tr-12345"
+        tracer = _get_tracer("test")
+        with tracer.start_as_current_span("span") as otel_span:
+            span = create_mlflow_span(otel_span, request_id=request_id)
+        assert isinstance(span, NoOpSpan)
+
+    # create from None
+    span = create_mlflow_span(None, request_id=request_id)
+    assert isinstance(span, NoOpSpan)
+
+
+def test_create_raise_for_invalid_otel_span():
+    with pytest.raises(MlflowException, match=r"The `otel_span` argument must be"):
+        create_mlflow_span(otel_span=123, request_id="tr-12345")
 
 
 @pytest.mark.parametrize(
