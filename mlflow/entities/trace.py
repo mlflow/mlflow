@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.trace_data import TraceData
@@ -87,7 +87,7 @@ class Trace(_MlflowObject):
         }
 
     @staticmethod
-    def pandas_dataframe_columns():
+    def pandas_dataframe_columns() -> List[str]:
         return [
             "request_id",
             "trace",
