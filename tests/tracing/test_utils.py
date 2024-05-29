@@ -82,10 +82,10 @@ def test_maybe_get_request_id():
             _ParsedField("span", "outputs", "field.outputs.name"),
         ),
         # dot in both span and field name
-        ("`span.name`.inputs.`field.name`", _ParsedField("span.name", "outputs", "field.name")),
+        ("`span.name`.inputs.`field.name`", _ParsedField("span.name", "inputs", "field.name")),
         (
             "`span.inputs.name`.inputs.`field.inputs.name`",
-            _ParsedField("span.name", "outputs", "field.name"),
+            _ParsedField("span.inputs.name", "inputs", "field.inputs.name"),
         ),
         (
             "`span.outputs.name`.outputs.`field.outputs.name`",
