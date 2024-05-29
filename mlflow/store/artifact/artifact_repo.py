@@ -319,12 +319,14 @@ class ArtifactRepository:
             - `MlflowTraceDataNotFound`: The trace data is not found.
             - `MlflowTraceDataCorrupted`: The trace data is corrupted.
         """
-        if not any(a.path == TRACE_DATA_FILE_NAME for a in self.list_artifacts()):
-            raise MlflowTraceDataNotFound(artifact_path=TRACE_DATA_FILE_NAME)
-
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file = Path(temp_dir, TRACE_DATA_FILE_NAME)
-            self._download_file(TRACE_DATA_FILE_NAME, temp_file)
+            try:
+                self._download_file(TRACE_DATA_FILE_NAME, temp_file)
+            except Exception as e:
+                # `TrackingServiceClient.MlflowTraceDataNotFound` is caught in `search_traces` and
+                # is used to filter out traces with failed trace data download.
+                raise MlflowTraceDataNotFound(artifact_path=TRACE_DATA_FILE_NAME) from e
             return try_read_trace_data(temp_file)
 
     def upload_trace_data(self, trace_data: str) -> None:
