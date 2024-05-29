@@ -85,7 +85,8 @@ def _use_tracking_uri(uri: str) -> Generator[None, None, None]:
         uri: The tracking URI to use.
 
     """
-    old_tracking_uri = get_tracking_uri()
+    global _tracking_uri
+    old_tracking_uri = _tracking_uri
     try:
         set_tracking_uri(uri)
         yield
