@@ -1551,8 +1551,7 @@ def _validate_and_get_model_code_path(model_code_path: str) -> str:
     """
 
     # If the path is not a absolute path then convert it
-    if not os.path.isabs(model_code_path):
-        model_code_path = os.path.abspath(model_code_path)
+    model_code_path = os.path.abspath(model_code_path)
 
     if not os.path.exists(model_code_path):
         raise MlflowException.invalid_parameter_value(

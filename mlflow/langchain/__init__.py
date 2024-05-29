@@ -91,8 +91,8 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_copy_file_to_directory,
-    _validate_and_prepare_target_save_path,
     _validate_and_get_model_config_from_file,
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
@@ -271,8 +271,7 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
 
     if isinstance(model_config, str):
-        if not os.path.isabs(model_config):
-            model_config = os.path.abspath(model_config)
+        model_config = os.path.abspath(model_config)
         if os.path.exists(model_config):
             model_config = _validate_and_get_model_config_from_file(model_config)
         else:
