@@ -59,6 +59,10 @@ class PR:
     merged: bool
 
 
+def is_closed(pr):
+    return pr["state"] == "closed" and pr["pull_request"]["merged_at"] is not None
+
+
 def fetch_patch_prs(version):
     """
     Fetch PRs labeled with `patch-{version}` from the MLflow repository.
@@ -73,7 +77,13 @@ def fetch_patch_prs(version):
         )
         response.raise_for_status()
         data = response.json()
-        pulls.extend(data["items"])
+        items = [
+            item
+            for item in data["items"]
+            # Exclude closed PRs that are not merged
+            if not is_closed(item)
+        ]
+        pulls.extend(items)
         if len(data) < per_page:
             break
         page += 1
