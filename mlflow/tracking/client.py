@@ -786,7 +786,7 @@ class MlflowClient:
             child_span = client.start_span(
                 "child_span",
                 request_id=span.request_id,
-                parent_id=span.id,
+                parent_id=span.span_id,
                 inputs={"x": x},
             )
 
@@ -799,7 +799,7 @@ class MlflowClient:
                 outputs={"y": y},
             )
 
-            client.end_trace(request_id)
+            client.end_trace(span.request_id)
         """
         # If parent span is no-op span, the child should also be no-op too
         if request_id == NO_OP_SPAN_REQUEST_ID:
