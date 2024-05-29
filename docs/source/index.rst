@@ -319,6 +319,7 @@ Explore the guides and tutorials below to start your journey!
     traditional-ml/index
     deployment/index
     tracking
+    tracing
     system-metrics/index
     projects
     models
