@@ -918,7 +918,7 @@ def test_save_model_with_python_model_argument_of_invalid_type_raises_exception(
         mlflow.pyfunc.save_model(
             path=os.path.join(tmp_path, "model2"), python_model=["not a python model"]
         )
-    with pytest.raises(MlflowException, match="If the provided model"):
+    with pytest.raises(MlflowException, match="The provided model path"):
         mlflow.pyfunc.save_model(
             path=os.path.join(tmp_path, "model3"), python_model="not a valid filepath"
         )
@@ -1930,7 +1930,7 @@ def test_no_traces_collected_for_pyfunc_as_code_with_dependencies_if_no_tracing_
 def test_pyfunc_as_code_log_and_load_wrong_path():
     with pytest.raises(
         MlflowException,
-        match="If the provided model",
+        match="The provided model path",
     ):
         with mlflow.start_run():
             mlflow.pyfunc.log_model(
