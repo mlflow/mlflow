@@ -60,7 +60,7 @@ class PR:
 
 
 def is_closed(pr):
-    return pr["state"] == "closed" and pr["pull_request"]["merged_at"] is not None
+    return pr["state"] == "closed" and pr["pull_request"]["merged_at"] is None
 
 
 def fetch_patch_prs(version):
