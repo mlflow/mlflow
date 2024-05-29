@@ -11,7 +11,8 @@ from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
 from mlflow import MlflowClient
-from mlflow.entities import LiveSpan, NoOpSpan, SpanType, Trace
+from mlflow.entities import NoOpSpan, SpanType, Trace
+from mlflow.entities.span import create_mlflow_span
 from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
@@ -218,9 +219,9 @@ def start_span(
     try:
         otel_span = provider.start_span_in_context(name)
 
-        # Create a new MlflowSpanWrapper and register it to the in-memory trace manager
+        # Create a new MLflow span and register it to the in-memory trace manager
         request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
-        mlflow_span = LiveSpan(otel_span, request_id=request_id, span_type=span_type)
+        mlflow_span = create_mlflow_span(otel_span, request_id, span_type)
         mlflow_span.set_attributes(attributes or {})
         InMemoryTraceManager.get_instance().register_span(mlflow_span)
 
@@ -236,7 +237,7 @@ def start_span(
 
     try:
         # Setting end_on_exit = False to suppress the default span
-        # export and instead invoke MlflowSpanWrapper.end()
+        # export and instead invoke MLflow span's end() method.
         with trace_api.use_span(mlflow_span._span, end_on_exit=False):
             yield mlflow_span
     finally:

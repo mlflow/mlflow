@@ -37,7 +37,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
-from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID, LiveSpan, NoOpSpan
+from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID, NoOpSpan, create_mlflow_span
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
@@ -586,7 +586,7 @@ class MlflowClient:
             )
             request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
 
-            mlflow_span = LiveSpan(otel_span, request_id, span_type)
+            mlflow_span = create_mlflow_span(otel_span, request_id, span_type)
             if inputs:
                 mlflow_span.set_inputs(inputs)
             if attributes:
@@ -836,7 +836,7 @@ class MlflowClient:
 
         try:
             otel_span = mlflow.tracing.provider.start_detached_span(name, parent=parent_span._span)
-            span = LiveSpan(otel_span, request_id, span_type)
+            span = create_mlflow_span(otel_span, request_id, span_type)
             if attributes:
                 span.set_attributes(attributes)
             if inputs:

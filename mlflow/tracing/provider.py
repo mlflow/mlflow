@@ -1,3 +1,4 @@
+import contextlib
 import json
 import logging
 from typing import Optional, Tuple
@@ -117,8 +118,8 @@ def disable():
     :meta private:
     """
     if not _is_enabled():
-        _logger.info("Tracing is already disabled")
         return
+
     reset_tracer_setup()  # Force re-initialization of the tracer provider
     _TRACER_PROVIDER_INITIALIZED.do_once(lambda: _setup_tracer_provider(disabled=True))
 
@@ -134,6 +135,22 @@ def enable():
         return
 
     _setup_tracer_provider()
+
+
+@contextlib.contextmanager
+def trace_disabled():
+    """
+    Temporarily disable tracing for the duration of the context manager.
+
+    :meta private:
+    """
+    was_trace_enabled = _is_enabled()
+    try:
+        disable()
+        yield
+    finally:
+        if was_trace_enabled:
+            enable()
 
 
 def reset_tracer_setup():
@@ -154,6 +171,10 @@ def _is_enabled() -> bool:
     """
     Check if tracing is enabled based on whether the global tracer
     is instantiated or not.
+
+    Trace is considered as "enabled" if the followings
+    1. The default state (before any tracing operation)
+    2. The tracer is not either ProxyTracer or NoOpTracer
     """
     with _TRACER_PROVIDER_INITIALIZED._lock:
         tracer = trace.get_tracer(__name__)
@@ -162,4 +183,4 @@ def _is_enabled() -> bool:
         if isinstance(tracer, trace.ProxyTracer):
             tracer = tracer._tracer
 
-        return not isinstance(tracer, trace.NoOpTracer)
+        return not (_TRACER_PROVIDER_INITIALIZED._done and isinstance(tracer, trace.NoOpTracer))
