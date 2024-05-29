@@ -19,7 +19,7 @@ import mlflow.utils
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
-from mlflow.models.rag_signatures import ChatCompletionRequest, MultiturnChatRequest
+from mlflow.models.rag_signatures import ChatCompletionRequest, SplitChatMessagesRequest
 from mlflow.models.signature import _extract_type_hints
 from mlflow.models.utils import _load_model_code_path
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -610,7 +610,7 @@ class _PythonModelPyfuncWrapper:
                 return [{k: d[k] for k in keys} for d in model_input]
         elif isinstance(hints.input, type) and (
             issubclass(hints.input, ChatCompletionRequest)
-            or issubclass(hints.input, MultiturnChatRequest)
+            or issubclass(hints.input, SplitChatMessagesRequest)
         ):
             # If the type hint is a RAG dataclass, we hydrate it
             if isinstance(model_input, pd.DataFrame):
