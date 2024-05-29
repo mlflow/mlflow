@@ -48,7 +48,14 @@ def test_save_with_model_config(model_path, model_config):
     assert all(loaded_model.model_config[k] == v for k, v in model_config.items())
     assert all(loaded_model.model_config[k] == v for k, v in loaded_model.predict([[0]]))
 
-@pytest.mark.parametrize("model_config_path", [os.path.abspath("tests/pyfunc/sample_code/config.yml"), "tests/pyfunc/../pyfunc/sample_code/config.yml"])
+
+@pytest.mark.parametrize(
+    "model_config_path",
+    [
+        os.path.abspath("tests/pyfunc/sample_code/config.yml"),
+        "tests/pyfunc/../pyfunc/sample_code/config.yml",
+    ],
+)
 def test_save_with_model_config_path(model_path, model_config, model_config_path):
     model = InferenceContextModel()
     mlflow.pyfunc.save_model(model_path, python_model=model, model_config=model_config_path)
@@ -71,7 +78,14 @@ def test_override_model_config(model_path, model_config):
     assert loaded_model.model_config["timeout"] == 400
     assert all(loaded_model.model_config[k] == v for k, v in inference_override.items())
 
-@pytest.mark.parametrize("model_config_path", [os.path.abspath("tests/pyfunc/sample_code/config.yml"), "tests/pyfunc/../pyfunc/sample_code/config.yml"])
+
+@pytest.mark.parametrize(
+    "model_config_path",
+    [
+        os.path.abspath("tests/pyfunc/sample_code/config.yml"),
+        "tests/pyfunc/../pyfunc/sample_code/config.yml",
+    ],
+)
 def test_override_model_config_path(model_path, model_config_path):
     model = TestModel()
     inference_override = {"timeout": 400}
@@ -94,7 +108,14 @@ def test_override_model_config_ignore_invalid(model_path, model_config):
     assert loaded_model.predict([[5]])
     assert all(k not in loaded_model.model_config for k in inference_override.keys())
 
-@pytest.mark.parametrize("model_config_path", [os.path.abspath("tests/pyfunc/sample_code/config.yml"), "tests/pyfunc/../pyfunc/sample_code/config.yml"])
+
+@pytest.mark.parametrize(
+    "model_config_path",
+    [
+        os.path.abspath("tests/pyfunc/sample_code/config.yml"),
+        "tests/pyfunc/../pyfunc/sample_code/config.yml",
+    ],
+)
 def test_override_model_config_path_ignore_invalid(model_path, model_config_path):
     model = TestModel()
     inference_override = {"invalid_key": 400}

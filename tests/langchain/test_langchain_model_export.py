@@ -2348,11 +2348,21 @@ def chain_model_signature():
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-@pytest.mark.parametrize("chain_path", [os.path.abspath("tests/langchain/sample_code/chain.py"),
-                                        "tests/langchain/../langchain/sample_code/chain.py"])
-@pytest.mark.parametrize("model_config", [os.path.abspath("tests/langchain/sample_code/config.yml"),
-                                          "tests/langchain/../langchain/sample_code/config.yml"])
-def test_save_load_chain_as_code(chain_model_signature, chain_path,model_config, monkeypatch):
+@pytest.mark.parametrize(
+    "chain_path",
+    [
+        os.path.abspath("tests/langchain/sample_code/chain.py"),
+        "tests/langchain/../langchain/sample_code/chain.py",
+    ],
+)
+@pytest.mark.parametrize(
+    "model_config",
+    [
+        os.path.abspath("tests/langchain/sample_code/config.yml"),
+        "tests/langchain/../langchain/sample_code/config.yml",
+    ],
+)
+def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config, monkeypatch):
     input_example = {
         "messages": [
             {
@@ -2436,8 +2446,13 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path,model_config,
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-@pytest.mark.parametrize("chain_path", [os.path.abspath("tests/langchain/sample_code/chain.py"),
-                                        "tests/langchain/../langchain/sample_code/chain.py"])
+@pytest.mark.parametrize(
+    "chain_path",
+    [
+        os.path.abspath("tests/langchain/sample_code/chain.py"),
+        "tests/langchain/../langchain/sample_code/chain.py",
+    ],
+)
 def test_save_load_chain_as_code_model_config_dict(chain_model_signature, chain_path):
     input_example = {
         "messages": [
@@ -2476,11 +2491,16 @@ def test_save_load_chain_as_code_model_config_dict(chain_model_signature, chain_
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-@pytest.mark.parametrize("model_config", [os.path.abspath("tests/langchain/sample_code/config.yml"),
-                                          "tests/langchain/../langchain/sample_code/config.yml"])
-def test_save_load_chain_as_code_with_different_names(tmp_path,
-                                                      chain_model_signature,
-                                                      model_config):
+@pytest.mark.parametrize(
+    "model_config",
+    [
+        os.path.abspath("tests/langchain/sample_code/config.yml"),
+        "tests/langchain/../langchain/sample_code/config.yml",
+    ],
+)
+def test_save_load_chain_as_code_with_different_names(
+    tmp_path, chain_model_signature, model_config
+):
     input_example = {
         "messages": [
             {
@@ -2522,11 +2542,23 @@ def test_save_load_chain_as_code_with_different_names(tmp_path,
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-@pytest.mark.parametrize("chain_path", [os.path.abspath("tests/langchain/sample_code/chain.py"),
-                                        "tests/langchain/../langchain/sample_code/chain.py"])
-@pytest.mark.parametrize("model_config", [os.path.abspath("tests/langchain/sample_code/config.yml"),
-                                          "tests/langchain/../langchain/sample_code/config.yml"])
-def test_save_load_chain_as_code_multiple_times(tmp_path, chain_model_signature, chain_path, model_config):
+@pytest.mark.parametrize(
+    "chain_path",
+    [
+        os.path.abspath("tests/langchain/sample_code/chain.py"),
+        "tests/langchain/../langchain/sample_code/chain.py",
+    ],
+)
+@pytest.mark.parametrize(
+    "model_config",
+    [
+        os.path.abspath("tests/langchain/sample_code/config.yml"),
+        "tests/langchain/../langchain/sample_code/config.yml",
+    ],
+)
+def test_save_load_chain_as_code_multiple_times(
+    tmp_path, chain_model_signature, chain_path, model_config
+):
     input_example = {
         "messages": [
             {
@@ -2574,8 +2606,9 @@ def test_save_load_chain_as_code_multiple_times(tmp_path, chain_model_signature,
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-@pytest.mark.parametrize("chain_path", [os.path.abspath("tests/langchain1/sample_code/chain.py"),
-                                        "sample_code/chain.py"])
+@pytest.mark.parametrize(
+    "chain_path", [os.path.abspath("tests/langchain1/sample_code/chain.py"), "sample_code/chain.py"]
+)
 def test_save_load_chain_errors(chain_model_signature, chain_path):
     input_example = {
         "messages": [
@@ -2604,8 +2637,13 @@ def test_save_load_chain_errors(chain_model_signature, chain_path):
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-@pytest.mark.parametrize("chain_path", [os.path.abspath("tests/langchain/sample_code/chain.py"),
-                                        "tests/langchain/../langchain/sample_code/chain.py"])
+@pytest.mark.parametrize(
+    "chain_path",
+    [
+        os.path.abspath("tests/langchain/sample_code/chain.py"),
+        "tests/langchain/../langchain/sample_code/chain.py",
+    ],
+)
 def test_save_load_chain_as_code_optional_code_path(chain_model_signature, chain_path):
     input_example = {
         "messages": [
@@ -2982,8 +3020,13 @@ def test_langchain_model_not_inject_callback_when_disabled(
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-@pytest.mark.parametrize("chain_path", [os.path.abspath("tests/langchain/sample_code/chain.py"),
-                                        "tests/langchain/../langchain/sample_code/chain.py"])
+@pytest.mark.parametrize(
+    "chain_path",
+    [
+        os.path.abspath("tests/langchain/sample_code/chain.py"),
+        "tests/langchain/../langchain/sample_code/chain.py",
+    ],
+)
 def test_save_model_as_code_correct_streamable(chain_model_signature, chain_path):
     input_example = {"messages": [{"role": "user", "content": "Who owns MLflow?"}]}
     answer = "Databricks"
@@ -3142,11 +3185,23 @@ def test_langchain_2_12_model_loads():
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-@pytest.mark.parametrize("chain_path", [os.path.abspath("tests/langchain/sample_code/chain.py"),
-                                        "tests/langchain/../langchain/sample_code/chain.py"])
-@pytest.mark.parametrize("model_config", [os.path.abspath("tests/langchain/sample_code/config.yml"),
-                                          "tests/langchain/../langchain/sample_code/config.yml"])
-def test_load_chain_with_model_config_overrides_saved_config(chain_model_signature, chain_path, model_config):
+@pytest.mark.parametrize(
+    "chain_path",
+    [
+        os.path.abspath("tests/langchain/sample_code/chain.py"),
+        "tests/langchain/../langchain/sample_code/chain.py",
+    ],
+)
+@pytest.mark.parametrize(
+    "model_config",
+    [
+        os.path.abspath("tests/langchain/sample_code/config.yml"),
+        "tests/langchain/../langchain/sample_code/config.yml",
+    ],
+)
+def test_load_chain_with_model_config_overrides_saved_config(
+    chain_model_signature, chain_path, model_config
+):
     input_example = {
         "messages": [
             {
