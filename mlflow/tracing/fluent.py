@@ -306,6 +306,7 @@ def search_traces(
 
 
     .. code-block:: python
+        :test:
         :caption: Search traces with extract_fields and non-dictionary span inputs and outputs
 
         import mlflow
