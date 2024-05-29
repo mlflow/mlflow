@@ -89,3 +89,4 @@ graphene:
 fsspec:
   pip_release: fsspec
   minimum: "2021.09"
+  max_major_version: 2024
