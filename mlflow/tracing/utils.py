@@ -202,8 +202,10 @@ def traces_to_df(traces: List[Trace]) -> "pandas.DataFrame":
     """
     import pandas as pd
 
+    from mlflow.entities.trace import Trace  # import here to avoid circular import
+
     rows = [trace.to_pandas_dataframe_row() for trace in traces]
-    return pd.DataFrame.from_records(rows)
+    return pd.DataFrame.from_records(data=rows, columns=Trace.pandas_dataframe_columns())
 
 
 def extract_span_inputs_outputs(
