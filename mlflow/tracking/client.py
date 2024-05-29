@@ -2299,7 +2299,7 @@ class MlflowClient:
             image = image.to_pil()
         else:
             # Import PIL and check if the image is a PIL image
-            import PIL
+            import PIL.Image
 
             if not isinstance(image, PIL.Image.Image):
                 raise TypeError(
