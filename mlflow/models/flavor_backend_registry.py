@@ -12,7 +12,7 @@ from mlflow.artifacts import download_artifacts
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _get_root_uri_and_artifact_path
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import append_to_uri_path, is_databricks_unity_catalog_uri
 
@@ -39,8 +39,10 @@ def _get_flavor_backend_for_local_model(model=None, build_docker=True, **kwargs)
 
 def get_flavor_backend(model_uri, **kwargs):
     if model_uri:
+        root_uri, _ = _get_root_uri_and_artifact_path(model_uri)
+        artifact_repo = get_artifact_repository(root_uri)
         ml_model_file = (
-            get_artifact_repository(artifact_uri=model_uri).download_artifacts(artifact_path=MLMODEL_FILE_NAME))
+            artifact_repo.download_artifacts(artifact_path=MLMODEL_FILE_NAME))
         model = Model.load(ml_model_file)
     else:
         model = None
