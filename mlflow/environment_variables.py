@@ -586,11 +586,6 @@ MLFLOW_ENABLE_TRACE_IN_SERVING = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_TRACE_IN_SERVING", False
 )
 
-# Whether to use presigned URLs to interact with the Unity Catalog
-MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED = _BooleanEnvironmentVariable(
-    "MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED", False
-)
-
 #: Private configuration option.
 #: Enables the ability to catch exceptions within MLflow evaluate for classification models
 #: where a class imbalance due to a missing target class would raise an error in the

@@ -139,6 +139,8 @@ message TemporaryCredentials {
   // Server time when the credential will expire, in epoch milliseconds.
   // The API client is advised to cache the credential given this expiration time.
   optional int64 expiration_time = 1;
+
+  optional EncryptionDetails encryption_details = 6;
 }
 
 // AWS temporary credentials for API authentication.
@@ -179,6 +181,14 @@ message R2Credentials {
   // The generated JWT that users must pass to use the temporary credentials.
   optional string session_token = 3;
 }
+
+message EncryptionDetails {
+  oneof encryption_details_type {
+    DmkEncryptionDetails dmk_encryption_details = 1;
+  }
+}
+
+message DmkEncryptionDetails {}
 
 message CreateRegisteredModelRequest {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[CreateRegisteredModelResponse]";
