@@ -4,13 +4,14 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
-from typing import Union
+from typing import Generator, Union
 
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
+from mlflow.tracing.provider import reset_tracer_setup
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -66,11 +67,18 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
         # then .resolve() to clean the path
         uri = uri.absolute().resolve().as_uri()
     global _tracking_uri
-    _tracking_uri = uri
+
+    if _tracking_uri != uri:
+        _tracking_uri = uri
+
+        # Tracer provider uses tracking URI to determine where to export traces.
+        # Tracer provider stores the URI as its state so we need to reset
+        # it explicitly when the global tracking URI changes.
+        reset_tracer_setup()
 
 
 @contextmanager
-def _use_tracking_uri(uri: str) -> None:
+def _use_tracking_uri(uri: str) -> Generator[None, None, None]:
     """Temporarily use the specified tracking URI.
 
     Args:
@@ -80,10 +88,10 @@ def _use_tracking_uri(uri: str) -> None:
     global _tracking_uri
     old_tracking_uri = _tracking_uri
     try:
-        _tracking_uri = uri
+        set_tracking_uri(uri)
         yield
     finally:
-        _tracking_uri = old_tracking_uri
+        set_tracking_uri(old_tracking_uri)
 
 
 def _resolve_tracking_uri(tracking_uri=None):

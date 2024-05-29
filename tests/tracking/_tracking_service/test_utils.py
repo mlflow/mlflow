@@ -32,6 +32,8 @@ from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.os import is_windows
 
+from tests.tracing.helper import get_tracer_tracking_uri
+
 # Disable mocking tracking URI here, as we want to test setting the tracking URI via
 # environment variable. See
 # http://doc.pytest.org/en/latest/skipping.html#skip-all-test-functions-of-a-class-or-module
@@ -369,6 +371,22 @@ def test_set_tracking_uri_with_path(tmp_path, monkeypatch, absolute):
     with mock.patch("mlflow.tracking._tracking_service.utils._tracking_uri", None):
         set_tracking_uri(path)
         assert get_tracking_uri() == path.absolute().resolve().as_uri()
+
+
+def test_set_tracking_uri_update_trace_provider():
+    default_uri = mlflow.get_tracking_uri()
+    try:
+        mlflow.tracing.enable()
+        assert get_tracer_tracking_uri() != "file:///tmp"
+
+        set_tracking_uri("file:///tmp")
+        assert get_tracer_tracking_uri() == "file:///tmp"
+
+        set_tracking_uri("https://foo")
+        assert get_tracer_tracking_uri() == "https://foo"
+    finally:
+        # clean up
+        set_tracking_uri(default_uri)
 
 
 @pytest.mark.parametrize("store_uri", ["databricks-uc", "databricks-uc://profile"])
