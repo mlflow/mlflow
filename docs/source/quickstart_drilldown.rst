@@ -6,8 +6,8 @@ Quickstart options and troubleshooting
 ============================================================
 
 ..
-    Eventually, these H2s will probably all be separate articles. For now, I'm 
-    avoiding that so as not to create a bunch of super-skinny pages. 
+    Eventually, these H2s will probably all be separate articles. For now, I'm
+    avoiding that so as not to create a bunch of super-skinny pages.
 
 .. _quickstart_drilldown_install:
 
@@ -81,7 +81,7 @@ MLflow artifacts and then load them again for serving. There is an example train
 
     python examples/sklearn_logistic_regression/train.py
 
-When you run the example, it outputs an MLflow run ID for that experiment. If you look at the 
+When you run the example, it outputs an MLflow run ID for that experiment. If you look at the
 ``mlflow ui``, you will also see that the run saved a **model** folder containing an ``MLmodel``
 description file and a pickled scikit-learn model. You can pass the run ID and the path of the model
 within the artifacts directory (here **model/**) to various tools. For example, MLflow includes a

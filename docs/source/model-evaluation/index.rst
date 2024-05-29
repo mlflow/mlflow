@@ -4,14 +4,14 @@ Model Evaluation
 Harnessing the Power of Automation
 ----------------------------------
 
-In the evolving landscape of machine learning, the evaluation phase of model development is just as important as ever. 
-Ensuring the accuracy, reliability, and efficiency of models is paramount to ensure that the model that has been trained has been as thoroughly 
-validated as it can be prior to promoting it beyond the development phase. 
+In the evolving landscape of machine learning, the evaluation phase of model development is just as important as ever.
+Ensuring the accuracy, reliability, and efficiency of models is paramount to ensure that the model that has been trained has been as thoroughly
+validated as it can be prior to promoting it beyond the development phase.
 
-However, manual evaluation can be tedious, error-prone, and time-consuming. 
+However, manual evaluation can be tedious, error-prone, and time-consuming.
 
-MLflow addresses these challenges head-on, offering a suite of automated tools that streamline the evaluation process, 
-saving time and enhancing accuracy, helping you to have confidence that the solution that you've spent so much time working on will meet the 
+MLflow addresses these challenges head-on, offering a suite of automated tools that streamline the evaluation process,
+saving time and enhancing accuracy, helping you to have confidence that the solution that you've spent so much time working on will meet the
 needs of the problem you're trying to solve.
 
 `LLM Model Evaluation <../llms/llm-evaluate/index.html>`_
@@ -81,13 +81,13 @@ To learn more about how you can leverage MLflow's evaluation features for your L
 `Traditional ML Evaluation <../models.html#model-evaluation>`_
 --------------------------------------------------------------
 
-Traditional machine learning techniques, from classification to regression, have been the bedrock of many industries. MLflow recognizes 
-their significance and offers automated evaluation tools tailored for these classic techniques. 
+Traditional machine learning techniques, from classification to regression, have been the bedrock of many industries. MLflow recognizes
+their significance and offers automated evaluation tools tailored for these classic techniques.
 
 **Key Features**:
 
 - `Evaluating a Function <../models.html#evaluating-with-a-function>`_: To get immediate results, you can evaluate a python function directly without logging the model. This is especially useful when you want a quick evaluation without the overhead of logging.
-  
+
 - `Evaluating a Dataset <../models.html#evaluating-with-a-static-dataset>`_: MLflow also supports evaluating a static dataset without specifying a model. This is invaluable when you've saved model outputs in a dataset and want a swift evaluation without having to rerun model inference.
 
 - `Evaluating a Model <../models.html#performing-model-validation>`_: With MLflow, you can set validation thresholds for your metrics. If a model doesn't meet these thresholds compared to a baseline, MLflow will alert you. This automated validation ensures that only high-quality models progress to the next stages.

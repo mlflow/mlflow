@@ -1,24 +1,24 @@
 How to Run Tutorials
 ====================
 
-This brief guide will walk you through some options that you have to run these tutorials and have a Tracking Server that is available to log the results to (as well 
+This brief guide will walk you through some options that you have to run these tutorials and have a Tracking Server that is available to log the results to (as well
 as offering options for the MLflow UI).
 
-The listing of topics in this guide are in ascending order of complexity, so if you're looking for the quickest and easiest way to get started, please 
-evaluate the first option. 
+The listing of topics in this guide are in ascending order of complexity, so if you're looking for the quickest and easiest way to get started, please
+evaluate the first option.
 
 Databricks
 ----------
 
-The easiest way to get started with MLflow is to use the managed MLflow service provided by Databricks. There are two separate options here, one that is 
+The easiest way to get started with MLflow is to use the managed MLflow service provided by Databricks. There are two separate options here, one that is
 most expedient if you're a Databricks customer, and another that is available to anyone, **free of charge**.
 
 Databricks Customers
 ^^^^^^^^^^^^^^^^^^^^
 
-If you're already a customer of Databricks, you can use the MLflow service that is available as part of your Databricks workspace. 
-MLflow on Databricks is a fully managed service with additional functionality for enterprise customers, providing a scalable and secure managed deployment 
-of MLflow. Note that the MLflow APIs from within Databricks are the same as the open source version, so you can use the same code to run on Databricks or on 
+If you're already a customer of Databricks, you can use the MLflow service that is available as part of your Databricks workspace.
+MLflow on Databricks is a fully managed service with additional functionality for enterprise customers, providing a scalable and secure managed deployment
+of MLflow. Note that the MLflow APIs from within Databricks are the same as the open source version, so you can use the same code to run on Databricks or on
 your own infrastructure.
 
 To learn how to get started using MLflow from within your Databricks account, please see the respective links below for your cloud provider:
@@ -30,13 +30,13 @@ To learn how to get started using MLflow from within your Databricks account, pl
 Databricks Community Edition
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Databricks Community Edition (CE) is a fully managed, Databricks-hosted version of the Databricks platform. While many of the enterprise features of the 
-Databricks platform are unavailble on CE, the vast majority of MLflow functionality is supported (with the notable exception that you cannot create serving 
+The Databricks Community Edition (CE) is a fully managed, Databricks-hosted version of the Databricks platform. While many of the enterprise features of the
+Databricks platform are unavailble on CE, the vast majority of MLflow functionality is supported (with the notable exception that you cannot create serving
 endpoints on CE, so deployment of models is not supported).
 
-To get started with Databricks CE, please visit the `Databricks Community Edition page <https://docs.databricks.com/en/getting-started/community-edition.html>`_ 
-and follow the instructions outlined there. It takes about 5 minutes to get started, and you'll have a (mostly) fully functional Databricks Workspace that you 
-can use to log your tutorial experiments, runs, and artifacts to. 
+To get started with Databricks CE, please visit the `Databricks Community Edition page <https://docs.databricks.com/en/getting-started/community-edition.html>`_
+and follow the instructions outlined there. It takes about 5 minutes to get started, and you'll have a (mostly) fully functional Databricks Workspace that you
+can use to log your tutorial experiments, runs, and artifacts to.
 
 Once you log in to the Community Edition, you will see a landing page like this:
 
@@ -44,17 +44,17 @@ Once you log in to the Community Edition, you will see a landing page like this:
     :alt: Databricks CE Landing Page
     :width: 100%
     :align: center
-    
+
     Databricks CE Landing Page
 
-In order to get to the MLflow UI, you can navigate to it by clicking on the "Experiments" link on the left-hand side (denoted by the laboratory beaker icon). 
+In order to get to the MLflow UI, you can navigate to it by clicking on the "Experiments" link on the left-hand side (denoted by the laboratory beaker icon).
 When you get to the MLflow UI on CE for the first time, you'll see this:
 
 .. figure:: ../../_static/images/tutorials/introductory/mlflow-ui-in-ce.png
     :alt: Databricks CE MLflow UI
     :width: 100%
     :align: center
-    
+
     Databricks CE MLflow UI
 
 Decisions about where to run your Notebook
@@ -63,11 +63,11 @@ Decisions about where to run your Notebook
 With a Databricks managed instance of MLflow, you have two options for running the tutorial notebooks:
 
 .. raw:: html
-    
+
     <details>
         <summary><b>Expand to learn about Importing Notebooks directly into CE</b></summary>
         <br/>
-        <p>Once you're at the main page of CE, you can import any of the notebooks within this tutorial by navigating to the "Workspace" tab on the left.</p> 
+        <p>Once you're at the main page of CE, you can import any of the notebooks within this tutorial by navigating to the "Workspace" tab on the left.</p>
         <p>Click that link to expand the file navigation pane. From there, navigate to Users/&lt;you&gt; and you can right click to bring up the "Import" option.</p>
         <p>The below image shows what the import dialog should look like if you're going to directly import a notebook from the MLflow documentation website:</p>
 

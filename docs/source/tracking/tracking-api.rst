@@ -61,22 +61,22 @@ local path to log data to a directory. The URI defaults to ``mlruns``.
 :py:func:`mlflow.get_tracking_uri` returns the current tracking URI.
 
 :py:func:`mlflow.create_experiment` creates a new experiment and returns the experiment ID. Runs can be
-launched under the experiment by passing the experiment ID to ``mlflow.start_run`` or 
-by setting the active experiment with :py:func:`mlflow.set_experiment`, passing in the experiment ID of the created 
+launched under the experiment by passing the experiment ID to ``mlflow.start_run`` or
+by setting the active experiment with :py:func:`mlflow.set_experiment`, passing in the experiment ID of the created
 experiment.
 
-:py:func:`mlflow.set_experiment` sets an experiment as active and returns the active experiment instance. If you do not 
+:py:func:`mlflow.set_experiment` sets an experiment as active and returns the active experiment instance. If you do not
 specify an experiment in :py:func:`mlflow.start_run`, new runs are launched under this experiment.
 
-.. note:: 
-    If the experiment being set by name does not exist, a new experiment will be 
-    created with the given name. After the experiment has been created, it will be set 
-    as the active experiment. On certain platforms, such as Databricks, the experiment name 
+.. note::
+    If the experiment being set by name does not exist, a new experiment will be
+    created with the given name. After the experiment has been created, it will be set
+    as the active experiment. On certain platforms, such as Databricks, the experiment name
     must be an absolute path, e.g. ``"/Users/<username>/my-experiment"``.
 
 
-:py:func:`mlflow.start_run` starts a new run and returns a :py:class:`mlflow.ActiveRun` object 
-usable as a context manager for the current run. If an active run is already in progress, you 
+:py:func:`mlflow.start_run` starts a new run and returns a :py:class:`mlflow.ActiveRun` object
+usable as a context manager for the current run. If an active run is already in progress, you
 should either end the current run before starting the new run or nest the new run within the current run using ``nested=True``.
 You do not need to call ``start_run`` explicitly: calling one of the logging functions
 with no active run automatically starts a new one.
@@ -111,7 +111,7 @@ value are both strings. Use :py:func:`mlflow.log_params` to log multiple params 
 MLflow remembers the history of values for each metric. Use :py:func:`mlflow.log_metrics` to log
 multiple metrics at once.
 
-:py:func:`mlflow.log_input` logs a single :py:class:`mlflow.data.dataset.Dataset` object corresponding to the currently 
+:py:func:`mlflow.log_input` logs a single :py:class:`mlflow.data.dataset.Dataset` object corresponding to the currently
 active run. You may also log a dataset context string and a dict of key-value tags.
 
 :py:func:`mlflow.set_tag` sets a single key-value tag in the currently active run. The key and
@@ -315,7 +315,7 @@ System Tags
 Tag keys that start with ``mlflow.`` are reserved for internal use.
 The following tags are set automatically by MLflow, when appropriate:
 
-.. note:: 
+.. note::
     ``mlflow.note.content`` is an exceptional case where the tag is **not set automatically** and can be overridden by the user to include additional information about the run.
 
 .. list-table::
@@ -365,7 +365,7 @@ The :py:func:`MlflowClient.set_tag() <mlflow.client.MlflowClient.set_tag>` funct
 Get MLflow Run instance from autologged results
 -----------------------------------------------
 
-In some cases, you may want to access the MLflow Run instance associated with the autologged results, similarly to you can get the run context with `mlflow.start_run()` 
+In some cases, you may want to access the MLflow Run instance associated with the autologged results, similarly to you can get the run context with `mlflow.start_run()`
 You can access the most recent autolog run through the :py:func:`mlflow.last_active_run` function. Here's a short sklearn autolog example that makes use of this function:
 
 .. code-block:: python

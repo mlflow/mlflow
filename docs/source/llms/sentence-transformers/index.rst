@@ -2,21 +2,21 @@ MLflow Sentence-Transformers Flavor
 ===================================
 
 .. attention::
-    The ``sentence-transformers`` flavor is under active development and is marked as Experimental. Public APIs are subject to change, 
+    The ``sentence-transformers`` flavor is under active development and is marked as Experimental. Public APIs are subject to change,
     and new features may be added as the flavor evolves.
 
 Introduction
 ------------
 
-**Sentence-Transformers** is a groundbreaking Python library that specializes in producing high-quality, semantically rich embeddings 
-for sentences and paragraphs. Developed as an extension of the well-known `Transformers <https://huggingface.co/docs/transformers/index>`_ library 
-by 🤗 Hugging Face, Sentence-Transformers is tailored for tasks requiring a deep understanding of sentence-level context. This library is 
+**Sentence-Transformers** is a groundbreaking Python library that specializes in producing high-quality, semantically rich embeddings
+for sentences and paragraphs. Developed as an extension of the well-known `Transformers <https://huggingface.co/docs/transformers/index>`_ library
+by 🤗 Hugging Face, Sentence-Transformers is tailored for tasks requiring a deep understanding of sentence-level context. This library is
 essential for NLP applications such as semantic search, text clustering, and similarity assessment.
 
-Leveraging pre-trained models like BERT, RoBERTa, and DistilBERT, which are fine-tuned for sentence embeddings, Sentence-Transformers simplifies the process 
+Leveraging pre-trained models like BERT, RoBERTa, and DistilBERT, which are fine-tuned for sentence embeddings, Sentence-Transformers simplifies the process
 of generating meaningful vector representations of text. The library stands out for its simplicity, efficiency, and the quality of embeddings it produces.
 
-The library features a number of powerful high-level utility functions for performing common follow-on tasks with sentence embeddings. 
+The library features a number of powerful high-level utility functions for performing common follow-on tasks with sentence embeddings.
 These include:
 
 - **Semantic Textual Similarity**: Assessing the `semantic similarity <https://www.sbert.net/docs/usage/semantic_textual_similarity.html>`_ between two sentences.
@@ -36,8 +36,8 @@ Let's take a look at a very basic representation of how the Sentence-Transformer
 
    Sentence-Transformers Model Architecture Overview
 
-Integrating Sentence-Transformers with MLflow, a platform dedicated to streamlining the entire machine learning lifecycle, enhances the experiment tracking and deployment 
-capabilities for these specialized NLP models. MLflow's support for Sentence-Transformers enables practitioners to effectively manage experiments, track different model versions, 
+Integrating Sentence-Transformers with MLflow, a platform dedicated to streamlining the entire machine learning lifecycle, enhances the experiment tracking and deployment
+capabilities for these specialized NLP models. MLflow's support for Sentence-Transformers enables practitioners to effectively manage experiments, track different model versions,
 and deploy models for various NLP tasks with ease.
 
 Sentence-Transformers offers:
@@ -53,7 +53,7 @@ With MLflow's Sentence-Transformers flavor, users benefit from:
 - **Hassle-Free Deployment**: Deploy sentence embedding models for various applications with straightforward API calls.
 - **Broad Model Compatibility**: Support for a range of sentence embedding models from the Sentence-Transformers library, ensuring access to the latest in embedding technology.
 
-Whether you're working on semantic text similarity, clustering, or information retrieval, MLflow's integration with Sentence-Transformers provides a robust and efficient 
+Whether you're working on semantic text similarity, clustering, or information retrieval, MLflow's integration with Sentence-Transformers provides a robust and efficient
 pathway for incorporating advanced sentence-level understanding into your applications.
 
 Features
@@ -69,8 +69,8 @@ With MLflow's Sentence-Transformers flavor, users can:
 What can you do with Sentence Transformers and MLflow?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-One of the more powerful applications that can be built with these tools is a semantic search engine. By using readily available open source 
-tooling, you can build a semantic search engine that can find the most semantically similar sentences in a corpus for a given query. This is 
+One of the more powerful applications that can be built with these tools is a semantic search engine. By using readily available open source
+tooling, you can build a semantic search engine that can find the most semantically similar sentences in a corpus for a given query. This is
 a significant improvement over traditional keyword-based search engines, which are limited in their ability to understand the context of a query.
 
 An example high-level architecture for such an application stack is shown below:
@@ -86,17 +86,17 @@ An example high-level architecture for such an application stack is shown below:
 Deployment Made Easy
 ^^^^^^^^^^^^^^^^^^^^
 
-Once a model is trained, it needs to be deployed for inference. MLflow's integration with Sentence Transformers simplifies this by providing 
+Once a model is trained, it needs to be deployed for inference. MLflow's integration with Sentence Transformers simplifies this by providing
 functions such as :py:func:`mlflow.sentence_transformers.load_model` and :py:func:`mlflow.pyfunc.load_model`, which allow for easy model serving.
-You can read more about `deploying models with MLflow <../../deployment/index.html>`_, find further information on 
-`using the deployments API <../../cli.html#mlflow-deployments>`_, and `starting a local model serving endpoint <../../cli.html#mlflow-models-serve>`_ to get a 
+You can read more about `deploying models with MLflow <../../deployment/index.html>`_, find further information on
+`using the deployments API <../../cli.html#mlflow-deployments>`_, and `starting a local model serving endpoint <../../cli.html#mlflow-models-serve>`_ to get a
 deeper understanding of the deployment options that MLflow has available.
 
 Getting Started with the MLflow Sentence Transformers Flavor - Tutorials and Guides
 -----------------------------------------------------------------------------------
 
-Below, you will find a number of guides that focus on different ways that you can leverage the power of the `sentence-transformers` library, leveraging MLflow's 
-APIs for tracking and inference capabilities. 
+Below, you will find a number of guides that focus on different ways that you can leverage the power of the `sentence-transformers` library, leveraging MLflow's
+APIs for tracking and inference capabilities.
 
 
 .. toctree::
@@ -121,7 +121,7 @@ Introductory Tutorial
                         Sentence Transformers Quickstart
                     </div>
                     <p>
-                        Learn the very basics of using the Sentence Transformers package with MLflow to generate sentence embeddings from a logged model in 
+                        Learn the very basics of using the Sentence Transformers package with MLflow to generate sentence embeddings from a logged model in
                         both native and generic Python function formats.
                     </p>
                 </a>

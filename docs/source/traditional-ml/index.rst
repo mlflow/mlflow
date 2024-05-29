@@ -1,28 +1,28 @@
 Traditional ML
 ==============
 
-In the dynamic landscape of machine learning, traditional techniques remain foundational, playing pivotal roles across various industries 
-and research institutions. From the precision of classification algorithms in healthcare diagnostics to the predictive prowess of regression 
-models in finance, and from the forecasting capabilities of time-series analyses in supply chain management to the insights drawn from 
+In the dynamic landscape of machine learning, traditional techniques remain foundational, playing pivotal roles across various industries
+and research institutions. From the precision of classification algorithms in healthcare diagnostics to the predictive prowess of regression
+models in finance, and from the forecasting capabilities of time-series analyses in supply chain management to the insights drawn from
 statistical modeling in social sciences, these core methodologies underscore many of the technological advancements we witness today.
 
-MLflow recognizes the enduring significance of traditional machine learning. Designed with precision and a deep understanding of the 
-challenges and intricacies faced by data scientists and ML practitioners, MLflow offers a comprehensive suite of tools tailor-made for 
-these classic techniques. This platform not only streamlines the model development and deployment processes but also ensures reproducibility, 
+MLflow recognizes the enduring significance of traditional machine learning. Designed with precision and a deep understanding of the
+challenges and intricacies faced by data scientists and ML practitioners, MLflow offers a comprehensive suite of tools tailor-made for
+these classic techniques. This platform not only streamlines the model development and deployment processes but also ensures reproducibility,
 scalability, and traceability.
 
-As we delve further, we'll explore the multifaceted functionalities MLflow offers, showcasing how it enhances the efficacy, reliability, 
-and insights derived from traditional ML models. Whether you're a seasoned expert looking to optimize workflows or a newcomer eager to make 
+As we delve further, we'll explore the multifaceted functionalities MLflow offers, showcasing how it enhances the efficacy, reliability,
+and insights derived from traditional ML models. Whether you're a seasoned expert looking to optimize workflows or a newcomer eager to make
 a mark, MLflow stands as an invaluable ally in your machine learning journey.
 
 Native Library Support
 ----------------------
-There are a number of natively supported traditional ML libraries within MLflow. Throughout the documentation, you may see these referred to as 
-"flavors", as they are specific implementations of native support for saving, logging, loading, and generic python function representation for 
-the models that are produced from these libraries. 
+There are a number of natively supported traditional ML libraries within MLflow. Throughout the documentation, you may see these referred to as
+"flavors", as they are specific implementations of native support for saving, logging, loading, and generic python function representation for
+the models that are produced from these libraries.
 
-There are distinct benefits to using the native versions of these implementations, as many have auto-logging functionality built in, as well as 
-specific custom handling with serialization and deserialization that can greatly simplify your MLOps experiences when using these libraries. 
+There are distinct benefits to using the native versions of these implementations, as many have auto-logging functionality built in, as well as
+specific custom handling with serialization and deserialization that can greatly simplify your MLOps experiences when using these libraries.
 
 The officially supported integrations for traditional ML libraries include:
 
@@ -82,7 +82,7 @@ Tutorials and Guides
                         Hyperparameter Tuning with MLflow and Optuna
                     </div>
                     <p>
-                        Explore the integration of MLflow Tracking with Optuna for hyperparameter tuning. Dive into the capabilities of MLflow, 
+                        Explore the integration of MLflow Tracking with Optuna for hyperparameter tuning. Dive into the capabilities of MLflow,
                         understand parent-child run relationships, and compare different tuning runs to optimize model performance.
                     </p>
                 </a>
@@ -106,7 +106,7 @@ Tutorials and Guides
                     </div>
                     <p>
                         Dive deep into custom multi-model inference via MLflow's custom PyFunc models. Learn how to
-                        simplify low-latency inference by passing additional inference parameters to a simple custom PyFunc implementation. 
+                        simplify low-latency inference by passing additional inference parameters to a simple custom PyFunc implementation.
                         This tutorial can serve as a jumping off point for many multi-model endpoing (MME) use cases!
                     </p>
                 </a>

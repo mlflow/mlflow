@@ -76,7 +76,7 @@ the following fields:
 Additional Logged Files
 ^^^^^^^^^^^^^^^^^^^^^^^
 For environment recreation, we automatically log ``conda.yaml``, ``python_env.yaml``, and ``requirements.txt`` files whenever a model is logged.
-These files can then be used to reinstall dependencies using ``conda`` or ``virtualenv`` with ``pip``. Please see 
+These files can then be used to reinstall dependencies using ``conda`` or ``virtualenv`` with ``pip``. Please see
 :ref:`How MLflow Model Records Dependencies <how-mlflow-records-dependencies>` for more details about these files.
 
 When logging a model, model metadata files (``MLmodel``, ``conda.yaml``, ``python_env.yaml``, ``requirements.txt``) are copied to a subdirectory named ``metadata``. For wheeled models, ``original_requirements.txt`` file is also copied.
@@ -112,7 +112,7 @@ Model Signatures And Input Examples
 
     model/signatures
 
-In MLflow, understanding the intricacies of model signatures and input examples is crucial for effective model management and deployment. 
+In MLflow, understanding the intricacies of model signatures and input examples is crucial for effective model management and deployment.
 
 - **Model Signature**: Defines the schema for model inputs, outputs, and additional inference parameters, promoting a standardized interface for model interaction.
 - **Model Input Example**: Provides a concrete instance of valid model input, aiding in understanding and testing model requirements. Additionally, if an input example is provided when logging a model, a model signature will be automatically inferred and stored if not explicitly provided.
@@ -193,8 +193,8 @@ How To Load And Score Python Function Models
 Loading Models
 ##############
 
-You can load ``python_function`` models in Python by using the :py:func:`mlflow.pyfunc.load_model()` function. It is important 
-to note that ``load_model`` assumes all dependencies are already available and *will not* perform any checks or installations 
+You can load ``python_function`` models in Python by using the :py:func:`mlflow.pyfunc.load_model()` function. It is important
+to note that ``load_model`` assumes all dependencies are already available and *will not* perform any checks or installations
 of dependencies. For deployment options that handle dependencies, refer to the :ref:`model deployment section <built-in-deployment>`.
 
 Scoring Models
@@ -211,14 +211,14 @@ Once a model is loaded, it can be scored in two primary ways:
 
 2. **Synchronous Streaming Scoring**
 
-    .. note:: 
+    .. note::
         ``predict_stream`` is a new interface that was added to MLflow in the 2.12.2 release. Previous versions of MLflow will not support this interface.
-        In order to utilize ``predict_stream`` in a custom Python Function Model, you must implement the ``predict_stream`` method in your model class and 
+        In order to utilize ``predict_stream`` in a custom Python Function Model, you must implement the ``predict_stream`` method in your model class and
         return a generator type.
 
-    For models that support streaming data processing, :py:func:`predict_stream <mlflow.pyfunc.PyFuncModel.predict_stream>` 
-    method is available. This method returns a ``generator``, which yields a stream of responses, allowing for efficient processing of 
-    large datasets or continuous data streams. Note that the ``predict_stream`` method is not available for all model types. 
+    For models that support streaming data processing, :py:func:`predict_stream <mlflow.pyfunc.PyFuncModel.predict_stream>`
+    method is available. This method returns a ``generator``, which yields a stream of responses, allowing for efficient processing of
+    large datasets or continuous data streams. Note that the ``predict_stream`` method is not available for all model types.
     The usage involves iterating over the generator to consume the responses::
 
         predict_stream(data: Any, params: Optional[Dict[str, Any]] = None) → GeneratorType
@@ -313,7 +313,7 @@ Alternatively, you can load the PyFunc model and inspect the `model_config` prop
     pyfunc_model = mlflow.pyfunc.load_model(model_uri)
     pyfunc_model.model_config
 
-Model configuration can be changed at loading time by indicating `model_config` parameter in the 
+Model configuration can be changed at loading time by indicating `model_config` parameter in the
 :py:func:`mlflow.pyfunc.load_model` method:
 
 .. code-block:: python
@@ -324,8 +324,8 @@ When a model configuration value is changed, those values the configuration the 
 invalid model configuration key for a model results in that configuration being ignored. A warning is displayed mentioning
 the ignored entries.
 
-.. note:: 
-    
+.. note::
+
     **Model configuration vs parameters with default values in signatures:** Use model configuration when you need to provide
     model publishers for a way to change how the model is loaded into memory and how predictions are computed for all the
     samples. For instance, a key like `user_gpu`. Model consumers are not able to change those values at predict time. Use
@@ -536,8 +536,8 @@ The :py:mod:`mlflow.mleap` module also
 defines :py:func:`save_model() <mlflow.mleap.save_model>` and
 :py:func:`log_model() <mlflow.mleap.log_model>` methods for saving MLeap models in MLflow format,
 but these methods do not include the ``python_function`` flavor in the models they produce.
-Similarly, ``mleap`` models can be saved in R with ``mlflow_save_model`` and loaded with ``mlflow_load_model``, with 
-``mlflow_save_model`` requiring `sample_input` to be specified as a 
+Similarly, ``mleap`` models can be saved in R with ``mlflow_save_model`` and loaded with ``mlflow_load_model``, with
+``mlflow_save_model`` requiring `sample_input` to be specified as a
 sample Spark dataframe containing input data to the model is required by MLeap for data schema
 inference.
 
@@ -733,34 +733,38 @@ Spark MLlib pyfunc usage
     prediction = lr_model_saved.predict(test)
 
 .. note::
-    Note that when the ``sample_input`` parameter is provided to ``log_model()`` or 
+    Note that when the ``sample_input`` parameter is provided to ``log_model()`` or
     ``save_model()``, the Spark model is automatically saved as an ``mleap`` flavor
     by invoking :py:func:`mlflow.mleap.add_to_model()<mlflow.mleap.add_to_model>`.
-    
+
     For example, the follow code block:
 
-    .. code-block:: py 
+    .. code-block:: py
 
-        training_df = spark.createDataFrame([
-            (0, "a b c d e spark", 1.0),
-            (1, "b d", 0.0),
-            (2, "spark f g h", 1.0),
-            (3, "hadoop mapreduce", 0.0) ], ["id", "text", "label"])
+        training_df = spark.createDataFrame(
+            [
+                (0, "a b c d e spark", 1.0),
+                (1, "b d", 0.0),
+                (2, "spark f g h", 1.0),
+                (3, "hadoop mapreduce", 0.0),
+            ],
+            ["id", "text", "label"],
+        )
 
         tokenizer = Tokenizer(inputCol="text", outputCol="words")
         hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
         lr = LogisticRegression(maxIter=10, regParam=0.001)
         pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
         model = pipeline.fit(training_df)
-        
+
         mlflow.spark.log_model(model, "spark-model", sample_input=training_df)
 
-    results in the following directory structure logged to the MLflow Experiment: 
+    results in the following directory structure logged to the MLflow Experiment:
 
     ::
 
         # Directory written by with the addition of mlflow.mleap.add_to_model(model, "spark-model", training_df)
-        # Note the addition of the mleap directory 
+        # Note the addition of the mleap directory
         spark-model/
         ├── mleap
         ├── sparkml
@@ -834,11 +838,11 @@ For more information, see :py:mod:`mlflow.onnx` and `<http://onnx.ai/>`_.
 
 .. warning::
     The default behavior for saving ONNX files is to use the ONNX save option ``save_as_external_data=True``
-    in order to support model files that are **in excess of 2GB**. For edge deployments of small model files, this 
-    may create issues. If you need to save a small model as a single file for such deployment considerations, 
-    you can set the parameter ``save_as_external_data=False`` in either :py:func:`mlflow.onnx.save_model` or 
-    :py:func:`mlflow.onnx.log_model` to force the serialization of the model as a small file. Note that if the 
-    model is in excess of 2GB, **saving as a single file will not work**. 
+    in order to support model files that are **in excess of 2GB**. For edge deployments of small model files, this
+    may create issues. If you need to save a small model as a single file for such deployment considerations,
+    you can set the parameter ``save_as_external_data=False`` in either :py:func:`mlflow.onnx.save_model` or
+    :py:func:`mlflow.onnx.log_model` to force the serialization of the model as a small file. Note that if the
+    model is in excess of 2GB, **saving as a single file will not work**.
 
 ONNX pyfunc usage example
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1594,7 +1598,7 @@ on a ``statsmodels`` model.
 
 Statsmodels pyfunc usage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-The following 2 examples illustrate usage of a basic regression model (OLS) and an ARIMA time series model 
+The following 2 examples illustrate usage of a basic regression model (OLS) and an ARIMA time series model
 from the following statsmodels apis : statsmodels.formula.api and statsmodels.tsa.api
 
 For a minimal statsmodels regression model, here is an example of the pyfunc predict() method :
@@ -2373,7 +2377,7 @@ Evaluating with Extra Metrics
 If the default set of metrics is insufficient, you can supply ``extra_metrics`` and ``custom_artifacts``
 to :py:func:`mlflow.evaluate()` to produce extra metrics and artifacts for the model(s) that you're evaluating.
 
-To define an extra metric, you should define an ``eval_fn`` function that takes in ``predictions`` and ``targets`` as arguments 
+To define an extra metric, you should define an ``eval_fn`` function that takes in ``predictions`` and ``targets`` as arguments
 and outputs a ``MetricValue`` object. ``predictions`` and ``targets`` are ``pandas.Series``
 objects. If ``predictions`` or ``targets`` specified in ``mlflow.evaluate()`` is either ``numpy.array`` or ``List``,
 they will be converted to ``pandas.Series``.
@@ -2423,10 +2427,10 @@ indicates whether this is a metric we want to maximize or minimize.
 
     mymetric = make_metric(eval_fn=my_metric_eval_fn, greater_is_better=False)
 
-The extra metric allows you to either evaluate a model directly, or to evaluate an output dataframe. 
+The extra metric allows you to either evaluate a model directly, or to evaluate an output dataframe.
 
 To evaluate the model directly, you will have to provide ``mlflow.evaluate()`` either a pyfunc model
-instance, a URI referring to a pyfunc model, or a callable function that takes in the data as input 
+instance, a URI referring to a pyfunc model, or a callable function that takes in the data as input
 and outputs the predictions.
 
 .. code-block:: python
@@ -2445,7 +2449,7 @@ and outputs the predictions.
     mlflow.evaluate(model, eval_dataset, targets="targets", extra_metrics=[mymetric])
 
 To directly evaluate an output dataframe, you can **omit** the ``model`` parameter. However, you will need
- to set the ``predictions`` parameter in ``mlflow.evaluate()`` in order to evaluate an inference output dataframe. 
+ to set the ``predictions`` parameter in ``mlflow.evaluate()`` in order to evaluate an inference output dataframe.
 
 .. code-block:: python
 
@@ -2465,7 +2469,7 @@ To directly evaluate an output dataframe, you can **omit** the ``model`` paramet
 
 When your model has multiple outputs, the model must return a pandas DataFrame with multiple columns. You must
 specify one column among the model output columns as the predictions column using the ``predictions`` parameter,
-and other output columns of the model will be accessible from the ``eval_fn`` based on their column names. For example, if 
+and other output columns of the model will be accessible from the ``eval_fn`` based on their column names. For example, if
 your model has two outputs ``retrieved_context`` and ``answer``, you can specify ``answer`` as the predictions
 column, and ``retrieved_context`` column will be accessible as the ``context`` parameter from ``eval_fn`` via ``col_mapping``:
 
@@ -2504,7 +2508,7 @@ column, and ``retrieved_context`` column will be accessible as the ``context`` p
         evaluator_config=config,
     )
 
-However, you can also avoid using ``col_mapping`` if the parameter of ``eval_fn`` is the same as the output column name of the model. 
+However, you can also avoid using ``col_mapping`` if the parameter of ``eval_fn`` is the same as the output column name of the model.
 
 .. code-block:: python
 
@@ -2627,7 +2631,7 @@ For a more comprehensive extra metrics usage example, refer to `this example fro
 
 Evaluating with a Function
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-As of MLflow 2.8.0, :py:func:`mlflow.evaluate()` supports evaluating a python function without requiring 
+As of MLflow 2.8.0, :py:func:`mlflow.evaluate()` supports evaluating a python function without requiring
 logging the model to MLflow. This is useful when you don't want to log the model and just want to evaluate
 it. The requirements for the function's input and output are the same as the requirements for a model's input and
 output.
@@ -2664,7 +2668,7 @@ the ``predictions`` parameter in :py:func:`mlflow.data.from_pandas()`, and speci
 
 When your model has multiple outputs, you must specify one column among the model output columns as the predictions
 column. The other output columns of the model will be treated as "input" columns. For example, if your model
-has two outputs named ``retrieved_context`` and ``answer``, you can specify ``answer`` as the predictions column. The 
+has two outputs named ``retrieved_context`` and ``answer``, you can specify ``answer`` as the predictions column. The
 ``retrieved_context`` column will be treated as an "input" column when calculating the metrics.
 
 The following example uses :py:func:`mlflow.evaluate()` to evaluate a static dataset:
@@ -2993,7 +2997,7 @@ Example: Logging a transformers model with hf:/ schema to avoid copying large fi
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This example shows how to use a special schema ``hf:/`` to log a transformers model from huggingface
-hub directly. This is useful when the model is too large and especially when you want to serve the 
+hub directly. This is useful when the model is too large and especially when you want to serve the
 model directly, but it doesn't save extra space if you want to download and test the model locally.
 
 .. code-block:: python
@@ -3370,7 +3374,7 @@ the ``save_model()`` function from above to persist the model.
         )
 
 To interpret model directories produced by ``save_model()``, the custom flavor must also define a
-``load_model()`` function. The ``load_model()`` function reads the ``MLmodel`` configuration from 
+``load_model()`` function. The ``load_model()`` function reads the ``MLmodel`` configuration from
 the specified model directory and uses the configuration attributes to load and return the
 ``sktime`` model from its serialized representation.
 

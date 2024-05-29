@@ -1,8 +1,8 @@
 MLflow Tracking Quickstart Notebook
 ===================================
 
-Welcome to the MLflow Tracking Quickstart! The notebook-based companion to the quickstart guide is tailored to help you quickly 
-understand the core features of MLflow Tracking. In just a few minutes, you'll gain hands-on experience with the fundamental aspects 
+Welcome to the MLflow Tracking Quickstart! The notebook-based companion to the quickstart guide is tailored to help you quickly
+understand the core features of MLflow Tracking. In just a few minutes, you'll gain hands-on experience with the fundamental aspects
 of MLflow, including:
 
 - Installing MLflow.
@@ -11,7 +11,7 @@ of MLflow, including:
 - Loading a logged model for inference using MLflow's `pyfunc` flavor.
 - Viewing the experiment results in the MLflow UI.
 
-If you are new to MLflow, we recommend starting with this quickstart to familiarize yourself with the most commonly used 
+If you are new to MLflow, we recommend starting with this quickstart to familiarize yourself with the most commonly used
 MLflow APIs before diving into more detailed tutorials.
 
 .. raw:: html

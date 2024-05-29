@@ -1,15 +1,15 @@
 MLflow Tracking Quickstart
 ==========================
 
-Welcome to MLflow! 
+Welcome to MLflow!
 
-The purpose of this quickstart is to provide a quick guide to the most essential core APIs of MLflow Tracking. 
-Specifically, those that enable the logging, registering, and loading of a model for inference. 
+The purpose of this quickstart is to provide a quick guide to the most essential core APIs of MLflow Tracking.
+Specifically, those that enable the logging, registering, and loading of a model for inference.
 
 .. note::
-    For a more in-depth and tutorial-based approach (if that is your style), please see the 
-    `Getting Started with MLflow <../logging-first-model/index.html>`_ tutorial. We recommend that you start here first, though, as this quickstart 
-    uses the most common and frequently-used APIs for MLflow Tracking and serves as a good foundation for the other tutorials in the documentation. 
+    For a more in-depth and tutorial-based approach (if that is your style), please see the
+    `Getting Started with MLflow <../logging-first-model/index.html>`_ tutorial. We recommend that you start here first, though, as this quickstart
+    uses the most common and frequently-used APIs for MLflow Tracking and serves as a good foundation for the other tutorials in the documentation.
 
 What you will learn
 -------------------
@@ -18,9 +18,9 @@ In just a few minutes of following along with this quickstart, you will learn:
 
 * How to **log** parameters, metrics, and a model
 * The basics of the **MLflow fluent API**
-* How to **register** a model during logging 
-* How to navigate to a model in the **MLflow UI** 
-* How to **load** a logged model for inference 
+* How to **register** a model during logging
+* How to navigate to a model in the **MLflow UI**
+* How to **load** a logged model for inference
 
 If you would like to see this quickstart in a purely notebook format, we have a downloadable and viewable notebook-only version of this quickstart:
 
@@ -66,7 +66,7 @@ Step 2 - Start a Tracking Server
 Using a Managed MLflow Tracking Server
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-For details on options for using a managed MLflow Tracking Server, including how to create a free Databricks Community Edition account with 
+For details on options for using a managed MLflow Tracking Server, including how to create a free Databricks Community Edition account with
 managed MLflow, `see the guide for tracking server options <../running-notebooks/index.html>`_.
 
 (Optional) Run a local Tracking Server
@@ -83,12 +83,12 @@ From a terminal, run:
         mlflow server --host 127.0.0.1 --port 8080
 
 .. note::
-    You can choose any port that you would like, provided that it's not already in use. 
+    You can choose any port that you would like, provided that it's not already in use.
 
 Set the Tracking Server URI (if not using a Databricks Managed MLflow Tracking Server)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you're using a managed MLflow Tracking Server that is not provided by Databricks, or if you're running a local tracking server, 
+If you're using a managed MLflow Tracking Server that is not provided by Databricks, or if you're running a local tracking server,
 ensure that you set the tracking server's uri using:
 
 .. code-section::
@@ -156,7 +156,7 @@ In this section, we're going to log a model with MLflow. A quick overview of the
 Step 4 - Log the model and its metadata to MLflow
 -------------------------------------------------
 
-In this next step, we're going to use the model that we trained, the hyperparameters that we specified for the model's fit, and the 
+In this next step, we're going to use the model that we trained, the hyperparameters that we specified for the model's fit, and the
 loss metrics that were calculated by evaluating the model's performance on the test data to log to MLflow.
 
 The steps that we will take are:
@@ -167,10 +167,10 @@ The steps that we will take are:
 - **Register** the model in the MLflow Model Registry while **logging** (saving) the model.
 
 .. note::
-    While it can be valid to wrap the entire code within the ``start_run`` block, this is **not recommended**. If there as in issue with the 
-    training of the model or any other portion of code that is unrelated to MLflow-related actions, an empty or partially-logged run will be 
-    created, which will necessitate manual cleanup of the invalid run. It is best to keep the training execution outside of the run context block 
-    to ensure that the loggable content (parameters, metrics, artifacts, and the model) are fully materialized prior to logging. 
+    While it can be valid to wrap the entire code within the ``start_run`` block, this is **not recommended**. If there as in issue with the
+    training of the model or any other portion of code that is unrelated to MLflow-related actions, an empty or partially-logged run will be
+    created, which will necessitate manual cleanup of the invalid run. It is best to keep the training execution outside of the run context block
+    to ensure that the loggable content (parameters, metrics, artifacts, and the model) are fully materialized prior to logging.
 
 .. code-section::
 
@@ -221,7 +221,7 @@ After logging the model, we can perform inference by:
 .. code-section::
 
     .. code-block:: python
-        :name: load-model 
+        :name: load-model
 
         # Load the model back for predictions as a generic Python Function model
         loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -253,7 +253,7 @@ The output of this code will look something like this:
 Step 6 - View the Run in the MLflow UI
 --------------------------------------
 
-In order to see the results of our run, we can navigate to the MLflow UI. Since we have already started the Tracking Server at 
+In order to see the results of our run, we can navigate to the MLflow UI. Since we have already started the Tracking Server at
 `http://localhost:8080`, we can simply navigate to that URL in our browser.
 
 When opening the site, you will see a screen similar to the following:
@@ -265,25 +265,25 @@ When opening the site, you will see a screen similar to the following:
 
     The main MLflow Tracking page, showing Experiments that have been created
 
-Clicking on the name of the Experiment that we created ("MLflow Quickstart") will give us a list of runs associated with the 
-Experiment. You should see a random name that has been generated for the run and nothing else show up in the `Table` list view to the right. 
+Clicking on the name of the Experiment that we created ("MLflow Quickstart") will give us a list of runs associated with the
+Experiment. You should see a random name that has been generated for the run and nothing else show up in the `Table` list view to the right.
 
-Clicking on the name of the run will take you to the Run page, where the details of what we've logged will be shown. The elements have 
-been highlighted below to show how and where this data is recorded within the UI. 
+Clicking on the name of the run will take you to the Run page, where the details of what we've logged will be shown. The elements have
+been highlighted below to show how and where this data is recorded within the UI.
 
 .. figure:: ../../_static/images/tutorials/introductory/quickstart-tracking/quickstart-our-run.png
     :alt: MLflow UI Run view page
     :width: 1024px
     :align: center
 
-    The run view page for our run 
+    The run view page for our run
 
 Conclusion
 ----------
 
-Congratulations on working through the MLflow Tracking Quickstart! You should now have a basic understanding of how to use the MLflow Tracking API to log 
-models. 
+Congratulations on working through the MLflow Tracking Quickstart! You should now have a basic understanding of how to use the MLflow Tracking API to log
+models.
 
-If you are interested in a more in-depth tutorial, please see the `Getting Started with MLflow <../logging-first-model/index.html>`_ tutorial as a 
-good next step in increasing your knowledge about MLflow! 
-        
+If you are interested in a more in-depth tutorial, please see the `Getting Started with MLflow <../logging-first-model/index.html>`_ tutorial as a
+good next step in increasing your knowledge about MLflow!
+

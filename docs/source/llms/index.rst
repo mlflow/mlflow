@@ -1,12 +1,12 @@
 LLMs
 ====
 
-LLMs, or Large Language Models, have rapidly become a cornerstone in the machine learning domain, offering 
-immense capabilities ranging from natural language understanding to code generation and more. 
-However, harnessing the full potential of LLMs often involves intricate processes, from interfacing with 
-multiple providers to fine-tuning specific models to achieve desired outcomes. 
+LLMs, or Large Language Models, have rapidly become a cornerstone in the machine learning domain, offering
+immense capabilities ranging from natural language understanding to code generation and more.
+However, harnessing the full potential of LLMs often involves intricate processes, from interfacing with
+multiple providers to fine-tuning specific models to achieve desired outcomes.
 
-Such complexities can easily become a bottleneck for developers and data scientists aiming to integrate LLM 
+Such complexities can easily become a bottleneck for developers and data scientists aiming to integrate LLM
 capabilities into their applications.
 
 **MLflow's Support for LLMs** aims to alleviate these challenges by introducing a suite of features and tools designed with the end-user in mind:
@@ -20,12 +20,12 @@ capabilities into their applications.
 
     deployments/index
 
-Serving as a unified interface, the `MLflow Deployments Server <deployments/index.html>`_ (previously known as "MLflow AI Gateway") 
-simplifies interactions with multiple LLM providers. In addition to supporting the most popular SaaS LLM providers, the MLflow Deployments Server 
+Serving as a unified interface, the `MLflow Deployments Server <deployments/index.html>`_ (previously known as "MLflow AI Gateway")
+simplifies interactions with multiple LLM providers. In addition to supporting the most popular SaaS LLM providers, the MLflow Deployments Server
 provides an integration to MLflow model serving, allowing you to serve your own LLM or a fine-tuned foundation model within your own serving infrastructure.
 
-.. note:: 
-    The MLflow Deployments Server is in active development and has been marked as **Experimental**. 
+.. note::
+    The MLflow Deployments Server is in active development and has been marked as **Experimental**.
     APIs may change as this new feature is refined and its functionality is expanded based on feedback.
 
 Benefits of the MLflow Deployments Server
@@ -35,17 +35,17 @@ Benefits of the MLflow Deployments Server
 
 - **Simplified Integrations**: One-time setup, no repeated complex integrations.
 
-- **Secure Credential Management**: 
+- **Secure Credential Management**:
 
   - Centralized storage prevents scattered API keys.
   - No hardcoding or user-handled keys.
 
-- **Consistent API Experience**: 
+- **Consistent API Experience**:
 
   - Uniform API across all providers.
   - Easy-to-use REST endpoints and Client API.
 
-- **Seamless Provider Swapping**: 
+- **Seamless Provider Swapping**:
 
   - Swap providers without touching your code.
   - Zero downtime provider, model, or route swapping.
@@ -54,14 +54,14 @@ Benefits of the MLflow Deployments Server
 Explore the Native Providers of the MLflow Deployments Server
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The MLflow Deployments Server supports a large range of foundational models from popular SaaS model vendors, as well as providing a means of self-hosting your 
-own open source model via an integration with MLflow model serving. 
+The MLflow Deployments Server supports a large range of foundational models from popular SaaS model vendors, as well as providing a means of self-hosting your
+own open source model via an integration with MLflow model serving.
 
 Please refer to `Supported Provider Models <deployments/index.html#providers>`_ for the full list of supported providers and models.
 
-If you're interested in learning about how to set up the MLflow Deployments Server for a specific provider, follow the links below for our up-to-date 
-documentation on GitHub. Each link will take you to a README file that will explain how to set up a route for the provider. In the same directory as 
-the README, you will find a runnable example of how to query the routes that the example creates, providing you with a quick reference for getting started 
+If you're interested in learning about how to set up the MLflow Deployments Server for a specific provider, follow the links below for our up-to-date
+documentation on GitHub. Each link will take you to a README file that will explain how to set up a route for the provider. In the same directory as
+the README, you will find a runnable example of how to query the routes that the example creates, providing you with a quick reference for getting started
 with your favorite provider!
 
 .. raw:: html
@@ -122,8 +122,8 @@ with your favorite provider!
     </section>
 
 .. note::
-    The **MLflow** and **Hugging Face TGI** providers are for self-hosted LLM serving of either foundation open-source LLM models, fine-tuned open-source 
-    LLM models, or your own custom LLM. The example documentation for these providers will show you how to get started with these, using free-to-use open-source 
+    The **MLflow** and **Hugging Face TGI** providers are for self-hosted LLM serving of either foundation open-source LLM models, fine-tuned open-source
+    LLM models, or your own custom LLM. The example documentation for these providers will show you how to get started with these, using free-to-use open-source
     models from the `Hugging Face Hub <https://huggingface.co/docs/hub/index>`_.
 
 `LLM Evaluation <llm-evaluate/index.html>`_
@@ -135,11 +135,11 @@ with your favorite provider!
 
     llm-evaluate/index
 
-Navigating the vast landscape of Large Language Models (LLMs) can be daunting. Determining the right model, prompt, or service that aligns 
-with a project's needs is no small feat. Traditional machine learning evaluation metrics often fall short when it comes to assessing the 
+Navigating the vast landscape of Large Language Models (LLMs) can be daunting. Determining the right model, prompt, or service that aligns
+with a project's needs is no small feat. Traditional machine learning evaluation metrics often fall short when it comes to assessing the
 nuanced performance of generative models.
 
-Enter `MLflow LLM Evaluation <llm-evaluate/index.html>`_. This feature is designed to simplify the evaluation process, 
+Enter `MLflow LLM Evaluation <llm-evaluate/index.html>`_. This feature is designed to simplify the evaluation process,
 offering a streamlined approach to compare foundational models, providers, and prompts.
 
 Benefits of MLflow's LLM Evaluation
@@ -167,13 +167,13 @@ MLflow's LLM Evaluation is designed to bridge the gap between traditional machin
 
     prompt-engineering/index
 
-Effective utilization of LLMs often hinges on crafting the right prompts. 
-The development of a high-quality prompt is an iterative process of trial and error, where subsequent experimentation is not guaranteed to 
-result in cumulative quality improvements. With the volume and speed of iteration through prompt experimentation, it can quickly become very 
+Effective utilization of LLMs often hinges on crafting the right prompts.
+The development of a high-quality prompt is an iterative process of trial and error, where subsequent experimentation is not guaranteed to
+result in cumulative quality improvements. With the volume and speed of iteration through prompt experimentation, it can quickly become very
 overwhelming to remember or keep a history of the state of different prompts that were tried.
 
-Serving as a powerful tool for prompt engineering, the `MLflow Prompt Engineering UI <prompt-engineering/index.html>`_ revolutionizes the 
-way developers interact with and refine LLM prompts. 
+Serving as a powerful tool for prompt engineering, the `MLflow Prompt Engineering UI <prompt-engineering/index.html>`_ revolutionizes the
+way developers interact with and refine LLM prompts.
 
 Benefits of the MLflow Prompt Engineering UI
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -186,13 +186,13 @@ Benefits of the MLflow Prompt Engineering UI
 
 - **Optimized Configurations**: Quickly hone in on the best model configurations for tasks like question answering or document summarization.
 
-- **Transparent Tracking**: 
+- **Transparent Tracking**:
 
   - Every model iteration and configuration is meticulously tracked.
   - Ensures reproducibility and transparency in your development process.
 
-.. note:: 
-    The MLflow Prompt Engineering UI is in active development and has been marked as **Experimental**. 
+.. note::
+    The MLflow Prompt Engineering UI is in active development and has been marked as **Experimental**.
     Features and interfaces may evolve as feedback is gathered and the tool is refined.
 
 
@@ -203,12 +203,12 @@ Harnessing the power of LLMs becomes effortless with flavors designed specifical
 
 - **Native Support for Popular Packages**: Standardized interfaces for tasks like saving, logging, and managing inference configurations.
 
-- **PyFunc Compatibility**: 
+- **PyFunc Compatibility**:
 
   - Load models as PyFuncs for broad compatibility across serving infrastructures.
   - Strengthens the MLOps process for LLMs, ensuring smooth deployments.
 
-- **Cohesive Ecosystem**: 
+- **Cohesive Ecosystem**:
 
   - All essential tools and functionalities consolidated under MLflow.
   - Focus on deriving value from LLMs without getting bogged down by interfacing and optimization intricacies.
@@ -228,7 +228,7 @@ Select the integration below to read the documentation on how to leverage MLflow
                         <img src="../_static/images/logos/huggingface-logo.svg" alt="HuggingFace Logo"/>
                     </div>
                     <p>
-                        Learn about MLflow's native integration with the Transformers 🤗 library and see example notebooks that leverage 
+                        Learn about MLflow's native integration with the Transformers 🤗 library and see example notebooks that leverage
                         MLflow and Transformers to build Open-Source LLM powered solutions.
                     </p>
                 </a>
@@ -239,7 +239,7 @@ Select the integration below to read the documentation on how to leverage MLflow
                         <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo" style="width: 80%"/>
                     </div>
                     <p>
-                        Learn about MLflow's native integration with the OpenAI SDK and see example notebooks that leverage 
+                        Learn about MLflow's native integration with the OpenAI SDK and see example notebooks that leverage
                         MLflow and OpenAI's advanced LLMs to build interesting and fun applications.
                     </p>
                 </a>
@@ -250,7 +250,7 @@ Select the integration below to read the documentation on how to leverage MLflow
                         <img src="../_static/images/logos/sentence-transformers-logo.png"  alt="Sentence Transformers Logo" style="width: 70%"/>
                     </div>
                     <p>
-                        Learn about MLflow's native integration with the Sentence Transformers library and see example notebooks that leverage 
+                        Learn about MLflow's native integration with the Sentence Transformers library and see example notebooks that leverage
                         MLflow and Sentence Transformers to perform operations with encoded text such as semantic search, text similarity, and information retrieval.
                     </p>
                 </a>
@@ -261,7 +261,7 @@ Select the integration below to read the documentation on how to leverage MLflow
                         <img src="../_static/images/logos/langchain-logo.png" alt="LangChain Logo" style="width: 90%"/>
                     </div>
                     <p>
-                        Learn about MLflow's native integration with LangChain and see example notebooks that leverage 
+                        Learn about MLflow's native integration with LangChain and see example notebooks that leverage
                         MLflow and LangChain to build LLM-backed applications.
                     </p>
                 </a>
@@ -287,7 +287,7 @@ Select the integration below to read the documentation on how to leverage MLflow
 
     llm-tracking/index
 
-Empowering developers with advanced tracking capabilities, the `MLflow LLM Tracking System <llm-tracking/index.html>`_ stands out as the 
+Empowering developers with advanced tracking capabilities, the `MLflow LLM Tracking System <llm-tracking/index.html>`_ stands out as the
 premier solution for managing and analyzing interactions with Large Language Models (LLMs).
 
 Benefits of the MLflow LLM Tracking System
@@ -295,17 +295,17 @@ Benefits of the MLflow LLM Tracking System
 
 - **Robust Interaction Management**: Comprehensive tracking of every LLM interaction for maximum insight.
 
-- **Tailor-Made for LLMs**: 
+- **Tailor-Made for LLMs**:
 
   - Unique features specifically designed for LLMs.
   - From logging prompts to tracking dynamic data, MLflow has it covered.
 
-- **Deep Model Insight**: 
+- **Deep Model Insight**:
 
   - Introduces 'predictions' as a core entity, alongside the existing artifacts, parameters, and metrics.
   - Gain unparalleled understanding of text-generating model behavior and performance.
 
-- **Clarity and Repeatability**: 
+- **Clarity and Repeatability**:
 
   - Ensures consistent and transparent tracking across all LLM interactions.
   - Facilitates informed decision-making and optimization in LLM deployment and utilization.
@@ -314,7 +314,7 @@ Benefits of the MLflow LLM Tracking System
 Tutorials and Use Case Guides for LLMs in MLflow
 ------------------------------------------------
 
-Interested in learning how to leverage MLflow for your LLM projects? 
+Interested in learning how to leverage MLflow for your LLM projects?
 
 Look in the tutorials and guides below to learn more about interesting use cases that could help to make your journey into leveraging LLMs a bit easier!
 
@@ -323,7 +323,7 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
 .. toctree::
     :maxdepth: 1
     :hidden:
-  
+
     rag/index
     custom-pyfunc-for-llms/index
     llm-evaluate/notebooks/index
@@ -349,7 +349,7 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
                         Using Custom PyFunc with LLMs
                     </div>
                     <p>
-                        Explore the nuances of packaging, customizing, and deploying advanced LLMs in MLflow using custom PyFuncs. 
+                        Explore the nuances of packaging, customizing, and deploying advanced LLMs in MLflow using custom PyFuncs.
                     </p>
                 </a>
             </div>

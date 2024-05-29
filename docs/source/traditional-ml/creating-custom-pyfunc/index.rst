@@ -1,7 +1,7 @@
 Building Custom Python Function Models with MLflow
 ==================================================
 
-MLflow offers a wide range of pre-defined model flavors, but there are instances where you'd want to go 
+MLflow offers a wide range of pre-defined model flavors, but there are instances where you'd want to go
 beyond these and craft something tailored to your needs. That's where custom PyFuncs come in handy.
 
 What's in this tutorial?
@@ -24,7 +24,7 @@ This guide aims to walk you through the intricacies of PyFuncs, explaining the w
 
 - **Overriding Default Inference Methods**: Sometimes, the default isn't what you want. We'll show you how to override a model's inference method, for example, using ``predict_proba`` instead of ``predict``.
 
-By the end of this tutorial, you'll have a clear understanding of how to leverage custom PyFuncs in MLflow to cater to specialized needs, 
+By the end of this tutorial, you'll have a clear understanding of how to leverage custom PyFuncs in MLflow to cater to specialized needs,
 ensuring flexibility without compromising on the ease of use.
 
 .. toctree::
@@ -33,4 +33,4 @@ ensuring flexibility without compromising on the ease of use.
     Models, Flavors, and PyFuncs in MLflow <part1-named-flavors>
     Understanding Pyfunc Components <part2-pyfunc-components>
     Full Notebooks <notebooks/index>
-    
+

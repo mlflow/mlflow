@@ -14,7 +14,7 @@ Once enabled, any visitor will be required to login before they can view any res
   :local:
   :depth: 2
 
-MLflow Authentication provides Python and REST API for managing users and permissions. 
+MLflow Authentication provides Python and REST API for managing users and permissions.
 
 .. toctree::
   :glob:
@@ -32,7 +32,7 @@ To enable MLflow authentication, launch the MLflow UI with the following command
     mlflow server --app-name basic-auth
 
 
-Server admin can choose to disable this feature anytime by restarting the server without the ``app-name`` flag. 
+Server admin can choose to disable this feature anytime by restarting the server without the ``app-name`` flag.
 Any users and permissions created will be persisted on a SQL database and will be back in service once the feature is re-enabled.
 
 Due to the nature of HTTP authentication, it is only supported on a remote Tracking Server, where users send
@@ -78,7 +78,7 @@ The available permissions are:
 
 The default permission for all users is ``READ``. It can be changed in the :ref:`configuration <configuration>` file.
 
-Permissions can be granted on individual resources for each user. 
+Permissions can be granted on individual resources for each user.
 Supported resources include ``Experiment`` and ``Registered Model``.
 To access an API endpoint, an user must have the required permission.
 Otherwise, a ``403 Forbidden`` response will be returned.
@@ -405,7 +405,7 @@ Admin Users
 
 Admin users have unrestricted access to all MLflow resources,
 **including creating or deleting users, updating password and admin status of other users,
-granting or revoking permissions from other users, and managing permissions for all 
+granting or revoking permissions from other users, and managing permissions for all
 MLflow resources,** even if ``NO_PERMISSIONS`` is explicitly set to that admin account.
 
 MLflow has a built-in admin user that will be created the first time that the MLflow authentication feature is enabled.
@@ -434,7 +434,7 @@ Multiple admin users can exist by promoting other users to admin, using the ``2.
     # authenticate as built-in admin user
     export MLFLOW_TRACKING_USERNAME=admin
     export MLFLOW_TRACKING_PASSWORD=password
- 
+
 .. code-block:: python
 
     from mlflow.server import get_app_client
@@ -449,7 +449,7 @@ Multiple admin users can exist by promoting other users to admin, using the ``2.
 Managing Permissions
 --------------------
 
-MLflow provides :ref:`REST APIs <mlflowAuthServiceCreateUser>` and a client class 
+MLflow provides :ref:`REST APIs <mlflowAuthServiceCreateUser>` and a client class
 :py:func:`AuthServiceClient<mlflow.server.auth.client.AuthServiceClient>` to manage users and permissions.
 To instantiate ``AuthServiceClient``, it is recommended that you use :py:func:`mlflow.server.get_app_client`.
 
@@ -484,7 +484,7 @@ Authenticating to MLflow
 Using MLflow UI
 ---------------
 
-When a user first visits the MLflow UI on a browser, they will be prompted to login. 
+When a user first visits the MLflow UI on a browser, they will be prompted to login.
 There is no limit to how many login attempts can be made.
 
 Currently, MLflow UI does not display any information about the current user.
@@ -516,7 +516,7 @@ Using Credentials File
 ----------------------
 
 You can save your credentials in a file to remove the need for setting environment variables every time.
-The credentials should be saved in ``~/.mlflow/credentials`` using ``INI`` format. Note that the password 
+The credentials should be saved in ``~/.mlflow/credentials`` using ``INI`` format. Note that the password
 will be stored unencrypted on disk, and is protected only by filesystem permissions.
 
 If the environment variables ``MLFLOW_TRACKING_USERNAME`` and ``MLFLOW_TRACKING_PASSWORD`` are configured,
@@ -663,7 +663,7 @@ when the server starts.
 Custom Authentication
 =====================
 
-MLflow authentication is designed to be extensible. If your organization desires more advanced authentication logic 
+MLflow authentication is designed to be extensible. If your organization desires more advanced authentication logic
 (e.g., token-based authentication), it is possible to install a third party plugin or to create your own plugin.
 
 Your plugin should be an installable Python package.

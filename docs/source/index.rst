@@ -9,9 +9,9 @@ machine learning projects, ensuring that each phase is manageable, traceable, an
 MLflow Getting Started Resources
 --------------------------------
 
-If this is your first time exploring MLflow, the tutorials and guides here are a great place to start. The emphasis in each of these is 
-getting you up to speed as quickly as possible with the basic functionality, terms, APIs, and general best practices of using MLflow in order to 
-enhance your learning in area-specific guides and tutorials. 
+If this is your first time exploring MLflow, the tutorials and guides here are a great place to start. The emphasis in each of these is
+getting you up to speed as quickly as possible with the basic functionality, terms, APIs, and general best practices of using MLflow in order to
+enhance your learning in area-specific guides and tutorials.
 
 .. |getting-started| raw:: html
 
@@ -22,7 +22,7 @@ enhance your learning in area-specific guides and tutorials.
                 <h4>Quickstarts</h4>
                 <p>
                     Get Started with MLflow in our <a href="getting-started/intro-quickstart/index.html">5-minute tutorial</a>
-                </p> 
+                </p>
                 <h4>Guides</h4>
                 <p>
                     Learn the core components of MLflow with <a href="getting-started/logging-first-model/index.html">this in-depth guide to Tracking</a>
@@ -131,7 +131,7 @@ enhance your learning in area-specific guides and tutorials.
             </div>
         </div>
     </div>
-    
+
 
 .. container:: intro
 
@@ -140,19 +140,19 @@ enhance your learning in area-specific guides and tutorials.
         .. tab:: Learn about MLflow
 
             |getting-started|
-        
+
         .. tab:: MLflow Basics
 
             |starting-guides|
-        
+
         .. tab:: MLflow Models Introduction
 
             |model-topics|
-        
+
         .. tab:: GenAI Quickstarts
 
             |genai-quickstarts|
-        
+
         .. tab:: Deep Learning Quickstarts
 
             |dl-quickstarts|
@@ -161,11 +161,11 @@ enhance your learning in area-specific guides and tutorials.
 GenAI and MLflow
 ----------------
 
-Explore the comprehensive GenAI-focused support in MLflow. From **MLflow Deployments for GenAI models** to the **Prompt Engineering UI** and native GenAI-focused MLflow flavors like 
-**open-ai**, **transformers**, and **sentence-transformers**, the tutorials and guides here will help to get you started in leveraging the 
-benefits of these powerful models, services, and applications.  
-You'll learn how MLflow simplifies both using GenAI models and developing solutions that leverage them. Important tasks such as prompt development, evaluation of prompts, comparison of  
-foundation models, fine-tuning, logging, and deploying production-grade inference servers are all covered by MLflow. 
+Explore the comprehensive GenAI-focused support in MLflow. From **MLflow Deployments for GenAI models** to the **Prompt Engineering UI** and native GenAI-focused MLflow flavors like
+**open-ai**, **transformers**, and **sentence-transformers**, the tutorials and guides here will help to get you started in leveraging the
+benefits of these powerful models, services, and applications.
+You'll learn how MLflow simplifies both using GenAI models and developing solutions that leverage them. Important tasks such as prompt development, evaluation of prompts, comparison of
+foundation models, fine-tuning, logging, and deploying production-grade inference servers are all covered by MLflow.
 
 Explore the guides and tutorials below to start your journey!
 
@@ -220,7 +220,7 @@ Explore the guides and tutorials below to start your journey!
 
 
 .. |deployments-server| raw:: html
-    
+
     <div class="main-container">
         <h3>Learn about managed access to GenAI services with the MLflow Deployments Server</h3>
         <div class="sub-container-two-columns">
@@ -288,7 +288,7 @@ Explore the guides and tutorials below to start your journey!
         .. tab:: GenAI Integrations
 
             |genai-flavors|
-        
+
         .. tab:: Prompt Engineering UI
 
             |prompt-engineering-ui|
@@ -296,11 +296,11 @@ Explore the guides and tutorials below to start your journey!
         .. tab:: Deployments Server
 
             |deployments-server|
-        
+
         .. tab:: GenAI Evaluation
 
             |llm-evaluate|
-        
+
         .. tab:: RAG
 
             |rag|

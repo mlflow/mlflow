@@ -3,7 +3,7 @@ Tracking Experiments with a Local Database
 ==========================================
 
 In this tutorial, you will learn how to use a local database to track your experiment metadata with MLflow. By default, MLflow Tracking logs run data to local files,
-which may cause some frustration due to fractured small files and the lack of a simple access interface. Also, if you are using Python, you can use SQLite that runs 
+which may cause some frustration due to fractured small files and the lack of a simple access interface. Also, if you are using Python, you can use SQLite that runs
 upon your local file system (e.g. ``mlruns.db``) and has a built-in client ``sqlite3``, eliminating the effort to install any additional dependencies and setting up database server.
 
 Get Started
@@ -79,7 +79,7 @@ Now you are ready to start logging your experiment runs. For example, the follow
 Step 4: View your logged Run in the Tracking UI
 -----------------------------------------------
 
-Once your training job finishes, you can run the following command to launch the MLflow UI (You will have to specify the path to SQLite database file with ``--backend-store-uri`` option): 
+Once your training job finishes, you can run the following command to launch the MLflow UI (You will have to specify the path to SQLite database file with ``--backend-store-uri`` option):
 
 .. code-section::
 
@@ -97,7 +97,7 @@ You've now learned how to connect MLflow Tracking with a remote storage and a da
 
 There are a couple of more advanced topics you can explore:
 
-* **Remote environment setup for team development**: While storing runs and experiments data in local machine is perfectly fine for solo development, you should 
-  consider using :ref:`MLflow Tracking Server <tracking_server>` when you set up a team collaboration environment with MLflow Tracking. Read the 
+* **Remote environment setup for team development**: While storing runs and experiments data in local machine is perfectly fine for solo development, you should
+  consider using :ref:`MLflow Tracking Server <tracking_server>` when you set up a team collaboration environment with MLflow Tracking. Read the
   `Remote Experiment Tracking with MLflow Tracking Server <remote-server.html>`_ tutorial to learn more.
 * **New Features**: MLflow team constantly develops new features to support broader use cases. See `New Features <../../new-features/index.html>`_ to catch up with the latest features.

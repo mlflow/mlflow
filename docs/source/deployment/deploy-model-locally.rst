@@ -1,12 +1,12 @@
 .. _local_model_deployment:
- 
+
 Deploy MLflow Model as a Local Inference Server
 ===============================================
 
 MLflow allows you to deploy your model as a locally using just a single command.
 This approach is ideal for lightweight applications or for testing your model locally before moving it to a staging or production environment.
 
-If you are new to MLflow model deployment, please read the guide on `MLflow Deployment <index.html>`_ first to understand the basic concepts of MLflow models and deployments. 
+If you are new to MLflow model deployment, please read the guide on `MLflow Deployment <index.html>`_ first to understand the basic concepts of MLflow models and deployments.
 
 
 Deploying Inference Server
@@ -41,7 +41,7 @@ You can then send a test request to the server as follows:
 
 Several command line options are available to customize the server's behavior. For instance, the ``--env-manager`` option allows you to
 choose a specific environment manager, like Anaconda, to create the virtual environment. The `mlflow models` module also provides
-additional useful commands, such as building a Docker image or generating a Dockerfile. For comprehensive details, please refer 
+additional useful commands, such as building a Docker image or generating a Dockerfile. For comprehensive details, please refer
 to the `MLflow CLI Reference <../cli.html#mlflow-models>`_.
 
 
@@ -78,11 +78,11 @@ JSON Input
 **********
 
 You can either pass a flat dictionary corresponding to the desired model payload or wrap the
-payload in a dict with a dict key that specifies your payload format. 
+payload in a dict with a dict key that specifies your payload format.
 
 Wrapped Payload Dict
 ^^^^^^^^^^^^^^^^^^^^
-If your model format is not supported above or you want to avoid transforming your input data to 
+If your model format is not supported above or you want to avoid transforming your input data to
 the required payload format, you can leverage the dict payload structures below.
 
 .. list-table::
@@ -95,28 +95,28 @@ the required payload format, you can leverage the dict payload structures below.
       - Example
     * - ``dataframe_split``
       - Pandas DataFrames in the ``split`` orientation.
-      - 
+      -
         .. code-block:: python
 
           {"dataframe_split": pandas_df.to_dict(orient="split")}
 
     * - ``dataframe_records``
       - Pandas DataFrame in the ``records`` orientation. **We do not recommend using this format because it is not guaranteed to preserve column ordering.**
-      - 
+      -
         .. code-block:: python
-          
+
           {"dataframe_records": pandas_df.to_dict(orient="records")}
 
     * - ``instances``
       - Tensor input formatted as described in `TF Serving's API docs <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_ where the provided inputs will be cast to Numpy arrays.
-      - 
+      -
         .. code-block:: python
 
           {"instances": [1.0, 2.0, 5.0]}
 
     * - ``inputs``
       - Same as ``instances`` but with a different key.
-      - 
+      -
         .. code-block:: python
 
           {"inputs": [["Cheese"], ["and", "Crackers"]]}
@@ -181,7 +181,7 @@ models below, you can pass a raw payload dict.
       - Example
     * - OpenAI Chat
       - `OpenAI chat request payload <https://platform.openai.com/docs/api-reference/chat/create>`_.†
-      - 
+      -
         .. code-block:: python
 
           {

@@ -3,7 +3,7 @@
 5 Minute Tracking Server Overview
 ==================================
 
-In this guide we will walk you through how to view your MLflow experiment results with different types of 
+In this guide we will walk you through how to view your MLflow experiment results with different types of
 tracking server configurations. At a high level, there are 3 ways to view your MLflow experiments:
 
 * **[Method 1]** Start your own MLflow server.
@@ -13,9 +13,9 @@ tracking server configurations. At a high level, there are 3 ways to view your M
 To choose among these 3 methods, here is our recommendation:
 
 * If you have privacy concerns (data/model/tech stack), use **Method 1 - start your own server**.
-* If you are a student or an individual researcher, or if you are developing in cloud-based notebooks (e.g., Google 
+* If you are a student or an individual researcher, or if you are developing in cloud-based notebooks (e.g., Google
   Colab), use **Method 2 - free hosted tracking server**.
-* Enterprise users, or if you want to serve or deploy your model for a production use-case, please use 
+* Enterprise users, or if you want to serve or deploy your model for a production use-case, please use
   **Method 3 - production Databricks/AzureML**.
 
 Overall **Method 2 - free hosted tracking server** is the simplest way to get started with MLflow, but please
@@ -24,11 +24,11 @@ pick the method that best suits your needs.
 Method 1: Start Your Own MLflow Server
 ---------------------------------------
 
-**Disclaimier**: This part of guide is not suitable for running in a cloud-provided IPython environment 
+**Disclaimier**: This part of guide is not suitable for running in a cloud-provided IPython environment
 (e.g., Collab, Databricks). Please follow the guide below in your local machine (laptop/desktop).
 
-A hosted tracking server is the simplest way to store and view MLflow experiments, but it is not suitable for 
-every user. For example, you may not want to expose your data and model to others in your cloud provider account. In this case, 
+A hosted tracking server is the simplest way to store and view MLflow experiments, but it is not suitable for
+every user. For example, you may not want to expose your data and model to others in your cloud provider account. In this case,
 you can use a local hosted MLflow server to store and view your experiments. To do so, there are two steps:
 
 * Start your MLflow server.
@@ -44,7 +44,7 @@ If you don't have MLflow installed, please run the command below to install it:
 
     $ pip install mlflow
 
-The installation of MLflow includes the MLflow CLI tool, so you can start a local MLflow server with UI 
+The installation of MLflow includes the MLflow CLI tool, so you can start a local MLflow server with UI
 by running the command below in your terminal:
 
 .. code-block:: bash
@@ -60,7 +60,7 @@ It will generate logs with the IP address, for example:
     [2023-10-25 19:39:12 -0700] [50239] [INFO] Listening at: http://127.0.0.1:5000 (50239)
 
 
-Opening the URL of the MLflow tracking server in your browser will bring you to the MLflow UI. The image below is from the open source version of the MLflow UI, 
+Opening the URL of the MLflow tracking server in your browser will bring you to the MLflow UI. The image below is from the open source version of the MLflow UI,
 which is a bit different from the MLflow UI on Databricks CE. Below is a screenshot of the landing page:
 
 .. image:: ../../_static/images/quickstart/tracking-server-overview/mlflow-localhost-landing-page.png
@@ -76,7 +76,7 @@ which is a bit different from the MLflow UI on Databricks CE. Below is a screens
 Connect MLflow Session to Your Server
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Now that the server is spun up, let's connect our MLflow session to the local server. This is very 
+Now that the server is spun up, let's connect our MLflow session to the local server. This is very
 similar to how we connect to a remote hosted tracking provider such as the Databricks platform.
 
 .. code-block:: python
@@ -119,9 +119,9 @@ Then execute it by:
 View Experiment on Your MLflow Server
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Now let's view your experiment on the local server. Open the URL in your browser, which is `http://localhost:5000` 
-in our case. In the UI, inside the left sidebar you should see the experiment with name 
-`"check-localhost-connection"`. Clicking on this experiment name should bring you to the experiment view, similar to what is shown below. 
+Now let's view your experiment on the local server. Open the URL in your browser, which is `http://localhost:5000`
+in our case. In the UI, inside the left sidebar you should see the experiment with name
+`"check-localhost-connection"`. Clicking on this experiment name should bring you to the experiment view, similar to what is shown below.
 
 .. image:: ../../_static/images/quickstart/tracking-server-overview/mlflow-localhost-experiment-view.png
     :width: 800px
@@ -142,14 +142,14 @@ That's all about how to start your own MLflow server and view your experiments. 
 of this method below:
 
 * **Pros**
-  
+
   * You have full control of your data and model, which is good for privacy concerns.
   * No subscription is required.
   * Unlimited quota of experiments/runs.
   * You can even customize your UI by forking the MLflow repo and modify the UI code.
 
 * **Cons**
-  
+
   * Requires manual setup and maintenance.
   * Team collaboration is harder than using a hosted tracking server.
   * Not suitable for cloud-based notebook, e.g., Google Colab.
@@ -160,13 +160,13 @@ of this method below:
 Method 2: Use Free Hosted Tracking Server (Databricks Community Edition)
 ------------------------------------------------------------------------
 
-**Notice**: This part of guide can be directly executed in cloud-based notebook, e.g., Google Colab or 
+**Notice**: This part of guide can be directly executed in cloud-based notebook, e.g., Google Colab or
 Databricks Notebook.
 
-`Databricks Community Edition (CE) <https://community.cloud.databricks.com/>`_ is the free, limited-use version of the 
-cloud-based big data platform Databricks. Databricks CE users can access a micro-cluster as well as 
-a cluster manager and notebook environment. All users can share their notebooks and host them free of 
-charge with Databricks. You can use Databricks CE to store and view your MLflow experiments without 
+`Databricks Community Edition (CE) <https://community.cloud.databricks.com/>`_ is the free, limited-use version of the
+cloud-based big data platform Databricks. Databricks CE users can access a micro-cluster as well as
+a cluster manager and notebook environment. All users can share their notebooks and host them free of
+charge with Databricks. You can use Databricks CE to store and view your MLflow experiments without
 being charged.
 
 To use Databricks CE to store and view our MLflow experiments, basically we need to:
@@ -175,13 +175,13 @@ To use Databricks CE to store and view our MLflow experiments, basically we need
 * Set up Databricks CE authentication in our dev environment.
 * Connect to Databricks CE in our MLflow experiment session.
 
-Then the experiment results will be automatically sent to Databricks CE, where you can view it in 
+Then the experiment results will be automatically sent to Databricks CE, where you can view it in
 MLflow experiment UI. Now let's look at the code.
 
 Create a Databricks CE Account
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you don't have an account of Databricks CE yet, you can create one 
+If you don't have an account of Databricks CE yet, you can create one
 `here <https://www.databricks.com/try-databricks#account>`_. The full process should take no longer than 3 minutes.
 
 Install Dependencies
@@ -221,8 +221,8 @@ If the authentication succeeds, you should see a message "Succesfully signed in 
 Connect MLflow Session to Databricks CE
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-We have set up the credentials, now we need to tell MLflow to send the data into Databricks CE. 
-To do so, we will use ``mlflow.set_tracking_uri("databricks")`` to port MLflow to Databricks CE. Basically 
+We have set up the credentials, now we need to tell MLflow to send the data into Databricks CE.
+To do so, we will use ``mlflow.set_tracking_uri("databricks")`` to port MLflow to Databricks CE. Basically
 it is the command below. Please note that you need to always use `"databricks"` as the keyword.
 
 .. code-block:: python
@@ -247,25 +247,25 @@ Now you are ready to go! Let's try starting an MLflow experiment and log some du
 View Your Experiment on Databricks CE
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Now let's navigate to Databricks CE to view the experiment result. Log in to your 
-`Databricks CE <https://community.cloud.databricks.com/>`_ account, and click on top left to select machine learning 
+Now let's navigate to Databricks CE to view the experiment result. Log in to your
+`Databricks CE <https://community.cloud.databricks.com/>`_ account, and click on top left to select machine learning
 in the drop down list. Then click on the experiment icon. See the screenshot below:
 
-.. image:: ../../_static/images/quickstart/tracking-server-overview/databricks-ce-landing-page.png 
+.. image:: ../../_static/images/quickstart/tracking-server-overview/databricks-ce-landing-page.png
     :width: 800px
     :align: center
     :alt: Landing page of Databricks MLflow server
 
 
-In the "Experiments" view, you should be able to find the experiment "/check-databricks-ce-connection", similar to 
+In the "Experiments" view, you should be able to find the experiment "/check-databricks-ce-connection", similar to
 
 .. image:: ../../_static/images/quickstart/tracking-server-overview/databricks-ce-experiment-view.png
     :width: 800px
     :align: center
     :alt: Experiment view of Databricks MLflow server
 
-Clicking on the run name, in our example it is "youthful-lamb-287" (it's a randomly generated name, you will see 
-a different name in your CE console), will bring you to the run view, similar to 
+Clicking on the run name, in our example it is "youthful-lamb-287" (it's a randomly generated name, you will see
+a different name in your CE console), will bring you to the run view, similar to
 
 .. image:: ../../_static/images/quickstart/tracking-server-overview/databricks-ce-run-view.png
     :width: 800px
@@ -281,32 +281,32 @@ That's all about how to use Databricks CE as the tracking server. Please see the
 of this method below:
 
 * **Pros**
-  
+
   * Effortless setup.
-  * Free. 
+  * Free.
   * Good for collaboration, e.g., you can share your MLflow experiment with your teammates easily.
   * Compatible for developing on cloud-based notebook, e.g., Google Colab.
   * Compatible for developing on cloud VM.
 
 * **Cons**
-  
+
   * Has quota limit of experiments/runs.
   * No model registration/serving support.
 
 Method 3: Use Production Hosted Tracking Server
 ------------------------------------------------
 
-If you are an enterprise user and willing to productionize your model, you can use a production platform like 
-Databricks or Microsoft AzureML. If you use Databricks, MLflow experiment will log your model into the Databricks 
-MLflow server, and you can register your model then serve your model by a few clicks. Serving feature 
+If you are an enterprise user and willing to productionize your model, you can use a production platform like
+Databricks or Microsoft AzureML. If you use Databricks, MLflow experiment will log your model into the Databricks
+MLflow server, and you can register your model then serve your model by a few clicks. Serving feature
 is only available on production Databricks workspace, and not available on Databricks CE.
 
-The method of using production Databricks is the same as using Databricks CE, you only need to 
+The method of using production Databricks is the same as using Databricks CE, you only need to
 change the host to be the production workspace. For example, ``https://dbc-1234567-123.cloud.databricks.com``.
-For more information about how Databricks power your Machine Learning workflow, please refer to the `doc 
+For more information about how Databricks power your Machine Learning workflow, please refer to the `doc
 here <https://docs.databricks.com/en/machine-learning/index.html>`_.
 
-To use AzureML as the tracking server, please read 
+To use AzureML as the tracking server, please read
 `the doc here <https://learn.microsoft.com/en-us/azure/machine-learning/how-to-use-mlflow-cli-runs?view=azureml-api-2&tabs=interactive%2Ccli>`_
 
 Conclusion
@@ -316,7 +316,7 @@ That's all about how to use a production platform as the tracking server. Please
 of this method below:
 
 * **Pros**
-  
+
   * Effortless setup.
   * Good for collaboration, e.g., you can share your MLflow experiment with your teammates easily.
   * Compatible for developing on cloud-based notebook, e.g., Google Colab.
@@ -325,6 +325,6 @@ of this method below:
   * Higher quota than Databricks CE (pay as you go).
 
 * **Cons**
-  
+
   * Not free.
   * Need to manage a billing account.

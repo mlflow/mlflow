@@ -296,7 +296,7 @@ or you can :ref:`deploy it for real-time serving <deploy-prompt-serving>`.
 Step 13: Perform metric-based evaluation of your model's outputs
 ----------------------------------------------------------------
 If you'd like to assess your model's performance on specific metrics, MLflow provides the :py:func:`mlflow.evaluate()`
-API. Let's evaluate our model on some :ref:`pre-defined metrics <llm-eval-default-metrics>` 
+API. Let's evaluate our model on some :ref:`pre-defined metrics <llm-eval-default-metrics>`
 for text summarization:
 
   .. code-block:: python

@@ -18,10 +18,10 @@ a RAG application that answers questions about MLflow documentation.
 End-to-End LLM RAG Evaluation Tutorial
 --------------------------------------
 
-This notebook, intended for use with the Databricks platform, showcases a full end-to-end example of how to configure, create, and interface with 
-a full RAG system. The example used in this tutorial uses the documentation of MLflow as the corpus of embedded documents that the RAG application will 
-use to answer questions. Using ChromaDB to store the document embeddings and LangChain to orchestrate the RAG application, we'll use MLflow's `evaluate` 
-functionality to evaluate the retrieved documents from our corpus based on a series of questions. You can click "Download this Notebook" button to 
+This notebook, intended for use with the Databricks platform, showcases a full end-to-end example of how to configure, create, and interface with
+a full RAG system. The example used in this tutorial uses the documentation of MLflow as the corpus of embedded documents that the RAG application will
+use to answer questions. Using ChromaDB to store the document embeddings and LangChain to orchestrate the RAG application, we'll use MLflow's `evaluate`
+functionality to evaluate the retrieved documents from our corpus based on a series of questions. You can click "Download this Notebook" button to
 download the ``.ipynb`` file locally and import it directly in the Databricks Workspace.
 
 
@@ -46,10 +46,10 @@ download the ``.ipynb`` file locally and import it directly in the Databricks Wo
 Question Generation for RAG Tutorial
 ------------------------------------
 
-This notebook is a step-by-step tutorial on how to generate a question dataset with 
+This notebook is a step-by-step tutorial on how to generate a question dataset with
 LLMs for retrieval evaluation within RAG. It will guide you through getting a document dataset,
-generating relevant questions through prompt engineering on LLMs, and analyzing the 
-question dataset. The question dataset can then be used for the subsequent task of evaluating the 
+generating relevant questions through prompt engineering on LLMs, and analyzing the
+question dataset. The question dataset can then be used for the subsequent task of evaluating the
 retriever model, which is a part of RAG that collects and ranks relevant document chunks based on
 the user's question.
 

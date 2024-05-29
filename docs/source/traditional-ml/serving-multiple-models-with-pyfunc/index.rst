@@ -1,19 +1,19 @@
 Serving Multiple Models on a Single Endpoint with a Custom PyFunc Model
 =======================================================================
 
-This tutorial addresses a common scenario in machine learning: serving multiple models through a 
-single endpoint. Utilizing services like Sagemaker's Multi-Model Endpoints, you can host numerous 
-models under one endpoint, simplifying deployment and cutting costs. We'll replicate this 
+This tutorial addresses a common scenario in machine learning: serving multiple models through a
+single endpoint. Utilizing services like Sagemaker's Multi-Model Endpoints, you can host numerous
+models under one endpoint, simplifying deployment and cutting costs. We'll replicate this
 functionality using any MLflow-compatible service combined with a custom PyFunc implementation.
 
 Here are some reasons to consider this design:
 
-- **Simplified Inference**: We will maintain a single model endpoint instead of one per model, which dramatically reduces maintenance and provisioning complexity. 
+- **Simplified Inference**: We will maintain a single model endpoint instead of one per model, which dramatically reduces maintenance and provisioning complexity.
 - **Reduced Serving Cost**: Endpoints cost money! If your hosting service charges for compute and not memeory, this will save you money.
 
 0 - What's in this tutorial?
 ----------------------------
-This guide walks you through the steps to serve multiple models from a single endpoint, breaking 
+This guide walks you through the steps to serve multiple models from a single endpoint, breaking
 down the process into:
 
 1. Create many demo sklearn models, each trained on data corresponding to a single day of the week.
@@ -21,20 +21,20 @@ down the process into:
 3. Perform inference on the custom PyFunc model.
 4. Locally serve the custom PyFunc model and query our endpoint.
 
-After completing this tutorial, you'll be equipped to efficiently serve multiple models from a 
+After completing this tutorial, you'll be equipped to efficiently serve multiple models from a
 single endpoint.
 
 1 - What is PyFunc?
 -------------------
 Custom PyFunc models are a powerful MLflow feature that lets users customize model functionality
 where named flavors may be lacking. Going forward we assume basic working knowledge of PyFunc, so if
-you're unfamiliar, check out the 
+you're unfamiliar, check out the
 `Creating Custom PyFunc <https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html>`_
 tutorial.
 
 2 - What do I need to do?
 -------------------------
-To create an MME, you'll create a child implementation of 
+To create an MME, you'll create a child implementation of
 :py:class:`PythonModel <mlflow.pyfunc.PythonModel>`. More specifically, we'll need to focus on the
 below components...
 

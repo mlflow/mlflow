@@ -34,7 +34,7 @@ Once the server starts runing, you should see the following output:
 
 There are many options to configure the server, refer to :ref:`Configure Server <configure-server>` for more details.
 
-.. important:: 
+.. important::
   The server listens on http://localhost:5000 by default and only accepts
   connections from the local machine. To let the server accept connections
   from other machines, you will need to pass ``--host 0.0.0.0`` to listen on
@@ -51,7 +51,7 @@ There are many options to configure the server, refer to :ref:`Configure Server 
 Logging to a Tracking Server
 ============================
 
-Once you started the tracking server, you can connect your local clients by set the ``MLFLOW_TRACKING_URI`` environment variable to the 
+Once you started the tracking server, you can connect your local clients by set the ``MLFLOW_TRACKING_URI`` environment variable to the
 server's URI, along with its scheme and port (for example, ``http://10.0.0.1:5000``) or call :py:func:`mlflow.set_tracking_uri`.
 
 The :py:func:`mlflow.start_run`, :py:func:`mlflow.log_param`, and :py:func:`mlflow.log_metric` calls
@@ -121,7 +121,7 @@ Remote artifacts store
 
 Using the Tracking Server for proxied artifact access
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-By default, the tracking server stores artifacts in its local filesystem under ``./mlartifacts`` directory. To configure 
+By default, the tracking server stores artifacts in its local filesystem under ``./mlartifacts`` directory. To configure
 the tracking server to connect to remote storgate and serve artifacts, start the server with ``--artifacts-destination`` flag.
 
 .. code-block:: bash
@@ -134,10 +134,10 @@ the tracking server to connect to remote storgate and serve artifacts, start the
 With this setting, MLflow server works as a proxy for accessing remote artifacts. The MLflow clients make HTTP request to the server for fetching artifacts.
 
 .. important::
-  If you are using remote storage, you have to configure the credentials for the server to access the artifacts. Be aware of that The MLflow artifact proxied 
+  If you are using remote storage, you have to configure the credentials for the server to access the artifacts. Be aware of that The MLflow artifact proxied
   access service enables users to have an *assumed role of access to all artifacts* that are accessible to the Tracking Server. Refer :ref:`Manage Access <artifacts-stores-manage-access>` for further details.
 
-The tracking server resolves the uri ``mlflow-artifacts:/`` in tracking request from the client to an otherwise 
+The tracking server resolves the uri ``mlflow-artifacts:/`` in tracking request from the client to an otherwise
 explicit object store destination (e.g., "s3:/my_bucket/mlartifacts") for interfacing with artifacts. The following patterns will all resolve to the configured proxied object store location (in above example, ``s3://my-root-bucket/mlartifacts``):
 
  * ``https://<host>:<port>/mlartifacts``
@@ -147,7 +147,7 @@ explicit object store destination (e.g., "s3:/my_bucket/mlartifacts") for interf
  * ``mlflow-artifacts:/mlartifacts``
 
 
-.. important:: 
+.. important::
   The MLflow client caches artifact location information on a per-run basis.
   It is therefore not recommended to alter a run's artifact location before it has terminated.
 
@@ -164,7 +164,7 @@ you want to redirect the request to.
     mlflow server --no-serve-artifacts --default-artifact-root s3://my-bucket
 
 With this setting, the MLflow client still makes minimum HTTP requests to the tracking server for fetching proper remote storage URI,
-but can directly upload artifacts to / download artifacts from the remote storage. While this might not be a good practice for access and 
+but can directly upload artifacts to / download artifacts from the remote storage. While this might not be a good practice for access and
 secury governance, it could be useful when you want to avoid the overhead of proxying artifacts through the tracking server.
 
 .. note::

@@ -12,9 +12,9 @@ In this quickstart, you will:
 - Deploy the model to a REST API
 - Build a container image suitable for deployment to a cloud platform
 
-As an ML Engineer or MLOps professional, you can use MLflow to compare, share, and deploy the best models produced 
-by the team. In this quickstart, you will use the MLflow Tracking UI to compare the results of a hyperparameter 
-sweep, choose the best run, and register it as a model. Then, you will deploy the model to a REST API. Finally, 
+As an ML Engineer or MLOps professional, you can use MLflow to compare, share, and deploy the best models produced
+by the team. In this quickstart, you will use the MLflow Tracking UI to compare the results of a hyperparameter
+sweep, choose the best run, and register it as a model. Then, you will deploy the model to a REST API. Finally,
 you will create a Docker container image suitable for deployment to a cloud platform.
 
 .. image:: ../../_static/images/quickstart/quickstart_tracking_overview.png
@@ -26,27 +26,27 @@ you will create a Docker container image suitable for deployment to a cloud plat
 Set up
 ------
 
-For a comprehensive guide on getting an MLflow environment setup that will give you options on how to configure MLflow tracking 
+For a comprehensive guide on getting an MLflow environment setup that will give you options on how to configure MLflow tracking
 capabilities, you can `read the guide here <../running-notebooks/index.html>`_.
 
 Run a hyperparameter sweep
 --------------------------
 
-This example tries to optimize the RMSE metric of a Keras deep learning model on a wine quality dataset. It has 
-two hyperparameters that it tries to optimize: ``learning_rate`` and ``momentum``. We will use the 
-`Hyperopt <https://github.com/hyperopt/hyperopt>`_ library to run a hyperparameter sweep across 
-different values of ``learning_rate`` and ``momentum`` and record the results in MLflow. 
+This example tries to optimize the RMSE metric of a Keras deep learning model on a wine quality dataset. It has
+two hyperparameters that it tries to optimize: ``learning_rate`` and ``momentum``. We will use the
+`Hyperopt <https://github.com/hyperopt/hyperopt>`_ library to run a hyperparameter sweep across
+different values of ``learning_rate`` and ``momentum`` and record the results in MLflow.
 
-Before running the hyperparameter sweep, let's set the ``MLFLOW_TRACKING_URI`` environment variable to the URI of 
+Before running the hyperparameter sweep, let's set the ``MLFLOW_TRACKING_URI`` environment variable to the URI of
 our MLflow tracking server:
 
 .. code-block:: bash
 
   export MLFLOW_TRACKING_URI=http://localhost:5000
 
-.. note:: 
-    
-    If you would like to explore the possibilities of other tracking server deployments, including a fully-managed 
+.. note::
+
+    If you would like to explore the possibilities of other tracking server deployments, including a fully-managed
     free-of-charge solution with Databricks Community Edition, please see `this page <../running-notebooks/index.html>`_.
 
 Import the following packages
@@ -63,7 +63,7 @@ Import the following packages
     import mlflow
     from mlflow.models import infer_signature
 
-Now load the dataset and split it into training, validation, and test sets. 
+Now load the dataset and split it into training, validation, and test sets.
 
 .. code-block:: python
 
@@ -134,7 +134,7 @@ parameters, results, and model itself of each trial as a child run.
             return {"loss": eval_rmse, "status": STATUS_OK, "model": model}
 
 
-The ``objective`` function takes in the hyperparameters and returns the results of the ``train_model`` 
+The ``objective`` function takes in the hyperparameters and returns the results of the ``train_model``
 function for that set of hyperparameters.
 
 .. code-block:: python
@@ -167,8 +167,8 @@ of subsequent hyperparameter sets in a more informed manner, aiming to converge 
         "momentum": hp.uniform("momentum", 0.0, 1.0),
     }
 
-Finally, we will run the hyperparameter sweep using Hyperopt, passing in the ``objective`` function and search space. 
-Hyperopt will try different hyperparameter combinations and return the results of the best one. We will 
+Finally, we will run the hyperparameter sweep using Hyperopt, passing in the ``objective`` function and search space.
+Hyperopt will try different hyperparameter combinations and return the results of the best one. We will
 store the best parameters, model, and evaluation metrics in MLflow.
 
 .. code-block:: python
@@ -227,16 +227,16 @@ each hyperparameter evaluation run's parameters to the evaluated error metric fo
     alt="Screenshot of MLflow tracking UI parallel coordinates graph showing runs"
   />
 
-The red graphs on this graph are runs that fared poorly. The lowest one is a baseline run with both **lr** 
-and **momentum** set to 0.0. That baseline run has an RMSE of ~0.89. The other red lines show that 
-high **momentum** can also lead to poor results with this problem and architecture. 
+The red graphs on this graph are runs that fared poorly. The lowest one is a baseline run with both **lr**
+and **momentum** set to 0.0. That baseline run has an RMSE of ~0.89. The other red lines show that
+high **momentum** can also lead to poor results with this problem and architecture.
 
 The graphs shading towards blue are runs that fared better. Hover your mouse over individual runs to see their details.
 
 Register your best model
 ------------------------
 
-Choose the best run and register it as a model. In the **Table view**, choose the best run. In the 
+Choose the best run and register it as a model. In the **Table view**, choose the best run. In the
 **Run Detail** page, open the **Artifacts** section and select the **Register Model** button. In the
 **Register Model** dialog, enter a name for the model, such as ``wine-quality``, and click **Register**.
 
@@ -278,7 +278,7 @@ To test the model, you can send a request to the REST API using the ``curl`` com
 .. code-block:: bash
 
   curl -d '{"dataframe_split": {
-  "columns": ["fixed acidity","volatile acidity","citric acid","residual sugar","chlorides","free sulfur dioxide","total sulfur dioxide","density","pH","sulphates","alcohol"], 
+  "columns": ["fixed acidity","volatile acidity","citric acid","residual sugar","chlorides","free sulfur dioxide","total sulfur dioxide","density","pH","sulphates","alcohol"],
   "data": [[7,0.27,0.36,20.7,0.045,45,170,1.001,3,0.45,8.8]]}}' \
   -H 'Content-Type: application/json' -X POST localhost:5002/invocations
 

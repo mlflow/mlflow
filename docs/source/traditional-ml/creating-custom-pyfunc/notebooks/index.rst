@@ -15,9 +15,9 @@ Basics of Creating a Custom Python Model with MLflow's Pyfunc
 Introduction
 ^^^^^^^^^^^^
 
-In this initial tutorial, we'll introduce you to the foundational concepts of MLflow's `pyfunc`. We'll illustrate the simplicity and 
-adaptability of creating, saving, and invoking a custom Python function model within the MLflow ecosystem. By the end, you'll have a 
-hands-on understanding of a model that adds a specified numeric value to DataFrame columns, highlighting the innate flexibility 
+In this initial tutorial, we'll introduce you to the foundational concepts of MLflow's `pyfunc`. We'll illustrate the simplicity and
+adaptability of creating, saving, and invoking a custom Python function model within the MLflow ecosystem. By the end, you'll have a
+hands-on understanding of a model that adds a specified numeric value to DataFrame columns, highlighting the innate flexibility
 of the `pyfunc` flavor.
 
 What you will learn
@@ -57,8 +57,8 @@ Building a Basic Custom Python Model
 Introduction
 ^^^^^^^^^^^^
 
-In this tutorial, we deepen our understanding of MLflow's Custom Pyfunc. The ``PythonModel`` class serves as the cornerstone, allowing 
-you to define, save, load, and predict using custom PyFunc models. 
+In this tutorial, we deepen our understanding of MLflow's Custom Pyfunc. The ``PythonModel`` class serves as the cornerstone, allowing
+you to define, save, load, and predict using custom PyFunc models.
 We'll be developing a very non-standard model; one that generates plotted figures in order to showcase the flexibility of custom PyFunc models.
 By the end, we'll have a functional Lissajous curve generator, wrapped and managed within the Pyfunc framework.
 
@@ -73,21 +73,21 @@ What you will learn
 The ``PythonModel`` class
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-MLflow's commitment to flexibility and standardization shines through the ``PythonModel`` class. This class, crucial to the Pyfunc 
+MLflow's commitment to flexibility and standardization shines through the ``PythonModel`` class. This class, crucial to the Pyfunc
 flavor, provides the necessary scaffolding to define custom logic, load resources, and make predictions.
 
 There are two primary ways to create an instance of the PythonModel:
 1. **Class-based approach**: Define a class with necessary methods and use it as a blueprint for the model.
 2. **Function-based approach**: Capture the entire prediction logic within a single function, letting MLflow handle the rest.
 
-For this tutorial, we'll focus on the class-based approach, delving into methods like ``load_context`` and ``predict`` and 
+For this tutorial, we'll focus on the class-based approach, delving into methods like ``load_context`` and ``predict`` and
 understanding their roles in the larger ecosystem.
 
 Lissajous Curves
 ^^^^^^^^^^^^^^^^
 
-As our vehicle for understanding, we'll employ the Lissajous curves – sinusoidal parametric curves whose shapes and orientations are 
-determined by their parameters. Instead of a conventional machine learning model, this mathematical curve will demonstrate the versatility 
+As our vehicle for understanding, we'll employ the Lissajous curves – sinusoidal parametric curves whose shapes and orientations are
+determined by their parameters. Instead of a conventional machine learning model, this mathematical curve will demonstrate the versatility
 and power of the Pyfunc flavor.
 
 Step-by-step Guide
@@ -101,8 +101,8 @@ Step-by-step Guide
 Wrap Up
 ^^^^^^^
 
-With a practical example under our belt, the power and flexibility of MLflow's Custom Pyfunc are evident. Whether you're working with 
-traditional machine learning models or unique use cases like the Lissajous curve generator, Pyfunc ensures a standardized, reproducible, 
+With a practical example under our belt, the power and flexibility of MLflow's Custom Pyfunc are evident. Whether you're working with
+traditional machine learning models or unique use cases like the Lissajous curve generator, Pyfunc ensures a standardized, reproducible,
 and efficient workflow.
 
 .. raw:: html
@@ -122,9 +122,9 @@ Overriding a model's prediction method
 Introduction
 ^^^^^^^^^^^^
 
-Diving deeper into the realm of custom PyFuncs with MLflow, this tutorial addresses a common challenge in model deployment: retaining and 
-customizing the behavior of a model's prediction method after serialization and deployment. Leveraging the power of MLflow's PyFunc flavor, 
-we'll learn how to override the default `predict` behavior, ensuring our model retains all its original capabilities when deployed in 
+Diving deeper into the realm of custom PyFuncs with MLflow, this tutorial addresses a common challenge in model deployment: retaining and
+customizing the behavior of a model's prediction method after serialization and deployment. Leveraging the power of MLflow's PyFunc flavor,
+we'll learn how to override the default `predict` behavior, ensuring our model retains all its original capabilities when deployed in
 different environments.
 
 What you will learn
@@ -138,14 +138,14 @@ What you will learn
 Why Override `predict`?
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Models, especially in libraries like scikit-learn, often come with multiple methods for prediction, such as `predict`, `predict_proba`, and `predict_log_proba`. 
-When deploying such models, it's essential to retain the flexibility to choose the prediction methodology dynamically. This section sheds light 
+Models, especially in libraries like scikit-learn, often come with multiple methods for prediction, such as `predict`, `predict_proba`, and `predict_log_proba`.
+When deploying such models, it's essential to retain the flexibility to choose the prediction methodology dynamically. This section sheds light
 on the need for such flexibility and the challenges with default PyFunc deployments.
 
 Creating a Custom PyFunc
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Venturing into the solution, we craft a custom PyFunc by extending MLflow's `PythonModel`. This custom class serves as a wrapper around the 
+Venturing into the solution, we craft a custom PyFunc by extending MLflow's `PythonModel`. This custom class serves as a wrapper around the
 original model, providing a flexible `predict` method that can mimic the behavior of various original methods based on provided parameters.
 
 Step-by-step Guide
@@ -160,8 +160,8 @@ Step-by-step Guide
 Wrap Up
 ^^^^^^^
 
-Overcoming the challenges of default deployments, this tutorial showcases the prowess of custom PyFuncs in MLflow. The ability to override and 
-customize prediction methods ensures that our deployed models remain as versatile and capable as their original incarnations. As ML workflows 
+Overcoming the challenges of default deployments, this tutorial showcases the prowess of custom PyFuncs in MLflow. The ability to override and
+customize prediction methods ensures that our deployed models remain as versatile and capable as their original incarnations. As ML workflows
 grow in complexity, such customization becomes invaluable, ensuring our deployments are robust and adaptable.
 
 .. raw:: html

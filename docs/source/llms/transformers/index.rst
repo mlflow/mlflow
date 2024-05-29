@@ -8,17 +8,17 @@ MLflow Transformers Flavor
 Introduction
 ------------
 
-**Transformers** by 🤗 `Hugging Face <https://huggingface.co/docs/transformers/index>`_ represents a cornerstone in the realm of 
-machine learning, offering state-of-the-art capabilities for a multitude of frameworks including `PyTorch <https://pytorch.org/>`_, 
-`TensorFlow <https://www.tensorflow.org/>`_, and `JAX <https://jax.readthedocs.io/en/latest/notebooks/quickstart.html>`_. 
-This library has become the de facto standard for natural language processing (NLP) and audio transcription processing. 
-It also provides a compelling and advanced set of options for computer vision and multimodal AI tasks. 
-Transformers achieves all of this by providing pre-trained models and accessible high-level APIs that are not only powerful 
+**Transformers** by 🤗 `Hugging Face <https://huggingface.co/docs/transformers/index>`_ represents a cornerstone in the realm of
+machine learning, offering state-of-the-art capabilities for a multitude of frameworks including `PyTorch <https://pytorch.org/>`_,
+`TensorFlow <https://www.tensorflow.org/>`_, and `JAX <https://jax.readthedocs.io/en/latest/notebooks/quickstart.html>`_.
+This library has become the de facto standard for natural language processing (NLP) and audio transcription processing.
+It also provides a compelling and advanced set of options for computer vision and multimodal AI tasks.
+Transformers achieves all of this by providing pre-trained models and accessible high-level APIs that are not only powerful
 but also versatile and easy to implement.
 
-For instance, one of the cornerstones of the simplicity of the transformers library is the `pipeline API <https://huggingface.co/transformers/main_classes/pipelines.html>`_, 
-an encapsulation of the most common NLP tasks into a single API call. This API allows users to perform a variety of tasks based on the specified task without 
-having to worry about the underlying model or the preprocessing steps. 
+For instance, one of the cornerstones of the simplicity of the transformers library is the `pipeline API <https://huggingface.co/transformers/main_classes/pipelines.html>`_,
+an encapsulation of the most common NLP tasks into a single API call. This API allows users to perform a variety of tasks based on the specified task without
+having to worry about the underlying model or the preprocessing steps.
 
 .. figure:: ../../_static/images/tutorials/llms/transformers-pipeline-architecture.png
    :alt: Transformers Pipeline Architecture
@@ -27,8 +27,8 @@ having to worry about the underlying model or the preprocessing steps.
 
    Transformers Pipeline Architecture for the Whisper Model
 
-The integration of the Transformers library with MLflow enhances the management of machine learning workflows, from experiment 
-tracking to model deployment. This combination offers a robust and efficient pathway for incorporating advanced NLP and AI capabilities 
+The integration of the Transformers library with MLflow enhances the management of machine learning workflows, from experiment
+tracking to model deployment. This combination offers a robust and efficient pathway for incorporating advanced NLP and AI capabilities
 into your applications.
 
 **Key Features of the Transformers Library**:
@@ -38,7 +38,7 @@ into your applications.
 - **Framework Interoperability**: Compatibility with PyTorch, TensorFlow, JAX, ONNX, and TorchScript.
 - **Community Support**: An active community for collaboration and support, accessible via forums and the Hugging Face Hub.
 
-**MLflow's Transformers Flavor**: 
+**MLflow's Transformers Flavor**:
 
 MLflow supports the use of the Transformers package by providing:
 
@@ -61,18 +61,18 @@ For an illustration of fine-tuning a model and logging the results with MLflow, 
 Deployment Made Easy
 ^^^^^^^^^^^^^^^^^^^^
 
-Once a model is trained, it needs to be `deployed for inference <guide/index.html#example-of-loading-a-transformers-model-as-a-python-function>`_. 
-MLflow's integration with Transformers simplifies this by providing functions such as :py:func:`mlflow.transformers.load_model` and 
+Once a model is trained, it needs to be `deployed for inference <guide/index.html#example-of-loading-a-transformers-model-as-a-python-function>`_.
+MLflow's integration with Transformers simplifies this by providing functions such as :py:func:`mlflow.transformers.load_model` and
 :py:func:`mlflow.pyfunc.load_model`, which allow for easy model serving.
-As part of the feature support for enhanced inference with transformers, MLflow provides mechanisms to enable the use of `inference 
-arguments <guide/index.html#scalability-for-inference>`_ that can reduce the computational overhead and lower the memory requirements 
-for deployment. 
+As part of the feature support for enhanced inference with transformers, MLflow provides mechanisms to enable the use of `inference
+arguments <guide/index.html#scalability-for-inference>`_ that can reduce the computational overhead and lower the memory requirements
+for deployment.
 
 Getting Started with the MLflow Transformers Flavor - Tutorials and Guides
 --------------------------------------------------------------------------
 
-Below, you will find a number of guides that focus on different use cases (`tasks`) using `transformers`  that leverage MLflow's 
-APIs for tracking and inference capabilities. 
+Below, you will find a number of guides that focus on different use cases (`tasks`) using `transformers`  that leverage MLflow's
+APIs for tracking and inference capabilities.
 
 .. toctree::
     :maxdepth: 2
@@ -147,7 +147,7 @@ Fine-tuning a model is a common task in machine learning workflows. These tutori
 Use Case Tutorials for Transformers with MLflow
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Interested in learning about how to leverage transformers for tasks other than basic text generation? Want to learn more about the breadth of problems that you can solve with transformers and MLflow? 
+Interested in learning about how to leverage transformers for tasks other than basic text generation? Want to learn more about the breadth of problems that you can solve with transformers and MLflow?
 
 These more advanced tutorials are designed to showcase different applications of the transformers model architecture and how to leverage MLflow to track and deploy these models.
 
@@ -191,7 +191,7 @@ These more advanced tutorials are designed to showcase different applications of
                         Building and Serving an OpenAI-Compatible Chatbot
                     </div>
                     <p>
-                        Learn how to build an OpenAI-compatible chatbot using a local Transformers 
+                        Learn how to build an OpenAI-compatible chatbot using a local Transformers
                         model and MLflow, and serve it with minimal configuration.
                     </p>
                 </a>
@@ -269,6 +269,6 @@ To learn more about the nuances of the `transformers` flavor in MLflow, delve in
 Learn more about Transformers
 -----------------------------
 
-Interested in learning more about how to leverage transformers for your machine learning workflows? 
+Interested in learning more about how to leverage transformers for your machine learning workflows?
 
 🤗 Hugging Face has a fantastic NLP course. Check it out and see how to leverage `Transformers, Datasets, Tokenizers, and Accelerate <https://huggingface.co/learn/nlp-course/chapter1/1>`_.

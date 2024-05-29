@@ -48,7 +48,7 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
         <div class="tracking-responsive-tab-panel">
             <div>
                 <h4>Easier DL Model Comparison with Charts</h4>
-                <p>Use charts to compare deep learning (DL) model training convergence easily. Quickly identify superior 
+                <p>Use charts to compare deep learning (DL) model training convergence easily. Quickly identify superior
                 configuration sets across training iterations.</p>
             </div>
             <img src="../_static/images/deep-learning/dl-run-selection.gif" style="width: 90%; height: auto; object-fit: cover;"/>
@@ -59,7 +59,7 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
         <div class="tracking-responsive-tab-panel">
             <div>
                 <h4>Chart Customization for DL Models</h4>
-                <p>Easily customize charts for DL training run comparisons. Adjust visualizations to pinpoint optimal parameter 
+                <p>Easily customize charts for DL training run comparisons. Adjust visualizations to pinpoint optimal parameter
                 settings, displaying optimization metrics across iterations in a unified view.</p>
             </div>
             <img src="../_static/images/deep-learning/dl-run-navigation.gif" style="width: 90%; height: auto; object-fit: cover;"/>
@@ -80,7 +80,7 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
         <div class="tracking-responsive-tab-panel">
             <div>
                 <h4>Statistical Evaluation of Categorical Parameters</h4>
-                <p>Leverage boxplot visualizations for categorical parameter evaluation. Quickly discern the most effective 
+                <p>Leverage boxplot visualizations for categorical parameter evaluation. Quickly discern the most effective
                 settings for hyperparameter tuning.</p>
             </div>
             <img src="../_static/images/deep-learning/dl-boxplot.gif" style="width: 90%; height: auto; object-fit: cover;"/>
@@ -91,7 +91,7 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
         <div class="tracking-responsive-tab-panel">
             <div>
                 <h4>Real-Time Training Tracking</h4>
-                <p>Automatically monitor DL training progress over epochs with the MLflow UI. Instantly track results to validate 
+                <p>Automatically monitor DL training progress over epochs with the MLflow UI. Instantly track results to validate
                 your hypotheses, eliminating constant manual updates.</p>
             </div>
             <img src="../_static/images/deep-learning/dl-tracking.gif" style="width: 90%; height: auto; object-fit: cover;"/>
@@ -105,7 +105,7 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
         .. tab:: Chart Comparison
 
             |chart-comparison|
-        
+
         .. tab:: Chart Customization
 
             |chart-customization|
@@ -113,15 +113,15 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
         .. tab:: Run Comparison
 
             |run-comparison|
- 
+
         .. tab:: Statistical Evaluation
 
             |parameter-evaluation|
 
         .. tab:: Realtime Tracking
-            
+
             |realtime-tracking|
-        
+
 
 Model Registry
 ^^^^^^^^^^^^^^
@@ -210,7 +210,7 @@ For detailed guide on how to integrate MLflow with these libraries, refer to the
                         <img src="../_static/images/logos/huggingface-logo.svg" alt="HuggingFace Logo"/>
                     </div>
                     <p>
-                        Learn about MLflow's native integration with the Transformers 🤗 library and see example notebooks that leverage 
+                        Learn about MLflow's native integration with the Transformers 🤗 library and see example notebooks that leverage
                         MLflow and Transformers to build Open-Source powered solutions.
                     </p>
                 </a>

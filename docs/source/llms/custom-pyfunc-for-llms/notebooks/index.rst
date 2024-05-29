@@ -15,9 +15,9 @@ Deploying Advanced LLMs with Custom PyFuncs
 Introduction
 ^^^^^^^^^^^^
 
-In this tutorial, we'll explore the nuances of deploying advanced Large Language Models (LLMs) with MLflow, particularly focusing on models 
-that can't be readily managed with MLflow's built-in functionality. We'll highlight the necessity of custom `pyfunc` definitions when 
-dealing with such complex models, emphasizing its role in managing intricate model behaviors and dependencies. By the end, you'll understand 
+In this tutorial, we'll explore the nuances of deploying advanced Large Language Models (LLMs) with MLflow, particularly focusing on models
+that can't be readily managed with MLflow's built-in functionality. We'll highlight the necessity of custom `pyfunc` definitions when
+dealing with such complex models, emphasizing its role in managing intricate model behaviors and dependencies. By the end, you'll understand
 the intricacies of deploying an LLM model using the MPT-7B instruct transformer, wrapped efficiently using a custom `pyfunc`.
 
 What you will learn
@@ -70,5 +70,5 @@ With the complexities of advanced LLM deployment unraveled, this tutorial showca
     </section>
 
 .. note::
-    To execute the notebooks, ensure you either have a local MLflow Tracking Server running or adjust the ``mlflow.set_tracking_uri()`` to point to an active MLflow Tracking Server instance. 
+    To execute the notebooks, ensure you either have a local MLflow Tracking Server running or adjust the ``mlflow.set_tracking_uri()`` to point to an active MLflow Tracking Server instance.
     To engage with the MLflow UI, ensure you're either running the UI server locally or have a configured, accessible, deployed MLflow UI server.

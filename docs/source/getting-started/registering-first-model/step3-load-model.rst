@@ -1,9 +1,9 @@
 Load a Registered Model
 =======================
 
-To perform inference on a registered model version, we need to load it into memory. There are many 
+To perform inference on a registered model version, we need to load it into memory. There are many
 ways to find our model version, but the best method differs depending on the information you have
-available. However, in the spirit of a quickstart, the below code snippet shows the simplest way to 
+available. However, in the spirit of a quickstart, the below code snippet shows the simplest way to
 load a model from the model registry via a specific model URI and perform inference.
 
 .. code-block:: python
@@ -24,8 +24,8 @@ load a model from the model registry via a specific model URI and perform infere
 
     print(y_pred_new)
 
-Note that if you're not using sklearn, if your model flavor is supported, you should use the 
-specific model flavor load method e.g. ``mlflow.<flavor>.load_model()``. If the model flavor is 
+Note that if you're not using sklearn, if your model flavor is supported, you should use the
+specific model flavor load method e.g. ``mlflow.<flavor>.load_model()``. If the model flavor is
 not supported, you should leverage :py:func:`mlflow.pyfunc.load_model()`. Throughout this tutorial
 we leverage sklearn  for demonstration purposes.
 
@@ -41,10 +41,10 @@ and load the artifact into memory.
 3. **Run id**: ``mlflow.sklearn.load_model(f"runs:/{mlflow_run_id}/{run_relative_path_to_model}")``
 
 However, unless you're in the same environment that you logged the model, you typically won't have
-the above information. Instead, you should load the model by leveraging the model's name and 
+the above information. Instead, you should load the model by leveraging the model's name and
 version.
 
-Example 1: Load via Name and Version 
+Example 1: Load via Name and Version
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 To load a model into memory via the ``model_name`` and monotonically increasing ``model_version``,
 use the below method:
@@ -53,7 +53,7 @@ use the below method:
 
     model = mlflow.sklearn.load_model(f"models:/{model_name}/{model_version}")
 
-While this method is quick and easy, the monotonically increasing model version lacks flexibility. 
+While this method is quick and easy, the monotonically increasing model version lacks flexibility.
 Often, it's more efficient to leverage a model version alias.
 
 Example 2: Load via Model Version Alias
@@ -61,8 +61,8 @@ Example 2: Load via Model Version Alias
 Model version aliases are user-defined identifiers for a model version. Given they're mutable after
 model registration, they decouple model versions from the code that uses them.
 
-For instance, let's say we have a model version alias called ``production_model``, corresponding to 
-a production model. When our team builds a better model that is ready for deployment, we don't have 
+For instance, let's say we have a model version alias called ``production_model``, corresponding to
+a production model. When our team builds a better model that is ready for deployment, we don't have
 to change our serving workload code. Instead, in MLflow we reassign the ``production_model`` alias
 from the old model version to the new one. This can be done simply in the UI. In the API, we run
 `client.set_registered_model_alias` with the same model name, alias name, and **new** model version

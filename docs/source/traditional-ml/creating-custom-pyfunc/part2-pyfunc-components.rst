@@ -1,8 +1,8 @@
 Understanding PyFunc in MLflow
 ==============================
 
-In the realm of MLflow, while named flavors offer specific functionalities tailored to popular frameworks, there are situations and 
-requirements that fall outside these predefined paths. Enter the custom :py:mod:`pyfunc <mlflow.pyfunc>` (Python function), a universal interface, empowering you to 
+In the realm of MLflow, while named flavors offer specific functionalities tailored to popular frameworks, there are situations and
+requirements that fall outside these predefined paths. Enter the custom :py:mod:`pyfunc <mlflow.pyfunc>` (Python function), a universal interface, empowering you to
 encapsulate models from any framework into an MLflow Model by defining a custom Python function.
 
 PyFunc versions of models are interacted with in the same way as any other MLflow model type, providing both :py:func:`save_model() <mlflow.pyfunc.save_model>` and
@@ -21,7 +21,7 @@ Why PyFunc?
 Components of PyFunc
 --------------------
 
-1. **Python Function Flavor**: 
+1. **Python Function Flavor**:
    This is the default model interface for MLflow Python models. It ensures every MLflow Python model can be loaded and interacted with using a consistent API.
 
 2. **Filesystem Format**:
@@ -36,11 +36,11 @@ Components of PyFunc
 The Power of Custom Pyfunc Models
 ---------------------------------
 
-While MLflow's named flavors offer out-of-the-box solutions for many frameworks, they might not cater to every requirement. 
-This is where custom `pyfunc` models shine. Whether you're working with a niche framework, need to implement specialized preprocessing, 
+While MLflow's named flavors offer out-of-the-box solutions for many frameworks, they might not cater to every requirement.
+This is where custom `pyfunc` models shine. Whether you're working with a niche framework, need to implement specialized preprocessing,
 or want to integrate post-inference logic, custom `pyfunc` models provide the tools to do so.
 
-By defining a Python class inheriting from `PythonModel` and implementing the necessary methods, you can create a custom `pyfunc` model 
+By defining a Python class inheriting from `PythonModel` and implementing the necessary methods, you can create a custom `pyfunc` model
 tailored to your specific needs.
 
 Conditions where a Custom Pyfunc might be best
@@ -49,7 +49,7 @@ Conditions where a Custom Pyfunc might be best
 There are numerous scenarios where a custom Pyfunc becomes invaluable:
 
 1. **Distributed Inference with Large Models**:
-   
+
    - In distributed systems like Apache Spark or Ray, where inference is parallelized across multiple cores, there's a risk of loading multiple copies of a model, one for each core. This can significantly strain the system's resources, especially with large models.
    - With a custom Pyfunc, you can ensure that each worker node or executor loads only a single copy of the model, optimizing resource usage and speeding up inference.
 
@@ -71,8 +71,8 @@ There are numerous scenarios where a custom Pyfunc becomes invaluable:
 Inner workings of Custom Pyfunc
 -------------------------------
 
-Understanding the sequence of events during the `mlflow.pyfunc.load_model()` call is crucial to harnessing the full power of custom Pyfuncs. 
-Here's a step-by-step breakdown of the sequence of events that happens when loading a custom pyfunc and how declaring overrides during saving the model 
+Understanding the sequence of events during the `mlflow.pyfunc.load_model()` call is crucial to harnessing the full power of custom Pyfuncs.
+Here's a step-by-step breakdown of the sequence of events that happens when loading a custom pyfunc and how declaring overrides during saving the model
 are accessed and referenced to control the behavior of the loaded model object.
 
 .. figure:: ../../_static/images/guides/introductory/creating-custom-pyfunc/pyfunc_loading.svg
@@ -83,7 +83,7 @@ are accessed and referenced to control the behavior of the loaded model object.
    Pyfunc loading process
 
 1. **Initiation**:
-   
+
    - The process starts when `mlflow.pyfunc.load_model()` is called, indicating the intention to load a custom Pyfunc model for use.
 
 2. **Model Configuration Retrieval**:
@@ -112,7 +112,7 @@ It's worth noting that this sequence ensures that the custom Pyfunc model, once 
 Next Steps
 ----------
 
-Now that you understand the importance and components of `pyfunc`, the next step is to dive into seeing how they can be built. 
+Now that you understand the importance and components of `pyfunc`, the next step is to dive into seeing how they can be built.
 
 .. raw:: html
 

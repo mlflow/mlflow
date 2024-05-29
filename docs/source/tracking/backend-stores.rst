@@ -4,7 +4,7 @@
 Backend Stores
 ==============
 
-The backend store is a core component in `MLflow Tracking <../index.html>`_ where MLflow stores metadata for 
+The backend store is a core component in `MLflow Tracking <../index.html>`_ where MLflow stores metadata for
 :ref:`Runs <runs>` and experiments such as:
 
 * Run ID

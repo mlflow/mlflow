@@ -28,7 +28,7 @@ If you haven't used MLflow Tracking before, we strongly recommend going through 
                         MLflow Tracking Quickstart
                     </div>
                     <p>
-                    A great place to start to learn the fundamentals of MLflow Tracking! Learn in 5 minutes how to log, register, and load a model for inference. 
+                    A great place to start to learn the fundamentals of MLflow Tracking! Learn in 5 minutes how to log, register, and load a model for inference.
                     </p>
                 </a>
             </div>
@@ -105,7 +105,7 @@ Tracking Datasets
 
     tracking/data-api
 
-MLflow offers the ability to track datasets that are associated with model training events. These metadata associated with the Dataset can be stored through the use of the :py:func:`mlflow.log_input` API. 
+MLflow offers the ability to track datasets that are associated with model training events. These metadata associated with the Dataset can be stored through the use of the :py:func:`mlflow.log_input` API.
 To learn more, please visit the `MLflow data documentation <tracking/data-api.html>`_ to see the features available in this API.
 
 
@@ -272,7 +272,7 @@ learning the basic setup and continue to the following materials for advanced co
             <div>
                 <h4>Using MLflow Tracking Server Locally</h4>
                 <p>You can of course run MLflow Tracking Server locally. While this doesn't provide much additional benefit over directly using
-                  the local files or database, might useful for testing your team development workflow locally or running your machine learning 
+                  the local files or database, might useful for testing your team development workflow locally or running your machine learning
                   code on a container environment.</p>
             </div>
             <img src="_static/images/tracking/tracking-setup-local-server.png"/>
@@ -298,7 +298,7 @@ learning the basic setup and continue to the following materials for advanced co
             <div>
               <h4> Disable Artifact Proxying to Allow Direct Access to Artifacts</h4>
               <p>MLflow Tracking Server, by default, serves both artifacts and only metadata. However, in some cases, you may want
-                to allow direct access to the remote artifacts storage to avoid the overhead of a proxy while preserving the functionality 
+                to allow direct access to the remote artifacts storage to avoid the overhead of a proxy while preserving the functionality
                 of metadata tracking. This can be done by disabling artifact proxying by starting server with <code>--no-serve-artifacts</code> option.
                 Refer to <a href="tracking/server.html#use-tracking-server-w-o-proxying-artifacts-access">Use Tracking Server without Proxying Artifacts Access</a> for how to set this up.</p>
             </div>
@@ -358,7 +358,7 @@ Your runs under this experiment will log artifacts to the remote storage directl
 How to integrate MLflow Tracking with :ref:`Model Registry <registry>`?
 -----------------------------------------------------------------------
 To use the Model Registry functionality with MLflow tracking, you **must use database backed store** such as PostgresQL and log a model using the ``log_model`` methods of the corresponding model flavors.
-Once a model has been logged, you can add, modify, update, or delete the model in the Model Registry through the UI or the API. 
+Once a model has been logged, you can add, modify, update, or delete the model in the Model Registry through the UI or the API.
 See `Backend Stores <tracking/backend-stores.html>`_ and :ref:`Common Setups <tracking_setup>` for how to configures backend store properly for your workflow.
 
 How to include additional decription texts about the run?

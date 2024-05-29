@@ -6,8 +6,8 @@ LangChain within MLflow (Experimental)
 
 Overview
 --------
-`LangChain <https://www.langchain.com/>`_ is a Python framework for creating applications powered by language models. It offers unique features for developing context-aware 
-applications that utilize language models for reasoning and generating responses. This integration with MLflow streamlines the development and 
+`LangChain <https://www.langchain.com/>`_ is a Python framework for creating applications powered by language models. It offers unique features for developing context-aware
+applications that utilize language models for reasoning and generating responses. This integration with MLflow streamlines the development and
 deployment of complex NLP applications.
 
 LangChain's Technical Essence
@@ -71,7 +71,7 @@ Logging a LangChain Agent with MLflow
 What is an Agent?
 """""""""""""""""
 
-Agents in LangChain leverage language models to dynamically determine and execute a sequence of actions, contrasting with the hardcoded sequences in chains. 
+Agents in LangChain leverage language models to dynamically determine and execute a sequence of actions, contrasting with the hardcoded sequences in chains.
 To learn more about Agents and see additional examples within LangChain, you can `read the LangChain docs on Agents <https://python.langchain.com/docs/modules/agents/>`_.
 
 Key Components of Agents
@@ -137,24 +137,24 @@ Real-Time Streaming Outputs with LangChain and GenAI LLMs
 
 Overview of Streaming Output Capabilities
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-LangChain integration within MLflow enables real-time streaming outputs from various GenAI language models (LLMs) that support such functionality. 
-This feature is essential for applications that require immediate, incremental responses, facilitating dynamic interactions such as conversational 
+LangChain integration within MLflow enables real-time streaming outputs from various GenAI language models (LLMs) that support such functionality.
+This feature is essential for applications that require immediate, incremental responses, facilitating dynamic interactions such as conversational
 agents or live content generation.
 
 Supported Streaming Models
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-LangChain is designed to work seamlessly with any LLM that offers streaming output capabilities. This includes certain models from providers 
+LangChain is designed to work seamlessly with any LLM that offers streaming output capabilities. This includes certain models from providers
 like OpenAI (e.g., specific versions of ChatGPT), as well as other LLMs from different vendors that support similar functionalities.
 
 Using ``predict_stream`` for Streaming Outputs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The ``predict_stream`` method within the MLflow pyfunc LangChain flavor is designed to handle synchronous inputs and provide outputs in a streaming manner. This method is particularly 
-useful for maintaining an engaging user experience by delivering parts of the model's response as they become available, rather than waiting for the 
+The ``predict_stream`` method within the MLflow pyfunc LangChain flavor is designed to handle synchronous inputs and provide outputs in a streaming manner. This method is particularly
+useful for maintaining an engaging user experience by delivering parts of the model's response as they become available, rather than waiting for the
 entire completion of the response generation.
 
 Example Usage
 ^^^^^^^^^^^^^
-The following example demonstrates setting up and using the ``predict_stream`` function with a LangChain model managed in MLflow, highlighting 
+The following example demonstrates setting up and using the ``predict_stream`` function with a LangChain model managed in MLflow, highlighting
 the real-time response generation:
 
 .. code-block:: python
@@ -189,13 +189,13 @@ the real-time response generation:
 
 Advanced Integration with Callbacks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-LangChain's architecture also supports the use of callbacks within the streaming output context. These callbacks can be used to enhance 
+LangChain's architecture also supports the use of callbacks within the streaming output context. These callbacks can be used to enhance
 functionality by allowing actions to be triggered during the streaming process, such as logging intermediate responses or modifying them before delivery.
 
-.. note:: 
+.. note::
 
   Most uses of callback handlers involve logging of traces involved in the various calls to services and tools within a Chain or Retriever. For purposes
-  of simplicity, a simple ``stdout`` callback handler is shown below. Real-world callback handlers must be subclasses of the ``BaseCallbackHandler`` class 
+  of simplicity, a simple ``stdout`` callback handler is shown below. Real-world callback handlers must be subclasses of the ``BaseCallbackHandler`` class
   from LangChain.
 
 .. code-block:: python
@@ -209,7 +209,7 @@ functionality by allowing actions to be triggered during the streaming process, 
     for enhanced_response in response_stream:
         print("Enhanced Streaming Response:", enhanced_response)
 
-These examples and explanations show how developers can utilize the real-time streaming output capabilities of LangChain models within MLflow, 
+These examples and explanations show how developers can utilize the real-time streaming output capabilities of LangChain models within MLflow,
 enabling the creation of highly responsive and interactive applications.
 
 
@@ -222,7 +222,7 @@ These chains adeptly combine data retrieval with question-answering processes, l
 Key Insights into RetrievalQA Chains
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- **RetrievalQA Chain Functionality**: These chains represent a sophisticated LangChain feature where information retrieval is seamlessly blended with language 
+- **RetrievalQA Chain Functionality**: These chains represent a sophisticated LangChain feature where information retrieval is seamlessly blended with language
   model-based question answering. They excel in scenarios requiring the language
   model to consult specific data or documents for accurate responses.
 
@@ -248,7 +248,7 @@ Clarifying Vector Database Management with MLflow
 
 - **Traditional LangChain Serialization**: LangChain typically requires manual management for the serialization of retriever objects, including handling of the vector database.
 
-- **MLflow's Simplification**: The ``langchain`` flavor in MLflow substantially simplifies this process. It automates serialization, managing the contents of 
+- **MLflow's Simplification**: The ``langchain`` flavor in MLflow substantially simplifies this process. It automates serialization, managing the contents of
   the ``persist_dir`` and the pickling of the ``loader_fn`` function.
 
 Key MLflow Components and VectorDB Logging
@@ -261,11 +261,11 @@ Key MLflow Components and VectorDB Logging
 Important Considerations
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-- **VectorDB Logging**: MLflow, through its ``langchain`` flavor, does manage the vector database as part of the retriever object. However, the vector 
+- **VectorDB Logging**: MLflow, through its ``langchain`` flavor, does manage the vector database as part of the retriever object. However, the vector
   database itself is not explicitly logged as a separate entity in MLflow.
 
-- **Runtime VectorDB Maintenance**: It's essential to maintain consistency in the vector database between the training and runtime environments. 
-  While MLflow manages the serialization of the retriever object, ensuring that the same vector database is accessible during runtime remains crucial 
+- **Runtime VectorDB Maintenance**: It's essential to maintain consistency in the vector database between the training and runtime environments.
+  While MLflow manages the serialization of the retriever object, ensuring that the same vector database is accessible during runtime remains crucial
   for consistent performance.
 
 
@@ -339,7 +339,7 @@ MLflow `langchain` flavor supports autologging of LangChain models, which provid
 .. note::
     To use MLflow LangChain autologging, please upgrade langchain to **version 0.1.0** or higher.
     Depending on your existing environment, you may need to manually install langchain_community>=0.0.16 in order to enable the automatic logging of artifacts and metrics. (this behavior will be modified in the future to be an optional import)
-    If autologging doesn't log artifacts as expected, please check the warning messages in `stdout` logs. 
+    If autologging doesn't log artifacts as expected, please check the warning messages in `stdout` logs.
     For langchain_community==0.0.16, you will need to install the `textstat` and `spacy` libraries manually, as well as restarting any active interactive environment (i.e., a notebook environment). On Databricks, you can achieve this via executing `dbutils.library.restartPython()` to force the Python REPL to restart, allowing the newly installed libraries to be available.
 
 MLflow langchain autologging injects `MlflowCallbackHandler <https://github.com/langchain-ai/langchain/blob/master/libs/community/langchain_community/callbacks/mlflow_callback.py>`_ into the langchain model inference process to log
@@ -368,7 +368,7 @@ Artifacts:
   | llm_end_x_generation_y.json                   | Includes llm_output of the LLM result                                     |
   +-----------------------------------------------+---------------------------------------------------------------------------+
   | ent-<hash string of generation.text>.html     | Visualization of the generation text using spacy "en_core_web_sm" model   |
-  |                                               | with style ent (if spacy is installed and the model is downloaded)        | 
+  |                                               | with style ent (if spacy is installed and the model is downloaded)        |
   +-----------------------------------------------+---------------------------------------------------------------------------+
   | dep-<hash string of generation.text>.html     | Visualization of the generation text using spacy "en_core_web_sm" model   |
   |                                               | with style dep (if spacy is installed and the model is downloaded)        |

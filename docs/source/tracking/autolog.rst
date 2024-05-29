@@ -4,7 +4,7 @@
 Automatic Logging with MLflow Tracking
 ======================================
 Auto logging is a powerful feature that allows you to log metrics, parameters, and models without the need for explicit log statements. All you need to do is to call
-:py:func:`mlflow.autolog` before your training code. 
+:py:func:`mlflow.autolog` before your training code.
 
 .. code-block:: python
 
@@ -106,8 +106,8 @@ See :py:func:`mlflow.autolog` for the full set of arguments you can use.
 
 Enable / Disable Autologging for Specific Libraries
 ---------------------------------------------------
-One common use case is to enable/disable autologging for a specific library. For example, if you train your model on PyTorch but use scikit-learn 
-for data preprocessing, you may want to disable autologging for scikit-learn while keeping it enabled for PyTorch. You can achieve this by either 
+One common use case is to enable/disable autologging for a specific library. For example, if you train your model on PyTorch but use scikit-learn
+for data preprocessing, you may want to disable autologging for scikit-learn while keeping it enabled for PyTorch. You can achieve this by either
 (1) enable autologging only for PyTorch using PyTorch flavor (2) disable autologging for scikit-learn using its flavor with ``disable=True``.
 
 .. code-block:: python

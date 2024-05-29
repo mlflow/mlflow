@@ -3,14 +3,14 @@ Artifact Stores
 ===============
 
 The artifact store is a core component in `MLflow Tracking <../index.html>`_ where MLflow stores (typicaly large) artifacts
-for each run such as model weights (e.g. a pickled scikit-learn model), images (e.g. PNGs), model and data files (e.g. `Parquet <https://parquet.apache.org/>`_ file). 
+for each run such as model weights (e.g. a pickled scikit-learn model), images (e.g. PNGs), model and data files (e.g. `Parquet <https://parquet.apache.org/>`_ file).
 Note that metadata like parameters, metrics, and tags are stored in a `backend store <backend-stores.html>`_ (e.g., PostGres, MySQL, or MSSQL Database), the other component of the MLflow Tracking.
 
 Configuring an Artifact Store
 =============================
 MLflow by default stores artifacts in local ``./mlruns`` directory, but also supports various locations suitable for large data:
 Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS. You can connect those remote storages via the MLflow Tracking server.
-See :ref:`tracking server setup <tracking-server-artifact-store>` and the specific section for your storage in :ref:`supported storages <artifacts-store-supported-storages>` for guidance on 
+See :ref:`tracking server setup <tracking-server-artifact-store>` and the specific section for your storage in :ref:`supported storages <artifacts-store-supported-storages>` for guidance on
 how to connect to your remote storage of choice.
 
 .. _artifacts-stores-manage-access:
@@ -36,8 +36,8 @@ Note that this is experimental feature, may be changed or removed.
 Setting a Default Artifact Location for Logging
 -----------------------------------------------
 MLflow automatically records the ``artifact_uri`` property as a part of :py:class:`mlflow.entities.RunInfo`, so you can
-retrieve the location of the artifacts for historical runs using the :py:func:`mlflow.get_artifact_uri` API. 
-Also, ``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for setting the 
+retrieve the location of the artifacts for historical runs using the :py:func:`mlflow.get_artifact_uri` API.
+Also, ``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for setting the
 default location to store artifacts for all runs in a given experiment.
 
 .. important::
@@ -62,7 +62,7 @@ the environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` de
 these are available. For more information on how to set credentials, see
 `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_.
 
-Followings are commonly used environment variables for configuring S3 storage access. The complete list of configurable parameters for an S3 client is available in the 
+Followings are commonly used environment variables for configuring S3 storage access. The complete list of configurable parameters for an S3 client is available in the
 `boto3 documentation <https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuration>`_.
 
 

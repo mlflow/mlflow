@@ -3,23 +3,23 @@ Configuring and Starting the AI Gateway
 
 Step 1: Install
 ---------------
-First, install MLflow along with the gateway extras to get access to a range of serving-related 
-dependencies, including ``uvicorn`` and ``fastapi``. Note that direct dependencies on OpenAI are 
+First, install MLflow along with the gateway extras to get access to a range of serving-related
+dependencies, including ``uvicorn`` and ``fastapi``. Note that direct dependencies on OpenAI are
 unnecessary, as all supported providers are abstracted from the developer.
 
 .. code-section::
 
-    .. code-block:: bash 
+    .. code-block:: bash
         :name: install-gateway
 
-        pip install 'mlflow[gateway]' 
+        pip install 'mlflow[gateway]'
 
 Step 2: Set the OpenAI Token as an Environment Variable
 -------------------------------------------------------
-Next, set the OpenAI API key as an environment variable in your CLI. 
+Next, set the OpenAI API key as an environment variable in your CLI.
 
-This approach allows the MLflow AI Gateway to read the sensitive API key safely, reducing the risk 
-of leaking the token in code. The AI Gateway, when started, will read the value set by this environment 
+This approach allows the MLflow AI Gateway to read the sensitive API key safely, reducing the risk
+of leaking the token in code. The AI Gateway, when started, will read the value set by this environment
 variable without any additional action required.
 
 .. code-section::
@@ -31,16 +31,16 @@ variable without any additional action required.
 
 Step 3: Configure the Gateway
 -----------------------------
-Third, set up several routes for the gateway to host. The configuration of the AI Gateway is done through 
+Third, set up several routes for the gateway to host. The configuration of the AI Gateway is done through
 editing a YAML file that is read by the server initialization command (covered in step 4).
 
-Notably, the AI Gateway allows real-time updates to an active gateway through the YAML configuration; 
-service restart is not required for changes to take effect and can instead be done simply by editing the 
+Notably, the AI Gateway allows real-time updates to an active gateway through the YAML configuration;
+service restart is not required for changes to take effect and can instead be done simply by editing the
 configuration file that is defined at server start, permitting dynamic route creation without downtime of the service.
 
 .. code-section::
 
-    .. code-block:: yaml 
+    .. code-block:: yaml
         :name: configure-gateway
 
         routes:
@@ -83,16 +83,16 @@ Fourth, let's test the gateway service!
 
 To launch the gateway using a YAML config file, use the gateway CLI command.
 
-The gateway will automatically start on ``localhost`` at port ``5000``, accessible via 
-the URL: ``http://localhost:5000``. To modify these default settings, use the 
+The gateway will automatically start on ``localhost`` at port ``5000``, accessible via
+the URL: ``http://localhost:5000``. To modify these default settings, use the
 ``mlflow gateway --help`` command to view additional configuration options.
 
 .. code-section::
 
-    .. code-block:: bash 
+    .. code-block:: bash
         :name: start-gateway
 
-        mlflow gateway start --config-path config.yaml 
+        mlflow gateway start --config-path config.yaml
 
 
 .. figure:: ../../../_static/images/tutorials/gateway/creating-first-gateway/start_gateway.gif
@@ -101,5 +101,5 @@ the URL: ``http://localhost:5000``. To modify these default settings, use the
    :alt: Start the gateway and observe the docs.
 
 .. note::
-        MLflow AI Gateway automatically creates API docs. You can validate your gateway is running 
-        by viewing the docs. Go to `http://{host}:{port}` in your web browser. 
+        MLflow AI Gateway automatically creates API docs. You can validate your gateway is running
+        by viewing the docs. Go to `http://{host}:{port}` in your web browser.

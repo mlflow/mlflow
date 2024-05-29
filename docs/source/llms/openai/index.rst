@@ -2,21 +2,21 @@ MLflow OpenAI Flavor
 ====================
 
 .. attention::
-    The ``openai`` flavor is under active development and is marked as Experimental. Public APIs are 
+    The ``openai`` flavor is under active development and is marked as Experimental. Public APIs are
     subject to change, and new features may be added as the flavor evolves.
 
 Introduction
 ------------
 
-**OpenAI's GPT Models** represent a significant leap in natural language processing (NLP) capabilities. 
-The Generative Pre-trained Transformer (GPT) models are renowned for 
-their ability to generate human-like text, comprehend complex queries, summarize extensive documents, 
-and much more. `OpenAI <https://openai.com/>`_ has been at the forefront of NLP technology, offering models that are 
+**OpenAI's GPT Models** represent a significant leap in natural language processing (NLP) capabilities.
+The Generative Pre-trained Transformer (GPT) models are renowned for
+their ability to generate human-like text, comprehend complex queries, summarize extensive documents,
+and much more. `OpenAI <https://openai.com/>`_ has been at the forefront of NLP technology, offering models that are
 versatile and widely applicable in various domains.
 
-Leveraging MLflow's robust experiment tracking and model management framework, the integration with 
-OpenAI's `GPT-based models <https://platform.openai.com/docs/models>`_ enables practitioners to efficiently utilize these advanced NLP tools in their 
-projects. From simple text generation to complex conversational AI applications, the MLflow-OpenAI 
+Leveraging MLflow's robust experiment tracking and model management framework, the integration with
+OpenAI's `GPT-based models <https://platform.openai.com/docs/models>`_ enables practitioners to efficiently utilize these advanced NLP tools in their
+projects. From simple text generation to complex conversational AI applications, the MLflow-OpenAI
 integration brings a new level of ease and effectiveness to managing these powerful models.
 
 The integration includes:
@@ -27,7 +27,7 @@ The integration includes:
 
 What makes this Integration so Special?
 ---------------------------------------
-The combination of MLflow's experiment tracking and model management with OpenAI's cutting-edge NLP models unlocks new potential for AI applications. 
+The combination of MLflow's experiment tracking and model management with OpenAI's cutting-edge NLP models unlocks new potential for AI applications.
 This MLflow flavor for OpenAI simplifies the process of:
 
 - **Developing** an application that leverages the power of OpenAI's models. By simplifying the process of keeping track of the highly iterative and creative process of prompt engineering, `MLflow prompt engineering <../prompt-engineering/index.html>`_ makes sure that you never lose track of a great idea.
@@ -38,15 +38,15 @@ This MLflow flavor for OpenAI simplifies the process of:
 The Elephant in the Room: Prompt Engineering
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In other fields of applied ML, the process of iterating over hypotheses is time-consuming, tedious, and lends itself to developing habits of meticulously 
-recording every step of the feature refinement and training process. With the advent of generative AI and the latent power of state-of-the-art LLMs such as 
-those offered by OpenAI, the process of refining the performance of a solution is much shorter. In the span of an hour, you could easily craft and test 
-a dozen prompts. 
+In other fields of applied ML, the process of iterating over hypotheses is time-consuming, tedious, and lends itself to developing habits of meticulously
+recording every step of the feature refinement and training process. With the advent of generative AI and the latent power of state-of-the-art LLMs such as
+those offered by OpenAI, the process of refining the performance of a solution is much shorter. In the span of an hour, you could easily craft and test
+a dozen prompts.
 
-While this speed and ease of use is remarkably empowering, it generally leads to the dreaded realization after a few hours of experimentation that you can't 
+While this speed and ease of use is remarkably empowering, it generally leads to the dreaded realization after a few hours of experimentation that you can't
 remember which of the dozens of prompts that you created hours ago was the one that created the best results that you remember seeing.
 
-This is where MLflow comes in. With MLflow, you can easily track the prompts that you use, the results that you get, and the artifacts that you generate. 
+This is where MLflow comes in. With MLflow, you can easily track the prompts that you use, the results that you get, and the artifacts that you generate.
 
 The figure below shows a fun take on this problem that MLflow helps to solve.
 
@@ -57,11 +57,11 @@ The figure below shows a fun take on this problem that MLflow helps to solve.
 
    Prompt Engineering for space flight with MLflow
 
-By logging each of the prompts that are used throughout testing, not only can you easily reproduce the results that you get, but you can also share those 
-results with others so that they can evaluate the subjective quality of the results. Without tracking in place, you're forced to come up with a solution for 
-recording the various parameters, prompts, test inputs, and results. 
+By logging each of the prompts that are used throughout testing, not only can you easily reproduce the results that you get, but you can also share those
+results with others so that they can evaluate the subjective quality of the results. Without tracking in place, you're forced to come up with a solution for
+recording the various parameters, prompts, test inputs, and results.
 
-You could save all of that time and effort by using MLflow with OpenAI, giving you more time to come up with fun prompts. 
+You could save all of that time and effort by using MLflow with OpenAI, giving you more time to come up with fun prompts.
 
 Features
 --------
@@ -79,19 +79,19 @@ What can you do with OpenAI and MLflow?
 The integration of OpenAI's advanced NLP models with MLflow's robust model management capabilities opens up a vast array of potential real-world applications. Here are some powerful and impactful use cases:
 
 - **Automated Customer Support**: Develop sophisticated chatbots that understand and respond to customer inquiries in a human-like manner, significantly improving customer service efficiency and satisfaction.
-  
+
 - **Content Generation and Curation**: Automatically generate high-quality, contextually relevant content for articles, blogs, or social media posts. Curate content by summarizing and categorizing large volumes of text data, enhancing content management strategies.
-  
+
 - **Language Translation Services**: Create advanced translation tools that not only convert text from one language to another but also capture nuances, idioms, and cultural context, bridging communication gaps more effectively.
-  
+
 - **Sentiment Analysis for Market Research**: Analyze customer feedback, social media posts, or product reviews to gauge public sentiment about brands, products, or services, providing valuable insights for marketing and product development teams.
-  
+
 - **Personalized Education and Training Tools**: Develop AI-driven educational platforms that can adapt content and teaching styles to individual learning preferences, making education more engaging and effective.
-  
+
 - **Legal and Compliance Document Analysis**: Automate the review and analysis of legal documents, contracts, and compliance materials, increasing accuracy and reducing the time and resources required for legal workflows.
-  
+
 - **Healthcare Assistance and Research**: Assist in medical research by summarizing and analyzing medical literature, patient records, or clinical trial data, contributing to faster and more informed decision-making in healthcare.
-  
+
 - **Financial Analysis and Forecasting**: Leverage NLP models to analyze financial reports, market trends, and news articles, providing deeper insights and predictions for investment strategies and economic forecasting.
 
 With MLflow's integration, these applications not only benefit from the linguistic prowess of OpenAI's models but also gain from streamlined `tracking <../../tracking.html>`_, `version control <../../model-registry.html>`_, and `deployment <../../deployment/index.html>`_ processes. This synergy empowers developers and businesses to build sophisticated, AI-driven solutions that address complex challenges and create new opportunities in various industries.
@@ -100,17 +100,17 @@ With MLflow's integration, these applications not only benefit from the linguist
 Deployment Made Easy
 ^^^^^^^^^^^^^^^^^^^^
 
-Deploying OpenAI models becomes a breeze with MLflow. Functions like :py:func:`mlflow.openai.load_model` and :py:func:`mlflow.pyfunc.load_model` facilitate easy model serving. 
-Discover more about `deploying models with MLflow <../../deployment/index.html>`_, explore the `deployments API <../../cli.html#mlflow-deployments>`_, 
+Deploying OpenAI models becomes a breeze with MLflow. Functions like :py:func:`mlflow.openai.load_model` and :py:func:`mlflow.pyfunc.load_model` facilitate easy model serving.
+Discover more about `deploying models with MLflow <../../deployment/index.html>`_, explore the `deployments API <../../cli.html#mlflow-deployments>`_,
 and learn about `starting a local model serving endpoint <../../cli.html#mlflow-models-serve>`_ to fully leverage the deployment capabilities of MLflow.
 
 Getting Started with the MLflow OpenAI Flavor - Tutorials and Guides
 --------------------------------------------------------------------
 
-Below, you will find a number of guides that focus on different ways that you can leverage the power of the `openai` library, leveraging MLflow's 
-APIs for tracking and inference capabilities. 
+Below, you will find a number of guides that focus on different ways that you can leverage the power of the `openai` library, leveraging MLflow's
+APIs for tracking and inference capabilities.
 
-The diagram below shows the basic scope of the level of complexity that the tutorials cover. 
+The diagram below shows the basic scope of the level of complexity that the tutorials cover.
 
 .. figure:: ../../_static/images/tutorials/llms/openai-tutorials-explanation.png
    :alt: MLflow OpenAI tutorials
@@ -142,7 +142,7 @@ Introductory Tutorial
                         OpenAI Quickstart
                     </div>
                     <p>
-                        Learn the very basics of using the OpenAI package with MLflow with some simple prompt engineering and a fun use case to get 
+                        Learn the very basics of using the OpenAI package with MLflow with some simple prompt engineering and a fun use case to get
                         started with this powerful integration.
                     </p>
                 </a>
@@ -154,9 +154,9 @@ Introductory Tutorial
 Advanced Tutorials
 ^^^^^^^^^^^^^^^^^^
 
-In these tutorials, the topics cover applied interactions with OpenAI models, leveraging custom Python Models to enhance the functionality beyond what is 
+In these tutorials, the topics cover applied interactions with OpenAI models, leveraging custom Python Models to enhance the functionality beyond what is
 possible with the basic prompt-based interaction from the introductory tutorial.
-If you're new to this flavor, please start with the Introductory Tutorial above, as it has information about environment configurations that you'll need 
+If you're new to this flavor, please start with the Introductory Tutorial above, as it has information about environment configurations that you'll need
 to understand in order to get the notebooks in this section to work.
 
 .. raw:: html

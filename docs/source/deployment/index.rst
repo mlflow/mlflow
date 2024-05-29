@@ -26,7 +26,7 @@ Concepts
 `MLflow Model <../models.html>`_
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 `MLflow Model <../models.html>`_ is a standard format that packages a machine learning model with its metadata, such as dependencies and inference schema.
-You typically create a model as a result of training execution using the `MLflow Tracking APIs <../tracking.html>`_, for instance, :py:func:`mlflow.pyfunc.log_model`. 
+You typically create a model as a result of training execution using the `MLflow Tracking APIs <../tracking.html>`_, for instance, :py:func:`mlflow.pyfunc.log_model`.
 Alternatively, models can be registered and retrieved via the `MLflow Model Registry <../model-registry.html>`_.
 To use MLflow deployment, you must first create a model.
 

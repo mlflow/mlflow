@@ -1,12 +1,12 @@
 LLM Evaluation Examples
 =======================
 
-The notebooks listed below contain step-by-step tutorials on how to use MLflow to evaluate LLMs. 
-The first notebook is centered around evaluating an LLM for question-answering with a 
-prompt engineering approach. The second notebook is centered around evaluating a RAG system. 
-Both notebooks will demonstrate how to use MLflow's builtin metrics such as token_count and 
-toxicity as well as LLM-judged intelligent metrics such as answer_relevance. The third notebook 
-is the same as the second notebook, but uses Databricks's served llama2-70b as the judge instead 
+The notebooks listed below contain step-by-step tutorials on how to use MLflow to evaluate LLMs.
+The first notebook is centered around evaluating an LLM for question-answering with a
+prompt engineering approach. The second notebook is centered around evaluating a RAG system.
+Both notebooks will demonstrate how to use MLflow's builtin metrics such as token_count and
+toxicity as well as LLM-judged intelligent metrics such as answer_relevance. The third notebook
+is the same as the second notebook, but uses Databricks's served llama2-70b as the judge instead
 of gpt-4.
 
 .. toctree::

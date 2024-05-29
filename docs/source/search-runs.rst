@@ -5,8 +5,8 @@ This guide will walk you through how to search your MLflow runs through the MLfl
 This resource will be valuable if you're interested in querying specific runs based on their metrics,
 params, tags, dataset information, or run metadata.
 
-In short, you can leverage SQL-like syntax to filter your runs based on a variety of conditions. 
-Note that the ``OR`` keyword is not supported and there are a few other differences from SQL 
+In short, you can leverage SQL-like syntax to filter your runs based on a variety of conditions.
+Note that the ``OR`` keyword is not supported and there are a few other differences from SQL
 mentioned below, but despite these limitations, the run search functionality is quite powerful.
 
 
@@ -23,19 +23,19 @@ The MLflow UI provides a powerful search interface that allows you to filter run
 Create Example MLflow Runs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-First, let's create some example MLflow runs. This documentation is based on experiments created 
-with the below script. If you don't want to interactively explore this on your machine, skip 
+First, let's create some example MLflow runs. This documentation is based on experiments created
+with the below script. If you don't want to interactively explore this on your machine, skip
 this section.
 
-Before running the script, let's simply start the MLflow UI on a local host. 
+Before running the script, let's simply start the MLflow UI on a local host.
 
 .. code-block:: bash
 
   mlflow ui
 
-Let's visit ``http://localhost:5000/`` in our web browser. After doing so, you'll notice that we don't 
+Let's visit ``http://localhost:5000/`` in our web browser. After doing so, you'll notice that we don't
 have any experiments or models. Let's resolve this by creating a few MLflow runs via the script
-below. 
+below.
 
 Note that when you run this script, you'll want to do so from the same directory that you ran
 the ``mlflow ui`` command.
@@ -98,8 +98,8 @@ the ``mlflow ui`` command.
           mlflow.log_input(dataset, context=dataset_context[i])
 
 
-The code above creates 10 MLflow runs with different metrics, params, tags and dataset information. 
-After successful execution, if you return to the MLflow UI in your browser, you should find all of 
+The code above creates 10 MLflow runs with different metrics, params, tags and dataset information.
+After successful execution, if you return to the MLflow UI in your browser, you should find all of
 these runs under the experiment "search-run-guide", as shown by the following screenshot:
 
 .. figure:: _static/images/search-runs/created_mlflow_runs.png
@@ -107,16 +107,16 @@ these runs under the experiment "search-run-guide", as shown by the following sc
    :width: 90%
    :align: center
 
-In real-world production deployments of MLflow, it's common to have thousands or even hundreds of thousands of  
+In real-world production deployments of MLflow, it's common to have thousands or even hundreds of thousands of
 runs. In such cases, it's important to be able to filter and search for runs based on specific criteria.
 
 .. _search-runs-syntax:
 
-Search Query Example 
+Search Query Example
 ^^^^^^^^^^^^^^^^^^^^
 
 In order to filter your MLflow runs, you will need to write **search queries**, which are pseudo-SQL
-conditions expressed in a distinct syntax. 
+conditions expressed in a distinct syntax.
 
 To showcase this functionality, let's look at the below code examples.
 
@@ -147,7 +147,7 @@ To showcase this functionality, let's look at the below code examples.
 Second, let's try filtering the runs for our really bad models: ``metrics.loss > 0.8``.
 
 .. code-block:: python
-  
+
   import mlflow
 
   bad_runs = mlflow.search_runs(
@@ -169,11 +169,11 @@ You'll notice that we now are displaying 2 runs instead of 10. Pretty easy, righ
 Search Syntax Overview
 ^^^^^^^^^^^^^^^^^^^^^^
 
-MLflow's Search functionality leverages a Domain Specific Language (DSL) for querying. It is inspired by SQL but does not 
+MLflow's Search functionality leverages a Domain Specific Language (DSL) for querying. It is inspired by SQL but does not
 offer the full range of SQL capabilities.
 
-This section describes the syntax formatting, focusing on "left side" and "right side" elements in search queries. The 
-"left side" pertains to the field being filtered, such as ``metrics.loss``, while the "right side" relates to the value against which 
+This section describes the syntax formatting, focusing on "left side" and "right side" elements in search queries. The
+"left side" pertains to the field being filtered, such as ``metrics.loss``, while the "right side" relates to the value against which
 the field is being compared, like ``0.8``.
 
 **Visual Representation of Search Components:**
@@ -192,16 +192,16 @@ the field is being compared, like ``0.8``.
    * Double quotes are also acceptable for enclosing field names (e.g., ``tag."test"``).
 
    **Unsupported:**
-   
+
    * Single quotes are **not valid** for enclosing field names (e.g., ``tag.'test'`` results in a syntax error).
 
 2. **Right Side Syntax:**
-   
-   * Enclose values in single or double quotes based on content requirements (e.g., ``tag.`test` = 'abc'`` or ``tag.`test` = "abc"``). 
+
+   * Enclose values in single or double quotes based on content requirements (e.g., ``tag.`test` = 'abc'`` or ``tag.`test` = "abc"``).
    * Non-metric values, **including numeric values** that may be stored as tags or as parameters must be enclosed in quotations.
 
    **Unsupported:**
-   
+
    * Using backticks or no wrapping for values is not allowed. Examples of invalid syntax include:
 
     .. code-block:: sql
@@ -251,7 +251,7 @@ Other than the that, the syntax should be intuitive to anyone who has used SQL. 
 a single search condition, you must assemble an inequality using the following components...
 
 1. **An MLflow field**: a metric, param, tag, dataset or run metadata.
-2. **A comparator**: an inequality operator. 
+2. **A comparator**: an inequality operator.
 
   * For numerics, MLflow supports ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``. Examples include:
 
@@ -291,12 +291,12 @@ but sometimes require modification for run-specific information, such as ``start
 1 - Searching By Metrics
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Metrics are quantitative measures typically used to evaluate the model's performance during 
-or after training. Metrics can include values like accuracy, precision, recall, F1 score, etc., and 
-can change over time as the model trains. They are logged manually via ``mlflow.log_metric`` or 
+Metrics are quantitative measures typically used to evaluate the model's performance during
+or after training. Metrics can include values like accuracy, precision, recall, F1 score, etc., and
+can change over time as the model trains. They are logged manually via ``mlflow.log_metric`` or
 ``mlflow.log_metrics`` or automatically via autologging.
 
-To search for runs by filtering on metrics, you must include the ``metrics`` prefix in the left 
+To search for runs by filtering on metrics, you must include the ``metrics`` prefix in the left
 side of the inequality. Note that they are **stored as numbers**, so you must use numeric comparators.
 
 .. code-block:: sql
@@ -311,15 +311,15 @@ side of the inequality. Note that they are **stored as numbers**, so you must us
 2 - Searching By Params
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Params are strings that typically represent the configuration aspects of the model. Parameters can include values 
+Params are strings that typically represent the configuration aspects of the model. Parameters can include values
 like learning rate, batch size, and number of epochs. They are logged manually via ``mlflow.log_param``
 or ``mlflow.log_params`` or automatically via autologging.
 
-To search for runs by filtering on params, you must include the ``params`` prefix in the left 
-side of the inequality. Note that they are **stored as strings**, so you must use string 
+To search for runs by filtering on params, you must include the ``params`` prefix in the left
+side of the inequality. Note that they are **stored as strings**, so you must use string
 comparators, such as ``=`` and ``!=``.
 
-Note that numeric values stored as parameters are cast to string in the tracking store. 
+Note that numeric values stored as parameters are cast to string in the tracking store.
 When querying for numeric parameters, you must specify them as strings by enclosing them in **double quotes**.
 
 .. code-block:: sql
@@ -340,7 +340,7 @@ or ``mlflow.set_tags``. In addition, `system tags <https://mlflow.org/docs/lates
 such as ``mlflow.user``, are automatically logged.
 
 To search for runs by filtering on tags, you must include the ``tags`` or ``mlflow`` prefixes in
-the left side of the inequality. Note that tags are **stored as strings**, so you must use string 
+the left side of the inequality. Note that tags are **stored as strings**, so you must use string
 comparators, such as ``=`` and ``!=``.
 
 .. code-block:: sql
@@ -353,8 +353,8 @@ comparators, such as ``=`` and ``!=``.
 4 - Searching By Dataset Information
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Datasets represent data used in model training or evaluation, including features, targets, 
-predictions, and metadata such as the dataset's name, digest (hash) schema, profile, and source. 
+Datasets represent data used in model training or evaluation, including features, targets,
+predictions, and metadata such as the dataset's name, digest (hash) schema, profile, and source.
 They are logged via ``mlflow.log_input`` or automatically via autologging.
 
 To search for runs by filtering on dataset information, you must filter on one of the below fields
@@ -378,13 +378,13 @@ Also note that datasets support set comparators, such as ``IN``.
 Run metadata are a variety of user-specified and system-generated attributes that provide additional context about the run.
 
 To search for runs by filtering on the metadata of runs, you must include the ``attributes`` prefix in the left
-side of the inequality. Note that run metadata can be either a string or a numeric depending on the 
+side of the inequality. Note that run metadata can be either a string or a numeric depending on the
 attribute, so you must use the appropriate comparator. For a complete list of attributes, see
 :py:class:`mlflow.entities.RunInfo`, however note that not all fields in the RunInfo object are
 searchable.
 
 To search for runs by filtering on tags, you must include the ``tags`` or ``mlflow`` prefixes in
-the left side of the inequality. Note that tags are **stored as strings**, so you must use string 
+the left side of the inequality. Note that tags are **stored as strings**, so you must use string
 comparators, such as ``=`` and ``!=``.
 
 .. code-block:: sql
@@ -437,14 +437,14 @@ You can also apply multiple conditions on the same field, for example searching 
 
   metrics.loss <= 0.15 AND metrics.loss >= 0.1
 
-Finally, before moving on it's important to revisit that that you cannot use the ``OR`` keyword in 
+Finally, before moving on it's important to revisit that that you cannot use the ``OR`` keyword in
 your queries.
 
 8 - Non-None Queries
 ~~~~~~~~~~~~~~~~~~~~
 
-To search for runs where a field (only type string is supported) is not null, use the 
-``field != "None"`` syntax. For example, to search for runs where the batch_size is not null, you 
+To search for runs where a field (only type string is supported) is not null, use the
+``field != "None"`` syntax. For example, to search for runs where the batch_size is not null, you
 can use the following query:
 
 .. code-block:: sql
@@ -460,8 +460,8 @@ outside the MLflow UI. This can be done programmatically using the MLflow client
 Python
 ^^^^^^
 
-:py:func:`mlflow.client.MlflowClient.search_runs()` or :py:func:`mlflow.search_runs()` 
-take the same arguments as the above UI examples and more! They return all the runs that 
+:py:func:`mlflow.client.MlflowClient.search_runs()` or :py:func:`mlflow.search_runs()`
+take the same arguments as the above UI examples and more! They return all the runs that
 match the specified filters. Your best resource is the dosctrings for each of these functions, but
 here are some useful examples.
 
@@ -508,7 +508,7 @@ The output will be a pandas DataFrame with the runs that match the specified fil
 2 - `run_view_type`
 ~~~~~~~~~~~~~~~~~~~
 
-The ``run_view_type`` parameter exposes additional filtering options, as noted in the 
+The ``run_view_type`` parameter exposes additional filtering options, as noted in the
 :py:class:`mlflow.entities.ViewType` enum. For example, if you want to filter only active runs,
 which is a dropdown in the UI, simply pass ``run_view_type=ViewType.ACTIVE_ONLY``.
 
@@ -543,8 +543,8 @@ the ``order_by`` parameter is omitted is to sort by ``start_time DESC``, then ``
       order_by=["metrics.accuracy DESC"],
   )
 
-A common use case is getting the top `n` results, for example, the top 5 runs by accuracy. When 
-combined with the ``max_results`` parameter, you can get the top ``n`` that match your query. 
+A common use case is getting the top `n` results, for example, the top 5 runs by accuracy. When
+combined with the ``max_results`` parameter, you can get the top ``n`` that match your query.
 
 .. code-block:: python
 
@@ -562,7 +562,7 @@ combined with the ``max_results`` parameter, you can get the top ``n`` that matc
 3 - Searching All Experiments
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Now you might be wondering how to search all experiments. It's as simple as specifying 
+Now you might be wondering how to search all experiments. It's as simple as specifying
 ``search_all_experiments=True`` and omitting the ``experiment_ids`` parameter.
 
 .. code-block:: python
@@ -577,14 +577,14 @@ Now you might be wondering how to search all experiments. It's as simple as spec
       search_all_experiments=True,
   )
 
-Finally, there are additioanl useful features in the 
-:py:func:`mlflow.client.MlflowClient.search_runs()` or :py:func:`mlflow.search_runs()` methods, so be sure to 
+Finally, there are additioanl useful features in the
+:py:func:`mlflow.client.MlflowClient.search_runs()` or :py:func:`mlflow.search_runs()` methods, so be sure to
 check out the documentation for more details.
 
 R
 ^^^^^^
-The R API is similar to the Python API, with the exeption that the filter conditions must be string wrapped. Due to this 
-behavior, right-hand side conditional elements must be wrapped in single quotes for parameters, attributes, and tags. 
+The R API is similar to the Python API, with the exeption that the filter conditions must be string wrapped. Due to this
+behavior, right-hand side conditional elements must be wrapped in single quotes for parameters, attributes, and tags.
 
 .. code-block:: r
 
@@ -597,8 +597,8 @@ behavior, right-hand side conditional elements must be wrapped in single quotes 
 
 Java
 ^^^^
-The Java API is similar to the Python API with the exception that the entire conditional filter syntax is string-encapsulated. 
-This is due to the fact that the Java API is a thin wrapper around the Python core APIs, and as such, will be translated between 
+The Java API is similar to the Python API with the exception that the entire conditional filter syntax is string-encapsulated.
+This is due to the fact that the Java API is a thin wrapper around the Python core APIs, and as such, will be translated between
 the two languages.
 
 .. code-block:: java

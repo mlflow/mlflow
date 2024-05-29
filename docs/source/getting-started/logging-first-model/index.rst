@@ -1,11 +1,11 @@
 Tutorial Overview
 =================
 
-In this entry point tutorial to MLflow, we'll be covering the essential basics of core MLflow functionality associated 
-with tracking training event data. 
+In this entry point tutorial to MLflow, we'll be covering the essential basics of core MLflow functionality associated
+with tracking training event data.
 
-We'll start by learning how to start a local MLflow Tracking server, how to access and view the MLflow UI, and move on to 
-our first interactions with the Tracking server through the use of the MLflow Client. 
+We'll start by learning how to start a local MLflow Tracking server, how to access and view the MLflow UI, and move on to
+our first interactions with the Tracking server through the use of the MLflow Client.
 
 The tutorial content builds upon itself, culminating in successfully logging your first MLflow model.
 
@@ -33,7 +33,7 @@ To get started with the tutorial, click NEXT below or navigate to the section th
     step6-logging-a-run
     notebooks/index
 
-If you would instead like to download a notebook-based version of this guide and follow along locally, you can download the notebook from the link below. 
+If you would instead like to download a notebook-based version of this guide and follow along locally, you can download the notebook from the link below.
 
 .. raw:: html
 

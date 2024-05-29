@@ -2,14 +2,14 @@ What is MLflow?
 ===============
 
 Stepping into the world of Machine Learning (ML) is an exciting journey, but it often comes with
-complexities that can hinder innovation and experimentation. 
+complexities that can hinder innovation and experimentation.
 
-MLflow is a solution to many of these issues in this dynamic landscape, offering tools and simplifying processes to streamline 
+MLflow is a solution to many of these issues in this dynamic landscape, offering tools and simplifying processes to streamline
 the ML lifecycle and foster collaboration among ML practitioners.
 
 Whether you're an individual researcher, a member of a large team, or somewhere in between, MLflow
 provides a **unified platform** to navigate the intricate maze of **model development**, **deployment**, and
-**management**. MLflow aims to enable innovation in ML solution development by streamlining otherwise cumbersome logging, organization, 
+**management**. MLflow aims to enable innovation in ML solution development by streamlining otherwise cumbersome logging, organization,
 and lineage concerns that are unique to model development. This focus allows you to ensure that your ML
 projects are robust, transparent, and ready for real-world challenges.
 
@@ -19,8 +19,8 @@ to the complex workflows associated with model development and management.
 Core Components of MLflow
 -------------------------
 
-MLflow, at its core, provides a suite of tools aimed at simplifying the ML workflow. It is tailored to assist ML practitioners throughout 
-the various stages of ML development and deployment. Despite its expansive offerings, MLflow's functionalities are rooted in several 
+MLflow, at its core, provides a suite of tools aimed at simplifying the ML workflow. It is tailored to assist ML practitioners throughout
+the various stages of ML development and deployment. Despite its expansive offerings, MLflow's functionalities are rooted in several
 foundational components:
 
 * :ref:`Tracking <tracking>`: MLflow Tracking provides both an API and UI dedicated to the logging of parameters, code versions, metrics, and artifacts during the ML process. This centralized repository captures details such as parameters, metrics, artifacts, data, and environment configurations, giving teams insight into their models' evolution over time. Whether working in standalone scripts, notebooks, or other environments, Tracking facilitates the logging of results either to local files or a server, making it easier to compare multiple runs across different users.
@@ -42,7 +42,7 @@ By integrating these core components, MLflow offers an end-to-end platform, ensu
 
 Why Use MLflow?
 ---------------
-The machine learning (ML) process is intricate, comprising various stages, from data preprocessing to model deployment and monitoring. 
+The machine learning (ML) process is intricate, comprising various stages, from data preprocessing to model deployment and monitoring.
 Ensuring productivity and efficiency throughout this lifecycle poses several challenges:
 
 - **Experiment Management**: It's tough to keep track of the myriad experiments, especially when working with files or interactive notebooks. Determining which combination of data, code, and parameters led to a particular result can become a daunting task.
@@ -63,7 +63,7 @@ MLflow addresses these challenges by offering a unified platform tailored for th
 
 - **Flexibility**: MLflow's library-agnostic design ensures compatibility with a wide range of machine learning libraries. It offers comprehensive support across different programming languages, backed by a robust :ref:`rest-api`, :ref:`CLI<cli>`, and APIs for :ref:`python-api`, :ref:`R-api`, and :ref:`java_api`.
 
-By simplifying the complex landscape of ML workflows, MLflow empowers data scientists and developers to focus on building and refining models, 
+By simplifying the complex landscape of ML workflows, MLflow empowers data scientists and developers to focus on building and refining models,
 ensuring a streamlined path from experimentation to production.
 
 Who Uses MLflow?
@@ -127,9 +127,9 @@ MLflow is versatile, catering to diverse machine learning scenarios. Here are so
 Scalability in MLflow
 ---------------------
 
-MLflow is architected to seamlessly integrate with diverse data environments, from small datasets to Big Data applications. 
-It's built with the understanding that quality machine learning outcomes often hinge on robust data sources, and as such, scales 
-adeptly to accommodate varying data needs. 
+MLflow is architected to seamlessly integrate with diverse data environments, from small datasets to Big Data applications.
+It's built with the understanding that quality machine learning outcomes often hinge on robust data sources, and as such, scales
+adeptly to accommodate varying data needs.
 
 Here's how MLflow addresses scalability across different dimensions:
 

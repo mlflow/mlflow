@@ -3,22 +3,22 @@
 MLflow LLM Evaluate
 ===================
 
-With the emerging of ChatGPT, LLMs have shown its power of text generation in various fields, such as 
-question answering, translating and text summarization. Evaluating LLMs' performance is slightly different 
-from traditional ML models, as very often there is no single ground truth to compare against. 
+With the emerging of ChatGPT, LLMs have shown its power of text generation in various fields, such as
+question answering, translating and text summarization. Evaluating LLMs' performance is slightly different
+from traditional ML models, as very often there is no single ground truth to compare against.
 MLflow provides an API :py:func:`mlflow.evaluate()` to help evaluate your LLMs.
 
 MLflow's LLM evaluation functionality consists of 3 main components:
 
-1. **A model to evaluate**: it can be an MLflow ``pyfunc`` model, a URI pointing to one registered 
-   MLflow model, or any python callable that represents your model, e.g, a HuggingFace text summarization pipeline. 
-2. **Metrics**: the metrics to compute, LLM evaluate will use LLM metrics. 
-3. **Evaluation data**: the data your model is evaluated at, it can be a pandas Dataframe, a python list, a 
+1. **A model to evaluate**: it can be an MLflow ``pyfunc`` model, a URI pointing to one registered
+   MLflow model, or any python callable that represents your model, e.g, a HuggingFace text summarization pipeline.
+2. **Metrics**: the metrics to compute, LLM evaluate will use LLM metrics.
+3. **Evaluation data**: the data your model is evaluated at, it can be a pandas Dataframe, a python list, a
    numpy array or an :py:func:`mlflow.data.dataset.Dataset` instance.
 
 Full Notebook Guides and Examples
 ---------------------------------
-If you're interested in thorough use-case oriented guides that showcase the simplicity and power of MLflow's evaluate 
+If you're interested in thorough use-case oriented guides that showcase the simplicity and power of MLflow's evaluate
 functionality for LLMs, please navigate to the notebook collection below:
 
 .. raw:: html
@@ -30,7 +30,7 @@ Quickstart
 
 Below is a simple example that gives an quick overview of how MLflow LLM evaluation works. The example builds
 a simple question-answering model by wrapping "openai/gpt-4" with custom prompt. You can paste it to
-your IPython or local editor and execute it, and install missing dependencies as prompted. Running the code 
+your IPython or local editor and execute it, and install missing dependencies as prompted. Running the code
 requires OpenAI API key, if you don't have an OpenAI key, you can set it up by following the `OpenAI guide <https://platform.openai.com/account/api-keys>`_.
 
 .. code-block:: shell
@@ -99,8 +99,8 @@ LLM Evaluation Metrics
 
 There are two types of LLM evaluation metrics in MLflow:
 
-1. Metrics relying on SaaS model (e.g., OpenAI) for scoring, e.g., :py:func:`mlflow.metrics.genai.answer_relevance`. These  
-   metrics are created via :py:func:`mlflow.metrics.genai.make_genai_metric` method. For each data record, these metrics under the hood sends 
+1. Metrics relying on SaaS model (e.g., OpenAI) for scoring, e.g., :py:func:`mlflow.metrics.genai.answer_relevance`. These
+   metrics are created via :py:func:`mlflow.metrics.genai.make_genai_metric` method. For each data record, these metrics under the hood sends
    one prompt consisting of the following information to the SaaS model, and extract the score from model response:
 
    * Metrics definition.
@@ -113,7 +113,7 @@ There are two types of LLM evaluation metrics in MLflow:
    More details of how these fields are set can be found in the section "Create your Custom LLM-evaluation Metrics".
 
 2. Function-based per-row metrics. These metrics calculate a score for each data record (row in terms of Pandas/Spark dataframe),
-   based on certain functions, like Rouge (:py:func:`mlflow.metrics.rougeL`) or Flesch Kincaid (:py:func:`mlflow.metrics.flesch_kincaid_grade_level`). 
+   based on certain functions, like Rouge (:py:func:`mlflow.metrics.rougeL`) or Flesch Kincaid (:py:func:`mlflow.metrics.flesch_kincaid_grade_level`).
    These metrics are similar to traditional metrics.
 
 
@@ -130,9 +130,9 @@ There are two ways to select metrics to evaluate your model:
 Use Default Metrics for Pre-defined Model Types
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-MLflow LLM evaluation includes default collections of metrics for pre-selected tasks, e.g, "question-answering". Depending on the 
+MLflow LLM evaluation includes default collections of metrics for pre-selected tasks, e.g, "question-answering". Depending on the
 LLM use case that you are evaluating, these pre-defined collections can greatly simplify the process of running evaluations. To use
-defaults metrics for pre-selected tasks, specify the ``model_type`` argument in :py:func:`mlflow.evaluate`, as shown by the example 
+defaults metrics for pre-selected tasks, specify the ``model_type`` argument in :py:func:`mlflow.evaluate`, as shown by the example
 below:
 
 .. code-block:: python
@@ -153,7 +153,7 @@ The supported LLM model types and associated metrics are listed below:
     * `ari_grade_level <https://en.wikipedia.org/wiki/Automated_readability_index>`_ :sup:`2`
     * `flesch_kincaid_grade_level <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level>`_ :sup:`2`
 
-* **text-summarization**: ``model_type="text-summarization"``: 
+* **text-summarization**: ``model_type="text-summarization"``:
 
     * `ROUGE <https://huggingface.co/spaces/evaluate-metric/rouge>`_ :sup:`3`
     * `toxicity <https://huggingface.co/spaces/evaluate-measurement/toxicity>`_ :sup:`1`
@@ -167,12 +167,12 @@ The supported LLM model types and associated metrics are listed below:
     * `flesch_kincaid_grade_level <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level>`_ :sup:`2`
 
 
-:sup:`1` Requires package `evaluate <https://pypi.org/project/evaluate>`_, `torch <https://pytorch.org/get-started/locally/>`_, and 
+:sup:`1` Requires package `evaluate <https://pypi.org/project/evaluate>`_, `torch <https://pytorch.org/get-started/locally/>`_, and
 `transformers <https://huggingface.co/docs/transformers/installation>`_
 
 :sup:`2` Requires package `textstat <https://pypi.org/project/textstat>`_
 
-:sup:`3` Requires package `evaluate <https://pypi.org/project/evaluate>`_, `nltk <https://pypi.org/project/nltk>`_, and 
+:sup:`3` Requires package `evaluate <https://pypi.org/project/evaluate>`_, `nltk <https://pypi.org/project/nltk>`_, and
 `rouge-score <https://pypi.org/project/rouge-score>`_
 
 .. _llm-eval-custom-metrics:
@@ -180,11 +180,11 @@ The supported LLM model types and associated metrics are listed below:
 Use a Custom List of Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Using the pre-defined metrics associated with a given model type is not the only way to generate scoring metrics 
+Using the pre-defined metrics associated with a given model type is not the only way to generate scoring metrics
 for LLM evaluation in MLflow. You can specify a custom list of metrics in the `extra_metrics` argument in `mlflow.evaluate`:
 
 * To add additional metrics to the default metrics list of pre-defined model type, keep the `model_type` and add your metrics to ``extra_metrics``:
-  
+
   .. code-block:: python
 
         results = mlflow.evaluate(
@@ -197,7 +197,7 @@ for LLM evaluation in MLflow. You can specify a custom list of metrics in the `e
 
   The above code will evaluate your model using all metrics for "question-answering" model plus :py:func:`mlflow.metrics.latency()`.
 
-* To disable default metric calculation and only calculate your selected metrics, remove the ``model_type`` argument and define the desired metrics. 
+* To disable default metric calculation and only calculate your selected metrics, remove the ``model_type`` argument and define the desired metrics.
 
     .. code-block:: python
 
@@ -259,32 +259,32 @@ Creating Custom LLM-evaluation Metrics
 Create LLM-as-judge Evaluation Metrics (Category 1)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can also create your own Saas LLM evaluation metrics with MLflow API :py:func:`mlflow.metrics.genai.make_genai_metric`, which 
+You can also create your own Saas LLM evaluation metrics with MLflow API :py:func:`mlflow.metrics.genai.make_genai_metric`, which
 needs the following information:
 
 * ``name``: the name of your custom metric.
-* ``definition``: describe what's the metric doing. 
-* ``grading_prompt``: describe the scoring critieria. 
+* ``definition``: describe what's the metric doing.
+* ``grading_prompt``: describe the scoring critieria.
 * ``examples``: a few input/output examples with score, they are used as a reference for LLM judge.
-* ``model``: the identifier of LLM judge, in the format of "openai:/gpt-4" or "endpoints:/databricks-llama-2-70b-chat".  
+* ``model``: the identifier of LLM judge, in the format of "openai:/gpt-4" or "endpoints:/databricks-llama-2-70b-chat".
 * ``parameters``: the extra parameters to send to LLM judge, e.g., ``temperature`` for ``"openai:/gpt-3.5-turbo-16k"``.
 * ``aggregations``: The list of options to aggregate the per-row scores using numpy functions.
 * ``greater_is_better``: indicates if a higher score means your model is better.
 
-Under the hood, ``definition``, ``grading_prompt``, ``examples`` together with evaluation data and model output will be 
-composed into a long prompt and sent to LLM. If you are familiar with the concept of prompt engineering, 
-SaaS LLM evaluation metric is basically trying to compose a "right" prompt containing instructions, data and model 
-output so that LLM, e.g., GPT4 can output the information we want. 
+Under the hood, ``definition``, ``grading_prompt``, ``examples`` together with evaluation data and model output will be
+composed into a long prompt and sent to LLM. If you are familiar with the concept of prompt engineering,
+SaaS LLM evaluation metric is basically trying to compose a "right" prompt containing instructions, data and model
+output so that LLM, e.g., GPT4 can output the information we want.
 
-Now let's create a custom GenAI metrics called "professionalism", which measures how professional our model output is. 
+Now let's create a custom GenAI metrics called "professionalism", which measures how professional our model output is.
 
-Let's first create a few examples with scores, these will be the reference samples LLM judge uses. To create such examples, 
+Let's first create a few examples with scores, these will be the reference samples LLM judge uses. To create such examples,
 we will use :py:func:`mlflow.metrics.genai.EvaluationExample` class, which has 4 fields:
 
 * input: input text.
 * output: output text.
-* score: the score for output in the context of input. 
-* justification: why do we give the `score` for the data. 
+* score: the score for output in the context of input.
+* justification: why do we give the `score` for the data.
 
 .. code-block:: python
 
@@ -351,9 +351,9 @@ Basically you need to:
 
 1. Implement a ``eval_fn`` to define your scoring logic, it must take in 2 args ``predictions`` and ``targets``.
    ``eval_fn`` must return a :py:func:`mlflow.metrics.MetricValue` instance.
-2. Pass ``eval_fn`` and other arguments to ``mlflow.metrics.make_metric`` API to create the metric. 
+2. Pass ``eval_fn`` and other arguments to ``mlflow.metrics.make_metric`` API to create the metric.
 
-The following code creates a dummy per-row metric called ``"over_10_chars"``: if the model output is greater than 10, 
+The following code creates a dummy per-row metric called ``"over_10_chars"``: if the model output is greater than 10,
 the score is "yes" otherwise "no".
 
 .. code-block:: python
@@ -404,13 +404,13 @@ Prepare Your LLM for Evaluating
 In order to evaluate your LLM with ``mlflow.evaluate()``, your LLM has to be one of the following type:
 
 1. A :py:func:`mlflow.pyfunc.PyFuncModel` instance or a URI pointing to a logged ``mlflow.pyfunc.PyFuncModel`` model. In
-   general we call that MLflow model. The 
-2. A python function that takes in string inputs and outputs a single string. Your callable must match the signature of 
+   general we call that MLflow model. The
+2. A python function that takes in string inputs and outputs a single string. Your callable must match the signature of
    :py:func:`mlflow.pyfunc.PyFuncModel.predict` (without ``params`` argument), briefly it should:
 
    * Has ``data`` as the only argument, which can be a ``pandas.Dataframe``, ``numpy.ndarray``, python list, dictionary or scipy matrix.
-   * Returns one of ``pandas.DataFrame``, ``pandas.Series``, ``numpy.ndarray`` or list. 
-3. An MLflow Deployments endpoint URI pointing to a local `MLflow Deployments Server <../deployments/index.html>`_, `Databricks Foundation Models API <https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html>`_, and `External Models in Databricks Model Serving <https://docs.databricks.com/en/generative-ai/external-models/index.html>`_. 
+   * Returns one of ``pandas.DataFrame``, ``pandas.Series``, ``numpy.ndarray`` or list.
+3. An MLflow Deployments endpoint URI pointing to a local `MLflow Deployments Server <../deployments/index.html>`_, `Databricks Foundation Models API <https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html>`_, and `External Models in Databricks Model Serving <https://docs.databricks.com/en/generative-ai/external-models/index.html>`_.
 4. Set ``model=None``, and put model outputs in ``data``. Only applicable when the data is a Pandas dataframe.
 
 Evaluating with an MLflow Model
@@ -420,7 +420,7 @@ For detailed instruction on how to convert your model into a ``mlflow.pyfunc.PyF
 `this doc <https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#creating-custom-pyfunc-models>`_. But in short,
 to evaluate your model as an MLflow model, we recommend following the steps below:
 
-1. Package your LLM as an MLflow model and log it to MLflow server by ``log_model``. Each flavor (``opeanai``, ``pytorch``, ...) 
+1. Package your LLM as an MLflow model and log it to MLflow server by ``log_model``. Each flavor (``opeanai``, ``pytorch``, ...)
    has its own ``log_model`` API, e.g., :py:func:`mlflow.openai.log_model()`:
 
    .. code-block:: python
@@ -438,7 +438,7 @@ to evaluate your model as an MLflow model, we recommend following the steps belo
                 ],
             )
 2. Use the URI of logged model as the model instance in ``mlflow.evaluate()``:
-   
+
    .. code-block:: python
 
         results = mlflow.evaluate(
@@ -453,7 +453,7 @@ to evaluate your model as an MLflow model, we recommend following the steps belo
 Evaluating with a Custom Function
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-As of MLflow 2.8.0, :py:func:`mlflow.evaluate()` supports evaluating a python function without requiring 
+As of MLflow 2.8.0, :py:func:`mlflow.evaluate()` supports evaluating a python function without requiring
 logging the model to MLflow. This is useful when you don't want to log the model and just want to evaluate
 it. The following example uses :py:func:`mlflow.evaluate()` to evaluate a function. You also need to set
 up OpenAI authentication to run the code below.
@@ -526,7 +526,7 @@ The input data can be either of the following format when using an URI of the ML
       - Additional Notes
 
     * - A pandas DataFrame with a string column.
-      - 
+      -
         .. code-block:: python
 
             pd.DataFrame(
@@ -541,7 +541,7 @@ The input data can be either of the following format when using an URI of the ML
       - For this input format, MLflow will construct the appropriate request payload to the model endpoint type. For example, if your model is a chat endpoint (``llm/v1/chat``), MLflow will wrap your input string with the chat messages format like ``{"messages": [{"role": "user", "content": "What is MLflow?"}]}``. If you want to customize the request payload e.g. including system prompt, please use the next format.
 
     * - A pandas DataFrame with a dictionary column.
-      - 
+      -
         .. code-block:: python
 
             pd.DataFrame(
@@ -562,7 +562,7 @@ The input data can be either of the following format when using an URI of the ML
       - In this format, the dictionary should have the correct request format for your model endpoint. Please refer to the `MLflow Deployments documentation <../deployments/index.html#standard-query-parameters>`_ for more information about the request format for different model endpoint types.
 
     * - A list of input strings.
-      - 
+      -
         .. code-block:: python
 
             [
@@ -573,7 +573,7 @@ The input data can be either of the following format when using an URI of the ML
       - The :py:func:`mlflow.evaluate()` also accepts a list input.
 
     * - A list of request payload (dictionary).
-      - 
+      -
         .. code-block:: python
 
             [
@@ -734,12 +734,12 @@ Viewing Evaluation Results
 View Evaluation Results via Code
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``mlflow.evaluate()`` returns the evaluation results as an :py:func:`mlflow.models.EvaluationResult` instance. 
+``mlflow.evaluate()`` returns the evaluation results as an :py:func:`mlflow.models.EvaluationResult` instance.
 To see the score on selected metrics, you can check:
 
 * ``metrics``: stores the aggregated results, like average/variance across the evaluation dataset. Let's take a second
   pass on the code example above and focus on printing out the aggregated results.
-  
+
   .. code-block:: python
 
     with mlflow.start_run() as run:
@@ -752,7 +752,7 @@ To see the score on selected metrics, you can check:
         )
         print(f"See aggregated evaluation results below: \n{results.metrics}")
 
-* ``tables["eval_results_table"]``: stores the per-row evaluation results. 
+* ``tables["eval_results_table"]``: stores the per-row evaluation results.
 
   .. code-block:: python
 
@@ -779,7 +779,7 @@ MLflow UI. To view the evaluation results on MLflow UI, please follow the steps 
 1. Go to the experiment view of your MLflow experiment.
 2. Select the "Evaluation" tab.
 3. Select the runs you want to check evaluation results.
-4. Select the metrics from the dropdown menu on the right side. 
+4. Select the metrics from the dropdown menu on the right side.
 
 Please see the screenshot below for clarity:
 

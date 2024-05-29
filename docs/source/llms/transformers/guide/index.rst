@@ -146,12 +146,12 @@ Saving Transformer Pipelines with an OpenAI-Compatible Inference Interface
     This feature is only available in MLflow 2.11.0 and above. Also, the ``llm/v1/chat`` task type is only available for models saved with ``transformers >= 4.34.0``.
 
 
-MLflow's native transformers integration allows you to pass in the ``task`` param when saving a model 
-with :py:func:`mlflow.transformers.save_model()` and :py:func:`mlflow.transformers.log_model()`. Originally, this param 
+MLflow's native transformers integration allows you to pass in the ``task`` param when saving a model
+with :py:func:`mlflow.transformers.save_model()` and :py:func:`mlflow.transformers.log_model()`. Originally, this param
 accepts any of the `Transformers pipeline task types <https://huggingface.co/tasks>`_, but in MLflow 2.11.0
 and above, we've added a few more MLflow-specific keys for ``text-generation`` pipelines.
 
-For ``text-generation`` pipelines, instead of specifying ``text-generation`` as the task type, you can provide 
+For ``text-generation`` pipelines, instead of specifying ``text-generation`` as the task type, you can provide
 one of two string literals conforming to the `MLflow Deployments Server's endpoint_type specification <https://mlflow.org/docs/latest/llms/deployments/index.html#general-configuration-parameters>`_:
 
 - ``"llm/v1/chat"`` for chat-style applications
@@ -181,11 +181,11 @@ When one of these keys is specified, MLflow will automatically handle everything
 or completions model. This includes:
 
 - Setting a chat/completions compatible signature on the model
-- Performing data pre- and post-processing to ensure the inputs and outputs conform to 
-  the `Chat/Completions API spec <https://mlflow.org/docs/latest/llms/deployments/index.html#chat>`_, 
+- Performing data pre- and post-processing to ensure the inputs and outputs conform to
+  the `Chat/Completions API spec <https://mlflow.org/docs/latest/llms/deployments/index.html#chat>`_,
   which is compatible with OpenAI's API spec.
 
-Note that these modifications only apply when the model is loaded with :py:func:`mlflow.pyfunc.load_model()` (e.g. when 
+Note that these modifications only apply when the model is loaded with :py:func:`mlflow.pyfunc.load_model()` (e.g. when
 serving the model with the ``mlflow models serve`` CLI tool). If you want to load just the base pipeline, you can
 always do so via :py:func:`mlflow.transformers.load_model()`.
 
@@ -210,7 +210,7 @@ MLflow supports specifying prompt templates for certain pipeline types:
 
 Prompt templates are strings that are used to format user inputs prior to ``pyfunc`` inference. To specify a prompt template,
 use the ``prompt_template`` argument when calling :py:func:`mlflow.transformers.save_model()` or :py:func:`mlflow.transformers.log_model()`.
-The prompt template must be a string with a single format placeholder, ``{prompt}``. 
+The prompt template must be a string with a single format placeholder, ``{prompt}``.
 
 For example:
 
@@ -252,8 +252,8 @@ template will be used to format user inputs before passing them into the pipelin
     ``text-generation`` pipelines with a prompt template will have the `return_full_text pipeline argument <https://huggingface.co/docs/huggingface_hub/main/en/package_reference/inference_client#huggingface_hub.inference._text_generation.TextGenerationParameters.return_full_text>`_
     set to ``False`` by default. This is to prevent the template from being shown to the users,
     which could potentially cause confusion as it was not part of their original input. To
-    override this behaviour, either set ``return_full_text`` to ``True`` via ``params``, or by 
-    including it in a ``model_config`` dict in ``log_model()``. See `this section <#using-model-config-and-model-signature-params-for-transformers-inference>`_ 
+    override this behaviour, either set ``return_full_text`` to ``True`` via ``params``, or by
+    including it in a ``model_config`` dict in ``log_model()``. See `this section <#using-model-config-and-model-signature-params-for-transformers-inference>`_
     for more details on how to do this.
 
 For a more in-depth guide, check out the `Prompt Templating notebook <../tutorials/prompt-templating/prompt-templating.ipynb>`_!
@@ -276,8 +276,8 @@ params that may be needed to compute the predictions for their specific samples.
 .. note::
     If both ``model_config`` and ``ModelSignature`` with parameters are saved when logging model, both of them
     will be used for inference. The default parameters in ``ModelSignature`` will override the params in ``model_config``.
-    If extra ``params`` are provided at inference time, they take precedence over all params. We recommend using 
-    ``model_config`` for those parameters needed to run the model in general for all the samples. Then, add 
+    If extra ``params`` are provided at inference time, they take precedence over all params. We recommend using
+    ``model_config`` for those parameters needed to run the model in general for all the samples. Then, add
     ``ModelSignature`` with parameters for those extra parameters that you want downstream consumers to indicated at
     per each of the samples.
 
@@ -408,25 +408,25 @@ The transformers flavor has two different primary mechanisms for saving and load
 
 **Pipelines**
 
-Pipelines, in the context of the Transformers library, are high-level objects that combine pre-trained models and tokenizers 
-(as well as other components, depending on the task type) to perform a specific task. They abstract away much of the preprocessing 
-and postprocessing work involved in using the models. 
+Pipelines, in the context of the Transformers library, are high-level objects that combine pre-trained models and tokenizers
+(as well as other components, depending on the task type) to perform a specific task. They abstract away much of the preprocessing
+and postprocessing work involved in using the models.
 
 For example, a text classification pipeline would handle the tokenization of text, passing the tokens through a model, and then interpret the logits to produce a human-readable classification.
 
-When logging a pipeline with MLflow, you're essentially saving this high-level abstraction, which can be loaded and used directly 
-for inference with minimal setup. This is ideal for end-to-end tasks where the preprocessing and postprocessing steps are standard 
+When logging a pipeline with MLflow, you're essentially saving this high-level abstraction, which can be loaded and used directly
+for inference with minimal setup. This is ideal for end-to-end tasks where the preprocessing and postprocessing steps are standard
 for the task at hand.
 
 **Components**
 
-Components refer to the individual parts that can make up a pipeline, such as the model itself, the tokenizer, and any additional 
-processors, extractors, or configuration needed for a specific task. Logging components with MLflow allows for more flexibility and 
-customization. You can log individual components when your project needs to have more control over the preprocessing and postprocessing 
+Components refer to the individual parts that can make up a pipeline, such as the model itself, the tokenizer, and any additional
+processors, extractors, or configuration needed for a specific task. Logging components with MLflow allows for more flexibility and
+customization. You can log individual components when your project needs to have more control over the preprocessing and postprocessing
 steps or when you need to access the individual components in a bespoke manner that diverges from how the pipeline abstraction would call them.
 
-For example, you might log the components separately if you have a custom tokenizer or if you want to apply some special postprocessing 
-to the model outputs. When loading the components, you can then reconstruct the pipeline with your custom components or use the components 
+For example, you might log the components separately if you have a custom tokenizer or if you want to apply some special postprocessing
+to the model outputs. When loading the components, you can then reconstruct the pipeline with your custom components or use the components
 individually as needed.
 
 .. note::

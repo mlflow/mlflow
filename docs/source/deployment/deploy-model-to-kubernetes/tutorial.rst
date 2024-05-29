@@ -24,11 +24,11 @@ Introduction: Scalable Model Serving with KServe and MLServer
 
 MLflow provides an easy-to-use interface for deploying models within a Flask-based inference server. You can deploy the same inference
 server to a Kubernetes cluster by containerizing it using the ``mlflow models build-docker`` command. However, this approach may not be scalable
-and could be unsuitable for production use cases. Flask is not designed for high performance and scale (:ref:`why? <serving_frameworks>`), and also 
+and could be unsuitable for production use cases. Flask is not designed for high performance and scale (:ref:`why? <serving_frameworks>`), and also
 manually managing multiple instances of inference servers is backbreaking.
 
 Fortunately, MLflow offers a solution for this. MLflow provides an alternative inference engine that is better suited for larger-scale inference deployments with its support for `MLServer <https://mlserver.readthedocs.io/en/latest/>`_,
-which enables one-step deployment to popular serverless model serving frameworks on Kubernetes, such as `KServe <https://kserve.github.io/website/>`_, and 
+which enables one-step deployment to popular serverless model serving frameworks on Kubernetes, such as `KServe <https://kserve.github.io/website/>`_, and
 `Seldon Core <https://docs.seldon.io/projects/seldon-core/en/latest/>`_.
 
 
@@ -43,7 +43,7 @@ Benefits of using MLflow with KServe
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 While KServe enables highly scalable and production-ready model serving, deplying your model there might require some effort.
-MLflow simplifies the process of deploying models to a Kubernetes cluster with KServe and MLServer. Additionally, it offers seamless **end-to-end model management** 
+MLflow simplifies the process of deploying models to a Kubernetes cluster with KServe and MLServer. Additionally, it offers seamless **end-to-end model management**
 as a single place to manage the entire ML lifecycle. This includes `experiment tracking <../../../tracking.html>`_, `model packaging <../../../models.html>`_,
 `versioning <../../../model-registry.html>`_, `evaluation <../../../model-evaluation/index.html>`_, and `deployment <../../index.html>`_, which we will cover in this tutorial.
 

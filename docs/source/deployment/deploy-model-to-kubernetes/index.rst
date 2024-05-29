@@ -15,7 +15,7 @@ and why MLServer is a better choice for ML production use cases.
 
 Building a Docker Image for MLflow Model
 ----------------------------------------
-The essential step to deploy an MLflow model to Kubernetes is to build a Docker image that contains the MLflow model and the inference server. This can be done via 
+The essential step to deploy an MLflow model to Kubernetes is to build a Docker image that contains the MLflow model and the inference server. This can be done via
 ``build-docker`` CLI command or Python API.
 
 .. tabs::

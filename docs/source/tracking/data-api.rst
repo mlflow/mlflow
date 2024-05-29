@@ -9,13 +9,13 @@ Key Interfaces
 
 There are two main abstract components associated with the ``mlflow.data`` module, ``Dataset`` and ``DatasetSource``:
 
-Dataset 
+Dataset
 ^^^^^^^
 
 The ``Dataset`` abstraction is a metadata tracking object that holds the information about a given logged dataset.
 
-The information stored within a ``Dataset`` object includes features, targets, and predictions, along with 
-metadata like the dataset's name, digest (hash), schema, and profile. You can log this metadata using the :py:func:`mlflow.log_input` API. 
+The information stored within a ``Dataset`` object includes features, targets, and predictions, along with
+metadata like the dataset's name, digest (hash), schema, and profile. You can log this metadata using the :py:func:`mlflow.log_input` API.
 The module provides functions to construct :py:class:`mlflow.data.dataset.Dataset` objects from various data types.
 
 There are a number of concrete implementations of this abstract class, including:
@@ -49,13 +49,13 @@ DatasetSource
 
 The ``DatasetSource`` is a component of a given Dataset object, providing a linked lineage to the original source of the data.
 
-The ``DatasetSource`` component of a ``Dataset`` represents the source of a dataset, such as a directory in S3, a Delta Table, or a URL. 
-It is referenced in the ``Dataset`` for understanding the origin of the data. The ``DatasetSource`` of a logged 
+The ``DatasetSource`` component of a ``Dataset`` represents the source of a dataset, such as a directory in S3, a Delta Table, or a URL.
+It is referenced in the ``Dataset`` for understanding the origin of the data. The ``DatasetSource`` of a logged
 dataset can be retrieved either by accessing the ``source`` property of the ``Dataset`` object, or through using the ``mlflow.data.get_source()`` API.
 
 .. tip::
-    Many of the supported autologging-enabled flavors within MLflow will automatically log the source of the dataset when logging the dataset itself. 
-    
+    Many of the supported autologging-enabled flavors within MLflow will automatically log the source of the dataset when logging the dataset itself.
+
 .. note::
     The example shown below is purely for instructive purposes, as logging a dataset outside of a training run is not a common practice.
 
@@ -104,27 +104,27 @@ The stdout results of the above code snippet are as follows:
     Dataset digest: 2a1e42c4
     Dataset profile: {"num_rows": 4898, "num_elements": 58776}
     Dataset schema: {"mlflow_colspec": [
-        {"type": "double", "name": "fixed acidity"}, 
-        {"type": "double", "name": "volatile acidity"}, 
-        {"type": "double", "name": "citric acid"}, 
-        {"type": "double", "name": "residual sugar"}, 
-        {"type": "double", "name": "chlorides"}, 
-        {"type": "double", "name": "free sulfur dioxide"}, 
-        {"type": "double", "name": "total sulfur dioxide"}, 
-        {"type": "double", "name": "density"}, 
-        {"type": "double", "name": "pH"}, 
-        {"type": "double", "name": "sulphates"}, 
-        {"type": "double", "name": "alcohol"}, 
+        {"type": "double", "name": "fixed acidity"},
+        {"type": "double", "name": "volatile acidity"},
+        {"type": "double", "name": "citric acid"},
+        {"type": "double", "name": "residual sugar"},
+        {"type": "double", "name": "chlorides"},
+        {"type": "double", "name": "free sulfur dioxide"},
+        {"type": "double", "name": "total sulfur dioxide"},
+        {"type": "double", "name": "density"},
+        {"type": "double", "name": "pH"},
+        {"type": "double", "name": "sulphates"},
+        {"type": "double", "name": "alcohol"},
         {"type": "long", "name": "quality"}
         ]}
 
-We can navigate to the MLflow UI to see what this looks like for a logged Dataset as well. 
+We can navigate to the MLflow UI to see what this looks like for a logged Dataset as well.
 
 .. figure:: ../_static/images/tracking/dataset-mlflow-ui.png
-    :align: center 
+    :align: center
     :figwidth: 100%
 
-When we want to load the dataset back from the location that it's stored (calling ``load`` will download the data locally), we 
+When we want to load the dataset back from the location that it's stored (calling ``load`` will download the data locally), we
 access the Dataset's source via the following API:
 
 .. code-block:: python
@@ -149,17 +149,17 @@ The print statement from above resolves to the local file that was created when 
 Using Datasets with other MLflow Features
 -----------------------------------------
 
-The ``mlflow.data`` module serves the crucial role of associating datasets with MLflow runs. Aside from the obvious utility of having a record 
-associated with an MLflow run to the dataset that was used during training, there are some integrations within MLflow that allow for direct 
-usage of Datasets that have been logged with the :py:func:`mlflow.log_input` API. 
+The ``mlflow.data`` module serves the crucial role of associating datasets with MLflow runs. Aside from the obvious utility of having a record
+associated with an MLflow run to the dataset that was used during training, there are some integrations within MLflow that allow for direct
+usage of Datasets that have been logged with the :py:func:`mlflow.log_input` API.
 
 How to use a Dataset with MLflow evaluate
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. note:: 
+.. note::
     The integration of Datasets with MLflow evaluate was introduced in MLflow 2.8.0. Previous versions do not have this functionality.
 
-To see how this integration functions, let's take a look at a fairly simple and typical classification task. 
+To see how this integration functions, let's take a look at a fairly simple and typical classification task.
 
 .. code-block:: python
 
@@ -222,10 +222,10 @@ To see how this integration functions, let's take a look at a fairly simple and 
         result = mlflow.evaluate(data=pd_dataset, predictions=None, model_type="classifier")
 
 .. note::
-    Using the :py:func:`mlflow.evaluate` API will automatically log the dataset used for the evaluation to the MLflow run. An explicit call to 
+    Using the :py:func:`mlflow.evaluate` API will automatically log the dataset used for the evaluation to the MLflow run. An explicit call to
     log the input is not required.
 
-Navigating to the MLflow UI, we can see how the Dataset, model, metrics, and a classification-specific confusion matrix are all logged 
+Navigating to the MLflow UI, we can see how the Dataset, model, metrics, and a classification-specific confusion matrix are all logged
 to the run.
 
 .. figure:: ../_static/images/tracking/dataset-evaluate.png

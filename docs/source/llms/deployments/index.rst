@@ -40,8 +40,8 @@ organizations that use LLMs on a regular basis.
 Tutorials and Guides
 ====================
 
-If you're interested in diving right in to a step by step guide that will get you up and running with the MLflow Deployments Server 
-as fast as possible, the guides below will be your best first stop. 
+If you're interested in diving right in to a step by step guide that will get you up and running with the MLflow Deployments Server
+as fast as possible, the guides below will be your best first stop.
 
 .. raw:: html
 

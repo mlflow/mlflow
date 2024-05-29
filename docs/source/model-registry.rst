@@ -66,7 +66,7 @@ Follow the steps below to register your MLflow model in the Model Registry.
 2. Click the **Register Model** button, which will trigger a form to pop up.
 
 3. In the **Model** dropdown menu on the form, you can either select "Create New Model", which creates a new registered model with your MLflow model as its initial version, or select an existing registered model, which registers your model under it as a new version. The screenshot below demonstrates registering the MLflow model to a new registered model named ``"iris_model_testing"``.
- 
+
   .. figure:: _static/images/oss_registry_2_dialog.png
 
 Find Registered Models

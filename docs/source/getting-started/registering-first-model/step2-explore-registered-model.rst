@@ -1,10 +1,10 @@
 Explore the Registered Model
 ============================
 
-Now that we've logged an experiment and registered the model associated with that experiment run, 
+Now that we've logged an experiment and registered the model associated with that experiment run,
 let's observe how this information is actually stored both in the MLflow UI and in our local
 directory. Note that we can also get this information programmatically, but for explanatory purposes
-we'll use the MLflow UI. 
+we'll use the MLflow UI.
 
 Step 1: Explore the `mlruns` Directory
 --------------------------------------
@@ -13,7 +13,7 @@ the directory structure created when running the python script in the prior step
 
 Before diving in, it's import to note that MLflow is designed to abstract complexity from the user
 and this directory structure is just for illustration purposes. Furthermore, on remote deployments,
-which is recommended for production use cases, the tracking server will be 
+which is recommended for production use cases, the tracking server will be
 on object store (S3, ADLS, GCS, etc.) and the model registry will be on a relational database
 (PostgreSQL, MySQL, etc.).
 
@@ -22,33 +22,33 @@ on object store (S3, ADLS, GCS, etc.) and the model registry will be on a relati
     mlruns/
     ├── 0/                                    # Experiment ID
     │   ├── bc6dc2a4f38d47b4b0c99d154bbc77ad/ # Run ID
-    │   │   ├── metrics/                      
+    │   │   ├── metrics/
     │   │   │   └── mse                       # Example metric file for mean squared error
     │   │   ├── artifacts/                    # Artifacts associated with our run
-    │   │   │   └── sklearn-model/            
-    │   │   │       ├── python_env.yaml       
+    │   │   │   └── sklearn-model/
+    │   │   │       ├── python_env.yaml
     │   │   │       ├── requirements.txt      # Python package requirements
     │   │   │       ├── MLmodel               # MLflow model file with model metadata
     │   │   │       ├── model.pkl             # Serialized model file
-    │   │   │       ├── input_example.json    
-    │   │   │       └── conda.yaml            
-    │   │   ├── tags/                         
-    │   │   │   ├── mlflow.user               
-    │   │   │   ├── mlflow.source.git.commit  
-    │   │   │   ├── mlflow.runName            
-    │   │   │   ├── mlflow.source.name        
-    │   │   │   ├── mlflow.log-model.history  
-    │   │   │   └── mlflow.source.type        
-    │   │   ├── params/                       
-    │   │   │   ├── max_depth                 
-    │   │   │   └── random_state              
-    │   │   └── meta.yaml                     
-    │   └── meta.yaml                         
+    │   │   │       ├── input_example.json
+    │   │   │       └── conda.yaml
+    │   │   ├── tags/
+    │   │   │   ├── mlflow.user
+    │   │   │   ├── mlflow.source.git.commit
+    │   │   │   ├── mlflow.runName
+    │   │   │   ├── mlflow.source.name
+    │   │   │   ├── mlflow.log-model.history
+    │   │   │   └── mlflow.source.type
+    │   │   ├── params/
+    │   │   │   ├── max_depth
+    │   │   │   └── random_state
+    │   │   └── meta.yaml
+    │   └── meta.yaml
     ├── models/                               # Model Registry Directory
         ├── sk-learn-random-forest-reg-model/ # Registered model name
         │   ├── version-1/                    # Model version directory
-        │   │   └── meta.yaml                 
-        │   └── meta.yaml                     
+        │   │   └── meta.yaml
+        │   └── meta.yaml
 
 
 The tracking server is organized by `Experiment ID` and `Run ID` and is responsible for storing our
@@ -103,7 +103,7 @@ Next, let's add tags and a model version alias to
 You can add or edit tags and aliases by clicking on the corresponding ``Add`` link or pencil icon in
 the model version table. Let's...
 
-1. Add a model version tag with a key of ``problem_type`` and value of ``regression``.  
+1. Add a model version tag with a key of ``problem_type`` and value of ``regression``.
 2. Add a model version alias of ``the_best_model_ever``.
 
 .. figure:: ../../_static/images/quickstart/model-registry-quickstart/model-alias-and-tags.png

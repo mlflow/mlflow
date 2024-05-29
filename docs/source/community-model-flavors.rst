@@ -173,7 +173,7 @@ MLflavors
 The `MLflavors <https://github.com/ml-toolkits/mlflavors>`_ package adds MLflow support for some
 popular machine learning frameworks currently not considered for inclusion as MLflow built-in
 flavors. Similar to the built-in flavors, you can use this package to save your model as an MLflow
-artifact, load your model from MLflow for batch inference, and deploy your model to a serving 
+artifact, load your model from MLflow for batch inference, and deploy your model to a serving
 endpoint using MLflow deployment tools.
 
 The following open-source libraries are currently supported:

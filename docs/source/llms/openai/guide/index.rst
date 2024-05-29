@@ -7,21 +7,21 @@ OpenAI within MLflow
 
 Overview
 --------
-The integration of OpenAI's advanced language models within MLflow opens up new frontiers in creating and using NLP-based applications. It enables users to harness 
-the cutting-edge capabilities of models like GPT-4 for varied tasks, ranging from conversational AI to complex text analysis 
+The integration of OpenAI's advanced language models within MLflow opens up new frontiers in creating and using NLP-based applications. It enables users to harness
+the cutting-edge capabilities of models like GPT-4 for varied tasks, ranging from conversational AI to complex text analysis
 and embeddings generation. This integration is a leap forward in making advanced NLP accessible and manageable within a robust framework like MLflow.
 
 Beyond Simple Deployment: Building Powerful NLP Applications with OpenAI and MLflow
 -----------------------------------------------------------------------------------
-While the openai flavor within MLflow simplifies the logging and deployment of OpenAI models, its true potential lies in unlocking the full power of NLP 
+While the openai flavor within MLflow simplifies the logging and deployment of OpenAI models, its true potential lies in unlocking the full power of NLP
 applications. By seamlessly integrating with MLflow, you can:
 
 Craft Task-Specific Services
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Raw access to a large language model doesn't guarantee a valuable service. While powerful, unprompted models can be overly general, leading to unintended 
-outputs or inappropriate responses for the intent of the application. MLflow enables users to tailor models for specific tasks, achieving desired functionalities 
-while ensuring context and control. 
+Raw access to a large language model doesn't guarantee a valuable service. While powerful, unprompted models can be overly general, leading to unintended
+outputs or inappropriate responses for the intent of the application. MLflow enables users to tailor models for specific tasks, achieving desired functionalities
+while ensuring context and control.
 
 This allows you to:
 
@@ -41,8 +41,8 @@ MLflow streamlines the deployment process, enabling you to:
 Advanced Prompt Engineering and Version Tracking with MLflow and OpenAI: Unleashing the True Potential of LLMs
 --------------------------------------------------------------------------------------------------------------
 
-The integration of MLflow and OpenAI marks a paradigm shift in the field of prompt engineering for large language models (LLMs). While basic prompts can 
-enable rudimentary functionalities, this powerful combination unlocks the full potential of LLMs, empowering developers and data scientists to meticulously 
+The integration of MLflow and OpenAI marks a paradigm shift in the field of prompt engineering for large language models (LLMs). While basic prompts can
+enable rudimentary functionalities, this powerful combination unlocks the full potential of LLMs, empowering developers and data scientists to meticulously
 craft and refine prompts, ushering in a new era of targeted and impactful applications.
 
 Beyond the Basics: Embracing Iterative Experimentation
@@ -76,11 +76,11 @@ Leveraging MLflow for Optimized Prompt Engineering
 
 Real-World Impact
 ^^^^^^^^^^^^^^^^^
-In real-world applications, the ability to track and refine prompts using MLflow and OpenAI leads to more accurate, reliable, and efficient language model 
-implementations. Whether in customer service chatbots, content generation, or complex decision support systems, the meticulous management of prompts 
+In real-world applications, the ability to track and refine prompts using MLflow and OpenAI leads to more accurate, reliable, and efficient language model
+implementations. Whether in customer service chatbots, content generation, or complex decision support systems, the meticulous management of prompts
 and model versions directly translates to enhanced performance and user experience.
 
-This integration not only simplifies the complexities of working with advanced LLMs but also opens up new avenues for innovation in NLP applications, 
+This integration not only simplifies the complexities of working with advanced LLMs but also opens up new avenues for innovation in NLP applications,
 ensuring that each prompt-driven interaction is as effective and impactful as possible.
 
 
@@ -93,16 +93,16 @@ Direct usage of OpenAI's service through MLflow allows for seamless interaction 
 
 Azure OpenAI Service Integration
 --------------------------------
-The ``openai`` flavor supports logging models that use the `Azure OpenAI Service <https://azure.microsoft.com/en-us/products/ai-services/openai-service>`_. 
-There are a few notable differences between the Azure OpenAI Service and the OpenAI Service that need to be considered when logging models that target Azure endpoints. 
+The ``openai`` flavor supports logging models that use the `Azure OpenAI Service <https://azure.microsoft.com/en-us/products/ai-services/openai-service>`_.
+There are a few notable differences between the Azure OpenAI Service and the OpenAI Service that need to be considered when logging models that target Azure endpoints.
 
 Environment Configuration for Azure Integration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 To successfully log a model targeting Azure OpenAI Service, specific environment variables are essential for authentication and functionality.
 
 .. note::
-    The following environment variables contain **highly sensitive access keys**. Ensure that you do not commit these values to source control or declare them in an interactive 
-    environment. Environment variables should be set from within your terminal via an ``export`` command, an addition to your user profile configurations (i.e., .bashrc or .zshrc), 
+    The following environment variables contain **highly sensitive access keys**. Ensure that you do not commit these values to source control or declare them in an interactive
+    environment. Environment variables should be set from within your terminal via an ``export`` command, an addition to your user profile configurations (i.e., .bashrc or .zshrc),
     or set through your IDE's environment variable configuration. Please do not leak your credentials.
 
 - **OPENAI_API_KEY**: The API key for the Azure OpenAI Service. This can be found in the Azure Portal under the "Keys and Endpoint" section of the "Keys and Endpoint" tab. You can use either ``KEY1`` or ``KEY2``.
@@ -175,21 +175,21 @@ For more examples, please click `here <https://github.com/mlflow/mlflow/blob/mas
 
 Next Steps in Your NLP Journey
 ------------------------------
-We invite you to harness the combined power of MLflow and OpenAI for developing innovative NLP applications. Whether it's creating interactive 
-AI-driven platforms, enhancing data analysis with deep NLP insights, or exploring new frontiers in AI, this integration serves as a robust foundation 
+We invite you to harness the combined power of MLflow and OpenAI for developing innovative NLP applications. Whether it's creating interactive
+AI-driven platforms, enhancing data analysis with deep NLP insights, or exploring new frontiers in AI, this integration serves as a robust foundation
 for your explorations
 
 Supplementary Learnings
 -----------------------
-If you're a bit curious about what really sets apart OpenAI's GPT models from other language models, we've included a brief (and heavily simplified) overview of 
+If you're a bit curious about what really sets apart OpenAI's GPT models from other language models, we've included a brief (and heavily simplified) overview of
 their training process below.
-This is but one small aspect of why they're so good and capable of responding in such a human-like manner, but it's a fascintating insight into how different the 
+This is but one small aspect of why they're so good and capable of responding in such a human-like manner, but it's a fascintating insight into how different the
 fine-tuning process is for these models as compared to the more familiar process of traditional supervised machine learning.
 
 RLHF in GPT Models
 ^^^^^^^^^^^^^^^^^^
-One of the defining features of OpenAI's GPT models is their training process, particularly the use of Reinforcement Learning from Human Feedback 
-(RLHF). This methodology sets GPT models apart from traditional language models in several ways (although they are not the only organization to use this 
+One of the defining features of OpenAI's GPT models is their training process, particularly the use of Reinforcement Learning from Human Feedback
+(RLHF). This methodology sets GPT models apart from traditional language models in several ways (although they are not the only organization to use this
 strategy, it is a key process component that greatly helps to enhance the quality of their services).
 
 The RLHF Process
