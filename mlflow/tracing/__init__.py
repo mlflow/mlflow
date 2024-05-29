@@ -1,3 +1,3 @@
-from mlflow.tracing.provider import disable, disabled, enable
+from mlflow.tracing.provider import disable, enable
 
-__all__ = ["disable", "disabled", "enable"]
+__all__ = ["disable", "enable"]
