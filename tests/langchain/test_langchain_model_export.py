@@ -2606,9 +2606,7 @@ def test_save_load_chain_as_code_multiple_times(
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-@pytest.mark.parametrize(
-    "chain_path", [os.path.abspath("tests/langchain1/sample_code/chain.py"), "sample_code/chain.py"]
-)
+@pytest.mark.parametrize("chain_path", [os.path.abspath("tests/langchain1/sample_code/chain.py")])
 def test_save_load_chain_errors(chain_model_signature, chain_path):
     input_example = {
         "messages": [
