@@ -1555,9 +1555,9 @@ def _validate_and_get_model_code_path(model_code_path: str) -> str:
 
     if not os.path.exists(model_code_path):
         raise MlflowException.invalid_parameter_value(
-            f"If the provided model '{model_code_path}' is a string, it must be a valid python "
-            "file path or a databricks notebook file path containing the code for defining "
-            "the chain instance."
+            f"The provided model path '{model_code_path}' is not a valid Python file path or a "
+            "Databricks Notebook file path containing the code for defining the chain instance. "
+            "Ensure the file path is valid and try again."
         )
 
     try:
@@ -1573,9 +1573,9 @@ def _validate_and_get_model_code_path(model_code_path: str) -> str:
             decoded_content = base64.b64decode(response.content)
         except Exception:
             raise MlflowException.invalid_parameter_value(
-                f"If the provided model '{model_code_path}' is a string, it must be a valid python "
-                "file path or a databricks notebook file path containing the code for defining "
-                "the chain instance."
+                f"The provided model path '{model_code_path}' is not a valid Python file path or a "
+                "Databricks Notebook file path containing the code for defining the chain "
+                "instance. Ensure the file path is valid and try again."
             )
 
         _validate_model_code_from_notebook(decoded_content.decode("utf-8"))

@@ -614,7 +614,7 @@ class Utils {
   }
 
   static getRunDescriptionFromTags(runTags: any) {
-    const runDescriptionTag = runTags[NOTE_CONTENT_TAG];
+    const runDescriptionTag = runTags?.[NOTE_CONTENT_TAG];
     if (runDescriptionTag) {
       return runDescriptionTag.value;
     }

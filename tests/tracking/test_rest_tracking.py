@@ -2045,17 +2045,8 @@ def test_start_and_end_trace(mlflow_client):
     assert trace_info == client.get_trace_info(trace_info.request_id)
 
 
-def _set_tracking_uri_and_reset_tracer(tracking_uri):
-    # NB: MLflow tracer does not handle the change of tracking URI well,
-    # so we need to reset the tracer to switch the tracking URI during testing.
-    mlflow.tracing.disable()
-    mlflow.set_tracking_uri(tracking_uri)
-    mlflow.tracing.enable()
-
-
 def test_search_traces(mlflow_client):
-    _set_tracking_uri_and_reset_tracer(mlflow_client.tracking_uri)
-
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("search traces")
 
     # Create test traces
@@ -2099,8 +2090,7 @@ def test_search_traces(mlflow_client):
 
 
 def test_delete_traces(mlflow_client):
-    _set_tracking_uri_and_reset_tracer(mlflow_client.tracking_uri)
-
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("delete traces")
 
     def _create_trace(name, status):
@@ -2154,6 +2144,7 @@ def test_delete_traces(mlflow_client):
 
 
 def test_set_and_delete_trace_tag(mlflow_client):
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("set delete tag")
 
     # Create test trace
@@ -2179,7 +2170,7 @@ def test_set_and_delete_trace_tag(mlflow_client):
 
 
 def test_get_trace_artifact_handler(mlflow_client):
-    _set_tracking_uri_and_reset_tracer(mlflow_client.tracking_uri)
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
 
     experiment_id = mlflow_client.create_experiment("get trace artifact")
 

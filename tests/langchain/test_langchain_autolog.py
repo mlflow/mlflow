@@ -342,7 +342,7 @@ def test_loaded_llmchain_autolog():
             mlflow_model = get_mlflow_model(run.info.artifact_uri)
             model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
             input_example = _read_example(mlflow_model, model_path)
-            assert input_example.to_dict("records") == [question]
+            assert input_example == question
 
             pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
             # _TestLangChainWrapper mocks this result
@@ -474,7 +474,7 @@ def test_loaded_agent_autolog():
             mlflow_model = get_mlflow_model(run.info.artifact_uri)
             model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
             input_example = _read_example(mlflow_model, model_path)
-            assert input_example.to_dict("records") == [input]
+            assert input_example == input
 
             pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
             assert pyfunc_model.predict(input) == [TEST_CONTENT]
@@ -557,7 +557,7 @@ def test_loaded_runnable_sequence_autolog():
         mlflow_model = get_mlflow_model(run.info.artifact_uri)
         model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
         saved_example = _read_example(mlflow_model, model_path)
-        assert saved_example.to_dict("records") == [input_example]
+        assert saved_example == input_example
 
         pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
         assert pyfunc_model.predict(input_example) == [TEST_CONTENT]
