@@ -126,7 +126,7 @@ def get_default_conda_env():
 
 
 def _infer_signature_from_input_example_for_lc_model(
-    input_example, wrapped_model, example_no_conversion=False
+    input_example, wrapped_model, example_no_conversion=True
 ):
     from mlflow.langchain.api_request_parallel_processor import _ChatResponse
 
@@ -156,7 +156,7 @@ def save_model(
     metadata=None,
     loader_fn=None,
     persist_dir=None,
-    example_no_conversion=False,
+    example_no_conversion=True,
     model_config=None,
     streamable: Optional[bool] = None,
 ):
@@ -250,7 +250,10 @@ def save_model(
                     )
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
-        example_no_conversion: {{ example_no_conversion }}
+        example_no_conversion: If ``False``, the input example will be converted to a Pandas
+                DataFrame format when saving. This is useful when the model expects a DataFrame
+                input and the input example could be passed directly to the model.
+                Defaults to ``True``.
         model_config: The model configuration to apply to the model if saving model as code. This
             configuration is available during model loading.
 
@@ -429,7 +432,7 @@ def log_model(
     metadata=None,
     loader_fn=None,
     persist_dir=None,
-    example_no_conversion=False,
+    example_no_conversion=True,
     run_id=None,
     model_config=None,
     streamable=None,
@@ -532,7 +535,10 @@ def log_model(
                     )
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
-        example_no_conversion: {{ example_no_conversion }}
+        example_no_conversion: If ``False``, the input example will be converted to a Pandas
+                DataFrame format when saving. This is useful when the model expects a DataFrame
+                input and the input example could be passed directly to the model.
+                Defaults to ``True``.
         run_id: run_id to associate with this model version. If specified, we resume the
                 run and log the model to that run. Otherwise, a new run is created.
                 Default to None.
