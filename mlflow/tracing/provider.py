@@ -111,9 +111,6 @@ def disable():
     """
     Disable tracing by setting the global tracer provider to NoOpTracerProvider.
     """
-    if not _is_enabled():
-        _logger.info("Tracing is already disabled")
-        return
     reset_tracer_setup()  # Force re-initialization of the tracer provider
     _TRACER_PROVIDER_INITIALIZED.do_once(lambda: _setup_tracer_provider(disabled=True))
 

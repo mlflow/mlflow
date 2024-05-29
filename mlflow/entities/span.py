@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from opentelemetry.trace import NonRecordingSpan
 from opentelemetry.trace import Span as OTelSpan
 
 from mlflow.entities.span_event import SpanEvent
@@ -40,6 +41,31 @@ class SpanType:
     EMBEDDING = "EMBEDDING"
     RERANKER = "RERANKER"
     UNKNOWN = "UNKNOWN"
+
+
+def create_mlflow_span(
+    otel_span: Any, request_id: str, span_type: Optional[str] = None
+) -> Union["Span", "LiveSpan", "NoOpSpan"]:
+    """
+    Factory function to create a span object.
+
+    When creating a MLflow span object from the OpenTelemetry span, the factory function
+    should always be used to ensure the correct span object is created.
+    """
+    if not otel_span or isinstance(otel_span, NonRecordingSpan):
+        return NoOpSpan()
+
+    if isinstance(otel_span, OTelSpan):
+        return LiveSpan(otel_span, request_id, span_type)
+
+    if isinstance(otel_span, OTelReadableSpan):
+        return Span(otel_span)
+
+    raise MlflowException(
+        "The `otel_span` argument must be an instance of one of valid "
+        f"OpenTelemetry span classes, but got {type(otel_span)}.",
+        INVALID_PARAMETER_VALUE,
+    )
 
 
 class Span:
@@ -383,7 +409,8 @@ class NoOpSpan(Span):
 
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self):
+        self._span = NonRecordingSpan(context=None)
         self._attributes = {}
 
     @property
