@@ -68,11 +68,29 @@ def test_maybe_get_request_id():
         ("span.inputs.`field`", _ParsedField("span", "inputs", "field")),
         ("`span`.inputs.`field`", _ParsedField("span", "inputs", "field")),
         # dot in span name
-        ("`span.name`.inputs.field", _ParsedField("span.name", "outputs", "field")),
+        ("`span.name`.inputs.field", _ParsedField("span.name", "inputs", "field")),
+        ("`span.inputs.name`.inputs.field", _ParsedField("span.inputs.name", "inputs", "field")),
+        (
+            "`span.outputs.name`.outputs.field",
+            _ParsedField("span.outputs.name", "outputs", "field"),
+        ),
         # dot in field name
-        ("span.inputs.`field.name`", _ParsedField("span", "outputs", "field.name")),
+        ("span.inputs.`field.name`", _ParsedField("span", "inputs", "field.name")),
+        ("span.inputs.`field.inputs.name`", _ParsedField("span", "inputs", "field.inputs.name")),
+        (
+            "span.outputs.`field.outputs.name`",
+            _ParsedField("span", "outputs", "field.outputs.name"),
+        ),
         # dot in both span and field name
         ("`span.name`.inputs.`field.name`", _ParsedField("span.name", "outputs", "field.name")),
+        (
+            "`span.inputs.name`.inputs.`field.inputs.name`",
+            _ParsedField("span.name", "outputs", "field.name"),
+        ),
+        (
+            "`span.outputs.name`.outputs.`field.outputs.name`",
+            _ParsedField("span.outputs.name", "outputs", "field.outputs.name"),
+        ),
     ],
 )
 def test_parse_field_from_string(field, expected):
