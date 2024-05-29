@@ -39,11 +39,11 @@ def _get_flavor_backend_for_local_model(model=None, build_docker=True, **kwargs)
 
 def get_flavor_backend(model_uri, **kwargs):
     if model_uri:
-        root_uri, _ = _get_root_uri_and_artifact_path(model_uri)
-        artifact_repo = get_artifact_repository(root_uri)
-        ml_model_file = (
-            artifact_repo.download_artifacts(artifact_path=MLMODEL_FILE_NAME))
-        model = Model.load(ml_model_file)
+        with TempDir() as tmp:
+            root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
+            artifact_repo = get_artifact_repository(root_uri)
+            local_path = artifact_repo.download_artifacts(artifact_path, dst_path=tmp.path())
+            model = Model.load(local_path)
     else:
         model = None
     flavor_name, flavor_backend = _get_flavor_backend_for_local_model(model, **kwargs)
