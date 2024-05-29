@@ -313,7 +313,7 @@ def test_client_search_traces_trace_data_download_error(mock_store):
                 timestamp_ms=123,
                 execution_time_ms=456,
                 status=TraceStatus.OK,
-                tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/1"},
+                tags={"mlflow.artifactLocation": "test"},
             ),
         ]
         mock_store.search_traces.return_value = (mock_traces, None)

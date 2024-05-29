@@ -324,7 +324,7 @@ class ArtifactRepository:
             try:
                 self._download_file(TRACE_DATA_FILE_NAME, temp_file)
             except Exception as e:
-                # `TrackingServiceClient.MlflowTraceDataNotFound` is caught in `search_traces` and
+                # `MlflowTraceDataNotFound` is caught in `TrackingServiceClient.search_traces` and
                 # is used to filter out traces with failed trace data download.
                 raise MlflowTraceDataNotFound(artifact_path=TRACE_DATA_FILE_NAME) from e
             return try_read_trace_data(temp_file)
