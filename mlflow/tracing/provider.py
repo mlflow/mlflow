@@ -133,6 +133,8 @@ def enable():
 def trace_disabled():
     """
     Temporarily disable tracing for the duration of the context manager.
+
+    :meta private:
     """
     was_trace_enabled = _is_enabled()
     try:
