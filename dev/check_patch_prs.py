@@ -95,8 +95,12 @@ def main(version):
     if not_cherry_picked := set(patch_prs) - {c.pr_num for c in commits}:
         click.echo(f"The following patch PRs are not cherry-picked to {release_branch}:")
         for idx, pr_num in enumerate(sorted(not_cherry_picked)):
-            url = f"https://github.com/mlflow/mlflow/pull/{pr_num} (merged: {patch_prs[pr_num]})"
-            click.echo(f"  {idx + 1}. {url}")
+            merged = patch_prs[pr_num]
+            url = f"https://github.com/mlflow/mlflow/pull/{pr_num} (merged: {merged})"
+            line = f"  {idx + 1}. {url}"
+            if not merged:
+                line = click.style(line, fg="red")
+            click.echo(line)
 
         master_commits = get_commits("master")
         cherry_picks = [c.sha for c in master_commits if c.pr_num in not_cherry_picked]
