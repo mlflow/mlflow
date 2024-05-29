@@ -99,6 +99,7 @@ def _force_set_otel_tracer_provider(tracer_provider):
     Resetting internal flag used in OpenTelemetry. If we don't reset the flag,
     set_tracer_provider() will be a no-op after the first call
     in the application lifecycle.
+    https://github.com/open-telemetry/opentelemetry-python/blob/v1.24.0/opentelemetry-api/src/opentelemetry/trace/__init__.py#L485
     """
     with trace._TRACER_PROVIDER_SET_ONCE._lock:
         trace._TRACER_PROVIDER_SET_ONCE._done = False

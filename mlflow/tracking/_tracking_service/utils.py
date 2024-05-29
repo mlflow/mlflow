@@ -67,12 +67,14 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
         # then .resolve() to clean the path
         uri = uri.absolute().resolve().as_uri()
     global _tracking_uri
-    _tracking_uri = uri
 
-    # Tracer provider uses tracking URI to determine where to export traces.
-    # Tracer provider stores the URI as its state so we need to reset
-    # it explicitly when the global tracking URI changes.
-    reset_tracer_setup()
+    if _tracking_uri != uri:
+        _tracking_uri = uri
+
+        # Tracer provider uses tracking URI to determine where to export traces.
+        # Tracer provider stores the URI as its state so we need to reset
+        # it explicitly when the global tracking URI changes.
+        reset_tracer_setup()
 
 
 @contextmanager
@@ -83,8 +85,7 @@ def _use_tracking_uri(uri: str) -> Generator[None, None, None]:
         uri: The tracking URI to use.
 
     """
-    global _tracking_uri
-    old_tracking_uri = _tracking_uri
+    old_tracking_uri = get_tracking_uri()
     try:
         set_tracking_uri(uri)
         yield

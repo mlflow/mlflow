@@ -375,18 +375,18 @@ def test_set_tracking_uri_with_path(tmp_path, monkeypatch, absolute):
 
 def test_set_tracking_uri_update_trace_provider():
     default_uri = mlflow.get_tracking_uri()
+    try:
+        mlflow.tracing.enable()
+        assert get_tracer_tracking_uri() != "file:///tmp"
 
-    mlflow.tracing.enable()
-    assert get_tracer_tracking_uri() != "file:///tmp"
+        set_tracking_uri("file:///tmp")
+        assert get_tracer_tracking_uri() == "file:///tmp"
 
-    set_tracking_uri("file:///tmp")
-    assert get_tracer_tracking_uri() == "file:///tmp"
-
-    set_tracking_uri("https://foo")
-    assert get_tracer_tracking_uri() == "https://foo"
-
-    # clean up
-    set_tracking_uri(default_uri)
+        set_tracking_uri("https://foo")
+        assert get_tracer_tracking_uri() == "https://foo"
+    finally:
+        # clean up
+        set_tracking_uri(default_uri)
 
 
 @pytest.mark.parametrize("store_uri", ["databricks-uc", "databricks-uc://profile"])
