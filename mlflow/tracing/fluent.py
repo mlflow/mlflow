@@ -70,6 +70,10 @@ def trace(
     capturing the input arguments ``x`` and ``y``, and the output of the function.
 
     .. code-block:: python
+        :test:
+
+        import mlflow
+
 
         @mlflow.trace
         def my_function(x, y):
@@ -79,12 +83,18 @@ def trace(
     manager, but requires less boilerplate code.
 
     .. code-block:: python
+        :test:
+
+        import mlflow
+
 
         def my_function(x, y):
             return x + y
 
 
         with mlflow.start_span("my_function") as span:
+            x = 1
+            y = 2
             span.set_inputs({"x": x, "y": y})
             result = my_function(x, y)
             span.set_outputs({"output": result})
@@ -99,10 +109,13 @@ def trace(
         one created by the decorator i.e. captures information from the function call.
 
         .. code-block:: python
+            :test:
 
-            from some.external.library import predict
+            import math
 
-            mlflow.trace(predict)(1, 2)
+            import mlflow
+
+            mlflow.trace(math.factorial)(5)
 
     Args:
         func: The function to be decorated. Must **not** be provided when using as a decorator.
@@ -147,9 +160,14 @@ def start_span(
     spans.
 
     .. code-block:: python
+        :test:
+
+        import mlflow
 
         with mlflow.start_span("my_span") as span:
-            span.set_inputs({"x": 1, "y": 2})
+            x = 1
+            y = 2
+            span.set_inputs({"x": x, "y": y})
 
             z = x + y
 
@@ -273,6 +291,7 @@ def search_traces(
         A Pandas DataFrame containing information about traces that satisfy the search expressions.
 
     .. code-block:: python
+        :test:
         :caption: Search traces with extract_fields
 
         import mlflow
@@ -280,6 +299,7 @@ def search_traces(
         with mlflow.start_span(name="span1") as span:
             span.set_inputs({"a": 1, "b": 2})
             span.set_outputs({"c": 3, "d": 4})
+
         mlflow.search_traces(
             extract_fields=["span1.inputs", "span1.outputs", "span1.outputs.c"]
         )
@@ -293,6 +313,7 @@ def search_traces(
         with mlflow.start_span(name="non_dict_span") as span:
             span.set_inputs(["a", "b"])
             span.set_outputs([1, 2, 3])
+
         mlflow.search_traces(
             extract_fields=["non_dict_span.inputs", "non_dict_span.outputs"],
         )
