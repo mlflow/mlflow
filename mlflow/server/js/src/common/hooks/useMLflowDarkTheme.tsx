@@ -1,6 +1,7 @@
 import { Global } from '@emotion/react';
 import { useEffect, useState } from 'react';
 
+// bundled JS needs to read this key in order to enable dark mode
 const databricksDarkModePrefLocalStorageKey = 'databricks-dark-mode-pref';
 const darkModePrefLocalStorageKey = '_mlflow_dark_mode_toggle_enabled';
 const darkModeBodyClassName = 'dark-mode';
