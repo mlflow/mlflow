@@ -2576,9 +2576,9 @@ def test_save_load_chain_errors(chain_model_signature):
         incorrect_path = "tests/langchain1/sample_code/chain.py"
         with pytest.raises(
             MlflowException,
-            match=f"If the provided model '{incorrect_path}' is a string, it must be a valid "
-            "python file path or a databricks notebook file path containing the code for defining "
-            "the chain instance.",
+            match=f"The provided model path '{incorrect_path}' is not a valid Python file path or "
+            "a Databricks Notebook file path containing the code for defining the chain instance. "
+            "Ensure the file path is valid and try again.",
         ):
             mlflow.langchain.log_model(
                 lc_model=incorrect_path,
