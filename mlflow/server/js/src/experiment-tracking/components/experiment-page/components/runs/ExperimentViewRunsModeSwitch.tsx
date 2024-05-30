@@ -6,6 +6,7 @@ import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalS
 import type { ExperimentViewRunsCompareMode } from '../../../../types';
 import { PreviewBadge } from 'shared/building_blocks/PreviewBadge';
 import { getExperimentPageDefaultViewMode, useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
+import { shouldEnableTracingUI } from '../../../../../common/utils/FeatureUtils';
 
 const COMPARE_RUNS_TOOLTIP_STORAGE_KEY = 'compareRunsTooltip';
 const COMPARE_RUNS_TOOLTIP_STORAGE_ITEM = 'seenBefore';
@@ -159,6 +160,20 @@ export const ExperimentViewRunsModeSwitch = ({
         }
         key="ARTIFACT"
       />
+      {shouldEnableTracingUI() && (
+        <Tabs.TabPane
+          tab={
+            <span data-testid="experiment-runs-mode-switch-traces">
+              <FormattedMessage
+                defaultMessage="Traces"
+                description="A button enabling traces mode on the experiment page"
+              />
+              <PreviewBadge />
+            </span>
+          }
+          key="TRACES"
+        />
+      )}
     </Tabs>
   );
 };

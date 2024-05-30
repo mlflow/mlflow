@@ -1,21 +1,21 @@
-import { u as useDesignSystemTheme, I as Icon, D as DesignSystemAntDConfigProvider, R as RestoreAntDDefaultClsPrefix, a as addDebugOutlineStylesIfEnabled, g as getAnimationCss, b as useDesignSystemEventComponentCallbacks, c as DesignSystemEventProviderComponentTypes, d as DesignSystemEventProviderAnalyticsEventTypes, e as useNotifyOnFirstView, f as addDebugOutlineIfEnabled, C as CloseIcon, h as getDarkModePortalStyles, i as useDesignSystemContext, j as importantify, k as useUniqueId, B as Button, L as LoadingState, v as visuallyHidden, s as safex, l as DesignSystemEventSuppressInteractionProviderContext, m as DesignSystemEventSuppressInteractionTrueContextValue, T as Typography, n as CheckIcon, S as Spinner, o as getValidationStateColor, A as ApplyDesignSystemContextOverrides, p as getShadowScrollStyles, q as DangerIcon, r as LoadingIcon, t as Title$2, w as AccessibleContainer, x as DU_BOIS_ENABLE_ANIMATION_CLASSNAME, y as lightColorList, z as getDefaultStyles, E as getPrimaryStyles, F as getDisabledSplitButtonStyles, G as useDesignSystemFlags } from './Typography-af72332b.js';
-export { Q as ApplyDesignSystemFlags, _ as ColorVars, N as DesignSystemContext, J as DesignSystemEventProvider, P as DesignSystemProvider, M as DesignSystemThemeContext, O as DesignSystemThemeProvider, X as LoadingStateContext, V as NewWindowIcon, W as WithDesignSystemThemeHoc, Z as getBottomOnlyShadowScrollStyles, H as getButtonEmotionStyles, Y as getTypographyColor, U as useAntDConfigProviderContext, K as useDesignSystemEventSuppressInteractionContext } from './Typography-af72332b.js';
+import { u as useDesignSystemTheme, I as Icon, D as DesignSystemAntDConfigProvider, R as RestoreAntDDefaultClsPrefix, a as addDebugOutlineStylesIfEnabled, g as getAnimationCss, b as useDesignSystemEventComponentCallbacks, c as DesignSystemEventProviderComponentTypes, d as DesignSystemEventProviderAnalyticsEventTypes, e as useNotifyOnFirstView, f as addDebugOutlineIfEnabled, C as CloseIcon, h as getDarkModePortalStyles, i as useUniqueId, B as Button, L as LoadingState, v as visuallyHidden, s as safex, j as DesignSystemEventSuppressInteractionProviderContext, k as DesignSystemEventSuppressInteractionTrueContextValue, T as Typography, l as importantify, m as useDesignSystemContext, n as CheckIcon, S as Spinner, o as getValidationStateColor, A as ApplyDesignSystemContextOverrides, p as getShadowScrollStyles, q as DangerIcon, W as WarningIcon, r as LoadingIcon, t as Title$2, w as AccessibleContainer, x as DU_BOIS_ENABLE_ANIMATION_CLASSNAME, y as lightColorList, z as getDefaultStyles, E as getPrimaryStyles, F as getDisabledSplitButtonStyles, G as useDesignSystemFlags } from './Typography-78b12af3.js';
+export { Q as ApplyDesignSystemFlags, $ as ColorVars, N as DesignSystemContext, J as DesignSystemEventProvider, P as DesignSystemProvider, M as DesignSystemThemeContext, O as DesignSystemThemeProvider, Y as LoadingStateContext, X as NewWindowIcon, V as WithDesignSystemThemeHoc, _ as getBottomOnlyShadowScrollStyles, H as getButtonEmotionStyles, Z as getTypographyColor, U as useAntDConfigProviderContext, K as useDesignSystemEventSuppressInteractionContext } from './Typography-78b12af3.js';
 import { css, Global, keyframes, ClassNames, createElement } from '@emotion/react';
-import { Collapse, Alert as Alert$1, AutoComplete as AutoComplete$1, Tooltip as Tooltip$1, Breadcrumb as Breadcrumb$1, Checkbox as Checkbox$1, DatePicker, Input as Input$2, Dropdown as Dropdown$1, Form as Form$1, Select as Select$1, Radio as Radio$1, Switch as Switch$1, Col as Col$1, Row as Row$1, Space as Space$1, Layout as Layout$1, notification, Popover as Popover$2, Skeleton, Pagination as Pagination$1, Table as Table$1, Menu as Menu$1, Button as Button$1, Steps as Steps$1, Tabs as Tabs$1, Tree as Tree$1 } from 'antd';
+import { Collapse, Alert as Alert$1, AutoComplete as AutoComplete$1, Tooltip as Tooltip$1, Breadcrumb as Breadcrumb$1, Checkbox as Checkbox$1, DatePicker, Input as Input$2, Dropdown as Dropdown$1, Form as Form$1, Select as Select$1, Radio as Radio$1, Switch as Switch$1, Col as Col$1, Row as Row$1, Space as Space$1, Layout as Layout$1, notification, Popover as Popover$1, Skeleton, Pagination as Pagination$1, Table as Table$1, Menu as Menu$1, Button as Button$1, Steps as Steps$1, Tabs as Tabs$1, Tree as Tree$1 } from 'antd';
 import { jsx, jsxs, Fragment } from '@emotion/react/jsx-runtime';
 import * as React from 'react';
 import React__default, { useRef, useMemo, forwardRef, useEffect, useState, createContext, useImperativeHandle, useContext, Children, useCallback, Fragment as Fragment$1, useLayoutEffect } from 'react';
 import classnames from 'classnames';
 import _isNil from 'lodash/isNil';
-import * as Popover$1 from '@radix-ui/react-popover';
+import { R as Root$5, T as Trigger$3, C as Content$5, A as Arrow$2, u as useModalContext, S as Spacer, L as ListIcon, a as useMediaQuery } from './useMediaQuery-72ec2d25.js';
+export { D as DangerModal, M as Modal, P as Popover } from './useMediaQuery-72ec2d25.js';
 import _isUndefined from 'lodash/isUndefined';
-import { ContextMenu as ContextMenu$2, ContextMenuTrigger, ContextMenuItemIndicator, ContextMenuGroup, ContextMenuRadioGroup, ContextMenuArrow, ContextMenuSub, ContextMenuSubTrigger, ContextMenuPortal, ContextMenuContent, ContextMenuSubContent, ContextMenuItem, ContextMenuCheckboxItem, ContextMenuRadioItem, ContextMenuLabel, ContextMenuSeparator } from '@radix-ui/react-context-menu';
+import { ContextMenuTrigger, ContextMenuItemIndicator, ContextMenuGroup, ContextMenuRadioGroup, ContextMenuArrow, ContextMenuSub, ContextMenu as ContextMenu$2, ContextMenuSubTrigger, ContextMenuPortal, ContextMenuContent, ContextMenuSubContent, ContextMenuItem, ContextMenuCheckboxItem, ContextMenuRadioItem, ContextMenuLabel, ContextMenuSeparator } from '@radix-ui/react-context-menu';
 import * as DropdownMenu$1 from '@radix-ui/react-dropdown-menu';
-import { P as PlusIcon, W as WarningIcon } from './WarningIcon-9653b269.js';
-export { C as CloseSmallIcon, M as MegaphoneIcon } from './WarningIcon-9653b269.js';
+import * as Popover from '@radix-ui/react-popover';
+import { P as PlusIcon } from './PlusIcon-e78c4843.js';
+export { C as CloseSmallIcon, M as MegaphoneIcon } from './PlusIcon-e78c4843.js';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { S as Spacer } from './Modal-82925a27.js';
-export { D as DangerModal, M as Modal } from './Modal-82925a27.js';
 import { useController } from 'react-hook-form';
 import { useFloating, autoUpdate, offset, flip, shift, useMergeRefs } from '@floating-ui/react';
 import _uniqueId from 'lodash/uniqueId';
@@ -4126,30 +4126,6 @@ const ListClearIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 ListClearIcon.displayName = 'ListClearIcon';
 var ListClearIcon$1 = ListClearIcon;
 
-function SvgListIcon(props) {
-  return jsx("svg", {
-    xmlns: "http://www.w3.org/2000/svg",
-    width: "1em",
-    height: "1em",
-    fill: "none",
-    viewBox: "0 0 16 16",
-    ...props,
-    children: jsx("path", {
-      fill: "currentColor",
-      d: "M1.5 2.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM3 2h13v1.5H3V2ZM3 5.5h13V7H3V5.5ZM3 9h13v1.5H3V9ZM3 12.5h13V14H3v-1.5ZM.75 7a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM1.5 13.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM.75 10.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z"
-    })
-  });
-}
-const ListIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
-  return jsx(Icon, {
-    ref: forwardedRef,
-    ...props,
-    component: SvgListIcon
-  });
-});
-ListIcon.displayName = 'ListIcon';
-var ListIcon$1 = ListIcon;
-
 function SvgLockFillIcon(props) {
   return jsx("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -7971,144 +7947,6 @@ function SvgUserIcon(props) {
   });
 }
 
-const Root$5 = Popover$1.Root; // Behavioral component only
-const Anchor = Popover$1.Anchor; // Behavioral component only
-
-const Content$5 = /*#__PURE__*/forwardRef(function Content(_ref, ref) {
-  let {
-    children,
-    minWidth = 220,
-    maxWidth,
-    ...props
-  } = _ref;
-  const {
-    getPopupContainer
-  } = useDesignSystemContext();
-  return jsx(Popover$1.Portal, {
-    container: getPopupContainer && getPopupContainer(),
-    children: jsx(Popover$1.Content, {
-      ...addDebugOutlineIfEnabled(),
-      ref: ref,
-      css: [contentStyles$1, {
-        minWidth,
-        maxWidth
-      }, process.env.NODE_ENV === "production" ? "" : ";label:Content;"],
-      sideOffset: 4,
-      ...props,
-      children: children
-    })
-  });
-});
-const Trigger$3 = /*#__PURE__*/forwardRef(function Trigger(_ref2, ref) {
-  let {
-    children,
-    ...props
-  } = _ref2;
-  return jsx(Popover$1.Trigger, {
-    ...addDebugOutlineIfEnabled(),
-    ref: ref,
-    ...props,
-    children: children
-  });
-});
-const Close$1 = /*#__PURE__*/forwardRef(function Close(_ref3, ref) {
-  let {
-    children,
-    ...props
-  } = _ref3;
-  return jsx(Popover$1.Close, {
-    ref: ref,
-    ...props,
-    children: children
-  });
-});
-const Arrow$2 = /*#__PURE__*/forwardRef(function Arrow(_ref4, ref) {
-  let {
-    children,
-    ...props
-  } = _ref4;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(Popover$1.Arrow, {
-    css: /*#__PURE__*/css({
-      fill: theme.colors.backgroundPrimary,
-      stroke: theme.colors.borderDecorative,
-      strokeDashoffset: -CONSTANTS$1.arrowBottomLength(),
-      strokeDasharray: CONSTANTS$1.arrowBottomLength() + 2 * CONSTANTS$1.arrowSide(),
-      strokeWidth: CONSTANTS$1.arrowStrokeWidth(),
-      // TODO: This is a temporary fix for the alignment of the Arrow;
-      // Radix has changed the implementation for v1.0.0 (uses floating-ui)
-      // which has new behaviors for alignment that we don't want. Generally
-      // we need to fix the arrow to always be aligned to the left of the menu (with
-      // offset equal to border radius)
-      position: 'relative',
-      top: -1
-    }, process.env.NODE_ENV === "production" ? "" : ";label:Arrow;"),
-    ref: ref,
-    width: 12,
-    height: 6,
-    ...props,
-    children: children
-  });
-});
-
-// CONSTANTS
-const CONSTANTS$1 = {
-  arrowBottomLength() {
-    // The built in arrow is a polygon: 0,0 30,0 15,10
-    return 30;
-  },
-  arrowHeight() {
-    return 10;
-  },
-  arrowSide() {
-    return 2 * (this.arrowHeight() ** 2 * 2) ** 0.5;
-  },
-  arrowStrokeWidth() {
-    // This is eyeballed b/c relative to the svg viewbox coordinate system
-    return 2;
-  }
-};
-const popoverContentStyles = theme => ({
-  backgroundColor: theme.colors.backgroundPrimary,
-  color: theme.colors.textPrimary,
-  lineHeight: theme.typography.lineHeightBase,
-  border: `1px solid ${theme.colors.borderDecorative}`,
-  borderRadius: theme.borders.borderRadiusMd,
-  padding: `${theme.spacing.sm}px`,
-  boxShadow: theme.general.shadowLow,
-  userSelect: 'none',
-  zIndex: theme.options.zIndexBase + 30,
-  ...getDarkModePortalStyles(theme),
-  a: importantify({
-    color: theme.colors.actionTertiaryTextDefault,
-    cursor: 'default',
-    '&:hover, &:focus': {
-      color: theme.colors.actionTertiaryTextHover
-    }
-  }),
-  '&:focus-visible': {
-    outlineStyle: 'solid',
-    outlineWidth: '2px',
-    outlineOffset: '1px',
-    outlineColor: theme.colors.primary
-  }
-});
-const contentStyles$1 = theme => ({
-  ...popoverContentStyles(theme)
-});
-
-var Popover = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  Anchor: Anchor,
-  Arrow: Arrow$2,
-  Close: Close$1,
-  Content: Content$5,
-  Root: Root$5,
-  Trigger: Trigger$3
-});
-
 const InfoPopover = _ref => {
   let {
     children,
@@ -8182,7 +8020,9 @@ const Tooltip = _ref => {
   const {
     theme
   } = useDesignSystemTheme();
-  const id = useUniqueId('dubois-tooltip-component-');
+  const tooltipRef = useRef(null);
+  const duboisId = useUniqueId('dubois-tooltip-component-');
+  const id = dangerouslySetAntdProps !== null && dangerouslySetAntdProps !== void 0 && dangerouslySetAntdProps.id ? dangerouslySetAntdProps === null || dangerouslySetAntdProps === void 0 ? void 0 : dangerouslySetAntdProps.id : duboisId;
   if (!title) {
     return jsx(React__default.Fragment, {
       children: children
@@ -8203,17 +8043,19 @@ const Tooltip = _ref => {
     'aria-hidden': false
   };
   const addAriaProps = e => {
-    if (e.currentTarget.hasAttribute('aria-describedby') || e.currentTarget.hasAttribute('aria-labelledby')) {
+    if (!tooltipRef.current || e.currentTarget.hasAttribute('aria-describedby') || e.currentTarget.hasAttribute('aria-labelledby')) {
       return;
     }
-    if (useAsLabel) {
-      e.currentTarget.setAttribute('aria-labelledby', id);
-    } else {
-      e.currentTarget.setAttribute('aria-describedby', id);
+    if (id) {
+      if (useAsLabel) {
+        e.currentTarget.setAttribute('aria-labelledby', id);
+      } else {
+        e.currentTarget.setAttribute('aria-describedby', id);
+      }
     }
   };
   const removeAriaProps = e => {
-    if (!e.currentTarget.hasAttribute('aria-describedby') && !e.currentTarget.hasAttribute('aria-labelledby')) {
+    if (!tooltipRef || !e.currentTarget.hasAttribute('aria-describedby') && !e.currentTarget.hasAttribute('aria-labelledby')) {
       return;
     }
     if (useAsLabel) {
@@ -8253,6 +8095,7 @@ const Tooltip = _ref => {
   return jsx(DesignSystemAntDConfigProvider, {
     children: jsx(Tooltip$1, {
       id: id,
+      ref: tooltipRef,
       title: liveTitle,
       placement: placement
       // Always trigger on hover and focus
@@ -8292,6 +8135,7 @@ const InfoTooltip = _ref => {
     theme
   } = useDesignSystemTheme();
   return jsx(Tooltip, {
+    useAsLabel: true,
     title: title,
     ...tooltipProps,
     children: jsx("span", {
@@ -8299,10 +8143,11 @@ const InfoTooltip = _ref => {
       style: {
         display: 'inline-flex'
       },
-      tabIndex: isKeyboardFocusable ? 0 : -1,
       children: jsx(InfoCircleOutlined, {
+        tabIndex: isKeyboardFocusable ? 0 : -1,
         "aria-hidden": "false",
         "aria-label": iconTitle,
+        alt: iconTitle,
         css: /*#__PURE__*/css({
           fontSize: theme.typography.fontSizeSm,
           color: theme.colors.textSecondary
@@ -9821,20 +9666,66 @@ const getChild = (child, isDisabled, disabledReason, tooltip, index, siblingCoun
   return child;
 };
 
-const Root$4 = DropdownMenu$1.Root; // Behavioral component only
+const DropdownContext = /*#__PURE__*/createContext({
+  isOpen: false,
+  setIsOpen: isOpen => {}
+});
+const useDropdownContext = () => React__default.useContext(DropdownContext);
+const Root$4 = _ref => {
+  let {
+    children,
+    ...props
+  } = _ref;
+  const [isOpen, setIsOpen] = React__default.useState(Boolean(props.defaultOpen || props.open));
+  const useExternalState = useRef(props.open !== undefined || props.onOpenChange !== undefined).current;
+  useEffect(() => {
+    if (useExternalState) {
+      setIsOpen(Boolean(props.open));
+    }
+  }, [useExternalState, props.open]);
+  const handleOpenChange = isOpen => {
+    if (!useExternalState) {
+      setIsOpen(isOpen);
+    }
 
-const Content$4 = /*#__PURE__*/forwardRef(function Content(_ref, ref) {
+    // In case the consumer doesn't manage open state but wants to listen to the callback
+    if (props.onOpenChange) {
+      props.onOpenChange(isOpen);
+    }
+  };
+  return jsx(DropdownMenu$1.Root, {
+    ...props,
+    ...(!useExternalState && {
+      open: isOpen,
+      onOpenChange: handleOpenChange
+    }),
+    children: jsx(DropdownContext.Provider, {
+      value: {
+        isOpen: useExternalState ? props.open : isOpen,
+        setIsOpen: useExternalState ? props.onOpenChange : handleOpenChange
+      },
+      children: children
+    })
+  });
+};
+const Content$4 = /*#__PURE__*/forwardRef(function Content(_ref2, ref) {
   let {
     children,
     minWidth = 220,
-    isInsideModal,
+    forceCloseOnEscape,
     onEscapeKeyDown,
     onKeyDown,
     ...props
-  } = _ref;
+  } = _ref2;
   const {
     getPopupContainer
   } = useDesignSystemContext();
+  const {
+    setIsOpen
+  } = useDropdownContext();
+  const {
+    isInsideModal
+  } = useModalContext();
   return jsx(DropdownMenu$1.Portal, {
     container: getPopupContainer && getPopupContainer(),
     children: jsx(DropdownMenu$1.Content, {
@@ -9851,8 +9742,9 @@ const Content$4 = /*#__PURE__*/forwardRef(function Content(_ref, ref) {
         // when nested inside a modal. We need to stop propagation of the event so that the modal
         // doesn't close when the DropdownMenu should.
         if (e.key === 'Escape') {
-          if (isInsideModal) {
+          if (isInsideModal || forceCloseOnEscape) {
             e.stopPropagation();
+            setIsOpen === null || setIsOpen === void 0 || setIsOpen(false);
           }
           onEscapeKeyDown === null || onEscapeKeyDown === void 0 || onEscapeKeyDown(e.nativeEvent);
         }
@@ -9863,12 +9755,12 @@ const Content$4 = /*#__PURE__*/forwardRef(function Content(_ref, ref) {
     })
   });
 });
-const SubContent$1 = /*#__PURE__*/forwardRef(function Content(_ref2, ref) {
+const SubContent$1 = /*#__PURE__*/forwardRef(function Content(_ref3, ref) {
   let {
     children,
     minWidth = 220,
     ...props
-  } = _ref2;
+  } = _ref3;
   const {
     getPopupContainer
   } = useDesignSystemContext();
@@ -9943,11 +9835,11 @@ const SubContent$1 = /*#__PURE__*/forwardRef(function Content(_ref2, ref) {
     })
   });
 });
-const Trigger$2 = /*#__PURE__*/forwardRef(function Trigger(_ref3, ref) {
+const Trigger$2 = /*#__PURE__*/forwardRef(function Trigger(_ref4, ref) {
   let {
     children,
     ...props
-  } = _ref3;
+  } = _ref4;
   return jsx(DropdownMenu$1.Trigger, {
     ...addDebugOutlineIfEnabled(),
     ref: ref,
@@ -9955,7 +9847,7 @@ const Trigger$2 = /*#__PURE__*/forwardRef(function Trigger(_ref3, ref) {
     children: children
   });
 });
-const Item$1 = /*#__PURE__*/forwardRef(function Item(_ref4, ref) {
+const Item$1 = /*#__PURE__*/forwardRef(function Item(_ref5, ref) {
   let {
     children,
     disabledReason,
@@ -9964,7 +9856,7 @@ const Item$1 = /*#__PURE__*/forwardRef(function Item(_ref4, ref) {
     componentId,
     analyticsEvents,
     ...props
-  } = _ref4;
+  } = _ref5;
   const itemRef = useRef(null);
   useImperativeHandle(ref, () => itemRef.current);
   const eventContext = useDesignSystemEventComponentCallbacks({
@@ -9989,11 +9881,11 @@ const Item$1 = /*#__PURE__*/forwardRef(function Item(_ref4, ref) {
     children: getNewChildren(children, props, disabledReason, itemRef)
   });
 });
-const Label$2 = /*#__PURE__*/forwardRef(function Label(_ref5, ref) {
+const Label$2 = /*#__PURE__*/forwardRef(function Label(_ref6, ref) {
   let {
     children,
     ...props
-  } = _ref5;
+  } = _ref6;
   return jsx(DropdownMenu$1.Label, {
     ref: ref,
     css: [dropdownItemStyles, theme => ({
@@ -10006,11 +9898,11 @@ const Label$2 = /*#__PURE__*/forwardRef(function Label(_ref5, ref) {
     children: children
   });
 });
-const Separator$2 = /*#__PURE__*/forwardRef(function Separator(_ref6, ref) {
+const Separator$2 = /*#__PURE__*/forwardRef(function Separator(_ref7, ref) {
   let {
     children,
     ...props
-  } = _ref6;
+  } = _ref7;
   return jsx(DropdownMenu$1.Separator, {
     ref: ref,
     css: dropdownSeparatorStyles,
@@ -10018,12 +9910,12 @@ const Separator$2 = /*#__PURE__*/forwardRef(function Separator(_ref6, ref) {
     children: children
   });
 });
-const SubTrigger$1 = /*#__PURE__*/forwardRef(function TriggerItem(_ref7, ref) {
+const SubTrigger$1 = /*#__PURE__*/forwardRef(function TriggerItem(_ref8, ref) {
   let {
     children,
     disabledReason,
     ...props
-  } = _ref7;
+  } = _ref8;
   const subTriggerRef = useRef(null);
   useImperativeHandle(ref, () => subTriggerRef.current);
   return jsxs(DropdownMenu$1.SubTrigger, {
@@ -10055,7 +9947,7 @@ const SubTrigger$1 = /*#__PURE__*/forwardRef(function TriggerItem(_ref7, ref) {
  * @deprecated
  */
 const TriggerItem = SubTrigger$1;
-const CheckboxItem$1 = /*#__PURE__*/forwardRef(function CheckboxItem(_ref8, ref) {
+const CheckboxItem$1 = /*#__PURE__*/forwardRef(function CheckboxItem(_ref9, ref) {
   let {
     children,
     disabledReason,
@@ -10063,7 +9955,7 @@ const CheckboxItem$1 = /*#__PURE__*/forwardRef(function CheckboxItem(_ref8, ref)
     analyticsEvents,
     onCheckedChange,
     ...props
-  } = _ref8;
+  } = _ref9;
   const checkboxItemRef = useRef(null);
   useImperativeHandle(ref, () => checkboxItemRef.current);
   const eventContext = useDesignSystemEventComponentCallbacks({
@@ -10084,7 +9976,7 @@ const CheckboxItem$1 = /*#__PURE__*/forwardRef(function CheckboxItem(_ref8, ref)
     children: getNewChildren(children, props, disabledReason, checkboxItemRef)
   });
 });
-const RadioGroup$1 = /*#__PURE__*/forwardRef(function RadioGroup(_ref9, ref) {
+const RadioGroup$1 = /*#__PURE__*/forwardRef(function RadioGroup(_ref10, ref) {
   let {
     children,
     componentId,
@@ -10092,7 +9984,7 @@ const RadioGroup$1 = /*#__PURE__*/forwardRef(function RadioGroup(_ref9, ref) {
     onValueChange,
     valueHasNoPii,
     ...props
-  } = _ref9;
+  } = _ref10;
   const radioGroupItemRef = useRef(null);
   useImperativeHandle(ref, () => radioGroupItemRef.current);
   const eventContext = useDesignSystemEventComponentCallbacks({
@@ -10112,11 +10004,11 @@ const RadioGroup$1 = /*#__PURE__*/forwardRef(function RadioGroup(_ref9, ref) {
     children: children
   });
 });
-const ItemIndicator$1 = /*#__PURE__*/forwardRef(function ItemIndicator(_ref10, ref) {
+const ItemIndicator$1 = /*#__PURE__*/forwardRef(function ItemIndicator(_ref11, ref) {
   let {
     children,
     ...props
-  } = _ref10;
+  } = _ref11;
   return jsx(DropdownMenu$1.ItemIndicator, {
     ref: ref,
     css: theme => ({
@@ -10132,11 +10024,11 @@ const ItemIndicator$1 = /*#__PURE__*/forwardRef(function ItemIndicator(_ref10, r
     })
   });
 });
-const Arrow$1 = /*#__PURE__*/forwardRef(function Arrow(_ref11, ref) {
+const Arrow$1 = /*#__PURE__*/forwardRef(function Arrow(_ref12, ref) {
   let {
     children,
     ...props
-  } = _ref11;
+  } = _ref12;
   const {
     theme
   } = useDesignSystemTheme();
@@ -10162,12 +10054,12 @@ const Arrow$1 = /*#__PURE__*/forwardRef(function Arrow(_ref11, ref) {
     children: children
   });
 });
-const RadioItem$1 = /*#__PURE__*/forwardRef(function RadioItem(_ref12, ref) {
+const RadioItem$1 = /*#__PURE__*/forwardRef(function RadioItem(_ref13, ref) {
   let {
     children,
     disabledReason,
     ...props
-  } = _ref12;
+  } = _ref13;
   const radioItemRef = useRef(null);
   useImperativeHandle(ref, () => radioItemRef.current);
   return jsx(DropdownMenu$1.RadioItem, {
@@ -10181,13 +10073,13 @@ const SubContext = /*#__PURE__*/createContext({
   isOpen: false
 });
 const useSubContext = () => React__default.useContext(SubContext);
-const Sub$1 = _ref13 => {
+const Sub$1 = _ref14 => {
   var _props$defaultOpen;
   let {
     children,
     onOpenChange,
     ...props
-  } = _ref13;
+  } = _ref14;
   const [isOpen, setIsOpen] = React__default.useState((_props$defaultOpen = props.defaultOpen) !== null && _props$defaultOpen !== void 0 ? _props$defaultOpen : false);
   const handleOpenChange = isOpen => {
     onOpenChange === null || onOpenChange === void 0 || onOpenChange(isOpen);
@@ -10209,11 +10101,11 @@ const Sub$1 = _ref13 => {
 const Group$3 = DropdownMenu$1.Group;
 
 // EXTRA COMPONENTS
-const HintColumn = /*#__PURE__*/forwardRef(function HintColumn(_ref14, ref) {
+const HintColumn = /*#__PURE__*/forwardRef(function HintColumn(_ref15, ref) {
   let {
     children,
     ...props
-  } = _ref14;
+  } = _ref15;
   return jsx("div", {
     ref: ref,
     css: [metaTextStyles, "margin-left:auto;" + (process.env.NODE_ENV === "production" ? "" : ";label:HintColumn;")],
@@ -10221,11 +10113,11 @@ const HintColumn = /*#__PURE__*/forwardRef(function HintColumn(_ref14, ref) {
     children: children
   });
 });
-const HintRow$1 = /*#__PURE__*/forwardRef(function HintRow(_ref15, ref) {
+const HintRow$1 = /*#__PURE__*/forwardRef(function HintRow(_ref16, ref) {
   let {
     children,
     ...props
-  } = _ref15;
+  } = _ref16;
   return jsx("div", {
     ref: ref,
     css: [metaTextStyles, "min-width:100%;" + (process.env.NODE_ENV === "production" ? "" : ";label:HintRow;")],
@@ -10233,11 +10125,11 @@ const HintRow$1 = /*#__PURE__*/forwardRef(function HintRow(_ref15, ref) {
     children: children
   });
 });
-const IconWrapper = /*#__PURE__*/forwardRef(function IconWrapper(_ref16, ref) {
+const IconWrapper = /*#__PURE__*/forwardRef(function IconWrapper(_ref17, ref) {
   let {
     children,
     ...props
-  } = _ref16;
+  } = _ref17;
   return jsx("div", {
     ref: ref,
     css: theme => ({
@@ -10386,20 +10278,47 @@ var DropdownMenu = /*#__PURE__*/Object.freeze({
   dropdownSeparatorStyles: dropdownSeparatorStyles
 });
 
-const Root$3 = ContextMenu$2;
 const Trigger$1 = ContextMenuTrigger;
 const ItemIndicator = ContextMenuItemIndicator;
 const Group$2 = ContextMenuGroup;
 const RadioGroup = ContextMenuRadioGroup;
 const Arrow = ContextMenuArrow;
 const Sub = ContextMenuSub;
-const SubTrigger = _ref => {
+const ContextMenuProps = /*#__PURE__*/createContext({
+  isOpen: false,
+  setIsOpen: isOpen => {}
+});
+const useContextMenuProps = () => React__default.useContext(ContextMenuProps);
+const Root$3 = _ref => {
+  let {
+    children,
+    onOpenChange,
+    ...props
+  } = _ref;
+  const [isOpen, setIsOpen] = React__default.useState(false);
+  const handleChange = isOpen => {
+    setIsOpen(isOpen);
+    onOpenChange === null || onOpenChange === void 0 || onOpenChange(isOpen);
+  };
+  return jsx(ContextMenu$2, {
+    onOpenChange: handleChange,
+    ...props,
+    children: jsx(ContextMenuProps.Provider, {
+      value: {
+        isOpen,
+        setIsOpen
+      },
+      children: children
+    })
+  });
+};
+const SubTrigger = _ref2 => {
   let {
     children,
     disabledReason,
     withChevron,
     ...props
-  } = _ref;
+  } = _ref2;
   const {
     theme
   } = useDesignSystemTheme();
@@ -10413,22 +10332,45 @@ const SubTrigger = _ref => {
     })]
   });
 };
-const Content$3 = _ref2 => {
+const Content$3 = _ref3 => {
   let {
     children,
     minWidth,
+    forceCloseOnEscape,
+    onEscapeKeyDown,
+    onKeyDown,
     ...childrenProps
-  } = _ref2;
+  } = _ref3;
   const {
     getPopupContainer
   } = useDesignSystemContext();
   const {
     theme
   } = useDesignSystemTheme();
+  const {
+    isInsideModal
+  } = useModalContext();
+  const {
+    isOpen,
+    setIsOpen
+  } = useContextMenuProps();
   return jsx(ContextMenuPortal, {
     container: getPopupContainer && getPopupContainer(),
-    children: jsx(ContextMenuContent, {
+    children: isOpen && jsx(ContextMenuContent, {
       ...addDebugOutlineIfEnabled(),
+      onKeyDown: e => {
+        // This is a workaround for Radix's ContextMenu.Content not receiving Escape key events
+        // when nested inside a modal. We need to stop propagation of the event so that the modal
+        // doesn't close when the DropdownMenu should.
+        if (e.key === 'Escape') {
+          if (isInsideModal || forceCloseOnEscape) {
+            e.stopPropagation();
+            setIsOpen(false);
+          }
+          onEscapeKeyDown === null || onEscapeKeyDown === void 0 || onEscapeKeyDown(e.nativeEvent);
+        }
+        onKeyDown === null || onKeyDown === void 0 || onKeyDown(e);
+      },
       ...childrenProps,
       css: [dropdownContentStyles(theme), {
         minWidth
@@ -10437,12 +10379,12 @@ const Content$3 = _ref2 => {
     })
   });
 };
-const SubContent = _ref3 => {
+const SubContent = _ref4 => {
   let {
     children,
     minWidth,
     ...childrenProps
-  } = _ref3;
+  } = _ref4;
   const {
     getPopupContainer
   } = useDesignSystemContext();
@@ -10461,12 +10403,12 @@ const SubContent = _ref3 => {
     })
   });
 };
-const Item = _ref4 => {
+const Item = _ref5 => {
   let {
     children,
     disabledReason,
     ...props
-  } = _ref4;
+  } = _ref5;
   const {
     theme
   } = useDesignSystemTheme();
@@ -10478,12 +10420,12 @@ const Item = _ref4 => {
     children: getNewChildren(children, props, disabledReason, ref)
   });
 };
-const CheckboxItem = _ref5 => {
+const CheckboxItem = _ref6 => {
   let {
     children,
     disabledReason,
     ...props
-  } = _ref5;
+  } = _ref6;
   const {
     theme
   } = useDesignSystemTheme();
@@ -10502,12 +10444,12 @@ const CheckboxItem = _ref5 => {
     }), getNewChildren(children, props, disabledReason, ref)]
   });
 };
-const RadioItem = _ref6 => {
+const RadioItem = _ref7 => {
   let {
     children,
     disabledReason,
     ...props
-  } = _ref6;
+  } = _ref7;
   const {
     theme
   } = useDesignSystemTheme();
@@ -10526,11 +10468,11 @@ const RadioItem = _ref6 => {
     }), getNewChildren(children, props, disabledReason, ref)]
   });
 };
-const Label$1 = _ref7 => {
+const Label$1 = _ref8 => {
   let {
     children,
     ...props
-  } = _ref7;
+  } = _ref8;
   const {
     theme
   } = useDesignSystemTheme();
@@ -10543,10 +10485,10 @@ const Label$1 = _ref7 => {
     children: children
   });
 };
-const Hint$1 = _ref8 => {
+const Hint$1 = _ref9 => {
   let {
     children
-  } = _ref8;
+  } = _ref9;
   const {
     theme
   } = useDesignSystemTheme();
@@ -11017,7 +10959,7 @@ const Root$2 = props => {
       setIsOpen(false);
     }
   }, [value, stayOpenOnSelection, multiSelect, setIsOpen]);
-  return jsx(Popover$1.Root, {
+  return jsx(Popover.Root, {
     onOpenChange: handleOpenChange,
     ...restProps,
     children: children
@@ -11539,6 +11481,9 @@ const DialogComboboxContent = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
     align = 'start',
     side = 'bottom',
     sideOffset = 4,
+    onEscapeKeyDown,
+    onKeyDown,
+    forceCloseOnEscape,
     ...restProps
   } = _ref;
   const {
@@ -11553,8 +11498,12 @@ const DialogComboboxContent = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
     setTextOverflowMode,
     multiSelect,
     isOpen,
-    rememberLastScrollPosition
+    rememberLastScrollPosition,
+    setIsOpen
   } = useDialogComboboxContext();
+  const {
+    isInsideModal
+  } = useModalContext();
   const {
     getPopupContainer
   } = useDesignSystemContext();
@@ -11598,9 +11547,9 @@ const DialogComboboxContent = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
       setTextOverflowMode(textOverflowMode ? textOverflowMode : 'multiline');
     }
   }, [textOverflowMode, contextTextOverflowMode, setTextOverflowMode]);
-  return jsx(Popover$1.Portal, {
+  return jsx(Popover.Portal, {
     container: getPopupContainer && getPopupContainer(),
-    children: jsx(Popover$1.Content, {
+    children: jsx(Popover.Content, {
       ...addDebugOutlineIfEnabled(),
       "aria-label": `${label} options`,
       "aria-busy": loading,
@@ -11616,6 +11565,19 @@ const DialogComboboxContent = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
       align: align,
       side: side,
       sideOffset: sideOffset,
+      onKeyDown: e => {
+        // This is a workaround for Radix's DialogCombobox.Content not receiving Escape key events
+        // when nested inside a modal. We need to stop propagation of the event so that the modal
+        // doesn't close when the DropdownMenu should.
+        if (e.key === 'Escape') {
+          if (isInsideModal || forceCloseOnEscape) {
+            e.stopPropagation();
+            setIsOpen(false);
+          }
+          onEscapeKeyDown === null || onEscapeKeyDown === void 0 || onEscapeKeyDown(e.nativeEvent);
+        }
+        onKeyDown === null || onKeyDown === void 0 || onKeyDown(e);
+      },
       ...restProps,
       ref: contentRef,
       children: jsx("div", {
@@ -12989,7 +12951,7 @@ const DialogComboboxTrigger = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
   const customSelectContent = isSelect && children ? children : null;
   const dialogComboboxClassname = !isSelect ? `${classNamePrefix}-dialogcombobox` : '';
   const selectV2Classname = isSelect ? `${classNamePrefix}-selectv2` : '';
-  const triggerContent = isSelect ? jsxs(Popover$1.Trigger, {
+  const triggerContent = isSelect ? jsxs(Popover.Trigger, {
     ...(ariaLabel && {
       'aria-label': ariaLabel
     }),
@@ -13022,7 +12984,7 @@ const DialogComboboxTrigger = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
         marginLeft: theme.spacing.xs
       }, process.env.NODE_ENV === "production" ? "" : ";label:triggerContent;")
     })]
-  }) : jsxs(Popover$1.Trigger, {
+  }) : jsxs(Popover.Trigger, {
     id: id,
     ...(ariaLabel && {
       'aria-label': ariaLabel
@@ -13108,7 +13070,7 @@ const DialogComboboxCustomButtonTriggerWrapper = _ref3 => {
   let {
     children
   } = _ref3;
-  return jsx(Popover$1.Trigger, {
+  return jsx(Popover.Trigger, {
     asChild: true,
     children: children
   });
@@ -13405,7 +13367,7 @@ const Empty = props => {
   const {
     title,
     description,
-    image = jsx(ListIcon$1, {}),
+    image = jsx(ListIcon, {}),
     button,
     dangerouslyAppendEmotionCSS,
     ...dataProps
@@ -14689,6 +14651,7 @@ const SimpleSelect = /*#__PURE__*/forwardRef((_ref, ref) => {
     label,
     value,
     validationState,
+    forceCloseOnEscape,
     ...rest
   } = _ref;
   const [defaultLabel] = useState(() => {
@@ -14773,6 +14736,7 @@ const SimpleSelect = /*#__PURE__*/forwardRef((_ref, ref) => {
           type: "hidden",
           ref: innerRef
         }), jsx(SelectContent, {
+          forceCloseOnEscape: forceCloseOnEscape,
           ...contentProps,
           children: children
         })]
@@ -15195,8 +15159,8 @@ function useComboboxState(_ref) {
           formOnChange === null || formOnChange === void 0 || formOnChange(changes.selectedItem);
           return {
             ...changes,
-            highlightedIndex: 0,
-            // with the first option highlighted.
+            highlightedIndex: props.multiSelect ? state.highlightedIndex : 0,
+            // on multiselect keep the highlighted index unchanged.
             isOpen: props.multiSelect ? true : false // for multiselect, keep the menu open after selection.
           };
 
@@ -15426,13 +15390,16 @@ const TypeaheadComboboxMenuItem = /*#__PURE__*/forwardRef((_ref, ref) => {
   const {
     selectedItem,
     highlightedIndex,
-    getItemProps
+    getItemProps,
+    isOpen
   } = comboboxState;
   const isSelected = _isEqual(selectedItem, item);
   const isHighlighted = highlightedIndex === index;
   const {
     theme
   } = useDesignSystemTheme();
+  const listItemRef = useRef(null);
+  useImperativeHandle(ref, () => listItemRef.current);
   const {
     onClick,
     ...downshiftItemProps
@@ -15444,14 +15411,36 @@ const TypeaheadComboboxMenuItem = /*#__PURE__*/forwardRef((_ref, ref) => {
       var _restProps$onMouseUp;
       e.stopPropagation();
       (_restProps$onMouseUp = restProps.onMouseUp) === null || _restProps$onMouseUp === void 0 || _restProps$onMouseUp.call(restProps, e);
-    }
+    },
+    ref: listItemRef
   });
   const handleClick = e => {
     onClickProp === null || onClickProp === void 0 || onClickProp(e);
     onClick(e);
   };
+
+  // Scroll to the highlighted item if it is not in the viewport
+  useEffect(() => {
+    if (isOpen && highlightedIndex === index && listItemRef.current) {
+      const parentContainer = listItemRef.current.closest('ul');
+      if (!parentContainer) {
+        return;
+      }
+      const parentTop = parentContainer.scrollTop;
+      const parentBottom = parentContainer.scrollTop + parentContainer.clientHeight;
+      const itemTop = listItemRef.current.offsetTop;
+      const itemBottom = listItemRef.current.offsetTop + listItemRef.current.clientHeight;
+
+      // Check if item is visible in the viewport before scrolling
+      if (itemTop < parentTop || itemBottom > parentBottom) {
+        var _listItemRef$current;
+        (_listItemRef$current = listItemRef.current) === null || _listItemRef$current === void 0 || _listItemRef$current.scrollIntoView({
+          block: 'nearest'
+        });
+      }
+    }
+  }, [highlightedIndex, index, isOpen, listItemRef]);
   return jsxs("li", {
-    ref: ref,
     role: "option",
     "aria-selected": isSelected,
     disabled: isDisabled,
@@ -15514,13 +15503,16 @@ const TypeaheadComboboxCheckboxItem = /*#__PURE__*/forwardRef((_ref, ref) => {
   } = _ref;
   const {
     highlightedIndex,
-    getItemProps
+    getItemProps,
+    isOpen
   } = comboboxState;
   const isHighlighted = highlightedIndex === index;
   const {
     theme
   } = useDesignSystemTheme();
   const isSelected = selectedItems.includes(item);
+  const listItemRef = useRef(null);
+  useImperativeHandle(ref, () => listItemRef.current);
   const {
     onClick,
     ...downshiftItemProps
@@ -15532,14 +15524,36 @@ const TypeaheadComboboxCheckboxItem = /*#__PURE__*/forwardRef((_ref, ref) => {
       var _restProps$onMouseUp;
       e.stopPropagation();
       (_restProps$onMouseUp = restProps.onMouseUp) === null || _restProps$onMouseUp === void 0 || _restProps$onMouseUp.call(restProps, e);
-    }
+    },
+    ref: listItemRef
   });
   const handleClick = e => {
     onClickProp === null || onClickProp === void 0 || onClickProp(e);
     onClick(e);
   };
+
+  // Scroll to the highlighted item if it is not in the viewport
+  useEffect(() => {
+    if (isOpen && highlightedIndex === index && listItemRef.current) {
+      const parentContainer = listItemRef.current.closest('ul');
+      if (!parentContainer) {
+        return;
+      }
+      const parentTop = parentContainer.scrollTop;
+      const parentBottom = parentContainer.scrollTop + parentContainer.clientHeight;
+      const itemTop = listItemRef.current.offsetTop;
+      const itemBottom = listItemRef.current.offsetTop + listItemRef.current.clientHeight;
+
+      // Check if item is visible in the viewport before scrolling
+      if (itemTop < parentTop || itemBottom > parentBottom) {
+        var _listItemRef$current;
+        (_listItemRef$current = listItemRef.current) === null || _listItemRef$current === void 0 || _listItemRef$current.scrollIntoView({
+          block: 'nearest'
+        });
+      }
+    }
+  }, [highlightedIndex, index, isOpen, listItemRef]);
   return jsx("li", {
-    ref: ref,
     role: "option",
     "aria-selected": isSelected,
     disabled: isDisabled,
@@ -17161,7 +17175,7 @@ const LegacyPopover = _ref => {
     theme
   } = useDesignSystemTheme();
   return jsx(DesignSystemAntDConfigProvider, {
-    children: jsx(Popover$2, {
+    children: jsx(Popover$1, {
       zIndex: theme.options.zIndexBase + 30,
       ...props,
       content: jsx(RestoreAntDDefaultClsPrefix, {
@@ -18047,7 +18061,7 @@ const PageWrapper = _ref => {
   });
 };
 
-const SMALL_BUTTON_HEIGHT = 24;
+const SMALL_BUTTON_HEIGHT$1 = 24;
 function getSegmentedControlGroupEmotionStyles(clsPrefix) {
   let spaced = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
   const classGroup = `.${clsPrefix}-radio-group`;
@@ -18137,7 +18151,7 @@ function getSegmentedControlButtonEmotionStyles(clsPrefix, theme, size) {
       }
     },
     [`&${classWrapper}, ${classButton}`]: {
-      height: size === 'middle' ? theme.general.heightSm : SMALL_BUTTON_HEIGHT,
+      height: size === 'middle' ? theme.general.heightSm : SMALL_BUTTON_HEIGHT$1,
       lineHeight: theme.typography.lineHeightBase,
       alignItems: 'center'
     },
@@ -18227,85 +18241,6 @@ const SegmentedControlGroup = /*#__PURE__*/forwardRef(function SegmentedControlG
     })
   });
 });
-
-/**
- * Copied from usehooks-ts.
- * Custom hook for using either `useLayoutEffect` or `useEffect` based on the environment (client-side or server-side).
- *
- * [Documentation](https://usehooks-ts.com/react-hook/use-isomorphic-layout-effect)
- *
- * Example:
- * ```
- * useIsomorphicLayoutEffect(() => {
- * // Code to be executed during the layout phase on the client side
- * }, [dependency1, dependency2]);
- * ```
- */
-const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
-
-const IS_SERVER = typeof window === 'undefined';
-/**
- * Copied from usehooks-ts.
- * Custom hook for tracking the state of a media query. Returns The current state of the media query (true if the query matches, false otherwise).
- *
- * [Documentation](https://usehooks-ts.com/react-hook/use-media-query)
- *
- * [MDN Match Media](https://developer.mozilla.org/en-US/docs/Web/API/Window/matchMedia)
- *
- * Example:
- *
- * `const isSmallScreen = useMediaQuery('(max-width: 600px)');`
- *
- * Use `isSmallScreen` to conditionally apply styles or logic based on the screen size.
- */
-function useMediaQuery(_ref) {
-  var _options$defaultValue, _options$initializeWi;
-  let {
-    query,
-    options
-  } = _ref;
-  // TODO: Refactor this code after the deprecated signature has been removed.
-  const defaultValue = typeof options === 'boolean' ? options : (_options$defaultValue = options === null || options === void 0 ? void 0 : options.defaultValue) !== null && _options$defaultValue !== void 0 ? _options$defaultValue : false;
-  const initializeWithValue = typeof options === 'boolean' ? undefined : (_options$initializeWi = options === null || options === void 0 ? void 0 : options.initializeWithValue) !== null && _options$initializeWi !== void 0 ? _options$initializeWi : undefined;
-  const [matches, setMatches] = useState(() => {
-    if (initializeWithValue) {
-      return getMatches(query);
-    }
-    return defaultValue;
-  });
-  const getMatches = query => {
-    if (IS_SERVER) {
-      return defaultValue;
-    }
-    return window.matchMedia(query).matches;
-  };
-
-  /** Handles the change event of the media query. */
-  function handleChange() {
-    setMatches(getMatches(query));
-  }
-  useIsomorphicLayoutEffect(() => {
-    const matchMedia = window.matchMedia(query);
-
-    // Triggered at the first client-side load and if query changes
-    handleChange();
-
-    // Use deprecated `addListener` and `removeListener` to support Safari < 14 (#135)
-    if (matchMedia.addListener) {
-      matchMedia.addListener(handleChange);
-    } else {
-      matchMedia.addEventListener('change', handleChange);
-    }
-    return () => {
-      if (matchMedia.removeListener) {
-        matchMedia.removeListener(handleChange);
-      } else {
-        matchMedia.removeEventListener('change', handleChange);
-      }
-    };
-  }, [query]);
-  return matches;
-}
 
 function _EMOTION_STRINGIFIED_CSS_ERROR__$2() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const DEFAULT_WIDTH = 200;
@@ -18511,8 +18446,6 @@ function Content(_ref5) {
     left: sidebarContext.position === 'left' && closable ? '100%' : undefined,
     right: sidebarContext.position === 'right' && closable ? '100%' : undefined,
     backgroundColor: theme.colors.backgroundPrimary,
-    borderBottom: `1px solid ${theme.colors.border}`,
-    borderTop: `1px solid ${theme.colors.border}`,
     borderRight: sidebarContext.position === 'left' ? `1px solid ${theme.colors.border}` : undefined,
     borderLeft: sidebarContext.position === 'right' ? `1px solid ${theme.colors.border}` : undefined,
     width: DEFAULT_WIDTH,
@@ -18809,7 +18742,7 @@ const Sidebar = /* #__PURE__ */(() => {
           flexDirection: position === 'right' ? 'row-reverse' : 'row',
           borderStyle: 'solid',
           borderColor: theme.colors.borderDecorative,
-          borderWidth: theme.general.borderWidth,
+          borderWidth: `0px ${theme.general.borderWidth}px`,
           boxSizing: 'content-box',
           position: 'relative'
         }, dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:Sidebar;"],
@@ -19627,7 +19560,8 @@ const Tabs = /* #__PURE__ */(() => {
   return Tabs;
 })();
 
-const getStyles = theme => {
+const SMALL_BUTTON_HEIGHT = 24;
+const getStyles = (theme, size, onlyIcon) => {
   return /*#__PURE__*/css({
     display: 'inline-flex',
     alignItems: 'center',
@@ -19663,7 +19597,29 @@ const getStyles = theme => {
       '& > svg': {
         stroke: theme.colors.border
       }
-    }
+    },
+    ...(!onlyIcon && {
+      '&&': {
+        padding: '4px 12px',
+        ...(size === 'small' && {
+          padding: '0 8px'
+        })
+      }
+    }),
+    ...(onlyIcon && {
+      width: theme.general.heightSm,
+      border: 'none'
+    }),
+    ...(size === 'small' && {
+      height: SMALL_BUTTON_HEIGHT,
+      lineHeight: theme.typography.lineHeightBase,
+      ...(onlyIcon && {
+        width: SMALL_BUTTON_HEIGHT,
+        paddingTop: 0,
+        paddingBottom: 0,
+        verticalAlign: 'middle'
+      })
+    })
   }, process.env.NODE_ENV === "production" ? "" : ";label:getStyles;");
 };
 const RectangleSvg = props => jsx("svg", {
@@ -19681,11 +19637,20 @@ const RectangleSvg = props => jsx("svg", {
     rx: "3.5"
   })
 });
+const RectangleIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: RectangleSvg
+  });
+});
 const ToggleButton = /*#__PURE__*/forwardRef((_ref, ref) => {
   let {
     children,
     pressed,
     defaultPressed,
+    icon,
+    size = 'middle',
     ...props
   } = _ref;
   const {
@@ -19695,9 +19660,18 @@ const ToggleButton = /*#__PURE__*/forwardRef((_ref, ref) => {
   useEffect(() => {
     setIsPressed(pressed);
   }, [pressed]);
+  const iconOnly = !children && Boolean(icon);
+  const iconSyle = iconOnly ? {} : {
+    marginRight: theme.spacing.xs
+  };
+  const checkboxIcon = isPressed ? jsx(CheckIcon, {}) : jsx(RectangleIcon, {
+    css: /*#__PURE__*/css({
+      stroke: theme.colors.border
+    }, process.env.NODE_ENV === "production" ? "" : ";label:checkboxIcon;")
+  });
   return jsxs(Toggle.Root, {
     ...addDebugOutlineIfEnabled(),
-    css: getStyles(theme),
+    css: getStyles(theme, size, iconOnly),
     ...props,
     pressed: isPressed,
     onPressedChange: pressed => {
@@ -19706,17 +19680,12 @@ const ToggleButton = /*#__PURE__*/forwardRef((_ref, ref) => {
       setIsPressed(pressed);
     },
     ref: ref,
-    children: [isPressed ? jsx(CheckIcon, {
-      css: /*#__PURE__*/css({
-        marginRight: theme.spacing.xs
-      }, process.env.NODE_ENV === "production" ? "" : ";label:ToggleButton;")
-    }) : jsx(RectangleSvg, {
-      css: /*#__PURE__*/css({
-        height: theme.typography.lineHeightBase,
-        width: theme.typography.lineHeightSm,
-        marginRight: theme.spacing.xs,
-        stroke: theme.colors.border
-      }, process.env.NODE_ENV === "production" ? "" : ";label:ToggleButton;")
+    children: [jsx("span", {
+      style: {
+        display: 'flex',
+        ...iconSyle
+      },
+      children: icon ? icon : checkboxIcon
     }), children]
   });
 });
@@ -20076,5 +20045,5 @@ const Tree = /*#__PURE__*/forwardRef(function Tree(_ref, ref) {
   });
 });
 
-export { AccessibleContainer, Accordion, AccordionPanel, Alert, AlignCenterIcon$1 as AlignCenterIcon, AlignLeftIcon$1 as AlignLeftIcon, AlignRightIcon$1 as AlignRightIcon, AppIcon$1 as AppIcon, ApplyDesignSystemContextOverrides, ApplyGlobalStyles, ArrowDownDotIcon$1 as ArrowDownDotIcon, ArrowDownIcon$1 as ArrowDownIcon, ArrowInIcon$1 as ArrowInIcon, ArrowLeftIcon$1 as ArrowLeftIcon, ArrowOverIcon$1 as ArrowOverIcon, ArrowRightIcon$1 as ArrowRightIcon, ArrowUpDotIcon$1 as ArrowUpDotIcon, ArrowUpIcon$1 as ArrowUpIcon, ArrowsUpDownIcon$1 as ArrowsUpDownIcon, AssistantAvatar, AssistantIcon$1 as AssistantIcon, AutoComplete, Avatar, AvatarGroup, BadgeCodeIcon$1 as BadgeCodeIcon, BadgeCodeOffIcon$1 as BadgeCodeOffIcon, BarChartIcon$1 as BarChartIcon, BarGroupedIcon$1 as BarGroupedIcon, BarStackedIcon$1 as BarStackedIcon, BarStackedPercentageIcon$1 as BarStackedPercentageIcon, BeakerIcon$1 as BeakerIcon, BinaryIcon$1 as BinaryIcon, BlockQuoteIcon$1 as BlockQuoteIcon, BoldIcon$1 as BoldIcon, BookIcon$1 as BookIcon, BookmarkFillIcon$1 as BookmarkFillIcon, BookmarkIcon$1 as BookmarkIcon, BooksIcon$1 as BooksIcon, BracketsCurlyIcon$1 as BracketsCurlyIcon, BracketsSquareIcon$1 as BracketsSquareIcon, BracketsXIcon$1 as BracketsXIcon, BranchIcon$1 as BranchIcon, Breadcrumb, BriefcaseFillIcon$1 as BriefcaseFillIcon, BriefcaseIcon$1 as BriefcaseIcon, BugIcon$1 as BugIcon, Button, CalendarClockIcon$1 as CalendarClockIcon, CalendarEventIcon$1 as CalendarEventIcon, CalendarIcon$1 as CalendarIcon, Card, CaretDownSquareIcon$1 as CaretDownSquareIcon, CaretUpSquareIcon$1 as CaretUpSquareIcon, CatalogCloudIcon$1 as CatalogCloudIcon, CatalogIcon$1 as CatalogIcon, CatalogOffIcon$1 as CatalogOffIcon, ChartLineIcon$1 as ChartLineIcon, CheckCircleBadgeIcon$1 as CheckCircleBadgeIcon, CheckCircleFillIcon$1 as CheckCircleFillIcon, CheckCircleIcon$1 as CheckCircleIcon, CheckIcon, CheckLineIcon$1 as CheckLineIcon, CheckSmallIcon$1 as CheckSmallIcon, Checkbox, CheckboxIcon$1 as CheckboxIcon, ChecklistIcon$1 as ChecklistIcon, ChevronDoubleDownIcon$1 as ChevronDoubleDownIcon, ChevronDoubleLeftIcon$1 as ChevronDoubleLeftIcon, ChevronDoubleRightIcon$1 as ChevronDoubleRightIcon, ChevronDoubleUpIcon$1 as ChevronDoubleUpIcon, ChevronDownIcon$1 as ChevronDownIcon, ChevronLeftIcon$1 as ChevronLeftIcon, ChevronRightIcon$1 as ChevronRightIcon, ChevronUpIcon$1 as ChevronUpIcon, CircleIcon$1 as CircleIcon, ClipboardIcon$1 as ClipboardIcon, ClockIcon$1 as ClockIcon, ClockKeyIcon$1 as ClockKeyIcon, CloseIcon, CloudDatabaseIcon$1 as CloudDatabaseIcon, CloudDownloadIcon$1 as CloudDownloadIcon, CloudIcon$1 as CloudIcon, CloudKeyIcon$1 as CloudKeyIcon, CloudModelIcon$1 as CloudModelIcon, CloudOffIcon$1 as CloudOffIcon, CloudUploadIcon$1 as CloudUploadIcon, CodeIcon$1 as CodeIcon, Col, ColorFillIcon$1 as ColorFillIcon, ColumnIcon$1 as ColumnIcon, ColumnsIcon$1 as ColumnsIcon, ConnectIcon$1 as ConnectIcon, Content, ContextMenu$1 as ContextMenu, CopyIcon$1 as CopyIcon, CursorIcon$1 as CursorIcon, CursorPagination, CursorTypeIcon$1 as CursorTypeIcon, DBAssistantAvatar, DIcon$1 as DIcon, DU_BOIS_ENABLE_ANIMATION_CLASSNAME, DagIcon$1 as DagIcon, DangerFillIcon$1 as DangerFillIcon, DangerIcon, DashIcon$1 as DashIcon, DashboardIcon$1 as DashboardIcon, DataIcon$1 as DataIcon, DatabaseIcon$1 as DatabaseIcon, DecimalIcon$1 as DecimalIcon, DesignSystemAntDConfigProvider, DesignSystemEventProviderAnalyticsEventTypes, DesignSystemEventProviderComponentTypes, DesignSystemEventSuppressInteractionProviderContext, DesignSystemEventSuppressInteractionTrueContextValue, DialogCombobox, DialogComboboxAddButton, DialogComboboxContent, DialogComboboxCountBadge, DialogComboboxCustomButtonTriggerWrapper, EmptyResults as DialogComboboxEmpty, DialogComboboxFooter, DialogComboboxHintRow, DialogComboboxOptionControlledList, DialogComboboxOptionList, DialogComboboxOptionListCheckboxItem, DialogComboboxOptionListSearch, DialogComboboxOptionListSelectItem, DialogComboboxSectionHeader, DialogComboboxSeparator, DialogComboboxTrigger, DotsCircleIcon$1 as DotsCircleIcon, DownloadIcon$1 as DownloadIcon, DragIcon$1 as DragIcon, Drawer, Dropdown, DropdownMenu, DuboisDatePicker, Empty, ErdIcon$1 as ErdIcon, ExpandLessIcon$1 as ExpandLessIcon, ExpandMoreIcon$1 as ExpandMoreIcon, FaceFrownIcon$1 as FaceFrownIcon, FaceNeutralIcon$1 as FaceNeutralIcon, FaceSmileIcon$1 as FaceSmileIcon, FileCodeIcon$1 as FileCodeIcon, FileDocumentIcon$1 as FileDocumentIcon, FileIcon$1 as FileIcon, FileImageIcon$1 as FileImageIcon, FileModelIcon$1 as FileModelIcon, FilterIcon$1 as FilterIcon, FlagPointerIcon$1 as FlagPointerIcon, FloatIcon$1 as FloatIcon, FolderBranchFillIcon$1 as FolderBranchFillIcon, FolderBranchIcon$1 as FolderBranchIcon, FolderCloudFilledIcon$1 as FolderCloudFilledIcon, FolderCloudIcon$1 as FolderCloudIcon, FolderFillIcon$1 as FolderFillIcon, FolderIcon$1 as FolderIcon, FontIcon$1 as FontIcon, ForkIcon$1 as ForkIcon, Form, FormDubois, FormUI, FullscreenExitIcon$1 as FullscreenExitIcon, FullscreenIcon$1 as FullscreenIcon, FunctionIcon$1 as FunctionIcon, GearFillIcon$1 as GearFillIcon, GearIcon$1 as GearIcon, GenericSkeleton, GiftIcon$1 as GiftIcon, GitCommitIcon$1 as GitCommitIcon, GlobeIcon$1 as GlobeIcon, GridDashIcon$1 as GridDashIcon, GridIcon$1 as GridIcon, H1Icon$1 as H1Icon, H2Icon$1 as H2Icon, H3Icon$1 as H3Icon, Header$1 as Header, HistoryIcon$1 as HistoryIcon, HomeIcon$1 as HomeIcon, Icon, ImageIcon$1 as ImageIcon, IndentDecreaseIcon$1 as IndentDecreaseIcon, IndentIncreaseIcon$1 as IndentIncreaseIcon, InfinityIcon$1 as InfinityIcon, InfoBookIcon$1 as InfoBookIcon, InfoFillIcon$1 as InfoFillIcon, InfoIcon$1 as InfoIcon, InfoPopover, InfoTooltip, IngestionIcon$1 as IngestionIcon, Input, ItalicIcon$1 as ItalicIcon, KeyIcon$1 as KeyIcon, KeyboardIcon$1 as KeyboardIcon, LayerGraphIcon$1 as LayerGraphIcon, LayerIcon$1 as LayerIcon, Layout, LeafIcon$1 as LeafIcon, LegacyDatePicker, LegacyOptGroup, LegacyOption, LegacyPopover, LegacySelect, LegacySelectOptGroup, LegacySelectOption, LegacySkeleton, LegacyTable, LettersIcon$1 as LettersIcon, LibrariesIcon$1 as LibrariesIcon, LightningIcon$1 as LightningIcon, LinkIcon$1 as LinkIcon, LinkOffIcon$1 as LinkOffIcon, ListBorderIcon$1 as ListBorderIcon, ListClearIcon$1 as ListClearIcon, ListIcon$1 as ListIcon, LoadingIcon, LoadingState, LockFillIcon$1 as LockFillIcon, LockIcon$1 as LockIcon, LockUnlockedIcon$1 as LockUnlockedIcon, MIcon$1 as MIcon, MailIcon$1 as MailIcon, Menu, MenuIcon$1 as MenuIcon, MinusBoxIcon$1 as MinusBoxIcon, MinusCircleFillIcon$1 as MinusCircleFillIcon, MinusCircleIcon$1 as MinusCircleIcon, ModelsIcon$1 as ModelsIcon, Nav, NavButton, NoIcon$1 as NoIcon, NotebookIcon$1 as NotebookIcon, Notification, NotificationIcon$1 as NotificationIcon, NotificationOffIcon$1 as NotificationOffIcon, NumbersIcon$1 as NumbersIcon, OfficeIcon$1 as OfficeIcon, Overflow, OverflowIcon$1 as OverflowIcon, PageBottomIcon$1 as PageBottomIcon, PageFirstIcon$1 as PageFirstIcon, PageLastIcon$1 as PageLastIcon, PageTopIcon$1 as PageTopIcon, PageWrapper, Pagination, Panel, PanelBody, PanelHeader, PanelHeaderButtons, PanelHeaderTitle, ParagraphSkeleton, PauseIcon$1 as PauseIcon, PencilIcon$1 as PencilIcon, PieChartIcon$1 as PieChartIcon, PinCancelIcon$1 as PinCancelIcon, PinFillIcon$1 as PinFillIcon, PinIcon$1 as PinIcon, PipelineIcon$1 as PipelineIcon, PlayCircleFillIcon$1 as PlayCircleFillIcon, PlayCircleIcon$1 as PlayCircleIcon, PlayIcon$1 as PlayIcon, PlugIcon$1 as PlugIcon, PlusCircleFillIcon$1 as PlusCircleFillIcon, PlusCircleIcon$1 as PlusCircleIcon, PlusIcon, PlusSquareIcon$1 as PlusSquareIcon, Popover, QueryEditorIcon$1 as QueryEditorIcon, QueryIcon$1 as QueryIcon, QuestionMarkFillIcon$1 as QuestionMarkFillIcon, QuestionMarkIcon$1 as QuestionMarkIcon, RHFControlledComponents, ROW_GUTTER_SIZE, Radio, ReaderModeIcon$1 as ReaderModeIcon, RedoIcon$1 as RedoIcon, RefreshIcon$1 as RefreshIcon, ReplyIcon$1 as ReplyIcon, RestoreAntDDefaultClsPrefix, RobotIcon$1 as RobotIcon, Row, RunningIcon$1 as RunningIcon, SaveIcon$1 as SaveIcon, SchemaIcon$1 as SchemaIcon, SchoolIcon$1 as SchoolIcon, SearchDataIcon$1 as SearchDataIcon, SearchIcon$1 as SearchIcon, SecurityIcon$1 as SecurityIcon, SegmentedControlButton, SegmentedControlGroup, Select, SelectContent, SelectOption, SelectOptionGroup, SelectTrigger, SendIcon$1 as SendIcon, ShareIcon$1 as ShareIcon, ShieldIcon$1 as ShieldIcon, ShortcutIcon$1 as ShortcutIcon, Sidebar, SidebarAutoIcon$1 as SidebarAutoIcon, SidebarCollapseIcon$1 as SidebarCollapseIcon, SidebarExpandIcon$1 as SidebarExpandIcon, SidebarIcon$1 as SidebarIcon, SimpleSelect, SimpleSelectOption, SimpleSelectOptionGroup, SlidersIcon$1 as SlidersIcon, SortAlphabeticalAscendingIcon$1 as SortAlphabeticalAscendingIcon, SortAlphabeticalDescendingIcon$1 as SortAlphabeticalDescendingIcon, SortAlphabeticalLeftIcon$1 as SortAlphabeticalLeftIcon, SortAlphabeticalRightIcon$1 as SortAlphabeticalRightIcon, SortAscendingIcon$1 as SortAscendingIcon, SortDescendingIcon$1 as SortDescendingIcon, SortUnsortedIcon$1 as SortUnsortedIcon, Space, Spacer, SparkleDoubleFillIcon$1 as SparkleDoubleFillIcon, SparkleDoubleIcon$1 as SparkleDoubleIcon, SparkleFillIcon$1 as SparkleFillIcon, SparkleIcon$1 as SparkleIcon, SparkleRectangleIcon$1 as SparkleRectangleIcon, SpeechBubbleIcon$1 as SpeechBubbleIcon, SpeechBubblePlusIcon$1 as SpeechBubblePlusIcon, SpeechBubbleQuestionMarkIcon$1 as SpeechBubbleQuestionMarkIcon, SpeechBubbleStarIcon$1 as SpeechBubbleStarIcon, Spinner, SplitButton, StarFillIcon$1 as StarFillIcon, StarIcon$1 as StarIcon, Steps, StopCircleFillIcon$1 as StopCircleFillIcon, StopCircleIcon$1 as StopCircleIcon, StopIcon$1 as StopIcon, StorefrontIcon$1 as StorefrontIcon, StreamIcon$1 as StreamIcon, Switch, SyncIcon$1 as SyncIcon, TabPane, Table, TableCell, TableContext, TableFilterInput, TableFilterLayout, TableGlassesIcon$1 as TableGlassesIcon, TableGlobeIcon$1 as TableGlobeIcon, TableHeader, TableIcon$1 as TableIcon, TableLightningIcon$1 as TableLightningIcon, TableModelIcon$1 as TableModelIcon, TableOnlineViewIcon$1 as TableOnlineViewIcon, TableRow, TableRowAction, TableRowActionHeader, TableRowContext, TableRowMenuContainer, TableRowSelectCell, TableSkeleton, TableSkeletonRows, TableStreamIcon$1 as TableStreamIcon, TableVectorIcon$1 as TableVectorIcon, TableViewIcon$1 as TableViewIcon, Tabs, Tag, TagIcon$1 as TagIcon, TargetIcon$1 as TargetIcon, TextBoxIcon$1 as TextBoxIcon, ThumbsDownIcon$1 as ThumbsDownIcon, ThumbsUpIcon$1 as ThumbsUpIcon, TitleSkeleton, ToggleButton, Tooltip, TrashIcon$1 as TrashIcon, Tree, TreeIcon$1 as TreeIcon, TypeaheadComboboxAddButton, TypeaheadComboboxCheckboxItem, TypeaheadComboboxFooter, TypeaheadComboboxInput, TypeaheadComboboxMenu, TypeaheadComboboxMenuItem, TypeaheadComboboxMultiSelectInput, TypeaheadComboboxRoot, TypeaheadComboboxSectionHeader, TypeaheadComboboxSelectedItem, TypeaheadComboboxSeparator, TypeaheadComboboxToggleButton, Typography, UnderlineIcon$1 as UnderlineIcon, UndoIcon$1 as UndoIcon, UploadIcon$1 as UploadIcon, UsbIcon$1 as UsbIcon, UserBadgeIcon$1 as UserBadgeIcon, UserCircleIcon$1 as UserCircleIcon, UserGroupIcon$1 as UserGroupIcon, UserIcon$1 as UserIcon, VectorTableIcon$1 as VectorTableIcon, VisibleIcon$1 as VisibleIcon, VisibleOffIcon$1 as VisibleOffIcon, WarningFillIcon$1 as WarningFillIcon, WarningIcon, WorkflowsIcon$1 as WorkflowsIcon, WorkspacesIcon$1 as WorkspacesIcon, XCircleFillIcon$1 as XCircleFillIcon, XCircleIcon$1 as XCircleIcon, ZoomInIcon$1 as ZoomInIcon, ZoomMarqueeSelection$1 as ZoomMarqueeSelection, ZoomOutIcon$1 as ZoomOutIcon, __INTERNAL_DO_NOT_USE__FormItem, __INTERNAL_DO_NOT_USE__Group, __INTERNAL_DO_NOT_USE__HorizontalGroup, __INTERNAL_DO_NOT_USE__VerticalGroup, dialogComboboxLookAheadKeyDown, findClosestOptionSibling, findHighlightedOption, getAnimationCss, getComboboxOptionItemWrapperStyles, getComboboxOptionLabelStyles, getContentOptions, getDarkModePortalStyles, getDialogComboboxOptionLabelWidth, getGlobalStyles, getInputStyles$2 as getInputStyles, getKeyboardNavigationFunctions, getPaginationEmotionStyles, getRadioStyles, getShadowScrollStyles, getTabEmotionStyles, getValidationStateColor, getWrapperStyle, highlightFirstNonDisabledOption, highlightOption, importantify, isOptionDisabled, resetTabIndexToFocusedElement, useComboboxState, useDesignSystemEventComponentCallbacks, useDesignSystemFlags, useDesignSystemTheme, useLegacyNotification, useMultipleSelectionState, useNotifyOnFirstView, useThemedStyles, useTypeaheadComboboxContext, visuallyHidden, withNotifications };
+export { AccessibleContainer, Accordion, AccordionPanel, Alert, AlignCenterIcon$1 as AlignCenterIcon, AlignLeftIcon$1 as AlignLeftIcon, AlignRightIcon$1 as AlignRightIcon, AppIcon$1 as AppIcon, ApplyDesignSystemContextOverrides, ApplyGlobalStyles, ArrowDownDotIcon$1 as ArrowDownDotIcon, ArrowDownIcon$1 as ArrowDownIcon, ArrowInIcon$1 as ArrowInIcon, ArrowLeftIcon$1 as ArrowLeftIcon, ArrowOverIcon$1 as ArrowOverIcon, ArrowRightIcon$1 as ArrowRightIcon, ArrowUpDotIcon$1 as ArrowUpDotIcon, ArrowUpIcon$1 as ArrowUpIcon, ArrowsUpDownIcon$1 as ArrowsUpDownIcon, AssistantAvatar, AssistantIcon$1 as AssistantIcon, AutoComplete, Avatar, AvatarGroup, BadgeCodeIcon$1 as BadgeCodeIcon, BadgeCodeOffIcon$1 as BadgeCodeOffIcon, BarChartIcon$1 as BarChartIcon, BarGroupedIcon$1 as BarGroupedIcon, BarStackedIcon$1 as BarStackedIcon, BarStackedPercentageIcon$1 as BarStackedPercentageIcon, BeakerIcon$1 as BeakerIcon, BinaryIcon$1 as BinaryIcon, BlockQuoteIcon$1 as BlockQuoteIcon, BoldIcon$1 as BoldIcon, BookIcon$1 as BookIcon, BookmarkFillIcon$1 as BookmarkFillIcon, BookmarkIcon$1 as BookmarkIcon, BooksIcon$1 as BooksIcon, BracketsCurlyIcon$1 as BracketsCurlyIcon, BracketsSquareIcon$1 as BracketsSquareIcon, BracketsXIcon$1 as BracketsXIcon, BranchIcon$1 as BranchIcon, Breadcrumb, BriefcaseFillIcon$1 as BriefcaseFillIcon, BriefcaseIcon$1 as BriefcaseIcon, BugIcon$1 as BugIcon, Button, CalendarClockIcon$1 as CalendarClockIcon, CalendarEventIcon$1 as CalendarEventIcon, CalendarIcon$1 as CalendarIcon, Card, CaretDownSquareIcon$1 as CaretDownSquareIcon, CaretUpSquareIcon$1 as CaretUpSquareIcon, CatalogCloudIcon$1 as CatalogCloudIcon, CatalogIcon$1 as CatalogIcon, CatalogOffIcon$1 as CatalogOffIcon, ChartLineIcon$1 as ChartLineIcon, CheckCircleBadgeIcon$1 as CheckCircleBadgeIcon, CheckCircleFillIcon$1 as CheckCircleFillIcon, CheckCircleIcon$1 as CheckCircleIcon, CheckIcon, CheckLineIcon$1 as CheckLineIcon, CheckSmallIcon$1 as CheckSmallIcon, Checkbox, CheckboxIcon$1 as CheckboxIcon, ChecklistIcon$1 as ChecklistIcon, ChevronDoubleDownIcon$1 as ChevronDoubleDownIcon, ChevronDoubleLeftIcon$1 as ChevronDoubleLeftIcon, ChevronDoubleRightIcon$1 as ChevronDoubleRightIcon, ChevronDoubleUpIcon$1 as ChevronDoubleUpIcon, ChevronDownIcon$1 as ChevronDownIcon, ChevronLeftIcon$1 as ChevronLeftIcon, ChevronRightIcon$1 as ChevronRightIcon, ChevronUpIcon$1 as ChevronUpIcon, CircleIcon$1 as CircleIcon, ClipboardIcon$1 as ClipboardIcon, ClockIcon$1 as ClockIcon, ClockKeyIcon$1 as ClockKeyIcon, CloseIcon, CloudDatabaseIcon$1 as CloudDatabaseIcon, CloudDownloadIcon$1 as CloudDownloadIcon, CloudIcon$1 as CloudIcon, CloudKeyIcon$1 as CloudKeyIcon, CloudModelIcon$1 as CloudModelIcon, CloudOffIcon$1 as CloudOffIcon, CloudUploadIcon$1 as CloudUploadIcon, CodeIcon$1 as CodeIcon, Col, ColorFillIcon$1 as ColorFillIcon, ColumnIcon$1 as ColumnIcon, ColumnsIcon$1 as ColumnsIcon, ConnectIcon$1 as ConnectIcon, Content, ContextMenu$1 as ContextMenu, CopyIcon$1 as CopyIcon, CursorIcon$1 as CursorIcon, CursorPagination, CursorTypeIcon$1 as CursorTypeIcon, DBAssistantAvatar, DIcon$1 as DIcon, DU_BOIS_ENABLE_ANIMATION_CLASSNAME, DagIcon$1 as DagIcon, DangerFillIcon$1 as DangerFillIcon, DangerIcon, DashIcon$1 as DashIcon, DashboardIcon$1 as DashboardIcon, DataIcon$1 as DataIcon, DatabaseIcon$1 as DatabaseIcon, DecimalIcon$1 as DecimalIcon, DesignSystemAntDConfigProvider, DesignSystemEventProviderAnalyticsEventTypes, DesignSystemEventProviderComponentTypes, DesignSystemEventSuppressInteractionProviderContext, DesignSystemEventSuppressInteractionTrueContextValue, DialogCombobox, DialogComboboxAddButton, DialogComboboxContent, DialogComboboxCountBadge, DialogComboboxCustomButtonTriggerWrapper, EmptyResults as DialogComboboxEmpty, DialogComboboxFooter, DialogComboboxHintRow, DialogComboboxOptionControlledList, DialogComboboxOptionList, DialogComboboxOptionListCheckboxItem, DialogComboboxOptionListSearch, DialogComboboxOptionListSelectItem, DialogComboboxSectionHeader, DialogComboboxSeparator, DialogComboboxTrigger, DotsCircleIcon$1 as DotsCircleIcon, DownloadIcon$1 as DownloadIcon, DragIcon$1 as DragIcon, Drawer, Dropdown, DropdownMenu, DuboisDatePicker, Empty, ErdIcon$1 as ErdIcon, ExpandLessIcon$1 as ExpandLessIcon, ExpandMoreIcon$1 as ExpandMoreIcon, FaceFrownIcon$1 as FaceFrownIcon, FaceNeutralIcon$1 as FaceNeutralIcon, FaceSmileIcon$1 as FaceSmileIcon, FileCodeIcon$1 as FileCodeIcon, FileDocumentIcon$1 as FileDocumentIcon, FileIcon$1 as FileIcon, FileImageIcon$1 as FileImageIcon, FileModelIcon$1 as FileModelIcon, FilterIcon$1 as FilterIcon, FlagPointerIcon$1 as FlagPointerIcon, FloatIcon$1 as FloatIcon, FolderBranchFillIcon$1 as FolderBranchFillIcon, FolderBranchIcon$1 as FolderBranchIcon, FolderCloudFilledIcon$1 as FolderCloudFilledIcon, FolderCloudIcon$1 as FolderCloudIcon, FolderFillIcon$1 as FolderFillIcon, FolderIcon$1 as FolderIcon, FontIcon$1 as FontIcon, ForkIcon$1 as ForkIcon, Form, FormDubois, FormUI, FullscreenExitIcon$1 as FullscreenExitIcon, FullscreenIcon$1 as FullscreenIcon, FunctionIcon$1 as FunctionIcon, GearFillIcon$1 as GearFillIcon, GearIcon$1 as GearIcon, GenericSkeleton, GiftIcon$1 as GiftIcon, GitCommitIcon$1 as GitCommitIcon, GlobeIcon$1 as GlobeIcon, GridDashIcon$1 as GridDashIcon, GridIcon$1 as GridIcon, H1Icon$1 as H1Icon, H2Icon$1 as H2Icon, H3Icon$1 as H3Icon, Header$1 as Header, HistoryIcon$1 as HistoryIcon, HomeIcon$1 as HomeIcon, Icon, ImageIcon$1 as ImageIcon, IndentDecreaseIcon$1 as IndentDecreaseIcon, IndentIncreaseIcon$1 as IndentIncreaseIcon, InfinityIcon$1 as InfinityIcon, InfoBookIcon$1 as InfoBookIcon, InfoFillIcon$1 as InfoFillIcon, InfoIcon$1 as InfoIcon, InfoPopover, InfoTooltip, IngestionIcon$1 as IngestionIcon, Input, ItalicIcon$1 as ItalicIcon, KeyIcon$1 as KeyIcon, KeyboardIcon$1 as KeyboardIcon, LayerGraphIcon$1 as LayerGraphIcon, LayerIcon$1 as LayerIcon, Layout, LeafIcon$1 as LeafIcon, LegacyDatePicker, LegacyOptGroup, LegacyOption, LegacyPopover, LegacySelect, LegacySelectOptGroup, LegacySelectOption, LegacySkeleton, LegacyTable, LettersIcon$1 as LettersIcon, LibrariesIcon$1 as LibrariesIcon, LightningIcon$1 as LightningIcon, LinkIcon$1 as LinkIcon, LinkOffIcon$1 as LinkOffIcon, ListBorderIcon$1 as ListBorderIcon, ListClearIcon$1 as ListClearIcon, ListIcon, LoadingIcon, LoadingState, LockFillIcon$1 as LockFillIcon, LockIcon$1 as LockIcon, LockUnlockedIcon$1 as LockUnlockedIcon, MIcon$1 as MIcon, MailIcon$1 as MailIcon, Menu, MenuIcon$1 as MenuIcon, MinusBoxIcon$1 as MinusBoxIcon, MinusCircleFillIcon$1 as MinusCircleFillIcon, MinusCircleIcon$1 as MinusCircleIcon, ModelsIcon$1 as ModelsIcon, Nav, NavButton, NoIcon$1 as NoIcon, NotebookIcon$1 as NotebookIcon, Notification, NotificationIcon$1 as NotificationIcon, NotificationOffIcon$1 as NotificationOffIcon, NumbersIcon$1 as NumbersIcon, OfficeIcon$1 as OfficeIcon, Overflow, OverflowIcon$1 as OverflowIcon, PageBottomIcon$1 as PageBottomIcon, PageFirstIcon$1 as PageFirstIcon, PageLastIcon$1 as PageLastIcon, PageTopIcon$1 as PageTopIcon, PageWrapper, Pagination, Panel, PanelBody, PanelHeader, PanelHeaderButtons, PanelHeaderTitle, ParagraphSkeleton, PauseIcon$1 as PauseIcon, PencilIcon$1 as PencilIcon, PieChartIcon$1 as PieChartIcon, PinCancelIcon$1 as PinCancelIcon, PinFillIcon$1 as PinFillIcon, PinIcon$1 as PinIcon, PipelineIcon$1 as PipelineIcon, PlayCircleFillIcon$1 as PlayCircleFillIcon, PlayCircleIcon$1 as PlayCircleIcon, PlayIcon$1 as PlayIcon, PlugIcon$1 as PlugIcon, PlusCircleFillIcon$1 as PlusCircleFillIcon, PlusCircleIcon$1 as PlusCircleIcon, PlusIcon, PlusSquareIcon$1 as PlusSquareIcon, QueryEditorIcon$1 as QueryEditorIcon, QueryIcon$1 as QueryIcon, QuestionMarkFillIcon$1 as QuestionMarkFillIcon, QuestionMarkIcon$1 as QuestionMarkIcon, RHFControlledComponents, ROW_GUTTER_SIZE, Radio, ReaderModeIcon$1 as ReaderModeIcon, RedoIcon$1 as RedoIcon, RefreshIcon$1 as RefreshIcon, ReplyIcon$1 as ReplyIcon, RestoreAntDDefaultClsPrefix, RobotIcon$1 as RobotIcon, Row, RunningIcon$1 as RunningIcon, SaveIcon$1 as SaveIcon, SchemaIcon$1 as SchemaIcon, SchoolIcon$1 as SchoolIcon, SearchDataIcon$1 as SearchDataIcon, SearchIcon$1 as SearchIcon, SecurityIcon$1 as SecurityIcon, SegmentedControlButton, SegmentedControlGroup, Select, SelectContent, SelectOption, SelectOptionGroup, SelectTrigger, SendIcon$1 as SendIcon, ShareIcon$1 as ShareIcon, ShieldIcon$1 as ShieldIcon, ShortcutIcon$1 as ShortcutIcon, Sidebar, SidebarAutoIcon$1 as SidebarAutoIcon, SidebarCollapseIcon$1 as SidebarCollapseIcon, SidebarExpandIcon$1 as SidebarExpandIcon, SidebarIcon$1 as SidebarIcon, SimpleSelect, SimpleSelectOption, SimpleSelectOptionGroup, SlidersIcon$1 as SlidersIcon, SortAlphabeticalAscendingIcon$1 as SortAlphabeticalAscendingIcon, SortAlphabeticalDescendingIcon$1 as SortAlphabeticalDescendingIcon, SortAlphabeticalLeftIcon$1 as SortAlphabeticalLeftIcon, SortAlphabeticalRightIcon$1 as SortAlphabeticalRightIcon, SortAscendingIcon$1 as SortAscendingIcon, SortDescendingIcon$1 as SortDescendingIcon, SortUnsortedIcon$1 as SortUnsortedIcon, Space, Spacer, SparkleDoubleFillIcon$1 as SparkleDoubleFillIcon, SparkleDoubleIcon$1 as SparkleDoubleIcon, SparkleFillIcon$1 as SparkleFillIcon, SparkleIcon$1 as SparkleIcon, SparkleRectangleIcon$1 as SparkleRectangleIcon, SpeechBubbleIcon$1 as SpeechBubbleIcon, SpeechBubblePlusIcon$1 as SpeechBubblePlusIcon, SpeechBubbleQuestionMarkIcon$1 as SpeechBubbleQuestionMarkIcon, SpeechBubbleStarIcon$1 as SpeechBubbleStarIcon, Spinner, SplitButton, StarFillIcon$1 as StarFillIcon, StarIcon$1 as StarIcon, Steps, StopCircleFillIcon$1 as StopCircleFillIcon, StopCircleIcon$1 as StopCircleIcon, StopIcon$1 as StopIcon, StorefrontIcon$1 as StorefrontIcon, StreamIcon$1 as StreamIcon, Switch, SyncIcon$1 as SyncIcon, TabPane, Table, TableCell, TableContext, TableFilterInput, TableFilterLayout, TableGlassesIcon$1 as TableGlassesIcon, TableGlobeIcon$1 as TableGlobeIcon, TableHeader, TableIcon$1 as TableIcon, TableLightningIcon$1 as TableLightningIcon, TableModelIcon$1 as TableModelIcon, TableOnlineViewIcon$1 as TableOnlineViewIcon, TableRow, TableRowAction, TableRowActionHeader, TableRowContext, TableRowMenuContainer, TableRowSelectCell, TableSkeleton, TableSkeletonRows, TableStreamIcon$1 as TableStreamIcon, TableVectorIcon$1 as TableVectorIcon, TableViewIcon$1 as TableViewIcon, Tabs, Tag, TagIcon$1 as TagIcon, TargetIcon$1 as TargetIcon, TextBoxIcon$1 as TextBoxIcon, ThumbsDownIcon$1 as ThumbsDownIcon, ThumbsUpIcon$1 as ThumbsUpIcon, TitleSkeleton, ToggleButton, Tooltip, TrashIcon$1 as TrashIcon, Tree, TreeIcon$1 as TreeIcon, TypeaheadComboboxAddButton, TypeaheadComboboxCheckboxItem, TypeaheadComboboxFooter, TypeaheadComboboxInput, TypeaheadComboboxMenu, TypeaheadComboboxMenuItem, TypeaheadComboboxMultiSelectInput, TypeaheadComboboxRoot, TypeaheadComboboxSectionHeader, TypeaheadComboboxSelectedItem, TypeaheadComboboxSeparator, TypeaheadComboboxToggleButton, Typography, UnderlineIcon$1 as UnderlineIcon, UndoIcon$1 as UndoIcon, UploadIcon$1 as UploadIcon, UsbIcon$1 as UsbIcon, UserBadgeIcon$1 as UserBadgeIcon, UserCircleIcon$1 as UserCircleIcon, UserGroupIcon$1 as UserGroupIcon, UserIcon$1 as UserIcon, VectorTableIcon$1 as VectorTableIcon, VisibleIcon$1 as VisibleIcon, VisibleOffIcon$1 as VisibleOffIcon, WarningFillIcon$1 as WarningFillIcon, WarningIcon, WorkflowsIcon$1 as WorkflowsIcon, WorkspacesIcon$1 as WorkspacesIcon, XCircleFillIcon$1 as XCircleFillIcon, XCircleIcon$1 as XCircleIcon, ZoomInIcon$1 as ZoomInIcon, ZoomMarqueeSelection$1 as ZoomMarqueeSelection, ZoomOutIcon$1 as ZoomOutIcon, __INTERNAL_DO_NOT_USE__FormItem, __INTERNAL_DO_NOT_USE__Group, __INTERNAL_DO_NOT_USE__HorizontalGroup, __INTERNAL_DO_NOT_USE__VerticalGroup, dialogComboboxLookAheadKeyDown, findClosestOptionSibling, findHighlightedOption, getAnimationCss, getComboboxOptionItemWrapperStyles, getComboboxOptionLabelStyles, getContentOptions, getDarkModePortalStyles, getDialogComboboxOptionLabelWidth, getGlobalStyles, getInputStyles$2 as getInputStyles, getKeyboardNavigationFunctions, getPaginationEmotionStyles, getRadioStyles, getShadowScrollStyles, getTabEmotionStyles, getValidationStateColor, getWrapperStyle, highlightFirstNonDisabledOption, highlightOption, importantify, isOptionDisabled, resetTabIndexToFocusedElement, useComboboxState, useDesignSystemEventComponentCallbacks, useDesignSystemFlags, useDesignSystemTheme, useLegacyNotification, useModalContext, useMultipleSelectionState, useNotifyOnFirstView, useThemedStyles, useTypeaheadComboboxContext, visuallyHidden, withNotifications };
 //# sourceMappingURL=index.js.map

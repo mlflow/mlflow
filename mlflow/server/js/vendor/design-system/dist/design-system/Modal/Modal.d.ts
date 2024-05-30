@@ -54,6 +54,10 @@ export interface ModalProps extends HTMLDataAttributes, DangerouslySetAntdProps<
     /** Specify whether to truncate the Modal title when it is too long */
     truncateTitle?: boolean;
 }
+export interface ModalContextProps {
+    isInsideModal: boolean;
+}
+export declare const useModalContext: () => ModalContextProps;
 export declare function Modal(props: ModalProps): JSX.Element;
 export declare function DangerModal(props: Omit<ModalProps, 'footer'>): JSX.Element;
 //# sourceMappingURL=Modal.d.ts.map
