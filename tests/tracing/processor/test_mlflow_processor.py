@@ -18,6 +18,7 @@ from mlflow.tracing.constant import (
 )
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.utils.os import is_windows
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
@@ -170,6 +171,26 @@ def test_on_start_during_run(clear_singleton, monkeypatch):
         request_metadata={"mlflow.sourceRun": expected_run_id},
         tags=mock.ANY,
     )
+
+
+def test_on_start_warns_default_experiment(clear_singleton, monkeypatch):
+    mlflow.set_experiment(experiment_id=DEFAULT_EXPERIMENT_ID)
+
+    mock_client = mock.MagicMock()
+    mock_client._start_tracked_trace.return_value = create_test_trace_info(_REQUEST_ID, 0)
+
+    mock_logger = mock.MagicMock()
+    monkeypatch.setattr("mlflow.tracing.processor.mlflow._logger", mock_logger)
+
+    processor = MlflowSpanProcessor(span_exporter=mock.MagicMock(), client=mock_client)
+
+    processor.on_start(create_mock_otel_span(trace_id=123, span_id=1))
+    processor.on_start(create_mock_otel_span(trace_id=234, span_id=1))
+    processor.on_start(create_mock_otel_span(trace_id=345, span_id=1))
+
+    mock_logger.warning.assert_called_once()
+    warns = mock_logger.warning.call_args_list[0][0]
+    assert "Creating a trace within the default" in str(warns[0])
 
 
 def test_on_end(clear_singleton):
