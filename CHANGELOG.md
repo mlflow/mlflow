@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## 2.13.1 (2024-05-30)
+
+MLflow 2.13.1 includes several major features and improvements
+
+Features:
+
+- [Build] [MLflow] Adding recommended versions of langchain in langchain extra for MLflow (#12182, @sunishsheth2009)
+- [Model Registry] Automatically detect if Presigned URLs are required for Unity Catalog (#12177, @artjen)
+- [Tracking] Adding the ability to override the model_config in langchain flavor if loaded as pyfunc (#12085, @sunishsheth2009)
+
+Bug fixes:
+
+- [Model Registry] Automatically detect if Presigned URLs are required for Unity Catalog (#12177, @artjen)
+- [] Use `getUserLocalTempDir` and `getUserNFSTempDir` to replace `getReplLocalTempDir` and `getReplNFSTempDir` in databricks runtime (#12105, @WeichenXu123)
+- [Tracking] [MLflow][Bugfix] Updating chat model for take default input_example and predict to accept json during inference (#12115, @sunishsheth2009)
+- [Tracking] Fix cascading behavior for trace tag table (#12102, @B-Step62)
+- [Tracking] [MLflow][Bugfix] Automatic call load_context when infer signature in pyfunc (#12099, @sunishsheth2009)
+
+Small bug fixes and documentation updates:
+
+#12180, #12152, #12128, #12126, #12100, #12086, #12084, #12079, #12071, #12067, #12062, @serena-ruan; #12175, #12167, #12137, #12134, #12127, #12123, #12111, #12109, #12078, #12080, #12064, @B-Step62; #12142, @2maz; #12171, #12168, #12159, #12153, #12144, #12104, #12095, #12083, @harupy; #12160, @aravind-segu; #11990, @kriscon-db; #12178, #12176, #12090, #12036, @sunishsheth2009; #12162, #12110, #12088, #11937, #12075, @daniellok-db; #12133, #12131, @prithvikannan; #12132, #12035, @annzhang-db; #12121, #12120, @liangz1; #12122, #12094, @dbczumar; #12098, #12055, @mparkhe
+
 ## 2.13.0 (2024-05-20)
 
 MLflow 2.13.0 includes several major features and improvements
