@@ -156,6 +156,11 @@ class TopLogProb(_BaseDataclass):
     logprob: float
     bytes: Optional[List[int]] = None
 
+    def __post_init__(self):
+        self._validate_field("token", str, True)
+        self._validate_field("logprob", float, True)
+        self._validate_list("bytes", int, False)
+
 
 @dataclass
 class LogProbMessage(_BaseDataclass):
@@ -182,6 +187,12 @@ class LogProbMessage(_BaseDataclass):
     top_logprobs: List[TopLogProb]
     bytes: Optional[List[int]] = None
 
+    def __post_init__(self):
+        self._validate_field("token", str, True)
+        self._validate_field("logprob", float, True)
+        self._convert_dataclass_list("top_logprobs", TopLogProb)
+        self._validate_list("bytes", int, False)
+
 
 @dataclass
 class LogProbs(_BaseDataclass):
@@ -193,6 +204,9 @@ class LogProbs(_BaseDataclass):
     """
 
     content: Optional[List[LogProbMessage]] = None
+
+    def __post_init__(self):
+        self._convert_dataclass_list("content", LogProbMessage)
 
 
 @dataclass
@@ -221,6 +235,12 @@ class ChatChoice(_BaseDataclass):
         if not isinstance(self.message, ChatMessage):
             raise ValueError(
                 f"Expected `message` to be of type ChatMessage or dict, got {type(self.message)}"
+            )
+        if isinstance(self.logprobs, dict):
+            self.logprobs = LogProbs(**self.logprobs)
+        if self.logprobs and not isinstance(self.logprobs, LogProbs):
+            raise ValueError(
+                f"Expected `logprobs` to be of type LogProbs or dict, got {type(self.logprobs)}"
             )
 
 
