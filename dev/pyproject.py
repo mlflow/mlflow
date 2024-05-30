@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 import toml
+import yaml
 
 SEPARATOR = """
 # Package metadata: can't be updated manually, use dev/pyproject.py
@@ -20,6 +21,11 @@ def read_requirements(path: Path) -> list[str]:
     return [l for l in lines if l and not l.startswith("#")]
 
 
+def read_package_versions_yml():
+    with open("mlflow/ml-package-versions.yml") as f:
+        return yaml.safe_load(f)
+
+
 def build(skinny: bool) -> None:
     skinny_requirements = read_requirements(Path("requirements", "skinny-requirements.txt"))
     core_requirements = read_requirements(Path("requirements", "core-requirements.txt"))
@@ -28,6 +34,19 @@ def build(skinny: bool) -> None:
         r'^VERSION = "([a-z0-9\.]+)"$', Path("mlflow", "version.py").read_text(), re.MULTILINE
     ).group(1)
     python_version = Path("requirements", "python-version.txt").read_text().strip()
+    versions_yaml = read_package_versions_yml()
+    langchain_requirements = [
+        "langchain>={},<{}".format(
+            max(
+                versions_yaml["langchain"]["autologging"]["minimum"],
+                versions_yaml["langchain"]["models"]["minimum"],
+            ),
+            min(
+                versions_yaml["langchain"]["autologging"]["maximum"],
+                versions_yaml["langchain"]["models"]["maximum"],
+            ),
+        )
+    ]
     data = {
         "build-system": {
             "requires": ["setuptools"],
@@ -103,6 +122,7 @@ def build(skinny: bool) -> None:
                 "aliyun-oss": ["aliyunstoreplugin"],
                 "xethub": ["mlflow-xethub"],
                 "jfrog": ["mlflow-jfrog-plugin"],
+                "langchain": langchain_requirements,
             },
             "urls": {
                 "homepage": "https://mlflow.org",
