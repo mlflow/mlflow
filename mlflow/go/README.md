@@ -80,5 +80,5 @@ The currently supported endpoints can be found in [mlflow/tools/generate/endspoi
 We have enabled various linters from [golangci-lint](https://golangci-lint.run/), you can run these via:
 
 ```bash
-golangci-lint run ./mlflow/go/...
+pre-commit run golangci-lint --all-files
 ```
