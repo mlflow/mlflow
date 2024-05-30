@@ -7,7 +7,6 @@ from mimetypes import guess_type
 
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
-    MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE,
     MLFLOW_ENABLE_MULTIPART_UPLOAD,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
     MLFLOW_S3_UPLOAD_EXTRA_ARGS,
