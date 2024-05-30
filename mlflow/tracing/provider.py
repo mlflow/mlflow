@@ -109,7 +109,29 @@ def _force_set_otel_tracer_provider(tracer_provider):
 
 def disable():
     """
-    Disable tracing by setting the global tracer provider to NoOpTracerProvider.
+    Disable tracing.
+
+    .. note::
+
+        Tracing is enabled by default. This function is useful when tracing needs to be
+        explicitly disabled.
+
+    Example:
+
+    .. code-block:: python
+
+        import mlflow
+
+
+        @mlflow.trace
+        def f():
+            return 0
+
+
+        mlflow.tracing.disable()
+        f()
+        assert mlflow.search_traces().empty
+
     """
     if not _is_enabled():
         return
@@ -120,7 +142,37 @@ def disable():
 
 def enable():
     """
-    Enable tracing by setting the global tracer provider to the actual tracer provider.
+    Enable tracing.
+
+    .. note::
+
+        Tracing is enabled by default. This function is useful when tracing is
+        explicitly disabled via :py:func:`mlflow.tracing.disable` and needs to be re-enabled.
+
+    Example:
+
+    .. code-block:: python
+
+        import mlflow
+
+
+        @mlflow.trace
+        def f():
+            return 0
+
+
+        mlflow.tracing.enable()
+        f()
+        assert len(mlflow.search_traces()) == 1
+
+        mlflow.tracing.disable()
+        f()
+        assert len(mlflow.search_traces()) == 1
+
+        mlflow.tracing.enable()
+        f()
+        assert len(mlflow.search_traces()) == 2
+
     """
     if _is_enabled():
         _logger.info("Tracing is already enabled")
