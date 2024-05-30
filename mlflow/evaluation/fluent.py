@@ -113,9 +113,12 @@ def log_evaluations(
         for evaluation in evaluations
     ]
     evaluations_df, metrics_df, assessments_df = evaluations_to_dataframes(evaluation_entities)
-    client.log_table(run_id=run_id, data=evaluations_df, artifact_file="_evaluations.json")
-    client.log_table(run_id=run_id, data=metrics_df, artifact_file="_metrics.json")
-    client.log_table(run_id=run_id, data=assessments_df, artifact_file="_assessments.json")
+    with client._log_artifact_helper(run_id, "_evaluations.json") as tmp_path:
+        evaluations_df.to_json(tmp_path, orient="split")
+    with client._log_artifact_helper(run_id, "_metrics.json") as tmp_path:
+        metrics_df.to_json(tmp_path, orient="split")
+    with client._log_artifact_helper(run_id, "_assessments.json") as tmp_path:
+        assessments_df.to_json(tmp_path, orient="split")
 
     _update_assessments_stats(
         run_id=run_id,
