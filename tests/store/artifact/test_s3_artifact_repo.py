@@ -134,7 +134,7 @@ def test_get_s3_client_verify_param_set_correctly(
 def test_s3_client_config_set_correctly(s3_artifact_root):
     repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
     s3_client = repo._get_s3_client()
-    assert s3_client.meta.config.s3.get("addressing_style") == "path"
+    assert s3_client.meta.config.s3.get("addressing_style") == "auto"
 
 
 def test_s3_creds_passed_to_client(s3_artifact_root):
