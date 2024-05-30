@@ -1,12 +1,12 @@
 import base64
 
-from mlflow.environment_variables import MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     MODEL_VERSION_OPERATION_READ,
     GenerateTemporaryModelVersionCredentialsRequest,
     GenerateTemporaryModelVersionCredentialsResponse,
+    StorageMode,
 )
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store._unity_catalog.lineage.constants import _DATABRICKS_LINEAGE_ID_HEADER
@@ -120,12 +120,12 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         Get underlying ArtifactRepository instance for model version blob
         storage
         """
-        if MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.get():
+        scoped_token = self._get_scoped_token(lineage_header_info=lineage_header_info)
+        if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:
             return PresignedUrlArtifactRepository(
                 get_databricks_host_creds(self.registry_uri), self.model_name, self.model_version
             )
 
-        scoped_token = self._get_scoped_token(lineage_header_info=lineage_header_info)
         blob_storage_path = self._get_blob_storage_path()
         return get_artifact_repo_from_storage_info(
             storage_location=blob_storage_path,

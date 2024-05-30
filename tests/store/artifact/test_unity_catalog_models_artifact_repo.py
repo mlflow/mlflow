@@ -8,9 +8,12 @@ from requests import Response
 
 from mlflow import MlflowClient
 from mlflow.entities.file_info import FileInfo
-from mlflow.environment_variables import MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_uc_registry_messages_pb2 import AwsCredentials, TemporaryCredentials
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    AwsCredentials,
+    StorageMode,
+    TemporaryCredentials,
+)
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
@@ -301,8 +304,7 @@ def test_get_feature_dependencies_doesnt_throw():
     )
 
 
-def test_store_use_presigned_url_store_when_disabled(monkeypatch):
-    monkeypatch.setenv(MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.name, "False")
+def test_store_use_presigned_url_store_when_disabled():
     store_package = "mlflow.store.artifact.unity_catalog_models_artifact_repo"
 
     uc_store = UnityCatalogModelsArtifactRepository(
@@ -334,9 +336,13 @@ def test_store_use_presigned_url_store_when_disabled(monkeypatch):
         )
 
 
-def test_store_use_presigned_url_store_when_enabled(monkeypatch):
-    monkeypatch.setenv(MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.name, "True")
-    with mock.patch("mlflow.utils.databricks_utils.get_config"):
+def test_store_use_presigned_url_store_when_enabled():
+    store_package = "mlflow.store.artifact.unity_catalog_models_artifact_repo"
+    creds = TemporaryCredentials(storage_mode=StorageMode.DEFAULT_STORAGE)
+    with mock.patch("mlflow.utils.databricks_utils.get_config"), mock.patch(
+        f"{store_package}.UnityCatalogModelsArtifactRepository._get_scoped_token",
+        return_value=creds,
+    ):
         uc_store = UnityCatalogModelsArtifactRepository(
             "models:/catalog.schema.model/1", "databricks-uc"
         )
