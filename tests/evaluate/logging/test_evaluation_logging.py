@@ -2,11 +2,8 @@ import pytest
 
 import mlflow
 from mlflow.entities import AssessmentSource, AssessmentSourceType, Metric
-from mlflow.evaluation import (
-    Assessment,
-    get_evaluation,
-    log_evaluation,
-)
+from mlflow.evaluation import Assessment, get_evaluation, log_assessments, log_evaluation
+from mlflow.exceptions import MlflowException
 
 
 def test_log_evaluation_with_minimal_params_succeeds():
@@ -262,3 +259,32 @@ def test_log_evaluation_starts_run_if_not_started():
 
     # End the run to clean up
     mlflow.end_run()
+
+
+def test_log_assessments_without_nonexistent_evaluation_fails():
+    with mlflow.start_run():
+        with pytest.raises(
+            MlflowException, match="The specified run does not contain any evaluations"
+        ):
+            log_assessments(
+                evaluation_id="nonexistent",
+                assessments=Assessment(
+                    name="assessment_name",
+                    value=0.5,
+                    source=AssessmentSource(source_type="AI_JUDGE", source_id="judge_id"),
+                ),
+            )
+
+        log_evaluation(inputs={"feature1": 1.0, "feature2": 2.0}, outputs={"prediction": 0.5})
+        with pytest.raises(
+            MlflowException,
+            match="The specified evaluation ID 'nonexistent' does not exist in the run",
+        ):
+            log_assessments(
+                evaluation_id="nonexistent",
+                assessments=Assessment(
+                    name="assessment_name",
+                    value=0.5,
+                    source=AssessmentSource(source_type="AI_JUDGE", source_id="judge_id"),
+                ),
+            )
