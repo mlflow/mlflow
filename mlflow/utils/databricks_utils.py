@@ -937,7 +937,7 @@ if is_in_databricks_runtime():
 
 def get_databricks_nfs_temp_dir():
     entry_point = _get_dbutils().entry_point
-    if getpass.getuser() == "root":
+    if getpass.getuser().lower() == "root":
         return entry_point.getReplNFSTempDir()
     else:
         try:
@@ -952,7 +952,7 @@ def get_databricks_nfs_temp_dir():
 
 def get_databricks_local_temp_dir():
     entry_point = _get_dbutils().entry_point
-    if getpass.getuser() == "root":
+    if getpass.getuser().lower() == "root":
         return entry_point.getReplLocalTempDir()
     else:
         try:
