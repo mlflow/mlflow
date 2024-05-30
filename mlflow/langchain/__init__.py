@@ -72,7 +72,10 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
     safe_patch,
 )
-from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_model_serving_environment,
+    is_mlflow_tracing_enabled_in_model_serving,
+)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -635,7 +638,12 @@ class _LangChainModelWrapper:
         # TODO: We don't automatically turn tracing on in OSS model serving, because we haven't
         # implemented storage option for traces in OSS model serving (counterpart to the
         # Inference Table in Databricks model serving).
-        if is_in_databricks_model_serving_environment() and MLFLOW_ENABLE_TRACE_IN_SERVING.get():
+        if (
+            is_in_databricks_model_serving_environment()
+            and MLFLOW_ENABLE_TRACE_IN_SERVING.get()
+            # if this is False, tracing is disabled and we shouldn't inject the tracer
+            and is_mlflow_tracing_enabled_in_model_serving()
+        ):
             from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
             callbacks = [MlflowLangchainTracer()]
