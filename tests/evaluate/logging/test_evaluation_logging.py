@@ -298,6 +298,86 @@ def test_log_assessments_with_minimal_params_succeeds():
             assert retrieved_assessment.source == assessment_entity.source
 
 
+@pytest.mark.parametrize(
+    "assessments",
+    [
+        Assessment(
+            name="relevance",
+            value=0.9,
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
+        ),
+        [
+            Assessment(
+                name="relevance",
+                value=0.9,
+                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
+            ),
+            Assessment(
+                name="accuracy",
+                value=0.8,
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.AI_JUDGE, source_id="judge_1"
+                ),
+            ),
+        ],
+        {
+            "name": "relevance",
+            "value": 0.9,
+            "source": {"source_type": "HUMAN", "source_id": "user_1"},
+        },
+        [
+            {
+                "name": "relevance",
+                "value": 0.9,
+                "source": {"source_type": "HUMAN", "source_id": "user_1"},
+            },
+            {
+                "name": "accuracy",
+                "value": 0.8,
+                "source": {"source_type": "AI_JUDGE", "source_id": "judge_1"},
+            },
+        ],
+    ],
+)
+def test_log_assessments_with_various_types(assessments):
+    inputs = {"feature1": 1.0, "feature2": 2.0}
+    outputs = {"prediction": 0.5}
+
+    with mlflow.start_run() as run:
+        logged_evaluation = log_evaluation(inputs=inputs, outputs=outputs)
+
+        log_assessments(evaluation_id=logged_evaluation.evaluation_id, assessments=assessments)
+
+        # Verify that the evaluation and assessments have been logged correctly
+        run_id = run.info.run_id
+        retrieved_evaluation = get_evaluation(
+            evaluation_id=logged_evaluation.evaluation_id, run_id=run_id
+        )
+
+        # Convert the expected assessments to Assessment objects for comparison
+        if isinstance(assessments, dict):
+            expected_assessments = [Assessment.from_dictionary(assessments)]
+        elif isinstance(assessments, list) and all(isinstance(a, dict) for a in assessments):
+            expected_assessments = [Assessment.from_dictionary(a) for a in assessments]
+        else:
+            expected_assessments = assessments if isinstance(assessments, list) else [assessments]
+
+        assert len(retrieved_evaluation.assessments) == len(expected_assessments)
+        expected_assessment_entities = [
+            assessment._to_entity(evaluation_id=logged_evaluation.evaluation_id)
+            for assessment in expected_assessments
+        ]
+        for retrieved_assessment, assessment_entity in zip(
+            retrieved_evaluation.assessments, expected_assessment_entities
+        ):
+            assert retrieved_assessment.name == assessment_entity.name
+            assert retrieved_assessment.boolean_value == assessment_entity.boolean_value
+            assert retrieved_assessment.numeric_value == assessment_entity.numeric_value
+            assert retrieved_assessment.string_value == assessment_entity.string_value
+            assert retrieved_assessment.metadata == assessment_entity.metadata
+            assert retrieved_assessment.source == assessment_entity.source
+
+
 def test_log_assessments_without_nonexistent_evaluation_fails():
     with mlflow.start_run():
         with pytest.raises(
