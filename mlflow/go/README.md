@@ -74,3 +74,11 @@ See the [pytest documentation](https://docs.pytest.org/en/8.2.x/how-to/usage.htm
 ## Supported endpoints
 
 The currently supported endpoints can be found in [mlflow/tools/generate/endspoints.go](./tools/generate/endspoints.go).
+
+## Linters
+
+We have enabled various linters from [golangci-lint](https://golangci-lint.run/), you can run these via:
+
+```bash
+pre-commit run golangci-lint --all-files
+```

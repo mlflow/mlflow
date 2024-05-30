@@ -15,6 +15,7 @@ func (e ErrorCode) String() string {
 
 // Custom json marshalling for ErrorCode.
 func (e ErrorCode) MarshalJSON() ([]byte, error) {
+	// nolint:wrapcheck
 	return json.Marshal(e.String())
 }
 

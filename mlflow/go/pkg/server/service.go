@@ -127,7 +127,7 @@ var (
 func NewMlflowService(config *config.Config) (contract.MlflowService, error) {
 	store, err := sql.NewSQLStore(config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not create new sql store: %w", err)
 	}
 
 	return MlflowService{

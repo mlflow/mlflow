@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
@@ -32,8 +33,13 @@ func launchCommand(ctx context.Context, cfg *config.Config) error {
 
 	logrus.Debugf("Launching command: %v", cmd)
 	if err := cmd.Start(); err != nil {
-		return err
+		return fmt.Errorf("command could not launch: %w", err)
 	}
 
-	return cmd.Wait()
+	err := cmd.Wait()
+	if err != nil {
+		return fmt.Errorf("command exited with error: %w", err)
+	}
+
+	return nil
 }
