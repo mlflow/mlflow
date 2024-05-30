@@ -81,7 +81,7 @@ def _cached_get_s3_client(
 
 
 def _get_s3_client(
-    addressing_style=MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE.get(),
+    addressing_style=None,
     access_key_id=None,
     secret_access_key=None,
     session_token=None,
