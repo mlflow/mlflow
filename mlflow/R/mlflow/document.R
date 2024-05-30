@@ -53,7 +53,7 @@ To use the MLflow R API, you must install `the MLflow Python package <https://py
 Installing with an Available Conda Environment example:
 
 .. code-block:: bash
-    
+
     conda create -n mlflow-env python
     conda activate mlflow-env
     pip install mlflow

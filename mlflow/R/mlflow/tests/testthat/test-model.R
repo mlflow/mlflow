@@ -15,7 +15,7 @@ test_that("mlflow model creation time format", {
   model_spec <- mlflow_save_model(fn, testthat_model_name, model_spec = list(
     utc_time_created = mlflow_timestamp()
   ))
-  
+
   expect_true(dir.exists(testthat_model_name))
   expect_match(model_spec$utc_time_created, "^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{6}")
 })

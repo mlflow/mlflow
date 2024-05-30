@@ -5,7 +5,7 @@
 #   Defaults to \code{FALSE}.
 # @param echo Print the standard output and error to the screen? Defaults to
 #   \code{TRUE}, does not apply to background tasks.
-# @param stderr_callback \code{NULL} (the default), or a function to call for 
+# @param stderr_callback \code{NULL} (the default), or a function to call for
 #   every chunk of the standard error, passed to \code{\link[=processx:run]{processx::run()}}.
 # @param client MLflow client to provide environment for the cli process.
 #
