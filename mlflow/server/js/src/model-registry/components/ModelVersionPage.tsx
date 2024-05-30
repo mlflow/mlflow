@@ -36,6 +36,8 @@ import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import type { ModelEntity, RunInfoEntity } from '../../experiment-tracking/types';
 import { ReduxState } from '../../redux-types';
+import { ErrorCodes } from '../../common/constants';
+import { injectIntl } from 'react-intl';
 
 type ModelVersionPageImplProps = WithRouterNextProps & {
   modelName: string;
@@ -55,6 +57,7 @@ type ModelVersionPageImplProps = WithRouterNextProps & {
   parseMlModelFile: (...args: any[]) => any;
   schema?: any;
   activities?: Record<string, unknown>[];
+  intl?: any;
 };
 
 type ModelVersionPageImplState = any;
@@ -222,6 +225,31 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
                 );
               }
               // TODO(Zangr) Have a more generic boundary to handle all errors, not just 404.
+              const permissionDeniedErrors = requests.filter((request: any) => {
+                return (
+                  this.state.criticalInitialRequestIds.includes(request.id) &&
+                  request.error?.getErrorCode() === ErrorCodes.PERMISSION_DENIED
+                );
+              });
+              if (permissionDeniedErrors && permissionDeniedErrors[0]) {
+                return (
+                  <ErrorView
+                    statusCode={403}
+                    subMessage={this.props.intl.formatMessage(
+                      {
+                        defaultMessage: 'Permission denied for {modelName} version {version}. Error: "{errorMsg}"',
+                        description: 'Permission denied error message on model version detail page',
+                      },
+                      {
+                        modelName: modelName,
+                        version: version,
+                        errorMsg: permissionDeniedErrors[0].error?.getMessageField(),
+                      },
+                    )}
+                    fallbackHomePageReactRoute={ModelRegistryRoutes.modelListPageRoute}
+                  />
+                );
+              }
               triggerError(requests);
             } else if (loading) {
               return <Spinner />;
@@ -287,7 +315,10 @@ const mapDispatchToProps = {
   getRunApi,
 };
 
-const ModelVersionPageWithRouter = withRouterNext(connect(mapStateToProps, mapDispatchToProps)(ModelVersionPageImpl));
+const ModelVersionPageWithRouter = withRouterNext(
+  // @ts-expect-error TS(2769): No overload matches this call.
+  connect(mapStateToProps, mapDispatchToProps)(injectIntl(ModelVersionPageImpl)),
+);
 
 export const ModelVersionPage = withErrorBoundary(ErrorUtils.mlflowServices.MODEL_REGISTRY, ModelVersionPageWithRouter);
 

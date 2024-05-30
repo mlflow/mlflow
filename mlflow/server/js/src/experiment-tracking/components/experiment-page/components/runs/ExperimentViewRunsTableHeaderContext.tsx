@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { RUNS_VISIBILITY_MODE } from '../../models/ExperimentPageUIState';
 
 const ExperimentViewRunsTableHeaderContext = React.createContext({
   runsHiddenMode: RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
+  useGroupedValuesInCharts: true,
 });
 
 /**
@@ -15,13 +16,21 @@ const ExperimentViewRunsTableHeaderContext = React.createContext({
 export const ExperimentViewRunsTableHeaderContextProvider = ({
   children,
   runsHiddenMode,
+  useGroupedValuesInCharts,
 }: {
   children: React.ReactNode;
   runsHiddenMode: RUNS_VISIBILITY_MODE;
-}) => (
-  <ExperimentViewRunsTableHeaderContext.Provider value={{ runsHiddenMode }}>
-    {children}
-  </ExperimentViewRunsTableHeaderContext.Provider>
-);
+  useGroupedValuesInCharts?: boolean;
+}) => {
+  const contextValue = useMemo(
+    () => ({ runsHiddenMode, useGroupedValuesInCharts: useGroupedValuesInCharts ?? true }),
+    [runsHiddenMode, useGroupedValuesInCharts],
+  );
+  return (
+    <ExperimentViewRunsTableHeaderContext.Provider value={contextValue}>
+      {children}
+    </ExperimentViewRunsTableHeaderContext.Provider>
+  );
+};
 
 export const useExperimentViewRunsTableHeaderContext = () => React.useContext(ExperimentViewRunsTableHeaderContext);

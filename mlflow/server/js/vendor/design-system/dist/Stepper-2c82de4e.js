@@ -1,7 +1,7 @@
 import { css } from '@emotion/react';
 import _isUndefined from 'lodash/isUndefined';
 import { useRef, useState, useEffect } from 'react';
-import { u as useDesignSystemTheme, f as addDebugOutlineIfEnabled, T as Typography, C as CloseIcon, r as LoadingIcon, n as CheckIcon, a0 as DEFAULT_SPACING_UNIT } from './Typography-af72332b.js';
+import { u as useDesignSystemTheme, f as addDebugOutlineIfEnabled, T as Typography, W as WarningIcon, q as DangerIcon, r as LoadingIcon, n as CheckIcon, a1 as DEFAULT_SPACING_UNIT } from './Typography-78b12af3.js';
 import { jsx, jsxs } from '@emotion/react/jsx-runtime';
 
 function Stepper(_ref) {
@@ -10,7 +10,8 @@ function Stepper(_ref) {
     currentStepIndex: currentStep,
     steps,
     localizeStepNumber,
-    responsive = true
+    responsive = true,
+    onStepClicked
   } = _ref;
   const {
     theme
@@ -37,15 +38,18 @@ function Stepper(_ref) {
       const isCurrentStep = index === currentStepIndex;
       const isLastStep = index === steps.length - 1;
       const displayEndingDivider = !isLastStep;
-      const contentTitleLevel = isCurrentStep ? 3 : 4;
+      const contentTitleLevel = 4;
       const StepIcon = step.icon;
+      const clickEnabled = step.clickEnabled && onStepClicked;
       const {
         icon,
         iconBackgroundColor,
         iconTextColor,
         titleTextColor,
+        titleAsParagraph,
         descriptionTextColor,
-        hasStepItemIconBorder
+        hasStepItemIconBorder,
+        stepItemIconBorderColor
       } = getStepContentStyleFields(theme, isCurrentStep, step.status, StepIcon, step.additionalVerticalContent);
       return jsx("li", {
         "aria-current": isCurrentStep,
@@ -53,11 +57,14 @@ function Stepper(_ref) {
         ...(step.status === 'error' && {
           'data-error': true
         }),
+        ...(step.status === 'loading' && {
+          'data-loading': true
+        }),
         children: jsxs(StepContentGrid, {
           isHorizontal: isHorizontal,
-          isCurrentStep: isCurrentStep,
           children: [jsx("div", {
-            css: /*#__PURE__*/css(getStepItemIconParentStyle(theme, isCurrentStep, iconBackgroundColor, hasStepItemIconBorder), process.env.NODE_ENV === "production" ? "" : ";label:Stepper;"),
+            css: /*#__PURE__*/css(getStepItemIconParentStyle(theme, iconBackgroundColor, hasStepItemIconBorder, stepItemIconBorderColor, Boolean(clickEnabled)), process.env.NODE_ENV === "production" ? "" : ";label:Stepper;"),
+            onClick: clickEnabled ? () => onStepClicked(index) : undefined,
             children: StepIcon ? jsx(StepIcon, {
               statusColor: iconTextColor,
               status: step.status
@@ -75,16 +82,29 @@ function Stepper(_ref) {
               withoutMargins: true,
               children: localizeStepNumber(index + 1)
             })
-          }), jsx(Typography.Title, {
-            level: contentTitleLevel,
-            withoutMargins: true,
+          }), jsx("span", {
+            onClick: clickEnabled ? () => onStepClicked(index) : undefined,
             css: /*#__PURE__*/css({
-              flexShrink: 0,
-              color: `${titleTextColor} !important`
+              cursor: clickEnabled ? 'pointer' : undefined
             }, process.env.NODE_ENV === "production" ? "" : ";label:Stepper;"),
-            children: step.title
+            children: titleAsParagraph ? jsx(Typography.Text, {
+              withoutMargins: true,
+              css: /*#__PURE__*/css({
+                flexShrink: 0,
+                color: `${titleTextColor} !important`
+              }, process.env.NODE_ENV === "production" ? "" : ";label:Stepper;"),
+              children: step.title
+            }) : jsx(Typography.Title, {
+              level: 4,
+              withoutMargins: true,
+              css: /*#__PURE__*/css({
+                flexShrink: 0,
+                color: `${titleTextColor} !important`
+              }, process.env.NODE_ENV === "production" ? "" : ";label:Stepper;"),
+              children: step.title
+            })
           }), displayEndingDivider && jsx("div", {
-            css: /*#__PURE__*/css(getStepEndingDividerStyles(theme, isHorizontal, isCurrentStep), process.env.NODE_ENV === "production" ? "" : ";label:Stepper;")
+            css: /*#__PURE__*/css(getStepEndingDividerStyles(theme, isHorizontal, step.status === 'completed'), process.env.NODE_ENV === "production" ? "" : ";label:Stepper;")
           }), (step.description || step.additionalVerticalContent && !isHorizontal) && jsxs("div", {
             css: /*#__PURE__*/css(getStepDescriptionStyles(theme, isHorizontal, isLastStep, descriptionTextColor), process.env.NODE_ENV === "production" ? "" : ";label:Stepper;"),
             children: [step.description && jsx(Typography.Text, {
@@ -122,7 +142,7 @@ function getStepItemStyle(theme, isHorizontal, isLastStep) {
     alignItems: 'center',
     justifyContent: 'flex-start',
     flexGrow: isLastStep ? 0 : 1,
-    marginRight: isLastStep ? theme.spacing.lg + theme.spacing.md : 0,
+    marginRight: isLastStep && isHorizontal ? theme.spacing.lg + theme.spacing.md : 0,
     width: isHorizontal ? undefined : '100%'
   }, process.env.NODE_ENV === "production" ? "" : ";label:getStepItemStyle;");
 }
@@ -142,11 +162,13 @@ function getStepContentStyleFields(theme, isCurrentStep, status, icon, additiona
 function getCustomIconColor(theme, isCurrentStep, status) {
   switch (status) {
     case 'completed':
-      return theme.colors.actionDefaultBackgroundPress;
+      return theme.colors.actionLinkDefault;
     case 'loading':
       return theme.colors.textPlaceholder;
     case 'error':
       return theme.colors.textValidationDanger;
+    case 'warning':
+      return theme.colors.textValidationWarning;
     default:
     case 'upcoming':
       return isCurrentStep ? theme.colors.actionLinkDefault : theme.colors.textPlaceholder;
@@ -157,11 +179,13 @@ function getStepContentStyleFieldsFromStatus(theme, isCurrentStep, status, hasAd
     case 'completed':
       return {
         icon: jsx(CheckIcon, {}),
-        iconBackgroundColor: theme.colors.actionDefaultBackgroundPress,
-        iconTextColor: theme.colors.textPlaceholder,
-        titleTextColor: theme.colors.textPrimary,
+        iconBackgroundColor: theme.isDarkMode ? theme.colors.blue800 : theme.colors.blue100,
+        iconTextColor: theme.colors.actionLinkDefault,
+        titleAsParagraph: false,
+        titleTextColor: theme.colors.actionLinkDefault,
         descriptionTextColor: theme.colors.textSecondary,
-        hasStepItemIconBorder: true
+        hasStepItemIconBorder: true,
+        stepItemIconBorderColor: theme.colors.actionDefaultBackgroundPress
       };
     case 'loading':
       return {
@@ -173,18 +197,32 @@ function getStepContentStyleFieldsFromStatus(theme, isCurrentStep, status, hasAd
         }),
         iconBackgroundColor: undefined,
         iconTextColor: theme.colors.textPlaceholder,
+        titleAsParagraph: false,
         titleTextColor: isCurrentStep ? theme.colors.textPrimary : theme.colors.textSecondary,
         descriptionTextColor: theme.colors.textSecondary,
         hasStepItemIconBorder: false
       };
     case 'error':
       return {
-        icon: jsx(CloseIcon, {}),
-        iconBackgroundColor: theme.colors.textValidationDanger,
-        iconTextColor: 'white',
+        icon: jsx(DangerIcon, {}),
+        iconBackgroundColor: theme.colors.backgroundDanger,
+        iconTextColor: theme.colors.textValidationDanger,
+        titleAsParagraph: false,
         titleTextColor: theme.colors.textValidationDanger,
         descriptionTextColor: theme.colors.textValidationDanger,
-        hasStepItemIconBorder: false
+        hasStepItemIconBorder: true,
+        stepItemIconBorderColor: theme.colors.borderDanger
+      };
+    case 'warning':
+      return {
+        icon: jsx(WarningIcon, {}),
+        iconBackgroundColor: theme.colors.backgroundWarning,
+        iconTextColor: theme.colors.textValidationWarning,
+        titleAsParagraph: false,
+        titleTextColor: theme.colors.textValidationWarning,
+        descriptionTextColor: theme.colors.textValidationWarning,
+        hasStepItemIconBorder: true,
+        stepItemIconBorderColor: theme.colors.borderWarning
       };
     default:
     case 'upcoming':
@@ -193,7 +231,8 @@ function getStepContentStyleFieldsFromStatus(theme, isCurrentStep, status, hasAd
           icon: undefined,
           iconBackgroundColor: theme.colors.actionLinkDefault,
           iconTextColor: 'white',
-          titleTextColor: theme.colors.textPrimary,
+          titleAsParagraph: false,
+          titleTextColor: theme.colors.actionLinkDefault,
           descriptionTextColor: hasAdditionalVerticalContent ? theme.colors.textSecondary : theme.colors.textPrimary,
           hasStepItemIconBorder: false
         };
@@ -202,6 +241,7 @@ function getStepContentStyleFieldsFromStatus(theme, isCurrentStep, status, hasAd
         icon: undefined,
         iconBackgroundColor: undefined,
         iconTextColor: theme.colors.textPlaceholder,
+        titleAsParagraph: true,
         titleTextColor: theme.colors.textSecondary,
         descriptionTextColor: theme.colors.textSecondary,
         hasStepItemIconBorder: true
@@ -209,12 +249,11 @@ function getStepContentStyleFieldsFromStatus(theme, isCurrentStep, status, hasAd
   }
 }
 const MaxHorizontalStepDescriptionWidth = 140;
-const CurrentStepIconSize = DEFAULT_SPACING_UNIT * 4;
-const NonCurrentStepIconSize = DEFAULT_SPACING_UNIT * 3;
-function getStepItemIconParentStyle(theme, isCurrentStep, iconBackgroundColor, hasStepItemIconBorder) {
+const StepIconSize = DEFAULT_SPACING_UNIT * 4;
+function getStepItemIconParentStyle(theme, iconBackgroundColor, hasStepItemIconBorder, stepItemIconBorderColor, clickEnabled) {
   return /*#__PURE__*/css({
-    width: isCurrentStep ? CurrentStepIconSize : NonCurrentStepIconSize,
-    height: isCurrentStep ? CurrentStepIconSize : NonCurrentStepIconSize,
+    width: StepIconSize,
+    height: StepIconSize,
     backgroundColor: iconBackgroundColor,
     borderRadius: '50%',
     display: 'flex',
@@ -222,11 +261,13 @@ function getStepItemIconParentStyle(theme, isCurrentStep, iconBackgroundColor, h
     alignItems: 'center',
     fontSize: '20px',
     flexShrink: 0,
-    border: hasStepItemIconBorder ? `1px solid ${theme.colors.textPlaceholder}` : undefined
+    border: hasStepItemIconBorder ? `1px solid ${stepItemIconBorderColor !== null && stepItemIconBorderColor !== void 0 ? stepItemIconBorderColor : theme.colors.textPlaceholder}` : undefined,
+    boxSizing: 'border-box',
+    cursor: clickEnabled ? 'pointer' : undefined
   }, process.env.NODE_ENV === "production" ? "" : ";label:getStepItemIconParentStyle;");
 }
-function getStepEndingDividerStyles(theme, isHorizontal, isCurrentStep) {
-  const backgroundColor = isCurrentStep ? theme.colors.actionLinkDefault : theme.colors.border;
+function getStepEndingDividerStyles(theme, isHorizontal, isCompleted) {
+  const backgroundColor = isCompleted ? theme.colors.actionLinkDefault : theme.colors.border;
   if (isHorizontal) {
     return /*#__PURE__*/css({
       backgroundColor,
@@ -267,8 +308,7 @@ function getAdditionalVerticalStepContentStyles(theme, addTopPadding) {
 function StepContentGrid(_ref2) {
   let {
     children,
-    isHorizontal,
-    isCurrentStep
+    isHorizontal
   } = _ref2;
   const {
     theme
@@ -277,8 +317,8 @@ function StepContentGrid(_ref2) {
     return jsx("div", {
       css: /*#__PURE__*/css({
         display: 'grid',
-        gridTemplateColumns: `${isCurrentStep ? CurrentStepIconSize : NonCurrentStepIconSize}px fit-content(100%) 1fr`,
-        gridTemplateRows: `${CurrentStepIconSize}px auto`,
+        gridTemplateColumns: `${StepIconSize}px fit-content(100%) 1fr`,
+        gridTemplateRows: `${StepIconSize}px auto`,
         alignItems: 'center',
         justifyItems: 'flex-start',
         gridColumnGap: theme.spacing.sm,
@@ -290,10 +330,10 @@ function StepContentGrid(_ref2) {
   return jsx("div", {
     css: /*#__PURE__*/css({
       display: 'grid',
-      gridTemplateColumns: `${CurrentStepIconSize}px auto`,
+      gridTemplateColumns: `${StepIconSize}px 1fr`,
       alignItems: 'center',
       justifyItems: 'flex-start',
-      gridColumnGap: theme.spacing.md,
+      gridColumnGap: theme.spacing.sm,
       gridRowGap: theme.spacing.sm,
       width: '100%',
       '& > :first-child': {
@@ -344,4 +384,4 @@ function useResponsiveDirection(_ref3) {
 }
 
 export { Stepper as S };
-//# sourceMappingURL=Stepper-4a3f9cec.js.map
+//# sourceMappingURL=Stepper-2c82de4e.js.map

@@ -1,11 +1,11 @@
 import { css } from '@emotion/react';
 import React__default, { forwardRef, useCallback } from 'react';
-import { q as DangerIcon, u as useDesignSystemTheme, b as useDesignSystemEventComponentCallbacks, c as DesignSystemEventProviderComponentTypes, d as DesignSystemEventProviderAnalyticsEventTypes, e as useNotifyOnFirstView, B as Button$1, C as CloseIcon, f as addDebugOutlineIfEnabled, T as Typography, $ as primitiveColors, p as getShadowScrollStyles } from './Typography-af72332b.js';
+import { W as WarningIcon, q as DangerIcon, u as useDesignSystemTheme, b as useDesignSystemEventComponentCallbacks, c as DesignSystemEventProviderComponentTypes, d as DesignSystemEventProviderAnalyticsEventTypes, e as useNotifyOnFirstView, B as Button$1, C as CloseIcon, f as addDebugOutlineIfEnabled, T as Typography, a0 as primitiveColors, p as getShadowScrollStyles } from './Typography-78b12af3.js';
 import { jsx, Fragment, jsxs } from '@emotion/react/jsx-runtime';
-import { M as MegaphoneIcon, W as WarningIcon, P as PlusIcon, C as CloseSmallIcon } from './WarningIcon-9653b269.js';
+import { M as MegaphoneIcon, P as PlusIcon, C as CloseSmallIcon } from './PlusIcon-e78c4843.js';
 import * as RadixSlider from '@radix-ui/react-slider';
 import * as RadixToolbar from '@radix-ui/react-toolbar';
-export { S as Stepper } from './Stepper-4a3f9cec.js';
+export { S as Stepper } from './Stepper-2c82de4e.js';
 import { RadioGroup, RadioGroupItem } from '@radix-ui/react-radio-group';
 import { useMergeRefs } from '@floating-ui/react';
 import * as ScrollArea from '@radix-ui/react-scroll-area';
@@ -803,12 +803,17 @@ const List = /*#__PURE__*/React__default.forwardRef((_ref2, forwardedRef) => {
             css: css['thumb']
           })
         })]
-      }), addButtonProps && jsx(Button$1, {
-        icon: jsx(PlusIcon, {}),
-        size: "small",
-        "aria-label": "Add tab",
-        css: css['addButton'],
-        ...addButtonProps
+      }), addButtonProps && jsx("div", {
+        css: [css['addButtonContainer'], addButtonProps.dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:List;"],
+        children: jsx(Button$1, {
+          icon: jsx(PlusIcon, {}),
+          size: "small",
+          "aria-label": "Add tab",
+          css: css['addButton'],
+          onClick: addButtonProps.onClick,
+          componentId: addButtonProps.componentId,
+          className: addButtonProps.className
+        })
       })]
     })
   });
@@ -930,8 +935,10 @@ const useListStyles = () => {
       borderRadius: theme.borders.borderRadiusMd,
       position: 'relative'
     },
+    addButtonContainer: {
+      flex: 1
+    },
     addButton: {
-      flexShrink: 0,
       margin: '2px 0 6px 0'
     }
   };

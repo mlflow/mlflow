@@ -186,6 +186,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     groupBy: uiState.groupBy,
     groupsExpanded: uiState.groupsExpanded,
     runsHiddenMode: uiState.runsHiddenMode,
+    useGroupedValuesInCharts: uiState.useGroupedValuesInCharts,
   });
 
   const [notificationsFn, notificationContainer] = useLegacyNotification();
@@ -212,6 +213,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
 
   const isTabActive = useIsTabActive();
   const autoRefreshEnabled = uiState.autoRefreshEnabled && shouldEnableExperimentPageAutoRefresh() && isTabActive;
+  const usingGroupedValuesInCharts = uiState.useGroupedValuesInCharts ?? true;
 
   const tableElement = (
     <ExperimentViewRunsTable
@@ -277,7 +279,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
             experimentTags={runsData.experimentTags}
             compareRunCharts={uiState.compareRunCharts}
             compareRunSections={uiState.compareRunSections}
-            groupBy={uiState.groupBy}
+            groupBy={usingGroupedValuesInCharts ? uiState.groupBy : null}
             autoRefreshEnabled={autoRefreshEnabled}
           />
         )}

@@ -33,6 +33,7 @@ import { LOG_TABLE_IMAGE_COLUMN_TYPE } from 'experiment-tracking/constants';
 import { ImagePlot } from '../runs-charts/components/charts/ImageGridPlot.common';
 import { ToggleIconButton } from '../../../common/components/ToggleIconButton';
 import { ShowArtifactLoggedTableViewDataPreview } from './ShowArtifactLoggedTableViewDataPreview';
+import Utils from 'common/utils/Utils';
 
 const MAX_ROW_HEIGHT = 160;
 const MIN_COLUMN_WIDTH = 100;
@@ -133,6 +134,7 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
                     />
                   );
                 } catch {
+                  Utils.logErrorAndNotifyUser("Error parsing image data in logged table's image column");
                   return row.getValue();
                 }
               },
