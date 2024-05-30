@@ -493,6 +493,66 @@ def test_log_assessments_with_varying_value_types(assessment):
             raise ValueError(f"Unexpected assessment value type: {type(assessment.value)}.")
 
 
+def test_logging_assessments_to_multiple_evaluations():
+    inputs_1 = {"feature1": 1.0, "feature2": 2.0}
+    outputs_1 = {"prediction": 0.5}
+    inputs_2 = {"feature1": 3.0, "feature2": 4.0}
+    outputs_2 = {"prediction": 0.7}
+
+    assessment1 = Assessment(
+        name="relevance",
+        value=0.9,
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
+    )
+
+    assessment2 = Assessment(
+        name="relevance",
+        value=0.8,
+        source=AssessmentSource(source_type=AssessmentSourceType.AI_JUDGE, source_id="judge_1"),
+    )
+
+    with mlflow.start_run() as run:
+        # Log the first evaluation and assessments
+        logged_evaluation1 = log_evaluation(inputs=inputs_1, outputs=outputs_1)
+        log_assessments(evaluation_id=logged_evaluation1.evaluation_id, assessments=assessment1)
+
+        # Log the second evaluation and assessments
+        logged_evaluation2 = log_evaluation(inputs=inputs_2, outputs=outputs_2)
+        log_assessments(evaluation_id=logged_evaluation2.evaluation_id, assessments=assessment2)
+
+        def assert_assessments_equal(assessment, expected_assessment):
+            assert assessment.name == expected_assessment.name
+            assert assessment.boolean_value == expected_assessment.boolean_value
+            assert assessment.numeric_value == expected_assessment.numeric_value
+            assert assessment.string_value == expected_assessment.string_value
+            assert assessment.metadata == expected_assessment.metadata
+            assert assessment.source == expected_assessment.source
+
+    run_id = run.info.run_id
+
+    retrieved_evaluation1 = get_evaluation(
+        evaluation_id=logged_evaluation1.evaluation_id, run_id=run_id
+    )
+    assert len(retrieved_evaluation1.assessments) == 1
+    retrieved_assessment1 = retrieved_evaluation1.assessments[0]
+
+    assert_assessments_equal(
+        retrieved_assessment1,
+        assessment1._to_entity(evaluation_id=logged_evaluation1.evaluation_id),
+    )
+
+    retrieved_evaluation2 = get_evaluation(
+        evaluation_id=logged_evaluation2.evaluation_id, run_id=run_id
+    )
+    assert len(retrieved_evaluation2.assessments) == 1
+    retrieved_assessment2 = retrieved_evaluation2.assessments[0]
+
+    assert_assessments_equal(
+        retrieved_assessment2,
+        assessment2._to_entity(evaluation_id=logged_evaluation2.evaluation_id),
+    )
+
+
 def test_log_assessments_without_nonexistent_evaluation_fails():
     with mlflow.start_run():
         with pytest.raises(
