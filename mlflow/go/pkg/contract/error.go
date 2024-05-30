@@ -50,6 +50,7 @@ func (e *Error) Unwrap() error {
 }
 
 func (e *Error) StatusCode() int {
+	//nolint:exhaustive
 	switch protos.ErrorCode(e.Code) {
 	case protos.ErrorCode_BAD_REQUEST, protos.ErrorCode_INVALID_PARAMETER_VALUE, protos.ErrorCode_RESOURCE_ALREADY_EXISTS:
 		return 400

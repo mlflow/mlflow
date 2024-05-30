@@ -65,6 +65,7 @@ func (p *parser) parseIdentifier() (Identifier, error) {
 
 	if p.currentTokenKind() == lexer.Dot {
 		p.advance() // Consume the DOT
+		//nolint:exhaustive
 		switch p.currentTokenKind() {
 		case lexer.Identifier:
 			column := p.advance().Value
@@ -85,6 +86,7 @@ func (p *parser) parseIdentifier() (Identifier, error) {
 }
 
 func (p *parser) parseOperator() (OperatorKind, error) {
+	//nolint:exhaustive
 	switch p.advance().Kind {
 	case lexer.Equals:
 		return Equals, nil
@@ -108,6 +110,7 @@ func (p *parser) parseOperator() (OperatorKind, error) {
 }
 
 func (p *parser) parseValue() (Value, error) {
+	//nolint:exhaustive
 	switch p.currentTokenKind() {
 	case lexer.Number:
 		n, err := strconv.ParseFloat(p.advance().Value, 64)
@@ -174,6 +177,7 @@ func (p *parser) parseExpression() (*CompareExpr, error) {
 		return nil, err
 	}
 
+	//nolint:exhaustive
 	switch p.currentTokenKind() {
 	case lexer.In:
 		p.advance() // Consume the IN

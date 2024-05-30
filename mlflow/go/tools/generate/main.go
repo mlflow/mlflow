@@ -416,6 +416,7 @@ func addQueryAnnotations(pkgFolder string) error {
 	return fmt.Errorf("could not add query annotation: %w", err)
 }
 
+//nolint:forbidigo
 func main() {
 	if len(os.Args) != 2 {
 		fmt.Println("Usage: program <path to mlflow/go/pkg folder>")

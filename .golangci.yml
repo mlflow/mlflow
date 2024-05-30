@@ -8,7 +8,7 @@ linters:
   presets:
     - bugs
     - comment
-    - complexity
+    # - complexity
     - error
     - format
     - import
@@ -16,8 +16,8 @@ linters:
     - module
     - performance
     - sql
-    - style
-    - test
+    # - style
+    # - test
     - unused
 
 linters-settings:

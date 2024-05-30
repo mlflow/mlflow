@@ -73,8 +73,8 @@ func GetServiceInfos() []ServiceInfo {
 
 			endpoints := make([]Endpoint, 0)
 
-			for _, endpoint := range extension.(*protos.DatabricksRpcOptions).Endpoints {
-				endpoints = append(endpoints, Endpoint{Method: *endpoint.Method, Path: *endpoint.Path})
+			for _, endpoint := range extension.(*protos.DatabricksRpcOptions).GetEndpoints() {
+				endpoints = append(endpoints, Endpoint{Method: endpoint.GetMethod(), Path: endpoint.GetPath()})
 			}
 
 			output := fmt.Sprintf("%s_%s", string(method.Output().Parent().Name()), string(method.Output().Name()))

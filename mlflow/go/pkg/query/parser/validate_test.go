@@ -21,7 +21,7 @@ func TestValidQueries(t *testing.T) {
 
 	for _, sample := range samples {
 		t.Run(sample, func(t *testing.T) {
-			_, err := query.ParseFilter(&sample)
+			_, err := query.ParseFilter(sample)
 			if err != nil {
 				t.Errorf("unexpected parse error: %v", err)
 			}

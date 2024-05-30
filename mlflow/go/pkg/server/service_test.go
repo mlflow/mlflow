@@ -20,11 +20,11 @@ func (f FakeStore) CreateExperiment(_ *protos.CreateExperiment) (string, *contra
 
 func (f FakeStore) SearchRuns(
 	_ []string,
-	_ *string,
+	_ string,
 	_ protos.ViewType,
 	_ int,
 	_ []string,
-	_ *string,
+	_ string,
 ) (pagedList *store.PagedList[*protos.Run], err *contract.Error) {
 	return nil, nil
 }
@@ -64,8 +64,8 @@ func TestRelativeArtifactLocation(t *testing.T) {
 			if response == nil {
 				t.Error("expected response to be non-nil")
 			}
-			if *input.ArtifactLocation == scenario.input {
-				t.Errorf("expected artifact location to be absolute, got %s", *input.ArtifactLocation)
+			if input.GetArtifactLocation() == scenario.input {
+				t.Errorf("expected artifact location to be absolute, got %s", input.GetArtifactLocation())
 			}
 		})
 	}

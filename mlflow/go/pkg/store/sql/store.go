@@ -107,11 +107,11 @@ var runOrder = regexp.MustCompile(
 
 func (s Store) SearchRuns(
 	experimentIDs []string,
-	filter *string,
+	filter string,
 	runViewType protos.ViewType,
 	maxResults int,
 	orderBy []string,
-	pageToken *string,
+	pageToken string,
 ) (*store.PagedList[*protos.Run], *contract.Error) {
 	// ViewType
 	var lifecyleStages []model.LifecycleStage
@@ -138,17 +138,17 @@ func (s Store) SearchRuns(
 
 	// PageToken
 	var offset int
-	if utils.IsNotNilOrEmptyString(pageToken) {
+	if pageToken != "" {
 		var token PageToken
 		if err := json.NewDecoder(
 			base64.NewDecoder(
 				base64.StdEncoding,
-				strings.NewReader(*pageToken),
+				strings.NewReader(pageToken),
 			),
 		).Decode(&token); err != nil {
 			return nil, contract.NewErrorWith(
 				protos.ErrorCode_INVALID_PARAMETER_VALUE,
-				fmt.Sprintf("invalid page_token: \"%s\"", *pageToken),
+				fmt.Sprintf("invalid page_token: %q", pageToken),
 				err,
 			)
 		}
@@ -182,6 +182,8 @@ func (s Store) SearchRuns(
 			kind = &model.Tag{}
 		case parser.Dataset:
 			kind = &model.Dataset{}
+		case parser.Attribute:
+			kind = nil
 		}
 
 		// Treat "attributes.run_name == <value>" as "tags.`mlflow.runName` == <value>".

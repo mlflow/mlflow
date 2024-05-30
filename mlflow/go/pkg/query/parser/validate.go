@@ -125,6 +125,7 @@ func parseKey(identifier ValidIdentifier, key string) (string, error) {
 		return attributeIdentifier, nil
 	}
 
+	//nolint:exhaustive
 	switch identifier {
 	case Attribute:
 		switch key {

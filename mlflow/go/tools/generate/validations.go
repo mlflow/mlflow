@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/mlflow/mlflow/mlflow/go/pkg/contract"
+	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 )
 
 var validations = map[string]string{
@@ -11,6 +11,6 @@ var validations = map[string]string{
 	"CreateExperiment_Name":             "required",
 	"CreateExperiment_ArtifactLocation": "omitempty,uriWithoutFragmentsOrParamsOrDotDotInQuery",
 	"SearchRuns_RunViewType":            "omitempty",
-	"SearchRuns_MaxResults":             fmt.Sprintf("lte=%d", contract.MaxResultsPerPage),
+	"SearchRuns_MaxResults":             fmt.Sprintf("lte=%d", protos.Default_SearchRuns_MaxResults),
 	"DeleteExperiment_ExperimentId":     "required,stringAsPositiveInteger",
 }
