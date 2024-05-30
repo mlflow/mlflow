@@ -429,7 +429,7 @@ def test_abort_multipart_upload(s3_artifact_root):
 def test_trace_data(s3_artifact_root):
     repo = get_artifact_repository(s3_artifact_root)
     # s3 download_file raises exception directly if the file doesn't exist
-    with pytest.raises(Exception, match=r"Not Found"):
+    with pytest.raises(Exception, match=r"Trace data not found"):
         repo.download_trace_data()
     repo.upload_trace_data("invalid data")
     with pytest.raises(MlflowTraceDataCorrupted, match=r"Trace data is corrupted for path="):

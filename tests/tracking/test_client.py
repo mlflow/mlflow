@@ -30,6 +30,7 @@ from mlflow.entities.param import Param
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
 )
@@ -285,6 +286,39 @@ def test_client_search_traces(mock_store, mock_artifact_repo):
     # The TraceInfo is already fetched prior to the upload_trace_data call,
     # so we should not call _get_trace_info again
     mock_store.get_trace_info.assert_not_called()
+
+
+def test_client_search_traces_trace_data_download_error(mock_store):
+    class CustomArtifactRepository(ArtifactRepository):
+        def log_artifact(self, local_file, artifact_path=None):
+            raise NotImplementedError("Should not be called")
+
+        def log_artifacts(self, local_dir, artifact_path=None):
+            raise NotImplementedError("Should not be called")
+
+        def list_artifacts(self, path):
+            raise NotImplementedError("Should not be called")
+
+        def _download_file(self, *args, **kwargs):
+            raise Exception("Failed to download trace data")
+
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.get_artifact_repository",
+        return_value=CustomArtifactRepository("test"),
+    ) as mock_get_artifact_repository:
+        mock_traces = [
+            TraceInfo(
+                request_id="1234567",
+                experiment_id="1",
+                timestamp_ms=123,
+                execution_time_ms=456,
+                status=TraceStatus.OK,
+                tags={"mlflow.artifactLocation": "test"},
+            ),
+        ]
+        mock_store.search_traces.return_value = (mock_traces, None)
+        assert MlflowClient().search_traces(experiment_ids=["1"]) == []
+        mock_get_artifact_repository.assert_called()
 
 
 def test_client_delete_traces(mock_store):
