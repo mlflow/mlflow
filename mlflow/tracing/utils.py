@@ -257,6 +257,104 @@ def extract_span_inputs_outputs(
     )
 
 
+class _PeekableIterator:
+    """
+    Wraps an iterator and allows peeking at the next element without consuming it.
+    """
+
+    def __init__(self, it):
+        self.it = iter(it)
+        self._next = None
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._next is not None:
+            next_value = self._next
+            self._next = None
+            return next_value
+        return next(self.it)
+
+    def peek(self):
+        if self._next is None:
+            try:
+                self._next = next(self.it)
+            except StopIteration:
+                return None
+        return self._next
+
+
+class _FieldParser:
+    def __init__(self, s: str) -> None:
+        self.field = s
+        self.chars = _PeekableIterator(s)
+
+    def peek(self) -> str:
+        return self.chars.peek()
+
+    def next(self) -> str:
+        return next(self.chars)
+
+    def has_next(self) -> bool:
+        return self.peek() is not None
+
+    def consume_until_char_or_end(self, char: Optional[str] = None) -> str:
+        """
+        Consume characters until the specified character is encountered or the end of the
+        string. If char is None, consume until the end of the string.
+        """
+        consumed = ""
+        while (c := self.peek()) and c != char:
+            consumed += self.next()
+        return consumed
+
+    def consume_span_name(self):
+        if self.peek() == "`":
+            self.next()
+            res = self.consume_until_char_or_end("`")
+            if self.peek() != "`":
+                raise MlflowException.invalid_parameter_value("Expected closing backtick.")
+            self.next()
+        else:
+            res = self.consume_until_char_or_end(".")
+
+        if self.peek() != ".":
+            raise MlflowException.invalid_parameter_value("Expected dot after span name.")
+        self.next()
+        return res
+
+    def consume_field_type(self):
+        res = self.consume_until_char_or_end(".")
+        if res not in ["inputs", "outputs"]:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid field type: {res}. Expected 'inputs' or 'outputs'."
+            )
+
+        if self.has_next():  # the next character must be a dot
+            self.next()
+        return res
+
+    def consume_field_name(self):
+        if self.peek() == "`":
+            self.next()
+            res = self.consume_until_char_or_end("`")
+            if self.peek() != "`":
+                raise MlflowException.invalid_parameter_value(
+                    f"Expected closing backtick: {self.field}"
+                )
+            self.next()
+        else:
+            res = self.consume_until_char_or_end()
+        return res
+
+    def parse_field(self):
+        span_name = self.consume_span_name()
+        field_type = self.consume_field_type()
+        field_name = self.consume_field_name() if self.has_next() else None
+        return _ParsedField(span_name=span_name, field_type=field_type, field_name=field_name)
+
+
 class _ParsedField(NamedTuple):
     """
     Represents a parsed field from a string of the form 'span_name.[inputs|outputs]' or
@@ -269,21 +367,18 @@ class _ParsedField(NamedTuple):
 
     @classmethod
     def from_string(cls, s: str) -> "_ParsedField":
-        components = s.split(".")
-        if len(components) not in [2, 3] or components[1] not in ["inputs", "outputs"]:
-            raise MlflowException(
-                message=(
-                    f"Field must be of the form 'span_name.[inputs|outputs]' or"
-                    f" 'span_name.[inputs|outputs].field_name'. Got: {s}"
-                ),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        """
+        s looks like this:
 
-        return cls(
-            span_name=components[0],
-            field_type=components[1],
-            field_name=components[2] if len(components) == 3 else None,
-        )
+        span_name.[inputs|outputs].field_name
+        `span_name`.[inputs|outputs].field_name
+        span_name.[inputs|outputs].`field_name`
+        `span_name`.[inputs|outputs].`field_name`
+
+        span_name or field_name can contain dots.
+        """
+        parser = _FieldParser(s)
+        return parser.parse_field()
 
     def __str__(self) -> str:
         return (
