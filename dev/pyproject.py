@@ -7,6 +7,7 @@ from pathlib import Path
 
 import toml
 import yaml
+from packaging.version import Version
 
 SEPARATOR = """
 # Package metadata: can't be updated manually, use dev/pyproject.py
@@ -36,14 +37,14 @@ def build(skinny: bool) -> None:
     python_version = Path("requirements", "python-version.txt").read_text().strip()
     versions_yaml = read_package_versions_yml()
     langchain_requirements = [
-        "langchain>={},<{}".format(
+        "langchain>={},<={}".format(
             max(
-                versions_yaml["langchain"]["autologging"]["minimum"],
-                versions_yaml["langchain"]["models"]["minimum"],
+                Version(versions_yaml["langchain"]["autologging"]["minimum"]),
+                Version(versions_yaml["langchain"]["models"]["minimum"]),
             ),
             min(
-                versions_yaml["langchain"]["autologging"]["maximum"],
-                versions_yaml["langchain"]["models"]["maximum"],
+                Version(versions_yaml["langchain"]["autologging"]["maximum"]),
+                Version(versions_yaml["langchain"]["models"]["maximum"]),
             ),
         )
     ]
