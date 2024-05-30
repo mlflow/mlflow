@@ -74,8 +74,8 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
 )
 from mlflow.utils.databricks_utils import (
-    enable_mlflow_tracing_in_model_serving,
     is_in_databricks_model_serving_environment,
+    is_mlflow_tracing_enabled_in_model_serving,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -648,7 +648,7 @@ class _LangChainModelWrapper:
             is_in_databricks_model_serving_environment()
             and MLFLOW_ENABLE_TRACE_IN_SERVING.get()
             # if this is False, tracing is disabled and we shouldn't inject the tracer
-            and enable_mlflow_tracing_in_model_serving()
+            and is_mlflow_tracing_enabled_in_model_serving()
         ):
             from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 

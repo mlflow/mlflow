@@ -187,7 +187,7 @@ def is_in_databricks_model_serving_environment():
     return val.lower() == "true"
 
 
-def enable_mlflow_tracing_in_model_serving() -> bool:
+def is_mlflow_tracing_enabled_in_model_serving() -> bool:
     """
     This environment variable guards tracing behaviors for models in databricks
     model serving. Tracing in serving is only enabled when this env var is true.
