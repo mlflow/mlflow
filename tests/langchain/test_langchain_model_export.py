@@ -2958,12 +2958,14 @@ def test_langchain_model_save_load_with_listeners(fake_chat_model):
     }
 
 
+@pytest.mark.parametrize("enable_mlflow_tracing", [True, False])
 def test_langchain_model_inject_callback_in_model_serving(
-    clear_trace_singleton, monkeypatch, model_path
+    clear_trace_singleton, monkeypatch, model_path, enable_mlflow_tracing
 ):
     # Emulate the model serving environment
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("MLFLOW_ENABLE_TRACE_IN_SERVING", "true")
+    monkeypatch.setenv("ENABLE_MLFLOW_TRACING", str(enable_mlflow_tracing).lower())
 
     model = create_openai_llmchain()
     mlflow.langchain.save_model(model, model_path)
@@ -2979,18 +2981,22 @@ def test_langchain_model_inject_callback_in_model_serving(
     # Trace should be logged to the inference table
     from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 
-    assert len(_TRACE_BUFFER) == 1
-    assert _REQUEST_ID in _TRACE_BUFFER
+    if enable_mlflow_tracing:
+        assert len(_TRACE_BUFFER) == 1
+        assert _REQUEST_ID in _TRACE_BUFFER
+    else:
+        assert len(_TRACE_BUFFER) == 0
 
 
+@pytest.mark.parametrize("env_var", ["MLFLOW_ENABLE_TRACE_IN_SERVING", "ENABLE_MLFLOW_TRACING"])
 def test_langchain_model_not_inject_callback_when_disabled(
-    clear_trace_singleton, monkeypatch, model_path
+    clear_trace_singleton, monkeypatch, model_path, env_var
 ):
     # Emulate the model serving environment
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
 
     # Disable tracing
-    monkeypatch.setenv("MLFLOW_ENABLE_TRACE_IN_SERVING", "false")
+    monkeypatch.setenv(env_var, "false")
 
     model = create_openai_llmchain()
     mlflow.langchain.save_model(model, model_path)

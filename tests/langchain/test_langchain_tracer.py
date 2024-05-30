@@ -364,9 +364,9 @@ def _predict_with_callbacks(lc_model, request_id, data):
     return response, trace_dict
 
 
-def test_e2e_rag_model_tracing_in_serving(clear_singleton, monkeypatch):
-    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
-
+def test_e2e_rag_model_tracing_in_serving(
+    clear_singleton, mock_databricks_serving_with_tracing_env
+):
     llm_chain = create_openai_llmchain()
 
     request_id = "test_request_id"
@@ -405,9 +405,7 @@ def test_e2e_rag_model_tracing_in_serving(clear_singleton, monkeypatch):
     _validate_trace_json_serialization(trace)
 
 
-def test_agent_success(clear_singleton, monkeypatch):
-    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
-
+def test_agent_success(clear_singleton, mock_databricks_serving_with_tracing_env):
     agent = create_openai_llmagent()
     langchain_input = {"input": "What is 123 raised to the .023 power?"}
     expected_output = {"output": TEST_CONTENT}
@@ -456,8 +454,7 @@ def test_agent_success(clear_singleton, monkeypatch):
     _validate_trace_json_serialization(trace)
 
 
-def test_tool_success(clear_singleton, monkeypatch):
-    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+def test_tool_success(clear_singleton, mock_databricks_serving_with_tracing_env):
     prompt = SystemMessagePromptTemplate.from_template("You are a nice assistant.") + "{question}"
     llm = OpenAI(temperature=0.9)
 
