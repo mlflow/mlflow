@@ -255,6 +255,20 @@ def get_trace(request_id: str) -> Optional[Trace]:
     Args:
         request_id: The request ID of the trace.
 
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        with mlflow.start_span(name="span") as span:
+            span.set_attribute("key", "value")
+
+        trace = mlflow.get_trace(span.request_id)
+        print(trace)
+
+
     Returns:
         A :py:class:`mlflow.entities.Trace` objects with the given request ID.
     """
@@ -379,6 +393,22 @@ def get_current_active_span() -> Optional[LiveSpan]:
         This only works when the span is created with fluent APIs like `@mlflow.trace` or
         `with mlflow.start_span`. If a span is created with MlflowClient APIs, it won't be
         attached to the global context so this function will not return it.
+
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        @mlflow.trace
+        def f():
+            span = mlflow.get_current_active_span()
+            span.set_attribute("key", "value")
+            return 0
+
+
+        f()
 
     Returns:
         The current active span if exists, otherwise None.
