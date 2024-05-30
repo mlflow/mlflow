@@ -282,7 +282,7 @@ def test_refresh_credentials():
             assert e == err
 
         mock_get_s3_client.assert_any_call(
-            addressing_style="auto",
+            addressing_style=None,
             access_key_id="my-id-1",
             secret_access_key="my-key-1",
             session_token="my-session-1",
@@ -291,7 +291,7 @@ def test_refresh_credentials():
         )
 
         mock_get_s3_client.assert_any_call(
-            addressing_style="auto",
+            addressing_style=None,
             access_key_id="my-id-2",
             secret_access_key="my-key-2",
             session_token="my-session-2",

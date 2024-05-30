@@ -51,7 +51,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         secret_access_key=None,
         session_token=None,
         credential_refresh_def=None,
-        addressing_style=MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE.get(),
+        addressing_style=None,
         s3_endpoint_url=None,
     ):
         super().__init__(artifact_uri)
@@ -77,7 +77,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         from botocore.exceptions import ClientError
 
         temp_client = _get_s3_client(
-            addressing_style=MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE.get(),
+            addressing_style=self._addressing_style,
             access_key_id=self._access_key_id,
             secret_access_key=self._secret_access_key,
             session_token=self._session_token,

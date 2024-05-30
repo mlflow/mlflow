@@ -104,6 +104,9 @@ def _get_s3_client(
     # Invalidate cache every `_MAX_CACHE_SECONDS`
     timestamp = int(_get_utcnow_timestamp() / _MAX_CACHE_SECONDS)
 
+    if not addressing_style:
+        addressing_style = MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE.get()
+
     return _cached_get_s3_client(
         signature_version,
         addressing_style,
