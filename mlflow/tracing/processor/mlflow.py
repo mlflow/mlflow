@@ -44,10 +44,6 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
 
     def __init__(self, span_exporter: SpanExporter, client: Optional[MlflowClient] = None):
         self.span_exporter = span_exporter
-        # TODO: MlflowClient() does not handle the change of tracking URI after
-        # the client is instantiated. Inherently, this class does not handle it
-        # either. We should consider reset these singleton instances for tracing
-        # when the tracking URI is changed.
         self._client = client or MlflowClient()
         self._trace_manager = InMemoryTraceManager.get_instance()
 

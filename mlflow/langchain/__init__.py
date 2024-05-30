@@ -41,7 +41,6 @@ from mlflow.langchain.utils import (
     _MODEL_LOAD_KEY,
     _RUNNABLE_LOAD_KEY,
     _load_base_lcs,
-    _load_from_yaml,
     _save_base_lcs,
     _validate_and_prepare_lc_model_or_path,
     lc_runnables_types,
@@ -92,6 +91,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_copy_file_to_directory,
+    _validate_and_get_model_config_from_file,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -126,7 +126,7 @@ def get_default_conda_env():
 
 
 def _infer_signature_from_input_example_for_lc_model(
-    input_example, wrapped_model, example_no_conversion=False
+    input_example, wrapped_model, example_no_conversion=True
 ):
     from mlflow.langchain.api_request_parallel_processor import _ChatResponse
 
@@ -156,7 +156,7 @@ def save_model(
     metadata=None,
     loader_fn=None,
     persist_dir=None,
-    example_no_conversion=False,
+    example_no_conversion=True,
     model_config=None,
     streamable: Optional[bool] = None,
 ):
@@ -250,15 +250,18 @@ def save_model(
                     )
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
-        example_no_conversion: {{ example_no_conversion }}
+        example_no_conversion: If ``False``, the input example will be converted to a Pandas
+                DataFrame format when saving. This is useful when the model expects a DataFrame
+                input and the input example could be passed directly to the model.
+                Defaults to ``True``.
         model_config: The model configuration to apply to the model if saving model as code. This
             configuration is available during model loading.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         streamable: A boolean value indicating if the model supports streaming prediction. If
-            True, the model must implement `stream` method. If None, the model's streamability
-            is inferred from the model type. Default to `None`.
+            True, the model must implement `stream` method. If None, streamable is
+            set to True if the model implements `stream` method. Default to `None`.
     """
     import langchain
     from langchain.schema import BaseRetriever
@@ -271,13 +274,7 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
 
     if isinstance(model_config, str):
-        if os.path.exists(model_config):
-            model_config = _load_from_yaml(model_config)
-        else:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                f"Model config path '{model_config}' provided is not a valid file path. "
-                "Please provide a valid model configuration."
-            )
+        model_config = _validate_and_get_model_config_from_file(model_config)
 
     model_code_path = None
     if isinstance(lc_model_or_path, str):
@@ -347,7 +344,7 @@ def save_model(
             mlflow_model.metadata.update(schema)
 
     if streamable is None:
-        streamable = isinstance(lc_model, lc_runnables_types())
+        streamable = hasattr(lc_model, "stream")
 
     model_data_kwargs = {}
     flavor_conf = {}
@@ -429,7 +426,7 @@ def log_model(
     metadata=None,
     loader_fn=None,
     persist_dir=None,
-    example_no_conversion=False,
+    example_no_conversion=True,
     run_id=None,
     model_config=None,
     streamable=None,
@@ -532,7 +529,10 @@ def log_model(
                     )
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
-        example_no_conversion: {{ example_no_conversion }}
+        example_no_conversion: If ``False``, the input example will be converted to a Pandas
+                DataFrame format when saving. This is useful when the model expects a DataFrame
+                input and the input example could be passed directly to the model.
+                Defaults to ``True``.
         run_id: run_id to associate with this model version. If specified, we resume the
                 run and log the model to that run. Otherwise, a new run is created.
                 Default to None.
@@ -542,8 +542,8 @@ def log_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         streamable: A boolean value indicating if the model supports streaming prediction. If
-            True, the model must implement `stream` method. If None, the model's streamability
-            is inferred from the model type. Default to `None`.
+            True, the model must implement `stream` method. If None, If None, streamable is
+            set to True if the model implements `stream` method. Default to `None`.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -886,7 +886,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
                 local_model_path,
                 os.path.basename(model_config),
             )
-            model_config = _load_from_yaml(config_path)
+            model_config = _validate_and_get_model_config_from_file(config_path)
 
         flavor_code_path = pyfunc_flavor_conf.get(
             MODEL_CODE_PATH, flavor_conf.get(MODEL_CODE_PATH, None)

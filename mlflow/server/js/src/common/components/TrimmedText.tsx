@@ -11,7 +11,7 @@ import { Button } from '@databricks/design-system';
 type Props = {
   text: string;
   maxSize: number;
-  className: string;
+  className?: string;
   allowShowMore?: boolean;
   dataTestId?: string;
 };

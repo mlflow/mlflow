@@ -2,7 +2,6 @@ from typing import Dict
 from unittest import mock
 
 import pytest
-from opentelemetry.trace import _TRACER_PROVIDER_SET_ONCE
 
 import mlflow
 from mlflow.entities import TraceInfo
@@ -27,8 +26,6 @@ def clear_singleton():
     _TRACE_BUFFER.clear()
 
     # Tracer provider also needs to be reset as it may hold reference to the singleton
-    with _TRACER_PROVIDER_SET_ONCE._lock:
-        _TRACER_PROVIDER_SET_ONCE._done = False
     with _TRACER_PROVIDER_INITIALIZED._lock:
         _TRACER_PROVIDER_INITIALIZED._done = False
 

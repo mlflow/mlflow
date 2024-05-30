@@ -167,7 +167,7 @@ def test_trace_with_databricks_tracking_uri(
 
 
 def test_trace_in_databricks_model_serving(clear_singleton, monkeypatch):
-    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
 
     # Dummy flask app for prediction
     import flask
@@ -539,6 +539,21 @@ def test_start_span_context_manager_with_imperative_apis(clear_singleton):
         "mlflow.spanInputs": 3,
         "mlflow.spanOutputs": 5,
     }
+
+
+def test_test_search_traces_empty(mock_client):
+    mock_client.search_traces.return_value = PagedList([], token=None)
+
+    traces = mlflow.search_traces()
+    assert traces.empty
+
+    default_columns = Trace.pandas_dataframe_columns()
+    assert traces.columns.tolist() == default_columns
+
+    traces = mlflow.search_traces(extract_fields=["foo.inputs.bar"])
+    assert traces.columns.tolist() == [*default_columns, "foo.inputs.bar"]
+
+    mock_client.search_traces.assert_called()
 
 
 def test_search_traces(mock_client):
