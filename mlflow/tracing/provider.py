@@ -8,7 +8,10 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.util._once import Once
 
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_model_serving_environment,
+    is_mlflow_tracing_enabled_in_model_serving,
+)
 
 # Once() object ensures a function is executed only once in a process.
 # Note that it doesn't work as expected in a distributed environment.
@@ -78,6 +81,10 @@ def _setup_tracer_provider(disabled=False):
         return
 
     if is_in_databricks_model_serving_environment():
+        if not is_mlflow_tracing_enabled_in_model_serving():
+            _force_set_otel_tracer_provider(trace.NoOpTracerProvider())
+            return
+
         from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
         from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 

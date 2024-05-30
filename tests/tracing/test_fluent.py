@@ -166,9 +166,9 @@ def test_trace_with_databricks_tracking_uri(
     mock_upload_trace_data.assert_called_once()
 
 
-def test_trace_in_databricks_model_serving(clear_singleton, monkeypatch):
-    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
-
+def test_trace_in_databricks_model_serving(
+    clear_singleton, mock_databricks_serving_with_tracing_env
+):
     # Dummy flask app for prediction
     import flask
 
