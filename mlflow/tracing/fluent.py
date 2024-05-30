@@ -11,7 +11,7 @@ from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
 from mlflow import MlflowClient
-from mlflow.entities import NoOpSpan, SpanType, Trace
+from mlflow.entities import LiveSpan, NoOpSpan, SpanType, Trace
 from mlflow.entities.span import create_mlflow_span
 from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
