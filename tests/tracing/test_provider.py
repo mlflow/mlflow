@@ -117,9 +117,12 @@ def test_is_enabled():
     assert _is_enabled()
 
 
-@pytest.mark.parametrize("enable_mlflow_tracing", [True, False])
+@pytest.mark.parametrize("enable_mlflow_tracing", [True, False, None])
 def test_enable_mlflow_tracing_switch_in_serving_fluent(monkeypatch, enable_mlflow_tracing):
-    monkeypatch.setenv("ENABLE_MLFLOW_TRACING", str(enable_mlflow_tracing).lower())
+    if enable_mlflow_tracing is None:
+        monkeypatch.delenv("ENABLE_MLFLOW_TRACING", raising=False)
+    else:
+        monkeypatch.setenv("ENABLE_MLFLOW_TRACING", str(enable_mlflow_tracing).lower())
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
 
     @mlflow.trace
