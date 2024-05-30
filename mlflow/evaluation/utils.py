@@ -128,7 +128,7 @@ def verify_assessments_have_same_value_type(assessments: Optional[List[Assessmen
     assessment_value_types_by_key = defaultdict(list)
 
     for assessment in assessments:
-        assessment_value_types_by_key[assessment.name].append(assessment.value_type)
+        assessment_value_types_by_key[assessment.name].append(assessment.get_value_type())
 
     for assessment_name, value_types in assessment_value_types_by_key.items():
         if len(set(value_types)) > 1:
@@ -150,7 +150,9 @@ def read_evaluations_dataframe(path: str) -> pd.DataFrame:
         pd.DataFrame: The evaluations DataFrame.
     """
     schema = _get_evaluation_dataframe_schema()
-    return pd.read_json(path, orient="split", dtype=schema).replace(pd.NA, None)
+    return pd.read_json(path, orient="split", dtype=schema, convert_dates=False).replace(
+        pd.NA, None
+    )
 
 
 def read_assessments_dataframe(path: str) -> pd.DataFrame:
@@ -164,7 +166,10 @@ def read_assessments_dataframe(path: str) -> pd.DataFrame:
         pd.DataFrame: The assessments DataFrame.
     """
     schema = _get_assessments_dataframe_schema()
-    return pd.read_json(path, orient="split", dtype=schema).replace(pd.NA, None)
+    return pd.read_json(path, orient="split", dtype=schema, convert_dates=False).replace(
+        pd.NA, None
+    )
+    # return ass_df
 
 
 def append_to_assessments_dataframe(
@@ -192,7 +197,9 @@ def read_metrics_dataframe(path: str) -> pd.DataFrame:
         pd.DataFrame: The metrics DataFrame.
     """
     schema = _get_metrics_dataframe_schema()
-    return pd.read_json(path, orient="split", dtype=schema).replace(pd.NA, None)
+    return pd.read_json(path, orient="split", dtype=schema, convert_dates=False).replace(
+        pd.NA, None
+    )
 
 
 def _get_evaluation_dataframe_schema() -> Dict[str, Any]:
@@ -234,7 +241,7 @@ def _get_assessments_dataframe_schema() -> Dict[str, Any]:
         "evaluation_id": "string",
         "name": "string",
         "source": "object",
-        "timestamp": "int",
+        "timestamp": "int64",
         "boolean_value": "object",
         "numeric_value": "object",
         "string_value": "object",
@@ -259,8 +266,8 @@ def _get_metrics_dataframe_schema() -> Dict[str, Any]:
     return {
         "evaluation_id": "string",
         "key": "string",
-        "value": "float",
-        "timestamp": "int",
+        "value": "float64",
+        "timestamp": "int64",
     }
 
 

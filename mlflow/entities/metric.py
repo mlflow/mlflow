@@ -83,7 +83,7 @@ class Metric(_MlflowObject):
         key = metric_dict.get("key")
         value = metric_dict.get("value")
         timestamp = metric_dict.get("timestamp")
-        step = metric_dict.get("step")
+        step = metric_dict.get("step", 0)
         return cls(key=key, value=value, timestamp=timestamp, step=step)
 
 

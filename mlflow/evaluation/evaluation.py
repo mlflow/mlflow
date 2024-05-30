@@ -6,6 +6,7 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.evaluation import Evaluation as EvaluationEntity
 from mlflow.entities.metric import Metric
 from mlflow.evaluation.assessment import Assessment
+from mlflow.tracing.utils import TraceJSONEncoder
 
 
 class Evaluation(_MlflowObject):
@@ -117,4 +118,5 @@ def _generate_inputs_id(inputs: Dict[str, Any]) -> str:
     Returns:
         str: A unique identifier for the inputs.
     """
-    return hashlib.sha256(json.dumps(inputs, sort_keys=True).encode("utf-8")).hexdigest()
+    inputs_json = json.dumps(inputs, sort_keys=True, cls=TraceJSONEncoder)
+    return hashlib.sha256(inputs_json.encode("utf-8")).hexdigest()

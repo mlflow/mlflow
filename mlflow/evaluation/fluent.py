@@ -38,7 +38,7 @@ def log_evaluation(
     assessments: Optional[Union[List[Assessment], List[Dict[str, Any]]]] = None,
     metrics: Optional[Union[List[Metric], Dict[str, float]]] = None,
     run_id: Optional[str] = None,
-):
+) -> EvaluationEntity:
     """
     Logs an evaluation to an MLflow Run.
 
@@ -60,6 +60,9 @@ def log_evaluation(
           evaluation, e.g., "number of input tokens", "number of output tokens".
       run_id (Optional[str]): ID of the MLflow Run to log the evaluation. If unspecified, the
           current active run is used.
+
+    Returns:
+       EvaluationEntity: The logged Evaluation object.
     """
     if assessments and isinstance(assessments[0], dict):
         if not all(isinstance(assess, dict) for assess in assessments):
@@ -72,7 +75,8 @@ def log_evaluation(
 
     if metrics and isinstance(metrics, dict):
         metrics = [
-            Metric(key=k, value=v, timestamp=time.time() * 1000, step=0) for k, v in metrics.items()
+            Metric(key=k, value=v, timestamp=int(time.time() * 1000), step=0)
+            for k, v in metrics.items()
         ]
 
     evaluation = Evaluation(
@@ -85,10 +89,12 @@ def log_evaluation(
         metrics=metrics,
     )
 
-    log_evaluations(evaluations=[evaluation], run_id=run_id)
+    return log_evaluations(evaluations=[evaluation], run_id=run_id)[0]
 
 
-def log_evaluations(*, evaluations: List[Evaluation], run_id: Optional[str] = None):
+def log_evaluations(
+    *, evaluations: List[Evaluation], run_id: Optional[str] = None
+) -> List[EvaluationEntity]:
     """
     Logs one or more evaluations to an MLflow Run.
 
@@ -96,6 +102,9 @@ def log_evaluations(*, evaluations: List[Evaluation], run_id: Optional[str] = No
       evaluations (List[Evaluation]): List of one or more MLflow Evaluation objects.
       run_id (Optional[str]): ID of the MLflow Run to log the evaluation. If unspecified, the
           current active run is used.
+
+    Returns:
+      List[EvaluationEntity]: The logged Evaluation objects.
     """
     run_id = run_id if run_id is not None else _get_or_start_run().info.run_id
     client = MlflowClient()
@@ -311,7 +320,7 @@ def _update_assessments_stats(
             client.log_batch(run_id=run_id, metrics=stats.to_metrics())
 
 
-def get_evaluation(run_id: str, evaluation_id: str) -> EvaluationEntity:
+def get_evaluation(*, run_id: str, evaluation_id: str) -> EvaluationEntity:
     """
     Retrieves an Evaluation object from an MLflow Run.
 
