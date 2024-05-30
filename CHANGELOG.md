@@ -2,21 +2,19 @@
 
 ## 2.13.1 (2024-05-30)
 
-MLflow 2.13.1 includes several major features and improvements
+MLflow 2.13.1 is a patch release that includes several bug fixes and integration improvements to existing features. New features that are introduced in this patch release are intended to provide a foundation to further major features that will be released in the next release.
 
 Features:
 
-- [Build] [MLflow] Adding recommended versions of langchain in langchain extra for MLflow (#12182, @sunishsheth2009)
-- [Model Registry] Automatically detect if Presigned URLs are required for Unity Catalog (#12177, @artjen)
+- [MLflow] Add `mlflow[langchain]` extra package that installs recommended versions of langchain with MLflow (#12182, @sunishsheth2009)
 - [Tracking] Adding the ability to override the model_config in langchain flavor if loaded as pyfunc (#12085, @sunishsheth2009)
+- [Model Registry] Automatically detect if Presigned URLs are required for Unity Catalog (#12177, @artjen)
 
 Bug fixes:
-
-- [Model Registry] Automatically detect if Presigned URLs are required for Unity Catalog (#12177, @artjen)
-- [] Use `getUserLocalTempDir` and `getUserNFSTempDir` to replace `getReplLocalTempDir` and `getReplNFSTempDir` in databricks runtime (#12105, @WeichenXu123)
-- [Tracking] [MLflow][Bugfix] Updating chat model for take default input_example and predict to accept json during inference (#12115, @sunishsheth2009)
+- [Tracking] Use `getUserLocalTempDir` and `getUserNFSTempDir` to replace `getReplLocalTempDir` and `getReplNFSTempDir` in databricks runtime (#12105, @WeichenXu123)
+- [Model] Updating chat model for take default input_example and predict to accept json during inference (#12115, @sunishsheth2009)
 - [Tracking] Fix cascading behavior for trace tag table (#12102, @B-Step62)
-- [Tracking] [MLflow][Bugfix] Automatic call load_context when infer signature in pyfunc (#12099, @sunishsheth2009)
+- [Tracking] Automatic call load_context when infer signature in pyfunc (#12099, @sunishsheth2009)
 
 Small bug fixes and documentation updates:
 
