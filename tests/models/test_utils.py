@@ -18,6 +18,7 @@ from mlflow.models.utils import (
     _enforce_datatype,
     _enforce_object,
     _enforce_property,
+    _flatten_nested_params,
     _validate_model_code_from_notebook,
     get_model_version_from_model_uri,
 )
@@ -479,3 +480,50 @@ def test_config_context():
         assert mlflow.models.model_config.__mlflow_model_config__ == "tests/langchain/config.yml"
 
     assert mlflow.models.model_config.__mlflow_model_config__ is None
+
+
+def test_flatten_nested_params():
+    nested_params = {
+        "a": 1,
+        "b": {"c": 2, "d": {"e": 3}},
+        "f": {"g": {"h": 4}},
+    }
+    expected_flattened_params = {
+        "a": 1,
+        "b.c": 2,
+        "b.d.e": 3,
+        "f.g.h": 4,
+    }
+    assert _flatten_nested_params(nested_params, sep=".") == expected_flattened_params
+    assert _flatten_nested_params(nested_params, sep="/") == {
+        "a": 1,
+        "b/c": 2,
+        "b/d/e": 3,
+        "f/g/h": 4,
+    }
+    assert _flatten_nested_params({}) == {}
+
+    params = {"a": 1, "b": 2, "c": 3}
+    assert _flatten_nested_params(params) == params
+
+    params = {
+        "a": 1,
+        "b": {"c": 2, "d": {"e": 3, "f": [1, 2, 3]}, "g": "hello"},
+        "h": {"i": None},
+    }
+    expected_flattened_params = {
+        "a": 1,
+        "b/c": 2,
+        "b/d/e": 3,
+        "b/d/f": [1, 2, 3],
+        "b/g": "hello",
+        "h/i": None,
+    }
+    assert _flatten_nested_params(params) == expected_flattened_params
+
+    nested_params = {1: {2: {3: 4}}, "a": {"b": {"c": 5}}}
+    expected_flattened_params_mixed = {
+        "1/2/3": 4,
+        "a/b/c": 5,
+    }
+    assert _flatten_nested_params(nested_params) == expected_flattened_params_mixed

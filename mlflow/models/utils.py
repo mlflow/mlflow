@@ -1621,3 +1621,16 @@ def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, 
             ) from e
 
     return mlflow.models.model.__mlflow_model__
+
+
+def _flatten_nested_params(
+    d: Dict[str, Any], parent_key: str = "", sep: str = "/"
+) -> Dict[str, str]:
+    items: Dict[str, Any] = {}
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.update(_flatten_nested_params(v, new_key, sep=sep))
+        else:
+            items[new_key] = v
+    return items
