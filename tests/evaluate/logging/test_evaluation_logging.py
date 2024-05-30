@@ -428,6 +428,14 @@ def test_log_assessments_with_varying_value_types(assessment):
         assert retrieved_assessment.string_value == expected_assessment_entity.string_value
         assert retrieved_assessment.metadata == expected_assessment_entity.metadata
         assert retrieved_assessment.source == expected_assessment_entity.source
+        if isinstance(assessment.value, bool):
+            assert retrieved_assessment.boolean_value == assessment.value
+        elif isinstance(assessment.value, str):
+            assert retrieved_assessment.string_value == assessment.value
+        elif isinstance(assessment.value, (int, float)):
+            assert retrieved_assessment.numeric_value == assessment.value
+        else:
+            raise ValueError(f"Unexpected assessment value type: {type(assessment.value)}.")
 
 
 def test_log_assessments_without_nonexistent_evaluation_fails():
