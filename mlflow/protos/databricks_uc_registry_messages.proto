@@ -139,6 +139,8 @@ message TemporaryCredentials {
   // Server time when the credential will expire, in epoch milliseconds.
   // The API client is advised to cache the credential given this expiration time.
   optional int64 expiration_time = 1;
+
+  optional StorageMode storage_mode = 6;
 }
 
 // AWS temporary credentials for API authentication.
@@ -178,6 +180,14 @@ message R2Credentials {
 
   // The generated JWT that users must pass to use the temporary credentials.
   optional string session_token = 3;
+}
+
+enum StorageMode {
+  STORAGE_MODE_UNSPECIFIED = 0;
+  // The storage resources of the workspace are hosted by customers.
+  CUSTOMER_HOSTED = 1;
+  // Default storage
+  DEFAULT_STORAGE = 2;
 }
 
 message CreateRegisteredModelRequest {
