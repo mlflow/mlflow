@@ -2344,6 +2344,7 @@ class MlflowClient:
         run_id: str,
         data: Union[Dict[str, Any], "pandas.DataFrame"],
         artifact_file: str,
+        set_tag: bool = True,
     ) -> None:
         """
         Log a table to MLflow Tracking as a JSON artifact. If the artifact_file already exists
@@ -2512,15 +2513,16 @@ class MlflowClient:
 
         run = self.get_run(run_id)
 
-        # Get the current value of the tag
-        current_tag_value = json.loads(run.data.tags.get(MLFLOW_LOGGED_ARTIFACTS, "[]"))
-        tag_value = {"path": artifact_file, "type": "table"}
+        if set_tag:
+            # Get the current value of the tag
+            current_tag_value = json.loads(run.data.tags.get(MLFLOW_LOGGED_ARTIFACTS, "[]"))
+            tag_value = {"path": artifact_file, "type": "table"}
 
-        # Append the new tag value to the list if one doesn't exists
-        if tag_value not in current_tag_value:
-            current_tag_value.append(tag_value)
-            # Set the tag with the updated list
-            self.set_tag(run_id, MLFLOW_LOGGED_ARTIFACTS, json.dumps(current_tag_value))
+            # Append the new tag value to the list if one doesn't exists
+            if tag_value not in current_tag_value:
+                current_tag_value.append(tag_value)
+                # Set the tag with the updated list
+                self.set_tag(run_id, MLFLOW_LOGGED_ARTIFACTS, json.dumps(current_tag_value))
 
     @experimental
     def load_table(
