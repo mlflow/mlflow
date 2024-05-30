@@ -35,7 +35,7 @@ def test_log_artifact(hdfs_system_mock):
             user=None,
         )
 
-        upload_mock = hdfs_system_mock.return_value.put_file
+        upload_mock = hdfs_system_mock.return_value.put
         upload_mock.assert_called_once_with(local_file, "/hdfs/path/more_path/some/")
 
 
@@ -58,7 +58,7 @@ def test_log_artifact_viewfs(hdfs_system_mock):
             port=0,
             user=None,
         )
-        upload_mock = hdfs_system_mock.return_value.put_file
+        upload_mock = hdfs_system_mock.return_value.put
         upload_mock.assert_called_once_with(local_file, "/mypath/more_path/some/")
 
 
@@ -85,7 +85,7 @@ def test_log_artifact_with_kerberos_setup(hdfs_system_mock):
             port=0,
             user="some_kerberos_user",
         )
-        upload_mock = hdfs_system_mock.return_value.put_file
+        upload_mock = hdfs_system_mock.return_value.put
         upload_mock.assert_called_once()
 
 
@@ -167,8 +167,8 @@ def test_list_artifacts_empty_hdfs_dir(hdfs_system_mock):
 
 
 def test_resolve_path():
-    assert _resolve_base_path("/dir/some/path", None) == "/dir/some/path/"
-    assert _resolve_base_path("/dir/some/path", "subdir/path") == "/dir/some/path/subdir/path/"
+    assert _resolve_base_path("/dir/some/path", None) == "/dir/some/path"
+    assert _resolve_base_path("/dir/some/path", "subdir/path") == "/dir/some/path/subdir/path"
 
 
 def test_relative_path():
