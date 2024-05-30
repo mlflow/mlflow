@@ -42,10 +42,7 @@ def test_span_processor_and_exporter_default():
     assert isinstance(processors[0].span_exporter, MlflowSpanExporter)
 
 
-def test_span_processor_and_exporter_model_serving(monkeypatch):
-    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "True")
-    monkeypatch.setenv("ENABLE_MLFLOW_TRACING", "true")
-
+def test_span_processor_and_exporter_model_serving(mock_databricks_serving_with_tracing_env):
     _TRACER_PROVIDER_INITIALIZED._done = False
     tracer = _get_tracer("test")
     processors = tracer.span_processor._span_processors
@@ -137,8 +134,7 @@ def test_enable_mlflow_tracing_switch_in_serving_fluent(monkeypatch, enable_mlfl
             foo()
 
     if enable_mlflow_tracing:
-        assert len(_TRACE_BUFFER) == 3
-        assert all(request_id in _TRACE_BUFFER for request_id in request_ids)
+        assert sorted(_TRACE_BUFFER) == request_ids
     else:
         assert len(_TRACE_BUFFER) == 0
 
@@ -167,7 +163,6 @@ def test_enable_mlflow_tracing_switch_in_serving_client(monkeypatch, enable_mlfl
             client.end_trace(request_id="123")
 
     if enable_mlflow_tracing:
-        assert len(_TRACE_BUFFER) == 2
-        assert all(request_id in _TRACE_BUFFER for request_id in request_ids)
+        assert sorted(_TRACE_BUFFER) == request_ids
     else:
         assert len(_TRACE_BUFFER) == 0

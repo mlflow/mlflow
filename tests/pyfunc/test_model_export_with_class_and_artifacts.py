@@ -1838,6 +1838,7 @@ def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace(
     clear_singleton, monkeypatch, is_in_db_model_serving, stream
 ):
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", is_in_db_model_serving)
+    monkeypatch.setenv("ENABLE_MLFLOW_TRACING", "true")
     is_in_db_model_serving = is_in_db_model_serving == "true"
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(

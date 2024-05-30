@@ -9,7 +9,7 @@ from opentelemetry.util._once import Once
 
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.databricks_utils import (
-    enable_mlflow_tracing,
+    enable_mlflow_tracing_in_model_serving,
     is_in_databricks_model_serving_environment,
 )
 
@@ -81,8 +81,8 @@ def _setup_tracer_provider(disabled=False):
         return
 
     if is_in_databricks_model_serving_environment():
-        if not enable_mlflow_tracing():
-            _force_set_otel_tracer_provider(trace.NoOpTracerProvider(), reset_flag=False)
+        if not enable_mlflow_tracing_in_model_serving():
+            _force_set_otel_tracer_provider(trace.NoOpTracerProvider())
             return
 
         from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
@@ -102,16 +102,15 @@ def _setup_tracer_provider(disabled=False):
     _force_set_otel_tracer_provider(tracer_provider)
 
 
-def _force_set_otel_tracer_provider(tracer_provider, reset_flag=True):
+def _force_set_otel_tracer_provider(tracer_provider):
     """
     Resetting internal flag used in OpenTelemetry. If we don't reset the flag,
     set_tracer_provider() will be a no-op after the first call
     in the application lifecycle.
     https://github.com/open-telemetry/opentelemetry-python/blob/v1.24.0/opentelemetry-api/src/opentelemetry/trace/__init__.py#L485
     """
-    if reset_flag:
-        with trace._TRACER_PROVIDER_SET_ONCE._lock:
-            trace._TRACER_PROVIDER_SET_ONCE._done = False
+    with trace._TRACER_PROVIDER_SET_ONCE._lock:
+        trace._TRACER_PROVIDER_SET_ONCE._done = False
     trace.set_tracer_provider(tracer_provider)
 
 
