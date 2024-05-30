@@ -1628,14 +1628,10 @@ class FileStore(AbstractStore):
                         exc_info=_logger.isEnabledFor(logging.DEBUG),
                     )
             trace_info_and_paths.sort(key=lambda x: x[0].timestamp_ms)
-            if max_traces is None:
-                max_traces = len(trace_info_and_paths)
+            deleted_traces = min(len(trace_info_and_paths), max_traces or len(trace_info_and_paths))
+            trace_info_and_paths = trace_info_and_paths[:deleted_traces]
             for _, trace_path in trace_info_and_paths:
-                if max_traces == 0:
-                    break
                 shutil.rmtree(trace_path)
-                deleted_traces += 1
-                max_traces -= 1
             return deleted_traces
         if request_ids:
             for request_id in request_ids:
