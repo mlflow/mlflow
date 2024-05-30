@@ -163,7 +163,6 @@ def enable():
             return 0
 
 
-        mlflow.tracing.enable()
         f()
         assert len(mlflow.search_traces()) == 1
 
