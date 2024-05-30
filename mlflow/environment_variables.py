@@ -607,3 +607,8 @@ MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS = _BooleanEnvironmentVariable(
 MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK = _EnvironmentVariable(
     "MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK", int, 10
 )
+
+# Default addressing style to use for boto client
+MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE = _EnvironmentVariable(
+    "MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE", str, "auto"
+)
