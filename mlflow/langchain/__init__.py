@@ -41,7 +41,6 @@ from mlflow.langchain.utils import (
     _MODEL_LOAD_KEY,
     _RUNNABLE_LOAD_KEY,
     _load_base_lcs,
-    _load_from_yaml,
     _save_base_lcs,
     _validate_and_prepare_lc_model_or_path,
     lc_runnables_types,
@@ -92,6 +91,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_copy_file_to_directory,
+    _validate_and_get_model_config_from_file,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -274,13 +274,7 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
 
     if isinstance(model_config, str):
-        if os.path.exists(model_config):
-            model_config = _load_from_yaml(model_config)
-        else:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                f"Model config path '{model_config}' provided is not a valid file path. "
-                "Please provide a valid model configuration."
-            )
+        model_config = _validate_and_get_model_config_from_file(model_config)
 
     model_code_path = None
     if isinstance(lc_model_or_path, str):
@@ -892,7 +886,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
                 local_model_path,
                 os.path.basename(model_config),
             )
-            model_config = _load_from_yaml(config_path)
+            model_config = _validate_and_get_model_config_from_file(config_path)
 
         flavor_code_path = pyfunc_flavor_conf.get(
             MODEL_CODE_PATH, flavor_conf.get(MODEL_CODE_PATH, None)

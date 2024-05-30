@@ -654,6 +654,7 @@ class Model:
             metadata of the logged model.
         """
         from mlflow.models.wheeled_model import _ORIGINAL_REQ_FILE_NAME, WheeledModel
+        from mlflow.utils.model_utils import _validate_and_get_model_config_from_file
 
         with TempDir() as tmp:
             local_path = tmp.path("model")
@@ -705,8 +706,7 @@ class Model:
                             with open(model_config) as f:
                                 model_config = json.load(f)
                         elif file_extension in [".yaml", ".yml"]:
-                            with open(model_config) as f:
-                                model_config = yaml.safe_load(f)
+                            model_config = _validate_and_get_model_config_from_file(model_config)
                         else:
                             _logger.warning(
                                 "Unsupported file format for model config: %s. "

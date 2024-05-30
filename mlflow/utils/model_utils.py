@@ -381,6 +381,7 @@ def _get_overridden_pyfunc_model_config(
 
 
 def _validate_and_get_model_config_from_file(model_config):
+    model_config = os.path.abspath(model_config)
     if os.path.exists(model_config):
         with open(model_config) as file:
             try:
