@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 )
@@ -61,7 +60,17 @@ type ValidCompareExpr struct {
 	Value      interface{}
 }
 
-var ErrValidation = errors.New("validation error")
+type ValidationError struct {
+	message string
+}
+
+func (e *ValidationError) Error() string {
+	return e.message
+}
+
+func NewValidationError(format string, a ...interface{}) *ValidationError {
+	return &ValidationError{message: fmt.Sprintf(format, a...)}
+}
 
 var (
 	metricIdentifier    = "metric"
@@ -92,7 +101,7 @@ func parseValidIdentifier(identifier string) (ValidIdentifier, error) {
 	case datasetIdentifier, "datasets":
 		return Dataset, nil
 	default:
-		return -1, fmt.Errorf("invalid identifier %q: %w", identifier, ErrValidation)
+		return -1, NewValidationError("invalid identifier %q", identifier)
 	}
 }
 
@@ -134,11 +143,10 @@ func parseKey(identifier ValidIdentifier, key string) (string, error) {
 		case "run_name", "run name", "Run name", "Run Name":
 			return "run_name", nil
 		default:
-			return "", fmt.Errorf(
-				"Invalid attribute key valid: %s. Allowed values are %v: %w",
+			return "", NewValidationError(
+				"invalid attribute key valid: %s. Allowed values are %v",
 				key,
 				searchableRunAttributes,
-				ErrValidation,
 			)
 		}
 	case Dataset:
@@ -146,11 +154,10 @@ func parseKey(identifier ValidIdentifier, key string) (string, error) {
 		case "name", "digest", "context":
 			return key, nil
 		default:
-			return "", fmt.Errorf(
-				"Invalid dataset attribute key: %s. Allowed values are %v: %w",
+			return "", NewValidationError(
+				"invalid dataset attribute key: %s. Allowed values are %v",
 				key,
 				datasetAttributes,
-				ErrValidation,
 			)
 		}
 	default:
@@ -194,18 +201,17 @@ func validateValue(identifier ValidIdentifier, key string, v Value) (interface{}
 	switch identifier {
 	case Metric:
 		if _, ok := v.(NumberExpr); !ok {
-			return nil, fmt.Errorf(
-				"Expected numeric value type for metric. Found %s: %w",
+			return nil, NewValidationError(
+				"expected numeric value type for metric. Found %s",
 				v,
-				ErrParserError,
 			)
 		}
 		return v.value(), nil
 	case Parameter, Tag:
 		if _, ok := v.(StringExpr); !ok {
-			return nil, fmt.Errorf(
-				"Expected a quoted string value for %s. Found %s: %w",
-				identifier, v, ErrParserError,
+			return nil, NewValidationError(
+				"expected a quoted string value for %s. Found %s",
+				identifier, v,
 			)
 		}
 		return v.value(), nil
@@ -213,19 +219,17 @@ func validateValue(identifier ValidIdentifier, key string, v Value) (interface{}
 		switch key {
 		case "start_time", "end_time", "created":
 			if _, ok := v.(NumberExpr); !ok {
-				return nil, fmt.Errorf(
-					"Expected numeric value type for numeric attribute: %s. Found %s: %w",
+				return nil, NewValidationError(
+					"expected numeric value type for numeric attribute: %s. Found %s",
 					key,
 					v,
-					ErrValidation,
 				)
 			}
 			return v.value(), nil
 		default:
 			if _, ok := v.(StringListExpr); key != "run_name" && ok {
-				return nil, fmt.Errorf(
-					"only the 'run_id' attribute supports comparison with a list of quoted string values: %w",
-					ErrValidation,
+				return nil, NewValidationError(
+					"only the 'run_id' attribute supports comparison with a list of quoted string values",
 				)
 			}
 			return v.value(), nil
@@ -235,28 +239,25 @@ func validateValue(identifier ValidIdentifier, key string, v Value) (interface{}
 		switch key {
 		case "name", "digest", "context":
 			if _, ok := v.(NumberExpr); ok {
-				return nil, fmt.Errorf(
-					"Expected dataset.%s to be either a string or list of strings. Found %s: %w",
+				return nil, NewValidationError(
+					"expected dataset.%s to be either a string or list of strings. Found %s",
 					key,
 					v,
-					ErrValidation,
 				)
 			}
 			return v.value(), nil
 		default:
-			return nil, fmt.Errorf(
-				"Expected dataset attribute key to be one of %s. Found %s: %w",
+			return nil, NewValidationError(
+				"expected dataset attribute key to be one of %s. Found %s",
 				strings.Join(datasetAttributes, ", "),
 				key,
-				ErrValidation,
 			)
 		}
 	default:
-		return nil, fmt.Errorf(
-			"Invalid identifier type %s. Expected one of %s: %w",
+		return nil, NewValidationError(
+			"Invalid identifier type %s. Expected one of %s",
 			identifier,
 			strings.Join(identifiers, ", "),
-			ErrValidation,
 		)
 	}
 }

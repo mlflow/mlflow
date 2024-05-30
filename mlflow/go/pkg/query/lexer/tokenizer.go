@@ -1,7 +1,6 @@
 package lexer
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -20,7 +19,17 @@ type lexer struct {
 	line     int
 }
 
-var ErrUnrecognizedToken = errors.New("lexer error: unrecognized token")
+type Error struct {
+	message string
+}
+
+func NewLexerError(format string, a ...any) *Error {
+	return &Error{message: fmt.Sprintf(format, a...)}
+}
+
+func (e *Error) Error() string {
+	return e.message
+}
 
 func Tokenize(source *string) ([]Token, error) {
 	lex := createLexer(source)
@@ -38,7 +47,7 @@ func Tokenize(source *string) ([]Token, error) {
 		}
 
 		if !matched {
-			return lex.Tokens, fmt.Errorf("%w near '%v'", ErrUnrecognizedToken, lex.remainder())
+			return lex.Tokens, NewLexerError("unrecognized token near '%v'", lex.remainder())
 		}
 	}
 

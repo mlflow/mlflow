@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 
@@ -42,11 +41,24 @@ func (p *parser) advance() lexer.Token {
 	return tk
 }
 
-var ErrParserError = errors.New("parser error")
+type Error struct {
+	message string
+}
+
+func NewParserError(format string, a ...any) *Error {
+	return &Error{message: fmt.Sprintf(format, a...)}
+}
+
+func (e *Error) Error() string {
+	return e.message
+}
 
 func (p *parser) parseIdentifier() (Identifier, error) {
 	if p.hasTokens() && p.currentTokenKind() != lexer.Identifier {
-		return Identifier{}, fmt.Errorf("expected identifier, got %s: %w", p.printCurrentToken(), ErrParserError)
+		return Identifier{}, NewParserError(
+			"expected identifier, got %s",
+			p.printCurrentToken(),
+		)
 	}
 
 	identToken := p.advance()
@@ -62,7 +74,10 @@ func (p *parser) parseIdentifier() (Identifier, error) {
 			column = column[1 : len(column)-1] // Remove quotes
 			return Identifier{Identifier: identToken.Value, Key: column}, nil
 		default:
-			return Identifier{}, fmt.Errorf("expected IDENTIFIER or STRING, got %s: %w", p.printCurrentToken(), ErrParserError)
+			return Identifier{}, NewParserError(
+				"expected IDENTIFIER or STRING, got %s",
+				p.printCurrentToken(),
+			)
 		}
 	} else {
 		return Identifier{Key: identToken.Value}, nil
@@ -88,7 +103,7 @@ func (p *parser) parseOperator() (OperatorKind, error) {
 	case lexer.ILike:
 		return ILike, nil
 	default:
-		return -1, fmt.Errorf("expected operator, got %s: %w", p.printCurrentToken(), ErrParserError)
+		return -1, NewParserError("expected operator, got %s", p.printCurrentToken())
 	}
 }
 
@@ -105,20 +120,18 @@ func (p *parser) parseValue() (Value, error) {
 		value = value[1 : len(value)-1] // Remove quotes
 		return StringExpr{Value: value}, nil
 	default:
-		return nil, fmt.Errorf(
-			"Expected NUMBER or STRING, got %s: %w",
+		return nil, NewParserError(
+			"Expected NUMBER or STRING, got %s",
 			p.printCurrentToken(),
-			ErrParserError,
 		)
 	}
 }
 
 func (p *parser) parseInSetExpr(ident Identifier) (*CompareExpr, error) {
 	if p.currentTokenKind() != lexer.OpenParen {
-		return nil, fmt.Errorf(
-			"Expected '(', got %s: %w",
+		return nil, NewParserError(
+			"expected '(', got %s",
 			p.printCurrentToken(),
-			ErrParserError,
 		)
 	}
 
@@ -127,10 +140,9 @@ func (p *parser) parseInSetExpr(ident Identifier) (*CompareExpr, error) {
 	set := make([]string, 0)
 	for p.hasTokens() && p.currentTokenKind() != lexer.CloseParen {
 		if p.currentTokenKind() != lexer.String {
-			return nil, fmt.Errorf(
-				"Expected STRING, got %s: %w",
+			return nil, NewParserError(
+				"expected STRING, got %s",
 				p.printCurrentToken(),
-				ErrParserError,
 			)
 		}
 
@@ -145,10 +157,10 @@ func (p *parser) parseInSetExpr(ident Identifier) (*CompareExpr, error) {
 	}
 
 	if p.currentTokenKind() != lexer.CloseParen {
-		return nil, fmt.Errorf(
-			"Expected ')', got %s: %w",
+		return nil, NewParserError(
+			"expected ')', got %s",
 			p.printCurrentToken(),
-			ErrParserError)
+		)
 	}
 
 	p.advance() // Consume the CLOSE_PAREN
@@ -169,10 +181,9 @@ func (p *parser) parseExpression() (*CompareExpr, error) {
 	case lexer.Not:
 		p.advance() // Consume the NOT
 		if p.currentTokenKind() != lexer.In {
-			return nil, fmt.Errorf(
-				"Expected IN after NOT, got %s: %w",
+			return nil, NewParserError(
+				"expected IN after NOT, got %s",
 				p.printCurrentToken(),
-				ErrParserError,
 			)
 		}
 
@@ -219,10 +230,9 @@ func (p *parser) parse() (*AndExpr, error) {
 	}
 
 	if p.hasTokens() {
-		return nil, fmt.Errorf(
-			"Unexpected leftover token(s) after parsing: %s: %w",
+		return nil, NewParserError(
+			"unexpected leftover token(s) after parsing: %s",
 			p.printCurrentToken(),
-			ErrParserError,
 		)
 	}
 
