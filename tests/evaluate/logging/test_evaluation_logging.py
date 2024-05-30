@@ -261,6 +261,43 @@ def test_log_evaluation_starts_run_if_not_started():
     mlflow.end_run()
 
 
+def test_log_assessments_with_minimal_params_succeeds():
+    inputs = {"feature1": 1.0, "feature2": 2.0}
+    outputs = {"prediction": 0.5}
+
+    assessments = [
+        Assessment(
+            name="relevance",
+            value=0.9,
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
+        )
+    ]
+
+    with mlflow.start_run():
+        logged_evaluation = log_evaluation(inputs=inputs, outputs=outputs)
+
+        log_assessments(evaluation_id=logged_evaluation.evaluation_id, assessments=assessments)
+
+        retrieved_evaluation = get_evaluation(
+            evaluation_id=logged_evaluation.evaluation_id, run_id=mlflow.active_run().info.run_id
+        )
+
+        assert len(retrieved_evaluation.assessments) == 1
+        assessment_entities = [
+            assessment._to_entity(evaluation_id=logged_evaluation.evaluation_id)
+            for assessment in assessments
+        ]
+        for retrieved_assessment, assessment_entity in zip(
+            retrieved_evaluation.assessments, assessment_entities
+        ):
+            assert retrieved_assessment.name == assessment_entity.name
+            assert retrieved_assessment.boolean_value == assessment_entity.boolean_value
+            assert retrieved_assessment.numeric_value == assessment_entity.numeric_value
+            assert retrieved_assessment.string_value == assessment_entity.string_value
+            assert retrieved_assessment.metadata == assessment_entity.metadata
+            assert retrieved_assessment.source == assessment_entity.source
+
+
 def test_log_assessments_without_nonexistent_evaluation_fails():
     with mlflow.start_run():
         with pytest.raises(
