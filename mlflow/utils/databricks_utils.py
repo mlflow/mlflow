@@ -937,7 +937,7 @@ if is_in_databricks_runtime():
 
 def get_databricks_nfs_temp_dir():
     entry_point = _get_dbutils().entry_point
-    if getpass.getuser() == "ROOT":
+    if getpass.getuser() == "root":
         return entry_point.getReplNFSTempDir()
     else:
         try:
