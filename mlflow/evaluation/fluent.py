@@ -219,12 +219,13 @@ def log_assessments(
 
     if isinstance(assessments, dict):
         assessments = [Assessment.from_dictionary(assessments)]
-    elif isinstance(assessments, list) and any(isinstance(assess, dict) for assess in assessments):
-        if not all(isinstance(assess, dict) for assess in assessments):
-            raise ValueError(
-                "If `assessments` contains a dictionary, all elements must be dictionaries."
-            )
-        assessments = [Assessment.from_dictionary(assess) for assess in assessments]
+    elif isinstance(assessments, list):
+        if any(isinstance(assess, dict) for assess in assessments):
+            if not all(isinstance(assess, dict) for assess in assessments):
+                raise ValueError(
+                    "If `assessments` contains a dictionary, all elements must be dictionaries."
+                )
+            assessments = [Assessment.from_dictionary(assess) for assess in assessments]
     else:
         assessments = [assessments]
     assessments = [assess._to_entity(evaluation_id=evaluation_id) for assess in assessments]
