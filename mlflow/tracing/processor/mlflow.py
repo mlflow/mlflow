@@ -48,9 +48,10 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         self._trace_manager = InMemoryTraceManager.get_instance()
 
         # We issue a warning when a trace is created under the default experiment.
-        # We only want to issue it once, but de-duplication of warnings module does
-        # not work in notebooks (https://github.com/ipython/ipython/issues/11207).
-        # Therefore, we keep track of the warning issuance state manually.
+        # We only want to issue it once, and typically it can be achieved by using
+        # warnings.warn() with filterwarnings setting. However, the de-duplication does
+        # not work in notebooks (https://github.com/ipython/ipython/issues/11207),
+        # so we instead keep track of the warning issuance state manually.
         self._issued_default_exp_warning = False
 
     def on_start(self, span: OTelSpan, parent_context: Optional[Context] = None):
