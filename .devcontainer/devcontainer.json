@@ -10,7 +10,7 @@
   "features": {
     "ghcr.io/devcontainers/features/go:1": {
       "version": "1.22",
-      "golangciLintVersion": "1.57.2"
+      "golangciLintVersion": "1.59.0"
     },
     "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },

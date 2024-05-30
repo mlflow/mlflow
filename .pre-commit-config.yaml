@@ -12,7 +12,7 @@ repos:
         args: ["--no-config", "--print-width", "100"]
         require_serial: true
   - repo: https://github.com/golangci/golangci-lint
-    rev: "v1.57.2"
+    rev: "v1.59.0"
     hooks:
       - id: golangci-lint
   - repo: local
