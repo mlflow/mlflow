@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"go/ast"
 	"go/format"
@@ -395,13 +394,12 @@ func addQueryAnnotation(generatedGoFile string) error {
 	return saveASTToFile(fset, node, false, generatedGoFile)
 }
 
-var ErrGenerator = errors.New("generator error")
-
 func addQueryAnnotations(pkgFolder string) error {
 	protoFolder := filepath.Join(pkgFolder, "protos")
 
 	if _, pathError := os.Stat(protoFolder); os.IsNotExist(pathError) {
-		return fmt.Errorf("the %s folder does not exist. Are the Go protobuf files generated? %w", protoFolder, ErrGenerator)
+		//nolint:err113
+		return fmt.Errorf("the %s folder does not exist. Are the Go protobuf files generated?", protoFolder)
 	}
 
 	err := filepath.WalkDir(protoFolder, func(path string, _ fs.DirEntry, err error) error {
