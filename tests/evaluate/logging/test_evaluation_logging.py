@@ -378,6 +378,61 @@ def test_log_assessments_with_varying_formats(assessments):
             assert retrieved_assessment.source == assessment_entity.source
 
 
+def test_incremental_logging_of_assessments():
+    inputs = {"feature1": 1.0, "feature2": 2.0}
+    outputs = {"prediction": 0.5}
+
+    assessment1 = Assessment(
+        name="relevance",
+        value=0.9,
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
+    )
+
+    assessment2 = Assessment(
+        name="accuracy",
+        value=0.8,
+        source=AssessmentSource(source_type=AssessmentSourceType.AI_JUDGE, source_id="judge_1"),
+    )
+
+    def assert_assessments_equal(assessment, expected_assessment):
+        assert assessment.name == expected_assessment.name
+        assert assessment.boolean_value == expected_assessment.boolean_value
+        assert assessment.numeric_value == expected_assessment.numeric_value
+        assert assessment.string_value == expected_assessment.string_value
+        assert assessment.metadata == expected_assessment.metadata
+        assert assessment.source == expected_assessment.source
+
+    with mlflow.start_run() as run:
+        logged_evaluation = log_evaluation(inputs=inputs, outputs=outputs)
+
+        log_assessments(evaluation_id=logged_evaluation.evaluation_id, assessments=assessment1)
+
+        run_id = run.info.run_id
+        retrieved_evaluation1 = get_evaluation(
+            evaluation_id=logged_evaluation.evaluation_id, run_id=run_id
+        )
+        assert len(retrieved_evaluation1.assessments) == 1
+        retrieved_assessment1 = retrieved_evaluation1.assessments[0]
+        assert_assessments_equal(
+            retrieved_assessment1,
+            assessment1._to_entity(evaluation_id=logged_evaluation.evaluation_id),
+        )
+
+        log_assessments(evaluation_id=logged_evaluation.evaluation_id, assessments=assessment2)
+
+        retrieved_evaluation2 = get_evaluation(
+            evaluation_id=logged_evaluation.evaluation_id, run_id=run_id
+        )
+        assert len(retrieved_evaluation2.assessments) == 2
+        for retrieved_assessment, expected_assessment in zip(
+            retrieved_evaluation2.assessments, [assessment1, assessment2]
+        ):
+            assert_assessments_equal(
+                retrieved_assessment,
+                expected_assessment._to_entity(evaluation_id=logged_evaluation.evaluation_id),
+            )
+
+
 @pytest.mark.parametrize(
     "assessment",
     [
