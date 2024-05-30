@@ -111,11 +111,6 @@ def disable():
     """
     Disable tracing.
 
-    .. note::
-
-        Tracing is enabled by default. This function is useful when tracing needs to be
-        explicitly disabled.
-
     Example:
 
     .. code-block:: python
@@ -129,9 +124,14 @@ def disable():
             return 0
 
 
+        # Tracing is enabled by default
+        f()
+        assert len(mlflow.search_traces()) == 1
+
+        # Disable tracing
         mlflow.tracing.disable()
         f()
-        assert mlflow.search_traces().empty
+        assert len(mlflow.search_traces()) == 1
 
     """
     if not _is_enabled():
@@ -145,11 +145,6 @@ def enable():
     """
     Enable tracing.
 
-    .. note::
-
-        Tracing is enabled by default. This function is useful when tracing is
-        explicitly disabled via :py:func:`mlflow.tracing.disable` and needs to be re-enabled.
-
     Example:
 
     .. code-block:: python
@@ -163,13 +158,16 @@ def enable():
             return 0
 
 
+        # Tracing is enabled by default
         f()
         assert len(mlflow.search_traces()) == 1
 
+        # Disable tracing
         mlflow.tracing.disable()
         f()
         assert len(mlflow.search_traces()) == 1
 
+        # Re-enable tracing
         mlflow.tracing.enable()
         f()
         assert len(mlflow.search_traces()) == 2
