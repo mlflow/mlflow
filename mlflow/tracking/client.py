@@ -534,22 +534,23 @@ class MlflowClient:
         Example:
 
         .. code-block:: python
+            :test:
 
-                from mlflow import MlflowClient
+            from mlflow import MlflowClient
 
-                client = MlflowClient()
+            client = MlflowClient()
 
-                root_span = client.start_trace("my_trace")
-                request_id = root_span.request_id
+            root_span = client.start_trace("my_trace")
+            request_id = root_span.request_id
 
-                # Create a child span
-                child_span = client.start_span(
-                    "child_span", request_id=request_id, parent_id=root_span.span_id
-                )
-                # Do something...
-                client.end_span(request_id=request_id, span_id=child_span.span_id)
+            # Create a child span
+            child_span = client.start_span(
+                "child_span", request_id=request_id, parent_id=root_span.span_id
+            )
+            # Do something...
+            client.end_span(request_id=request_id, span_id=child_span.span_id)
 
-                client.end_trace(request_id)
+            client.end_trace(request_id)
         """
         # Validate no active trace is set in the global context. If there is an active trace,
         # the span created by this method will be a child span under the active trace rather than
@@ -726,6 +727,7 @@ class MlflowClient:
             conjunction with the fluent APIs like below:
 
             .. code-block:: python
+                :test:
 
                 import mlflow
                 from mlflow import MlflowClient
@@ -770,33 +772,34 @@ class MlflowClient:
         Example:
 
         .. code-block:: python
+            :test:
 
-                from mlflow import MlflowClient
+            from mlflow import MlflowClient
 
-                client = MlflowClient()
+            client = MlflowClient()
 
-                span = client.start_trace("my_trace")
+            span = client.start_trace("my_trace")
 
-                x = 2
+            x = 2
 
-                # Create a child span
-                child_span = client.start_span(
-                    "child_span",
-                    request_id=span.request_id,
-                    parent_id=span.id,
-                    inputs={"x": 2},
-                )
+            # Create a child span
+            child_span = client.start_span(
+                "child_span",
+                request_id=span.request_id,
+                parent_id=span.span_id,
+                inputs={"x": x},
+            )
 
-                y = x**2
+            y = x**2
 
-                client.end_span(
-                    request_id=child_span.request_id,
-                    span_id=child_span.span_id,
-                    attributes={"factor": 2},
-                    outputs={"y": y},
-                )
+            client.end_span(
+                request_id=child_span.request_id,
+                span_id=child_span.span_id,
+                attributes={"factor": 2},
+                outputs={"y": y},
+            )
 
-                client.end_trace(request_id)
+            client.end_trace(span.request_id)
         """
         # If parent span is no-op span, the child should also be no-op too
         if request_id == NO_OP_SPAN_REQUEST_ID:
@@ -950,6 +953,7 @@ class MlflowClient:
         ``request_id`` parameter to set a tag on an already ended trace.
 
         .. code-block:: python
+            :test:
 
             from mlflow import MlflowClient
 
@@ -992,6 +996,7 @@ class MlflowClient:
         ``request_id`` parameter to delete a tag on an already ended trace.
 
         .. code-block:: python
+            :test:
 
             from mlflow import MlflowClient
 
