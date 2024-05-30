@@ -169,7 +169,6 @@ def read_assessments_dataframe(path: str) -> pd.DataFrame:
     return pd.read_json(path, orient="split", dtype=schema, convert_dates=False).replace(
         pd.NA, None
     )
-    # return ass_df
 
 
 def append_to_assessments_dataframe(
