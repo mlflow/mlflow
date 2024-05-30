@@ -15,6 +15,7 @@ from llama_index.core.callbacks import CallbackManager, TokenCountingHandler
 from llama_index.core.embeddings.mock_embed_model import MockEmbedding
 from llama_index.core.llms.mock import MockLLM
 from llama_index.core.node_parser import SentenceSplitter
+from pyspark.sql import SparkSession
 
 
 #### General ####
@@ -25,6 +26,12 @@ def model_path(tmp_path):
 
     if os.getenv("GITHUB_ACTIONS") == "true":
         shutil.rmtree(model_path, ignore_errors=True)
+
+
+@pytest.fixture(scope="module")
+def spark():
+    with SparkSession.builder.master("local[*]").getOrCreate() as s:
+        yield s
 
 
 #### Settings ####

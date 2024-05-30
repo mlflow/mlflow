@@ -175,7 +175,11 @@ def save_model(
 
     _save_model(index, path)
 
-    model_config.update({"engine_type": engine_type})
+    if not model_config:
+        model_config = {"engine_type": engine_type}
+    elif isinstance(model_config, dict):
+        model_config.update({"engine_type": engine_type})
+
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.llama_index",
