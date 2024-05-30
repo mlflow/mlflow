@@ -119,6 +119,7 @@ def disable():
     Example:
 
     .. code-block:: python
+        :test:
 
         import mlflow
 
@@ -152,6 +153,7 @@ def enable():
     Example:
 
     .. code-block:: python
+        :test:
 
         import mlflow
 
