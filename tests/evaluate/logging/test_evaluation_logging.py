@@ -620,19 +620,19 @@ def test_log_assessments_with_same_name_and_source():
     assessment_1 = Assessment(
         name="relevance",
         value=0.9,
-        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1")
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
     )
 
     assessment_2 = Assessment(
         name="relevance",
         value=0.8,
-        source=AssessmentSource(source_type=AssessmentSourceType.AI_JUDGE, source_id="judge_1")
+        source=AssessmentSource(source_type=AssessmentSourceType.AI_JUDGE, source_id="judge_1"),
     )
 
     updated_assessment_1 = Assessment(
         name="relevance",
-        value=0.94,
-        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1")
+        value=0.96,
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
     )
 
     with mlflow.start_run() as run:
@@ -645,7 +645,9 @@ def test_log_assessments_with_same_name_and_source():
         log_assessments(evaluation_id=logged_evaluation_2.evaluation_id, assessments=[assessment_2])
 
         # Log the updated first assessment to the first evaluation
-        log_assessments(evaluation_id=logged_evaluation_1.evaluation_id, assessments=[updated_assessment_1])
+        log_assessments(
+            evaluation_id=logged_evaluation_1.evaluation_id, assessments=[updated_assessment_1]
+        )
 
     def assert_assessments_equal(assessment, expected_assessment):
         assert assessment.name == expected_assessment.name
@@ -657,7 +659,9 @@ def test_log_assessments_with_same_name_and_source():
 
     # Verify that the first evaluation contains the second assessment logged to the first evaluation
     run_id = run.info.run_id
-    retrieved_evaluation_1 = get_evaluation(evaluation_id=logged_evaluation_1.evaluation_id, run_id=run_id)
+    retrieved_evaluation_1 = get_evaluation(
+        evaluation_id=logged_evaluation_1.evaluation_id, run_id=run_id
+    )
     assert len(retrieved_evaluation_1.assessments) == 1
     retrieved_assessment_1 = retrieved_evaluation_1.assessments[0]
     assert_assessments_equal(
@@ -668,7 +672,9 @@ def test_log_assessments_with_same_name_and_source():
     # Verify that the second evaluation contains the first (and only) assessment logged to the
     # second evaluation
     run_id = run.info.run_id
-    retrieved_evaluation_2 = get_evaluation(evaluation_id=logged_evaluation_2.evaluation_id, run_id=run_id)
+    retrieved_evaluation_2 = get_evaluation(
+        evaluation_id=logged_evaluation_2.evaluation_id, run_id=run_id
+    )
     assert len(retrieved_evaluation_2.assessments) == 1
     retrieved_assessment_2 = retrieved_evaluation_2.assessments[0]
     assert_assessments_equal(
