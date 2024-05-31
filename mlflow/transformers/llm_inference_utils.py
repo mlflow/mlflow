@@ -118,9 +118,8 @@ def preprocess_llm_inference_params(
             if column == "max_tokens":
                 params["max_new_tokens"] = param
             elif column == "stop":
-                params["stopping_criteria"] = _get_stopping_criteria(
-                    param, flavor_config.get("source_model_name", None)
-                )
+                if stop := _get_stopping_criteria(param, flavor_config.get("source_model_name")):
+                    params["stopping_criteria"] = stop
             else:
                 params[column] = param
 
