@@ -131,4 +131,4 @@ steps presents an entirely different challenge that would require the configurat
 Getting Started with Tracing in MLflow
 --------------------------------------
 
-To learn how to utilize tracing in MLflow, see the `MLflow Tracing Guide <./index>`_.
+To learn how to utilize tracing in MLflow, see the `MLflow Tracing Guide <./index.html>`_.
