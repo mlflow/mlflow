@@ -3053,6 +3053,7 @@ def test_search_traces_filter(generate_trace_infos):
     [
         ("invalid", r"Invalid clause\(s\) in filter string"),
         ("name = 'foo' AND invalid", r"Invalid clause\(s\) in filter string"),
+        ("foo.bar = 'baz'", r"Invalid entity type 'foo'"),
         ("invalid = 'foo'", r"Invalid attribute key 'invalid'"),
         ("trace.tags.foo = 'bar'", r"Invalid attribute key 'tags.foo'"),
         # TODO: This should raise
