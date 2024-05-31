@@ -1549,11 +1549,15 @@ def _validate_and_get_model_code_path(model_code_path: str) -> str:
 
     Returns either `model_code_path` or a temp file path with the contents of the notebook.
     """
+
+    # If the path is not a absolute path then convert it
+    model_code_path = os.path.abspath(model_code_path)
+
     if not os.path.exists(model_code_path):
         raise MlflowException.invalid_parameter_value(
-            f"If the provided model '{model_code_path}' is a string, it must be a valid python "
-            "file path or a databricks notebook file path containing the code for defining "
-            "the chain instance."
+            f"The provided model path '{model_code_path}' is not a valid Python file path or a "
+            "Databricks Notebook file path containing the code for defining the chain instance. "
+            "Ensure the file path is valid and try again."
         )
 
     try:
@@ -1569,9 +1573,9 @@ def _validate_and_get_model_code_path(model_code_path: str) -> str:
             decoded_content = base64.b64decode(response.content)
         except Exception:
             raise MlflowException.invalid_parameter_value(
-                f"If the provided model '{model_code_path}' is a string, it must be a valid python "
-                "file path or a databricks notebook file path containing the code for defining "
-                "the chain instance."
+                f"The provided model path '{model_code_path}' is not a valid Python file path or a "
+                "Databricks Notebook file path containing the code for defining the chain "
+                "instance. Ensure the file path is valid and try again."
             )
 
         _validate_model_code_from_notebook(decoded_content.decode("utf-8"))
@@ -1609,6 +1613,11 @@ def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, 
             sys.modules[new_module_name] = module
             spec.loader.exec_module(module)
         except ImportError as e:
-            raise MlflowException(f"Failed to import model from {code_path}.") from e
+            raise MlflowException(f"Failed to import code code model from {code_path}.") from e
+        except Exception as e:
+            raise MlflowException(
+                f"Failed to run user code from {code_path}. "
+                "Please review the stack trace for more information."
+            ) from e
 
     return mlflow.models.model.__mlflow_model__

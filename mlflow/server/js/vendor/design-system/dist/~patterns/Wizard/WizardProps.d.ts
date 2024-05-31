@@ -25,6 +25,15 @@ export interface WizardProps {
      */
     localizeStepNumber: StepperProps['localizeStepNumber'];
     /**
+     * Button content for the compact vertical wizard's stepper's trigger.
+     * In small screen widths we hide the vertical stepper and display a popover button instead
+     *
+     * This is required to enable the compact vertical wizard layout.
+     * Ex) (currentStepIndex, totalSteps) =>
+     *       intl.formatMessage( { defaultMessage: 'Step {currentStepIndex} / {totalSteps}', description: '', }, { currentStepIndex: currentStepIndex + 1, totalSteps })
+     */
+    verticalCompactButtonContent?: (currentStepIndex: number, totalSteps: number) => string;
+    /**
      * Called when user clicks on cancel button in Wizard footer
      */
     onCancel: () => void;
@@ -80,22 +89,6 @@ export interface WizardProps {
      */
     extraFooterButtonsRight?: ButtonProps[];
     /**
-     * If true the content of the wizard will take up all available vertical space.
-     * This is to keep the footer at the bottom of the wizard
-     *
-     * A height on either the wizard parent or using the height prop is required for this to work
-     *
-     * @default true
-     */
-    expandContentToFullHeight?: boolean;
-    /**
-     * Delegates all content scroll behavior to the caller if true
-     *    Disable the default scroll drop shadow
-     *    Hide the step content overflow
-     * @default false
-     */
-    useCustomScrollBehavior?: boolean;
-    /**
      * Layout of the stepper.
      * A vertical wizard will have a vertical stepper on the left side of the step content
      * A horizontal wizard will have a horizontal stepper atop of the step content
@@ -113,6 +106,13 @@ export interface WizardProps {
      * @default theme.spacing.lg
      */
     padding?: string | number;
+    /**
+     * If true user will be able to click to steps that have been completed or are less than current step
+     * This default behavior can be overriden by setting `clickEnabled` on each `WizardStep`
+     *
+     * @default false
+     */
+    enableClickingToSteps?: boolean;
 }
 export type WizardControlledProps = WizardProps & WizardCurrentStepResult & {
     currentStepIndex: number;

@@ -5,13 +5,14 @@ import functools
 import importlib
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Optional
 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
 from mlflow import MlflowClient
-from mlflow.entities import LiveSpan, NoOpSpan, SpanType, Trace
+from mlflow.entities import NoOpSpan, SpanType, Trace
+from mlflow.entities.span import LiveSpan, create_mlflow_span
 from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
@@ -70,6 +71,10 @@ def trace(
     capturing the input arguments ``x`` and ``y``, and the output of the function.
 
     .. code-block:: python
+        :test:
+
+        import mlflow
+
 
         @mlflow.trace
         def my_function(x, y):
@@ -79,12 +84,18 @@ def trace(
     manager, but requires less boilerplate code.
 
     .. code-block:: python
+        :test:
+
+        import mlflow
+
 
         def my_function(x, y):
             return x + y
 
 
         with mlflow.start_span("my_function") as span:
+            x = 1
+            y = 2
             span.set_inputs({"x": x, "y": y})
             result = my_function(x, y)
             span.set_outputs({"output": result})
@@ -99,10 +110,13 @@ def trace(
         one created by the decorator i.e. captures information from the function call.
 
         .. code-block:: python
+            :test:
 
-            from some.external.library import predict
+            import math
 
-            mlflow.trace(predict)(1, 2)
+            import mlflow
+
+            mlflow.trace(math.factorial)(5)
 
     Args:
         func: The function to be decorated. Must **not** be provided when using as a decorator.
@@ -135,7 +149,7 @@ def start_span(
     name: str = "span",
     span_type: Optional[str] = SpanType.UNKNOWN,
     attributes: Optional[Dict[str, Any]] = None,
-):
+) -> Generator[LiveSpan, None, None]:
     """
     Context manager to create a new span and start it as the current span in the context.
 
@@ -147,9 +161,14 @@ def start_span(
     spans.
 
     .. code-block:: python
+        :test:
+
+        import mlflow
 
         with mlflow.start_span("my_span") as span:
-            span.set_inputs({"x": 1, "y": 2})
+            x = 1
+            y = 2
+            span.set_inputs({"x": x, "y": y})
 
             z = x + y
 
@@ -196,31 +215,59 @@ def start_span(
     try:
         otel_span = provider.start_span_in_context(name)
 
-        # Create a new MlflowSpanWrapper and register it to the in-memory trace manager
+        # Create a new MLflow span and register it to the in-memory trace manager
         request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
-        mlflow_span = LiveSpan(otel_span, request_id=request_id, span_type=span_type)
+        mlflow_span = create_mlflow_span(otel_span, request_id, span_type)
         mlflow_span.set_attributes(attributes or {})
         InMemoryTraceManager.get_instance().register_span(mlflow_span)
 
     except Exception as e:
-        _logger.debug("Failed to start span: %s", e, exc_info=True)
+        _logger.warning(
+            f"Failed to start span: {e}. ",
+            "For full traceback, set logging level to debug.",
+            exc_info=_logger.isEnabledFor(logging.DEBUG),
+        )
         mlflow_span = NoOpSpan()
         yield mlflow_span
         return
 
     try:
         # Setting end_on_exit = False to suppress the default span
-        # export and instead invoke MlflowSpanWrapper.end()
+        # export and instead invoke MLflow span's end() method.
         with trace_api.use_span(mlflow_span._span, end_on_exit=False):
             yield mlflow_span
     finally:
-        mlflow_span.end()
+        try:
+            mlflow_span.end()
+        except Exception as e:
+            _logger.warning(
+                f"Failed to end span {mlflow_span.span_id}: {e}. "
+                "For full traceback, set logging level to debug.",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )
 
 
 @experimental
-def get_trace(request_id: str) -> Trace:
+def get_trace(request_id: str) -> Optional[Trace]:
     """
-    Get a trace by the given request ID.
+    Get a trace by the given request ID if it exists.
+
+    Args:
+        request_id: The request ID of the trace.
+
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        with mlflow.start_span(name="span") as span:
+            span.set_attribute("key", "value")
+
+        trace = mlflow.get_trace(span.request_id)
+        print(trace)
+
 
     Returns:
         A :py:class:`mlflow.entities.Trace` objects with the given request ID.
@@ -262,6 +309,7 @@ def search_traces(
         A Pandas DataFrame containing information about traces that satisfy the search expressions.
 
     .. code-block:: python
+        :test:
         :caption: Search traces with extract_fields
 
         import mlflow
@@ -269,12 +317,14 @@ def search_traces(
         with mlflow.start_span(name="span1") as span:
             span.set_inputs({"a": 1, "b": 2})
             span.set_outputs({"c": 3, "d": 4})
+
         mlflow.search_traces(
             extract_fields=["span1.inputs", "span1.outputs", "span1.outputs.c"]
         )
 
 
     .. code-block:: python
+        :test:
         :caption: Search traces with extract_fields and non-dictionary span inputs and outputs
 
         import mlflow
@@ -282,6 +332,7 @@ def search_traces(
         with mlflow.start_span(name="non_dict_span") as span:
             span.set_inputs(["a", "b"])
             span.set_outputs([1, 2, 3])
+
         mlflow.search_traces(
             extract_fields=["non_dict_span.inputs", "non_dict_span.outputs"],
         )
@@ -333,7 +384,7 @@ def search_traces(
 
 
 @experimental
-def get_current_active_span():
+def get_current_active_span() -> Optional[LiveSpan]:
     """
     Get the current active span in the global context.
 
@@ -342,6 +393,22 @@ def get_current_active_span():
         This only works when the span is created with fluent APIs like `@mlflow.trace` or
         `with mlflow.start_span`. If a span is created with MlflowClient APIs, it won't be
         attached to the global context so this function will not return it.
+
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        @mlflow.trace
+        def f():
+            span = mlflow.get_current_active_span()
+            span.set_attribute("key", "value")
+            return 0
+
+
+        f()
 
     Returns:
         The current active span if exists, otherwise None.

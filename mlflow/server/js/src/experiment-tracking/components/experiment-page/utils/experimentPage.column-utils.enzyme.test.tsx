@@ -69,6 +69,10 @@ describe('ExperimentViewRuns column utils', () => {
           headerName: ATTRIBUTE_COLUMN_LABELS.SOURCE,
           cellRenderer: 'SourceCellRenderer',
         }),
+        expect.objectContaining({
+          headerName: ATTRIBUTE_COLUMN_LABELS.DESCRIPTION,
+          cellRenderer: 'RunDescriptionCellRenderer',
+        }),
       ]),
     );
 

@@ -87,6 +87,7 @@ export const RunColorPill = ({
       </span>
       {onChangeColor && (
         <input
+          disabled={hidden}
           type="color"
           value={colorValue ?? color}
           onChange={({ target }) => {

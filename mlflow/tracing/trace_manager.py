@@ -82,7 +82,7 @@ class InMemoryTraceManager:
         """
         with self._lock:
             if trace_info.request_id not in self._traces:
-                _logger.warning(f"Trace data with request ID {trace_info.request_id} not found.")
+                _logger.debug(f"Trace data with request ID {trace_info.request_id} not found.")
                 return
             self._traces[trace_info.request_id].info = trace_info
 
@@ -94,7 +94,7 @@ class InMemoryTraceManager:
             span: The span to be stored.
         """
         if not isinstance(span, LiveSpan):
-            _logger.warning(f"Invalid span object {type(span)} is passed. Skipping.")
+            _logger.debug(f"Invalid span object {type(span)} is passed. Skipping.")
             return
 
         with self._lock:
@@ -139,15 +139,6 @@ class InMemoryTraceManager:
         Get the request ID for the given trace ID.
         """
         return self._trace_id_to_request_id.get(trace_id)
-
-    def get_mlflow_trace(self, request_id: int) -> Optional[Trace]:
-        """
-        Get the trace data for the given trace ID and return it as a ready-to-publish Trace object.
-        """
-        with self._lock:
-            trace = self._traces.get(request_id)
-
-        return trace.to_mlflow_trace() if trace else None
 
     def pop_trace(self, trace_id: int) -> Optional[Trace]:
         """

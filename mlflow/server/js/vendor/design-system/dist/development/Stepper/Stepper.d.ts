@@ -13,7 +13,7 @@ export interface Step {
      *
      * @default 'upcoming'
      */
-    status?: 'completed' | 'loading' | 'upcoming' | 'error';
+    status?: 'completed' | 'loading' | 'upcoming' | 'error' | 'warning';
     /**
      * Custom icon to display in the step. If provided, the `icon` prop will be used instead of the default icon.
      */
@@ -27,6 +27,10 @@ export interface Step {
      * This can be used to create a vertical wizard
      */
     additionalVerticalContent?: React.ReactNode;
+    /**
+     * If true, the step can be clicked and the `onStepClicked` callback will be called
+     */
+    clickEnabled?: boolean;
 }
 export interface StepperProps {
     /**
@@ -58,8 +62,14 @@ export interface StepperProps {
      * @default true
      */
     responsive?: boolean;
+    /**
+     * Callback when a step is clicked for steps with `clickEnabled` set to true
+     *
+     * @default 'undefined'
+     */
+    onStepClicked?: (stepIndex: number) => void;
 }
-export declare function Stepper({ direction: requestedDirection, currentStepIndex: currentStep, steps, localizeStepNumber, responsive, }: StepperProps): import("@emotion/react/jsx-runtime").JSX.Element | null;
+export declare function Stepper({ direction: requestedDirection, currentStepIndex: currentStep, steps, localizeStepNumber, responsive, onStepClicked, }: StepperProps): import("@emotion/react/jsx-runtime").JSX.Element | null;
 export declare function useResponsiveDirection({ requestedDirection, responsive, enabled, ref, }: {
     requestedDirection: StepperProps['direction'];
     enabled: boolean;

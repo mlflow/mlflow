@@ -7,13 +7,14 @@ from packaging.version import Version
 
 import mlflow
 import mlflow.tracking.context.default_context
-from mlflow.entities import SpanType, Trace
+from mlflow.entities import SpanType, Trace, TraceData
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
-from tests.tracing.helper import get_first_trace
+from tests.tracing.helper import create_test_trace_info, get_first_trace
 
 
 def _test_model(datetime=datetime.now()):
@@ -67,6 +68,7 @@ def test_json_deserialization(clear_singleton, monkeypatch):
                 "mlflow.traceName": "predict",
                 "mlflow.source.name": "test",
                 "mlflow.source.type": "LOCAL",
+                "mlflow.artifactLocation": trace.info.tags[MLFLOW_ARTIFACT_LOCATION],
                 TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
             },
         },
@@ -220,3 +222,11 @@ def test_trace_to_from_dict_and_json(clear_singleton):
                 assert getattr(trace.data.spans[i], attr) == getattr(
                     loaded_trace.data.spans[i], attr
                 )
+
+
+def test_trace_pandas_dataframe_columns():
+    t = Trace(
+        info=create_test_trace_info("a"),
+        data=TraceData(),
+    )
+    assert Trace.pandas_dataframe_columns() == list(t.to_pandas_dataframe_row())

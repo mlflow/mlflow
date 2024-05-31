@@ -68,7 +68,11 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_RUN_NAME
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_ARTIFACT_LOCATION,
+    MLFLOW_DATASET_CONTEXT,
+    MLFLOW_RUN_NAME,
+)
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES
 from mlflow.utils.os import is_windows
 from mlflow.utils.time import get_current_time_millis
@@ -3834,7 +3838,13 @@ def test_start_and_end_trace(store: SqlAlchemyStore):
     assert trace_info.execution_time_ms is None
     assert trace_info.status == TraceStatus.IN_PROGRESS
     assert trace_info.request_metadata == {"rq1": "foo", "rq2": "bar"}
-    assert trace_info.tags == {"tag1": "apple", "tag2": "orange"}
+    artifact_location = trace_info.tags[MLFLOW_ARTIFACT_LOCATION]
+    assert artifact_location.endswith(f"/{experiment_id}/traces/{request_id}/artifacts")
+    assert trace_info.tags == {
+        "tag1": "apple",
+        "tag2": "orange",
+        MLFLOW_ARTIFACT_LOCATION: artifact_location,
+    }
     assert trace_info == store.get_trace_info(request_id)
 
     trace_info = store.end_trace(
@@ -3858,7 +3868,12 @@ def test_start_and_end_trace(store: SqlAlchemyStore):
         "rq2": "bar",
         "rq3": "baz",
     }
-    assert trace_info.tags == {"tag1": "updated", "tag2": "orange", "tag3": "grape"}
+    assert trace_info.tags == {
+        "tag1": "updated",
+        "tag2": "orange",
+        "tag3": "grape",
+        MLFLOW_ARTIFACT_LOCATION: artifact_location,
+    }
     assert trace_info == store.get_trace_info(request_id)
 
 
@@ -4014,12 +4029,17 @@ def test_search_traces_order_by(store_with_traces, order_by, expected_ids):
         # Search by status
         ("status = 'OK'", ["tr-4", "tr-3", "tr-0"]),
         ("status != 'OK'", ["tr-2", "tr-1"]),
+        ("attributes.status = 'OK'", ["tr-4", "tr-3", "tr-0"]),
+        ("attributes.name != 'aaa'", ["tr-4", "tr-3", "tr-2", "tr-0"]),
+        ("trace.status = 'OK'", ["tr-4", "tr-3", "tr-0"]),
+        ("trace.name != 'aaa'", ["tr-4", "tr-3", "tr-2", "tr-0"]),
         # Search by timestamp
         ("`timestamp` >= 1 AND execution_time < 10", ["tr-2", "tr-1"]),
         # Search by tag
-        ("tags.fruit = 'apple'", ["tr-2", "tr-1"]),
+        ("tag.fruit = 'apple'", ["tr-2", "tr-1"]),
+        ("tag.color LIKE 're%'", ["tr-1"]),
+        # tags is an alias for tag
         ("tags.fruit = 'apple' and tags.color != 'red'", ["tr-2"]),
-        ("tags.color LIKE 're%'", ["tr-1"]),
         # Search by request metadata
         ("run_id = 'run0'", ["tr-0"]),
     ],
@@ -4036,6 +4056,28 @@ def test_search_traces_with_filter(store_with_traces, filter_string, expected_id
     )
     actual_ids = [trace_info.request_id for trace_info in trace_infos]
     assert actual_ids == expected_ids
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "error"),
+    [
+        ("invalid", r"Invalid clause\(s\) in filter string"),
+        ("name = 'foo' AND invalid", r"Invalid clause\(s\) in filter string"),
+        ("foo.bar = 'baz'", r"Invalid entity type 'foo'"),
+        ("invalid = 'foo'", r"Invalid attribute key 'invalid'"),
+        ("trace.tags.foo = 'bar'", r"Invalid attribute key 'tags\.foo'"),
+        ("trace.status < 'OK'", r"Invalid comparator '<'"),
+    ],
+)
+def test_search_traces_with_invalid_filter(store_with_traces, filter_string, error):
+    exp1 = store_with_traces.get_experiment_by_name("exp1").experiment_id
+    exp2 = store_with_traces.get_experiment_by_name("exp2").experiment_id
+
+    with pytest.raises(MlflowException, match=error):
+        store_with_traces.search_traces(
+            experiment_ids=[exp1, exp2],
+            filter_string=filter_string,
+        )
 
 
 def test_search_traces_raise_if_max_results_arg_is_invalid(store):
@@ -4095,6 +4137,9 @@ def test_set_and_delete_tags(store: SqlAlchemyStore):
     request_id = "tr-123"
     _create_trace(store, request_id, experiment_id=exp1)
 
+    # Delete system tag for easier testing
+    store.delete_trace_tag(request_id, MLFLOW_ARTIFACT_LOCATION)
+
     assert store.get_trace_info(request_id).tags == {}
 
     store.set_trace_tag(request_id, "tag1", "apple")
@@ -4135,8 +4180,6 @@ def test_set_tag_truncate_too_long_tag(store: SqlAlchemyStore):
     request_id = "tr-123"
     _create_trace(store, request_id, experiment_id=exp1)
 
-    assert store.get_trace_info(request_id).tags == {}
-
     store.set_trace_tag(request_id, "key", "123" + "a" * 8000)
     tags = store.get_trace_info(request_id).tags
     assert len(tags["key"]) == 8000
@@ -4148,8 +4191,12 @@ def test_delete_traces(store):
     exp2 = store.create_experiment("exp2")
 
     for i in range(10):
-        _create_trace(store, f"tr-exp1-{i}", exp1)
-        _create_trace(store, f"tr-exp2-{i}", exp2)
+        _create_trace(
+            store, f"tr-exp1-{i}", exp1, tags={"tag": "apple"}, request_metadata={"rq": "foo"}
+        )
+        _create_trace(
+            store, f"tr-exp2-{i}", exp2, tags={"tag": "orange"}, request_metadata={"rq": "bar"}
+        )
 
     traces, _ = store.search_traces([exp1, exp2])
     assert len(traces) == 20

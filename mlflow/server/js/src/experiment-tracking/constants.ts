@@ -17,6 +17,7 @@ export const ATTRIBUTE_COLUMN_LABELS = {
   VERSION: 'Version',
   MODELS: 'Models',
   DATASET: 'Dataset',
+  DESCRIPTION: 'Description',
 };
 
 export const ATTRIBUTE_COLUMN_SORT_LABEL = {
@@ -25,6 +26,7 @@ export const ATTRIBUTE_COLUMN_SORT_LABEL = {
   RUN_NAME: 'Run Name',
   SOURCE: 'Source',
   VERSION: 'Version',
+  DESCRIPTION: 'Description',
 };
 
 export const ATTRIBUTE_COLUMN_SORT_KEY = {
@@ -33,6 +35,7 @@ export const ATTRIBUTE_COLUMN_SORT_KEY = {
   RUN_NAME: 'tags.`mlflow.runName`',
   SOURCE: 'tags.`mlflow.source.name`',
   VERSION: 'tags.`mlflow.source.git.commit`',
+  DESCRIPTION: 'tags.`mlflow.note.content`',
 };
 
 export const COLUMN_SORT_BY_ASC = 'ASCENDING';

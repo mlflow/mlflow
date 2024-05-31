@@ -27,6 +27,8 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
     TraceTagKey,
 )
+from mlflow.tracing.fluent import TRACE_BUFFER
+from mlflow.tracing.provider import _get_tracer
 
 from tests.tracing.helper import create_test_trace_info, create_trace, get_first_trace, get_traces
 
@@ -164,9 +166,9 @@ def test_trace_with_databricks_tracking_uri(
     mock_upload_trace_data.assert_called_once()
 
 
-def test_trace_in_databricks_model_serving(clear_singleton, monkeypatch):
-    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
-
+def test_trace_in_databricks_model_serving(
+    clear_singleton, mock_databricks_serving_with_tracing_env
+):
     # Dummy flask app for prediction
     import flask
 
@@ -349,7 +351,7 @@ def test_trace_handle_exception_during_prediction(clear_singleton):
     assert len(trace.data.spans) == 2
 
 
-def test_trace_ignore_exception_from_tracing_logic(clear_singleton):
+def test_trace_ignore_exception_from_tracing_logic(clear_singleton, monkeypatch):
     # This test is to make sure that the main prediction logic is not affected
     # by the exception raised by the tracing logic.
     class TestModel:
@@ -365,6 +367,7 @@ def test_trace_ignore_exception_from_tracing_logic(clear_singleton):
 
     assert output == 7
     assert get_traces() == []
+    TRACE_BUFFER.clear()
 
     # Exception during inspecting inputs: trace is logged without inputs field
     with mock.patch("mlflow.tracing.utils.inspect.signature", side_effect=ValueError("Some error")):
@@ -374,6 +377,21 @@ def test_trace_ignore_exception_from_tracing_logic(clear_singleton):
     trace = get_first_trace()
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == "{}"
     assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "7"
+    TRACE_BUFFER.clear()
+
+    # Exception during ending span: trace is not logged
+    # Mock the span processor's on_end handler to raise an exception
+    tracer = _get_tracer(__name__)
+
+    def _always_fail(*args, **kwargs):
+        raise ValueError("Some error")
+
+    monkeypatch.setattr(tracer.span_processor, "on_end", _always_fail)
+
+    output = model.predict(2, 5)
+    assert output == 7
+    assert get_traces() == []
+    TRACE_BUFFER.clear()
 
 
 def test_start_span_context_manager(clear_singleton):
@@ -521,6 +539,21 @@ def test_start_span_context_manager_with_imperative_apis(clear_singleton):
         "mlflow.spanInputs": 3,
         "mlflow.spanOutputs": 5,
     }
+
+
+def test_test_search_traces_empty(mock_client):
+    mock_client.search_traces.return_value = PagedList([], token=None)
+
+    traces = mlflow.search_traces()
+    assert traces.empty
+
+    default_columns = Trace.pandas_dataframe_columns()
+    assert traces.columns.tolist() == default_columns
+
+    traces = mlflow.search_traces(extract_fields=["foo.inputs.bar"])
+    assert traces.columns.tolist() == [*default_columns, "foo.inputs.bar"]
+
+    mock_client.search_traces.assert_called()
 
 
 def test_search_traces(mock_client):

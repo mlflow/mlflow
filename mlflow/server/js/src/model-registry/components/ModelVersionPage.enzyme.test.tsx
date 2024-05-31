@@ -6,7 +6,6 @@
  */
 
 import React from 'react';
-import { mount } from 'enzyme';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
@@ -36,6 +35,17 @@ describe('ModelVersionPage', () => {
   let minimalStore: any;
   const mockStore = configureStore([thunk, promiseMiddleware()]);
   const navigate = jest.fn();
+
+  const mountComponent = (props = minimalProps, store = minimalStore) => {
+    return mountWithIntl(
+      <Provider store={store}>
+        <MemoryRouter>
+          <ModelVersionPage {...props} />
+        </MemoryRouter>
+      </Provider>,
+    );
+  };
+
   beforeEach(() => {
     // Simple mock of getUUID
     let counter = 0;
@@ -74,13 +84,7 @@ describe('ModelVersionPage', () => {
     });
   });
   test('should render with minimal props and store without exploding', () => {
-    wrapper = mount(
-      <Provider store={minimalStore}>
-        <MemoryRouter>
-          <ModelVersionPage {...minimalProps} />
-        </MemoryRouter>
-      </Provider>,
-    );
+    wrapper = mountComponent();
     expect(wrapper.find(ModelVersionPage).length).toBe(1);
     expect(wrapper.find(Spinner).length).toBe(1);
   });
@@ -95,7 +99,7 @@ describe('ModelVersionPage', () => {
       </Provider>
     );
     // Initial mount
-    wrapper = mount(<TestComponent />);
+    wrapper = mountWithIntl(<TestComponent />);
     // Assert first (original) call for model version
     expect(global.fetch).toBeCalledWith(endpoint + '?name=Model+A&version=1', expect.anything());
     // Update the mocked params object with new params
@@ -109,13 +113,7 @@ describe('ModelVersionPage', () => {
     expect(global.fetch).toBeCalledWith(endpoint + '?name=Model+A&version=5', expect.anything());
   });
   test('should redirect to model page when model version is deleted', async () => {
-    wrapper = mount(
-      <Provider store={minimalStore}>
-        <MemoryRouter>
-          <ModelVersionPage {...minimalProps} />
-        </MemoryRouter>
-      </Provider>,
-    );
+    wrapper = mountComponent();
     instance = wrapper.find(ModelVersionPageImpl).instance();
     const mockError = {
       getErrorCode() {
@@ -141,13 +139,7 @@ describe('ModelVersionPage', () => {
         },
       },
     });
-    wrapper = mountWithIntl(
-      <Provider store={myStore}>
-        <MemoryRouter>
-          <ModelVersionPage {...minimalProps} />
-        </MemoryRouter>
-      </Provider>,
-    );
+    wrapper = mountComponent(minimalProps, myStore);
     expect(wrapper.find(ErrorView).length).toBe(1);
     expect(wrapper.find(ErrorView).prop('statusCode')).toBe(404);
     expect(wrapper.find(ErrorView).prop('subMessage')).toBe('Model Model A v1 does not exist');
@@ -169,13 +161,7 @@ describe('ModelVersionPage', () => {
         },
       },
     });
-    wrapper = mountWithIntl(
-      <Provider store={myStore}>
-        <MemoryRouter>
-          <ModelVersionPage {...minimalProps} />
-        </MemoryRouter>
-      </Provider>,
-    );
+    wrapper = mountComponent(minimalProps, myStore);
     expect(wrapper.find(ErrorView).length).toBe(1);
     expect(wrapper.find(ErrorView).prop('statusCode')).toBe(409);
     expect(wrapper.find(ErrorView).prop('subMessage')).toBe(testMessage);

@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterator, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
@@ -33,8 +33,20 @@ class _ChatModelPyfuncWrapper:
         self.signature = signature
 
     def _convert_input(self, model_input):
-        # model_input should be correct from signature validation, so just convert it to dict here
-        dict_input = {key: value[0] for key, value in model_input.to_dict(orient="list").items()}
+        import pandas
+
+        if isinstance(model_input, dict):
+            dict_input = model_input
+        elif isinstance(model_input, pandas.DataFrame):
+            dict_input = {
+                key: value[0] for key, value in model_input.to_dict(orient="list").items()
+            }
+        else:
+            raise MlflowException(
+                "Unsupported model input type. Expected a dict or pandas.DataFrame, "
+                f"but got {type(model_input)} instead.",
+                error_code=INTERNAL_ERROR,
+            )
 
         messages = [ChatMessage(**message) for message in dict_input.pop("messages", [])]
         params = ChatParams(**dict_input)
@@ -56,14 +68,30 @@ class _ChatModelPyfuncWrapper:
         """
         messages, params = self._convert_input(model_input)
         response = self.chat_model.predict(self.context, messages, params)
+        return self._response_to_dict(response)
 
+    def _response_to_dict(self, response: ChatResponse) -> Dict[str, Any]:
         if not isinstance(response, ChatResponse):
-            # shouldn't happen since there is validation at save time ensuring that
-            # the output is a ChatResponse, so raise an exception if it isn't
             raise MlflowException(
                 "Model returned an invalid response. Expected a ChatResponse, but "
                 f"got {type(response)} instead.",
                 error_code=INTERNAL_ERROR,
             )
-
         return response.to_dict()
+
+    def predict_stream(
+        self, model_input: Dict[str, Any], params: Optional[Dict[str, Any]] = None
+    ) -> Iterator[Dict[str, Any]]:
+        """
+        Args:
+            model_input: Model input data in the form of a chat request.
+            params: Additional parameters to pass to the model for inference.
+                       Unused in this implementation, as the params are handled
+                       via ``self._convert_input()``.
+
+        Returns:
+            Iterator over model predictions in :py:class:`~ChatResponse` format.
+        """
+        messages, params = self._convert_input(model_input)
+        response = self.chat_model.predict_stream(self.context, messages, params)
+        return map(self._response_to_dict, response)
