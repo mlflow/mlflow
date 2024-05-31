@@ -186,12 +186,20 @@ def test_log_evaluation_with_same_inputs_has_same_inputs_id(inputs, outputs):
                 {
                     "name": "assessment1",
                     "value": 1.0,
-                    "source": {"source_type": "HUMAN", "source_id": "user_1"},
+                    "source": {
+                        "source_type": "HUMAN",
+                        "source_id": "user_1",
+                        "metadata": {"sourcekey1": "sourcevalue1"},
+                    },
                 },
                 {
                     "name": "assessment2",
                     "value": 0.84,
-                    "source": {"source_type": "HUMAN", "source_id": "user_1"},
+                    "source": {
+                        "source_type": "HUMAN",
+                        "source_id": "user_1",
+                        "metadata": {"sourcekey2": "sourcevalue2"},
+                    },
                 },
             ],
             [
@@ -208,7 +216,9 @@ def test_log_evaluation_with_same_inputs_has_same_inputs_id(inputs, outputs):
                     name="accuracy",
                     value=0.8,
                     source=AssessmentSource(
-                        source_type=AssessmentSourceType.HUMAN, source_id="user-1"
+                        source_type=AssessmentSourceType.HUMAN,
+                        source_id="user-1",
+                        metadata={"sourcekey3": "sourcevalue3"},
                     ),
                 )
             ],
@@ -271,6 +281,131 @@ def test_log_evaluation_with_all_params(inputs, outputs, targets, assessments, m
             evaluation_id=logged_evaluation.evaluation_id, run_id=run_id
         )
         assert logged_evaluation == retrieved_evaluation
+
+
+def test_log_evaluations_with_all_params():
+    evaluations_data = [
+        (
+            {"feature1": 1.0, "feature2": 2.0},
+            {"prediction": 0.5},
+            {"actual": 1.0},
+            [
+                {
+                    "name": "assessment1",
+                    "value": 1.0,
+                    "source": {
+                        "source_type": "HUMAN",
+                        "source_id": "user_1",
+                        "metadata": {"sourcekey1": "sourcevalue1"},
+                    },
+                },
+                {
+                    "name": "assessment2",
+                    "value": 0.84,
+                    "source": {
+                        "source_type": "HUMAN",
+                        "source_id": "user_1",
+                        "metadata": {"sourcekey2": "sourcevalue2"},
+                    },
+                },
+            ],
+            [
+                Metric(key="metric1", value=1.4, timestamp=1717047609503, step=0),
+                Metric(key="metric2", value=1.2, timestamp=1717047609504, step=0),
+            ],
+        ),
+        (
+            {"feature1": "text1", "feature2": "text2"},
+            {"prediction": "output_text"},
+            {"actual": "expected_text"},
+            [
+                Assessment(
+                    name="accuracy",
+                    value=0.8,
+                    source=AssessmentSource(
+                        source_type=AssessmentSourceType.HUMAN,
+                        source_id="user-1",
+                        metadata={"sourcekey3": "sourcevalue3"},
+                    ),
+                )
+            ],
+            {"metric1": 0.8, "metric2": 0.84},
+        ),
+    ]
+
+    inputs_id = "unique-inputs-id"
+    request_id = "unique-request-id"
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+        evaluations = []
+        for inputs, outputs, targets, assessments, metrics in evaluations_data:
+            if isinstance(assessments[0], dict):
+                assessments = [Assessment.from_dictionary(assessment) for assessment in assessments]
+
+            if isinstance(metrics, dict):
+                metrics = [
+                    Metric(key=key, value=value, timestamp=0, step=0)
+                    for key, value in metrics.items()
+                ]
+
+            evaluation = Evaluation(
+                inputs=inputs,
+                outputs=outputs,
+                inputs_id=inputs_id,
+                request_id=request_id,
+                targets=targets,
+                assessments=assessments,
+                metrics=metrics,
+            )
+            evaluations.append(evaluation)
+
+        # Log the evaluations
+        logged_evaluations = log_evaluations(evaluations=evaluations, run_id=run_id)
+
+        for logged_evaluation, (inputs, outputs, targets, assessments, metrics) in zip(
+            logged_evaluations, evaluations_data
+        ):
+            # Assert the fields of the logged evaluation
+            assert logged_evaluation.inputs == inputs
+            assert logged_evaluation.outputs == outputs
+            assert logged_evaluation.inputs_id == inputs_id
+            assert logged_evaluation.request_id == request_id
+            assert logged_evaluation.targets == targets
+
+            logged_metrics = (
+                {metric.key: metric.value for metric in logged_evaluation.metrics}
+                if isinstance(metrics, list) and isinstance(metrics[0], Metric)
+                else metrics
+            )
+            assert {
+                metric.key: metric.value for metric in logged_evaluation.metrics
+            } == logged_metrics
+
+            assessment_entities = [
+                Assessment.from_dictionary(assessment)._to_entity(
+                    evaluation_id=logged_evaluation.evaluation_id
+                )
+                if isinstance(assessment, dict)
+                else assessment._to_entity(evaluation_id=logged_evaluation.evaluation_id)
+                for assessment in assessments
+            ]
+
+            for logged_assessment, assessment_entity in zip(
+                logged_evaluation.assessments, assessment_entities
+            ):
+                assert logged_assessment.name == assessment_entity.name
+                assert logged_assessment.boolean_value == assessment_entity.boolean_value
+                assert logged_assessment.numeric_value == assessment_entity.numeric_value
+                assert logged_assessment.string_value == assessment_entity.string_value
+                assert logged_assessment.metadata == assessment_entity.metadata
+                assert logged_assessment.source == assessment_entity.source
+
+            retrieved_evaluation = get_evaluation(
+                evaluation_id=logged_evaluation.evaluation_id, run_id=run_id
+            )
+            assert logged_evaluation == retrieved_evaluation
 
 
 def test_log_evaluation_starts_run_if_not_started():
