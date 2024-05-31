@@ -371,16 +371,6 @@ class _ParsedField(NamedTuple):
 
     @classmethod
     def from_string(cls, s: str) -> "_ParsedField":
-        """
-        s looks like this:
-
-        span_name.[inputs|outputs].field_name
-        `span_name`.[inputs|outputs].field_name
-        span_name.[inputs|outputs].`field_name`
-        `span_name`.[inputs|outputs].`field_name`
-
-        span_name or field_name can contain dots.
-        """
         parser = _FieldParser(s)
         return parser.parse_field()
 
