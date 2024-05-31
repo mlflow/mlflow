@@ -322,7 +322,6 @@ class AbstractStore:
             )
         return self._delete_traces(experiment_id, max_timestamp_millis, max_traces, request_ids)
 
-    @abstractmethod
     def _delete_traces(
         self,
         experiment_id: str,
