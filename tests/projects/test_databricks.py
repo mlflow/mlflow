@@ -462,7 +462,7 @@ def test_databricks_http_request_integration(request):
         "mlflow.utils.databricks_utils.get_databricks_host_creds",
         return_value=MlflowHostCreds(
             host="host", username="user", password="pass", ignore_tls_verification=False
-        )
+        ),
     ):
         response = DatabricksJobRunner(databricks_profile_uri=None)._databricks_api_request(
             "/clusters/list", "PUT", json={"a": "b"}

@@ -11,7 +11,6 @@ from typing import NamedTuple, Optional, TypeVar
 import mlflow.utils
 from mlflow.environment_variables import (
     MLFLOW_TRACKING_URI,
-    MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.legacy_databricks_cli.configure.provider import (
@@ -549,7 +548,6 @@ def get_databricks_host_creds(server_uri=None):
     """
 
     from databricks.sdk import WorkspaceClient
-    from databricks.sdk.config import Config
 
     profile, _ = get_db_info_from_uri(server_uri)
     try:
@@ -573,7 +571,7 @@ def get_databricks_host_creds(server_uri=None):
             host=host, auth_by_databricks_sdk=True, databricks_auth_profile=profile
         )
     except Exception as e:
-        _logger.info(f"Creating databricks SDK workspace client failed, error: {repr(e)}")
+        _logger.info(f"Creating databricks SDK workspace client failed, error: {e!r}")
         # There are a few other ways to read credentials that databricks-sdk hasn't supported yet,
         # we handle them here as the fallback approaches.
         config = None
@@ -601,7 +599,9 @@ def get_databricks_host_creds(server_uri=None):
                 ignore_tls_verification=insecure,
             )
         elif config.token:
-            return MlflowHostCreds(config.host, token=config.token, ignore_tls_verification=insecure)
+            return MlflowHostCreds(
+                config.host, token=config.token, ignore_tls_verification=insecure
+            )
         _fail_malformed_databricks_auth(profile)
 
 

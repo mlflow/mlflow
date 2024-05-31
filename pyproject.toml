@@ -29,6 +29,8 @@ dependencies = [
   "cachetools<6,>=5.0.0",
   "click<9,>=7.0",
   "cloudpickle<4",
+  "databricks-sdk<1,>=0.20.0",
+  "databricks-sdk<1,>=0.20.0",
   "docker<8,>=4.0.0",
   "entrypoints<1",
   "gitpython<4,>=3.1.9",

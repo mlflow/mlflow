@@ -105,10 +105,12 @@ def _mock_temporary_creds_response(temporary_creds):
 
 
 def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(monkeypatch):
-    monkeypatch.setenvs({
-        "DATABRICKS_HOST": "my-host",
-        "DATABRICKS_TOKEN": "my-token",
-    })
+    monkeypatch.setenvs(
+        {
+            "DATABRICKS_HOST": "my-host",
+            "DATABRICKS_TOKEN": "my-token",
+        }
+    )
     artifact_location = "s3://blah_bucket/"
     fake_key_id = "fake_key_id"
     fake_secret_access_key = "fake_secret_access_key"
@@ -152,10 +154,12 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(mon
 
 
 def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(monkeypatch):
-    monkeypatch.setenvs({
-        "DATABRICKS_HOST": "my-host",
-        "DATABRICKS_TOKEN": "my-token",
-    })
+    monkeypatch.setenvs(
+        {
+            "DATABRICKS_HOST": "my-host",
+            "DATABRICKS_TOKEN": "my-token",
+        }
+    )
     artifact_location = "abfss://filesystem@account.dfs.core.windows.net"
     fake_sas_token = "fake_session_token"
     temporary_creds = {
@@ -194,10 +198,12 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(m
 
 
 def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(monkeypatch):
-    monkeypatch.setenvs({
-        "DATABRICKS_HOST": "my-host",
-        "DATABRICKS_TOKEN": "my-token",
-    })
+    monkeypatch.setenvs(
+        {
+            "DATABRICKS_HOST": "my-host",
+            "DATABRICKS_TOKEN": "my-token",
+        }
+    )
     artifact_location = "gs://test_bucket/some/path"
     fake_oauth_token = "fake_session_token"
     temporary_creds = {
@@ -260,10 +266,12 @@ def test_uc_models_artifact_repo_uses_active_catalog_and_schema():
 
 
 def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds(monkeypatch):
-    monkeypatch.setenvs({
-        "DATABRICKS_HOST": "my-host",
-        "DATABRICKS_TOKEN": "my-token",
-    })
+    monkeypatch.setenvs(
+        {
+            "DATABRICKS_HOST": "my-host",
+            "DATABRICKS_TOKEN": "my-token",
+        }
+    )
     artifact_location = "abfss://filesystem@account.dfs.core.windows.net"
     fake_sas_token = "fake_session_token"
     temporary_creds = {
@@ -353,10 +361,12 @@ def test_store_use_presigned_url_store_when_disabled():
 
 
 def test_store_use_presigned_url_store_when_enabled(monkeypatch):
-    monkeypatch.setenvs({
-        "DATABRICKS_HOST": "my-host",
-        "DATABRICKS_TOKEN": "my-token",
-    })
+    monkeypatch.setenvs(
+        {
+            "DATABRICKS_HOST": "my-host",
+            "DATABRICKS_TOKEN": "my-token",
+        }
+    )
     store_package = "mlflow.store.artifact.unity_catalog_models_artifact_repo"
     creds = TemporaryCredentials(storage_mode=StorageMode.DEFAULT_STORAGE)
     with mock.patch(

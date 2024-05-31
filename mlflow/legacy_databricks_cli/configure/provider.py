@@ -276,8 +276,15 @@ class EnvironmentVariableConfigProvider(DatabricksConfigProvider):
         client_secret = os.environ.get("DATABRICKS_CLIENT_SECRET")
 
         config = DatabricksConfig(
-            host, username, password, token, refresh_token, insecure, jobs_api_version,
-            client_id=client_id, client_secret=client_secret
+            host,
+            username,
+            password,
+            token,
+            refresh_token,
+            insecure,
+            jobs_api_version,
+            client_id=client_id,
+            client_secret=client_secret,
         )
         if config.is_valid:
             return config
@@ -302,8 +309,15 @@ class ProfileConfigProvider(DatabricksConfigProvider):
         client_id = _get_option_if_exists(raw_config, self.profile, CLIENT_ID)
         client_secret = _get_option_if_exists(raw_config, self.profile, CLIENT_SECRET)
         config = DatabricksConfig(
-            host, username, password, token, refresh_token, insecure, jobs_api_version,
-            client_id=client_id, client_secret=client_secret,
+            host,
+            username,
+            password,
+            token,
+            refresh_token,
+            insecure,
+            jobs_api_version,
+            client_id=client_id,
+            client_secret=client_secret,
         )
         if config.is_valid:
             return config
@@ -435,9 +449,14 @@ class DatabricksConfig:
 
     @property
     def is_valid_with_client_id_secret(self):
-        return self.host is not None and self.client_id is not None and self.client_secret is not None
+        return (
+            self.host is not None and self.client_id is not None and self.client_secret is not None
+        )
 
     @property
     def is_valid(self):
-        return self.is_valid_with_token or self.is_valid_with_password or self.is_valid_with_client_id_secret
-
+        return (
+            self.is_valid_with_token
+            or self.is_valid_with_password
+            or self.is_valid_with_client_id_secret
+        )

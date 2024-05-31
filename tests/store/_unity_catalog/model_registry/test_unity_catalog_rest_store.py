@@ -1635,10 +1635,12 @@ def test_store_use_presigned_url_store_when_disabled():
 
 
 def test_store_use_presigned_url_store_when_enabled(monkeypatch):
-    monkeypatch.setenvs({
-        "DATABRICKS_HOST": "my-host",
-        "DATABRICKS_TOKEN": "my-token",
-    })
+    monkeypatch.setenvs(
+        {
+            "DATABRICKS_HOST": "my-host",
+            "DATABRICKS_TOKEN": "my-token",
+        }
+    )
     store_package = "mlflow.store._unity_catalog.registry.rest_store"
     creds = TemporaryCredentials(storage_mode=StorageMode.DEFAULT_STORAGE)
     with mock.patch(

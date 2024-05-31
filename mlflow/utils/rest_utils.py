@@ -2,26 +2,24 @@ import base64
 import json
 
 import requests
-from dataclasses import dataclass
-from requests.exceptions import HTTPError
 
 from mlflow.environment_variables import (
     _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT,
     _MLFLOW_HTTP_REQUEST_MAX_RETRIES_LIMIT,
+    MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT,
     MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
     MLFLOW_HTTP_REQUEST_BACKOFF_JITTER,
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
     MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER,
-    MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT,
 )
 from mlflow.exceptions import (
+    ERROR_CODE_TO_HTTP_STATUS,
     INVALID_PARAMETER_VALUE,
     InvalidUrlException,
     MlflowException,
     RestException,
     get_error_code,
-    ERROR_CODE_TO_HTTP_STATUS,
 )
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
@@ -33,7 +31,6 @@ from mlflow.utils.request_utils import (
     cloud_storage_http_request,  # noqa: F401
 )
 from mlflow.utils.string_utils import strip_suffix
-
 
 RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
@@ -116,10 +113,12 @@ def http_request(
                 response.status_code = ERROR_CODE_TO_HTTP_STATUS.get(e.error_code, 500)
                 response.reason = str(e)
                 response.encoding = "UTF-8"
-                response._content = json.dumps({
-                    "error_code": e.error_code,
-                    "message": str(e),
-                }).encode("UTF-8")
+                response._content = json.dumps(
+                    {
+                        "error_code": e.error_code,
+                        "message": str(e),
+                    }
+                ).encode("UTF-8")
 
                 return response
 
