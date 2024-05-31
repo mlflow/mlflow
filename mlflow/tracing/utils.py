@@ -352,7 +352,7 @@ class _FieldParser:
             field_name = self.consume_until_char_or_end()
         return field_name
 
-    def parse_field(self):
+    def parse(self):
         span_name = self.parse_span_name()
         field_type = self.parse_field_type()
         field_name = self.parse_field_name() if self.has_next() else None
@@ -372,7 +372,7 @@ class _ParsedField(NamedTuple):
     @classmethod
     def from_string(cls, s: str) -> "_ParsedField":
         parser = _FieldParser(s)
-        return parser.parse_field()
+        return parser.parse()
 
     def __str__(self) -> str:
         return (

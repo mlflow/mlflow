@@ -5,6 +5,7 @@ import pytest
 from mlflow.entities import LiveSpan
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.utils import (
+    _FieldParser,
     _parse_fields,
     _ParsedField,
     deduplicate_span_names_in_place,
@@ -93,8 +94,22 @@ def test_maybe_get_request_id():
         ),
     ],
 )
-def test_parse_field_from_string(field, expected):
-    assert _ParsedField.from_string(field) == expected
+def test_field_parser(field, expected):
+    assert _FieldParser(field).parse() == expected
+
+
+def test_field_parser_invalid():
+    with pytest.raises(MlflowException, match="Expected closing backtick"):
+        _FieldParser("`span.inputs.field").parse()
+
+    with pytest.raises(MlflowException, match="Expected dot after span name"):
+        _FieldParser("`span`a.inputs.field").parse()
+
+    with pytest.raises(MlflowException, match="Invalid field type"):
+        _FieldParser("span.foo.field").parse()
+
+    with pytest.raises(MlflowException, match="Expected closing backtick"):
+        _FieldParser("span.foo.`field").parse()
 
 
 def test_parse_fields():
