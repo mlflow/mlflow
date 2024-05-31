@@ -99,6 +99,8 @@ from mlflow.utils.validation import (
     _validate_tag_name,
 )
 
+_logger = logging.getLogger(__name__)
+
 
 def _default_root_dir():
     return MLFLOW_TRACKING_DIR.get() or os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
@@ -1577,7 +1579,9 @@ class FileStore(AbstractStore):
             experiment_id: ID of the associated experiment.
             max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
                 deleting traces. Traces older than or equal to this timestamp will be deleted.
-            max_traces: The maximum number of traces to delete.
+            max_traces: The maximum number of traces to delete. If max_traces is specified, and
+                it is less than the number of traces that would be deleted based on the
+                max_timestamp_millis, the oldest traces will be deleted first.
             request_ids: A set of request IDs to delete.
 
         Returns:
@@ -1610,24 +1614,24 @@ class FileStore(AbstractStore):
         deleted_traces = 0
         if max_timestamp_millis:
             trace_paths = list_all(traces_path, lambda x: os.path.isdir(x), full_path=True)
-            if max_traces is None:
-                max_traces = len(trace_paths)
+            trace_info_and_paths = []
             for trace_path in trace_paths:
                 try:
                     trace_info = self._get_trace_info_from_dir(trace_path)
                     if trace_info.timestamp_ms <= max_timestamp_millis:
-                        shutil.rmtree(trace_path)
-                        deleted_traces += 1
-                        max_traces -= 1
+                        trace_info_and_paths.append((trace_info, trace_path))
                 except MissingConfigException as e:
                     # trap malformed trace exception and log warning
                     request_id = os.path.basename(trace_path)
-                    logging.warning(
+                    _logger.warning(
                         f"Malformed trace with request_id '{request_id}'. Detailed error {e}",
-                        exc_info=True,
+                        exc_info=_logger.isEnabledFor(logging.DEBUG),
                     )
-                if max_traces == 0:
-                    break
+            trace_info_and_paths.sort(key=lambda x: x[0].timestamp_ms)
+            deleted_traces = min(len(trace_info_and_paths), max_traces or len(trace_info_and_paths))
+            trace_info_and_paths = trace_info_and_paths[:deleted_traces]
+            for _, trace_path in trace_info_and_paths:
+                shutil.rmtree(trace_path)
             return deleted_traces
         if request_ids:
             for request_id in request_ids:

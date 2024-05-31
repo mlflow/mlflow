@@ -2864,19 +2864,21 @@ def test_delete_trace_tag(store_and_trace_info):
 def test_delete_traces(store):
     exp_id = store.create_experiment("test")
     request_ids = []
-    timestamps = list(range(0, 100, 10))
+    timestamps = list(range(90, -1, -10))
     for i in range(10):
         trace_info = store.start_trace(exp_id, timestamps[i], {}, {})
         request_ids.append(trace_info.request_id)
 
     # delete with max_timestamp_millis
-    assert store.delete_traces(exp_id, 50, 2) == 2
+    # if max_traces < number of traces with timestamp < max_timestamp_millis,
+    # delete older traces first
+    assert store.delete_traces(exp_id, max_timestamp_millis=50, max_traces=2) == 2
     assert len(store.search_traces([exp_id])[0]) == 8
-    assert store.delete_traces(exp_id, 50) == 4
+    assert store.delete_traces(exp_id, max_timestamp_millis=50) == 4
     assert len(store.search_traces([exp_id])[0]) == 4
 
     # delete with request_ids
-    assert store.delete_traces(exp_id, request_ids=[request_ids[6]]) == 1
+    assert store.delete_traces(exp_id, request_ids=[request_ids[3]]) == 1
     assert len(store.search_traces([exp_id])[0]) == 3
     assert store.delete_traces(exp_id, request_ids=["non_existing_request_id"]) == 0
     assert len(store.search_traces([exp_id])[0]) == 3
