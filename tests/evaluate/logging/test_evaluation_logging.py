@@ -434,38 +434,58 @@ def test_incremental_logging_of_assessments():
 
 
 @pytest.mark.parametrize(
-    "assessment",
+    ("assessment", "log_with_evaluation"),
     [
-        Assessment(
-            name="boolean_assessment",
-            value=True,
-            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
+        (
+            Assessment(
+                name="boolean_assessment",
+                value=True,
+                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
+            ),
+            True,
         ),
-        Assessment(
-            name="string_assessment",
-            value="good",
-            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_2"),
+        (
+            Assessment(
+                name="string_assessment",
+                value="good",
+                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_2"),
+            ),
+            False,
         ),
-        Assessment(
-            name="float_assessment",
-            value=0.9,
-            source=AssessmentSource(source_type=AssessmentSourceType.AI_JUDGE, source_id="judge_1"),
+        (
+            Assessment(
+                name="float_assessment",
+                value=0.9,
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.AI_JUDGE, source_id="judge_1"
+                ),
+            ),
+            True,
         ),
-        Assessment(
-            name="integer_assessment",
-            value=10,
-            source=AssessmentSource(source_type=AssessmentSourceType.AI_JUDGE, source_id="judge_2"),
+        (
+            Assessment(
+                name="integer_assessment",
+                value=10,
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.AI_JUDGE, source_id="judge_2"
+                ),
+            ),
+            False,
         ),
     ],
 )
-def test_log_assessments_with_varying_value_types(assessment):
+def test_log_assessments_with_varying_value_types(assessment, log_with_evaluation):
     inputs = {"feature1": 1.0, "feature2": 2.0}
     outputs = {"prediction": 0.5}
 
     with mlflow.start_run() as run:
-        logged_evaluation = log_evaluation(inputs=inputs, outputs=outputs)
-
-        log_assessments(evaluation_id=logged_evaluation.evaluation_id, assessments=assessment)
+        if log_with_evaluation:
+            logged_evaluation = log_evaluation(
+                inputs=inputs, outputs=outputs, assessments=[assessment]
+            )
+        else:
+            logged_evaluation = log_evaluation(inputs=inputs, outputs=outputs)
+            log_assessments(evaluation_id=logged_evaluation.evaluation_id, assessments=assessment)
 
         run_id = run.info.run_id
         retrieved_evaluation = get_evaluation(
@@ -723,27 +743,22 @@ def test_assessment_name_with_different_value_types_fails(first_value, second_va
     with mlflow.start_run():
         logged_evaluation = log_evaluation(inputs=inputs, outputs=outputs)
 
-        assessments_float = [
-            Assessment(
-                name="accuracy",
-                value=first_value,
-                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
-            )
-        ]
-
-        assessments_string = [
-            Assessment(
-                name="accuracy",
-                value=second_value,
-                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
-            )
-        ]
-
-        log_assessments(
-            evaluation_id=logged_evaluation.evaluation_id, assessments=assessments_float
+        assessment1 = Assessment(
+            name="accuracy",
+            value=first_value,
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
         )
 
+        assessment2 = Assessment(
+            name="accuracy",
+            value=second_value,
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
+        )
+
+        log_assessments(evaluation_id=logged_evaluation.evaluation_id, assessments=assessment1)
+
         with pytest.raises(MlflowException, match="does not match the value type"):
-            log_assessments(
-                evaluation_id=logged_evaluation.evaluation_id, assessments=assessments_string
-            )
+            log_assessments(evaluation_id=logged_evaluation.evaluation_id, assessments=assessment2)
+
+        with pytest.raises(MlflowException, match="different value types"):
+            log_evaluation(inputs=inputs, outputs=outputs, assessments=[assessment1, assessment2])
