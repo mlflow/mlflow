@@ -165,23 +165,61 @@ def log_evaluations_df(
       pd.DataFrame: The specified evaluations DataFrame, with an additional "evaluation_id" column
           containing the IDs of the logged evaluations.
     """
+    if not all(input_col in evaluations_df.columns for input_col in input_cols):
+        raise MlflowException(
+            "All specified input columns must be present in the DataFrame.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if not all(output_col in evaluations_df.columns for output_col in output_cols):
+        raise MlflowException(
+            "All specified output columns must be present in the DataFrame.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if target_cols and not all(target_col in evaluations_df.columns for target_col in target_cols):
+        raise MlflowException(
+            "All specified target columns must be present in the DataFrame.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if inputs_id_col and inputs_id_col not in evaluations_df.columns:
+        raise MlflowException(
+            "The specified inputs ID column must be present in the DataFrame.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    evaluations_df = evaluations_df.copy()
+
     # Extract columns for Evaluation objects
-    eval_data = evaluations_df[input_cols + output_cols]
     target_data = evaluations_df[target_cols] if target_cols else None
 
     # Create a list of Evaluation objects
     evaluations = []
-    for _, row in eval_data.iterrows():
+    for _, row in evaluations_df.iterrows():
         inputs = row[input_cols].to_dict()
         outputs = row[output_cols].to_dict()
         targets = row[target_cols].to_dict() if target_data is not None else None
         inputs_id = row[inputs_id_col] if inputs_id_col else None
+        metrics = row["metrics"] if "metrics" in evaluations_df.columns else None
+        if isinstance(metrics, dict):
+            metrics = [
+                Metric(key=k, value=v, timestamp=int(time.time() * 1000), step=0)
+                for k, v in metrics.items()
+            ]
+        elif not isinstance(metrics, list):
+            raise MlflowException(
+                "The 'metrics' column must contain a list of Metric objects or a dictionary.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         evaluations.append(
             Evaluation(
                 inputs=inputs,
                 outputs=outputs,
                 inputs_id=inputs_id,
                 targets=targets,
+                request_id=row.get("request_id"),
+                metrics=metrics,
             )
         )
 

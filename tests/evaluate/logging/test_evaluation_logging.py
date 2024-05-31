@@ -449,6 +449,64 @@ def test_log_evaluations_with_all_params():
             assert logged_evaluation == retrieved_evaluation
 
 
+def test_log_evaluation_df_with_all_params():
+    with mlflow.start_run():
+        # Define the input DataFrame
+        data = {
+            "feature1": [1.0, 3.0],
+            "feature2": [2.0, 4.0],
+            "prediction": [0.5, 0.72],
+            "actual": [0.62, 0.74],
+            "inputs_id": ["id1", "id2"],
+            "request_id": ["req1", "req2"],
+            "metrics": [{"metric1": 1.1}, [Metric(key="metric2", value=1.2, timestamp=0, step=0)]],
+        }
+        evaluations_df = pd.DataFrame(data)
+
+        # Define the columns
+        input_cols = ["feature1", "feature2"]
+        output_cols = ["prediction"]
+        target_cols = ["actual"]
+        inputs_id_col = "inputs_id"
+
+        # Log the evaluations
+        result_df = log_evaluations_df(
+            run_id=mlflow.active_run().info.run_id,
+            evaluations_df=evaluations_df,
+            input_cols=input_cols,
+            output_cols=output_cols,
+            target_cols=target_cols,
+            inputs_id_col=inputs_id_col,
+        )
+
+        # Verify that the evaluation IDs have been added to the DataFrame
+        assert "evaluation_id" in result_df.columns
+        assert len(result_df["evaluation_id"]) == len(evaluations_df)
+
+        # Verify that the evaluations have been logged correctly
+        for evaluation_id in result_df["evaluation_id"]:
+            retrieved_evaluation = get_evaluation(
+                evaluation_id=evaluation_id, run_id=mlflow.active_run().info.run_id
+            )
+            assert retrieved_evaluation is not None
+
+            # Check that the inputs, outputs, targets, metrics, and request_id match the
+            # original DataFrame
+            original_row = evaluations_df[result_df["evaluation_id"] == evaluation_id].iloc[0]
+            assert retrieved_evaluation.inputs["feature1"] == original_row["feature1"]
+            assert retrieved_evaluation.inputs["feature2"] == original_row["feature2"]
+            assert retrieved_evaluation.outputs["prediction"] == original_row["prediction"]
+            assert retrieved_evaluation.targets["actual"] == original_row["actual"]
+            assert retrieved_evaluation.inputs_id == original_row["inputs_id"]
+            assert retrieved_evaluation.request_id == original_row["request_id"]
+            if isinstance(original_row["metrics"], dict):
+                assert {met.key: met.value for met in retrieved_evaluation.metrics} == original_row[
+                    "metrics"
+                ]
+            else:
+                assert retrieved_evaluation.metrics == original_row["metrics"]
+
+
 def test_log_evaluation_starts_run_if_not_started():
     inputs = {"feature1": 1.0, "feature2": {"nested_feature": 2.0}}
     outputs = {"prediction": 0.5}
