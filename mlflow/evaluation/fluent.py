@@ -291,6 +291,7 @@ def _add_assessment_to_df(
             row["evaluation_id"] == evaluation_id
             and row["name"] == assessment.name
             and row["source"] == assessment.source.to_dictionary()
+            and row["metadata"] == assessment.metadata
         ):
             matching_idx = idx
             break
