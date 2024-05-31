@@ -4,6 +4,7 @@ from typing import List
 
 from mlflow.entities import Trace
 from mlflow.environment_variables import MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 _logger = logging.getLogger(__name__)
 
@@ -27,6 +28,10 @@ class IPythonTraceDisplayHandler:
         return cls._instance
 
     def __init__(self):
+        # This only works in Databricks notebooks
+        if not is_in_databricks_runtime():
+            return
+
         self.traces_to_display = {}
         try:
             from IPython import get_ipython
@@ -84,6 +89,10 @@ class IPythonTraceDisplayHandler:
             }
 
     def display_traces(self, traces: List[Trace]):
+        # This only works in Databricks notebooks
+        if not is_in_databricks_runtime():
+            return
+
         # this should do nothing if not in an IPython environment
         try:
             from IPython import get_ipython
