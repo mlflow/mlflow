@@ -300,29 +300,6 @@ class AbstractStore:
                 max_timestamp_millis, the oldest traces will be deleted first.
             request_ids: A set of request IDs to delete.
 
-            Example usage:
-
-                .. code-block:: python
-
-                    import mlflow
-                    import time
-
-                    client = mlflow.MlflowClient()
-
-                    # Delete all traces in the experiment
-                    client.delete_traces(
-                        experiment_id="0", max_timestamp_millis=time.time_ns() // 1_000_000
-                    )
-
-                    # Delete traces based on max_timestamp_millis and max_traces
-                    # Older traces will be deleted first.
-                    client.delete_traces(
-                        experiment_id="0", max_timestamp_millis=some_timestamp, max_traces=2
-                    )
-
-                    # Delete traces based on request_ids
-                    client.delete_traces(experiment_id="0", request_ids=["id_1", "id_2"])
-
         Returns:
             The number of traces deleted.
         """
