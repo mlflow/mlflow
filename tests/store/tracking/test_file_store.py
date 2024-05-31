@@ -2963,6 +2963,20 @@ def test_search_traces_filter(generate_trace_infos):
     _validate_search_traces(store, [exp_id], "status LIKE 'O%'", trace_infos[:2][::-1])
     _validate_search_traces(store, [exp_id], "status ILIKE 'ok'", trace_infos[:2][::-1])
 
+    # filter by status w/ attributes. or trace. prefix
+    _validate_search_traces(
+        store,
+        [exp_id],
+        "trace.status = 'ERROR'",
+        trace_infos[2:5][::-1],
+    )
+    _validate_search_traces(
+        store,
+        [exp_id],
+        "attributes.status IN ('IN_PROGRESS', 'OK')",
+        (trace_infos[:2] + trace_infos[5:])[::-1],
+    )
+
     # filter by timestamp
     for timestamp_key in ["timestamp", "timestamp_ms"]:
         _validate_search_traces(store, [exp_id], f"{timestamp_key} < 10", trace_infos[:1])
@@ -3032,6 +3046,27 @@ def test_search_traces_filter(generate_trace_infos):
         "name LIKE 'trace_%' AND status IN ('ERROR') AND timestamp <= 20",
         [trace_infos[2]],
     )
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "error"),
+    [
+        ("invalid", r"Invalid clause\(s\) in filter string"),
+        ("name = 'foo' AND invalid", r"Invalid clause\(s\) in filter string"),
+        ("foo.bar = 'baz'", r"Invalid entity type 'foo'"),
+        ("invalid = 'foo'", r"Invalid attribute key 'invalid'"),
+        ("trace.tags.foo = 'bar'", r"Invalid attribute key 'tags\.foo'"),
+        # TODO: This should raise
+        # ("trace.status < 'OK'", r"Invalid comparator '<'"),
+    ],
+)
+def test_search_traces_invalid_filter(generate_trace_infos, filter_string, error):
+    store = generate_trace_infos.store
+    exp_id = generate_trace_infos.exp_id
+
+    # Invalid filter key
+    with pytest.raises(MlflowException, match=error):
+        store.search_traces([exp_id], filter_string)
 
 
 def test_search_traces_order(generate_trace_infos):

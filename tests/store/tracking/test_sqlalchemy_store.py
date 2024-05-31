@@ -4029,12 +4029,17 @@ def test_search_traces_order_by(store_with_traces, order_by, expected_ids):
         # Search by status
         ("status = 'OK'", ["tr-4", "tr-3", "tr-0"]),
         ("status != 'OK'", ["tr-2", "tr-1"]),
+        ("attributes.status = 'OK'", ["tr-4", "tr-3", "tr-0"]),
+        ("attributes.name != 'aaa'", ["tr-4", "tr-3", "tr-2", "tr-0"]),
+        ("trace.status = 'OK'", ["tr-4", "tr-3", "tr-0"]),
+        ("trace.name != 'aaa'", ["tr-4", "tr-3", "tr-2", "tr-0"]),
         # Search by timestamp
         ("`timestamp` >= 1 AND execution_time < 10", ["tr-2", "tr-1"]),
         # Search by tag
-        ("tags.fruit = 'apple'", ["tr-2", "tr-1"]),
+        ("tag.fruit = 'apple'", ["tr-2", "tr-1"]),
+        ("tag.color LIKE 're%'", ["tr-1"]),
+        # tags is an alias for tag
         ("tags.fruit = 'apple' and tags.color != 'red'", ["tr-2"]),
-        ("tags.color LIKE 're%'", ["tr-1"]),
         # Search by request metadata
         ("run_id = 'run0'", ["tr-0"]),
     ],
@@ -4051,6 +4056,28 @@ def test_search_traces_with_filter(store_with_traces, filter_string, expected_id
     )
     actual_ids = [trace_info.request_id for trace_info in trace_infos]
     assert actual_ids == expected_ids
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "error"),
+    [
+        ("invalid", r"Invalid clause\(s\) in filter string"),
+        ("name = 'foo' AND invalid", r"Invalid clause\(s\) in filter string"),
+        ("foo.bar = 'baz'", r"Invalid entity type 'foo'"),
+        ("invalid = 'foo'", r"Invalid attribute key 'invalid'"),
+        ("trace.tags.foo = 'bar'", r"Invalid attribute key 'tags\.foo'"),
+        ("trace.status < 'OK'", r"Invalid comparator '<'"),
+    ],
+)
+def test_search_traces_with_invalid_filter(store_with_traces, filter_string, error):
+    exp1 = store_with_traces.get_experiment_by_name("exp1").experiment_id
+    exp2 = store_with_traces.get_experiment_by_name("exp2").experiment_id
+
+    with pytest.raises(MlflowException, match=error):
+        store_with_traces.search_traces(
+            experiment_ids=[exp1, exp2],
+            filter_string=filter_string,
+        )
 
 
 def test_search_traces_raise_if_max_results_arg_is_invalid(store):
