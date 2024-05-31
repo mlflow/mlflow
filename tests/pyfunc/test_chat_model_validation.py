@@ -59,111 +59,34 @@ MOCK_OPENAI_CHAT_COMPLETION_RESPONSE = {
                     {
                         "token": "!",
                         "logprob": -0.02380986,
-                        "bytes": [33],
+                        "bytes": None,
                         "top_logprobs": [
                             {"token": "!", "logprob": -0.02380986, "bytes": [33]},
                             {
                                 "token": " there",
                                 "logprob": -3.787621,
-                                "bytes": [32, 116, 104, 101, 114, 101],
+                                "bytes": None,
                             },
-                        ],
-                    },
-                    {
-                        "token": " How",
-                        "logprob": -0.000054669687,
-                        "bytes": [32, 72, 111, 119],
-                        "top_logprobs": [
-                            {
-                                "token": " How",
-                                "logprob": -0.000054669687,
-                                "bytes": [32, 72, 111, 119],
-                            },
-                            {"token": "<|end|>", "logprob": -10.953937, "bytes": None},
-                        ],
-                    },
-                    {
-                        "token": " can",
-                        "logprob": -0.015801601,
-                        "bytes": [32, 99, 97, 110],
-                        "top_logprobs": [
-                            {"token": " can", "logprob": -0.015801601, "bytes": [32, 99, 97, 110]},
-                            {"token": " may", "logprob": -4.161023, "bytes": [32, 109, 97, 121]},
-                        ],
-                    },
-                    {
-                        "token": " I",
-                        "logprob": -3.7697225e-6,
-                        "bytes": [32, 73],
-                        "top_logprobs": [
-                            {"token": " I", "logprob": -3.7697225e-6, "bytes": [32, 73]},
-                            {
-                                "token": " assist",
-                                "logprob": -13.596657,
-                                "bytes": [32, 97, 115, 115, 105, 115, 116],
-                            },
-                        ],
-                    },
-                    {
-                        "token": " assist",
-                        "logprob": -0.04571125,
-                        "bytes": [32, 97, 115, 115, 105, 115, 116],
-                        "top_logprobs": [
-                            {
-                                "token": " assist",
-                                "logprob": -0.04571125,
-                                "bytes": [32, 97, 115, 115, 105, 115, 116],
-                            },
-                            {
-                                "token": " help",
-                                "logprob": -3.1089056,
-                                "bytes": [32, 104, 101, 108, 112],
-                            },
-                        ],
-                    },
-                    {
-                        "token": " you",
-                        "logprob": -5.4385737e-6,
-                        "bytes": [32, 121, 111, 117],
-                        "top_logprobs": [
-                            {
-                                "token": " you",
-                                "logprob": -5.4385737e-6,
-                                "bytes": [32, 121, 111, 117],
-                            },
-                            {
-                                "token": " today",
-                                "logprob": -12.807695,
-                                "bytes": [32, 116, 111, 100, 97, 121],
-                            },
-                        ],
-                    },
-                    {
-                        "token": " today",
-                        "logprob": -0.0040071653,
-                        "bytes": [32, 116, 111, 100, 97, 121],
-                        "top_logprobs": [
-                            {
-                                "token": " today",
-                                "logprob": -0.0040071653,
-                                "bytes": [32, 116, 111, 100, 97, 121],
-                            },
-                            {"token": "?", "logprob": -5.5247097, "bytes": [63]},
-                        ],
-                    },
-                    {
-                        "token": "?",
-                        "logprob": -0.0008108172,
-                        "bytes": [63],
-                        "top_logprobs": [
-                            {"token": "?", "logprob": -0.0008108172, "bytes": [63]},
-                            {"token": "?\n", "logprob": -7.184561, "bytes": [63, 10]},
                         ],
                     },
                 ]
             },
             "finish_reason": "stop",
-        }
+        },
+        {
+            "index": 1,
+            "message": {"role": "user", "content": "I need help with my computer."},
+            "logprobs": None,
+            "finish_reason": "stop",
+        },
+        {
+            "index": 2,
+            "message": {"role": "assistant", "content": "Sure! What seems to be the problem?"},
+            "logprobs": {
+                "content": None,
+            },
+            "finish_reason": "stop",
+        },
     ],
     "usage": {"prompt_tokens": 9, "completion_tokens": 9, "total_tokens": 18},
 }

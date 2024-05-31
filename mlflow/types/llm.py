@@ -34,8 +34,12 @@ class _BaseDataclass:
             elif not isinstance(values, list):
                 raise ValueError(f"`{key}` must be a list, got {type(values).__name__}")
 
-    def _convert_dataclass_list(self, key, cls):
+    def _convert_dataclass_list(self, key, cls, required=True):
         values = getattr(self, key)
+        if values is None:
+            if required:
+                raise ValueError(f"`{key}` is required")
+            return
         if not isinstance(values, list):
             raise ValueError(f"`{key}` must be a list")
 
@@ -136,7 +140,7 @@ class ChatRequest(ChatParams):
 
 
 @dataclass
-class TopLogProb(_BaseDataclass):
+class TopTokenLogProb(_BaseDataclass):
     """
     Token and its log probability.
 
@@ -163,7 +167,7 @@ class TopLogProb(_BaseDataclass):
 
 
 @dataclass
-class LogProbMessage(_BaseDataclass):
+class TokenLogProb(_BaseDataclass):
     """
     Message content token with log probability information.
 
@@ -184,18 +188,18 @@ class LogProbMessage(_BaseDataclass):
 
     token: str
     logprob: float
-    top_logprobs: List[TopLogProb]
+    top_logprobs: List[TopTokenLogProb]
     bytes: Optional[List[int]] = None
 
     def __post_init__(self):
         self._validate_field("token", str, True)
         self._validate_field("logprob", float, True)
-        self._convert_dataclass_list("top_logprobs", TopLogProb)
+        self._convert_dataclass_list("top_logprobs", TopTokenLogProb)
         self._validate_list("bytes", int, False)
 
 
 @dataclass
-class LogProbs(_BaseDataclass):
+class ChatChoiceLogProbs(_BaseDataclass):
     """
     Log probability information for the choice.
 
@@ -203,10 +207,10 @@ class LogProbs(_BaseDataclass):
         content: A list of message content tokens with log probability information.
     """
 
-    content: Optional[List[LogProbMessage]] = None
+    content: Optional[List[TokenLogProb]] = None
 
     def __post_init__(self):
-        self._convert_dataclass_list("content", LogProbMessage)
+        self._convert_dataclass_list("content", TokenLogProb, False)
 
 
 @dataclass
@@ -225,7 +229,7 @@ class ChatChoice(_BaseDataclass):
     index: int
     message: ChatMessage
     finish_reason: str
-    logprobs: Optional[LogProbs] = None
+    logprobs: Optional[ChatChoiceLogProbs] = None
 
     def __post_init__(self):
         self._validate_field("index", int, True)
@@ -237,8 +241,8 @@ class ChatChoice(_BaseDataclass):
                 f"Expected `message` to be of type ChatMessage or dict, got {type(self.message)}"
             )
         if isinstance(self.logprobs, dict):
-            self.logprobs = LogProbs(**self.logprobs)
-        if self.logprobs and not isinstance(self.logprobs, LogProbs):
+            self.logprobs = ChatChoiceLogProbs(**self.logprobs)
+        if self.logprobs and not isinstance(self.logprobs, ChatChoiceLogProbs):
             raise ValueError(
                 f"Expected `logprobs` to be of type LogProbs or dict, got {type(self.logprobs)}"
             )
