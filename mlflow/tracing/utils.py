@@ -286,9 +286,9 @@ class _PeekableIterator:
 
 
 class _FieldParser:
-    def __init__(self, s: str) -> None:
-        self.field = s
-        self.chars = _PeekableIterator(s)
+    def __init__(self, field: str) -> None:
+        self.field = field
+        self.chars = _PeekableIterator(field)
 
     def peek(self) -> str:
         return self.chars.peek()
@@ -309,49 +309,53 @@ class _FieldParser:
             consumed += self.next()
         return consumed
 
-    def consume_span_name(self):
+    def parse_span_name(self):
         if self.peek() == "`":
             self.next()
-            res = self.consume_until_char_or_end("`")
+            span_name = self.consume_until_char_or_end("`")
             if self.peek() != "`":
-                raise MlflowException.invalid_parameter_value("Expected closing backtick.")
+                raise MlflowException.invalid_parameter_value(
+                    f"Expected closing backtick: {self.field!r}"
+                )
             self.next()
         else:
-            res = self.consume_until_char_or_end(".")
+            span_name = self.consume_until_char_or_end(".")
 
         if self.peek() != ".":
-            raise MlflowException.invalid_parameter_value("Expected dot after span name.")
-        self.next()
-        return res
-
-    def consume_field_type(self):
-        res = self.consume_until_char_or_end(".")
-        if res not in ["inputs", "outputs"]:
             raise MlflowException.invalid_parameter_value(
-                f"Invalid field type: {res}. Expected 'inputs' or 'outputs'."
+                f"Expected dot after span name: {self.field!r}"
+            )
+        self.next()
+        return span_name
+
+    def parse_field_type(self):
+        field_type = self.consume_until_char_or_end(".")
+        if field_type not in ("inputs", "outputs"):
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid field type: {field_type}. Expected 'inputs' or 'outputs'."
             )
 
-        if self.has_next():  # the next character must be a dot
-            self.next()
-        return res
+        if self.has_next():
+            self.next()  # Consume the dot
+        return field_type
 
-    def consume_field_name(self):
+    def parse_field_name(self):
         if self.peek() == "`":
             self.next()
-            res = self.consume_until_char_or_end("`")
+            field_name = self.consume_until_char_or_end("`")
             if self.peek() != "`":
                 raise MlflowException.invalid_parameter_value(
                     f"Expected closing backtick: {self.field}"
                 )
             self.next()
         else:
-            res = self.consume_until_char_or_end()
-        return res
+            field_name = self.consume_until_char_or_end()
+        return field_name
 
     def parse_field(self):
-        span_name = self.consume_span_name()
-        field_type = self.consume_field_type()
-        field_name = self.consume_field_name() if self.has_next() else None
+        span_name = self.parse_span_name()
+        field_type = self.parse_field_type()
+        field_name = self.parse_field_name() if self.has_next() else None
         return _ParsedField(span_name=span_name, field_type=field_type, field_name=field_name)
 
 
