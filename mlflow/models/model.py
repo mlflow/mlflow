@@ -715,12 +715,19 @@ class Model:
                             )
                     except Exception as e:
                         _logger.warning("Failed to load model config from %s: %s", model_config, e)
+
                 try:
                     from mlflow.models.utils import _flatten_nested_params
 
-                    mlflow.tracking.fluent.log_params(
-                        _flatten_nested_params(model_config) or {}, run_id=run_id
-                    )
+                    # We are using the `/` separator to flatten the nested params
+                    # since we are using the same separator to log nested metrics.
+                    params_to_log = _flatten_nested_params(model_config, sep="/")
+                except Exception as e:
+                    _logger.warning("Failed to flatten nested params: %s", str(e))
+                    params_to_log = model_config
+
+                try:
+                    mlflow.tracking.fluent.log_params(params_to_log or {}, run_id=run_id)
                 except Exception as e:
                     _logger.warning("Failed to log model config as params: %s", str(e))
 

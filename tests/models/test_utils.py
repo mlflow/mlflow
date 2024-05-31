@@ -527,3 +527,37 @@ def test_flatten_nested_params():
         "a/b/c": 5,
     }
     assert _flatten_nested_params(nested_params) == expected_flattened_params_mixed
+
+    rag_params = {
+        "workspace_url": "https://e2-dogfood.staging.cloud.databricks.com",
+        "vector_search_endpoint_name": "dbdemos_vs_endpoint",
+        "vector_search_index": "monitoring.rag.databricks_docs_index",
+        "embedding_model_endpoint_name": "databricks-bge-large-en",
+        "embedding_model_query_instructions": "Represent this sentence for searching",
+        "llm_model": "databricks-dbrx-instruct",
+        "llm_prompt_template": "You are a trustful assistant for Databricks users.",
+        "retriever_config": {"k": 5, "use_mmr": "false"},
+        "llm_parameters": {"temperature": 0.01, "max_tokens": 200},
+        "llm_prompt_template_variables": ["chat_history", "context", "question"],
+        "secret_scope": "dbdemos",
+        "secret_key": "rag_sunish",
+    }
+
+    expected_rag_flattened_params = {
+        "workspace_url": "https://e2-dogfood.staging.cloud.databricks.com",
+        "vector_search_endpoint_name": "dbdemos_vs_endpoint",
+        "vector_search_index": "monitoring.rag.databricks_docs_index",
+        "embedding_model_endpoint_name": "databricks-bge-large-en",
+        "embedding_model_query_instructions": "Represent this sentence for searching",
+        "llm_model": "databricks-dbrx-instruct",
+        "llm_prompt_template": "You are a trustful assistant for Databricks users.",
+        "retriever_config/k": 5,
+        "retriever_config/use_mmr": "false",
+        "llm_parameters/temperature": 0.01,
+        "llm_parameters/max_tokens": 200,
+        "llm_prompt_template_variables": ["chat_history", "context", "question"],
+        "secret_scope": "dbdemos",
+        "secret_key": "rag_sunish",
+    }
+
+    assert _flatten_nested_params(rag_params) == expected_rag_flattened_params

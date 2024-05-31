@@ -2389,6 +2389,7 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
         "llm_prompt_template": "Answer the following question based on "
         "the context: {context}\nQuestion: {question}",
         "embedding_size": "5",
+        "not_used_array": "[1, 2, 3]",
         "response": "Databricks",
     }
 
@@ -3231,6 +3232,11 @@ def test_load_chain_with_model_config_overrides_saved_config(
             "embedding_size": 2,
             "llm_prompt_template": "Answer the following question based on the "
             "context: {context}\nQuestion: {question}",
+            "not_used_array": [
+                1,
+                2,
+                3,
+            ],
             "response": "Databricks",
         }
 
