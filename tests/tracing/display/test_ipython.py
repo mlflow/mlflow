@@ -1,6 +1,9 @@
 import json
 from collections import defaultdict
+from unittest import mock
 from unittest.mock import Mock
+
+import pytest
 
 import mlflow
 from mlflow.tracing.display import IPythonTraceDisplayHandler, get_display_handler
@@ -28,6 +31,15 @@ class MockIPython:
         self.events.trigger("post_run_cell")
 
 
+@pytest.fixture
+def _in_databricks(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "15.x")
+
+
+in_databricks = pytest.mark.usefixtures(_in_databricks.__name__)
+
+
+@in_databricks
 def test_display_is_not_called_without_ipython(monkeypatch):
     # in an IPython environment, the interactive shell will
     # be returned. however, for test purposes, just mock that
@@ -54,6 +66,7 @@ def test_display_is_not_called_without_ipython(monkeypatch):
     assert mock_display.call_count == 1
 
 
+@in_databricks
 def test_ipython_client_clears_display_after_execution(monkeypatch):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
@@ -77,6 +90,7 @@ def test_ipython_client_clears_display_after_execution(monkeypatch):
     assert mock_display.call_count == 1
 
 
+@in_databricks
 def test_display_is_called_in_correct_functions(monkeypatch):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
@@ -104,6 +118,7 @@ def test_display_is_called_in_correct_functions(monkeypatch):
     assert mock_display.call_count == 2
 
 
+@in_databricks
 def test_display_deduplicates_traces(monkeypatch):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
@@ -134,6 +149,7 @@ def test_display_deduplicates_traces(monkeypatch):
     }
 
 
+@in_databricks
 def test_display_respects_max_limit(monkeypatch):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
@@ -155,3 +171,10 @@ def test_display_respects_max_limit(monkeypatch):
         "application/databricks.mlflow.trace": trace_a.to_json(),
         "text/plain": trace_a.__repr__(),
     }
+
+
+def test_display_traces_if_not_in_databricks():
+    with mock.patch("IPython.get_ipython") as mock_get_ipython:
+        handler = get_display_handler()
+        handler.display_traces([create_trace("a")])
+        mock_get_ipython.assert_not_called()
