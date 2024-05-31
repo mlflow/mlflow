@@ -3055,7 +3055,7 @@ def test_search_traces_filter(generate_trace_infos):
         ("name = 'foo' AND invalid", r"Invalid clause\(s\) in filter string"),
         ("foo.bar = 'baz'", r"Invalid entity type 'foo'"),
         ("invalid = 'foo'", r"Invalid attribute key 'invalid'"),
-        ("trace.tags.foo = 'bar'", r"Invalid attribute key 'tags.foo'"),
+        ("trace.tags.foo = 'bar'", r"Invalid attribute key 'tags\.foo'"),
         # TODO: This should raise
         # ("trace.status < 'OK'", r"Invalid comparator '<'"),
     ],

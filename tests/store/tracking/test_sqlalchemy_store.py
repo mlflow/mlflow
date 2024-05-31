@@ -4065,7 +4065,7 @@ def test_search_traces_with_filter(store_with_traces, filter_string, expected_id
         ("name = 'foo' AND invalid", r"Invalid clause\(s\) in filter string"),
         ("foo.bar = 'baz'", r"Invalid entity type 'foo'"),
         ("invalid = 'foo'", r"Invalid attribute key 'invalid'"),
-        ("trace.tags.foo = 'bar'", r"Invalid attribute key 'tags.foo'"),
+        ("trace.tags.foo = 'bar'", r"Invalid attribute key 'tags\.foo'"),
         ("trace.status < 'OK'", r"Invalid comparator '<'"),
     ],
 )
