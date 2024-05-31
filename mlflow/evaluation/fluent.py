@@ -294,11 +294,18 @@ def _add_assessment_to_df(
     if not existing_assessment_index.empty:
         # Update existing assessment
         # TODO: Move this into a util function and refactor for schema maintenance
+        print("UPDATING EXISTING ASSESSMENT")
+        print("INDEX", existing_assessment_index)
+        print("LEN INDEX", len(existing_assessment_index))
+        print("EVAL ID", evaluation_id)
+        print("BEFORE", assessments_df.to_string())
         assessment_dict = assessment.to_dictionary()
         assessment_dict["evaluation_id"] = evaluation_id
+        print("ROW TO UPDATE", assessments_df.loc[existing_assessment_index, assessment_dict.keys()])
         assessments_df.loc[
             existing_assessment_index, assessment_dict.keys()
         ] = assessment_dict.values()
+        print("UPDATED", assessments_df.to_string())
     else:
         # Append new assessment
         assessments_df = append_to_assessments_dataframe(assessments_df, [assessment])

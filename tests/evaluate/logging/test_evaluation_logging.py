@@ -611,6 +611,72 @@ def test_log_multiple_assessments_with_same_name_different_sources():
             assert retrieved_assessment.source == assessment_entity.source
 
 
+def test_log_assessments_with_same_name_and_source():
+    inputs_1 = {"feature1": 1.0, "feature2": 2.0}
+    outputs_1 = {"prediction": 0.5}
+    inputs_2 = {"feature1": 3.0, "feature2": 4.0}
+    outputs_2 = {"prediction": 0.7}
+
+    assessment_1 = Assessment(
+        name="relevance",
+        value=0.9,
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1")
+    )
+
+    assessment_2 = Assessment(
+        name="relevance",
+        value=0.8,
+        source=AssessmentSource(source_type=AssessmentSourceType.AI_JUDGE, source_id="judge_1")
+    )
+
+    updated_assessment_1 = Assessment(
+        name="relevance",
+        value=0.94,
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1")
+    )
+
+    with mlflow.start_run() as run:
+        # Log the first evaluation and the first assessment
+        logged_evaluation_1 = log_evaluation(inputs=inputs_1, outputs=outputs_1)
+        log_assessments(evaluation_id=logged_evaluation_1.evaluation_id, assessments=[assessment_1])
+
+        # Log the second evaluation and the second assessment
+        logged_evaluation_2 = log_evaluation(inputs=inputs_2, outputs=outputs_2)
+        log_assessments(evaluation_id=logged_evaluation_2.evaluation_id, assessments=[assessment_2])
+
+        # Log the updated first assessment to the first evaluation
+        log_assessments(evaluation_id=logged_evaluation_1.evaluation_id, assessments=[updated_assessment_1])
+
+    def assert_assessments_equal(assessment, expected_assessment):
+        assert assessment.name == expected_assessment.name
+        assert assessment.boolean_value == expected_assessment.boolean_value
+        assert assessment.numeric_value == expected_assessment.numeric_value
+        assert assessment.string_value == expected_assessment.string_value
+        assert assessment.metadata == expected_assessment.metadata
+        assert assessment.source == expected_assessment.source
+
+    # Verify that the first evaluation contains the second assessment logged to the first evaluation
+    run_id = run.info.run_id
+    retrieved_evaluation_1 = get_evaluation(evaluation_id=logged_evaluation_1.evaluation_id, run_id=run_id)
+    assert len(retrieved_evaluation_1.assessments) == 1
+    retrieved_assessment_1 = retrieved_evaluation_1.assessments[0]
+    assert_assessments_equal(
+        retrieved_assessment_1,
+        updated_assessment_1._to_entity(evaluation_id=logged_evaluation_1.evaluation_id),
+    )
+
+    # Verify that the second evaluation contains the first (and only) assessment logged to the
+    # second evaluation
+    run_id = run.info.run_id
+    retrieved_evaluation_2 = get_evaluation(evaluation_id=logged_evaluation_2.evaluation_id, run_id=run_id)
+    assert len(retrieved_evaluation_2.assessments) == 1
+    retrieved_assessment_2 = retrieved_evaluation_2.assessments[0]
+    assert_assessments_equal(
+        retrieved_assessment_2,
+        assessment_2._to_entity(evaluation_id=logged_evaluation_2.evaluation_id),
+    )
+
+
 def test_log_assessments_without_nonexistent_evaluation_fails():
     with mlflow.start_run():
         with pytest.raises(
