@@ -1750,7 +1750,7 @@ class SqlAlchemyStore(AbstractStore):
                 )
             tags.delete()
 
-    def delete_traces(
+    def _delete_traces(
         self,
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
