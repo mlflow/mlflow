@@ -27,34 +27,36 @@ func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (
 		artifactLocation := strings.TrimRight(input.GetArtifactLocation(), "/")
 
 		// We don't check the validation here as this was already covered in the validator.
-		u, _ := url.Parse(artifactLocation)
-		switch u.Scheme {
+		url, _ := url.Parse(artifactLocation)
+		switch url.Scheme {
 		case "file", "":
-			p, err := filepath.Abs(u.Path)
+			path, err := filepath.Abs(url.Path)
 			if err != nil {
 				return nil, contract.NewError(
 					protos.ErrorCode_INVALID_PARAMETER_VALUE,
 					fmt.Sprintf("error getting absolute path: %v", err),
 				)
 			}
+
 			if runtime.GOOS == "windows" {
-				u.Scheme = "file"
-				p = "/" + strings.ReplaceAll(p, "\\", "/")
+				url.Scheme = "file"
+				path = "/" + strings.ReplaceAll(path, "\\", "/")
 			}
-			u.Path = p
-			artifactLocation = u.String()
+
+			url.Path = path
+			artifactLocation = url.String()
 		}
 
 		input.ArtifactLocation = &artifactLocation
 	}
 
-	id, err := m.store.CreateExperiment(input)
+	experimentID, err := m.store.CreateExperiment(input)
 	if err != nil {
 		return nil, err
 	}
 
 	response := protos.CreateExperiment_Response{
-		ExperimentId: &id,
+		ExperimentId: &experimentID,
 	}
 
 	return &response, nil
@@ -120,13 +122,13 @@ var (
 	mlflowArtifactsService contract.MlflowArtifactsService
 )
 
-func NewMlflowService(config *config.Config) (contract.MlflowService, error) {
+func NewMlflowService(config *config.Config) (*MlflowService, error) {
 	store, err := sql.NewSQLStore(config)
 	if err != nil {
 		return nil, fmt.Errorf("could not create new sql store: %w", err)
 	}
 
-	return MlflowService{
+	return &MlflowService{
 		config: config,
 		store:  store,
 	}, nil

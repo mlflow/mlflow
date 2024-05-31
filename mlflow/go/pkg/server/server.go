@@ -20,7 +20,9 @@ import (
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 )
 
+//nolint:exhaustruct
 func launchServer(ctx context.Context, cfg *config.Config) error {
+	//nolint:mnd
 	app := fiber.New(fiber.Config{
 		BodyLimit:             16 * 1024 * 1024,
 		ReadBufferSize:        16384,
@@ -42,6 +44,7 @@ func launchServer(ctx context.Context, cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
+
 	app.Mount("/api/2.0", apiApp)
 	app.Mount("/ajax-api/2.0", apiApp)
 
@@ -61,6 +64,7 @@ func launchServer(ctx context.Context, cfg *config.Config) error {
 
 	go func() {
 		<-ctx.Done()
+
 		if err := app.ShutdownWithTimeout(cfg.ShutdownTimeout.Duration); err != nil {
 			logrus.Errorf("Failed to gracefully shutdown MLflow experimental Go server: %v", err)
 		}
@@ -70,13 +74,17 @@ func launchServer(ctx context.Context, cfg *config.Config) error {
 	for {
 		dialer := &net.Dialer{}
 		conn, err := dialer.DialContext(ctx, "tcp", cfg.PythonAddress)
+
 		if err == nil {
 			conn.Close()
+
 			break
 		}
+
 		if errors.Is(err, context.Canceled) {
 			return fmt.Errorf("could not connect to Python server: %w", err)
 		}
+
 		time.Sleep(1 * time.Second)
 	}
 	logrus.Debugf("Python server is ready")
@@ -85,14 +93,16 @@ func launchServer(ctx context.Context, cfg *config.Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to start MLflow experimental Go server: %w", err)
 	}
+
 	return nil
 }
 
 func newAPIApp(cfg *config.Config) (*fiber.App, error) {
+	//nolint:exhaustruct
 	app := fiber.New(fiber.Config{
-		ErrorHandler: func(c *fiber.Ctx, err error) error {
-			var e *contract.Error
-			if !errors.As(err, &e) {
+		ErrorHandler: func(context *fiber.Ctx, err error) error {
+			var contractError *contract.Error
+			if !errors.As(err, &contractError) {
 				code := protos.ErrorCode_INTERNAL_ERROR
 
 				var f *fiber.Error
@@ -107,25 +117,25 @@ func newAPIApp(cfg *config.Config) (*fiber.App, error) {
 					}
 				}
 
-				e = contract.NewError(code, err.Error())
+				contractError = contract.NewError(code, err.Error())
 			}
 
-			var fn func(format string, args ...any)
+			var logFn func(format string, args ...any)
 
-			switch e.StatusCode() {
+			switch contractError.StatusCode() {
 			case fiber.StatusBadRequest:
-				fn = logrus.Infof
+				logFn = logrus.Infof
 			case fiber.StatusServiceUnavailable:
-				fn = logrus.Warnf
+				logFn = logrus.Warnf
 			case fiber.StatusNotFound:
-				fn = logrus.Debugf
+				logFn = logrus.Debugf
 			default:
-				fn = logrus.Errorf
+				logFn = logrus.Errorf
 			}
 
-			fn("Error encountered in %s %s: %s", c.Method(), c.Path(), err)
+			logFn("Error encountered in %s %s: %s", context.Method(), context.Path(), err)
 
-			return c.Status(e.StatusCode()).JSON(e)
+			return context.Status(contractError.StatusCode()).JSON(contractError)
 		},
 	})
 

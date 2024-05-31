@@ -15,12 +15,12 @@ func (e ErrorCode) String() string {
 
 // Custom json marshalling for ErrorCode.
 func (e ErrorCode) MarshalJSON() ([]byte, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return json.Marshal(e.String())
 }
 
 type Error struct {
-	Code    ErrorCode `json:"error_code"`
+	Code    ErrorCode `json:"error_code"` //nolint:tagliatelle
 	Message string    `json:"message"`
 	Inner   error     `json:"-"`
 }
@@ -42,6 +42,7 @@ func (e *Error) Error() string {
 	if e.Inner != nil {
 		return fmt.Sprintf("%s: %s", msg, e.Inner)
 	}
+
 	return msg
 }
 
@@ -50,7 +51,7 @@ func (e *Error) Unwrap() error {
 }
 
 func (e *Error) StatusCode() int {
-	//nolint:exhaustive
+	//nolint:exhaustive,mnd
 	switch protos.ErrorCode(e.Code) {
 	case protos.ErrorCode_BAD_REQUEST, protos.ErrorCode_INVALID_PARAMETER_VALUE, protos.ErrorCode_RESOURCE_ALREADY_EXISTS:
 		return 400

@@ -254,21 +254,21 @@ def _build_go_command(builder, experimental_go_opts, host, port, env_map):
 
     # initialize Go server configuration
     go_config = {
-        "Address": f"{host}:{port}",
-        "DefaultArtifactRoot": env_map[ARTIFACT_ROOT_ENV_VAR],
-        "LogLevel": opts.get("LogLevel", "INFO"),
-        "PythonEnv": [f"{k}={v}" for k, v in env_map.items()],
-        "ShutdownTimeout": opts.get("ShutdownTimeout", "1m"),
-        "StaticFolder": pathlib.Path(__file__).parent.joinpath(REL_STATIC_DIR).resolve().as_posix(),
-        "StoreURL": env_map[BACKEND_STORE_URI_ENV_VAR],
-        "Version": VERSION,
+        "address": f"{host}:{port}",
+        "defaultArtifactRoot": env_map[ARTIFACT_ROOT_ENV_VAR],
+        "logLevel": opts.get("LogLevel", "INFO"),
+        "pythonEnv": [f"{k}={v}" for k, v in env_map.items()],
+        "shutdownTimeout": opts.get("ShutdownTimeout", "1m"),
+        "staticFolder": pathlib.Path(__file__).parent.joinpath(REL_STATIC_DIR).resolve().as_posix(),
+        "storeUrl": env_map[BACKEND_STORE_URI_ENV_VAR],
+        "version": VERSION,
     }
 
     # assign a random port for the Python server
     host = "127.0.0.1"
     port = _get_safe_port()
-    go_config["PythonAddress"] = f"{host}:{port}"
-    go_config["PythonCommand"] = builder(host, port)
+    go_config["pythonAddress"] = f"{host}:{port}"
+    go_config["pythonCommand"] = builder(host, port)
 
     # set the Go server configuration
     env_map["MLFLOW_GO_CONFIG"] = json.dumps(go_config)

@@ -13,5 +13,6 @@ func ConvertInt32PointerToStringPointer(iPtr *int32) *string {
 
 	iValue := *iPtr
 	sValue := strconv.Itoa(int(iValue))
+
 	return &sValue
 }

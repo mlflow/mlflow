@@ -41,7 +41,9 @@ func Tokenize(source *string) ([]Token, error) {
 			loc := pattern.regex.FindStringIndex(lex.remainder())
 			if loc != nil && loc[0] == 0 {
 				pattern.handler(lex, pattern.regex)
+
 				matched = true
+
 				break // Exit the loop after the first match
 			}
 		}
@@ -52,6 +54,7 @@ func Tokenize(source *string) ([]Token, error) {
 	}
 
 	lex.push(newUniqueToken(EOF, "EOF"))
+
 	return lex.Tokens, nil
 }
 

@@ -1,3 +1,4 @@
+//nolint:exhaustruct
 package main
 
 import (
@@ -8,6 +9,7 @@ import (
 	"go/parser"
 	"go/token"
 	"io/fs"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -125,6 +127,7 @@ func saveASTToFile(fset *token.FileSet, file *ast.File, addComment bool, outputP
 
 	// Write the generated code to the file
 	err = format.Node(writer, fset, file)
+
 	return fmt.Errorf("could not write generated AST to file: %w", err)
 }
 
@@ -199,7 +202,7 @@ func mkAppRoute(method discovery.MethodInfo, endpoint discovery.Endpoint) ast.St
 	// if err := parser.ParseQuery(ctx, input); err != nil { return err }
 	// if err := parser.ParseBody(ctx, input); err != nil { return err }
 	var extractModel ast.Expr
-	if endpoint.Method == "GET" {
+	if endpoint.Method == http.MethodGet {
 		extractModel = mkCallExpr(mkSelectorExpr("parser", "ParseQuery"), ast.NewIdent("ctx"), ast.NewIdent("input"))
 	} else {
 		extractModel = mkCallExpr(mkSelectorExpr("parser", "ParseBody"), ast.NewIdent("ctx"), ast.NewIdent("input"))
@@ -275,7 +278,6 @@ func mkRouteRegistrationFunction(serviceInfo discovery.ServiceInfo) *ast.FuncDec
 			if _, ok := ImplementedEndpoints[endpointName]; ok {
 				routes = append(routes, mkAppRoute(method, endpoint))
 			}
-
 		}
 	}
 
@@ -330,6 +332,7 @@ var jsonFieldTagRegexp = regexp.MustCompile(`json:"([^"]+)"`)
 func addQueryAnnotation(generatedGoFile string) error {
 	// Parse the file into an AST
 	fset := token.NewFileSet()
+
 	node, err := parser.ParseFile(fset, generatedGoFile, nil, parser.ParseComments)
 	if err != nil {
 		panic(err)
@@ -338,25 +341,28 @@ func addQueryAnnotation(generatedGoFile string) error {
 	// Create an AST inspector to modify specific struct tags
 	ast.Inspect(node, func(n ast.Node) bool {
 		// Look for struct type declarations
-		ts, ok := n.(*ast.TypeSpec)
-		if !ok {
+		typeSpec, isTypeSpec := n.(*ast.TypeSpec)
+		if !isTypeSpec {
 			return true
 		}
-		st, ok := ts.Type.(*ast.StructType)
-		if !ok {
+
+		structType, isStructType := typeSpec.Type.(*ast.StructType)
+
+		if !isStructType {
 			return true
 		}
 
 		// Iterate over fields in the struct
-		for _, field := range st.Fields.List {
+		for _, field := range structType.Fields.List {
 			if field.Tag == nil {
 				continue
 			}
+
 			tagValue := field.Tag.Value
 
 			hasQuery := strings.Contains(tagValue, "query:")
 			hasValidate := strings.Contains(tagValue, "validate:")
-			validationKey := fmt.Sprintf("%s_%s", ts.Name, field.Names[0])
+			validationKey := fmt.Sprintf("%s_%s", typeSpec.Name, field.Names[0])
 			validationRule, needsValidation := validations[validationKey]
 
 			if hasQuery && (!needsValidation || needsValidation && hasValidate) {
@@ -388,6 +394,7 @@ func addQueryAnnotation(generatedGoFile string) error {
 			newTag += "`"
 			field.Tag.Value = newTag
 		}
+
 		return false
 	})
 
@@ -406,6 +413,7 @@ func addQueryAnnotations(pkgFolder string) error {
 		if err != nil {
 			return err
 		}
+
 		if filepath.Ext(path) == ".go" {
 			err = addQueryAnnotation(path)
 		}
@@ -416,9 +424,11 @@ func addQueryAnnotations(pkgFolder string) error {
 	return fmt.Errorf("could not add query annotation: %w", err)
 }
 
+const ExpectedNumberOfArguments = 2
+
 //nolint:forbidigo
 func main() {
-	if len(os.Args) != 2 {
+	if len(os.Args) != ExpectedNumberOfArguments {
 		fmt.Println("Usage: program <path to mlflow/go/pkg folder>")
 		os.Exit(1)
 	}

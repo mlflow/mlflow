@@ -38,8 +38,10 @@ func (e Endpoint) GetFiberPath() string {
 	// Which would need to converted to /mlflow-artifacts/artifacts/:path
 	path := routeParameterRegex.ReplaceAllStringFunc(e.Path, func(s string) string {
 		parts := strings.Split(s, ":")
+
 		return ":" + strings.Trim(parts[0], "< ")
 	})
+
 	return path
 }
 
@@ -72,9 +74,12 @@ func GetServiceInfos() []ServiceInfo {
 			extension := proto.GetExtension(options, protos.E_Rpc)
 
 			endpoints := make([]Endpoint, 0)
+			rpcOptions, ok := extension.(*protos.DatabricksRpcOptions)
 
-			for _, endpoint := range extension.(*protos.DatabricksRpcOptions).GetEndpoints() {
-				endpoints = append(endpoints, Endpoint{Method: endpoint.GetMethod(), Path: endpoint.GetPath()})
+			if ok {
+				for _, endpoint := range rpcOptions.GetEndpoints() {
+					endpoints = append(endpoints, Endpoint{Method: endpoint.GetMethod(), Path: endpoint.GetPath()})
+				}
 			}
 
 			output := fmt.Sprintf("%s_%s", string(method.Output().Parent().Name()), string(method.Output().Name()))

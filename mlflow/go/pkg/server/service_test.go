@@ -1,4 +1,4 @@
-package server
+package server //nolint:testpackage
 
 import (
 	"testing"
@@ -25,7 +25,7 @@ func (f FakeStore) SearchRuns(
 	_ int,
 	_ []string,
 	_ string,
-) (pagedList *store.PagedList[*protos.Run], err *contract.Error) {
+) (*store.PagedList[*protos.Run], *contract.Error) {
 	return nil, nil
 }
 
@@ -42,7 +42,10 @@ type testRelativeArtifactLocationScenario struct {
 	input string
 }
 
+//nolint:exhaustruct
 func TestRelativeArtifactLocation(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []testRelativeArtifactLocationScenario{
 		{name: "without scheme", input: "../yow"},
 		{name: "with file scheme", input: "file:///../yow"},
@@ -50,20 +53,26 @@ func TestRelativeArtifactLocation(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
+			t.Parallel()
+
 			var store store.MlflowStore = FakeStore{}
 			service := MlflowService{
 				store: store,
 			}
+
 			var input protos.CreateExperiment = protos.CreateExperiment{
 				ArtifactLocation: toPtr(scenario.input),
 			}
+
 			response, err := service.CreateExperiment(&input)
 			if err != nil {
 				t.Error("expected create experiment to succeed")
 			}
+
 			if response == nil {
 				t.Error("expected response to be non-nil")
 			}
+
 			if input.GetArtifactLocation() == scenario.input {
 				t.Errorf("expected artifact location to be absolute, got %s", input.GetArtifactLocation())
 			}

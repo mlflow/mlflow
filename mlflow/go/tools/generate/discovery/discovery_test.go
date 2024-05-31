@@ -1,18 +1,22 @@
-package discovery
+package discovery_test
 
 import (
 	"testing"
+
+	"github.com/mlflow/mlflow/mlflow/go/tools/generate/discovery"
 )
 
-func TestPatternt(t *testing.T) {
+func TestPattern(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []struct {
 		name     string
-		endpoint Endpoint
+		endpoint discovery.Endpoint
 		expected string
 	}{
 		{
 			name: "simple GET",
-			endpoint: Endpoint{
+			endpoint: discovery.Endpoint{
 				Method: "GET",
 				Path:   "/mlflow/experiments/get-by-name",
 			},
@@ -20,7 +24,7 @@ func TestPatternt(t *testing.T) {
 		},
 		{
 			name: "simple POST",
-			endpoint: Endpoint{
+			endpoint: discovery.Endpoint{
 				Method: "POST",
 				Path:   "/mlflow/experiments/create",
 			},
@@ -28,7 +32,7 @@ func TestPatternt(t *testing.T) {
 		},
 		{
 			name: "PUT with route parameter",
-			endpoint: Endpoint{
+			endpoint: discovery.Endpoint{
 				Method: "PUT",
 				Path:   "/mlflow-artifacts/artifacts/<path:artifact_path>",
 			},
@@ -37,10 +41,14 @@ func TestPatternt(t *testing.T) {
 	}
 
 	for _, scenario := range scenarios {
-		t.Run(scenario.name, func(t *testing.T) {
-			actual := scenario.endpoint.GetFiberPath()
-			if actual != scenario.expected {
-				t.Errorf("Expected %s, got %s", scenario.expected, actual)
+		currentScenario := scenario
+		t.Run(currentScenario.name, func(t *testing.T) {
+			t.Parallel()
+
+			actual := currentScenario.endpoint.GetFiberPath()
+
+			if actual != currentScenario.expected {
+				t.Errorf("Expected %s, got %s", currentScenario.expected, actual)
 			}
 		})
 	}

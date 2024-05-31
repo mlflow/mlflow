@@ -23,11 +23,13 @@ func ParseFilter(input string) ([]*parser.ValidCompareExpr, error) {
 	}
 
 	validExpressions := make([]*parser.ValidCompareExpr, 0, len(ast.Exprs))
+
 	for _, expr := range ast.Exprs {
 		ve, err := parser.ValidateExpression(expr)
 		if err != nil {
 			return nil, fmt.Errorf("error while validating %s: %w", input, err)
 		}
+
 		validExpressions = append(validExpressions, ve)
 	}
 

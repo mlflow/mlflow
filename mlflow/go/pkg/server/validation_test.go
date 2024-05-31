@@ -1,9 +1,11 @@
-package server
+package server_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/mlflow/mlflow/mlflow/go/pkg/server"
 )
 
 type PositiveInteger struct {
@@ -19,18 +21,21 @@ type validationScenario struct {
 func runscenarios(t *testing.T, scenarios []validationScenario) {
 	t.Helper()
 
-	validator, err := NewValidator()
+	validator, err := server.NewValidator()
 	require.NoError(t, err)
 
 	for _, scenario := range scenarios {
-		t.Run(scenario.name, func(t *testing.T) {
-			errs := validator.Struct(scenario.input)
+		currentScenario := scenario
+		t.Run(currentScenario.name, func(t *testing.T) {
+			t.Parallel()
 
-			if scenario.shouldTrigger && errs == nil {
+			errs := validator.Struct(currentScenario.input)
+
+			if currentScenario.shouldTrigger && errs == nil {
 				t.Errorf("Expected validation error, got nil")
 			}
 
-			if !scenario.shouldTrigger && errs != nil {
+			if !currentScenario.shouldTrigger && errs != nil {
 				t.Errorf("Expected no validation error, got %v", errs)
 			}
 		})
@@ -38,6 +43,8 @@ func runscenarios(t *testing.T, scenarios []validationScenario) {
 }
 
 func TestStringAsPositiveInteger(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []validationScenario{
 		{
 			name:          "positive integer",
@@ -69,6 +76,8 @@ type uriWithoutFragmentsOrParams struct {
 }
 
 func TestUriWithoutFragmentsOrParams(t *testing.T) {
+	t.Parallel()
+
 	scenarios := []validationScenario{
 		{
 			name:          "valid url",

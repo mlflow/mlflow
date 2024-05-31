@@ -23,8 +23,8 @@ func main() {
 	if err != nil {
 		logrus.Fatal(err)
 	}
-	logrus.SetLevel(logLevel)
 
+	logrus.SetLevel(logLevel)
 	logrus.Warn("The experimental Go server is not yet fully supported and may not work as expected")
 	logrus.Debugf("Loaded config: %#v", config)
 

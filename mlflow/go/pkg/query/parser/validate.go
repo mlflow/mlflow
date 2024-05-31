@@ -72,7 +72,7 @@ func NewValidationError(format string, a ...interface{}) *ValidationError {
 	return &ValidationError{message: fmt.Sprintf(format, a...)}
 }
 
-var (
+const (
 	metricIdentifier    = "metric"
 	parameterIdentifier = "parameter"
 	tagIdentifier       = "tag"
@@ -105,11 +105,16 @@ func parseValidIdentifier(identifier string) (ValidIdentifier, error) {
 	}
 }
 
+const (
+	RunName = "run_name"
+	Created = "created"
+)
+
 // This should be configurable and only applies to the runs table.
 var searchableRunAttributes = []string{
 	"run_id",
 	"experiment_id",
-	"run_name",
+	RunName,
 	"user_id",
 	"status",
 	"start_time",
@@ -139,10 +144,10 @@ func parseKey(identifier ValidIdentifier, key string) (string, error) {
 			"artifact_uri",
 			"lifecycle_stage":
 			return key, nil
-		case "created", "Created":
-			return "created", nil
-		case "run_name", "run name", "Run name", "Run Name":
-			return "run_name", nil
+		case Created, "Created":
+			return Created, nil
+		case RunName, "run name", "Run name", "Run Name":
+			return RunName, nil
 		default:
 			return "", NewValidationError(
 				"invalid attribute key valid: %s. Allowed values are %v",
@@ -177,6 +182,7 @@ func validatedIdentifier(identifier *Identifier) (ValidIdentifier, string, error
 	if err != nil {
 		return -1, "", err
 	}
+
 	identifier.Key = validKey
 
 	return validIdentifier, validKey, nil
@@ -198,55 +204,60 @@ otherwise string
 */
 
 // Port of _get_value in search_utils.py.
-func validateValue(identifier ValidIdentifier, key string, v Value) (interface{}, error) {
+func validateValue(identifier ValidIdentifier, key string, value Value) (interface{}, error) {
 	switch identifier {
 	case Metric:
-		if _, ok := v.(NumberExpr); !ok {
+		if _, ok := value.(NumberExpr); !ok {
 			return nil, NewValidationError(
 				"expected numeric value type for metric. Found %s",
-				v,
+				value,
 			)
 		}
-		return v.value(), nil
+
+		return value.value(), nil
 	case Parameter, Tag:
-		if _, ok := v.(StringExpr); !ok {
+		if _, ok := value.(StringExpr); !ok {
 			return nil, NewValidationError(
 				"expected a quoted string value for %s. Found %s",
-				identifier, v,
+				identifier, value,
 			)
 		}
-		return v.value(), nil
+
+		return value.value(), nil
 	case Attribute:
 		switch key {
-		case "start_time", "end_time", "created":
-			if _, ok := v.(NumberExpr); !ok {
+		case "start_time", "end_time", Created:
+			if _, ok := value.(NumberExpr); !ok {
 				return nil, NewValidationError(
 					"expected numeric value type for numeric attribute: %s. Found %s",
 					key,
-					v,
+					value,
 				)
 			}
-			return v.value(), nil
+
+			return value.value(), nil
 		default:
-			if _, ok := v.(StringListExpr); key != "run_name" && ok {
+			if _, ok := value.(StringListExpr); key != RunName && ok {
 				return nil, NewValidationError(
 					"only the 'run_id' attribute supports comparison with a list of quoted string values",
 				)
 			}
-			return v.value(), nil
+
+			return value.value(), nil
 		}
 
 	case Dataset:
 		switch key {
 		case "name", "digest", "context":
-			if _, ok := v.(NumberExpr); ok {
+			if _, ok := value.(NumberExpr); ok {
 				return nil, NewValidationError(
 					"expected dataset.%s to be either a string or list of strings. Found %s",
 					key,
-					v,
+					value,
 				)
 			}
-			return v.value(), nil
+
+			return value.value(), nil
 		default:
 			return nil, NewValidationError(
 				"expected dataset attribute key to be one of %s. Found %s",

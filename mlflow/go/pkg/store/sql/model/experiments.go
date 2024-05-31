@@ -21,8 +21,9 @@ type Experiment struct {
 }
 
 func (e Experiment) ToProto() *protos.Experiment {
-	id := strconv.FormatInt(int64(*e.ID), 10)
+	experimentID := strconv.FormatInt(int64(*e.ID), 10)
 	tags := make([]*protos.ExperimentTag, len(e.Tags))
+
 	for i, tag := range e.Tags {
 		tags[i] = &protos.ExperimentTag{
 			Key:   tag.Key,
@@ -31,7 +32,7 @@ func (e Experiment) ToProto() *protos.Experiment {
 	}
 
 	return &protos.Experiment{
-		ExperimentId:     &id,
+		ExperimentId:     &experimentID,
 		Name:             e.Name,
 		ArtifactLocation: e.ArtifactLocation,
 		LifecycleStage:   e.LifecycleStage,
@@ -41,6 +42,7 @@ func (e Experiment) ToProto() *protos.Experiment {
 	}
 }
 
+//nolint:exhaustruct
 func NewExperimentFromProto(proto *protos.CreateExperiment) Experiment {
 	tags := make([]ExperimentTag, len(proto.GetTags()))
 	for i, tag := range proto.GetTags() {

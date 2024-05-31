@@ -14,6 +14,8 @@ type Sample struct {
 
 //nolint:lll
 func TestQueries(t *testing.T) {
+	t.Parallel()
+
 	samples := []Sample{
 		{
 			input:    "metrics.accuracy > 0.72",
@@ -58,26 +60,34 @@ func TestQueries(t *testing.T) {
 	}
 
 	for _, sample := range samples {
-		t.Run(sample.input, func(t *testing.T) {
-			tokens, err := lexer.Tokenize(&sample.input)
+		currentSample := sample
+
+		t.Run(currentSample.input, func(t *testing.T) {
+			t.Parallel()
+
+			tokens, err := lexer.Tokenize(&currentSample.input)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
+
 			output := ""
+
 			for _, token := range tokens {
 				output += " " + token.Debug()
 			}
 
 			output = strings.TrimLeft(output, " ")
 
-			if output != sample.expected {
-				t.Errorf("expected %s, got %s", sample.expected, output)
+			if output != currentSample.expected {
+				t.Errorf("expected %s, got %s", currentSample.expected, output)
 			}
 		})
 	}
 }
 
 func TestInvalidInput(t *testing.T) {
+	t.Parallel()
+
 	samples := []string{
 		"params.'acc = LR",
 		"params.acc = 'LR",
@@ -87,8 +97,11 @@ func TestInvalidInput(t *testing.T) {
 	}
 
 	for _, sample := range samples {
-		t.Run(sample, func(t *testing.T) {
-			_, err := lexer.Tokenize(&sample)
+		currentSample := sample
+		t.Run(currentSample, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := lexer.Tokenize(&currentSample)
 			if err == nil {
 				t.Errorf("expected error, got nil")
 			}

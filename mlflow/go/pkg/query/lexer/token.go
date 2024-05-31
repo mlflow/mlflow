@@ -29,13 +29,14 @@ const (
 	Comma
 
 	// Reserved Keywords.
-	In
+	In //nolint:varnamelen
 	Not
 	Like
 	ILike
 	And
 )
 
+//nolint:gochecknoglobals
 var reservedLu = map[string]TokenKind{
 	"AND":   And,
 	"NOT":   Not,

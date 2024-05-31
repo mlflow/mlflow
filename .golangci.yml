@@ -5,6 +5,7 @@ linters:
     - lll
   disable:
     - depguard
+    - gochecknoglobals # Immutable globals are fine
   presets:
     - bugs
     - comment
@@ -16,7 +17,7 @@ linters:
     - module
     - performance
     - sql
-    # - style
+    - style
     # - test
     - unused
 
