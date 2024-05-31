@@ -875,6 +875,26 @@ def test_search_traces_without_experiment_id(monkeypatch):
     mlflow.search_traces()
 
 
+def test_search_traces_span_and_field_name_with_dot():
+    with mlflow.start_span(name="span.name") as span:
+        span.set_inputs({"a.b": 0})
+        span.set_outputs({"x.y": 1})
+
+    df = mlflow.search_traces(
+        extract_fields=[
+            "`span.name`.inputs",
+            "`span.name`.inputs.`a.b`",
+            "`span.name`.outputs",
+            "`span.name`.outputs.`x.y`",
+        ]
+    )
+
+    assert df["span.name.inputs"].tolist() == [{"a.b": 0}]
+    assert df["span.name.inputs.a.b"].tolist() == [0]
+    assert df["span.name.outputs"].tolist() == [{"x.y": 1}]
+    assert df["span.name.outputs.x.y"].tolist() == [1]
+
+
 def test_search_traces_with_span_name(monkeypatch):
     class TestModel:
         @mlflow.trace(name="span.llm")
