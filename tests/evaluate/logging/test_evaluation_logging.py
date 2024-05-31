@@ -710,3 +710,40 @@ def test_log_assessments_without_nonexistent_evaluation_fails():
                     source=AssessmentSource(source_type="AI_JUDGE", source_id="judge_id"),
                 ),
             )
+
+
+@pytest.mark.parametrize(
+    ("first_value", "second_value"),
+    [(0.95, "high"), ("low", 0.75), (True, "true_string"), (False, 0.85), ("string_value", 0.8)],
+)
+def test_assessment_name_with_different_value_types_fails(first_value, second_value):
+    inputs = {"feature1": 1.0, "feature2": 2.0}
+    outputs = {"prediction": 0.5}
+
+    with mlflow.start_run():
+        logged_evaluation = log_evaluation(inputs=inputs, outputs=outputs)
+
+        assessments_float = [
+            Assessment(
+                name="accuracy",
+                value=first_value,
+                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
+            )
+        ]
+
+        assessments_string = [
+            Assessment(
+                name="accuracy",
+                value=second_value,
+                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
+            )
+        ]
+
+        log_assessments(
+            evaluation_id=logged_evaluation.evaluation_id, assessments=assessments_float
+        )
+
+        with pytest.raises(MlflowException, match="does not match the value type"):
+            log_assessments(
+                evaluation_id=logged_evaluation.evaluation_id, assessments=assessments_string
+            )
