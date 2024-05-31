@@ -2,7 +2,14 @@ import pytest
 
 import mlflow
 from mlflow.entities import AssessmentSource, AssessmentSourceType, Metric
-from mlflow.evaluation import Assessment, get_evaluation, log_assessments, log_evaluation
+from mlflow.evaluation import (
+    Assessment,
+    Evaluation,
+    get_evaluation,
+    log_assessments,
+    log_evaluation,
+    log_evaluations,
+)
 from mlflow.exceptions import MlflowException
 
 
@@ -21,6 +28,36 @@ def test_log_evaluation_with_minimal_params_succeeds():
             evaluation_id=logged_evaluation.evaluation_id, run_id=mlflow.active_run().info.run_id
         )
         assert retrieved_evaluation == logged_evaluation
+
+
+def test_log_evaluations_with_minimal_params_succeeds():
+    inputs1 = {"feature1": 1.0, "feature2": 2.0}
+    outputs1 = {"prediction": 0.5}
+
+    inputs2 = {"feature3": 3.0, "feature4": 4.0}
+    outputs2 = {"prediction": 0.8}
+
+    with mlflow.start_run():
+        # Create evaluation objects
+        evaluation1 = Evaluation(inputs=inputs1, outputs=outputs1)
+        evaluation2 = Evaluation(inputs=inputs2, outputs=outputs2)
+
+        # Log the evaluations
+        logged_evaluations = log_evaluations(evaluations=[evaluation1, evaluation2])
+        assert len(logged_evaluations) == 2
+
+        for logged_evaluation, expected_evaluation in zip(
+            logged_evaluations, [evaluation1, evaluation2]
+        ):
+            assert logged_evaluation.inputs == expected_evaluation.inputs
+            assert logged_evaluation.outputs == expected_evaluation.outputs
+            retrieved_evaluation = get_evaluation(
+                evaluation_id=logged_evaluation.evaluation_id,
+                run_id=mlflow.active_run().info.run_id,
+            )
+            assert retrieved_evaluation is not None
+            assert retrieved_evaluation.inputs == logged_evaluation.inputs
+            assert retrieved_evaluation.outputs == logged_evaluation.outputs
 
 
 class CustomClassA:
@@ -762,3 +799,53 @@ def test_assessment_name_with_different_value_types_fails(first_value, second_va
 
         with pytest.raises(MlflowException, match="different value types"):
             log_evaluation(inputs=inputs, outputs=outputs, assessments=[assessment1, assessment2])
+
+
+def test_log_multiple_evaluations_with_assessments(setup_mlflow_run):
+    inputs1 = {"feature1": 1.0, "feature2": 2.0}
+    outputs1 = {"prediction": 0.5}
+    assessments1 = [
+        Assessment(
+            name="accuracy",
+            value=0.95,
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
+        )
+    ]
+
+    inputs2 = {"feature3": 3.0, "feature4": 4.0}
+    outputs2 = {"prediction": 0.8}
+    assessments2 = [
+        Assessment(
+            name="relevance",
+            value=True,
+            source=AssessmentSource(source_type=AssessmentSourceType.AI_JUDGE, source_id="judge_1"),
+        )
+    ]
+
+    run_id = setup_mlflow_run.info.run_id
+
+    # Log the evaluations
+    logged_evaluation1 = log_evaluation(
+        inputs=inputs1, outputs=outputs1, assessments=assessments1, run_id=run_id
+    )
+    logged_evaluation2 = log_evaluation(
+        inputs=inputs2, outputs=outputs2, assessments=assessments2, run_id=run_id
+    )
+
+    # Verify that the evaluations and assessments have been logged correctly
+    retrieved_evaluation1 = get_evaluation(
+        evaluation_id=logged_evaluation1.evaluation_id, run_id=run_id
+    )
+    retrieved_evaluation2 = get_evaluation(
+        evaluation_id=logged_evaluation2.evaluation_id, run_id=run_id
+    )
+
+    assert retrieved_evaluation1 is not None
+    assert retrieved_evaluation1.inputs == inputs1
+    assert retrieved_evaluation1.outputs == outputs1
+    assert retrieved_evaluation1.assessments == assessments1
+
+    assert retrieved_evaluation2 is not None
+    assert retrieved_evaluation2.inputs == inputs2
+    assert retrieved_evaluation2.outputs == outputs2
+    assert retrieved_evaluation2.assessments == assessments2
