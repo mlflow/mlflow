@@ -1500,8 +1500,20 @@ class SearchTraceUtils(SearchUtils):
         "execution_time",
     }
 
-    _TAG_IDENTIFIER = "tag"
     _REQUEST_METADATA_IDENTIFIER = "request_metadata"
+    _TAG_IDENTIFIER = "tag"
+    _ATTRIBUTE_IDENTIFIER = "attribute"
+
+    # These are aliases for the base identifiers
+    # e.g. trace.status is equivalent to attribute.status
+    _ALTERNATE_IDENTIFIERS = {
+        "tags": _TAG_IDENTIFIER,
+        "attributes": _ATTRIBUTE_IDENTIFIER,
+        "trace": _ATTRIBUTE_IDENTIFIER,
+    }
+    _IDENTIFIERS = {_TAG_IDENTIFIER, _REQUEST_METADATA_IDENTIFIER, _ATTRIBUTE_IDENTIFIER}
+    _VALID_IDENTIFIERS = _IDENTIFIERS | set(_ALTERNATE_IDENTIFIERS.keys())
+
     SUPPORT_IN_COMPARISON_ATTRIBUTE_KEYS = {"name", "status", "request_id", "run_id"}
 
     # Some search keys are defined differently in the DB models.
@@ -1599,6 +1611,19 @@ class SearchTraceUtils(SearchUtils):
                 )
             return True
         return False
+
+    @classmethod
+    def _valid_entity_type(cls, entity_type):
+        entity_type = cls._trim_backticks(entity_type)
+        if entity_type not in cls._VALID_IDENTIFIERS:
+            raise MlflowException(
+                f"Invalid entity type '{entity_type}'. Valid values are {cls._VALID_IDENTIFIERS}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        elif entity_type in cls._ALTERNATE_IDENTIFIERS:
+            return cls._ALTERNATE_IDENTIFIERS[entity_type]
+        else:
+            return entity_type
 
     @classmethod
     def _get_sort_key(cls, order_by_list):
