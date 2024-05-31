@@ -258,7 +258,11 @@ def langchain_model(model_path):
 
     chain = RunnablePassthrough() | itemgetter("messages")
     save_model_with_latest_mlflow_version(
-        flavor="langchain", lc_model=chain, path=model_path, input_example={"messages": "Hi"}
+        flavor="langchain",
+        lc_model=chain,
+        path=model_path,
+        input_example={"messages": "Hi"},
+        example_no_conversion=False,
     )
     return model_path
 
