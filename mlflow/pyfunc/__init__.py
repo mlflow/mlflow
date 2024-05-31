@@ -462,6 +462,7 @@ from mlflow.pyfunc.model import (
     get_default_conda_env,  # noqa: F401
     get_default_pip_requirements,
 )
+from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import _try_get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -2447,7 +2448,8 @@ def save_model(
             _logger.info("Predicting on input example to validate output")
             context = PythonModelContext(artifacts, model_config)
             python_model.load_context(context)
-            output = python_model.predict(context, messages, params)
+            with trace_disabled():  # Avoid generating a trace from this predict call
+                output = python_model.predict(context, messages, params)
             if not isinstance(output, ChatResponse):
                 raise MlflowException(
                     "Failed to save ChatModel. Please ensure that the model's predict() method "
