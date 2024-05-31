@@ -1,3 +1,4 @@
+import pandas as pd
 import pytest
 
 import mlflow
@@ -9,6 +10,7 @@ from mlflow.evaluation import (
     log_assessments,
     log_evaluation,
     log_evaluations,
+    log_evaluations_df,
 )
 from mlflow.exceptions import MlflowException
 
@@ -58,6 +60,45 @@ def test_log_evaluations_with_minimal_params_succeeds():
             assert retrieved_evaluation is not None
             assert retrieved_evaluation.inputs == logged_evaluation.inputs
             assert retrieved_evaluation.outputs == logged_evaluation.outputs
+
+
+def test_log_evaluations_df_with_minimal_params_succeeds():
+    with mlflow.start_run():
+        # Define the input DataFrame
+        data = {
+            "feature1": [1.0, 3.0],
+            "feature2": [2.0, 4.0],
+            "prediction": [0.5, 0.72],
+        }
+        evaluations_df = pd.DataFrame(data)
+
+        # Define the columns
+        input_cols = ["feature1", "feature2"]
+        output_cols = ["prediction"]
+
+        # Log the evaluations
+        result_df = log_evaluations_df(
+            evaluations_df=evaluations_df,
+            input_cols=input_cols,
+            output_cols=output_cols,
+        )
+
+        # Verify that the evaluation IDs have been added to the DataFrame
+        assert "evaluation_id" in result_df.columns
+        assert len(result_df["evaluation_id"]) == len(evaluations_df)
+
+        # Verify that the evaluations have been logged correctly
+        for evaluation_id in result_df["evaluation_id"]:
+            retrieved_evaluation = get_evaluation(
+                evaluation_id=evaluation_id, run_id=mlflow.active_run().info.run_id
+            )
+            assert retrieved_evaluation is not None
+
+            # Check that the inputs and outputs match the original DataFrame
+            original_row = evaluations_df[result_df["evaluation_id"] == evaluation_id].iloc[0]
+            assert retrieved_evaluation.inputs["feature1"] == original_row["feature1"]
+            assert retrieved_evaluation.inputs["feature2"] == original_row["feature2"]
+            assert retrieved_evaluation.outputs["prediction"] == original_row["prediction"]
 
 
 class CustomClassA:
