@@ -905,6 +905,13 @@ def test_log_assessments_with_same_name_and_source_and_metadata():
         metadata=metadata_1,
     )
 
+    assessment_3 = Assessment(
+        name="relevance",
+        value=0.96,
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
+        metadata=metadata_2,
+    )
+
     with mlflow.start_run() as run:
         # Log the first evaluation and the first assessment
         logged_evaluation_1 = log_evaluation(inputs=inputs_1, outputs=outputs_1)
@@ -918,6 +925,9 @@ def test_log_assessments_with_same_name_and_source_and_metadata():
         log_assessments(
             evaluation_id=logged_evaluation_1.evaluation_id, assessments=[updated_assessment_1]
         )
+
+        # Log the third assessment to the first evaluation
+        log_assessments(evaluation_id=logged_evaluation_1.evaluation_id, assessments=[assessment_3])
 
     def assert_assessments_equal(assessment, expected_assessment):
         assert assessment.name == expected_assessment.name
@@ -933,12 +943,14 @@ def test_log_assessments_with_same_name_and_source_and_metadata():
     retrieved_evaluation_1 = get_evaluation(
         evaluation_id=logged_evaluation_1.evaluation_id, run_id=run_id
     )
-    assert len(retrieved_evaluation_1.assessments) == 1
-    retrieved_assessment_1 = retrieved_evaluation_1.assessments[0]
-    assert_assessments_equal(
-        retrieved_assessment_1,
-        updated_assessment_1._to_entity(evaluation_id=logged_evaluation_1.evaluation_id),
-    )
+    assert len(retrieved_evaluation_1.assessments) == 2
+    for retrieved_assessment, expected_assessment in zip(
+        retrieved_evaluation_1.assessments, [updated_assessment_1, assessment_3]
+    ):
+        assert_assessments_equal(
+            retrieved_assessment,
+            expected_assessment._to_entity(evaluation_id=logged_evaluation_1.evaluation_id),
+        )
 
     # Verify that the second evaluation contains the first (and only) assessment logged to the
     # second evaluation
