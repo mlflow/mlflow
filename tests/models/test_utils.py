@@ -18,6 +18,7 @@ from mlflow.models.utils import (
     _enforce_datatype,
     _enforce_object,
     _enforce_property,
+    _flatten_nested_params,
     _validate_model_code_from_notebook,
     get_model_version_from_model_uri,
 )
@@ -479,3 +480,84 @@ def test_config_context():
         assert mlflow.models.model_config.__mlflow_model_config__ == "tests/langchain/config.yml"
 
     assert mlflow.models.model_config.__mlflow_model_config__ is None
+
+
+def test_flatten_nested_params():
+    nested_params = {
+        "a": 1,
+        "b": {"c": 2, "d": {"e": 3}},
+        "f": {"g": {"h": 4}},
+    }
+    expected_flattened_params = {
+        "a": 1,
+        "b.c": 2,
+        "b.d.e": 3,
+        "f.g.h": 4,
+    }
+    assert _flatten_nested_params(nested_params, sep=".") == expected_flattened_params
+    assert _flatten_nested_params(nested_params, sep="/") == {
+        "a": 1,
+        "b/c": 2,
+        "b/d/e": 3,
+        "f/g/h": 4,
+    }
+    assert _flatten_nested_params({}) == {}
+
+    params = {"a": 1, "b": 2, "c": 3}
+    assert _flatten_nested_params(params) == params
+
+    params = {
+        "a": 1,
+        "b": {"c": 2, "d": {"e": 3, "f": [1, 2, 3]}, "g": "hello"},
+        "h": {"i": None},
+    }
+    expected_flattened_params = {
+        "a": 1,
+        "b/c": 2,
+        "b/d/e": 3,
+        "b/d/f": [1, 2, 3],
+        "b/g": "hello",
+        "h/i": None,
+    }
+    assert _flatten_nested_params(params) == expected_flattened_params
+
+    nested_params = {1: {2: {3: 4}}, "a": {"b": {"c": 5}}}
+    expected_flattened_params_mixed = {
+        "1/2/3": 4,
+        "a/b/c": 5,
+    }
+    assert _flatten_nested_params(nested_params) == expected_flattened_params_mixed
+
+    rag_params = {
+        "workspace_url": "https://e2-dogfood.staging.cloud.databricks.com",
+        "vector_search_endpoint_name": "dbdemos_vs_endpoint",
+        "vector_search_index": "monitoring.rag.databricks_docs_index",
+        "embedding_model_endpoint_name": "databricks-bge-large-en",
+        "embedding_model_query_instructions": "Represent this sentence for searching",
+        "llm_model": "databricks-dbrx-instruct",
+        "llm_prompt_template": "You are a trustful assistant for Databricks users.",
+        "retriever_config": {"k": 5, "use_mmr": "false"},
+        "llm_parameters": {"temperature": 0.01, "max_tokens": 200},
+        "llm_prompt_template_variables": ["chat_history", "context", "question"],
+        "secret_scope": "dbdemos",
+        "secret_key": "rag_sunish",
+    }
+
+    expected_rag_flattened_params = {
+        "workspace_url": "https://e2-dogfood.staging.cloud.databricks.com",
+        "vector_search_endpoint_name": "dbdemos_vs_endpoint",
+        "vector_search_index": "monitoring.rag.databricks_docs_index",
+        "embedding_model_endpoint_name": "databricks-bge-large-en",
+        "embedding_model_query_instructions": "Represent this sentence for searching",
+        "llm_model": "databricks-dbrx-instruct",
+        "llm_prompt_template": "You are a trustful assistant for Databricks users.",
+        "retriever_config/k": 5,
+        "retriever_config/use_mmr": "false",
+        "llm_parameters/temperature": 0.01,
+        "llm_parameters/max_tokens": 200,
+        "llm_prompt_template_variables": ["chat_history", "context", "question"],
+        "secret_scope": "dbdemos",
+        "secret_key": "rag_sunish",
+    }
+
+    assert _flatten_nested_params(rag_params) == expected_rag_flattened_params
