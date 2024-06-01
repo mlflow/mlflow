@@ -6,6 +6,7 @@ import requests
 from mlflow.environment_variables import (
     _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT,
     _MLFLOW_HTTP_REQUEST_MAX_RETRIES_LIMIT,
+    MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT,
     MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
     MLFLOW_HTTP_REQUEST_BACKOFF_JITTER,
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
@@ -13,6 +14,7 @@ from mlflow.environment_variables import (
     MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER,
 )
 from mlflow.exceptions import (
+    ERROR_CODE_TO_HTTP_STATUS,
     INVALID_PARAMETER_VALUE,
     InvalidUrlException,
     MlflowException,
@@ -20,7 +22,7 @@ from mlflow.exceptions import (
     get_error_code,
 )
 from mlflow.protos import databricks_pb2
-from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, INVALID_PARAMETER_VALUE, ErrorCode
+from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.request_utils import (
     _TRANSIENT_FAILURE_RESPONSE_CODES,
@@ -77,6 +79,53 @@ def http_request(
     Returns:
         requests.Response object.
     """
+    hostname = host_creds.host
+    cleaned_hostname = strip_suffix(hostname, "/")
+    url = f"{cleaned_hostname}{endpoint}"
+
+    if host_creds.auth_by_databricks_sdk:
+        from databricks.sdk import WorkspaceClient
+        from databricks.sdk.config import Config
+        from databricks.sdk.errors import DatabricksError
+
+        config = Config(retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get())
+        ws_client = WorkspaceClient(profile=host_creds.databricks_auth_profile, config=config)
+
+        try:
+            if method == "GET":
+                query = kwargs.get("params") or kwargs.get("json")
+                extra_kwargs = {"query": query}
+            else:
+                extra_kwargs = {"body": kwargs.get("json")}
+
+            raw_response = ws_client.api_client.do(
+                method=method,
+                path=endpoint,
+                headers=extra_headers,
+                raw=True,
+                **extra_kwargs,
+            )
+            return raw_response["contents"]._response
+        except DatabricksError as e:
+            if hasattr(e, "error_code"):
+                response = requests.Response()
+                response.url = url
+                response.status_code = ERROR_CODE_TO_HTTP_STATUS.get(e.error_code, 500)
+                response.reason = str(e)
+                response.encoding = "UTF-8"
+                response._content = json.dumps(
+                    {
+                        "error_code": e.error_code,
+                        "message": str(e),
+                    }
+                ).encode("UTF-8")
+
+                return response
+
+            raise MlflowException(
+                f"API request to endpoint '{endpoint}' failed with exception {e}"
+            ) from e
+
     max_retries = MLFLOW_HTTP_REQUEST_MAX_RETRIES.get() if max_retries is None else max_retries
     backoff_factor = (
         MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get() if backoff_factor is None else backoff_factor
@@ -93,7 +142,6 @@ def http_request(
     )
 
     timeout = MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout
-    hostname = host_creds.host
     auth_str = None
     if host_creds.username and host_creds.password:
         basic_auth_str = f"{host_creds.username}:{host_creds.password}".encode()
@@ -123,8 +171,6 @@ def http_request(
 
         kwargs["auth"] = fetch_auth(host_creds.auth)
 
-    cleaned_hostname = strip_suffix(hostname, "/")
-    url = f"{cleaned_hostname}{endpoint}"
     try:
         return _get_http_response_with_retries(
             method,
@@ -361,6 +407,8 @@ class MlflowHostCreds:
         ignore_tls_verification=False,
         client_cert_path=None,
         server_cert_path=None,
+        auth_by_databricks_sdk=False,
+        databricks_auth_profile=None,
     ):
         if not host:
             raise MlflowException(
@@ -387,6 +435,8 @@ class MlflowHostCreds:
         self.ignore_tls_verification = ignore_tls_verification
         self.client_cert_path = client_cert_path
         self.server_cert_path = server_cert_path
+        self.auth_by_databricks_sdk = auth_by_databricks_sdk
+        self.databricks_auth_profile = databricks_auth_profile
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -395,6 +445,9 @@ class MlflowHostCreds:
 
     @property
     def verify(self):
+        if self.auth_by_databricks_sdk:
+            # Let databricks-sdk to set HTTP request `verify` param.
+            return None
         if self.server_cert_path is None:
             return not self.ignore_tls_verification
         else:

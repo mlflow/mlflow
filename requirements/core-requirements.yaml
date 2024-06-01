@@ -85,3 +85,8 @@ matplotlib:
 graphene:
   pip_release: graphene
   max_major_version: 3
+
+databricks-sdk:
+  pip_release: databricks-sdk
+  minimum: "0.20.0"
+  max_major_version: 0
