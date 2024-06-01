@@ -612,3 +612,8 @@ MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK = _EnvironmentVariable(
 MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE = _EnvironmentVariable(
     "MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE", str, "auto"
 )
+
+#: Specify the timeout in seconds for Databricks endpoint HTTP request retries.
+MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT", int, 500
+)
