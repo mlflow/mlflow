@@ -2552,9 +2552,10 @@ class _TransformersWrapper:
         """Check whether input image is a base64 encoded"""
 
         try:
+            b64_decoded_image = base64.b64decode(image)
             return (
-                base64.b64encode(base64.b64decode(image)).decode("utf-8") == image
-                or base64.encodebytes(base64.b64decode(image)).decode("utf-8") == image
+                base64.b64encode(b64_decoded_image).decode("utf-8") == image
+                or base64.encodebytes(b64_decoded_image).decode("utf-8") == image
             )
         except binascii.Error:
             return False
