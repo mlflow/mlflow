@@ -10,6 +10,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.model import Model
 from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc.loaders.chat_model import _ChatModelPyfuncWrapper
+from mlflow.tracing.constant import TraceTagKey
 from mlflow.types.llm import (
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
@@ -20,6 +21,7 @@ from mlflow.types.llm import (
 from mlflow.types.schema import ColSpec, DataType, Schema
 
 from tests.helper_functions import expect_status_code, pyfunc_serve_and_score_model
+from tests.tracing.helper import get_traces
 
 # `None`s (`max_tokens` and `stop`) are excluded
 DEFAULT_PARAMS = {
@@ -75,6 +77,13 @@ class ChatModelWithContext(mlflow.pyfunc.ChatModel):
         return ChatResponse(**get_mock_response([message], params))
 
 
+class ChatModelWithTrace(mlflow.pyfunc.ChatModel):
+    @mlflow.trace
+    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+        mock_response = get_mock_response(messages, params)
+        return ChatResponse(**mock_response)
+
+
 def test_chat_model_save_load(tmp_path):
     model = TestChatModel()
     mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
@@ -85,6 +94,27 @@ def test_chat_model_save_load(tmp_path):
     output_schema = loaded_model.metadata.get_output_schema()
     assert input_schema == CHAT_MODEL_INPUT_SCHEMA
     assert output_schema == CHAT_MODEL_OUTPUT_SCHEMA
+
+
+def test_chat_model_with_trace(tmp_path):
+    model = ChatModelWithTrace()
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
+
+    # predict() call during saving chat model should not generate a trace
+    assert len(get_traces()) == 0
+
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant"},
+        {"role": "user", "content": "Hello!"},
+    ]
+    loaded_model.predict({"messages": messages})
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.tags[TraceTagKey.TRACE_NAME] == "predict"
+    request = json.loads(traces[0].data.request)
+    assert request["messages"] == [str(ChatMessage(**msg)) for msg in messages]
 
 
 def test_chat_model_save_throws_with_signature(tmp_path):
