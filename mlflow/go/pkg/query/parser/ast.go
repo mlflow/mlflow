@@ -92,6 +92,7 @@ const (
 	NotIn
 )
 
+//nolint:cyclop
 func (op OperatorKind) String() string {
 	switch op {
 	case Equals:

@@ -50,6 +50,7 @@ func (e *Error) Unwrap() error {
 	return e.Inner
 }
 
+//nolint:cyclop
 func (e *Error) StatusCode() int {
 	//nolint:exhaustive,mnd
 	switch protos.ErrorCode(e.Code) {

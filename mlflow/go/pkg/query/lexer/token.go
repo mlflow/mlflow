@@ -58,6 +58,7 @@ func (token Token) Debug() string {
 	return TokenKindString(token.Kind)
 }
 
+//nolint:funlen,cyclop
 func TokenKindString(kind TokenKind) string {
 	switch kind {
 	case EOF:

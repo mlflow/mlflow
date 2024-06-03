@@ -12,7 +12,7 @@ type Sample struct {
 	expected string
 }
 
-//nolint:lll
+//nolint:lll,funlen
 func TestQueries(t *testing.T) {
 	t.Parallel()
 

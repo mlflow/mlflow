@@ -13,6 +13,7 @@ type Sample struct {
 	expected *parser.AndExpr
 }
 
+//nolint:funlen
 func TestQueries(t *testing.T) {
 	t.Parallel()
 

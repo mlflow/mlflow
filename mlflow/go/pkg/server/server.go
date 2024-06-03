@@ -97,9 +97,9 @@ func launchServer(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-func newAPIApp(cfg *config.Config) (*fiber.App, error) {
-	//nolint:exhaustruct
-	app := fiber.New(fiber.Config{
+//nolint:exhaustruct
+func newFiberConfig() fiber.Config {
+	return fiber.Config{
 		ErrorHandler: func(context *fiber.Ctx, err error) error {
 			var contractError *contract.Error
 			if !errors.As(err, &contractError) {
@@ -137,7 +137,11 @@ func newAPIApp(cfg *config.Config) (*fiber.App, error) {
 
 			return context.Status(contractError.StatusCode()).JSON(contractError)
 		},
-	})
+	}
+}
+
+func newAPIApp(cfg *config.Config) (*fiber.App, error) {
+	app := fiber.New(newFiberConfig())
 
 	parser, err := NewHTTPRequestParser()
 	if err != nil {

@@ -187,6 +187,7 @@ func mkReturnStmt(results ...ast.Expr) *ast.ReturnStmt {
 	}
 }
 
+//nolint:funlen
 func mkAppRoute(method discovery.MethodInfo, endpoint discovery.Endpoint) ast.Stmt {
 	urlExpr := &ast.BasicLit{Kind: token.STRING, Value: fmt.Sprintf(`"%s"`, endpoint.GetFiberPath())}
 
@@ -329,6 +330,8 @@ func generateServices(pkgFolder string) error {
 var jsonFieldTagRegexp = regexp.MustCompile(`json:"([^"]+)"`)
 
 // Inspect the AST of the incoming file and add a query annotation to the struct tags which have a json tag.
+//
+//nolint:funlen,cyclop
 func addQueryAnnotation(generatedGoFile string) error {
 	// Parse the file into an AST
 	fset := token.NewFileSet()

@@ -9,7 +9,7 @@ linters:
   presets:
     - bugs
     - comment
-    # - complexity
+    - complexity
     - error
     - format
     - import
