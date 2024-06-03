@@ -97,12 +97,12 @@ def http_request(
             # https://github.com/databricks/databricks-sdk-py/blob/a714146d9c155dd1e3567475be78623f72028ee0/databricks/sdk/core.py#L134
             # The 'query' argument of Databricks SDK `APIClient.do` API is equivalent to
             # `params` argument of `requests.Session.request()` API
-            if method == "GET":
-                query = kwargs.get("params") or kwargs.get("json")
-
-                extra_kwargs = {"query": query}
-            else:
-                extra_kwargs = {"query": kwargs.get("params"), "body": kwargs.get("json")}
+            # The 'body' argument of Databricks SDK `APIClient.do` API is equivalent to
+            # `json` argument of `requests.Session.request()` API
+            extra_kwargs = {
+                "query": kwargs.get("params"),
+                "body": kwargs.get("json"),
+            }
 
             raw_response = ws_client.api_client.do(
                 method=method,
