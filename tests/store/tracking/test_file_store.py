@@ -3099,6 +3099,14 @@ def test_search_traces_filter_request_metadata(store):
         [trace_info_2, trace_info_1],
     )
 
+    # backtick
+    _validate_search_traces(
+        store,
+        [exp_id],
+        f"request_metadata.`{TraceMetadataKey.INPUTS}` = 'inputs1'",
+        [trace_info_1],
+    )
+
     # alias
     _validate_search_traces(
         store,
