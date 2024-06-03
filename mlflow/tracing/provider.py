@@ -142,15 +142,16 @@ def trace_disabled(f):
 
     .. code-block:: python
 
-            @trace_disabled
-            def f():
-                with mlflow.start_span("my_span") as span:
-                    span.set_attribute("my_key", "my_value")
+        @trace_disabled
+        def f():
+            with mlflow.start_span("my_span") as span:
+                span.set_attribute("my_key", "my_value")
 
-                return
+            return
 
-            # This function will not generate any trace
-            f()
+
+        # This function will not generate any trace
+        f()
 
     :meta private:
     """
