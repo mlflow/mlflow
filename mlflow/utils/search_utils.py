@@ -1535,7 +1535,7 @@ class SearchTraceUtils(SearchUtils):
         """Filters a set of traces based on a search filter string."""
         if not filter_string:
             return traces
-        parsed = cls.parse_search_filter(filter_string)
+        parsed = cls.parse_search_filter_for_search_traces(filter_string)
 
         def trace_matches(trace):
             return all(cls._does_trace_match_clause(trace, s) for s in parsed)
@@ -1544,20 +1544,16 @@ class SearchTraceUtils(SearchUtils):
 
     @classmethod
     def _does_trace_match_clause(cls, trace, sed):
+        type_ = sed.get("type")
         key = sed.get("key")
         value = sed.get("value")
         comparator = sed.get("comparator").upper()
 
-        if key in cls.SEARCH_KEY_TO_TAG:
-            key = cls.SEARCH_KEY_TO_TAG[key]
+        if cls.is_tag(type_, comparator):
             lhs = trace.tags.get(key)
-        elif key in cls.SEARCH_KEY_TO_METADATA:
-            key = cls.SEARCH_KEY_TO_METADATA[key]
+        elif cls.is_request_metadata(type_, comparator):
             lhs = trace.request_metadata.get(key)
-        elif key in cls.SEARCH_KEY_TO_ATTRIBUTE:
-            key = cls.SEARCH_KEY_TO_ATTRIBUTE[key]
-            lhs = getattr(trace, key)
-        elif key in cls.VALID_SEARCH_ATTRIBUTE_KEYS:
+        elif cls.is_attribute(type_, key, comparator):
             lhs = getattr(trace, key)
         elif sed.get("type") == cls._TAG_IDENTIFIER:
             lhs = trace.tags.get(key)
