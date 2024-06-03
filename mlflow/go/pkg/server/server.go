@@ -21,7 +21,7 @@ import (
 )
 
 //nolint:exhaustruct
-func launchServer(ctx context.Context, cfg *config.Config) error {
+func configureApp(cfg *config.Config) (*fiber.App, error) {
 	//nolint:mnd
 	app := fiber.New(fiber.Config{
 		BodyLimit:             16 * 1024 * 1024,
@@ -42,7 +42,7 @@ func launchServer(ctx context.Context, cfg *config.Config) error {
 
 	apiApp, err := newAPIApp(cfg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	app.Mount("/api/2.0", apiApp)
@@ -61,6 +61,16 @@ func launchServer(ctx context.Context, cfg *config.Config) error {
 	})
 
 	app.Use(proxy.BalancerForward([]string{cfg.PythonAddress}))
+
+	return app, nil
+}
+
+//nolint:exhaustruct
+func launchServer(ctx context.Context, cfg *config.Config) error {
+	app, err := configureApp(cfg)
+	if err != nil {
+		return err
+	}
 
 	go func() {
 		<-ctx.Done()
