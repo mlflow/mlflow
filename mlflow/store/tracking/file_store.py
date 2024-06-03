@@ -1656,7 +1656,7 @@ class FileStore(AbstractStore):
         Args:
             experiment_ids: List of experiment ids to scope the search.
             filter_string: A search filter string. Supported filter keys are `name`,
-                           `status` and `timestamp_ms`.
+                           `status`, `timestamp_ms` and `tags`.
             max_results: Maximum number of traces desired.
             order_by: List of order_by clauses. Supported sort key is `timestamp_ms`. By default
                       we sort by timestamp_ms DESC.

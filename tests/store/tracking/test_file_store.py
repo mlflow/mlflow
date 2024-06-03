@@ -88,7 +88,7 @@ def generate_trace_infos(store):
             exp_id,
             timestamp,
             {},
-            {TraceTagKey.TRACE_NAME: f"trace_{i}"},
+            {TraceTagKey.TRACE_NAME: f"trace_{i}", "test_tag": f"tag_{i}"},
         )
         trace_infos.append(trace_info)
         request_ids.append(trace_info.request_id)
@@ -3035,6 +3035,28 @@ def test_search_traces_filter(generate_trace_infos):
     _validate_search_traces(store, [exp_id], "run_id NOT IN ('run_5')", trace_infos[6:][::-1])
     _validate_search_traces(store, [exp_id], "run_id LIKE 'run_%'", trace_infos[5:][::-1])
     _validate_search_traces(store, [exp_id], "run_id ILIKE 'RUN_5'", [trace_infos[5]])
+
+    # filter by tag
+    for tag_identifier in ["tag", "tags"]:
+        _validate_search_traces(
+            store, [exp_id], f"{tag_identifier}.test_tag = 'tag_0'", [trace_infos[0]]
+        )
+        _validate_search_traces(
+            store, [exp_id], f"{tag_identifier}.test_tag != 'tag_0'", trace_infos[1:][::-1]
+        )
+        _validate_search_traces(
+            store, [exp_id], f"{tag_identifier}.test_tag IN ('tag_0')", [trace_infos[0]]
+        )
+        _validate_search_traces(
+            store, [exp_id], f"{tag_identifier}.test_tag NOT IN ('tag_0')", trace_infos[1:][::-1]
+        )
+        _validate_search_traces(
+            store, [exp_id], f"{tag_identifier}.test_tag LIKE 'tag_%'", trace_infos[::-1]
+        )
+        _validate_search_traces(
+            store, [exp_id], f"{tag_identifier}.test_tag ILIKE 'TAG_%'", trace_infos[::-1]
+        )
+        _validate_search_traces(store, [exp_id], f"{tag_identifier}.test_tag = '123'", [])
 
     # multiple filter conditions
     _validate_search_traces(

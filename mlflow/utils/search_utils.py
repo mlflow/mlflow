@@ -1559,6 +1559,8 @@ class SearchTraceUtils(SearchUtils):
             lhs = getattr(trace, key)
         elif key in cls.VALID_SEARCH_ATTRIBUTE_KEYS:
             lhs = getattr(trace, key)
+        elif sed.get("type") == cls._TAG_IDENTIFIER:
+            lhs = trace.tags.get(key)
         else:
             raise MlflowException(
                 f"Invalid search key '{key}', supported are {cls.VALID_SEARCH_ATTRIBUTE_KEYS}",
@@ -1650,6 +1652,8 @@ class SearchTraceUtils(SearchUtils):
         if identifier_type == cls._TAG_IDENTIFIER:
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
+            elif isinstance(token, Parenthesis):
+                return cls._parse_attribute_lists(token)
             raise MlflowException(
                 "Expected a quoted string value for "
                 f"{identifier_type} (e.g. 'my-value'). Got value "
