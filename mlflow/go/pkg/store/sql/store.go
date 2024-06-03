@@ -511,7 +511,7 @@ func (s Store) DeleteExperiment(id string) *contract.Error {
 //nolint:exhaustruct
 func (s Store) setTagsWithTransaction(
 	transaction *gorm.DB, runID string, tags []*protos.RunTag,
-) *contract.Error {
+) error {
 	runColumns := make(map[string]interface{})
 
 	for _, tag := range tags {
@@ -529,24 +529,21 @@ func (s Store) setTagsWithTransaction(
 			Where("run_uuid = ?", runID).
 			UpdateColumns(runColumns).Error
 		if err != nil {
-			return contract.NewErrorWith(
-				protos.ErrorCode_INTERNAL_ERROR,
-				"failed to update run columns",
-				err,
-			)
+			return fmt.Errorf("failed to update run columns: %w", err)
 		}
 	}
 
 	batchSize := 100
+	runTags := make([]model.Tag, 0, len(tags))
+
+	for _, tag := range tags {
+		runTags = append(runTags, model.NewTagFromProto(runID, tag))
+	}
 
 	if err := transaction.Clauses(clause.OnConflict{
 		UpdateAll: true,
-	}).CreateInBatches(&tags, batchSize).Error; err != nil {
-		return contract.NewErrorWith(
-			protos.ErrorCode_INTERNAL_ERROR,
-			fmt.Sprintf("failed to create tags for run %q", runID),
-			err,
-		)
+	}).CreateInBatches(runTags, batchSize).Error; err != nil {
+		return fmt.Errorf("failed to create tags for run %q: %w", runID, err)
 	}
 
 	return nil
@@ -555,11 +552,19 @@ func (s Store) setTagsWithTransaction(
 func (s Store) LogBatch(
 	runID string, _ []*protos.Metric, _ []*protos.Param, tags []*protos.RunTag,
 ) *contract.Error {
-	if err := s.db.Transaction(func(transaction *gorm.DB) error {
+	err := s.db.Transaction(func(transaction *gorm.DB) error {
 		err := s.setTagsWithTransaction(transaction, runID, tags)
+		if err != nil {
+			return contract.NewErrorWith(
+				protos.ErrorCode_INTERNAL_ERROR,
+				"set tags inside log batch failed",
+				err,
+			)
+		}
 
-		return err
-	}); err != nil {
+		return nil
+	})
+	if err != nil {
 		return contract.NewErrorWith(
 			protos.ErrorCode_INTERNAL_ERROR,
 			"log batch transaction failed",
