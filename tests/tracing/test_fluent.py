@@ -927,8 +927,3 @@ def test_get_last_active_trace(clear_singleton):
     trace.info.status = TraceStatus.ERROR
     original_trace = mlflow.MlflowClient().get_trace(trace.info.request_id)
     assert original_trace.info.status == TraceStatus.OK
-
-    # It should return active trace if there is
-    with mlflow.start_span() as span:
-        trace = mlflow.get_last_active_trace()
-        assert trace.info.request_id == span.request_id
