@@ -72,6 +72,16 @@ def test_disable_enable_tracing():
     assert isinstance(_get_tracer(__name__), trace.Tracer)
     TRACE_BUFFER.clear()
 
+    # Tracing should be enabled back even if the function raises an exception
+    @trace_disabled
+    def test_fn_raise():
+        raise ValueError("error")
+
+    with pytest.raises(ValueError, match="error"):
+        test_fn_raise()
+
+    assert len(TRACE_BUFFER) == 1
+
 
 @pytest.mark.parametrize("enabled_initially", [True, False])
 def test_trace_disabled_decorator(enabled_initially):
