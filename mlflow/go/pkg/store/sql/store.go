@@ -496,6 +496,28 @@ func (s Store) DeleteExperiment(id string) *contract.Error {
 	return nil
 }
 
+// func (s Store) logParamsWithTransaction(
+// 	transaction *gorm.DB,
+// 	runID string,
+// 	params []*protos.Param) *contract.Error {
+// 	return nil
+// }
+
+// func (s Store) logMetricsWithTransaction(
+//	transaction *gorm.DB, runID string, metrics []*protos.Metric) *contract.Error {
+// 	return nil
+// }
+
+func (s Store) setTagsWithTransaction(
+	transaction *gorm.DB, runID string, tags []*protos.RunTag) *contract.Error {
+	return nil
+}
+
+func (s Store) LogBatch(
+	runID string, metrics []*protos.Metric, params []*protos.Param, tags []*protos.RunTag) *contract.Error {
+	return nil
+}
+
 func NewSQLStore(config *config.Config) (*Store, error) {
 	uri, err := url.Parse(config.StoreURL)
 	if err != nil {

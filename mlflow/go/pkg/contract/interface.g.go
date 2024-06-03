@@ -12,6 +12,7 @@ type MlflowService interface {
 	GetExperiment(input *protos.GetExperiment) (*protos.GetExperiment_Response, *Error)
 	DeleteExperiment(input *protos.DeleteExperiment) (*protos.DeleteExperiment_Response, *Error)
 	SearchRuns(input *protos.SearchRuns) (*protos.SearchRuns_Response, *Error)
+	LogBatch(input *protos.LogBatch) (*protos.LogBatch_Response, *Error)
 }
 type ModelRegistryService interface {
 }
@@ -58,6 +59,17 @@ func RegisterMlflowServiceRoutes(service MlflowService, parser HTTPRequestParser
 			return err
 		}
 		output, err := service.SearchRuns(input)
+		if err != nil {
+			return err
+		}
+		return ctx.JSON(output)
+	})
+	app.Post("/mlflow/runs/log-batch", func(ctx *fiber.Ctx) error {
+		input := &protos.LogBatch{}
+		if err := parser.ParseBody(ctx, input); err != nil {
+			return err
+		}
+		output, err := service.LogBatch(input)
 		if err != nil {
 			return err
 		}

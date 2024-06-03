@@ -22,6 +22,18 @@ type MlflowStore interface {
 	) (pagedList *PagedList[*protos.Run], err *contract.Error)
 
 	DeleteExperiment(id string) *contract.Error
+
+	// LogParams(runID string, params []*protos.Param) *contract.Error
+
+	// LogMetrics(runID string, metrics []*protos.Metric) *contract.Error
+
+	// SetTags(runID string, tags []*protos.RunTag) *contract.Error
+
+	LogBatch(
+		runID string,
+		metrics []*protos.Metric,
+		params []*protos.Param,
+		tags []*protos.RunTag) *contract.Error
 }
 
 type PagedList[T any] struct {

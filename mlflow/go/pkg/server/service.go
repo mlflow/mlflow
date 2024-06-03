@@ -117,6 +117,15 @@ func (m MlflowService) DeleteExperiment(
 	return &protos.DeleteExperiment_Response{}, nil
 }
 
+func (m MlflowService) LogBatch(input *protos.LogBatch) (*protos.LogBatch_Response, *contract.Error) {
+	err := m.store.LogBatch(input.GetRunId(), input.GetMetrics(), input.GetParams(), input.GetTags())
+	if err != nil {
+		return nil, err
+	}
+
+	return &protos.LogBatch_Response{}, nil
+}
+
 var (
 	modelRegistryService   contract.ModelRegistryService
 	mlflowArtifactsService contract.MlflowArtifactsService

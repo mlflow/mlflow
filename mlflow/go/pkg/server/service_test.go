@@ -33,6 +33,15 @@ func (f FakeStore) DeleteExperiment(_ string) *contract.Error {
 	return nil
 }
 
+func (f FakeStore) LogBatch(
+	_ string,
+	_ []*protos.Metric,
+	_ []*protos.Param,
+	_ []*protos.RunTag,
+) *contract.Error {
+	return nil
+}
+
 func toPtr(s string) *string {
 	return &s
 }
