@@ -1500,6 +1500,13 @@ class SearchTraceUtils(SearchUtils):
         "execution_time",
     }
 
+    # Databricks backend does not support LIKE/ILIKE operators for trace search
+    # for performance issues, so we don't support them in the OSS either for
+    # consistency. We can revisit this decision if we find a way to support
+    # these operators in a performant way, or users request them.
+    VALID_TAG_COMPARATORS = {"!=", "="}
+    VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN"}
+
     _REQUEST_METADATA_IDENTIFIER = "request_metadata"
     _TAG_IDENTIFIER = "tag"
     _ATTRIBUTE_IDENTIFIER = "attribute"
