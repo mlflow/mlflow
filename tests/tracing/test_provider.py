@@ -74,21 +74,31 @@ def test_disable_enable_tracing():
 
 
 @pytest.mark.parametrize("enabled_initially", [True, False])
-def test_trace_disabled_context_manager(enabled_initially):
+def test_trace_disabled_decorator(enabled_initially):
     if not enabled_initially:
         mlflow.tracing.disable()
     assert _is_enabled() == enabled_initially
 
-    @mlflow.trace
+    @trace_disabled
     def test_fn():
-        pass
+        with mlflow.start_span(name="test_span") as span:
+            span.set_attribute("key", "value")
 
-    with trace_disabled():
-        test_fn()
-        assert len(TRACE_BUFFER) == 0
-        assert not _is_enabled()
+    test_fn()
+    assert len(TRACE_BUFFER) == 0
 
     # Recover the initial state
+    assert _is_enabled() == enabled_initially
+
+    # Tracing should be enabled back even if the function raises an exception
+    @trace_disabled
+    def test_fn_raise():
+        raise ValueError("error")
+
+    with pytest.raises(ValueError, match="error"):
+        test_fn_raise()
+
+    assert len(TRACE_BUFFER) == 0
     assert _is_enabled() == enabled_initially
 
 
