@@ -142,21 +142,18 @@ def _extract_raw_model(model):
 def _extract_predict_fn(
     model: Optional[object],
     raw_model: Optional[object],
-    model_predict_fn: Optional[Callable] = None,
 ) -> Tuple[Optional[Callable], Optional[Callable]]:
     """
     Extracts the predict function from the given model or raw_model.
 
     Precedence order:
     1. If raw_model is specified, its predict function is used.
-    2. If model_predict_fn is specified, it is used as the predict function.
-    3. If model is specified, its predict function is used.
-    4. If none of the above, predict function is None.
+    2. If model is specified, its predict function is used.
+    3. If none of the above, predict function is None.
 
     Args:
         model: A model object that has a predict method.
         raw_model: A raw model object that has a predict method.
-        model_predict_fn: A callable to be used as the predict function.
 
     Returns:
         A tuple of two elements:
@@ -180,12 +177,22 @@ def _extract_predict_fn(
                     predict_proba_fn = partial(predict_proba_fn, validate_features=False)
         except ImportError:
             pass
-    elif model_predict_fn is not None:
-        predict_fn = model_predict_fn
     elif model is not None:
         predict_fn = model.predict
 
     return predict_fn, predict_proba_fn
+
+
+def restrict_langchain_autologging_to_traces_only(pred_fn):
+    if pred_fn is None:
+        return None
+
+    # In non-langchain environments, nothing would be autologged.
+    def new_pred_fn(*args, **kwargs):
+        with mlflow.utils.autologging_utils.restrict_langchain_autologging_to_traces_only():
+            return pred_fn(*args, **kwargs)
+
+    return new_pred_fn
 
 
 def _get_regressor_metrics(y, y_pred, sample_weights):
@@ -1892,8 +1899,10 @@ class DefaultEvaluator(ModelEvaluator):
             else:
                 # model is constructed from a user specified function or not provided
                 self.model_loader_module, self.raw_model = None, None
-            self.predict_fn, self.predict_proba_fn = _extract_predict_fn(
-                model, self.raw_model, self.model_predict_fn
+            self.predict_fn, self.predict_proba_fn = _extract_predict_fn(model, self.raw_model)
+            self.predict_fn = restrict_langchain_autologging_to_traces_only(self.predict_fn)
+            self.predict_proba_fn = restrict_langchain_autologging_to_traces_only(
+                self.predict_proba_fn
             )
 
             self.artifacts = {}
@@ -1961,15 +1970,6 @@ class DefaultEvaluator(ModelEvaluator):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        model_predict_func = None
-        if model is not None and hasattr(model, "predict") and callable(model.predict):
-
-            def model_predict_func(x):
-                # In non-langchain environments, nothing would be autologged.
-                with mlflow.utils.autologging_utils.restrict_langchain_autologging_to_traces_only():
-                    return model.predict(x)
-
-        self.model_predict_fn = model_predict_func
         self.dataset = dataset
         self.run_id = run_id
         self.model_type = model_type
