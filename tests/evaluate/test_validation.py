@@ -939,7 +939,7 @@ def test_validation_multi_thresholds_should_fail(
                 )
 
 
-def test_validation_thresholds_validation_thresholds_no_mock():
+def test_validation_thresholds_no_mock():
     targets = [0, 1, 1, 1]
     data = [[random.random()] for _ in targets]
 
