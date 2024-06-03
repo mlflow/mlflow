@@ -51,7 +51,6 @@ class UCVolumeDatasetSource(DatasetSource):
         try:
             # Check if `self.path` points to a valid UC file.
             w.files.get_metadata(self.path)
-            return
         except Exception:
             try:
                 # Check if `self.path` points to a valid UC directory.
