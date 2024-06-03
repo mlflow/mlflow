@@ -111,6 +111,12 @@ def disable():
     """
     Disable tracing.
 
+    .. note::
+
+        This function sets up `OpenTelemetry` to use
+        `NoOpTracerProvider <https://github.com/open-telemetry/opentelemetry-python/blob/4febd337b019ea013ccaab74893bd9883eb59000/opentelemetry-api/src/opentelemetry/trace/__init__.py#L222>`_
+        and effectively disables all tracing operations.
+
     Example:
 
     .. code-block:: python
