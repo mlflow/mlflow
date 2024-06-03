@@ -12,6 +12,7 @@ from mlflow.entities.multipart_upload import (
     MultipartUploadCredential,
 )
 from mlflow.environment_variables import (
+    MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE,
     MLFLOW_S3_ENDPOINT_URL,
     MLFLOW_S3_IGNORE_TLS,
     MLFLOW_S3_UPLOAD_EXTRA_ARGS,
@@ -80,7 +81,7 @@ def _cached_get_s3_client(
 
 
 def _get_s3_client(
-    addressing_style="path",
+    addressing_style=None,
     access_key_id=None,
     secret_access_key=None,
     session_token=None,
@@ -102,6 +103,9 @@ def _get_s3_client(
 
     # Invalidate cache every `_MAX_CACHE_SECONDS`
     timestamp = int(_get_utcnow_timestamp() / _MAX_CACHE_SECONDS)
+
+    if not addressing_style:
+        addressing_style = MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE.get()
 
     return _cached_get_s3_client(
         signature_version,

@@ -17,6 +17,7 @@ export interface SimpleSelectProps extends Omit<SelectTriggerProps, 'onChange' |
     validationState?: SelectTriggerProps['validationState'];
     contentProps?: SelectContentProps;
     onChange?: (e: SimpleSelectChangeEventType) => void;
+    forceCloseOnEscape?: boolean;
     /** Callback returning the open state of the dropdown. */
     onOpenChange?: (isOpen: boolean) => void;
 }

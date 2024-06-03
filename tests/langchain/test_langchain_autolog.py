@@ -25,6 +25,7 @@ from mlflow.langchain._langchain_autolog import (
 )
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.models import Model
+from mlflow.models.dependencies_schemas import DependenciesSchemasType, set_retriever_schema
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.pyfunc.context import Context, set_prediction_context
@@ -38,7 +39,7 @@ from mlflow.utils.openai_utils import (
 
 # TODO: This test helper is used outside the tracing module, we should move it to a common utils
 from tests.tracing.conftest import clear_singleton as clear_trace_singleton  # noqa: F401
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import get_first_trace, get_traces
 
 MODEL_DIR = "model"
 TEST_CONTENT = "test"
@@ -299,6 +300,23 @@ def test_llmchain_autolog(clear_trace_singleton):
         assert attrs["invocation_params"]["temperature"] == 0.9
 
 
+def test_llmchain_autolog_should_not_generate_trace_while_saving_models(
+    clear_trace_singleton, tmp_path
+):
+    mlflow.langchain.autolog()
+    question = "MLflow"
+
+    with _mock_request(return_value=_mock_chat_completion_response()):
+        model = create_openai_llmchain()
+        # Either save_model or log_model should not generate traces
+        mlflow.langchain.save_model(model, path=tmp_path / "model", input_example=question)
+        with mlflow.start_run():
+            mlflow.langchain.log_model(model, "model", input_example=question)
+
+    traces = get_traces()
+    assert len(traces) == 0
+
+
 def test_llmchain_autolog_no_optional_artifacts_by_default(clear_trace_singleton):
     mlflow.langchain.autolog()
     question = "MLflow"
@@ -325,21 +343,6 @@ def test_llmchain_autolog_with_registered_model_name():
         assert registered_model.name == registered_model_name
 
 
-# TODO: remove skip mark before merging the tracing feature branch to master
-@pytest.mark.skip(reason="Metrics autologging is disabled in the tracing feature branch.")
-def test_llmchain_autolog_metrics():
-    mlflow.langchain.autolog()
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        model = create_openai_llmchain()
-        with mlflow.start_run() as run:
-            model.invoke("MLflow")
-        client = MlflowClient()
-        metrics = client.get_run(run.info.run_id).data.metrics
-        for metric_key in MLFLOW_CALLBACK_METRICS + TEXT_COMPLEXITY_METRICS:
-            assert metric_key in metrics
-    assert mlflow.active_run() is None
-
-
 def test_loaded_llmchain_autolog():
     mlflow.langchain.autolog(log_models=True, log_input_examples=True)
     model = create_openai_llmchain()
@@ -356,7 +359,7 @@ def test_loaded_llmchain_autolog():
             mlflow_model = get_mlflow_model(run.info.artifact_uri)
             model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
             input_example = _read_example(mlflow_model, model_path)
-            assert input_example.to_dict("records") == [question]
+            assert input_example == question
 
             pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
             # _TestLangChainWrapper mocks this result
@@ -474,22 +477,6 @@ def test_agent_autolog(clear_trace_singleton):
         assert attrs[SpanAttributeKey.OUTPUTS] == {"output": TEST_CONTENT}
 
 
-# TODO: remove skip mark before merging the tracing feature branch to master
-@pytest.mark.skip(reason="Metrics autologging is disabled in the tracing feature branch.")
-def test_agent_autolog_metrics():
-    mlflow.langchain.autolog()
-    model, input, mock_response = create_openai_llmagent()
-    with _mock_request(return_value=_MockResponse(200, mock_response)):
-        with mlflow.start_run() as run:
-            model(input)
-        client = MlflowClient()
-        metrics = client.get_run(run.info.run_id).data.metrics
-        for metric_key in MLFLOW_CALLBACK_METRICS + TEXT_COMPLEXITY_METRICS:
-            assert metric_key in metrics
-
-    assert mlflow.active_run() is None
-
-
 def test_loaded_agent_autolog():
     mlflow.langchain.autolog(log_models=True, log_input_examples=True)
     model, input, mock_response = create_openai_llmagent()
@@ -504,7 +491,7 @@ def test_loaded_agent_autolog():
             mlflow_model = get_mlflow_model(run.info.artifact_uri)
             model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
             input_example = _read_example(mlflow_model, model_path)
-            assert input_example.to_dict("records") == [input]
+            assert input_example == input
 
             pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
             assert pyfunc_model.predict(input) == [TEST_CONTENT]
@@ -574,20 +561,6 @@ def test_runnable_sequence_autolog(clear_trace_singleton):
         }
 
 
-# TODO: remove skip mark before merging the tracing feature branch to master
-@pytest.mark.skip(reason="Metrics autologging is disabled in the tracing feature branch.")
-def test_runnable_sequence_autolog_metrics():
-    mlflow.langchain.autolog()
-    chain, input_example = create_runnable_sequence()
-    with mlflow.start_run() as run:
-        chain.invoke(input_example)
-    client = MlflowClient()
-    metrics = client.get_run(run.info.run_id).data.metrics
-    for metric_key in MLFLOW_CALLBACK_METRICS + TEXT_COMPLEXITY_METRICS:
-        assert metric_key in metrics
-    assert mlflow.active_run() is None
-
-
 def test_loaded_runnable_sequence_autolog():
     mlflow.langchain.autolog(log_models=True, log_input_examples=True)
     chain, input_example = create_runnable_sequence()
@@ -601,7 +574,7 @@ def test_loaded_runnable_sequence_autolog():
         mlflow_model = get_mlflow_model(run.info.artifact_uri)
         model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
         saved_example = _read_example(mlflow_model, model_path)
-        assert saved_example.to_dict("records") == [input_example]
+        assert saved_example == input_example
 
         pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
         assert pyfunc_model.predict(input_example) == [TEST_CONTENT]
@@ -662,21 +635,6 @@ def test_retriever_autolog(tmp_path, clear_trace_singleton):
     assert attrs[SpanAttributeKey.OUTPUTS][0]["metadata"] == {
         "source": "tests/langchain/state_of_the_union.txt"
     }
-
-
-# TODO: remove skip mark before merging the tracing feature branch to master
-@pytest.mark.skip(reason="Metrics autologging is disabled in the tracing feature branch.")
-def test_retriever_metrics_and_artifacts(tmp_path):
-    mlflow.langchain.autolog()
-    model, query = create_retriever(tmp_path)
-    with mlflow.start_run() as run:
-        model.get_relevant_documents(query)
-    client = MlflowClient()
-    metrics = client.get_run(run.info.run_id).data.metrics
-    for metric_key in MLFLOW_CALLBACK_METRICS:
-        assert metric_key in metrics
-
-    assert mlflow.active_run() is None
 
 
 def test_retriever_autlog_inputs_outputs(tmp_path):
@@ -996,3 +954,26 @@ def test_langchain_autolog_extra_model_classes_warning():
 
         mlflow.langchain.autolog(extra_model_classes=[Runnable])
         mock_warning.assert_not_called()
+
+
+@pytest.mark.skip(reason="This test is not thread safe, please run locally")
+def test_set_retriever_schema_work_for_langchain_model(clear_trace_singleton):
+    set_retriever_schema(
+        primary_key="primary-key",
+        text_column="text-column",
+        doc_uri="doc-uri",
+        other_columns=["column1", "column2"],
+    )
+
+    model = create_openai_llmchain()
+    with _mock_request(return_value=_mock_chat_completion_response()):
+        with mlflow.start_run():
+            model_info = mlflow.langchain.log_model(model, "model", input_example="MLflow")
+
+        mlflow.langchain.autolog()
+
+        pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+        pyfunc_model.predict("MLflow")
+
+    trace = get_first_trace()
+    assert DependenciesSchemasType.RETRIEVERS.value in trace.info.tags

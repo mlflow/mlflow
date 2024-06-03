@@ -13,6 +13,7 @@ from mlflow.entities.file_info import FileInfo
 from mlflow.entities.multipart_upload import CreateMultipartUploadResponse, MultipartUploadPart
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.tracing.artifact_utils import TRACE_DATA_FILE_NAME
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.async_logging.async_artifacts_logging_queue import AsyncArtifactsLoggingQueue
 from mlflow.utils.file_utils import ArtifactProgressBar, create_tmp_dir
@@ -27,7 +28,6 @@ assert _NUM_MAX_THREADS >= _NUM_MAX_THREADS_PER_CPU
 assert _NUM_MAX_THREADS_PER_CPU > 0
 # Default number of CPUs to assume on the machine if unavailable to fetch it using os.cpu_count()
 _NUM_DEFAULT_CPUS = _NUM_MAX_THREADS // _NUM_MAX_THREADS_PER_CPU
-TRACE_DATA_FILE_NAME = "traces.json"
 _logger = logging.getLogger(__name__)
 
 
@@ -321,7 +321,12 @@ class ArtifactRepository:
         """
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file = Path(temp_dir, TRACE_DATA_FILE_NAME)
-            self._download_file(TRACE_DATA_FILE_NAME, temp_file)
+            try:
+                self._download_file(TRACE_DATA_FILE_NAME, temp_file)
+            except Exception as e:
+                # `MlflowTraceDataNotFound` is caught in `TrackingServiceClient.search_traces` and
+                # is used to filter out traces with failed trace data download.
+                raise MlflowTraceDataNotFound(artifact_path=TRACE_DATA_FILE_NAME) from e
             return try_read_trace_data(temp_file)
 
     def upload_trace_data(self, trace_data: str) -> None:

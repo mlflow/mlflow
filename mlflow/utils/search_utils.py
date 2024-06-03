@@ -1500,8 +1500,20 @@ class SearchTraceUtils(SearchUtils):
         "execution_time",
     }
 
-    _TAG_IDENTIFIER = "tag"
     _REQUEST_METADATA_IDENTIFIER = "request_metadata"
+    _TAG_IDENTIFIER = "tag"
+    _ATTRIBUTE_IDENTIFIER = "attribute"
+
+    # These are aliases for the base identifiers
+    # e.g. trace.status is equivalent to attribute.status
+    _ALTERNATE_IDENTIFIERS = {
+        "tags": _TAG_IDENTIFIER,
+        "attributes": _ATTRIBUTE_IDENTIFIER,
+        "trace": _ATTRIBUTE_IDENTIFIER,
+    }
+    _IDENTIFIERS = {_TAG_IDENTIFIER, _REQUEST_METADATA_IDENTIFIER, _ATTRIBUTE_IDENTIFIER}
+    _VALID_IDENTIFIERS = _IDENTIFIERS | set(_ALTERNATE_IDENTIFIERS.keys())
+
     SUPPORT_IN_COMPARISON_ATTRIBUTE_KEYS = {"name", "status", "request_id", "run_id"}
 
     # Some search keys are defined differently in the DB models.
@@ -1547,6 +1559,8 @@ class SearchTraceUtils(SearchUtils):
             lhs = getattr(trace, key)
         elif key in cls.VALID_SEARCH_ATTRIBUTE_KEYS:
             lhs = getattr(trace, key)
+        elif sed.get("type") == cls._TAG_IDENTIFIER:
+            lhs = trace.tags.get(key)
         else:
             raise MlflowException(
                 f"Invalid search key '{key}', supported are {cls.VALID_SEARCH_ATTRIBUTE_KEYS}",
@@ -1601,6 +1615,19 @@ class SearchTraceUtils(SearchUtils):
         return False
 
     @classmethod
+    def _valid_entity_type(cls, entity_type):
+        entity_type = cls._trim_backticks(entity_type)
+        if entity_type not in cls._VALID_IDENTIFIERS:
+            raise MlflowException(
+                f"Invalid entity type '{entity_type}'. Valid values are {cls._VALID_IDENTIFIERS}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        elif entity_type in cls._ALTERNATE_IDENTIFIERS:
+            return cls._ALTERNATE_IDENTIFIERS[entity_type]
+        else:
+            return entity_type
+
+    @classmethod
     def _get_sort_key(cls, order_by_list):
         order_by = []
         parsed_order_by = map(cls.parse_order_by_for_search_traces, order_by_list or [])
@@ -1625,6 +1652,8 @@ class SearchTraceUtils(SearchUtils):
         if identifier_type == cls._TAG_IDENTIFIER:
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
+            elif isinstance(token, Parenthesis):
+                return cls._parse_attribute_lists(token)
             raise MlflowException(
                 "Expected a quoted string value for "
                 f"{identifier_type} (e.g. 'my-value'). Got value "

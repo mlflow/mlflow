@@ -22,7 +22,6 @@ from mlflow.utils.databricks_utils import (
     is_databricks_default_tracking_uri,
     is_running_in_ipython_environment,
 )
-from mlflow.utils.uri import construct_db_uri_from_profile
 
 from tests.helper_functions import mock_method_chain
 
@@ -37,43 +36,6 @@ def test_no_throw():
     assert not databricks_utils.is_in_databricks_job()
     assert not databricks_utils.is_dbfs_fuse_available()
     assert not databricks_utils.is_in_databricks_runtime()
-
-
-@mock.patch("mlflow.utils.databricks_utils.get_config")
-def test_databricks_params_token(get_config):
-    get_config.return_value = DatabricksConfig.from_token("host", "mytoken", insecure=False)
-    params = databricks_utils.get_databricks_host_creds()
-    assert params.host == "host"
-    assert params.token == "mytoken"
-    assert not params.ignore_tls_verification
-
-
-@mock.patch("mlflow.utils.databricks_utils.get_config")
-def test_databricks_params_user_password(get_config):
-    get_config.return_value = DatabricksConfig.from_password("host", "user", "pass", insecure=False)
-    params = databricks_utils.get_databricks_host_creds()
-    assert params.host == "host"
-    assert params.username == "user"
-    assert params.password == "pass"
-
-
-@mock.patch("mlflow.utils.databricks_utils.get_config")
-def test_databricks_params_no_verify(get_config):
-    get_config.return_value = DatabricksConfig.from_password("host", "user", "pass", insecure=True)
-    params = databricks_utils.get_databricks_host_creds()
-    assert params.ignore_tls_verification
-
-
-@mock.patch("mlflow.utils.databricks_utils.ProfileConfigProvider")
-def test_databricks_params_custom_profile(ProfileConfigProvider):
-    mock_provider = mock.MagicMock()
-    mock_provider.get_config.return_value = DatabricksConfig.from_password(
-        "host", "user", "pass", insecure=True
-    )
-    ProfileConfigProvider.return_value = mock_provider
-    params = databricks_utils.get_databricks_host_creds(construct_db_uri_from_profile("profile"))
-    assert params.ignore_tls_verification
-    ProfileConfigProvider.assert_called_with("profile")
 
 
 @mock.patch("mlflow.utils.databricks_utils.ProfileConfigProvider")
@@ -91,16 +53,12 @@ def test_databricks_registry_profile(ProfileConfigProvider):
         assert params.token == "random"
 
 
-@mock.patch("mlflow.utils.databricks_utils.get_config")
-def test_databricks_empty_uri(get_config):
-    get_config.return_value = None
-    with pytest.raises(MlflowException, match="Got malformed Databricks CLI profile"):
-        databricks_utils.get_databricks_host_creds("")
+def test_databricks_no_creds_found():
+    with pytest.raises(MlflowException, match="Reading databricks credential configuration failed"):
+        databricks_utils.get_databricks_host_creds()
 
 
-@mock.patch("mlflow.utils.databricks_utils.get_config")
-def test_databricks_single_slash_in_uri_scheme_throws(get_config):
-    get_config.return_value = None
+def test_databricks_single_slash_in_uri_scheme_throws():
     with pytest.raises(MlflowException, match="URI is formatted incorrectly"):
         databricks_utils.get_databricks_host_creds("databricks:/profile:path")
 
@@ -128,7 +86,7 @@ def test_get_model_dependency_oauth_token_model_serving_throws():
 
 
 def test_databricks_params_model_serving_oauth_cache(monkeypatch, oauth_file):
-    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
     monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE", "token")
     monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS", str(time.time() + 5))
@@ -144,7 +102,7 @@ def test_databricks_params_model_serving_oauth_cache(monkeypatch, oauth_file):
 
 
 def test_databricks_params_model_serving_oauth_cache_expired(monkeypatch, oauth_file):
-    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
     monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE", "token")
     monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS", str(time.time() - 5))
@@ -161,7 +119,7 @@ def test_databricks_params_model_serving_oauth_cache_expired(monkeypatch, oauth_
 
 
 def test_databricks_params_model_serving_read_oauth(monkeypatch, oauth_file):
-    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
     with mock.patch(
         "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
@@ -174,7 +132,7 @@ def test_databricks_params_model_serving_read_oauth(monkeypatch, oauth_file):
 
 
 def test_databricks_params_env_var_overrides_model_serving_oauth(monkeypatch, oauth_file):
-    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
     monkeypatch.setenv("DATABRICKS_HOST", "host_envvar")
     monkeypatch.setenv("DATABRICKS_TOKEN", "pat_token")
@@ -185,8 +143,7 @@ def test_databricks_params_env_var_overrides_model_serving_oauth(monkeypatch, oa
     ):
         params = databricks_utils.get_databricks_host_creds()
         # should use token and host from envvar, rather than token from oauthfile
-        assert params.host == "host_envvar"
-        assert params.token == "pat_token"
+        assert params.auth_by_databricks_sdk
 
 
 def test_model_serving_config_provider_errors_caught():
@@ -304,7 +261,7 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
         None, "user", "pass", insecure=True
     )
     ProfileConfigProvider.return_value = mock_provider
-    with pytest.raises(Exception, match="You haven't configured the CLI yet"):
+    with pytest.raises(Exception, match="Reading databricks credential configuration failed using"):
         databricks_utils.get_databricks_host_creds()
 
     # No authentication
@@ -313,7 +270,7 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
         "host", None, None, insecure=True
     )
     ProfileConfigProvider.return_value = mock_provider
-    with pytest.raises(Exception, match="You haven't configured the CLI yet"):
+    with pytest.raises(Exception, match="Reading databricks credential configuration failed using"):
         databricks_utils.get_databricks_host_creds()
 
 
@@ -325,11 +282,22 @@ def test_is_in_databricks_runtime(monkeypatch):
     assert not databricks_utils.is_in_databricks_runtime()
 
 
+def test_is_in_databricks_model_serving_environment(monkeypatch):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    assert databricks_utils.is_in_databricks_model_serving_environment()
+
+    monkeypatch.delenv("IS_IN_DB_MODEL_SERVING_ENV")
+    assert not databricks_utils.is_in_databricks_model_serving_environment()
+
+    # Backward compatibility with old env var name
+    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
+    assert databricks_utils.is_in_databricks_model_serving_environment()
+
+
 # test both is_in_databricks_model_serving_environment and
 # should_fetch_model_serving_environment_oauth return apprropriate values
 def test_should_fetch_model_serving_environment_oauth(monkeypatch, oauth_file):
-    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
-    assert databricks_utils.is_in_databricks_model_serving_environment()
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
     # will return false if file mount is not configured even if env var set
     assert not databricks_utils.should_fetch_model_serving_environment_oauth()
 
@@ -337,12 +305,10 @@ def test_should_fetch_model_serving_environment_oauth(monkeypatch, oauth_file):
         "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
     ):
         # both file mount and env var exist, both values should return true
-        assert databricks_utils.is_in_databricks_model_serving_environment()
         assert databricks_utils.should_fetch_model_serving_environment_oauth()
 
         # file mount without env var should return false
-        monkeypatch.delenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV")
-        assert not databricks_utils.is_in_databricks_model_serving_environment()
+        monkeypatch.delenv("IS_IN_DB_MODEL_SERVING_ENV")
         assert not databricks_utils.should_fetch_model_serving_environment_oauth()
 
 

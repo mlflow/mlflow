@@ -71,5 +71,26 @@ export interface WizardStep {
      * Additional content displayed beneath the step description of the stepper in a horizontal Wizard layout
      */
     additionalHorizontalLayoutStepContent?: Step['additionalVerticalContent'];
+    /**
+     * If true the step content will take up all available vertical space.
+     * This is to keep the footer at the bottom of the wizard
+     *
+     * A height on either the wizard parent or using the height prop is required for this to work
+     *
+     * @default true
+     */
+    expandContentToFullHeight?: boolean;
+    /**
+     * Delegates all content scroll behavior to the caller if true
+     *    Disable the default scroll drop shadow
+     *    Hide the step content overflow
+     * @default false
+     */
+    disableDefaultScrollBehavior?: boolean;
+    /**
+     * Enable this step to be clicked
+     * The wizard must have property `enableClickingToSteps` set to true for this to work
+     */
+    clickEnabled?: boolean;
 }
 //# sourceMappingURL=WizardStep.d.ts.map

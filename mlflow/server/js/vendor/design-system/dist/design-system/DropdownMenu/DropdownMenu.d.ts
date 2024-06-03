@@ -1,13 +1,14 @@
 import { type CSSObject, type Interpolation } from '@emotion/react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import type { ReactElement } from 'react';
 import React from 'react';
 import type { Theme } from '../../theme';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
 import type { AnalyticsEventOptionalProps, AnalyticsEventValueChangeNoPiiFlagOptionalProps } from '../types';
-export declare const Root: React.FC<DropdownMenu.DropdownMenuProps>;
+export declare const Root: ({ children, ...props }: DropdownMenu.DropdownMenuProps) => ReactElement;
 export interface DropdownMenuProps extends DropdownMenu.MenuContentProps {
     minWidth?: number;
-    isInsideModal?: boolean;
+    forceCloseOnEscape?: boolean;
 }
 export interface DropdownMenuItemProps extends DropdownMenu.DropdownMenuItemProps, AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
     danger?: boolean;
@@ -25,7 +26,7 @@ export interface DropdownMenuRadioItemProps extends DropdownMenu.DropdownMenuRad
     disabledReason?: React.ReactNode;
 }
 export declare const Content: React.ForwardRefExoticComponent<DropdownMenuProps & React.RefAttributes<HTMLDivElement>>;
-export declare const SubContent: React.ForwardRefExoticComponent<Omit<DropdownMenuProps, "isInsideModal"> & React.RefAttributes<HTMLDivElement>>;
+export declare const SubContent: React.ForwardRefExoticComponent<Omit<DropdownMenuProps, "forceCloseOnEscape"> & React.RefAttributes<HTMLDivElement>>;
 export declare const Trigger: React.ForwardRefExoticComponent<DropdownMenu.DropdownMenuTriggerProps & React.RefAttributes<HTMLButtonElement>>;
 export declare const Item: React.ForwardRefExoticComponent<DropdownMenuItemProps & React.RefAttributes<HTMLDivElement>>;
 export declare const Label: React.ForwardRefExoticComponent<DropdownMenu.DropdownMenuLabelProps & React.RefAttributes<HTMLDivElement>>;

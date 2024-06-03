@@ -23,11 +23,14 @@ import {
 } from '../../utils/experimentPage.group-row-utils';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { RunGroupingAggregateFunction, RunGroupingMode } from '../../utils/experimentPage.row-types';
+import { shouldEnableToggleIndividualRunsInGroups } from '../../../../../common/utils/FeatureUtils';
 
 export interface ExperimentViewRunsGroupBySelectorProps {
   runsData: ExperimentRunsSelectorResult;
   groupBy: RunsGroupByConfig | null | string;
   onChange: (newGroupByConfig: RunsGroupByConfig | null) => void;
+  useGroupedValuesInCharts?: boolean;
+  onUseGroupedValuesInChartsChange: (newValue: boolean) => void;
 }
 
 const messages = defineMessages({
@@ -81,9 +84,13 @@ const GroupBySelectorBody = ({
   runsData,
   onChange,
   groupBy,
+  useGroupedValuesInCharts,
+  onUseGroupedValuesInChartsChange,
 }: {
   groupBy: RunsGroupByConfig;
+  useGroupedValuesInCharts?: boolean;
   onChange: (newGroupBy: RunsGroupByConfig | null) => void;
+  onUseGroupedValuesInChartsChange: (newValue: boolean) => void;
   runsData: ExperimentRunsSelectorResult;
 }) => {
   const intl = useIntl();
@@ -221,6 +228,19 @@ const GroupBySelectorBody = ({
             </DropdownMenu.Trigger>
           </Tooltip>
           <DropdownMenu.Content align="start" side="right">
+            {shouldEnableToggleIndividualRunsInGroups() && (
+              <>
+                <DropdownMenu.CheckboxItem
+                  disabled={!groupByKeys.length}
+                  checked={useGroupedValuesInCharts}
+                  onCheckedChange={onUseGroupedValuesInChartsChange}
+                >
+                  <DropdownMenu.ItemIndicator />
+                  Use grouping from the runs table in charts
+                </DropdownMenu.CheckboxItem>
+                <DropdownMenu.Separator />
+              </>
+            )}
             <DropdownMenu.RadioGroup value={aggregateFunction} onValueChange={aggregateFunctionChanged}>
               <DropdownMenu.RadioItem
                 disabled={!groupByKeys.length}
@@ -344,6 +364,8 @@ export const ExperimentViewRunsGroupBySelector = React.memo(
     groupBy,
     isLoading,
     onChange,
+    useGroupedValuesInCharts,
+    onUseGroupedValuesInChartsChange,
   }: ExperimentViewRunsGroupBySelectorProps & {
     isLoading: boolean;
   }) => {
@@ -415,7 +437,13 @@ export const ExperimentViewRunsGroupBySelector = React.memo(
               <Spinner />
             </DropdownMenu.Item>
           ) : (
-            <GroupBySelectorBody groupBy={normalizedGroupBy} onChange={onChange} runsData={runsData} />
+            <GroupBySelectorBody
+              groupBy={normalizedGroupBy}
+              onChange={onChange}
+              runsData={runsData}
+              onUseGroupedValuesInChartsChange={onUseGroupedValuesInChartsChange}
+              useGroupedValuesInCharts={useGroupedValuesInCharts}
+            />
           )}
         </DropdownMenu.Content>
       </DropdownMenu.Root>

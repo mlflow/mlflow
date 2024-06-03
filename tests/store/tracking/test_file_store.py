@@ -88,7 +88,7 @@ def generate_trace_infos(store):
             exp_id,
             timestamp,
             {},
-            {TraceTagKey.TRACE_NAME: f"trace_{i}"},
+            {TraceTagKey.TRACE_NAME: f"trace_{i}", "test_tag": f"tag_{i}"},
         )
         trace_infos.append(trace_info)
         request_ids.append(trace_info.request_id)
@@ -2864,19 +2864,21 @@ def test_delete_trace_tag(store_and_trace_info):
 def test_delete_traces(store):
     exp_id = store.create_experiment("test")
     request_ids = []
-    timestamps = list(range(0, 100, 10))
+    timestamps = list(range(90, -1, -10))
     for i in range(10):
         trace_info = store.start_trace(exp_id, timestamps[i], {}, {})
         request_ids.append(trace_info.request_id)
 
     # delete with max_timestamp_millis
-    assert store.delete_traces(exp_id, 50, 2) == 2
+    # if max_traces < number of traces with timestamp < max_timestamp_millis,
+    # delete older traces first
+    assert store.delete_traces(exp_id, max_timestamp_millis=50, max_traces=2) == 2
     assert len(store.search_traces([exp_id])[0]) == 8
-    assert store.delete_traces(exp_id, 50) == 4
+    assert store.delete_traces(exp_id, max_timestamp_millis=50) == 4
     assert len(store.search_traces([exp_id])[0]) == 4
 
     # delete with request_ids
-    assert store.delete_traces(exp_id, request_ids=[request_ids[6]]) == 1
+    assert store.delete_traces(exp_id, request_ids=[request_ids[3]]) == 1
     assert len(store.search_traces([exp_id])[0]) == 3
     assert store.delete_traces(exp_id, request_ids=["non_existing_request_id"]) == 0
     assert len(store.search_traces([exp_id])[0]) == 3
@@ -2961,6 +2963,20 @@ def test_search_traces_filter(generate_trace_infos):
     _validate_search_traces(store, [exp_id], "status LIKE 'O%'", trace_infos[:2][::-1])
     _validate_search_traces(store, [exp_id], "status ILIKE 'ok'", trace_infos[:2][::-1])
 
+    # filter by status w/ attributes. or trace. prefix
+    _validate_search_traces(
+        store,
+        [exp_id],
+        "trace.status = 'ERROR'",
+        trace_infos[2:5][::-1],
+    )
+    _validate_search_traces(
+        store,
+        [exp_id],
+        "attributes.status IN ('IN_PROGRESS', 'OK')",
+        (trace_infos[:2] + trace_infos[5:])[::-1],
+    )
+
     # filter by timestamp
     for timestamp_key in ["timestamp", "timestamp_ms"]:
         _validate_search_traces(store, [exp_id], f"{timestamp_key} < 10", trace_infos[:1])
@@ -3020,6 +3036,28 @@ def test_search_traces_filter(generate_trace_infos):
     _validate_search_traces(store, [exp_id], "run_id LIKE 'run_%'", trace_infos[5:][::-1])
     _validate_search_traces(store, [exp_id], "run_id ILIKE 'RUN_5'", [trace_infos[5]])
 
+    # filter by tag
+    for tag_identifier in ["tag", "tags"]:
+        _validate_search_traces(
+            store, [exp_id], f"{tag_identifier}.test_tag = 'tag_0'", [trace_infos[0]]
+        )
+        _validate_search_traces(
+            store, [exp_id], f"{tag_identifier}.test_tag != 'tag_0'", trace_infos[1:][::-1]
+        )
+        _validate_search_traces(
+            store, [exp_id], f"{tag_identifier}.test_tag IN ('tag_0')", [trace_infos[0]]
+        )
+        _validate_search_traces(
+            store, [exp_id], f"{tag_identifier}.test_tag NOT IN ('tag_0')", trace_infos[1:][::-1]
+        )
+        _validate_search_traces(
+            store, [exp_id], f"{tag_identifier}.test_tag LIKE 'tag_%'", trace_infos[::-1]
+        )
+        _validate_search_traces(
+            store, [exp_id], f"{tag_identifier}.test_tag ILIKE 'TAG_%'", trace_infos[::-1]
+        )
+        _validate_search_traces(store, [exp_id], f"{tag_identifier}.test_tag = '123'", [])
+
     # multiple filter conditions
     _validate_search_traces(
         store, [exp_id], "name LIKE 'trace_%' AND timestamp <= 10", trace_infos[:2][::-1]
@@ -3030,6 +3068,27 @@ def test_search_traces_filter(generate_trace_infos):
         "name LIKE 'trace_%' AND status IN ('ERROR') AND timestamp <= 20",
         [trace_infos[2]],
     )
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "error"),
+    [
+        ("invalid", r"Invalid clause\(s\) in filter string"),
+        ("name = 'foo' AND invalid", r"Invalid clause\(s\) in filter string"),
+        ("foo.bar = 'baz'", r"Invalid entity type 'foo'"),
+        ("invalid = 'foo'", r"Invalid attribute key 'invalid'"),
+        ("trace.tags.foo = 'bar'", r"Invalid attribute key 'tags\.foo'"),
+        # TODO: This should raise
+        # ("trace.status < 'OK'", r"Invalid comparator '<'"),
+    ],
+)
+def test_search_traces_invalid_filter(generate_trace_infos, filter_string, error):
+    store = generate_trace_infos.store
+    exp_id = generate_trace_infos.exp_id
+
+    # Invalid filter key
+    with pytest.raises(MlflowException, match=error):
+        store.search_traces([exp_id], filter_string)
 
 
 def test_search_traces_order(generate_trace_infos):

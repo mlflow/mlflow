@@ -1444,6 +1444,35 @@ const NewWindowIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 NewWindowIcon.displayName = 'NewWindowIcon';
 var NewWindowIcon$1 = NewWindowIcon;
 
+function SvgWarningIcon(props) {
+  return jsxs("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: [jsx("path", {
+      fill: "currentColor",
+      d: "M7.25 10V6.5h1.5V10h-1.5ZM8 12.5A.75.75 0 1 0 8 11a.75.75 0 0 0 0 1.5Z"
+    }), jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M8 1a.75.75 0 0 1 .649.374l7.25 12.5A.75.75 0 0 1 15.25 15H.75a.75.75 0 0 1-.649-1.126l7.25-12.5A.75.75 0 0 1 8 1Zm0 2.245L2.052 13.5h11.896L8 3.245Z",
+      clipRule: "evenodd"
+    })]
+  });
+}
+const WarningIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgWarningIcon
+  });
+});
+WarningIcon.displayName = 'WarningIcon';
+var WarningIcon$1 = WarningIcon;
+
 const DefaultDesignSystemEventSuppressInteractionContextValue = {
   suppressAnalyticsStartInteraction: false
 };
@@ -2839,5 +2868,5 @@ const Typography = /* #__PURE__ */(() => {
   return Typography;
 })();
 
-export { primitiveColors as $, ApplyDesignSystemContextOverrides as A, Button as B, CloseIcon$1 as C, DesignSystemAntDConfigProvider as D, getPrimaryStyles as E, getDisabledSplitButtonStyles as F, useDesignSystemFlags as G, getButtonEmotionStyles as H, Icon as I, DesignSystemEventProvider as J, useDesignSystemEventSuppressInteractionContext as K, LoadingState as L, DesignSystemThemeContext as M, DesignSystemContext as N, DesignSystemThemeProvider as O, DesignSystemProvider as P, ApplyDesignSystemFlags as Q, RestoreAntDDefaultClsPrefix as R, Spinner as S, Typography as T, useAntDConfigProviderContext as U, NewWindowIcon$1 as V, WithDesignSystemThemeHoc as W, LoadingStateContext as X, getTypographyColor as Y, getBottomOnlyShadowScrollStyles as Z, ColorVars as _, addDebugOutlineStylesIfEnabled as a, DEFAULT_SPACING_UNIT as a0, useDesignSystemEventComponentCallbacks as b, DesignSystemEventProviderComponentTypes as c, DesignSystemEventProviderAnalyticsEventTypes as d, useNotifyOnFirstView as e, addDebugOutlineIfEnabled as f, getAnimationCss as g, getDarkModePortalStyles as h, useDesignSystemContext as i, importantify as j, useUniqueId as k, DesignSystemEventSuppressInteractionProviderContext as l, DesignSystemEventSuppressInteractionTrueContextValue as m, CheckIcon$1 as n, getValidationStateColor as o, getShadowScrollStyles as p, DangerIcon$1 as q, LoadingIcon$1 as r, safex as s, Title as t, useDesignSystemTheme as u, visuallyHidden as v, AccessibleContainer as w, DU_BOIS_ENABLE_ANIMATION_CLASSNAME as x, lightColorList as y, getDefaultStyles as z };
-//# sourceMappingURL=Typography-af72332b.js.map
+export { ColorVars as $, ApplyDesignSystemContextOverrides as A, Button as B, CloseIcon$1 as C, DesignSystemAntDConfigProvider as D, getPrimaryStyles as E, getDisabledSplitButtonStyles as F, useDesignSystemFlags as G, getButtonEmotionStyles as H, Icon as I, DesignSystemEventProvider as J, useDesignSystemEventSuppressInteractionContext as K, LoadingState as L, DesignSystemThemeContext as M, DesignSystemContext as N, DesignSystemThemeProvider as O, DesignSystemProvider as P, ApplyDesignSystemFlags as Q, RestoreAntDDefaultClsPrefix as R, Spinner as S, Typography as T, useAntDConfigProviderContext as U, WithDesignSystemThemeHoc as V, WarningIcon$1 as W, NewWindowIcon$1 as X, LoadingStateContext as Y, getTypographyColor as Z, getBottomOnlyShadowScrollStyles as _, addDebugOutlineStylesIfEnabled as a, primitiveColors as a0, DEFAULT_SPACING_UNIT as a1, useDesignSystemEventComponentCallbacks as b, DesignSystemEventProviderComponentTypes as c, DesignSystemEventProviderAnalyticsEventTypes as d, useNotifyOnFirstView as e, addDebugOutlineIfEnabled as f, getAnimationCss as g, getDarkModePortalStyles as h, useUniqueId as i, DesignSystemEventSuppressInteractionProviderContext as j, DesignSystemEventSuppressInteractionTrueContextValue as k, importantify as l, useDesignSystemContext as m, CheckIcon$1 as n, getValidationStateColor as o, getShadowScrollStyles as p, DangerIcon$1 as q, LoadingIcon$1 as r, safex as s, Title as t, useDesignSystemTheme as u, visuallyHidden as v, AccessibleContainer as w, DU_BOIS_ENABLE_ANIMATION_CLASSNAME as x, lightColorList as y, getDefaultStyles as z };
+//# sourceMappingURL=Typography-78b12af3.js.map

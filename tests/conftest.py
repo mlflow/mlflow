@@ -153,3 +153,9 @@ def monkeypatch():
 def tmp_sqlite_uri(tmp_path):
     path = tmp_path.joinpath("mlflow.db").as_uri()
     return ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
+
+
+@pytest.fixture
+def mock_databricks_serving_with_tracing_env(monkeypatch):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("ENABLE_MLFLOW_TRACING", "true")

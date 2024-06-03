@@ -25,6 +25,7 @@ from mlflow.types.schema import Array, Map, Object, Property
 from mlflow.utils.proto_json_utils import dump_input_data
 
 from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.tracing.helper import get_traces
 
 
 class TestModel:
@@ -2081,6 +2082,33 @@ def test_pyfunc_model_input_example_with_params(
     result = json.loads(response.content.decode("utf-8"))["predictions"]
     result = pd.DataFrame(result).values.tolist()[0]
     np.testing.assert_equal(result, expected_df.values.tolist()[0])
+
+
+def test_pyfunc_schema_inference_not_generate_trace():
+    # Test that the model logging call does not generate a trace.
+    # When input example is provided, we run prediction to infer
+    # the model signature, but it should not generate a trace.
+    class MyModel(mlflow.pyfunc.PythonModel):
+        @mlflow.trace()
+        def predict(self, context, model_input):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            input_example=["input"],
+        )
+
+    # No trace should be generated
+    traces = get_traces()
+    assert len(traces) == 0
+
+    # Normal prediction should emit a trace
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    loaded_model.predict("input")
+    traces = get_traces()
+    assert len(traces) == 1
 
 
 @pytest.mark.parametrize(
