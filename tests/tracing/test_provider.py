@@ -79,7 +79,7 @@ def test_trace_disabled_decorator(enabled_initially):
         mlflow.tracing.disable()
     assert _is_enabled() == enabled_initially
 
-    @trace_disabled()
+    @trace_disabled
     def test_fn():
         with mlflow.start_span(name="test_span") as span:
             span.set_attribute("key", "value")
