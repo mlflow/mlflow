@@ -60,7 +60,6 @@ from tests.tracing.conftest import clear_singleton  # noqa: F401
 from tests.tracing.conftest import mock_store as mock_store_for_tracing  # noqa: F401
 from tests.tracing.helper import (
     create_test_trace_info,
-    get_first_trace,
     get_traces,
 )
 
@@ -429,7 +428,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run):
     else:
         model.predict(1, 2)
 
-    request_id = get_first_trace().info.request_id
+    request_id = mlflow.get_last_active_trace().info.request_id
 
     # Validate that trace is logged to the backend
     trace = client.get_trace(request_id)
@@ -757,7 +756,7 @@ def test_set_and_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
     client.set_trace_tag(request_id, "foo", "bar")
     client.end_trace(request_id)
 
-    trace = get_first_trace()
+    trace = mlflow.get_last_active_trace()
     assert trace.info.tags["foo"] == "bar"
 
 
@@ -776,7 +775,7 @@ def test_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
     client.delete_trace_tag(request_id, "foo")
     client.end_trace(request_id)
 
-    trace = get_first_trace()
+    trace = mlflow.get_last_active_trace()
     assert "baz" in trace.info.tags
     assert "foo" not in trace.info.tags
 

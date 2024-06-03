@@ -421,3 +421,79 @@ def get_current_active_span() -> Optional[LiveSpan]:
     trace_manager = InMemoryTraceManager.get_instance()
     request_id = json.loads(otel_span.attributes.get(SpanAttributeKey.REQUEST_ID))
     return trace_manager.get_span_from_id(request_id, encode_span_id(otel_span.context.span_id))
+
+
+@experimental
+def get_last_active_trace() -> Optional[Trace]:
+    """
+    Get the last active trace in the same process if exists. If there is an active trace,
+    it will return the trace object as **an immutable copy**.
+
+    .. note::
+
+        The last active trace is only stored in-memory for the time defined by the TTL
+        (Time To Live) configuration. By default, the TTL is 1 hour and can be configured
+        using the environment variable ``MLFLOW_TRACE_BUFFER_TTL_SECONDS``.
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        @mlflow.trace
+        def f():
+            pass
+
+
+        f()
+
+        trace = mlflow.get_last_active_trace()
+
+    .. attention::
+
+        This function returns an immutable copy of the original trace that is active or logged
+        in the tracking store. Any changes made to the returned object will not be reflected
+        in the original trace.
+
+        - To mutate the active trace, use :py:func:`mlflow.get_current_active_span` instead.
+        - To modify the already ended trace (while most of the data is immutable after the
+            trace is ended, you can still edit some fields like tags), please use the
+            respective MlflowClient APIs with the request ID of the trace.
+
+        .. code-block:: python
+            :test:
+
+            import mlflow
+
+
+            @mlflow.trace
+            def f():
+                # Use get_current_active_span() to mutate the active trace
+                span = mlflow.get_current_active_span()
+                span.set_attribute("key", "value")
+                pass
+
+
+            f()
+
+            trace = mlflow.get_last_active_trace()
+
+            # Use MlflowClient APIs to mutate the ended trace
+            mlflow.MlflowClient().set_trace_tag(trace.info.request_id, "key", "value")
+
+    Returns:
+        The last active trace if exists, otherwise None.
+    """
+    # If there is an active trace, return it as an immutable trace object.
+    if active_span := get_current_active_span():
+        trace_manager = InMemoryTraceManager.get_instance()
+        with trace_manager.get_trace(active_span.request_id) as trace:
+            if trace:
+                return trace.to_mlflow_trace()
+
+    if len(TRACE_BUFFER) > 0:
+        last_active_request_id = list(TRACE_BUFFER.keys())[-1]
+        return TRACE_BUFFER.get(last_active_request_id)
+    else:
+        return None

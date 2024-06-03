@@ -118,11 +118,6 @@ def get_traces() -> List[Trace]:
     return list(TRACE_BUFFER.values())
 
 
-def get_first_trace() -> Optional[Trace]:
-    if traces := get_traces():
-        return traces[0]
-
-
 def get_tracer_tracking_uri() -> Optional[str]:
     """Get current tracking URI configured as the trace export destination."""
     from opentelemetry import trace
