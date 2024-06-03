@@ -106,6 +106,8 @@ def http_request(
                 raw=True,
                 query=kwargs.get("params"),
                 body=kwargs.get("json"),
+                files=kwargs.get("files"),
+                data=kwargs.get("data"),
             )
             return raw_response["contents"]._response
         except DatabricksError as e:
