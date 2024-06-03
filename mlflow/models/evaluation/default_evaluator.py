@@ -1444,7 +1444,7 @@ class DefaultEvaluator(ModelEvaluator):
                 i, row_data = row
                 single_input = row_data.to_frame().T if is_dataframe else row_data
                 start_time = time.time()
-                y_pred = self.model_predict_fn(single_input)
+                y_pred = self.predict_fn(single_input)
                 end_time = time.time()
                 pred_latencies.append(end_time - start_time)
                 y_pred_list.append(y_pred)
@@ -1476,7 +1476,7 @@ class DefaultEvaluator(ModelEvaluator):
             if compute_latency:
                 model_predictions = predict_with_latency(X_copy)
             else:
-                model_predictions = self.model_predict_fn(X_copy)
+                model_predictions = self.predict_fn(X_copy)
         else:
             if self.dataset.predictions_data is None:
                 raise MlflowException(
@@ -1970,7 +1970,6 @@ class DefaultEvaluator(ModelEvaluator):
                     return model.predict(x)
 
         self.model_predict_fn = model_predict_func
-
         self.dataset = dataset
         self.run_id = run_id
         self.model_type = model_type
