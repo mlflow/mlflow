@@ -96,7 +96,7 @@ def http_request(
                 query = kwargs.get("params") or kwargs.get("json")
                 extra_kwargs = {"query": query}
             else:
-                extra_kwargs = {"body": kwargs.get("json")}
+                extra_kwargs = {"query": kwargs.get("params"), "body": kwargs.get("json")}
 
             raw_response = ws_client.api_client.do(
                 method=method,
