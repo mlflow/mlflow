@@ -306,10 +306,16 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         for line in chunk_line_iter:
             splits = line.split(":", 1)
             if len(splits) < 2:
-                raise MlflowException(f"Unknown streaming response format: '{line}'.")
+                raise MlflowException(
+                    f"Unknown response format: '{line}', "
+                    "expected 'data: <value>' for streaming response."
+                )
             key, value = splits
             if key != "data":
-                raise MlflowException(f"Unknown streaming response format with key '{key}'.")
+                raise MlflowException(
+                    f"Unknown response format with key '{key}'. "
+                    f"Expected 'data: <value>' for streaming response, got '{line}'."
+                )
 
             value = value.strip()
             if value == "[DONE]":
