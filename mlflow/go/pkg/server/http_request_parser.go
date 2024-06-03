@@ -20,12 +20,13 @@ type HTTPRequestParser struct {
 }
 
 func NewHTTPRequestParser() (*HTTPRequestParser, error) {
-	v, err := NewValidator()
+	validator, err := NewValidator()
 	if err != nil {
 		return nil, err
 	}
+
 	return &HTTPRequestParser{
-		validator: v,
+		validator: validator,
 	}, nil
 }
 
@@ -34,15 +35,18 @@ func (p *HTTPRequestParser) ParseBody(ctx *fiber.Ctx, input interface{}) *contra
 		var unmarshalTypeError *json.UnmarshalTypeError
 		if errors.As(err, &unmarshalTypeError) {
 			result := gjson.GetBytes(ctx.Body(), unmarshalTypeError.Field)
+
 			value := result.Str
 			if value == "" {
 				value = result.Raw
 			}
+
 			return contract.NewError(
 				protos.ErrorCode_INVALID_PARAMETER_VALUE,
 				fmt.Sprintf("Invalid value %s for parameter '%s'", value, unmarshalTypeError.Field),
 			)
 		}
+
 		return contract.NewError(protos.ErrorCode_BAD_REQUEST, err.Error())
 	}
 
@@ -66,13 +70,15 @@ func (p *HTTPRequestParser) ParseQuery(ctx *fiber.Ctx, input interface{}) *contr
 }
 
 func dereference(value interface{}) interface{} {
-	v := reflect.ValueOf(value)
-	if v.Kind() == reflect.Ptr {
-		if v.IsNil() {
+	valueOf := reflect.ValueOf(value)
+	if valueOf.Kind() == reflect.Ptr {
+		if valueOf.IsNil() {
 			return ""
 		}
-		return v.Elem().Interface()
+
+		return valueOf.Elem().Interface()
 	}
+
 	return value
 }
 
@@ -80,23 +86,33 @@ func newErrorFromValidationError(err error) *contract.Error {
 	var ve validator.ValidationErrors
 	if errors.As(err, &ve) {
 		validationErrors := make([]string, 0)
+
 		for _, err := range ve {
 			field := err.Field()
 			tag := err.Tag()
 			value := dereference(err.Value())
-			var vErr string
+
 			switch tag {
 			case "required":
-				vErr = fmt.Sprintf("Missing value for required parameter '%s'", field)
+				validationErrors = append(
+					validationErrors,
+					fmt.Sprintf("Missing value for required parameter '%s'", field),
+				)
 			case "lte":
-				vErr = fmt.Sprintf("Invalid value %v for parameter '%s' supplied", value, field)
+				validationErrors = append(
+					validationErrors,
+					fmt.Sprintf("Invalid value %v for parameter '%s' supplied", value, field),
+				)
 			default:
-				vErr = fmt.Sprintf("%s should be %s, got %v", field, tag, value)
+				validationErrors = append(
+					validationErrors,
+					fmt.Sprintf("%s should be %s, got %v", field, tag, value),
+				)
 			}
-			validationErrors = append(validationErrors, vErr)
 		}
 
 		return contract.NewError(protos.ErrorCode_INVALID_PARAMETER_VALUE, strings.Join(validationErrors, ", "))
 	}
+
 	return contract.NewError(protos.ErrorCode_INTERNAL_ERROR, err.Error())
 }

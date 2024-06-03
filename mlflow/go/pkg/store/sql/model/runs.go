@@ -34,9 +34,11 @@ func RunStatusToProto(status *string) *protos.RunStatus {
 	if status == nil {
 		return nil
 	}
+
 	if protoStatus, ok := protos.RunStatus_value[strings.ToUpper(*status)]; ok {
 		return (*protos.RunStatus)(&protoStatus)
 	}
+
 	return nil
 }
 

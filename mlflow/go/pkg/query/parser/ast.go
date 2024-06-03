@@ -51,6 +51,7 @@ func (n StringListExpr) String() string {
 	for _, v := range n.Values {
 		items = append(items, fmt.Sprintf("\"%s\"", v))
 	}
+
 	return strings.Join(items, ", ")
 }
 
@@ -68,6 +69,7 @@ func (i Identifier) String() string {
 	if i.Key == "" {
 		return i.Identifier
 	}
+
 	return fmt.Sprintf("%s.%s", i.Identifier, i.Key)
 }
 
@@ -86,10 +88,11 @@ const (
 	GreaterEquals
 	Like
 	ILike
-	In
+	In //nolint:varnamelen
 	NotIn
 )
 
+//nolint:cyclop
 func (op OperatorKind) String() string {
 	switch op {
 	case Equals:

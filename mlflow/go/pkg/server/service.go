@@ -12,7 +12,6 @@ import (
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/store"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/store/sql"
-	"github.com/mlflow/mlflow/mlflow/go/pkg/utils"
 )
 
 type MlflowService struct {
@@ -24,38 +23,40 @@ type MlflowService struct {
 func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (
 	*protos.CreateExperiment_Response, *contract.Error,
 ) {
-	if utils.IsNotNilOrEmptyString(input.ArtifactLocation) {
-		artifactLocation := strings.TrimRight(*input.ArtifactLocation, "/")
+	if input.GetArtifactLocation() != "" {
+		artifactLocation := strings.TrimRight(input.GetArtifactLocation(), "/")
 
 		// We don't check the validation here as this was already covered in the validator.
-		u, _ := url.Parse(artifactLocation)
-		switch u.Scheme {
+		url, _ := url.Parse(artifactLocation)
+		switch url.Scheme {
 		case "file", "":
-			p, err := filepath.Abs(u.Path)
+			path, err := filepath.Abs(url.Path)
 			if err != nil {
 				return nil, contract.NewError(
 					protos.ErrorCode_INVALID_PARAMETER_VALUE,
 					fmt.Sprintf("error getting absolute path: %v", err),
 				)
 			}
+
 			if runtime.GOOS == "windows" {
-				u.Scheme = "file"
-				p = "/" + strings.ReplaceAll(p, "\\", "/")
+				url.Scheme = "file"
+				path = "/" + strings.ReplaceAll(path, "\\", "/")
 			}
-			u.Path = p
-			artifactLocation = u.String()
+
+			url.Path = path
+			artifactLocation = url.String()
 		}
 
 		input.ArtifactLocation = &artifactLocation
 	}
 
-	id, err := m.store.CreateExperiment(input)
+	experimentID, err := m.store.CreateExperiment(input)
 	if err != nil {
 		return nil, err
 	}
 
 	response := protos.CreateExperiment_Response{
-		ExperimentId: &id,
+		ExperimentId: &experimentID,
 	}
 
 	return &response, nil
@@ -63,7 +64,7 @@ func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (
 
 // GetExperiment implements MlflowService.
 func (m MlflowService) GetExperiment(input *protos.GetExperiment) (*protos.GetExperiment_Response, *contract.Error) {
-	experiment, cErr := m.store.GetExperiment(*input.ExperimentId)
+	experiment, cErr := m.store.GetExperiment(input.GetExperimentId())
 	if cErr != nil {
 		return nil, cErr
 	}
@@ -80,21 +81,18 @@ func (m MlflowService) SearchRuns(input *protos.SearchRuns) (*protos.SearchRuns_
 	if input.RunViewType == nil {
 		runViewType = protos.ViewType_ALL
 	} else {
-		runViewType = *input.RunViewType
+		runViewType = input.GetRunViewType()
 	}
 
-	maxResults := contract.MaxResultsPerPage
-	if input.MaxResults != nil {
-		maxResults = int(*input.MaxResults)
-	}
+	maxResults := int(input.GetMaxResults())
 
 	page, err := m.store.SearchRuns(
-		input.ExperimentIds,
-		input.Filter,
+		input.GetExperimentIds(),
+		input.GetFilter(),
 		runViewType,
 		maxResults,
-		input.OrderBy,
-		input.PageToken,
+		input.GetOrderBy(),
+		input.GetPageToken(),
 	)
 	if err != nil {
 		return nil, contract.NewError(protos.ErrorCode_INTERNAL_ERROR, fmt.Sprintf("error getting runs: %v", err))
@@ -111,7 +109,7 @@ func (m MlflowService) SearchRuns(input *protos.SearchRuns) (*protos.SearchRuns_
 func (m MlflowService) DeleteExperiment(
 	input *protos.DeleteExperiment,
 ) (*protos.DeleteExperiment_Response, *contract.Error) {
-	err := m.store.DeleteExperiment(*input.ExperimentId)
+	err := m.store.DeleteExperiment(input.GetExperimentId())
 	if err != nil {
 		return nil, err
 	}
@@ -124,13 +122,13 @@ var (
 	mlflowArtifactsService contract.MlflowArtifactsService
 )
 
-func NewMlflowService(config *config.Config) (contract.MlflowService, error) {
+func NewMlflowService(config *config.Config) (*MlflowService, error) {
 	store, err := sql.NewSQLStore(config)
 	if err != nil {
 		return nil, fmt.Errorf("could not create new sql store: %w", err)
 	}
 
-	return MlflowService{
+	return &MlflowService{
 		config: config,
 		store:  store,
 	}, nil

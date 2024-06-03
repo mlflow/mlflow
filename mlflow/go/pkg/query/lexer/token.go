@@ -29,13 +29,14 @@ const (
 	Comma
 
 	// Reserved Keywords.
-	In
+	In //nolint:varnamelen
 	Not
 	Like
 	ILike
 	And
 )
 
+//nolint:gochecknoglobals
 var reservedLu = map[string]TokenKind{
 	"AND":   And,
 	"NOT":   Not,
@@ -57,6 +58,7 @@ func (token Token) Debug() string {
 	return TokenKindString(token.Kind)
 }
 
+//nolint:funlen,cyclop
 func TokenKindString(kind TokenKind) string {
 	switch kind {
 	case EOF:

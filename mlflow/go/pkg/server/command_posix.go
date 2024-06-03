@@ -8,6 +8,7 @@ import (
 )
 
 func setNewProcessGroup(cmd *exec.Cmd) {
+	//nolint:exhaustruct
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 		Pgid:    0,

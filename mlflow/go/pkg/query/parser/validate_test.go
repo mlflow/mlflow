@@ -7,6 +7,8 @@ import (
 )
 
 func TestValidQueries(t *testing.T) {
+	t.Parallel()
+
 	samples := []string{
 		"metrics.foobar = 40",
 		"metrics.foobar = 40 AND run_name = \"bouncy-boar-498\"",
@@ -20,8 +22,11 @@ func TestValidQueries(t *testing.T) {
 	}
 
 	for _, sample := range samples {
-		t.Run(sample, func(t *testing.T) {
-			_, err := query.ParseFilter(&sample)
+		currentSample := sample
+		t.Run(currentSample, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := query.ParseFilter(currentSample)
 			if err != nil {
 				t.Errorf("unexpected parse error: %v", err)
 			}

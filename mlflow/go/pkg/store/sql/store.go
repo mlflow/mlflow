@@ -47,6 +47,7 @@ func (s Store) GetExperiment(id string) (*protos.Experiment, *contract.Error) {
 		)
 	}
 
+	//nolint:exhaustruct
 	experiment := model.Experiment{ID: utils.PtrTo(int32(idInt))}
 	if err := s.db.Preload("Tags").First(&experiment).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -55,6 +56,7 @@ func (s Store) GetExperiment(id string) (*protos.Experiment, *contract.Error) {
 				fmt.Sprintf("No Experiment with id=%d exists", idInt),
 			)
 		}
+
 		return nil, contract.NewErrorWith(
 			protos.ErrorCode_INTERNAL_ERROR,
 			"failed to get experiment",
@@ -68,8 +70,8 @@ func (s Store) GetExperiment(id string) (*protos.Experiment, *contract.Error) {
 func (s Store) CreateExperiment(input *protos.CreateExperiment) (string, *contract.Error) {
 	experiment := model.NewExperimentFromProto(input)
 
-	if err := s.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&experiment).Error; err != nil {
+	if err := s.db.Transaction(func(transaction *gorm.DB) error {
+		if err := transaction.Create(&experiment).Error; err != nil {
 			return fmt.Errorf("failed to insert experiment: %w", err)
 		}
 
@@ -79,7 +81,7 @@ func (s Store) CreateExperiment(input *protos.CreateExperiment) (string, *contra
 				return fmt.Errorf("failed to join artifact location: %w", err)
 			}
 			experiment.ArtifactLocation = &artifactLocation
-			if err := tx.Model(&experiment).UpdateColumn("artifact_location", artifactLocation).Error; err != nil {
+			if err := transaction.Model(&experiment).UpdateColumn("artifact_location", artifactLocation).Error; err != nil {
 				return fmt.Errorf("failed to update experiment artifact location: %w", err)
 			}
 		}
@@ -92,8 +94,10 @@ func (s Store) CreateExperiment(input *protos.CreateExperiment) (string, *contra
 				fmt.Sprintf("Experiment(name=%s) already exists.", *experiment.Name),
 			)
 		}
+
 		return "", contract.NewErrorWith(protos.ErrorCode_INTERNAL_ERROR, "failed to create experiment", err)
 	}
+
 	return strconv.Itoa(int(*experiment.ID)), nil
 }
 
@@ -105,70 +109,67 @@ var runOrder = regexp.MustCompile(
 	`^(attribute|metric|param|tag)s?\.("[^"]+"|` + "`[^`]+`" + `|[\w\.]+)(?i:\s+(ASC|DESC))?$`,
 )
 
-func (s Store) SearchRuns(
-	experimentIDs []string,
-	filter *string,
-	runViewType protos.ViewType,
-	maxResults int,
-	orderBy []string,
-	pageToken *string,
-) (*store.PagedList[*protos.Run], *contract.Error) {
-	// ViewType
-	var lifecyleStages []model.LifecycleStage
+func getLifecyleStages(runViewType protos.ViewType) []model.LifecycleStage {
 	switch runViewType {
 	case protos.ViewType_ACTIVE_ONLY:
-		lifecyleStages = []model.LifecycleStage{
+		return []model.LifecycleStage{
 			model.LifecycleStageActive,
 		}
 	case protos.ViewType_DELETED_ONLY:
-		lifecyleStages = []model.LifecycleStage{
+		return []model.LifecycleStage{
 			model.LifecycleStageDeleted,
 		}
 	case protos.ViewType_ALL:
-		lifecyleStages = []model.LifecycleStage{
+		return []model.LifecycleStage{
 			model.LifecycleStageActive,
 			model.LifecycleStageDeleted,
 		}
 	}
 
-	tx := s.db.Where("runs.experiment_id IN ?", experimentIDs).Where("runs.lifecycle_stage IN ?", lifecyleStages)
+	return []model.LifecycleStage{
+		model.LifecycleStageActive,
+		model.LifecycleStageDeleted,
+	}
+}
 
-	// MaxResults
-	tx.Limit(maxResults)
-
-	// PageToken
-	var offset int
-	if utils.IsNotNilOrEmptyString(pageToken) {
+func getOffset(pageToken string) (int, *contract.Error) {
+	if pageToken != "" {
 		var token PageToken
 		if err := json.NewDecoder(
 			base64.NewDecoder(
 				base64.StdEncoding,
-				strings.NewReader(*pageToken),
+				strings.NewReader(pageToken),
 			),
 		).Decode(&token); err != nil {
-			return nil, contract.NewErrorWith(
+			return 0, contract.NewErrorWith(
 				protos.ErrorCode_INVALID_PARAMETER_VALUE,
-				fmt.Sprintf("invalid page_token: \"%s\"", *pageToken),
+				fmt.Sprintf("invalid page_token: %q", pageToken),
 				err,
 			)
 		}
-		offset = int(token.Offset)
-	}
-	tx.Offset(offset)
 
-	// Filter
+		return int(token.Offset), nil
+	}
+
+	return 0, nil
+}
+
+//nolint:exhaustruct,funlen,cyclop,gocognit
+func applyFilters(store *Store, transaction *gorm.DB, filter string) *contract.Error {
 	filterConditions, err := query.ParseFilter(filter)
 	if err != nil {
-		return nil, contract.NewErrorWith(
+		return contract.NewErrorWith(
 			protos.ErrorCode_INVALID_PARAMETER_VALUE,
 			"error parsing search filter",
 			err,
 		)
 	}
+
 	log.Debugf("Filter conditions: %#v", filterConditions)
 
-	for n, clause := range filterConditions {
+	for index, clause := range filterConditions {
 		var kind any
+
 		key := clause.Key
 		comparison := strings.ToUpper(clause.Operator.String())
 		value := clause.Value
@@ -182,6 +183,8 @@ func (s Store) SearchRuns(
 			kind = &model.Tag{}
 		case parser.Dataset:
 			kind = &model.Dataset{}
+		case parser.Attribute:
+			kind = nil
 		}
 
 		// Treat "attributes.run_name == <value>" as "tags.`mlflow.runName` == <value>".
@@ -191,18 +194,22 @@ func (s Store) SearchRuns(
 			key = "mlflow.runName"
 		}
 
-		isSqliteAndILike := s.db.Dialector.Name() == "sqlite" && comparison == "ILIKE"
-		table := fmt.Sprintf("filter_%d", n)
+		isSqliteAndILike := store.db.Dialector.Name() == "sqlite" && comparison == "ILIKE"
+		table := fmt.Sprintf("filter_%d", index)
 
 		switch {
 		case kind == nil:
 			if isSqliteAndILike {
 				key = fmt.Sprintf("LOWER(runs.%s)", key)
 				comparison = "LIKE"
-				value = strings.ToLower(value.(string))
-				tx.Where(fmt.Sprintf("%s %s ?", key, comparison), value)
+
+				if str, ok := value.(string); ok {
+					value = strings.ToLower(str)
+				}
+
+				transaction.Where(fmt.Sprintf("%s %s ?", key, comparison), value)
 			} else {
-				tx.Where(fmt.Sprintf("runs.%s %s ?", key, comparison), value)
+				transaction.Where(fmt.Sprintf("runs.%s %s ?", key, comparison), value)
 			}
 		case clause.Identifier == parser.Dataset && key == "context":
 			// SELECT *
@@ -220,11 +227,15 @@ func (s Store) SearchRuns(
 			valueColumn := "input_tags.value "
 			if isSqliteAndILike {
 				valueColumn = "LOWER(input_tags.value) "
-				value = strings.ToLower(value.(string))
+
+				if str, ok := value.(string); ok {
+					value = strings.ToLower(str)
+				}
 			}
-			tx.Joins(
+
+			transaction.Joins(
 				fmt.Sprintf("JOIN (?) AS %s ON runs.run_uuid = %s.run_uuid", table, table),
-				s.db.Select("inputs.destination_id AS run_uuid").
+				store.db.Select("inputs.destination_id AS run_uuid").
 					Joins(
 						"JOIN input_tags ON inputs.input_uuid = input_tags.input_uuid"+
 							" AND input_tags.name = 'mlflow.data.context'"+
@@ -246,34 +257,48 @@ func (s Store) SearchRuns(
 			where := key + " " + comparison + " ?"
 			if isSqliteAndILike {
 				where = "LOWER(" + key + ") LIKE ?"
-				value = strings.ToLower(value.(string))
+
+				if str, ok := value.(string); ok {
+					value = strings.ToLower(str)
+				}
 			}
-			tx.Joins(
+
+			transaction.Joins(
 				fmt.Sprintf("JOIN (?) AS %s ON runs.experiment_id = %s.experiment_id", table, table),
-				s.db.Select("experiment_id", key).Where(where, value).Model(kind),
+				store.db.Select("experiment_id", key).Where(where, value).Model(kind),
 			)
 		default:
 			where := fmt.Sprintf("value %s ?", comparison)
 			if isSqliteAndILike {
 				where = "LOWER(value) LIKE ?"
-				value = strings.ToLower(value.(string))
+
+				if str, ok := value.(string); ok {
+					value = strings.ToLower(str)
+				}
 			}
-			tx.Joins(
+
+			transaction.Joins(
 				fmt.Sprintf("JOIN (?) AS %s ON runs.run_uuid = %s.run_uuid", table, table),
-				s.db.Select("run_uuid", "value").Where("key = ?", key).Where(where, value).Model(kind),
+				store.db.Select("run_uuid", "value").Where("key = ?", key).Where(where, value).Model(kind),
 			)
 		}
 	}
 
-	// OrderBy
+	return nil
+}
+
+//nolint:exhaustruct, funlen, cyclop
+func applyOrderBy(store *Store, transaction *gorm.DB, orderBy []string) *contract.Error {
 	startTimeOrder := false
-	for n, o := range orderBy {
-		components := runOrder.FindStringSubmatch(o)
+
+	for index, orderByClause := range orderBy {
+		components := runOrder.FindStringSubmatch(orderByClause)
 		log.Debugf("Components: %#v", components)
+		//nolint:mnd
 		if len(components) < 3 {
-			return nil, contract.NewError(
+			return contract.NewError(
 				protos.ErrorCode_INVALID_PARAMETER_VALUE,
-				"invalid order by clause: "+o,
+				"invalid order by clause: "+orderByClause,
 			)
 		}
 
@@ -293,7 +318,7 @@ func (s Store) SearchRuns(
 		case "tag":
 			kind = &model.Tag{}
 		default:
-			return nil, contract.NewError(
+			return contract.NewError(
 				protos.ErrorCode_INVALID_PARAMETER_VALUE,
 				fmt.Sprintf(
 					"invalid entity type '%s'. Valid values are ['metric', 'parameter', 'tag', 'attribute']",
@@ -301,51 +326,38 @@ func (s Store) SearchRuns(
 				),
 			)
 		}
+
 		if kind != nil {
-			table := fmt.Sprintf("order_%d", n)
-			tx.Joins(
+			table := fmt.Sprintf("order_%d", index)
+			transaction.Joins(
 				fmt.Sprintf("LEFT OUTER JOIN (?) AS %s ON runs.run_uuid = %s.run_uuid", table, table),
-				s.db.Select("run_uuid", "value").Where("key = ?", column).Model(kind),
+				store.db.Select("run_uuid", "value").Where("key = ?", column).Model(kind),
 			)
+
 			column = table + ".value"
 		}
-		tx.Order(clause.OrderByColumn{
+
+		transaction.Order(clause.OrderByColumn{
 			Column: clause.Column{
 				Name: column,
 			},
 			Desc: len(components) == 4 && strings.ToUpper(components[3]) == "DESC",
 		})
 	}
+
 	if !startTimeOrder {
-		tx.Order("runs.start_time DESC")
-	}
-	tx.Order("runs.run_uuid")
-
-	// Actual query
-	var runs []model.Run
-	tx.Preload("LatestMetrics").
-		Preload("Params").
-		Preload("Tags").
-		Preload("Inputs", "inputs.destination_type = 'RUN'").
-		Preload("Inputs.Dataset").
-		Preload("Inputs.Tags").
-		Find(&runs)
-
-	if tx.Error != nil {
-		return nil, contract.NewErrorWith(
-			protos.ErrorCode_INTERNAL_ERROR,
-			"Failed to query search runs",
-			tx.Error,
-		)
+		transaction.Order("runs.start_time DESC")
 	}
 
-	contractRuns := make([]*protos.Run, 0, len(runs))
-	for _, run := range runs {
-		contractRuns = append(contractRuns, run.ToProto())
-	}
+	transaction.Order("runs.run_uuid")
 
+	return nil
+}
+
+func mkNextPageToken(runLength, maxResults, offset int) (*string, *contract.Error) {
 	var nextPageToken *string
-	if len(runs) == maxResults {
+
+	if runLength == maxResults {
 		var token strings.Builder
 		if err := json.NewEncoder(
 			base64.NewEncoder(base64.StdEncoding, &token),
@@ -358,7 +370,67 @@ func (s Store) SearchRuns(
 				err,
 			)
 		}
+
 		nextPageToken = utils.PtrTo(token.String())
+	}
+
+	return nextPageToken, nil
+}
+
+func (s Store) SearchRuns(
+	experimentIDs []string, filter string,
+	runViewType protos.ViewType, maxResults int, orderBy []string, pageToken string,
+) (*store.PagedList[*protos.Run], *contract.Error) {
+	// ViewType
+	lifecyleStages := getLifecyleStages(runViewType)
+	transaction := s.db.Where("runs.experiment_id IN ?", experimentIDs).Where("runs.lifecycle_stage IN ?", lifecyleStages)
+
+	// MaxResults
+	transaction.Limit(maxResults)
+
+	// PageToken
+	offset, contractError := getOffset(pageToken)
+	if contractError != nil {
+		return nil, contractError
+	}
+
+	transaction.Offset(offset)
+
+	// Filter
+	contractError = applyFilters(&s, transaction, filter)
+	if contractError != nil {
+		return nil, contractError
+	}
+
+	// OrderBy
+	contractError = applyOrderBy(&s, transaction, orderBy)
+	if contractError != nil {
+		return nil, contractError
+	}
+
+	// Actual query
+	var runs []model.Run
+
+	transaction.Preload("LatestMetrics").Preload("Params").Preload("Tags").
+		Preload("Inputs", "inputs.destination_type = 'RUN'").
+		Preload("Inputs.Dataset").Preload("Inputs.Tags").Find(&runs)
+
+	if transaction.Error != nil {
+		return nil, contract.NewErrorWith(
+			protos.ErrorCode_INTERNAL_ERROR,
+			"Failed to query search runs",
+			transaction.Error,
+		)
+	}
+
+	contractRuns := make([]*protos.Run, 0, len(runs))
+	for _, run := range runs {
+		contractRuns = append(contractRuns, run.ToProto())
+	}
+
+	nextPageToken, contractError := mkNextPageToken(len(runs), maxResults, offset)
+	if contractError != nil {
+		return nil, contractError
 	}
 
 	return &store.PagedList[*protos.Run]{
@@ -367,6 +439,7 @@ func (s Store) SearchRuns(
 	}, nil
 }
 
+//nolint:exhaustruct
 func (s Store) DeleteExperiment(id string) *contract.Error {
 	idInt, err := strconv.ParseInt(id, 10, 32)
 	if err != nil {
@@ -377,9 +450,9 @@ func (s Store) DeleteExperiment(id string) *contract.Error {
 		)
 	}
 
-	if err := s.db.Transaction(func(tx *gorm.DB) error {
+	if err := s.db.Transaction(func(transaction *gorm.DB) error {
 		// Update experiment
-		uex := tx.Model(&model.Experiment{}).
+		uex := transaction.Model(&model.Experiment{}).
 			Where("experiment_id = ?", idInt).
 			Updates(&model.Experiment{
 				LifecycleStage: utils.PtrTo(string(model.LifecycleStageDeleted)),
@@ -395,7 +468,7 @@ func (s Store) DeleteExperiment(id string) *contract.Error {
 		}
 
 		// Update runs
-		if err := tx.Model(&model.Run{}).
+		if err := transaction.Model(&model.Run{}).
 			Where("experiment_id = ?", idInt).
 			Updates(&model.Run{
 				LifecycleStage: utils.PtrTo(string(model.LifecycleStageDeleted)),
@@ -423,17 +496,16 @@ func (s Store) DeleteExperiment(id string) *contract.Error {
 	return nil
 }
 
-var ErrSQLStore = errors.New("sql store error")
-
-func NewSQLStore(config *config.Config) (store.MlflowStore, error) {
+func NewSQLStore(config *config.Config) (*Store, error) {
 	uri, err := url.Parse(config.StoreURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse store URL %q: %w", config.StoreURL, err)
 	}
 
+	var dialector gorm.Dialector
+
 	uri.Scheme, _, _ = strings.Cut(uri.Scheme, "+")
 
-	var dialector gorm.Dialector
 	switch uri.Scheme {
 	case "mssql":
 		uri.Scheme = "sqlserver"
@@ -447,9 +519,10 @@ func NewSQLStore(config *config.Config) (store.MlflowStore, error) {
 		uri.Path = uri.Path[1:]
 		dialector = gormlite.Open(uri.String())
 	default:
-		return nil, fmt.Errorf("unsupported store URL scheme %q: %w", uri.Scheme, ErrSQLStore)
+		return nil, fmt.Errorf("unsupported store URL scheme %q", uri.Scheme) //nolint:err113
 	}
-	db, err := gorm.Open(dialector, &gorm.Config{
+	//nolint:exhaustruct
+	database, err := gorm.Open(dialector, &gorm.Config{
 		TranslateError: true,
 		Logger:         logger.Default.LogMode(logger.Info),
 	})
@@ -457,5 +530,5 @@ func NewSQLStore(config *config.Config) (store.MlflowStore, error) {
 		return nil, fmt.Errorf("failed to connect to database %q: %w", uri.String(), err)
 	}
 
-	return &Store{config: config, db: db}, nil
+	return &Store{config: config, db: database}, nil
 }

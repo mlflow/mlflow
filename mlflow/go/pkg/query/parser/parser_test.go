@@ -13,7 +13,10 @@ type Sample struct {
 	expected *parser.AndExpr
 }
 
+//nolint:funlen
 func TestQueries(t *testing.T) {
+	t.Parallel()
+
 	samples := []Sample{
 		{
 			input: "metrics.accuracy > 0.72",
@@ -131,8 +134,12 @@ func TestQueries(t *testing.T) {
 	}
 
 	for _, sample := range samples {
-		t.Run(sample.input, func(t *testing.T) {
-			tokens, err := lexer.Tokenize(&sample.input)
+		currentSample := sample
+
+		t.Run(currentSample.input, func(t *testing.T) {
+			t.Parallel()
+
+			tokens, err := lexer.Tokenize(&currentSample.input)
 			if err != nil {
 				t.Errorf("unexpected lex error: %v", err)
 			}
@@ -142,21 +149,26 @@ func TestQueries(t *testing.T) {
 				t.Errorf("error parsing: %s", err)
 			}
 
-			if !reflect.DeepEqual(ast, sample.expected) {
-				t.Errorf("expected %#v, got %#v", sample.expected, ast)
+			if !reflect.DeepEqual(ast, currentSample.expected) {
+				t.Errorf("expected %#v, got %#v", currentSample.expected, ast)
 			}
 		})
 	}
 }
 
 func TestInvalidSyntax(t *testing.T) {
+	t.Parallel()
+
 	samples := []string{
 		"attribute.status IS 'RUNNING'",
 	}
 
 	for _, sample := range samples {
-		t.Run(sample, func(t *testing.T) {
-			tokens, err := lexer.Tokenize(&sample)
+		currentSample := sample
+		t.Run(currentSample, func(t *testing.T) {
+			t.Parallel()
+
+			tokens, err := lexer.Tokenize(&currentSample)
 			if err != nil {
 				t.Errorf("unexpected lex error: %v", err)
 			}

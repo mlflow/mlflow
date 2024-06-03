@@ -14,11 +14,11 @@ type MlflowStore interface {
 
 	SearchRuns(
 		experimentIDs []string,
-		filter *string,
+		filter string,
 		runViewType protos.ViewType,
 		maxResults int,
 		orderBy []string,
-		pageToken *string,
+		pageToken string,
 	) (pagedList *PagedList[*protos.Run], err *contract.Error)
 
 	DeleteExperiment(id string) *contract.Error

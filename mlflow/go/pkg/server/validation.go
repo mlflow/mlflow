@@ -10,15 +10,18 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+const QuoteLenght = 2
+
 func NewValidator() (*validator.Validate, error) {
 	validate := validator.New()
 
 	validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
-		name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
+		name := strings.SplitN(fld.Tag.Get("json"), ",", QuoteLenght)[0]
 		// skip if tag key says it should be ignored
 		if name == "-" {
 			return ""
 		}
+
 		return name
 	})
 
@@ -31,6 +34,7 @@ func NewValidator() (*validator.Validate, error) {
 			if err != nil {
 				return false
 			}
+
 			return value > -1
 		},
 	); err != nil {
