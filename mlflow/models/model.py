@@ -697,8 +697,7 @@ class Model:
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
             # if the model_config kwarg is passed in, then log the model config as an params
-            if "model_config" in kwargs:
-                model_config = kwargs["model_config"]
+            if model_config := kwargs.get("model_config"):
                 if isinstance(model_config, str):
                     try:
                         file_extension = os.path.splitext(model_config)[1].lower()
