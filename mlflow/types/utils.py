@@ -227,6 +227,42 @@ def _infer_schema(data: Any) -> Schema:
       - Dict[str, Union[DataType, List, Dict]]
       - List[Dict[str, Union[DataType, List, Dict]]]
 
+    The last two formats are used to represent complex data structures. For example,
+
+        Input Data:
+            [
+                {
+                    'text': 'some sentence',
+                    'ids': ['id1'],
+                    'dict': {'key': 'value'}
+                },
+                {
+                    'text': 'some sentence',
+                    'ids': ['id1', 'id2'],
+                    'dict': {'key': 'value', 'key2': 'value2'}
+                },
+            ]
+
+        The corresponding pandas DataFrame representation should look like this:
+
+                    output         ids                                dict
+            0  some sentence  [id1, id2]                    {'key': 'value'}
+            1  some sentence  [id1, id2]  {'key': 'value', 'key2': 'value2'}
+
+        The inferred schema should look like this:
+
+            Schema([
+                ColSpec(type=DataType.string, name='output'),
+                ColSpec(type=Array(dtype=DataType.string), name='ids'),
+                ColSpec(
+                    type=Object([
+                        Property(name='key', dtype=DataType.string),
+                        Property(name='key2', dtype=DataType.string, required=False)
+                    ]),
+                    name='dict')]
+                ),
+            ])
+
     The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType` for
     dataframes and to one of numpy types for tensors.
 
