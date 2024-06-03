@@ -3056,6 +3056,58 @@ def test_search_traces_filter(generate_trace_infos):
     )
 
 
+def test_search_traces_filter_request_metadata(store):
+    exp_id = store.create_experiment("test")
+    timestamp_ms_1 = get_current_time_millis()
+    trace_info_1 = store.start_trace(
+        exp_id,
+        timestamp_ms_1,
+        {
+            TraceMetadataKey.INPUTS: "inputs1",
+            TraceMetadataKey.OUTPUTS: "outputs1",
+        },
+        {},
+    )
+    time.sleep(0.001)  # ensure unique timestamps
+    timestamp_ms_2 = get_current_time_millis()
+    trace_info_2 = store.start_trace(
+        exp_id,
+        timestamp_ms_2,
+        {
+            TraceMetadataKey.INPUTS: "inputs2",
+            TraceMetadataKey.OUTPUTS: "outputs2",
+        },
+        {},
+    )
+
+    _validate_search_traces(
+        store,
+        [exp_id],
+        f"request_metadata.{TraceMetadataKey.INPUTS} = 'inputs1'",
+        [trace_info_1],
+    )
+    _validate_search_traces(
+        store,
+        [exp_id],
+        f"request_metadata.{TraceMetadataKey.INPUTS} != 'inputs1'",
+        [trace_info_2],
+    )
+    _validate_search_traces(
+        store,
+        [exp_id],
+        f"request_metadata.{TraceMetadataKey.INPUTS} != 'test'",
+        [trace_info_2, trace_info_1],
+    )
+
+    # alias
+    _validate_search_traces(
+        store,
+        [exp_id],
+        f"metadata.{TraceMetadataKey.INPUTS} = 'inputs1'",
+        [trace_info_1],
+    )
+
+
 @pytest.mark.parametrize(
     ("filter_string", "error"),
     [
