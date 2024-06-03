@@ -3089,6 +3089,13 @@ def test_search_traces_filter_request_metadata(store):
     _validate_search_traces(
         store,
         [exp_id],
+        f"request_metadata.{TraceMetadataKey.OUTPUTS} = 'outputs1'",
+        [trace_info_1],
+    )
+    # not equal
+    _validate_search_traces(
+        store,
+        [exp_id],
         f"request_metadata.{TraceMetadataKey.INPUTS} != 'inputs1'",
         [trace_info_2],
     )
