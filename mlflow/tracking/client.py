@@ -605,8 +605,12 @@ class MlflowClient:
                 name, experiment_id=experiment_id
             )
             request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
-
             mlflow_span = create_mlflow_span(otel_span, request_id, span_type)
+
+            # # If the span is a no-op span i.e. tracing is disabled, do nothing
+            if isinstance(mlflow_span, NoOpSpan):
+                return mlflow_span
+
             if inputs:
                 mlflow_span.set_inputs(inputs)
             if attributes:
