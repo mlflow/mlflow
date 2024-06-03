@@ -415,11 +415,38 @@ class MlflowClient:
             experiment_id: ID of the associated experiment.
             max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
                 deleting traces. Traces older than or equal to this timestamp will be deleted.
-            max_traces: The maximum number of traces to delete.
+            max_traces: The maximum number of traces to delete. If max_traces is specified, and
+                it is less than the number of traces that would be deleted based on the
+                max_timestamp_millis, the oldest traces will be deleted first.
             request_ids: A set of request IDs to delete.
 
         Returns:
             The number of traces deleted.
+
+        Example:
+
+        .. code-block:: python
+            :test:
+
+            import mlflow
+            import time
+
+            client = mlflow.MlflowClient()
+
+            # Delete all traces in the experiment
+            client.delete_traces(
+                experiment_id="0", max_timestamp_millis=time.time_ns() // 1_000_000
+            )
+
+            # Delete traces based on max_timestamp_millis and max_traces
+            # Older traces will be deleted first.
+            some_timestamp = time.time_ns() // 1_000_000
+            client.delete_traces(
+                experiment_id="0", max_timestamp_millis=some_timestamp, max_traces=2
+            )
+
+            # Delete traces based on request_ids
+            client.delete_traces(experiment_id="0", request_ids=["id_1", "id_2"])
         """
         return self._tracking_client.delete_traces(
             experiment_id=experiment_id,

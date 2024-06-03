@@ -644,25 +644,22 @@ def test_search_traces():
         assert token == "token"
 
 
-def test_delete_traces():
+@pytest.mark.parametrize(
+    "delete_traces_kwargs",
+    [
+        {"experiment_id": "0", "request_ids": ["tr-1234"]},
+        {"experiment_id": "0", "max_timestamp_millis": 1, "max_traces": 2},
+    ],
+)
+def test_delete_traces(delete_traces_kwargs):
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
     response.status_code = 200
-    request = DeleteTraces(
-        experiment_id="0",
-        max_timestamp_millis=1,
-        max_traces=2,
-        request_ids=["tr-1234"],
-    )
+    request = DeleteTraces(**delete_traces_kwargs)
     response.text = json.dumps({"traces_deleted": 1})
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        res = store.delete_traces(
-            experiment_id=request.experiment_id,
-            max_timestamp_millis=request.max_timestamp_millis,
-            max_traces=request.max_traces,
-            request_ids=request.request_ids,
-        )
+        res = store.delete_traces(**delete_traces_kwargs)
         _verify_requests(mock_http, creds, "traces/delete-traces", "POST", message_to_json(request))
         assert res == 1
 

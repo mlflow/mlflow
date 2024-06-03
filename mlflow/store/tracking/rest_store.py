@@ -304,7 +304,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
         return TraceInfo.from_proto(response_proto.trace_info)
 
-    def delete_traces(
+    def _delete_traces(
         self,
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,

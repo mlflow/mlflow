@@ -4189,6 +4189,7 @@ def test_set_tag_truncate_too_long_tag(store: SqlAlchemyStore):
 def test_delete_traces(store):
     exp1 = store.create_experiment("exp1")
     exp2 = store.create_experiment("exp2")
+    now = int(time.time() * 1000)
 
     for i in range(10):
         _create_trace(
@@ -4201,19 +4202,19 @@ def test_delete_traces(store):
     traces, _ = store.search_traces([exp1, exp2])
     assert len(traces) == 20
 
-    deleted = store.delete_traces(experiment_id=exp1)
+    deleted = store.delete_traces(experiment_id=exp1, max_timestamp_millis=now)
     assert deleted == 10
     traces, _ = store.search_traces([exp1, exp2])
     assert len(traces) == 10
     for trace in traces:
         assert trace.experiment_id == exp2
 
-    deleted = store.delete_traces(experiment_id=exp2)
+    deleted = store.delete_traces(experiment_id=exp2, max_timestamp_millis=now)
     assert deleted == 10
     traces, _ = store.search_traces([exp1, exp2])
     assert len(traces) == 0
 
-    deleted = store.delete_traces(experiment_id=exp1)
+    deleted = store.delete_traces(experiment_id=exp1, max_timestamp_millis=now)
     assert deleted == 0
 
 
@@ -4240,7 +4241,7 @@ def test_delete_traces_with_max_count(store):
     for i in range(10):
         _create_trace(store, f"tr-{i}", exp1, timestamp_ms=i)
 
-    deleted = store.delete_traces(exp1, max_traces=4)
+    deleted = store.delete_traces(exp1, max_traces=4, max_timestamp_millis=10)
     assert deleted == 4
     traces, _ = store.search_traces([exp1])
     assert len(traces) == 6
@@ -4264,3 +4265,25 @@ def test_delete_traces_with_request_ids(store):
     traces, _ = store.search_traces([exp1])
     assert len(traces) == 2
     assert [trace.request_id for trace in traces] == ["tr-9", "tr-8"]
+
+
+def test_delete_traces_raises_error(store):
+    exp_id = store.create_experiment("test")
+
+    with pytest.raises(
+        MlflowException, match=r"Either `max_timestamp_millis` or `request_ids` must be specified."
+    ):
+        store.delete_traces(exp_id)
+    with pytest.raises(
+        MlflowException,
+        match=r"Only one of `max_timestamp_millis` and `request_ids` can be specified.",
+    ):
+        store.delete_traces(exp_id, max_timestamp_millis=100, request_ids=["request_id"])
+    with pytest.raises(
+        MlflowException, match=r"`max_traces` can't be specified if `request_ids` is specified."
+    ):
+        store.delete_traces(exp_id, max_traces=2, request_ids=["request_id"])
+    with pytest.raises(
+        MlflowException, match=r"`max_traces` must be a positive integer, received 0"
+    ):
+        store.delete_traces(exp_id, 100, max_traces=0)
