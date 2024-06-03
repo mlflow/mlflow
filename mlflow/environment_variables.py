@@ -617,3 +617,9 @@ MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE = _EnvironmentVariable(
 MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT", int, 500
 )
+
+#: The number of urllib3 connection pools to cache.
+MLFLOW_HTTP_POOL_CONNECTIONS = _EnvironmentVariable("MLFLOW_HTTP_POOL_CONNECTIONS", int, 10)
+
+#: The number of urllib3 connection pools to cache.
+MLFLOW_HTTP_POOL_MAXSIZE = _EnvironmentVariable("MLFLOW_HTTP_POOL_MAXSIZE", int, 10)

@@ -12,6 +12,11 @@ from requests.adapters import HTTPAdapter
 from requests.exceptions import HTTPError
 from urllib3.util import Retry
 
+from mlflow.environment_variables import (
+    MLFLOW_HTTP_POOL_CONNECTIONS,
+    MLFLOW_HTTP_POOL_MAXSIZE,
+)
+
 # Response codes that generally indicate transient network failures and merit client retries,
 # based on guidance from cloud service providers
 # (https://docs.microsoft.com/en-us/azure/architecture/best-practices/retry-service-specific#general-rest-and-retry-guidelines)
@@ -137,7 +142,11 @@ def _cached_get_request_session(
         retry = JitteredRetry(**retry_kwargs)
     else:
         retry = Retry(**retry_kwargs)
-    adapter = HTTPAdapter(max_retries=retry)
+    adapter = HTTPAdapter(
+        pool_connections=MLFLOW_HTTP_POOL_CONNECTIONS.get(),
+        pool_maxsize=MLFLOW_HTTP_POOL_MAXSIZE.get(),
+        max_retries=retry,
+    )
     session = requests.Session()
     session.mount("https://", adapter)
     session.mount("http://", adapter)
