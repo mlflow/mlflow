@@ -39,7 +39,7 @@ from mlflow.utils.openai_utils import (
 
 # TODO: This test helper is used outside the tracing module, we should move it to a common utils
 from tests.tracing.conftest import clear_singleton as clear_trace_singleton  # noqa: F401
-from tests.tracing.helper import get_first_trace, get_traces
+from tests.tracing.helper import get_traces
 
 MODEL_DIR = "model"
 TEST_CONTENT = "test"
@@ -975,5 +975,5 @@ def test_set_retriever_schema_work_for_langchain_model(clear_trace_singleton):
         pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
         pyfunc_model.predict("MLflow")
 
-    trace = get_first_trace()
+    trace = mlflow.get_last_active_trace()
     assert DependenciesSchemasType.RETRIEVERS.value in trace.info.tags
