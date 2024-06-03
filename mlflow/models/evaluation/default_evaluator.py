@@ -1967,7 +1967,7 @@ class DefaultEvaluator(ModelEvaluator):
             def model_predict_func(x):
                 # In non-langchain environments, nothing would be autologged.
                 with mlflow.utils.autologging_utils.restrict_langchain_autologging_to_traces_only():
-                    return model.predict(x)
+                    return self.model.predict(x)
 
         self.model_predict_fn = model_predict_func
 
