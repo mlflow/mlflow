@@ -459,10 +459,6 @@
     "defaultMessage": "There are no evaluable rows within this column",
     "description": "Experiment page > artifact compare view > run column header > Disabled \"Evaluate all\" button tooltip when no rows are evaluable"
   },
-  "7mo4P0": {
-    "defaultMessage": "Notebook",
-    "description": "Experiment page > traces table > notebook column header"
-  },
   "7nAMnb": {
     "defaultMessage": "Please input a name for the new model.",
     "description": "Error message for having no input for creating models in the model registry"
@@ -1846,6 +1842,10 @@
   "eE5VIF": {
     "defaultMessage": "Click to hide the run",
     "description": "A tooltip for the \"hide\" icon button in the runs chart tooltip"
+  },
+  "eM4+ab": {
+    "defaultMessage": "Source",
+    "description": "Experiment page > traces table > source column header"
   },
   "eNUbaN": {
     "defaultMessage": "Y-axis:",

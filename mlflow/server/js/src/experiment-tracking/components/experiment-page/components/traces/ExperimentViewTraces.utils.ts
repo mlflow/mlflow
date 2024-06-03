@@ -49,7 +49,7 @@ export enum ExperimentViewTracesTableColumns {
   outputs = 'outputs',
   runName = 'runName',
   totalTokens = 'total_tokens',
-  notebook = 'notebook',
+  source = 'source',
   latency = 'latency',
   tags = 'tags',
   status = 'status',
@@ -88,9 +88,9 @@ export const ExperimentViewTracesTableColumnLabels: Record<ExperimentViewTracesT
     defaultMessage: 'Tokens',
     description: 'Experiment page > traces table > tokens column header',
   }),
-  [ExperimentViewTracesTableColumns.notebook]: defineMessage({
-    defaultMessage: 'Notebook',
-    description: 'Experiment page > traces table > notebook column header',
+  [ExperimentViewTracesTableColumns.source]: defineMessage({
+    defaultMessage: 'Source',
+    description: 'Experiment page > traces table > source column header',
   }),
   [ExperimentViewTracesTableColumns.latency]: defineMessage({
     defaultMessage: 'Execution time',

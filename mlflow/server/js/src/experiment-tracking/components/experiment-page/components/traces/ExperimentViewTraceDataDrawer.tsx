@@ -122,6 +122,8 @@ export const ExperimentViewTraceDataDrawer = ({
           css={{
             height: `calc(100% - ${theme.spacing.lg}px)`,
             borderTop: `1px solid ${theme.colors.border}`,
+            marginLeft: -theme.spacing.lg,
+            marginRight: -theme.spacing.lg,
           }}
         >
           <ModelTraceExplorerFrameRenderer modelTrace={combinedModelTrace} height="100%" />
