@@ -223,7 +223,7 @@ class ChatChoice(_BaseDataclass):
         index (int): The index of the response in the list of responses.
         message (:py:class:`ChatMessage`): The message that was generated.
         finish_reason (str): The reason why generation stopped.
-        logprobs (:py:class:`LogProbs`): Log probability information for the choice.
+        logprobs (:py:class:`ChatChoiceLogProbs`): Log probability information for the choice.
     """
 
     index: int
