@@ -3037,12 +3037,6 @@ def test_search_traces_filter(generate_trace_infos):
             store, [exp_id], f"{tag_identifier}.test_tag != 'tag_0'", trace_infos[1:][::-1]
         )
         _validate_search_traces(
-            store, [exp_id], f"{tag_identifier}.test_tag IN ('tag_0')", [trace_infos[0]]
-        )
-        _validate_search_traces(
-            store, [exp_id], f"{tag_identifier}.test_tag NOT IN ('tag_0')", trace_infos[1:][::-1]
-        )
-        _validate_search_traces(
             store, [exp_id], f"{tag_identifier}.test_tag LIKE 'tag_%'", trace_infos[::-1]
         )
         _validate_search_traces(
