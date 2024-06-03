@@ -458,8 +458,8 @@ def get_last_active_trace() -> Optional[Trace]:
 
         - To mutate the active trace, use :py:func:`mlflow.get_current_active_span` instead.
         - To modify the already ended trace (while most of the data is immutable after the
-            trace is ended, you can still edit some fields like tags), please use the
-            respective MlflowClient APIs with the request ID of the trace.
+          trace is ended, you can still edit some fields like tags), please use the
+          respective MlflowClient APIs with the request ID of the trace.
 
         .. code-block:: python
             :test:
