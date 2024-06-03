@@ -99,17 +99,13 @@ def http_request(
             # `params` argument of `requests.Session.request()` API
             # The 'body' argument of Databricks SDK `APIClient.do` API is equivalent to
             # `json` argument of `requests.Session.request()` API
-            extra_kwargs = {
-                "query": kwargs.get("params"),
-                "body": kwargs.get("json"),
-            }
-
             raw_response = ws_client.api_client.do(
                 method=method,
                 path=endpoint,
                 headers=extra_headers,
                 raw=True,
-                **extra_kwargs,
+                query=kwargs.get("params"),
+                body=kwargs.get("json"),
             )
             return raw_response["contents"]._response
         except DatabricksError as e:
