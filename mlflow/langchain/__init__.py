@@ -64,6 +64,7 @@ from mlflow.models.utils import (
 )
 from mlflow.pyfunc import FLAVOR_NAME as PYFUNC_FLAVOR_NAME
 from mlflow.pyfunc.context import get_prediction_context
+from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
@@ -147,6 +148,7 @@ def _infer_signature_from_input_example_for_lc_model(
 
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
+@trace_disabled  # Suppress traces for internal predict calls while saving model
 def save_model(
     lc_model,
     path,
@@ -417,6 +419,7 @@ def save_model(
 
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
+@trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     lc_model,
     artifact_path,

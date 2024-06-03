@@ -300,6 +300,23 @@ def test_llmchain_autolog(clear_trace_singleton):
         assert attrs["invocation_params"]["temperature"] == 0.9
 
 
+def test_llmchain_autolog_should_not_generate_trace_while_saving_models(
+    clear_trace_singleton, tmp_path
+):
+    mlflow.langchain.autolog()
+    question = "MLflow"
+
+    with _mock_request(return_value=_mock_chat_completion_response()):
+        model = create_openai_llmchain()
+        # Either save_model or log_model should not generate traces
+        mlflow.langchain.save_model(model, path=tmp_path / "model", input_example=question)
+        with mlflow.start_run():
+            mlflow.langchain.log_model(model, "model", input_example=question)
+
+    traces = get_traces()
+    assert len(traces) == 0
+
+
 def test_llmchain_autolog_no_optional_artifacts_by_default(clear_trace_singleton):
     mlflow.langchain.autolog()
     question = "MLflow"
