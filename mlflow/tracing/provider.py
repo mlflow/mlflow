@@ -1,4 +1,4 @@
-import contextlib
+import functools
 import json
 import logging
 from typing import Optional, Tuple
@@ -193,20 +193,39 @@ def enable():
     _setup_tracer_provider()
 
 
-@contextlib.contextmanager
-def trace_disabled():
+def trace_disabled(f):
     """
-    Temporarily disable tracing for the duration of the context manager.
+    A decorator that temporarily disables tracing for the duration of the decorated function.
+
+    .. code-block:: python
+
+        @trace_disabled
+        def f():
+            with mlflow.start_span("my_span") as span:
+                span.set_attribute("my_key", "my_value")
+
+            return
+
+
+        # This function will not generate any trace
+        f()
 
     :meta private:
     """
-    was_trace_enabled = _is_enabled()
-    try:
-        disable()
-        yield
-    finally:
+
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        was_trace_enabled = _is_enabled()
         if was_trace_enabled:
-            enable()
+            disable()
+            try:
+                return f(*args, **kwargs)
+            finally:
+                enable()
+        else:
+            return f(*args, **kwargs)
+
+    return wrapper
 
 
 def reset_tracer_setup():
