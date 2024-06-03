@@ -2930,12 +2930,6 @@ def test_search_traces_filter(generate_trace_infos):
     # filter by name
     _validate_search_traces(store, [exp_id], "name = 'trace_0'", trace_infos[:1])
     _validate_search_traces(store, [exp_id], "name != 'trace_0'", trace_infos[1:][::-1])
-    _validate_search_traces(
-        store, [exp_id], "name IN ('trace_0', 'trace_1')", trace_infos[:2][::-1]
-    )
-    _validate_search_traces(
-        store, [exp_id], "name NOT IN ('trace_0', 'trace_1')", trace_infos[2:][::-1]
-    )
     _validate_search_traces(store, [exp_id], "name LIKE 'trace_%'", trace_infos[::-1])
     _validate_search_traces(store, [exp_id], "name ILIKE 'Trace_%'", trace_infos[::-1])
     _validate_search_traces(
@@ -3031,8 +3025,6 @@ def test_search_traces_filter(generate_trace_infos):
         )
     _validate_search_traces(store, [exp_id], "run_id = 'run_5'", [trace_infos[5]])
     _validate_search_traces(store, [exp_id], "run_id != 'run_5'", trace_infos[6:][::-1])
-    _validate_search_traces(store, [exp_id], "run_id IN ('run_5')", [trace_infos[5]])
-    _validate_search_traces(store, [exp_id], "run_id NOT IN ('run_5')", trace_infos[6:][::-1])
     _validate_search_traces(store, [exp_id], "run_id LIKE 'run_%'", trace_infos[5:][::-1])
     _validate_search_traces(store, [exp_id], "run_id ILIKE 'RUN_5'", [trace_infos[5]])
 
@@ -3078,8 +3070,8 @@ def test_search_traces_filter(generate_trace_infos):
         ("foo.bar = 'baz'", r"Invalid entity type 'foo'"),
         ("invalid = 'foo'", r"Invalid attribute key 'invalid'"),
         ("trace.tags.foo = 'bar'", r"Invalid attribute key 'tags\.foo'"),
-        # TODO: This should raise
-        # ("trace.status < 'OK'", r"Invalid comparator '<'"),
+        ("trace.status < 'OK'", r"Invalid comparator '<'"),
+        ("name IN ('foo', 'bar')", r"Invalid comparator 'IN'"),
     ],
 )
 def test_search_traces_invalid_filter(generate_trace_infos, filter_string, error):
