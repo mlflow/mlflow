@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.trace_data import TraceData
@@ -75,6 +75,7 @@ class Trace(_MlflowObject):
     def to_pandas_dataframe_row(self) -> Dict[str, Any]:
         return {
             "request_id": self.info.request_id,
+            "trace": self,
             "timestamp_ms": self.info.timestamp_ms,
             "status": self.info.status,
             "execution_time_ms": self.info.execution_time_ms,
@@ -84,3 +85,18 @@ class Trace(_MlflowObject):
             "spans": [span.to_dict() for span in self.data.spans],
             "tags": self.info.tags,
         }
+
+    @staticmethod
+    def pandas_dataframe_columns() -> List[str]:
+        return [
+            "request_id",
+            "trace",
+            "timestamp_ms",
+            "status",
+            "execution_time_ms",
+            "request",
+            "response",
+            "request_metadata",
+            "spans",
+            "tags",
+        ]

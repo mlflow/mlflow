@@ -3,9 +3,12 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
+from collections import Counter
 from pathlib import Path
 
 import toml
+import yaml
+from packaging.version import Version
 
 SEPARATOR = """
 # Package metadata: can't be updated manually, use dev/pyproject.py
@@ -15,9 +18,19 @@ SEPARATOR = """
 """
 
 
+def find_duplicates(seq):
+    counted = Counter(seq)
+    return [item for item, count in counted.items() if count > 1]
+
+
 def read_requirements(path: Path) -> list[str]:
     lines = (l.strip() for l in path.read_text().splitlines())
     return [l for l in lines if l and not l.startswith("#")]
+
+
+def read_package_versions_yml():
+    with open("mlflow/ml-package-versions.yml") as f:
+        return yaml.safe_load(f)
 
 
 def build(skinny: bool) -> None:
@@ -28,6 +41,25 @@ def build(skinny: bool) -> None:
         r'^VERSION = "([a-z0-9\.]+)"$', Path("mlflow", "version.py").read_text(), re.MULTILINE
     ).group(1)
     python_version = Path("requirements", "python-version.txt").read_text().strip()
+    versions_yaml = read_package_versions_yml()
+    langchain_requirements = [
+        "langchain>={},<={}".format(
+            max(
+                Version(versions_yaml["langchain"]["autologging"]["minimum"]),
+                Version(versions_yaml["langchain"]["models"]["minimum"]),
+            ),
+            min(
+                Version(versions_yaml["langchain"]["autologging"]["maximum"]),
+                Version(versions_yaml["langchain"]["models"]["maximum"]),
+            ),
+        )
+    ]
+    dependencies = sorted(
+        skinny_requirements if skinny else skinny_requirements + core_requirements
+    )
+    dep_duplicates = find_duplicates(dependencies)
+    assert not dep_duplicates, f"Duplicated dependencies are found: {dep_duplicates}"
+
     data = {
         "build-system": {
             "requires": ["setuptools"],
@@ -60,9 +92,7 @@ def build(skinny: bool) -> None:
                 f"Programming Language :: Python :: {python_version}",
             ],
             "requires-python": f">={python_version}",
-            "dependencies": sorted(
-                skinny_requirements if skinny else skinny_requirements + core_requirements
-            ),
+            "dependencies": dependencies,
             "optional-dependencies": {
                 "extras": [
                     # Required to log artifacts and models to HDFS artifact locations
@@ -103,6 +133,7 @@ def build(skinny: bool) -> None:
                 "aliyun-oss": ["aliyunstoreplugin"],
                 "xethub": ["mlflow-xethub"],
                 "jfrog": ["mlflow-jfrog-plugin"],
+                "langchain": langchain_requirements,
             },
             "urls": {
                 "homepage": "https://mlflow.org",

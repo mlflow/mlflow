@@ -1,3 +1,4 @@
+import inspect
 import io
 import json
 import os
@@ -17,6 +18,8 @@ import sklearn.impute
 import sklearn.linear_model
 import sklearn.pipeline
 import sklearn.preprocessing
+from langchain.llms import FakeListLLM
+from langchain.prompts import PromptTemplate
 from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 from PIL import Image, ImageChops
 from pyspark.ml.linalg import Vectors
@@ -53,15 +56,23 @@ from mlflow.models.evaluation.base import (
 from mlflow.models.evaluation.base import (
     _normalize_evaluators_and_evaluator_config_args as _normalize_config,
 )
+from mlflow.models.evaluation.default_evaluator import DefaultEvaluator
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracking.artifact_utils import get_artifact_uri
 from mlflow.utils import insecure_hash
+from mlflow.utils.autologging_utils import (
+    MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG,
+)
 from mlflow.utils.file_utils import TempDir
 
-from tests.tracing.helper import create_test_trace_info
+from tests.tracing.conftest import clear_singleton  # noqa: F401
+from tests.tracing.helper import create_test_trace_info, get_traces
 from tests.utils.test_file_utils import spark_session  # noqa: F401
+
+INFERENCE_FILE_NAME = "inference_inputs_outputs.json"
 
 
 def get_iris():
@@ -361,6 +372,232 @@ def baseline_model_uri(request):
     if request.param == "invalid_model_uri":
         return "invalid_uri"
     return None
+
+
+def test_mlflow_evaluate_logs_traces():
+    eval_data = pd.DataFrame(
+        {
+            "inputs": [
+                "What is MLflow?",
+                "What is Spark?",
+            ],
+            "ground_truth": ["What is MLflow?", "Not what is Spark?"],
+        }
+    )
+
+    @mlflow.trace
+    def model(inputs):
+        return inputs
+
+    with mlflow.start_run() as run:
+        evaluate(
+            model, eval_data, targets="ground_truth", extra_metrics=[mlflow.metrics.exact_match()]
+        )
+    assert len(get_traces()) == 1
+    assert run.info.run_id == get_traces()[0].info.request_metadata["mlflow.sourceRun"]
+
+
+def test_pyfunc_evaluate_logs_traces():
+    class Model(mlflow.pyfunc.PythonModel):
+        @mlflow.trace()
+        def predict(self, _, inputs):
+            return self.add(inputs, inputs)
+
+        @mlflow.trace()
+        def add(self, x, y):
+            return x + y
+
+    eval_data = pd.DataFrame(
+        {
+            "inputs": [1, 2, 4],
+            "ground_truth": [2, 4, 8],
+        }
+    )
+
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=Model())
+        evaluate(
+            model_info.model_uri,
+            eval_data,
+            targets="ground_truth",
+            extra_metrics=[mlflow.metrics.exact_match()],
+        )
+    assert len(get_traces()) == 1
+    assert len(get_traces()[0].data.spans) == 2
+    assert run.info.run_id == get_traces()[0].info.request_metadata["mlflow.sourceRun"]
+
+
+def test_langchain_evaluate_autologs_traces():
+    # Check langchain autolog parameters are restored after evaluation
+    mlflow.langchain.autolog(log_models=True, log_inputs_outputs=True)
+
+    prompt = PromptTemplate(
+        input_variables=["input"],
+        template="Test Prompt {input}",
+    )
+    llm = FakeListLLM(responses=["response"])
+    chain = prompt | llm
+
+    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
+
+        def model(inputs):
+            return [chain.invoke({"input": input}) for input in inputs["inputs"]]
+
+        eval_data = pd.DataFrame(
+            {
+                "inputs": [
+                    "What is MLflow?",
+                    "What is Spark?",
+                ],
+                "ground_truth": ["What is MLflow?", "Not what is Spark?"],
+            }
+        )
+
+        with mlflow.start_run() as run:
+            evaluate(
+                model,
+                eval_data,
+                targets="ground_truth",
+                extra_metrics=[mlflow.metrics.exact_match()],
+            )
+        log_model_mock.assert_not_called()
+
+    assert len(get_traces()) == 2
+    for trace in get_traces():
+        assert len(trace.data.spans) == 3
+    assert run.info.run_id == get_traces()[0].info.request_metadata["mlflow.sourceRun"]
+
+    TRACE_BUFFER.clear()
+
+    # Test original langchain autolog configs is restored
+    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
+        with mlflow.start_run() as run:
+            chain.invoke("text")
+
+            loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
+            loaded_dict = loaded_table.to_dict("records")
+            assert len(loaded_dict) == 1
+            assert loaded_dict[0]["input"] == "text"
+        log_model_mock.assert_called_once()
+        assert len(get_traces()) == 1
+        assert len(get_traces()[0].data.spans) == 3
+
+
+def test_langchain_pyfunc_autologs_traces():
+    prompt = PromptTemplate(
+        input_variables=["inputs"],
+        template="Test Prompt {inputs}",
+    )
+    llm = FakeListLLM(responses=["response"])
+    chain = prompt | llm
+
+    eval_data = pd.DataFrame(
+        {
+            "inputs": ["What is MLflow?"],
+            "ground_truth": ["What is MLflow?"],
+        }
+    )
+
+    with mlflow.start_run() as run:
+        model_info = mlflow.langchain.log_model(chain, artifact_path="model")
+        evaluate(
+            model_info.model_uri,
+            eval_data,
+            targets="ground_truth",
+            extra_metrics=[mlflow.metrics.exact_match()],
+        )
+    assert len(get_traces()) == 1
+    assert len(get_traces()[0].data.spans) == 3
+    assert run.info.run_id == get_traces()[0].info.request_metadata["mlflow.sourceRun"]
+
+
+def test_langchain_evaluate_fails_with_an_exception():
+    # Check langchain autolog parameters are restored after evaluation
+    mlflow.langchain.autolog(log_models=True, log_inputs_outputs=True)
+
+    prompt = PromptTemplate(
+        input_variables=["input"],
+        template="Test Prompt {input}",
+    )
+    llm = FakeListLLM(responses=["response"])
+    chain = prompt | llm
+
+    with mock.patch("mlflow.langchain.log_model") as log_model_mock, mock.patch.object(
+        DefaultEvaluator, "evaluate", side_effect=MlflowException("evaluate mock error")
+    ):
+
+        def model(inputs):
+            return [chain.invoke({"input": input}) for input in inputs["inputs"]]
+
+        eval_data = pd.DataFrame(
+            {
+                "inputs": [
+                    "What is MLflow?",
+                    "What is Spark?",
+                ],
+                "ground_truth": ["What is MLflow?", "Not what is Spark?"],
+            }
+        )
+        with mlflow.start_run() as run:
+            with pytest.raises(MlflowException, match="evaluate mock error"):
+                evaluate(
+                    model,
+                    eval_data,
+                    targets="ground_truth",
+                    extra_metrics=[mlflow.metrics.exact_match()],
+                )
+            log_model_mock.assert_not_called()
+
+    assert len(get_traces()) == 0
+
+    TRACE_BUFFER.clear()
+
+    # Test original langchain autolog configs is restored
+    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
+        with mlflow.start_run() as run:
+            chain.invoke("text")
+
+            loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
+            loaded_dict = loaded_table.to_dict("records")
+            assert len(loaded_dict) == 1
+            assert loaded_dict[0]["input"] == "text"
+        log_model_mock.assert_called_once()
+        assert len(get_traces()) == 1
+        assert len(get_traces()[0].data.spans) == 3
+
+
+def test_langchain_autolog_parameters_matches_default_parameters():
+    # The custom config is to restrict langchain autologging to only log traces.
+    # The parameters in this configuration should match the signature of
+    # mlflow.langchain.autolog exactly. The values of the parameters should be set
+    # in a way that disables logging anything but traces.
+    params = inspect.signature(mlflow.langchain.autolog).parameters
+    for name in params:
+        assert name in MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG
+    for name in MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG:
+        assert name in params
+
+
+def test_evaluate_works_with_no_langchain_installed():
+    with mock.patch.dict("sys.modules", {"langchain": None}):
+        # Import within the test context
+        with pytest.raises(ImportError, match="import of langchain halted"):
+            import langchain  # noqa: F401
+        eval_data = pd.DataFrame(
+            {
+                "inputs": [1],
+                "ground_truth": [1],
+            }
+        )
+
+        @mlflow.trace
+        def model(inputs):
+            return inputs
+
+        evaluate(
+            model, eval_data, targets="ground_truth", extra_metrics=[mlflow.metrics.exact_match()]
+        )
+        assert len(get_traces()) == 1
 
 
 # Test validation with valid baseline_model uri
@@ -818,7 +1055,7 @@ def test_log_dataset_tag(iris_dataset, iris_pandas_df_dataset):
         ]
 
 
-class FakeEvauator1(ModelEvaluator):
+class FakeEvaluator1(ModelEvaluator):
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         raise RuntimeError()
 
@@ -826,7 +1063,7 @@ class FakeEvauator1(ModelEvaluator):
         raise RuntimeError()
 
 
-class FakeEvauator2(ModelEvaluator):
+class FakeEvaluator2(ModelEvaluator):
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         raise RuntimeError()
 
@@ -855,9 +1092,14 @@ class PyFuncModelMatcher:
         return isinstance(other, mlflow.pyfunc.PyFuncModel)
 
 
+class ModelPredictFuncMatcher:
+    def __eq__(self, other):
+        return callable(other)
+
+
 def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri, iris_dataset):
     with mock.patch.object(
-        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
+        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvaluator1}
     ):
         evaluator1_config = {"eval1_confg_a": 3, "eval1_confg_b": 4}
         evaluator1_return_value = EvaluationResult(
@@ -865,9 +1107,9 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
             artifacts={"a1": FakeArtifact1(uri="uri1"), "a2": FakeArtifact2(uri="uri2")},
         )
         with mock.patch.object(
-            FakeEvauator1, "can_evaluate", return_value=False
+            FakeEvaluator1, "can_evaluate", return_value=False
         ) as mock_can_evaluate, mock.patch.object(
-            FakeEvauator1, "evaluate", return_value=evaluator1_return_value
+            FakeEvaluator1, "evaluate", return_value=evaluator1_return_value
         ) as mock_evaluate:
             with mlflow.start_run():
                 with pytest.raises(
@@ -887,9 +1129,9 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                 )
                 mock_evaluate.assert_not_called()
         with mock.patch.object(
-            FakeEvauator1, "can_evaluate", return_value=True
+            FakeEvaluator1, "can_evaluate", return_value=True
         ) as mock_can_evaluate, mock.patch.object(
-            FakeEvauator1, "evaluate", return_value=evaluator1_return_value
+            FakeEvaluator1, "evaluate", return_value=evaluator1_return_value
         ) as mock_evaluate:
             with mlflow.start_run() as run:
                 eval1_result = evaluate(
@@ -946,7 +1188,7 @@ def test_model_validation_interface_invalid_baseline_model_should_throw(
     multiclass_logistic_regressor_model_uri, iris_dataset, baseline_model_uri, expected_error
 ):
     with mock.patch.object(
-        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
+        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvaluator1}
     ):
         evaluator1_config = {"config": True}
         with expected_error:
@@ -973,7 +1215,7 @@ def test_evaluate_with_multi_evaluators(
     with mock.patch.object(
         _model_evaluation_registry,
         "_registry",
-        {"test_evaluator1": FakeEvauator1, "test_evaluator2": FakeEvauator2},
+        {"test_evaluator1": FakeEvaluator1, "test_evaluator2": FakeEvaluator2},
     ):
         evaluator1_config = {"eval1_confg": 3}
         evaluator2_config = {"eval2_confg": 4}
@@ -1008,13 +1250,13 @@ def test_evaluate_with_multi_evaluators(
         # evaluators=["test_evaluator1", "test_evaluator2"]
         for evaluators in [None, ["test_evaluator1", "test_evaluator2"]]:
             with mock.patch.object(
-                FakeEvauator1, "can_evaluate", return_value=True
+                FakeEvaluator1, "can_evaluate", return_value=True
             ) as mock_can_evaluate1, mock.patch.object(
-                FakeEvauator1, "evaluate", return_value=evaluator1_return_value
+                FakeEvaluator1, "evaluate", return_value=evaluator1_return_value
             ) as mock_evaluate1, mock.patch.object(
-                FakeEvauator2, "can_evaluate", return_value=True
+                FakeEvaluator2, "can_evaluate", return_value=True
             ) as mock_can_evaluate2, mock.patch.object(
-                FakeEvauator2, "evaluate", return_value=evaluator2_return_value
+                FakeEvaluator2, "evaluate", return_value=evaluator2_return_value
             ) as mock_evaluate2:
                 with mlflow.start_run() as run:
                     eval_result = evaluate(
@@ -1063,11 +1305,11 @@ def test_custom_evaluators_no_model_or_preds(multiclass_logistic_regressor_model
     Tests that custom evaluators are called correctly when no model or predictions are provided
     """
     with mock.patch.object(
-        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
+        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvaluator1}
     ):
         with mock.patch.object(
-            FakeEvauator1, "can_evaluate", return_value=True
-        ) as mock_can_evaluate, mock.patch.object(FakeEvauator1, "evaluate") as mock_evaluate:
+            FakeEvaluator1, "can_evaluate", return_value=True
+        ) as mock_can_evaluate, mock.patch.object(FakeEvaluator1, "evaluate") as mock_evaluate:
             with mlflow.start_run() as run:
                 evaluate(
                     model=None,
@@ -1165,7 +1407,7 @@ def test_evaluate_env_manager_params(multiclass_logistic_regressor_model_uri, ir
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
     with mock.patch.object(
-        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
+        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvaluator1}
     ):
         with pytest.raises(MlflowException, match="The model argument must be a string URI"):
             evaluate(
@@ -1245,9 +1487,9 @@ def test_evaluate_terminates_model_servers(multiclass_logistic_regressor_model_u
     with mock.patch.object(
         _model_evaluation_registry,
         "_registry",
-        {"test_evaluator1": FakeEvauator1},
-    ), mock.patch.object(FakeEvauator1, "can_evaluate", return_value=True), mock.patch.object(
-        FakeEvauator1, "evaluate", return_value=EvaluationResult(metrics={}, artifacts={})
+        {"test_evaluator1": FakeEvaluator1},
+    ), mock.patch.object(FakeEvaluator1, "can_evaluate", return_value=True), mock.patch.object(
+        FakeEvaluator1, "evaluate", return_value=EvaluationResult(metrics={}, artifacts={})
     ), mock.patch("mlflow.pyfunc._load_model_or_server") as server_loader, mock.patch(
         "os.kill"
     ) as os_mock:

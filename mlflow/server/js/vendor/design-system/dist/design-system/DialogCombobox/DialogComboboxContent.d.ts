@@ -12,6 +12,7 @@ export interface DialogComboboxContentProps extends Popover.PopoverContentProps,
     side?: 'top' | 'bottom';
     matchTriggerWidth?: boolean;
     textOverflowMode?: 'ellipsis' | 'multiline';
+    forceCloseOnEscape?: boolean;
 }
 export declare const DialogComboboxContent: import("react").ForwardRefExoticComponent<DialogComboboxContentProps & import("react").RefAttributes<HTMLDivElement>>;
 //# sourceMappingURL=DialogComboboxContent.d.ts.map

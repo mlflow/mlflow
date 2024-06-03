@@ -21,7 +21,6 @@ from mlflow.entities.run_data import RunData
 from mlflow.entities.run_info import RunInfo
 from mlflow.entities.run_inputs import RunInputs
 from mlflow.entities.run_tag import RunTag
-from mlflow.environment_variables import MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature, Schema
@@ -56,6 +55,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     SetModelVersionTagRequest,
     SetRegisteredModelAliasRequest,
     SetRegisteredModelTagRequest,
+    StorageMode,
     TemporaryCredentials,
     UpdateModelVersionRequest,
     UpdateRegisteredModelRequest,
@@ -96,7 +96,7 @@ from tests.store._unity_catalog.conftest import (
 
 @pytest.fixture
 def store(mock_databricks_uc_host_creds):
-    with mock.patch("mlflow.utils.databricks_utils.get_config"):
+    with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"):
         yield UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks")
 
 
@@ -814,7 +814,7 @@ def test_get_run_and_headers_returns_none_if_request_fails(store, status_code, r
 def test_get_run_and_headers_returns_none_if_tracking_uri_not_databricks(
     mock_databricks_uc_host_creds, tmp_path
 ):
-    with mock.patch("mlflow.utils.databricks_utils.get_config"):
+    with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"):
         store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri=str(tmp_path))
         mock_response = mock.MagicMock(autospec=Response)
         mock_response.status_code = 200
@@ -1602,8 +1602,7 @@ def test_store_ignores_hive_metastore_default_from_spark_session(mock_http, spar
     )
 
 
-def test_store_use_presigned_url_store_when_disabled(monkeypatch):
-    monkeypatch.setenv(MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.name, "False")
+def test_store_use_presigned_url_store_when_disabled():
     store_package = "mlflow.store._unity_catalog.registry.rest_store"
 
     uc_store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks-uc")
@@ -1636,10 +1635,20 @@ def test_store_use_presigned_url_store_when_disabled(monkeypatch):
 
 
 def test_store_use_presigned_url_store_when_enabled(monkeypatch):
-    monkeypatch.setenv(MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.name, "True")
-    with mock.patch("mlflow.utils.databricks_utils.get_config"):
+    monkeypatch.setenvs(
+        {
+            "DATABRICKS_HOST": "my-host",
+            "DATABRICKS_TOKEN": "my-token",
+        }
+    )
+    store_package = "mlflow.store._unity_catalog.registry.rest_store"
+    creds = TemporaryCredentials(storage_mode=StorageMode.DEFAULT_STORAGE)
+    with mock.patch(
+        f"{store_package}.UcModelRegistryStore._get_temporary_model_version_write_credentials",
+        return_value=creds,
+    ):
         uc_store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks-uc")
         model_version = ModelVersion(name="catalog.schema.model_1", version="1")
         presigned_store = uc_store._get_artifact_repo(model_version)
 
-        assert type(presigned_store) is PresignedUrlArtifactRepository
+    assert type(presigned_store) is PresignedUrlArtifactRepository

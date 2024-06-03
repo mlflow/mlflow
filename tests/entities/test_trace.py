@@ -7,13 +7,14 @@ from packaging.version import Version
 
 import mlflow
 import mlflow.tracking.context.default_context
-from mlflow.entities import SpanType, Trace
+from mlflow.entities import SpanType, Trace, TraceData
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 
 from tests.tracing.conftest import clear_singleton  # noqa: F401
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import create_test_trace_info
 
 
 def _test_model(datetime=datetime.now()):
@@ -48,7 +49,7 @@ def test_json_deserialization(clear_singleton, monkeypatch):
     model = _test_model(datetime_now)
     model.predict(2, 5)
 
-    trace = get_traces()[0]
+    trace = mlflow.get_last_active_trace()
     trace_json = trace.to_json()
 
     trace_json_as_dict = json.loads(trace_json)
@@ -67,6 +68,7 @@ def test_json_deserialization(clear_singleton, monkeypatch):
                 "mlflow.traceName": "predict",
                 "mlflow.source.name": "test",
                 "mlflow.source.type": "LOCAL",
+                "mlflow.artifactLocation": trace.info.tags[MLFLOW_ARTIFACT_LOCATION],
                 TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
             },
         },
@@ -192,7 +194,7 @@ def test_trace_to_from_dict_and_json(clear_singleton):
     model = _test_model()
     model.predict(2, 5)
 
-    trace = get_traces()[0]
+    trace = mlflow.get_last_active_trace()
     trace_dict = trace.to_dict()
     trace_from_dict = Trace.from_dict(trace_dict)
     trace_json = trace.to_json()
@@ -220,3 +222,11 @@ def test_trace_to_from_dict_and_json(clear_singleton):
                 assert getattr(trace.data.spans[i], attr) == getattr(
                     loaded_trace.data.spans[i], attr
                 )
+
+
+def test_trace_pandas_dataframe_columns():
+    t = Trace(
+        info=create_test_trace_info("a"),
+        data=TraceData(),
+    )
+    assert Trace.pandas_dataframe_columns() == list(t.to_pandas_dataframe_row())

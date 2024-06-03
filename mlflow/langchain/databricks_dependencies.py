@@ -6,6 +6,18 @@ from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorS
 _logger = logging.getLogger(__name__)
 
 
+def _get_embedding_model_endpoint_names(index):
+    embedding_model_endpoint_names = []
+    desc = index.describe()
+    delta_sync_index_spec = desc.get("delta_sync_index_spec", {})
+    embedding_source_columns = delta_sync_index_spec.get("embedding_source_columns", [])
+    for column in embedding_source_columns:
+        embedding_model_endpoint_name = column.get("embedding_model_endpoint_name", None)
+        if embedding_model_endpoint_name:
+            embedding_model_endpoint_names.append(embedding_model_endpoint_name)
+    return embedding_model_endpoint_names
+
+
 def _extract_databricks_dependencies_from_retriever(retriever, dependency_list: List[Resource]):
     try:
         from langchain.embeddings import DatabricksEmbeddings as LegacyDatabricksEmbeddings
@@ -28,6 +40,8 @@ def _extract_databricks_dependencies_from_retriever(retriever, dependency_list: 
         if isinstance(vectorstore, (DatabricksVectorSearch, LegacyDatabricksVectorSearch)):
             index = vectorstore.index
             dependency_list.append(DatabricksVectorSearchIndex(index_name=index.name))
+            for embedding_endpoint in _get_embedding_model_endpoint_names(index):
+                dependency_list.append(DatabricksServingEndpoint(endpoint_name=embedding_endpoint))
 
         embeddings = getattr(vectorstore, "embeddings", None)
         if isinstance(embeddings, (DatabricksEmbeddings, LegacyDatabricksEmbeddings)):

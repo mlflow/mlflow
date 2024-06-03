@@ -39,13 +39,14 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
+from mlflow.tracing.artifact_utils import get_artifact_uri_for_trace
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
 from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
-from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS, MLFLOW_ARTIFACT_LOCATION, MLFLOW_USER
+from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS, MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri
@@ -320,10 +321,12 @@ class TrackingServiceClient:
             try:
                 trace_data = self._download_trace_data(trace_info)
             except MlflowTraceDataException as e:
-                _logger.debug(
-                    f"Failed to download trace data for trace with {e.ctx}",
-                    trace_info.request_id,
-                    exc_info=True,
+                _logger.warning(
+                    (
+                        f"Failed to download trace data for trace {trace_info.request_id!r} "
+                        f"with {e.ctx}. For full traceback, set logging level to DEBUG."
+                    ),
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
                 )
                 return None
             else:
@@ -495,7 +498,6 @@ class TrackingServiceClient:
 
         """
         _validate_experiment_artifact_location(artifact_location)
-
         return self.store.create_experiment(
             name=name,
             artifact_location=artifact_location,
@@ -769,12 +771,7 @@ class TrackingServiceClient:
         self.store.record_logged_model(run_id, mlflow_model)
 
     def _get_artifact_repo_for_trace(self, trace_info: TraceInfo):
-        if MLFLOW_ARTIFACT_LOCATION not in trace_info.tags:
-            raise MlflowException(
-                "Trace artifact location not specified, please specify it with "
-                f"tag '{MLFLOW_ARTIFACT_LOCATION}' in the trace."
-            )
-        artifact_uri = trace_info.tags[MLFLOW_ARTIFACT_LOCATION]
+        artifact_uri = get_artifact_uri_for_trace(trace_info)
         artifact_uri = add_databricks_profile_info_to_artifact_uri(artifact_uri, self.tracking_uri)
         return get_artifact_repository(artifact_uri)
 

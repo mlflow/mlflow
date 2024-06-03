@@ -5,11 +5,11 @@ import type { ButtonProps } from '../../design-system';
 import type { DangerousGeneralProps } from '../../design-system/types';
 import type { Theme } from '../../theme';
 export declare const Root: React.ForwardRefExoticComponent<Omit<RadixTabs.TabsProps, "orientation" | "dir" | "asChild" | "activationMode"> & React.RefAttributes<HTMLDivElement>>;
+interface AddButtonProps extends DangerousGeneralProps, Pick<ButtonProps, 'onClick' | 'componentId' | 'className'> {
+}
 interface ListProps extends DangerousGeneralProps, Omit<RadixTabs.TabsListProps, 'asChild' | 'loop'> {
     /** The add tab button is only displayed when this prop is passed. Include the `onClick` handler for the button's action */
-    addButtonProps?: Pick<ButtonProps, 'onClick' | 'componentId'> & {
-        css?: Interpolation<Theme>;
-    };
+    addButtonProps?: AddButtonProps;
     /** Styling for the list's scrollable area viewport */
     scrollAreaViewportCss?: Interpolation<Theme>;
 }

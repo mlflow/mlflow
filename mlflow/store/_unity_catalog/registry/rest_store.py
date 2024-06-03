@@ -7,7 +7,6 @@ from contextlib import contextmanager
 
 import mlflow
 from mlflow.entities import Run
-from mlflow.environment_variables import MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
@@ -54,6 +53,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     SetRegisteredModelAliasResponse,
     SetRegisteredModelTagRequest,
     SetRegisteredModelTagResponse,
+    StorageMode,
     Table,
     TemporaryCredentials,
     UpdateModelVersionRequest,
@@ -763,17 +763,17 @@ class UcModelRegistryStore(BaseRestStore):
             return model_version_from_uc_proto(finalized_mv)
 
     def _get_artifact_repo(self, model_version):
-        if MLFLOW_UNITY_CATALOG_PRESIGNED_URLS_ENABLED.get():
-            return PresignedUrlArtifactRepository(
-                self.get_host_creds(), model_version.name, model_version.version
-            )
-
         def base_credential_refresh_def():
             return self._get_temporary_model_version_write_credentials(
                 name=model_version.name, version=model_version.version
             )
 
         scoped_token = base_credential_refresh_def()
+        if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:
+            return PresignedUrlArtifactRepository(
+                self.get_host_creds(), model_version.name, model_version.version
+            )
+
         return get_artifact_repo_from_storage_info(
             storage_location=model_version.storage_location,
             scoped_token=scoped_token,

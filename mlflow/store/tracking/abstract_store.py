@@ -8,6 +8,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.utils.annotations import developer_stable
@@ -294,12 +295,40 @@ class AbstractStore:
             experiment_id: ID of the associated experiment.
             max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
                 deleting traces. Traces older than or equal to this timestamp will be deleted.
-            max_traces: The maximum number of traces to delete.
+            max_traces: The maximum number of traces to delete. If max_traces is specified, and
+                it is less than the number of traces that would be deleted based on the
+                max_timestamp_millis, the oldest traces will be deleted first.
             request_ids: A set of request IDs to delete.
 
         Returns:
             The number of traces deleted.
         """
+        # request_ids can't be an empty list of string
+        if max_timestamp_millis is None and not request_ids:
+            raise MlflowException.invalid_parameter_value(
+                "Either `max_timestamp_millis` or `request_ids` must be specified.",
+            )
+        if max_timestamp_millis and request_ids:
+            raise MlflowException.invalid_parameter_value(
+                "Only one of `max_timestamp_millis` and `request_ids` can be specified.",
+            )
+        if request_ids and max_traces is not None:
+            raise MlflowException.invalid_parameter_value(
+                "`max_traces` can't be specified if `request_ids` is specified.",
+            )
+        if max_traces is not None and max_traces <= 0:
+            raise MlflowException.invalid_parameter_value(
+                f"`max_traces` must be a positive integer, received {max_traces}.",
+            )
+        return self._delete_traces(experiment_id, max_timestamp_millis, max_traces, request_ids)
+
+    def _delete_traces(
+        self,
+        experiment_id: str,
+        max_timestamp_millis: Optional[int] = None,
+        max_traces: Optional[int] = None,
+        request_ids: Optional[List[str]] = None,
+    ) -> int:
         raise NotImplementedError
 
     def get_trace_info(self, request_id: str) -> TraceInfo:

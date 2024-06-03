@@ -27,6 +27,8 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
     TraceTagKey,
 )
+from mlflow.tracing.fluent import TRACE_BUFFER
+from mlflow.tracing.provider import _get_tracer
 
 from tests.tracing.helper import create_test_trace_info, create_trace, get_traces
 
@@ -67,7 +69,7 @@ def test_trace(clear_singleton, with_active_run):
     else:
         model.predict(2, 5)
 
-    trace = get_traces()[0]
+    trace = mlflow.get_last_active_trace()
     trace_info = trace.info
     assert trace_info.request_id is not None
     assert trace_info.experiment_id == "0"  # default experiment
@@ -164,9 +166,9 @@ def test_trace_with_databricks_tracking_uri(
     mock_upload_trace_data.assert_called_once()
 
 
-def test_trace_in_databricks_model_serving(clear_singleton, monkeypatch):
-    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
-
+def test_trace_in_databricks_model_serving(
+    clear_singleton, mock_databricks_serving_with_tracing_env
+):
     # Dummy flask app for prediction
     import flask
 
@@ -338,7 +340,7 @@ def test_trace_handle_exception_during_prediction(clear_singleton):
         model.predict(2, 5)
 
     # Trace should be logged even if the function fails, with status code ERROR
-    trace = get_traces()[0]
+    trace = mlflow.get_last_active_trace()
     assert trace.info.request_id is not None
     assert trace.info.status == TraceStatus.ERROR
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
@@ -349,7 +351,7 @@ def test_trace_handle_exception_during_prediction(clear_singleton):
     assert len(trace.data.spans) == 2
 
 
-def test_trace_ignore_exception_from_tracing_logic(clear_singleton):
+def test_trace_ignore_exception_from_tracing_logic(clear_singleton, monkeypatch):
     # This test is to make sure that the main prediction logic is not affected
     # by the exception raised by the tracing logic.
     class TestModel:
@@ -365,15 +367,31 @@ def test_trace_ignore_exception_from_tracing_logic(clear_singleton):
 
     assert output == 7
     assert get_traces() == []
+    TRACE_BUFFER.clear()
 
     # Exception during inspecting inputs: trace is logged without inputs field
     with mock.patch("mlflow.tracing.utils.inspect.signature", side_effect=ValueError("Some error")):
         output = model.predict(2, 5)
 
     assert output == 7
-    trace = get_traces()[0]
+    trace = mlflow.get_last_active_trace()
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == "{}"
     assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "7"
+    TRACE_BUFFER.clear()
+
+    # Exception during ending span: trace is not logged
+    # Mock the span processor's on_end handler to raise an exception
+    tracer = _get_tracer(__name__)
+
+    def _always_fail(*args, **kwargs):
+        raise ValueError("Some error")
+
+    monkeypatch.setattr(tracer.span_processor, "on_end", _always_fail)
+
+    output = model.predict(2, 5)
+    assert output == 7
+    assert get_traces() == []
+    TRACE_BUFFER.clear()
 
 
 def test_start_span_context_manager(clear_singleton):
@@ -406,7 +424,7 @@ def test_start_span_context_manager(clear_singleton):
     model = TestModel()
     model.predict(1, 2)
 
-    trace = get_traces()[0]
+    trace = mlflow.get_last_active_trace()
     assert trace.info.request_id is not None
     assert trace.info.experiment_id == "0"  # default experiment
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
@@ -488,7 +506,7 @@ def test_start_span_context_manager_with_imperative_apis(clear_singleton):
     model = TestModel()
     model.predict(1, 2)
 
-    trace = get_traces()[0]
+    trace = mlflow.get_last_active_trace()
     assert trace.info.request_id is not None
     assert trace.info.experiment_id == "0"  # default experiment
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
@@ -521,6 +539,21 @@ def test_start_span_context_manager_with_imperative_apis(clear_singleton):
         "mlflow.spanInputs": 3,
         "mlflow.spanOutputs": 5,
     }
+
+
+def test_test_search_traces_empty(mock_client):
+    mock_client.search_traces.return_value = PagedList([], token=None)
+
+    traces = mlflow.search_traces()
+    assert traces.empty
+
+    default_columns = Trace.pandas_dataframe_columns()
+    assert traces.columns.tolist() == default_columns
+
+    traces = mlflow.search_traces(extract_fields=["foo.inputs.bar"])
+    assert traces.columns.tolist() == [*default_columns, "foo.inputs.bar"]
+
+    mock_client.search_traces.assert_called()
 
 
 def test_search_traces(mock_client):
@@ -611,6 +644,7 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
     df = mlflow.search_traces()
     assert df.columns.tolist() == [
         "request_id",
+        "trace",
         "timestamp_ms",
         "status",
         "execution_time_ms",
@@ -622,6 +656,7 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
     ]
     for idx, trace in enumerate(traces_to_return):
         assert df.iloc[idx].request_id == trace.info.request_id
+        assert df.iloc[idx].trace == trace
         assert df.iloc[idx].timestamp_ms == trace.info.timestamp_ms
         assert df.iloc[idx].status == trace.info.status
         assert df.iloc[idx].execution_time_ms == trace.info.execution_time_ms
@@ -871,3 +906,24 @@ def test_search_traces_with_span_name(monkeypatch):
         mlflow.search_traces(
             extract_fields=["span.llm.inputs", "span.invalidname.outputs", "span.llm.inputs.x"]
         )
+
+
+def test_get_last_active_trace(clear_singleton):
+    assert mlflow.get_last_active_trace() is None
+
+    @mlflow.trace()
+    def predict(x, y):
+        return x + y
+
+    predict(1, 2)
+    predict(2, 5)
+    predict(3, 6)
+
+    trace = mlflow.get_last_active_trace()
+    assert trace.info.request_id is not None
+    assert trace.data.request == '{"x": 3, "y": 6}'
+
+    # Mutation of the copy should not affect the original trace logged in the backend
+    trace.info.status = TraceStatus.ERROR
+    original_trace = mlflow.MlflowClient().get_trace(trace.info.request_id)
+    assert original_trace.info.status == TraceStatus.OK

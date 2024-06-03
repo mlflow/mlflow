@@ -39,10 +39,18 @@ export const shouldEnableImageGridCharts = () => false;
  * Log table images feature
  */
 export const shouldEnableLogTableImages = () => false;
+
+/**
+ * Should enable toggling aggregation of individual runs in run groups
+ */
+export const shouldEnableToggleIndividualRunsInGroups = () => false;
+
 /**
  * Update relative time axis to use date
  */
 export const shouldEnableRelativeTimeDateAxis = () => false;
+
+export const shouldEnableTracingUI = () => true;
 
 /**
  * A flag determining if we should display the new models UI.

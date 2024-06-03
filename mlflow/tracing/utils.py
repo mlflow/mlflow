@@ -1,3 +1,4 @@
+# TODO: Split this file into multiple files and move under utils directory.
 from __future__ import annotations
 
 import inspect
@@ -178,9 +179,10 @@ def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
     if not context or (is_evaluate and not context.is_evaluate):
         return None
 
-    if not context.request_id:
+    if not context.request_id and is_evaluate:
         raise MlflowException(
-            f"Missing request_id for context {context}.",
+            f"Missing request_id for context {context}. "
+            "request_id can't be None when is_evaluate=True.",
             error_code=BAD_REQUEST,
         )
 
@@ -200,8 +202,10 @@ def traces_to_df(traces: List[Trace]) -> "pandas.DataFrame":
     """
     import pandas as pd
 
+    from mlflow.entities.trace import Trace  # import here to avoid circular import
+
     rows = [trace.to_pandas_dataframe_row() for trace in traces]
-    return pd.DataFrame.from_records(rows)
+    return pd.DataFrame.from_records(data=rows, columns=Trace.pandas_dataframe_columns())
 
 
 def extract_span_inputs_outputs(

@@ -33,6 +33,7 @@ import { LOG_TABLE_IMAGE_COLUMN_TYPE } from 'experiment-tracking/constants';
 import { ImagePlot } from '../runs-charts/components/charts/ImageGridPlot.common';
 import { ToggleIconButton } from '../../../common/components/ToggleIconButton';
 import { ShowArtifactLoggedTableViewDataPreview } from './ShowArtifactLoggedTableViewDataPreview';
+import Utils from 'common/utils/Utils';
 
 const MAX_ROW_HEIGHT = 160;
 const MIN_COLUMN_WIDTH = 100;
@@ -120,16 +121,22 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
               accessorKey: col_string,
               minSize: MIN_COLUMN_WIDTH,
               cell: (row: any) => {
-                const { filepath, compressed_filepath } = row.getValue() as ArtifactLogTableImageObject;
-                const imageUrl = getArtifactLocationUrl(filepath, runUuid);
-                const compressedImageUrl = getArtifactLocationUrl(compressed_filepath, runUuid);
-                return (
-                  <ImagePlot
-                    imageUrl={imageUrl}
-                    compressedImageUrl={compressedImageUrl}
-                    maxImageSize={MAX_IMAGE_SIZE}
-                  />
-                );
+                try {
+                  const parsedRowValue = JSON.parse(row.getValue());
+                  const { filepath, compressed_filepath } = parsedRowValue as ArtifactLogTableImageObject;
+                  const imageUrl = getArtifactLocationUrl(filepath, runUuid);
+                  const compressedImageUrl = getArtifactLocationUrl(compressed_filepath, runUuid);
+                  return (
+                    <ImagePlot
+                      imageUrl={imageUrl}
+                      compressedImageUrl={compressedImageUrl}
+                      maxImageSize={MAX_IMAGE_SIZE}
+                    />
+                  );
+                } catch {
+                  Utils.logErrorAndNotifyUser("Error parsing image data in logged table's image column");
+                  return row.getValue();
+                }
               },
             };
           }

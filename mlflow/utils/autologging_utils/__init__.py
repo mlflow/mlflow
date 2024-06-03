@@ -1,6 +1,7 @@
 import contextlib
 import inspect
 import logging
+import sys
 import time
 from typing import List
 
@@ -50,6 +51,8 @@ ENSURE_AUTOLOGGING_ENABLED_TEXT = (
 
 # Flag indicating whether autologging is globally disabled for all integrations.
 _AUTOLOGGING_GLOBALLY_DISABLED = False
+# Exempts autologging flavors from the `_AUTOLOGGING_GLOBALLY_DISABLED` flag
+_AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = []
 
 # Autologging config key indicating whether or not a particular autologging integration
 # was configured (i.e. its various `log_models`, `disable`, etc. configuration options
@@ -59,6 +62,23 @@ AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED = "globally_configured"
 
 # Dict mapping integration name to its config.
 AUTOLOGGING_INTEGRATIONS = {}
+
+# Corresponds to `mlflow.langchain.autolog` kwargs. Restricts
+# autologging to only log traces.
+MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG = {
+    "log_input_examples": False,
+    "log_model_signatures": False,
+    "log_models": False,
+    "log_datasets": False,
+    "log_inputs_outputs": False,
+    "disable": False,
+    "exclusive": False,
+    "disable_for_unsupported_versions": True,
+    "silent": False,
+    "registered_model_name": None,
+    "extra_tags": None,
+    "extra_model_classes": None,
+}
 
 _logger = logging.getLogger(__name__)
 
@@ -486,17 +506,38 @@ def autologging_is_disabled(integration_name):
 
 
 @contextlib.contextmanager
-def disable_autologging():
+def disable_autologging(exemptions=None):
     """
     Context manager that temporarily disables autologging globally for all integrations upon
     entry and restores the previous autologging configuration upon exit.
+
+    Args:
+        exemptions: flavors that we do not disable
     """
+    if exemptions is None:
+        exemptions = []
     global _AUTOLOGGING_GLOBALLY_DISABLED
+    global _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS
     _AUTOLOGGING_GLOBALLY_DISABLED = True
+    _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = exemptions
     try:
-        yield None
+        yield
     finally:
         _AUTOLOGGING_GLOBALLY_DISABLED = False
+        _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = []
+
+
+@contextlib.contextmanager
+def restrict_langchain_autologging_to_traces_only():
+    if "langchain" not in sys.modules:
+        yield
+    else:
+        prev_langchain_params = AUTOLOGGING_INTEGRATIONS.get(mlflow.langchain.FLAVOR_NAME)
+        try:
+            mlflow.langchain.autolog(**MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG)
+            yield
+        finally:
+            mlflow.langchain.autolog(**prev_langchain_params)
 
 
 @contextlib.contextmanager
