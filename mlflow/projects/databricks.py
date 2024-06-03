@@ -8,12 +8,12 @@ import tempfile
 import textwrap
 import time
 import uuid
-from shlex import quote
 from pathlib import Path
+from shlex import quote
 
 from mlflow import tracking
 from mlflow.entities import RunStatus
-from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_TRACKING_URI, MLFLOW_RUN_ID
+from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_RUN_ID, MLFLOW_TRACKING_URI
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.projects.utils import MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG
@@ -277,18 +277,22 @@ class DatabricksJobRunner:
             MLFLOW_EXPERIMENT_ID.name: experiment_id,
             MLFLOW_RUN_ID.name: run_id,
         }
-        _logger.info("=== Running databricks spark job of project %s on Databricks ===", project_uri)
+        _logger.info(
+            "=== Running databricks spark job of project %s on Databricks ===", project_uri
+        )
 
         tmp_dir = Path(get_or_create_tmp_dir())
         origin_job_code = (Path(work_dir) / databricks_spark_job_spec.python_file).read_text()
         job_code_filename = f"{uuid.uuid4().hex}.py"
         new_job_code_file = tmp_dir / job_code_filename
 
-        project_dir, extracting_tar_command = _get_project_dir_and_extracting_tar_command(dbfs_fuse_uri)
+        project_dir, extracting_tar_command = _get_project_dir_and_extracting_tar_command(
+            dbfs_fuse_uri
+        )
 
         env_vars_str = json.dumps(env_vars)
         new_job_code_file.write_text(
-f"""
+            f"""
 import os
 import subprocess
 os.environ.update({env_vars_str})
@@ -428,7 +432,8 @@ def _get_project_dir_and_extracting_tar_command(dbfs_fuse_tar_uri):
         posixpath.join(DB_TARFILE_BASE, posixpath.basename(dbfs_fuse_tar_uri))
     )
     project_dir = posixpath.join(DB_PROJECTS_BASE, tar_hash)
-    command = textwrap.dedent(f"""
+    command = textwrap.dedent(
+        f"""
     # Make local directories in the container into which to copy/extract the tarred project
     mkdir -p {DB_TARFILE_BASE} {DB_PROJECTS_BASE} &&
     # Rsync from DBFS FUSE to avoid copying archive into local filesystem if it already exists
@@ -438,7 +443,8 @@ def _get_project_dir_and_extracting_tar_command(dbfs_fuse_tar_uri):
     cd $(mktemp -d) &&
     tar --no-same-owner -xzvf {container_tar_path} &&
     # Atomically move the extracted project into the desired directory
-    mv -T {DB_TARFILE_ARCHIVE_NAME} {project_dir}""")
+    mv -T {DB_TARFILE_ARCHIVE_NAME} {project_dir}"""
+    )
     return project_dir, command
 
 
@@ -446,7 +452,9 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters, 
     """
     Generate MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks.
     """
-    project_dir, extracting_tar_command = _get_project_dir_and_extracting_tar_command(dbfs_fuse_tar_uri)
+    project_dir, extracting_tar_command = _get_project_dir_and_extracting_tar_command(
+        dbfs_fuse_tar_uri
+    )
     mlflow_run_arr = _get_cluster_mlflow_run_cmd(
         project_dir,
         run_id,

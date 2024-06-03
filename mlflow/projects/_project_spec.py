@@ -51,18 +51,24 @@ def load_project(directory):
             raise MlflowException("databricks spark job does not support setting 'entry_points'.")
 
         if env_type.DOCKER in yaml_obj:
-            raise MlflowException("databricks spark job does not support setting docker environment.")
+            raise MlflowException(
+                "databricks spark job does not support setting docker environment."
+            )
 
         if env_type.PYTHON in yaml_obj:
-            raise MlflowException("databricks spark job does not support setting python environment.")
+            raise MlflowException(
+                "databricks spark job does not support setting python environment."
+            )
 
         if env_type.CONDA in yaml_obj:
-            raise MlflowException("databricks spark job does not support setting conda environment.")
+            raise MlflowException(
+                "databricks spark job does not support setting conda environment."
+            )
 
         databricks_spark_job_spec = DatabricksSparkJobSpec(
             python_file=databricks_spark_job_yaml.get("python_file"),
             parameters=databricks_spark_job_yaml.get("parameters", []),
-            python_libraries=databricks_spark_job_yaml.get("python_libraries", [])
+            python_libraries=databricks_spark_job_yaml.get("python_libraries", []),
         )
         return Project(
             databricks_spark_job_spec=databricks_spark_job_spec,
@@ -178,7 +184,8 @@ def load_project(directory):
 class Project:
     """A project specification loaded from an MLproject file in the passed-in directory."""
 
-    def __init__(self,
+    def __init__(
+        self,
         name,
         env_type=None,
         env_config_path=None,
@@ -328,4 +335,3 @@ class DatabricksSparkJobSpec:
         self.python_file = python_file
         self.parameters = parameters
         self.python_libraries = python_libraries
-

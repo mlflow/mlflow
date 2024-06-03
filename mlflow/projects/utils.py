@@ -299,9 +299,12 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
     # `storage_dir` is `None` since we want to log actual path not downloaded local path
     entry_point_obj = project.get_entry_point(entry_point)
     if entry_point_obj:
-        final_params, extra_params = entry_point_obj.compute_parameters(parameters, storage_dir=None)
+        final_params, extra_params = entry_point_obj.compute_parameters(
+            parameters, storage_dir=None
+        )
         params_list = [
-            Param(key, value) for key, value in list(final_params.items()) + list(extra_params.items())
+            Param(key, value)
+            for key, value in list(final_params.items()) + list(extra_params.items())
         ]
         tracking.MlflowClient().log_batch(active_run.info.run_id, params=params_list)
     return active_run
