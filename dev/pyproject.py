@@ -48,6 +48,12 @@ def build(skinny: bool) -> None:
             ),
         )
     ]
+    dependencies = sorted(
+        skinny_requirements if skinny else skinny_requirements + core_requirements
+    )
+    assert len(dependencies) == len(set(dependencies)), \
+        f"Duplicated dependencies are found in {dependencies}"
+
     data = {
         "build-system": {
             "requires": ["setuptools"],
@@ -80,9 +86,7 @@ def build(skinny: bool) -> None:
                 f"Programming Language :: Python :: {python_version}",
             ],
             "requires-python": f">={python_version}",
-            "dependencies": sorted(
-                skinny_requirements if skinny else skinny_requirements + core_requirements
-            ),
+            "dependencies": dependencies,
             "optional-dependencies": {
                 "extras": [
                     # Required to log artifacts and models to HDFS artifact locations
