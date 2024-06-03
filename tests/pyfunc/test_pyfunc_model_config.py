@@ -1,4 +1,5 @@
 import os
+import tempfile
 
 import pytest
 import yaml
@@ -87,15 +88,18 @@ def test_override_model_config(model_path, model_config):
     ],
 )
 def test_override_model_config_path(model_path, model_config_path):
-    model = TestModel()
-    inference_override = {"timeout": 400}
-    config_path = _get_temp_file_with_content("config.yml", yaml.dump(inference_override), "w")
+    with tempfile.TemporaryDirectory() as temp_dir:
+        model = TestModel()
+        inference_override = {"timeout": 400}
+        config_path = _get_temp_file_with_content(
+            temp_dir, "config.yml", yaml.dump(inference_override), "w"
+        )
 
-    mlflow.pyfunc.save_model(model_path, python_model=model, model_config=model_config_path)
-    loaded_model = mlflow.pyfunc.load_model(model_uri=model_path, model_config=config_path)
+        mlflow.pyfunc.save_model(model_path, python_model=model, model_config=model_config_path)
+        loaded_model = mlflow.pyfunc.load_model(model_uri=model_path, model_config=config_path)
 
-    assert loaded_model.model_config["timeout"] == 400
-    assert all(loaded_model.model_config[k] == v for k, v in inference_override.items())
+        assert loaded_model.model_config["timeout"] == 400
+        assert all(loaded_model.model_config[k] == v for k, v in inference_override.items())
 
 
 def test_override_model_config_ignore_invalid(model_path, model_config):
@@ -117,15 +121,18 @@ def test_override_model_config_ignore_invalid(model_path, model_config):
     ],
 )
 def test_override_model_config_path_ignore_invalid(model_path, model_config_path):
-    model = TestModel()
-    inference_override = {"invalid_key": 400}
-    config_path = _get_temp_file_with_content("config.yml", yaml.dump(inference_override), "w")
+    with tempfile.TemporaryDirectory() as temp_dir:
+        model = TestModel()
+        inference_override = {"invalid_key": 400}
+        config_path = _get_temp_file_with_content(
+            temp_dir, "config.yml", yaml.dump(inference_override), "w"
+        )
 
-    mlflow.pyfunc.save_model(model_path, python_model=model, model_config=model_config_path)
-    loaded_model = mlflow.pyfunc.load_model(model_uri=model_path, model_config=config_path)
+        mlflow.pyfunc.save_model(model_path, python_model=model, model_config=model_config_path)
+        loaded_model = mlflow.pyfunc.load_model(model_uri=model_path, model_config=config_path)
 
-    assert loaded_model.predict([[5]])
-    assert all(k not in loaded_model.model_config for k in inference_override.keys())
+        assert loaded_model.predict([[5]])
+        assert all(k not in loaded_model.model_config for k in inference_override.keys())
 
 
 def test_pyfunc_without_model_config(model_path, model_config):
