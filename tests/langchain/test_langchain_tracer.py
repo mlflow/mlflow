@@ -1,6 +1,7 @@
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, List, Optional
+from unittest.mock import MagicMock
 
 import langchain
 import pytest
@@ -19,6 +20,7 @@ from langchain_core.outputs import LLMResult
 from langchain_core.tools import tool
 from packaging.version import Version
 
+import mlflow
 from mlflow.entities import Trace
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
@@ -28,6 +30,7 @@ from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.pyfunc.context import Context
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.export.inference_table import pop_trace
+from mlflow.tracing.provider import trace_disabled
 from mlflow.utils.openai_utils import (
     TEST_CONTENT,
     _mock_chat_completion_response,
@@ -567,3 +570,26 @@ def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished(clear_si
         # After the chain is invoked, verify that the tracer no longer holds references to spans,
         # ensuring that the tracer does not add spans to the trace after the root run has finished
         tracer.on_chain_end({"output": "test output"}, run_id=run_id_for_on_chain_end, inputs=None)
+
+
+def test_tracer_noop_when_tracing_disabled(clear_singleton, monkeypatch):
+    llm_chain = create_openai_llmchain()
+    model = _LangChainModelWrapper(llm_chain)
+
+    @trace_disabled
+    def _predict():
+        with _mock_request(return_value=_mock_chat_completion_response()):
+            return model._predict_with_callbacks(
+                ["MLflow"],
+                callback_handlers=[MlflowLangchainTracer()],
+                convert_chat_responses=True,
+            )
+
+    mock_logger = MagicMock()
+    monkeypatch.setattr(mlflow.tracking.client, "_logger", mock_logger)
+
+    response = _predict()
+    assert response == [{"text": TEST_CONTENT}]
+    assert get_traces() == []
+    # No warning should be issued
+    mock_logger.warning.assert_not_called()
