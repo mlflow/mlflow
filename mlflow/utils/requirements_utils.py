@@ -627,13 +627,18 @@ def warn_dependency_requirement_mismatches(model_requirements: List[str]):
     doesn't satisfy them.
     """
     _DATABRICKS_FEATURE_LOOKUP = "databricks-feature-lookup"
+    _DATABRICKS_RAG_STUDIO = "databricks_rag_studio"
     try:
         mismatch_infos = []
         for req in model_requirements:
             mismatch_info = _check_requirement_satisfied(req)
             if mismatch_info is not None:
                 # Suppress databricks-feature-lookup warning for feature store cases
-                if mismatch_info.package_name == _DATABRICKS_FEATURE_LOOKUP:
+                # Suppress databricks_rag_studio warning for RAG Studio cases
+                if mismatch_info.package_name in [
+                    _DATABRICKS_FEATURE_LOOKUP,
+                    _DATABRICKS_RAG_STUDIO,
+                ]:
                     continue
                 mismatch_infos.append(str(mismatch_info))
 
