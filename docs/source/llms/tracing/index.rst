@@ -70,10 +70,10 @@ Running the code below will automatically log the traces associated with the sim
         "The question you are asked, to which you will reply as that person, is: {question}"
     )
 
-    chain = prompt | llm
+    chain = prompt_template | llm
 
     # Test the chain
-    chain.invoke({"person": "Richard Feynman", "question": "Why should we colonize Mars instead of Venus?")
+    chain.invoke({"person": "Richard Feynman", "question": "Why should we colonize Mars instead of Venus?"})
 
     # Let's test another call
     chain.invoke({"person": "Linus Torvalds", "question": "Can I just set everyone's access to sudo to make things easier?"})
