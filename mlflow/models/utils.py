@@ -1613,13 +1613,21 @@ def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, 
             sys.modules[new_module_name] = module
             spec.loader.exec_module(module)
         except ImportError as e:
-            raise MlflowException(f"Failed to import code code model from {code_path}.") from e
+            raise MlflowException(
+                f"Failed to import code model from {code_path}. Error: {e!s}"
+            ) from e
         except Exception as e:
             raise MlflowException(
                 f"Failed to run user code from {code_path}. "
-                "Please review the stack trace for more information."
+                f"Error: {e!s}."
+                "Review the stack trace for more information."
             ) from e
 
+    if mlflow.models.model.__mlflow_model__ is None:
+        raise MlflowException(
+            "If the model is logged as code, ensure the model is set using "
+            "mlflow.models.set_model() within the code file code file."
+        )
     return mlflow.models.model.__mlflow_model__
 
 
