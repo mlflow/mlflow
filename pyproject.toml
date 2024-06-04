@@ -186,6 +186,7 @@ select = [
   "ISC001",  # single-line-implicit-string-concatenation
   "PIE790",  # unnecessary-placeholder
   "PLR0402", # manual-from-import
+  "PLE1205", # logging-too-many-args
   "PT001",   # pytest-fixture-incorrect-parentheses-style
   "PT002",   # pytest-fixture-positional-args
   "PT003",   # pytest-extraneous-scope-function
