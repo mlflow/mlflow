@@ -398,6 +398,10 @@ class MlflowHostCreds:
             Sets the verify param of the ``requests.request``
             function (see https://requests.readthedocs.io/en/master/api/).
             If this is set ``ignore_tls_verification`` must be false.
+        auth_by_databricks_sdk: A boolean value represent whether using Databricks SDK to
+            do authentication.
+        databricks_auth_profile: The name of the profile used by Databricks SDK to
+            do authentication.
         client_id: The client ID used by Databricks OAuth
         client_secret: The client secret used by Databricks OAuth
     """
