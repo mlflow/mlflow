@@ -376,7 +376,7 @@ def test_trace_ignore_exception_from_tracing_logic(clear_singleton, monkeypatch)
     assert output == 70
     trace = mlflow.get_last_active_trace()
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == "{}"
-    assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "7"
+    assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "70"
     TRACE_BUFFER.clear()
 
     # Exception during ending span: trace is not logged
@@ -388,8 +388,8 @@ def test_trace_ignore_exception_from_tracing_logic(clear_singleton, monkeypatch)
 
     monkeypatch.setattr(tracer.span_processor, "on_end", _always_fail)
 
-    output = model.predict(2, 5)
-    assert output == 7
+    output = model.predict(50, 60)
+    assert output == 110
     assert get_traces() == []
     TRACE_BUFFER.clear()
 
