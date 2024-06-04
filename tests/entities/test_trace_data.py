@@ -6,10 +6,8 @@ import mlflow
 from mlflow.entities import SpanType, TraceData
 from mlflow.entities.span_event import SpanEvent
 
-from tests.tracing.conftest import clear_singleton  # noqa: F401
 
-
-def test_json_deserialization(clear_singleton):
+def test_json_deserialization():
     class TestModel:
         @mlflow.trace()
         def predict(self, x, y):

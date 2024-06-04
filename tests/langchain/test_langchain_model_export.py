@@ -76,7 +76,6 @@ from mlflow.utils.openai_utils import (
 )
 
 from tests.helper_functions import pyfunc_serve_and_score_model
-from tests.tracing.conftest import clear_singleton as clear_trace_singleton  # noqa: F401
 from tests.tracing.export.test_inference_table_exporter import _REQUEST_ID
 
 # this kwarg was added in langchain_community 0.0.27, and
@@ -2970,7 +2969,7 @@ def test_langchain_model_save_load_with_listeners(fake_chat_model):
 
 @pytest.mark.parametrize("enable_mlflow_tracing", [True, False])
 def test_langchain_model_inject_callback_in_model_serving(
-    clear_trace_singleton, monkeypatch, model_path, enable_mlflow_tracing
+    monkeypatch, model_path, enable_mlflow_tracing
 ):
     # Emulate the model serving environment
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
@@ -2999,9 +2998,7 @@ def test_langchain_model_inject_callback_in_model_serving(
 
 
 @pytest.mark.parametrize("env_var", ["MLFLOW_ENABLE_TRACE_IN_SERVING", "ENABLE_MLFLOW_TRACING"])
-def test_langchain_model_not_inject_callback_when_disabled(
-    clear_trace_singleton, monkeypatch, model_path, env_var
-):
+def test_langchain_model_not_inject_callback_when_disabled(monkeypatch, model_path, env_var):
     # Emulate the model serving environment
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
 

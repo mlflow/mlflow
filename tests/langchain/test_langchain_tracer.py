@@ -37,7 +37,6 @@ from mlflow.utils.openai_utils import (
     _mock_request,
 )
 
-from tests.tracing.conftest import clear_singleton  # noqa: F401
 from tests.tracing.helper import get_traces
 
 TEST_CONTENT = "test"
@@ -114,7 +113,7 @@ def _validate_trace_json_serialization(trace):
                 )
 
 
-def test_llm_success(clear_singleton):
+def test_llm_success():
     callback = MlflowLangchainTracer()
     run_id = str(uuid.uuid4())
     callback.on_llm_start(
@@ -147,7 +146,7 @@ def test_llm_success(clear_singleton):
     _validate_trace_json_serialization(trace)
 
 
-def test_llm_error(clear_singleton):
+def test_llm_error():
     callback = MlflowLangchainTracer()
     run_id = str(uuid.uuid4())
     callback.on_llm_start(
@@ -174,7 +173,7 @@ def test_llm_error(clear_singleton):
     _validate_trace_json_serialization(trace)
 
 
-def test_llm_internal_exception(clear_singleton):
+def test_llm_internal_exception():
     callback = MlflowLangchainTracer()
     run_id = str(uuid.uuid4())
     callback.on_llm_start(
@@ -191,7 +190,7 @@ def test_llm_internal_exception(clear_singleton):
         callback.on_llm_end(LLMResult(generations=[[{"text": "generated text"}]]), run_id=run_id)
 
 
-def test_retriever_success(clear_singleton):
+def test_retriever_success():
     callback = MlflowLangchainTracer()
     run_id = str(uuid.uuid4())
     callback.on_retriever_start(
@@ -227,7 +226,7 @@ def test_retriever_success(clear_singleton):
     _validate_trace_json_serialization(trace)
 
 
-def test_retriever_error(clear_singleton):
+def test_retriever_error():
     callback = MlflowLangchainTracer()
     run_id = str(uuid.uuid4())
     callback.on_retriever_start(
@@ -251,7 +250,7 @@ def test_retriever_error(clear_singleton):
     _validate_trace_json_serialization(trace)
 
 
-def test_retriever_internal_exception(clear_singleton):
+def test_retriever_internal_exception():
     callback = MlflowLangchainTracer()
     run_id = str(uuid.uuid4())
     callback.on_retriever_start(
@@ -276,7 +275,7 @@ def test_retriever_internal_exception(clear_singleton):
         )
 
 
-def test_multiple_components(clear_singleton):
+def test_multiple_components():
     callback = MlflowLangchainTracer()
     chain_run_id = str(uuid.uuid4())
     callback.on_chain_start(
@@ -367,9 +366,7 @@ def _predict_with_callbacks(lc_model, request_id, data):
     return response, trace_dict
 
 
-def test_e2e_rag_model_tracing_in_serving(
-    clear_singleton, mock_databricks_serving_with_tracing_env
-):
+def test_e2e_rag_model_tracing_in_serving(mock_databricks_serving_with_tracing_env):
     llm_chain = create_openai_llmchain()
 
     request_id = "test_request_id"
@@ -408,7 +405,7 @@ def test_e2e_rag_model_tracing_in_serving(
     _validate_trace_json_serialization(trace)
 
 
-def test_agent_success(clear_singleton, mock_databricks_serving_with_tracing_env):
+def test_agent_success(mock_databricks_serving_with_tracing_env):
     agent = create_openai_llmagent()
     langchain_input = {"input": "What is 123 raised to the .023 power?"}
     expected_output = {"output": TEST_CONTENT}
@@ -457,7 +454,7 @@ def test_agent_success(clear_singleton, mock_databricks_serving_with_tracing_env
     _validate_trace_json_serialization(trace)
 
 
-def test_tool_success(clear_singleton, mock_databricks_serving_with_tracing_env):
+def test_tool_success(mock_databricks_serving_with_tracing_env):
     prompt = SystemMessagePromptTemplate.from_template("You are a nice assistant.") + "{question}"
     llm = OpenAI(temperature=0.9)
 
@@ -503,7 +500,7 @@ def test_tool_success(clear_singleton, mock_databricks_serving_with_tracing_env)
     _validate_trace_json_serialization(trace)
 
 
-def test_tracer_thread_safe(clear_singleton):
+def test_tracer_thread_safe():
     tracer = MlflowLangchainTracer()
 
     def worker_function(worker_id):
@@ -527,7 +524,7 @@ def test_tracer_thread_safe(clear_singleton):
     Version(langchain.__version__) < Version("0.1.0"),
     reason="ChatPromptTemplate expecting dict input",
 )
-def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished(clear_singleton):
+def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished():
     from langchain.callbacks.manager import CallbackManagerForLLMRun
     from langchain.chat_models.base import SimpleChatModel
     from langchain.schema.messages import BaseMessage
@@ -572,7 +569,7 @@ def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished(clear_si
         tracer.on_chain_end({"output": "test output"}, run_id=run_id_for_on_chain_end, inputs=None)
 
 
-def test_tracer_noop_when_tracing_disabled(clear_singleton, monkeypatch):
+def test_tracer_noop_when_tracing_disabled(monkeypatch):
     llm_chain = create_openai_llmchain()
     model = _LangChainModelWrapper(llm_chain)
 
