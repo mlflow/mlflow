@@ -3,6 +3,6 @@ import { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
 import { keyBy } from 'lodash';
 import { SourceCellRenderer } from '../runs/cells/SourceCellRenderer';
 
-export const ExperimentViewTracesTableNotebookCell: ColumnDefTemplate<
+export const ExperimentViewTracesTableSourceCell: ColumnDefTemplate<
   CellContext<ModelTraceInfoWithRunName, unknown>
 > = ({ row: { original } }) => <SourceCellRenderer value={keyBy(original.tags, 'key')} />;
