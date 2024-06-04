@@ -183,7 +183,7 @@ def _extract_predict_fn(
     return predict_fn, predict_proba_fn
 
 
-def restrict_langchain_autologging_to_traces_only(pred_fn):
+def _restrict_langchain_autologging_to_traces_only(pred_fn):
     if pred_fn is None:
         return None
 
@@ -1901,8 +1901,8 @@ class DefaultEvaluator(ModelEvaluator):
                 # model is constructed from a user specified function or not provided
                 self.model_loader_module, self.raw_model = None, None
             self.predict_fn, self.predict_proba_fn = _extract_predict_fn(model, self.raw_model)
-            self.predict_fn = restrict_langchain_autologging_to_traces_only(self.predict_fn)
-            self.predict_proba_fn = restrict_langchain_autologging_to_traces_only(
+            self.predict_fn = _restrict_langchain_autologging_to_traces_only(self.predict_fn)
+            self.predict_proba_fn = _restrict_langchain_autologging_to_traces_only(
                 self.predict_proba_fn
             )
 
