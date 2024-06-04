@@ -569,10 +569,46 @@ func (s Store) logParamsWithTransaction(
 	return nil
 }
 
-// func (s Store) logMetricsWithTransaction(
-//	transaction *gorm.DB, runID string, metrics []*protos.Metric) *contract.Error {
-// 	return nil
-// }
+//nolint:exhaustruct
+func (s Store) logMetricsWithTransaction(
+	transaction *gorm.DB, runID string, _ []*protos.Metric,
+) *contract.Error {
+	var lifecycleStage model.LifecycleStage
+
+	err := transaction.
+		Model(&model.Run{}).
+		Where("run_uuid = ?", runID).
+		Select("lifecycle_stage").
+		Scan(&lifecycleStage).
+		Error
+	if err != nil {
+		return contract.NewErrorWith(
+			protos.ErrorCode_INTERNAL_ERROR,
+			fmt.Sprintf(
+				"the run %q must be in the 'active' state.\nCurrent state is %s",
+				runID,
+				lifecycleStage,
+			),
+			err,
+		)
+	}
+
+	if lifecycleStage != model.LifecycleStageActive {
+		return contract.NewError(
+			protos.ErrorCode_INVALID_PARAMETER_VALUE,
+			fmt.Sprintf("run %q does not exist", runID),
+		)
+	}
+
+	// map metrics to model.Metric
+	// Duplicate metric values are eliminated here to maintain
+	// the same behavior in log_metric
+
+	// session.add_all(metric_instances)
+	// self._update_latest_metrics_if_necessary(metric_instances, session)
+
+	return nil
+}
 
 //nolint:exhaustruct
 func (s Store) setTagsWithTransaction(
@@ -615,7 +651,7 @@ func (s Store) setTagsWithTransaction(
 }
 
 func (s Store) LogBatch(
-	runID string, _ []*protos.Metric, params []*protos.Param, tags []*protos.RunTag,
+	runID string, metrics []*protos.Metric, params []*protos.Param, tags []*protos.RunTag,
 ) *contract.Error {
 	err := s.db.Transaction(func(transaction *gorm.DB) error {
 		err := s.setTagsWithTransaction(transaction, runID, tags)
@@ -628,6 +664,11 @@ func (s Store) LogBatch(
 		}
 
 		contractError := s.logParamsWithTransaction(transaction, runID, params)
+		if contractError != nil {
+			return contractError
+		}
+
+		contractError = s.logMetricsWithTransaction(transaction, runID, metrics)
 		if contractError != nil {
 			return contractError
 		}
