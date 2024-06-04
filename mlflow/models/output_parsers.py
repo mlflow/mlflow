@@ -32,7 +32,7 @@ try:
         def parse(self, text: str) -> Dict[str, Any]:
             return asdict(
                 ChatCompletionResponse(
-                    choices=[ChainCompletionChoice(message=Message(content=text))]
+                    choices=[ChainCompletionChoice(message=Message(role="assistant", content=text))]
                 )
             )
 
