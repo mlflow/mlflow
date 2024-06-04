@@ -610,3 +610,10 @@ MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE = _EnvironmentVariable(
 MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT", int, 500
 )
+
+#: Whether to enable Databricks SDK. If true, MLflow uses databricks-sdk API to send HTTP requests
+# to Databricks endpoint, otherwise MLflow uses ``requests`` library to send HTTP requests
+# to Databricks endpoint
+MLFLOW_ENABLE_DATABRICKS_SDK = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_DATABRICKS_SDK", True
+)
