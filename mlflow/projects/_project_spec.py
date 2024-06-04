@@ -45,24 +45,24 @@ def load_project(directory):
     databricks_spark_job_yaml = yaml_obj.get("databricks_spark_job")
     if databricks_spark_job_yaml is not None:
         if "python_file" not in databricks_spark_job_yaml:
-            raise MlflowException("'python_file' field is required for databricks spark job.")
+            raise MlflowException("'python_file' field is required for Databricks Spark job.")
 
         if "entry_points" in yaml_obj:
-            raise MlflowException("databricks spark job does not support setting 'entry_points'.")
+            raise MlflowException("Databricks Spark job does not support setting 'entry_points'.")
 
         if env_type.DOCKER in yaml_obj:
             raise MlflowException(
-                "databricks spark job does not support setting docker environment."
+                "Databricks Spark job does not support setting docker environment."
             )
 
         if env_type.PYTHON in yaml_obj:
             raise MlflowException(
-                "databricks spark job does not support setting python environment."
+                "Databricks Spark job does not support setting python environment."
             )
 
         if env_type.CONDA in yaml_obj:
             raise MlflowException(
-                "databricks spark job does not support setting conda environment."
+                "Databricks Spark job does not support setting conda environment."
             )
 
         databricks_spark_job_spec = DatabricksSparkJobSpec(
