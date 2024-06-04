@@ -398,6 +398,8 @@ class MlflowHostCreds:
             Sets the verify param of the ``requests.request``
             function (see https://requests.readthedocs.io/en/master/api/).
             If this is set ``ignore_tls_verification`` must be false.
+        client_id: The client ID used by Databricks OAuth
+        client_secret: The client secret used by Databricks OAuth
     """
 
     def __init__(
@@ -413,6 +415,8 @@ class MlflowHostCreds:
         server_cert_path=None,
         auth_by_databricks_sdk=False,
         databricks_auth_profile=None,
+        client_id=None,
+        client_secret=None,
     ):
         if not host:
             raise MlflowException(
@@ -441,6 +445,8 @@ class MlflowHostCreds:
         self.server_cert_path = server_cert_path
         self.auth_by_databricks_sdk = auth_by_databricks_sdk
         self.databricks_auth_profile = databricks_auth_profile
+        self.client_id = client_id
+        self.client_secret = client_secret
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):

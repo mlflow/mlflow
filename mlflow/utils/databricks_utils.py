@@ -565,44 +565,30 @@ def get_databricks_host_creds(server_uri=None):
         # support various authentication ways, so that it does not provide API
         # to get credential values. Instead, we can use ``WorkspaceClient``
         # API to invoke databricks shard restful APIs.
-        ws_client = WorkspaceClient(profile=profile)
-        host = ws_client.config.host
-        return MlflowHostCreds(
-            host=host, auth_by_databricks_sdk=True, databricks_auth_profile=profile
-        )
+        WorkspaceClient(profile=profile)
+        auth_by_databricks_sdk = True
+        databricks_auth_profile = profile
     except Exception as e:
         _logger.info(f"Creating databricks SDK workspace client failed, error: {e!r}")
-        # There are a few other ways to read credentials that databricks-sdk hasn't supported yet,
-        # we handle them here as the fallback approaches.
-        config = None
+        auth_by_databricks_sdk = False
+        databricks_auth_profile = None
 
-        for provider in [
-            TrackingURIConfigProvider(server_uri),
-            SparkTaskContextConfigProvider(),
-            DatabricksModelServingConfigProvider(),
-        ]:
-            _config = provider.get_config()
-            if _config is not None and _config.is_valid:
-                config = _config
-                break
+    config = _get_databricks_creds_config(server_uri)
 
-        if not config or not config.host:
-            _fail_malformed_databricks_auth(profile)
-
-        insecure = hasattr(config, "insecure") and config.insecure
-
-        if config.username is not None and config.password is not None:
-            return MlflowHostCreds(
-                config.host,
-                username=config.username,
-                password=config.password,
-                ignore_tls_verification=insecure,
-            )
-        elif config.token:
-            return MlflowHostCreds(
-                config.host, token=config.token, ignore_tls_verification=insecure
-            )
+    if not config:
         _fail_malformed_databricks_auth(profile)
+
+    return MlflowHostCreds(
+        config.host,
+        username=config.username,
+        password=config.password,
+        ignore_tls_verification=config.insecure,
+        token=config.token,
+        client_id=config.client_id,
+        client_secret=config.client_secret,
+        auth_by_databricks_sdk=auth_by_databricks_sdk,
+        databricks_auth_profile=databricks_auth_profile,
+    )
 
 
 @_use_repl_context_if_available("mlflowGitRepoUrl")
