@@ -59,7 +59,7 @@ def mock_client():
 
 
 @pytest.mark.parametrize("with_active_run", [True, False])
-def test_trace(clear_singleton, with_active_run):
+def test_trace(with_active_run):
     model = DefaultTestModel()
 
     if with_active_run:
@@ -119,9 +119,7 @@ def test_trace(clear_singleton, with_active_run):
     }
 
 
-def test_trace_with_databricks_tracking_uri(
-    databricks_tracking_uri, clear_singleton, mock_store, monkeypatch
-):
+def test_trace_with_databricks_tracking_uri(databricks_tracking_uri, mock_store, monkeypatch):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
     monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
@@ -166,9 +164,7 @@ def test_trace_with_databricks_tracking_uri(
     mock_upload_trace_data.assert_called_once()
 
 
-def test_trace_in_databricks_model_serving(
-    clear_singleton, mock_databricks_serving_with_tracing_env
-):
+def test_trace_in_databricks_model_serving(mock_databricks_serving_with_tracing_env):
     # Dummy flask app for prediction
     import flask
 
@@ -277,7 +273,7 @@ def test_trace_in_databricks_model_serving(
     assert len(traces) == 0
 
 
-def test_trace_in_model_evaluation(clear_singleton, mock_store, monkeypatch):
+def test_trace_in_model_evaluation(mock_store, monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
     monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
 
@@ -322,7 +318,7 @@ def test_trace_in_model_evaluation(clear_singleton, mock_store, monkeypatch):
     assert mock_store.end_trace.call_count == 2
 
 
-def test_trace_handle_exception_during_prediction(clear_singleton):
+def test_trace_handle_exception_during_prediction():
     # This test is to make sure that the exception raised by the main prediction
     # logic is raised properly and the trace is still logged.
     class TestModel:
@@ -351,7 +347,7 @@ def test_trace_handle_exception_during_prediction(clear_singleton):
     assert len(trace.data.spans) == 2
 
 
-def test_trace_ignore_exception_from_tracing_logic(clear_singleton, monkeypatch):
+def test_trace_ignore_exception_from_tracing_logic(monkeypatch):
     # This test is to make sure that the main prediction logic is not affected
     # by the exception raised by the tracing logic.
     class TestModel:
@@ -394,7 +390,7 @@ def test_trace_ignore_exception_from_tracing_logic(clear_singleton, monkeypatch)
     TRACE_BUFFER.clear()
 
 
-def test_start_span_context_manager(clear_singleton):
+def test_start_span_context_manager():
     datetime_now = datetime.now()
 
     class TestModel:
@@ -471,7 +467,7 @@ def test_start_span_context_manager(clear_singleton):
     assert child_span_2.start_time_ns <= child_span_2.end_time_ns - 0.1 * 1e6
 
 
-def test_start_span_context_manager_with_imperative_apis(clear_singleton):
+def test_start_span_context_manager_with_imperative_apis():
     # This test is to make sure that the spans created with fluent APIs and imperative APIs
     # (via MLflow client) are correctly linked together. This usage is not recommended but
     # should be supported for the advanced use cases like using LangChain callbacks as a
@@ -908,7 +904,7 @@ def test_search_traces_with_span_name(monkeypatch):
         )
 
 
-def test_get_last_active_trace(clear_singleton):
+def test_get_last_active_trace():
     assert mlflow.get_last_active_trace() is None
 
     @mlflow.trace()

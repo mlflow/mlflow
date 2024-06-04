@@ -27,7 +27,7 @@ _TRACE_ID = 12345
 _REQUEST_ID = f"tr-{_TRACE_ID}"
 
 
-def test_on_start(clear_singleton, monkeypatch):
+def test_on_start(monkeypatch):
     monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
 
@@ -69,7 +69,7 @@ def test_on_start(clear_singleton, monkeypatch):
 
 
 @pytest.mark.skipif(is_windows(), reason="Timestamp is not precise enough on Windows")
-def test_on_start_adjust_span_timestamp_to_exclude_backend_latency(clear_singleton, monkeypatch):
+def test_on_start_adjust_span_timestamp_to_exclude_backend_latency(monkeypatch):
     monkeypatch.setenv("MLFLOW_TESTING", "false")
     trace_info = create_test_trace_info(_REQUEST_ID, 0)
     mock_client = mock.MagicMock()
@@ -93,7 +93,7 @@ def test_on_start_adjust_span_timestamp_to_exclude_backend_latency(clear_singlet
     assert time.time_ns() - span.start_time < 100_000_000  # 0.1 second
 
 
-def test_on_start_with_experiment_id(clear_singleton, monkeypatch):
+def test_on_start_with_experiment_id(monkeypatch):
     monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
 
@@ -125,7 +125,7 @@ def test_on_start_with_experiment_id(clear_singleton, monkeypatch):
     assert _REQUEST_ID in InMemoryTraceManager.get_instance()._traces
 
 
-def test_on_start_during_model_evaluation(clear_singleton):
+def test_on_start_during_model_evaluation():
     # Root span should create a new trace on start
     span = create_mock_otel_span(trace_id=_TRACE_ID, span_id=1)
     mock_client = mock.MagicMock()
@@ -139,7 +139,7 @@ def test_on_start_during_model_evaluation(clear_singleton):
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
 
 
-def test_on_start_during_run(clear_singleton, monkeypatch):
+def test_on_start_during_run(monkeypatch):
     monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
 
@@ -173,7 +173,7 @@ def test_on_start_during_run(clear_singleton, monkeypatch):
     )
 
 
-def test_on_start_warns_default_experiment(clear_singleton, monkeypatch):
+def test_on_start_warns_default_experiment(monkeypatch):
     mlflow.set_experiment(experiment_id=DEFAULT_EXPERIMENT_ID)
 
     mock_client = mock.MagicMock()
@@ -193,7 +193,7 @@ def test_on_start_warns_default_experiment(clear_singleton, monkeypatch):
     assert "Creating a trace within the default" in str(warns[0])
 
 
-def test_on_end(clear_singleton):
+def test_on_end():
     trace_info = create_test_trace_info(_REQUEST_ID, 0)
     trace_manager = InMemoryTraceManager.get_instance()
     trace_manager.register_trace(_TRACE_ID, trace_info)

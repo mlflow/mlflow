@@ -8,6 +8,11 @@ from unittest import mock
 import pytest
 
 import mlflow
+from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
+from mlflow.tracing.export.inference_table import _TRACE_BUFFER
+from mlflow.tracing.fluent import TRACE_BUFFER
+from mlflow.tracing.provider import reset_tracer_setup
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.os import is_windows
@@ -29,6 +34,26 @@ def tracking_uri_mock(tmp_path, request):
 def reset_active_experiment_id():
     yield
     mlflow.tracking.fluent._active_experiment_id = None
+
+
+@pytest.fixture(autouse=True)
+def reset_tracing():
+    """
+    Reset the global state of the tracing feature.
+
+    This fixture is auto-applied for cleaning up the global state between tests
+    to avoid side effects.
+    """
+    yield
+
+    # Reset OpenTelemetry and MLflow tracer setup
+    reset_tracer_setup()
+
+    # Clear other global state and singletons
+    TRACE_BUFFER.clear()
+    _TRACE_BUFFER.clear()
+    InMemoryTraceManager._instance = None
+    IPythonTraceDisplayHandler._instance = None
 
 
 @pytest.fixture(autouse=True, scope="session")
