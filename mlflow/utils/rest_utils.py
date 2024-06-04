@@ -90,7 +90,7 @@ def http_request(
 
         config = Config(
             profile=host_creds.databricks_auth_profile,
-            retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get()
+            retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
         )
         # Note: If we use `config` param, all SDK configurations must be set in `config` object.
         ws_client = WorkspaceClient(config=config)
