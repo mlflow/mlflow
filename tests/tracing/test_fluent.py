@@ -370,12 +370,14 @@ def test_trace_ignore_exception_from_tracing_logic(clear_singleton, monkeypatch)
     TRACE_BUFFER.clear()
 
     # Exception during inspecting inputs: trace is logged without inputs field
-    with mock.patch("mlflow.tracing.utils.inspect.signature", side_effect=ValueError("Some error")):
+    with mock.patch(
+        "mlflow.tracing.fluent.capture_function_input_args", side_effect=ValueError("Some error")
+    ):
         output = model.predict(2, 5)
 
     assert output == 7
     trace = mlflow.get_last_active_trace()
-    assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == "{}"
+    assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == ""
     assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "7"
     TRACE_BUFFER.clear()
 

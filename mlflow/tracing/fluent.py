@@ -135,7 +135,10 @@ def trace(
 
             with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
-                span.set_inputs(capture_function_input_args(fn, args, kwargs))
+                try:
+                    span.set_inputs(capture_function_input_args(fn, args, kwargs))
+                except Exception:
+                    _logger.warning(f"Failed to capture inputs for function {fn.__name__}.")
                 result = fn(*args, **kwargs)
                 span.set_outputs(result)
                 return result
