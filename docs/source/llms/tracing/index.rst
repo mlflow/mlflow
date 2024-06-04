@@ -6,7 +6,7 @@ Tracing in MLflow
 
 MLflow offers a number of different options to enable tracing of your GenAI applications. 
 
-- **Automated tracing with LangChain**: MLflow provides a fully automated integration with LangChain that uses a custom callback to collect trace data when your chains are invoked.
+- **Automated tracing with LangChain**: MLflow provides a fully automated integration with LangChain that can activate by simply enabling ``mlflow.langchain.autolog()``.
 - **Manual trace instrumentation with high-level fluent APIs**: Decorators, function wrappers and context managers via the fluent API allow you to add tracing functionality with minor code modifications.
 - **Low-level client APIs for tracing**: The MLflow client API provides a thread-safe way to handle trace implementations, even in aysnchronous modes of operation.
 
@@ -23,8 +23,9 @@ LangChain Automatic Tracing
 ---------------------------
 
 The easiest way to get started with MLflow Tracing is to leverage the built-in capabilities with MLflow's LangChain integration. As part of the 
-:py:func:`mlflow.langchain.autolog` integration, runs that are logged when calling invocation APIs on chains will have their trace data automatically 
-logged to the active MLflow Experiment. 
+:py:func:`mlflow.langchain.autolog` integration, traces are logged to the active MLflow Experiment when calling invocation APIs on chains. 
+
+In the example below, the model and its associated metadata will be logged as a run, while the traces are logged separately to the active experiment.
 
 Running the code below will automatically log the traces associated with the simple chain that is being interacted with. 
 
@@ -55,7 +56,9 @@ Running the code below will automatically log the traces associated with the sim
     # Create a new experiment that the model and the traces will be logged to
     mlflow.set_experiment("LangChain Tracing")
 
-    # Enabled LangChain autologging
+    # Enable LangChain autologging
+    # Note that models and examples are not required to be logged in order to log traces.
+    # Simply enabling autolog for LangChain via mlflow.langchain.autolog() will enable trace logging.
     mlflow.langchain.autolog(log_models=True, log_input_examples=True)
 
     llm = OpenAI(temperature=0.7, max_tokens=1000)
@@ -103,9 +106,18 @@ If we navigate to the MLflow UI, we can see not only the model that has been aut
 Tracing Fluent APIs
 -------------------
 
-MLflow's :py:func:`fluent APIs <mlflow.start_span>` provide a straightforward way to add tracing to your functions and code blocks. By using decorators, function wrappers, 
-and context managers, you can easily capture detailed trace data with minimal code changes. This section will cover how to initiate traces 
-using these fluent APIs.
+MLflow's :py:func:`fluent APIs <mlflow.start_span>` provide a straightforward way to add tracing to your functions and code blocks. 
+By using decorators, function wrappers, and context managers, you can easily capture detailed trace data with minimal code changes. 
+
+As a comparison between the fluent and the client APIs for tracing, the figure below illustrates the differences in complexity between the two APIs, 
+with the fluent API being more concise and the recommended approach if your tracing use case can support using the higher-level APIs.
+
+.. figure:: ../../_static/images/llms/tracing/fluent-vs-client-tracing.png
+    :alt: Fluent vs Client APIs
+    :width: 60%
+    :align: center
+
+This section will cover how to initiate traces using these fluent APIs.
 
 Initiating a Trace
 ^^^^^^^^^^^^^^^^^^
@@ -149,7 +161,8 @@ the trace that is stored within the active MLflow experiment.
 
 **What is captured?**
 
-If we navigate to the MLflow UI, we can see that the trace decorator captures the following information:
+If we navigate to the MLflow UI, we can see that the trace decorator automatically captured the following information, in addition to the basic
+metadata associated with any span (start time, end time, status, etc):
 
 - **Inputs**: In the case of our decorated function, this includes the state of all input arguments (including the default `z` value that is applied).
 - **Response**: The output of the function is also captured, in this case the result of the addition and subtraction operations.
@@ -160,12 +173,67 @@ If we navigate to the MLflow UI, we can see that the trace decorator captures th
     :width: 100%
     :align: center
 
+**What about Error handling?**
+
+If an `Exception` is raised during processing of a trace-instrumented operation, an indication will be shown within the UI that the invocation was not 
+successful and a partial capture of data will be available to aid in debugging, as shown below:
+
+.. code-block:: python
+
+    # This will raise an AttributeError exception
+    do_math(3, 2, "multiply")
+
+.. figure:: ../../_static/images/llms/tracing/trace-error.png
+    :alt: Trace Error
+    :width: 100%
+    :align: center
+
+**How to handle parent-child relationships?**
+
+When using the trace decorator, each decorated function will be treated as a separate span within the trace. The relationship between dependent function calls 
+is handled directly through the native call excecution order within Python. For example, the following code will introduce two "children" spans to the main 
+parent span, all using decorators. 
+
+.. code-block:: python
+
+    import mlflow
+
+
+    @mlflow.trace(span_type="func", attributes={"key": "value"})
+    def add_1(x):
+        return x + 1
+
+
+    @mlflow.trace(span_type="func", attributes={"key1": "value1"})
+    def minus_1(x):
+        return x - 1
+
+
+    @mlflow.trace(name="Trace Test")
+    def trace_test(x):
+        step1 = add_1(x)
+        return minus_1(step1)
+
+
+    trace_test(4)
+
+If we look at this trace from within the MLflow UI, we can see the relationship of the call order shown in the structure of the trace. 
+
+.. figure:: ../../_static/images/llms/tracing/trace-decorator.gif
+    :alt: Trace Decorator
+    :width: 100%
+    :align: center
+
 Context Handler
 ###############
 
 The context handler provides a way to create nested traces or spans, which can be useful for capturing complex interactions within your code. 
 By using the :py:func:`mlflow.start_span` context manager, you can group multiple traced functions under a single parent span, making it easier to understand 
 the relationships between different parts of your code.
+
+The context handler is recommended when you need to refine the scope of data capture for a given span. If your code is logically constructed such that 
+individual calls to services or models are contained within functions or methods, on the other hand, using the decorator approach is more straight-forward 
+and less complex.
 
 .. code-block:: python
 
@@ -225,18 +293,7 @@ This trace can be seen within the MLflow UI:
     :width: 100%
     :align: center
 
-If an `Exception` is raised during processing of a trace-instrumented operation, an indication will be shown within the UI that the invocation was not 
-successful and a partial capture of data will be available to aid in debugging, as shown below:
 
-.. code-block:: python
-
-    # This will raise an AttributeError exception
-    do_math(3, 2, "multiply")
-
-.. figure:: ../../_static/images/llms/tracing/trace-error.png
-    :alt: Trace Error
-    :width: 100%
-    :align: center
 
 Function wrapping
 #################
@@ -313,7 +370,7 @@ To start a new trace, use the :py:meth:`mlflow.client.MlflowClient.start_trace` 
 Adding a Child Span
 ^^^^^^^^^^^^^^^^^^^
 
-Once a trace is started, you can add child spans to it. Child spans allow you to break down the trace into smaller, more manageable segments, 
+Once a trace is started, you can add child spans to it with the :py:meth:`mlflow.client.MlflowClient.start_span` API. Child spans allow you to break down the trace into smaller, more manageable segments, 
 each representing a specific operation or step within the overall process.
 
 .. code-block:: python
@@ -330,15 +387,15 @@ each representing a specific operation or step within the overall process.
 Ending a Span
 ^^^^^^^^^^^^^
 
-After performing the operations associated with a span, you must end the span explicitly using the ``end_span`` method. Make note of the two required fields 
+After performing the operations associated with a span, you must end the span explicitly using the :py:meth:`mlflow.client.MlflowClient.end_span` method. Make note of the two required fields 
 that are in the API signature:
 
 - **request_id**: The identifier associated with the root span
 - **span_id**: The identifier associated with the span that is being ended
 
 In order to effectively end a particular span, both the root span (returned from calling ``start_trace``) and the targeted span (returned from calling ``start_span``)
-need to be identified when calling the ``end_span`` API. It's a good practice to ensure that the root span's ``request_id`` is readily accessible from all locations
-that you will be starting or ending spans to ensure that any spans created within the context of a trace are properly associated with the root span. 
+need to be identified when calling the ``end_span`` API.
+The initiating ``request_id`` can be accessed from any parent span object's properties. 
 
 .. note::
     Spans created via the Client API will need to be terminated manually. Ensure that all spans that have been started with the ``start_span`` API 
@@ -348,7 +405,7 @@ that you will be starting or ending spans to ensure that any spans created withi
 
     # End the child span
     client.end_span(
-        request_id=request_id,
+        request_id=child_span.request_id,
         span_id=child_span.span_id,
         outputs={"output_key": "output_value"},
         attributes={"custom_attribute": "value"},
@@ -357,7 +414,7 @@ that you will be starting or ending spans to ensure that any spans created withi
 Ending a Trace
 ^^^^^^^^^^^^^^
 
-To complete the trace, end the root span using the ``end_trace`` method. This will also ensure that all associated child spans are properly closed.
+To complete the trace, end the root span using the :py:meth:`mlflow.client.MlflowClient.end_trace` method. This will also ensure that all associated child spans are properly closed.
 
 .. code-block:: python
 
@@ -374,7 +431,7 @@ Searching and Retrieving Traces
 Searching for Traces
 ^^^^^^^^^^^^^^^^^^^^
 
-You can search for traces based on various criteria using the ``search_traces`` method. This method allows you to filter traces by experiment IDs, 
+You can search for traces based on various criteria using the :py:meth:`mlflow.client.MlflowClient.search_traces` method. This method allows you to filter traces by experiment IDs, 
 filter strings, and other parameters.
 
 .. code-block:: python
@@ -387,7 +444,7 @@ filter strings, and other parameters.
 Retrieving a Specific Trace
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To retrieve a specific trace by its request ID, use the ``get_trace`` method. This method returns the trace object corresponding to the given request ID.
+To retrieve a specific trace by its request ID, use the :py:meth:`mlflow.client.MlflowClient.get_trace` method. This method returns the trace object corresponding to the given request ID.
 
 .. code-block:: python
 
@@ -400,10 +457,11 @@ Managing Trace Data
 Deleting Traces
 ^^^^^^^^^^^^^^^
 
-You can delete traces based on specific criteria using the ``delete_traces`` method. This method allows you to delete traces by **experiment ID**,
- **maximum timestamp**, or **request IDs**.
+You can delete traces based on specific criteria using the :py:meth:`mlflow.client.MlflowClient.delete_traces` method. This method allows you to delete traces by **experiment ID**,
+**maximum timestamp**, or **request IDs**.
 
 .. tip::
+    
     Deleting a trace is an irreversible process. Ensure that the setting provided within the ``delete_traces`` API meet the intended range for deletion. 
 
 .. code-block:: python
@@ -421,8 +479,8 @@ You can delete traces based on specific criteria using the ``delete_traces`` met
 Setting and Deleting Trace Tags
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Tags can be added to traces to provide additional metadata. Use the ``set_trace_tag`` method to set a tag on a trace, and the ``delete_trace_tag`` 
-method to remove a tag from a trace.
+Tags can be added to traces to provide additional metadata. Use the :py:meth:`mlflow.client.MlflowClient.set_trace_tag` method to set a tag on a trace, 
+and the :py:meth:`mlflow.client.MlflowClient.delete_trace_tag` method to remove a tag from a trace.
 
 .. code-block:: python
 
@@ -431,7 +489,6 @@ method to remove a tag from a trace.
 
     # Delete a tag from a trace
     client.delete_trace_tag(request_id="12345678", key="tag_key")
-
 
 
 FAQ

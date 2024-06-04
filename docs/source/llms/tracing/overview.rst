@@ -3,6 +3,11 @@ Tracing Concepts
 
 In this guide, you can learn about what tracing is as it applies to Generative AI (GenAI) applications and what the main components of tracing are. 
 
+.. figure:: ../../_static/images/intro/tracing-ui.gif
+    :alt: MLflow Tracing
+    :width: 80%
+    :align: center
+
 What is tracing?
 ----------------
 
@@ -52,8 +57,8 @@ A trace in the context of GenAI tracing is a collection of Directed Acyclic Grap
 the system and includes metadata such as start time, end time, and other contextual information. These spans are linked together to form a trace, which provides a comprehensive view of the end-to-end process.
 
 - **DAG-like Structure**: The DAG structure ensures that there are no cycles in the sequence of operations, making it easier to understand the flow of execution.
-- **Span Events**: Each span captures a discrete unit of work, such as a function call, a database query, or an API request. Spans include metadata that provides context about the operation.
-- **Asynchronous Recording**: Spans are recorded asynchronously, allowing for non-blocking performance monitoring and minimal impact on the system's overall performance.
+- **Span Information**: Each span captures a discrete unit of work, such as a function call, a database query, or an API request. Spans include metadata that provides context about the operation.
+- **Hierarchical Association**: Spans mirror the structure of your applications, allowing you to see how different components interact and depend on each other.
 
 By collecting and analyzing these spans, one can trace the execution path, identify bottlenecks, and understand the dependencies and interactions between different components of the system. This level of
 visibility is crucial for diagnosing issues, optimizing performance, and ensuring the robustness of GenAI applications.
