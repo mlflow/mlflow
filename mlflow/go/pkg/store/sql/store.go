@@ -496,12 +496,78 @@ func (s Store) DeleteExperiment(id string) *contract.Error {
 	return nil
 }
 
-// func (s Store) logParamsWithTransaction(
-// 	transaction *gorm.DB,
-// 	runID string,
-// 	params []*protos.Param) *contract.Error {
-// 	return nil
-// }
+const batchSize = 100
+
+type conflictedParam struct {
+	RunID    string
+	Key      string
+	OldValue string
+	NewValue string
+}
+
+//nolint:exhaustruct
+func (s Store) logParamsWithTransaction(
+	transaction *gorm.DB, runID string, params []*protos.Param,
+) *contract.Error {
+	existingParams := make([]model.Param, 0)
+
+	err := transaction.Where("run_uuid = ?", runID).Find(&existingParams).Error
+	if err != nil {
+		return contract.NewErrorWith(
+			protos.ErrorCode_INTERNAL_ERROR,
+			fmt.Sprintf("failed to get existing params for %q", runID),
+			err,
+		)
+	}
+
+	conflictedParameters := make([]conflictedParam, 0)
+	runParams := make([]model.Param, 0, len(params))
+
+	for _, param := range params {
+		isConflicting := false
+
+		for _, existingParam := range existingParams {
+			if param.GetKey() == *existingParam.Key && param.GetValue() != *existingParam.Value {
+				conflictedParameters = append(conflictedParameters, conflictedParam{
+					RunID:    runID,
+					Key:      param.GetKey(),
+					OldValue: *existingParam.Value,
+					NewValue: param.GetValue(),
+				})
+				isConflicting = true
+
+				break
+			}
+		}
+
+		if !isConflicting {
+			runParams = append(runParams, model.NewParamFromProto(runID, param))
+		}
+	}
+
+	if len(conflictedParameters) > 0 {
+		return contract.NewError(
+			protos.ErrorCode_INVALID_PARAMETER_VALUE,
+			fmt.Sprintf(
+				"changing param values is not allowed. Params were already\n logged='%v' for run ID=%q",
+				conflictedParameters, runID,
+			),
+		)
+	}
+
+	if err := transaction.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "run_uuid"}, {Name: "key"}},
+		DoNothing: true,
+	}).CreateInBatches(runParams, batchSize).Error; err != nil {
+		return contract.NewErrorWith(
+			protos.ErrorCode_INTERNAL_ERROR,
+			fmt.Sprintf("error creating params in batch for run_uuid %q", runID),
+			err,
+		)
+	}
+
+	return nil
+}
 
 // func (s Store) logMetricsWithTransaction(
 //	transaction *gorm.DB, runID string, metrics []*protos.Metric) *contract.Error {
@@ -533,7 +599,6 @@ func (s Store) setTagsWithTransaction(
 		}
 	}
 
-	batchSize := 100
 	runTags := make([]model.Tag, 0, len(tags))
 
 	for _, tag := range tags {
@@ -550,7 +615,7 @@ func (s Store) setTagsWithTransaction(
 }
 
 func (s Store) LogBatch(
-	runID string, _ []*protos.Metric, _ []*protos.Param, tags []*protos.RunTag,
+	runID string, _ []*protos.Metric, params []*protos.Param, tags []*protos.RunTag,
 ) *contract.Error {
 	err := s.db.Transaction(func(transaction *gorm.DB) error {
 		err := s.setTagsWithTransaction(transaction, runID, tags)
@@ -562,9 +627,19 @@ func (s Store) LogBatch(
 			)
 		}
 
+		contractError := s.logParamsWithTransaction(transaction, runID, params)
+		if contractError != nil {
+			return contractError
+		}
+
 		return nil
 	})
 	if err != nil {
+		var contractError *contract.Error
+		if errors.As(err, &contractError) {
+			return contractError
+		}
+
 		return contract.NewErrorWith(
 			protos.ErrorCode_INTERNAL_ERROR,
 			"log batch transaction failed",
