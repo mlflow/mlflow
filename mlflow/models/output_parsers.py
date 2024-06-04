@@ -9,11 +9,10 @@ from mlflow.models.rag_signatures import (
 )
 from mlflow.utils.annotations import experimental
 
-
-@experimental
-def get_langchain_chat_completions_output_parser():
+try:
     from langchain_core.output_parsers.transform import BaseTransformOutputParser
 
+    @experimental
     class ChatCompletionsOutputParser(BaseTransformOutputParser[Dict[str, Any]]):
         """
         OutputParser that wraps the string output into a dictionary representation of an MLflow
@@ -37,13 +36,7 @@ def get_langchain_chat_completions_output_parser():
                 )
             )
 
-    return ChatCompletionsOutputParser()
-
-
-@experimental
-def get_langchain_string_response_output_parser():
-    from langchain_core.output_parsers.transform import BaseTransformOutputParser
-
+    @experimental
     class StringResponseOutputParser(BaseTransformOutputParser[Dict[str, Any]]):
         """
         OutputParser that wraps the string output into an dictionary representation of a MLflow
@@ -63,4 +56,5 @@ def get_langchain_string_response_output_parser():
         def parse(self, text: str) -> Dict[str, Any]:
             return asdict(StringResponse(content=text))
 
-    return StringResponseOutputParser()
+except ImportError:
+    pass
