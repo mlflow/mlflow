@@ -618,8 +618,13 @@ MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT", int, 500
 )
 
-#: The number of urllib3 connection pools to cache.
+
+#: Specifies the number of connection pools to cache in urllib3. This environment variable sets the
+#: `pool_connections` parameter in the `requests.adapters.HTTPAdapter` constructor. By adjusting
+#: this variable, users can enhance the concurrency of HTTP requests made by MLflow.
 MLFLOW_HTTP_POOL_CONNECTIONS = _EnvironmentVariable("MLFLOW_HTTP_POOL_CONNECTIONS", int, 10)
 
-#: The number of urllib3 connection pools to cache.
+#: Specifies the maximum number of connections to keep in the HTTP connection pool. This environment
+#: variable sets the `pool_maxsize` parameter in the `requests.adapters.HTTPAdapter` constructor.
+#: By adjusting this variable, users can enhance the concurrency of HTTP requests made by MLflow.
 MLFLOW_HTTP_POOL_MAXSIZE = _EnvironmentVariable("MLFLOW_HTTP_POOL_MAXSIZE", int, 10)
