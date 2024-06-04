@@ -1597,6 +1597,41 @@ def _config_context(config: Optional[Union[str, Dict[str, Any]]] = None):
         _set_model_config(None)
 
 
+class MockDbutils:
+    def __init__(self):
+        pass
+
+    def __getattr__(self, name):
+        return MockDbutils()
+
+    def __call__(self, *args, **kwargs):
+        pass
+
+
+@contextmanager
+def _mock_dbutils(globals_dict):
+    module_name = "dbutils"
+    original_module = sys.modules.get(module_name)
+    sys.modules[module_name] = MockDbutils(original_module)
+
+    # Inject module directly into the global namespace in case it is referenced without an import
+    original_global = globals_dict.get(module_name)
+    globals_dict[module_name] = MockDbutils(original_module)
+
+    try:
+        yield
+    finally:
+        if original_module is not None:
+            sys.modules[module_name] = original_module
+        else:
+            del sys.modules[module_name]
+
+        if original_global is not None:
+            globals_dict[module_name] = original_global
+        else:
+            del globals_dict[module_name]
+
+
 # Python's module caching mechanism prevents the re-importation of previously loaded modules by
 # default. Once a module is imported, it's added to `sys.modules`, and subsequent import attempts
 # retrieve the cached module rather than re-importing it.
