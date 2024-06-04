@@ -22,10 +22,10 @@ class UCVolumeDatasetSource(DatasetSource):
     """
 
     def __init__(self, path: str):
-        self._verify_uc_path_is_valid(path)
         self.path = path
+        self._verify_uc_path_is_valid()
 
-    def _verify_uc_path_is_valid(self, path):
+    def _verify_uc_path_is_valid(self):
         """Verify if the path exists in Databricks Unified Catalog."""
         try:
             from databricks.sdk import WorkspaceClient
@@ -49,9 +49,17 @@ class UCVolumeDatasetSource(DatasetSource):
             return
 
         try:
-            w.files.get_metadata(path)
+            # Check if `self.path` points to a valid UC file.
+            w.files.get_metadata(self.path)
         except Exception:
-            raise MlflowException(f"{path} does not exist in Databricks Unified Catalog.")
+            try:
+                # Check if `self.path` points to a valid UC directory.
+                w.files.get_directory_metadata(self.path)
+                # Append a slash to `self.path` to indicate it's a directory.
+                self.path += "/" if not self.path.endswith("/") else ""
+            except Exception:
+                # Neither file nor directory exists, we throw an exception.
+                raise MlflowException(f"{self.path} does not exist in Databricks Unified Catalog.")
 
     @staticmethod
     def _get_source_type() -> str:
