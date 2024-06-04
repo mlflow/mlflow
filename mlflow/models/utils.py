@@ -1598,7 +1598,7 @@ def _config_context(config: Optional[Union[str, Dict[str, Any]]] = None):
 
 
 class MockDbutils:
-    def __init__(self, real_dbutils):
+    def __init__(self, real_dbutils=None):
         self.real_dbutils = real_dbutils
 
     def __getattr__(self, name):
