@@ -52,7 +52,6 @@ from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import append_to_uri_path
 
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
-from tests.tracing.conftest import clear_singleton  # noqa: F401
 
 FILESTORE_PACKAGE = "mlflow.store.tracking.file_store"
 
@@ -3232,7 +3231,7 @@ def test_search_traces_pagination(generate_trace_infos):
     assert token is None
 
 
-def test_traces_not_listed_as_runs(clear_singleton, tmp_path):
+def test_traces_not_listed_as_runs(tmp_path):
     with _use_tracking_uri(tmp_path.joinpath("mlruns").as_uri()):
         client = mlflow.MlflowClient()
         with mlflow.start_run() as run:

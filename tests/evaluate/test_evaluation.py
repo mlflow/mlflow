@@ -68,7 +68,6 @@ from mlflow.utils.autologging_utils import (
 )
 from mlflow.utils.file_utils import TempDir
 
-from tests.tracing.conftest import clear_singleton  # noqa: F401
 from tests.tracing.helper import create_test_trace_info, get_traces
 from tests.utils.test_file_utils import spark_session  # noqa: F401
 
