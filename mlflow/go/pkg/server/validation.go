@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 )
 
 const QuoteLenght = 2
@@ -88,6 +89,35 @@ func NewValidator() (*validator.Validate, error) {
 		},
 	); err != nil {
 		return nil, fmt.Errorf("validation registration for 'validMetricParamOrTagValue' failed: %w", err)
+	}
+
+	// unique params in LogBatch
+	if err := validate.RegisterValidation(
+		"uniqueParams",
+		func(fl validator.FieldLevel) bool {
+			value := fl.Field()
+			params, areParams := value.Interface().([]*protos.Param)
+			if !areParams {
+				return true
+			}
+
+			hasDuplicates := false
+			keys := make(map[string]bool, len(params))
+
+			for _, param := range params {
+				if _, ok := keys[param.GetKey()]; ok {
+					hasDuplicates = true
+
+					break
+				}
+
+				keys[param.GetKey()] = true
+			}
+
+			return hasDuplicates
+		},
+	); err != nil {
+		return nil, fmt.Errorf("validation registration for 'uniqueParams' failed: %w", err)
 	}
 
 	return validate, nil

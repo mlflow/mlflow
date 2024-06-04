@@ -2796,7 +2796,7 @@ type LogBatch struct {
 	Metrics []*Metric `protobuf:"bytes,2,rep,name=metrics" json:"metrics,omitempty" query:"metrics"`
 	// Params to log. A single request can contain up to 100 params, and up to 1000
 	// metrics, params, and tags in total.
-	Params []*Param `protobuf:"bytes,3,rep,name=params" json:"params,omitempty" query:"params"`
+	Params []*Param `protobuf:"bytes,3,rep,name=params" json:"params,omitempty" query:"params" validate:"uniqueParams"`
 	// Tags to log. A single request can contain up to 100 tags, and up to 1000
 	// metrics, params, and tags in total.
 	Tags []*RunTag `protobuf:"bytes,4,rep,name=tags" json:"tags,omitempty" query:"tags"`

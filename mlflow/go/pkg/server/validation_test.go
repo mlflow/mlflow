@@ -5,7 +5,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/server"
+	"github.com/mlflow/mlflow/mlflow/go/pkg/utils"
 )
 
 type PositiveInteger struct {
@@ -112,4 +114,24 @@ func TestUriWithoutFragmentsOrParams(t *testing.T) {
 	}
 
 	runscenarios(t, scenarios)
+}
+
+func TestUniqueParamsInLogBatch(t *testing.T) {
+	t.Parallel()
+
+	//nolint:exhaustruct
+	logBatchRequest := &protos.LogBatch{
+		Params: []*protos.Param{
+			{Key: utils.PtrTo("key1"), Value: utils.PtrTo("value1")},
+			{Key: utils.PtrTo("key1"), Value: utils.PtrTo("value2")},
+		},
+	}
+
+	validator, err := server.NewValidator()
+	require.NoError(t, err)
+
+	err = validator.Struct(logBatchRequest)
+	if err != nil {
+		t.Error("Expected uniqueParams validation error, got none")
+	}
 }
