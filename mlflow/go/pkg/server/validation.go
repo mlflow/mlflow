@@ -17,7 +17,10 @@ const QuoteLenght = 2
 
 // regex for valid param and metric names: may only contain slashes, alphanumerics,
 // underscores, periods, dashes, and spaces.
-var validParamAndMetricNames = regexp.MustCompile(`^[/\w.\- ]*$`)
+var paramAndMetricNameRegex = regexp.MustCompile(`^[/\w.\- ]*$`)
+
+// regex for valid run IDs: must be an alphanumeric string of length 1 to 256.
+var runIDRegex = regexp.MustCompile(`^[a-zA-Z0-9][\w\-]{0,255}$`)
 
 func NewValidator() (*validator.Validate, error) {
 	validate := validator.New()
@@ -73,7 +76,7 @@ func NewValidator() (*validator.Validate, error) {
 		func(fl validator.FieldLevel) bool {
 			valueStr := fl.Field().String()
 
-			return validParamAndMetricNames.MatchString(valueStr)
+			return paramAndMetricNameRegex.MatchString(valueStr)
 		},
 	); err != nil {
 		return nil, fmt.Errorf("validation registration for 'validMetricParamOrTagName' failed: %w", err)
@@ -118,6 +121,17 @@ func NewValidator() (*validator.Validate, error) {
 		},
 	); err != nil {
 		return nil, fmt.Errorf("validation registration for 'uniqueParams' failed: %w", err)
+	}
+
+	if err := validate.RegisterValidation(
+		"validRunId",
+		func(fl validator.FieldLevel) bool {
+			valueStr := fl.Field().String()
+
+			return runIDRegex.MatchString(valueStr)
+		},
+	); err != nil {
+		return nil, fmt.Errorf("validation registration for 'validRunId' failed: %w", err)
 	}
 
 	return validate, nil

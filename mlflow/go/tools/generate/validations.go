@@ -13,6 +13,7 @@ var validations = map[string]string{
 	"SearchRuns_RunViewType":            "omitempty",
 	"SearchRuns_MaxResults":             fmt.Sprintf("lte=%d", protos.Default_SearchRuns_MaxResults),
 	"DeleteExperiment_ExperimentId":     "required,stringAsPositiveInteger",
+	"LogBatch_RunId":                    "required,runId",
 	"LogBatch_Params":                   "uniqueParams",
 	"RunTag_Key":                        "required,max=250,validMetricParamOrTagName,pathIsUnique",
 	"RunTag_Value":                      "omitempty,max=5000",
