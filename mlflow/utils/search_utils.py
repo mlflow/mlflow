@@ -1696,15 +1696,10 @@ class SearchTraceUtils(SearchUtils):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         else:
-            valid_identifiers = [
-                cls._ATTRIBUTE_IDENTIFIER,
-                cls._TAG_IDENTIFIER,
-                cls._REQUEST_METADATA_IDENTIFIER,
-            ]
             # Expected to be either "param" or "metric".
             raise MlflowException(
                 f"Invalid identifier type: {identifier_type}. "
-                f"Expected one of {valid_identifiers}.",
+                f"Expected one of {cls._VALID_IDENTIFIERS}.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
