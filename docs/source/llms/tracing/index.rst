@@ -38,14 +38,16 @@ Running the code below will automatically log the traces associated with the sim
 
 .. code-block:: python
 
-    import os 
+    import os
 
     from langchain.prompts import PromptTemplate
     from langchain_openai import OpenAI
 
     import mlflow
 
-    assert "OPENAI_API_KEY" in os.environ, "Please set your OPENAI_API_KEY environment variable."
+    assert (
+        "OPENAI_API_KEY" in os.environ
+    ), "Please set your OPENAI_API_KEY environment variable."
 
     # Using a local MLflow tracking server
     mlflow.set_tracking_uri("http://localhost:5000")
@@ -54,10 +56,7 @@ Running the code below will automatically log the traces associated with the sim
     mlflow.set_experiment("LangChain Tracing")
 
     # Enabled LangChain autologging
-    mlflow.langchain.autolog(
-        log_models=True,
-        log_input_examples=True
-    )
+    mlflow.langchain.autolog(log_models=True, log_input_examples=True)
 
     llm = OpenAI(temperature=0.7, max_tokens=1000)
 
@@ -73,10 +72,20 @@ Running the code below will automatically log the traces associated with the sim
     chain = prompt_template | llm
 
     # Test the chain
-    chain.invoke({"person": "Richard Feynman", "question": "Why should we colonize Mars instead of Venus?"})
+    chain.invoke(
+        {
+            "person": "Richard Feynman",
+            "question": "Why should we colonize Mars instead of Venus?",
+        }
+    )
 
     # Let's test another call
-    chain.invoke({"person": "Linus Torvalds", "question": "Can I just set everyone's access to sudo to make things easier?"})
+    chain.invoke(
+        {
+            "person": "Linus Torvalds",
+            "question": "Can I just set everyone's access to sudo to make things easier?",
+        }
+    )
 
 
 If we navigate to the MLflow UI, we can see not only the model that has been auto-logged, but the traces as well, as shown in the below video:
@@ -117,10 +126,12 @@ to its definition. This approach is ideal for quickly adding tracing to individu
     # Create a new experiment to log the trace to
     mlflow.set_experiment("Tracing Demo")
 
+
     # Mark any function with the trace decorator to automatically capture input(s) and output(s)
     @mlflow.trace
     def some_function(x, y, z=2):
         return x + (y - z)
+
 
     # Invoking the function will generate a trace that is logged to the active experiment
     some_function(2, 4)
@@ -160,40 +171,41 @@ the relationships between different parts of your code.
 
     import mlflow
 
+
     @mlflow.trace
     def first_func(x, y=2):
         return x + y
+
 
     @mlflow.trace
     def second_func(a, b=3):
         return a * b
 
+
     def do_math(a, x, operation="add"):
-            
         # Use the fluent API context handler to create a new span
         with mlflow.start_span(name="Math") as span:
-            
             # Specify the inputs and attributes that will be associated with the span
             span.set_inputs({"a": a, "x": x})
             span.set_attributes({"mode": operation})
-            
+
             # Both of these functions are decorated for tracing and will be associated
             # as 'children' of the parent 'span' defined with the context handler
             first = first_func(x)
             second = second_func(a)
-            
+
             result = None
-            
+
             if operation == "add":
                 result = first + second
             elif operation == "subtract":
                 result = first - second
             else:
                 raise AttributeError(f"Unsupported Operation Mode: {operation}")
-            
+
             # Specify the output result to the span
             span.set_outputs({"result": result})
-            
+
             return result
 
 When calling the ``do_math`` function, a trace will be generated that has the root span (parent) defined as the 
@@ -238,28 +250,29 @@ capture its inputs, outputs, and execution context.
 
     import mlflow
 
+
     def my_external_function(x, y):
         return x + y
 
+
     def invocation(x, y=4):
-        
         # Initiate a context handler for parent logging
         with mlflow.start_span(name="Parent") as span:
-            
-            span.set_attributes({"level": "parent", "override": y==4})
+            span.set_attributes({"level": "parent", "override": y == 4})
             span.set_inputs({"x": x, "y": y})
-            
+
             # Wrap an external function instead of modifying
             traced_external = mlflow.trace(my_external_function)
-            
+
             # Call the wrapped function as you would call it directly
             response = traced_external(x, y)
-            
+
             # Set the outputs to the parent span prior to returning
             span.set_outputs({"result": response})
-            
+
             return response
-        
+
+
     invocation(16)
 
 The screenshot below shows the wrapped function call having its inputs and output captured from within a span.
@@ -311,7 +324,7 @@ each representing a specific operation or step within the overall process.
         request_id=request_id,
         parent_id=root_span.span_id,
         inputs={"input_key": "input_value"},
-        attributes={"attribute_key": "attribute_value"}
+        attributes={"attribute_key": "attribute_value"},
     )
 
 Ending a Span
@@ -338,7 +351,7 @@ that you will be starting or ending spans to ensure that any spans created withi
         request_id=request_id,
         span_id=child_span.span_id,
         outputs={"output_key": "output_value"},
-        attributes={"custom_attribute": "value"}
+        attributes={"custom_attribute": "value"},
     )
 
 Ending a Trace
@@ -352,7 +365,7 @@ To complete the trace, end the root span using the ``end_trace`` method. This wi
     client.end_trace(
         request_id=request_id,
         outputs={"final_output_key": "final_output_value"},
-        attributes={"token_usage": "1174"}
+        attributes={"token_usage": "1174"},
     )
 
 Searching and Retrieving Traces
@@ -368,9 +381,7 @@ filter strings, and other parameters.
 
     # Search for traces in specific experiments
     traces = client.search_traces(
-        experiment_ids=["1", "2"],
-        filter_string="attributes.status = 'OK'",
-        max_results=5
+        experiment_ids=["1", "2"], filter_string="attributes.status = 'OK'", max_results=5
     )
 
 Retrieving a Specific Trace
@@ -404,9 +415,7 @@ You can delete traces based on specific criteria using the ``delete_traces`` met
 
     # Delete traces older than a specific timestamp
     deleted_count = client.delete_traces(
-        experiment_id="1",
-        max_timestamp_millis=current_time,
-        max_traces=10
+        experiment_id="1", max_timestamp_millis=current_time, max_traces=10
     )
 
 Setting and Deleting Trace Tags
@@ -444,22 +453,21 @@ For example, the following will work:
 
     # Initiate a fluent span creation context
     with mlflow.start_span(name="Testing!") as span:
-
         # Use the client API to start a child span
         child_span = client.start_span(
             name="Child Span From Client",
             request_id=span.request_id,
             parent_id=span.span_id,
             inputs={"request": "test input"},
-            attributes={"attribute1": "value1"}
+            attributes={"attribute1": "value1"},
         )
-        
+
         # End the child span
         client.end_span(
             request_id=span.request_id,
             span_id=child_span.span_id,
             outputs={"response": "test output"},
-            attributes={"attribute2": "value2"}
+            attributes={"attribute2": "value2"},
         )
 
 
@@ -486,7 +494,9 @@ Fluent API
 
 .. code-block:: python
 
-    with mlflow.start_span(name="Parent", attributes={"attribute1": "value1", "attribute2": "value2"}) as span:
+    with mlflow.start_span(
+        name="Parent", attributes={"attribute1": "value1", "attribute2": "value2"}
+    ) as span:
         span.set_inputs({"input1": "value1", "input2": "value2"})
         span.set_outputs({"output1": "value1", "output2": "value2"})
 
@@ -524,14 +534,13 @@ Client API
 .. code-block:: python
 
     parent_span = client.start_trace(
-        name="Parent Span", 
-        attributes={"attribute1": "value1", "attribute2": "value2"}
+        name="Parent Span", attributes={"attribute1": "value1", "attribute2": "value2"}
     )
 
     # Set a single attribute
     parent_span.set_attribute("attribute3", "value3")
     # Set multiple attributes
-    parent_span.set_attributes({"attribute4": "value4", "attribute5": "value5")
+    parent_span.set_attributes({"attribute4": "value4", "attribute5": "value5"})
 
 3. Set attributes when ending a span or the entire trace. 
 
@@ -540,10 +549,10 @@ Client API
     client.end_span(
         request_id=parent_span.request_id,
         span_id=child_span.span_id,
-        attributes={"attribute1": "value1", "attribute2": "value2"}
+        attributes={"attribute1": "value1", "attribute2": "value2"},
     )
 
     client.end_trace(
         request_id=parent_span.request_id,
-        attributes={"attribute3": "value3", "attribute4": "value4"}
+        attributes={"attribute3": "value3", "attribute4": "value4"},
     )
