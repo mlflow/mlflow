@@ -163,7 +163,7 @@ def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
             return name
         time.sleep(5)
 
-    raise Exception(f"Failed to build docker image to serve model from {model_uri}")
+    raise RuntimeError(f"Failed to build docker image to serve model from {model_uri}")
 
 
 def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):
