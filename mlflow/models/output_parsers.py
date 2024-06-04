@@ -7,8 +7,10 @@ from mlflow.models.rag_signatures import (
     Message,
     StringResponse,
 )
+from mlflow.utils.annotations import experimental
 
 
+@experimental
 def get_langchain_chat_completions_output_parser():
     from langchain_core.output_parsers.transform import BaseTransformOutputParser
 
@@ -38,6 +40,7 @@ def get_langchain_chat_completions_output_parser():
     return ChatCompletionsOutputParser()
 
 
+@experimental
 def get_langchain_string_response_output_parser():
     from langchain_core.output_parsers.transform import BaseTransformOutputParser
 
