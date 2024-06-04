@@ -155,6 +155,11 @@ def http_request(
         auth_str = "Basic " + base64.standard_b64encode(basic_auth_str).decode("utf-8")
     elif host_creds.token:
         auth_str = f"Bearer {host_creds.token}"
+    elif host_creds.client_secret:
+        raise MlflowException(
+            "You need to set environmental variable 'MLFLOW_ENABLE_DATABRICKS_SDK' to 'true' "
+            "otherwise MLflow can't support Databricks OAuth authentication."
+        )
 
     from mlflow.tracking.request_header.registry import resolve_request_headers
 
