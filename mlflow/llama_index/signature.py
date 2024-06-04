@@ -35,10 +35,3 @@ def infer_signature_from_input_example(
         outputs=Schema([ColSpec("string")]),
         params={},
     )
-
-
-def validate_and_resolve_signature(signature: ModelSignature) -> ModelSignature:
-    """
-    PLACEHOLDER
-    """
-    return signature

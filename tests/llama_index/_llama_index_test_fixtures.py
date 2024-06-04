@@ -77,18 +77,23 @@ def settings(llm, embed_model):
 
 #### Indexes ####
 @pytest.fixture
-def single_index(settings):
-    return VectorStoreIndex(nodes=[Document.example()], embed_model=MockEmbedding(embed_dim=1))
+def document():
+    return Document.example()
 
 
 @pytest.fixture
-def multi_index(settings):
-    return VectorStoreIndex(nodes=[Document.example()] * 5, embed_model=MockEmbedding(embed_dim=1))
+def single_index(settings, document):
+    return VectorStoreIndex(nodes=[document], embed_model=MockEmbedding(embed_dim=1))
 
 
 @pytest.fixture
-def single_graph(settings):
-    return KnowledgeGraphIndex.from_documents([Document.example()])
+def multi_index(settings, document):
+    return VectorStoreIndex(nodes=[document] * 5, embed_model=MockEmbedding(embed_dim=1))
+
+
+@pytest.fixture
+def single_graph(settings, document):
+    return KnowledgeGraphIndex.from_documents([document])
 
 
 #### Prompt Templates ####
