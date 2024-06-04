@@ -1458,17 +1458,17 @@ def _validate_model_code_from_notebook(code):
     Validate there isn't any code that would work in a notebook but not as exported Python file.
     For now, this checks for dbutils and magic commands.
     """
-    error_message = (
-        "The model file uses 'dbutils' command which is not supported. To ensure your code "
-        "functions correctly, remove or comment out usage of 'dbutils' command."
-    )
 
     output_code_list = []
     for line in code.splitlines():
         for match in re.finditer(r"\bdbutils\b", line):
             start = match.start()
             if not _is_in_comment(line, start) and not _is_in_string_only(line, "dbutils"):
-                raise ValueError(error_message)
+                _logger.warning(
+                    "The model file uses 'dbutils' commands which are not supported. To ensure "
+                    "your code functions correctly, make sure that it does not rely on these "
+                    "dbutils commands for correctness."
+                )
         # Prefix any line containing MAGIC commands with a comment. When there is better support
         # for the Databricks workspace export API, we can get rid of this.
         if line.startswith("%"):
@@ -1477,7 +1477,7 @@ def _validate_model_code_from_notebook(code):
             output_code_list.append(line)
     output_code = "\n".join(output_code_list)
 
-    magic_regex = r"^# MAGIC %\S+.*"
+    magic_regex = r"^# MAGIC %((?!pip)\S+).*"
     if re.search(magic_regex, output_code, re.MULTILINE):
         _logger.warning(
             "The model file uses magic commands which have been commented out. To ensure your code "
@@ -1646,7 +1646,8 @@ def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, 
             spec = importlib.util.spec_from_file_location(new_module_name, code_path)
             module = importlib.util.module_from_spec(spec)
             sys.modules[new_module_name] = module
-            spec.loader.exec_module(module)
+            with _mock_dbutils(module.__dict__):
+                spec.loader.exec_module(module)
         except ImportError as e:
             raise MlflowException(f"Failed to import code code model from {code_path}.") from e
         except Exception as e:
