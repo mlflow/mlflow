@@ -456,7 +456,7 @@ def test_model_code_validation():
             "functions correctly, make sure that it does not rely on these magic commands for "
             "correctness."
         )
-    
+
     # Code with commented pip magic commands does not warn
     warning_code = "# MAGIC %pip install mlflow"
     with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
