@@ -11,12 +11,14 @@ from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
 from mlflow import MlflowClient
-from mlflow.entities import LiveSpan, NoOpSpan, SpanType, Trace
+from mlflow.entities import NoOpSpan, SpanType, Trace
+from mlflow.entities.span import LiveSpan, create_mlflow_span
 from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
 from mlflow.tracing.constant import SpanAttributeKey
@@ -33,6 +35,7 @@ from mlflow.tracing.utils import (
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
 
 _logger = logging.getLogger(__name__)
 
@@ -132,7 +135,10 @@ def trace(
 
             with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
-                span.set_inputs(capture_function_input_args(fn, args, kwargs))
+                try:
+                    span.set_inputs(capture_function_input_args(fn, args, kwargs))
+                except Exception:
+                    _logger.warning(f"Failed to capture inputs for function {fn.__name__}.")
                 result = fn(*args, **kwargs)
                 span.set_outputs(result)
                 return result
@@ -214,16 +220,15 @@ def start_span(
     try:
         otel_span = provider.start_span_in_context(name)
 
-        # Create a new MlflowSpanWrapper and register it to the in-memory trace manager
+        # Create a new MLflow span and register it to the in-memory trace manager
         request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
-        mlflow_span = LiveSpan(otel_span, request_id=request_id, span_type=span_type)
+        mlflow_span = create_mlflow_span(otel_span, request_id, span_type)
         mlflow_span.set_attributes(attributes or {})
         InMemoryTraceManager.get_instance().register_span(mlflow_span)
 
     except Exception as e:
         _logger.warning(
-            f"Failed to start span: {e}. ",
-            "For full traceback, set logging level to debug.",
+            f"Failed to start span: {e}. For full traceback, set logging level to debug.",
             exc_info=_logger.isEnabledFor(logging.DEBUG),
         )
         mlflow_span = NoOpSpan()
@@ -232,7 +237,7 @@ def start_span(
 
     try:
         # Setting end_on_exit = False to suppress the default span
-        # export and instead invoke MlflowSpanWrapper.end()
+        # export and instead invoke MLflow span's end() method.
         with trace_api.use_span(mlflow_span._span, end_on_exit=False):
             yield mlflow_span
     finally:
@@ -253,6 +258,20 @@ def get_trace(request_id: str) -> Optional[Trace]:
 
     Args:
         request_id: The request ID of the trace.
+
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        with mlflow.start_span(name="span") as span:
+            span.set_attribute("key", "value")
+
+        trace = mlflow.get_trace(span.request_id)
+        print(trace)
+
 
     Returns:
         A :py:class:`mlflow.entities.Trace` objects with the given request ID.
@@ -320,6 +339,7 @@ def search_traces(
 
 
     .. code-block:: python
+        :test:
         :caption: Search traces with extract_fields and non-dictionary span inputs and outputs
 
         import mlflow
@@ -389,6 +409,22 @@ def get_current_active_span() -> Optional[LiveSpan]:
         `with mlflow.start_span`. If a span is created with MlflowClient APIs, it won't be
         attached to the global context so this function will not return it.
 
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        @mlflow.trace
+        def f():
+            span = mlflow.get_current_active_span()
+            span.set_attribute("key", "value")
+            return 0
+
+
+        f()
+
     Returns:
         The current active span if exists, otherwise None.
     """
@@ -400,3 +436,63 @@ def get_current_active_span() -> Optional[LiveSpan]:
     trace_manager = InMemoryTraceManager.get_instance()
     request_id = json.loads(otel_span.attributes.get(SpanAttributeKey.REQUEST_ID))
     return trace_manager.get_span_from_id(request_id, encode_span_id(otel_span.context.span_id))
+
+
+@experimental
+def get_last_active_trace() -> Optional[Trace]:
+    """
+    Get the last active trace in the same process if exists.
+
+    .. warning::
+
+        This function DOES NOT work in the model deployed in Databricks model serving.
+
+    .. note::
+
+        The last active trace is only stored in-memory for the time defined by the TTL
+        (Time To Live) configuration. By default, the TTL is 1 hour and can be configured
+        using the environment variable ``MLFLOW_TRACE_BUFFER_TTL_SECONDS``.
+
+    .. note::
+
+        This function returns an immutable copy of the original trace that is logged
+        in the tracking store. Any changes made to the returned object will not be reflected
+        in the original trace. To modify the already ended trace (while most of the data is
+        immutable after the trace is ended, you can still edit some fields such as `tags`),
+        please use the respective MlflowClient APIs with the request ID of the trace, as
+        shown in the example below.
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        @mlflow.trace
+        def f():
+            pass
+
+
+        f()
+
+        trace = mlflow.get_last_active_trace()
+
+
+        # Use MlflowClient APIs to mutate the ended trace
+        mlflow.MlflowClient().set_trace_tag(trace.info.request_id, "key", "value")
+
+    Returns:
+        The last active trace if exists, otherwise None.
+    """
+    if is_in_databricks_model_serving_environment():
+        raise MlflowException(
+            "The function `mlflow.get_last_active_trace` is not supported in "
+            "Databricks model serving.",
+            error_code=BAD_REQUEST,
+        )
+
+    if len(TRACE_BUFFER) > 0:
+        last_active_request_id = list(TRACE_BUFFER.keys())[-1]
+        return TRACE_BUFFER.get(last_active_request_id)
+    else:
+        return None

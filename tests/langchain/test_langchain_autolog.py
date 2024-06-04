@@ -37,9 +37,7 @@ from mlflow.utils.openai_utils import (
     _MockResponse,
 )
 
-# TODO: This test helper is used outside the tracing module, we should move it to a common utils
-from tests.tracing.conftest import clear_singleton as clear_trace_singleton  # noqa: F401
-from tests.tracing.helper import get_first_trace, get_traces
+from tests.tracing.helper import get_traces
 
 MODEL_DIR = "model"
 TEST_CONTENT = "test"
@@ -245,7 +243,7 @@ def test_resolve_tags():
     }
 
 
-def test_autolog_record_exception(clear_trace_singleton):
+def test_autolog_record_exception():
     from langchain.schema.runnable import RunnableLambda
 
     def always_fail(input):
@@ -266,7 +264,7 @@ def test_autolog_record_exception(clear_trace_singleton):
     assert trace.data.spans[0].name == "always_fail"
 
 
-def test_llmchain_autolog(clear_trace_singleton):
+def test_llmchain_autolog():
     mlflow.langchain.autolog(log_models=True)
     question = "MLflow"
     answer = {"product": "MLflow", "text": TEST_CONTENT}
@@ -300,7 +298,22 @@ def test_llmchain_autolog(clear_trace_singleton):
         assert attrs["invocation_params"]["temperature"] == 0.9
 
 
-def test_llmchain_autolog_no_optional_artifacts_by_default(clear_trace_singleton):
+def test_llmchain_autolog_should_not_generate_trace_while_saving_models(tmp_path):
+    mlflow.langchain.autolog()
+    question = "MLflow"
+
+    with _mock_request(return_value=_mock_chat_completion_response()):
+        model = create_openai_llmchain()
+        # Either save_model or log_model should not generate traces
+        mlflow.langchain.save_model(model, path=tmp_path / "model", input_example=question)
+        with mlflow.start_run():
+            mlflow.langchain.log_model(model, "model", input_example=question)
+
+    traces = get_traces()
+    assert len(traces) == 0
+
+
+def test_llmchain_autolog_no_optional_artifacts_by_default():
     mlflow.langchain.autolog()
     question = "MLflow"
     answer = {"product": "MLflow", "text": TEST_CONTENT}
@@ -426,7 +439,7 @@ def test_loaded_llmchain_within_model_evaluation(mock_get_display, tmp_path):
     mock_display_handler.display_traces.assert_not_called()
 
 
-def test_agent_autolog(clear_trace_singleton):
+def test_agent_autolog():
     mlflow.langchain.autolog(log_models=True)
     model, input, mock_response = create_openai_llmagent()
     with _mock_request(return_value=_MockResponse(200, mock_response)), mock.patch(
@@ -515,7 +528,7 @@ def test_agent_autolog_log_inputs_outputs():
         )
 
 
-def test_runnable_sequence_autolog(clear_trace_singleton):
+def test_runnable_sequence_autolog():
     mlflow.langchain.autolog(log_models=True)
     chain, input_example = create_runnable_sequence()
     with mock.patch("mlflow.langchain.log_model") as log_model_mock:
@@ -597,7 +610,7 @@ def test_runnable_sequence_autolog_log_inputs_outputs():
     )
 
 
-def test_retriever_autolog(tmp_path, clear_trace_singleton):
+def test_retriever_autolog(tmp_path):
     mlflow.langchain.autolog(log_models=True)
     model, query = create_retriever(tmp_path)
     with mock.patch("mlflow.langchain.log_model") as log_model_mock, mock.patch(
@@ -940,7 +953,7 @@ def test_langchain_autolog_extra_model_classes_warning():
 
 
 @pytest.mark.skip(reason="This test is not thread safe, please run locally")
-def test_set_retriever_schema_work_for_langchain_model(clear_trace_singleton):
+def test_set_retriever_schema_work_for_langchain_model():
     set_retriever_schema(
         primary_key="primary-key",
         text_column="text-column",
@@ -958,5 +971,5 @@ def test_set_retriever_schema_work_for_langchain_model(clear_trace_singleton):
         pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
         pyfunc_model.predict("MLflow")
 
-    trace = get_first_trace()
+    trace = mlflow.get_last_active_trace()
     assert DependenciesSchemasType.RETRIEVERS.value in trace.info.tags

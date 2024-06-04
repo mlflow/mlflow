@@ -1,6 +1,6 @@
 import { forwardRef } from 'react';
-import { I as Icon } from './Typography-af72332b.js';
-import { jsx, jsxs } from '@emotion/react/jsx-runtime';
+import { I as Icon } from './Typography-78b12af3.js';
+import { jsx } from '@emotion/react/jsx-runtime';
 
 function SvgCloseSmallIcon(props) {
   return jsx("svg", {
@@ -80,34 +80,5 @@ const PlusIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 PlusIcon.displayName = 'PlusIcon';
 var PlusIcon$1 = PlusIcon;
 
-function SvgWarningIcon(props) {
-  return jsxs("svg", {
-    xmlns: "http://www.w3.org/2000/svg",
-    width: "1em",
-    height: "1em",
-    fill: "none",
-    viewBox: "0 0 16 16",
-    ...props,
-    children: [jsx("path", {
-      fill: "currentColor",
-      d: "M7.25 10V6.5h1.5V10h-1.5ZM8 12.5A.75.75 0 1 0 8 11a.75.75 0 0 0 0 1.5Z"
-    }), jsx("path", {
-      fill: "currentColor",
-      fillRule: "evenodd",
-      d: "M8 1a.75.75 0 0 1 .649.374l7.25 12.5A.75.75 0 0 1 15.25 15H.75a.75.75 0 0 1-.649-1.126l7.25-12.5A.75.75 0 0 1 8 1Zm0 2.245L2.052 13.5h11.896L8 3.245Z",
-      clipRule: "evenodd"
-    })]
-  });
-}
-const WarningIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
-  return jsx(Icon, {
-    ref: forwardedRef,
-    ...props,
-    component: SvgWarningIcon
-  });
-});
-WarningIcon.displayName = 'WarningIcon';
-var WarningIcon$1 = WarningIcon;
-
-export { CloseSmallIcon$1 as C, MegaphoneIcon$1 as M, PlusIcon$1 as P, WarningIcon$1 as W };
-//# sourceMappingURL=WarningIcon-9653b269.js.map
+export { CloseSmallIcon$1 as C, MegaphoneIcon$1 as M, PlusIcon$1 as P };
+//# sourceMappingURL=PlusIcon-e78c4843.js.map

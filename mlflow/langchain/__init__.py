@@ -28,7 +28,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENABLE_TRACE_IN_SERVING
+from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
 from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
@@ -41,7 +41,6 @@ from mlflow.langchain.utils import (
     _MODEL_LOAD_KEY,
     _RUNNABLE_LOAD_KEY,
     _load_base_lcs,
-    _load_from_yaml,
     _save_base_lcs,
     _validate_and_prepare_lc_model_or_path,
     lc_runnables_types,
@@ -64,6 +63,7 @@ from mlflow.models.utils import (
 )
 from mlflow.pyfunc import FLAVOR_NAME as PYFUNC_FLAVOR_NAME
 from mlflow.pyfunc.context import get_prediction_context
+from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
@@ -73,7 +73,10 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
     safe_patch,
 )
-from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_model_serving_environment,
+    is_mlflow_tracing_enabled_in_model_serving,
+)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -92,6 +95,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_copy_file_to_directory,
+    _validate_and_get_model_config_from_file,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -143,6 +147,7 @@ def _infer_signature_from_input_example_for_lc_model(
 
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
+@trace_disabled  # Suppress traces for internal predict calls while saving model
 def save_model(
     lc_model,
     path,
@@ -274,13 +279,7 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
 
     if isinstance(model_config, str):
-        if os.path.exists(model_config):
-            model_config = _load_from_yaml(model_config)
-        else:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                f"Model config path '{model_config}' provided is not a valid file path. "
-                "Please provide a valid model configuration."
-            )
+        model_config = _validate_and_get_model_config_from_file(model_config)
 
     model_code_path = None
     if isinstance(lc_model_or_path, str):
@@ -418,6 +417,7 @@ def save_model(
 
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
+@trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     lc_model,
     artifact_path,
@@ -641,7 +641,17 @@ class _LangChainModelWrapper:
         # TODO: We don't automatically turn tracing on in OSS model serving, because we haven't
         # implemented storage option for traces in OSS model serving (counterpart to the
         # Inference Table in Databricks model serving).
-        if is_in_databricks_model_serving_environment() and MLFLOW_ENABLE_TRACE_IN_SERVING.get():
+        if (
+            is_in_databricks_model_serving_environment()
+            # TODO: This env var was once used for controlling whether or not to inject the
+            #   tracer in Databricks model serving. However, now we have the new env var
+            #   `ENABLE_MLFLOW_TRACING` to control that. We don't remove this condition
+            #   right now in the interest of caution, but we should remove this condition
+            #   after making sure that the functionality is stable.
+            and os.environ.get("MLFLOW_ENABLE_TRACE_IN_SERVING", "false").lower() == "true"
+            # if this is False, tracing is disabled and we shouldn't inject the tracer
+            and is_mlflow_tracing_enabled_in_model_serving()
+        ):
             from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
             callbacks = [MlflowLangchainTracer()]
@@ -892,7 +902,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
                 local_model_path,
                 os.path.basename(model_config),
             )
-            model_config = _load_from_yaml(config_path)
+            model_config = _validate_and_get_model_config_from_file(config_path)
 
         flavor_code_path = pyfunc_flavor_conf.get(
             MODEL_CODE_PATH, flavor_conf.get(MODEL_CODE_PATH, None)

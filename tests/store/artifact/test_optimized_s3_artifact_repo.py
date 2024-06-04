@@ -171,7 +171,7 @@ def test_get_s3_client_region_name_set_correctly_with_non_throwing_response(s3_a
 def test_s3_client_config_set_correctly(s3_artifact_root):
     repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
     s3_client = repo._get_s3_client()
-    assert s3_client.meta.config.s3.get("addressing_style") == "path"
+    assert s3_client.meta.config.s3.get("addressing_style") == "auto"
 
 
 def test_s3_creds_passed_to_client(s3_artifact_root):
@@ -282,7 +282,7 @@ def test_refresh_credentials():
             assert e == err
 
         mock_get_s3_client.assert_any_call(
-            addressing_style="path",
+            addressing_style=None,
             access_key_id="my-id-1",
             secret_access_key="my-key-1",
             session_token="my-session-1",
@@ -291,7 +291,7 @@ def test_refresh_credentials():
         )
 
         mock_get_s3_client.assert_any_call(
-            addressing_style="path",
+            addressing_style=None,
             access_key_id="my-id-2",
             secret_access_key="my-key-2",
             session_token="my-session-2",

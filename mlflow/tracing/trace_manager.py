@@ -82,7 +82,7 @@ class InMemoryTraceManager:
         """
         with self._lock:
             if trace_info.request_id not in self._traces:
-                _logger.warning(f"Trace data with request ID {trace_info.request_id} not found.")
+                _logger.debug(f"Trace data with request ID {trace_info.request_id} not found.")
                 return
             self._traces[trace_info.request_id].info = trace_info
 
@@ -94,7 +94,7 @@ class InMemoryTraceManager:
             span: The span to be stored.
         """
         if not isinstance(span, LiveSpan):
-            _logger.warning(f"Invalid span object {type(span)} is passed. Skipping.")
+            _logger.debug(f"Invalid span object {type(span)} is passed. Skipping.")
             return
 
         with self._lock:

@@ -13,8 +13,7 @@ from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_K
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 
-from tests.tracing.conftest import clear_singleton  # noqa: F401
-from tests.tracing.helper import create_test_trace_info, get_first_trace
+from tests.tracing.helper import create_test_trace_info
 
 
 def _test_model(datetime=datetime.now()):
@@ -41,7 +40,7 @@ def _test_model(datetime=datetime.now()):
     return TestModel()
 
 
-def test_json_deserialization(clear_singleton, monkeypatch):
+def test_json_deserialization(monkeypatch):
     monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
     datetime_now = datetime.now()
@@ -49,7 +48,7 @@ def test_json_deserialization(clear_singleton, monkeypatch):
     model = _test_model(datetime_now)
     model.predict(2, 5)
 
-    trace = get_first_trace()
+    trace = mlflow.get_last_active_trace()
     trace_json = trace.to_json()
 
     trace_json_as_dict = json.loads(trace_json)
@@ -190,11 +189,11 @@ def test_trace_serialize_langchain_base_message():
     assert expected_dict_subset.items() <= loaded.items()
 
 
-def test_trace_to_from_dict_and_json(clear_singleton):
+def test_trace_to_from_dict_and_json():
     model = _test_model()
     model.predict(2, 5)
 
-    trace = get_first_trace()
+    trace = mlflow.get_last_active_trace()
     trace_dict = trace.to_dict()
     trace_from_dict = Trace.from_dict(trace_dict)
     trace_json = trace.to_json()

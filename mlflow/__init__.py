@@ -108,6 +108,7 @@ from mlflow.models import evaluate
 from mlflow.projects import run
 from mlflow.tracing.fluent import (
     get_current_active_span,
+    get_last_active_trace,
     get_trace,
     search_traces,
     start_span,
@@ -182,6 +183,7 @@ __all__ = [
     "get_artifact_uri",
     "get_experiment",
     "get_experiment_by_name",
+    "get_last_active_trace",
     "get_parent_run",
     "get_registry_uri",
     "get_run",

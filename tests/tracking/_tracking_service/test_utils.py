@@ -194,8 +194,7 @@ def test_get_store_databricks(monkeypatch):
         monkeypatch.setenv(k, v)
     store = _get_store()
     assert isinstance(store, RestStore)
-    assert store.get_host_creds().host == "https://my-tracking-server"
-    assert store.get_host_creds().token == "abcdef"
+    assert store.get_host_creds().auth_by_databricks_sdk
 
 
 def test_get_store_databricks_profile(monkeypatch):
@@ -376,7 +375,6 @@ def test_set_tracking_uri_with_path(tmp_path, monkeypatch, absolute):
 def test_set_tracking_uri_update_trace_provider():
     default_uri = mlflow.get_tracking_uri()
     try:
-        mlflow.tracing.enable()
         assert get_tracer_tracking_uri() != "file:///tmp"
 
         set_tracking_uri("file:///tmp")

@@ -5,11 +5,11 @@ from typing import List, Optional
 import opentelemetry.trace as trace_api
 from opentelemetry.sdk.trace import ReadableSpan
 
-import mlflow
 from mlflow.entities import Trace, TraceData, TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
+from mlflow.tracing.provider import _get_tracer
 
 
 def create_mock_otel_span(
@@ -118,17 +118,11 @@ def get_traces() -> List[Trace]:
     return list(TRACE_BUFFER.values())
 
 
-def get_first_trace() -> Optional[Trace]:
-    if traces := get_traces():
-        return traces[0]
-
-
 def get_tracer_tracking_uri() -> Optional[str]:
     """Get current tracking URI configured as the trace export destination."""
     from opentelemetry import trace
 
-    mlflow.tracing.enable()
-    tracer = trace.get_tracer(__name__)
+    tracer = _get_tracer(__name__)
     if isinstance(tracer, trace.ProxyTracer):
         tracer = tracer._tracer
     span_processor = tracer.span_processor._span_processors[0]
