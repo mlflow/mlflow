@@ -96,21 +96,19 @@ def test_field_parser(field, expected):
     assert _FieldParser(field).parse() == expected
 
 
-def test_field_parser_invalid():
-    with pytest.raises(MlflowException, match="Expected closing backtick"):
-        _FieldParser("`span.inputs.field").parse()
-
-    with pytest.raises(MlflowException, match="Expected dot after span name"):
-        _FieldParser("`span`a.inputs.field").parse()
-
-    with pytest.raises(MlflowException, match="Invalid field type"):
-        _FieldParser("span.foo.field").parse()
-
-    with pytest.raises(MlflowException, match="Expected closing backtick"):
-        _FieldParser("span.inputs.`field").parse()
-
-    with pytest.raises(MlflowException, match="Unexpected characters after closing backtick"):
-        _FieldParser("span.inputs.`field`name").parse()
+@pytest.mark.parametrize(
+    ("input_string", "error_message"),
+    [
+        ("`span.inputs.field", "Expected closing backtick"),
+        ("`span`a.inputs.field", "Expected dot after span name"),
+        ("span.foo.field", "Invalid field type"),
+        ("span.inputs.`field", "Expected closing backtick"),
+        ("span.inputs.`field`name", "Unexpected characters after closing backtick"),
+    ],
+)
+def test_field_parser_invalid(input_string, error_message):
+    with pytest.raises(MlflowException, match=error_message):
+        _FieldParser(input_string).parse()
 
 
 def test_parse_fields():
