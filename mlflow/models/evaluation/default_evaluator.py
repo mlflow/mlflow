@@ -188,6 +188,7 @@ def restrict_langchain_autologging_to_traces_only(pred_fn):
         return None
 
     # In non-langchain environments, nothing would be autologged.
+    @functools.wraps(pred_fn)
     def new_pred_fn(*args, **kwargs):
         with mlflow.utils.autologging_utils.restrict_langchain_autologging_to_traces_only():
             return pred_fn(*args, **kwargs)
