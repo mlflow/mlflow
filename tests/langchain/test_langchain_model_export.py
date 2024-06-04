@@ -2383,6 +2383,16 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
             model_config=model_config,
         )
 
+    client = mlflow.tracking.MlflowClient()
+    run_id = run.info.run_id
+    assert client.get_run(run_id).data.params == {
+        "llm_prompt_template": "Answer the following question based on "
+        "the context: {context}\nQuestion: {question}",
+        "embedding_size": "5",
+        "not_used_array": "[1, 2, 3]",
+        "response": "Databricks",
+    }
+
     assert mlflow.models.model_config.__mlflow_model_config__ is None
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     assert mlflow.models.model_config.__mlflow_model_config__ is None
@@ -3222,6 +3232,11 @@ def test_load_chain_with_model_config_overrides_saved_config(
             "embedding_size": 2,
             "llm_prompt_template": "Answer the following question based on the "
             "context: {context}\nQuestion: {question}",
+            "not_used_array": [
+                1,
+                2,
+                3,
+            ],
             "response": "Databricks",
         }
 

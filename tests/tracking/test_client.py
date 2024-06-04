@@ -38,7 +38,7 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey
 from mlflow.tracing.fluent import TRACE_BUFFER
-from mlflow.tracing.provider import _get_tracer
+from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking import set_registry_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -60,7 +60,6 @@ from tests.tracing.conftest import clear_singleton  # noqa: F401
 from tests.tracing.conftest import mock_store as mock_store_for_tracing  # noqa: F401
 from tests.tracing.helper import (
     create_test_trace_info,
-    get_first_trace,
     get_traces,
 )
 
@@ -429,7 +428,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run):
     else:
         model.predict(1, 2)
 
-    request_id = get_first_trace().info.request_id
+    request_id = mlflow.get_last_active_trace().info.request_id
 
     # Validate that trace is logged to the backend
     trace = client.get_trace(request_id)
@@ -652,6 +651,43 @@ def test_log_trace_with_databricks_tracking_uri(
     mock_upload_trace_data.assert_called_once()
 
 
+def test_start_and_end_trace_does_not_log_trace_when_disabled(tracking_uri, monkeypatch):
+    client = MlflowClient(tracking_uri)
+    experiment_id = client.create_experiment("test_experiment")
+
+    @trace_disabled
+    def func():
+        span = client.start_trace(
+            name="predict",
+            experiment_id=experiment_id,
+            inputs={"x": 1, "y": 2},
+            attributes={"attr": "value"},
+            tags={"tag": "tag_value"},
+        )
+        child_span = client.start_span(
+            "child_span_1",
+            request_id=span.request_id,
+            parent_id=span.span_id,
+        )
+        client.end_span(
+            request_id=span.request_id,
+            span_id=child_span.span_id,
+            outputs={"output": 5},
+        )
+        client.end_trace(span.request_id, outputs=5, status="OK")
+        return "done"
+
+    mock_logger = mock.MagicMock()
+    monkeypatch.setattr(mlflow.tracking.client, "_logger", mock_logger)
+
+    res = func()
+
+    assert res == "done"
+    assert client.search_traces(experiment_ids=[experiment_id]) == []
+    # No warning should be issued
+    mock_logger.warning.assert_not_called()
+
+
 def test_start_trace_raise_error_when_active_trace_exists(clear_singleton):
     with mlflow.start_span("fluent_span"):
         with pytest.raises(MlflowException, match=r"Another trace is already set in the global"):
@@ -757,7 +793,7 @@ def test_set_and_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
     client.set_trace_tag(request_id, "foo", "bar")
     client.end_trace(request_id)
 
-    trace = get_first_trace()
+    trace = mlflow.get_last_active_trace()
     assert trace.info.tags["foo"] == "bar"
 
 
@@ -776,7 +812,7 @@ def test_delete_trace_tag_on_active_trace(clear_singleton, monkeypatch):
     client.delete_trace_tag(request_id, "foo")
     client.end_trace(request_id)
 
-    trace = get_first_trace()
+    trace = mlflow.get_last_active_trace()
     assert "baz" in trace.info.tags
     assert "foo" not in trace.info.tags
 

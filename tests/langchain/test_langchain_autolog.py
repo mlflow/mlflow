@@ -39,7 +39,7 @@ from mlflow.utils.openai_utils import (
 
 # TODO: This test helper is used outside the tracing module, we should move it to a common utils
 from tests.tracing.conftest import clear_singleton as clear_trace_singleton  # noqa: F401
-from tests.tracing.helper import get_first_trace, get_traces
+from tests.tracing.helper import get_traces
 
 MODEL_DIR = "model"
 TEST_CONTENT = "test"
@@ -298,6 +298,23 @@ def test_llmchain_autolog(clear_trace_singleton):
         assert attrs[SpanAttributeKey.OUTPUTS]["generations"][0][0]["text"] == "test"
         assert attrs["invocation_params"]["model_name"] == "gpt-3.5-turbo-instruct"
         assert attrs["invocation_params"]["temperature"] == 0.9
+
+
+def test_llmchain_autolog_should_not_generate_trace_while_saving_models(
+    clear_trace_singleton, tmp_path
+):
+    mlflow.langchain.autolog()
+    question = "MLflow"
+
+    with _mock_request(return_value=_mock_chat_completion_response()):
+        model = create_openai_llmchain()
+        # Either save_model or log_model should not generate traces
+        mlflow.langchain.save_model(model, path=tmp_path / "model", input_example=question)
+        with mlflow.start_run():
+            mlflow.langchain.log_model(model, "model", input_example=question)
+
+    traces = get_traces()
+    assert len(traces) == 0
 
 
 def test_llmchain_autolog_no_optional_artifacts_by_default(clear_trace_singleton):
@@ -958,5 +975,5 @@ def test_set_retriever_schema_work_for_langchain_model(clear_trace_singleton):
         pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
         pyfunc_model.predict("MLflow")
 
-    trace = get_first_trace()
+    trace = mlflow.get_last_active_trace()
     assert DependenciesSchemasType.RETRIEVERS.value in trace.info.tags

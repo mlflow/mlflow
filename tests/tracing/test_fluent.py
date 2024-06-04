@@ -30,7 +30,7 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.provider import _get_tracer
 
-from tests.tracing.helper import create_test_trace_info, create_trace, get_first_trace, get_traces
+from tests.tracing.helper import create_test_trace_info, create_trace, get_traces
 
 
 class DefaultTestModel:
@@ -69,7 +69,7 @@ def test_trace(clear_singleton, with_active_run):
     else:
         model.predict(2, 5)
 
-    trace = get_first_trace()
+    trace = mlflow.get_last_active_trace()
     trace_info = trace.info
     assert trace_info.request_id is not None
     assert trace_info.experiment_id == "0"  # default experiment
@@ -340,7 +340,7 @@ def test_trace_handle_exception_during_prediction(clear_singleton):
         model.predict(2, 5)
 
     # Trace should be logged even if the function fails, with status code ERROR
-    trace = get_first_trace()
+    trace = mlflow.get_last_active_trace()
     assert trace.info.request_id is not None
     assert trace.info.status == TraceStatus.ERROR
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
@@ -374,7 +374,7 @@ def test_trace_ignore_exception_from_tracing_logic(clear_singleton, monkeypatch)
         output = model.predict(2, 5)
 
     assert output == 7
-    trace = get_first_trace()
+    trace = mlflow.get_last_active_trace()
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == "{}"
     assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "7"
     TRACE_BUFFER.clear()
@@ -424,7 +424,7 @@ def test_start_span_context_manager(clear_singleton):
     model = TestModel()
     model.predict(1, 2)
 
-    trace = get_first_trace()
+    trace = mlflow.get_last_active_trace()
     assert trace.info.request_id is not None
     assert trace.info.experiment_id == "0"  # default experiment
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
@@ -506,7 +506,7 @@ def test_start_span_context_manager_with_imperative_apis(clear_singleton):
     model = TestModel()
     model.predict(1, 2)
 
-    trace = get_first_trace()
+    trace = mlflow.get_last_active_trace()
     assert trace.info.request_id is not None
     assert trace.info.experiment_id == "0"  # default experiment
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
@@ -906,3 +906,24 @@ def test_search_traces_with_span_name(monkeypatch):
         mlflow.search_traces(
             extract_fields=["span.llm.inputs", "span.invalidname.outputs", "span.llm.inputs.x"]
         )
+
+
+def test_get_last_active_trace(clear_singleton):
+    assert mlflow.get_last_active_trace() is None
+
+    @mlflow.trace()
+    def predict(x, y):
+        return x + y
+
+    predict(1, 2)
+    predict(2, 5)
+    predict(3, 6)
+
+    trace = mlflow.get_last_active_trace()
+    assert trace.info.request_id is not None
+    assert trace.data.request == '{"x": 3, "y": 6}'
+
+    # Mutation of the copy should not affect the original trace logged in the backend
+    trace.info.status = TraceStatus.ERROR
+    original_trace = mlflow.MlflowClient().get_trace(trace.info.request_id)
+    assert original_trace.info.status == TraceStatus.OK

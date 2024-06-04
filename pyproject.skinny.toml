@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow-skinny"
-version = "2.13.1.dev0"
+version = "2.13.2.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.rst"
 keywords = ["mlflow", "ai", "databricks"]
@@ -25,6 +25,7 @@ dependencies = [
   "cachetools<6,>=5.0.0",
   "click<9,>=7.0",
   "cloudpickle<4",
+  "databricks-sdk<1,>=0.20.0",
   "entrypoints<1",
   "gitpython<4,>=3.1.9",
   "importlib_metadata<8,>=3.7.0,!=4.7.0",

@@ -10,7 +10,7 @@ export interface ExperimentViewTracesUIState {
 }
 
 const defaultExperimentViewTracesUIState: ExperimentViewTracesUIState = {
-  hiddenColumns: [ExperimentViewTracesTableColumns.traceName, ExperimentViewTracesTableColumns.notebook],
+  hiddenColumns: [ExperimentViewTracesTableColumns.traceName, ExperimentViewTracesTableColumns.source],
 };
 
 const loadExperimentViewTracesUIState = (localStore: LocalStorageStore): ExperimentViewTracesUIState => {

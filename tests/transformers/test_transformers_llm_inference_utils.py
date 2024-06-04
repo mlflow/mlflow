@@ -85,6 +85,8 @@ def test_preprocess_llm_inference_params():
             "prompt": ["Hello world!"],
             "temperature": [0.7],
             "max_tokens": [100],
+            # do not pass this to params as it is None
+            "stop": None,
         }
     )
 

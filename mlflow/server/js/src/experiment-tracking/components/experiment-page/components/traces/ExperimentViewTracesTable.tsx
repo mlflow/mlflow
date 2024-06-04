@@ -43,7 +43,7 @@ import {
   ExperimentViewTracesTableRequestPreviewCell,
   ExperimentViewTracesTableResponsePreviewCell,
 } from './ExperimentViewTracesTablePreviewCell';
-import { ExperimentViewTracesTableNotebookCell } from './ExperimentViewTracesTableNotebookCell';
+import { ExperimentViewTracesTableSourceCell } from './ExperimentViewTracesTableSourceCell';
 
 type TracesColumnDef = ColumnDef<ModelTraceInfoWithRunName> & {
   meta?: {
@@ -194,11 +194,11 @@ export const ExperimentViewTracesTable = React.memo(
           },
         },
         {
-          header: intl.formatMessage(ExperimentViewTracesTableColumnLabels[ExperimentViewTracesTableColumns.notebook]),
+          header: intl.formatMessage(ExperimentViewTracesTableColumnLabels[ExperimentViewTracesTableColumns.source]),
           enableSorting: true,
           enableResizing: true,
-          id: ExperimentViewTracesTableColumns.notebook,
-          cell: ExperimentViewTracesTableNotebookCell,
+          id: ExperimentViewTracesTableColumns.source,
+          cell: ExperimentViewTracesTableSourceCell,
           meta: { styles: { minWidth: 100 } },
         },
       ];

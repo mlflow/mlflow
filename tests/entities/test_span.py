@@ -111,8 +111,10 @@ def test_create_non_live_span():
 
 
 def test_create_noop_span():
-    with trace_disabled():
-        request_id = "tr-12345"
+    request_id = "tr-12345"
+
+    @trace_disabled
+    def f():
         tracer = _get_tracer("test")
         with tracer.start_as_current_span("span") as otel_span:
             span = create_mlflow_span(otel_span, request_id=request_id)

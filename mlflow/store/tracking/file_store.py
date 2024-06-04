@@ -1562,7 +1562,7 @@ class FileStore(AbstractStore):
             )
         os.remove(tag_path)
 
-    def delete_traces(
+    def _delete_traces(
         self,
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
@@ -1587,28 +1587,6 @@ class FileStore(AbstractStore):
         Returns:
             The number of traces deleted.
         """
-        # request_ids can't be an empty list of string
-        if max_timestamp_millis is None and not request_ids:
-            raise MlflowException(
-                "Either `max_timestamp_millis` or `request_ids` must be specified.",
-                INVALID_PARAMETER_VALUE,
-            )
-        if max_timestamp_millis and request_ids:
-            raise MlflowException(
-                "Only one of `max_timestamp_millis` and `request_ids` can be specified.",
-                INVALID_PARAMETER_VALUE,
-            )
-        if request_ids and max_traces is not None:
-            raise MlflowException(
-                "`max_traces` can't be specified if `request_ids` is specified.",
-                INVALID_PARAMETER_VALUE,
-            )
-        if max_traces is not None and max_traces <= 0:
-            raise MlflowException(
-                f"`max_traces` must be a positive integer, received {max_traces}.",
-                INVALID_PARAMETER_VALUE,
-            )
-
         experiment_path = self._get_experiment_path(experiment_id, assert_exists=True)
         traces_path = os.path.join(experiment_path, FileStore.TRACES_FOLDER_NAME)
         deleted_traces = 0
@@ -1628,6 +1606,7 @@ class FileStore(AbstractStore):
                         exc_info=_logger.isEnabledFor(logging.DEBUG),
                     )
             trace_info_and_paths.sort(key=lambda x: x[0].timestamp_ms)
+            # if max_traces is not None then it must > 0
             deleted_traces = min(len(trace_info_and_paths), max_traces or len(trace_info_and_paths))
             trace_info_and_paths = trace_info_and_paths[:deleted_traces]
             for _, trace_path in trace_info_and_paths:
@@ -1656,7 +1635,7 @@ class FileStore(AbstractStore):
         Args:
             experiment_ids: List of experiment ids to scope the search.
             filter_string: A search filter string. Supported filter keys are `name`,
-                           `status` and `timestamp_ms`.
+                           `status`, `timestamp_ms` and `tags`.
             max_results: Maximum number of traces desired.
             order_by: List of order_by clauses. Supported sort key is `timestamp_ms`. By default
                       we sort by timestamp_ms DESC.

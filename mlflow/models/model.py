@@ -697,8 +697,7 @@ class Model:
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
             # if the model_config kwarg is passed in, then log the model config as an params
-            if "model_config" in kwargs:
-                model_config = kwargs["model_config"]
+            if model_config := kwargs.get("model_config"):
                 if isinstance(model_config, str):
                     try:
                         file_extension = os.path.splitext(model_config)[1].lower()
@@ -715,8 +714,19 @@ class Model:
                             )
                     except Exception as e:
                         _logger.warning("Failed to load model config from %s: %s", model_config, e)
+
                 try:
-                    mlflow.tracking.fluent.log_params(model_config or {}, run_id=run_id)
+                    from mlflow.models.utils import _flatten_nested_params
+
+                    # We are using the `/` separator to flatten the nested params
+                    # since we are using the same separator to log nested metrics.
+                    params_to_log = _flatten_nested_params(model_config, sep="/")
+                except Exception as e:
+                    _logger.warning("Failed to flatten nested params: %s", str(e))
+                    params_to_log = model_config
+
+                try:
+                    mlflow.tracking.fluent.log_params(params_to_log or {}, run_id=run_id)
                 except Exception as e:
                     _logger.warning("Failed to log model config as params: %s", str(e))
 

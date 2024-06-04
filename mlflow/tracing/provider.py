@@ -1,4 +1,4 @@
-import contextlib
+import functools
 import json
 import logging
 from typing import Optional, Tuple
@@ -116,7 +116,36 @@ def _force_set_otel_tracer_provider(tracer_provider):
 
 def disable():
     """
-    Disable tracing by setting the global tracer provider to NoOpTracerProvider.
+    Disable tracing.
+
+    .. note::
+
+        This function sets up `OpenTelemetry` to use
+        `NoOpTracerProvider <https://github.com/open-telemetry/opentelemetry-python/blob/4febd337b019ea013ccaab74893bd9883eb59000/opentelemetry-api/src/opentelemetry/trace/__init__.py#L222>`_
+        and effectively disables all tracing operations.
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        @mlflow.trace
+        def f():
+            return 0
+
+
+        # Tracing is enabled by default
+        f()
+        assert len(mlflow.search_traces()) == 1
+
+        # Disable tracing
+        mlflow.tracing.disable()
+        f()
+        assert len(mlflow.search_traces()) == 1
+
     """
     if not _is_enabled():
         return
@@ -127,7 +156,35 @@ def disable():
 
 def enable():
     """
-    Enable tracing by setting the global tracer provider to the actual tracer provider.
+    Enable tracing.
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        @mlflow.trace
+        def f():
+            return 0
+
+
+        # Tracing is enabled by default
+        f()
+        assert len(mlflow.search_traces()) == 1
+
+        # Disable tracing
+        mlflow.tracing.disable()
+        f()
+        assert len(mlflow.search_traces()) == 1
+
+        # Re-enable tracing
+        mlflow.tracing.enable()
+        f()
+        assert len(mlflow.search_traces()) == 2
+
     """
     if _is_enabled():
         _logger.info("Tracing is already enabled")
@@ -136,20 +193,39 @@ def enable():
     _setup_tracer_provider()
 
 
-@contextlib.contextmanager
-def trace_disabled():
+def trace_disabled(f):
     """
-    Temporarily disable tracing for the duration of the context manager.
+    A decorator that temporarily disables tracing for the duration of the decorated function.
+
+    .. code-block:: python
+
+        @trace_disabled
+        def f():
+            with mlflow.start_span("my_span") as span:
+                span.set_attribute("my_key", "my_value")
+
+            return
+
+
+        # This function will not generate any trace
+        f()
 
     :meta private:
     """
-    was_trace_enabled = _is_enabled()
-    try:
-        disable()
-        yield
-    finally:
+
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        was_trace_enabled = _is_enabled()
         if was_trace_enabled:
-            enable()
+            disable()
+            try:
+                return f(*args, **kwargs)
+            finally:
+                enable()
+        else:
+            return f(*args, **kwargs)
+
+    return wrapper
 
 
 def reset_tracer_setup():
