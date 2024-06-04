@@ -379,9 +379,9 @@ type Param struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Key identifying this param.
-	Key *string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty" query:"key"`
+	Key *string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty" query:"key" validate:"required,max=250,validMetricParamOrTagName,pathIsUnique"`
 	// Value associated with this param.
-	Value *string `protobuf:"bytes,2,opt,name=value" json:"value,omitempty" query:"value"`
+	Value *string `protobuf:"bytes,2,opt,name=value" json:"value,omitempty" query:"value" validate:"omitempty,max=6000"`
 }
 
 func (x *Param) Reset() {
@@ -620,9 +620,9 @@ type RunTag struct {
 	unknownFields protoimpl.UnknownFields
 
 	// The tag key.
-	Key *string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty" query:"key"`
+	Key *string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty" query:"key" validate:"required,max=250,validMetricParamOrTagName,pathIsUnique"`
 	// The tag value.
-	Value *string `protobuf:"bytes,2,opt,name=value" json:"value,omitempty" query:"value"`
+	Value *string `protobuf:"bytes,2,opt,name=value" json:"value,omitempty" query:"value" validate:"omitempty,max=5000"`
 }
 
 func (x *RunTag) Reset() {

@@ -3,7 +3,9 @@ package server
 import (
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -11,6 +13,10 @@ import (
 )
 
 const QuoteLenght = 2
+
+// regex for valid param and metric names: may only contain slashes, alphanumerics,
+// underscores, periods, dashes, and spaces.
+var validParamAndMetricNames = regexp.MustCompile(`^[/\w.\- ]*$`)
 
 func NewValidator() (*validator.Validate, error) {
 	validate := validator.New()
@@ -59,6 +65,29 @@ func NewValidator() (*validator.Validate, error) {
 		},
 	); err != nil {
 		return nil, fmt.Errorf("validation registration for 'uriWithoutFragmentsOrParamsOrDotDotInQuery' failed: %w", err)
+	}
+
+	if err := validate.RegisterValidation(
+		"validMetricParamOrTagName",
+		func(fl validator.FieldLevel) bool {
+			valueStr := fl.Field().String()
+
+			return validParamAndMetricNames.MatchString(valueStr)
+		},
+	); err != nil {
+		return nil, fmt.Errorf("validation registration for 'validMetricParamOrTagName' failed: %w", err)
+	}
+
+	if err := validate.RegisterValidation(
+		"pathIsUnique",
+		func(fl validator.FieldLevel) bool {
+			valueStr := fl.Field().String()
+			norm := filepath.Clean(valueStr)
+
+			return norm != valueStr || norm == "." || strings.HasPrefix(norm, "..") || strings.HasPrefix(norm, "/")
+		},
+	); err != nil {
+		return nil, fmt.Errorf("validation registration for 'validMetricParamOrTagValue' failed: %w", err)
 	}
 
 	return validate, nil
