@@ -88,9 +88,12 @@ def http_request(
         from databricks.sdk.config import Config
         from databricks.sdk.errors import DatabricksError
 
-        config = Config(retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get())
-        ws_client = WorkspaceClient(profile=host_creds.databricks_auth_profile, config=config)
-
+        config = Config(
+            profile=host_creds.databricks_auth_profile,
+            retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get()
+        )
+        # Note: If we use `config` param, all SDK configurations must be set in `config` object.
+        ws_client = WorkspaceClient(config=config)
         try:
             # Databricks SDK `APIClient.do` API is for making request using
             # HTTP
@@ -398,10 +401,10 @@ class MlflowHostCreds:
             Sets the verify param of the ``requests.request``
             function (see https://requests.readthedocs.io/en/master/api/).
             If this is set ``ignore_tls_verification`` must be false.
-        auth_by_databricks_sdk: A boolean value represent whether using Databricks SDK to
-            do authentication.
-        databricks_auth_profile: The name of the profile used by Databricks SDK to
-            do authentication.
+        auth_by_databricks_sdk: A boolean value represent whether using Databricks SDK for
+            authentication.
+        databricks_auth_profile: The name of the profile used by Databricks SDK for
+            authentication.
         client_id: The client ID used by Databricks OAuth
         client_secret: The client secret used by Databricks OAuth
     """
