@@ -14,7 +14,7 @@ import warnings
 from collections import namedtuple
 from contextlib import contextmanager
 from functools import partial
-from typing import Callable, List, NamedTuple, Optional, Tuple, Union
+from typing import Any, Callable, List, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -140,8 +140,8 @@ def _extract_raw_model(model):
 
 
 def _extract_predict_fn(
-    model: Optional[object],
-    raw_model: Optional[object],
+    model: Any,
+    raw_model: Any,
 ) -> Tuple[Optional[Callable], Optional[Callable]]:
     """
     Extracts the predict function from the given model or raw_model.
