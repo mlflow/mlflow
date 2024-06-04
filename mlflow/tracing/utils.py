@@ -285,6 +285,9 @@ class _PeekableIterator:
         return self._next
 
 
+_BACKTICK = "`"
+
+
 class _FieldParser:
     def __init__(self, field: str) -> None:
         self.field = field
@@ -299,21 +302,21 @@ class _FieldParser:
     def has_next(self) -> bool:
         return self.peek() is not None
 
-    def consume_until_char_or_end(self, char: Optional[str] = None) -> str:
+    def consume_until_char_or_end(self, stop_char: Optional[str] = None) -> str:
         """
         Consume characters until the specified character is encountered or the end of the
         string. If char is None, consume until the end of the string.
         """
         consumed = ""
-        while (c := self.peek()) and c != char:
+        while (c := self.peek()) and c != stop_char:
             consumed += self.next()
         return consumed
 
-    def parse_span_name(self):
-        if self.peek() == "`":
+    def _parse_span_name(self) -> str:
+        if self.peek() == _BACKTICK:
             self.next()
-            span_name = self.consume_until_char_or_end("`")
-            if self.peek() != "`":
+            span_name = self.consume_until_char_or_end(_BACKTICK)
+            if self.peek() != _BACKTICK:
                 raise MlflowException.invalid_parameter_value(
                     f"Expected closing backtick: {self.field!r}"
                 )
@@ -328,7 +331,7 @@ class _FieldParser:
         self.next()
         return span_name
 
-    def parse_field_type(self):
+    def _parse_field_type(self) -> str:
         field_type = self.consume_until_char_or_end(".")
         if field_type not in ("inputs", "outputs"):
             raise MlflowException.invalid_parameter_value(
@@ -339,23 +342,31 @@ class _FieldParser:
             self.next()  # Consume the dot
         return field_type
 
-    def parse_field_name(self):
-        if self.peek() == "`":
+    def _parse_field_name(self) -> str:
+        if self.peek() == _BACKTICK:
             self.next()
-            field_name = self.consume_until_char_or_end("`")
-            if self.peek() != "`":
+            field_name = self.consume_until_char_or_end(_BACKTICK)
+            if self.peek() != _BACKTICK:
                 raise MlflowException.invalid_parameter_value(
                     f"Expected closing backtick: {self.field}"
                 )
             self.next()
+
+            # There should be no more characters after the closing backtick
+            if self.has_next():
+                raise MlflowException.invalid_parameter_value(
+                    f"Unexpected characters after closing backtick: {self.field}"
+                )
+
         else:
             field_name = self.consume_until_char_or_end()
+
         return field_name
 
     def parse(self):
-        span_name = self.parse_span_name()
-        field_type = self.parse_field_type()
-        field_name = self.parse_field_name() if self.has_next() else None
+        span_name = self._parse_span_name()
+        field_type = self._parse_field_type()
+        field_name = self._parse_field_name() if self.has_next() else None
         return _ParsedField(span_name=span_name, field_type=field_type, field_name=field_name)
 
 
@@ -368,11 +379,6 @@ class _ParsedField(NamedTuple):
     span_name: str
     field_type: Literal["inputs", "outputs"]
     field_name: Optional[str]
-
-    @classmethod
-    def from_string(cls, s: str) -> "_ParsedField":
-        parser = _FieldParser(s)
-        return parser.parse()
 
     def __str__(self) -> str:
         return (
@@ -387,7 +393,7 @@ def _parse_fields(fields: List[str]) -> List["_ParsedField"]:
     Parses the specified field strings of the form 'span_name.[inputs|outputs]' or
     'span_name.[inputs|outputs].field_name' into _ParsedField objects.
     """
-    return [_ParsedField.from_string(field) for field in fields]
+    return [_FieldParser(field).parse() for field in fields]
 
 
 def _extract_from_traces_pandas_df(

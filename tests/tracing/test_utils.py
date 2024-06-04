@@ -1,5 +1,3 @@
-import re
-
 import pytest
 
 from mlflow.entities import LiveSpan
@@ -109,7 +107,10 @@ def test_field_parser_invalid():
         _FieldParser("span.foo.field").parse()
 
     with pytest.raises(MlflowException, match="Expected closing backtick"):
-        _FieldParser("span.foo.`field").parse()
+        _FieldParser("span.inputs.`field").parse()
+
+    with pytest.raises(MlflowException, match="Unexpected characters after closing backtick"):
+        _FieldParser("span.inputs.`field`name").parse()
 
 
 def test_parse_fields():
@@ -129,10 +130,3 @@ def test_parse_fields():
     assert parsed_fields[2].span_name == "span3"
     assert parsed_fields[2].field_type == "outputs"
     assert parsed_fields[2].field_name is None
-
-    # Test invalid fields
-    with pytest.raises(
-        MlflowException,
-        match=re.escape("Field must be of the form 'span_name.[inputs|outputs]'"),
-    ):
-        _parse_fields(["span1"])
