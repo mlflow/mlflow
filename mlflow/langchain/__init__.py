@@ -28,7 +28,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENABLE_TRACE_IN_SERVING
+from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
 from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
@@ -643,7 +643,12 @@ class _LangChainModelWrapper:
         # Inference Table in Databricks model serving).
         if (
             is_in_databricks_model_serving_environment()
-            and MLFLOW_ENABLE_TRACE_IN_SERVING.get()
+            # TODO: This env var was once used for controlling whether or not to inject the
+            #   tracer in Databricks model serving. However, now we have the new env var
+            #   `ENABLE_MLFLOW_TRACING` to control that. We don't remove this condition
+            #   right now in the interest of caution, but we should remove this condition
+            #   after making sure that the functionality is stable.
+            and os.environ.get("MLFLOW_ENABLE_TRACE_IN_SERVING", "false").lower() == "true"
             # if this is False, tracing is disabled and we shouldn't inject the tracer
             and is_mlflow_tracing_enabled_in_model_serving()
         ):
