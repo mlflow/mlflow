@@ -557,7 +557,13 @@ model's environment and install dependencies using the resulting environment fil
 
 @pytest.mark.parametrize(
     "ignore_package_name",
-    ["databricks-feature-lookup", "databricks_rag_studio", "databricks-rag-studio"],
+    [
+        "databricks-feature-lookup",
+        "databricks_rag_studio",
+        "databricks-rag-studio",
+        "databricks.rag.studio",
+        "Databricks-rag-studio",
+    ],
 )
 def test_suppress_warn_dependency_requirement_mismatches_ignore_some_packages(ignore_package_name):
     with mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
