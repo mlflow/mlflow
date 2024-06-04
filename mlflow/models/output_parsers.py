@@ -15,8 +15,8 @@ try:
     @experimental
     class ChatCompletionsOutputParser(BaseTransformOutputParser[Dict[str, Any]]):
         """
-        OutputParser that wraps the string output into a dictionary representation of an MLflow
-        ChatCompletionResponse
+        OutputParser that wraps the string output into a dictionary representation of a
+        :py:class:`ChatCompletionResponse`
         """
 
         @classmethod
@@ -39,8 +39,8 @@ try:
     @experimental
     class StringResponseOutputParser(BaseTransformOutputParser[Dict[str, Any]]):
         """
-        OutputParser that wraps the string output into an dictionary representation of a MLflow
-        StringResponse
+        OutputParser that wraps the string output into an dictionary representation of a
+        :py:class:`StringResponse`
         """
 
         @classmethod
