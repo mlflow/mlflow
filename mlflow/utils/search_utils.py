@@ -1510,6 +1510,7 @@ class SearchTraceUtils(SearchUtils):
         "tags": _TAG_IDENTIFIER,
         "attributes": _ATTRIBUTE_IDENTIFIER,
         "trace": _ATTRIBUTE_IDENTIFIER,
+        "metadata": _REQUEST_METADATA_IDENTIFIER,
     }
     _IDENTIFIERS = {_TAG_IDENTIFIER, _REQUEST_METADATA_IDENTIFIER, _ATTRIBUTE_IDENTIFIER}
     _VALID_IDENTIFIERS = _IDENTIFIERS | set(_ALTERNATE_IDENTIFIERS.keys())
@@ -1684,11 +1685,21 @@ class SearchTraceUtils(SearchUtils):
                     f"attributes. Got value {token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
+        elif identifier_type == cls._REQUEST_METADATA_IDENTIFIER:
+            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+                return cls._strip_quotes(token.value, expect_quoted_value=True)
+            else:
+                raise MlflowException(
+                    "Expected a quoted string value for "
+                    f"{identifier_type} (e.g. 'my-value'). Got value "
+                    f"{token.value}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
         else:
             # Expected to be either "param" or "metric".
             raise MlflowException(
-                "Invalid identifier type. Expected one of "
-                f"{[cls._ATTRIBUTE_IDENTIFIER, cls._TAG_IDENTIFIER]}.",
+                f"Invalid identifier type: {identifier_type}. "
+                f"Expected one of {cls._VALID_IDENTIFIERS}.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

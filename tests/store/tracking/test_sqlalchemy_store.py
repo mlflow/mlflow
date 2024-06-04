@@ -4042,6 +4042,11 @@ def test_search_traces_order_by(store_with_traces, order_by, expected_ids):
         ("tags.fruit = 'apple' and tags.color != 'red'", ["tr-2"]),
         # Search by request metadata
         ("run_id = 'run0'", ["tr-0"]),
+        ("request_metadata.mlflow.sourceRun = 'run0'", ["tr-0"]),
+        ("request_metadata.mlflow.sourceRun = 'run1'", ["tr-1"]),
+        ("request_metadata.`mlflow.sourceRun` = 'run0'", ["tr-0"]),
+        ("metadata.mlflow.sourceRun = 'run0'", ["tr-0"]),
+        ("metadata.mlflow.sourceRun != 'run0'", ["tr-1"]),
     ],
 )
 def test_search_traces_with_filter(store_with_traces, filter_string, expected_ids):
