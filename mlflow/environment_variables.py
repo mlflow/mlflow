@@ -579,13 +579,6 @@ MLFLOW_TRACE_BUFFER_TTL_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_TTL_
 # How many traces to be buffered at the in-memory trace client.
 MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZE", int, 1000)
 
-#: Whether or not to enable trace logging in model serving.
-#: The default value is set to False to ensure that this flag is only enabled
-#: when our internal safety mechanism on Databricks explicitly sets it to True.
-MLFLOW_ENABLE_TRACE_IN_SERVING = _BooleanEnvironmentVariable(
-    "MLFLOW_ENABLE_TRACE_IN_SERVING", False
-)
-
 #: Private configuration option.
 #: Enables the ability to catch exceptions within MLflow evaluate for classification models
 #: where a class imbalance due to a missing target class would raise an error in the
