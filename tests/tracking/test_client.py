@@ -688,6 +688,22 @@ def test_start_and_end_trace_does_not_log_trace_when_disabled(tracking_uri, monk
     mock_logger.warning.assert_not_called()
 
 
+def test_start_trace_within_active_run():
+    exp_id = mlflow.create_experiment("test")
+
+    client = mlflow.MlflowClient()
+    with mlflow.start_run():
+        root_span = client.start_trace(
+            name="test",
+            experiment_id=exp_id,
+        )
+        client.end_trace(root_span.request_id)
+
+    traces = client.search_traces(experiment_ids=[exp_id])
+    assert len(traces) == 1
+    assert traces[0].info.experiment_id == exp_id
+
+
 def test_start_trace_raise_error_when_active_trace_exists(clear_singleton):
     with mlflow.start_span("fluent_span"):
         with pytest.raises(MlflowException, match=r"Another trace is already set in the global"):
