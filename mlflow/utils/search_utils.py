@@ -542,7 +542,8 @@ class SearchUtils:
         if key_type == cls._TAG_IDENTIFIER:
             if comparator not in cls.VALID_TAG_COMPARATORS:
                 raise MlflowException(
-                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}"
+                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
         return False
@@ -559,7 +560,8 @@ class SearchUtils:
             if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
                     f"Invalid comparator '{comparator}' not one of "
-                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}'"
+                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}'",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
         return False
@@ -570,7 +572,8 @@ class SearchUtils:
             if comparator not in cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
                     f"Invalid comparator '{comparator}' not one of "
-                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}"
+                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
         return False
@@ -581,7 +584,8 @@ class SearchUtils:
             if comparator not in cls.VALID_DATASET_COMPARATORS:
                 raise MlflowException(
                     f"Invalid comparator '{comparator}' "
-                    f"not one of '{cls.VALID_DATASET_COMPARATORS}"
+                    f"not one of '{cls.VALID_DATASET_COMPARATORS}",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
         return False
@@ -1500,10 +1504,9 @@ class SearchTraceUtils(SearchUtils):
         "execution_time",
     }
 
-    # Databricks backend does not support LIKE/ILIKE operators for trace search
-    # for performance issues, so we don't support them in the OSS either for
-    # consistency. We can revisit this decision if we find a way to support
-    # these operators in a performant way, or users request them.
+    # For now, don't support LIKE/ILIKE operators for trace search because it may
+    # cause performance issues with large attributes and tags. We can revisit this
+    # decision if we find a way to support them efficiently.
     VALID_TAG_COMPARATORS = {"!=", "="}
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN"}
 
@@ -1612,7 +1615,8 @@ class SearchTraceUtils(SearchUtils):
             # Request metadata accepts the same set of comparators as tags
             if comparator not in cls.VALID_TAG_COMPARATORS:
                 raise MlflowException(
-                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}'"
+                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}'",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
         return False

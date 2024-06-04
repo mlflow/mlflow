@@ -3043,8 +3043,8 @@ def test_search_traces_filter(generate_trace_infos):
         ("trace.tags.foo = 'bar'", r"Invalid attribute key 'tags\.foo'"),
         ("trace.status < 'OK'", r"Invalid comparator '<'"),
         ("name IN ('foo', 'bar')", r"Invalid comparator 'IN'"),
-        # Databricks backend does not support LIKE/ILIKE operators for trace search
-        # for performance issues, so we don't support them in the FileStore either.
+        # We don't support LIKE/ILIKE operators for trace search because it may
+        # cause performance issues with large attributes and tags.
         ("name LIKE 'trace_%'", r"Invalid comparator 'LIKE'"),
         ("run_id ILIKE 'run_%'", r"Invalid comparator 'ILIKE'"),
         ("tag.test_tag LIKE 'tag_%'", r"Invalid comparator 'LIKE'"),
