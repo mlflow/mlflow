@@ -14,6 +14,7 @@ import (
 )
 
 const QuoteLenght = 2
+const MaxEntitiesPerBatch = 1000
 
 // regex for valid param and metric names: may only contain slashes, alphanumerics,
 // underscores, periods, dashes, and spaces.
@@ -133,6 +134,20 @@ func NewValidator() (*validator.Validate, error) {
 	); err != nil {
 		return nil, fmt.Errorf("validation registration for 'validRunId' failed: %w", err)
 	}
+
+	// see _validate_batch_log_limits in validation.py
+	validate.RegisterStructValidation(func(structLevel validator.StructLevel) {
+		logBatch, isLogBatch := structLevel.Current().Interface().(*protos.LogBatch)
+
+		if isLogBatch {
+			total := len(logBatch.GetParams()) + len(logBatch.GetMetrics()) + len(logBatch.GetTags())
+			if total > MaxEntitiesPerBatch {
+				structLevel.ReportError(&logBatch, "metrics, params, and tags", "", "", "")
+			}
+		}
+	},
+		//nolint:exhaustruct
+		&protos.LogBatch{})
 
 	return validate, nil
 }
