@@ -363,17 +363,17 @@ def test_trace_ignore_exception_from_tracing_logic(clear_singleton, monkeypatch)
 
     # Exception during span creation: no-op span wrapper created and no trace is logged
     with mock.patch("mlflow.tracing.provider._get_tracer", side_effect=ValueError("Some error")):
-        output = model.predict(2, 5)
+        output = model.predict(10, 20)
 
-    assert output == 7
+    assert output == 30
     assert get_traces() == []
     TRACE_BUFFER.clear()
 
     # Exception during inspecting inputs: trace is logged without inputs field
     with mock.patch("mlflow.tracing.utils.inspect.signature", side_effect=ValueError("Some error")):
-        output = model.predict(2, 5)
+        output = model.predict(30, 40)
 
-    assert output == 7
+    assert output == 70
     trace = mlflow.get_last_active_trace()
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == "{}"
     assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "7"
