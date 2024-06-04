@@ -4,10 +4,11 @@ This example demonstrates how to create a trace to track the execution of a mult
 To trace a multi-threaded operation, you need to use the low-level MLflow client APIs to create a trace and spans, because the high-level fluent APIs are not thread-safe.
 """
 
-from concurrent.futures import ThreadPoolExecutor
-import mlflow
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor
+
+import mlflow
 
 exp = mlflow.set_experiment("mlflow-tracing-example")
 exp_id = exp.experiment_id
@@ -16,9 +17,7 @@ exp_id = exp.experiment_id
 client = mlflow.MlflowClient()
 
 
-def task(x: int,
-         request_id: str,
-         parent_span_id: str) -> int:
+def task(x: int, request_id: str, parent_span_id: str) -> int:
     # Create a span for the task and connect it to the given parent span created by the main thread.
     print(f"Task {x} started")
     child_span = client.start_span(
@@ -31,7 +30,7 @@ def task(x: int,
     )
 
     # Some long-running operation.
-    y = x ** 2
+    y = x**2
     time.sleep(1)
 
     # End the child span.

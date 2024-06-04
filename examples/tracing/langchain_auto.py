@@ -1,17 +1,17 @@
 """
 This example demonstrates how to enable automatic tracing for LangChain.
 
-Note: this example requires the `langchain` and `langchain-openai` package to be installed. 
+Note: this example requires the `langchain` and `langchain-openai` package to be installed.
 """
 
 import json
-import mlflow
 import os
 
 from langchain.prompts import PromptTemplate
 from langchain.schema.output_parser import StrOutputParser
 from langchain_openai import OpenAI
 
+import mlflow
 
 exp = mlflow.set_experiment("mlflow-tracing-langchain")
 exp_id = exp.experiment_id
@@ -29,11 +29,10 @@ mlflow.langchain.autolog()
 
 # Build a simple chain
 prompt = PromptTemplate(
-    input_variables=["question"],
-    template="Please answer this question: {question}"
+    input_variables=["question"], template="Please answer this question: {question}"
 )
 llm = OpenAI(temperature=0.9)
-chain =  prompt | llm | StrOutputParser()
+chain = prompt | llm | StrOutputParser()
 
 # Invoke the chain. Each invocation will generate a new trace.
 chain.invoke({"question": "What is the capital of Japan?"})
