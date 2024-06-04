@@ -549,7 +549,9 @@ def test_start_and_end_trace_before_all_span_end():
 
 
 @mock.patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
-def test_log_trace_with_databricks_tracking_uri(mock_store_for_tracing, monkeypatch):
+def test_log_trace_with_databricks_tracking_uri(
+    databricks_tracking_uri, mock_store_for_tracing, monkeypatch
+):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
     monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
