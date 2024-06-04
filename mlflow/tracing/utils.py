@@ -285,6 +285,24 @@ class _PeekableIterator:
         return self._next
 
 
+class _ParsedField(NamedTuple):
+    """
+    Represents a parsed field from a string of the form 'span_name.[inputs|outputs]' or
+    'span_name.[inputs|outputs].field_name'.
+    """
+
+    span_name: str
+    field_type: Literal["inputs", "outputs"]
+    field_name: Optional[str]
+
+    def __str__(self) -> str:
+        return (
+            f"{self.span_name}.{self.field_type}.{self.field_name}"
+            if self.field_name is not None
+            else f"{self.span_name}.{self.field_type}"
+        )
+
+
 _BACKTICK = "`"
 
 
@@ -335,7 +353,7 @@ class _FieldParser:
         field_type = self.consume_until_char_or_end(".")
         if field_type not in ("inputs", "outputs"):
             raise MlflowException.invalid_parameter_value(
-                f"Invalid field type: {field_type}. Expected 'inputs' or 'outputs'."
+                f"Invalid field type: {field_type!r}. Expected 'inputs' or 'outputs'."
             )
 
         if self.has_next():
@@ -348,14 +366,14 @@ class _FieldParser:
             field_name = self.consume_until_char_or_end(_BACKTICK)
             if self.peek() != _BACKTICK:
                 raise MlflowException.invalid_parameter_value(
-                    f"Expected closing backtick: {self.field}"
+                    f"Expected closing backtick: {self.field!r}"
                 )
             self.next()
 
             # There should be no more characters after the closing backtick
             if self.has_next():
                 raise MlflowException.invalid_parameter_value(
-                    f"Unexpected characters after closing backtick: {self.field}"
+                    f"Unexpected characters after closing backtick: {self.field!r}"
                 )
 
         else:
@@ -363,32 +381,14 @@ class _FieldParser:
 
         return field_name
 
-    def parse(self):
+    def parse(self) -> _ParsedField:
         span_name = self._parse_span_name()
         field_type = self._parse_field_type()
         field_name = self._parse_field_name() if self.has_next() else None
         return _ParsedField(span_name=span_name, field_type=field_type, field_name=field_name)
 
 
-class _ParsedField(NamedTuple):
-    """
-    Represents a parsed field from a string of the form 'span_name.[inputs|outputs]' or
-    'span_name.[inputs|outputs].field_name'.
-    """
-
-    span_name: str
-    field_type: Literal["inputs", "outputs"]
-    field_name: Optional[str]
-
-    def __str__(self) -> str:
-        return (
-            f"{self.span_name}.{self.field_type}.{self.field_name}"
-            if self.field_name is not None
-            else f"{self.span_name}.{self.field_type}"
-        )
-
-
-def _parse_fields(fields: List[str]) -> List["_ParsedField"]:
+def _parse_fields(fields: List[str]) -> List[_ParsedField]:
     """
     Parses the specified field strings of the form 'span_name.[inputs|outputs]' or
     'span_name.[inputs|outputs].field_name' into _ParsedField objects.
@@ -397,7 +397,7 @@ def _parse_fields(fields: List[str]) -> List["_ParsedField"]:
 
 
 def _extract_from_traces_pandas_df(
-    df: "pandas.DataFrame", col_name: str, fields: List["_ParsedField"]
+    df: "pandas.DataFrame", col_name: str, fields: List[_ParsedField]
 ) -> "pandas.DataFrame":
     """
     Extracts the specified fields from the spans contained in the specified column of the
@@ -433,9 +433,7 @@ def _extract_from_traces_pandas_df(
     return df_with_new_fields
 
 
-def _find_matching_value(
-    field: "_ParsedField", spans: List["mlflow.entities.Span"]
-) -> Optional[Any]:
+def _find_matching_value(field: _ParsedField, spans: List["mlflow.entities.Span"]) -> Optional[Any]:
     """
     Find the value of the field in the list of spans. If the field is not found, return None.
     """

@@ -106,7 +106,7 @@ def test_field_parser(field, expected):
         ("span.inputs.`field`name", "Unexpected characters after closing backtick"),
     ],
 )
-def test_field_parser_invalid(input_string, error_message):
+def test_field_parser_invalid_value(input_string, error_message):
     with pytest.raises(MlflowException, match=error_message):
         _FieldParser(input_string).parse()
 
