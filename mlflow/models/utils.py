@@ -1598,10 +1598,15 @@ def _config_context(config: Optional[Union[str, Dict[str, Any]]] = None):
 
 
 class MockDbutils:
-    def __init__(self):
-        pass
+    def __init__(self, real_dbutils):
+        self.real_dbutils = real_dbutils
 
     def __getattr__(self, name):
+        try:
+            if self.real_dbutils:
+                return getattr(self.real_dbutils, name)
+        except AttributeError:
+            pass
         return MockDbutils()
 
     def __call__(self, *args, **kwargs):
