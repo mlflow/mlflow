@@ -1651,6 +1651,7 @@ def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, 
             spec = importlib.util.spec_from_file_location(new_module_name, code_path)
             module = importlib.util.module_from_spec(spec)
             sys.modules[new_module_name] = module
+            # Since dbutils will only work in databricks environment, we need to mock it
             with _mock_dbutils(module.__dict__):
                 spec.loader.exec_module(module)
         except ImportError as e:
