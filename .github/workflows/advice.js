@@ -62,7 +62,7 @@ gh pr checkout ${issue_number}
   }
 
   const dcoCheck = await getDcoCheck(github, owner, repo, sha);
-  if (dcoCheck?.conclusion !== "success") {
+  if (dcoCheck && dcoCheck.conclusion !== "success") {
     messages.push(
       "#### &#x26a0; DCO check\n\n" +
         "The DCO check failed. " +
