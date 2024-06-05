@@ -207,7 +207,7 @@ def log_evaluations_df(
                 Metric(key=k, value=v, timestamp=int(time.time() * 1000), step=0)
                 for k, v in metrics.items()
             ]
-        elif not isinstance(metrics, list):
+        elif metrics is not None and not isinstance(metrics, list):
             raise MlflowException(
                 "The 'metrics' column must contain a list of Metric objects or a dictionary.",
                 error_code=INVALID_PARAMETER_VALUE,
