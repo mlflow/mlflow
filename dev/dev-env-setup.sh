@@ -237,7 +237,7 @@ check_and_install_min_py_version() {
 }
 
 # Check if the virtualenv already exists at the specified path
-set_up_virtualenv() {
+create_virtualenv() {
   if [[ -d "$directory" ]]; then
     if [ -z "$GITHUB_ACTIONS" ]; then
       read -p "A virtual environment is already located at $directory. Do you wish to replace it? $(
@@ -295,7 +295,7 @@ install_mlflow() {
   )A docker installation cannot be found. Please ensure that docker is installed to run all tests locally.$(tput sgr0)"
 }
 
-# check if pandoc with required version is installed and offer to install it if not present
+# Check if pandoc with required version is installed and offer to install it if not present
 check_and_install_pandoc() {
   pandoc_version=$(pandoc --version | grep "pandoc" | awk '{print $2}')
   if [[ -z "$pandoc_version" ]] || ! version_gt "$pandoc_version" "2.2.1"; then
@@ -310,7 +310,7 @@ check_and_install_pandoc() {
         check_and_install_brew "pandoc"
         brew install pandoc
       elif [[ "$machine" == linux ]]; then
-        # install pandoc via deb package as `apt-get` gives too old version
+        # Install pandoc via deb package as `apt-get` gives too old version
         TEMP_DEB=$(mktemp) &&
           wget --directory-prefix $TEMP_DEB https://github.com/jgm/pandoc/releases/download/2.16.2/pandoc-2.16.2-1-amd64.deb &&
           sudo dpkg --install $(find $TEMP_DEB -name '*.deb') &&
@@ -323,7 +323,7 @@ check_and_install_pandoc() {
   fi
 }
 
-# Setup git environment configuration for proper signing of commits
+# Set up git environment configuration for proper signing of commits
 set_up_git_signoff() {
   git_user=$(git config user.name)
   git_email=$(git config user.email)
@@ -351,12 +351,12 @@ set_up_git_signoff() {
 # Main env setup starts
 check_and_install_pyenv
 check_and_install_min_py_version
-set_up_virtualenv
+create_virtualenv
 install_mlflow
 check_and_install_pandoc
 set_up_git_signoff
 
-# setup pre-commit hooks
+# Set up pre-commit hooks
 pre-commit install -t pre-commit -t prepare-commit-msg
 
 echo "$(tput setaf 2)Your MLflow development environment can be activated by running: $(tput bold)source $VENV_DIR$(tput sgr0)"
