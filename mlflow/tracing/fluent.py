@@ -135,7 +135,10 @@ def trace(
 
             with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
-                span.set_inputs(capture_function_input_args(fn, args, kwargs))
+                try:
+                    span.set_inputs(capture_function_input_args(fn, args, kwargs))
+                except Exception:
+                    _logger.warning(f"Failed to capture inputs for function {fn.__name__}.")
                 result = fn(*args, **kwargs)
                 span.set_outputs(result)
                 return result
@@ -303,8 +306,19 @@ def search_traces(
             By default, no fields are extracted into the DataFrame columns. When multiple
             fields are specified, each is extracted as its own column. If an invalid field
             string is provided, the function silently returns without adding that field's column.
-            The supported fields are limited to "inputs" and "outputs" of spans. Span names
-            cannot contain ".".
+            The supported fields are limited to "inputs" and "outputs" of spans. If the span name
+            or field name contains a dot it must be enclosed in backticks. For example:
+
+            .. code-block:: python
+
+                # span name contains a dot
+                extract_fields = ["`span.name`.inputs.field"]
+
+                # field name contains a dot
+                extract_fields = ["span.inputs.`field.name`"]
+
+                # span name and field name contain a dot
+                extract_fields = ["`span.name`.inputs.`field.name`"]
 
     Returns:
         A Pandas DataFrame containing information about traces that satisfy the search expressions.

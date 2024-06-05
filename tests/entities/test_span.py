@@ -12,10 +12,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracing.utils import encode_span_id, encode_trace_id
 
-from tests.tracing.conftest import clear_singleton  # noqa: F401
 
-
-def test_create_live_span(clear_singleton):
+def test_create_live_span():
     request_id = "tr-12345"
 
     tracer = _get_tracer("test")
@@ -147,7 +145,7 @@ def test_set_status_raise_for_invalid_value():
             span.set_status("INVALID")
 
 
-def test_dict_conversion(clear_singleton):
+def test_dict_conversion():
     request_id = "tr-12345"
 
     tracer = _get_tracer("test")
@@ -175,7 +173,7 @@ def test_dict_conversion(clear_singleton):
         recovered_span.set_status("OK")
 
 
-def test_to_immutable_span(clear_singleton):
+def test_to_immutable_span():
     request_id = "tr-12345"
 
     tracer = _get_tracer("test")

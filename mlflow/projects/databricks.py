@@ -7,11 +7,13 @@ import re
 import tempfile
 import textwrap
 import time
+import uuid
+from pathlib import Path
 from shlex import quote
 
 from mlflow import tracking
 from mlflow.entities import RunStatus
-from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_TRACKING_URI
+from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_RUN_ID, MLFLOW_TRACKING_URI
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.projects.utils import MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG
@@ -257,6 +259,83 @@ class DatabricksJobRunner:
         run_submit_res = self._jobs_runs_submit(req_body_json)
         return run_submit_res["run_id"]
 
+    def run_databricks_spark_job(
+        self,
+        project_uri,
+        work_dir,
+        experiment_id,
+        cluster_spec,
+        run_id,
+        databricks_spark_job_spec,
+    ):
+        from mlflow.utils.file_utils import get_or_create_tmp_dir
+
+        dbfs_fuse_uri = self._upload_project_to_dbfs(work_dir, experiment_id)
+
+        env_vars = {
+            MLFLOW_TRACKING_URI.name: "databricks",
+            MLFLOW_EXPERIMENT_ID.name: experiment_id,
+            MLFLOW_RUN_ID.name: run_id,
+        }
+        _logger.info(
+            "=== Running databricks spark job of project %s on Databricks ===", project_uri
+        )
+
+        tmp_dir = Path(get_or_create_tmp_dir())
+        origin_job_code = (Path(work_dir) / databricks_spark_job_spec.python_file).read_text()
+        job_code_filename = f"{uuid.uuid4().hex}.py"
+        new_job_code_file = tmp_dir / job_code_filename
+
+        project_dir, extracting_tar_command = _get_project_dir_and_extracting_tar_command(
+            dbfs_fuse_uri
+        )
+
+        env_vars_str = json.dumps(env_vars)
+        new_job_code_file.write_text(
+            f"""
+import os
+import subprocess
+os.environ.update({env_vars_str})
+
+extracting_tar_command = \"\"\"
+{extracting_tar_command}
+\"\"\"
+subprocess.check_call(extracting_tar_command, shell=True)
+
+os.chdir('{project_dir}')
+{origin_job_code}
+"""
+        )
+
+        dbfs_job_code_file_path = posixpath.join(
+            DBFS_EXPERIMENT_DIR_BASE,
+            str(experiment_id),
+            "projects-code",
+            job_code_filename,
+        )
+        job_code_file_dbfs_fuse_uri = posixpath.join("/dbfs", dbfs_job_code_file_path)
+        if not self._dbfs_path_exists(dbfs_job_code_file_path):
+            self._upload_to_dbfs(str(new_job_code_file), job_code_file_dbfs_fuse_uri)
+
+        libraries_config = [
+            {"pypi": {"package": python_lib}}
+            for python_lib in databricks_spark_job_spec.python_libraries
+        ]
+        # Make Databricks Spark jobs API request to launch run.
+        req_body_json = {
+            "run_name": f"MLflow Run for {project_uri}",
+            "new_cluster": cluster_spec,
+            "libraries": libraries_config,
+            "spark_python_task": {
+                "python_file": f"dbfs:/{dbfs_job_code_file_path}",
+                "parameters": databricks_spark_job_spec.parameters,
+            },
+        }
+
+        _logger.info("=== Submitting a run to execute the MLflow project... ===")
+        run_submit_res = self._jobs_runs_submit(req_body_json)
+        return run_submit_res["run_id"]
+
     def run_databricks(
         self,
         uri,
@@ -270,6 +349,7 @@ class DatabricksJobRunner:
     ):
         tracking_uri = _get_tracking_uri_for_run()
         dbfs_fuse_uri = self._upload_project_to_dbfs(work_dir, experiment_id)
+
         env_vars = {
             MLFLOW_TRACKING_URI.name: tracking_uri,
             MLFLOW_EXPERIMENT_ID.name: experiment_id,
@@ -345,17 +425,36 @@ def _get_cluster_mlflow_run_cmd(project_dir, run_id, entry_point, parameters, en
     return mlflow_run_arr
 
 
-def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters, env_manager):
-    """
-    Generate MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks.
-    """
+def _get_project_dir_and_extracting_tar_command(dbfs_fuse_tar_uri):
     # Strip ".gz" and ".tar" file extensions from base filename of the tarfile
     tar_hash = posixpath.splitext(posixpath.splitext(posixpath.basename(dbfs_fuse_tar_uri))[0])[0]
     container_tar_path = posixpath.abspath(
         posixpath.join(DB_TARFILE_BASE, posixpath.basename(dbfs_fuse_tar_uri))
     )
     project_dir = posixpath.join(DB_PROJECTS_BASE, tar_hash)
+    command = textwrap.dedent(
+        f"""
+    # Make local directories in the container into which to copy/extract the tarred project
+    mkdir -p {DB_TARFILE_BASE} {DB_PROJECTS_BASE} &&
+    # Rsync from DBFS FUSE to avoid copying archive into local filesystem if it already exists
+    rsync -a -v --ignore-existing {dbfs_fuse_tar_uri} {DB_TARFILE_BASE} &&
+    # Extract project into a temporary directory. We don't extract directly into the desired
+    # directory as tar extraction isn't guaranteed to be atomic
+    cd $(mktemp -d) &&
+    tar --no-same-owner -xzvf {container_tar_path} &&
+    # Atomically move the extracted project into the desired directory
+    mv -T {DB_TARFILE_ARCHIVE_NAME} {project_dir}"""
+    )
+    return project_dir, command
 
+
+def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters, env_manager):
+    """
+    Generate MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks.
+    """
+    project_dir, extracting_tar_command = _get_project_dir_and_extracting_tar_command(
+        dbfs_fuse_tar_uri
+    )
     mlflow_run_arr = _get_cluster_mlflow_run_cmd(
         project_dir,
         run_id,
@@ -368,16 +467,7 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters, 
         f"""
     export PATH=$PATH:$DB_HOME/python/bin &&
     mlflow --version &&
-    # Make local directories in the container into which to copy/extract the tarred project
-    mkdir -p {DB_TARFILE_BASE} {DB_PROJECTS_BASE} &&
-    # Rsync from DBFS FUSE to avoid copying archive into local filesystem if it already exists
-    rsync -a -v --ignore-existing {dbfs_fuse_tar_uri} {DB_TARFILE_BASE} &&
-    # Extract project into a temporary directory. We don't extract directly into the desired
-    # directory as tar extraction isn't guaranteed to be atomic
-    cd $(mktemp -d) &&
-    tar --no-same-owner -xzvf {container_tar_path} &&
-    # Atomically move the extracted project into the desired directory
-    mv -T {DB_TARFILE_ARCHIVE_NAME} {project_dir} &&
+    {extracting_tar_command} &&
     {mlflow_run_cmd}
     """
     )
@@ -395,6 +485,19 @@ def run_databricks(
     db_job_runner = DatabricksJobRunner(databricks_profile_uri=tracking.get_tracking_uri())
     db_run_id = db_job_runner.run_databricks(
         uri, entry_point, work_dir, parameters, experiment_id, cluster_spec, run_id, env_manager
+    )
+    submitted_run = DatabricksSubmittedRun(db_run_id, run_id, db_job_runner)
+    submitted_run._print_description_and_log_tags()
+    return submitted_run
+
+
+def run_databricks_spark_job(
+    remote_run, uri, work_dir, experiment_id, cluster_spec, databricks_spark_job_spec
+):
+    run_id = remote_run.info.run_id
+    db_job_runner = DatabricksJobRunner(databricks_profile_uri=tracking.get_tracking_uri())
+    db_run_id = db_job_runner.run_databricks_spark_job(
+        uri, work_dir, experiment_id, cluster_spec, run_id, databricks_spark_job_spec
     )
     submitted_run = DatabricksSubmittedRun(db_run_id, run_id, db_job_runner)
     submitted_run._print_description_and_log_tags()

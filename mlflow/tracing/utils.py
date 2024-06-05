@@ -28,20 +28,16 @@ if TYPE_CHECKING:
 
 
 def capture_function_input_args(func, args, kwargs) -> Dict[str, Any]:
-    try:
-        # Avoid capturing `self`
-        func_signature = inspect.signature(func)
-        bound_arguments = func_signature.bind(*args, **kwargs)
-        bound_arguments.apply_defaults()
+    # Avoid capturing `self`
+    func_signature = inspect.signature(func)
+    bound_arguments = func_signature.bind(*args, **kwargs)
+    bound_arguments.apply_defaults()
 
-        # Remove `self` from bound arguments if it exists
-        if bound_arguments.arguments.get("self"):
-            del bound_arguments.arguments["self"]
+    # Remove `self` from bound arguments if it exists
+    if bound_arguments.arguments.get("self"):
+        del bound_arguments.arguments["self"]
 
-        return bound_arguments.arguments
-    except Exception:
-        _logger.warning(f"Failed to capture inputs for function {func.__name__}.")
-        return {}
+    return bound_arguments.arguments
 
 
 class TraceJSONEncoder(json.JSONEncoder):
@@ -257,6 +253,34 @@ def extract_span_inputs_outputs(
     )
 
 
+class _PeekableIterator:
+    """
+    Wraps an iterator and allows peeking at the next element without consuming it.
+    """
+
+    def __init__(self, it):
+        self.it = iter(it)
+        self._next = None
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._next is not None:
+            next_value = self._next
+            self._next = None
+            return next_value
+        return next(self.it)
+
+    def peek(self):
+        if self._next is None:
+            try:
+                self._next = next(self.it)
+            except StopIteration:
+                return None
+        return self._next
+
+
 class _ParsedField(NamedTuple):
     """
     Represents a parsed field from a string of the form 'span_name.[inputs|outputs]' or
@@ -267,24 +291,6 @@ class _ParsedField(NamedTuple):
     field_type: Literal["inputs", "outputs"]
     field_name: Optional[str]
 
-    @classmethod
-    def from_string(cls, s: str) -> "_ParsedField":
-        components = s.split(".")
-        if len(components) not in [2, 3] or components[1] not in ["inputs", "outputs"]:
-            raise MlflowException(
-                message=(
-                    f"Field must be of the form 'span_name.[inputs|outputs]' or"
-                    f" 'span_name.[inputs|outputs].field_name'. Got: {s}"
-                ),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
-        return cls(
-            span_name=components[0],
-            field_type=components[1],
-            field_name=components[2] if len(components) == 3 else None,
-        )
-
     def __str__(self) -> str:
         return (
             f"{self.span_name}.{self.field_type}.{self.field_name}"
@@ -293,16 +299,101 @@ class _ParsedField(NamedTuple):
         )
 
 
-def _parse_fields(fields: List[str]) -> List["_ParsedField"]:
+_BACKTICK = "`"
+
+
+class _FieldParser:
+    def __init__(self, field: str) -> None:
+        self.field = field
+        self.chars = _PeekableIterator(field)
+
+    def peek(self) -> str:
+        return self.chars.peek()
+
+    def next(self) -> str:
+        return next(self.chars)
+
+    def has_next(self) -> bool:
+        return self.peek() is not None
+
+    def consume_until_char_or_end(self, stop_char: Optional[str] = None) -> str:
+        """
+        Consume characters until the specified character is encountered or the end of the
+        string. If char is None, consume until the end of the string.
+        """
+        consumed = ""
+        while (c := self.peek()) and c != stop_char:
+            consumed += self.next()
+        return consumed
+
+    def _parse_span_name(self) -> str:
+        if self.peek() == _BACKTICK:
+            self.next()
+            span_name = self.consume_until_char_or_end(_BACKTICK)
+            if self.peek() != _BACKTICK:
+                raise MlflowException.invalid_parameter_value(
+                    f"Expected closing backtick: {self.field!r}"
+                )
+            self.next()
+        else:
+            span_name = self.consume_until_char_or_end(".")
+
+        if self.peek() != ".":
+            raise MlflowException.invalid_parameter_value(
+                f"Expected dot after span name: {self.field!r}"
+            )
+        self.next()
+        return span_name
+
+    def _parse_field_type(self) -> str:
+        field_type = self.consume_until_char_or_end(".")
+        if field_type not in ("inputs", "outputs"):
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid field type: {field_type!r}. Expected 'inputs' or 'outputs'."
+            )
+
+        if self.has_next():
+            self.next()  # Consume the dot
+        return field_type
+
+    def _parse_field_name(self) -> str:
+        if self.peek() == _BACKTICK:
+            self.next()
+            field_name = self.consume_until_char_or_end(_BACKTICK)
+            if self.peek() != _BACKTICK:
+                raise MlflowException.invalid_parameter_value(
+                    f"Expected closing backtick: {self.field!r}"
+                )
+            self.next()
+
+            # There should be no more characters after the closing backtick
+            if self.has_next():
+                raise MlflowException.invalid_parameter_value(
+                    f"Unexpected characters after closing backtick: {self.field!r}"
+                )
+
+        else:
+            field_name = self.consume_until_char_or_end()
+
+        return field_name
+
+    def parse(self) -> _ParsedField:
+        span_name = self._parse_span_name()
+        field_type = self._parse_field_type()
+        field_name = self._parse_field_name() if self.has_next() else None
+        return _ParsedField(span_name=span_name, field_type=field_type, field_name=field_name)
+
+
+def _parse_fields(fields: List[str]) -> List[_ParsedField]:
     """
     Parses the specified field strings of the form 'span_name.[inputs|outputs]' or
     'span_name.[inputs|outputs].field_name' into _ParsedField objects.
     """
-    return [_ParsedField.from_string(field) for field in fields]
+    return [_FieldParser(field).parse() for field in fields]
 
 
 def _extract_from_traces_pandas_df(
-    df: "pandas.DataFrame", col_name: str, fields: List["_ParsedField"]
+    df: "pandas.DataFrame", col_name: str, fields: List[_ParsedField]
 ) -> "pandas.DataFrame":
     """
     Extracts the specified fields from the spans contained in the specified column of the
@@ -338,9 +429,7 @@ def _extract_from_traces_pandas_df(
     return df_with_new_fields
 
 
-def _find_matching_value(
-    field: "_ParsedField", spans: List["mlflow.entities.Span"]
-) -> Optional[Any]:
+def _find_matching_value(field: _ParsedField, spans: List["mlflow.entities.Span"]) -> Optional[Any]:
     """
     Find the value of the field in the list of spans. If the field is not found, return None.
     """
