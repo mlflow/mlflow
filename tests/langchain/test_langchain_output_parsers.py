@@ -1,4 +1,4 @@
-from mlflow.models.output_parsers import ChatCompletionsOutputParser, StringResponseOutputParser
+from mlflow.langchain.output_parsers import ChatCompletionsOutputParser, StringResponseOutputParser
 
 
 def test_chatcompletions_output_parser_parse_response():
