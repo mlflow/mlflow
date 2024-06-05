@@ -1,3 +1,7 @@
+import dbutils
+
+dbutils.library.restartPython()
+
 from typing import Any, List, Optional
 
 from langchain.document_loaders import TextLoader
