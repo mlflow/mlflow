@@ -3,7 +3,7 @@
 set +exv
 
 showHelp() {
-  cat <<EOF
+cat << EOF
 Usage: ./install-dev-env.sh [-d] [directory to install virtual environment] [-v] [-q] [-f] [-o] [override python version]
 Development environment setup script for Python in linux-based Operating Systems (including OSX).
 Note: this script will not work on Windows or MacOS M1 arm64 chipsets.
@@ -50,39 +50,40 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 rd="$REPO_ROOT/requirements"
 VENV_DIR="$directory/bin/activate"
 
-while :; do
+while :
+do
   case "$1" in
-  -d | --directory)
-    directory="$2"
-    shift 2
-    ;;
-  -f | --full)
-    full="full"
-    shift
-    ;;
-  -q | --quiet)
-    quiet="quiet"
-    shift
-    ;;
-  -o | --override)
-    override_py_ver="$2"
-    shift 2
-    ;;
-  -h | --help)
-    showHelp
-    exit 0
-    ;;
-  --)
-    shift
-    break
-    ;;
-  -*)
-    echo "Error: unknown option: $1" >&2
-    exit 1
-    ;;
-  *)
-    break
-    ;;
+    -d | --directory)
+      directory="$2"
+      shift 2
+      ;;
+    -f | --full)
+      full="full"
+      shift
+      ;;
+    -q | --quiet)
+      quiet="quiet"
+      shift
+      ;;
+    -o | --override)
+      override_py_ver="$2"
+      shift 2
+      ;;
+    -h | --help)
+      showHelp
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      echo "Error: unknown option: $1" >&2
+      exit 1
+      ;;
+    *)
+      break
+      ;;
   esac
 done
 
@@ -92,21 +93,21 @@ fi
 
 # Acquire the OS for this environment
 case "$(uname -s)" in
-Darwin*) machine=mac ;;
-Linux*) machine=linux ;;
-*) machine=unknown ;;
+  Darwin*) machine=mac ;;
+  Linux*) machine=linux ;;
+  *) machine=unknown ;;
 esac
 
-quiet_command() {
-  echo $([[ -n $quiet ]] && printf %s '-q')
+quiet_command(){
+  echo $( [[ -n $quiet ]] && printf %s '-q' )
 }
 
 minor_to_micro() {
   case $1 in
-  "3.7") echo "3.7.14" ;;
-  "3.8") echo "3.8.13" ;;
-  "3.9") echo "3.9.13" ;;
-  "3.10") echo "3.10.4" ;;
+    "3.7") echo "3.7.14" ;;
+    "3.8") echo "3.8.13" ;;
+    "3.9") echo "3.9.13" ;;
+    "3.10") echo "3.10.4" ;;
   esac
 }
 
@@ -126,26 +127,26 @@ check_and_install_brew() {
 # Usage: version_gt version1 version2
 # Returns 0 (true) if version1 > version2, 1 (false) otherwise
 version_gt() {
-  IFS='.' read -ra VER1 <<<"$1"
-  IFS='.' read -ra VER2 <<<"$2"
+    IFS='.' read -ra VER1 <<< "$1"
+    IFS='.' read -ra VER2 <<< "$2"
 
-  # Compare each segment of the version numbers
-  for ((i = 0; i < "${#VER1[@]}"; i++)); do
-    # If VER2 is shorter and we haven't found a difference yet, VER1 is greater
-    if [[ -z ${VER2[i]} ]]; then
-      return 0
-    fi
+    # Compare each segment of the version numbers
+    for (( i=0; i<"${#VER1[@]}"; i++ )); do
+        # If VER2 is shorter and we haven't found a difference yet, VER1 is greater
+        if [[ -z ${VER2[i]} ]]; then
+            return 0
+        fi
 
-    # If some segments are not equal, return their comparison result
-    if ((${VER1[i]} > ${VER2[i]})); then
-      return 0
-    elif ((${VER1[i]} < ${VER2[i]})); then
-      return 1
-    fi
-  done
+        # If some segments are not equal, return their comparison result
+        if (( ${VER1[i]} > ${VER2[i]} )); then
+            return 0
+        elif (( ${VER1[i]} < ${VER2[i]} )); then
+            return 1
+        fi
+    done
 
-  # If all common length segments are same, the one with more segments is greater
-  return $((${#VER1[@]} <= ${#VER2[@]}))
+    # If all common length segments are same, the one with more segments is greater
+    return $(( ${#VER1[@]} <= ${#VER2[@]} ))
 }
 
 # Check if pyenv is installed and offer to install it if not present
