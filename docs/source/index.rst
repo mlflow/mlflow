@@ -201,6 +201,26 @@ Explore the guides and tutorials below to start your journey!
         </div>
     </div>
 
+.. |tracing| raw:: html
+    
+    <div class="main-container">
+        <h3>Learn about how to instrument your GenAI Workloads with MLflow Tracing</h3>
+        <div class="sub-container-two-columns">
+            <div class="text-box">
+                <h4>Guides</h4>
+                <p>
+                    Learn how to leverage <a href="llms/tracing/index.html">Tracing</a> in MLflow
+                </p>
+                <p>
+                    View the <a href="llms/tracing/overview.html">Tracing Guide</a> for more information on tracing
+                </p>
+            </div>
+            <div class="image-box">
+                <img src="_static/images/intro/tracing-ui.gif" alt="MLflow Tracing">
+            </div>
+        </div>
+    </div>
+
 .. |prompt-engineering-ui| raw:: html
 
     <div class="main-container">
@@ -288,6 +308,10 @@ Explore the guides and tutorials below to start your journey!
         .. tab:: GenAI Integrations
 
             |genai-flavors|
+        
+        .. tab:: Tracing
+
+            |tracing|
         
         .. tab:: Prompt Engineering UI
 
