@@ -1498,7 +1498,7 @@ class FileStore(AbstractStore):
     def _get_trace_info_and_dir(self, request_id: str) -> Tuple[TraceInfo, str]:
         trace_dir = self._find_trace_dir(request_id, assert_exists=True)
         trace_info = self._get_trace_info_from_dir(trace_dir)
-        if trace_info.request_id != request_id:
+        if trace_info and trace_info.request_id != request_id:
             raise MlflowException(
                 f"Trace with request ID '{request_id}' metadata is in invalid state.",
                 databricks_pb2.INVALID_STATE,
@@ -1519,7 +1519,9 @@ class FileStore(AbstractStore):
                 RESOURCE_DOES_NOT_EXIST,
             )
 
-    def _get_trace_info_from_dir(self, trace_dir) -> TraceInfo:
+    def _get_trace_info_from_dir(self, trace_dir) -> Optional[TraceInfo]:
+        if not os.path.exists(os.path.join(trace_dir, FileStore.TRACE_INFO_FILE_NAME)):
+            return None
         trace_info_dict = FileStore._read_yaml(trace_dir, FileStore.TRACE_INFO_FILE_NAME)
         trace_info = TraceInfo.from_dict(trace_info_dict)
         trace_info.request_metadata = self._get_dict_from_trace_sub_folder(
@@ -1596,7 +1598,7 @@ class FileStore(AbstractStore):
             for trace_path in trace_paths:
                 try:
                     trace_info = self._get_trace_info_from_dir(trace_path)
-                    if trace_info.timestamp_ms <= max_timestamp_millis:
+                    if trace_info and trace_info.timestamp_ms <= max_timestamp_millis:
                         trace_info_and_paths.append((trace_info, trace_path))
                 except MissingConfigException as e:
                     # trap malformed trace exception and log warning
@@ -1674,13 +1676,13 @@ class FileStore(AbstractStore):
         trace_infos = []
         for trace_path in trace_paths:
             try:
-                trace_info = self._get_trace_info_from_dir(trace_path)
-                trace_infos.append(trace_info)
+                if trace_info := self._get_trace_info_from_dir(trace_path):
+                    trace_infos.append(trace_info)
             except MissingConfigException as e:
                 # trap malformed trace exception and log warning
                 request_id = os.path.basename(trace_path)
                 logging.warning(
                     f"Malformed trace with request_id '{request_id}'. Detailed error {e}",
-                    exc_info=True,
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
                 )
         return trace_infos
