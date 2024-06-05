@@ -41,6 +41,10 @@ from tests.tracing.helper import get_traces
 
 TEST_CONTENT = "test"
 
+pytestmark = pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.267"), reason="Requires langchain>=0.0.267"
+)
+
 
 @pytest.fixture(autouse=True)
 def set_envs(monkeypatch):

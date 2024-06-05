@@ -650,15 +650,12 @@ langchain:
         ]
       ">= 0.2": ["langchain-huggingface"]
     run: |
-      LANGCHAIN_NEW=$(python -c "from packaging.version import Version;import langchain;print(Version(langchain.__version__) >= Version('0.0.267'))")
       # Run all langchain tests except autologging
-      pytest tests/langchain --ignore tests/langchain/test_langchain_tracer.py --ignore tests/langchain/test_langchain_autolog.py
-      if [[ $LANGCHAIN_NEW = "True" ]]; then
-        pytest tests/langchain/test_langchain_tracer.py
-      fi
+      pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
+
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
-      if [[ $PYDANTIC_VERSION == 1.* && $LANGCHAIN_NEW = "True" ]]; then
+      if [[ $PYDANTIC_VERSION == 1.* ]]; then
         pip install 'pydantic>2'
         echo "Testing langchain model export with pydantic v2"
         pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
