@@ -61,17 +61,16 @@ gh pr checkout ${issue_number}
     });
   }
 
-  // TODO: Uncomment this once https://github.com/dcoapp/app/issues/211 is resolved
-  // const dcoCheck = await getDcoCheck(github, owner, repo, sha);
-  // if (dcoCheck.conclusion !== "success") {
-  //   messages.push(
-  //     "#### &#x26a0; DCO check\n\n" +
-  //       "The DCO check failed. " +
-  //       `Please sign off your commit(s) by following the instructions [here](${dcoCheck.html_url}). ` +
-  //       "See https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#sign-your-work for more " +
-  //       "details."
-  //   );
-  // }
+  const dcoCheck = await getDcoCheck(github, owner, repo, sha);
+  if (dcoCheck?.conclusion !== "success") {
+    messages.push(
+      "#### &#x26a0; DCO check\n\n" +
+        "The DCO check failed. " +
+        `Please sign off your commit(s) by following the instructions [here](${dcoCheck.html_url}). ` +
+        "See https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#sign-your-work for more " +
+        "details."
+    );
+  }
 
   if (label.endsWith(":master")) {
     messages.push(
