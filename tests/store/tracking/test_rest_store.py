@@ -498,13 +498,16 @@ def test_start_trace():
     request_id = "tr-123"
     experiment_id = "447585625682310"
     timestamp_ms = 123
-    metadata = {"key1": "val1", "key2": "val2"}
-    tags = {"tag1": "tv1", "tag2": "tv2"}
+    # Metadata/tags values should be string, but should not break for other types too
+    metadata = {"key1": "val1", "key2": "val2", "key3": 123}
+    tags = {"tag1": "tv1", "tag2": "tv2", "tag3": None}
     expected_request = StartTrace(
         experiment_id=experiment_id,
         timestamp_ms=123,
-        request_metadata=[ProtoTraceRequestMetadata(key=k, value=v) for k, v in metadata.items()],
-        tags=[ProtoTraceTag(key=k, value=v) for k, v in tags.items()],
+        request_metadata=[
+            ProtoTraceRequestMetadata(key=k, value=str(v)) for k, v in metadata.items()
+        ],
+        tags=[ProtoTraceTag(key=k, value=str(v)) for k, v in tags.items()],
     )
     response = mock.MagicMock()
     response.status_code = 200
@@ -516,8 +519,8 @@ def test_start_trace():
                 "timestamp_ms": timestamp_ms,
                 "execution_time_ms": None,
                 "status": 0,  # Running
-                "request_metadata": [{"key": k, "value": v} for k, v in metadata.items()],
-                "tags": [{"key": k, "value": v} for k, v in tags.items()],
+                "request_metadata": [{"key": k, "value": str(v)} for k, v in metadata.items()],
+                "tags": [{"key": k, "value": str(v)} for k, v in tags.items()],
             }
         }
     )
@@ -535,8 +538,8 @@ def test_start_trace():
         assert res.timestamp_ms == timestamp_ms
         assert res.execution_time_ms == 0
         assert res.status == TraceStatus.UNSPECIFIED
-        assert res.request_metadata == metadata
-        assert res.tags == tags
+        assert res.request_metadata == {k: str(v) for k, v in metadata.items()}
+        assert res.tags == {k: str(v) for k, v in tags.items()}
 
 
 def test_end_trace():
