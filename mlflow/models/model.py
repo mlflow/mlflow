@@ -497,7 +497,7 @@ class Model:
             serialized_resource = value
         self._resources = serialized_resource
 
-    def get_model_info(self):
+    def get_model_info(self, model_version=None):
         """
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         model metadata.
@@ -514,6 +514,7 @@ class Model:
             utc_time_created=self.utc_time_created,
             mlflow_version=self.mlflow_version,
             metadata=self.metadata,
+            model_version=model_version,
         )
 
     def to_dict(self):
@@ -737,14 +738,16 @@ class Model:
                 # older tracking servers. Only print out a warning for now.
                 _logger.warning(_LOG_MODEL_METADATA_WARNING_TEMPLATE, mlflow.get_artifact_uri())
                 _logger.debug("", exc_info=True)
+
+            model_version = None
             if registered_model_name is not None:
-                mlflow.tracking._model_registry.fluent._register_model(
+                model_version = mlflow.tracking._model_registry.fluent._register_model(
                     f"runs:/{run_id}/{mlflow_model.artifact_path}",
                     registered_model_name,
                     await_registration_for=await_registration_for,
                     local_model_path=local_path,
-                )
-        return mlflow_model.get_model_info()
+                ).version
+        return mlflow_model.get_model_info(model_version=model_version)
 
 
 def get_model_info(model_uri: str) -> ModelInfo:
