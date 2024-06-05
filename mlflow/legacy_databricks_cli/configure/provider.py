@@ -327,7 +327,10 @@ class DatabricksModelServingConfigProvider(DatabricksConfigProvider):
         MODEL_SERVING_HOST_ENV_VAR = "DATABRICKS_MODEL_SERVING_HOST_URL"
         DB_MODEL_SERVING_HOST_ENV_VAR = "DB_MODEL_SERVING_HOST_URL"
 
-        host = os.environ[MODEL_SERVING_HOST_ENV_VAR]
+        # read from DB_MODEL_SERVING_HOST_ENV_VAR if available otherwise MODEL_SERVING_HOST_ENV_VAR
+        host = os.environ.get(
+            DB_MODEL_SERVING_HOST_ENV_VAR, os.environ.get(MODEL_SERVING_HOST_ENV_VAR)
+        )
 
         # check if dependency is cached in env var before reading from file
         oauth_token = ""
