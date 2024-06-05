@@ -53,6 +53,11 @@ An experiment groups together runs for a specific task. You can create an experi
 The MLflow API and UI also let you create and search for experiments. See :ref:`Organizing Runs into Experiments <organizing_runs_in_experiments>`
 for more details on how to organize your runs into experiments.
 
+Tracing
+-------
+MLflow Tracing is an integrated part of the MLflow Tracking API that allows you to instrument your GenAI applications. Whether you're using the ``LangChain``
+integration with MLflow Tracing, the Fluent APIs for tracing, or the lower-level Client APIs, MLflow tracking will record your trace data for future review, 
+debugging, or analysis. See the `MLflow Tracing Guide <llms/tracing/index.html>`_ for more details.
 
 .. _start-logging:
 
