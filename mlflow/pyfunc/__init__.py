@@ -2327,11 +2327,11 @@ def save_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
     """
-    with tempfile.TemporaryDirectory() as temp_dir:
-        _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
-        _validate_pyfunc_model_config(model_config)
-        _validate_and_prepare_target_save_path(path)
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    _validate_pyfunc_model_config(model_config)
+    _validate_and_prepare_target_save_path(path)
 
+    with tempfile.TemporaryDirectory() as temp_dir:
         model_code_path = None
         if python_model:
             if isinstance(model_config, Path):
