@@ -26,7 +26,7 @@ class SimpleModel(mlflow.pyfunc.PythonModel):
 
 @pytest.fixture
 def store(mock_databricks_uc_host_creds):
-    with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"):
+    with mock.patch("mlflow.utils.databricks_utils.get_config"):
         yield UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks")
 
 
@@ -49,15 +49,7 @@ def lineage_header_info_to_extra_headers(lineage_header_info):
         (False, False, "1234", "5678"),
     ],
 )
-def test_downstream_notebook_job_lineage(
-    tmp_path, is_in_notebook, is_in_job, notebook_id, job_id, monkeypatch
-):
-    monkeypatch.setenvs(
-        {
-            "DATABRICKS_HOST": "my-host",
-            "DATABRICKS_TOKEN": "my-token",
-        }
-    )
+def test_downstream_notebook_job_lineage(tmp_path, is_in_notebook, is_in_job, notebook_id, job_id):
     model_dir = str(tmp_path.joinpath("model"))
     model_name = "mycatalog.myschema.mymodel"
     model_uri = f"models:/{model_name}/1"
@@ -77,7 +69,7 @@ def test_downstream_notebook_job_lineage(
     expected_lineage_header_info = LineageHeaderInfo(entities=entity_list) if entity_list else None
 
     # Mock out all necessary dependency
-    with mock.patch(
+    with mock.patch("mlflow.utils.databricks_utils.get_config"), mock.patch(
         "mlflow.utils.databricks_utils.is_in_databricks_notebook",
         return_value=is_in_notebook,
     ), mock.patch(

@@ -1,4 +1,3 @@
-import os
 from unittest import mock
 
 import pytest
@@ -21,7 +20,6 @@ def test_create_endpoint():
     client = get_deploy_client("databricks")
     mock_resp = mock.Mock()
     mock_resp.json.return_value = {"name": "test"}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
     mock_resp.status_code = 200
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.create_endpoint(
@@ -50,7 +48,6 @@ def test_get_endpoint():
     client = get_deploy_client("databricks")
     mock_resp = mock.Mock()
     mock_resp.json.return_value = {"name": "test"}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
     mock_resp.status_code = 200
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.get_endpoint(endpoint="test")
@@ -62,7 +59,6 @@ def test_list_endpoints():
     client = get_deploy_client("databricks")
     mock_resp = mock.Mock()
     mock_resp.json.return_value = {"endpoints": [{"name": "test"}]}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
     mock_resp.status_code = 200
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.list_endpoints()
@@ -74,7 +70,6 @@ def test_update_endpoint():
     client = get_deploy_client("databricks")
     mock_resp = mock.Mock()
     mock_resp.json.return_value = {}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
     mock_resp.status_code = 200
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.update_endpoint(
@@ -103,7 +98,6 @@ def test_delete_endpoint():
     client = get_deploy_client("databricks")
     mock_resp = mock.Mock()
     mock_resp.json.return_value = {}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
     mock_resp.status_code = 200
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.delete_endpoint(endpoint="test")
@@ -115,7 +109,6 @@ def test_predict():
     client = get_deploy_client("databricks")
     mock_resp = mock.Mock()
     mock_resp.json.return_value = {"foo": "bar"}
-    mock_resp.url = os.environ["DATABRICKS_HOST"]
     mock_resp.status_code = 200
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.predict(endpoint="test", inputs={})

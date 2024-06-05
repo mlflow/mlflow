@@ -14,6 +14,7 @@ from mlflow import MlflowClient
 from mlflow.entities import RunStatus, SourceType, ViewType
 from mlflow.environment_variables import MLFLOW_CONDA_CREATE_ENV_CMD, MLFLOW_CONDA_HOME
 from mlflow.exceptions import ExecutionException, MlflowException
+from mlflow.legacy_databricks_cli.configure.provider import DatabricksConfig
 from mlflow.projects import _parse_kubernetes_config, _resolve_experiment_id
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils import PYTHON_VERSION
@@ -105,15 +106,7 @@ def test_expected_tags_logged_when_using_conda():
 @pytest.mark.usefixtures("patch_user")
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
 @pytest.mark.parametrize("version", [None, "master", "git-commit"])
-def test_run_local_git_repo(
-    local_git_repo, local_git_repo_uri, use_start_run, version, monkeypatch
-):
-    monkeypatch.setenvs(
-        {
-            "DATABRICKS_HOST": "my-host",
-            "DATABRICKS_TOKEN": "my-token",
-        }
-    )
+def test_run_local_git_repo(local_git_repo, local_git_repo_uri, use_start_run, version):
     if version is not None:
         uri = local_git_repo_uri + "#" + TEST_PROJECT_NAME
     else:
@@ -507,7 +500,8 @@ def test_parse_kubernetes_config_invalid_template_job_file():
 
 
 @pytest.mark.parametrize("synchronous", [True, False])
-def test_credential_propagation(synchronous, monkeypatch):
+@mock.patch("mlflow.utils.databricks_utils.get_config")
+def test_credential_propagation(get_config, synchronous):
     class DummyProcess:
         def wait(self):
             return 0
@@ -518,12 +512,7 @@ def test_credential_propagation(synchronous, monkeypatch):
         def communicate(self, _):
             return "", ""
 
-    monkeypatch.setenvs(
-        {
-            "DATABRICKS_HOST": "host",
-            "DATABRICKS_TOKEN": "mytoken",
-        }
-    )
+    get_config.return_value = DatabricksConfig.from_token("host", "mytoken", insecure=False)
     with mock.patch("subprocess.Popen", return_value=DummyProcess()) as popen_mock, mock.patch(
         "mlflow.utils.uri.is_databricks_uri", return_value=True
     ):

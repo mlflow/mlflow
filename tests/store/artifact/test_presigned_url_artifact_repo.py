@@ -37,7 +37,7 @@ _DATABRICKS_UC_SCHEME = "databricks-uc"
 @pytest.fixture(autouse=True)
 def run_around_tests():
     # mock this call to credentials for all tests in suite
-    with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"):
+    with mock.patch("mlflow.utils.databricks_utils.get_config"):
         yield
 
 
