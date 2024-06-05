@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -569,6 +570,114 @@ func (s Store) logParamsWithTransaction(
 	return nil
 }
 
+func getDistinctMetricKeys(metrics []model.Metric) []string {
+	metricKeysMap := make(map[string]any)
+	for _, m := range metrics {
+		metricKeysMap[*m.Key] = nil
+	}
+
+	metricKeys := make([]string, 0, len(metricKeysMap))
+	for key := range metricKeysMap {
+		metricKeys = append(metricKeys, key)
+	}
+
+	return metricKeys
+}
+
+//nolint:exhaustruct
+func getLatestMetrics(transaction *gorm.DB, runID string, metricKeys []string) ([]model.LatestMetric, error) {
+	batchSize := 500
+	latestMetrics := make([]model.LatestMetric, 0, len(metricKeys))
+
+	for skip := 0; skip < len(metricKeys); skip += batchSize {
+		take := int(math.Max(float64(skip+batchSize), float64(len(metricKeys))))
+		if take > len(metricKeys) {
+			take = len(metricKeys)
+		}
+
+		currentBatch := make([]model.LatestMetric, 0, take-skip)
+		keys := metricKeys[skip:take]
+
+		err := transaction.
+			Model(&model.LatestMetric{}).
+			Where("run_uuid = ?", runID).Where("key IN ?", keys).
+			Clauses(clause.Locking{Strength: "UPDATE"}). // https://gorm.io/docs/advanced_query.html#Locking
+			Order("run_uuid").
+			Order("key").
+			Find(&currentBatch).Error
+		if err != nil {
+			return latestMetrics, fmt.Errorf(
+				"failed to get latest metrics for run_uuid %q, skip %d, take %d : %w",
+				runID, skip, take, err,
+			)
+		}
+
+		latestMetrics = append(latestMetrics, currentBatch...)
+	}
+
+	return latestMetrics, nil
+}
+
+func isNewerMetric(a model.Metric, b model.LatestMetric) bool {
+	return *a.Step > *b.Step ||
+		(*a.Step == *b.Step && *a.Timestamp > *b.Timestamp) ||
+		(*a.Step == *b.Step && *a.Timestamp == *b.Timestamp && *a.Value > *b.Value)
+}
+
+//nolint:exhaustruct,cyclop
+func updateLatestMetricsIfNecessary(transaction *gorm.DB, runID string, metrics []model.Metric) error {
+	if len(metrics) == 0 {
+		return nil
+	}
+
+	metricKeys := getDistinctMetricKeys(metrics)
+
+	latestMetrics, err := getLatestMetrics(transaction, runID, metricKeys)
+	if err != nil {
+		return fmt.Errorf("failed to get latest metrics for run_uuid %q: %w", runID, err)
+	}
+
+	latestMetricsMap := make(map[string]model.LatestMetric, len(latestMetrics))
+	for _, m := range latestMetrics {
+		latestMetricsMap[*m.Key] = m
+	}
+
+	nextLatestMetricsMap := make(map[string]model.LatestMetric, len(metrics))
+
+	for _, metric := range metrics {
+		latestMetric, found := latestMetricsMap[*metric.Key]
+		nextLatestMetric, alreadyPresent := nextLatestMetricsMap[*metric.Key]
+
+		switch {
+		case !found && !alreadyPresent:
+			// brand new latest metric
+			nextLatestMetricsMap[*metric.Key] = metric.AsLatestMetric()
+		case !found && alreadyPresent && isNewerMetric(metric, nextLatestMetric):
+			// there is no row in the database but the metric is present twice
+			// and we need to take the latest one from the batch.
+			nextLatestMetricsMap[*metric.Key] = metric.AsLatestMetric()
+		case found && isNewerMetric(metric, latestMetric):
+			// compare with the row in the database
+			nextLatestMetricsMap[*metric.Key] = metric.AsLatestMetric()
+		}
+	}
+
+	nextLatestMetrics := make([]model.LatestMetric, 0, len(nextLatestMetricsMap))
+	for _, nextLatestMetric := range nextLatestMetricsMap {
+		nextLatestMetrics = append(nextLatestMetrics, nextLatestMetric)
+	}
+
+	if len(nextLatestMetrics) != 0 {
+		if err := transaction.Clauses(clause.OnConflict{
+			UpdateAll: true,
+		}).Create(nextLatestMetrics).Error; err != nil {
+			return fmt.Errorf("failed to upsert latest metrics for run_uuid %q: %w", runID, err)
+		}
+	}
+
+	return nil
+}
+
 //nolint:exhaustruct
 func (s Store) logMetricsWithTransaction(
 	transaction *gorm.DB, runID string, metrics []*protos.Metric,
@@ -622,7 +731,13 @@ func (s Store) logMetricsWithTransaction(
 		)
 	}
 
-	// self._update_latest_metrics_if_necessary(metric_instances, session)
+	if err := updateLatestMetricsIfNecessary(transaction, runID, modelMetrics); err != nil {
+		return contract.NewErrorWith(
+			protos.ErrorCode_INTERNAL_ERROR,
+			fmt.Sprintf("error updating latest metrics for run_uuid %q", runID),
+			err,
+		)
+	}
 
 	return nil
 }

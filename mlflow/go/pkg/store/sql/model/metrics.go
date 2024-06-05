@@ -54,3 +54,14 @@ func NewMetricFromProto(runID string, metric *protos.Metric) *Metric {
 		IsNan:     &isNaN,
 	}
 }
+
+func (m Metric) AsLatestMetric() LatestMetric {
+	return LatestMetric{
+		RunID:     m.RunID,
+		Key:       m.Key,
+		Value:     m.Value,
+		Timestamp: m.Timestamp,
+		Step:      m.Step,
+		IsNan:     m.IsNan,
+	}
+}
