@@ -1683,6 +1683,6 @@ class FileStore(AbstractStore):
                 request_id = os.path.basename(trace_path)
                 logging.warning(
                     f"Malformed trace with request_id '{request_id}'. Detailed error {e}",
-                    exc_info=True,
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
                 )
         return trace_infos
