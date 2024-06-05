@@ -509,7 +509,7 @@ class Model:
             serialized_resource = value
         self._resources = serialized_resource
 
-    def get_model_info(self, model_version=None):
+    def get_model_info(self):
         """
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         model metadata.
@@ -526,7 +526,6 @@ class Model:
             utc_time_created=self.utc_time_created,
             mlflow_version=self.mlflow_version,
             metadata=self.metadata,
-            model_version=model_version,
         )
 
     def to_dict(self):
@@ -759,7 +758,10 @@ class Model:
                     await_registration_for=await_registration_for,
                     local_model_path=local_path,
                 ).version
-        return mlflow_model.get_model_info(model_version=model_version)
+        model_info = mlflow_model.get_model_info()
+        if model_version is not None:
+            model_info._model_version = model_version
+        return model_info
 
 
 def get_model_info(model_uri: str) -> ModelInfo:
