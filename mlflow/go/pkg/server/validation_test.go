@@ -131,7 +131,24 @@ func TestUniqueParamsInLogBatch(t *testing.T) {
 	require.NoError(t, err)
 
 	err = validator.Struct(logBatchRequest)
-	if err != nil {
+	if err == nil {
 		t.Error("Expected uniqueParams validation error, got none")
+	}
+}
+
+func TestEmptyParamsInLogBatch(t *testing.T) {
+	t.Parallel()
+
+	//nolint:exhaustruct
+	logBatchRequest := &protos.LogBatch{
+		Params: make([]*protos.Param, 0),
+	}
+
+	validator, err := server.NewValidator()
+	require.NoError(t, err)
+
+	err = validator.Struct(logBatchRequest)
+	if err != nil {
+		t.Error("Unexpected uniqueParams validation error, got none")
 	}
 }

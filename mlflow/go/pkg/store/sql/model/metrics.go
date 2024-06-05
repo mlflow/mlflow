@@ -26,7 +26,7 @@ func (m Metric) ToProto() *protos.Metric {
 	}
 }
 
-func MetricFromProto(runID string, metric *protos.Metric) *Metric {
+func NewMetricFromProto(runID string, metric *protos.Metric) *Metric {
 	isNaN := math.IsNaN(metric.GetValue())
 
 	var value float64

@@ -571,7 +571,7 @@ func (s Store) logParamsWithTransaction(
 
 //nolint:exhaustruct
 func (s Store) logMetricsWithTransaction(
-	transaction *gorm.DB, runID string, _ []*protos.Metric,
+	transaction *gorm.DB, runID string, metrics []*protos.Metric,
 ) *contract.Error {
 	var lifecycleStage model.LifecycleStage
 
@@ -600,11 +600,28 @@ func (s Store) logMetricsWithTransaction(
 		)
 	}
 
-	// map metrics to model.Metric
-	// Duplicate metric values are eliminated here to maintain
-	// the same behavior in log_metric
+	// Duplicate metric values are eliminated
+	seenMetrics := make(map[model.Metric]struct{})
+	modelMetrics := make([]model.Metric, 0, len(metrics))
 
-	// session.add_all(metric_instances)
+	for _, metric := range metrics {
+		currentMetric := model.NewMetricFromProto(runID, metric)
+		if _, ok := seenMetrics[*currentMetric]; !ok {
+			seenMetrics[*currentMetric] = struct{}{}
+
+			modelMetrics = append(modelMetrics, *currentMetric)
+		}
+	}
+
+	if err := transaction.Clauses(clause.OnConflict{DoNothing: true}).
+		CreateInBatches(modelMetrics, batchSize).Error; err != nil {
+		return contract.NewErrorWith(
+			protos.ErrorCode_INTERNAL_ERROR,
+			fmt.Sprintf("error creating metrics in batch for run_uuid %q", runID),
+			err,
+		)
+	}
+
 	// self._update_latest_metrics_if_necessary(metric_instances, session)
 
 	return nil

@@ -118,7 +118,7 @@ func NewValidator() (*validator.Validate, error) {
 				keys[param.GetKey()] = true
 			}
 
-			return hasDuplicates
+			return !hasDuplicates
 		},
 	); err != nil {
 		return nil, fmt.Errorf("validation registration for 'uniqueParams' failed: %w", err)
