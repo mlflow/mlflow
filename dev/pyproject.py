@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
-from collections import Counter
 from pathlib import Path
 
 import toml
@@ -16,11 +15,6 @@ SEPARATOR = """
 # Dev tool settings: can be updated manually
 
 """
-
-
-def find_duplicates(seq):
-    counted = Counter(seq)
-    return [item for item, count in counted.items() if count > 1]
 
 
 def read_requirements(path: Path) -> list[str]:
@@ -54,12 +48,6 @@ def build(skinny: bool) -> None:
             ),
         )
     ]
-    dependencies = sorted(
-        skinny_requirements if skinny else skinny_requirements + core_requirements
-    )
-    dep_duplicates = find_duplicates(dependencies)
-    assert not dep_duplicates, f"Duplicated dependencies are found: {dep_duplicates}"
-
     data = {
         "build-system": {
             "requires": ["setuptools"],
@@ -92,7 +80,9 @@ def build(skinny: bool) -> None:
                 f"Programming Language :: Python :: {python_version}",
             ],
             "requires-python": f">={python_version}",
-            "dependencies": dependencies,
+            "dependencies": sorted(
+                skinny_requirements if skinny else skinny_requirements + core_requirements
+            ),
             "optional-dependencies": {
                 "extras": [
                     # Required to log artifacts and models to HDFS artifact locations

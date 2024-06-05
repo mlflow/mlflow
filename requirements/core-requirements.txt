@@ -19,3 +19,4 @@ Jinja2<4,>=2.11; platform_system != 'Windows'
 Jinja2<4,>=3.0; platform_system == 'Windows'
 matplotlib<4
 graphene<4
+databricks-sdk<1,>=0.20.0
