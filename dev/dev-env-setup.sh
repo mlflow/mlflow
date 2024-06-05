@@ -49,7 +49,6 @@ MLFLOW_HOME="$(pwd)"
 REPO_ROOT=$(git rev-parse --show-toplevel)
 rd="$REPO_ROOT/requirements"
 VENV_DIR="$directory/bin/activate"
-
 while :
 do
   case "$1" in
@@ -93,9 +92,9 @@ fi
 
 # Acquire the OS for this environment
 case "$(uname -s)" in
-  Darwin*) machine=mac ;;
-  Linux*) machine=linux ;;
-  *) machine=unknown ;;
+  Darwin*)                       machine=mac;;
+  Linux*)                        machine=linux;;
+  *)                             machine=unknown;;
 esac
 
 quiet_command(){
