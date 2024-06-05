@@ -1,5 +1,4 @@
 import os
-import tempfile
 
 import pytest
 import yaml
@@ -119,7 +118,7 @@ def test_override_model_config_ignore_invalid(model_path, model_config):
         "tests/pyfunc/../pyfunc/sample_code/config.yml",
     ],
 )
-def test_override_model_config_path_ignore_invalid(tmp_path model_path, model_config_path):
+def test_override_model_config_path_ignore_invalid(tmp_path, model_path, model_config_path):
     model = TestModel()
     inference_override = {"invalid_key": 400}
     config_path = _get_temp_file_with_content(
