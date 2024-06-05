@@ -87,6 +87,7 @@ class ModelInfo:
         mlflow_version: str,
         signature_dict: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        model_version: Optional[int] = None,
     ):
         self._artifact_path = artifact_path
         self._flavors = flavors
@@ -99,6 +100,7 @@ class ModelInfo:
         self._utc_time_created = utc_time_created
         self._mlflow_version = mlflow_version
         self._metadata = metadata
+        self._model_version = model_version
 
     @property
     def artifact_path(self):
@@ -275,6 +277,16 @@ class ModelInfo:
             assert model_info.metadata["metadata_key"] == "metadata_value"
         """
         return self._metadata
+
+    @property
+    def model_version(self) -> Optional[int]:
+        """
+        The registered model version, if the model is registered.
+
+        :getter: Gets the registered model version if the model is registered.
+        :type: Optional[int]
+        """
+        return self._model_version
 
 
 class Model:
