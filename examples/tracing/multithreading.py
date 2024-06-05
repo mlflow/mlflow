@@ -4,7 +4,6 @@ This example demonstrates how to create a trace to track the execution of a mult
 To trace a multi-threaded operation, you need to use the low-level MLflow client APIs to create a trace and spans, because the high-level fluent APIs are not thread-safe.
 """
 
-import json
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -13,7 +12,7 @@ import mlflow
 exp = mlflow.set_experiment("mlflow-tracing-example")
 exp_id = exp.experiment_id
 
-# Initialize MLflow client to interact with the tracking server.
+# Initialize MLflow client.
 client = mlflow.MlflowClient()
 
 
@@ -66,9 +65,13 @@ client.end_trace(request_id=request_id)
 trace = mlflow.get_last_active_trace()
 
 # Print the trace in JSON format
-print(json.dumps(trace.to_dict(), indent=2))
+print(trace.to_json(pretty=True))
 
 # The trace should contain 7 spans in total: 1 root span and 6 child spans.
 assert len(trace.data.spans) == len(xs) + 1
 
-print("\033[92m" + "🤖Now open MLflow UI to see the trace visualization!" + "\033[0m")
+print(
+    "\033[92m"
+    + "🤖Now run `mlflow server` and open MLflow UI to see the trace visualization!"
+    + "\033[0m"
+)

@@ -40,11 +40,11 @@ chain.invoke({"question": "How many animals are there in the world?"})
 chain.invoke({"question": "Who is the first person to land on the moon?"})
 
 # Retrieve the traces
-traces = mlflow.MlflowClient().search_traces(
-    experiment_ids=[exp_id],
-    filter_string="",
-    max_results=3,
-)
+traces = mlflow.MlflowClient().search_traces(experiment_ids=[exp_id], max_results=3)
 print(json.dumps([t.to_dict() for t in traces], indent=2))
 
-print("\033[92m" + "🤖Now open MLflow UI to see the trace visualization!" + "\033[0m")
+print(
+    "\033[92m"
+    + "🤖Now run `mlflow server` and open MLflow UI to see the trace visualization!"
+    + "\033[0m"
+)

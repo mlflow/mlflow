@@ -1,14 +1,13 @@
 """
 This example demonstrates how to create a trace with multiple spans using the low-level MLflow client APIs.
 """
-import json
 
 import mlflow
 
 exp = mlflow.set_experiment("mlflow-tracing-example")
 exp_id = exp.experiment_id
 
-# Initialize MLflow client to interact with the tracking server.
+# Initialize MLflow client.
 client = mlflow.MlflowClient()
 
 
@@ -27,7 +26,7 @@ def run(x: int, y: int) -> int:
 
     z = x + y
 
-    # Request ID is a unique identifier for the trace. You will need this IR
+    # Request ID is a unique identifier for the trace. You will need this ID
     # to interact with the trace later using the MLflow client.
     request_id = root_span.request_id
 
@@ -92,6 +91,10 @@ assert trace.info.tags["fruit"] == "orange"
 assert "vegetable" not in trace.info.tags
 
 # Print the trace in JSON format
-print(json.dumps(trace.to_dict(), indent=2))
+print(trace.to_json(pretty=True))
 
-print("\033[92m" + "🤖Now open MLflow UI to see the trace visualization!" + "\033[0m")
+print(
+    "\033[92m"
+    + "🤖Now run `mlflow server` and open MLflow UI to see the trace visualization!"
+    + "\033[0m"
+)

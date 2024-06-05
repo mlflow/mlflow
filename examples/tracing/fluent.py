@@ -1,7 +1,6 @@
 """
 This example demonstrates how to create a trace with multiple spans using the high-level MLflow fluent APIs.
 """
-import json
 
 import mlflow
 
@@ -49,6 +48,10 @@ traces = mlflow.search_traces(
 )
 
 # Print the trace in JSON format
-print(json.dumps(trace.to_dict(), indent=2))
+print(trace.to_json(pretty=True))
 
-print("\033[92m" + "🤖Now open MLflow UI to see the trace visualization!" + "\033[0m")
+print(
+    "\033[92m"
+    + "🤖Now run `mlflow server` and open MLflow UI to see the trace visualization!"
+    + "\033[0m"
+)
