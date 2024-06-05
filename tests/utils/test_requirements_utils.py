@@ -555,7 +555,18 @@ model's environment and install dependencies using the resulting environment fil
         mock_warning.assert_not_called()
 
 
-def test_suppress_warn_dependency_requirement_mismatches_feature_store(tmp_path):
+@pytest.mark.parametrize(
+    "ignore_package_name",
+    [
+        "databricks-feature-lookup",
+        "databricks-chains",
+        "databricks_chains",
+        "databricks.chains",
+        "databricks-rag-studio",
+        "databricks.rag_studio",
+    ],
+)
+def test_suppress_warn_dependency_requirement_mismatches_ignore_some_packages(ignore_package_name):
     with mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
         original_get_installed_version_fn = mlflow.utils.requirements_utils._get_installed_version
 
@@ -573,7 +584,7 @@ def test_suppress_warn_dependency_requirement_mismatches_feature_store(tmp_path)
             "mlflow.utils.requirements_utils._get_installed_version",
             gen_mock_get_installed_version_fn(
                 {
-                    "databricks-feature-lookup": "9.99.11",
+                    ignore_package_name: "9.99.11",
                     "cloudpickle": "999.99.22",
                 }
             ),
@@ -581,7 +592,7 @@ def test_suppress_warn_dependency_requirement_mismatches_feature_store(tmp_path)
             warn_dependency_requirement_mismatches(
                 model_requirements=[
                     f"cloudpickle=={cloudpickle.__version__}",
-                    "databricks-feature-lookup==999.1.1",
+                    f"{ignore_package_name}==999.1.1",
                 ]
             )
             mock_warning.assert_called_once_with(
