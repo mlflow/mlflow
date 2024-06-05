@@ -438,12 +438,15 @@ def test_model_code_validation():
     # Invalid code with dbutils
     invalid_code = "dbutils.library.restartPython()\nsome_python_variable = 5"
 
-    with pytest.raises(
-        ValueError, match="The model file uses 'dbutils' command which is not supported."
-    ):
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
         _validate_model_code_from_notebook(invalid_code)
+        mock_warning.assert_called_once_with(
+            "The model file uses 'dbutils' commands which are not supported. To ensure your "
+            "code functions correctly, make sure that it does not rely on these dbutils "
+            "commands for correctness."
+        )
 
-    # Code with commended magic commands displays warning
+    # Code with commented magic commands displays warning
     warning_code = "# dbutils.library.restartPython()\n# MAGIC %run ../wheel_installer"
 
     with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
@@ -453,6 +456,12 @@ def test_model_code_validation():
             "functions correctly, make sure that it does not rely on these magic commands for "
             "correctness."
         )
+
+    # Code with commented pip magic commands does not warn
+    warning_code = "# MAGIC %pip install mlflow"
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
+        _validate_model_code_from_notebook(warning_code)
+        mock_warning.assert_not_called()
 
     # Test valid code
     valid_code = "some_valid_python_code = 'valid'"
