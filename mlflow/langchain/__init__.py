@@ -321,8 +321,8 @@ def save_model(
                 ]
                 output_schema = Schema(output_columns)
             else:
-                # TODO: empty output schema if multiple output_keys or is a retriever.
-                # fix later! https://databricks.atlassian.net/browse/ML-34706
+                # TODO: empty output schema if multiple output_keys or is a retriever. fix later!
+                # https://databricks.atlassian.net/browse/ML-34706
                 output_schema = None
 
             signature = (
@@ -375,9 +375,7 @@ def save_model(
 
     if Version(langchain.__version__) >= Version("0.0.311"):
         if databricks_resources := _detect_databricks_dependencies(lc_model):
-            serialized_databricks_resources = _ResourceBuilder.from_resources(
-                databricks_resources
-            )
+            serialized_databricks_resources = _ResourceBuilder.from_resources(databricks_resources)
             mlflow_model.resources = serialized_databricks_resources
 
     mlflow_model.add_flavor(

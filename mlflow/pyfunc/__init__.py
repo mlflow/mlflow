@@ -2387,9 +2387,7 @@ def save_model(
         "python_model": python_model,
     }
     first_argument_set_specified = any(item is not None for item in first_argument_set.values())
-    second_argument_set_specified = any(
-        item is not None for item in second_argument_set.values()
-    )
+    second_argument_set_specified = any(item is not None for item in second_argument_set.values())
     if first_argument_set_specified and second_argument_set_specified:
         raise MlflowException(
             message=(
@@ -2444,9 +2442,7 @@ def save_model(
             else:
                 # If the input example is a dictionary, convert it to ChatMessage format
                 messages = [ChatMessage(**m) for m in input_example["messages"]]
-                params = ChatParams(
-                    **{k: v for k, v in input_example.items() if k != "messages"}
-                )
+                params = ChatParams(**{k: v for k, v in input_example.items() if k != "messages"})
 
             # call load_context() first, as predict may depend on it
             _logger.info("Predicting on input example to validate output")
