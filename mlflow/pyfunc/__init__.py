@@ -2357,180 +2357,180 @@ def save_model(
                     "`pip_requirements`, or `extra_pip_requirements` must be specified."
                 )
 
-        mlflow_model = kwargs.pop("model", mlflow_model)
-        if len(kwargs) > 0:
-            raise TypeError(f"save_model() got unexpected keyword arguments: {kwargs}")
+    mlflow_model = kwargs.pop("model", mlflow_model)
+    if len(kwargs) > 0:
+        raise TypeError(f"save_model() got unexpected keyword arguments: {kwargs}")
 
-        if code_path is not None and code_paths is not None:
-            raise MlflowException(
-                "Both `code_path` and `code_paths` have been specified, which is not permitted."
-            )
-        if code_path is not None:
-            # Alias for `code_path` deprecation
-            code_paths = code_path
-            warnings.warn(
-                "The `code_path` argument is replaced by `code_paths` and is deprecated "
-                "as of MLflow version 2.12.0. This argument will be removed in a future "
-                "release of MLflow."
-            )
-
-        if code_paths is not None:
-            if not isinstance(code_paths, list):
-                raise TypeError(f"Argument code_path should be a list, not {type(code_paths)}")
-
-        first_argument_set = {
-            "loader_module": loader_module,
-            "data_path": data_path,
-        }
-        second_argument_set = {
-            "artifacts": artifacts,
-            "python_model": python_model,
-        }
-        first_argument_set_specified = any(item is not None for item in first_argument_set.values())
-        second_argument_set_specified = any(
-            item is not None for item in second_argument_set.values()
+    if code_path is not None and code_paths is not None:
+        raise MlflowException(
+            "Both `code_path` and `code_paths` have been specified, which is not permitted."
         )
-        if first_argument_set_specified and second_argument_set_specified:
+    if code_path is not None:
+        # Alias for `code_path` deprecation
+        code_paths = code_path
+        warnings.warn(
+            "The `code_path` argument is replaced by `code_paths` and is deprecated "
+            "as of MLflow version 2.12.0. This argument will be removed in a future "
+            "release of MLflow."
+        )
+
+    if code_paths is not None:
+        if not isinstance(code_paths, list):
+            raise TypeError(f"Argument code_path should be a list, not {type(code_paths)}")
+
+    first_argument_set = {
+        "loader_module": loader_module,
+        "data_path": data_path,
+    }
+    second_argument_set = {
+        "artifacts": artifacts,
+        "python_model": python_model,
+    }
+    first_argument_set_specified = any(item is not None for item in first_argument_set.values())
+    second_argument_set_specified = any(
+        item is not None for item in second_argument_set.values()
+    )
+    if first_argument_set_specified and second_argument_set_specified:
+        raise MlflowException(
+            message=(
+                f"The following sets of parameters cannot be specified together:"
+                f" {first_argument_set.keys()}  and {second_argument_set.keys()}."
+                " All parameters in one set must be `None`. Instead, found"
+                f" the following values: {first_argument_set} and {second_argument_set}"
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    elif (loader_module is None) and (python_model is None):
+        msg = (
+            "Either `loader_module` or `python_model` must be specified. A `loader_module` "
+            "should be a python module. A `python_model` should be a subclass of PythonModel"
+        )
+        raise MlflowException(message=msg, error_code=INVALID_PARAMETER_VALUE)
+
+    if mlflow_model is None:
+        mlflow_model = Model()
+
+    hints = None
+    if signature is not None:
+        if isinstance(python_model, ChatModel):
             raise MlflowException(
-                message=(
-                    f"The following sets of parameters cannot be specified together:"
-                    f" {first_argument_set.keys()}  and {second_argument_set.keys()}."
-                    " All parameters in one set must be `None`. Instead, found"
-                    f" the following values: {first_argument_set} and {second_argument_set}"
-                ),
+                "ChatModel subclasses have a standard signature that is set "
+                "automatically. Please remove the `signature` parameter from "
+                "the call to log_model() or save_model().",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        elif (loader_module is None) and (python_model is None):
-            msg = (
-                "Either `loader_module` or `python_model` must be specified. A `loader_module` "
-                "should be a python module. A `python_model` should be a subclass of PythonModel"
+        mlflow_model.signature = signature
+    elif python_model is not None:
+        if callable(python_model):
+            input_arg_index = 0  # first argument
+            if signature := _infer_signature_from_type_hints(
+                python_model, input_arg_index, input_example=input_example
+            ):
+                mlflow_model.signature = signature
+        elif isinstance(python_model, ChatModel):
+            mlflow_model.signature = ModelSignature(
+                CHAT_MODEL_INPUT_SCHEMA,
+                CHAT_MODEL_OUTPUT_SCHEMA,
             )
-            raise MlflowException(message=msg, error_code=INVALID_PARAMETER_VALUE)
+            input_example = input_example or CHAT_MODEL_INPUT_EXAMPLE
 
-        if mlflow_model is None:
-            mlflow_model = Model()
-
-        hints = None
-        if signature is not None:
-            if isinstance(python_model, ChatModel):
-                raise MlflowException(
-                    "ChatModel subclasses have a standard signature that is set "
-                    "automatically. Please remove the `signature` parameter from "
-                    "the call to log_model() or save_model().",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            mlflow_model.signature = signature
-        elif python_model is not None:
-            if callable(python_model):
-                input_arg_index = 0  # first argument
-                if signature := _infer_signature_from_type_hints(
-                    python_model, input_arg_index, input_example=input_example
-                ):
-                    mlflow_model.signature = signature
-            elif isinstance(python_model, ChatModel):
-                mlflow_model.signature = ModelSignature(
-                    CHAT_MODEL_INPUT_SCHEMA,
-                    CHAT_MODEL_OUTPUT_SCHEMA,
-                )
-                input_example = input_example or CHAT_MODEL_INPUT_EXAMPLE
-
-                if isinstance(input_example, list):
-                    params = ChatParams()
-                    messages = [
-                        each_message
-                        for each_message in input_example
-                        if isinstance(each_message, ChatMessage)
-                    ]
-                else:
-                    # If the input example is a dictionary, convert it to ChatMessage format
-                    messages = [ChatMessage(**m) for m in input_example["messages"]]
-                    params = ChatParams(
-                        **{k: v for k, v in input_example.items() if k != "messages"}
-                    )
-
-                # call load_context() first, as predict may depend on it
-                _logger.info("Predicting on input example to validate output")
-                context = PythonModelContext(artifacts, model_config)
-                python_model.load_context(context)
-                output = python_model.predict(context, messages, params)
-                if not isinstance(output, ChatResponse):
-                    raise MlflowException(
-                        "Failed to save ChatModel. Please ensure that the model's predict() method "
-                        "returns a ChatResponse object. If your predict() method currently returns "
-                        "a dict, you can instantiate a ChatResponse by unpacking the output, e.g. "
-                        "`ChatResponse(**output)`",
-                    )
-            elif isinstance(python_model, PythonModel):
-                input_arg_index = 1  # second argument
-                if signature := _infer_signature_from_type_hints(
-                    python_model.predict,
-                    input_arg_index=input_arg_index,
-                    input_example=input_example,
-                ):
-                    mlflow_model.signature = signature
-                elif input_example is not None:
-                    try:
-                        context = PythonModelContext(artifacts, model_config)
-                        python_model.load_context(context)
-                        mlflow_model.signature = _infer_signature_from_input_example(
-                            input_example,
-                            _PythonModelPyfuncWrapper(python_model, None, None),
-                            no_conversion=example_no_conversion,
-                        )
-                    except Exception as e:
-                        _logger.warning(f"Failed to infer model signature from input example. {e}")
-
-        if input_example is not None:
-            _save_example(mlflow_model, input_example, path, example_no_conversion)
-        if metadata is not None:
-            mlflow_model.metadata = metadata
-
-        with _get_dependencies_schemas() as dependencies_schemas:
-            schema = dependencies_schemas.to_dict()
-            if schema is not None:
-                if mlflow_model.metadata is None:
-                    mlflow_model.metadata = {}
-                mlflow_model.metadata.update(schema)
-
-        if resources is not None:
-            if isinstance(resources, (Path, str)):
-                serialized_resource = _ResourceBuilder.from_yaml_file(resources)
+            if isinstance(input_example, list):
+                params = ChatParams()
+                messages = [
+                    each_message
+                    for each_message in input_example
+                    if isinstance(each_message, ChatMessage)
+                ]
             else:
-                serialized_resource = _ResourceBuilder.from_resources(resources)
+                # If the input example is a dictionary, convert it to ChatMessage format
+                messages = [ChatMessage(**m) for m in input_example["messages"]]
+                params = ChatParams(
+                    **{k: v for k, v in input_example.items() if k != "messages"}
+                )
 
-            mlflow_model.resources = serialized_resource
+            # call load_context() first, as predict may depend on it
+            _logger.info("Predicting on input example to validate output")
+            context = PythonModelContext(artifacts, model_config)
+            python_model.load_context(context)
+            output = python_model.predict(context, messages, params)
+            if not isinstance(output, ChatResponse):
+                raise MlflowException(
+                    "Failed to save ChatModel. Please ensure that the model's predict() method "
+                    "returns a ChatResponse object. If your predict() method currently returns "
+                    "a dict, you can instantiate a ChatResponse by unpacking the output, e.g. "
+                    "`ChatResponse(**output)`",
+                )
+        elif isinstance(python_model, PythonModel):
+            input_arg_index = 1  # second argument
+            if signature := _infer_signature_from_type_hints(
+                python_model.predict,
+                input_arg_index=input_arg_index,
+                input_example=input_example,
+            ):
+                mlflow_model.signature = signature
+            elif input_example is not None:
+                try:
+                    context = PythonModelContext(artifacts, model_config)
+                    python_model.load_context(context)
+                    mlflow_model.signature = _infer_signature_from_input_example(
+                        input_example,
+                        _PythonModelPyfuncWrapper(python_model, None, None),
+                        no_conversion=example_no_conversion,
+                    )
+                except Exception as e:
+                    _logger.warning(f"Failed to infer model signature from input example. {e}")
 
-        if first_argument_set_specified:
-            return _save_model_with_loader_module_and_data_path(
-                path=path,
-                loader_module=loader_module,
-                data_path=data_path,
-                code_paths=code_paths,
-                conda_env=conda_env,
-                mlflow_model=mlflow_model,
-                pip_requirements=pip_requirements,
-                extra_pip_requirements=extra_pip_requirements,
-                model_config=model_config,
-                streamable=streamable,
-                infer_code_paths=infer_code_paths,
-            )
-        elif second_argument_set_specified:
-            return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
-                path=path,
-                signature=signature,
-                hints=hints,
-                python_model=python_model,
-                artifacts=artifacts,
-                conda_env=conda_env,
-                code_paths=code_paths,
-                mlflow_model=mlflow_model,
-                pip_requirements=pip_requirements,
-                extra_pip_requirements=extra_pip_requirements,
-                model_config=model_config,
-                streamable=streamable,
-                model_code_path=model_code_path,
-                infer_code_paths=infer_code_paths,
-            )
+    if input_example is not None:
+        _save_example(mlflow_model, input_example, path, example_no_conversion)
+    if metadata is not None:
+        mlflow_model.metadata = metadata
+
+    with _get_dependencies_schemas() as dependencies_schemas:
+        schema = dependencies_schemas.to_dict()
+        if schema is not None:
+            if mlflow_model.metadata is None:
+                mlflow_model.metadata = {}
+            mlflow_model.metadata.update(schema)
+
+    if resources is not None:
+        if isinstance(resources, (Path, str)):
+            serialized_resource = _ResourceBuilder.from_yaml_file(resources)
+        else:
+            serialized_resource = _ResourceBuilder.from_resources(resources)
+
+        mlflow_model.resources = serialized_resource
+
+    if first_argument_set_specified:
+        return _save_model_with_loader_module_and_data_path(
+            path=path,
+            loader_module=loader_module,
+            data_path=data_path,
+            code_paths=code_paths,
+            conda_env=conda_env,
+            mlflow_model=mlflow_model,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
+            model_config=model_config,
+            streamable=streamable,
+            infer_code_paths=infer_code_paths,
+        )
+    elif second_argument_set_specified:
+        return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
+            path=path,
+            signature=signature,
+            hints=hints,
+            python_model=python_model,
+            artifacts=artifacts,
+            conda_env=conda_env,
+            code_paths=code_paths,
+            mlflow_model=mlflow_model,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
+            model_config=model_config,
+            streamable=streamable,
+            model_code_path=model_code_path,
+            infer_code_paths=infer_code_paths,
+        )
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))

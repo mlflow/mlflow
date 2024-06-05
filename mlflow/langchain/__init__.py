@@ -293,128 +293,128 @@ def save_model(
         else:
             lc_model = lc_model_or_path
 
-        code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
-        if signature is None:
-            if input_example is not None:
-                wrapped_model = _LangChainModelWrapper(lc_model)
-                signature = _infer_signature_from_input_example_for_lc_model(
-                    input_example, wrapped_model, example_no_conversion=example_no_conversion
-                )
-            else:
-                if hasattr(lc_model, "input_keys"):
-                    input_columns = [
-                        ColSpec(type=DataType.string, name=input_key)
-                        for input_key in lc_model.input_keys
-                    ]
-                    input_schema = Schema(input_columns)
-                else:
-                    input_schema = None
-                if (
-                    hasattr(lc_model, "output_keys")
-                    and len(lc_model.output_keys) == 1
-                    and not isinstance(lc_model, BaseRetriever)
-                ):
-                    output_columns = [
-                        ColSpec(type=DataType.string, name=output_key)
-                        for output_key in lc_model.output_keys
-                    ]
-                    output_schema = Schema(output_columns)
-                else:
-                    # TODO: empty output schema if multiple output_keys or is a retriever.
-                    # fix later! https://databricks.atlassian.net/browse/ML-34706
-                    output_schema = None
-
-                signature = (
-                    ModelSignature(input_schema, output_schema)
-                    if input_schema or output_schema
-                    else None
-                )
-
-        if mlflow_model is None:
-            mlflow_model = Model()
-        if signature is not None:
-            mlflow_model.signature = signature
-
+    if signature is None:
         if input_example is not None:
-            _save_example(mlflow_model, input_example, path, example_no_conversion)
-        if metadata is not None:
-            mlflow_model.metadata = metadata
-
-        with _get_dependencies_schemas() as dependencies_schemas:
-            schema = dependencies_schemas.to_dict()
-            if schema is not None:
-                if mlflow_model.metadata is None:
-                    mlflow_model.metadata = {}
-                mlflow_model.metadata.update(schema)
-
-        if streamable is None:
-            streamable = hasattr(lc_model, "stream")
-
-        model_data_kwargs = {}
-        flavor_conf = {}
-        if not isinstance(model_code_path, str):
-            model_data_kwargs = _save_model(lc_model, path, loader_fn, persist_dir)
-            flavor_conf = {
-                _MODEL_TYPE_KEY: lc_model.__class__.__name__,
-                **model_data_kwargs,
-            }
-
-        pyfunc.add_to_model(
-            mlflow_model,
-            loader_module="mlflow.langchain",
-            conda_env=_CONDA_ENV_FILE_NAME,
-            python_env=_PYTHON_ENV_FILE_NAME,
-            code=code_dir_subpath,
-            predict_stream_fn="predict_stream",
-            streamable=streamable,
-            model_code_path=model_code_path,
-            model_config=model_config,
-            **model_data_kwargs,
-        )
-
-        if Version(langchain.__version__) >= Version("0.0.311"):
-            if databricks_resources := _detect_databricks_dependencies(lc_model):
-                serialized_databricks_resources = _ResourceBuilder.from_resources(
-                    databricks_resources
-                )
-                mlflow_model.resources = serialized_databricks_resources
-
-        mlflow_model.add_flavor(
-            FLAVOR_NAME,
-            langchain_version=langchain.__version__,
-            code=code_dir_subpath,
-            streamable=streamable,
-            **flavor_conf,
-        )
-        if size := get_total_file_size(path):
-            mlflow_model.model_size_bytes = size
-        mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
-
-        if conda_env is None:
-            if pip_requirements is None:
-                default_reqs = get_default_pip_requirements()
-                inferred_reqs = mlflow.models.infer_pip_requirements(
-                    str(path), FLAVOR_NAME, fallback=default_reqs
-                )
-                default_reqs = sorted(set(inferred_reqs).union(default_reqs))
-            else:
-                default_reqs = None
-            conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-                default_reqs, pip_requirements, extra_pip_requirements
+            wrapped_model = _LangChainModelWrapper(lc_model)
+            signature = _infer_signature_from_input_example_for_lc_model(
+                input_example, wrapped_model, example_no_conversion=example_no_conversion
             )
         else:
-            conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+            if hasattr(lc_model, "input_keys"):
+                input_columns = [
+                    ColSpec(type=DataType.string, name=input_key)
+                    for input_key in lc_model.input_keys
+                ]
+                input_schema = Schema(input_columns)
+            else:
+                input_schema = None
+            if (
+                hasattr(lc_model, "output_keys")
+                and len(lc_model.output_keys) == 1
+                and not isinstance(lc_model, BaseRetriever)
+            ):
+                output_columns = [
+                    ColSpec(type=DataType.string, name=output_key)
+                    for output_key in lc_model.output_keys
+                ]
+                output_schema = Schema(output_columns)
+            else:
+                # TODO: empty output schema if multiple output_keys or is a retriever.
+                # fix later! https://databricks.atlassian.net/browse/ML-34706
+                output_schema = None
 
-        with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
-            yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+            signature = (
+                ModelSignature(input_schema, output_schema)
+                if input_schema or output_schema
+                else None
+            )
 
-        if pip_constraints:
-            write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+    if mlflow_model is None:
+        mlflow_model = Model()
+    if signature is not None:
+        mlflow_model.signature = signature
 
-        write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+    if input_example is not None:
+        _save_example(mlflow_model, input_example, path, example_no_conversion)
+    if metadata is not None:
+        mlflow_model.metadata = metadata
 
-        _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+    with _get_dependencies_schemas() as dependencies_schemas:
+        schema = dependencies_schemas.to_dict()
+        if schema is not None:
+            if mlflow_model.metadata is None:
+                mlflow_model.metadata = {}
+            mlflow_model.metadata.update(schema)
+
+    if streamable is None:
+        streamable = hasattr(lc_model, "stream")
+
+    model_data_kwargs = {}
+    flavor_conf = {}
+    if not isinstance(model_code_path, str):
+        model_data_kwargs = _save_model(lc_model, path, loader_fn, persist_dir)
+        flavor_conf = {
+            _MODEL_TYPE_KEY: lc_model.__class__.__name__,
+            **model_data_kwargs,
+        }
+
+    pyfunc.add_to_model(
+        mlflow_model,
+        loader_module="mlflow.langchain",
+        conda_env=_CONDA_ENV_FILE_NAME,
+        python_env=_PYTHON_ENV_FILE_NAME,
+        code=code_dir_subpath,
+        predict_stream_fn="predict_stream",
+        streamable=streamable,
+        model_code_path=model_code_path,
+        model_config=model_config,
+        **model_data_kwargs,
+    )
+
+    if Version(langchain.__version__) >= Version("0.0.311"):
+        if databricks_resources := _detect_databricks_dependencies(lc_model):
+            serialized_databricks_resources = _ResourceBuilder.from_resources(
+                databricks_resources
+            )
+            mlflow_model.resources = serialized_databricks_resources
+
+    mlflow_model.add_flavor(
+        FLAVOR_NAME,
+        langchain_version=langchain.__version__,
+        code=code_dir_subpath,
+        streamable=streamable,
+        **flavor_conf,
+    )
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    if conda_env is None:
+        if pip_requirements is None:
+            default_reqs = get_default_pip_requirements()
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                str(path), FLAVOR_NAME, fallback=default_reqs
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs, pip_requirements, extra_pip_requirements
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
 @experimental
