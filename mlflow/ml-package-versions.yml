@@ -660,6 +660,7 @@ langchain:
           "numexpr",
           "hf_transfer",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
+          "langchain-huggingface",
         ]
     run: |
       LANGCHAIN_NEW=$(python -c "from packaging.version import Version;import langchain;print(Version(langchain.__version__) >= Version('0.0.267'))")

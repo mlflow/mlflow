@@ -30,7 +30,12 @@ from langchain.document_loaders import TextLoader
 from langchain.embeddings.base import Embeddings
 from langchain.embeddings.fake import FakeEmbeddings
 from langchain.evaluation.qa import QAEvalChain
-from langchain.llms import HuggingFacePipeline, OpenAI
+
+try:
+    from langchain.llms import HuggingFacePipeline
+except ImportError:
+    from langchain_huggingface import HuggingFacePipeline
+from langchain.llms import OpenAI
 from langchain.llms.base import LLM
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
