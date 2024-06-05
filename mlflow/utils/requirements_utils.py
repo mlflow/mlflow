@@ -627,11 +627,15 @@ def warn_dependency_requirement_mismatches(model_requirements: List[str]):
     doesn't satisfy them.
     """
     # Suppress databricks-feature-lookup warning for feature store cases
-    # Suppress databricks_rag_studio warning for RAG Studio cases
+    # Suppress databricks-chains warning for RAG Studio cases
     _DATABRICKS_FEATURE_LOOKUP = "databricks-feature-lookup"
-    _DATABRICKS_RAG_STUDIO = "databricks_rag_studio"
+    _DATABRICKS_RAG_STUDIO = "databricks-chains"
     ignore_packages = list(
-        map(_normalize_package_name, [_DATABRICKS_FEATURE_LOOKUP, _DATABRICKS_RAG_STUDIO])
+        map(
+            _normalize_package_name,
+            # TODO: remove databricks-rag-studio once it's EoL
+            [_DATABRICKS_FEATURE_LOOKUP, _DATABRICKS_RAG_STUDIO, "databricks-rag-studio"],
+        )
     )
     try:
         mismatch_infos = []
