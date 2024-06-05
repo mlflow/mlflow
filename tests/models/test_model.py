@@ -228,8 +228,8 @@ def test_model_info():
 
 
 def test_model_info_with_model_version():
-    with TempDir(chdr=True):
-        experiment_id = mlflow.create_experiment("test")
+    with TempDir() as tmp:
+        experiment_id = mlflow.create_experiment("test", artifact_location=tmp.path())
         with mlflow.start_run(experiment_id=experiment_id):
             model_info = Model.log("some/path", TestFlavor, registered_model_name="model_abc")
             assert model_info.model_version == 1
