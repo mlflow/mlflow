@@ -55,11 +55,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "tensorflow"
         },
         "models": {
-            "minimum": "2.6.5",
+            "minimum": "2.7.4",
             "maximum": "2.16.1"
         },
         "autologging": {
-            "minimum": "2.6.5",
+            "minimum": "2.7.4",
             "maximum": "2.16.1"
         }
     },
