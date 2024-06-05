@@ -108,8 +108,6 @@ class Assessment(_MlflowObject):
             return "numeric"
         elif self.string_value is not None:
             return "string"
-        else:
-            raise ValueError("Assessment value is not set to a recognized type.")
 
     def to_dictionary(self) -> Dict[str, Any]:
         return {

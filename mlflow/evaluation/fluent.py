@@ -311,15 +311,23 @@ def _add_assessment_to_df(
         for assess in existing_assessments_matching_name_df.to_dict(orient="records")
     ]
     if existing_assessments_matching_name:
-        existing_assessments_value_type = existing_assessments_matching_name[0].get_value_type()
-        if not all(
-            assessment.get_value_type() == existing_assessment.get_value_type()
+        # Verify that the value type of the new assessment matches the value type of existing
+        # assessments, excluding existing assessments that do not have values
+        # (i.e. with value type `None`)
+        existing_assessment_value_types = [
+            existing_assessment.get_value_type()
             for existing_assessment in existing_assessments_matching_name
+            if existing_assessment.get_value_type() is not None
+        ]
+        if not all(
+            assessment.get_value_type() == existing_value_type
+            for existing_value_type in existing_assessment_value_types
         ):
             raise MlflowException(
                 f"Assessment with name '{assessment.name}' has value type "
                 f"'{assessment.get_value_type()}' that does not match the value type "
-                f"'{existing_assessments_value_type}' of existing assessments with the same name.",
+                f"'{existing_assessment_value_types[0]}' of existing assessments with "
+                f" the same name.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

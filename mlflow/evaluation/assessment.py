@@ -5,8 +5,6 @@ from typing import Any, Dict, Optional, Union
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment import Assessment as AssessmentEntity
 from mlflow.entities.assessment_source import AssessmentSource
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
 class Assessment(_MlflowObject):
@@ -18,7 +16,7 @@ class Assessment(_MlflowObject):
         self,
         name: str,
         source: AssessmentSource,
-        value: Union[bool, float, str],
+        value: Optional[Union[bool, float, str]],
         rationale: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ):
@@ -52,10 +50,7 @@ class Assessment(_MlflowObject):
             self._string_value = str(value)
             self._value_type = "string"
         else:
-            raise MlflowException(
-                "Assessment must specify a boolean, numeric, or string value.",
-                INVALID_PARAMETER_VALUE,
-            )
+            self._value_type = None
 
     @property
     def name(self) -> str:
