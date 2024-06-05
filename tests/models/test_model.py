@@ -227,14 +227,13 @@ def test_model_info():
         assert model_info_fetched.mlflow_version == loaded_model.mlflow_version
 
 
-def test_model_info_with_model_version():
-    with TempDir() as tmp:
-        experiment_id = mlflow.create_experiment("test", artifact_location=tmp.path())
-        with mlflow.start_run(experiment_id=experiment_id):
-            model_info = Model.log("some/path", TestFlavor, registered_model_name="model_abc")
-            assert model_info.model_version == 1
-            model_info = Model.log("some/path", TestFlavor, registered_model_name="model_abc")
-            assert model_info.model_version == 2
+def test_model_info_with_model_version(tmp_path):
+    experiment_id = mlflow.create_experiment("test", artifact_location=str(tmp_path))
+    with mlflow.start_run(experiment_id=experiment_id):
+        model_info = Model.log("some/path", TestFlavor, registered_model_name="model_abc")
+        assert model_info.model_version == 1
+        model_info = Model.log("some/path", TestFlavor, registered_model_name="model_abc")
+        assert model_info.model_version == 2
 
 
 def test_model_metadata():
