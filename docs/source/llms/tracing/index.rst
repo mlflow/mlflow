@@ -10,11 +10,6 @@ MLflow offers a number of different options to enable tracing of your GenAI appl
 - **Manual trace instrumentation with high-level fluent APIs**: Decorators, function wrappers and context managers via the fluent API allow you to add tracing functionality with minor code modifications.
 - **Low-level client APIs for tracing**: The MLflow client API provides a thread-safe way to handle trace implementations, even in aysnchronous modes of operation.
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-
-    overview
 
 To learn more about what tracing is, see our `Tracing Concepts Overview <./overview.html>`_ guide. 
 
@@ -159,7 +154,8 @@ You can add additional metadata to the tracing decorator as follows:
 When adding additional metadata to the trace decorator constructor, these additional components will be logged along with the span entry within 
 the trace that is stored within the active MLflow experiment.
 
-**What is captured?**
+What is captured?
+#################
 
 If we navigate to the MLflow UI, we can see that the trace decorator automatically captured the following information, in addition to the basic
 metadata associated with any span (start time, end time, status, etc):
@@ -173,10 +169,14 @@ metadata associated with any span (start time, end time, status, etc):
     :width: 100%
     :align: center
 
-**What about Error handling?**
+Error Handling with Traces
+##########################
 
 If an `Exception` is raised during processing of a trace-instrumented operation, an indication will be shown within the UI that the invocation was not 
-successful and a partial capture of data will be available to aid in debugging, as shown below:
+successful and a partial capture of data will be available to aid in debugging. Additionally, details about the Exception that was raised will be included 
+within the ``events`` attribute of the partially completed span, further aiding the identification of where issues are occuring within your code. 
+
+An example of a trace that has been recorded from code that raised an Exception is shown below:
 
 .. code-block:: python
 
@@ -188,10 +188,11 @@ successful and a partial capture of data will be available to aid in debugging, 
     :width: 100%
     :align: center
 
-**How to handle parent-child relationships?**
+How to handle parent-child relationships
+########################################
 
 When using the trace decorator, each decorated function will be treated as a separate span within the trace. The relationship between dependent function calls 
-is handled directly through the native call excecution order within Python. For example, the following code will introduce two "children" spans to the main 
+is handled directly through the native call excecution order within Python. For example, the following code will introduce two "child" spans to the main 
 parent span, all using decorators. 
 
 .. code-block:: python
@@ -269,7 +270,7 @@ and less complex.
             elif operation == "subtract":
                 result = first - second
             else:
-                raise AttributeError(f"Unsupported Operation Mode: {operation}")
+                raise ValueError(f"Unsupported Operation Mode: {operation}")
 
             # Specify the output result to the span
             span.set_outputs({"result": result})
@@ -305,24 +306,32 @@ capture its inputs, outputs, and execution context.
 
 .. code-block:: python
 
+    import math
+
     import mlflow
 
-
-    def my_external_function(x, y):
-        return x + y
+    mlflow.set_experiment("External Function Tracing")
 
 
-    def invocation(x, y=4):
+    def invocation(x, y=4, exp=2):
         # Initiate a context handler for parent logging
         with mlflow.start_span(name="Parent") as span:
             span.set_attributes({"level": "parent", "override": y == 4})
-            span.set_inputs({"x": x, "y": y})
+            span.set_inputs({"x": x, "y": y, "exp": exp})
 
             # Wrap an external function instead of modifying
-            traced_external = mlflow.trace(my_external_function)
+            traced_pow = mlflow.trace(math.pow)
 
             # Call the wrapped function as you would call it directly
-            response = traced_external(x, y)
+            raised = traced_pow(x, exp)
+
+            # Wrap another external function
+            traced_factorial = mlflow.trace(math.factorial)
+
+            factorial = traced_factorial(raised)
+
+            # Wrap another and call it directly
+            response = mlflow.trace(math.sqrt)(factorial)
 
             # Set the outputs to the parent span prior to returning
             span.set_outputs({"result": response})
@@ -330,11 +339,12 @@ capture its inputs, outputs, and execution context.
             return response
 
 
-    invocation(16)
+    for i in range(8):
+        invocation(i)
 
-The screenshot below shows the wrapped function call having its inputs and output captured from within a span.
+The video below shows our external function wrapping runs within the MLflow UI. Note that 
 
-.. figure:: ../../_static/images/llms/tracing/external-function.png
+.. figure:: ../../_static/images/llms/tracing/external-trace.gif
     :alt: External Function tracing
     :width: 100%
     :align: center
@@ -414,7 +424,8 @@ The initiating ``request_id`` can be accessed from any parent span object's prop
 Ending a Trace
 ^^^^^^^^^^^^^^
 
-To complete the trace, end the root span using the :py:meth:`mlflow.client.MlflowClient.end_trace` method. This will also ensure that all associated child spans are properly closed.
+To complete the trace, end the root span using the :py:meth:`mlflow.client.MlflowClient.end_trace` method. This will also ensure that all associated child 
+spans are properly ended.
 
 .. code-block:: python
 
@@ -461,7 +472,7 @@ You can delete traces based on specific criteria using the :py:meth:`mlflow.clie
 **maximum timestamp**, or **request IDs**.
 
 .. tip::
-    
+
     Deleting a trace is an irreversible process. Ensure that the setting provided within the ``delete_traces`` API meet the intended range for deletion. 
 
 .. code-block:: python
@@ -493,6 +504,42 @@ and the :py:meth:`mlflow.client.MlflowClient.delete_trace_tag` method to remove 
 
 FAQ
 ---
+
+Q: How can I associate a trace with an MLflow Run?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If a trace is generated within a run context, the recorded traces to an active Experiment will be associated with the active Run. 
+
+For example, in the following code, the traces are generated within the ``start_run`` context. 
+
+.. code-block:: python
+
+    import mlflow
+
+    # Create and activate an Experiment
+    mlflow.set_experiment("Run Associated Tracing")
+
+    # Start a new MLflow Run
+    with mlflow.start_run():
+        # Initiate a trace by starting a Span context from within the Run context
+        with mlflow.start_span(name="Run Span") as parent_span:
+            parent_span.set_inputs({"input": "a"})
+            parent_span.set_outputs({"response": "b"})
+            parent_span.set_attribute("a", "b")
+            # Initiate a child span from within the parent Span's context
+            with mlflow.start_span(name="Child Span") as child_span:
+                child_span.set_inputs({"input": "b"})
+                child_span.set_outputs({"response": "c"})
+                child_span.set_attributes({"b": "c", "c": "d"})
+
+When navigating to the MLflow UI and selecting the active Experiment, the trace display view will show the run that is associated with the trace, as 
+well as providing a link to navigate to the run within the MLflow UI. See the below video for an example of this in action.
+
+.. figure:: ../../_static/images/llms/tracing/run-trace.gif
+    :alt: Tracing within a Run Context
+    :width: 100%
+    :align: center
+
 
 Q: Can I use the fluent API and the client API together?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
