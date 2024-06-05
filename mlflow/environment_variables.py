@@ -625,7 +625,4 @@ MLFLOW_HTTP_POOL_MAXSIZE = _EnvironmentVariable("MLFLOW_HTTP_POOL_MAXSIZE", int,
 #: Whether to enable Databricks SDK. If true, MLflow uses databricks-sdk API to send HTTP requests
 # to Databricks endpoint, otherwise MLflow uses ``requests`` library to send HTTP requests
 # to Databricks endpoint
-MLFLOW_ENABLE_DATABRICKS_SDK = _BooleanEnvironmentVariable(
-    "MLFLOW_ENABLE_DATABRICKS_SDK", True
-)
-
+MLFLOW_ENABLE_DATABRICKS_SDK = _BooleanEnvironmentVariable("MLFLOW_ENABLE_DATABRICKS_SDK", True)

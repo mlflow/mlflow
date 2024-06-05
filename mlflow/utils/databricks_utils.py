@@ -10,8 +10,8 @@ from typing import NamedTuple, Optional, TypeVar
 
 import mlflow.utils
 from mlflow.environment_variables import (
-    MLFLOW_TRACKING_URI,
     MLFLOW_ENABLE_DATABRICKS_SDK,
+    MLFLOW_TRACKING_URI,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.legacy_databricks_cli.configure.provider import (
