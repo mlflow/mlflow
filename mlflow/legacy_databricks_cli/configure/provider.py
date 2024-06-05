@@ -325,6 +325,9 @@ class DatabricksModelServingConfigProvider(DatabricksConfigProvider):
         OAUTH_CACHE_ENV_VAR = "DATABRICKS_DEPENDENCY_OAUTH_CACHE"
         OAUTH_CACHE_EXPIRATION_ENV_VAR = "DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS"
         MODEL_SERVING_HOST_ENV_VAR = "DATABRICKS_MODEL_SERVING_HOST_URL"
+        DB_MODEL_SERVING_HOST_ENV_VAR = "DB_MODEL_SERVING_HOST_URL"
+
+        host = os.environ[MODEL_SERVING_HOST_ENV_VAR]
 
         # check if dependency is cached in env var before reading from file
         oauth_token = ""
@@ -342,7 +345,7 @@ class DatabricksModelServingConfigProvider(DatabricksConfigProvider):
             )
 
         return DatabricksConfig(
-            host=os.environ[MODEL_SERVING_HOST_ENV_VAR],
+            host=host,
             token=oauth_token,
             username=None,
             password=None,
