@@ -137,7 +137,16 @@ def _cached_get_request_session(
         retry = JitteredRetry(**retry_kwargs)
     else:
         retry = Retry(**retry_kwargs)
-    adapter = HTTPAdapter(max_retries=retry)
+    from mlflow.environment_variables import (
+        MLFLOW_HTTP_POOL_CONNECTIONS,
+        MLFLOW_HTTP_POOL_MAXSIZE,
+    )
+
+    adapter = HTTPAdapter(
+        pool_connections=MLFLOW_HTTP_POOL_CONNECTIONS.get(),
+        pool_maxsize=MLFLOW_HTTP_POOL_MAXSIZE.get(),
+        max_retries=retry,
+    )
     session = requests.Session()
     session.mount("https://", adapter)
     session.mount("http://", adapter)
