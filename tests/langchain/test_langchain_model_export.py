@@ -30,7 +30,12 @@ from langchain.document_loaders import TextLoader
 from langchain.embeddings.base import Embeddings
 from langchain.embeddings.fake import FakeEmbeddings
 from langchain.evaluation.qa import QAEvalChain
-from langchain.llms import HuggingFacePipeline, OpenAI
+
+try:
+    from langchain_huggingface import HuggingFacePipeline
+except ImportError:
+    from langchain.llms import HuggingFacePipeline
+from langchain.llms import OpenAI
 from langchain.llms.base import LLM
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
@@ -407,7 +412,8 @@ def test_langchain_log_huggingface_hub_model_metadata(model_path):
     assert str(logged_model.signature.outputs) == "['text': string (required)]"
 
     assert type(loaded_model) == langchain.chains.llm.LLMChain
-    assert type(loaded_model.llm) == HuggingFacePipeline
+    # TODO: Check the type once https://github.com/langchain-ai/langchain/issues/22520 is resolved
+    assert type(loaded_model.llm).__name__ == "HuggingFacePipeline"
     assert type(loaded_model.prompt) == langchain.prompts.PromptTemplate
     assert loaded_model.prompt.template == "What is a good name for a company that makes {product}?"
 
