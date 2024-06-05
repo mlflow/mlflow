@@ -88,9 +88,12 @@ def http_request(
         from databricks.sdk.config import Config
         from databricks.sdk.errors import DatabricksError
 
-        config = Config(retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get())
-        ws_client = WorkspaceClient(profile=host_creds.databricks_auth_profile, config=config)
-
+        config = Config(
+            profile=host_creds.databricks_auth_profile,
+            retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
+        )
+        # Note: If we use `config` param, all SDK configurations must be set in `config` object.
+        ws_client = WorkspaceClient(config=config)
         try:
             # Databricks SDK `APIClient.do` API is for making request using
             # HTTP
@@ -152,6 +155,11 @@ def http_request(
         auth_str = "Basic " + base64.standard_b64encode(basic_auth_str).decode("utf-8")
     elif host_creds.token:
         auth_str = f"Bearer {host_creds.token}"
+    elif host_creds.client_secret:
+        raise MlflowException(
+            "You need to set environmental variable 'MLFLOW_ENABLE_DATABRICKS_SDK' to 'true' "
+            "otherwise MLflow can't support Databricks OAuth authentication."
+        )
 
     from mlflow.tracking.request_header.registry import resolve_request_headers
 
@@ -398,6 +406,12 @@ class MlflowHostCreds:
             Sets the verify param of the ``requests.request``
             function (see https://requests.readthedocs.io/en/master/api/).
             If this is set ``ignore_tls_verification`` must be false.
+        auth_by_databricks_sdk: A boolean value represent whether using Databricks SDK for
+            authentication.
+        databricks_auth_profile: The name of the profile used by Databricks SDK for
+            authentication.
+        client_id: The client ID used by Databricks OAuth
+        client_secret: The client secret used by Databricks OAuth
     """
 
     def __init__(
@@ -413,6 +427,8 @@ class MlflowHostCreds:
         server_cert_path=None,
         auth_by_databricks_sdk=False,
         databricks_auth_profile=None,
+        client_id=None,
+        client_secret=None,
     ):
         if not host:
             raise MlflowException(
@@ -441,6 +457,8 @@ class MlflowHostCreds:
         self.server_cert_path = server_cert_path
         self.auth_by_databricks_sdk = auth_by_databricks_sdk
         self.databricks_auth_profile = databricks_auth_profile
+        self.client_id = client_id
+        self.client_secret = client_secret
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
