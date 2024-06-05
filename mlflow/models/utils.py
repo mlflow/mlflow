@@ -1458,17 +1458,17 @@ def _validate_model_code_from_notebook(code):
     Validate there isn't any code that would work in a notebook but not as exported Python file.
     For now, this checks for dbutils and magic commands.
     """
-    error_message = (
-        "The model file uses 'dbutils' command which is not supported. To ensure your code "
-        "functions correctly, remove or comment out usage of 'dbutils' command."
-    )
 
     output_code_list = []
     for line in code.splitlines():
         for match in re.finditer(r"\bdbutils\b", line):
             start = match.start()
             if not _is_in_comment(line, start) and not _is_in_string_only(line, "dbutils"):
-                raise ValueError(error_message)
+                _logger.warning(
+                    "The model file uses 'dbutils' commands which are not supported. To ensure "
+                    "your code functions correctly, make sure that it does not rely on these "
+                    "dbutils commands for correctness."
+                )
         # Prefix any line containing MAGIC commands with a comment. When there is better support
         # for the Databricks workspace export API, we can get rid of this.
         if line.startswith("%"):
@@ -1477,7 +1477,7 @@ def _validate_model_code_from_notebook(code):
             output_code_list.append(line)
     output_code = "\n".join(output_code_list)
 
-    magic_regex = r"^# MAGIC %\S+.*"
+    magic_regex = r"^# MAGIC %((?!pip)\S+).*"
     if re.search(magic_regex, output_code, re.MULTILINE):
         _logger.warning(
             "The model file uses magic commands which have been commented out. To ensure your code "
@@ -1597,6 +1597,46 @@ def _config_context(config: Optional[Union[str, Dict[str, Any]]] = None):
         _set_model_config(None)
 
 
+class MockDbutils:
+    def __init__(self, real_dbutils=None):
+        self.real_dbutils = real_dbutils
+
+    def __getattr__(self, name):
+        try:
+            if self.real_dbutils:
+                return getattr(self.real_dbutils, name)
+        except AttributeError:
+            pass
+        return MockDbutils()
+
+    def __call__(self, *args, **kwargs):
+        pass
+
+
+@contextmanager
+def _mock_dbutils(globals_dict):
+    module_name = "dbutils"
+    original_module = sys.modules.get(module_name)
+    sys.modules[module_name] = MockDbutils(original_module)
+
+    # Inject module directly into the global namespace in case it is referenced without an import
+    original_global = globals_dict.get(module_name)
+    globals_dict[module_name] = MockDbutils(original_module)
+
+    try:
+        yield
+    finally:
+        if original_module is not None:
+            sys.modules[module_name] = original_module
+        else:
+            del sys.modules[module_name]
+
+        if original_global is not None:
+            globals_dict[module_name] = original_global
+        else:
+            del globals_dict[module_name]
+
+
 # Python's module caching mechanism prevents the re-importation of previously loaded modules by
 # default. Once a module is imported, it's added to `sys.modules`, and subsequent import attempts
 # retrieve the cached module rather than re-importing it.
@@ -1611,7 +1651,9 @@ def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, 
             spec = importlib.util.spec_from_file_location(new_module_name, code_path)
             module = importlib.util.module_from_spec(spec)
             sys.modules[new_module_name] = module
-            spec.loader.exec_module(module)
+            # Since dbutils will only work in databricks environment, we need to mock it
+            with _mock_dbutils(module.__dict__):
+                spec.loader.exec_module(module)
         except ImportError as e:
             raise MlflowException(
                 f"Failed to import code model from {code_path}. Error: {e!s}"
