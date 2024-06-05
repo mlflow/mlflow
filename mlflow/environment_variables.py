@@ -607,3 +607,24 @@ MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS = _BooleanEnvironmentVariable(
 MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK = _EnvironmentVariable(
     "MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK", int, 10
 )
+
+# Default addressing style to use for boto client
+MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE = _EnvironmentVariable(
+    "MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE", str, "auto"
+)
+
+#: Specify the timeout in seconds for Databricks endpoint HTTP request retries.
+MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT", int, 500
+)
+
+
+#: Specifies the number of connection pools to cache in urllib3. This environment variable sets the
+#: `pool_connections` parameter in the `requests.adapters.HTTPAdapter` constructor. By adjusting
+#: this variable, users can enhance the concurrency of HTTP requests made by MLflow.
+MLFLOW_HTTP_POOL_CONNECTIONS = _EnvironmentVariable("MLFLOW_HTTP_POOL_CONNECTIONS", int, 10)
+
+#: Specifies the maximum number of connections to keep in the HTTP connection pool. This environment
+#: variable sets the `pool_maxsize` parameter in the `requests.adapters.HTTPAdapter` constructor.
+#: By adjusting this variable, users can enhance the concurrency of HTTP requests made by MLflow.
+MLFLOW_HTTP_POOL_MAXSIZE = _EnvironmentVariable("MLFLOW_HTTP_POOL_MAXSIZE", int, 10)
