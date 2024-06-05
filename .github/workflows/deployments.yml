@@ -36,7 +36,7 @@ jobs:
         run: |
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install .[gateway] \
-            pytest pytest-timeout pytest-asyncio httpx psutil sentence-transformers transformers databricks-sdk
+            pytest pytest-timeout pytest-asyncio httpx psutil sentence-transformers transformers
       - name: Run tests
         run: |
           pytest tests/deployments

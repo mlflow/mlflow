@@ -96,7 +96,7 @@ from tests.store._unity_catalog.conftest import (
 
 @pytest.fixture
 def store(mock_databricks_uc_host_creds):
-    with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"):
+    with mock.patch("mlflow.utils.databricks_utils.get_config"):
         yield UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks")
 
 
@@ -814,7 +814,7 @@ def test_get_run_and_headers_returns_none_if_request_fails(store, status_code, r
 def test_get_run_and_headers_returns_none_if_tracking_uri_not_databricks(
     mock_databricks_uc_host_creds, tmp_path
 ):
-    with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"):
+    with mock.patch("mlflow.utils.databricks_utils.get_config"):
         store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri=str(tmp_path))
         mock_response = mock.MagicMock(autospec=Response)
         mock_response.status_code = 200
@@ -1634,16 +1634,10 @@ def test_store_use_presigned_url_store_when_disabled():
         )
 
 
-def test_store_use_presigned_url_store_when_enabled(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "DATABRICKS_HOST": "my-host",
-            "DATABRICKS_TOKEN": "my-token",
-        }
-    )
+def test_store_use_presigned_url_store_when_enabled():
     store_package = "mlflow.store._unity_catalog.registry.rest_store"
     creds = TemporaryCredentials(storage_mode=StorageMode.DEFAULT_STORAGE)
-    with mock.patch(
+    with mock.patch("mlflow.utils.databricks_utils.get_config"), mock.patch(
         f"{store_package}.UcModelRegistryStore._get_temporary_model_version_write_credentials",
         return_value=creds,
     ):
@@ -1651,4 +1645,4 @@ def test_store_use_presigned_url_store_when_enabled(monkeypatch):
         model_version = ModelVersion(name="catalog.schema.model_1", version="1")
         presigned_store = uc_store._get_artifact_repo(model_version)
 
-    assert type(presigned_store) is PresignedUrlArtifactRepository
+        assert type(presigned_store) is PresignedUrlArtifactRepository
