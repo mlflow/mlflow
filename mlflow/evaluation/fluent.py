@@ -114,11 +114,11 @@ def log_evaluations(
     ]
     evaluations_df, metrics_df, assessments_df = evaluations_to_dataframes(evaluation_entities)
     client.log_table(
-        run_id=run_id, data=evaluations_df, artifact_file="_evaluations.json", set_tag=False
+        run_id=run_id, data=evaluations_df, artifact_file="_evaluations.json", set_tag=True
     )
-    client.log_table(run_id=run_id, data=metrics_df, artifact_file="_metrics.json", set_tag=False)
+    client.log_table(run_id=run_id, data=metrics_df, artifact_file="_metrics.json", set_tag=True)
     client.log_table(
-        run_id=run_id, data=assessments_df, artifact_file="_assessments.json", set_tag=False
+        run_id=run_id, data=assessments_df, artifact_file="_assessments.json", set_tag=True
     )
 
     _update_assessments_stats(
