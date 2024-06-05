@@ -252,8 +252,8 @@ def _get_map_of_special_chain_class_to_loader_arg():
 
 @lru_cache
 def _get_supported_llms():
-    import langchain.chat_models
-    import langchain.llms
+    import langchain_community.chat_models
+    import langchain_community.llms
 
     supported_llms = set()
 
@@ -269,12 +269,12 @@ def _get_supported_llms():
         except ImportError:
             pass
 
-    safe_import_and_add("langchain.llms.openai", "OpenAI")
-    safe_import_and_add("langchain.llms.huggingface_hub", "HuggingFaceHub")
+    safe_import_and_add("langchain_community.llms.openai", "OpenAI")
+    safe_import_and_add("langchain_community.llms.huggingface_hub", "HuggingFaceHub")
     safe_import_and_add("langchain_openai", "OpenAI")
 
     for llm_name in ["Databricks", "Mlflow"]:
-        try_adding_llm(langchain.llms, llm_name)
+        try_adding_llm(langchain_community.llms, llm_name)
 
     for chat_model_name in [
         "ChatDatabricks",
@@ -282,7 +282,7 @@ def _get_supported_llms():
         "ChatOpenAI",
         "AzureChatOpenAI",
     ]:
-        try_adding_llm(langchain.chat_models, chat_model_name)
+        try_adding_llm(langchain_community.chat_models, chat_model_name)
 
     return supported_llms
 
@@ -291,8 +291,8 @@ def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn):
     import langchain.agents.agent
     import langchain.chains.base
     import langchain.chains.llm
-    import langchain.llms.huggingface_hub
-    import langchain.llms.openai
+    import langchain_community.llms.huggingface_hub
+    import langchain_community.llms.openai
     import langchain.schema
 
     # lc_model is a file path
