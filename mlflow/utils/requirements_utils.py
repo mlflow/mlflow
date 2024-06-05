@@ -626,14 +626,23 @@ def warn_dependency_requirement_mismatches(model_requirements: List[str]):
     Inspects the model's dependencies and prints a warning if the current Python environment
     doesn't satisfy them.
     """
+    # Suppress databricks-feature-lookup warning for feature store cases
+    # Suppress databricks-chains warning for RAG Studio cases
     _DATABRICKS_FEATURE_LOOKUP = "databricks-feature-lookup"
+    _DATABRICKS_RAG_STUDIO = "databricks-chains"
+    ignore_packages = list(
+        map(
+            _normalize_package_name,
+            # TODO: remove databricks-rag-studio once it's EoL
+            [_DATABRICKS_FEATURE_LOOKUP, _DATABRICKS_RAG_STUDIO, "databricks-rag-studio"],
+        )
+    )
     try:
         mismatch_infos = []
         for req in model_requirements:
             mismatch_info = _check_requirement_satisfied(req)
             if mismatch_info is not None:
-                # Suppress databricks-feature-lookup warning for feature store cases
-                if mismatch_info.package_name == _DATABRICKS_FEATURE_LOOKUP:
+                if _normalize_package_name(mismatch_info.package_name) in ignore_packages:
                     continue
                 mismatch_infos.append(str(mismatch_info))
 
