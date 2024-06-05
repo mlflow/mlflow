@@ -32,9 +32,9 @@ from langchain.embeddings.fake import FakeEmbeddings
 from langchain.evaluation.qa import QAEvalChain
 
 try:
-    from langchain.llms import HuggingFacePipeline
-except ImportError:
     from langchain_huggingface import HuggingFacePipeline
+except ImportError:
+    from langchain.llms import HuggingFacePipeline
 from langchain.llms import OpenAI
 from langchain.llms.base import LLM
 from langchain.memory import ConversationBufferMemory
