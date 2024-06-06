@@ -114,6 +114,34 @@ def _force_set_otel_tracer_provider(tracer_provider):
     trace.set_tracer_provider(tracer_provider)
 
 
+def _catch_exception(msg: str, default_return=None):
+    """
+    A decorator to make sure that any exception raised in the decorated function is caught
+    and logged as a warning.
+
+    Some tracing operations e.g. enabling/disabling tracing are not critical to the application
+    and should not cause the application to crash if they fail. To ensure the coverage of
+    exception handling, this decorator is used to wrap the functions that might raise exceptions.
+    """
+
+    def decorator(f):
+        @functools.wraps(f)
+        def wrapper(*args, **kwargs):
+            try:
+                return f(*args, **kwargs)
+            except Exception as e:
+                _logger.warning(
+                    f"{msg}: {e}\n For full traceback, set logging level to debug.",
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
+                return default_return
+
+        return wrapper
+
+    return decorator
+
+
+@_catch_exception(msg="Failed to disable tracing")
 def disable():
     """
     Disable tracing.
@@ -154,6 +182,7 @@ def disable():
     _TRACER_PROVIDER_INITIALIZED.do_once(lambda: _setup_tracer_provider(disabled=True))
 
 
+@_catch_exception(msg="Failed to enable tracing")
 def enable():
     """
     Enable tracing.
@@ -215,26 +244,15 @@ def trace_disabled(f):
 
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
-        _is_func_called = False
-        try:
-            was_trace_enabled = _is_enabled()
-            if was_trace_enabled:
-                disable()
-                try:
-                    _is_func_called = True
-                    return f(*args, **kwargs)
-                finally:
-                    enable()
-            else:
-                _is_func_called = True
+        was_trace_enabled = _is_enabled()
+        if was_trace_enabled:
+            disable()
+            try:
                 return f(*args, **kwargs)
-        except Exception:
-            # If any exception happens when disabling tracing, we should catch it and
-            # still call the original function. However, if the exception is raised
-            # from the original function, we should not catch and call it twice.
-            if not _is_func_called:
-                return f(*args, **kwargs)
-            raise
+            finally:
+                enable()
+        else:
+            return f(*args, **kwargs)
 
     return wrapper
 
@@ -253,6 +271,7 @@ def reset_tracer_setup():
     _setup_tracer_provider(disabled=True)
 
 
+@_catch_exception(msg="Failed to determine if tracing is enabled", default_return=False)
 def _is_enabled() -> bool:
     """
     Check if tracing is enabled based on whether the global tracer
