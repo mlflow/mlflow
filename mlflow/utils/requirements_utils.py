@@ -632,17 +632,11 @@ def warn_dependency_requirement_mismatches(model_requirements: List[str]):
     # NB: When a final name has been decided for GA for the aforementioned
     # "Databricks RAG Studio" product, remove unrelated names from this listing.
     _DATABRICKS_FEATURE_LOOKUP = "databricks-feature-lookup"
-    _DATABRICKS_RAG_STUDIO = "databricks-rag-studio"
-    _DATABRICKS_CHAINS = "databricks-chains"
-    _DATABRICKS_RAG = "databricks-rag"
     _DATABRICKS_AGENTS = "databricks-agents"
 
     # List of packages to ignore
     packages_to_ignore = [
         _DATABRICKS_FEATURE_LOOKUP,
-        _DATABRICKS_RAG_STUDIO,
-        _DATABRICKS_CHAINS,
-        _DATABRICKS_RAG,
         _DATABRICKS_AGENTS,
     ]
 
