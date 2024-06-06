@@ -47,6 +47,10 @@ def _extract_databricks_dependencies_from_retriever(retriever, dependency_list: 
         embeddings = getattr(vectorstore, "embeddings", None)
         if isinstance(embeddings, (DatabricksEmbeddings, LegacyDatabricksEmbeddings)):
             dependency_list.append(DatabricksServingEndpoint(endpoint_name=embeddings.endpoint))
+    else:
+        for attr in dir(retriever):
+            retriever_attr = getattr(retriever, attr)
+            _extract_databricks_dependencies_from_retriever(retriever_attr, dependency_list)
 
 
 def _extract_databricks_dependencies_from_llm(llm, dependency_list: List[Resource]):
