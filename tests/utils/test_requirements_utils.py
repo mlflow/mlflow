@@ -564,6 +564,12 @@ model's environment and install dependencies using the resulting environment fil
         "databricks.chains",
         "databricks-rag-studio",
         "databricks.rag_studio",
+        "databricks.rag",
+        "databricks-rag",
+        "databricks_rag",
+        "databricks-agents",
+        "databricks_agents",
+        "databricks.agents",
     ],
 )
 def test_suppress_warn_dependency_requirement_mismatches_ignore_some_packages(ignore_package_name):
