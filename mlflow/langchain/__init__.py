@@ -18,6 +18,7 @@ import inspect
 import json
 import logging
 import os
+import tempfile
 import warnings
 from typing import Any, Dict, Iterator, List, Optional, Union
 
@@ -268,30 +269,31 @@ def save_model(
             True, the model must implement `stream` method. If None, streamable is
             set to True if the model implements `stream` method. Default to `None`.
     """
-    import langchain
-    from langchain.schema import BaseRetriever
+    with tempfile.TemporaryDirectory() as temp_dir:
+        import langchain
+        from langchain.schema import BaseRetriever
 
-    lc_model_or_path = _validate_and_prepare_lc_model_or_path(lc_model, loader_fn)
+        lc_model_or_path = _validate_and_prepare_lc_model_or_path(lc_model, loader_fn, temp_dir)
 
-    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+        _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
-    path = os.path.abspath(path)
-    _validate_and_prepare_target_save_path(path)
+        path = os.path.abspath(path)
+        _validate_and_prepare_target_save_path(path)
 
-    if isinstance(model_config, str):
-        model_config = _validate_and_get_model_config_from_file(model_config)
+        if isinstance(model_config, str):
+            model_config = _validate_and_get_model_config_from_file(model_config)
 
-    model_code_path = None
-    if isinstance(lc_model_or_path, str):
-        # The LangChain model is defined as Python code located in the file at the path
-        # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
-        # model directory along with any other specified code modules
-        model_code_path = lc_model_or_path
+        model_code_path = None
+        if isinstance(lc_model_or_path, str):
+            # The LangChain model is defined as Python code located in the file at the path
+            # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
+            # model directory along with any other specified code modules
+            model_code_path = lc_model_or_path
 
-        lc_model = _load_model_code_path(model_code_path, model_config)
-        _validate_and_copy_file_to_directory(model_code_path, path, "code")
-    else:
-        lc_model = lc_model_or_path
+            lc_model = _load_model_code_path(model_code_path, model_config)
+            _validate_and_copy_file_to_directory(model_code_path, path, "code")
+        else:
+            lc_model = lc_model_or_path
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
@@ -555,13 +557,11 @@ def log_model(
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
-    lc_model_or_path = _validate_and_prepare_lc_model_or_path(lc_model, loader_fn)
-
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.langchain,
         registered_model_name=registered_model_name,
-        lc_model=lc_model_or_path,
+        lc_model=lc_model,
         conda_env=conda_env,
         code_paths=code_paths,
         signature=signature,
