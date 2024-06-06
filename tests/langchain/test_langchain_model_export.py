@@ -12,6 +12,7 @@ import langchain
 import numpy as np
 import openai
 import pytest
+from tests.tracing.helper import get_traces
 import transformers
 import yaml
 from langchain import SQLDatabase
@@ -2400,6 +2401,12 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
 
     assert mlflow.models.model_config.__mlflow_model_config__ is None
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+
+    # During the loading process, MLflow executes the chain.py file to
+    # load the model class. It should not generate any traces even if
+    # the code enables autologging and invoke chain.
+    assert len(get_traces()) == 0
+
     assert mlflow.models.model_config.__mlflow_model_config__ is None
     answer = "Databricks"
     assert loaded_model.invoke(input_example) == answer
