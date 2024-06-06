@@ -1,8 +1,10 @@
 package server_test
 
 import (
+	"errors"
 	"testing"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/require"
 
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
@@ -141,6 +143,7 @@ func TestEmptyParamsInLogBatch(t *testing.T) {
 
 	//nolint:exhaustruct
 	logBatchRequest := &protos.LogBatch{
+		RunId:  utils.PtrTo("odcppTsGTMkHeDcqfZOYDMZSf"),
 		Params: make([]*protos.Param, 0),
 	}
 
@@ -149,6 +152,43 @@ func TestEmptyParamsInLogBatch(t *testing.T) {
 
 	err = validator.Struct(logBatchRequest)
 	if err != nil {
-		t.Error("Unexpected uniqueParams validation error, got none")
+		t.Errorf("Unexpected uniqueParams validation error, got %v", err)
+	}
+}
+
+//nolint:exhaustruct
+func TestMissingTimestampInNestedMetric(t *testing.T) {
+	t.Parallel()
+
+	serverValidator, err := server.NewValidator()
+	require.NoError(t, err)
+
+	logBatch := protos.LogBatch{
+		RunId: utils.PtrTo("odcppTsGTMkHeDcqfZOYDMZSf"),
+		Metrics: []*protos.Metric{
+			{
+				Key:   utils.PtrTo("mae"),
+				Value: utils.PtrTo(2.5),
+			},
+		},
+	}
+
+	err = serverValidator.Struct(&logBatch)
+	if err == nil {
+		t.Error("Expected dip validation error, got none")
+	}
+
+	var validationErrors validator.ValidationErrors
+	if errors.As(err, &validationErrors) {
+		if len(validationErrors) != 1 {
+			t.Errorf("Expected 1 validation error, got %v", len(validationErrors))
+		}
+
+		validationError := validationErrors[0]
+		if validationError.Tag() != "dip" {
+			t.Errorf("Expected dip validation error, got %v", validationError.Tag())
+		}
+	} else {
+		t.Error("Expected validation error, got none")
 	}
 }

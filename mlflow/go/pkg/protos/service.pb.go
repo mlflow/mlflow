@@ -298,11 +298,11 @@ type Metric struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Key identifying this metric.
-	Key *string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty" query:"key"`
+	Key *string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty" query:"key" validate:"required,max=250,validMetricParamOrTagName,pathIsUnique"`
 	// Value associated with this metric.
-	Value *float64 `protobuf:"fixed64,2,opt,name=value" json:"value,omitempty" query:"value"`
+	Value *float64 `protobuf:"fixed64,2,opt,name=value" json:"value,omitempty" query:"value" validate:"required"`
 	// The timestamp at which this metric was recorded.
-	Timestamp *int64 `protobuf:"varint,3,opt,name=timestamp" json:"timestamp,omitempty" query:"timestamp"`
+	Timestamp *int64 `protobuf:"varint,3,opt,name=timestamp" json:"timestamp,omitempty" query:"timestamp" validate:"required"`
 	// Step at which to log the metric.
 	Step *int64 `protobuf:"varint,4,opt,name=step,def=0" json:"step,omitempty" query:"step"`
 }
@@ -2790,16 +2790,16 @@ type LogBatch struct {
 	unknownFields protoimpl.UnknownFields
 
 	// ID of the run to log under
-	RunId *string `protobuf:"bytes,1,opt,name=run_id,json=runId" json:"run_id,omitempty" query:"run_id"`
+	RunId *string `protobuf:"bytes,1,opt,name=run_id,json=runId" json:"run_id,omitempty" query:"run_id" validate:"required,runId"`
 	// Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
 	// metrics, params, and tags in total.
-	Metrics []*Metric `protobuf:"bytes,2,rep,name=metrics" json:"metrics,omitempty" query:"metrics"`
+	Metrics []*Metric `protobuf:"bytes,2,rep,name=metrics" json:"metrics,omitempty" query:"metrics" validate:"max=1000,dip"`
 	// Params to log. A single request can contain up to 100 params, and up to 1000
 	// metrics, params, and tags in total.
-	Params []*Param `protobuf:"bytes,3,rep,name=params" json:"params,omitempty" query:"params" validate:"uniqueParams"`
+	Params []*Param `protobuf:"bytes,3,rep,name=params" json:"params,omitempty" query:"params" validate:"omitempty,uniqueParams,max=100"`
 	// Tags to log. A single request can contain up to 100 tags, and up to 1000
 	// metrics, params, and tags in total.
-	Tags []*RunTag `protobuf:"bytes,4,rep,name=tags" json:"tags,omitempty" query:"tags"`
+	Tags []*RunTag `protobuf:"bytes,4,rep,name=tags" json:"tags,omitempty" query:"tags" validate:"max=100"`
 }
 
 func (x *LogBatch) Reset() {

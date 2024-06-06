@@ -202,7 +202,7 @@ def test_create_experiment_validation(mlflow_client):
             "artifact_location": "my_location",
             "tags": "5",
         },
-        "Invalid value 5 for parameter 'tags'",
+        "Invalid value \\\"5\\\" for parameter 'tags'",
     )
 
 
@@ -387,7 +387,7 @@ def test_log_metric_validation(mlflow_client):
             "timestamp": 59,
             "step": "foo",
         },
-        "Invalid value foo for parameter 'step' supplied",
+        "Invalid value \\\"foo\\\" for parameter 'step' supplied",
     )
     assert_bad_request(
         {
@@ -397,7 +397,7 @@ def test_log_metric_validation(mlflow_client):
             "timestamp": "foo",
             "step": 41,
         },
-        "Invalid value foo for parameter 'timestamp' supplied",
+        "Invalid value \\\"foo\\\" for parameter 'timestamp' supplied",
     )
     assert_bad_request(
         {
@@ -688,13 +688,14 @@ def test_log_batch_validation(mlflow_client):
                 "run_id": run_id,
                 request_parameter: "foo",
             },
-            f"Invalid value foo for parameter '{request_parameter}' supplied",
+            f"Invalid value \\\"foo\\\" for parameter '{request_parameter}' supplied",
         )
 
     ## Should 400 if missing timestamp
     assert_bad_request(
         {"run_id": run_id, "metrics": [{"key": "mae", "value": 2.5}]},
-        "Invalid value [{'key': 'mae', 'value': 2.5}] for parameter 'metrics' supplied",
+        """Invalid value [{\\"key\\":\\"mae\\",\\"value\\":2.5}] """
+        + "for parameter 'metrics' supplied",
     )
 
     ## Should 200 if timestamp provided but step is not

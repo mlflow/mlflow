@@ -36,14 +36,9 @@ func (p *HTTPRequestParser) ParseBody(ctx *fiber.Ctx, input interface{}) *contra
 		if errors.As(err, &unmarshalTypeError) {
 			result := gjson.GetBytes(ctx.Body(), unmarshalTypeError.Field)
 
-			value := result.Str
-			if value == "" {
-				value = result.Raw
-			}
-
 			return contract.NewError(
 				protos.ErrorCode_INVALID_PARAMETER_VALUE,
-				fmt.Sprintf("Invalid value %s for parameter '%s'", value, unmarshalTypeError.Field),
+				fmt.Sprintf("Invalid value %s for parameter '%s' supplied", result.Raw, unmarshalTypeError.Field),
 			)
 		}
 
@@ -98,15 +93,15 @@ func newErrorFromValidationError(err error) *contract.Error {
 					validationErrors,
 					fmt.Sprintf("Missing value for required parameter '%s'", field),
 				)
-			case "lte":
-				validationErrors = append(
-					validationErrors,
-					fmt.Sprintf("Invalid value %v for parameter '%s' supplied", value, field),
-				)
 			default:
+				formattedValue, err := json.Marshal(value)
+				if err != nil {
+					formattedValue = []byte(fmt.Sprintf("%v", value))
+				}
+
 				validationErrors = append(
 					validationErrors,
-					fmt.Sprintf("%s should be %s, got %v", field, tag, value),
+					fmt.Sprintf("Invalid value %s for parameter '%s' supplied", formattedValue, field),
 				)
 			}
 		}
