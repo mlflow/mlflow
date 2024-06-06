@@ -127,9 +127,25 @@ def test_get_model_dependency_oauth_token_model_serving_throws():
         databricks_utils.get_model_dependency_oauth_token()
 
 
-def test_databricks_params_model_serving_oauth_cache(monkeypatch, oauth_file):
+def test_databricks_params_model_serving_oauth_cache_databricks_env_var(monkeypatch, oauth_file):
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
+    monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE", "token")
+    monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS", str(time.time() + 5))
+    # oauth file still needs to be present for should_fetch_model_serving_environment_oauth()
+    #  to evaluate true
+    with mock.patch(
+        "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
+    ):
+        params = databricks_utils.get_databricks_host_creds()
+        assert params.host == "host"
+        # should use token from cache, rather than token from oauthfile
+        assert params.token == "token"
+
+
+def test_databricks_params_model_serving_oauth_cache_db_env_var(monkeypatch, oauth_file):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("DB_MODEL_SERVING_HOST_URL", "host")
     monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE", "token")
     monkeypatch.setenv("DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS", str(time.time() + 5))
     # oauth file still needs to be present for should_fetch_model_serving_environment_oauth()
