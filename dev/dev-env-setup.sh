@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-set +exv
-
 showHelp() {
 cat << EOF
 Usage: ./install-dev-env.sh [-d] [directory to install virtual environment] [-v] [-q] [-f] [-o] [override python version]
@@ -213,19 +211,6 @@ check_and_install_min_py_version() {
     PY_INSTALL_VERSION=$(minor_to_micro $min_py_version)
   fi
 
-  echo "The top-level dependencies that will be installed are: "
-
-  if [[ -n "$full" ]]; then
-    files=("$rd/extra-ml-requirements.txt" "$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-requirements.txt")
-    echo "Files:"
-    echo "MLflow test plugin: $MLFLOW_HOME/tests/resources/mlflow-test-plugin"
-    echo "The local development branch of MLflow installed in editable mode with 'extras' requirements"
-    echo "The following packages: "
-  else
-    files=("$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-requirements.txt")
-  fi
-  tail -n +1 "${files[@]}" | grep "^[^#= ]" | sort | cat
-
   echo "$(tput setaf 2) Installing Python version $(tput bold)$PY_INSTALL_VERSION$(tput sgr0)"
 
   # Install the Python version if it cannot be found
@@ -263,33 +248,34 @@ create_virtualenv() {
   echo "$(tput setaf 3)Activated environment is located: $(tput bold) $directory/bin/activate$(tput sgr0)"
 }
 
-# Install current checked out version of MLflow (local)
-install_mlflow() {
-  echo "Installing pip dependencies for development environment."
-
+# Install MLFlow dev version and required dependencies
+install_mlflow_and_dependencies() {
+  # Install current checked out version of MLflow (local)
   pip install $(quiet_command) -e .[extras]
-  pip install pre-commit
-
+  
+  echo "Installing pip dependencies for development environment."
   if [[ -n "$full" ]]; then
-    # Install dev requirements and test plugin
+    # Install dev requirements
     pip install $(quiet_command) -r "$rd/dev-requirements.txt"
     # Install test plugin
     pip install $(quiet_command) -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
-    echo "Finished installing pip dependencies."
   else
     files=("$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-requirements.txt")
     for r in "${files[@]}"; do
       pip install $(quiet_command) -r "$r"
     done
   fi
+  echo "Finished installing pip dependencies."
 
   echo "$(
     tput setaf 2
     tput smul
   )Python packages that have been installed:$(tput rmul)"
   echo "$(pip freeze)$(tput sgr0)"
+}
 
-  command -v docker >/dev/null 2>&1 || echo "$(
+check_docker() {
+   command -v docker >/dev/null 2>&1 || echo "$(
     tput bold
     tput setaf 1
   )A docker installation cannot be found. Please ensure that docker is installed to run all tests locally.$(tput sgr0)"
@@ -323,8 +309,8 @@ check_and_install_pandoc() {
   fi
 }
 
-# Set up git environment configuration for proper signing of commits
-set_up_git_signoff() {
+# Set up pre-commit hooks and git environment configuration for proper signing of commits
+set_pre_commit_and_git_signoff() {
   git_user=$(git config user.name)
   git_email=$(git config user.email)
 
@@ -346,17 +332,24 @@ set_up_git_signoff() {
       echo "Failing to set git 'user.name' and 'user.email' will result in unsigned commits. Ensure that you sign commits manually for CI checks to pass."
     fi
   fi
+
+  # Set up pre-commit hooks
+  pre-commit install -t pre-commit -t prepare-commit-msg
 }
 
-# Main env setup starts
+# Execute mandatory setups with strict error handling
+set +xv && set -e
+# Mandatory setups
 check_and_install_pyenv
 check_and_install_min_py_version
 create_virtualenv
-install_mlflow
-check_and_install_pandoc
-set_up_git_signoff
+install_mlflow_and_dependencies
+set_pre_commit_and_git_signoff
 
-# Set up pre-commit hooks
-pre-commit install -t pre-commit -t prepare-commit-msg
+# Execute optional setups without strict error handling
+set +exv
+# Optional setups
+check_and_install_pandoc
+check_docker
 
 echo "$(tput setaf 2)Your MLflow development environment can be activated by running: $(tput bold)source $VENV_DIR$(tput sgr0)"
