@@ -12,7 +12,6 @@ import langchain
 import numpy as np
 import openai
 import pytest
-from tests.tracing.helper import get_traces
 import transformers
 import yaml
 from langchain import SQLDatabase
@@ -31,6 +30,8 @@ from langchain.document_loaders import TextLoader
 from langchain.embeddings.base import Embeddings
 from langchain.embeddings.fake import FakeEmbeddings
 from langchain.evaluation.qa import QAEvalChain
+
+from tests.tracing.helper import get_traces
 
 try:
     from langchain_huggingface import HuggingFacePipeline

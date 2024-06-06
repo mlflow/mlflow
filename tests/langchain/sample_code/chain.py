@@ -56,6 +56,7 @@ def get_fake_chat_model(endpoint="fake-endpoint"):
 
     return FakeChatModel(endpoint=endpoint)
 
+
 # No need to define the model, but simulating common practice in dev notebooks
 mlflow.langchain.autolog()
 

@@ -112,8 +112,7 @@ def test_trace_disabled_decorator(enabled_initially):
 
     # @trace_disabled should not block the decorated function even
     # if it fails to disable tracing
-    with mock.patch("mlflow.tracing.provider.disable",
-                    side_effect=ValueError("error")):
+    with mock.patch("mlflow.tracing.provider.disable", side_effect=ValueError("error")):
         assert 0 == test_fn()
         assert call_count == 3
 
