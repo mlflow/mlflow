@@ -28,10 +28,9 @@ from mlflow.tracing.utils import (
     SPANS_COLUMN_NAME,
     capture_function_input_args,
     encode_span_id,
-    extract_span_inputs_outputs,
     get_otel_attribute,
-    traces_to_df,
 )
+from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
