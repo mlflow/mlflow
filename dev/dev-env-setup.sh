@@ -248,9 +248,9 @@ create_virtualenv() {
   echo "$(tput setaf 3)Activated environment is located: $(tput bold) $directory/bin/activate$(tput sgr0)"
 }
 
-# Install MLFlow dev version and required dependencies
+# Install Mlflow dev version and required dependencies
 install_mlflow_and_dependencies() {
-  # Install current checked out version of MLflow (local)
+  # Install current checked out version of Mlflow (local)
   pip install $(quiet_command) -e .[extras]
   
   echo "Installing pip dependencies for development environment."
