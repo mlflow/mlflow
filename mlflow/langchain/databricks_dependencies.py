@@ -19,7 +19,6 @@ def _get_embedding_model_endpoint_names(index):
 
 
 def _extract_databricks_dependencies_from_retriever(retriever, dependency_list: List[Resource]):
-    _logger.warning("extracting databricks dependencies from retriever", retriever)
     try:
         from langchain.embeddings import DatabricksEmbeddings as LegacyDatabricksEmbeddings
         from langchain.vectorstores import (
@@ -54,7 +53,6 @@ def _extract_databricks_dependencies_from_retriever(retriever, dependency_list: 
 
 
 def _extract_databricks_dependencies_from_llm(llm, dependency_list: List[Resource]):
-    _logger.warning("extracting databricks dependencies from retriever", llm)
     try:
         from langchain.llms import Databricks as LegacyDatabricks
     except ImportError:
@@ -67,7 +65,6 @@ def _extract_databricks_dependencies_from_llm(llm, dependency_list: List[Resourc
 
 
 def _extract_databricks_dependencies_from_chat_model(chat_model, dependency_list: List[Resource]):
-    _logger.warning("extracting databricks dependencies from retriever", chat_model)
     try:
         from langchain.chat_models import ChatDatabricks as LegacyChatDatabricks
     except ImportError:
@@ -100,7 +97,6 @@ def _extract_dependency_list_from_lc_model(lc_model, dependency_list: List[Resou
     The logic here does not cover all legacy chains. If you need to support a custom chain,
     you need to monkey patch this function.
     """
-    _logger.warning("extracting databricks dependencies from lc_model", lc_model)
     if lc_model is None:
         return
 
