@@ -55,7 +55,7 @@ class AutoLoggingConfig:
     def init(cls):
         config_dict = AUTOLOGGING_INTEGRATIONS.get(mlflow.langchain.FLAVOR_NAME, {})
         if config_dict.get("log_inputs_outputs"):
-            warnings.warn(
+            _logger.warning(
                 "The log_inputs_outputs option is deprecated and will be removed in a future "
                 "release. Please use the log_traces option in `mlflow.langchain.autolog` "
                 "to log traces (including inputs and outputs) of the model."

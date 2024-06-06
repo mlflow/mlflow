@@ -370,10 +370,17 @@ def test_llmchain_autolog_log_inputs_outputs():
     mlflow.langchain.autolog(log_models=True, log_inputs_outputs=True)
     question = {"product": "MLflow"}
     answer = {"product": "MLflow", "text": TEST_CONTENT}
-    with _mock_request(return_value=_mock_chat_completion_response()):
+    with _mock_request(return_value=_mock_chat_completion_response()), mock.patch(
+        "mlflow.langchain._langchain_autolog._logger.warning"
+    ) as mock_warning:
         model = create_openai_llmchain()
         with mlflow.start_run() as run:
             model.invoke(question)
+        mock_warning.assert_called_once()
+        assert (
+            "The log_inputs_outputs option is deprecated and will be removed in a future release"
+            in mock_warning.call_args[0][0]
+        )
         loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
         loaded_dict = loaded_table.to_dict("records")
         assert len(loaded_dict) == 1
