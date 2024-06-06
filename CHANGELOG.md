@@ -7,13 +7,13 @@ features.
 
 Features:
 
-- [Tracking] Provide a way to set urllib's connection number and max size (#12227, @chenmoneygithub)
+- [Tracking] Provide a way to set `urllib`'s connection number and max size (#12227, @chenmoneygithub)
 - [Tracking] Support UC directory as MLflow MetaDataset (#12224, @chenmoneygithub)
 
 Bug fixes:
 
 - [Models] Fix inferring `mlflow[gateway]` as dependency when using `mlflow.deployment` module (#12264, @B-Step62)
-- [Tracking] [MLflow] Flatten the model_config with / sep before logging as params to MLflow (#12190, @sunishsheth2009)
+- [Tracking] Flatten the model_config with `/` before logging as params (#12190, @sunishsheth2009)
 
 Small bug fixes and documentation updates:
 
