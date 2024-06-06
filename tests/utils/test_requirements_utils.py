@@ -432,7 +432,7 @@ def test_capture_imported_modules_include_deps_by_params():
     ("module_to_import", "should_capture_extra"),
     [
         ("mlflow.gateway", True),
-        ("mlflow.deployments.server.app", True),
+        ("mlflow.deployments.server.config", True),
         # The `mlflow[gateway]`` extra includes requirements for starting the deployment server,
         # but it is not required when the model only uses the deployment client. These test
         # cases validate that importing the deployment client alone does not add the extra.
