@@ -507,6 +507,38 @@ type conflictedParam struct {
 }
 
 //nolint:exhaustruct
+func checkRunIsActive(transaction *gorm.DB, runID string) *contract.Error {
+	var lifecycleStage model.LifecycleStage
+
+	err := transaction.
+		Model(&model.Run{}).
+		Where("run_uuid = ?", runID).
+		Select("lifecycle_stage").
+		Scan(&lifecycleStage).
+		Error
+	if err != nil {
+		return contract.NewErrorWith(
+			protos.ErrorCode_INTERNAL_ERROR,
+			fmt.Sprintf(
+				"the run %q must be in the 'active' state.\nCurrent state is %s",
+				runID,
+				lifecycleStage,
+			),
+			err,
+		)
+	}
+
+	if lifecycleStage != model.LifecycleStageActive {
+		return contract.NewError(
+			protos.ErrorCode_INVALID_PARAMETER_VALUE,
+			fmt.Sprintf("run %q does not exist", runID),
+		)
+	}
+
+	return nil
+}
+
+//nolint:exhaustruct
 func (s Store) logParamsWithTransaction(
 	transaction *gorm.DB, runID string, params []*protos.Param,
 ) *contract.Error {
@@ -682,33 +714,6 @@ func updateLatestMetricsIfNecessary(transaction *gorm.DB, runID string, metrics 
 func (s Store) logMetricsWithTransaction(
 	transaction *gorm.DB, runID string, metrics []*protos.Metric,
 ) *contract.Error {
-	var lifecycleStage model.LifecycleStage
-
-	err := transaction.
-		Model(&model.Run{}).
-		Where("run_uuid = ?", runID).
-		Select("lifecycle_stage").
-		Scan(&lifecycleStage).
-		Error
-	if err != nil {
-		return contract.NewErrorWith(
-			protos.ErrorCode_INTERNAL_ERROR,
-			fmt.Sprintf(
-				"the run %q must be in the 'active' state.\nCurrent state is %s",
-				runID,
-				lifecycleStage,
-			),
-			err,
-		)
-	}
-
-	if lifecycleStage != model.LifecycleStageActive {
-		return contract.NewError(
-			protos.ErrorCode_INVALID_PARAMETER_VALUE,
-			fmt.Sprintf("run %q does not exist", runID),
-		)
-	}
-
 	// Duplicate metric values are eliminated
 	seenMetrics := make(map[model.Metric]struct{})
 	modelMetrics := make([]model.Metric, 0, len(metrics))
@@ -786,6 +791,11 @@ func (s Store) LogBatch(
 	runID string, metrics []*protos.Metric, params []*protos.Param, tags []*protos.RunTag,
 ) *contract.Error {
 	err := s.db.Transaction(func(transaction *gorm.DB) error {
+		contractError := checkRunIsActive(transaction, runID)
+		if contractError != nil {
+			return contractError
+		}
+
 		err := s.setTagsWithTransaction(transaction, runID, tags)
 		if err != nil {
 			return contract.NewErrorWith(
@@ -795,7 +805,7 @@ func (s Store) LogBatch(
 			)
 		}
 
-		contractError := s.logParamsWithTransaction(transaction, runID, params)
+		contractError = s.logParamsWithTransaction(transaction, runID, params)
 		if contractError != nil {
 			return contractError
 		}
