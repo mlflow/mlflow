@@ -25,7 +25,8 @@ import {
   type RunsMetricsSingleTraceTooltipData,
 } from './RunsMetricsLinePlot';
 import { RunsMultipleTracesTooltipBody } from './RunsMultipleTracesTooltipBody';
-import { shouldEnableRelativeTimeDateAxis } from 'common/utils/FeatureUtils';
+import { shouldEnableRelativeTimeDateAxis } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { customMetricBehaviorDefs } from '../../experiment-page/utils/customMetricBehaviorUtils';
 
 interface RunsChartsContextMenuContentDataType {
   runs: RunsChartsRunData[];
@@ -43,9 +44,13 @@ const createBarChartValuesBox = (cardConfig: RunsChartsBarCardConfig, activeRun:
     return null;
   }
 
+  const customMetricBehaviorDef = customMetricBehaviorDefs[metric.key];
+  const displayName = customMetricBehaviorDef?.displayName ?? metric.key;
+  const displayValue = customMetricBehaviorDef?.valueFormatter({ value: metric.value }) ?? metric.value;
+
   return (
     <div css={styles.value}>
-      <strong>{metric.key}:</strong> {metric.value}
+      <strong>{displayName}:</strong> {displayValue}
     </div>
   );
 };
@@ -391,7 +396,6 @@ const styles = {
     alignItems: 'center',
   },
   value: {
-    maxWidth: 300,
     whiteSpace: 'nowrap' as const,
     overflow: 'hidden',
     textOverflow: 'ellipsis',

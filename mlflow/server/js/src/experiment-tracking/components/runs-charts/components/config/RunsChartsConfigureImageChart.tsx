@@ -12,7 +12,7 @@ import { useImageSliderStepMarks } from '../../hooks/useImageSliderStepMarks';
 import { RunsChartsRunData } from '../RunsCharts.common';
 import { Slider } from 'antd';
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { LineSmoothSlider } from 'experiment-tracking/components/LineSmoothSlider';
+import { LineSmoothSlider } from '@mlflow/mlflow/src/experiment-tracking/components/LineSmoothSlider';
 
 export const RunsChartsConfigureImageChart = ({
   previewData,

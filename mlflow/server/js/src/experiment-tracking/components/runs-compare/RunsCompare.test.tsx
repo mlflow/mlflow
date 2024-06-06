@@ -1,5 +1,5 @@
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
-import { renderWithIntl, act, fireEvent, screen, within } from 'common/utils/TestUtils.react18';
+import { renderWithIntl, act, fireEvent, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { ImageEntity, MetricEntitiesByName } from '../../types';
 import { useUpdateExperimentViewUIState } from '../experiment-page/contexts/ExperimentPageUIStateContext';
 import { ExperimentPageUIState } from '../experiment-page/models/ExperimentPageUIState';
@@ -100,6 +100,12 @@ describe('RunsCompare', () => {
     xAxisScaleType: 'linear',
     selectedXAxisMetricKey: '',
     selectedMetricKeys: ['metric-beta', 'metric-alpha'],
+    range: {
+      xMin: undefined,
+      xMax: undefined,
+      yMin: undefined,
+      yMax: undefined,
+    },
   };
 
   const compareRunSections = [

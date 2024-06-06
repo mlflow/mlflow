@@ -1,9 +1,9 @@
 import { LegacySkeleton } from '@databricks/design-system';
-import { ReactNode, useEffect, useMemo, useRef } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RunsChartsRunData, RunsChartsLineChartXAxisType } from '../RunsCharts.common';
 import { RunsMetricsLinePlot } from '../RunsMetricsLinePlot';
 import { RunsChartsTooltipMode, useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
-import type { RunsChartsCardConfig, RunsChartsLineCardConfig } from '../../runs-charts.types';
+import type { ChartRange, RunsChartsCardConfig, RunsChartsLineCardConfig } from '../../runs-charts.types';
 import {
   type RunsChartCardReorderProps,
   RunsChartCardWrapper,
@@ -11,23 +11,25 @@ import {
   ChartRunsCountIndicator,
 } from './ChartCard.common';
 import { useSampledMetricHistory } from '../../hooks/useSampledMetricHistory';
-import { compact, isEqual, pick, uniq } from 'lodash';
+import { compact, isEqual, isUndefined, pick, uniq } from 'lodash';
 import { useIsInViewport } from '../../hooks/useIsInViewport';
 import {
   shouldEnableDeepLearningUIPhase3,
   shouldUseNewRunRowsVisibilityModel,
   shouldEnableRelativeTimeDateAxis,
+  shouldEnableManualRangeControls,
 } from '../../../../../common/utils/FeatureUtils';
 import { findAbsoluteTimestampRangeForRelativeRange } from '../../utils/findChartStepsByTimestamp';
 import { Figure } from 'react-plotly.js';
 import { ReduxState } from '../../../../../redux-types';
 import { shallowEqual, useSelector } from 'react-redux';
 import { useCompareRunChartSelectedRange } from '../../hooks/useCompareRunChartSelectedRange';
-import { MetricHistoryByName } from 'experiment-tracking/types';
+import { MetricHistoryByName } from '@mlflow/mlflow/src/experiment-tracking/types';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import { useGroupedChartRunData } from '../../../runs-compare/hooks/useGroupedChartRunData';
 import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
 import { downloadChartMetricHistoryCsv } from '../../../experiment-page/utils/experimentPage.common-utils';
+import { useConfirmChartCardConfigurationFn } from '../../hooks/useRunsChartsUIConfiguration';
 
 const getV2ChartTitle = (cardConfig: RunsChartsLineCardConfig): string => {
   if (!cardConfig.selectedMetricKeys || cardConfig.selectedMetricKeys.length === 0) {
@@ -71,6 +73,7 @@ export const RunsChartsLineChartCard = ({
   autoRefreshEnabled,
 }: RunsChartsLineChartCardProps) => {
   const usingMultipleRunsHoverTooltip = shouldEnableDeepLearningUIPhase3();
+  const usingManualRangeControls = shouldEnableManualRangeControls();
 
   const toggleFullScreenChart = () => {
     setFullScreenChart?.({
@@ -127,20 +130,28 @@ export const RunsChartsLineChartCard = ({
     shallowEqual,
   );
 
-  const {
-    range: xRange,
-    setRange,
-    setOffsetTimestamp,
-    stepRange,
-  } = useCompareRunChartSelectedRange(
+  /**
+   * We set a local state for changes because full screen and non-full screen charts are
+   * different components - this prevents having to sync them.
+   */
+  const [yRangeLocal, setYRangeLocal] = useState<[number, number] | undefined>(() => {
+    if (config.range && !isUndefined(config.range.yMin) && !isUndefined(config.range.yMax)) {
+      return [config.range.yMin, config.range.yMax];
+    }
+    return undefined;
+  });
+
+  // Memoizes last Y-axis range. Does't use stateful value, used only in the last immediate render dowstream.
+  const yRangeLegacy = useRef<[number, number] | undefined>(undefined);
+
+  const { setOffsetTimestamp, stepRange, xRangeLocal, setXRangeLocal } = useCompareRunChartSelectedRange(
+    config,
     config.xAxisKey,
     config.metricKey,
     sampledMetricsByRunUuid,
     runUuidsToFetch,
     config.xAxisKey === RunsChartsLineChartXAxisType.STEP ? config.xAxisScaleType : 'linear',
   );
-  // Memoizes last Y-axis range. Does't use stateful value, used only in the last immediate render dowstream.
-  const yRange = useRef<[number, number] | undefined>(undefined);
 
   const { resultsByRunUuid, isLoading, isRefreshing } = useSampledMetricHistory({
     runUuids: runUuidsToFetch,
@@ -152,16 +163,83 @@ export const RunsChartsLineChartCard = ({
   });
 
   const chartLayoutUpdated = ({ layout }: Readonly<Figure>) => {
-    const { range: newYRange } = layout.yaxis || {};
-    const yRangeChanged = !isEqual(newYRange, yRange.current);
+    // We only want to update the local state if the chart is not in full screen mode.
+    // If not, this can cause synchronization issues between the full screen and non-full screen charts.
+    if (!fullScreen) {
+      let yAxisMin = yRangeLocal?.[0];
+      let yAxisMax = yRangeLocal?.[1];
+      let xAxisMin = xRangeLocal?.[0];
+      let xAxisMax = xRangeLocal?.[1];
 
+      const { autorange: yAxisAutorange, range: newYRange } = layout.yaxis || {};
+      const yRangeChanged = !isEqual(yAxisAutorange ? [undefined, undefined] : newYRange, [yAxisMin, yAxisMax]);
+
+      if (yRangeChanged) {
+        // When user zoomed in/out or changed the Y range manually, hide the tooltip
+        destroyTooltip();
+      }
+
+      if (yAxisAutorange) {
+        yAxisMin = undefined;
+        yAxisMax = undefined;
+      } else if (newYRange) {
+        yAxisMin = newYRange[0];
+        yAxisMax = newYRange[1];
+      }
+
+      const { autorange: xAxisAutorange, range: newXRange } = layout.xaxis || {};
+      if (xAxisAutorange) {
+        // Remove saved range if chart is back to default viewport
+        xAxisMin = undefined;
+        xAxisMax = undefined;
+      } else if (newXRange) {
+        const ungroupedRunUuids = compact(slicedRuns.map(({ runInfo }) => runInfo?.runUuid));
+        const groupedRunUuids = slicedRuns.flatMap(({ groupParentInfo }) => groupParentInfo?.runUuids ?? []);
+
+        if (!shouldEnableRelativeTimeDateAxis() && config.xAxisKey === RunsChartsLineChartXAxisType.TIME_RELATIVE) {
+          const timestampRange = findAbsoluteTimestampRangeForRelativeRange(
+            resultsByRunUuid,
+            [...ungroupedRunUuids, ...groupedRunUuids],
+            newXRange as [number, number],
+          );
+          setOffsetTimestamp([...(timestampRange as [number, number])]);
+        } else if (config.xAxisKey === RunsChartsLineChartXAxisType.TIME_RELATIVE_HOURS) {
+          const timestampRange = findAbsoluteTimestampRangeForRelativeRange(
+            resultsByRunUuid,
+            [...ungroupedRunUuids, ...groupedRunUuids],
+            newXRange as [number, number],
+            1000 * 60 * 60, // Convert hours to milliseconds
+          );
+          setOffsetTimestamp([...(timestampRange as [number, number])]);
+        } else {
+          setOffsetTimestamp(undefined);
+        }
+        xAxisMin = newXRange[0];
+        xAxisMax = newXRange[1];
+      }
+
+      if (
+        !isEqual(
+          { xMin: xRangeLocal?.[0], xMax: xRangeLocal?.[1], yMin: yRangeLocal?.[0], yMax: yRangeLocal?.[1] },
+          { xMin: xAxisMin, xMax: xAxisMax, yMin: yAxisMin, yMax: yAxisMax },
+        )
+      ) {
+        setXRangeLocal(isUndefined(xAxisMin) || isUndefined(xAxisMax) ? undefined : [xAxisMin, xAxisMax]);
+        setYRangeLocal(isUndefined(yAxisMin) || isUndefined(yAxisMax) ? undefined : [yAxisMin, yAxisMax]);
+      }
+    }
+  };
+
+  const chartLayoutUpdatedLegacy = ({ layout }: Readonly<Figure>) => {
+    const { range: newYRange } = layout.yaxis || {};
+    const yRangeChanged = !isEqual(newYRange, yRangeLegacy.current);
     if (yRangeChanged) {
       // When user zoomed in/out or changed the Y range manually, hide the tooltip
       destroyTooltip();
     }
 
     // Save the last Y range value (copy the values since plotly works on mutable arrays)
-    yRange.current = [...(newYRange as [number, number])];
+    yRangeLegacy.current = [...(newYRange as [number, number])];
 
     // Make sure that the x-axis is initialized
     if (!layout.xaxis) {
@@ -170,10 +248,10 @@ export const RunsChartsLineChartCard = ({
     const { autorange, range: newXRange } = layout.xaxis;
     if (autorange) {
       // Remove saved range if chart is back to default viewport
-      setRange(undefined);
+      setXRangeLocal(undefined);
       return;
     }
-    if (isEqual(newXRange, xRange)) {
+    if (isEqual(newXRange, xRangeLocal)) {
       // If it's the same as previous, do nothing.
       // Note: we're doing deep comparison here because the range has
       // to be cloned due to plotly handling values in mutable way.
@@ -202,7 +280,7 @@ export const RunsChartsLineChartCard = ({
       } else {
         setOffsetTimestamp(undefined);
       }
-      setRange([...(newXRange as [number, number])]);
+      setXRangeLocal([...(newXRange as [number, number])]);
     }
   };
 
@@ -270,12 +348,9 @@ export const RunsChartsLineChartCard = ({
           onHover={setTooltip}
           onUnhover={resetTooltip}
           selectedRunUuid={selectedRunUuid}
-          onUpdate={chartLayoutUpdated}
-          // X-axis is stateful since it's used for sampling recalculation. For Y-axis,
-          // the immediate value is sufficient. It will not kick off rerender, but in those
-          // cases the plotly will use last known range.
-          xRange={xRange}
-          yRange={yRange.current}
+          onUpdate={usingManualRangeControls ? chartLayoutUpdated : chartLayoutUpdatedLegacy}
+          xRange={xRangeLocal}
+          yRange={usingManualRangeControls ? yRangeLocal : yRangeLegacy.current}
           fullScreen={fullScreen}
           displayPoints={config.displayPoints}
           onSetDownloadHandler={setImageDownloadHandler}

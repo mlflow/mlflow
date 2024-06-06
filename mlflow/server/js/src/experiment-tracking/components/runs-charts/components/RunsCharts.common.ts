@@ -16,7 +16,7 @@ import { RunGroupParentInfo, RunGroupingAggregateFunction } from '../../experime
 import { RunsChartsChartMouseEvent } from '../hooks/useRunsChartsTooltip';
 import { defineMessages } from 'react-intl';
 import type { ExperimentChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
-import { shouldEnableRelativeTimeDateAxis } from 'common/utils/FeatureUtils';
+import { shouldEnableRelativeTimeDateAxis } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 /**
  * Common props for all charts used in experiment runs

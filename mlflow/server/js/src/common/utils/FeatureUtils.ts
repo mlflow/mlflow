@@ -39,6 +39,10 @@ export const shouldEnableImageGridCharts = () => false;
  * Log table images feature
  */
 export const shouldEnableLogTableImages = () => false;
+/**
+ * Manual range controls feature
+ */
+export const shouldEnableManualRangeControls = () => false;
 
 /**
  * Should enable toggling aggregation of individual runs in run groups
@@ -51,6 +55,8 @@ export const shouldEnableToggleIndividualRunsInGroups = () => false;
 export const shouldEnableRelativeTimeDateAxis = () => false;
 
 export const shouldEnableTracingUI = () => true;
+export const shouldEnableRunDetailsPageTracesTab = () => false;
+export const shouldUseCompressedExperimentViewSharedState = () => true;
 
 /**
  * A flag determining if we should display the new models UI.

@@ -1,13 +1,13 @@
-import { fulfilled } from 'common/utils/ActionUtils';
-import Utils from 'common/utils/Utils';
-import { LIST_IMAGES_API, ListImagesAction } from 'experiment-tracking/actions';
+import { fulfilled } from '@mlflow/mlflow/src/common/utils/ActionUtils';
+import Utils from '@mlflow/mlflow/src/common/utils/Utils';
+import { LIST_IMAGES_API, ListImagesAction } from '@mlflow/mlflow/src/experiment-tracking/actions';
 import {
   IMAGE_COMPRESSED_FILE_EXTENSION,
   IMAGE_FILE_EXTENSION,
   MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH,
-} from 'experiment-tracking/constants';
-import { ArtifactFileInfo, ImageEntity } from 'experiment-tracking/types';
-import { AsyncFulfilledAction } from 'redux-types';
+} from '@mlflow/mlflow/src/experiment-tracking/constants';
+import { ArtifactFileInfo, ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
+import { AsyncFulfilledAction } from '@mlflow/mlflow/src/redux-types';
 
 const parseImageFile = (filename: string) => {
   // Extract extension

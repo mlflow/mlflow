@@ -100,9 +100,11 @@ export const MLFLOW_PROMPT_ENGINEERING_ARTIFACT_NAME = 'eval_results_table.json'
 
 export enum RunPageTabName {
   OVERVIEW = 'overview',
+  TRACES = 'traces',
   MODEL_METRIC_CHARTS = 'model-metrics',
   SYSTEM_METRIC_CHARTS = 'system-metrics',
   ARTIFACTS = 'artifacts',
+  EVALUATIONS = 'evaluations',
 }
 
 export const MLFLOW_SYSTEM_METRIC_PREFIX = 'system/';
@@ -135,3 +137,8 @@ export const NUM_RUNS_TO_SUPPORT_FOR_LOG_IMAGE = 10;
 export const EPOCH_RELATIVE_TIME = 28800000;
 export const LINE_CHART_RELATIVE_TIME_THRESHOLD = 1000 * 60 * 60 * 24; // 1 day
 export const HOUR_IN_MILLISECONDS = 1000 * 60 * 60; // 1 hour
+
+/**
+ * Metrics for LLM Judge Correctness. Used to register custom metric behavior.
+ */
+export const LLM_JUDGE_CORRECTNESS_RATING_PERCENTAGE_METRIC = 'response/llm_judged/correctness/rating/percentage';

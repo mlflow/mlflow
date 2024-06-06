@@ -5,7 +5,7 @@ import { RunsChartType } from '../runs-charts.types';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { getGridColumnSetup } from '../../../../common/utils/CssGrid.utils';
 import { RunsChartCardSetFullscreenFn, RunsChartsChartsDragGroup } from './cards/ChartCard.common';
-import { useDragAndDropElement } from 'common/hooks/useDragAndDropElement';
+import { useDragAndDropElement } from '@mlflow/mlflow/src/common/hooks/useDragAndDropElement';
 import { FormattedMessage } from 'react-intl';
 import { Empty } from '@databricks/design-system';
 import { RunsChartsCard } from './cards/RunsChartsCard';

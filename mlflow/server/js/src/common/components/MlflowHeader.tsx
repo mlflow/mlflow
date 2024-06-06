@@ -3,7 +3,7 @@ import { Link, Location, matchPath, useLocation } from '../utils/RoutingUtils';
 import logo from '../../common/static/home-logo.png';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import { HomePageDocsUrl, Version } from '../constants';
-import { DarkThemeSwitch } from 'common/components/DarkThemeSwitch';
+import { DarkThemeSwitch } from '@mlflow/mlflow/src/common/components/DarkThemeSwitch';
 
 const colors = {
   headerBg: '#0b3574',

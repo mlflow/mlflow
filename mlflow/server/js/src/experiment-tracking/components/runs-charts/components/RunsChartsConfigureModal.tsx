@@ -42,7 +42,7 @@ import {
   shouldEnableDifferenceViewCharts,
   shouldEnableImageGridCharts,
   shouldUseNewRunRowsVisibilityModel,
-} from 'common/utils/FeatureUtils';
+} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { RunsChartsConfigureDifferenceChartPreview } from './config/RunsChartsConfigureDifferenceChart.preview';
 import { RunsChartsConfigureDifferenceChart } from './config/RunsChartsConfigureDifferenceChart';
 import type { RunsGroupByConfig } from '../../experiment-page/utils/experimentPage.group-row-utils';
@@ -56,7 +56,9 @@ const previewComponentsMap: Record<
     cardConfig: any;
     groupBy: RunsGroupByConfig | null;
     setCardConfig: (
-      setter: (current: RunsChartsCardConfig) => RunsChartsDifferenceCardConfig | RunsChartsImageCardConfig,
+      setter: (
+        current: RunsChartsCardConfig,
+      ) => RunsChartsDifferenceCardConfig | RunsChartsImageCardConfig | RunsChartsLineCardConfig,
     ) => void;
   }>
 > = {

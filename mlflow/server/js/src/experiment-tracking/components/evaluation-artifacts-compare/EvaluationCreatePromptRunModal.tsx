@@ -266,10 +266,6 @@ export const EvaluationCreatePromptRunModal = ({
       });
   }, [inputVariableValues, modelRoutesUnified, parameters, promptTemplate, selectedModel, intl]);
 
-  const getEvaluateButtonHandler = () => {
-    return handleEvaluate;
-  };
-
   // create a handleCancel function to terminate the evaluation if it is in progress
   const handleCancel = useCallback(() => {
     if (cancelTokenRef.current) {
@@ -612,7 +608,7 @@ export const EvaluationCreatePromptRunModal = ({
             isEvaluating={isEvaluating}
             isOutputDirty={outputDirty}
             onCancelClick={handleCancel}
-            onEvaluateClick={getEvaluateButtonHandler()}
+            onEvaluateClick={handleEvaluate}
             evaluationError={lastEvaluationError}
           />
         </div>

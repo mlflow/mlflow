@@ -4,6 +4,9 @@ import {
   middleTruncateStr,
   btoaUtf8,
   atobUtf8,
+  isTextCompressedDeflate,
+  textCompressDeflate,
+  textDecompressDeflate,
 } from './StringUtils';
 
 describe('truncateToFirstLineWithMaxLength', () => {
@@ -101,5 +104,32 @@ describe('btoaUtf8 and atobUtf8', () => {
   test('handles empty values', () => {
     expect(btoaUtf8('')).toEqual('');
     expect(atobUtf8('')).toEqual('');
+  });
+});
+
+const testCompressedObject = {
+  viewable_object_ids: ['7b3e00a6-6459-4ea6-97b9-9fb58f0265bc'],
+  viewable_objects: {
+    '7b3e00a6-6459-4ea6-97b9-9fb58f0265bc': { id: '7b3e00a6-6459-4ea6-97b9-9fb58f0265bc', name: 'test' },
+  },
+};
+
+describe('text compression utils', () => {
+  test.each([
+    'hello world',
+    'ąółźļż👀中文中文👀中文',
+    JSON.stringify(testCompressedObject),
+    '\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff',
+  ])('deflate and inflate text: %s', async (text) => {
+    const compressed = await textCompressDeflate(text);
+    expect(isTextCompressedDeflate(compressed)).toEqual(true);
+
+    const decompressed = await textDecompressDeflate(compressed);
+    expect(decompressed).toEqual(text);
+  });
+
+  test('should throw error when decompressing invalid compressed text', async () => {
+    const compressed = 'xyz;invalid';
+    await expect(textDecompressDeflate(compressed)).rejects.toThrow('Invalid compressed text, payload header invalid');
   });
 });

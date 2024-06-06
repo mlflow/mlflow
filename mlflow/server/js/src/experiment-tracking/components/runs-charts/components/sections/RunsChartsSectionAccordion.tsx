@@ -14,7 +14,7 @@ import MetricChartsAccordion, { METRIC_CHART_SECTION_HEADER_SIZE } from '../../.
 import { RunsChartsSectionHeader } from './RunsChartsSectionHeader';
 import { RunsChartsSection } from './RunsChartsSection';
 import { useEffect, useMemo } from 'react';
-import { getUUID } from 'common/utils/ActionUtils';
+import { getUUID } from '@mlflow/mlflow/src/common/utils/ActionUtils';
 import { useState } from 'react';
 import { Button, PlusIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';

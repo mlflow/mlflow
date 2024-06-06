@@ -10,7 +10,7 @@ import {
 import Utils from '../../../../common/utils/Utils';
 import type { KeyValueEntity } from '../../../types';
 import { MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG } from '../../../constants';
-import { CopyButton } from 'shared/building_blocks/CopyButton';
+import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { ExperimentSourceTypeIcon } from '../../ExperimentSourceTypeIcon';
 
 export const RunViewSourceBox = ({

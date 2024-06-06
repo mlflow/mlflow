@@ -14,7 +14,7 @@ import { RunsChartsAddChartMenu } from '../RunsChartsAddChartMenu';
 import { RunsChartType } from '../../runs-charts.types';
 import { useEffect, useRef, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { useDragAndDropElement } from 'common/hooks/useDragAndDropElement';
+import { useDragAndDropElement } from '@mlflow/mlflow/src/common/hooks/useDragAndDropElement';
 import { CheckIcon } from '@databricks/design-system';
 import { METRIC_CHART_SECTION_HEADER_SIZE } from '../../../MetricChartsAccordion';
 import cx from 'classnames';

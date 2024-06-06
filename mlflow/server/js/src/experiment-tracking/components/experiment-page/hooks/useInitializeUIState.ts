@@ -10,10 +10,12 @@ import { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
 import { UseExperimentsResult } from './useExperiments';
 import { useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';
 import { expandedEvaluationRunRowsUIStateInitializer } from '../utils/expandedRunsViewStateInitializer';
+import { responseLLMJudgeCorrectnessMetricColumnInitializer } from '../utils/responseLLMJudgeCorrectnessMetricColumnInitializer';
 
 // prettier-ignore
 const uiStateInitializers = [
   expandedEvaluationRunRowsUIStateInitializer,
+  responseLLMJudgeCorrectnessMetricColumnInitializer,
 ];
 
 type UpdateUIStateAction = {

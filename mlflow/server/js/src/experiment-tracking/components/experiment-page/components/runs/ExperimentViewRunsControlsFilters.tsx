@@ -19,10 +19,17 @@ import {
   useDesignSystemTheme,
   DropdownMenu,
   ToggleButton,
+  SegmentedControlGroup,
+  SegmentedControlButton,
+  ListIcon,
+  ChartLineIcon,
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 
-import { shouldEnableExperimentPageAutoRefresh, shouldEnablePromptLab } from 'common/utils/FeatureUtils';
+import {
+  shouldEnableExperimentPageAutoRefresh,
+  shouldEnablePromptLab,
+} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import React, { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -36,10 +43,10 @@ import { getStartTimeColumnDisplayName } from '../../utils/experimentPage.common
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ExperimentViewRefreshButton } from './ExperimentViewRefreshButton';
 import { RunsSearchAutoComplete } from './RunsSearchAutoComplete';
-import type { ExperimentStoreEntities, DatasetSummary } from '../../../../types';
+import type { ExperimentStoreEntities, DatasetSummary, ExperimentViewRunsCompareMode } from '../../../../types';
 import { datasetSummariesEqual } from '../../../../utils/DatasetUtils';
-import { CreateNotebookRunModal } from 'experiment-tracking/components/evaluation-artifacts-compare/CreateNotebookRunModal';
-import { PreviewBadge } from 'shared/building_blocks/PreviewBadge';
+import { CreateNotebookRunModal } from '@mlflow/mlflow/src/experiment-tracking/components/evaluation-artifacts-compare/CreateNotebookRunModal';
+import { PreviewBadge } from '@mlflow/mlflow/src/shared/building_blocks/PreviewBadge';
 import { useCreateNewRun } from '../../hooks/useCreateNewRun';
 import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
 import { useUpdateExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
@@ -48,6 +55,7 @@ import {
   createExperimentPageSearchFacetsState,
 } from '../../models/ExperimentPageSearchFacetsState';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
+import { useShouldShowCombinedRunsTab } from '../../hooks/useShouldShowCombinedRunsTab';
 
 export type ExperimentViewRunsControlsFiltersProps = {
   searchFacetsState: ExperimentPageSearchFacetsState;
@@ -78,8 +86,9 @@ export const ExperimentViewRunsControlsFilters = React.memo(
     autoRefreshEnabled = false,
   }: ExperimentViewRunsControlsFiltersProps) => {
     const setUrlSearchFacets = useUpdateExperimentPageSearchFacets();
+    const showCombinedRuns = useShouldShowCombinedRunsTab();
 
-    const [pageViewMode] = useExperimentPageViewMode();
+    const [pageViewMode, setViewModeInURL] = useExperimentPageViewMode();
     const updateUIState = useUpdateExperimentViewUIState();
 
     const isComparingExperiments = useExperimentIds().length > 1;
@@ -154,6 +163,30 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             flexWrap: 'wrap' as const,
           }}
         >
+          {showCombinedRuns && pageViewMode !== 'ARTIFACT' && (
+            <SegmentedControlGroup
+              name="runs-view-mode"
+              value={pageViewMode}
+              onChange={({ target }) => {
+                const { value } = target;
+                const newValue = value as ExperimentViewRunsCompareMode;
+
+                if (pageViewMode === newValue) {
+                  return;
+                }
+
+                setViewModeInURL(newValue);
+              }}
+            >
+              <SegmentedControlButton value="TABLE">
+                <ListIcon />
+              </SegmentedControlButton>
+              <SegmentedControlButton value="CHART">
+                <ChartLineIcon />
+              </SegmentedControlButton>
+            </SegmentedControlGroup>
+          )}
+
           <RunsSearchAutoComplete
             runsData={runsData}
             searchFilter={searchFilter}
@@ -367,7 +400,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               <DropdownMenu.Trigger asChild>
                 <Button
                   componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_415"
-                  type="primary"
+                  type={showCombinedRuns ? undefined : 'primary'}
                   icon={<PlusIcon />}
                 >
                   <FormattedMessage

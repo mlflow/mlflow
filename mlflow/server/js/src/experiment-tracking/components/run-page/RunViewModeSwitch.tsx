@@ -5,6 +5,8 @@ import Routes from '../../routes';
 import { RunPageTabName } from '../../constants';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
 import { useState } from 'react';
+import { PreviewBadge } from '../../../shared/building_blocks/PreviewBadge';
+import { shouldEnableRunDetailsPageTracesTab } from '../../../common/utils/FeatureUtils';
 
 /**
  * Mode switcher for the run details page.
@@ -38,6 +40,7 @@ export const RunViewModeSwitch = () => {
         }
         key={RunPageTabName.OVERVIEW}
       />
+
       <Tabs.TabPane
         tab={
           <FormattedMessage
@@ -56,6 +59,12 @@ export const RunViewModeSwitch = () => {
         }
         key={RunPageTabName.SYSTEM_METRIC_CHARTS}
       />
+      {shouldEnableRunDetailsPageTracesTab() && (
+        <Tabs.TabPane
+          tab={<FormattedMessage defaultMessage="Traces" description="Run details page > tab selector > Traces tab" />}
+          key={RunPageTabName.TRACES}
+        />
+      )}
       <Tabs.TabPane
         tab={
           <FormattedMessage defaultMessage="Artifacts" description="Run details page > tab selector > artifacts tab" />

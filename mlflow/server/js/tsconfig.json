@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "baseUrl": "./src",
     "noImplicitAny": true,
     "noImplicitReturns": true,
     "noImplicitThis": true,
@@ -9,17 +8,8 @@
     "target": "ES2019",
     "module": "ESNext",
     "moduleResolution": "node",
-    "lib": [
-      "es6",
-      "dom",
-      "es2016",
-      "es2017"
-    ],
-    "types": [
-      "jest",
-      "node",
-      "@testing-library/jest-dom"
-    ],
+    "lib": ["es6", "dom", "es2016", "es2017"],
+    "types": ["jest", "node", "@testing-library/jest-dom"],
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
@@ -34,12 +24,8 @@
     "resolveJsonModule": true,
     "jsxImportSource": "@emotion/react",
     "paths": {
-      "@databricks/web-shared/*": [
-        "./shared/web-shared/*"
-      ]
+      "@mlflow/mlflow/*": ["./*"]
     }
   },
-  "include": [
-    "./src/**/*"
-  ]
+  "include": ["./src/**/*"]
 }

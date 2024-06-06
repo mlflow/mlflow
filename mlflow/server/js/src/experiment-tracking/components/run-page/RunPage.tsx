@@ -24,8 +24,12 @@ import { isSystemMetricKey } from '../../utils/MetricsUtils';
 import DeleteRunModal from '../modals/DeleteRunModal';
 import Routes from '../../routes';
 import { RunViewMetricChartsV2 } from './RunViewMetricChartsV2';
-import { shouldUseUnifiedRunCharts } from 'common/utils/FeatureUtils';
+import {
+  shouldEnableRunDetailsPageTracesTab,
+  shouldUseUnifiedRunCharts,
+} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
+import { RunViewTracesTab } from './RunViewTracesTab';
 
 const RunPageLoadingState = () => (
   <PageContainer>
@@ -94,6 +98,10 @@ export const RunPage = () => {
         }
       case RunPageTabName.ARTIFACTS:
         return <RunViewArtifactTab runUuid={runUuid} runTags={tags} experimentId={experimentId} />;
+      case RunPageTabName.TRACES:
+        if (shouldEnableRunDetailsPageTracesTab()) {
+          return <RunViewTracesTab runUuid={runUuid} runTags={tags} experimentId={experimentId} />;
+        }
     }
     return <RunViewOverview runUuid={runUuid} onRunDataUpdated={refetchRun} />;
   };

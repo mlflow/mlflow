@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { CopyButton } from './CopyButton';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 
 describe('CopyButton', () => {
   const originalClipboard = { ...global.navigator.clipboard };

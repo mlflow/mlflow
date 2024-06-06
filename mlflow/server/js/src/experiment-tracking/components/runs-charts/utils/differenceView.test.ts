@@ -1,4 +1,4 @@
-import { KeyValueEntity, RunInfoEntity } from 'experiment-tracking/types';
+import { KeyValueEntity, RunInfoEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { DifferenceCardConfigCompareGroup, RunsChartType, RunsChartsDifferenceCardConfig } from '../runs-charts.types';
 import { getFixedPointValue, differenceView, isDifferent, getDifferenceViewDataGroups } from './differenceView';
 

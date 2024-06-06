@@ -2,7 +2,7 @@ import { shouldEnableExperimentPageAutoRefresh } from '../../../../common/utils/
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../constants';
 import { SerializedRunsChartsCardConfigCard } from '../../runs-charts/runs-charts.types';
 import { makeCanonicalSortKey } from '../utils/experimentPage.common-utils';
-import { ChartSectionConfig } from 'experiment-tracking/types';
+import { ChartSectionConfig } from '@mlflow/mlflow/src/experiment-tracking/types';
 import type { RunsGroupByConfig } from '../utils/experimentPage.group-row-utils';
 
 export const EXPERIMENT_PAGE_UI_STATE_FIELDS = [

@@ -27,13 +27,13 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import React from 'react';
-import { parseJSONSafe } from 'common/utils/TagUtils';
-import { ArtifactLogTableImageObject } from 'experiment-tracking/types';
-import { LOG_TABLE_IMAGE_COLUMN_TYPE } from 'experiment-tracking/constants';
+import { parseJSONSafe } from '@mlflow/mlflow/src/common/utils/TagUtils';
+import { ArtifactLogTableImageObject } from '@mlflow/mlflow/src/experiment-tracking/types';
+import { LOG_TABLE_IMAGE_COLUMN_TYPE } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { ImagePlot } from '../runs-charts/components/charts/ImageGridPlot.common';
 import { ToggleIconButton } from '../../../common/components/ToggleIconButton';
 import { ShowArtifactLoggedTableViewDataPreview } from './ShowArtifactLoggedTableViewDataPreview';
-import Utils from 'common/utils/Utils';
+import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 
 const MAX_ROW_HEIGHT = 160;
 const MIN_COLUMN_WIDTH = 100;

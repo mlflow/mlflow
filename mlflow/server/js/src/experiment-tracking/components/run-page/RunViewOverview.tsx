@@ -21,7 +21,7 @@ import { RunViewMetadataRow } from './overview/RunViewMetadataRow';
 import { RunViewRegisteredModelsBox } from './overview/RunViewRegisteredModelsBox';
 import { RunViewLoggedModelsBox } from './overview/RunViewLoggedModelsBox';
 import { RunViewSourceBox } from './overview/RunViewSourceBox';
-import { RunViewMetadataTable } from 'experiment-tracking/components/run-page/overview/RunViewMetadataTable';
+import { RunViewMetadataTable } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/overview/RunViewMetadataTable';
 import { RunViewCopyableIdBox } from './overview/RunViewCopyableIdBox';
 
 const EmptyValue = () => <Typography.Hint>—</Typography.Hint>;

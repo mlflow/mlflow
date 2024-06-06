@@ -41,7 +41,7 @@ import {
   extractRequiredInputParamsForRun,
 } from '../prompt-engineering/PromptEngineering.utils';
 import { searchAllPromptLabAvailableEndpoints } from '../../actions/PromptEngineeringActions';
-import { shouldEnablePromptLab } from 'common/utils/FeatureUtils';
+import { shouldEnablePromptLab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import {
   EvaluationArtifactViewEmptyState,
   shouldDisplayEvaluationArtifactEmptyState,
@@ -49,7 +49,7 @@ import {
 import { useUpdateExperimentViewUIState } from '../experiment-page/contexts/ExperimentPageUIStateContext';
 import { useToggleRowVisibilityCallback } from '../experiment-page/hooks/useToggleRowVisibilityCallback';
 import { RUNS_VISIBILITY_MODE } from '../experiment-page/models/ExperimentPageUIState';
-import { FormattedJsonDisplay } from 'common/components/JsonFormatting';
+import { FormattedJsonDisplay } from '@mlflow/mlflow/src/common/components/JsonFormatting';
 
 const MAX_RUNS_TO_COMPARE = 10;
 

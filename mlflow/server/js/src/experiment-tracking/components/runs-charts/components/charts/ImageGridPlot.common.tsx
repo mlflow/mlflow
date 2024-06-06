@@ -1,8 +1,8 @@
 import { ImageIcon } from '@databricks/design-system';
 import { GenericSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { getArtifactLocationUrl } from 'common/utils/ArtifactUtils';
-import { ImageEntity } from 'experiment-tracking/types';
+import { getArtifactLocationUrl } from '@mlflow/mlflow/src/common/utils/ArtifactUtils';
+import { ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { useState } from 'react';
 import { Typography } from '@databricks/design-system';
 import { ImagePreviewGroup, Image } from '../../../../../shared/building_blocks/Image';

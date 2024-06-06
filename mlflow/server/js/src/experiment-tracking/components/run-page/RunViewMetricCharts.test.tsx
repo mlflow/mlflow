@@ -1,4 +1,4 @@
-import { renderWithIntl, act, screen, within } from 'common/utils/TestUtils.react17';
+import { renderWithIntl, act, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
 import { RunInfoEntity, SampledMetricsByRunUuidState } from '../../types';
 import { RunViewMetricCharts } from './RunViewMetricCharts';
 import configureStore from 'redux-mock-store';

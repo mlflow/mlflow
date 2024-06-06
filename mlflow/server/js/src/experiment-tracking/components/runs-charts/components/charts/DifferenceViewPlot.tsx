@@ -1,4 +1,4 @@
-import { ExperimentRunsSelectorResult } from 'experiment-tracking/components/experiment-page/utils/experimentRuns.selector';
+import { ExperimentRunsSelectorResult } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/utils/experimentRuns.selector';
 import {
   DifferenceCardAttributes,
   DifferenceCardConfigCompareGroup,
@@ -7,7 +7,7 @@ import {
 } from '../../runs-charts.types';
 import { RunsChartsRunData } from '../RunsCharts.common';
 import { ReactChild, ReactFragment, ReactPortal, useCallback, useMemo, useState } from 'react';
-import { MLFLOW_SYSTEM_METRIC_PREFIX } from 'experiment-tracking/constants';
+import { MLFLOW_SYSTEM_METRIC_PREFIX } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import {
   Table,
@@ -19,12 +19,12 @@ import {
   Tag,
   Tooltip,
 } from '@databricks/design-system';
-import { RunColorPill } from 'experiment-tracking/components/experiment-page/components/RunColorPill';
+import { RunColorPill } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/components/RunColorPill';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { MetricEntitiesByName } from 'experiment-tracking/types';
+import { MetricEntitiesByName } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { differenceView, getDifferenceViewDataGroups, getFixedPointValue } from '../../utils/differenceView';
 import { OverflowIcon, Button, DropdownMenu } from '@databricks/design-system';
-import Utils from 'common/utils/Utils';
+import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { TableSkeletonRows } from '@databricks/design-system';
 import { ArrowUpIcon } from '@databricks/design-system';
 import { ArrowDownIcon } from '@databricks/design-system';

@@ -1,6 +1,6 @@
 import { imagesByRunUuid } from './ImageReducer';
-import { AsyncFulfilledAction } from 'redux-types';
-import { ListImagesAction } from 'experiment-tracking/actions';
+import { AsyncFulfilledAction } from '@mlflow/mlflow/src/redux-types';
+import { ListImagesAction } from '@mlflow/mlflow/src/experiment-tracking/actions';
 
 describe('ImageReducer', () => {
   it('should return the initial state', () => {

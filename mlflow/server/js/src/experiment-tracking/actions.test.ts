@@ -20,7 +20,7 @@ import { fetchEvaluationTableArtifact } from './sdk/EvaluationArtifactService';
 import { ViewType } from './sdk/MlflowEnums';
 import { MlflowService } from './sdk/MlflowService';
 import { RunLoggedArtifactType } from './types';
-import { getUUID } from 'common/utils/ActionUtils';
+import { getUUID } from '@mlflow/mlflow/src/common/utils/ActionUtils';
 
 jest.mock('./sdk/EvaluationArtifactService', () => ({
   fetchEvaluationTableArtifact: jest.fn(),

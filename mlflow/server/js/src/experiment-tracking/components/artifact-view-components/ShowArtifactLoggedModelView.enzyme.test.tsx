@@ -8,7 +8,7 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 
 describe('ShowArtifactLoggedModelView', () => {
   let wrapper: any;

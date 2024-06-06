@@ -14,6 +14,7 @@ import {
 } from './ChartCard.common';
 import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
 import { downloadChartDataCsv } from '../../../experiment-page/utils/experimentPage.common-utils';
+import { customMetricBehaviorDefs } from '../../../experiment-page/utils/customMetricBehaviorUtils';
 
 export interface RunsChartsBarChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
   config: RunsChartsBarCardConfig;
@@ -47,14 +48,14 @@ export const RunsChartsBarChartCard = ({
   const toggleFullScreenChart = () => {
     setFullScreenChart?.({
       config,
-      title: config.metricKey,
+      title: customMetricBehaviorDefs[config.metricKey]?.displayName ?? config.metricKey,
       subtitle: <ChartRunsCountIndicator runsOrGroups={chartRunData} />,
     });
   };
 
   const slicedRuns = useMemo(() => {
     if (shouldUseNewRunRowsVisibilityModel()) {
-      return chartRunData.filter(({ hidden }) => !hidden).reverse();
+      return chartRunData.filter(({ hidden }) => !hidden);
     }
     return chartRunData.slice(0, config.runsCountToCompare || 10).reverse();
   }, [chartRunData, config]);
@@ -100,7 +101,7 @@ export const RunsChartsBarChartCard = ({
     <RunsChartCardWrapper
       onEdit={onEdit}
       onDelete={onDelete}
-      title={config.metricKey}
+      title={customMetricBehaviorDefs[config.metricKey]?.displayName ?? config.metricKey}
       subtitle={<ChartRunsCountIndicator runsOrGroups={slicedRuns} />}
       uuid={config.uuid}
       dragGroupKey={RunsChartsChartsDragGroup.GENERAL_AREA}

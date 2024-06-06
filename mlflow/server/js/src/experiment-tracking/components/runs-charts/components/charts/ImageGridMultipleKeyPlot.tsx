@@ -7,12 +7,12 @@ import {
   Tooltip,
   Typography,
 } from '@databricks/design-system';
-import { RunColorPill } from 'experiment-tracking/components/experiment-page/components/RunColorPill';
+import { RunColorPill } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/components/RunColorPill';
 import { useMemo } from 'react';
 import { RunsChartsImageCardConfig, RunsChartsCardConfig } from '../../runs-charts.types';
 import { RunsChartsRunData } from '../RunsCharts.common';
 import { EmptyImageGridPlot, getImageSize, ImagePlotWithHistory } from './ImageGridPlot.common';
-import { ImageEntity } from 'experiment-tracking/types';
+import { ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { FormattedMessage } from 'react-intl';
 
 export const ImageGridMultipleKeyPlot = ({

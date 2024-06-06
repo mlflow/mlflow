@@ -1,5 +1,5 @@
 import { LegacySkeleton } from '@databricks/design-system';
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { connect } from 'react-redux';
 import { ReduxState } from '../../../../../redux-types';
 import { MetricHistoryByName } from '../../../../types';
@@ -7,9 +7,12 @@ import { RunsChartsLineChartXAxisType, type RunsChartsRunData } from '../RunsCha
 import { RunsMetricsLinePlot } from '../RunsMetricsLinePlot';
 import { RunsChartsTooltipMode, useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import { RunsChartsLineCardConfig } from '../../runs-charts.types';
-import { shouldEnableDeepLearningUIPhase3 } from '../../../../../common/utils/FeatureUtils';
+import {
+  shouldEnableDeepLearningUIPhase3,
+  shouldEnableManualRangeControls,
+} from '../../../../../common/utils/FeatureUtils';
 import { useSampledMetricHistory } from '../../hooks/useSampledMetricHistory';
-import { compact, uniq } from 'lodash';
+import { compact, isUndefined, uniq } from 'lodash';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import { useGroupedChartRunData } from '../../../runs-compare/hooks/useGroupedChartRunData';
 
@@ -26,6 +29,7 @@ export const RunsChartsConfigureLineChartPreviewImpl = ({
   metricsByRunUuid: Record<string, MetricHistoryByName>;
 }) => {
   const usingMultipleRunsHoverTooltip = shouldEnableDeepLearningUIPhase3();
+  const usingManualRangeControls = shouldEnableManualRangeControls();
 
   const isGrouped = useMemo(() => previewData.some((r) => r.groupParentInfo), [previewData]);
 
@@ -99,6 +103,19 @@ export const RunsChartsConfigureLineChartPreviewImpl = ({
     return <LegacySkeleton />;
   }
 
+  const checkValidRange = (
+    rangeMin: number | undefined,
+    rangeMax: number | undefined,
+  ): [number, number] | undefined => {
+    if (isUndefined(rangeMin) || isUndefined(rangeMax)) {
+      return undefined;
+    }
+    return [rangeMin, rangeMax];
+  };
+
+  const xRange = checkValidRange(cardConfig.range?.xMin, cardConfig.range?.xMax);
+  const yRange = checkValidRange(cardConfig.range?.yMin, cardConfig.range?.yMax);
+
   return (
     <RunsMetricsLinePlot
       runsData={chartData}
@@ -113,6 +130,8 @@ export const RunsChartsConfigureLineChartPreviewImpl = ({
       useDefaultHoverBox={false}
       onHover={setTooltip}
       onUnhover={resetTooltip}
+      xRange={usingManualRangeControls ? xRange : undefined}
+      yRange={usingManualRangeControls ? yRange : undefined}
     />
   );
 };

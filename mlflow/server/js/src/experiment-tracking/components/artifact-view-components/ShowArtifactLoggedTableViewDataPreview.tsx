@@ -1,6 +1,6 @@
 import { Button, CloseIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { Global } from '@emotion/react';
-import { FormattedJsonDisplay } from 'common/components/JsonFormatting';
+import { FormattedJsonDisplay } from '@mlflow/mlflow/src/common/components/JsonFormatting';
 import { isUndefined } from 'lodash';
 import { useState } from 'react';
 import { FormattedMessage } from 'react-intl';

@@ -24,7 +24,6 @@ src/endpoints/components/ServedModelsTableTitle.enzyme.test.tsx
 src/endpoints/components/endpoint-form/EndpointForm.enzyme.test.tsx
 src/endpoints/components/endpoint-table/EndpointsTable.enzyme.test.tsx
 src/endpoints/components/endpoint-table/EndpointsTableUtils.enzyme.test.tsx
-src/endpoints/components/endpoint-table/ServedModelCell.enzyme.test.tsx
 src/endpoints/hooks/useActiveTab.enzyme.test.tsx
 src/experiment-tracking/components/ArtifactPage.enzyme.test.tsx
 src/experiment-tracking/components/ArtifactView.enzyme.test.tsx
@@ -120,16 +119,10 @@ src/model-registry/components/TransitionRequestForm.enzyme.test.tsx
 src/model-registry/components/model-list/ModelListFilters.enzyme.test.tsx
 src/model-registry/components/model-list/ModelListTable.enzyme.test.tsx
 src/model-serving/components/CallModelView.test.ts.enzyme.test.tsx
-src/model-serving/components/ComputeConfigView.test.ts.enzyme.test.tsx
 src/model-serving/components/CurlClientCode.enzyme.test.tsx
 src/model-serving/components/EditableClusterSettingsView.enzyme.test.tsx
-src/model-serving/components/EditableComputeSettingsView.test.ts.enzyme.test.tsx
 src/model-serving/components/EnableServing.enzyme.test.tsx
-src/model-serving/components/EventsView.test.ts.enzyme.test.tsx
-src/model-serving/components/LogsView.test.ts.enzyme.test.tsx
 src/model-serving/components/MetricsView.test.ts.enzyme.test.tsx
-src/model-serving/components/ModelEndpointVersionView.test.ts.enzyme.test.tsx
-src/model-serving/components/PayloadLoggingView.test.ts.enzyme.test.tsx
 src/model-serving/components/ServingPane.enzyme.test.tsx
 src/model-serving/components/ServingView.test.ts.enzyme.test.tsx
 src/model-serving/components/ShowExampleButton.enzyme.test.tsx
