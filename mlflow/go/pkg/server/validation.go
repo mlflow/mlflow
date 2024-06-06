@@ -188,7 +188,7 @@ func NewValidator() (*validator.Validate, error) {
 	if err := validate.RegisterValidation("runId", regexValidation(runIDRegex)); err != nil {
 		return nil, fmt.Errorf("validation registration for 'runId' failed: %w", err)
 	}
-	//nolint:exhaustruct
+
 	validate.RegisterStructValidation(validateLogBatchLimits, &protos.LogBatch{})
 
 	return validate, nil

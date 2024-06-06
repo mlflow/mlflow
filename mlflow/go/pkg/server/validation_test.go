@@ -121,7 +121,6 @@ func TestUriWithoutFragmentsOrParams(t *testing.T) {
 func TestUniqueParamsInLogBatch(t *testing.T) {
 	t.Parallel()
 
-	//nolint:exhaustruct
 	logBatchRequest := &protos.LogBatch{
 		Params: []*protos.Param{
 			{Key: utils.PtrTo("key1"), Value: utils.PtrTo("value1")},
@@ -141,7 +140,6 @@ func TestUniqueParamsInLogBatch(t *testing.T) {
 func TestEmptyParamsInLogBatch(t *testing.T) {
 	t.Parallel()
 
-	//nolint:exhaustruct
 	logBatchRequest := &protos.LogBatch{
 		RunId:  utils.PtrTo("odcppTsGTMkHeDcqfZOYDMZSf"),
 		Params: make([]*protos.Param, 0),
@@ -156,7 +154,6 @@ func TestEmptyParamsInLogBatch(t *testing.T) {
 	}
 }
 
-//nolint:exhaustruct
 func TestMissingTimestampInNestedMetric(t *testing.T) {
 	t.Parallel()
 

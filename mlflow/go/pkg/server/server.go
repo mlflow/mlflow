@@ -20,7 +20,6 @@ import (
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 )
 
-//nolint:exhaustruct
 func configureApp(cfg *config.Config) (*fiber.App, error) {
 	//nolint:mnd
 	app := fiber.New(fiber.Config{
@@ -65,7 +64,6 @@ func configureApp(cfg *config.Config) (*fiber.App, error) {
 	return app, nil
 }
 
-//nolint:exhaustruct
 func launchServer(ctx context.Context, cfg *config.Config) error {
 	app, err := configureApp(cfg)
 	if err != nil {
@@ -107,7 +105,6 @@ func launchServer(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-//nolint:exhaustruct
 func newFiberConfig() fiber.Config {
 	return fiber.Config{
 		ErrorHandler: func(context *fiber.Ctx, err error) error {

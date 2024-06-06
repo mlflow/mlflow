@@ -51,7 +51,6 @@ type testRelativeArtifactLocationScenario struct {
 	input string
 }
 
-//nolint:exhaustruct
 func TestRelativeArtifactLocation(t *testing.T) {
 	t.Parallel()
 

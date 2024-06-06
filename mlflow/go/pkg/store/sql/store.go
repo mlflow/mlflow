@@ -48,7 +48,6 @@ func (s Store) GetExperiment(id string) (*protos.Experiment, *contract.Error) {
 		)
 	}
 
-	//nolint:exhaustruct
 	experiment := model.Experiment{ID: utils.PtrTo(int32(idInt))}
 	if err := s.db.Preload("Tags").First(&experiment).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -155,7 +154,7 @@ func getOffset(pageToken string) (int, *contract.Error) {
 	return 0, nil
 }
 
-//nolint:exhaustruct,funlen,cyclop,gocognit
+//nolint:funlen,cyclop,gocognit
 func applyFilters(store *Store, transaction *gorm.DB, filter string) *contract.Error {
 	filterConditions, err := query.ParseFilter(filter)
 	if err != nil {
@@ -288,7 +287,7 @@ func applyFilters(store *Store, transaction *gorm.DB, filter string) *contract.E
 	return nil
 }
 
-//nolint:exhaustruct, funlen, cyclop
+//nolint:funlen, cyclop
 func applyOrderBy(store *Store, transaction *gorm.DB, orderBy []string) *contract.Error {
 	startTimeOrder := false
 
@@ -440,7 +439,6 @@ func (s Store) SearchRuns(
 	}, nil
 }
 
-//nolint:exhaustruct
 func (s Store) DeleteExperiment(id string) *contract.Error {
 	idInt, err := strconv.ParseInt(id, 10, 32)
 	if err != nil {
@@ -506,7 +504,6 @@ type conflictedParam struct {
 	NewValue string
 }
 
-//nolint:exhaustruct
 func checkRunIsActive(transaction *gorm.DB, runID string) *contract.Error {
 	var lifecycleStage model.LifecycleStage
 
@@ -538,7 +535,6 @@ func checkRunIsActive(transaction *gorm.DB, runID string) *contract.Error {
 	return nil
 }
 
-//nolint:exhaustruct
 func (s Store) logParamsWithTransaction(
 	transaction *gorm.DB, runID string, params []*protos.Param,
 ) *contract.Error {
@@ -616,7 +612,6 @@ func getDistinctMetricKeys(metrics []model.Metric) []string {
 	return metricKeys
 }
 
-//nolint:exhaustruct
 func getLatestMetrics(transaction *gorm.DB, runID string, metricKeys []string) ([]model.LatestMetric, error) {
 	batchSize := 500
 	latestMetrics := make([]model.LatestMetric, 0, len(metricKeys))
@@ -656,7 +651,7 @@ func isNewerMetric(a model.Metric, b model.LatestMetric) bool {
 		(*a.Step == *b.Step && *a.Timestamp == *b.Timestamp && *a.Value > *b.Value)
 }
 
-//nolint:exhaustruct,cyclop
+//nolint:cyclop
 func updateLatestMetricsIfNecessary(transaction *gorm.DB, runID string, metrics []model.Metric) error {
 	if len(metrics) == 0 {
 		return nil
@@ -710,7 +705,6 @@ func updateLatestMetricsIfNecessary(transaction *gorm.DB, runID string, metrics 
 	return nil
 }
 
-//nolint:exhaustruct
 func (s Store) logMetricsWithTransaction(
 	transaction *gorm.DB, runID string, metrics []*protos.Metric,
 ) *contract.Error {
@@ -747,7 +741,6 @@ func (s Store) logMetricsWithTransaction(
 	return nil
 }
 
-//nolint:exhaustruct
 func (s Store) setTagsWithTransaction(
 	transaction *gorm.DB, runID string, tags []*protos.RunTag,
 ) error {
@@ -858,7 +851,7 @@ func NewSQLStore(config *config.Config) (*Store, error) {
 	default:
 		return nil, fmt.Errorf("unsupported store URL scheme %q", uri.Scheme) //nolint:err113
 	}
-	//nolint:exhaustruct
+
 	database, err := gorm.Open(dialector, &gorm.Config{
 		TranslateError: true,
 		Logger:         logger.Default.LogMode(logger.Info),
