@@ -200,10 +200,10 @@ def get_model_version_dependencies(model_dir):
         _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY = "databricks_embeddings_endpoint_name"
         _DATABRICKS_LLM_ENDPOINT_NAME_KEY = "databricks_llm_endpoint_name"
         _DATABRICKS_CHAT_ENDPOINT_NAME_KEY = "databricks_chat_endpoint_name"
-        _DATABRICKS_DEPENDENCY_KEY = "databricks_dependency"
+        _DB_DEPENDENCY_KEY = "databricks_dependency"
 
         databricks_dependencies = model_info.flavors.get("langchain", {}).get(
-            _DATABRICKS_DEPENDENCY_KEY, {}
+            _DB_DEPENDENCY_KEY, {}
         )
 
         index_names = _fetch_langchain_dependency_from_model_info(
