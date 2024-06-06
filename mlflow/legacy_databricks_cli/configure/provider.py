@@ -322,9 +322,15 @@ class DatabricksModelServingConfigProvider(DatabricksConfigProvider):
         # at any point in time but refresh at higher rate of every 5 min here to be safe
         # and conform with refresh logic for Brickstore tables.
         OAUTH_CACHE_REFRESH_DURATION_SEC = 5 * 60
-        OAUTH_CACHE_ENV_VAR = "DATABRICKS_DEPENDENCY_OAUTH_CACHE"
-        OAUTH_CACHE_EXPIRATION_ENV_VAR = "DATABRICKS_DEPENDENCY_OAUTH_CACHE_EXIRY_TS"
+        OAUTH_CACHE_ENV_VAR = "DB_DEPENDENCY_OAUTH_CACHE"
+        OAUTH_CACHE_EXPIRATION_ENV_VAR = "DB_DEPENDENCY_OAUTH_CACHE_EXPIRY_TS"
         MODEL_SERVING_HOST_ENV_VAR = "DATABRICKS_MODEL_SERVING_HOST_URL"
+        DB_MODEL_SERVING_HOST_ENV_VAR = "DB_MODEL_SERVING_HOST_URL"
+
+        # read from DB_MODEL_SERVING_HOST_ENV_VAR if available otherwise MODEL_SERVING_HOST_ENV_VAR
+        host = os.environ.get(DB_MODEL_SERVING_HOST_ENV_VAR) or os.environ.get(
+            MODEL_SERVING_HOST_ENV_VAR
+        )
 
         # check if dependency is cached in env var before reading from file
         oauth_token = ""
@@ -342,7 +348,7 @@ class DatabricksModelServingConfigProvider(DatabricksConfigProvider):
             )
 
         return DatabricksConfig(
-            host=os.environ[MODEL_SERVING_HOST_ENV_VAR],
+            host=host,
             token=oauth_token,
             username=None,
             password=None,
