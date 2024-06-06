@@ -328,8 +328,8 @@ class DatabricksModelServingConfigProvider(DatabricksConfigProvider):
         DB_MODEL_SERVING_HOST_ENV_VAR = "DB_MODEL_SERVING_HOST_URL"
 
         # read from DB_MODEL_SERVING_HOST_ENV_VAR if available otherwise MODEL_SERVING_HOST_ENV_VAR
-        host = os.environ.get(
-            DB_MODEL_SERVING_HOST_ENV_VAR, os.environ.get(MODEL_SERVING_HOST_ENV_VAR)
+        host = os.environ.get(DB_MODEL_SERVING_HOST_ENV_VAR) or os.environ.get(
+            MODEL_SERVING_HOST_ENV_VAR
         )
 
         # check if dependency is cached in env var before reading from file
