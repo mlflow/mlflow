@@ -79,13 +79,19 @@ def test_trace_disabled_decorator(enabled_initially):
         mlflow.tracing.disable()
     assert _is_enabled() == enabled_initially
 
+    call_count = 0
+
     @trace_disabled
     def test_fn():
         with mlflow.start_span(name="test_span") as span:
             span.set_attribute("key", "value")
+        nonlocal call_count
+        call_count += 1
+        return 0
 
     test_fn()
     assert len(TRACE_BUFFER) == 0
+    assert call_count == 1
 
     # Recover the initial state
     assert _is_enabled() == enabled_initially
@@ -93,13 +99,23 @@ def test_trace_disabled_decorator(enabled_initially):
     # Tracing should be enabled back even if the function raises an exception
     @trace_disabled
     def test_fn_raise():
+        nonlocal call_count
+        call_count += 1
         raise ValueError("error")
 
     with pytest.raises(ValueError, match="error"):
         test_fn_raise()
+    assert call_count == 2
 
     assert len(TRACE_BUFFER) == 0
     assert _is_enabled() == enabled_initially
+
+    # @trace_disabled should not block the decorated function even
+    # if it fails to disable tracing
+    with mock.patch("mlflow.tracing.provider.disable",
+                    side_effect=ValueError("error")):
+        assert 0 == test_fn()
+        assert call_count == 3
 
 
 def test_is_enabled():

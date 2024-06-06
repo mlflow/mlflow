@@ -215,15 +215,26 @@ def trace_disabled(f):
 
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
-        was_trace_enabled = _is_enabled()
-        if was_trace_enabled:
-            disable()
-            try:
+        _is_func_called = False
+        try:
+            was_trace_enabled = _is_enabled()
+            if was_trace_enabled:
+                disable()
+                try:
+                    _is_func_called = True
+                    return f(*args, **kwargs)
+                finally:
+                    enable()
+            else:
+                _is_func_called = True
                 return f(*args, **kwargs)
-            finally:
-                enable()
-        else:
-            return f(*args, **kwargs)
+        except Exception:
+            # If any exception happens when disabling tracing, we should catch it and
+            # still call the original function. However, if the exception is raised
+            # from the original function, we should not catch and call it twice.
+            if not _is_func_called:
+                return f(*args, **kwargs)
+            raise
 
     return wrapper
 
