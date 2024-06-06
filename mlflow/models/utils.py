@@ -7,7 +7,6 @@ import logging
 import os
 import re
 import sys
-import tempfile
 import uuid
 from contextlib import contextmanager
 from copy import deepcopy
@@ -1518,20 +1517,20 @@ def _convert_llm_input_data(data):
     return _convert_llm_ndarray_to_list(data)
 
 
-def _get_temp_file_with_content(file_name: str, content: str, content_format) -> str:
+def _get_temp_file_with_content(
+    temp_dir: str, file_name: str, content: Union[str, bytes], content_format
+) -> str:
     """
     Write the contents to a temporary file and return the path to that file.
 
     Args:
+        temp_dir: The name of the temporary directory where the file will be created.
         file_name: The name of the file to be created.
         content: The contents to be written to the file.
 
     Returns:
         The string path to the file where the chain model is build.
     """
-    # Get the temporary directory path
-    temp_dir = tempfile.gettempdir()
-
     # Construct the full path where the temporary file will be created
     temp_file_path = os.path.join(temp_dir, file_name)
 
@@ -1542,10 +1541,10 @@ def _get_temp_file_with_content(file_name: str, content: str, content_format) ->
     return temp_file_path
 
 
-def _validate_and_get_model_code_path(model_code_path: str) -> str:
+def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> str:
     """
-    Validate model code path exists. Creates a temp file and validate its contents if it's a
-    notebook.
+    Validate model code path exists. Creates a temp file in temp_dir and validate its contents if
+    it's a notebook.
 
     Returns either `model_code_path` or a temp file path with the contents of the notebook.
     """
@@ -1579,7 +1578,7 @@ def _validate_and_get_model_code_path(model_code_path: str) -> str:
             )
 
         _validate_model_code_from_notebook(decoded_content.decode("utf-8"))
-        return _get_temp_file_with_content("model.py", decoded_content, "wb")
+        return _get_temp_file_with_content(temp_dir, "model.py", decoded_content, "wb")
 
 
 @contextmanager
