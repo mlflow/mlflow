@@ -47,8 +47,14 @@ def _extract_databricks_dependencies_from_retriever(retriever, dependency_list: 
         if isinstance(embeddings, (DatabricksEmbeddings, LegacyDatabricksEmbeddings)):
             dependency_list.append(DatabricksServingEndpoint(endpoint_name=embeddings.endpoint))
     else:
-        for attr in dir(retriever):
+        for attr in dir(retriever):      
+            if attr.startswith("_"):
+                continue
+
             retriever_attr = getattr(retriever, attr)
+            if isinstance(retriever_attr, (int, float, str, list, dict, tuple, set)):
+                continue
+            
             _extract_databricks_dependencies_from_retriever(retriever_attr, dependency_list)
 
 
