@@ -100,7 +100,8 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     else:
         result = _invoke(self, *args, **kwargs)
 
-    mlflow_tracer.flush_tracker()
+    if config.log_traces:
+        mlflow_tracer.flush_tracker()
     return result
 
 
