@@ -273,6 +273,9 @@ Explore the guides and tutorials below to start your journey!
                     Discover how to use <a href="llms/prompt-engineering/index.html#step-10-evaluate-the-new-prompt-template-on-previous-inputs">MLflow Evaluate</a> with the Prompt Engineering UI
                 </p>
             </div>
+            <div class="image-box">
+                <img src="_static/images/intro/evaluate.png" alt="MLflow GenAI Evaluation">
+            </div>
         </div>
     </div>
 
