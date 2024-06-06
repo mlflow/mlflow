@@ -12,6 +12,7 @@ from langchain.schema.runnable import RunnablePassthrough
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
 
+import mlflow
 from mlflow.models import ModelConfig, set_model, set_retriever_schema
 
 base_config = ModelConfig(development_config="tests/langchain/config.yml")
@@ -56,6 +57,9 @@ def get_fake_chat_model(endpoint="fake-endpoint"):
     return FakeChatModel(endpoint=endpoint)
 
 
+# No need to define the model, but simulating common practice in dev notebooks
+mlflow.langchain.autolog()
+
 text_path = "tests/langchain/state_of_the_union.txt"
 loader = TextLoader(text_path)
 documents = loader.load()
@@ -84,3 +88,5 @@ set_retriever_schema(
     doc_uri="doc-uri",
     other_columns=["column1", "column2"],
 )
+
+retrieval_chain.invoke({"question": "What is the capital of Japan?"})
