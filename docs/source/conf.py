@@ -352,7 +352,7 @@ nitpick_ignore = [
     ("py:class", "plotly.graph_objects.Figure"),
     ("py:class", "PIL.Image.Image"),
     ("py:class", "mlflow.deployments.base.BaseDeploymentClient"),
-    ("py:class", "mlflow.deployments.server.config.Endpoint"),
+    ("py:class", "Endpoint"),
     ("py:class", "mlflow.types.schema.Array"),
     ("py:class", "mlflow.types.schema.DataType"),
     ("py:class", "mlflow.types.schema.ColSpec"),

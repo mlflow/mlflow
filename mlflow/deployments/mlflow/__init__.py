@@ -7,7 +7,6 @@ from mlflow.deployments import BaseDeploymentClient
 from mlflow.deployments.constants import (
     MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
 )
-from mlflow.deployments.server.config import Endpoint
 from mlflow.deployments.server.constants import (
     MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE,
     MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE,
@@ -167,6 +166,9 @@ class MlflowDeploymentClient(BaseDeploymentClient):
                 "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
             }
         """
+        # Delayed import to avoid importing mlflow.gateway in the module scope
+        from mlflow.deployments.server.config import Endpoint
+
         route = join_paths(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, endpoint)
         response = self._call_endpoint("GET", route)
         return Endpoint(
@@ -177,6 +179,9 @@ class MlflowDeploymentClient(BaseDeploymentClient):
         )
 
     def _list_endpoints(self, page_token=None) -> "PagedList[Endpoint]":
+        # Delayed import to avoid importing mlflow.gateway in the module scope
+        from mlflow.deployments.server.config import Endpoint
+
         params = None if page_token is None else {"page_token": page_token}
         response_json = self._call_endpoint(
             "GET", MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, json_body=params
