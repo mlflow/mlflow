@@ -8,7 +8,9 @@ permissions:
 
 jobs:
   main:
-    if: github.repository == 'mlflow/mlflow'
+    # if: github.repository == 'mlflow/mlflow'
+    # TODO: Re-enable once we figure out how to use CircleCI's API from a GitHub Action workflow
+    if: false
     runs-on: ubuntu-latest
     permissions:
       statuses: read # preview_docs.py checks PR statuses
