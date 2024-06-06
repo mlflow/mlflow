@@ -2,16 +2,17 @@
 
 ## 2.13.2 (2024-06-06)
 
-MLflow 2.13.2 includes several major features and improvements
+MLflow 2.13.2 is a patch release that includes several bug fixes and integration improvements to existing
+features.
 
 Features:
 
 - [Tracking] Provide a way to set urllib's connection number and max size (#12227, @chenmoneygithub)
-- [] Support UC directory as MLflow MetaDataset (#12224, @chenmoneygithub)
+- [Tracking] Support UC directory as MLflow MetaDataset (#12224, @chenmoneygithub)
 
 Bug fixes:
 
-- [Models] Avoid importing `mlflow.gateway` at the top level of `mlflow.deployment` module. (#12264, @B-Step62)
+- [Models] Fix inferring `mlflow[gateway]` as dependency when using `mlflow.deployment` module (#12264, @B-Step62)
 - [Tracking] [MLflow] Flatten the model_config with / sep before logging as params to MLflow (#12190, @sunishsheth2009)
 
 Small bug fixes and documentation updates:
