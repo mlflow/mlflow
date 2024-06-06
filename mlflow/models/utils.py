@@ -1517,7 +1517,9 @@ def _convert_llm_input_data(data):
     return _convert_llm_ndarray_to_list(data)
 
 
-def _get_temp_file_with_content(temp_dir: str, file_name: str, content: Union[str, bytes], content_format) -> str:
+def _get_temp_file_with_content(
+    temp_dir: str, file_name: str, content: Union[str, bytes], content_format
+) -> str:
     """
     Write the contents to a temporary file and return the path to that file.
 
