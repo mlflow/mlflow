@@ -14,7 +14,7 @@ MLflow offers a number of different options to enable tracing of your GenAI appl
 To learn more about what tracing is, see our `Tracing Concepts Overview <./overview.html>`_ guide. 
 
 .. note::
-    MLflow Tracing support is available for **early access** with the MLflow 2.14.0rc0 release candidate build. Versions of MLflow prior to this release 
+    MLflow Tracing support is available for **early access** with the **MLflow 2.14.0rc0** release candidate build. Versions of MLflow prior to this release 
     do not contain the full set of features that are required for trace logging support.  
 
     Release candidates can be installed via PyPI via the following syntax, which will fetch the latest release candidate build 
@@ -25,8 +25,9 @@ To learn more about what tracing is, see our `Tracing Concepts Overview <./overv
         pip install --pre mlflow==2.14.0rc*
 
 .. warning:: 
-    If you are using MLflow tracing from within Databricks, please **do not** install release candidate versions of MLflow except for evaluation and testing. 
-    Other Databricks service integrations with MLflow may not function correctly if you do. 
+    If you are using MLflow tracing from within Databricks, MLflow **2.13.2 and above** contain the required dependencies to utilize tracing functionality 
+    within Databricks. Additionally, it is not recommended to install release candidates of MLflow on Databricks except for compatibility testing. 
+    Other Databricks service integrations with MLflow may not function correctly if you do install an RC build of MLflow.
 
 LangChain Automatic Tracing
 ---------------------------
