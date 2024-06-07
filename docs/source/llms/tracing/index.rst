@@ -13,6 +13,20 @@ MLflow offers a number of different options to enable tracing of your GenAI appl
 
 To learn more about what tracing is, see our `Tracing Concepts Overview <./overview.html>`_ guide. 
 
+.. note::
+    MLflow Tracing support is available for **early access** with the MLflow 2.14.0rc0 release candidate build. Versions of MLflow prior to this release 
+    do not contain the full set of features that are required for trace logging support.  
+
+    Release candidates can be installed via PyPI via the following syntax, which will fetch the latest release candidate build 
+    for a given release version:
+
+    .. code-block:: shell
+
+        pip install --pre mlflow==2.14.0rc*
+
+.. warning:: 
+    If you are using MLflow tracing from within Databricks, please **do not** install release candidate versions of MLflow except for evaluation and testing. 
+    Other Databricks service integrations with MLflow may not function correctly if you do. 
 
 LangChain Automatic Tracing
 ---------------------------
@@ -504,6 +518,21 @@ and the :py:meth:`mlflow.client.MlflowClient.delete_trace_tag` method to remove 
 
 FAQ
 ---
+
+Q: Can I disable and re-enable tracing globally?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Yes. 
+
+There are two fluent APIs that are used for blanket enablement or disablement of the MLflow Tracing feature in order to support 
+users who may not wish to record interactions with their LangChain models for a brief period, or if they have concerns about long-term storage 
+of data that was sent along with a request payload to a model in interactive mode. 
+
+To **disable** tracing, the :py:func:`mlflow.tracing.disable` API will cease the collection of trace data from within MLflow and will not log 
+any data to the MLflow Tracking service regarding traces. 
+
+To **enable** tracing (if it had been temporarily disabled), the :py:func:`mlflow.tracing.enable` API will re-enable tracing functionality for LangChain models 
+that are invoked while autologging is active or for any model that is invoked that has explicitly added fluent or client API calls to initiate a trace log. 
 
 Q: How can I associate a trace with an MLflow Run?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
