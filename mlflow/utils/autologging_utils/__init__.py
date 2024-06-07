@@ -78,6 +78,7 @@ MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG = {
     "registered_model_name": None,
     "extra_tags": None,
     "extra_model_classes": None,
+    "log_traces": True,
 }
 
 _logger = logging.getLogger(__name__)

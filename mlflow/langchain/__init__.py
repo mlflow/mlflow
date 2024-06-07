@@ -999,11 +999,7 @@ def autolog(
     log_model_signatures=False,
     log_models=False,
     log_datasets=False,
-    # TODO: log_inputs_outputs was originally defaulted to True in the production version of
-    # the LangChain autologging, as it is a common use case to log input/output table for
-    # evaluation. Once tracing is fully launched, this should be supported by the tracer
-    # but we should design it to be compatible with the existing UJ.
-    log_inputs_outputs=False,
+    log_inputs_outputs=None,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=True,
@@ -1011,6 +1007,7 @@ def autolog(
     registered_model_name=None,
     extra_tags=None,
     extra_model_classes=None,
+    log_traces=True,
 ):
     """
     Enables (or disables) and configures autologging from Langchain to MLflow.
@@ -1034,7 +1031,11 @@ def autolog(
             are also omitted when ``log_models`` is ``False``.
         log_datasets: If ``True``, dataset information is logged to MLflow Tracking
             if applicable. If ``False``, dataset information is not logged.
-        log_inputs_outputs: If ``True``, inference data and results are combined into a single
+        log_inputs_outputs: **Deprecated** The legacy parameter used for logging inference
+            inputs and outputs. This argument will be removed in a future version of MLflow.
+            The alternative is to use ``log_traces`` which logs traces for Langchain models,
+            including inputs and outputs for each stage.
+            If ``True``, inference data and results are combined into a single
             pandas DataFrame and logged to MLflow Tracking as an artifact.
             If ``False``, inference data and results are not logged.
             Default to ``False``.
@@ -1057,6 +1058,9 @@ def autolog(
             We do not guarantee classes specified in this list can be logged as a model, but tracing
             will be supported. Note that all classes within the list must be subclasses of Runnable,
             and we only patch `invoke`, `batch`, and `stream` methods for tracing.
+        log_traces: If ``True``, traces are logged for Langchain models by using
+            MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
+            collected during inference. Default to ``True``.
     """
     with contextlib.suppress(ImportError):
         import langchain

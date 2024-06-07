@@ -36,7 +36,8 @@ class AutoLoggingConfig:
     log_models: bool
     log_input_examples: bool
     log_model_signatures: bool
-    log_inputs_outputs: bool
+    log_traces: bool
+    log_inputs_outputs: Optional[bool] = None
     extra_tags: Optional[dict] = None
 
     def should_log_optional_artifacts(self):
@@ -53,10 +54,17 @@ class AutoLoggingConfig:
     @classmethod
     def init(cls):
         config_dict = AUTOLOGGING_INTEGRATIONS.get(mlflow.langchain.FLAVOR_NAME, {})
+        if config_dict.get("log_inputs_outputs"):
+            _logger.warning(
+                "The log_inputs_outputs option is deprecated and will be removed in a future "
+                "release. Please use the log_traces option in `mlflow.langchain.autolog` "
+                "to log traces (including inputs and outputs) of the model."
+            )
         return cls(
             log_models=config_dict.get("log_models", False),
             log_input_examples=config_dict.get("log_input_examples", False),
             log_model_signatures=config_dict.get("log_model_signatures", False),
+            log_traces=config_dict.get("log_traces", True),
             log_inputs_outputs=config_dict.get("log_inputs_outputs", False),
             extra_tags=config_dict.get("extra_tags", None),
         )
@@ -73,9 +81,10 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
     config = AutoLoggingConfig.init()
-    mlflow_tracer = MlflowLangchainTracer()
-    args, kwargs = _inject_mlflow_callbacks(func_name, [mlflow_tracer], args, kwargs)
-    _logger.debug("Injected MLflow callbacks into the model.")
+    if config.log_traces:
+        mlflow_tracer = MlflowLangchainTracer()
+        args, kwargs = _inject_mlflow_callbacks(func_name, [mlflow_tracer], args, kwargs)
+        _logger.debug("Injected MLflow callbacks into the model.")
 
     # NB: Running the original inference with disabling autologging, so we only patch the top-level
     # component and avoid duplicate logging for child components.
@@ -91,7 +100,8 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     else:
         result = _invoke(self, *args, **kwargs)
 
-    mlflow_tracer.flush_tracker()
+    if config.log_traces:
+        mlflow_tracer.flush_tracker()
     return result
 
 
