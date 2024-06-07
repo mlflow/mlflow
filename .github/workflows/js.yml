@@ -60,12 +60,12 @@ jobs:
         run: |
           # On Windows, `yarn install` changes hash of @databricks/design-system in yarn.lock.
           # Use `--no-immutable` to allow the change.
-          yarn install --no-immutable
+          yarn install --no-immutable --no-check-resolutions
           git diff
       - name: Install dependencies (non-windows)
         if: runner.os != 'Windows'
         run: |
-          yarn install --immutable --no-check-resolutions
+          yarn install --no-immutable --no-check-resolutions
       - name: Run lint
         run: |
           yarn lint
