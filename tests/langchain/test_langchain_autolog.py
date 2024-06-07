@@ -370,10 +370,17 @@ def test_llmchain_autolog_log_inputs_outputs():
     mlflow.langchain.autolog(log_models=True, log_inputs_outputs=True)
     question = {"product": "MLflow"}
     answer = {"product": "MLflow", "text": TEST_CONTENT}
-    with _mock_request(return_value=_mock_chat_completion_response()):
+    with _mock_request(return_value=_mock_chat_completion_response()), mock.patch(
+        "mlflow.langchain._langchain_autolog._logger.warning"
+    ) as mock_warning:
         model = create_openai_llmchain()
         with mlflow.start_run() as run:
             model.invoke(question)
+        mock_warning.assert_called_once()
+        assert (
+            "The log_inputs_outputs option is deprecated and will be removed in a future release"
+            in mock_warning.call_args[0][0]
+        )
         loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
         loaded_dict = loaded_table.to_dict("records")
         assert len(loaded_dict) == 1
@@ -891,10 +898,16 @@ def test_langchain_autolog_produces_expected_traces_with_streaming(tmp_path):
     assert len(stream_trace.data.spans) == len(invoke_trace.data.spans)
 
 
-def test_langchain_tracer_injection_for_arbitrary_runnables():
+@pytest.mark.parametrize("log_traces", [True, False, None])
+def test_langchain_tracer_injection_for_arbitrary_runnables(log_traces):
     from langchain.schema.runnable import RouterRunnable, RunnableLambda
 
-    mlflow.langchain.autolog()
+    should_log_traces = log_traces is not False
+
+    if log_traces is not None:
+        mlflow.langchain.autolog(log_traces=log_traces)
+    else:
+        mlflow.langchain.autolog()
 
     add = RunnableLambda(func=lambda x: x + 1)
     square = RunnableLambda(func=lambda x: x**2)
@@ -902,10 +915,16 @@ def test_langchain_tracer_injection_for_arbitrary_runnables():
 
     with mock.patch("mlflow.langchain._langchain_autolog._logger.debug") as mock_debug:
         model.invoke({"key": "square", "input": 3})
-        mock_debug.assert_called_once_with("Injected MLflow callbacks into the model.")
+        if should_log_traces:
+            mock_debug.assert_called_once_with("Injected MLflow callbacks into the model.")
+        else:
+            mock_debug.assert_not_called()
     traces = get_traces()
-    assert len(traces) == 1
-    assert traces[0].data.spans[0].attributes[SpanAttributeKey.SPAN_TYPE] == "CHAIN"
+    if should_log_traces:
+        assert len(traces) == 1
+        assert traces[0].data.spans[0].attributes[SpanAttributeKey.SPAN_TYPE] == "CHAIN"
+    else:
+        assert len(traces) == 0
 
 
 def test_langchain_autolog_extra_model_classes_no_duplicate_patching():
