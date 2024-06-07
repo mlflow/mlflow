@@ -64,7 +64,7 @@ class AutoLoggingConfig:
             log_models=config_dict.get("log_models", False),
             log_input_examples=config_dict.get("log_input_examples", False),
             log_model_signatures=config_dict.get("log_model_signatures", False),
-            log_traces=config_dict.get("log_traces", False),
+            log_traces=config_dict.get("log_traces", True),
             log_inputs_outputs=config_dict.get("log_inputs_outputs", False),
             extra_tags=config_dict.get("extra_tags", None),
         )
