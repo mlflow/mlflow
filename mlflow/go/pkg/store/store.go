@@ -23,12 +23,6 @@ type MlflowStore interface {
 
 	DeleteExperiment(id string) *contract.Error
 
-	// LogParams(runID string, params []*protos.Param) *contract.Error
-
-	// LogMetrics(runID string, metrics []*protos.Metric) *contract.Error
-
-	// SetTags(runID string, tags []*protos.RunTag) *contract.Error
-
 	LogBatch(
 		runID string,
 		metrics []*protos.Metric,
