@@ -48,8 +48,12 @@ def main():
     parser.add_argument("--workflow-run-id", required=True)
     args = parser.parse_args()
 
-    token = os.environ.get("GITHUB_TOKEN")
-    headers = {"Authorization": f"token {token}"}
+    headers = {}
+    if github_token := os.environ.get("GITHUB_TOKEN"):
+        headers["Authorization"] = f"token {github_token}"
+    if circle_token := os.environ.get("CIRCLE_TOKEN"):
+        headers["Circle-Token"] = circle_token
+
     session = Session()
     session.headers.update(headers)
 

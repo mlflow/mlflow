@@ -1,16 +1,15 @@
 name: Preview docs
 
 on:
-  pull_request_target:
+  # pull_request_target:
+  pull_request:
 
 permissions:
   contents: read
 
 jobs:
   main:
-    # if: github.repository == 'mlflow/mlflow'
-    # TODO: Re-enable once we figure out how to use CircleCI's API from a GitHub Action workflow
-    if: false
+    if: github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-latest
     permissions:
       statuses: read # preview_docs.py checks PR statuses
@@ -24,6 +23,7 @@ jobs:
       - name: Create preview link
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CIRCLE_TOKEN: ${{ secrets.CIRCLE_TOKEN }}
         run: |
           python dev/preview_docs.py \
             --commit-sha ${{ github.event.pull_request.head.sha }} \
