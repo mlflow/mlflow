@@ -20,7 +20,7 @@ The ``mlflow`` module provides a set of high-level APIs for `MLflow Tracing <../
 guidance on how to use these tracing APIs, please refer to the `Tracing Fluent APIs Guide <../llms/tracing/index.html#tracing-fluent-apis>`_.
 
 For some advanced use cases such as multi-threaded application, instrumentation via callbacks, you may need to use
-the low-level tracing APIs implemented in the :py:class:`MlflowClient <mlflow.client.MlflowClient>` class.
+the low-level tracing APIs :py:class:`MlflowClient <mlflow.client.MlflowClient>` provides.
 For detailed guidance on how to use the low-level tracing APIs, please refer to the `Tracing Client APIs Guide <../llms/tracing/index.html#tracing-client-apis>`_.
 
 .. autofunction:: mlflow.trace
