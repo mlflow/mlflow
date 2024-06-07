@@ -65,7 +65,7 @@ jobs:
       - name: Install dependencies (non-windows)
         if: runner.os != 'Windows'
         run: |
-          yarn install --immutable
+          yarn install --immutable --no-check-resolutions
       - name: Run lint
         run: |
           yarn lint
