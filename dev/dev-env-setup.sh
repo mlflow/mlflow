@@ -3,15 +3,18 @@
 # Progress file to resume the script from where it exited previously
 PROGRESS_FILE="$HOME/.dev-env-setup-progress"
 
-save_progress() {
-  echo $1 > $PROGRESS_FILE
+load_progress() {
+  if [[ ! -f "$PROGRESS_FILE" ]]; then
+    echo "0" > "$PROGRESS_FILE"
+  fi
+  cat "$PROGRESS_FILE"
 }
 
-load_progress() {
-  if [ ! -f $PROGRESS_FILE ]; then
-    echo 0 > $PROGRESS_FILE
-  fi
-  cat $PROGRESS_FILE
+PROGRESS=$(load_progress)
+
+save_progress() {
+  echo "$1" > "$PROGRESS_FILE"
+  PROGRESS=$(load_progress)
 }
 
 showHelp() {
@@ -351,38 +354,33 @@ set_pre_commit_and_git_signoff() {
   pre-commit install -t pre-commit -t prepare-commit-msg
 }
 
-PROGRESS=$(load_progress)
-
 # Execute mandatory setups with strict error handling
 set +xv && set -e
-
 # Mandatory setups
-case "$PROGRESS" in
-  0)
-    check_and_install_pyenv
-    save_progress 1
-    ;&
-  1)
-    check_and_install_min_py_version
-    save_progress 2
-    ;&
-  2)
-    create_virtualenv
-    save_progress 3
-    ;&
-  3)
-    install_mlflow_and_dependencies
-    save_progress 4
-    ;&
-  4)
-    set_pre_commit_and_git_signoff
-    save_progress 5
-    ;&
-  5)
-    # Clear progress file if all mandatory steps are executed successfully
-    rm $PROGRESS_FILE
-    ;;
-esac
+if [[ "$PROGRESS" -eq "0" ]]; then
+  check_and_install_pyenv
+  save_progress 1
+fi
+if [[ "$PROGRESS" -eq "1" ]]; then
+  check_and_install_min_py_version
+  save_progress 2
+fi
+if [[ "$PROGRESS" -eq "2" ]]; then
+  create_virtualenv
+  save_progress 3
+fi
+if [[ "$PROGRESS" -eq "3" ]]; then
+  install_mlflow_and_dependencies
+  save_progress 4
+fi
+if [[ "$PROGRESS" -eq "4" ]]; then
+  set_pre_commit_and_git_signoff
+  save_progress 5
+fi
+if [[ "$PROGRESS" -eq "5" ]]; then
+  # Clear progress file if all mandatory steps are executed successfully
+  rm $PROGRESS_FILE
+fi
 
 # Execute optional setups without strict error handling
 set +exv
