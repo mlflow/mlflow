@@ -3318,3 +3318,24 @@ def test_langchain_model_streamable_param_in_log_model_for_lc_runnable_types(
             pip_requirements=[],
         )
         assert model_info.flavors["langchain"]["streamable"] is bool(streamable)
+
+
+def test_agent_executor_model_with_messages_input():
+    question = {"messages": [{"role": "user", "content": "Who owns MLflow?"}]}
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            lc_model=os.path.abspath("tests/langchain/agent_executor/chain.py"),
+            artifact_path="model_path",
+            input_example=question,
+            model_config=os.path.abspath("tests/langchain/agent_executor/config.yml"),
+        )
+    native_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert native_model.invoke(question)["output"] == "Databricks"
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    # TODO: in the future we should fix this and output shouldn't be wrapped
+    # The result is wrapped in a list because during signature enforcement we convert
+    # input data to pandas dataframe, then inside _convert_llm_input_data
+    # we convert pandas dataframe back to records, and a single row will be
+    # wrapped inside a list.
+    assert pyfunc_model.predict(question) == ["Databricks"]

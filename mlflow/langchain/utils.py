@@ -314,8 +314,14 @@ def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn, temp_dir=None):
             type(lc_model.llm).__name__,
         )
 
-    if isinstance(lc_model, langchain.agents.agent.AgentExecutor) and not any(
-        isinstance(lc_model.agent.llm_chain.llm, supported_llm) for supported_llm in _SUPPORTED_LLMS
+    if (
+        isinstance(lc_model, langchain.agents.agent.AgentExecutor)
+        # 'RunnableMultiActionAgent' object has no attribute 'llm_chain'
+        and hasattr(lc_model.agent, "llm_chain")
+        and not any(
+            isinstance(lc_model.agent.llm_chain.llm, supported_llm)
+            for supported_llm in _SUPPORTED_LLMS
+        )
     ):
         logger.warning(
             _UNSUPPORTED_LLM_WARNING_MESSAGE,
@@ -366,7 +372,7 @@ def _save_base_lcs(model, path, loader_fn=None, persist_dir=None):
     if isinstance(model, (LLMChain, BaseChatModel)):
         model.save(model_data_path)
     elif isinstance(model, AgentExecutor):
-        if model.agent and model.agent.llm_chain:
+        if model.agent and getattr(model.agent, "llm_chain", None):
             model.agent.llm_chain.save(model_data_path)
 
         if model.agent:
