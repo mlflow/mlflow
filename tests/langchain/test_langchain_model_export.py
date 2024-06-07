@@ -3320,6 +3320,9 @@ def test_langchain_model_streamable_param_in_log_model_for_lc_runnable_types(
         assert model_info.flavors["langchain"]["streamable"] is bool(streamable)
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
 def test_agent_executor_model_with_messages_input():
     question = {"messages": [{"role": "user", "content": "Who owns MLflow?"}]}
 
