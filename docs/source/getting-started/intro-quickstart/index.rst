@@ -53,8 +53,8 @@ Step 1 - Get MLflow
 
 MLflow is available on PyPI.
 
-Installing Full release
-^^^^^^^^^^^^^^^^^^^^^^^
+Installing Stable Release
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you don't already have it installed on your system, you can install it with:
 
@@ -72,7 +72,7 @@ If you are eager to test out new features and validate that an upcoming release 
 release candidate may be of interest to you. 
 
 .. note:: 
-    
+
     Release Candidate builds are not recommended for actual use, rather they are intended only for testing validation. 
 
 To install the latest version of MLflow's release candidates for a given version, see the example below that uses MLflow 2.14.0 as an example:
@@ -82,7 +82,11 @@ To install the latest version of MLflow's release candidates for a given version
     .. code-block:: bash
         :name: download-mlflow-rc
 
-        pip install --pre mlflow==2.14.0rc*
+        # install the latest release candidate
+        pip install --pre mlflow
+
+        # or install a specific rc version
+        pip install mlflow==2.14.0rc0
 
 Step 2 - Start a Tracking Server
 --------------------------------

@@ -526,14 +526,14 @@ Q: Can I disable and re-enable tracing globally?
 Yes. 
 
 There are two fluent APIs that are used for blanket enablement or disablement of the MLflow Tracing feature in order to support 
-users who may not wish to record interactions with their LangChain models for a brief period, or if they have concerns about long-term storage 
+users who may not wish to record interactions with their trace-enabled models for a brief period, or if they have concerns about long-term storage 
 of data that was sent along with a request payload to a model in interactive mode. 
 
 To **disable** tracing, the :py:func:`mlflow.tracing.disable` API will cease the collection of trace data from within MLflow and will not log 
 any data to the MLflow Tracking service regarding traces. 
 
-To **enable** tracing (if it had been temporarily disabled), the :py:func:`mlflow.tracing.enable` API will re-enable tracing functionality for LangChain models 
-that are invoked while autologging is active or for any model that is invoked that has explicitly added fluent or client API calls to initiate a trace log. 
+To **enable** tracing (if it had been temporarily disabled), the :py:func:`mlflow.tracing.enable` API will re-enable tracing functionality for instrumented models 
+that are invoked. 
 
 Q: How can I associate a trace with an MLflow Run?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
