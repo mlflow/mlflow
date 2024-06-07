@@ -611,7 +611,6 @@ MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT", int, 500
 )
 
-
 #: Specifies the number of connection pools to cache in urllib3. This environment variable sets the
 #: `pool_connections` parameter in the `requests.adapters.HTTPAdapter` constructor. By adjusting
 #: this variable, users can enhance the concurrency of HTTP requests made by MLflow.
@@ -621,3 +620,9 @@ MLFLOW_HTTP_POOL_CONNECTIONS = _EnvironmentVariable("MLFLOW_HTTP_POOL_CONNECTION
 #: variable sets the `pool_maxsize` parameter in the `requests.adapters.HTTPAdapter` constructor.
 #: By adjusting this variable, users can enhance the concurrency of HTTP requests made by MLflow.
 MLFLOW_HTTP_POOL_MAXSIZE = _EnvironmentVariable("MLFLOW_HTTP_POOL_MAXSIZE", int, 10)
+
+
+#: Whether to enable Databricks SDK. If true, MLflow uses databricks-sdk API to send HTTP requests
+# to Databricks endpoint, otherwise MLflow uses ``requests`` library to send HTTP requests
+# to Databricks endpoint
+MLFLOW_ENABLE_DATABRICKS_SDK = _BooleanEnvironmentVariable("MLFLOW_ENABLE_DATABRICKS_SDK", True)
