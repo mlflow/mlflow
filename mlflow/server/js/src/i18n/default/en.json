@@ -1719,6 +1719,10 @@
     "defaultMessage": "Outputs",
     "description": "Table section name for schema outputs in the model comparison page"
   },
+  "c0slEY": {
+    "defaultMessage": "Click into an individual run to see all models associated with it",
+    "description": "MLflow experiment detail page > runs table > tooltip on ML \"Models\" column header"
+  },
   "c5AQYh": {
     "defaultMessage": "Compare by",
     "description": "Runs charts > components > charts > DifferenceViewPlot > Compare by column heading"
@@ -2299,6 +2303,10 @@
     "defaultMessage": "MLflow deployment returned the following error: \"{errorMessage}\"",
     "description": "Experiment page > MLflow deployment error message"
   },
+  "o21MFS": {
+    "defaultMessage": "Invalid log value",
+    "description": "Experiment tracking > runs charts > line chart configuration > invalid log value message"
+  },
   "o7dzKo": {
     "defaultMessage": "Last Modified",
     "description": "Label name for last modified timestamp metadata in model version page"
@@ -2427,6 +2435,10 @@
     "defaultMessage": "Hide run",
     "description": "A tooltip for the visibility icon button in the runs table next to the visible run"
   },
+  "qpFaad": {
+    "defaultMessage": "Runs",
+    "description": "A button enabling combined runs table and charts mode on the experiment page"
+  },
   "r+KCRg": {
     "defaultMessage": "Parameter",
     "description": "Run page > Overview > Parameters table > Key column header"
@@ -2474,6 +2486,10 @@
   "s5ygFF": {
     "defaultMessage": "Download as PNG",
     "description": "Experiment page > compare runs tab > chart header > download as PNG option"
+  },
+  "s8a93+": {
+    "defaultMessage": "Traces",
+    "description": "Run details page > tab selector > Traces tab"
   },
   "sByLVU": {
     "defaultMessage": "No runs logged",
