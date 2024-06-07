@@ -1976,4 +1976,4 @@ def test_model_as_code_pycache_cleaned_up(tmp_path):
         )
 
     path = _download_artifact_from_uri(model_info.model_uri)
-    assert not any(p.name == "__pycache__" for p in Path(path).rglob("*"))
+    assert list(Path(path).rglob("__pycache__")) == []
