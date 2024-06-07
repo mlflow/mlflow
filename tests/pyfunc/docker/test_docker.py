@@ -97,7 +97,15 @@ def test_build_image(tmp_path, params):
         dockerfile.write_text(content)
 
         shutil.copytree(context_dir, dst_dir)
-        build_image_from_context(context_dir, image_name)
+        for _ in range(3):
+            try:
+                # Docker image build is unstable on GitHub Actions, so we retry a few times
+                build_image_from_context(context_dir, image_name)
+                break
+            except RuntimeError:
+                pass
+        else:
+            raise RuntimeError("Docker build failed.")
 
     dst_dir = tmp_path / "context"
     with mock.patch(
