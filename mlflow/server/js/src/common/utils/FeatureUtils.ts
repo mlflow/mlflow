@@ -39,6 +39,10 @@ export const shouldEnableImageGridCharts = () => false;
  * Log table images feature
  */
 export const shouldEnableLogTableImages = () => false;
+/**
+ * Manual range controls feature
+ */
+export const shouldEnableManualRangeControls = () => false;
 
 /**
  * Should enable toggling aggregation of individual runs in run groups

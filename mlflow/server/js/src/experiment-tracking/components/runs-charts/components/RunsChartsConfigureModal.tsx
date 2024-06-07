@@ -56,7 +56,9 @@ const previewComponentsMap: Record<
     cardConfig: any;
     groupBy: RunsGroupByConfig | null;
     setCardConfig: (
-      setter: (current: RunsChartsCardConfig) => RunsChartsDifferenceCardConfig | RunsChartsImageCardConfig,
+      setter: (
+        current: RunsChartsCardConfig,
+      ) => RunsChartsDifferenceCardConfig | RunsChartsImageCardConfig | RunsChartsLineCardConfig,
     ) => void;
   }>
 > = {
