@@ -1968,7 +1968,7 @@ def test_predict_as_code_with_config():
     assert loaded_model.predict(model_input) == expected_output
 
 
-def test_model_as_code_pycache_cleaned_up(tmp_path):
+def test_model_as_code_pycache_cleaned_up():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             python_model="tests/pyfunc/sample_code/python_model.py",
