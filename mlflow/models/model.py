@@ -87,7 +87,7 @@ class ModelInfo:
         mlflow_version: str,
         signature_dict: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        model_version: Optional[int] = None,
+        registered_model_version: Optional[int] = None,
     ):
         self._artifact_path = artifact_path
         self._flavors = flavors
@@ -100,7 +100,7 @@ class ModelInfo:
         self._utc_time_created = utc_time_created
         self._mlflow_version = mlflow_version
         self._metadata = metadata
-        self._model_version = model_version
+        self._registered_model_version = registered_model_version
 
     @property
     def artifact_path(self):
@@ -279,14 +279,19 @@ class ModelInfo:
         return self._metadata
 
     @property
-    def model_version(self) -> Optional[int]:
+    def registered_model_version(self) -> Optional[int]:
         """
         The registered model version, if the model is registered.
 
-        :getter: Gets the registered model version if the model is registered.
+        :getter: Gets the registered model version, if the model is registered in Model Registry.
+        :setter: Sets the registered model version.
         :type: Optional[int]
         """
-        return self._model_version
+        return self._registered_model_version
+
+    @registered_model_version.setter
+    def registered_model_version(self, value):
+        self._registered_model_version = value
 
 
 class Model:
@@ -668,6 +673,7 @@ class Model:
         from mlflow.models.wheeled_model import _ORIGINAL_REQ_FILE_NAME, WheeledModel
         from mlflow.utils.model_utils import _validate_and_get_model_config_from_file
 
+        registered_model = None
         with TempDir() as tmp:
             local_path = tmp.path("model")
             if run_id is None:
@@ -750,17 +756,16 @@ class Model:
                 _logger.warning(_LOG_MODEL_METADATA_WARNING_TEMPLATE, mlflow.get_artifact_uri())
                 _logger.debug("", exc_info=True)
 
-            model_version = None
             if registered_model_name is not None:
-                model_version = mlflow.tracking._model_registry.fluent._register_model(
+                registered_model = mlflow.tracking._model_registry.fluent._register_model(
                     f"runs:/{run_id}/{mlflow_model.artifact_path}",
                     registered_model_name,
                     await_registration_for=await_registration_for,
                     local_model_path=local_path,
-                ).version
+                )
         model_info = mlflow_model.get_model_info()
-        if model_version is not None:
-            model_info._model_version = model_version
+        if registered_model is not None:
+            model_info.registered_model_version = registered_model.version
         return model_info
 
 
