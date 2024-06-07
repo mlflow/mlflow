@@ -29,13 +29,13 @@ def test_build_and_push_container(tmp_path, env_manager):
         shutil.copytree(context_dir, dst_dir)
         for _ in range(3):
             try:
-                # Docker image build is unstable on GitHub Actions, so we retry a few times
+                # Docker image build is unstable on GitHub Actions, retry up to 3 times
                 build_image_from_context(context_dir, image_name)
                 break
             except RuntimeError:
                 pass
         else:
-            raise RuntimeError("Docker build failed.")
+            raise RuntimeError("Docker image build failed.")
 
     with mock.patch(
         "mlflow.models.docker_utils.build_image_from_context", side_effect=_build_image_with_copy
