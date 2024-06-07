@@ -4,7 +4,7 @@ mlflow
 .. automodule:: mlflow
     :members:
     :undoc-members:
-    :exclude-members: MlflowClient
+    :exclude-members: MlflowClient, trace, start_span, get_trace, search_traces, get_current_active_span, get_last_active_trace
 
 
 .. _mlflow-tracing-fluent-python-apis:
@@ -24,17 +24,11 @@ the low-level tracing APIs :py:class:`MlflowClient <mlflow.client.MlflowClient>`
 For detailed guidance on how to use the low-level tracing APIs, please refer to the `Tracing Client APIs Guide <../llms/tracing/index.html#tracing-client-apis>`_.
 
 .. autofunction:: mlflow.trace
-    :noindex:
 .. autofunction:: mlflow.start_span
-    :noindex:
 .. autofunction:: mlflow.get_trace
-    :noindex:
 .. autofunction:: mlflow.search_traces
-    :noindex:
 .. autofunction:: mlflow.get_current_active_span
-    :noindex:
 .. autofunction:: mlflow.get_last_active_trace
-    :noindex:
 .. automodule:: mlflow.tracing
     :members:
     :undoc-members:
