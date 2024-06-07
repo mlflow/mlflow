@@ -289,6 +289,13 @@ def search_traces(
     """
     Return traces that match the given list of search expressions within the experiments.
 
+    .. tip::
+
+        This API returns a **Pandas DataFrame** that contains the traces as rows. To retrieve
+        a list of the original :py:class:`Trace <mlflow.entities.Trace>` objects,
+        you can use the :py:meth:`MlflowClient().search_traces
+        <mlflow.client.MlflowClient.search_traces>` method instead.
+
     Args:
         experiment_ids: List of experiment ids to scope the search. If not provided, the search
             will be performed across the current active experiment.
@@ -297,16 +304,16 @@ def search_traces(
             expressions will be returned.
         order_by: List of order_by clauses.
         extract_fields: Specify fields to extract from traces using the format
-            "span_name.[inputs|outputs].field_name" or "span_name.[inputs|outputs]".
-            For instance, "predict.outputs.result" retrieves the output "result" field from
-            a span named "predict", while "predict.outputs" fetches the entire outputs
-            dictionary, including keys "result" and "explanation".
+            ``"span_name.[inputs|outputs].field_name"`` or ``"span_name.[inputs|outputs]"``.
+            For instance, ``"predict.outputs.result"`` retrieves the output ``"result"`` field from
+            a span named ``"predict"``, while ``"predict.outputs"`` fetches the entire outputs
+            dictionary, including keys ``"result"`` and ``"explanation"``.
 
             By default, no fields are extracted into the DataFrame columns. When multiple
             fields are specified, each is extracted as its own column. If an invalid field
             string is provided, the function silently returns without adding that field's column.
-            The supported fields are limited to "inputs" and "outputs" of spans. If the span name
-            or field name contains a dot it must be enclosed in backticks. For example:
+            The supported fields are limited to ``"inputs"`` and ``"outputs"`` of spans. If the
+            span name or field name contains a dot it must be enclosed in backticks. For example:
 
             .. code-block:: python
 
