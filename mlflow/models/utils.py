@@ -1517,30 +1517,6 @@ def _convert_llm_input_data(data):
     return _convert_llm_ndarray_to_list(data)
 
 
-def _get_temp_file_with_content(
-    temp_dir: str, file_name: str, content: Union[str, bytes], content_format
-) -> str:
-    """
-    Write the contents to a temporary file and return the path to that file.
-
-    Args:
-        temp_dir: The name of the temporary directory where the file will be created.
-        file_name: The name of the file to be created.
-        content: The contents to be written to the file.
-
-    Returns:
-        The string path to the file where the chain model is build.
-    """
-    # Construct the full path where the temporary file will be created
-    temp_file_path = os.path.join(temp_dir, file_name)
-
-    # Create and write to the file
-    with open(temp_file_path, content_format) as tmp_file:
-        tmp_file.write(content)
-
-    return temp_file_path
-
-
 def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> str:
     """
     Validate model code path exists. Creates a temp file in temp_dir and validate its contents if
@@ -1578,7 +1554,10 @@ def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> st
             )
 
         _validate_model_code_from_notebook(decoded_content.decode("utf-8"))
-        return _get_temp_file_with_content(temp_dir, "model.py", decoded_content, "wb")
+        path = os.path.join(temp_dir, "model.py")
+        with open(path, "wb") as f:
+            f.write(decoded_content)
+        return path
 
 
 @contextmanager
