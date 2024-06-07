@@ -177,7 +177,7 @@ check_and_install_pyenv() {
           echo "PYENV_ROOT=$PYENV_ROOT" >>"$GITHUB_ENV"
         fi
       else
-        echo "Unknown operating system environment: $machine exiting."
+        echo "Unsupported operating system environment: $machine. This setup script only supports MacOS and Linux. For other operating systems, please follow the manual setup instruction here: https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#manual-python-development-environment-configuration "
         exit 1
       fi
     else
@@ -248,21 +248,21 @@ create_virtualenv() {
   echo "$(tput setaf 3)Activated environment is located: $(tput bold) $directory/bin/activate$(tput sgr0)"
 }
 
-# Install Mlflow dev version and required dependencies
+# Install mlflow dev version and required dependencies
 install_mlflow_and_dependencies() {
-  # Install current checked out version of Mlflow (local)
-  pip install $(quiet_command) -e .[extras]
+  # Install current checked out version of mlflow (local)
+  pip install -e .[extras]
   
   echo "Installing pip dependencies for development environment."
   if [[ -n "$full" ]]; then
     # Install dev requirements
-    pip install $(quiet_command) -r "$rd/dev-requirements.txt"
+    pip install -r "$rd/dev-requirements.txt"
     # Install test plugin
-    pip install $(quiet_command) -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
+    pip install -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
   else
     files=("$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-requirements.txt")
     for r in "${files[@]}"; do
-      pip install $(quiet_command) -r "$r"
+      pip install -r "$r"
     done
   fi
   echo "Finished installing pip dependencies."
@@ -278,7 +278,7 @@ check_docker() {
    command -v docker >/dev/null 2>&1 || echo "$(
     tput bold
     tput setaf 1
-  )A docker installation cannot be found. Please ensure that docker is installed to run all tests locally.$(tput sgr0)"
+  )A docker installation cannot be found. Docker is optional but you may need it for developing some features and running all tests locally. $(tput sgr0)"
 }
 
 # Check if pandoc with required version is installed and offer to install it if not present
@@ -286,7 +286,7 @@ check_and_install_pandoc() {
   pandoc_version=$(pandoc --version | grep "pandoc" | awk '{print $2}')
   if [[ -z "$pandoc_version" ]] || ! version_gt "$pandoc_version" "2.2.1"; then
     if [ -z "$GITHUB_ACTIONS" ]; then
-      read -p "Pandoc version 2.2.1 or above is required to generate documentation. Would you like to install it? $(tput bold)(y/n)$(tput sgr0): " -n 1 -r
+      read -p "Pandoc version 2.2.1 or above is an optional requirement for compiling documentation. Would you like to install it? $(tput bold)(y/n)$(tput sgr0): " -n 1 -r
       echo
     fi
 
@@ -302,7 +302,7 @@ check_and_install_pandoc() {
           sudo dpkg --install $(find $TEMP_DEB -name '*.deb') &&
           rm -rf $TEMP_DEB
       else
-        echo "Unknown operating system environment: $machine exiting."
+        echo "Unsupported operating system environment: $machine. This setup script only supports MacOS and Linux. For other operating systems, please follow the manual setup instruction here: https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#manual-python-development-environment-configuration "
         exit 1
       fi
     fi
