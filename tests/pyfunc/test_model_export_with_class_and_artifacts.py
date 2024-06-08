@@ -1966,3 +1966,14 @@ def test_predict_as_code_with_config():
     model_input = "asdf"
     expected_output = f"This was the input: {model_input}, timeout 300"
     assert loaded_model.predict(model_input) == expected_output
+
+
+def test_model_as_code_pycache_cleaned_up():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model="tests/pyfunc/sample_code/python_model.py",
+            artifact_path="model",
+        )
+
+    path = _download_artifact_from_uri(model_info.model_uri)
+    assert list(Path(path).rglob("__pycache__")) == []
