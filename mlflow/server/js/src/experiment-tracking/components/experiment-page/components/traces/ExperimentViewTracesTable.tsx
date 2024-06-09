@@ -3,7 +3,6 @@ import {
   DangerIcon,
   Empty,
   Table,
-  TableCell,
   TableHeader,
   TableRow,
   TableSkeletonRows,
@@ -11,14 +10,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import {
-  ColumnDef,
-  SortingState,
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from '@tanstack/react-table';
+import { SortingState, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
 import React, { useMemo } from 'react';
 import { isNil } from 'lodash';
 import Utils from '../../../../../common/utils/Utils';
@@ -35,7 +27,6 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { type ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 import { ExperimentViewTracesTagCell } from './ExperimentViewTracesTagCell';
-import { Interpolation, Theme } from '@emotion/react';
 import { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
 import type { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
 import { ExperimentViewTracesStatusCell } from './ExperimentViewTracesStatusCell';
@@ -44,13 +35,8 @@ import {
   ExperimentViewTracesTableResponsePreviewCell,
 } from './ExperimentViewTracesTablePreviewCell';
 import { ExperimentViewTracesTableSourceCell } from './ExperimentViewTracesTableSourceCell';
-
-type TracesColumnDef = ColumnDef<ModelTraceInfoWithRunName> & {
-  meta?: {
-    styles?: Interpolation<Theme>;
-    multiline?: boolean;
-  };
-};
+import { ExperimentViewTracesTableBody } from './ExperimentViewTracesTableBody';
+import { TracesColumnDef, getColumnSizeClassName, getHeaderSizeClassName } from './ExperimentViewTracesTable.utils';
 
 export interface ExperimentViewTracesTableProps {
   traces: ModelTraceInfoWithRunName[];
@@ -102,6 +88,8 @@ export const ExperimentViewTracesTable = React.memo(
           cell({ row: { original } }) {
             return (
               <Typography.Link
+                ellipsis
+                css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
                 onClick={() => {
                   onTraceClicked?.(original);
                 }}
@@ -120,6 +108,8 @@ export const ExperimentViewTracesTable = React.memo(
           cell({ row: { original } }) {
             return (
               <Typography.Link
+                ellipsis
+                css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
                 onClick={() => {
                   onTraceClicked?.(original);
                 }}
@@ -190,7 +180,19 @@ export const ExperimentViewTracesTable = React.memo(
               return null;
             }
             const label = original.runName || runId;
-            return <Link to={Routes.getRunPageRoute(original.experiment_id, runId)}>{label}</Link>;
+            return (
+              <Link
+                css={{
+                  maxWidth: '100%',
+                  textOverflow: 'ellipsis',
+                  display: 'inline-block',
+                  overflow: 'hidden',
+                }}
+                to={Routes.getRunPageRoute(original.experiment_id, runId)}
+              >
+                {label}
+              </Link>
+            );
           },
         },
         {
@@ -313,11 +315,26 @@ export const ExperimentViewTracesTable = React.memo(
       return null;
     };
 
+    // to improve performance, we pass the column sizes as inline styles to the table
+    const columnSizeInfo = table.getState().columnSizingInfo;
+    const columnSizeVars = React.useMemo(() => {
+      const headers = table.getFlatHeaders();
+      const colSizes: { [key: string]: number } = {};
+      headers.forEach((header) => {
+        colSizes[getHeaderSizeClassName(header.id)] = header.getSize();
+        colSizes[getColumnSizeClassName(header.column.id)] = header.column.getSize();
+      });
+      return colSizes;
+      // we need to recompute this whenever columns get resized or changed
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [columnSizeInfo, columns, table]);
+
     return (
       <>
         <Table
           scrollable
           empty={getEmptyState()}
+          style={columnSizeVars}
           pagination={
             <CursorPagination
               hasNextPage={hasNextPage}
@@ -340,7 +357,7 @@ export const ExperimentViewTracesTable = React.memo(
                   resizeHandler={header.getResizeHandler()}
                   isResizing={header.column.getIsResizing()}
                   style={{
-                    flex: header.column.getCanResize() ? header.column.getSize() / 100 : undefined,
+                    flex: `calc(var(${getHeaderSizeClassName(header.id)}) / 100)`,
                   }}
                 >
                   {flexRender(header.column.columnDef.header, header.getContext())}
@@ -349,33 +366,7 @@ export const ExperimentViewTracesTable = React.memo(
             })}
           </TableRow>
           {loading && <TableSkeletonRows table={table} />}
-          {!loading &&
-            !error &&
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-testid="endpoints-list-table-rows"
-                css={{ minHeight: theme.general.buttonHeight }}
-              >
-                {row.getAllCells().map((cell) => (
-                  <TableCell
-                    css={[
-                      {
-                        '--table-row-vertical-padding': `${theme.spacing.sm}px`,
-                      },
-                      (cell.column.columnDef as TracesColumnDef).meta?.styles,
-                    ]}
-                    key={cell.id}
-                    style={{
-                      flex: cell.column.getCanResize() ? cell.column.getSize() / 100 : undefined,
-                    }}
-                    multiline={(cell.column.columnDef as TracesColumnDef).meta?.multiline}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
+          {!loading && !error && <ExperimentViewTracesTableBody table={table} columns={columns} />}
         </Table>
       </>
     );

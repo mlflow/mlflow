@@ -66,7 +66,15 @@ const HomePage = () => {
         </div>
 
         {/* Main content with the experiment view */}
-        <div css={{ height: '100%', flex: 1, padding: theme.spacing.md, paddingTop: theme.spacing.lg }}>
+        <div
+          css={{
+            height: '100%',
+            flex: 1,
+            padding: theme.spacing.md,
+            paddingTop: theme.spacing.lg,
+            minWidth: 0,
+          }}
+        >
           <GetExperimentsContextProvider actions={getExperimentActions}>
             {hasExperiments ? <ExperimentView /> : <NoExperimentView />}
           </GetExperimentsContextProvider>
