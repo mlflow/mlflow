@@ -228,7 +228,7 @@ class ChatChoice(_BaseDataclass):
 
     index: int
     message: ChatMessage
-    finish_reason: str
+    finish_reason: str = "stop"
     logprobs: Optional[ChatChoiceLogProbs] = None
 
     def __post_init__(self):
@@ -259,14 +259,14 @@ class TokenUsageStats(_BaseDataclass):
         total_tokens (int): The total number of tokens used.
     """
 
-    prompt_tokens: int
-    completion_tokens: int
-    total_tokens: int
+    prompt_tokens: int = None
+    completion_tokens: int = None
+    total_tokens: int = None
 
     def __post_init__(self):
-        self._validate_field("prompt_tokens", int, True)
-        self._validate_field("completion_tokens", int, True)
-        self._validate_field("total_tokens", int, True)
+        self._validate_field("prompt_tokens", int, False)
+        self._validate_field("completion_tokens", int, False)
+        self._validate_field("total_tokens", int, False)
 
 
 @dataclass
@@ -285,18 +285,18 @@ class ChatResponse(_BaseDataclass):
             **Optional**, defaults to the current time.
     """
 
-    id: str
-    model: str
+    id: str = None
+    model: str = None
     choices: List[ChatChoice]
     usage: TokenUsageStats
     object: Literal["chat.completion"] = "chat.completion"
     created: int = field(default_factory=lambda: int(time.time()))
 
     def __post_init__(self):
-        self._validate_field("id", str, True)
+        self._validate_field("id", str, False)
         self._validate_field("object", str, True)
         self._validate_field("created", int, True)
-        self._validate_field("model", str, True)
+        self._validate_field("model", str, False)
         self._convert_dataclass_list("choices", ChatChoice)
         if isinstance(self.usage, dict):
             self.usage = TokenUsageStats(**self.usage)
