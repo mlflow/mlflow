@@ -315,7 +315,7 @@ class ChatResponse(_BaseDataclass):
     @object.setter
     def object(self, value: str):
         if hasattr(self, "_object"):
-            raise ValueError("Cannot modify 'object' field")
+            raise AttributeError("Cannot modify 'object' field")
         self._object = value
 
 
