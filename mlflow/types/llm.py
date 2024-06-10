@@ -311,6 +311,7 @@ class ChatResponse(_BaseDataclass):
             raise AttributeError("object must be 'chat.completion'")
         return super().__setattr__(name, value)
 
+
 CHAT_MODEL_INPUT_SCHEMA = Schema(
     [
         ColSpec(
