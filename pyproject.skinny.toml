@@ -31,7 +31,7 @@ dependencies = [
   "opentelemetry-api<3,>=1.9.0",
   "opentelemetry-sdk<3,>=1.9.0",
   "packaging<25",
-  "protobuf<6,>=3.12.0",
+  "protobuf<5,>=3.12.0",
   "pytz<2025",
   "pyyaml<7,>=5.1",
   "requests<3,>=2.17.3",
