@@ -131,3 +131,20 @@ def test_generate_dockerfile_for_java_flavor(tmp_path):
     actual = tmp_path / "Dockerfile"
     expected = Path(RESOURCE_DIR) / "Dockerfile_java_flavor"
     assert_dockerfiles_equal(actual, expected)
+
+
+def test_generate_dockerfile_for_custom_image(tmp_path):
+    model_path = save_model(tmp_path)
+    add_spark_flavor_to_model(model_path)
+
+    backend = get_flavor_backend(model_path, docker_build=True, env_manager=None)
+
+    backend.generate_dockerfile(
+        base_image="quay.io/jupyter/scipy-notebook:latest",
+        model_uri=model_path,
+        output_dir=tmp_path,
+    )
+
+    actual = tmp_path / "Dockerfile"
+    expected = Path(RESOURCE_DIR) / "Dockerfile_custom_scipy"
+    assert_dockerfiles_equal(actual, expected)
