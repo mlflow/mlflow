@@ -329,4 +329,4 @@ The output of the example above is shown below:
 MLflow Langchain Autologging
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Please refer to the `MLflow Langchain Autologging <./autologging.html>`_ documentation for more details on how to enable autologging for Langchain models.
+Please refer to the `MLflow Langchain Autologging <../autologging.html>`_ documentation for more details on how to enable autologging for Langchain models.
