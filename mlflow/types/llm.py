@@ -291,13 +291,10 @@ class ChatResponse(_BaseDataclass):
     usage: TokenUsageStats
     object: Literal["chat.completion"] = "chat.completion"
     created: int = field(default_factory=lambda: int(time.time()))
-    # A temporary hack to disallow users to overwrite 'object' field during runtime
-    # TODO: Revisit the solution after we move to pydantic
-    _object: str = field(init=False)
 
     def __post_init__(self):
         self._validate_field("id", str, True)
-        self._validate_field("_object", str, True)
+        self._validate_field("object", str, True)
         self._validate_field("created", int, True)
         self._validate_field("model", str, True)
         self._convert_dataclass_list("choices", ChatChoice)
@@ -308,16 +305,11 @@ class ChatResponse(_BaseDataclass):
                 f"Expected `usage` to be of type TokenUsageStats or dict, got {type(self.usage)}"
             )
 
-    @property
-    def object(self) -> str:
-        return self._object
-
-    @object.setter
-    def object(self, value: str):
-        if hasattr(self, "_object"):
-            raise AttributeError("Cannot modify 'object' field")
-        self._object = value
-
+    def __setattr__(self, name, value):
+        # A hack to ensure users cannot overwrite 'object' field
+        if name == "object" and value != "chat.completion":
+            raise AttributeError("object must be 'chat.completion'")
+        return super().__setattr__(name, value)
 
 CHAT_MODEL_INPUT_SCHEMA = Schema(
     [
