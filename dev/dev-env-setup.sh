@@ -1,26 +1,12 @@
 #!/usr/bin/env bash
 
-directory="$(pwd)/.venvs/mlflow-dev"
 MLFLOW_HOME="$(pwd)"
+directory="$MLFLOW_HOME/.venvs/mlflow-dev"
 REPO_ROOT=$(git rev-parse --show-toplevel)
 rd="$REPO_ROOT/requirements"
 VENV_DIR="$directory/bin/activate"
 # Progress file to resume the script from where it exited previously
-PROGRESS_FILE="$MLFLOW_HOME/.dev-env-setup-progress"
-
-load_progress() {
-  if [[ ! -f "$PROGRESS_FILE" ]]; then
-    echo "0" > "$PROGRESS_FILE"
-  fi
-  cat "$PROGRESS_FILE"
-}
-
-PROGRESS=$(load_progress)
-
-save_progress() {
-  echo "$1" > "$PROGRESS_FILE"
-  PROGRESS=$(load_progress)
-}
+PROGRESS_FILE="$MLFLOW_HOME/dev-env-setup-progress"
 
 showHelp() {
 cat << EOF
@@ -61,7 +47,7 @@ This script will:
 
 -o,     --override    Override the python version
 
--r,     --restart     Discard the previous installation progress and restart the setup from scratch
+-c,     --clean       Discard the previous installation progress and restart the setup from scratch
 
 EOF
 }
@@ -89,7 +75,7 @@ do
       showHelp
       exit 0
       ;;
-    -r | --restart)
+    -c | --clean)
       rm $PROGRESS_FILE
       shift
       ;;
@@ -117,6 +103,20 @@ case "$(uname -s)" in
   Linux*)                        machine=linux;;
   *)                             machine=unknown;;
 esac
+
+load_progress() {
+  if [[ ! -f "$PROGRESS_FILE" ]]; then
+    echo "0" > "$PROGRESS_FILE"
+  fi
+  cat "$PROGRESS_FILE"
+}
+
+PROGRESS=$(load_progress)
+
+save_progress() {
+  echo "$1" > "$PROGRESS_FILE"
+  PROGRESS=$(load_progress)
+}
 
 quiet_command(){
   echo $( [[ -n $quiet ]] && printf %s '-q' )
