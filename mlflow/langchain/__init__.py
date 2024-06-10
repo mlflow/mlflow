@@ -260,8 +260,10 @@ def save_model(
                 DataFrame format when saving. This is useful when the model expects a DataFrame
                 input and the input example could be passed directly to the model.
                 Defaults to ``True``.
-        model_config: The model configuration to apply to the model if saving model as code. This
-            configuration is available during model loading.
+        model_config: The model configuration to apply to the model if saving model as code. This 
+            configuration is available during model loading. The configuration can be passed as a 
+            file path, or a dict with string keys. If a file path is passed, the file must be in 
+            YAML format.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
@@ -445,8 +447,11 @@ def log_model(
     Args:
         lc_model: A LangChain model, which could be a
             `Chain <https://python.langchain.com/docs/modules/chains/>`_,
-            `Agent <https://python.langchain.com/docs/modules/agents/>`_, or
-            `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_.
+            `Agent <https://python.langchain.com/docs/modules/agents/>`_,
+            `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_,
+            or a file path to a file containing the LangChain model, that uses set_model.
+            .. Note:: Experimental: Passing a model as code may change or be removed in a future
+                                    release without warning.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
@@ -544,8 +549,10 @@ def log_model(
         run_id: run_id to associate with this model version. If specified, we resume the
                 run and log the model to that run. Otherwise, a new run is created.
                 Default to None.
-        model_config: The model configuration to apply to the model if saving model as code. This
-            configuration is available during model loading.
+        model_config: The model configuration to apply to the model if saving model as code. This 
+            configuration is available during model loading. The configuration can be passed as a 
+            file path, or a dict with string keys. If a file path is passed, the file must be in 
+            YAML format.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.

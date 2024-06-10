@@ -954,7 +954,7 @@ def load_model(
             path will be created.
         model_config: The model configuration to apply to the model. This configuration
             is available during model loading. The configuration can be passed as a file path,
-            or a dict with string keys.
+            or a dict with string keys. If a file path is passed, the file must be in YAML format.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
@@ -2704,7 +2704,8 @@ def log_model(
         metadata: {{ metadata }}
 
         model_config: The model configuration to apply to the model. This configuration
-            is available during model loading.
+            is available during model loading. The configuration can be passed as a file path,
+            or a dict with string keys. If a file path is passed, the file must be in YAML format.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
