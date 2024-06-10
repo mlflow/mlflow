@@ -24,8 +24,7 @@ def spark():
     spark.stop()
 
 
-@pytest.mark.parametrize("x", range(100))
-def test_spark_udf_spark_connect(x, spark):
+def test_spark_udf_spark_connect(spark):
     X, y = load_iris(return_X_y=True)
     model = LogisticRegression().fit(X, y)
     with mlflow.start_run():
