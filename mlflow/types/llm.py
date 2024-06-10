@@ -285,10 +285,10 @@ class ChatResponse(_BaseDataclass):
             **Optional**, defaults to the current time.
     """
 
-    id: str = None
-    model: str = None
     choices: List[ChatChoice]
     usage: TokenUsageStats
+    id: str = None
+    model: str = None
     object: Literal["chat.completion"] = "chat.completion"
     created: int = field(default_factory=lambda: int(time.time()))
 
