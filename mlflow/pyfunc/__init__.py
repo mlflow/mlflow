@@ -2071,6 +2071,8 @@ Compound types:
                         tempfile.gettempdir(),
                         "mlflow",
                         insecure_hash.sha1(model_uri.encode()).hexdigest(),
+                        # Use pid to avoid conflict when multiple spark UDF tasks
+                        str(os.getpid()),
                     )
                     try:
                         loaded_model = mlflow.pyfunc.load_model(model_path)
