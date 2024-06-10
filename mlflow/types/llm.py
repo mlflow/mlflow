@@ -292,7 +292,7 @@ class ChatResponse(_BaseDataclass):
     object: Literal["chat.completion"] = "chat.completion"
     created: int = field(default_factory=lambda: int(time.time()))
     # A temporary hack to disallow users to overwrite 'object' field during runtime
-    # Revisit the solution after we move to pydantic
+    # TODO: Revisit the solution after we move to pydantic
     _object: str = field(init=False)
 
     def __post_init__(self):
@@ -314,8 +314,8 @@ class ChatResponse(_BaseDataclass):
 
     @object.setter
     def object(self, value: str):
-        if hasattr(self, '_object'):
-            raise ValueError("Cannot modify 'object' after initialization")
+        if hasattr(self, "_object"):
+            raise ValueError("Cannot modify 'object' field")
         self._object = value
 
 
