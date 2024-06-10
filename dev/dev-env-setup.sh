@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 
+directory="$(pwd)/.venvs/mlflow-dev"
+MLFLOW_HOME="$(pwd)"
+REPO_ROOT=$(git rev-parse --show-toplevel)
+rd="$REPO_ROOT/requirements"
+VENV_DIR="$directory/bin/activate"
 # Progress file to resume the script from where it exited previously
-PROGRESS_FILE="$MLFLOW_HOME/.mlflow-dev-env-setup-progress"
+PROGRESS_FILE="$MLFLOW_HOME/.dev-env-setup-progress"
 
 load_progress() {
   if [[ ! -f "$PROGRESS_FILE" ]]; then
@@ -61,11 +66,6 @@ This script will:
 EOF
 }
 
-directory="$(pwd)/.venvs/mlflow-dev"
-MLFLOW_HOME="$(pwd)"
-REPO_ROOT=$(git rev-parse --show-toplevel)
-rd="$REPO_ROOT/requirements"
-VENV_DIR="$directory/bin/activate"
 while :
 do
   case "$1" in
