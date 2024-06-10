@@ -276,13 +276,13 @@ class ChatResponse(_BaseDataclass):
 
     Args:
         id (str): The ID of the response.
-        object (str): The object type.
-        created (int): The time the response was created.
-            **Optional**, defaults to the current time.
         model (str): The name of the model used.
         choices (List[:py:class:`ChatChoice`]): A list of :py:class:`ChatChoice` objects
             containing the generated responses
         usage (:py:class:`TokenUsageStats`): An object describing the tokens used by the request.
+        object (str): The object type.
+        created (int): The time the response was created.
+            **Optional**, defaults to the current time.
     """
 
     id: str
