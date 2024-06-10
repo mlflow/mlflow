@@ -546,27 +546,52 @@ func checkRunIsActive(transaction *gorm.DB, runID string) *contract.Error {
 	return nil
 }
 
-/* 1. deduplicate params
-		=> same key, different value => wrong input
-		=> same key, same value => remove duplicates
+func verifyBatchParamsInserts(
+	transaction *gorm.DB, runID string, deduplicatedParamsMap map[string]string,
+) *contract.Error {
+	keys := make([]string, 0, len(deduplicatedParamsMap))
+	for key := range deduplicatedParamsMap {
+		keys = append(keys, key)
+	}
 
-2. Update DB: on conflict: DoNothing: true,
-	=> check if we can do a RETURNING to get the keys that were affected?
-	=> might be DB specific
+	var existingParams []model.Param
 
-3. Compare rows affected with deduplicated params length
-	=> same length: all good, happy path
-	=> diff length: find conflicting params
-4. Find conflicting params
-	=> check values in database for either non-returned params (if possible) or for all params
-	=> if no differences in values, commit transactions
-	=> single difference in value => abort transaction via InvalidParameterValue with list of conflicting params keys
-	            raise MlflowException(
-                    "Changing param values is not allowed. Params were already"
-                    f" logged='{non_matching_params}' for run ID='{run_id}'.",
-                    INVALID_PARAMETER_VALUE,
-                )
-*/
+	err := transaction.
+		Model(&model.Param{}).
+		Select("key, value").
+		Where("run_uuid = ?", runID).
+		Where("key IN ?", keys).
+		Find(&existingParams).Error
+	if err != nil {
+		return contract.NewErrorWith(
+			protos.ErrorCode_INTERNAL_ERROR,
+			fmt.Sprintf(
+				"failed to get existing params to check if duplicates for run_id %q",
+				runID,
+			),
+			err)
+	}
+
+	for _, existingParam := range existingParams {
+		if currentValue, ok := deduplicatedParamsMap[*existingParam.Key]; ok && currentValue != *existingParam.Value {
+			return contract.NewError(
+				protos.ErrorCode_INVALID_PARAMETER_VALUE,
+				fmt.Sprintf(
+					"Changing param values is not allowed. "+
+						"Params with key=%q was already logged "+
+						"with value=%q for run ID=%q. "+
+						"Attempted logging new value %q",
+					*existingParam.Key,
+					*existingParam.Value,
+					runID,
+					currentValue,
+				),
+			)
+		}
+	}
+
+	return nil
+}
 
 func (s Store) logParamsWithTransaction(
 	transaction *gorm.DB, runID string, params []*protos.Param,
@@ -615,47 +640,11 @@ func (s Store) logParamsWithTransaction(
 		)
 	}
 
-	// if there were ignored conflicts, verify to be exact duplicates
+	// if there were ignored conflicts, we assert that the values are the same.
 	if transaction.RowsAffected != int64(len(params)) {
-		keys := make([]string, 0, len(deduplicatedParams))
-		for _, param := range deduplicatedParams {
-			keys = append(keys, *param.Key)
-		}
-
-		// TODO: this is probably ok to start with to cover all database engines
-		var existingParams []model.Param
-		err := transaction.
-			Model(&model.Param{}).
-			Select("key, value").
-			Where("run_uuid = ?", runID).
-			Where("key IN ?", keys).
-			Find(&existingParams).Error
-		if err != nil {
-			return contract.NewErrorWith(
-				protos.ErrorCode_INTERNAL_ERROR,
-				fmt.Sprintf(
-					"failed to get existing params to check if duplicates for run_id %q",
-					runID,
-				),
-				err)
-		}
-
-		for _, existingParam := range existingParams {
-			if currentValue, ok := deduplicatedParamsMap[*existingParam.Key]; ok && currentValue != *existingParam.Value {
-				return contract.NewError(
-					protos.ErrorCode_INVALID_PARAMETER_VALUE,
-					fmt.Sprintf(
-						"Changing param values is not allowed. "+
-							"Params with key=%q was already logged "+
-							"with value=%q for run ID=%q. "+
-							"Attempted logging new value %q",
-						*existingParam.Key,
-						*existingParam.Value,
-						runID,
-						currentValue,
-					),
-				)
-			}
+		contractError := verifyBatchParamsInserts(transaction, runID, deduplicatedParamsMap)
+		if contractError != nil {
+			return contractError
 		}
 	}
 
