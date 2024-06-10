@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Progress file to resume the script from where it exited previously
-PROGRESS_FILE="$HOME/.dev-env-setup-progress"
+PROGRESS_FILE="$MLFLOW_HOME/.mlflow-dev-env-setup-progress"
 
 load_progress() {
   if [[ ! -f "$PROGRESS_FILE" ]]; then
@@ -56,6 +56,8 @@ This script will:
 
 -o,     --override    Override the python version
 
+-r,     --restart     Discard the previous installation progress and restart the setup from scratch
+
 EOF
 }
 
@@ -86,6 +88,10 @@ do
     -h | --help)
       showHelp
       exit 0
+      ;;
+    -r | --restart)
+      rm $PROGRESS_FILE
+      shift
       ;;
     --)
       shift
