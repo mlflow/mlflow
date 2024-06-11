@@ -314,6 +314,7 @@ def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn, temp_dir=None):
             type(lc_model.llm).__name__,
         )
 
+    # warn if the agent executor contains an unsupported LLM
     if (
         isinstance(lc_model, langchain.agents.agent.AgentExecutor)
         # 'RunnableMultiActionAgent' object has no attribute 'llm_chain'

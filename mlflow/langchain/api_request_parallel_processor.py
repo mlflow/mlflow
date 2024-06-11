@@ -338,6 +338,11 @@ class APIRequest:
     @staticmethod
     def _transform_request_json_for_chat_if_necessary(request_json, lc_model):
         """
+        Convert the input request JSON to LangChain's Message format if the LangChain model
+        accepts ChatMessage objects (e.g. AIMessage, HumanMessage, SystemMessage) as input.
+        # TODO: this function should identify if the lc_model accepts ChatMessage objects,
+        # and only converts if it does. ChatModels inputs should be converted.
+
         Returns:
             A 2-element tuple containing:
 
