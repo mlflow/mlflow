@@ -6,13 +6,18 @@ queue based approach.
 import atexit
 import logging
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from queue import Empty, Queue
+from typing import List
 
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
-from mlflow.environment_variables import MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE
+from mlflow.environment_variables import (
+    MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE,
+    MLFLOW_ASYNC_LOGGING_WAITING_TIME,
+)
 from mlflow.utils.async_logging.run_batch import RunBatch
 from mlflow.utils.async_logging.run_operations import RunOperations
 
@@ -88,6 +93,34 @@ class AsyncLoggingQueue:
 
             raise MlflowException(f"Exception inside the run data logging thread: {e}")
 
+    def _fetch_batch_from_queue(self) -> List[RunBatch]:
+        """Fetches a batch of run data from the queue.
+
+        Returns:
+            RunBatch: A batch of run data.
+        """
+        batches = []
+        if self._queue.empty():
+            return batches
+        merged_batch = self._queue.get()
+        while not merged_batch.is_full() and not self._queue.empty():
+            batch = self._queue.get()
+            if (
+                len(merged_batch.metrics) + len(batch.metrics) >= 1000
+                or len(merged_batch.params) + len(batch.params) >= 100
+                or len(merged_batch.tags) + len(batch.tags) >= 100
+            ):
+                batches.append(merged_batch)
+                merged_batch = batch
+            else:
+                merged_batch.add_child_batch(batch)
+                merged_batch.params.extend(batch.params)
+                merged_batch.tags.extend(batch.tags)
+                merged_batch.metrics.extend(batch.metrics)
+
+        batches.append(merged_batch)
+        return batches
+
     def _log_run_data(self) -> None:
         """Process the run data in the running runs queues.
 
@@ -100,9 +133,14 @@ class AsyncLoggingQueue:
 
         Returns: None
         """
-        run_batch = None  # type: RunBatch
+        async_logging_waiting_time = MLFLOW_ASYNC_LOGGING_WAITING_TIME.get()
+        run_batches = None  # type: RunBatch
         try:
-            run_batch = self._queue.get(timeout=1)
+            if async_logging_waiting_time:
+                time.sleep(async_logging_waiting_time)
+                run_batches = self._fetch_batch_from_queue()
+            else:
+                run_batches = [self._queue.get(timeout=1)]
         except Empty:
             # Ignore empty queue exception
             return
@@ -123,8 +161,12 @@ class AsyncLoggingQueue:
                 _logger.error(f"Run Id {run_batch.run_id}: Failed to log run data: Exception: {e}")
                 run_batch.exception = e
                 run_batch.completion_event.set()
+                for child_batch in run_batch.child_batches:
+                    # Signal the child batch processing is done.
+                    child_batch.completion_event.set()
 
-        self._batch_logging_worker_threadpool.submit(logging_func, run_batch)
+        for run_batch in run_batches:
+            self._batch_logging_worker_threadpool.submit(logging_func, run_batch)
 
     def _wait_for_batch(self, batch: RunBatch) -> None:
         """Wait for the given batch to be processed by the logging thread.
