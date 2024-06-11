@@ -1,9 +1,13 @@
 import http from "k6/http";
 
-export default function () {
-  // Set base url from environment variable, the variable ' -e HOSTNAME = xxxx ' must be added to command line argument
-  const base_url = "http://" + __ENV.HOSTNAME + "/api/2.0/mlflow";
+// Set base url from environment variable, the variable ' -e MLFLOW_TRACKING_URI = xxxx ' must be added to command line argument
+const base_url = __ENV.MLFLOW_TRACKING_URI + "/api/2.0/mlflow";
 
+if (!base_url.startsWith("http")) {
+  throw new Error("MLFLOW_TRACKING_URI must be a valid URL, starting with http(s)");
+}
+
+export function setup() {
   const experiment_response = http.post(
     `${base_url}/experiments/create`,
     JSON.stringify({
@@ -43,27 +47,25 @@ export default function () {
     }
   );
 
-  // retrieve run id
-  const runId = run_response.json().run.info.run_id;
+  return run_response.json().run.info.run_id;
+}
 
-  // 100 tags
-  const tags = Array.from(Array(100), (_, i) => {
+function logBatch({ runId, tagCount, paramCount, metricCount }) {
+  const tags = Array.from(Array(tagCount), (_, i) => {
     return {
       key: `tag_${i}`,
       value: `tag_value_${i}`,
     };
   });
 
-  // 100 params
-  const params = Array.from(Array(100), (_, i) => {
+  const params = Array.from(Array(paramCount), (_, i) => {
     return {
       key: `param_${i}`,
       value: `param_value_${i}`,
     };
   });
 
-  // 800 metrics
-  const metrics = Array.from(Array(200), (_, i) => {
+  const metrics = Array.from(Array(metricCount), (_, i) => {
     return {
       key: `metric_${i}`,
       value: i * Math.random(),
@@ -72,7 +74,6 @@ export default function () {
     };
   });
 
-  // log batch
   http.post(
     `${base_url}/runs/log-batch`,
     JSON.stringify({
@@ -87,4 +88,11 @@ export default function () {
       },
     }
   );
+}
+
+export default function (runId) {
+  logBatch({ runId, tagCount: 5, paramCount: 3, metricCount: 10 });
+  // logBatch({ runId, tagCount: 50, paramCount: 50, metricCount: 300 });
+  // logBatch({ runId, tagCount: 100, paramCount: 100, metricCount: 800 });
+  // logBatch({ runId, tagCount: 0, paramCount: 10, metricCount: 0 });
 }
