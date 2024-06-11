@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/mlflow/mlflow/mlflow/go/pkg/config"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/contract"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
@@ -131,8 +133,8 @@ var (
 	mlflowArtifactsService contract.MlflowArtifactsService
 )
 
-func NewMlflowService(config *config.Config) (*MlflowService, error) {
-	store, err := sql.NewSQLStore(config)
+func NewMlflowService(logger *logrus.Logger, config *config.Config) (*MlflowService, error) {
+	store, err := sql.NewSQLStore(logger, config)
 	if err != nil {
 		return nil, fmt.Errorf("could not create new sql store: %w", err)
 	}

@@ -155,7 +155,7 @@ func newAPIApp(cfg *config.Config) (*fiber.App, error) {
 		return nil, err
 	}
 
-	mlflowService, err := NewMlflowService(cfg)
+	mlflowService, err := NewMlflowService(logrus.StandardLogger(), cfg)
 	if err != nil {
 		return nil, err
 	}

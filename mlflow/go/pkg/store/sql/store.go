@@ -14,12 +14,12 @@ import (
 
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/ncruces/go-sqlite3/gormlite"
+	"github.com/sirupsen/logrus"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlserver"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"gorm.io/gorm/logger"
 
 	"github.com/mlflow/mlflow/mlflow/go/pkg/config"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/contract"
@@ -497,13 +497,6 @@ func (s Store) DeleteExperiment(id string) *contract.Error {
 
 const batchSize = 100
 
-type conflictedParam struct {
-	RunID    string
-	Key      string
-	OldValue string
-	NewValue string
-}
-
 func checkRunIsActive(transaction *gorm.DB, runID string) *contract.Error {
 	var lifecycleStage model.LifecycleStage
 
@@ -875,7 +868,7 @@ func (s Store) LogBatch(
 	return nil
 }
 
-func NewSQLStore(config *config.Config) (*Store, error) {
+func NewSQLStore(logger *logrus.Logger, config *config.Config) (*Store, error) {
 	uri, err := url.Parse(config.StoreURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse store URL %q: %w", config.StoreURL, err)
@@ -903,7 +896,7 @@ func NewSQLStore(config *config.Config) (*Store, error) {
 
 	database, err := gorm.Open(dialector, &gorm.Config{
 		TranslateError: true,
-		Logger:         logger.Default.LogMode(logger.Info),
+		Logger:         NewLoggerAdaptor(logger, LoggerAdaptorConfig{}),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database %q: %w", uri.String(), err)
