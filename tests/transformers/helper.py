@@ -118,6 +118,9 @@ def load_component_multi_modal():
 @prefetch
 @flaky()
 def load_small_conversational_model():
+    # Conversational model is deprecated and removed
+    if Version(transformers.__version__) > Version("4.41.2"):
+        return
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         "microsoft/DialoGPT-small", low_cpu_mem_usage=True
     )
@@ -229,6 +232,9 @@ def load_ner_pipeline_aggregation():
 @prefetch
 @flaky()
 def load_conversational_pipeline():
+    # Conversational model is deprecated and removed
+    if Version(transformers.__version__) > Version("4.41.2"):
+        return
     return transformers.pipeline(
         model="AVeryRealHuman/DialoGPT-small-TonyStark", task="conversational"
     )
