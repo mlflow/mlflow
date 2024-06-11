@@ -627,4 +627,4 @@ MLFLOW_HTTP_POOL_MAXSIZE = _EnvironmentVariable("MLFLOW_HTTP_POOL_MAXSIZE", int,
 #: to Databricks endpoint. Note that if you want to use OAuth authentication, you have to
 #: enable Databricks SDK.
 #: (default: ``True``)
-MLFLOW_ENABLE_DB_SDK = _BooleanEnvironmentVariable("MLFLOW_ENABLE_DB_SDK", False)
+MLFLOW_ENABLE_DB_SDK = _BooleanEnvironmentVariable("MLFLOW_ENABLE_DB_SDK", True)
