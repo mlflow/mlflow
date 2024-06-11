@@ -16,9 +16,6 @@ Quickstart
 
 To enable autologging for LangChain models, call :py:func:`mlflow.langchain.autolog()` at the beginning of your script or notebook. This will automatically log the traces by default as well as other artifacts such as models, datasets, and model signatures if you explicitly enable them. For more information about the configuration, please refer to the `Configure Autologging <#configure-autologging>`_ section.
 
-.. note::
-    To use MLflow LangChain autologging, please upgrade langchain to **version 0.1.0** or higher. To install the recommended version of LangChain and its dependencies, run ``pip install mlflow[langchain] -U`` in your environment.
-
 .. code-block::
 
     import mlflow
@@ -162,7 +159,15 @@ Other artifacts such as models, datasets, are logged by patching the invocation 
 * ``stream``
 * ``get_relevant_documents`` (for retrievers)
 * ``__call__`` (for Chains and AgentExecutors)
+* ``ainvoke``
+* ``abatch``
+* ``astream``
 
+.. warning::
+
+    MLflow supports autologging for async functions (e.g., ``ainvoke``, ``abatch``, ``astream``), however, the logging operation is not
+    asynchronous and may block the main thread. The invocation function itself is still not blocking and returns a coroutine object, but
+    the logging overhead may slow down the model inference process. Please be aware of this side effect when using async functions with autologging.
 
 Troubleshooting
 ---------------
