@@ -13,8 +13,10 @@ import (
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 )
 
-const QuoteLenght = 2
-const MaxEntitiesPerBatch = 1000
+const (
+	QuoteLength         = 2
+	MaxEntitiesPerBatch = 1000
+)
 
 // regex for valid param and metric names: may only contain slashes, alphanumerics,
 // underscores, periods, dashes, and spaces.
@@ -105,7 +107,7 @@ func uniqueParamsValidation(fl validator.FieldLevel) bool {
 	return !hasDuplicates
 }
 
-func pathIsUniqueValidation(fl validator.FieldLevel) bool {
+func pathIsClean(fl validator.FieldLevel) bool {
 	valueStr := fl.Field().String()
 	norm := filepath.Clean(valueStr)
 
@@ -136,7 +138,7 @@ func NewValidator() (*validator.Validate, error) {
 	validate := validator.New()
 
 	validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
-		name := strings.SplitN(fld.Tag.Get("json"), ",", QuoteLenght)[0]
+		name := strings.SplitN(fld.Tag.Get("json"), ",", QuoteLength)[0]
 		// skip if tag key says it should be ignored
 		if name == "-" {
 			return ""
@@ -176,7 +178,7 @@ func NewValidator() (*validator.Validate, error) {
 		return nil, fmt.Errorf("validation registration for 'validMetricParamOrTagName' failed: %w", err)
 	}
 
-	if err := validate.RegisterValidation("pathIsUnique", pathIsUniqueValidation); err != nil {
+	if err := validate.RegisterValidation("pathIsUnique", pathIsClean); err != nil {
 		return nil, fmt.Errorf("validation registration for 'validMetricParamOrTagValue' failed: %w", err)
 	}
 

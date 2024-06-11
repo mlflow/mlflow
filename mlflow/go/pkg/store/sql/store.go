@@ -724,14 +724,14 @@ func updateLatestMetricsIfNecessary(transaction *gorm.DB, runID string, metrics 
 		switch {
 		case !found && !alreadyPresent:
 			// brand new latest metric
-			nextLatestMetricsMap[*metric.Key] = metric.AsLatestMetric()
+			nextLatestMetricsMap[*metric.Key] = metric.NewLatestMetricFromProto()
 		case !found && alreadyPresent && isNewerMetric(metric, nextLatestMetric):
 			// there is no row in the database but the metric is present twice
 			// and we need to take the latest one from the batch.
-			nextLatestMetricsMap[*metric.Key] = metric.AsLatestMetric()
+			nextLatestMetricsMap[*metric.Key] = metric.NewLatestMetricFromProto()
 		case found && isNewerMetric(metric, latestMetric):
 			// compare with the row in the database
-			nextLatestMetricsMap[*metric.Key] = metric.AsLatestMetric()
+			nextLatestMetricsMap[*metric.Key] = metric.NewLatestMetricFromProto()
 		}
 	}
 

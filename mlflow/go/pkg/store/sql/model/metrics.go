@@ -55,7 +55,7 @@ func NewMetricFromProto(runID string, metric *protos.Metric) *Metric {
 	}
 }
 
-func (m Metric) AsLatestMetric() LatestMetric {
+func (m Metric) NewLatestMetricFromProto() LatestMetric {
 	return LatestMetric{
 		RunID:     m.RunID,
 		Key:       m.Key,
