@@ -382,15 +382,21 @@ def compute_assessment_stats_by_source(
     ]
 
     def compute_stats(assessment_name: str, assessment_source: str, assessments: List[Assessment]):
-        if matching_assessments[0].get_value_type() == "boolean":
+        assessments = [
+            assessment for assessment in assessments if assessment.get_value_type() is not None
+        ]
+        if not assessments:
+            return
+
+        if assessments[0].get_value_type() == "boolean":
             return compute_boolean_assessment_stats(assessment_name, assessment_source, assessments)
-        elif matching_assessments[0].get_value_type() == "numeric":
+        elif assessments[0].get_value_type() == "numeric":
             return compute_numeric_assessment_stats(assessment_name, assessment_source, assessments)
-        elif matching_assessments[0].get_value_type() == "string":
+        elif assessments[0].get_value_type() == "string":
             return compute_string_assessment_stats(assessment_name, assessment_source, assessments)
         else:
             raise ValueError(
-                f"Unsupported assessment value type: {matching_assessments[0].get_value_type()}."
+                f"Unsupported assessment value type: {assessments[0].get_value_type()}."
             )
 
     matching_assessments_by_source = defaultdict(list)
@@ -399,7 +405,9 @@ def compute_assessment_stats_by_source(
 
     assessment_stats_by_source = {}
     for source, assessments in matching_assessments_by_source.items():
-        assessment_stats_by_source[source] = compute_stats(assessment_name, source, assessments)
+        stats_or_none = compute_stats(assessment_name, source, assessments)
+        if stats_or_none is not None:
+            assessment_stats_by_source[source] = stats_or_none
     return assessment_stats_by_source
 
 

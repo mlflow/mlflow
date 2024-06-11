@@ -1065,6 +1065,57 @@ def test_log_assessments_with_same_name_and_source_and_metadata():
     )
 
 
+def test_log_evaluation_with_assessments_supporting_none_value():
+    with mlflow.start_run():
+        run_id = mlflow.active_run().info.run_id
+
+        inputs = {"feature1": 1.0, "feature2": 2.0}
+        outputs = {"prediction": 0.5}
+        targets = {"actual": 0.5}
+        metrics = [Metric(key="metric1", value=1.1, timestamp=0, step=0)]
+        request_id = "req1"
+        inputs_id = "id1"
+
+        source = AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1")
+        assessment_with_none_value = Assessment(name="relevance", value=None, source=source)
+
+        # Log the evaluation
+        logged_evaluation = log_evaluation(
+            inputs=inputs,
+            outputs=outputs,
+            targets=targets,
+            metrics=metrics,
+            inputs_id=inputs_id,
+            request_id=request_id,
+            assessments=[assessment_with_none_value],
+            run_id=run_id,
+        )
+
+        # Retrieve the evaluation
+        retrieved_evaluation = get_evaluation(
+            evaluation_id=logged_evaluation.evaluation_id, run_id=run_id
+        )
+
+        # Verify the evaluation details
+        assert retrieved_evaluation == logged_evaluation
+
+        # Verify the assessments
+
+        def assert_assessments_equal(assessment, expected_assessment):
+            assert assessment.name == expected_assessment.name
+            assert assessment.boolean_value == expected_assessment.boolean_value
+            assert assessment.numeric_value == expected_assessment.numeric_value
+            assert assessment.string_value == expected_assessment.string_value
+            assert assessment.metadata == expected_assessment.metadata
+            assert assessment.source == expected_assessment.source
+
+        assert len(retrieved_evaluation.assessments) == 1
+        assert_assessments_equal(
+            retrieved_evaluation.assessments[0],
+            assessment_with_none_value._to_entity(evaluation_id=logged_evaluation.evaluation_id),
+        )
+
+
 def test_log_assessments_without_nonexistent_evaluation_fails():
     with mlflow.start_run():
         with pytest.raises(
