@@ -174,7 +174,12 @@ def save_model(
             `Chain <https://python.langchain.com/docs/modules/chains/>`_,
             `Agent <https://python.langchain.com/docs/modules/agents/>`_,
             `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_,
-            or `RunnableSequence <https://python.langchain.com/docs/modules/chains/foundational/sequential_chains#using-lcel>`_.
+            or `RunnableSequence <https://python.langchain.com/docs/modules/chains/foundational/sequential_chains#using-lcel>`_,
+            or a path containing the LangChain model code for the above types. When using
+            model as path, make sure to set the model by using :func:`mlflow.models.set_model()`.
+
+            .. Note:: Experimental: Using model as path may change or be removed in a future
+                        release without warning.
         path: Local path where the serialized model (as YAML) is to be saved.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
@@ -446,7 +451,12 @@ def log_model(
         lc_model: A LangChain model, which could be a
             `Chain <https://python.langchain.com/docs/modules/chains/>`_,
             `Agent <https://python.langchain.com/docs/modules/agents/>`_, or
-            `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_.
+            `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_
+            or a path containing the LangChain model code for the above types. When using
+            model as path, make sure to set the model by using :func:`mlflow.models.set_model()`.
+
+            .. Note:: Experimental: Using model as path may change or be removed in a future
+                                    release without warning.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
