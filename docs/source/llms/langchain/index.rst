@@ -27,7 +27,7 @@ Deploy your LangChain application with confidence, leveraging MLflow's ability t
 
 MLflow Evaluate
 ^^^^^^^^^^^^^^^
-`MLflow Evaluate <../llm-evaluate/index.html>`_ is a native capabilities within MLflow to evaluate language models, you can easily utilize automated evaluation algorithms on the results of your LangChain application's inference results. This integration facilitates the efficient assessment of inference results from your LangChain application, ensuring robust performance analytics.
+`MLflow Evaluate <../llm-evaluate/index.html>`_ provides native capabilities within MLflow to evaluate language models. With this feature you can easily utilize automated evaluation algorithms on the results of your LangChain application's inference results. This capability facilitates the efficient assessment of inference results from your LangChain application, ensuring robust performance analytics.
 
 Observability
 ^^^^^^^^^^^^^

@@ -1,11 +1,11 @@
 MLflow Langchain Autologging
 ============================
 
-MLflow LangChain flavor supports autologging, a powerful feature that allows you to log crucial details about the LangChain model and execution without the need for explicit logging statements. MLflow LangChain autologging covers various aspects of the model, including traces, models, signature, and and more.
+MLflow LangChain flavor supports autologging, a powerful feature that allows you to log crucial details about the LangChain model and execution without the need for explicit logging statements. MLflow LangChain autologging covers various aspects of the model, including traces, models, signatures and more.
 
 .. attention::
 
-    MLflow LangChain Autologging feature is largely renewed in ``MLflow 2.14.0``. If you are using the earlier version of MLflow, please refer to legacy documentation `here <#documentation-for-old-versions>`_ for the old version of the feature.
+    MLflow's LangChain Autologging feature has been overhauled in the ``MLflow 2.14.0`` release. If you are using the earlier version of MLflow, please refer to the legacy documentation `here <#documentation-for-old-versions>`_ for applicable autologging documentation.
 
 .. contents:: Table of Contents
   :local:
@@ -14,7 +14,7 @@ MLflow LangChain flavor supports autologging, a powerful feature that allows you
 Quickstart
 ----------
 
-To enable autologging for LangChain models, call :py:func:`mlflow.langchain.autolog()` at the beginning of your script or notebook. This will automatically log the traces by default, and other artifacts such as models, datasets, and model signatures if you enable them. For more information about the configuration, please refer to the `Configure Autologging <#configure-autologging>`_ section.
+To enable autologging for LangChain models, call :py:func:`mlflow.langchain.autolog()` at the beginning of your script or notebook. This will automatically log the traces by default as well as other artifacts such as models, datasets, and model signatures if you explicitly enable them. For more information about the configuration, please refer to the `Configure Autologging <#configure-autologging>`_ section.
 
 .. note::
     To use MLflow LangChain autologging, please upgrade langchain to **version 0.1.0** or higher. To install the recommended version of LangChain and its dependencies, run ``pip install mlflow[langchain] -U`` in your environment.
@@ -31,7 +31,7 @@ To enable autologging for LangChain models, call :py:func:`mlflow.langchain.auto
     # Your LangChain model code here
     ...
 
-Once you invoked the chain, you can view the logged traces and artifacts in the MLflow UI.
+Once you have invoked the chain, you can view the logged traces and artifacts in the MLflow UI.
 
 .. figure:: ../../_static/images/llms/tracing/langchain-tracing.gif
     :alt: LangChain Tracing via autolog
@@ -42,7 +42,7 @@ Once you invoked the chain, you can view the logged traces and artifacts in the 
 Configure Autologging
 ---------------------
 
-MLflow LangChain autologging can log various information about the model and its inference. **By default, only trace logging are enabled**, but you can enable autologging of other information by setting the corresponding parameters when calling :py:func:`mlflow.langchain.autolog()`. For other configurations, please refer to the API documentation.
+MLflow LangChain autologging can log various information about the model and its inference. **By default, only trace logging is enabled**, but you can enable autologging of other information by setting the corresponding parameters when calling :py:func:`mlflow.langchain.autolog()`. For other configurations, please refer to the API documentation.
 
 .. list-table::
     :widths: 20 20 30 30
@@ -86,10 +86,10 @@ For example, to disable logging of traces, and instead enable model logging, run
 
 .. note::
 
-    When you enable any optional logging other than tracing, MLflow creates an MLflow Run in the active experiment and logs artifacts there. Each inference call logs those artifacts into a separate directory named `artifacts-<session_id>-<idx>`, where `session_id` is randomly generated uuid, and `idx` is the index of the inference call.
+    When you enable any optional logging other than tracing, MLflow creates an MLflow Run in the active experiment and logs artifacts there. Each inference call logs those artifacts into a separate directory named `artifacts-<session_id>-<idx>`, where `session_id` is a randomly generated uuid, and `idx` is the index of the inference call.
 
 .. note::
-    MLflow does not support automatic model logging for a chain contains retrievers. Saving retrievers requires additional ``loader_fn`` and ``persist_dir`` information for loading the model. If you want to log the model with retrievers, please log the model manually.
+    MLflow does not support automatic model logging for chains that contain retrievers. Saving retrievers requires additional ``loader_fn`` and ``persist_dir`` information for loading the model. If you want to log the model with retrievers, please log the model manually.
 
 
 Example Code of LangChain Autologging
@@ -102,13 +102,13 @@ Example Code of LangChain Autologging
 How It Works
 ------------
 
-MLflow LangChain Autologging uses two ways to log traces and other artifacts. The tracing is archived via `Callbacks <https://python.langchain.com/v0.1/docs/modules/callbacks/>`_ framework of LangChain. Other artifacts are recorded by patching `the invocation functions` of the supported models. In typical scenarios, you don't need to care about the internal implementation details, but this section provides a brief overview of how it works under the hood.
+MLflow LangChain Autologging uses two ways to log traces and other artifacts. Tracing is made possible via the `Callbacks <https://python.langchain.com/v0.1/docs/modules/callbacks/>`_ framework of LangChain. Other artifacts are recorded by patching `the invocation functions` of the supported models. In typical scenarios, you don't need to care about the internal implementation details, but this section provides a brief overview of how it works under the hood.
 
 
 MLflow Tracing Callbacks
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-`MlflowLangchainTracer <https://github.com/mlflow/mlflow/blob/master/mlflow/langchain/langchain_tracer.py>`_ is a callback handler that is injected into the langchain model inference process to log traces automatically. It starts a new span upon a set of actions of the chain such as ``on_chain_start``, ``on_llm_start``, and conclude it when the action is finished. Various metadata such as span type, action name, input, output, latency, are automatically recorded to the span.
+`MlflowLangchainTracer <https://github.com/mlflow/mlflow/blob/master/mlflow/langchain/langchain_tracer.py>`_ is a callback handler that is injected into the langchain model inference process to log traces automatically. It starts a new span upon a set of actions of the chain such as ``on_chain_start``, ``on_llm_start``, and concludes it when the action is finished. Various metadata such as span type, action name, input, output, latency, are automatically recorded to the span.
 
 Customize Callback
 ^^^^^^^^^^^^^^^^^^
@@ -186,7 +186,7 @@ metrics and artifacts automatically. We will only log the model if both `log_mod
 `RunnableLambda`, `RunnablePassthrough`. Additional model types will be supported in the future.
 
 .. note::
-    We patch `invoke` function for all supported langchain models, `__call__` function for Chains, AgentExecutors models, and `get_relevant_documents` function for BaseRetrievers, so only when those functions are called MLflow autologs metrics and artifacts.
+    We patch the `invoke` function for all supported langchain models, the `__call__` function for Chains and AgentExecutors models, and `get_relevant_documents` function for BaseRetrievers so that only when those functions are called will MLflow automatically log metrics and artifacts.
     If the model contains retrievers, we don't support autologging the model because it requires saving `loader_fn` and `persist_dir` in order to load the model. Please log the model manually if you want to log the model with retrievers.
 
 The following metrics and artifacts are logged by default (depending on the models involved):
