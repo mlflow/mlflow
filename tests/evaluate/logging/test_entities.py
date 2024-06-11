@@ -43,14 +43,26 @@ def test_evaluation_equality():
     assessment_2 = Assessment(name="relevance", value=0.9, source=source_1)
 
     evaluation_1 = Evaluation(
-        inputs=inputs_1, outputs=outputs_1, targets=targets_1, metrics=metrics_1, 
-        inputs_id=inputs_id_1, request_id=request_id_1, assessments=[assessment_1]
+        inputs=inputs_1,
+        outputs=outputs_1,
+        targets=targets_1,
+        metrics=metrics_1,
+        inputs_id=inputs_id_1,
+        request_id=request_id_1,
+        assessments=[assessment_1],
     )
     evaluation_2 = Evaluation(
-        inputs=inputs_2, outputs=outputs_2, targets=targets_2, metrics=metrics_2, 
-        inputs_id=inputs_id_2, request_id=request_id_2, assessments=[assessment_2]
+        inputs=inputs_2,
+        outputs=outputs_2,
+        targets=targets_2,
+        metrics=metrics_2,
+        inputs_id=inputs_id_2,
+        request_id=request_id_2,
+        assessments=[assessment_2],
     )
     evaluation_3 = Evaluation(inputs=inputs_3, outputs=outputs_3)
 
-    assert evaluation_1 == evaluation_2  # Same inputs, outputs, targets, metrics, assessments, inputs_id, request_id
+    assert (
+        evaluation_1 == evaluation_2
+    )  # Same inputs, outputs, targets, metrics, assessments, inputs_id, request_id
     assert evaluation_1 != evaluation_3  # Different inputs and outputs
