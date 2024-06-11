@@ -20,9 +20,27 @@ from mlflow.utils.checkpoint_utils import MlflowModelCheckpointCallbackBase
 logging.basicConfig(level=logging.ERROR)
 MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["minimum"])
 MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["maximum"])
+# Flag for when we're using legacy 'pytorch-lightning' import name
+# instead of 'lightning'; this can be deprecated once 'pytorch-lightning' is no longer supported.
+PYTORCH_LIGHTNING_LEGACY_NAMESPACE = False
 
-import pytorch_lightning as pl
-from pytorch_lightning.utilities import rank_zero_only
+# Handle import of either 'pytorch_lightning' or 'lightning'
+try:
+    import lightning.pytorch as pl
+    from lightning.pytorch.utilities import rank_zero_only
+except ModuleNotFoundError:
+    try:
+        import pytorch_lightning as pl
+        from pytorch_lightning.utilities import rank_zero_only
+
+        PYTORCH_LIGHTNING_LEGACY_NAMESPACE = True
+        logging.warning("'pytorch_lightning' will be deprecated in a future release, please use 'lightning' instead. 'pip install lightning'")
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            message="Unable to import 'lightning'. "
+            f"Please install lightning >= {MIN_REQ_VERSION} into your environment "
+            f"with `pip install lightning>={MIN_REQ_VERSION}`"
+        )
 
 # The following are the downsides of using PyTorch Lightning's built-in MlflowLogger.
 # 1. MlflowLogger doesn't provide a mechanism to store an entire model into mlflow.
@@ -38,10 +56,13 @@ from pytorch_lightning.utilities import rank_zero_only
 _logger = logging.getLogger(__name__)
 
 _pl_version = Version(pl.__version__)
-if _pl_version < Version("1.5.0"):
-    from pytorch_lightning.core.memory import ModelSummary
+if PYTORCH_LIGHTNING_LEGACY_NAMESPACE is True:
+    if _pl_version < Version("1.5.0"):
+        from pytorch_lightning.core.memory import ModelSummary
+    else:
+        from pytorch_lightning.utilities.model_summary import ModelSummary
 else:
-    from pytorch_lightning.utilities.model_summary import ModelSummary
+    from lightning.pytorch.utilities.model_summary import ModelSummary
 
 
 def _get_optimizer_name(optimizer):
@@ -56,14 +77,16 @@ def _get_optimizer_name(optimizer):
     """
     if Version(pl.__version__) < Version("1.1.0"):
         return optimizer.__class__.__name__
-    else:
+    elif PYTORCH_LIGHTNING_LEGACY_NAMESPACE is True:
         from pytorch_lightning.core.optimizer import LightningOptimizer
+    else:
+        from lightning.pytorch.core.optimizer import LightningOptimizer
 
-        return (
-            optimizer._optimizer.__class__.__name__
-            if isinstance(optimizer, LightningOptimizer)
-            else optimizer.__class__.__name__
-        )
+    return (
+        optimizer._optimizer.__class__.__name__
+        if isinstance(optimizer, LightningOptimizer)
+        else optimizer.__class__.__name__
+    )
 
 
 class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
@@ -75,9 +98,7 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         self, client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step
     ):
         if log_every_n_step and _pl_version < Version("1.1.0"):
-            raise MlflowException(
-                "log_every_n_step is only supported for PyTorch-Lightning >= 1.1.0"
-            )
+            raise MlflowException("log_every_n_step is only supported for Lightning >= 1.1.0")
         self.early_stopping = False
         self.client = client
         self.metrics_logger = metrics_logger
@@ -91,10 +112,9 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         self._epoch_metrics = set()
 
     def _log_metrics(self, trainer, step, metric_items):
-        # pytorch-lightning runs a few steps of validation in the beginning of training
+        # lightning runs a few steps of validation in the beginning of training
         # as a sanity check to catch bugs without having to wait for the training routine
         # to complete. During this check, we should skip logging metrics.
-        # https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#num-sanity-val-steps
         sanity_checking = (
             # `running_sanity_check` has been renamed to `sanity_checking`:
             # https://github.com/PyTorchLightning/pytorch-lightning/pull/9209
@@ -126,7 +146,7 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
 
     _pl_version = Version(pl.__version__)
 
-    # In pytorch-lightning >= 1.4.0, validation is run inside the training epoch and
+    # In lightning >= 1.4.0, validation is run inside the training epoch and
     # `trainer.callback_metrics` contains both training and validation metrics of the
     # current training epoch when `on_train_epoch_end` is called:
     # https://github.com/PyTorchLightning/pytorch-lightning/pull/7357
@@ -136,16 +156,16 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         def on_train_epoch_end(self, trainer, pl_module, *args):
             self._log_epoch_metrics(trainer, pl_module)
 
-    # In pytorch-lightning >= 1.2.0, logging metrics in `on_epoch_end` results in duplicate
+    # In lightning >= 1.2.0, logging metrics in `on_epoch_end` results in duplicate
     # metrics records because `on_epoch_end` is called after both train and validation
     # epochs (related PR: https://github.com/PyTorchLightning/pytorch-lightning/pull/5986)
     # As a workaround, use `on_train_epoch_end` and `on_validation_epoch_end` instead
     # in pytorch-lightning >= 1.2.0.
     elif _pl_version >= Version("1.2.0"):
         # NB: Override `on_train_epoch_end` with an additional `*args` parameter for
-        # compatibility with versions of pytorch-lightning <= 1.2.0, which required an
+        # compatibility with versions of lightning <= 1.2.0, which required an
         # `outputs` argument that was not used and is no longer defined in
-        # pytorch-lightning >= 1.3.0
+        # lightning >= 1.3.0
 
         @rank_zero_only
         def on_train_epoch_end(self, trainer, pl_module, *args):
@@ -281,8 +301,8 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
 
 
 class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBase):
-    """Callback for auto-logging pytorch-lightning model checkpoints to MLflow.
-    This callback implementation only supports pytorch-lightning >= 1.6.0.
+    """Callback for auto-logging lightning.pytorch model checkpoints to MLflow.
+    This callback implementation only supports lightning >= 1.6.0.
 
     Args:
         monitor: In automatic model checkpointing, the metric name to monitor if
@@ -308,7 +328,7 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
 
         import mlflow
         from mlflow.pytorch import MLflowModelCheckpointCallback
-        from pytorch_lightning import Trainer
+        from lightning.pytorch import Trainer
 
         mlflow.pytorch.autolog(checkpoint=True)
 
@@ -457,11 +477,11 @@ def patched_fit(original, self, *args, **kwargs):
     - Trained model
 
     .. _EarlyStoppingCallback:
-        https://pytorch-lightning.readthedocs.io/en/latest/early_stopping.html
+        https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.trainer.trainer.Trainer.html#lightning.pytorch.trainer.trainer.Trainer.early_stopping_callback
     """
     if not MIN_REQ_VERSION <= _pl_version <= MAX_REQ_VERSION:
         warnings.warn(
-            "Autologging is known to be compatible with pytorch-lightning versions between "
+            "Autologging is known to be compatible with lightning versions between "
             f"{MIN_REQ_VERSION} and {MAX_REQ_VERSION} and may not succeed with packages "
             "outside this range."
         )
@@ -495,7 +515,7 @@ def patched_fit(original, self, *args, **kwargs):
 
         model_checkpoint = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "checkpoint", True)
         if model_checkpoint:
-            # __MLflowModelCheckpoint only supports pytorch-lightning >= 1.6.0
+            # __MLflowModelCheckpoint only supports lightning >= 1.6.0
             if _pl_version >= Version("1.6.0"):
                 checkpoint_monitor = get_autologging_config(
                     mlflow.pytorch.FLAVOR_NAME, "checkpoint_monitor", "val_loss"
@@ -529,7 +549,7 @@ def patched_fit(original, self, *args, **kwargs):
             else:
                 warnings.warn(
                     "Automatic model checkpointing is disabled because this feature only "
-                    "supports pytorch-lightning >= 1.6.0."
+                    "supports lightning >= 1.6.0."
                 )
 
         client.flush(synchronous=False)
