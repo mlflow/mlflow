@@ -1,6 +1,6 @@
 import time
 from dataclasses import asdict, dataclass, field
-from typing import List, Literal, Optional
+from typing import List, Optional
 
 from mlflow.types.schema import Array, ColSpec, DataType, Object, Property, Schema
 
@@ -280,7 +280,7 @@ class ChatResponse(_BaseDataclass):
         choices (List[:py:class:`ChatChoice`]): A list of :py:class:`ChatChoice` objects
             containing the generated responses
         usage (:py:class:`TokenUsageStats`): An object describing the tokens used by the request.
-        object (str): The object type.
+        _object (str): The object type. The value should always be 'chat.completion'
         created (int): The time the response was created.
             **Optional**, defaults to the current time.
     """
@@ -289,7 +289,6 @@ class ChatResponse(_BaseDataclass):
     model: str
     choices: List[ChatChoice]
     usage: TokenUsageStats
-    # object: Literal["chat.completion"] = "chat.completion"
     _object: str = field(init=False, repr=False, default="chat.completion")
     created: int = field(default_factory=lambda: int(time.time()))
 
@@ -309,14 +308,6 @@ class ChatResponse(_BaseDataclass):
             raise ValueError(
                 f"Expected `usage` to be of type TokenUsageStats or dict, got {type(self.usage)}"
             )
-
-    '''
-    def __setattr__(self, name, value):
-        # A hack to ensure users cannot overwrite 'object' field
-        if name == "object" and value != "chat.completion":
-            raise AttributeError("object must be 'chat.completion'")
-        return super().__setattr__(name, value)
-    '''
 
 
 CHAT_MODEL_INPUT_SCHEMA = Schema(

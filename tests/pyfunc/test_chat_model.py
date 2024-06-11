@@ -390,5 +390,5 @@ def test_chat_model_response_cannot_overwrite_object():
 
     response = ChatResponse(**mock_response)
     assert response.object == "chat.completion"
-    with pytest.raises(AttributeError, match="object must be 'chat.completion'"):
+    with pytest.raises(AttributeError, match="can't set attribute"):
         response.object = "other"
