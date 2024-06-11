@@ -39,8 +39,7 @@ class Evaluation(_MlflowObject):
         """
         if isinstance(metrics, dict):
             metrics = [
-                Metric(key=key, value=value, timestamp=0, step=0)
-                for key, value in metrics.items()
+                Metric(key=key, value=value, timestamp=0, step=0) for key, value in metrics.items()
             ]
 
         self._inputs_id = inputs_id or _generate_inputs_id(inputs)
