@@ -3,13 +3,11 @@ import pytest
 from mlflow.entities import LiveSpan
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.utils import (
-    _FieldParser,
-    _parse_fields,
-    _ParsedField,
     deduplicate_span_names_in_place,
     encode_span_id,
     maybe_get_request_id,
 )
+from mlflow.tracing.utils.search import _FieldParser, _parse_fields, _ParsedField
 
 from tests.tracing.helper import create_mock_otel_span
 

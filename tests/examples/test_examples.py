@@ -162,6 +162,8 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("transformers", [sys.executable, "whisper.py"]),
         ("sentence_transformers", [sys.executable, "simple.py"]),
         ("tracing", [sys.executable, "fluent.py"]),
+        ("tracing", [sys.executable, "client.py"]),
+        ("tracing", [sys.executable, "multithreading.py"]),
     ],
 )
 def test_command_example(directory, command):

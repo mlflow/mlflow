@@ -922,6 +922,7 @@ def _get_pip_requirements_from_model_path(model_path: str):
     return [req.req_str for req in _parse_requirements(req_file_path, is_constraint=False)]
 
 
+@trace_disabled  # Suppress traces while loading model
 def load_model(
     model_uri: str,
     suppress_warnings: bool = False,
@@ -2070,6 +2071,8 @@ Compound types:
                         tempfile.gettempdir(),
                         "mlflow",
                         insecure_hash.sha1(model_uri.encode()).hexdigest(),
+                        # Use pid to avoid conflict when multiple spark UDF tasks
+                        str(os.getpid()),
                     )
                     try:
                         loaded_model = mlflow.pyfunc.load_model(model_path)
@@ -2333,30 +2336,31 @@ def save_model(
     _validate_pyfunc_model_config(model_config)
     _validate_and_prepare_target_save_path(path)
 
-    model_code_path = None
-    if python_model:
-        if isinstance(model_config, Path):
-            model_config = os.fspath(model_config)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        model_code_path = None
+        if python_model:
+            if isinstance(model_config, Path):
+                model_config = os.fspath(model_config)
 
-        if isinstance(model_config, str):
-            model_config = _validate_and_get_model_config_from_file(model_config)
+            if isinstance(model_config, str):
+                model_config = _validate_and_get_model_config_from_file(model_config)
 
-        if isinstance(python_model, Path):
-            python_model = os.fspath(python_model)
+            if isinstance(python_model, Path):
+                python_model = os.fspath(python_model)
 
-        if isinstance(python_model, str):
-            model_code_path = _validate_and_get_model_code_path(python_model)
-            _validate_and_copy_file_to_directory(model_code_path, path, "code")
-            python_model = _load_model_code_path(model_code_path, model_config)
+            if isinstance(python_model, str):
+                model_code_path = _validate_and_get_model_code_path(python_model, temp_dir)
+                _validate_and_copy_file_to_directory(model_code_path, path, "code")
+                python_model = _load_model_code_path(model_code_path, model_config)
 
-        _validate_function_python_model(python_model)
-        if callable(python_model) and all(
-            a is None for a in (input_example, pip_requirements, extra_pip_requirements)
-        ):
-            raise MlflowException(
-                "If `python_model` is a callable object, at least one of `input_example`, "
-                "`pip_requirements`, or `extra_pip_requirements` must be specified."
-            )
+            _validate_function_python_model(python_model)
+            if callable(python_model) and all(
+                a is None for a in (input_example, pip_requirements, extra_pip_requirements)
+            ):
+                raise MlflowException(
+                    "If `python_model` is a callable object, at least one of `input_example`, "
+                    "`pip_requirements`, or `extra_pip_requirements` must be specified."
+                )
 
     mlflow_model = kwargs.pop("model", mlflow_model)
     if len(kwargs) > 0:

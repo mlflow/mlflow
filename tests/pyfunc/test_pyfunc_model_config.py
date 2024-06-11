@@ -5,7 +5,6 @@ import yaml
 
 import mlflow
 from mlflow.models import Model
-from mlflow.models.utils import _get_temp_file_with_content
 
 
 @pytest.fixture
@@ -86,13 +85,14 @@ def test_override_model_config(model_path, model_config):
         "tests/pyfunc/../pyfunc/sample_code/config.yml",
     ],
 )
-def test_override_model_config_path(model_path, model_config_path):
+def test_override_model_config_path(tmp_path, model_path, model_config_path):
     model = TestModel()
     inference_override = {"timeout": 400}
-    config_path = _get_temp_file_with_content("config.yml", yaml.dump(inference_override), "w")
+    config_path = tmp_path / "config.yml"
+    config_path.write_text(yaml.dump(inference_override))
 
     mlflow.pyfunc.save_model(model_path, python_model=model, model_config=model_config_path)
-    loaded_model = mlflow.pyfunc.load_model(model_uri=model_path, model_config=config_path)
+    loaded_model = mlflow.pyfunc.load_model(model_uri=model_path, model_config=str(config_path))
 
     assert loaded_model.model_config["timeout"] == 400
     assert all(loaded_model.model_config[k] == v for k, v in inference_override.items())
@@ -116,13 +116,14 @@ def test_override_model_config_ignore_invalid(model_path, model_config):
         "tests/pyfunc/../pyfunc/sample_code/config.yml",
     ],
 )
-def test_override_model_config_path_ignore_invalid(model_path, model_config_path):
+def test_override_model_config_path_ignore_invalid(tmp_path, model_path, model_config_path):
     model = TestModel()
     inference_override = {"invalid_key": 400}
-    config_path = _get_temp_file_with_content("config.yml", yaml.dump(inference_override), "w")
+    config_path = tmp_path / "config.yml"
+    config_path.write_text(yaml.dump(inference_override))
 
     mlflow.pyfunc.save_model(model_path, python_model=model, model_config=model_config_path)
-    loaded_model = mlflow.pyfunc.load_model(model_uri=model_path, model_config=config_path)
+    loaded_model = mlflow.pyfunc.load_model(model_uri=model_path, model_config=str(config_path))
 
     assert loaded_model.predict([[5]])
     assert all(k not in loaded_model.model_config for k in inference_override.keys())

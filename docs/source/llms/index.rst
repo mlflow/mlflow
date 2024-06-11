@@ -11,6 +11,31 @@ capabilities into their applications.
 
 **MLflow's Support for LLMs** aims to alleviate these challenges by introducing a suite of features and tools designed with the end-user in mind:
 
+`MLflow Tracing <tracing/index.html>`_
+--------------------------------------
+
+.. note::
+    MLflow Tracing is currently in **Experimental Status** and is subject to change without deprecation warning or notification. 
+
+MLflow offers comprehensive tracing capabilities to monitor and analyze the execution of GenAI applications. This includes automated tracing with 
+LangChain integration, manual trace instrumentation using high-level fluent APIs, and low-level client APIs for fine-grained control. This functionality 
+allows you to capture detailed trace data, enabling better debugging, performance monitoring, and insights into complex workflows. 
+Whether through decorators, context managers, or explicit API calls, MLflow provides the flexibility needed to trace and optimize the operations 
+of your GenAI models and retain your traced data within the tracking server for further analysis.
+
+- `Automated tracing with LangChain <tracing/index.html#langchain-automatic-tracing>`_: Seamless integration with LangChain for automatic trace data collection.
+- `Manual trace instrumentation with high-level fluent APIs <tracing/index.html#tracing-fluent-apis>`_: Easy-to-use decorators and context managers for adding tracing with minimal code changes.
+- `Low-level client APIs for tracing <tracing/index.html#tracing-client-apis>`_: Thread-safe methods for detailed and explicit control over trace data management.
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    tracing/index
+    tracing/overview
+
+To learn more about what tracing is, see our `Tracing Concepts Overview <tracing/overview.html>`_ guide. 
+
 `MLflow Deployments Server for LLMs <deployments/index.html>`_
 --------------------------------------------------------------
 
@@ -125,6 +150,7 @@ with your favorite provider!
     The **MLflow** and **Hugging Face TGI** providers are for self-hosted LLM serving of either foundation open-source LLM models, fine-tuned open-source 
     LLM models, or your own custom LLM. The example documentation for these providers will show you how to get started with these, using free-to-use open-source 
     models from the `Hugging Face Hub <https://huggingface.co/docs/hub/index>`_.
+
 
 `LLM Evaluation <llm-evaluate/index.html>`_
 -------------------------------------------

@@ -121,10 +121,10 @@ export const ExperimentViewTraceDataDrawer = ({
         <div
           css={{
             height: `calc(100% - ${theme.spacing.lg}px)`,
-            borderTop: `1px solid ${theme.colors.border}`,
             marginLeft: -theme.spacing.lg,
             marginRight: -theme.spacing.lg,
           }}
+          onWheel={(e) => e.stopPropagation()}
         >
           <ModelTraceExplorerFrameRenderer modelTrace={combinedModelTrace} height="100%" />
         </div>
@@ -135,8 +135,7 @@ export const ExperimentViewTraceDataDrawer = ({
 
   return (
     <Drawer.Root
-      // Modal mode is disabled, otherwise Drawer breaks vertical scrolling of the traces view
-      modal={false}
+      modal
       open
       onOpenChange={(open) => {
         if (!open) {
@@ -144,7 +143,7 @@ export const ExperimentViewTraceDataDrawer = ({
         }
       }}
     >
-      <Drawer.Content width="90vw" title={title} expandContentToFullHeight>
+      <Drawer.Content width="85vw" title={title} expandContentToFullHeight>
         {renderContent()}
       </Drawer.Content>
     </Drawer.Root>
