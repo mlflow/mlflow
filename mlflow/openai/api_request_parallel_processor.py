@@ -99,8 +99,8 @@ class APIRequest:
             api_key = os.environ["OPENAI_API_KEY"]
             request_header = {"Authorization": f"Bearer {api_key}"}
             # use api-key header for Azure deployments
-            if "/deployments" in self.request_url:
-                request_header = {"api-key": f"{api_key}"}
+            # if "/deployments" in self.request_url:
+            #     request_header = {"api-key": f"{api_key}"}
             response = requests.post(
                 url=self.request_url,
                 headers=request_header,
