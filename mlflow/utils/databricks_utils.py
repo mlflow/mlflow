@@ -10,7 +10,7 @@ from typing import NamedTuple, Optional, TypeVar
 
 import mlflow.utils
 from mlflow.environment_variables import (
-    MLFLOW_ENABLE_DATABRICKS_SDK,
+    MLFLOW_ENABLE_DB_SDK,
     MLFLOW_TRACKING_URI,
 )
 from mlflow.exceptions import MlflowException
@@ -548,7 +548,7 @@ def get_databricks_host_creds(server_uri=None):
         talk to the Databricks server.
     """
 
-    if MLFLOW_ENABLE_DATABRICKS_SDK.get():
+    if MLFLOW_ENABLE_DB_SDK.get():
         from databricks.sdk import WorkspaceClient
 
         profile, _ = get_db_info_from_uri(server_uri)
