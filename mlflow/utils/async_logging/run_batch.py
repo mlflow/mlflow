@@ -46,3 +46,6 @@ class RunBatch:
 
     def add_child_batch(self, child_batch):
         self.child_batches.append(child_batch)
+
+    def __str__(self):
+        return f"RunBatch(run_id={self.run_id}, metrics={self.metrics})"

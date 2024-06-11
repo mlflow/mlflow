@@ -6,7 +6,6 @@ queue based approach.
 import atexit
 import logging
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor
 from queue import Empty, Queue
 from typing import List
@@ -22,6 +21,11 @@ from mlflow.utils.async_logging.run_batch import RunBatch
 from mlflow.utils.async_logging.run_operations import RunOperations
 
 _logger = logging.getLogger(__name__)
+
+
+class AutoJoinThread(threading.Thread):
+    def __del__(self):
+        self.join()
 
 
 class AsyncLoggingQueue:
@@ -51,6 +55,7 @@ class AsyncLoggingQueue:
         Stops the data processing thread and waits for the queue to be drained. Finally, shuts down
         the thread pools used for data logging and batch processing status check.
         """
+        print("GEEZ CALLING AT EXIT CALLBACK!")
         try:
             # Stop the data processing thread
             self._stop_data_logging_thread_event.set()
@@ -61,15 +66,20 @@ class AsyncLoggingQueue:
         except Exception as e:
             _logger.error(f"Encountered error while trying to finish logging: {e}")
 
+    def end_async_logging(self) -> None:
+        with self._lock:
+            # Stop the data processing thread.
+            self._stop_data_logging_thread_event.set()
+            # Waits till logging queue is drained.
+            self._batch_logging_thread.join()
+            self._is_activated = False
+
     def flush(self) -> None:
         """Flush the async logging queue.
 
         Calling this method will flush the queue to ensure all the data are logged.
         """
-        # Stop the data processing thread.
-        self._stop_data_logging_thread_event.set()
-        # Waits till logging queue is drained.
-        self._batch_logging_thread.join()
+        self.end_async_logging()
         self._batch_logging_worker_threadpool.shutdown(wait=True)
         self._batch_status_check_threadpool.shutdown(wait=True)
 
@@ -85,6 +95,7 @@ class AsyncLoggingQueue:
         try:
             while not self._stop_data_logging_thread_event.is_set():
                 self._log_run_data()
+            print("GEEZ STARTING TO DRAIN QUEUE!")
             # Drain the queue after the stop event is set.
             while not self._queue.empty():
                 self._log_run_data()
@@ -102,8 +113,11 @@ class AsyncLoggingQueue:
         batches = []
         if self._queue.empty():
             return batches
+        queue_size = self._queue.qsize()
         merged_batch = self._queue.get()
-        while not merged_batch.is_full() and not self._queue.empty():
+        for i in range(queue_size - 1):
+            if self._queue.empty():
+                break
             batch = self._queue.get()
             if (
                 len(merged_batch.metrics) + len(batch.metrics) >= 1000
@@ -137,7 +151,7 @@ class AsyncLoggingQueue:
         run_batches = None  # type: RunBatch
         try:
             if async_logging_waiting_time:
-                time.sleep(async_logging_waiting_time)
+                self._stop_data_logging_thread_event.wait(async_logging_waiting_time)
                 run_batches = self._fetch_batch_from_queue()
             else:
                 run_batches = [self._queue.get(timeout=1)]
@@ -156,6 +170,9 @@ class AsyncLoggingQueue:
 
                 # Signal the batch processing is done.
                 run_batch.completion_event.set()
+                for child_batch in run_batch.child_batches:
+                    # Signal the child batch processing is done.
+                    child_batch.completion_event.set()
 
             except Exception as e:
                 _logger.error(f"Run Id {run_batch.run_id}: Failed to log run data: Exception: {e}")
@@ -165,7 +182,9 @@ class AsyncLoggingQueue:
                     # Signal the child batch processing is done.
                     child_batch.completion_event.set()
 
+        print("GEEZ NUMBER OF RUN BATCHES: ", len(run_batches))
         for run_batch in run_batches:
+            print("GEEZ METRICS NUMBER: ", len(run_batch.metrics))
             self._batch_logging_worker_threadpool.submit(logging_func, run_batch)
 
     def _wait_for_batch(self, batch: RunBatch) -> None:
@@ -284,6 +303,7 @@ class AsyncLoggingQueue:
                 max_workers=MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE.get() or 10,
                 thread_name_prefix="MLflowAsyncLoggingStatusCheck",
             )
+
             self._batch_logging_thread.start()
 
     def activate(self) -> None:
