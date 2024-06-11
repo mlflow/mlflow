@@ -42,7 +42,6 @@ func (e Experiment) ToProto() *protos.Experiment {
 	}
 }
 
-//nolint:exhaustruct
 func NewExperimentFromProto(proto *protos.CreateExperiment) Experiment {
 	tags := make([]ExperimentTag, len(proto.GetTags()))
 	for i, tag := range proto.GetTags() {

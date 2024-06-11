@@ -24,7 +24,7 @@ var ImplementedEndpoints = map[string]any{
 	// "MlflowService_listArtifacts",
 	// "MlflowService_getMetricHistory",
 	// "MlflowService_getMetricHistoryBulkInterval",
-	// "MlflowService_logBatch",
+	"MlflowService_logBatch": nil,
 	// "MlflowService_logModel",
 	// "MlflowService_logInputs",
 	// "MlflowService_startTrace",

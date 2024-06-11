@@ -1,11 +1,15 @@
 package server_test
 
 import (
+	"errors"
 	"testing"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/require"
 
+	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/server"
+	"github.com/mlflow/mlflow/mlflow/go/pkg/utils"
 )
 
 type PositiveInteger struct {
@@ -112,4 +116,76 @@ func TestUriWithoutFragmentsOrParams(t *testing.T) {
 	}
 
 	runscenarios(t, scenarios)
+}
+
+func TestUniqueParamsInLogBatch(t *testing.T) {
+	t.Parallel()
+
+	logBatchRequest := &protos.LogBatch{
+		Params: []*protos.Param{
+			{Key: utils.PtrTo("key1"), Value: utils.PtrTo("value1")},
+			{Key: utils.PtrTo("key1"), Value: utils.PtrTo("value2")},
+		},
+	}
+
+	validator, err := server.NewValidator()
+	require.NoError(t, err)
+
+	err = validator.Struct(logBatchRequest)
+	if err == nil {
+		t.Error("Expected uniqueParams validation error, got none")
+	}
+}
+
+func TestEmptyParamsInLogBatch(t *testing.T) {
+	t.Parallel()
+
+	logBatchRequest := &protos.LogBatch{
+		RunId:  utils.PtrTo("odcppTsGTMkHeDcqfZOYDMZSf"),
+		Params: make([]*protos.Param, 0),
+	}
+
+	validator, err := server.NewValidator()
+	require.NoError(t, err)
+
+	err = validator.Struct(logBatchRequest)
+	if err != nil {
+		t.Errorf("Unexpected uniqueParams validation error, got %v", err)
+	}
+}
+
+func TestMissingTimestampInNestedMetric(t *testing.T) {
+	t.Parallel()
+
+	serverValidator, err := server.NewValidator()
+	require.NoError(t, err)
+
+	logBatch := protos.LogBatch{
+		RunId: utils.PtrTo("odcppTsGTMkHeDcqfZOYDMZSf"),
+		Metrics: []*protos.Metric{
+			{
+				Key:   utils.PtrTo("mae"),
+				Value: utils.PtrTo(2.5),
+			},
+		},
+	}
+
+	err = serverValidator.Struct(&logBatch)
+	if err == nil {
+		t.Error("Expected dip validation error, got none")
+	}
+
+	var validationErrors validator.ValidationErrors
+	if errors.As(err, &validationErrors) {
+		if len(validationErrors) != 1 {
+			t.Errorf("Expected 1 validation error, got %v", len(validationErrors))
+		}
+
+		validationError := validationErrors[0]
+		if validationError.Tag() != "dip" {
+			t.Errorf("Expected dip validation error, got %v", validationError.Tag())
+		}
+	} else {
+		t.Error("Expected validation error, got none")
+	}
 }

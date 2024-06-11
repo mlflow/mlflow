@@ -1,4 +1,3 @@
-//nolint:exhaustruct
 package main
 
 import (
@@ -128,7 +127,11 @@ func saveASTToFile(fset *token.FileSet, file *ast.File, addComment bool, outputP
 	// Write the generated code to the file
 	err = format.Node(writer, fset, file)
 
-	return fmt.Errorf("could not write generated AST to file: %w", err)
+	if err != nil {
+		return fmt.Errorf("could not write generated AST to file: %w", err)
+	}
+
+	return nil
 }
 
 // fun(arg1, arg2, ...)
@@ -424,7 +427,11 @@ func addQueryAnnotations(pkgFolder string) error {
 		return err
 	})
 
-	return fmt.Errorf("could not add query annotation: %w", err)
+	if err != nil {
+		return fmt.Errorf("could not add query annotation: %w", err)
+	}
+
+	return nil
 }
 
 const ExpectedNumberOfArguments = 2

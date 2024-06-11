@@ -36,6 +36,7 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
         id: setup-python
+      - uses: ./.github/actions/setup-go
       - name: Add problem matchers
         run: |
           echo "::add-matcher::.github/workflows/matchers/clint.json"

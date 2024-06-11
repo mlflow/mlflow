@@ -20,8 +20,7 @@ import (
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
 )
 
-//nolint:exhaustruct
-func configureApp(cfg *config.Config) (*fiber.App, error) {
+func configureApp(loggerInstance *logrus.Logger, cfg *config.Config) (*fiber.App, error) {
 	//nolint:mnd
 	app := fiber.New(fiber.Config{
 		BodyLimit:             16 * 1024 * 1024,
@@ -37,10 +36,10 @@ func configureApp(cfg *config.Config) (*fiber.App, error) {
 	app.Use(recover.New(recover.Config{EnableStackTrace: true}))
 	app.Use(logger.New(logger.Config{
 		Format: "${status} - ${latency} ${method} ${path}\n",
-		Output: logrus.StandardLogger().Writer(),
+		Output: loggerInstance.Writer(),
 	}))
 
-	apiApp, err := newAPIApp(cfg)
+	apiApp, err := newAPIApp(loggerInstance, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -65,9 +64,8 @@ func configureApp(cfg *config.Config) (*fiber.App, error) {
 	return app, nil
 }
 
-//nolint:exhaustruct
-func launchServer(ctx context.Context, cfg *config.Config) error {
-	app, err := configureApp(cfg)
+func launchServer(ctx context.Context, logger *logrus.Logger, cfg *config.Config) error {
+	app, err := configureApp(logger, cfg)
 	if err != nil {
 		return err
 	}
@@ -107,7 +105,6 @@ func launchServer(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-//nolint:exhaustruct
 func newFiberConfig() fiber.Config {
 	return fiber.Config{
 		ErrorHandler: func(context *fiber.Ctx, err error) error {
@@ -150,7 +147,7 @@ func newFiberConfig() fiber.Config {
 	}
 }
 
-func newAPIApp(cfg *config.Config) (*fiber.App, error) {
+func newAPIApp(logger *logrus.Logger, cfg *config.Config) (*fiber.App, error) {
 	app := fiber.New(newFiberConfig())
 
 	parser, err := NewHTTPRequestParser()
@@ -158,7 +155,7 @@ func newAPIApp(cfg *config.Config) (*fiber.App, error) {
 		return nil, err
 	}
 
-	mlflowService, err := NewMlflowService(cfg)
+	mlflowService, err := NewMlflowService(logger, cfg)
 	if err != nil {
 		return nil, err
 	}

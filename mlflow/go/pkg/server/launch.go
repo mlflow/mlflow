@@ -5,18 +5,20 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/mlflow/mlflow/mlflow/go/pkg/config"
 )
 
-func Launch(ctx context.Context, cfg *config.Config) error {
+func Launch(ctx context.Context, logger *logrus.Logger, cfg *config.Config) error {
 	if len(cfg.PythonCommand) > 0 {
-		return launchCommandAndServer(ctx, cfg)
+		return launchCommandAndServer(ctx, logger, cfg)
 	}
 
-	return launchServer(ctx, cfg)
+	return launchServer(ctx, logger, cfg)
 }
 
-func launchCommandAndServer(ctx context.Context, cfg *config.Config) error {
+func launchCommandAndServer(ctx context.Context, logger *logrus.Logger, cfg *config.Config) error {
 	var errs []error
 
 	var waitGroup sync.WaitGroup
@@ -41,7 +43,7 @@ func launchCommandAndServer(ctx context.Context, cfg *config.Config) error {
 	go func() {
 		defer waitGroup.Done()
 
-		if err := launchServer(srvCtx, cfg); err != nil && srvCtx.Err() == nil {
+		if err := launchServer(srvCtx, logger, cfg); err != nil && srvCtx.Err() == nil {
 			errs = append(errs, err)
 		}
 

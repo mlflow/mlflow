@@ -12,7 +12,8 @@
       "version": "1.22",
       "golangciLintVersion": "1.59.0"
     },
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/dhoeric/features/k6:1": {}
   },
   "customizations": {
     "vscode": {
