@@ -766,7 +766,9 @@ be as follows:
 
 .. code-block:: python
 
-    traces = mlflow.search_traces(experiment_ids=[experiment.experiment_id])  # This returns a Pandas DataFrame
+    traces = mlflow.search_traces(
+        experiment_ids=[experiment.experiment_id]
+    )  # This returns a Pandas DataFrame
     traces["trace"][0].data.spans[0].to_dict()
 
 The stdout values that will be rendered from this call are identical to those from the example span data above. 
