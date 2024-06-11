@@ -1,6 +1,6 @@
 import hashlib
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.evaluation import Evaluation as EvaluationEntity
@@ -22,7 +22,7 @@ class Evaluation(_MlflowObject):
         request_id: Optional[str] = None,
         targets: Optional[Dict[str, Any]] = None,
         assessments: Optional[List[Assessment]] = None,
-        metrics: Optional[List[Metric]] = None,
+        metrics: Optional[Union[Dict[str, float], List[Metric]]] = None,
     ):
         """
         Construct a new Evaluation instance.
@@ -37,6 +37,12 @@ class Evaluation(_MlflowObject):
             metrics: Objective numerical metrics for the row, e.g., "number of input tokens",
                 "number of output tokens".
         """
+        if isinstance(metrics, dict):
+            metrics = [
+                Metric(key=key, value=value, timestamp=0, step=0)
+                for key, value in metrics.items()
+            ]
+
         self._inputs_id = inputs_id or _generate_inputs_id(inputs)
         self._inputs = inputs
         self._outputs = outputs
@@ -106,6 +112,28 @@ class Evaluation(_MlflowObject):
             else None,
             metrics=self.metrics,
         )
+
+    def to_dictionary(self) -> Dict[str, Any]:
+        """
+        Convert the Evaluation object to a dictionary.
+
+        Returns:
+            dict: The Evaluation object represented as a dictionary.
+        """
+        evaluation_dict = {
+            "inputs_id": self.inputs_id,
+            "inputs": self.inputs,
+            "outputs": self.outputs,
+        }
+        if self.request_id:
+            evaluation_dict["request_id"] = self.request_id
+        if self.targets:
+            evaluation_dict["targets"] = self.targets
+        if self.assessments:
+            evaluation_dict["assessments"] = [assess.to_dictionary() for assess in self.assessments]
+        if self.metrics:
+            evaluation_dict["metrics"] = [metric.to_dictionary() for metric in self.metrics]
+        return evaluation_dict
 
 
 def _generate_inputs_id(inputs: Dict[str, Any]) -> str:
