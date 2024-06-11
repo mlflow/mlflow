@@ -3840,29 +3840,51 @@ def test_persist_pretrained_model(mock_tmpdir, small_seq2seq_pipeline):
     mock_tmpdir.assert_not_called()
 
 
-def test_small_qa_pipeline_copy_metadata(small_qa_pipeline, tmp_path):
+@pytest.mark.parametrize("is_in_databricks", [True, False])
+def test_small_qa_pipeline_copy_metadata_in_databricks(
+    is_in_databricks, small_qa_pipeline, tmp_path
+):
     artifact_path = "transformers"
 
     with mlflow.start_run():
-        model_info = mlflow.transformers.log_model(
-            transformers_model=small_qa_pipeline,
-            artifact_path=artifact_path,
-        )
+        with mock.patch(
+            "mlflow.models.model.is_in_databricks_runtime", return_value=is_in_databricks
+        ):
+            model_info = mlflow.transformers.log_model(
+                transformers_model=small_qa_pipeline,
+                artifact_path=artifact_path,
+            )
         artifact_path = mlflow.artifacts.download_artifacts(
             artifact_uri=model_info.model_uri, dst_path=tmp_path.as_posix()
         )
-        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == set(METADATA_FILES)
+
+        # Metadata should be copied only in Databricks
+        metadata_path = os.path.join(artifact_path, "metadata")
+        if is_in_databricks:
+            assert set(os.listdir(metadata_path)) == set(METADATA_FILES)
+        else:
+            assert not os.path.exists(metadata_path)
 
 
-def test_peft_pipeline_copy_metadata(peft_pipeline, tmp_path):
+@pytest.mark.parametrize("is_in_databricks", [True, False])
+def test_peft_pipeline_copy_metadata_in_databricks(is_in_databricks, peft_pipeline, tmp_path):
     artifact_path = "transformers"
 
     with mlflow.start_run():
-        model_info = mlflow.transformers.log_model(
-            transformers_model=peft_pipeline,
-            artifact_path=artifact_path,
-        )
+        with mock.patch(
+            "mlflow.models.model.is_in_databricks_runtime", return_value=is_in_databricks
+        ):
+            model_info = mlflow.transformers.log_model(
+                transformers_model=peft_pipeline,
+                artifact_path=artifact_path,
+            )
         artifact_path = mlflow.artifacts.download_artifacts(
             artifact_uri=model_info.model_uri, dst_path=tmp_path.as_posix()
         )
-        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == set(METADATA_FILES)
+
+        # Metadata should be copied only in Databricks
+        metadata_path = os.path.join(artifact_path, "metadata")
+        if is_in_databricks:
+            assert set(os.listdir(metadata_path)) == set(METADATA_FILES)
+        else:
+            assert not os.path.exists(metadata_path)
