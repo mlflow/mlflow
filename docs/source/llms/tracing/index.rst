@@ -721,12 +721,14 @@ a trace from a previous session, you must use the ``search_traces`` client API (
 
 
 .. code-block:: python
+    from pprint import pprint
 
     trace = mlflow.get_trace(span.request_id)
-    trace_data_spans = trace.data.spans
-    trace_data.to_dict()
+    trace_data = trace.data
+    pprint(trace_data.to_dict(), indent=1)  # Minimum indent due to depth of Span object
 
-In an interactive environment, such as a Jupyter Notebook, ``stdout`` will render an output like this:
+In an interactive environment, such as a Jupyter Notebook, the ``stdout`` return will render an output like this:
+
 
 .. code-block:: text
 
@@ -747,16 +749,17 @@ In an interactive environment, such as a Jupyter Notebook, ``stdout`` will rende
             'attributes': {'exception.type': 'Exception',
             'exception.message': 'Intentionally throwing!',
             'exception.stacktrace': 'Traceback (most recent call last):\n  
-                                     File "/Users/benjamin.wilson/miniconda3/envs/mlflow-dev-env/lib/python3.8/site-packages/opentelemetry/trace/__init__.py", 
+                                     File "/usr/local/lib/python3.8/site-packages/opentelemetry/trace/__init__.py", 
                                      line 573, in use_span\n    
-                                        yield span\n  File "/Users/benjamin.wilson/repos/mlflow-fork/mlflow/mlflow/tracing/fluent.py", 
+                                        yield span\n  File "/usr/local/mlflow/mlflow/tracing/fluent.py", 
                                      line 241, in start_span\n    
                                         yield mlflow_span\n  File "/var/folders/cd/n8n0rm2x53l_s0xv_j_xklb00000gp/T/ipykernel_9875/4089093747.py", 
                                      line 4, in <cell line: 1>\n    
                                         raise Exception("Intentionally throwing!")\nException: Intentionally throwing!\n',
             'exception.escaped': 'False'}}]}],
-        'request': '{"input": "Exception should log as event"}',
-        'response': None}
+     'request': '{"input": "Exception should log as event"}',
+     'response': None
+    }
 
 The ``exception.stacktrace`` attribute contains the full stack trace of the Exception that was raised during the span's execution.
 
@@ -766,9 +769,13 @@ be as follows:
 
 .. code-block:: python
 
-    traces = mlflow.search_traces(
+    import mlflow
+
+    client = mlflow.MlflowClient()
+
+    traces = client.search_traces(
         experiment_ids=[experiment.experiment_id]
-    )  # This returns a Pandas DataFrame
-    traces["trace"][0].data.spans[0].to_dict()
+    )  # This returns a pandas DataFrame
+    pprint(traces["trace"][0].data.spans[0].to_dict(), indent=1)
 
 The stdout values that will be rendered from this call are identical to those from the example span data above. 
