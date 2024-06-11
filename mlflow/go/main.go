@@ -15,18 +15,21 @@ import (
 
 func main() {
 	var config config.Config
+
+	loggerInstance := logrus.StandardLogger()
+
 	if err := json.Unmarshal([]byte(os.Getenv("MLFLOW_GO_CONFIG")), &config); err != nil {
-		logrus.Fatal(err)
+		loggerInstance.Fatal(err)
 	}
 
 	logLevel, err := logrus.ParseLevel(config.LogLevel)
 	if err != nil {
-		logrus.Fatal(err)
+		loggerInstance.Fatal(err)
 	}
 
-	logrus.SetLevel(logLevel)
-	logrus.Warn("The experimental Go server is not yet fully supported and may not work as expected")
-	logrus.Debugf("Loaded config: %#v", config)
+	loggerInstance.SetLevel(logLevel)
+	loggerInstance.Warn("The experimental Go server is not yet fully supported and may not work as expected")
+	loggerInstance.Debugf("Loaded config: %#v", config)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	sigint := make(chan os.Signal, 1)
@@ -34,13 +37,13 @@ func main() {
 
 	go func() {
 		<-sigint
-		logrus.Info("Shutting down MLflow experimental Go server")
+		loggerInstance.Info("Shutting down MLflow experimental Go server")
 		cancel()
 	}()
 
-	logrus.Infof("Starting MLflow experimental Go server on http://%s", config.Address)
+	loggerInstance.Infof("Starting MLflow experimental Go server on http://%s", config.Address)
 
-	if err := server.Launch(ctx, &config); err != nil {
-		logrus.Fatal(err)
+	if err := server.Launch(ctx, loggerInstance, &config); err != nil {
+		loggerInstance.Fatal(err)
 	}
 }
