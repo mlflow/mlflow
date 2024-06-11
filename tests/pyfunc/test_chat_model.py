@@ -391,12 +391,17 @@ def test_chat_model_response_cannot_overwrite_object():
     # test initialization without setting the property 'object'
     response = ChatResponse(**mock_response)
     assert response.object == "chat.completion"
-    with pytest.raises(AttributeError, match="object must be 'chat.completion'"):
+    with pytest.raises(ValueError, match="`object` field must be 'chat.completion'"):
         response.object = "other"
 
-    # test to set the property 'object' when initializing ChatResponse
+    # test to set correct value for 'object' when initializing ChatResponse
     mock_response["object"] = "chat.completion"
     response = ChatResponse(**mock_response)
     assert response.object == "chat.completion"
-    with pytest.raises(AttributeError, match="object must be 'chat.completion'"):
+    with pytest.raises(ValueError, match="`object` field must be 'chat.completion'"):
         response.object = "other"
+
+    # test to set incorrect value for 'object' when initializing ChatResponse
+    mock_response["object"] = "invalid.value"
+    with pytest.raises(ValueError, match="`object` field must be 'chat.completion'"):
+        response = ChatResponse(**mock_response)

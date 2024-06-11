@@ -308,7 +308,7 @@ class ChatResponse(_BaseDataclass):
     def __setattr__(self, name, value):
         # A hack to ensure users cannot overwrite 'object' field
         if name == "object" and value != "chat.completion":
-            raise AttributeError("object must be 'chat.completion'")
+            raise ValueError("`object` field must be 'chat.completion'")
         return super().__setattr__(name, value)
 
 
