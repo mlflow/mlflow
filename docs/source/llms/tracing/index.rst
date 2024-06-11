@@ -690,3 +690,83 @@ Client API
         request_id=parent_span.request_id,
         attributes={"attribute3": "value3", "attribute4": "value4"},
     )
+
+Q: How can I see the stack trace of a Span that captured an Exception?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The MLflow UI does not display Exception types, messages, or stacktraces if faults occur while logging a trace. 
+However, the trace does contain this critical debugging information as part of the Span objects that comprise the Trace. 
+
+The simplest way to retrieve a particular stack trace information from a span that endured an exception is to retrieve the trace directly in 
+an interactive environment (such as a Jupyter Notebook). 
+
+Here is an example of intentionally throwing an Exception while a trace is being collected and a simple way to view the exception details:
+
+.. code-block:: python
+
+    import mlflow
+
+    experiment = mlflow.set_experiment("Intentional Exception")
+
+    with mlflow.start_span(name="A Problematic Span") as span:
+        span.set_inputs({"input": "Exception should log as event"})
+        span.set_attribute("a", "b")
+        raise Exception("Intentionally throwing!")
+        span.set_outputs({"This": "should not be recorded"})
+
+When running this, an Exception will be thrown, as expected. However, a trace is still logged to the active experiment and can be retrieved as follows:
+
+Note that the ``get_trace`` API is **only available** for retrieving traces from the current active session. If you are attempting to retrieve 
+a trace from a previous session, you must use the ``search_traces`` client API (shown below).
+
+
+.. code-block:: python
+
+    trace = mlflow.get_trace(span.request_id)
+    trace_data_spans = trace.data.spans
+    trace_data.to_dict()
+
+In an interactive environment, such as a Jupyter Notebook, ``stdout`` will render an output like this:
+
+.. code-block:: text
+
+    {'spans': [{'name': 'A Span',
+        'context': {'span_id': '0x896ff177c0942903',
+            'trace_id': '0xcae9cb08ec0a273f4c0aab36c484fe87'},
+        'parent_id': None,
+        'start_time': 1718063629190062000,
+        'end_time': 1718063629190595000,
+        'status_code': 'ERROR',
+        'status_message': 'Exception: Intentionally throwing!',
+        'attributes': {'mlflow.traceRequestId': '"7d418211df5945fa94e5e39b8009039e"',
+            'mlflow.spanType': '"UNKNOWN"',
+            'mlflow.spanInputs': '{"input": "Exception should log as event"}',
+            'a': '"b"'},
+        'events': [{'name': 'exception',
+            'timestamp': 1718063629190527000,
+            'attributes': {'exception.type': 'Exception',
+            'exception.message': 'Intentionally throwing!',
+            'exception.stacktrace': 'Traceback (most recent call last):\n  
+                                     File "/Users/benjamin.wilson/miniconda3/envs/mlflow-dev-env/lib/python3.8/site-packages/opentelemetry/trace/__init__.py", 
+                                     line 573, in use_span\n    
+                                        yield span\n  File "/Users/benjamin.wilson/repos/mlflow-fork/mlflow/mlflow/tracing/fluent.py", 
+                                     line 241, in start_span\n    
+                                        yield mlflow_span\n  File "/var/folders/cd/n8n0rm2x53l_s0xv_j_xklb00000gp/T/ipykernel_9875/4089093747.py", 
+                                     line 4, in <cell line: 1>\n    
+                                        raise Exception("Intentionally throwing!")\nException: Intentionally throwing!\n',
+            'exception.escaped': 'False'}}]}],
+        'request': '{"input": "Exception should log as event"}',
+        'response': None}
+
+The ``exception.stacktrace`` attribute contains the full stack trace of the Exception that was raised during the span's execution.
+
+Alternatively, if you were to use the MLflowClient API to search traces, the access to retrieve the span's event data from the failure would be 
+slightly different (due to the return value being a ``Pandas`` DataFrame). To use the ``search_traces`` API to access the same exception data would 
+be as follows:
+
+.. code-block:: python
+
+    traces = mlflow.search_traces(experiment_ids=[experiment.experiment_id])  # This returns a Pandas DataFrame
+    traces["trace"][0].data.spans[0].to_dict()
+
+The stdout values that will be rendered from this call are identical to those from the example span data above. 
