@@ -464,9 +464,16 @@ filter strings, and other parameters.
 
     # Search for traces in specific experiments
     traces = client.search_traces(
+        experiment_ids=["1", "2"], filter_string="attributes.status = 'OK'", max_results=5
+    )
+
+Alternatively, you can use `fluent API <./index.html#tracing-fluent-apis>`_ to search for traces. This method allows you to specify fields to extract from traces using the format :py:meth:`"span_name.[inputs|outputs].field_name"`` or :py:meth:`"span_name.[inputs|outputs]"`.
+
+.. code-block:: python
+
+    # Search for traces in specific experiments
+    traces = mlflow.search_traces(
         experiment_ids=["1", "2"],
-        filter_string="attributes.status = 'OK'",
-        max_results=5,
         extract_fields=["span1.inputs", "span1.outputs.c"],
     )
 
