@@ -761,7 +761,7 @@ In an interactive environment, such as a Jupyter Notebook, ``stdout`` will rende
 The ``exception.stacktrace`` attribute contains the full stack trace of the Exception that was raised during the span's execution.
 
 Alternatively, if you were to use the MLflowClient API to search traces, the access to retrieve the span's event data from the failure would be 
-slightly different (due to the return value being a ``Pandas`` DataFrame). To use the ``search_traces`` API to access the same exception data would 
+slightly different (due to the return value being a ``pandas`` DataFrame). To use the ``search_traces`` API to access the same exception data would 
 be as follows:
 
 .. code-block:: python
