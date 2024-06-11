@@ -464,7 +464,10 @@ filter strings, and other parameters.
 
     # Search for traces in specific experiments
     traces = client.search_traces(
-        experiment_ids=["1", "2"], filter_string="attributes.status = 'OK'", max_results=5
+        experiment_ids=["1", "2"],
+        filter_string="attributes.status = 'OK'",
+        max_results=5,
+        extract_fields=["span1.inputs", "span1.outputs.c"],
     )
 
 Retrieving a Specific Trace
