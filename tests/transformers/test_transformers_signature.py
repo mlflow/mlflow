@@ -139,7 +139,7 @@ from mlflow.types.schema import ColSpec, DataType, Schema
 )
 def test_signature_inference(pipeline_name, example, expected_signature, request):
     if pipeline_name == "conversational_pipeline" and _try_import_conversational_pipeline() is None:
-        return
+        pytest.skip("Conversation model is deprecated and removed.")
     pipeline = request.getfixturevalue(pipeline_name)
 
     default_signature = infer_or_get_default_signature(pipeline)

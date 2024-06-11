@@ -1784,9 +1784,7 @@ class _TransformersWrapper:
         data = self._convert_cast_lists_from_np_back_to_list(data)
 
         # Generate inference data with the pipeline object
-        if (conversational_pipeline := _try_import_conversational_pipeline()) and isinstance(
-            self.pipeline, conversational_pipeline
-        ):
+        if (cp := _try_import_conversational_pipeline()) and isinstance(self.pipeline, cp):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
         else:
