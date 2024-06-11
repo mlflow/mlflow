@@ -23,11 +23,6 @@ from mlflow.utils.async_logging.run_operations import RunOperations
 _logger = logging.getLogger(__name__)
 
 
-class AutoJoinThread(threading.Thread):
-    def __del__(self):
-        self.join()
-
-
 class AsyncLoggingQueue:
     """
     This is a queue based run data processor that queues incoming batches and processes them using
@@ -55,7 +50,6 @@ class AsyncLoggingQueue:
         Stops the data processing thread and waits for the queue to be drained. Finally, shuts down
         the thread pools used for data logging and batch processing status check.
         """
-        print("GEEZ CALLING AT EXIT CALLBACK!")
         try:
             # Stop the data processing thread
             self._stop_data_logging_thread_event.set()
@@ -95,7 +89,6 @@ class AsyncLoggingQueue:
         try:
             while not self._stop_data_logging_thread_event.is_set():
                 self._log_run_data()
-            print("GEEZ STARTING TO DRAIN QUEUE!")
             # Drain the queue after the stop event is set.
             while not self._queue.empty():
                 self._log_run_data()
@@ -113,17 +106,20 @@ class AsyncLoggingQueue:
         batches = []
         if self._queue.empty():
             return batches
-        queue_size = self._queue.qsize()
+        queue_size = self._queue.qsize()  # Estimate the queue's size.
         merged_batch = self._queue.get()
         for i in range(queue_size - 1):
             if self._queue.empty():
+                # `queue_size` is an estimate, so we need to check if the queue is empty.
                 break
             batch = self._queue.get()
             if (
-                len(merged_batch.metrics) + len(batch.metrics) >= 1000
+                merged_batch.run_id != batch.run_id
+                or len(merged_batch.metrics) + len(batch.metrics) >= 1000
                 or len(merged_batch.params) + len(batch.params) >= 100
                 or len(merged_batch.tags) + len(batch.tags) >= 100
             ):
+                # Make a new batch if the run_id is different or the batch is full.
                 batches.append(merged_batch)
                 merged_batch = batch
             else:
@@ -182,9 +178,7 @@ class AsyncLoggingQueue:
                     # Signal the child batch processing is done.
                     child_batch.completion_event.set()
 
-        print("GEEZ NUMBER OF RUN BATCHES: ", len(run_batches))
         for run_batch in run_batches:
-            print("GEEZ METRICS NUMBER: ", len(run_batch.metrics))
             self._batch_logging_worker_threadpool.submit(logging_func, run_batch)
 
     def _wait_for_batch(self, batch: RunBatch) -> None:

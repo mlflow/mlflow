@@ -41,11 +41,10 @@ class RunBatch:
     def exception(self, exception):
         self._exception = exception
 
-    def is_full(self):
-        return len(self.tags) >= 100 or len(self.params) >= 100 or len(self.metrics) >= 1000
-
     def add_child_batch(self, child_batch):
-        self.child_batches.append(child_batch)
+        """Add a child batch to the current batch.
 
-    def __str__(self):
-        return f"RunBatch(run_id={self.run_id}, metrics={self.metrics})"
+        This is useful when merging child batches into a parent batch. Child batches are kept so
+        that we can properly notify the system when child batches have been processed.
+        """
+        self.child_batches.append(child_batch)
