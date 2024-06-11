@@ -716,10 +716,6 @@ Here is an example of intentionally throwing an Exception while a trace is being
 
 When running this, an Exception will be thrown, as expected. However, a trace is still logged to the active experiment and can be retrieved as follows:
 
-Note that the ``get_trace`` API is **only available** for retrieving traces from the current active session. If you are attempting to retrieve 
-a trace from a previous session, you must use the ``search_traces`` client API (shown below).
-
-
 .. code-block:: python
     from pprint import pprint
 
