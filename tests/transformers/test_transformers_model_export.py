@@ -39,6 +39,7 @@ from mlflow.transformers import (
     _is_model_distributed_in_memory,
     _should_add_pyfunc_to_model,
     _TransformersWrapper,
+    _try_import_conversational_pipeline,
     _validate_llm_inference_task_type,
     _write_card_data,
     _write_license_information,
@@ -862,7 +863,7 @@ def test_huggingface_hub_not_installed(small_seq2seq_pipeline, model_path):
 
 
 @pytest.mark.skipif(
-    Version(transformers.__version__) > Version("4.41.2"),
+    _try_import_conversational_pipeline() is None,
     reason="Conversation model is deprecated and removed.",
 )
 def test_save_pipeline_without_defined_components(small_conversational_model, model_path):
@@ -1615,7 +1616,7 @@ def test_ner_pipeline(pipeline_name, model_path, data, result, request):
 
 
 @pytest.mark.skipif(
-    Version(transformers.__version__) > Version("4.41.2"),
+    _try_import_conversational_pipeline() is None,
     reason="Conversation model is deprecated and removed.",
 )
 def test_conversational_pipeline(conversational_pipeline, model_path):

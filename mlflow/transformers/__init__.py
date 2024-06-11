@@ -1494,12 +1494,16 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
 
 
 def _try_import_conversational_pipeline():
-    import transformers
+    """
+    Try importing ConversationalPipeline because for version > 4.41.2
+    it is removed from the transformers package.
+    """
+    try:
+        from transformers import ConversationalPipeline
 
-    if Version(transformers.__version__) > Version("4.41.2"):
+        return ConversationalPipeline
+    except ImportError:
         return
-
-    return transformers.ConversationalPipeline
 
 
 @experimental
