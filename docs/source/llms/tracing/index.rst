@@ -343,7 +343,7 @@ capture its inputs, outputs, and execution context.
             # Wrap another external function
             traced_factorial = mlflow.trace(math.factorial)
 
-            factorial = traced_factorial(raised)
+            factorial = traced_factorial(int(raised))
 
             # Wrap another and call it directly
             response = mlflow.trace(math.sqrt)(factorial)
