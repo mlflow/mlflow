@@ -1,8 +1,6 @@
 import inspect
 import logging
 import sys
-import time
-from functools import wraps
 
 import transformers
 from packaging.version import Version
@@ -10,39 +8,12 @@ from packaging.version import Version
 from mlflow.transformers import _PEFT_PIPELINE_ERROR_MSG, _try_import_conversational_pipeline
 from mlflow.utils.logging_utils import suppress_logs
 
+from tests.helper_functions import flaky
+
 _logger = logging.getLogger(__name__)
 
 transformers_version = Version(transformers.__version__)
 IS_NEW_FEATURE_EXTRACTION_API = transformers_version >= Version("4.27.0")
-
-
-def flaky(max_tries=3):
-    """
-    Annotation decorator for retrying flaky functions up to max_tries times, and raise the Exception
-    if it fails after max_tries attempts.
-
-    Args:
-        max_tries: Maximum number of times to retry the function.
-
-    Returns:
-        Decorated function.
-    """
-
-    def flaky_test_func(test_func):
-        @wraps(test_func)
-        def decorated_func(*args, **kwargs):
-            for i in range(max_tries):
-                try:
-                    return test_func(*args, **kwargs)
-                except Exception as e:
-                    _logger.warning(f"Attempt {i+1} failed with error: {e}")
-                    if i == max_tries - 1:
-                        raise
-                    time.sleep(3)
-
-        return decorated_func
-
-    return flaky_test_func
 
 
 def prefetch(func):
