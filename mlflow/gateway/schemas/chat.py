@@ -43,9 +43,21 @@ class RequestPayload(BaseRequestPayload):
             schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
 
 
+class Function(ResponseModel):
+    name: str
+    arguments: str
+
+
+class ToolCall(ResponseModel):
+    id: str
+    type: Literal["function"]
+    function: Function
+
+
 class ResponseMessage(ResponseModel):
     role: str
-    content: str
+    content: Optional[str]
+    tool_calls: Optional[List[ToolCall]] = None
 
 
 class Choice(ResponseModel):
