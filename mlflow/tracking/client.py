@@ -2346,9 +2346,9 @@ class MlflowClient:
             sanitized_key = re.sub(r"/", "#", key)
             filename_uuid = uuid.uuid4()
             uncompressed_filename = (
-                f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
+                f"images/{sanitized_key}+step+{step}+timestamp+{timestamp}+{filename_uuid}"
             )
-            compressed_filename = f"{uncompressed_filename}%compressed"
+            compressed_filename = f"{uncompressed_filename}+compressed"
 
             # Save full-resolution image
             image_filepath = f"{uncompressed_filename}.png"
