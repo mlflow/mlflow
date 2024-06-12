@@ -884,6 +884,10 @@ class TrackingServiceClient:
         """
         end_time = end_time if end_time else get_current_time_millis()
         status = status if status else RunStatus.to_string(RunStatus.FINISHED)
+        # Tell the store to stop async logging: stop accepting new data and log already enqueued
+        # data in the background. This call is making sure every async logging data has been
+        # submitted for logging, but not necessarily finished logging.
+        self.store.end_async_logging()
         self.store.update_run_info(
             run_id,
             run_status=RunStatus.from_string(status),
