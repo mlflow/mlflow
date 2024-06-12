@@ -56,15 +56,15 @@ MLflow LangChain autologging can log various information about the model and its
     * - Model Artifacts
       - ``false``
       - ``log_models``
-      - If set to ``True``, the LangChain model will be logged when it is invoked. Supported models are `Chain`, `AgentExecutor`, `BaseRetriever`, `RunnableSequence`, `RunnableParallel`, `RunnableBranch`, `SimpleChatModel`, and `ChatPromptTemplate` (Additional model types will be supported in the future.)
+      - If set to ``True``, the LangChain model will be logged when it is invoked. Supported models are `Chain`, `AgentExecutor`, `BaseRetriever`, `SimpleChatModel`, `ChatPromptTemplate`, and subset of `Runnable` types. Please refer to the `MLflow repository <https://github.com/mlflow/mlflow/blob/d2955cc90b6c5d7c931a8476b85f66e63990ca96/mlflow/langchain/utils.py#L183>`_ for the full list of supported models.
     * - Model Signatures
       - ``false``
       - ``log_model_signatures``
-      - If set to ``True``, :py:class:`ModelSignatures <mlflow.models.ModelSignature>` describing model inputs and outputs are collected and logged along with Langchain model artifacts during inference.
+      - If set to ``True``, :py:class:`ModelSignatures <mlflow.models.ModelSignature>` describing model inputs and outputs are collected and logged along with Langchain model artifacts during inference. This option is only available when ``log_models`` is enabled.
     * - Input Example
       - ``false``
       - ``log_input_examples``
-      - If set to ``True``, input examples from inference data are collected and logged along with LangChain model artifacts during inference.
+      - If set to ``True``, input examples from inference data are collected and logged along with LangChain model artifacts during inference. This option is only available when ``log_models`` is enabled.
     * - Inputs and Outputs (**Deprecated**)
       - ``false``
       - ``log_inputs_outputs``
@@ -83,10 +83,7 @@ For example, to disable logging of traces, and instead enable model logging, run
 
 .. note::
 
-    When you enable any optional logging other than tracing, MLflow creates an MLflow Run in the active experiment and logs artifacts there. Each inference call logs those artifacts into a separate directory named `artifacts-<session_id>-<idx>`, where `session_id` is a randomly generated uuid, and `idx` is the index of the inference call.
-
-.. note::
-    MLflow does not support automatic model logging for chains that contain retrievers. Saving retrievers requires additional ``loader_fn`` and ``persist_dir`` information for loading the model. If you want to log the model with retrievers, please log the model manually.
+    MLflow does not support automatic model logging for chains that contain retrievers. Saving retrievers requires additional ``loader_fn`` and ``persist_dir`` information for loading the model. If you want to log the model with retrievers, please log the model manually as shown in the `retriever_chain <https://github.com/mlflow/mlflow/blob/master/examples/langchain/retriever_chain.py>`_ example.
 
 
 Example Code of LangChain Autologging
@@ -172,7 +169,37 @@ Other artifacts such as models, datasets, are logged by patching the invocation 
 Troubleshooting
 ---------------
 
-If you encounter any issues with LangChain autologging, please refer to `FAQ <../index.html#faq>` first. If you still have questions, please feel free to open an issue in `MLflow Github repo <https://github.com/mlflow/mlflow/issues>`_.
+If you encounter any issues with MLflow LangChain flavor, please also refer to `FAQ <../index.html#faq>`. If you still have questions, please feel free to open an issue in `MLflow Github repo <https://github.com/mlflow/mlflow/issues>`_.
+
+How to suppress the warning messages during autologging?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+MLflow Langchain Autologging calls various logging functions and LangChain utilities under the hood. Some of them may
+generate warning messages that are not critical to the autologging process. If you want to suppress these warning messages, pass ``silent=True`` to the :py:func:`mlflow.langchain.autolog()` function.
+
+.. code-block::
+
+    import mlflow
+
+    mlflow.langchain.autolog(silent=True)
+
+    # No warning messages will be emitted from autologging
+
+
+I can't load the model logged by mlflow langchain autologging
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+There are a few type of models that MLflow LangChain autologging does not support native saving or loading.
+
+- **Model contains langchain retrievers**
+
+    LangChain retrievers are not supported by MLflow autologging. If your model contains a retriever, you will need to manually log the model using the ``mlflow.langchain.log_model`` API.
+    As loading those models requires specifying `loader_fn` and `persist_dir` parameters, please check examples in 
+    `retriever_chain <https://github.com/mlflow/mlflow/blob/master/examples/langchain/retriever_chain.py>`_
+
+- **Can't pickle certain objects**
+
+    For certain models that LangChain does not support native saving or loading, we will pickle the object when saving it. Due to this functionality, your cloudpickle version must be 
+    consistent between the saving and loading environments to ensure that object references resolve properly. For further guarantees of correct object representation, you should ensure that your
+    environment has `pydantic` installed with at least version 2. 
 
 
 Documentation for Old Versions

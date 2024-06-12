@@ -231,20 +231,6 @@ I'm getting an AttributeError when saving my model
     ``pip_requirements`` is entirely valid, we recommend using ``extra_pip_requirements`` as it does not rely on defining all of the core dependent packages that 
     are required to use the langchain model for inference (the other core dependencies will be inferred automatically).
 
-I can't load the model logged by mlflow langchain autologging
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-- **Model contains langchain retrievers**: LangChain retrievers are not supported by MLflow autologging. 
-
-    If your model contains a retriever, you will need to manually log the model using the ``mlflow.langchain.log_model`` API.
-    As loading those models requires specifying `loader_fn` and `persist_dir` parameters, please check examples in 
-    `retriever_chain <https://github.com/mlflow/mlflow/blob/master/examples/langchain/retriever_chain.py>`_
-
-- **Can't pickle certain objects**: Try manually logging the model.
-
-    For certain models that LangChain does not support native saving or loading, we will pickle the object when saving it. Due to this functionality, your cloudpickle version must be 
-    consistent between the saving and loading environments to ensure that object references resolve properly. For further guarantees of correct object representation, you should ensure that your
-    environment has `pydantic` installed with at least version 2. 
 
 How can I use a streaming API with LangChain?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -254,18 +240,3 @@ How can I use a streaming API with LangChain?
     As of the MLflow 2.12.2 release, LangChain models that support streaming responses that have been saved using MLflow 2.12.2 (or higher) can be loaded and used for 
     streamable inference using the ``predict_stream`` API. Ensure that you are consuming the return type correctly, as the return from these models is a ``Generator`` object.
     To learn more, refer to the `predict_stream guide <https://mlflow.org/docs/latest/models.html#how-to-load-and-score-python-function-models>`_.
-
-
-How does MLflow langchain autologging interact with callbacks?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-- **Model inference with default callbacks**:
-
-    If you invoke a langchain model with `invoke`, `__call__`, `batch`, `stream` or `get_relevant_documents` (for BaseRetriever) functions directly, MLflow autologging will inject
-    a callback into the inference call to collect metrics and artifacts that can be generated from the call chain.
-
-- **Model inference with user-specified callbacks**:
-
-    If your inference call already includes callbacks in the config, e.g. `model.invoke(input, config=RunnableConfig(callbacks=customer_callbacks))`, then MLflow autologging
-    still preserves your callbacks and appends a callback after them. `RunnableConfig callbacks parameter <https://api.python.langchain.com/en/latest/runnables/langchain_core.runnables.config.RunnableConfig.html#langchain_core.runnables.config.RunnableConfig>`_ 
-    supports both `BaseCallbackManager` or `List[BaseCallbackHandler]`, in either case MLflow autologging appends a callback to collect metrics and artifacts.
