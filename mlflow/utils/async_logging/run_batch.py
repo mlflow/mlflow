@@ -9,7 +9,7 @@ from mlflow.entities.run_tag import RunTag
 class RunBatch:
     def __init__(
         self,
-        run_id: Optional[str] = None,
+        run_id: Optional[str],
         params: Optional[List["Param"]] = None,
         tags: Optional[List["RunTag"]] = None,
         metrics: Optional[List["Metric"]] = None,
@@ -18,11 +18,11 @@ class RunBatch:
         """Initializes an instance of `RunBatch`.
 
         Args:
-            run_id (Optional[str]): The ID of the run. Default is None.
-            params (Optional[List[Param]]): A list of parameters. Default is None.
-            tags (Optional[List[RunTag]]): A list of tags. Default is None.
-            metrics (Optional[List[Metric]]): A list of metrics. Default is None.
-            completion_event (Optional[threading.Event]): A threading.Event object. Default is None.
+            run_id: The ID of the run.
+            params: A list of parameters. Default is None.
+            tags: A list of tags. Default is None.
+            metrics: A list of metrics. Default is None.
+            completion_event: A threading.Event object. Default is None.
         """
         self.run_id = run_id
         self.params = params or []

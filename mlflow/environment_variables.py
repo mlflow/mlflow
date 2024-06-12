@@ -624,6 +624,6 @@ MLFLOW_HTTP_POOL_MAXSIZE = _EnvironmentVariable("MLFLOW_HTTP_POOL_MAXSIZE", int,
 
 #: Specifies the length of time in seconds for the asynchronous logging thread to wait before
 #: logging a batch.
-MLFLOW_ASYNC_LOGGING_WAITING_TIME = _EnvironmentVariable(
-    "MLFLOW_ASYNC_LOGGING_WAITING_TIME", int, None
+MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS = _EnvironmentVariable(
+    "MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS", int, None
 )

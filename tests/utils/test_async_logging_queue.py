@@ -43,10 +43,8 @@ class RunData:
         self.received_tags.extend(tags or [])
 
 
-def test_single_thread_publish_consume_queue():
-    from mlflow.environment_variables import MLFLOW_ASYNC_LOGGING_WAITING_TIME
-
-    MLFLOW_ASYNC_LOGGING_WAITING_TIME.set("3")
+def test_single_thread_publish_consume_queue(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS", "3")
 
     with patch.object(
         AsyncLoggingQueue, "_batch_logging_worker_threadpool", create=True
@@ -64,23 +62,14 @@ def test_single_thread_publish_consume_queue():
         async_logging_queue.activate()
         async_logging_queue._batch_logging_worker_threadpool = mock_worker_threadpool
         async_logging_queue._batch_status_check_threadpool = mock_check_threadpool
-        metrics_sent = []
-        tags_sent = []
-        params_sent = []
 
         for params, tags, metrics in _get_run_data():
             async_logging_queue.log_batch_async(
                 run_id=run_id, metrics=metrics, tags=tags, params=params
             )
-            metrics_sent += metrics
-            tags_sent += tags
-            params_sent += params
-
         async_logging_queue.flush()
-
+        # 2 batches are sent to the worker thread pool due to grouping, otherwise it would be 5.
         assert mock_worker_threadpool.submit.call_count == 2
-
-    MLFLOW_ASYNC_LOGGING_WAITING_TIME.unset()
 
 
 def test_grouping_batch_in_time_window():

@@ -14,8 +14,8 @@ from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
 from mlflow.environment_variables import (
+    MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS,
     MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE,
-    MLFLOW_ASYNC_LOGGING_WAITING_TIME,
 )
 from mlflow.utils.async_logging.run_batch import RunBatch
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -143,11 +143,10 @@ class AsyncLoggingQueue:
 
         Returns: None
         """
-        async_logging_waiting_time = MLFLOW_ASYNC_LOGGING_WAITING_TIME.get()
-        run_batches = None  # type: RunBatch
+        async_logging_buffer_seconds = MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS.get()
         try:
-            if async_logging_waiting_time:
-                self._stop_data_logging_thread_event.wait(async_logging_waiting_time)
+            if async_logging_buffer_seconds:
+                self._stop_data_logging_thread_event.wait(async_logging_buffer_seconds)
                 run_batches = self._fetch_batch_from_queue()
             else:
                 run_batches = [self._queue.get(timeout=1)]
