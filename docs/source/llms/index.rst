@@ -239,6 +239,15 @@ Harnessing the power of LLMs becomes effortless with flavors designed specifical
   - All essential tools and functionalities consolidated under MLflow.
   - Focus on deriving value from LLMs without getting bogged down by interfacing and optimization intricacies.
 
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    transformers/index
+    openai/index
+    sentence-transformers/index
+    langchain/index
+
 Explore the Native LLM Flavors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -295,14 +304,6 @@ Select the integration below to read the documentation on how to leverage MLflow
         </article>
     </section>
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-
-    transformers/index
-    openai/index
-    sentence-transformers/index
-    langchain/index
 
 `LLM Tracking in MLflow <llm-tracking/index.html>`_
 ---------------------------------------------------

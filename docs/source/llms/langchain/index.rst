@@ -8,10 +8,43 @@ MLflow LangChain Flavor
 Welcome to the developer guide for the integration of `LangChain <https://www.langchain.com/>`_ with MLflow. This guide serves as a comprehensive 
 resource for understanding and leveraging the combined capabilities of LangChain and MLflow in developing advanced language model applications.
 
-What is LangChain?
-------------------
-LangChain is a versatile framework designed for building applications powered by language models. It excels in creating context-aware applications 
+`LangChain <https://www.langchain.com/>`_ is a versatile framework designed for building applications powered by language models. It excels in creating context-aware applications 
 that utilize language models for reasoning and generating responses, enabling the development of sophisticated NLP applications.
+
+
+Why use MLflow with LangChain?
+------------------------------
+Aside from the benefits of using MLflow for managing and deploying machine learning models, the integration of LangChain with MLflow provides a number of
+benefits that are associated with using LangChain within the broader MLflow ecosystem.
+
+Experiment Tracking
+^^^^^^^^^^^^^^^^^^^
+LangChain's flexibility in experimenting with various agents, tools, and retrievers becomes even more powerful when paired with `MLflow Tracking <../../tracking.html>`_. This combination allows for rapid experimentation and iteration. You can effortlessly compare runs, making it easier to refine models and accelerate the journey from development to production deployment.
+
+Dependency Management
+^^^^^^^^^^^^^^^^^^^^^
+Deploy your LangChain application with confidence, leveraging MLflow's ability to `manage and record all external dependencies <../../model/dependencies.html>`_ automatically. This ensures consistency between development and production environments, reducing deployment risks with less manual intervention.
+
+MLflow Evaluate
+^^^^^^^^^^^^^^^
+`MLflow Evaluate <../llm-evaluate/index.html>`_ provides native capabilities within MLflow to evaluate language models. With this feature you can easily utilize automated evaluation algorithms on the results of your LangChain application's inference results. This capability facilitates the efficient assessment of inference results from your LangChain application, ensuring robust performance analytics.
+
+Observability
+^^^^^^^^^^^^^
+`MLflow Tracing <../tracing/index.html>`_ is a new feature of MLflow that allows you to trace how data flows through your LangChain chain/agents/etc. This feature provides a visual representation of the data flow, making it easier to understand the behavior of your LangChain application and identify potential bottlenecks or issues. With its powerful `Automatic Tracing <../tracing/index.html##langchain-automatic-tracing>`_ capability, you can instrument your LangChain application without any code change but just running ``mlflow.langchain.autolog()`` command once.
+
+
+Automatic Logging
+------------------
+
+Autologging is a powerful one stop solution to achieve all the above benefits with just one line of code ``mlflow.langchain.autolog()``. By enabling autologging, you can automatically log all the components of your LangChain application, including chains, agents, and retrievers, with minimal effort. This feature simplifies the process of tracking and managing your LangChain application, allowing you to focus on developing and improving your models. For more information on how to use this feature, refer to the `MLflow LangChain Autologging Documentation <autologging.html>`_.
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    autologging.rst
+
 
 Supported Elements in MLflow LangChain Integration
 --------------------------------------------------
@@ -26,47 +59,41 @@ Supported Elements in MLflow LangChain Integration
    Logging chains/agents that include `ChatOpenAI <https://python.langchain.com/docs/integrations/chat/openai>`_ and `AzureChatOpenAI <https://python.langchain.com/docs/integrations/chat/azure_chat_openai>`_ requires ``MLflow>=2.12.0`` and ``LangChain>=0.0.307``.
 
 
-Why use MLflow with LangChain?
-------------------------------
-Aside from the benefits of using MLflow for managing and deploying machine learning models, the integration of LangChain with MLflow provides a number of 
-benefits that are associated with using LangChain within the broader MLflow ecosystem. 
-
-- **MLflow Evaluate**: With the native capabilities within MLflow to evaluate language models, you can easily utilize automated evaluation algorithms on the results of your LangChain application's inference results. This integration facilitates the efficient assessment of inference results from your LangChain application, ensuring robust performance analytics.
-- **Simplified Experimentation**: LangChain's flexibility in experimenting with various agents, tools, and retrievers becomes even more powerful when paired with MLflow. This combination allows for rapid experimentation and iteration. You can effortlessly compare runs, making it easier to refine models and accelerate the journey from development to production deployment.
-- **Robust Dependency Management**: Deploy your LangChain application with confidence, leveraging MLflow's ability to manage and record all external dependencies. This ensures consistency between development and deployment environments, reducing deployment risks and simplifying the process.
-
-Capabilities of LangChain and MLflow
-------------------------------------
-- **Efficient Development**: Streamline the development of NLP applications with LangChain's modular components and MLflow's robust tracking features.
-- **Flexible Integration**: Leverage the versatility of LangChain within the MLflow ecosystem for a range of NLP tasks, from simple text generation to complex data retrieval and analysis.
-- **Advanced Functionality**: Utilize LangChain's advanced features like context-aware reasoning and dynamic action selection in agents, all within MLflow's scalable platform.
-
 Overview of Chains, Agents, and Retrievers
 ------------------------------------------
-- **Chains**: Sequences of actions or steps hardcoded in code. Chains in LangChain combine various components like prompts, models, and output parsers to create a flow of processing steps.
 
-The figure below shows an example of interfacing directly with a SaaS LLM via API calls with no context to the history of the conversation in the top portion. The 
-bottom portion shows the same queries being submitted to a LangChain chain that incorporates a conversation history state such that the entire conversation's history 
-is included with each subsequent input. Preserving conversational context in this manner is key to creating a "chat bot".
+.. tabs::
 
-.. figure:: ../../_static/images/tutorials/llms/stateful-chains.png
-    :alt: The importance of stateful storage of conversation history for chat applications
-    :width: 90%
-    :align: center
+    .. tab:: Chain
 
-- **Agents**: Dynamic constructs that use language models to choose a sequence of actions. Unlike chains, agents decide the order of actions based on inputs, tools available, and intermediate outcomes.
+        Sequences of actions or steps hardcoded in code. Chains in LangChain combine various components like prompts, models, and output parsers to create a flow of processing steps.
 
-.. figure:: ../../_static/images/tutorials/llms/langchain-agents.png
-    :alt: Complex LLM queries with LangChain agents
-    :width: 90%
-    :align: center
+        The figure below shows an example of interfacing directly with a SaaS LLM via API calls with no context to the history of the conversation in the top portion. The 
+        bottom portion shows the same queries being submitted to a LangChain chain that incorporates a conversation history state such that the entire conversation's history 
+        is included with each subsequent input. Preserving conversational context in this manner is key to creating a "chat bot".
 
-- **Retrievers**: Components in RetrievalQA chains responsible for sourcing relevant documents or data. Retrievers are key in applications where LLMs need to reference specific external information for accurate responses.
+        .. figure:: ../../_static/images/tutorials/llms/stateful-chains.png
+            :alt: The importance of stateful storage of conversation history for chat applications
+            :width: 70%
+            :align: center
 
-.. figure:: ../../_static/images/tutorials/llms/langchain-retrievalqa.png
-   :alt: MLflow LangChain RetrievalQA architecture
-   :width: 80%
-   :align: center
+    .. tab:: Agents
+
+        Dynamic constructs that use language models to choose a sequence of actions. Unlike chains, agents decide the order of actions based on inputs, tools available, and intermediate outcomes.
+
+        .. figure:: ../../_static/images/tutorials/llms/langchain-agents.png
+            :alt: Complex LLM queries with LangChain agents
+            :width: 80%
+            :align: center
+
+    .. tab:: Retrievers
+
+        Components in RetrievalQA chains responsible for sourcing relevant documents or data. Retrievers are key in applications where LLMs need to reference specific external information for accurate responses.
+
+        .. figure:: ../../_static/images/tutorials/llms/langchain-retrievalqa.png
+            :alt: MLflow LangChain RetrievalQA architecture
+            :width: 70%
+            :align: center
 
 Getting Started with the MLflow LangChain Flavor - Tutorials and Guides
 -----------------------------------------------------------------------
@@ -204,20 +231,6 @@ I'm getting an AttributeError when saving my model
     ``pip_requirements`` is entirely valid, we recommend using ``extra_pip_requirements`` as it does not rely on defining all of the core dependent packages that 
     are required to use the langchain model for inference (the other core dependencies will be inferred automatically).
 
-I can't load the model logged by mlflow langchain autologging
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-- **Model contains langchain retrievers**: LangChain retrievers are not supported by MLflow autologging. 
-
-    If your model contains a retriever, you will need to manually log the model using the ``mlflow.langchain.log_model`` API.
-    As loading those models requires specifying `loader_fn` and `persist_dir` parameters, please check examples in 
-    `retriever_chain <https://github.com/mlflow/mlflow/blob/master/examples/langchain/retriever_chain.py>`_
-
-- **Can't pickle certain objects**: Try manually logging the model.
-
-    For certain models that LangChain does not support native saving or loading, we will pickle the object when saving it. Due to this functionality, your cloudpickle version must be 
-    consistent between the saving and loading environments to ensure that object references resolve properly. For further guarantees of correct object representation, you should ensure that your
-    environment has `pydantic` installed with at least version 2. 
 
 How can I use a streaming API with LangChain?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -227,18 +240,3 @@ How can I use a streaming API with LangChain?
     As of the MLflow 2.12.2 release, LangChain models that support streaming responses that have been saved using MLflow 2.12.2 (or higher) can be loaded and used for 
     streamable inference using the ``predict_stream`` API. Ensure that you are consuming the return type correctly, as the return from these models is a ``Generator`` object.
     To learn more, refer to the `predict_stream guide <https://mlflow.org/docs/latest/models.html#how-to-load-and-score-python-function-models>`_.
-
-
-How does MLflow langchain autologging interact with callbacks?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-- **Model inference with default callbacks**:
-
-    If you invoke a langchain model with `invoke`, `__call__`, `batch`, `stream` or `get_relevant_documents` (for BaseRetriever) functions directly, MLflow autologging will inject
-    a callback into the inference call to collect metrics and artifacts that can be generated from the call chain.
-
-- **Model inference with user-specified callbacks**:
-
-    If your inference call already includes callbacks in the config, e.g. `model.invoke(input, config=RunnableConfig(callbacks=customer_callbacks))`, then MLflow autologging
-    still preserves your callbacks and appends a callback after them. `RunnableConfig callbacks parameter <https://api.python.langchain.com/en/latest/runnables/langchain_core.runnables.config.RunnableConfig.html#langchain_core.runnables.config.RunnableConfig>`_ 
-    supports both `BaseCallbackManager` or `List[BaseCallbackHandler]`, in either case MLflow autologging appends a callback to collect metrics and artifacts.
