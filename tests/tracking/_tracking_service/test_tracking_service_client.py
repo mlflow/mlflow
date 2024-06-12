@@ -405,8 +405,11 @@ def test_search_traces_with_filestore(tmp_path):
             client.start_trace(
                 exp_id,
                 i * 1000,
-                {SpanAttributeKey.REQUEST_ID: f"request_id_{i}"},
-                {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+                {
+                    SpanAttributeKey.REQUEST_ID: f"request_id_{i}",
+                    TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+                },
+                {},
             )
         )
 
