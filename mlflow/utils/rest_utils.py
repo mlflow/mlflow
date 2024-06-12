@@ -83,7 +83,7 @@ def http_request(
     cleaned_hostname = strip_suffix(host_creds.host, "/")
     url = f"{cleaned_hostname}{endpoint}"
 
-    if host_creds.auth_by_databricks_sdk:
+    if host_creds.use_databricks_sdk:
         from databricks.sdk import WorkspaceClient
         from databricks.sdk.config import Config
         from databricks.sdk.errors import DatabricksError
@@ -397,7 +397,7 @@ class MlflowHostCreds:
             Sets the verify param of the ``requests.request``
             function (see https://requests.readthedocs.io/en/master/api/).
             If this is set ``ignore_tls_verification`` must be false.
-        auth_by_databricks_sdk: A boolean value represent whether using Databricks SDK for
+        use_databricks_sdk: A boolean value represent whether using Databricks SDK for
             authentication.
         databricks_auth_profile: The name of the profile used by Databricks SDK for
             authentication.
@@ -416,7 +416,7 @@ class MlflowHostCreds:
         ignore_tls_verification=False,
         client_cert_path=None,
         server_cert_path=None,
-        auth_by_databricks_sdk=False,
+        use_databricks_sdk=False,
         databricks_auth_profile=None,
         client_id=None,
         client_secret=None,
@@ -446,7 +446,7 @@ class MlflowHostCreds:
         self.ignore_tls_verification = ignore_tls_verification
         self.client_cert_path = client_cert_path
         self.server_cert_path = server_cert_path
-        self.auth_by_databricks_sdk = auth_by_databricks_sdk
+        self.use_databricks_sdk = use_databricks_sdk
         self.databricks_auth_profile = databricks_auth_profile
         self.client_id = client_id
         self.client_secret = client_secret
@@ -458,7 +458,7 @@ class MlflowHostCreds:
 
     @property
     def verify(self):
-        if self.auth_by_databricks_sdk:
+        if self.use_databricks_sdk:
             # Let databricks-sdk set HTTP request `verify` param.
             return None
         if self.server_cert_path is None:

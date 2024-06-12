@@ -568,14 +568,14 @@ def get_databricks_host_creds(server_uri=None):
             # to get credential values. Instead, we can use ``WorkspaceClient``
             # API to invoke databricks shard restful APIs.
             WorkspaceClient(profile=profile)
-            auth_by_databricks_sdk = True
+            use_databricks_sdk = True
             databricks_auth_profile = profile
         except Exception as e:
             _logger.info(f"Failed to create databricks SDK workspace client, error: {e!r}")
-            auth_by_databricks_sdk = False
+            use_databricks_sdk = False
             databricks_auth_profile = None
     else:
-        auth_by_databricks_sdk = False
+        use_databricks_sdk = False
         databricks_auth_profile = None
 
     config = _get_databricks_creds_config(server_uri)
@@ -591,7 +591,7 @@ def get_databricks_host_creds(server_uri=None):
         token=config.token,
         client_id=config.client_id,
         client_secret=config.client_secret,
-        auth_by_databricks_sdk=auth_by_databricks_sdk,
+        use_databricks_sdk=use_databricks_sdk,
         databricks_auth_profile=databricks_auth_profile,
     )
 
