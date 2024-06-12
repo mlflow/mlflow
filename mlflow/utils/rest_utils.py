@@ -12,6 +12,7 @@ from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
     MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER,
+    MLFLOW_ENABLE_DB_SDK,
 )
 from mlflow.exceptions import (
     ERROR_CODE_TO_HTTP_STATUS,
@@ -79,8 +80,7 @@ def http_request(
     Returns:
         requests.Response object.
     """
-    hostname = host_creds.host
-    cleaned_hostname = strip_suffix(hostname, "/")
+    cleaned_hostname = strip_suffix(host_creds.host, "/")
     url = f"{cleaned_hostname}{endpoint}"
 
     if host_creds.auth_by_databricks_sdk:
@@ -98,10 +98,6 @@ def http_request(
             # Databricks SDK `APIClient.do` API is for making request using
             # HTTP
             # https://github.com/databricks/databricks-sdk-py/blob/a714146d9c155dd1e3567475be78623f72028ee0/databricks/sdk/core.py#L134
-            # The 'query' argument of Databricks SDK `APIClient.do` API is equivalent to
-            # `params` argument of `requests.Session.request()` API
-            # The 'body' argument of Databricks SDK `APIClient.do` API is equivalent to
-            # `json` argument of `requests.Session.request()` API
             raw_response = ws_client.api_client.do(
                 method=method,
                 path=endpoint,
@@ -114,24 +110,19 @@ def http_request(
             )
             return raw_response["contents"]._response
         except DatabricksError as e:
-            if hasattr(e, "error_code"):
-                response = requests.Response()
-                response.url = url
-                response.status_code = ERROR_CODE_TO_HTTP_STATUS.get(e.error_code, 500)
-                response.reason = str(e)
-                response.encoding = "UTF-8"
-                response._content = json.dumps(
-                    {
-                        "error_code": e.error_code,
-                        "message": str(e),
-                    }
-                ).encode("UTF-8")
+            response = requests.Response()
+            response.url = url
+            response.status_code = ERROR_CODE_TO_HTTP_STATUS.get(e.error_code, 500)
+            response.reason = str(e)
+            response.encoding = "UTF-8"
+            response._content = json.dumps(
+                {
+                    "error_code": e.error_code,
+                    "message": str(e),
+                }
+            ).encode("UTF-8")
 
-                return response
-
-            raise MlflowException(
-                f"API request to endpoint '{endpoint}' failed with exception {e}"
-            ) from e
+            return response
 
     max_retries = MLFLOW_HTTP_REQUEST_MAX_RETRIES.get() if max_retries is None else max_retries
     backoff_factor = (
@@ -157,8 +148,8 @@ def http_request(
         auth_str = f"Bearer {host_creds.token}"
     elif host_creds.client_secret:
         raise MlflowException(
-            "You need to set environmental variable 'MLFLOW_ENABLE_DATABRICKS_SDK' to 'true' "
-            "otherwise MLflow can't support Databricks OAuth authentication."
+            "To use OAuth authentication, set environmental variable "
+            f"'{MLFLOW_ENABLE_DB_SDK.name}' to true"
         )
 
     from mlflow.tracking.request_header.registry import resolve_request_headers
@@ -468,7 +459,7 @@ class MlflowHostCreds:
     @property
     def verify(self):
         if self.auth_by_databricks_sdk:
-            # Let databricks-sdk to set HTTP request `verify` param.
+            # Let databricks-sdk set HTTP request `verify` param.
             return None
         if self.server_cert_path is None:
             return not self.ignore_tls_verification

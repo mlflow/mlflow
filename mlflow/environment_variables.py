@@ -622,9 +622,9 @@ MLFLOW_HTTP_POOL_CONNECTIONS = _EnvironmentVariable("MLFLOW_HTTP_POOL_CONNECTION
 MLFLOW_HTTP_POOL_MAXSIZE = _EnvironmentVariable("MLFLOW_HTTP_POOL_MAXSIZE", int, 10)
 
 
-#: Whether to enable Databricks SDK. If true, MLflow uses databricks-sdk API to send HTTP requests
+#: Whether to enable Databricks SDK. If true, MLflow uses databricks-sdk to send HTTP requests
 #: to Databricks endpoint, otherwise MLflow uses ``requests`` library to send HTTP requests
 #: to Databricks endpoint. Note that if you want to use OAuth authentication, you have to
-#: enable Databricks SDK.
+#: set this environment variable to true.
 #: (default: ``True``)
 MLFLOW_ENABLE_DB_SDK = _BooleanEnvironmentVariable("MLFLOW_ENABLE_DB_SDK", True)

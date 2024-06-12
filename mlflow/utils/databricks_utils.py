@@ -571,7 +571,7 @@ def get_databricks_host_creds(server_uri=None):
             auth_by_databricks_sdk = True
             databricks_auth_profile = profile
         except Exception as e:
-            _logger.info(f"Creating databricks SDK workspace client failed, error: {e!r}")
+            _logger.info(f"Failed to create databricks SDK workspace client, error: {e!r}")
             auth_by_databricks_sdk = False
             databricks_auth_profile = None
     else:

@@ -455,9 +455,7 @@ class DatabricksConfig:
 
     @property
     def is_valid_with_client_id_secret(self):
-        return (
-            self.host is not None and self.client_id is not None and self.client_secret is not None
-        )
+        return self.host and self.client_id and self.client_secret
 
     @property
     def is_valid(self):
