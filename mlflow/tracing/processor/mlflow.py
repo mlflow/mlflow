@@ -13,6 +13,7 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
+    TRACE_RESOLVE_TAGS_ALLOWLIST,
     TRACE_SCHEMA_VERSION,
     TRACE_SCHEMA_VERSION_KEY,
     TRUNCATION_SUFFIX,
@@ -102,7 +103,13 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             )
             self._issued_default_exp_warning = True
 
-        tags = resolve_tags()
+        unfiltered_tags = resolve_tags()
+        tags = {
+            key: value
+            for key, value in unfiltered_tags.items()
+            if key in TRACE_RESOLVE_TAGS_ALLOWLIST
+        }
+
         tags.update({TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)})
 
         # If the trace is created in the context of MLflow model evaluation, we extract the request
