@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 
+MLFLOW_HOME="$(pwd)"
+directory="$MLFLOW_HOME/.venvs/mlflow-dev"
+REPO_ROOT=$(git rev-parse --show-toplevel)
+rd="$REPO_ROOT/requirements"
+VENV_DIR="$directory/bin/activate"
+# Progress file to resume the script from where it exited previously
+PROGRESS_FILE="$MLFLOW_HOME/dev-env-setup-progress"
+
 showHelp() {
 cat << EOF
 Usage: ./install-dev-env.sh [-d] [directory to install virtual environment] [-v] [-q] [-f] [-o] [override python version]
@@ -39,14 +47,11 @@ This script will:
 
 -o,     --override    Override the python version
 
+-c,     --clean       Discard the previous installation progress and restart the setup from scratch
+
 EOF
 }
 
-directory="$(pwd)/.venvs/mlflow-dev"
-MLFLOW_HOME="$(pwd)"
-REPO_ROOT=$(git rev-parse --show-toplevel)
-rd="$REPO_ROOT/requirements"
-VENV_DIR="$directory/bin/activate"
 while :
 do
   case "$1" in
@@ -69,6 +74,10 @@ do
     -h | --help)
       showHelp
       exit 0
+      ;;
+    -c | --clean)
+      rm $PROGRESS_FILE
+      shift
       ;;
     --)
       shift
@@ -94,6 +103,20 @@ case "$(uname -s)" in
   Linux*)                        machine=linux;;
   *)                             machine=unknown;;
 esac
+
+load_progress() {
+  if [[ ! -f "$PROGRESS_FILE" ]]; then
+    echo "0" > "$PROGRESS_FILE"
+  fi
+  cat "$PROGRESS_FILE"
+}
+
+PROGRESS=$(load_progress)
+
+save_progress() {
+  echo "$1" > "$PROGRESS_FILE"
+  PROGRESS=$(load_progress)
+}
 
 quiet_command(){
   echo $( [[ -n $quiet ]] && printf %s '-q' )
@@ -340,11 +363,30 @@ set_pre_commit_and_git_signoff() {
 # Execute mandatory setups with strict error handling
 set +xv && set -e
 # Mandatory setups
-check_and_install_pyenv
-check_and_install_min_py_version
-create_virtualenv
-install_mlflow_and_dependencies
-set_pre_commit_and_git_signoff
+if [[ "$PROGRESS" -eq "0" ]]; then
+  check_and_install_pyenv
+  save_progress 1
+fi
+if [[ "$PROGRESS" -eq "1" ]]; then
+  check_and_install_min_py_version
+  save_progress 2
+fi
+if [[ "$PROGRESS" -eq "2" ]]; then
+  create_virtualenv
+  save_progress 3
+fi
+if [[ "$PROGRESS" -eq "3" ]]; then
+  install_mlflow_and_dependencies
+  save_progress 4
+fi
+if [[ "$PROGRESS" -eq "4" ]]; then
+  set_pre_commit_and_git_signoff
+  save_progress 5
+fi
+if [[ "$PROGRESS" -eq "5" ]]; then
+  # Clear progress file if all mandatory steps are executed successfully
+  rm $PROGRESS_FILE
+fi
 
 # Execute optional setups without strict error handling
 set +exv

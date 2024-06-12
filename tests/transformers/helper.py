@@ -7,7 +7,7 @@ from functools import wraps
 import transformers
 from packaging.version import Version
 
-from mlflow.transformers import _PEFT_PIPELINE_ERROR_MSG
+from mlflow.transformers import _PEFT_PIPELINE_ERROR_MSG, _try_import_conversational_pipeline
 from mlflow.utils.logging_utils import suppress_logs
 
 _logger = logging.getLogger(__name__)
@@ -118,13 +118,14 @@ def load_component_multi_modal():
 @prefetch
 @flaky()
 def load_small_conversational_model():
-    tokenizer = transformers.AutoTokenizer.from_pretrained(
-        "microsoft/DialoGPT-small", low_cpu_mem_usage=True
-    )
-    model = transformers.AutoModelWithLMHead.from_pretrained(
-        "satvikag/chatbot", low_cpu_mem_usage=True
-    )
-    return transformers.pipeline(task="conversational", model=model, tokenizer=tokenizer)
+    if _try_import_conversational_pipeline():
+        tokenizer = transformers.AutoTokenizer.from_pretrained(
+            "microsoft/DialoGPT-small", low_cpu_mem_usage=True
+        )
+        model = transformers.AutoModelWithLMHead.from_pretrained(
+            "satvikag/chatbot", low_cpu_mem_usage=True
+        )
+        return transformers.pipeline(task="conversational", model=model, tokenizer=tokenizer)
 
 
 @prefetch
@@ -229,9 +230,10 @@ def load_ner_pipeline_aggregation():
 @prefetch
 @flaky()
 def load_conversational_pipeline():
-    return transformers.pipeline(
-        model="AVeryRealHuman/DialoGPT-small-TonyStark", task="conversational"
-    )
+    if _try_import_conversational_pipeline():
+        return transformers.pipeline(
+            model="AVeryRealHuman/DialoGPT-small-TonyStark", task="conversational"
+        )
 
 
 @prefetch

@@ -28,6 +28,7 @@ from typing import Any, Dict, List, Literal, Optional, Set, Union
 
 import langchain.chains
 import pydantic
+from langchain.agents import AgentExecutor
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.schema import AgentAction, AIMessage, HumanMessage, SystemMessage
 from langchain.schema import ChatMessage as LangChainChatMessage
@@ -337,6 +338,11 @@ class APIRequest:
     @staticmethod
     def _transform_request_json_for_chat_if_necessary(request_json, lc_model):
         """
+        Convert the input request JSON to LangChain's Message format if the LangChain model
+        accepts ChatMessage objects (e.g. AIMessage, HumanMessage, SystemMessage) as input.
+        # TODO: this function should identify if the lc_model accepts ChatMessage objects,
+        # and only converts if it does. ChatModels inputs should be converted.
+
         Returns:
             A 2-element tuple containing:
 
@@ -344,6 +350,11 @@ class APIRequest:
                 2. A boolean indicating whether or not the request was transformed from the OpenAI
                 chat format.
         """
+        # Avoid converting the request to LangChain's Message format if the chain
+        # is an AgentExecutor, as LangChainChatMessage might not be accepted by the chain
+        if isinstance(lc_model, AgentExecutor):
+            return request_json, False
+
         input_fields = APIRequest._get_lc_model_input_fields(lc_model)
         if "messages" in input_fields:
             # If the chain accepts a "messages" field directly, don't attempt to convert

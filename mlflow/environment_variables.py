@@ -621,6 +621,11 @@ MLFLOW_HTTP_POOL_CONNECTIONS = _EnvironmentVariable("MLFLOW_HTTP_POOL_CONNECTION
 #: By adjusting this variable, users can enhance the concurrency of HTTP requests made by MLflow.
 MLFLOW_HTTP_POOL_MAXSIZE = _EnvironmentVariable("MLFLOW_HTTP_POOL_MAXSIZE", int, 10)
 
+#: Specifies the length of time in seconds for the asynchronous logging thread to wait before
+#: logging a batch.
+MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS = _EnvironmentVariable(
+    "MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS", int, None
+)
 
 #: Whether to enable Databricks SDK. If true, MLflow uses databricks-sdk to send HTTP requests
 #: to Databricks endpoint, otherwise MLflow uses ``requests`` library to send HTTP requests

@@ -618,6 +618,15 @@ class AbstractStore:
             run_id=run_id, metrics=metrics, params=params, tags=tags
         )
 
+    def end_async_logging(self):
+        """
+        Ends the async logging queue. This method is a no-op if the queue is not active. This is
+        different from flush as it just stops the async logging queue from accepting new data, but
+        flush will ensure all data is processed before returning.
+        """
+        if self._async_logging_queue.is_active():
+            self._async_logging_queue.end_async_logging()
+
     def flush_async_logging(self):
         """
         Flushes the async logging queue. This method is a no-op if the queue is not active.
