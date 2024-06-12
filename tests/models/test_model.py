@@ -508,11 +508,18 @@ def test_model_saved_by_save_model_can_be_loaded(tmp_path, sklearn_knn_model):
     assert info.artifact_path is None
 
 
-def test_copy_metadata(sklearn_knn_model):
+def test_copy_metadata(mock_is_in_databricks, sklearn_knn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(sklearn_knn_model, "model")
-        artifact_path = mlflow.artifacts.download_artifacts(model_info.model_uri)
-        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == set(METADATA_FILES)
+
+    artifact_path = mlflow.artifacts.download_artifacts(model_info.model_uri)
+    metadata_path = os.path.join(artifact_path, "metadata")
+    # Metadata should be copied only in Databricks
+    if mock_is_in_databricks.return_value:
+        assert set(os.listdir(metadata_path)) == set(METADATA_FILES)
+    else:
+        assert not os.path.exists(metadata_path)
+    mock_is_in_databricks.assert_called_once()
 
 
 class LegacyTestFlavor:
@@ -524,11 +531,18 @@ class LegacyTestFlavor:
         mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def test_legacy_flavor():
+def test_legacy_flavor(mock_is_in_databricks):
     with mlflow.start_run():
         model_info = Model.log("some/path", LegacyTestFlavor)
+
     artifact_path = _download_artifact_from_uri(model_info.model_uri)
-    assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == {"MLmodel"}
+    metadata_path = os.path.join(artifact_path, "metadata")
+    # Metadata should be copied only in Databricks
+    if mock_is_in_databricks.return_value:
+        assert set(os.listdir(metadata_path)) == {"MLmodel"}
+    else:
+        assert not os.path.exists(metadata_path)
+    mock_is_in_databricks.assert_called_once()
 
 
 def test_pyfunc_set_model():
