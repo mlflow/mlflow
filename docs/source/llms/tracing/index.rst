@@ -464,19 +464,38 @@ filter strings, and other parameters.
 
     # Search for traces in specific experiments
     traces = client.search_traces(
-        experiment_ids=["1", "2"], filter_string="attributes.status = 'OK'", max_results=5
+        experiment_ids=["1", "2"],
+        filter_string="attributes.status = 'OK'",
+        max_results=5,
     )
 
-Alternatively, you can use `fluent API <./index.html#tracing-fluent-apis>`_ to search for traces. This method allows you to specify fields to extract from traces using the format 
-``"span_name.[inputs|outputs]"`` or ``"span_name.[inputs|outputs].field_name"``.
+Alternatively, you can use fluent API :py:func:`mlflow.search_traces` to search for traces, which returns a pandas DataFrame with each row containing a trace. 
+This method allows you to specify fields to extract from traces using the format ``"span_name.[inputs|outputs]"`` or ``"span_name.[inputs|outputs].field_name"``.
+The extracted fields are included as extra columns in the pandas DataFrame. This feature can be used to build evaluation datasets to further improve model and agent performance.
 
 .. code-block:: python
 
-    # Search for traces in specific experiments
+    import mlflow
+
+    with mlflow.start_span(name="span1") as span:
+        span.set_inputs({"a": 1, "b": 2})
+        span.set_outputs({"c": 3, "d": 4})
+
+    # Search for traces with specific fields extracted
     traces = mlflow.search_traces(
-        experiment_ids=["1", "2"],
         extract_fields=["span1.inputs", "span1.outputs.c"],
     )
+
+    print(traces)
+
+This outputs:
+
+.. code-block:: text
+
+        request_id                              ...     span1.inputs        span1.outputs.c
+    0   tr-97c4ef97c21f4348a5698f069c1320f1     ...     {'a': 1, 'b': 2}    3.0
+    1   tr-4dc3cd5567764499b5532e3af61b9f78     ...     {'a': 1, 'b': 2}    3.0
+
 
 Retrieving a Specific Trace
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
