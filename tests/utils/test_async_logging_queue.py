@@ -4,6 +4,7 @@ import random
 import threading
 import time
 import uuid
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -42,7 +43,36 @@ class RunData:
         self.received_tags.extend(tags or [])
 
 
-def test_single_thread_publish_consume_queue():
+def test_single_thread_publish_consume_queue(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS", "3")
+
+    with patch.object(
+        AsyncLoggingQueue, "_batch_logging_worker_threadpool", create=True
+    ) as mock_worker_threadpool, patch.object(
+        AsyncLoggingQueue, "_batch_status_check_threadpool", create=True
+    ) as mock_check_threadpool:
+        mock_worker_threadpool.submit = MagicMock()
+        mock_check_threadpool.submit = MagicMock()
+        mock_worker_threadpool.shutdown = MagicMock()
+        mock_check_threadpool.shutdown = MagicMock()
+
+        run_id = "test_run_id"
+        run_data = RunData()
+        async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
+        async_logging_queue.activate()
+        async_logging_queue._batch_logging_worker_threadpool = mock_worker_threadpool
+        async_logging_queue._batch_status_check_threadpool = mock_check_threadpool
+
+        for params, tags, metrics in _get_run_data():
+            async_logging_queue.log_batch_async(
+                run_id=run_id, metrics=metrics, tags=tags, params=params
+            )
+        async_logging_queue.flush()
+        # 2 batches are sent to the worker thread pool due to grouping, otherwise it would be 5.
+        assert mock_worker_threadpool.submit.call_count == 2
+
+
+def test_grouping_batch_in_time_window():
     run_id = "test_run_id"
     run_data = RunData()
     async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
