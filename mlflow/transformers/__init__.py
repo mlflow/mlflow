@@ -1493,6 +1493,19 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     )
 
 
+def _try_import_conversational_pipeline():
+    """
+    Try importing ConversationalPipeline because for version > 4.41.2
+    it is removed from the transformers package.
+    """
+    try:
+        from transformers import ConversationalPipeline
+
+        return ConversationalPipeline
+    except ImportError:
+        return
+
+
 @experimental
 def generate_signature_output(pipeline, data, model_config=None, params=None, flavor_config=None):
     """
@@ -1733,9 +1746,12 @@ class _TransformersWrapper:
             output_key = None
             data = self._parse_feature_extraction_input(data)
             data = self._format_prompt_template(data)
-        elif isinstance(self.pipeline, transformers.ConversationalPipeline):
+        elif (conversational_pipeline := _try_import_conversational_pipeline()) and isinstance(
+            self.pipeline, conversational_pipeline
+        ):
             output_key = None
             if not self._conversation:
+                # this import is valid if conversational_pipeline is not None
                 self._conversation = transformers.Conversation()
             self._conversation.add_user_input(data)
         elif type(self.pipeline).__name__ in self._supported_custom_generator_types:
@@ -1768,7 +1784,7 @@ class _TransformersWrapper:
         data = self._convert_cast_lists_from_np_back_to_list(data)
 
         # Generate inference data with the pipeline object
-        if isinstance(self.pipeline, transformers.ConversationalPipeline):
+        if (cp := _try_import_conversational_pipeline()) and isinstance(self.pipeline, cp):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
         else:
@@ -1988,10 +2004,12 @@ class _TransformersWrapper:
             )
 
     def _parse_conversation_input(self, data):
-        import transformers
+        conversational_pipeline = _try_import_conversational_pipeline()
 
-        if not isinstance(self.pipeline, transformers.ConversationalPipeline) or isinstance(
-            data, str
+        if (
+            not conversational_pipeline
+            or not isinstance(self.pipeline, conversational_pipeline)
+            or isinstance(data, str)
         ):
             return data
         elif isinstance(data, list) and all(isinstance(elem, dict) for elem in data):

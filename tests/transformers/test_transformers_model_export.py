@@ -39,6 +39,7 @@ from mlflow.transformers import (
     _is_model_distributed_in_memory,
     _should_add_pyfunc_to_model,
     _TransformersWrapper,
+    _try_import_conversational_pipeline,
     _validate_llm_inference_task_type,
     _write_card_data,
     _write_license_information,
@@ -861,6 +862,10 @@ def test_huggingface_hub_not_installed(small_seq2seq_pipeline, model_path):
         assert license_data.rstrip().endswith("mobilebert")
 
 
+@pytest.mark.skipif(
+    _try_import_conversational_pipeline() is None,
+    reason="Conversation model is deprecated and removed.",
+)
 def test_save_pipeline_without_defined_components(small_conversational_model, model_path):
     # This pipeline type explicitly does not have a configuration for an image_processor
     with mlflow.start_run():
@@ -1610,6 +1615,10 @@ def test_ner_pipeline(pipeline_name, model_path, data, result, request):
     assert pd_inference == result
 
 
+@pytest.mark.skipif(
+    _try_import_conversational_pipeline() is None,
+    reason="Conversation model is deprecated and removed.",
+)
 def test_conversational_pipeline(conversational_pipeline, model_path):
     signature = infer_signature(
         "Hi there!",

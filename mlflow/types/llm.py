@@ -276,13 +276,13 @@ class ChatResponse(_BaseDataclass):
 
     Args:
         id (str): The ID of the response.
-        object (str): The object type.
-        created (int): The time the response was created.
-            **Optional**, defaults to the current time.
         model (str): The name of the model used.
         choices (List[:py:class:`ChatChoice`]): A list of :py:class:`ChatChoice` objects
             containing the generated responses
         usage (:py:class:`TokenUsageStats`): An object describing the tokens used by the request.
+        object (str): The object type. The value should always be 'chat.completion'
+        created (int): The time the response was created.
+            **Optional**, defaults to the current time.
     """
 
     id: str
@@ -304,6 +304,12 @@ class ChatResponse(_BaseDataclass):
             raise ValueError(
                 f"Expected `usage` to be of type TokenUsageStats or dict, got {type(self.usage)}"
             )
+
+    def __setattr__(self, name, value):
+        # A hack to ensure users cannot overwrite 'object' field
+        if name == "object" and value != "chat.completion":
+            raise ValueError("`object` field must be 'chat.completion'")
+        return super().__setattr__(name, value)
 
 
 CHAT_MODEL_INPUT_SCHEMA = Schema(
