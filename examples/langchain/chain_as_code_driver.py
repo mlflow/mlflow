@@ -1,7 +1,10 @@
-import mlflow
+# This is an example for logging a Langchain model from code using the
+# mlflow.langchain.log_model API. When a path to a valid Python script is submitted to the
+# lc_model argument, the model code itself is serialized instead of the model object.
+# Within the targeted script, the model implementation must be defined and set by
+# using the mlflow.models.set_model API.
 
-# Use the Unity Catalog model registry
-mlflow.set_registry_uri("databricks-uc")
+import mlflow
 
 input_example = {
     "messages": [
@@ -13,14 +16,14 @@ input_example = {
 }
 
 # Specify the path to the chain notebook
-chain_notebook_path = "chain_as_code.py"
+chain_path = "chain_as_code.py"
 
-print(f"Chain notebook path: {chain_notebook_path}")
+print(f"Chain path: {chain_path}")
 
-print("Logging model model as code using Langchain log model API")
+print("Logging model as code using Langchain log model API")
 with mlflow.start_run():
     logged_chain_info = mlflow.langchain.log_model(
-        lc_model=chain_notebook_path,
+        lc_model=chain_path,
         artifact_path="chain",
         input_example=input_example,
     )
