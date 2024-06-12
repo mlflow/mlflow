@@ -5,6 +5,7 @@ import (
 
 	"github.com/mlflow/mlflow/mlflow/go/pkg/contract"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
+	"github.com/mlflow/mlflow/mlflow/go/pkg/service"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/store"
 )
 
@@ -64,8 +65,8 @@ func TestRelativeArtifactLocation(t *testing.T) {
 			t.Parallel()
 
 			var store store.MlflowStore = FakeStore{}
-			service := MlflowService{
-				store: store,
+			service := service.MlflowService{
+				Store: store,
 			}
 
 			var input protos.CreateExperiment = protos.CreateExperiment{

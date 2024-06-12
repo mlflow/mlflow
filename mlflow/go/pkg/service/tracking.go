@@ -1,4 +1,4 @@
-package server
+package service
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ import (
 
 type MlflowService struct {
 	config *config.Config
-	store  store.MlflowStore
+	Store  store.MlflowStore
 }
 
 // CreateExperiment implements MlflowService.
@@ -52,7 +52,7 @@ func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (
 		input.ArtifactLocation = &artifactLocation
 	}
 
-	experimentID, err := m.store.CreateExperiment(input)
+	experimentID, err := m.Store.CreateExperiment(input)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (m MlflowService) CreateExperiment(input *protos.CreateExperiment) (
 
 // GetExperiment implements MlflowService.
 func (m MlflowService) GetExperiment(input *protos.GetExperiment) (*protos.GetExperiment_Response, *contract.Error) {
-	experiment, cErr := m.store.GetExperiment(input.GetExperimentId())
+	experiment, cErr := m.Store.GetExperiment(input.GetExperimentId())
 	if cErr != nil {
 		return nil, cErr
 	}
@@ -88,7 +88,7 @@ func (m MlflowService) SearchRuns(input *protos.SearchRuns) (*protos.SearchRuns_
 
 	maxResults := int(input.GetMaxResults())
 
-	page, err := m.store.SearchRuns(
+	page, err := m.Store.SearchRuns(
 		input.GetExperimentIds(),
 		input.GetFilter(),
 		runViewType,
@@ -111,7 +111,7 @@ func (m MlflowService) SearchRuns(input *protos.SearchRuns) (*protos.SearchRuns_
 func (m MlflowService) DeleteExperiment(
 	input *protos.DeleteExperiment,
 ) (*protos.DeleteExperiment_Response, *contract.Error) {
-	err := m.store.DeleteExperiment(input.GetExperimentId())
+	err := m.Store.DeleteExperiment(input.GetExperimentId())
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +120,7 @@ func (m MlflowService) DeleteExperiment(
 }
 
 func (m MlflowService) LogBatch(input *protos.LogBatch) (*protos.LogBatch_Response, *contract.Error) {
-	err := m.store.LogBatch(input.GetRunId(), input.GetMetrics(), input.GetParams(), input.GetTags())
+	err := m.Store.LogBatch(input.GetRunId(), input.GetMetrics(), input.GetParams(), input.GetTags())
 	if err != nil {
 		return nil, err
 	}
@@ -128,12 +128,7 @@ func (m MlflowService) LogBatch(input *protos.LogBatch) (*protos.LogBatch_Respon
 	return &protos.LogBatch_Response{}, nil
 }
 
-var (
-	modelRegistryService   contract.ModelRegistryService
-	mlflowArtifactsService contract.MlflowArtifactsService
-)
-
-func NewMlflowService(logger *logrus.Logger, config *config.Config) (*MlflowService, error) {
+func NewTrackingService(logger *logrus.Logger, config *config.Config) (*MlflowService, error) {
 	store, err := sql.NewSQLStore(logger, config)
 	if err != nil {
 		return nil, fmt.Errorf("could not create new sql store: %w", err)
@@ -141,6 +136,6 @@ func NewMlflowService(logger *logrus.Logger, config *config.Config) (*MlflowServ
 
 	return &MlflowService{
 		config: config,
-		store:  store,
+		Store:  store,
 	}, nil
 }

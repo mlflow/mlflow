@@ -18,6 +18,7 @@ import (
 	"github.com/mlflow/mlflow/mlflow/go/pkg/config"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/contract"
 	"github.com/mlflow/mlflow/mlflow/go/pkg/protos"
+	"github.com/mlflow/mlflow/mlflow/go/pkg/service"
 )
 
 func configureApp(loggerInstance *logrus.Logger, cfg *config.Config) (*fiber.App, error) {
@@ -155,14 +156,14 @@ func newAPIApp(logger *logrus.Logger, cfg *config.Config) (*fiber.App, error) {
 		return nil, err
 	}
 
-	mlflowService, err := NewMlflowService(logger, cfg)
+	mlflowService, err := service.NewTrackingService(logger, cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	contract.RegisterMlflowServiceRoutes(mlflowService, parser, app)
-	contract.RegisterModelRegistryServiceRoutes(modelRegistryService, parser, app)
-	contract.RegisterMlflowArtifactsServiceRoutes(mlflowArtifactsService, parser, app)
+	contract.RegisterModelRegistryServiceRoutes(service.ModelRegistryService, parser, app)
+	contract.RegisterMlflowArtifactsServiceRoutes(service.MlflowArtifactsService, parser, app)
 
 	return app, nil
 }
