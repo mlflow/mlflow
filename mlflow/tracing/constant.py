@@ -34,3 +34,16 @@ TRACE_SCHEMA_VERSION = 2
 # Key for the trace schema version in the trace. This key is also used in
 # Databricks model serving to be careful when modifying it.
 TRACE_SCHEMA_VERSION_KEY = "mlflow.trace_schema.version"
+
+# The list of tags generated from resolve_tags that are required for tracing UI
+TRACE_RESOLVE_TAGS_ALLOWLIST = (
+    "mlflow.databricks.notebook.commandID",
+    "mlflow.databricks.notebookID",
+    "mlflow.databricks.notebookPath",
+    "mlflow.databricks.webappURL",
+    "mlflow.databricks.workspaceID",
+    "mlflow.databricks.workspaceURL",
+    "mlflow.source.name",
+    "mlflow.source.type",
+    "mlflow.user",
+)
