@@ -167,7 +167,7 @@ def test_on_start_during_run(monkeypatch):
         timestamp_ms=5,
         # expect run id to be set
         request_metadata={
-            "mlflow.sourceRun": expected_run_id,
+            TraceMetadataKey.SOURCE_RUN: expected_run_id,
             TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
         },
         tags=mock.ANY,

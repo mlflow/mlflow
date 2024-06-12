@@ -29,7 +29,7 @@ from mlflow.models.dependencies_schemas import DependenciesSchemasType, set_retr
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.pyfunc.context import Context, set_prediction_context
-from mlflow.tracing.constant import SpanAttributeKey, TraceTagKey
+from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey, TraceTagKey
 from mlflow.utils.openai_utils import (
     TEST_CONTENT,
     _mock_chat_completion_response,
@@ -439,7 +439,7 @@ def test_loaded_llmchain_within_model_evaluation(mock_get_display, tmp_path):
     assert response == ["test"]
     trace = mlflow.get_trace(request_id)
     assert trace.info.tags[TraceTagKey.EVAL_REQUEST_ID] == request_id
-    assert trace.info.request_metadata["mlflow.sourceRun"] == run_id
+    assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
 
     # Trace should not be displayed in the notebook cell if it is in evaluation
     mock_display_handler = mock_get_display.return_value

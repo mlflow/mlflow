@@ -436,7 +436,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run):
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
     if with_active_run:
-        assert trace.info.request_metadata["mlflow.sourceRun"] == run_id
+        assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
         assert trace.info.experiment_id == run.info.experiment_id
     else:
         assert trace.info.experiment_id == experiment_id
