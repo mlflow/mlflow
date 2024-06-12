@@ -1,10 +1,14 @@
+# This is the example chain as code that are logged as code using
+# the mlflow.langchain.log_model API.
+# The chain_as_code_driver.py is the driver code that logs the chain as code
+# and loads the chain back using mlflow.langchain.load_model.
 import os
 from operator import itemgetter
 
-from langchain.llms import OpenAI
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableLambda
+from langchain_openai import OpenAI
 
 import mlflow
 
@@ -51,4 +55,6 @@ question = {
 
 chain.invoke(question)
 
+# Using mlflow.models.set_model, set the model that will loaded back
+# using mlflow.langchain.load_model, eventually used for inference.
 mlflow.models.set_model(model=chain)

@@ -1,3 +1,8 @@
+# This is an example for logging a Langchain model as code using the
+# mlflow.langchain.log_model API by passing in the corresponding chain_as_code.py path,
+# which avoids serializing the model but rather stores the chain code as an artifact.
+# The model is set using mlflow.models.set_model in the chain code is the chain object
+# that will be loaded back using mlflow.langchain.load_model, which can be used for inference.
 import mlflow
 
 # Use the Unity Catalog model registry
