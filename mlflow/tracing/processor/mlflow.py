@@ -79,7 +79,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
 
     def _start_trace(self, span: OTelSpan) -> TraceInfo:
         experiment_id = get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID)
-        metadata = {}
+        metadata = {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}
         # If the span is started within an active MLflow run, we should record it as a trace tag
         if run := mlflow.active_run():
             metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
@@ -109,7 +109,6 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             for key, value in unfiltered_tags.items()
             if key in TRACE_RESOLVE_TAGS_ALLOWLIST
         }
-        tags.update({TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)})
 
         # If the trace is created in the context of MLflow model evaluation, we extract the request
         # ID from the prediction context. Otherwise, we create a new trace info by calling the

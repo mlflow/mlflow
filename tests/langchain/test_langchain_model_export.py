@@ -70,6 +70,7 @@ from mlflow.models.dependencies_schemas import DependenciesSchemasType
 from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex, Resource
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.pyfunc.context import Context
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.processor.inference_table import _HEADER_REQUEST_ID_KEY
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
@@ -3007,6 +3008,10 @@ def test_langchain_model_inject_callback_in_model_serving(
     if enable_mlflow_tracing:
         assert len(_TRACE_BUFFER) == 1
         assert _REQUEST_ID in _TRACE_BUFFER
+        trace = _TRACE_BUFFER[_REQUEST_ID]
+        assert trace["info"]["request_metadata"][TRACE_SCHEMA_VERSION_KEY] == str(
+            TRACE_SCHEMA_VERSION
+        )
     else:
         assert len(_TRACE_BUFFER) == 0
 
