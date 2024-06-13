@@ -568,6 +568,7 @@ transformers:
       # See: https://github.com/huggingface/transformers/issues/23352 for discussion
       "< 4.30.0": ["tensorflow<2.13.0"]
     pre_test: |
+      export PYTHONPATH=./
       python tests/transformers/helper.py
     run: |
       # Run all Transformers tests except autologging
