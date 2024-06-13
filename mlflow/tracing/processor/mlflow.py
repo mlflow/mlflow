@@ -13,7 +13,6 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
-    TRACE_RESOLVE_TAGS_ALLOWLIST,
     TRACE_SCHEMA_VERSION,
     TRACE_SCHEMA_VERSION_KEY,
     TRUNCATION_SUFFIX,
@@ -32,6 +31,7 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.registry import resolve_tags
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.utils.mlflow_tags import TRACE_RESOLVE_TAGS_ALLOWLIST
 
 _logger = logging.getLogger(__name__)
 
