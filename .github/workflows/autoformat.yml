@@ -16,7 +16,7 @@ jobs:
   check-comment:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: ${{ github.event.issue.pull_request && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) && contains(github.event.comment.body, '@mlflow-automation') && contains(github.event.comment.body, 'autoformat') }}
+    if: ${{ github.event.issue.pull_request && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.user.type) && contains(github.event.comment.body, '@mlflow-automation') && contains(github.event.comment.body, 'autoformat') }}
     permissions:
       statuses: write # autoformat.createStatus
       pull-requests: write # autoformat.createReaction on PRs
@@ -40,7 +40,8 @@ jobs:
             core.debug(JSON.stringify(context, null, 2));
             const autoformat = require('./.github/workflows/autoformat.js');
             const { comment } = context.payload;
-            const isMaintainer = autoformat.isMlflowMaintainer(comment.author_association);
+            const pullInfo = await autoformat.getPullInformation(context, github);
+            const isMaintainer = autoformat.isMlflowMaintainer(comment.author_association) && autoformat.isMlflowMaintainer(pullInfo.pr_author);
             if (!isMaintainer) {
               core.setFailed("Only MLflow maintainers can trigger this workflow.");
             }
@@ -49,7 +50,6 @@ jobs:
               await autoformat.createReaction(context, github);
               await autoformat.createStatus(context, github, core);
             }
-            const pullInfo = await autoformat.getPullInformation(context, github);
             return { ...pullInfo, shouldAutoformat };
 
   format:
