@@ -1173,7 +1173,7 @@ class SqlAlchemyStore(AbstractStore):
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         _validate_model_name(name)
-        _validate_model_alias_name(alias)
+        _validate_model_alias_name(alias, perform_latest_check=False)
         with self.ManagedSessionMaker() as session:
             existing_alias = self._get_registered_model_alias(session, name, alias)
             if existing_alias is not None:
