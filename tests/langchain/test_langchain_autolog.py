@@ -12,6 +12,7 @@ from langchain.prompts import PromptTemplate
 from langchain.schema.runnable.config import RunnableConfig
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_core.callbacks.base import (
+    AsyncCallbackHandler,
     BaseCallbackHandler,
     BaseCallbackManager,
 )
@@ -763,6 +764,19 @@ class CustomCallbackHandler(BaseCallbackHandler):
         self.logs.append("chain_end")
 
 
+class AsyncCustomCallbackHandler(AsyncCallbackHandler):
+    def __init__(self):
+        self.logs = []
+
+    async def on_chain_start(
+        self, serialized: Dict[str, Any], inputs: Dict[str, Any], **kwargs: Any
+    ) -> None:
+        self.logs.append("chain_start")
+
+    async def on_chain_end(self, outputs: Dict[str, Any], **kwargs: Any) -> None:
+        self.logs.append("chain_end")
+
+
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs"])
 @pytest.mark.parametrize(
     "generate_callbacks",
@@ -792,7 +806,12 @@ def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, generate_cal
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs"])
 @pytest.mark.parametrize(
     "generate_callbacks",
-    [lambda: [CustomCallbackHandler()], lambda: BaseCallbackManager([CustomCallbackHandler()])],
+    [
+        lambda: [CustomCallbackHandler()],
+        lambda: BaseCallbackManager([CustomCallbackHandler()]),
+        lambda: [AsyncCustomCallbackHandler()],
+        lambda: BaseCallbackManager([AsyncCustomCallbackHandler()]),
+    ],
 )
 @pytest.mark.asyncio
 async def test_langchain_autolog_callback_injection_in_ainvoke(invoke_arg, generate_callbacks):
@@ -869,14 +888,24 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, generate_conf
     "generate_config",
     [
         lambda: RunnableConfig(callbacks=[CustomCallbackHandler()]),
+        lambda: RunnableConfig(callbacks=[AsyncCustomCallbackHandler()]),
         lambda: RunnableConfig(callbacks=BaseCallbackManager([CustomCallbackHandler()])),
+        lambda: RunnableConfig(callbacks=BaseCallbackManager([AsyncCustomCallbackHandler()])),
         lambda: [
             RunnableConfig(callbacks=[CustomCallbackHandler()]),
             RunnableConfig(callbacks=[CustomCallbackHandler()]),
         ],
         lambda: [
+            RunnableConfig(callbacks=[AsyncCustomCallbackHandler()]),
+            RunnableConfig(callbacks=[AsyncCustomCallbackHandler()]),
+        ],
+        lambda: [
             RunnableConfig(callbacks=BaseCallbackManager([CustomCallbackHandler()])),
             RunnableConfig(callbacks=BaseCallbackManager([CustomCallbackHandler()])),
+        ],
+        lambda: [
+            RunnableConfig(callbacks=BaseCallbackManager([AsyncCustomCallbackHandler()])),
+            RunnableConfig(callbacks=BaseCallbackManager([AsyncCustomCallbackHandler()])),
         ],
     ],
 )
@@ -949,7 +978,9 @@ def test_langchain_autolog_callback_injection_in_stream(invoke_arg, generate_con
     "generate_config",
     [
         lambda: RunnableConfig(callbacks=[CustomCallbackHandler()]),
+        lambda: RunnableConfig(callbacks=[AsyncCustomCallbackHandler()]),
         lambda: RunnableConfig(callbacks=BaseCallbackManager([CustomCallbackHandler()])),
+        lambda: RunnableConfig(callbacks=BaseCallbackManager([AsyncCustomCallbackHandler()])),
     ],
 )
 @pytest.mark.asyncio
