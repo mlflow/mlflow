@@ -497,7 +497,7 @@ def validate_config_path(_ctx, _param, value):
 )
 def start_server(config_path: str, host: str, port: str, workers: int):
     if is_windows():
-        raise RuntimeError("MLflow Deployments Server does not support Windows.")
+        raise click.ClickException("MLflow Deployments Server does not support Windows.")
 
     from mlflow.deployments.server.runner import run_app
 

@@ -107,7 +107,6 @@ def test_start_server_fail_on_windows(tmp_path):
 
     runner = CliRunner()
     with mock.patch("mlflow.deployments.cli.is_windows", return_value=True):
-        with pytest.raises(
-            RuntimeError, match="MLflow Deployments Server does not support Windows."
-        ):
-            runner.invoke(cli.start_server, ["--config-path", config], catch_exceptions=False)
+        result = runner.invoke(cli.start_server, ["--config-path", config], catch_exceptions=True)
+        assert result.exit_code == 1
+        assert "MLflow Deployments Server does not support Windows" in result.output
