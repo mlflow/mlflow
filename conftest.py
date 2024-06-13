@@ -266,8 +266,8 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
 
     main_thread = threading.main_thread()
     if threads := [t for t in threading.enumerate() if t is not main_thread]:
-        terminalreporter.section("Zombie threads", yellow=True)
-        for idx, thread in enumerate(threads):
+        terminalreporter.section("Active threads", yellow=True)
+        for idx, thread in enumerate(threads, start=1):
             terminalreporter.write(f"{idx}: {thread}\n")
 
     try:
@@ -277,8 +277,8 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     else:
         current_process = psutil.Process()
         if children := current_process.children(recursive=True):
-            terminalreporter.section("Zombie child processes", yellow=True)
-            for idx, child in enumerate(children):
+            terminalreporter.section("Active child processes", yellow=True)
+            for idx, child in enumerate(children, start=1):
                 terminalreporter.write(f"{idx}: {child}\n")
 
 
