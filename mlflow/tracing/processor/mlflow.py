@@ -31,6 +31,7 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.registry import resolve_tags
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.utils.mlflow_tags import TRACE_RESOLVE_TAGS_ALLOWLIST
 
 _logger = logging.getLogger(__name__)
 
@@ -102,7 +103,12 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             )
             self._issued_default_exp_warning = True
 
-        tags = resolve_tags()
+        unfiltered_tags = resolve_tags()
+        tags = {
+            key: value
+            for key, value in unfiltered_tags.items()
+            if key in TRACE_RESOLVE_TAGS_ALLOWLIST
+        }
         tags.update({TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)})
 
         # If the trace is created in the context of MLflow model evaluation, we extract the request
