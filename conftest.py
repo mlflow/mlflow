@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 
 import click
 import pytest
@@ -262,6 +263,17 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                     yellow=True,
                 )
                 break
+
+    terminalreporter.section("Zombie threads", yellow=True)
+    for thread in threading.enumerate():
+        terminalreporter.write(f"Thread: {thread.name}\n")
+
+    import psutil
+
+    terminalreporter.section("Zombie processes", yellow=True)
+    current_process = psutil.Process()
+    for child in current_process.children(recursive=True):
+        terminalreporter.write(f"Child process: {child.name, child}\n")
 
 
 @pytest.fixture(scope="module", autouse=True)
