@@ -436,7 +436,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run):
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
     if with_active_run:
-        assert trace.info.request_metadata["mlflow.sourceRun"] == run_id
+        assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
         assert trace.info.experiment_id == run.info.experiment_id
     else:
         assert trace.info.experiment_id == experiment_id
@@ -625,8 +625,11 @@ def test_log_trace_with_databricks_tracking_uri(
     assert trace_info.request_id == "tr-12345"
     assert trace_info.experiment_id == "test_experiment_id"
     assert trace_info.status == TraceStatus.OK
-    assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
-    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "5"
+    assert trace_info.request_metadata == {
+        TraceMetadataKey.INPUTS: '{"x": 1, "y": 2}',
+        TraceMetadataKey.OUTPUTS: "5",
+        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+    }
     assert trace_info.tags == {
         "mlflow.traceName": "predict",
         "mlflow.artifactLocation": "test",
@@ -634,7 +637,6 @@ def test_log_trace_with_databricks_tracking_uri(
         "mlflow.source.name": "test",
         "mlflow.source.type": "LOCAL",
         "tag": "tag_value",
-        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
     }
 
     trace_data = traces[0].data

@@ -72,7 +72,7 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                 )
                 return
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
-        tags = {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}
+        tags = {}
         if depedencies_schema := maybe_get_dependencies_schemas():
             tags.update(depedencies_schema)
 
@@ -83,7 +83,7 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                 timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
                 execution_time_ms=None,
                 status=TraceStatus.IN_PROGRESS,
-                request_metadata={},
+                request_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
                 tags=tags,
             )
             self._trace_manager.register_trace(span.context.trace_id, trace_info)
