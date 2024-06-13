@@ -46,12 +46,11 @@ def test_on_start(monkeypatch):
     mock_client._start_tracked_trace.assert_called_once_with(
         experiment_id="0",
         timestamp_ms=5,
-        request_metadata={},
+        request_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
         tags={
             "mlflow.user": "bob",
             "mlflow.source.name": "test",
             "mlflow.source.type": "LOCAL",
-            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
         },
     )
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
@@ -113,12 +112,11 @@ def test_on_start_with_experiment_id(monkeypatch):
     mock_client._start_tracked_trace.assert_called_once_with(
         experiment_id=experiment_id,
         timestamp_ms=5,
-        request_metadata={},
+        request_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
         tags={
             "mlflow.user": "bob",
             "mlflow.source.name": "test",
             "mlflow.source.type": "LOCAL",
-            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
         },
     )
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
@@ -168,7 +166,10 @@ def test_on_start_during_run(monkeypatch):
         experiment_id=run_experiment_id,
         timestamp_ms=5,
         # expect run id to be set
-        request_metadata={"mlflow.sourceRun": expected_run_id},
+        request_metadata={
+            TraceMetadataKey.SOURCE_RUN: expected_run_id,
+            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+        },
         tags=mock.ANY,
     )
 

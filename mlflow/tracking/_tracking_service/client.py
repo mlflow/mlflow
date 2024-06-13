@@ -40,7 +40,6 @@ from mlflow.store.tracking import (
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
 from mlflow.tracing.artifact_utils import get_artifact_uri_for_trace
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
@@ -191,7 +190,6 @@ class TrackingServiceClient:
             The created TraceInfo object.
         """
         tags = exclude_immutable_tags(tags or {})
-        tags.update({TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)})
         return self.store.start_trace(
             experiment_id=experiment_id,
             timestamp_ms=timestamp_ms,

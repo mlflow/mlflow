@@ -78,7 +78,7 @@ def test_trace(with_active_run):
     assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
     assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "64"
     if with_active_run:
-        assert trace_info.request_metadata["mlflow.sourceRun"] == run_id
+        assert trace_info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
 
     assert trace.data.request == '{"x": 2, "y": 5}'
     assert trace.data.response == "64"
@@ -143,15 +143,17 @@ def test_trace_with_databricks_tracking_uri(databricks_tracking_uri, mock_store,
     assert trace_info.request_id == "tr-12345"
     assert trace_info.experiment_id == "test_experiment_id"
     assert trace_info.status == TraceStatus.OK
-    assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
-    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "64"
+    assert trace_info.request_metadata == {
+        TraceMetadataKey.INPUTS: '{"x": 2, "y": 5}',
+        TraceMetadataKey.OUTPUTS: "64",
+        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+    }
     assert trace_info.tags == {
         "mlflow.traceName": "predict",
         "mlflow.artifactLocation": "test",
         "mlflow.source.name": "test",
         "mlflow.source.type": "LOCAL",
         "mlflow.user": "bob",
-        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
     }
 
     trace_data = traces[0].data
@@ -221,7 +223,7 @@ def test_trace_in_databricks_model_serving(mock_databricks_serving_with_tracing_
     trace_dict = response.json["trace"]
     trace = Trace.from_dict(trace_dict)
     assert trace.info.request_id == databricks_request_id
-    assert trace.info.tags[TRACE_SCHEMA_VERSION_KEY] == "2"
+    assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "2"
     assert len(trace.data.spans) == 3
 
     span_name_to_span = {span.name: span for span in trace.data.spans}
@@ -303,11 +305,11 @@ def test_trace_in_model_evaluation(mock_store, monkeypatch):
         "mlflow.source.type": "LOCAL",
         "mlflow.user": "bob",
         "mlflow.artifactLocation": "test",
-        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
     }
 
     trace = mlflow.get_trace(request_id_1)
     assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
+    assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == str(TRACE_SCHEMA_VERSION)
     assert trace.info.tags == {**expected_tags, **{TraceTagKey.EVAL_REQUEST_ID: request_id_1}}
 
     trace = mlflow.get_trace(request_id_2)

@@ -3212,7 +3212,8 @@ def test_search_traces_raise_errors(generate_trace_infos):
         store.search_traces([exp_id], "", order_by=["name DESC"])
     with pytest.raises(
         MlflowException,
-        match=r"Invalid order_by entity `request_metadata` with key `mlflow.sourceRun`",
+        match=r"Invalid order_by entity `request_metadata` "
+        rf"with key `{TraceMetadataKey.SOURCE_RUN}`",
     ):
         store.search_traces([exp_id], "", order_by=["run_id ASC"])
 
