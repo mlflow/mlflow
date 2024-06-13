@@ -958,10 +958,14 @@ def load_model(model_uri, dst_path=None):
 
 def _patch_runnable_cls(cls):
     """
-    For classes that are subclasses of Runnable, we patch the `invoke`, `batch`, and `stream`
-    methods for autologging.
+    For classes that are subclasses of Runnable, we patch the `invoke`, `batch`, `stream` and
+    `ainvoke`, `abatch`, `astream` methods for autologging.
+
+    Args:
+        cls: The class to patch.
     """
-    for func_name in ["invoke", "batch", "stream"]:
+    patch_functions = ["invoke", "batch", "stream", "ainvoke", "abatch", "astream"]
+    for func_name in patch_functions:
         if hasattr(cls, func_name):
             safe_patch(
                 FLAVOR_NAME,
