@@ -34,6 +34,10 @@ Model Alias
 
     Aliases are especially useful for deploying models. For example, you could assign a ``champion`` alias to the model version intended for production traffic and target this alias in production workloads. You can then update the model serving production traffic by reassigning the ``champion`` alias to a different model version.
 
+    .. note::
+
+        Model Alias is not case-sensitive. For example, ``champion`` and ``Champion`` are both converted to lowercase and considered the same alias.
+
 Tags
     Tags are key-value pairs that you associate with registered models and model versions, allowing you to label and categorize them by function or status. For example, you could apply a tag with key ``"task"`` and value ``"question-answering"`` (displayed in the UI as ``task:question-answering``) to registered models intended for question answering tasks. At the model version level, you could tag versions undergoing pre-deployment validation with ``validation_status:pending`` and those cleared for deployment with ``validation_status:approved``.
 
@@ -210,6 +214,10 @@ To set, update, and delete aliases using the MLflow Client API, see the examples
 
     # delete the alias
     client.delete_registered_model_alias("example-model", "Champion")
+
+.. note::
+
+    Model Alias is not case-sensitive. In the above example, ``champion`` and ``Champion`` are both converted to lowercase and considered the same alias.
 
 **Set and delete tags on models**
 
