@@ -180,6 +180,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             file_size = file_info[0].file_size if len(file_info) == 1 else None
             signed_uri, raw_headers = self._get_signed_download_uri(remote_file_path)
             headers = {}
+            _logger.info("Downloading artifact from %s to %s", signed_uri, local_path)
             if raw_headers is not None:
                 # Don't send None to _extract_headers_from_signed_url
                 headers = self._extract_headers_from_signed_url(raw_headers)
@@ -188,10 +189,12 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 or file_size <= MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get()
                 or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
             ):
+                _logger.info("Downloading file using http URI.")
                 download_file_using_http_uri(
                     signed_uri, local_path, MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get(), headers
                 )
             else:
+                _logger.info("Downloading file using parallelized download.")
                 self._parallelized_download_from_cloud(
                     signed_uri,
                     headers,
