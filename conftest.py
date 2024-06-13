@@ -264,16 +264,22 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 )
                 break
 
-    terminalreporter.section("Zombie threads", yellow=True)
-    for thread in threading.enumerate():
-        terminalreporter.write(f"Thread: {thread.name}\n")
+    main_thread = threading.main_thread()
+    if threads := [t for t in threading.enumerate() if t is not main_thread]:
+        terminalreporter.write("Zombie threads:\n")
+        for idx, thread in enumerate(threads):
+            terminalreporter.write(f"{idx}: {thread}\n")
 
-    import psutil
-
-    terminalreporter.section("Zombie processes", yellow=True)
-    current_process = psutil.Process()
-    for child in current_process.children(recursive=True):
-        terminalreporter.write(f"Child process: {child.name, child}\n")
+    try:
+        import psutil
+    except ImportError:
+        pass
+    else:
+        current_process = psutil.Process()
+        if children := current_process.children(recursive=True):
+            terminalreporter.write("Zombie child processes:\n")
+            for idx, child in enumerate(children):
+                terminalreporter.write(f"{idx}: {child}\n")
 
 
 @pytest.fixture(scope="module", autouse=True)
