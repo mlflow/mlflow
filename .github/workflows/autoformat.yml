@@ -43,7 +43,7 @@ jobs:
             const pullInfo = await autoformat.getPullInformation(context, github);
             const isMaintainer = autoformat.isMlflowMaintainer(comment.author_association) && autoformat.isMlflowMaintainer(pullInfo.pr_author);
             if (!isMaintainer) {
-              core.setFailed("Only MLflow maintainers can trigger this workflow.");
+              core.setFailed("Only MLflow maintainers can trigger this workflow in their PRs.");
             }
             const shouldAutoformat = autoformat.shouldAutoformat(comment);
             if (shouldAutoformat) {
