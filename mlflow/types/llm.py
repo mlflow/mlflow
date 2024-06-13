@@ -223,12 +223,13 @@ class ChatChoice(_BaseDataclass):
         index (int): The index of the response in the list of responses.
         message (:py:class:`ChatMessage`): The message that was generated.
         finish_reason (str): The reason why generation stopped.
+            **Optional**, defaults to ``"stop"``
         logprobs (:py:class:`ChatChoiceLogProbs`): Log probability information for the choice.
     """
 
     index: int
     message: ChatMessage
-    finish_reason: str
+    finish_reason: str = "stop"
     logprobs: Optional[ChatChoiceLogProbs] = None
 
     def __post_init__(self):
@@ -255,18 +256,21 @@ class TokenUsageStats(_BaseDataclass):
 
     Args:
         prompt_tokens (int): The number of tokens in the prompt.
+            **Optional**, defaults to ``None``
         completion_tokens (int): The number of tokens in the generated completion.
+            **Optional**, defaults to ``None``
         total_tokens (int): The total number of tokens used.
+            **Optional**, defaults to ``None``
     """
 
-    prompt_tokens: int
-    completion_tokens: int
-    total_tokens: int
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
 
     def __post_init__(self):
-        self._validate_field("prompt_tokens", int, True)
-        self._validate_field("completion_tokens", int, True)
-        self._validate_field("total_tokens", int, True)
+        self._validate_field("prompt_tokens", int, False)
+        self._validate_field("completion_tokens", int, False)
+        self._validate_field("total_tokens", int, False)
 
 
 @dataclass
@@ -275,28 +279,28 @@ class ChatResponse(_BaseDataclass):
     The full response object returned by the chat endpoint.
 
     Args:
-        id (str): The ID of the response.
-        model (str): The name of the model used.
         choices (List[:py:class:`ChatChoice`]): A list of :py:class:`ChatChoice` objects
             containing the generated responses
         usage (:py:class:`TokenUsageStats`): An object describing the tokens used by the request.
+        id (str): The ID of the response. **Optional**, defaults to ``None``
+        model (str): The name of the model used. **Optional**, defaults to ``None``
         object (str): The object type. The value should always be 'chat.completion'
         created (int): The time the response was created.
             **Optional**, defaults to the current time.
     """
 
-    id: str
-    model: str
     choices: List[ChatChoice]
     usage: TokenUsageStats
+    id: Optional[str] = None
+    model: Optional[str] = None
     object: Literal["chat.completion"] = "chat.completion"
     created: int = field(default_factory=lambda: int(time.time()))
 
     def __post_init__(self):
-        self._validate_field("id", str, True)
+        self._validate_field("id", str, False)
         self._validate_field("object", str, True)
         self._validate_field("created", int, True)
-        self._validate_field("model", str, True)
+        self._validate_field("model", str, False)
         self._convert_dataclass_list("choices", ChatChoice)
         if isinstance(self.usage, dict):
             self.usage = TokenUsageStats(**self.usage)
