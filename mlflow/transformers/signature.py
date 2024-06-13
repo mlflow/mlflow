@@ -119,7 +119,7 @@ def infer_or_get_default_signature(
     import transformers
 
     for pipeline_type, signature in _DEFAULT_SIGNATURE_FOR_PIPELINES.items():
-        if isinstance(pipeline, getattr(transformers, pipeline_type)):
+        if isinstance(pipeline, getattr(transformers, pipeline_type, type(None))):
             return signature
 
     _logger.warning(
