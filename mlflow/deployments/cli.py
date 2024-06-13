@@ -8,6 +8,7 @@ from mlflow.deployments import interface
 from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_CONFIG
 from mlflow.utils import cli_args
 from mlflow.utils.annotations import experimental
+from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import NumpyEncoder, _get_jsonable_obj
 
 
@@ -495,6 +496,9 @@ def validate_config_path(_ctx, _param, value):
     help="The number of workers.",
 )
 def start_server(config_path: str, host: str, port: str, workers: int):
+    if is_windows():
+        raise click.ClickException("MLflow Deployments Server does not support Windows.")
+
     from mlflow.deployments.server.runner import run_app
 
     run_app(config_path=config_path, host=host, port=port, workers=workers)

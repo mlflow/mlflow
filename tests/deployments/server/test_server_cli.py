@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import time
+from unittest import mock
 
 import pytest
 import requests
@@ -11,6 +12,17 @@ from mlflow.deployments import cli
 from tests.helper_functions import get_safe_port
 
 pytest.importorskip("mlflow.gateway")
+
+_TEST_CONFIG = """
+routes:
+  - name: chat
+    route_type: llm/v1/chat
+    model:
+      provider: openai
+      name: gpt-3.5-turbo
+      config:
+        openai_api_key: sk-openai
+"""
 
 
 def test_start_help():
@@ -61,18 +73,7 @@ routes:
 
 def test_start_server(tmp_path):
     config = tmp_path.joinpath("config.yml")
-    config.write_text(
-        """
-routes:
-  - name: chat
-    route_type: llm/v1/chat
-    model:
-      provider: openai
-      name: gpt-3.5-turbo
-      config:
-        openai_api_key: sk-openai
-"""
-    )
+    config.write_text(_TEST_CONFIG)
     port = get_safe_port()
     with subprocess.Popen(
         [
@@ -98,3 +99,14 @@ routes:
                 raise Exception("Server did not start in time")
         finally:
             prc.terminate()
+
+
+def test_start_server_fail_on_windows(tmp_path):
+    config = tmp_path.joinpath("config.yml")
+    config.write_text(_TEST_CONFIG)
+
+    runner = CliRunner()
+    with mock.patch("mlflow.deployments.cli.is_windows", return_value=True):
+        result = runner.invoke(cli.start_server, ["--config-path", config], catch_exceptions=True)
+        assert result.exit_code == 1
+        assert "MLflow Deployments Server does not support Windows" in result.output
