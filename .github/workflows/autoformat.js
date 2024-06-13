@@ -35,7 +35,7 @@ const getPullInformation = async (context, github) => {
     base_sha,
     base_ref,
     base_repo: base_repo.full_name,
-    pr_author: pr.data.author_association,
+    author_association: pr.data.author_association,
   };
 };
 
