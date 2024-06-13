@@ -164,6 +164,10 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 new_signed_uri, new_headers = self._get_signed_download_uri(
                     dst_run_relative_artifact_path
                 )
+                _logger.info(
+                    f"Retrying download for failed chunks with url {new_signed_uri} and headers"
+                    f" {new_headers}."
+                )
                 new_headers = self._extract_headers_from_signed_url(new_headers)
                 download_chunk_retries(
                     chunks=list(failed_downloads),
