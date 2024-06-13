@@ -168,3 +168,17 @@ def test_to_dict_converts_nested_dataclasses(sample_output):
 def test_to_dict_excludes_nones():
     response = ChatResponse(**MOCK_RESPONSE).to_dict()
     assert "name" not in response["choices"][0]["message"]
+
+
+def test_chat_response_defaults():
+    tokens = TokenUsageStats()
+    message = ChatMessage("user", "Hello")
+    choice = ChatChoice(0, message)
+    response = ChatResponse([choice], tokens)
+
+    assert response.usage.prompt_tokens is None
+    assert response.usage.completion_tokens is None
+    assert response.usage.total_tokens is None
+    assert response.model is None
+    assert response.id is None
+    assert response.choices[0].finish_reason == "stop"
