@@ -132,9 +132,12 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 f"API request to get presigned uri to for file under path `{path}` failed with"
                 f" status code {response.status_code}. Response body: {response.text}"
             )
+        _logger.info(f"response: {json_response}")
         return json_response.get("signed_uri", None), json_response.get("headers", None)
 
     def _extract_headers_from_signed_url(self, headers):
+        if headers is None:
+            return {}
         filtered_headers = filter(lambda h: "name" in h and "value" in h, headers)
         return {header.get("name"): header.get("value") for header in filtered_headers}
 
