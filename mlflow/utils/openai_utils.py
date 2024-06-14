@@ -213,10 +213,10 @@ def _validate_model_params(task, model, params):
 
 class _OAITokenHolder:
     def __init__(self, api_type):
-        self._api_token = None
         self._credential = None
         self._api_type = api_type
         self._is_azure_ad = api_type in ("azure_ad", "azuread")
+        self._azure_ad_token = None
         self._api_token_env = os.environ.get("OPENAI_API_KEY")
 
         if self._is_azure_ad and not self._api_token_env:
@@ -231,7 +231,7 @@ class _OAITokenHolder:
 
     @property
     def token(self):
-        return self._api_token_env or self._api_token.token
+        return self._api_token_env or self._azure_ad_token.token
 
     def auth_headers(self):
         if self._api_type == "azure":
@@ -248,7 +248,7 @@ class _OAITokenHolder:
             return
 
         if self._is_azure_ad:
-            if not self._api_token or self._api_token.expires_on < time.time() + 60:
+            if not self._azure_ad_token or self._azure_ad_token.expires_on < time.time() + 60:
                 from azure.core.exceptions import ClientAuthenticationError
 
                 if logger:
@@ -257,7 +257,7 @@ class _OAITokenHolder:
                         "acquire a new token."
                     )
                 try:
-                    self._api_token = self._credential.get_token(
+                    self._azure_ad_token = self._credential.get_token(
                         "https://cognitiveservices.azure.com/.default"
                     )
                 except ClientAuthenticationError as err:
