@@ -7,6 +7,14 @@ MLflow LangChain flavor supports autologging, a powerful feature that allows you
 
     MLflow's LangChain Autologging feature has been overhauled in the ``MLflow 2.14.0`` release. If you are using the earlier version of MLflow, please refer to the legacy documentation `here <#documentation-for-old-versions>`_ for applicable autologging documentation.
 
+.. note::
+
+    MLflow LangChain Autologging is verified to be compatible with LangChain versions between 0.1.0 and 0.2.3. Outside of this range, the feature may not work as expected. To install the compatible version of LangChain, please run the following command:
+
+    .. code-block::
+
+        pip install mlflow[langchain] --upgrade
+
 .. contents:: Table of Contents
   :local:
   :depth: 1
