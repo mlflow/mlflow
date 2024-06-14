@@ -999,7 +999,6 @@ def autolog(
     log_input_examples=False,
     log_model_signatures=False,
     log_models=False,
-    log_datasets=False,
     log_inputs_outputs=None,
     disable=False,
     exclusive=False,
@@ -1030,8 +1029,6 @@ def autolog(
             If ``False``, langchain models are not logged.
             Input examples and model signatures, which are attributes of MLflow models,
             are also omitted when ``log_models`` is ``False``.
-        log_datasets: If ``True``, dataset information is logged to MLflow Tracking
-            if applicable. If ``False``, dataset information is not logged.
         log_inputs_outputs: **Deprecated** The legacy parameter used for logging inference
             inputs and outputs. This argument will be removed in a future version of MLflow.
             The alternative is to use ``log_traces`` which logs traces for Langchain models,
