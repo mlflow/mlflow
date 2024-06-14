@@ -97,16 +97,24 @@ def download_and_extract_protoc(version):
     Download and extract specific version protoc tool, return extracted protoc executable file path
     and include path.
     """
+    assert platform.system() in ['Darwin', 'Linux'], "The script only supports MacOS or Linux system."
+    assert platform.machine() in ['x86_64', 'aarch64'], "The script only supports x86_64 or aarch64 CPU."
+
+    os_type = "osx" if platform.system() == 'Darwin' else "linux"
+    cpu_type = "x86_64" if platform.machine() == "x86_64" else "aarch_64"
+
     downloaded_protoc_bin = f"{cache_dir}/protoc-{version}/bin/protoc"
     downloaded_protoc_include_path = f"{cache_dir}/protoc-{version}/include"
+
+    protoc_zip_filename = f"protoc-{version}-{os_type}-{cpu_type}.zip"
     if not (os.path.isfile(downloaded_protoc_bin) and os.path.isdir(downloaded_protoc_include_path)):
         subprocess.check_call([
             "wget",
-            f"https://github.com/protocolbuffers/protobuf/releases/download/v{version}/protoc-{version}-osx-x86_64.zip",
-            "-O", f"{cache_dir}/protoc-{version}-osx-x86_64.zip"
+            f"https://github.com/protocolbuffers/protobuf/releases/download/v{version}/{protoc_zip_filename}",
+            "-O", f"{cache_dir}/{protoc_zip_filename}"
         ])
         subprocess.check_call([
-            "unzip", "-o", "-d", f"{cache_dir}/protoc-{version}", f"{cache_dir}/protoc-{version}-osx-x86_64.zip"
+            "unzip", "-o", "-d", f"{cache_dir}/protoc-{version}", f"{cache_dir}/{protoc_zip_filename}"
         ])
     return downloaded_protoc_bin, downloaded_protoc_include_path
 
@@ -133,7 +141,6 @@ else:
 
 
 def main():
-    assert platform.system() == 'Darwin', "The script only supports MacOS system."
     os.makedirs(cache_dir, exist_ok=True)
     shutil.rmtree(temp_gencode_dir, ignore_errors=True)
 
