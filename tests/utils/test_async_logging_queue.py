@@ -268,7 +268,7 @@ def test_async_logging_queue_pickle():
     deserialized_queue = pickle.loads(buffer.getvalue())  # Type: AsyncLoggingQueue
     assert deserialized_queue._queue.empty()
     assert deserialized_queue._lock is not None
-    assert deserialized_queue._status is QueueStatus.TERMINATED
+    assert deserialized_queue._status is QueueStatus.IDLE
 
     for run_operation in run_operations:
         run_operation.wait()
