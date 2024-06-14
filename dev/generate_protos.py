@@ -11,6 +11,7 @@ cache_dir = "build/cache"
 temp_gencode_dir = "build/proto_gencode"
 
 mlflow_protos_dir = "mlflow/protos"
+test_protos_dir = "tests/protos"
 
 
 def gen_protos(proto_dir, proto_files, lang, protoc_bin, protoc_include_path, out_dir):
@@ -56,6 +57,8 @@ uc_proto_files = [
 ]
 facet_proto_files = ["facet_feature_statistics.proto"]
 python_proto_files = basic_proto_files + uc_proto_files + facet_proto_files
+test_proto_files = ["test_message.proto"]
+
 
 python_gencode_replacements = [
     ("from scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2",
@@ -72,6 +75,13 @@ def gen_python_protos(protoc_bin, protoc_include_path, out_dir):
     gen_protos(
         mlflow_protos_dir,
         python_proto_files,
+        "python",
+        protoc_bin, protoc_include_path, out_dir
+    )
+
+    gen_protos(
+        test_protos_dir,
+        test_proto_files,
         "python",
         protoc_bin, protoc_include_path, out_dir
     )
@@ -138,14 +148,18 @@ def main():
     gen_python_protos(protoc3194, protoc3194_include, proto3194_out)
     gen_python_protos(protoc5260, protoc5260_include, proto5260_out)
 
-    for file_name in python_proto_files:
-        gencode_filename = _get_python_output_filename(file_name)
+    for proto_files, protos_dir in [
+        (python_proto_files, mlflow_protos_dir),
+        (test_proto_files, test_protos_dir)
+    ]:
+        for file_name in proto_files:
+            gencode_filename = _get_python_output_filename(file_name)
 
-        generate_final_python_gencode(
-            Path(proto3194_out, gencode_filename),
-            Path(proto5260_out, gencode_filename),
-            Path(mlflow_protos_dir, gencode_filename),
-        )
+            generate_final_python_gencode(
+                Path(proto3194_out, gencode_filename),
+                Path(proto5260_out, gencode_filename),
+                Path(protos_dir, gencode_filename),
+            )
 
     # generate java gencode using pinned protoc 3.19.4 version.
     gen_protos(
