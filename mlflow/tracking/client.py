@@ -454,7 +454,7 @@ class MlflowClient:
         )
 
     @experimental
-    def get_trace(self, request_id: str) -> Trace:
+    def get_trace(self, request_id: str, display=True) -> Trace:
         """
         Get the trace matching the specified ``request_id``.
 
@@ -474,7 +474,8 @@ class MlflowClient:
             trace = client.get_trace(request_id)
         """
         trace = self._tracking_client.get_trace(request_id)
-        get_display_handler().display_traces([trace])
+        if display:
+            get_display_handler().display_traces([trace])
         return trace
 
     @experimental
