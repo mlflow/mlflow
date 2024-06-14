@@ -304,6 +304,7 @@ def process_api_requests(
                     available_token_capacity -= next_request_tokens
                     next_request.attempts_left -= 1
                     # call API
+                    api_token.refresh(logger=_logger)
                     executor.submit(
                         next_request.call_api,
                         retry_queue=retry_queue,

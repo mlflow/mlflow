@@ -234,7 +234,6 @@ class _OAITokenHolder:
         return self._api_token_env or self._api_token.token
 
     def auth_headers(self):
-        self.refresh()
         if self._api_type == "azure":
             return {"api-key": self.token}
         else:
