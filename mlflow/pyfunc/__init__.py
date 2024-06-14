@@ -2225,7 +2225,7 @@ def save_model(
             An instance of a subclass of :class:`~PythonModel` or a callable object with a single
             argument (see the examples below). The passed-in object is serialized using the
             CloudPickle library. The python_model can also be a file path to the PythonModel
-            which logs the model as code artifact rather than serializing the model object.
+            which defines the model from code artifact rather than serializing the model object.
             Any dependencies of the class should be included in one of the
             following locations:
 
@@ -2277,10 +2277,10 @@ def save_model(
                 model = mlflow.pyfunc.load_model("model")
                 print(model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
 
-            Model as code
+            Model from code
 
             .. note::
-                Experimental: Model as code model support is experimental and may change or
+                Experimental: Model from code model support is experimental and may change or
                 be removed in a future release without warning.
 
             .. code-block:: python
@@ -2621,7 +2621,7 @@ def log_model(
             An instance of a subclass of :class:`~PythonModel` or a callable object with a single
             argument (see the examples below). The passed-in object is serialized using the
             CloudPickle library. The python_model can also be a file path to the PythonModel
-            which logs the model as code artifact rather than serializing the model object.
+            which defines the model from code artifact rather than serializing the model object.
             Any dependencies of the class should be included in one of the
             following locations:
 
@@ -2684,10 +2684,10 @@ def log_model(
                 loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
                 print(loaded_model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
 
-            Model as code
+            Model from code
 
             .. note::
-                Experimental: Model as code model support is experimental and may change or
+                Experimental: Model from code model support is experimental and may change or
                 be removed in a future release without warning.
 
             .. code-block:: python

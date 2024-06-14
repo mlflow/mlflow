@@ -1,9 +1,8 @@
-# This is an example for logging a Python model as code using the
-# mlflow.pyfunc.log_model API by passing in the corresponding model_as_code.py path,
-# which avoids serializing the model but rather stores the model code as an artifact.
-# The model is set using mlflow.models.set_model in the model code is the model object
-# that will be loaded back using mlflow.pyfunc.load_model, which can be used for inference.
-
+# This is an example for logging a Python model from code using the
+# mlflow.pyfunc.log_model API. When a path to a valid Python script is submitted to the
+# python_model argument, the model code itself is serialized instead of the model object.
+# Within the targeted script, the model implementation must be defined and set by
+# using the mlflow.models.set_model API.
 
 import pandas as pd
 
@@ -12,13 +11,13 @@ import mlflow
 input_example = ["What is the weather like today?"]
 
 # Specify the path to the model notebook
-model_notebook_path = "model_as_code.py"
-print(f"Model notebook path: {model_notebook_path}")
+model_path = "model_as_code.py"
+print(f"Model path: {model_path}")
 
 print("Logging model as code using Pyfunc log model API")
 with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
-        python_model=model_notebook_path,
+        python_model=model_path,
         artifact_path="ai-model",
         input_example=input_example,
     )

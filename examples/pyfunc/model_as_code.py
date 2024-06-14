@@ -1,7 +1,10 @@
-# This is the example model as code that are logged as code using
-# the mlflow.pyfunc.log_model API.
-# The model_as_code_driver.py is the driver code that logs the model as code
-# and loads the model back using mlflow.pyfunc.load_model.
+# This example demonstrates defining a model directly from code.
+# This feature allows for defining model logic within a python script, module, or notebook that is stored
+# directly as serialized code, as opposed to object serialization that would otherwise occur when saving
+# or logging a model object.
+# This script defines the model's logic and specifies which class within the file contains the model code.
+# The companion example to this, model_as_code_driver.py, is the driver code that performs the  logging and
+# loading of this model definition.
 import os
 
 import pandas as pd
@@ -44,6 +47,6 @@ class AIModel(pyfunc.PythonModel):
         )
 
 
-# Using mlflow.models.set_model, set the model that will loaded back
-# using mlflow.pyfunc.load_model, eventually used for inference.
+# IMPORTANT: The model code needs to call `mlflow.models.set_model()` to set the model,
+# which will be loaded back using `mlflow.pyfunc.load_model` for inference.
 mlflow.models.set_model(AIModel())
