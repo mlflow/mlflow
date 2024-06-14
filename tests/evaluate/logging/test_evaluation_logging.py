@@ -1092,7 +1092,9 @@ def test_log_evaluation_with_assessments_supporting_none_value():
         inputs_id = "id1"
 
         source = AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1")
-        assessment_with_none_value = Assessment(name="relevance", value=None, source=source)
+        assessment_with_none_value = Assessment(
+            name="relevance", value=None, source=source, error_code="E001"
+        )
 
         # Log the evaluation
         logged_evaluation = log_evaluation(
@@ -1123,6 +1125,8 @@ def test_log_evaluation_with_assessments_supporting_none_value():
             assert assessment.string_value == expected_assessment.string_value
             assert assessment.metadata == expected_assessment.metadata
             assert assessment.source == expected_assessment.source
+            assert assessment.error_code == expected_assessment.error_code
+            assert assessment.error_message == expected_assessment.error_message
 
         assert len(retrieved_evaluation.assessments) == 1
         assert_assessments_equal(
