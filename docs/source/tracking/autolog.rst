@@ -176,8 +176,8 @@ Autologging captures the following information:
 
 .. _autolog-keras:
 
-Keras
------
+Keras/TensorFlow
+----------------
 Call the generic autolog function or :py:func:`mlflow.tensorflow.autolog` before your training code to enable automatic logging of metrics and parameters. As an example, try running the `Keras/Tensorflow example <https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py>`_.
 
 Note that only versions of ``tensorflow>=2.3`` are supported.
@@ -286,7 +286,7 @@ Autologging for pyspark ml estimators captures the following information:
 | Metrics                               | Parameters               | Tags                         | Artifacts                                               |
 +---------------------------------------+--------------------------+------------------------------+---------------------------------------------------------+
 | Post training metrics obtained by     | Parameters obtained by   | - Class name                 | - `MLflow Model`_ containing a fitted estimator         |
-| ``Evaluator.evaluate``                | ``Estimator.fit``        | - Fully qualified class name | - metric_info.json for post training metrics            |
+| ``Evaluator.evaluate``                | ``Estimator.fit``        | - Fully qualified class name | - ``metric_info.json`` for post training metrics        |
 +---------------------------------------+--------------------------+------------------------------+---------------------------------------------------------+
 
 .. _autolog-pytorch:
