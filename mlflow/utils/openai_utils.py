@@ -215,11 +215,11 @@ class _OAITokenHolder:
     def __init__(self, api_type):
         self._api_token = None
         self._credential = None
-        self.api_type = api_type
+        self._api_type = api_type
         self._is_azure_ad = api_type in ("azure_ad", "azuread")
-        self._key_configured = "OPENAI_API_KEY" in os.environ
+        self._api_token_env = os.environ.get("OPENAI_API_KEY")
 
-        if self._is_azure_ad and not self._key_configured:
+        if self._is_azure_ad and not self._api_token_env:
             try:
                 from azure.identity import DefaultAzureCredential
             except ImportError:
@@ -229,17 +229,21 @@ class _OAITokenHolder:
                 )
             self._credential = DefaultAzureCredential()
 
-    def auth_headers(self):
-        self._refresh()
-        if self.api_type == "azure":
-            return {"api-key": self._api_token.token}
-        else:
-            return {"Authorization": f"Bearer {self._api_token.token}"}
+    @property
+    def token(self):
+        return self._api_token_env or self._api_token.token
 
-    def _refresh(self, logger=None):
+    def auth_headers(self):
+        self.refresh()
+        if self._api_type == "azure":
+            return {"api-key": self.token}
+        else:
+            return {"Authorization": f"Bearer {self.token}"}
+
+    def refresh(self, logger=None):
         """Validates the token or API key configured for accessing the OpenAI resource."""
 
-        if self._key_configured:
+        if self._api_token_env:
             return
 
         if self._is_azure_ad:
