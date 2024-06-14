@@ -213,6 +213,7 @@ def from_huggingface(
             generated.
         digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest is
             automatically computed.
+        trust_remote_code: Whether to trust remote code from the dataset repo.
     """
     import datasets
 

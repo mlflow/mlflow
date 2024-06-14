@@ -71,7 +71,7 @@ class HuggingFaceDatasetSource(DatasetSource):
             "revision": self.revision,
         }
 
-        # this argument was only added in 2.16.0
+        # this argument only exists in >= 2.16.0
         if Version(datasets.__version__) >= Version("2.16.0"):
             load_kwargs["trust_remote_code"] = self.trust_remote_code
 
