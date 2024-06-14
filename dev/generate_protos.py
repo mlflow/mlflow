@@ -1,11 +1,9 @@
-from collections import namedtuple
-import subprocess
-import sys
-import shutil
 import os
 import platform
+import shutil
+import subprocess
+import sys
 from pathlib import Path
-
 
 cache_dir = "build/cache"
 temp_gencode_dir = "build/proto_gencode"
@@ -17,13 +15,15 @@ test_protos_dir = "tests/protos"
 def gen_protos(proto_dir, proto_files, lang, protoc_bin, protoc_include_path, out_dir):
     assert lang in ["python", "java"]
 
-    subprocess.check_call([
-        protoc_bin,
-        f"-I={protoc_include_path}",
-        f"-I={proto_dir}",
-        f"--{lang}_out={out_dir}",
-        *[f"{proto_dir}/{proto_file}" for proto_file in proto_files]
-    ])
+    subprocess.check_call(
+        [
+            protoc_bin,
+            f"-I={protoc_include_path}",
+            f"-I={proto_dir}",
+            f"--{lang}_out={out_dir}",
+            *[f"{proto_dir}/{proto_file}" for proto_file in proto_files],
+        ]
+    )
 
 
 def apply_python_gencode_replacement(file_path):
@@ -32,7 +32,7 @@ def apply_python_gencode_replacement(file_path):
     for old, new in python_gencode_replacements:
         content = content.replace(old, new)
 
-    file_path.write_text(content, encoding='UTF-8')
+    file_path.write_text(content, encoding="UTF-8")
 
 
 def _get_python_output_filename(proto_file_name):
@@ -61,35 +61,33 @@ test_proto_files = ["test_message.proto"]
 
 
 python_gencode_replacements = [
-    ("from scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2",
-     "from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2"),
+    (
+        "from scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2",
+        "from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2",
+    ),
     ("import databricks_pb2 as databricks__pb2", "from . import databricks_pb2 as databricks__pb2"),
-    ("import databricks_uc_registry_messages_pb2 as databricks__uc__registry__messages__pb2",
-     "from . import databricks_uc_registry_messages_pb2 as databricks_uc_registry_messages_pb2"),
-    ("import databricks_managed_catalog_messages_pb2 as databricks__managed__catalog__messages__pb2",
-     "from . import databricks_managed_catalog_messages_pb2 as databricks_managed_catalog_messages_pb2")
+    (
+        "import databricks_uc_registry_messages_pb2 as databricks__uc__registry__messages__pb2",
+        "from . import databricks_uc_registry_messages_pb2 as databricks_uc_registry_messages_pb2",
+    ),
+    (
+        "import databricks_managed_catalog_messages_pb2 as databricks__managed__catalog__messages__pb2",
+        "from . import databricks_managed_catalog_messages_pb2 as databricks_managed_catalog_messages_pb2",
+    ),
 ]
 
 
 def gen_python_protos(protoc_bin, protoc_include_path, out_dir):
     gen_protos(
-        mlflow_protos_dir,
-        python_proto_files,
-        "python",
-        protoc_bin, protoc_include_path, out_dir
+        mlflow_protos_dir, python_proto_files, "python", protoc_bin, protoc_include_path, out_dir
     )
 
     gen_protos(
-        test_protos_dir,
-        test_proto_files,
-        "python",
-        protoc_bin, protoc_include_path, out_dir
+        test_protos_dir, test_proto_files, "python", protoc_bin, protoc_include_path, out_dir
     )
 
     for file_name in python_proto_files:
-        apply_python_gencode_replacement(
-            Path(out_dir, _get_python_output_filename(file_name))
-        )
+        apply_python_gencode_replacement(Path(out_dir, _get_python_output_filename(file_name)))
 
 
 def download_and_extract_protoc(version):
@@ -97,25 +95,42 @@ def download_and_extract_protoc(version):
     Download and extract specific version protoc tool, return extracted protoc executable file path
     and include path.
     """
-    assert platform.system() in ['Darwin', 'Linux'], "The script only supports MacOS or Linux system."
-    assert platform.machine() in ['x86_64', 'aarch64'], "The script only supports x86_64 or aarch64 CPU."
+    assert platform.system() in [
+        "Darwin",
+        "Linux",
+    ], "The script only supports MacOS or Linux system."
+    assert platform.machine() in [
+        "x86_64",
+        "aarch64",
+    ], "The script only supports x86_64 or aarch64 CPU."
 
-    os_type = "osx" if platform.system() == 'Darwin' else "linux"
+    os_type = "osx" if platform.system() == "Darwin" else "linux"
     cpu_type = "x86_64" if platform.machine() == "x86_64" else "aarch_64"
 
     downloaded_protoc_bin = f"{cache_dir}/protoc-{version}/bin/protoc"
     downloaded_protoc_include_path = f"{cache_dir}/protoc-{version}/include"
 
     protoc_zip_filename = f"protoc-{version}-{os_type}-{cpu_type}.zip"
-    if not (os.path.isfile(downloaded_protoc_bin) and os.path.isdir(downloaded_protoc_include_path)):
-        subprocess.check_call([
-            "wget",
-            f"https://github.com/protocolbuffers/protobuf/releases/download/v{version}/{protoc_zip_filename}",
-            "-O", f"{cache_dir}/{protoc_zip_filename}"
-        ])
-        subprocess.check_call([
-            "unzip", "-o", "-d", f"{cache_dir}/protoc-{version}", f"{cache_dir}/{protoc_zip_filename}"
-        ])
+    if not (
+        os.path.isfile(downloaded_protoc_bin) and os.path.isdir(downloaded_protoc_include_path)
+    ):
+        subprocess.check_call(
+            [
+                "wget",
+                f"https://github.com/protocolbuffers/protobuf/releases/download/v{version}/{protoc_zip_filename}",
+                "-O",
+                f"{cache_dir}/{protoc_zip_filename}",
+            ]
+        )
+        subprocess.check_call(
+            [
+                "unzip",
+                "-o",
+                "-d",
+                f"{cache_dir}/protoc-{version}",
+                f"{cache_dir}/{protoc_zip_filename}",
+            ]
+        )
     return downloaded_protoc_bin, downloaded_protoc_include_path
 
 
@@ -137,7 +152,7 @@ if Version(google.protobuf.__version__) >= Version("5.26.0"):
 else:
 {prepend_intent(gencode3194)}
 """
-    out_path.write_text(merged_code, encoding='UTF-8')
+    out_path.write_text(merged_code, encoding="UTF-8")
 
 
 def main():
@@ -157,7 +172,7 @@ def main():
 
     for proto_files, protos_dir in [
         (python_proto_files, mlflow_protos_dir),
-        (test_proto_files, test_protos_dir)
+        (test_proto_files, test_protos_dir),
     ]:
         for file_name in proto_files:
             gencode_filename = _get_python_output_filename(file_name)
@@ -173,7 +188,8 @@ def main():
         mlflow_protos_dir,
         basic_proto_files,
         "java",
-        protoc3194, protoc3194_include,
+        protoc3194,
+        protoc3194_include,
         "mlflow/java/client/src/main/java",
     )
 
