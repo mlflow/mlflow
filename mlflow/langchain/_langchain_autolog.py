@@ -248,7 +248,7 @@ def _inject_callbacks(original_callbacks, new_callbacks):
 
     def _is_new_callback_already_in_original_callbacks(new_callback, original_callbacks):
         return any(
-            isinstance(new_callback, type(original_callback))
+            isinstance(original_callback, type(new_callback))
             for original_callback in original_callbacks
         )
 
@@ -274,10 +274,14 @@ def _inject_callbacks(original_callbacks, new_callbacks):
 
 def _inject_callbacks_for_runnable(mlflow_callbacks, args, kwargs):
     """
-    `config` is the second positional argument of runnable invoke, batch and stream functions
+    `config` is the second positional argument of runnable invoke, batch, stream,
+    ainvoke, abatch, astream functions
     https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/core/langchain_core/runnables/base.py#L468
     https://github.com/langchain-ai/langchain/blob/ed980601e1c630f996aabf85df5cb26178e53099/libs/core/langchain_core/runnables/base.py#L600-L607
     https://github.com/langchain-ai/langchain/blob/ed980601e1c630f996aabf85df5cb26178e53099/libs/core/langchain_core/runnables/base.py#L801
+    https://github.com/langchain-ai/langchain/blob/25ba7332185e0c6624a2b02b72030f073755d716/libs/core/langchain_core/runnables/base.py#L588
+    https://github.com/langchain-ai/langchain/blob/25ba7332185e0c6624a2b02b72030f073755d716/libs/core/langchain_core/runnables/base.py#L706
+    https://github.com/langchain-ai/langchain/blob/25ba7332185e0c6624a2b02b72030f073755d716/libs/core/langchain_core/runnables/base.py#L810
 
     """
     from langchain.schema.runnable.config import RunnableConfig
@@ -291,8 +295,8 @@ def _inject_callbacks_for_runnable(mlflow_callbacks, args, kwargs):
     if config is None:
         config = RunnableConfig(callbacks=mlflow_callbacks)
     else:
-        # for `invoke` and `stream`, config type is RunnableConfig
-        # for `batch`, config type is Union[RunnableConfig, List[RunnableConfig]]
+        # for `invoke`, `ainvoke`, `stream` and `astream`, config type is RunnableConfig
+        # for `batch` and `abatch`, config type is Union[RunnableConfig, List[RunnableConfig]]
         if isinstance(config, list):
             for c in config:
                 c["callbacks"] = _inject_callbacks(c.get("callbacks") or [], mlflow_callbacks)
@@ -309,7 +313,7 @@ def _inject_mlflow_callbacks(func_name, mlflow_callbacks, args, kwargs):
     """
     Inject list of callbacks into the function named `func_name` of the model.
     """
-    if func_name in ["invoke", "batch", "stream"]:
+    if func_name in ["invoke", "batch", "stream", "ainvoke", "abatch", "astream"]:
         return _inject_callbacks_for_runnable(mlflow_callbacks, args, kwargs)
 
     if func_name == "__call__":
