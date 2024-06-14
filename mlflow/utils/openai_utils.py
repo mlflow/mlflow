@@ -235,7 +235,7 @@ class _OAITokenHolder:
 
     def auth_headers(self):
         if self._api_type == "azure":
-            # For Azure OpenAI API keys, the `api-key` header must be included:
+            # For Azure OpenAI API keys, the `api-key` header must be used:
             # https://learn.microsoft.com/en-us/azure/ai-services/openai/reference#authentication
             return {"api-key": self.token}
         else:
