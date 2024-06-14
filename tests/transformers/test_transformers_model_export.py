@@ -115,8 +115,8 @@ def mock_pyfunc_wrapper():
 @pytest.fixture
 @flaky()
 def image_for_test():
-    dataset = load_dataset("huggingface/cats-image")
-    return dataset["test"]["image"][0]
+    dataset = load_dataset("hf-internal-testing/dummy_image_text_data")
+    return dataset["train"]["image"][3]
 
 
 @pytest.fixture
@@ -439,14 +439,14 @@ def test_basic_save_model_and_load_vision_pipeline(small_vision_model, model_pat
     )
     loaded = mlflow.transformers.load_model(model_path)
     prediction = loaded(image_for_test)
-    assert prediction[0]["label"] == "tabby, tabby cat"
+    assert prediction[0]["label"] == "wall clock"
     assert prediction[0]["score"] > 0.5
 
 
 @flaky()
 def test_multi_modal_pipeline_save_and_load(small_multi_modal_pipeline, model_path, image_for_test):
     mlflow.transformers.save_model(transformers_model=small_multi_modal_pipeline, path=model_path)
-    question = "How many cats are in the picture?"
+    question = "How many wall clocks are in the picture?"
     # Load components
     components = mlflow.transformers.load_model(model_path, return_type="components")
     if IS_NEW_FEATURE_EXTRACTION_API:
@@ -456,11 +456,11 @@ def test_multi_modal_pipeline_save_and_load(small_multi_modal_pipeline, model_pa
     assert set(components.keys()).intersection(expected_components) == expected_components
     constructed_pipeline = transformers.pipeline(**components)
     answer = constructed_pipeline(image=image_for_test, question=question)
-    assert answer[0]["answer"] == "2"
+    assert answer[0]["answer"] == "1"
     # Load pipeline
     pipeline = mlflow.transformers.load_model(model_path)
     pipeline_answer = pipeline(image=image_for_test, question=question)
-    assert pipeline_answer[0]["answer"] == "2"
+    assert pipeline_answer[0]["answer"] == "1"
     # Test invalid loading mode
     with pytest.raises(MlflowException, match="The specified return_type mode 'magic' is"):
         mlflow.transformers.load_model(model_path, return_type="magic")
