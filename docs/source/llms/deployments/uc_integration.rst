@@ -19,7 +19,6 @@ To download the files required for this example, clone the MLflow repository:
 
 .. code-block:: bash
 
-    # Install the required packages
     pip install mlflow openai databricks-sdk
 
 3. Create the UC function used in the example script on your Databricks workspace by running the following SQL command:
@@ -61,7 +60,7 @@ Once you have completed the pre-requisites, you can start the deployments server
     # Enable Unity Catalog integration
     export MLFLOW_ENABLE_UC_FUNCTIONS=true
 
-    # Run the deployments server
+    # Run the server
     mlflow deployments start-server --config-path examples/deployments/deployments_server/openai/config.yaml --port 7000
 
 Query the Endpoint with UC Function
