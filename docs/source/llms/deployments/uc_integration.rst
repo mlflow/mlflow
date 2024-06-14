@@ -1,5 +1,5 @@
 Unity Catalog Integration
--------------------------
+=========================
 
 This example demonstrates how to use the Unity Catalog (UC) integration with MLflow Deployments server.
 
@@ -63,8 +63,8 @@ Once you have completed the pre-requisites, you can start the deployments server
     # Run the deployments server
     mlflow deployments start-server --config-path examples/deployments/deployments_server/openai/config.yaml --port 7000
 
-Running the example script
---------------------------
+Query the Endpoint with UC Function
+-----------------------------------
 
 Once the server is running, you can run the example script:
 
@@ -77,7 +77,7 @@ Once the server is running, you can run the example script:
 What's happening under the hood?
 --------------------------------
 
-When MLflow Deployments Server receives a request with `tools` containing `uc_function`, it automatically fetches the UC function metadata to construct the function schema, query the chat API to figure out the parameters required to call the function, and then call the function with the provided parameters.
+When MLflow Deployments Server receives a request with ``tools`` containing ``uc_function``, it automatically fetches the UC function metadata to construct the function schema, query the chat API to figure out the parameters required to call the function, and then call the function with the provided parameters.
 
 .. code-block:: python
 

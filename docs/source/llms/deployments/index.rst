@@ -1191,7 +1191,7 @@ MLflow Deployments Server API Documentation
 Unity Catalog Integration
 =========================
 
-See `Unity Catalog Integration <./uc_integration.html>` for how to integrate the MLflow Deployments Server with Unity Catalog.
+See `Unity Catalog Integration <./uc_integration.html>`_ for how to integrate the MLflow Deployments Server with Unity Catalog.
 
 .. _deployments_security:
 
