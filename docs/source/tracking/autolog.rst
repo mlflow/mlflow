@@ -137,6 +137,43 @@ The following libraries support autologging:
 
 For flavors that automatically save models as an artifact, `additional files <https://mlflow.org/docs/latest/models.html#storage-format>`_ for dependency management are logged.
 
+.. _autolog-langchain:
+
+LangChain
+---------
+
+Call the generic autolog function :py:func:`mlflow.langchain.autolog` before your training code to enable automatic logging of traces.
+See an example usage with `Langchain <https://github.com/mlflow/mlflow/tree/master/examples/langchain>`_.
+
+Autologging captures the following information:
+
++-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                                               | Tags          | Artifacts                                                                                                                                                             |
++-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| LangChain | --                     | --                                                       |  --           | - Traces                                                                                                                                                              |
+|           |                        |                                                          |               | - `MLflow Model`_ (LangChain model) with model signature on training end                                                                                              |
+|           |                        |                                                          |               | - Input example                                                                                                                                                       |
+|           |                        |                                                          |               | - Datasets                                                                                                                                                            |
++-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+.. _autolog-openai:
+
+OpenAI
+------
+
+Call the generic autolog function :py:func:`mlflow.openai.autolog` before your training code to enable automatic logging of artifacts.
+See an example usage with `Langchain <https://github.com/mlflow/mlflow/tree/master/examples/openai>`_.
+
+Autologging captures the following information:
+
++-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                                               | Tags          | Artifacts                                                                                                                                                             |
++-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| OpenAI    | --                     | --                                                       |  --           | - `MLflow Model`_ (OpenAI model) with model signature on training end                                                                                                 |
+|           |                        |                                                          |               | - Input example                                                                                                                                                       |
+|           |                        |                                                          |               | - Datasets                                                                                                                                                            |
++-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
 .. _autolog-fastai:
 
 Fastai
