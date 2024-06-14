@@ -14,7 +14,6 @@ from mlflow.tracing.constant import (
     TRACE_SCHEMA_VERSION_KEY,
     SpanAttributeKey,
     TraceMetadataKey,
-    TraceTagKey,
 )
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -48,6 +47,7 @@ def test_on_start(monkeypatch):
         timestamp_ms=5,
         request_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
         tags={
+            "mlflow.traceName": "test_span",
             "mlflow.user": "bob",
             "mlflow.source.name": "test",
             "mlflow.source.type": "LOCAL",
@@ -114,6 +114,7 @@ def test_on_start_with_experiment_id(monkeypatch):
         timestamp_ms=5,
         request_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
         tags={
+            "mlflow.traceName": "test_span",
             "mlflow.user": "bob",
             "mlflow.source.name": "test",
             "mlflow.source.type": "LOCAL",
@@ -229,7 +230,7 @@ def test_on_end():
     trace_output = trace_info.request_metadata.get(TraceMetadataKey.OUTPUTS)
     assert len(trace_output) == 250
     assert trace_output.startswith('{"output": "very long output')
-    assert trace_info.tags == {TraceTagKey.TRACE_NAME: "foo"}
+    assert trace_info.tags == {}
 
     # Non-root span should not be exported
     mock_exporter.reset_mock()
