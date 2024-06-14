@@ -1,4 +1,4 @@
-Uniti Catalog Integration
+Unity Catalog Integration
 -------------------------
 
 This example demonstrates how to use the Unity Catalog (UC) integration with MLflow Deployments server.
