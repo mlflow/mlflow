@@ -155,11 +155,14 @@ def log_evaluations_df(
           `target_cols`.
           Additionally, evaluation information will be read from the following optional columns,
           if specified (see documentation for the log_evaluations() API):
-              - "inputs_id": Unique identifier for evaluation inputs.
               - "request_id": ID of an MLflow trace corresponding to the evaluation inputs and
                   outputs.
               - "metrics": Numerical evaluation metrics, represented as a list of MLflow Metric
                   objects or as a dictionary.
+              - "error_code": An error code representing any issues encountered during the
+                  evaluation.'
+              - "error_message": A descriptive error message representing any issues encountered
+                  during the evaluation.
       input_cols (List[str]): Names of columns containing input fields for evaluation.
       output_cols (List[str]): Names of columns containing output fields for evaluation.
       inputs_id_col (Optional[str]): Name of the column containing unique identifiers for the
@@ -228,6 +231,8 @@ def log_evaluations_df(
                 targets=targets,
                 request_id=row.get("request_id"),
                 metrics=metrics,
+                error_code=row.get("error_code"),
+                error_message=row.get("error_message"),
             )
         )
 

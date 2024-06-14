@@ -469,7 +469,12 @@ def test_log_evaluation_df_with_all_params():
             "actual": [0.62, 0.74],
             "inputs_id": ["id1", "id2"],
             "request_id": ["req1", "req2"],
-            "metrics": [{"metric1": 1.1}, [Metric(key="metric2", value=1.2, timestamp=0, step=0)]],
+            "metrics": [
+                [{"metric1": 1.1}, [Metric(key="metric2", value=1.2, timestamp=0, step=0)]],
+                [{"metric1": 1.3}, [Metric(key="metric2", value=1.4, timestamp=0, step=0)]],
+            ],
+            "error_code": ["E001", "E002"],
+            "error_message": ["An error occurred during evaluation.", "Another error occurred."],
         }
         evaluations_df = pd.DataFrame(data)
 
@@ -478,6 +483,8 @@ def test_log_evaluation_df_with_all_params():
         output_cols = ["prediction"]
         target_cols = ["actual"]
         inputs_id_col = "inputs_id"
+        error_code_col = "error_code"
+        error_message_col = "error_message"
 
         # Log the evaluations
         result_df = log_evaluations_df(
@@ -487,6 +494,8 @@ def test_log_evaluation_df_with_all_params():
             output_cols=output_cols,
             target_cols=target_cols,
             inputs_id_col=inputs_id_col,
+            error_code_col=error_code_col,
+            error_message_col=error_message_col,
         )
 
         # Verify that the evaluation IDs have been added to the DataFrame
@@ -500,8 +509,8 @@ def test_log_evaluation_df_with_all_params():
             )
             assert retrieved_evaluation is not None
 
-            # Check that the inputs, outputs, targets, metrics, and request_id match the
-            # original DataFrame
+            # Check that the inputs, outputs, targets, metrics, request_id, error_code, and
+            # error_message match the original DataFrame
             original_row = evaluations_df[result_df["evaluation_id"] == evaluation_id].iloc[0]
             assert retrieved_evaluation.inputs["feature1"] == original_row["feature1"]
             assert retrieved_evaluation.inputs["feature2"] == original_row["feature2"]
@@ -509,6 +518,9 @@ def test_log_evaluation_df_with_all_params():
             assert retrieved_evaluation.targets["actual"] == original_row["actual"]
             assert retrieved_evaluation.inputs_id == original_row["inputs_id"]
             assert retrieved_evaluation.request_id == original_row["request_id"]
+            assert retrieved_evaluation.error_code == original_row["error_code"]
+            assert retrieved_evaluation.error_message == original_row["error_message"]
+
             if isinstance(original_row["metrics"], dict):
                 assert {met.key: met.value for met in retrieved_evaluation.metrics} == original_row[
                     "metrics"
