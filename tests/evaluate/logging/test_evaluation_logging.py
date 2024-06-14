@@ -680,6 +680,13 @@ def test_incremental_logging_of_assessments():
         source=AssessmentSource(source_type=AssessmentSourceType.AI_JUDGE, source_id="judge_1"),
     )
 
+    assessment3 = Assessment(
+        name="error_assessment",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_2"),
+        error_code="E001",
+        error_message="An error occurred during the assessment.",
+    )
+
     def assert_assessments_equal(assessment, expected_assessment):
         assert assessment.name == expected_assessment.name
         assert assessment.boolean_value == expected_assessment.boolean_value
@@ -687,6 +694,8 @@ def test_incremental_logging_of_assessments():
         assert assessment.string_value == expected_assessment.string_value
         assert assessment.metadata == expected_assessment.metadata
         assert assessment.source == expected_assessment.source
+        assert assessment.error_code == expected_assessment.error_code
+        assert assessment.error_message == expected_assessment.error_message
 
     with mlflow.start_run() as run:
         logged_evaluation = log_evaluation(inputs=inputs, outputs=outputs)
@@ -712,6 +721,20 @@ def test_incremental_logging_of_assessments():
         assert len(retrieved_evaluation2.assessments) == 2
         for retrieved_assessment, expected_assessment in zip(
             retrieved_evaluation2.assessments, [assessment1, assessment2]
+        ):
+            assert_assessments_equal(
+                retrieved_assessment,
+                expected_assessment._to_entity(evaluation_id=logged_evaluation.evaluation_id),
+            )
+
+        log_assessments(evaluation_id=logged_evaluation.evaluation_id, assessments=assessment3)
+
+        retrieved_evaluation3 = get_evaluation(
+            evaluation_id=logged_evaluation.evaluation_id, run_id=run_id
+        )
+        assert len(retrieved_evaluation3.assessments) == 3
+        for retrieved_assessment, expected_assessment in zip(
+            retrieved_evaluation3.assessments, [assessment1, assessment2, assessment3]
         ):
             assert_assessments_equal(
                 retrieved_assessment,
