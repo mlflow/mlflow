@@ -1,8 +1,7 @@
 name: Preview docs
 
 on:
-  # pull_request_target:
-  pull_request:
+  pull_request_target:
 
 permissions:
   contents: read
