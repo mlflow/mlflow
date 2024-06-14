@@ -71,8 +71,10 @@ python_gencode_replacements = [
         "from . import databricks_uc_registry_messages_pb2 as databricks_uc_registry_messages_pb2",
     ),
     (
-        "import databricks_managed_catalog_messages_pb2 as databricks__managed__catalog__messages__pb2",
-        "from . import databricks_managed_catalog_messages_pb2 as databricks_managed_catalog_messages_pb2",
+        "import databricks_managed_catalog_messages_pb2 as databricks__managed__catalog__"
+        "messages__pb2",
+        "from . import databricks_managed_catalog_messages_pb2 as databricks_managed_"
+        "catalog_messages_pb2",
     ),
 ]
 
