@@ -19,6 +19,8 @@ class Assessment(_MlflowObject):
         value: Optional[Union[bool, float, str]],
         rationale: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        error_code: Optional[str] = None,
+        error_message: Optional[str] = None,
     ):
         """Construct a new Assessment instance.
 
@@ -29,12 +31,17 @@ class Assessment(_MlflowObject):
             rationale: The rationale / justification for the value.
             metadata: Additional metadata for the assessment, e.g. the index of the chunk in the
                       retrieved documents that the assessment applies to.
+            error_code: An error code representing any issues encountered during the assessment.
+            error_message: A descriptive error message representing any issues encountered during
+                the assessment.
         """
         self._name = name
         self._source = source
         self._value = value
         self._rationale = rationale
         self._metadata = metadata or {}
+        self._error_code = error_code
+        self._error_message = error_message
 
         self._boolean_value = None
         self._numeric_value = None
@@ -77,6 +84,16 @@ class Assessment(_MlflowObject):
         """Get the metadata associated with the assessment."""
         return self._metadata
 
+    @property
+    def error_code(self) -> Optional[str]:
+        """Get the error code."""
+        return self._error_code
+
+    @property
+    def error_message(self) -> Optional[str]:
+        """Get the error message."""
+        return self._error_message
+
     def __eq__(self, __o):
         if isinstance(__o, self.__class__):
             return self.to_dictionary() == __o.to_dictionary()
@@ -98,12 +115,14 @@ class Assessment(_MlflowObject):
             "value": self.value,
             "rationale": self.rationale,
             "metadata": self.metadata,
+            "error_code": self.error_code,
+            "error_message": self.error_message,
         }
 
     @classmethod
     def from_dictionary(cls, assessment_dict: Dict[str, Any]) -> "Assessment":
         """
-        Create a Assessment object from a dictionary.
+        Create an Assessment object from a dictionary.
 
         Args:
             assessment_dict (dict): Dictionary containing assessment information.
@@ -117,12 +136,16 @@ class Assessment(_MlflowObject):
         rationale = assessment_dict.get("rationale")
         metadata = assessment_dict.get("metadata")
         value = assessment_dict.get("value")
+        error_code = assessment_dict.get("error_code")
+        error_message = assessment_dict.get("error_message")
         return cls(
             name=name,
             source=source,
             value=value,
             rationale=rationale,
             metadata=metadata,
+            error_code=error_code,
+            error_message=error_message,
         )
 
     def _to_entity(self, evaluation_id: str) -> AssessmentEntity:
@@ -136,4 +159,6 @@ class Assessment(_MlflowObject):
             string_value=self._string_value,
             rationale=self._rationale,
             metadata=self._metadata,
+            error_code=self._error_code,
+            error_message=self._error_message,
         )
