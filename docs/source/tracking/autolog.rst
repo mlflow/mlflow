@@ -137,43 +137,6 @@ The following libraries support autologging:
 
 For flavors that automatically save models as an artifact, `additional files <https://mlflow.org/docs/latest/models.html#storage-format>`_ for dependency management are logged.
 
-.. _autolog-langchain:
-
-LangChain
----------
-
-Call the generic autolog function :py:func:`mlflow.langchain.autolog` before your training code to enable automatic logging of traces.
-See an example usage with `Langchain <https://github.com/mlflow/mlflow/tree/master/examples/langchain>`_.
-
-Autologging captures the following information:
-
-+-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| Framework | Metrics                | Parameters                                               | Tags          | Artifacts                                                                                                                                                             |
-+-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| LangChain | --                     | --                                                       |  --           | - Traces                                                                                                                                                              |
-|           |                        |                                                          |               | - `MLflow Model`_ (LangChain model) with model signature on training end                                                                                              |
-|           |                        |                                                          |               | - Input example                                                                                                                                                       |
-|           |                        |                                                          |               | - Datasets                                                                                                                                                            |
-+-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-
-.. _autolog-openai:
-
-OpenAI
-------
-
-Call the generic autolog function :py:func:`mlflow.openai.autolog` before your training code to enable automatic logging of artifacts.
-See an example usage with `Langchain <https://github.com/mlflow/mlflow/tree/master/examples/openai>`_.
-
-Autologging captures the following information:
-
-+-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| Framework | Metrics                | Parameters                                               | Tags          | Artifacts                                                                                                                                                             |
-+-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| OpenAI    | --                     | --                                                       |  --           | - `MLflow Model`_ (OpenAI model) with model signature on training end                                                                                                 |
-|           |                        |                                                          |               | - Input example                                                                                                                                                       |
-|           |                        |                                                          |               | - Datasets                                                                                                                                                            |
-+-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-
 .. _autolog-fastai:
 
 Fastai
@@ -211,10 +174,10 @@ Autologging captures the following information:
 | Gluon            | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Gluon model); on training end                                   |
 +------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
 
-.. _autolog-keras:
+.. _autolog-keras/tensorflow:
 
-Keras
------
+Keras/TensorFlow
+----------------
 Call the generic autolog function or :py:func:`mlflow.tensorflow.autolog` before your training code to enable automatic logging of metrics and parameters. As an example, try running the `Keras/Tensorflow example <https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py>`_.
 
 Note that only versions of ``tensorflow>=2.3`` are supported.
@@ -238,6 +201,25 @@ Also, MLflow will then automatically end the run once training ends via calls to
 
 If a run already exists when ``autolog()`` captures data, MLflow will log to that run but not automatically end that run after training. You will have to manually stop the run if you wish to start a new run context for logging to a new run.
 
+.. _autolog-langchain:
+
+LangChain
+---------
+
+Call the generic autolog function :py:func:`mlflow.langchain.autolog` before your training code to enable automatic logging of traces.
+See an example usage with `Langchain <https://github.com/mlflow/mlflow/tree/master/examples/langchain>`_.
+
+Autologging captures the following information:
+
++-----------+-------------+----------------+---------------+---------------------------------------------------------------------------------+
+| Framework | Metrics     | Parameters     | Tags          | Artifacts                                                                       |
++-----------+-------------+----------------+---------------+---------------------------------------------------------------------------------+
+| LangChain | --          | --             |  --           | - Traces                                                                        |
+|           |             |                |               | - `MLflow Model`_ (LangChain model) with model signature on training end        |
+|           |             |                |               | - Input example                                                                 |
+|           |             |                |               | - Datasets                                                                      |
++-----------+-------------+----------------+---------------+---------------------------------------------------------------------------------+
+
 .. _autolog-lightgbm:
 
 LightGBM
@@ -256,6 +238,38 @@ If early stopping is activated, metrics at the best iteration will be logged as 
 
 .. _lightgbm.train: https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.train.html#lightgbm-train
 
+.. _autolog-openai:
+
+OpenAI
+------
+
+Call the generic autolog function :py:func:`mlflow.openai.autolog` before your training code to enable automatic logging of artifacts.
+See an example usage with `Langchain <https://github.com/mlflow/mlflow/tree/master/examples/openai>`_.
+
+Autologging captures the following information:
+
++-----------+-------------+----------------+---------------+------------------------------------------------------------------------------+
+| Framework | Metrics     | Parameters     | Tags          | Artifacts                                                                    |
++-----------+-------------+----------------+---------------+------------------------------------------------------------------------------+
+| OpenAI    | --          | --             |  --           | - `MLflow Model`_ (OpenAI model) with model signature on training end        |
+|           |             |                |               | - Input example                                                              |
+|           |             |                |               | - Datasets                                                                   |
++-----------+-------------+----------------+---------------+------------------------------------------------------------------------------+
+
+.. _autolog-paddle:
+
+Paddle
+------
+Call the generic autolog function :py:func:`mlflow.paddle.autolog` before your training code to enable automatic logging of metrics and parameters.
+
+Autologging captures the following information:
+
++-----------+------------------------+--------------------------------+---------------+---------------------------------------------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                     | Tags          | Artifacts                                                                                               |
++-----------+------------------------+--------------------------------+---------------+---------------------------------------------------------------------------------------------------------+
+| Paddle    | user-specified metrics | `paddle.Model.fit`_ parameters | --            | `MLflow Model`_ (Paddle model) with model signature on training end                                     |
++-----------+------------------------+--------------------------------+---------------+---------------------------------------------------------------------------------------------------------+
+.. _paddle.Model.fit: https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html
 
 .. _autolog-pytorch:
 
