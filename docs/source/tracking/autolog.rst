@@ -217,7 +217,6 @@ Autologging captures the following information:
 | LangChain | --          | --             |  --           | - Traces                                                                        |
 |           |             |                |               | - `MLflow Model`_ (LangChain model) with model signature on training end        |
 |           |             |                |               | - Input example                                                                 |
-|           |             |                |               | - Datasets                                                                      |
 +-----------+-------------+----------------+---------------+---------------------------------------------------------------------------------+
 
 .. _autolog-lightgbm:
@@ -253,7 +252,6 @@ Autologging captures the following information:
 +-----------+-------------+----------------+---------------+------------------------------------------------------------------------------+
 | OpenAI    | --          | --             |  --           | - `MLflow Model`_ (OpenAI model) with model signature on training end        |
 |           |             |                |               | - Input example                                                              |
-|           |             |                |               | - Datasets                                                                   |
 +-----------+-------------+----------------+---------------+------------------------------------------------------------------------------+
 
 .. _autolog-paddle:
