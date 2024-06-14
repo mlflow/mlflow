@@ -5,6 +5,7 @@ import {
   Spacer,
   TableSkeleton,
   TitleSkeleton,
+  WarningIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { getTraceDisplayName } from './ExperimentViewTraces.utils';
@@ -30,7 +31,15 @@ export const ExperimentViewTraceDataDrawer = ({
   loadingTraceInfo?: boolean;
   onClose: () => void;
 }) => {
-  const { traceData, loading, error } = useExperimentTraceData(requestId);
+  const {
+    traceData,
+    loading: loadingTraceData,
+    error,
+  } = useExperimentTraceData(
+    requestId,
+    // skip fetching trace data if trace is in progress
+    traceInfo?.status === 'IN_PROGRESS',
+  );
   const { theme } = useDesignSystemTheme();
 
   // Usually, we rely on the parent component to provide trace info object (when clicked in a table row).
@@ -74,11 +83,33 @@ export const ExperimentViewTraceDataDrawer = ({
   const containsSpans = (traceData?.spans || []).length > 0;
 
   const renderContent = () => {
-    if (loading) {
+    if (loadingTraceData || loadingTraceInfo || loadingInternalTracingInfo) {
       return (
         <>
           <TitleSkeleton />
           <TableSkeleton lines={5} />
+        </>
+      );
+    }
+    if (traceInfo?.status === 'IN_PROGRESS') {
+      return (
+        <>
+          <Spacer size="lg" />
+          <Empty
+            image={<WarningIcon />}
+            description={
+              <FormattedMessage
+                defaultMessage="Trace data is not available for in-progress traces. Please wait for the trace to complete."
+                description="Experiment page > traces data drawer > in-progress description"
+              />
+            }
+            title={
+              <FormattedMessage
+                defaultMessage="Trace data not available"
+                description="Experiment page > traces data drawer > in-progress title"
+              />
+            }
+          />
         </>
       );
     }
@@ -88,12 +119,17 @@ export const ExperimentViewTraceDataDrawer = ({
         <>
           <Spacer size="lg" />
           <Empty
-            image={<DangerIcon />}
-            description={errorMessage}
+            image={<WarningIcon />}
+            description={
+              <FormattedMessage
+                defaultMessage="Trace data is not available for in-progress traces. Please wait for the trace to complete."
+                description="Experiment page > traces data drawer > in-progress description"
+              />
+            }
             title={
               <FormattedMessage
-                defaultMessage="Error"
-                description="Experiment page > traces data drawer > error state title"
+                defaultMessage="Trace data not available"
+                description="Experiment page > traces data drawer > in-progress title"
               />
             }
           />
