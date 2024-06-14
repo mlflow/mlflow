@@ -270,7 +270,11 @@ class ArtifactRepository:
                     tracebacks[path] = traceback.format_exc()
 
         if failed_downloads:
-            template = "##### File {path} #####\n{error}\nTraceback:\n{traceback}\n"
+            if _logger.isEnabledFor(logging.DEBUG):
+                template = "##### File {path} #####\n{error}\nTraceback:\n{traceback}\n"
+            else:
+                template = "##### File {path} #####\n{error}"
+
             failures = "\n".join(
                 template.format(path=path, error=error, traceback=tracebacks[path])
                 for path, error in failed_downloads.items()
