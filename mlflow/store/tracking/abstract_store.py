@@ -633,7 +633,7 @@ class AbstractStore:
         Flushes the async logging queue. This method is a no-op if the queue is already
         at TERMINATED state. This methods also shutdown the logging worker threads.
         """
-        if not self._async_logging_queue.is_terminated():
+        if not self._async_logging_queue.is_idle():
             self._async_logging_queue.flush()
 
     @abstractmethod

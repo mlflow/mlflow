@@ -31,13 +31,12 @@ ASYNC_LOGGING_STATUS_CHECK_THREAD_PREFIX = "MLflowAsyncLoggingStatusCheck"
 class QueueStatus(enum.Enum):
     """Status of the async queue"""
 
-    # The queue is running worker threads to consume the new data.
+    # The queue is listening to new data and logging enqueued data to MLflow.
     ACTIVE = 1
-    # The queue is still running work threads, but does not accept
-    # new data. The queue still processes the remaining data.
+    # The queue is not listening to new data, but still logging enqueued data to MLflow.
     TEAR_DOWN = 2
-    # The queue is not running worker threads at all.
-    TERMINATED = 3
+    # The queue is neither listening to new data or logging enqueued data to MLflow.
+    IDLE = 3
 
 
 class AsyncLoggingQueue:
@@ -59,7 +58,7 @@ class AsyncLoggingQueue:
         self._logging_func = logging_func
 
         self._stop_data_logging_thread_event = threading.Event()
-        self._status = QueueStatus.TERMINATED
+        self._status = QueueStatus.IDLE
 
     def _at_exit_callback(self) -> None:
         """Callback function to be executed when the program is exiting.
@@ -95,7 +94,7 @@ class AsyncLoggingQueue:
         self.end_async_logging()
         self._batch_logging_worker_threadpool.shutdown(wait=True)
         self._batch_status_check_threadpool.shutdown(wait=True)
-        self._status = QueueStatus.TERMINATED
+        self._status = QueueStatus.IDLE
 
         # Restart the thread to listen to incoming data after flushing.
         self._stop_data_logging_thread_event.clear()
@@ -254,7 +253,7 @@ class AsyncLoggingQueue:
         self.__dict__.update(state)
         self._queue = Queue()
         self._lock = threading.RLock()
-        self._status = QueueStatus.TERMINATED
+        self._status = QueueStatus.IDLE
         self._batch_logging_thread = None
         self._batch_logging_worker_threadpool = None
         self._batch_status_check_threadpool = None
@@ -296,8 +295,8 @@ class AsyncLoggingQueue:
     def is_active(self) -> bool:
         return self._status == QueueStatus.ACTIVE
 
-    def is_terminated(self) -> bool:
-        return self._status == QueueStatus.TERMINATED
+    def is_idle(self) -> bool:
+        return self._status == QueueStatus.IDLE
 
     def _set_up_logging_thread(self) -> None:
         """Sets up the logging thread.

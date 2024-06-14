@@ -70,7 +70,7 @@ def test_single_thread_publish_consume_queue(monkeypatch):
         async_logging_queue.flush()
         # 2 batches are sent to the worker thread pool due to grouping, otherwise it would be 5.
         assert mock_worker_threadpool.submit.call_count == 2
-        assert async_logging_queue.is_terminated()
+        assert async_logging_queue.is_idle()
         assert mock_check_threadpool.shutdown.call_count == 1
         assert mock_worker_threadpool.shutdown.call_count == 1
 
@@ -108,7 +108,7 @@ def test_queue_activation():
     run_id = "test_run_id"
     run_data = RunData()
     async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
-    assert async_logging_queue.is_terminated()
+    assert async_logging_queue.is_idle()
 
     metrics = [
         Metric(
@@ -149,7 +149,7 @@ def test_end_async_logging():
     assert not async_logging_queue._batch_status_check_threadpool._shutdown
 
     async_logging_queue.flush()
-    assert async_logging_queue.is_terminated()
+    assert async_logging_queue.is_idle()
 
 
 def test_partial_logging_failed():
