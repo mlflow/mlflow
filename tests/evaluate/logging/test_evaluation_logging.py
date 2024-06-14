@@ -217,7 +217,7 @@ def test_log_evaluation_with_same_inputs_has_same_inputs_id(inputs, outputs):
 
 
 @pytest.mark.parametrize(
-    ("inputs", "outputs", "targets", "assessments", "metrics"),
+    ("inputs", "outputs", "targets", "assessments", "metrics", "error_code", "error_message"),
     [
         (
             {"feature1": 1.0, "feature2": 2.0},
@@ -247,6 +247,8 @@ def test_log_evaluation_with_same_inputs_has_same_inputs_id(inputs, outputs):
                 Metric(key="metric1", value=1.4, timestamp=1717047609503, step=0),
                 Metric(key="metric2", value=1.2, timestamp=1717047609504, step=0),
             ],
+            "E001",
+            "An error occurred during evaluation.",
         ),
         (
             {"feature1": "text1", "feature2": "text2"},
@@ -264,10 +266,14 @@ def test_log_evaluation_with_same_inputs_has_same_inputs_id(inputs, outputs):
                 )
             ],
             {"metric1": 0.8, "metric2": 0.84},
+            "E002",
+            "Another error occurred.",
         ),
     ],
 )
-def test_log_evaluation_with_all_params(inputs, outputs, targets, assessments, metrics):
+def test_log_evaluation_with_all_params(
+    inputs, outputs, targets, assessments, metrics, error_code, error_message
+):
     inputs_id = "unique-inputs-id"
     request_id = "unique-request-id"
 
@@ -282,6 +288,8 @@ def test_log_evaluation_with_all_params(inputs, outputs, targets, assessments, m
             targets=targets,
             assessments=assessments,
             metrics=metrics,
+            error_code=error_code,
+            error_message=error_message,
             run_id=run_id,
         )
 
@@ -291,6 +299,8 @@ def test_log_evaluation_with_all_params(inputs, outputs, targets, assessments, m
         assert logged_evaluation.inputs_id == inputs_id
         assert logged_evaluation.request_id == request_id
         assert logged_evaluation.targets == targets
+        assert logged_evaluation.error_code == error_code
+        assert logged_evaluation.error_message == error_message
 
         metrics = (
             {metric.key: metric.value for metric in logged_evaluation.metrics}

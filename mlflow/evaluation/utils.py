@@ -213,6 +213,8 @@ def _get_evaluation_dataframe_schema() -> Dict[str, Any]:
         "outputs": "object",
         "request_id": "object",
         "targets": "object",
+        "error_code": "object",
+        "error_message": "object",
     }
 
 
