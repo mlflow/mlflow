@@ -242,6 +242,16 @@ def test_log_evaluation_with_same_inputs_has_same_inputs_id(inputs, outputs):
                         "metadata": {"sourcekey2": "sourcevalue2"},
                     },
                 },
+                {
+                    "name": "assessment_error",
+                    "source": {
+                        "source_type": "HUMAN",
+                        "source_id": "user_2",
+                        "metadata": {"sourcekey3": "sourcevalue3"},
+                    },
+                    "error_code": "E002",
+                    "error_message": "Another error occurred during assessment.",
+                },
             ],
             [
                 Metric(key="metric1", value=1.4, timestamp=1717047609503, step=0),
@@ -261,7 +271,7 @@ def test_log_evaluation_with_same_inputs_has_same_inputs_id(inputs, outputs):
                     source=AssessmentSource(
                         source_type=AssessmentSourceType.HUMAN,
                         source_id="user-1",
-                        metadata={"sourcekey3": "sourcevalue3"},
+                        metadata={"sourcekey4": "sourcevalue4"},
                     ),
                 )
             ],
@@ -309,14 +319,25 @@ def test_log_evaluation_with_all_params(
         )
         assert {metric.key: metric.value for metric in logged_evaluation.metrics} == metrics
 
-        assessments = [
-            Assessment.from_dictionary(assessment)
-            for assessment in assessments
-            if isinstance(assessment, dict)
-        ]
+        # Process assessments
+        processed_assessments = []
+        for assessment in assessments:
+            if isinstance(assessment, dict):
+                if "value" in assessment:
+                    assessment_obj = Assessment.from_dictionary(assessment)
+                else:
+                    assessment_obj = Assessment(
+                        name=assessment["name"],
+                        source=AssessmentSource.from_dictionary(assessment["source"]),
+                        value=None,
+                        error_code=assessment.get("error_code"),
+                        error_message=assessment.get("error_message"),
+                    )
+                processed_assessments.append(assessment_obj)
+
         assessment_entities = [
             assessment._to_entity(evaluation_id=logged_evaluation.evaluation_id)
-            for assessment in assessments
+            for assessment in processed_assessments
         ]
         for logged_assessment, assessment_entity in zip(
             logged_evaluation.assessments, assessment_entities
@@ -327,6 +348,8 @@ def test_log_evaluation_with_all_params(
             assert logged_assessment.string_value == assessment_entity.string_value
             assert logged_assessment.metadata == assessment_entity.metadata
             assert logged_assessment.source == assessment_entity.source
+            assert logged_assessment.error_code == assessment_entity.error_code
+            assert logged_assessment.error_message == assessment_entity.error_message
 
         retrieved_evaluation = get_evaluation(
             evaluation_id=logged_evaluation.evaluation_id, run_id=run_id
