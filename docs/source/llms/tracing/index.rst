@@ -717,6 +717,7 @@ Here is an example of intentionally throwing an Exception while a trace is being
 When running this, an Exception will be thrown, as expected. However, a trace is still logged to the active experiment and can be retrieved as follows:
 
 .. code-block:: python
+    
     from pprint import pprint
 
     trace = mlflow.get_trace(span.request_id)
