@@ -64,10 +64,10 @@ def test_from_huggingface_dataset_constructs_expected_dataset_with_revision():
     )
 
     mlflow_ds_new = mlflow.data.from_huggingface(
-        ds_new, path="rotten_tomatoes", revision=new_revision
+        ds_new, path="rotten_tomatoes", revision=new_revision, trust_remote_code=True
     )
     mlflow_ds_old = mlflow.data.from_huggingface(
-        ds_old, path="rotten_tomatoes", revision=old_revision
+        ds_old, path="rotten_tomatoes", revision=old_revision, trust_remote_code=True
     )
 
     reloaded_ds_new = mlflow_ds_new.source.load()

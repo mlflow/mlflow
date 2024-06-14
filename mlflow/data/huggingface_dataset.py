@@ -181,6 +181,7 @@ def from_huggingface(
     revision=None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
+    trust_remote_code: Optional[bool] = None,
 ) -> HuggingFaceDataset:
     """
     Create a `mlflow.data.huggingface_dataset.HuggingFaceDataset` from a Hugging Face dataset.
@@ -235,6 +236,7 @@ def from_huggingface(
             data_files=data_files,
             split=ds.split,
             revision=revision,
+            trust_remote_code=trust_remote_code,
         )
     else:
         context_tags = registry.resolve_tags()
