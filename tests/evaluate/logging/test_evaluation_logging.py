@@ -469,10 +469,7 @@ def test_log_evaluation_df_with_all_params():
             "actual": [0.62, 0.74],
             "inputs_id": ["id1", "id2"],
             "request_id": ["req1", "req2"],
-            "metrics": [
-                [{"metric1": 1.1}, [Metric(key="metric2", value=1.2, timestamp=0, step=0)]],
-                [{"metric1": 1.3}, [Metric(key="metric2", value=1.4, timestamp=0, step=0)]],
-            ],
+            "metrics": [{"metric1": 1.1}, [Metric(key="metric2", value=1.2, timestamp=0, step=0)]],
             "error_code": ["E001", "E002"],
             "error_message": ["An error occurred during evaluation.", "Another error occurred."],
         }
@@ -483,8 +480,6 @@ def test_log_evaluation_df_with_all_params():
         output_cols = ["prediction"]
         target_cols = ["actual"]
         inputs_id_col = "inputs_id"
-        error_code_col = "error_code"
-        error_message_col = "error_message"
 
         # Log the evaluations
         result_df = log_evaluations_df(
@@ -494,8 +489,6 @@ def test_log_evaluation_df_with_all_params():
             output_cols=output_cols,
             target_cols=target_cols,
             inputs_id_col=inputs_id_col,
-            error_code_col=error_code_col,
-            error_message_col=error_message_col,
         )
 
         # Verify that the evaluation IDs have been added to the DataFrame
