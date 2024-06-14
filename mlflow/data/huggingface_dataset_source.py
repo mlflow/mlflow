@@ -36,6 +36,7 @@ class HuggingFaceDatasetSource(DatasetSource):
             data_files: Paths to source data file(s) for the Hugging Face dataset configuration.
             split: Which split of the data to load.
             revision: Version of the dataset script to load.
+            trust_remote_code: Whether to trust remote code from the dataset repo.
         """
         self.path = path
         self.config_name = config_name
