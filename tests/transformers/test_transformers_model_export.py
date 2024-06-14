@@ -499,7 +499,7 @@ def test_multi_modal_component_save_and_load(component_multi_modal, model_path, 
         # Make sure that the component usage works correctly when extracted from inference loading
         model = loaded_components["model"]
         processor = loaded_components["processor"]
-        question = "What are the cats doing?"
+        question = "What is the wall clock doing?"
         inputs = processor(image_for_test, question, return_tensors="pt")
         outputs = model(**inputs)
         logits = outputs.logits
