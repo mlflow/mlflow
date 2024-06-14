@@ -18,7 +18,7 @@ class Assessment(_MlflowObject):
         self,
         name: str,
         source: AssessmentSource,
-        value: Optional[Union[bool, float, str]],
+        value: Optional[Union[bool, float, str]] = None,
         rationale: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         error_code: Optional[str] = None,
@@ -37,6 +37,12 @@ class Assessment(_MlflowObject):
             error_message: A descriptive error message representing any issues encountered during
                 the assessment.
         """
+        if (value, error_code).count(None) != 1:
+            raise MlflowException(
+                "Exactly one of value or error_code must be specified for an assessment.",
+                INVALID_PARAMETER_VALUE,
+            )
+
         self._name = name
         self._source = source
         self._value = value
@@ -58,13 +64,8 @@ class Assessment(_MlflowObject):
         elif value is not None:
             self._string_value = str(value)
             self._value_type = "string"
-        elif error_code is not None:
-            self._value_type = None
         else:
-            raise MlflowException(
-                "Exactly one of value or error_code must be specified for an assessment.",
-                INVALID_PARAMETER_VALUE,
-            )
+            self._value_type = None
 
     @property
     def name(self) -> str:

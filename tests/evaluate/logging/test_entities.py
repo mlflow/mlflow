@@ -5,6 +5,7 @@ from mlflow.evaluation import (
     Assessment,
     Evaluation,
 )
+from mlflow.exceptions import MlflowException
 
 
 def test_assessment_equality():
@@ -12,54 +13,45 @@ def test_assessment_equality():
     source_2 = AssessmentSource(source_type="HUMAN", source_id="user_1")
     source_3 = AssessmentSource(source_type="AI", source_id="ai_1")
 
+    # Valid assessments
     assessment_1 = Assessment(
         name="relevance",
         value=0.9,
         source=source_1,
-        error_code="E001",
-        error_message="An error occurred.",
     )
     assessment_2 = Assessment(
         name="relevance",
         value=0.9,
         source=source_2,
-        error_code="E001",
-        error_message="An error occurred.",
     )
     assessment_3 = Assessment(
         name="relevance",
         value=0.8,
         source=source_1,
-        error_code="E001",
-        error_message="An error occurred.",
     )
     assessment_4 = Assessment(
         name="relevance",
         value=0.9,
         source=source_3,
-        error_code="E001",
-        error_message="An error occurred.",
     )
     assessment_5 = Assessment(
         name="relevance",
-        value=0.9,
         source=source_1,
         error_code="E002",
         error_message="A different error occurred.",
     )
     assessment_6 = Assessment(
         name="relevance",
-        value=0.9,
         source=source_1,
         error_code="E001",
         error_message="Another error message.",
     )
 
-    assert assessment_1 == assessment_2  # Same name, value, source, error_code, error_message
+    assert assessment_1 == assessment_2  # Same name, value, source
     assert assessment_1 != assessment_3  # Different value
     assert assessment_1 != assessment_4  # Different source
-    assert assessment_1 != assessment_5  # Different error_code
-    assert assessment_1 != assessment_6  # Different error_message
+    assert assessment_1 != assessment_5  # One has value, other has error_code
+    assert assessment_1 != assessment_6  # One has value, other has error_code
 
 
 def test_assessment_must_specify_value_or_error_code():
@@ -82,12 +74,14 @@ def test_assessment_must_specify_value_or_error_code():
 
     # Invalid assessments
     with pytest.raises(
-        ValueError, match="Assessment must specify exactly one of `value` or `error_code`."
+        MlflowException,
+        match="Exactly one of value or error_code must be specified for an assessment",
     ):
         Assessment(name="relevance", value=None, source=source)  # Neither value nor error_code
 
     with pytest.raises(
-        ValueError, match="Assessment must specify exactly one of `value` or `error_code`."
+        MlflowException,
+        match="Exactly one of value or error_code must be specified for an assessment",
     ):
         Assessment(
             name="relevance",
