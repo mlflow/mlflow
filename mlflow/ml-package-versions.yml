@@ -679,6 +679,7 @@ langchain:
           "numexpr",
           "spacy",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
+          "pytest-asyncio", # for testing runnable async functions patches
         ]
     run: |
       # For MlflowCallback text analysis
