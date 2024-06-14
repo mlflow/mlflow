@@ -44,7 +44,6 @@ export const ModelVersionAliasSelect = ({
         .map((alias) =>
           alias
             .replace(/[^\w-]/g, '')
-            .toLowerCase()
             .substring(0, 255),
         )
         // After sanitization, filter out invalid aliases
