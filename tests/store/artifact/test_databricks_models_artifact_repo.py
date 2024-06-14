@@ -3,6 +3,7 @@ from unittest import mock
 from unittest.mock import ANY
 
 import pytest
+import requests
 
 from mlflow import MlflowClient
 from mlflow.entities import FileInfo
@@ -393,3 +394,24 @@ def test_delete_artifacts_fail(databricks_model_artifact_repo):
         match="This artifact repository does not support deleting artifacts",
     ):
         databricks_model_artifact_repo.delete_artifacts()
+
+
+def test_empty_headers_with_presigned_url(databricks_model_artifact_repo):
+    url = "https://test.com/1234"
+    encoding = "utf-8"
+    response = requests.Response()
+    response._content = bytes(json.dumps({"signed_uri": url}), encoding)
+    response.encoding = encoding
+    with mock.patch(
+        DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._call_endpoint",
+        return_value=response,
+    ) as call_endpoint_mock:
+        ret_url, headers = databricks_model_artifact_repo._get_signed_download_uri("test_file.txt")
+        call_endpoint_mock.assert_called_with(ANY, REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT)
+
+        assert ret_url == url
+        assert headers is None
+
+        new_headers = databricks_model_artifact_repo._extract_headers_from_signed_url(headers)
+
+        assert new_headers == {}
