@@ -1,3 +1,5 @@
+import pytest
+
 from mlflow.entities import AssessmentSource, Metric
 from mlflow.evaluation import (
     Assessment,
@@ -58,6 +60,42 @@ def test_assessment_equality():
     assert assessment_1 != assessment_4  # Different source
     assert assessment_1 != assessment_5  # Different error_code
     assert assessment_1 != assessment_6  # Different error_message
+
+
+def test_assessment_must_specify_value_or_error_code():
+    source = AssessmentSource(source_type="HUMAN", source_id="user_1")
+
+    # Valid assessments
+    valid_assessment_with_value = Assessment(name="relevance", value=0.9, source=source)
+    valid_assessment_with_error = Assessment(
+        name="relevance",
+        value=None,
+        source=source,
+        error_code="E001",
+        error_message="An error occurred.",
+    )
+
+    assert valid_assessment_with_value.value == 0.9
+    assert valid_assessment_with_value.error_code is None
+    assert valid_assessment_with_error.value is None
+    assert valid_assessment_with_error.error_code == "E001"
+
+    # Invalid assessments
+    with pytest.raises(
+        ValueError, match="Assessment must specify exactly one of `value` or `error_code`."
+    ):
+        Assessment(name="relevance", value=None, source=source)  # Neither value nor error_code
+
+    with pytest.raises(
+        ValueError, match="Assessment must specify exactly one of `value` or `error_code`."
+    ):
+        Assessment(
+            name="relevance",
+            value=0.9,
+            source=source,
+            error_code="E001",
+            error_message="An error occurred.",
+        )  # Both value and error_code
 
 
 def test_evaluation_equality():
