@@ -634,7 +634,7 @@ langchain:
       pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/langchain
   models:
     minimum: "0.0.244"
-    maximum: "0.2.1"
+    maximum: "0.2.3"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -665,8 +665,8 @@ langchain:
         pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
       fi
   autologging:
-    minimum: "0.1.4"
-    maximum: "0.2.1"
+    minimum: "0.1.0"
+    maximum: "0.2.3"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -680,6 +680,7 @@ langchain:
           "numexpr",
           "spacy",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
+          "pytest-asyncio", # for testing runnable async functions patches
         ]
     run: |
       # For MlflowCallback text analysis

@@ -48,7 +48,6 @@ from mlflow.langchain.utils import (
     patch_langchain_type_to_cls_dict,
     register_pydantic_v1_serializer_cm,
 )
-from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.dependencies_schemas import (
     _clear_dependencies_schemas,
@@ -105,8 +104,6 @@ logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
-_MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["langchain"]["autologging"]["minimum"])
-_MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["langchain"]["autologging"]["maximum"])
 
 
 def get_default_pip_requirements():
@@ -958,10 +955,14 @@ def load_model(model_uri, dst_path=None):
 
 def _patch_runnable_cls(cls):
     """
-    For classes that are subclasses of Runnable, we patch the `invoke`, `batch`, and `stream`
-    methods for autologging.
+    For classes that are subclasses of Runnable, we patch the `invoke`, `batch`, `stream` and
+    `ainvoke`, `abatch`, `astream` methods for autologging.
+
+    Args:
+        cls: The class to patch.
     """
-    for func_name in ["invoke", "batch", "stream"]:
+    patch_functions = ["invoke", "batch", "stream", "ainvoke", "abatch", "astream"]
+    for func_name in patch_functions:
         if hasattr(cls, func_name):
             safe_patch(
                 FLAVOR_NAME,
@@ -1069,14 +1070,6 @@ def autolog(
         from langchain.chains.base import Chain
         from langchain.schema import BaseRetriever
         from langchain.schema.runnable import Runnable
-
-        if not _MIN_REQ_VERSION <= Version(langchain.__version__) <= _MAX_REQ_VERSION:
-            # Suppress the warning after it is shown once
-            warnings.warn(
-                "Autologging is known to be compatible with langchain versions between "
-                f"{_MIN_REQ_VERSION} and {_MAX_REQ_VERSION} and may not succeed with packages "
-                "outside this range."
-            )
 
         # avoid duplicate patching
         patched_classes = set()

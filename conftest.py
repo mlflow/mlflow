@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 
 import click
 import pytest
@@ -262,6 +263,23 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                     yellow=True,
                 )
                 break
+
+    main_thread = threading.main_thread()
+    if threads := [t for t in threading.enumerate() if t is not main_thread]:
+        terminalreporter.section("Remaining threads", yellow=True)
+        for idx, thread in enumerate(threads, start=1):
+            terminalreporter.write(f"{idx}: {thread}\n")
+
+    try:
+        import psutil
+    except ImportError:
+        pass
+    else:
+        current_process = psutil.Process()
+        if children := current_process.children(recursive=True):
+            terminalreporter.section("Remaining child processes", yellow=True)
+            for idx, child in enumerate(children, start=1):
+                terminalreporter.write(f"{idx}: {child}\n")
 
 
 @pytest.fixture(scope="module", autouse=True)
