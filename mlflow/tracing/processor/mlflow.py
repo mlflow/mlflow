@@ -117,6 +117,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             tags.update({TraceTagKey.EVAL_REQUEST_ID: request_id})
         if depedencies_schema := maybe_get_dependencies_schemas():
             tags.update(depedencies_schema)
+        tags.update({TraceTagKey.TRACE_NAME: span.name})
 
         return self._client._start_tracked_trace(
             experiment_id=experiment_id,
@@ -165,12 +166,6 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 TraceMetadataKey.OUTPUTS: self._truncate_metadata(
                     root_span.attributes.get(SpanAttributeKey.OUTPUTS)
                 ),
-            }
-        )
-        # Mutable info like trace name should be recorded in tags
-        trace.info.tags.update(
-            {
-                TraceTagKey.TRACE_NAME: root_span.name,
             }
         )
 
