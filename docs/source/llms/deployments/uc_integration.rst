@@ -105,7 +105,8 @@ The code above is equivalent to the following:
 
 .. code-block:: python
 
-    # Function schema
+    # Function tool schema:
+    # https://platform.openai.com/docs/api-reference/chat/create#chat-create-tools
     function = {
         "type": "function",
         "function": {
