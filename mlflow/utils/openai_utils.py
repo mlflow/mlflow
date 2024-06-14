@@ -261,7 +261,8 @@ class _OAITokenHolder:
                         f"the following error: {err.message}"
                     ) from err
 
-                logger.debug("Token refreshed successfully")
+                if logger:
+                    logger.debug("Token refreshed successfully")
         else:
             raise mlflow.MlflowException(
                 "OpenAI API key must be set in the ``OPENAI_API_KEY`` environment variable."
