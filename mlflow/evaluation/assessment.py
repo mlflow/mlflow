@@ -5,6 +5,8 @@ from typing import Any, Dict, Optional, Union
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment import Assessment as AssessmentEntity
 from mlflow.entities.assessment_source import AssessmentSource
+from mlflow.exceptions import MlflowException
+from mlflow.protos.service_pb2 import INVALID_PARAMETER_VALUE
 
 
 class Assessment(_MlflowObject):
@@ -56,8 +58,13 @@ class Assessment(_MlflowObject):
         elif value is not None:
             self._string_value = str(value)
             self._value_type = "string"
-        else:
+        elif error_code is not None:
             self._value_type = None
+        else:
+            raise MlflowException(
+                "Exactly one of value or error_code must be specified for an assessment.",
+                INVALID_PARAMETER_VALUE,
+            )
 
     @property
     def name(self) -> str:

@@ -1131,7 +1131,7 @@ def test_log_evaluation_with_assessments_supporting_none_value():
         )
 
 
-def test_log_assessments_without_nonexistent_evaluation_fails():
+def test_log_assessments_with_nonexistent_evaluation_fails():
     with mlflow.start_run():
         with pytest.raises(
             MlflowException, match="The specified run does not contain any evaluations"
