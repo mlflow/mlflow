@@ -1,17 +1,18 @@
 Unity Catalog Integration
 =========================
 
-This example demonstrates how to use the Unity Catalog (UC) integration with MLflow Deployments server.
+This example demonstrates how to use the Unity Catalog (UC) integration that allows you to use your UC functions as tools for your chat application.
 
 Pre-requisites
 --------------
 
 1. Clone the MLflow repository:
 
+To download the files required for this example, clone the MLflow repository:
+
 .. code-block:: bash
 
-    # Clone the MLflow repository
-    git clone https://github.com/mlflow/mlflow.git
+    git clone --depth=1 https://github.com/mlflow/mlflow.git
     cd mlflow
 
 2. Install the required packages:
