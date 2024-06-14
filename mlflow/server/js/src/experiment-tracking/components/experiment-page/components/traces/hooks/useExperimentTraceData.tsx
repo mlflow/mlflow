@@ -3,7 +3,7 @@ import { MlflowService } from '../../../../../sdk/MlflowService';
 import { type ModelTraceData } from '@databricks/web-shared/model-trace-explorer';
 import Utils from '../../../../../../common/utils/Utils';
 
-export const useExperimentTraceData = (traceId?: string) => {
+export const useExperimentTraceData = (traceId?: string, skip = false) => {
   const [traceData, setTraceData] = useState<ModelTraceData | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | undefined>(undefined);
@@ -26,10 +26,10 @@ export const useExperimentTraceData = (traceId?: string) => {
   }, []);
 
   useEffect(() => {
-    if (traceId) {
+    if (traceId && !skip) {
       fetchTraceData(traceId);
     }
-  }, [fetchTraceData, traceId]);
+  }, [fetchTraceData, traceId, skip]);
 
   return { traceData, loading, error };
 };
