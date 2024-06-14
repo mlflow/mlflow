@@ -21,6 +21,8 @@ class Evaluation(_MlflowObject):
         targets: Optional[Dict[str, Any]] = None,
         assessments: Optional[List[Assessment]] = None,
         metrics: Optional[List[Metric]] = None,
+        error_code: Optional[str] = None,
+        error_message: Optional[str] = None,
     ):
         """
         Construct a new mlflow.entities.Evaluation instance.
@@ -36,6 +38,9 @@ class Evaluation(_MlflowObject):
             assessments: Assessments for the given row.
             metrics: Objective numerical metrics for the row, e.g., "number of input tokens",
                 "number of output tokens".
+            error_code: An error code representing any issues encountered during the evaluation.
+            error_message: A descriptive error message representing any issues encountered during
+                the evaluation.
         """
         self._evaluation_id = evaluation_id
         self._run_id = run_id
@@ -46,6 +51,8 @@ class Evaluation(_MlflowObject):
         self._targets = targets
         self._assessments = assessments
         self._metrics = metrics
+        self._error_code = error_code
+        self._error_message = error_message
 
     @property
     def evaluation_id(self) -> str:
@@ -92,6 +99,16 @@ class Evaluation(_MlflowObject):
         """Get the metrics."""
         return self._metrics
 
+    @property
+    def error_code(self) -> Optional[str]:
+        """Get the error code."""
+        return self._error_code
+
+    @property
+    def error_message(self) -> Optional[str]:
+        """Get the error message."""
+        return self._error_message
+
     def __eq__(self, __o):
         if isinstance(__o, self.__class__):
             return self.to_dictionary() == __o.to_dictionary()
@@ -120,6 +137,10 @@ class Evaluation(_MlflowObject):
             evaluation_dict["assessments"] = [assess.to_dictionary() for assess in self.assessments]
         if self.metrics:
             evaluation_dict["metrics"] = [metric.to_dictionary() for metric in self.metrics]
+        if self.error_code:
+            evaluation_dict["error_code"] = self.error_code
+        if self.error_message:
+            evaluation_dict["error_message"] = self.error_message
         return evaluation_dict
 
     @classmethod
@@ -148,6 +169,8 @@ class Evaluation(_MlflowObject):
         metrics = None
         if "metrics" in evaluation_dict:
             metrics = [Metric.from_dictionary(metric) for metric in evaluation_dict["metrics"]]
+        error_code = evaluation_dict.get("error_code")
+        error_message = evaluation_dict.get("error_message")
         return cls(
             evaluation_id=evaluation_id,
             run_id=run_id,
@@ -158,4 +181,6 @@ class Evaluation(_MlflowObject):
             targets=targets,
             assessments=assessments,
             metrics=metrics,
+            error_code=error_code,
+            error_message=error_message,
         )
