@@ -10,14 +10,54 @@ def test_assessment_equality():
     source_2 = AssessmentSource(source_type="HUMAN", source_id="user_1")
     source_3 = AssessmentSource(source_type="AI", source_id="ai_1")
 
-    assessment_1 = Assessment(name="relevance", value=0.9, source=source_1)
-    assessment_2 = Assessment(name="relevance", value=0.9, source=source_2)
-    assessment_3 = Assessment(name="relevance", value=0.8, source=source_1)
-    assessment_4 = Assessment(name="relevance", value=0.9, source=source_3)
+    assessment_1 = Assessment(
+        name="relevance",
+        value=0.9,
+        source=source_1,
+        error_code="E001",
+        error_message="An error occurred.",
+    )
+    assessment_2 = Assessment(
+        name="relevance",
+        value=0.9,
+        source=source_2,
+        error_code="E001",
+        error_message="An error occurred.",
+    )
+    assessment_3 = Assessment(
+        name="relevance",
+        value=0.8,
+        source=source_1,
+        error_code="E001",
+        error_message="An error occurred.",
+    )
+    assessment_4 = Assessment(
+        name="relevance",
+        value=0.9,
+        source=source_3,
+        error_code="E001",
+        error_message="An error occurred.",
+    )
+    assessment_5 = Assessment(
+        name="relevance",
+        value=0.9,
+        source=source_1,
+        error_code="E002",
+        error_message="A different error occurred.",
+    )
+    assessment_6 = Assessment(
+        name="relevance",
+        value=0.9,
+        source=source_1,
+        error_code="E001",
+        error_message="Another error message.",
+    )
 
-    assert assessment_1 == assessment_2  # Same name, value, and source
+    assert assessment_1 == assessment_2  # Same name, value, source, error_code, error_message
     assert assessment_1 != assessment_3  # Different value
     assert assessment_1 != assessment_4  # Different source
+    assert assessment_1 != assessment_5  # Different error_code
+    assert assessment_1 != assessment_6  # Different error_message
 
 
 def test_evaluation_equality():
