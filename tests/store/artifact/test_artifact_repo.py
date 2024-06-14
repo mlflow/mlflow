@@ -7,10 +7,10 @@ import pytest
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.artifact_repo import ArtifactRepository, _logger
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import TempDir
 
-from tests.utils.test_logging_utils import reset_logging_level  # noqa F401
+from tests.utils.test_logging_utils import logger, reset_logging_level  # noqa F401
 
 _MOCK_ERROR = "MOCK ERROR"
 _MODEL_FILE = "modelfile"
@@ -213,9 +213,9 @@ def test_download_artifacts_provides_failure_info(base_uri, download_arg, list_r
 @pytest.mark.parametrize("debug", [True, False])
 def test_download_artifacts_provides_traceback_info(debug, reset_logging_level):
     if debug:
-        _logger.setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
     else:
-        _logger.setLevel(logging.INFO)
+        logger.setLevel(logging.INFO)
 
     def list_artifacts(path):
         fullpath = posixpath.join(_PARENT_MODEL_DIR, path)
