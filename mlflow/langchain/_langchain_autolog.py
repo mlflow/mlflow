@@ -77,14 +77,6 @@ def patched_inference(func_name, original, self, *args, **kwargs):
 
     We patch inference functions for different models based on their usage.
     """
-    # Inject MLflow tracer into the model
-    from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
-
-    config = AutoLoggingConfig.init()
-    if config.log_traces:
-        mlflow_tracer = MlflowLangchainTracer()
-        args, kwargs = _inject_mlflow_callbacks(func_name, [mlflow_tracer], args, kwargs)
-        _logger.debug("Injected MLflow callbacks into the model.")
 
     # NB: Running the original inference with disabling autologging, so we only patch the top-level
     # component and avoid duplicate logging for child components.
@@ -92,17 +84,36 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         with disable_autologging():
             return original(self, *args, **kwargs)
 
-    # Traces does not require an MLflow run, only the other optional artifacts require it.
-    if config.should_log_optional_artifacts():
-        with _setup_autolog_run(config, self) as run_id:
+    config = AutoLoggingConfig.init()
+    with patch_args_and_kwargs(func_name, config, args, kwargs) as (args, kwargs):
+        # Traces does not require an MLflow run, only the other optional artifacts require it.
+        if config.should_log_optional_artifacts():
+            with _setup_autolog_run(config, self) as run_id:
+                result = _invoke(self, *args, **kwargs)
+            _log_optional_artifacts(config, run_id, result, self, func_name, *args, **kwargs)
+        else:
             result = _invoke(self, *args, **kwargs)
-        _log_optional_artifacts(config, run_id, result, self, func_name, *args, **kwargs)
-    else:
-        result = _invoke(self, *args, **kwargs)
-
-    if config.log_traces:
-        mlflow_tracer.flush_tracker()
     return result
+
+
+@contextlib.contextmanager
+def patch_args_and_kwargs(func_name, autologging_config, args, kwargs):
+    from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
+
+    if autologging_config.log_traces:
+        # Inject MLflow tracer into the callbacks argument
+        mlflow_tracer = MlflowLangchainTracer()
+        try:
+            with _inject_mlflow_callbacks(func_name, [mlflow_tracer], args, kwargs) as (
+                args,
+                kwargs,
+            ):
+                yield args, kwargs
+            _logger.debug("Injected MLflow callbacks into the model.")
+        finally:
+            mlflow_tracer.flush_tracker()
+    else:
+        yield args, kwargs
 
 
 @contextlib.contextmanager
@@ -238,40 +249,118 @@ def _update_langchain_model_config(model):
         return True
 
 
-def _inject_callbacks(original_callbacks, new_callbacks):
-    """
-    Inject list of callbacks into the original callbacks.
-    For RunnableConfig, the callbacks is defined as List[BaseCallbackHandler] or BaseCallbackManager
-    https://github.com/langchain-ai/langchain/blob/ed980601e1c630f996aabf85df5cb26178e53099/libs/core/langchain_core/callbacks/base.py#L636
-    """
+def _is_new_callback_already_in_original_callbacks(new_callback, original_callbacks):
+    return any(
+        isinstance(new_callback, type(original_callback))
+        for original_callback in original_callbacks
+    )
+
+
+def _is_base_callback_manager(callback):
     from langchain_core.callbacks.base import BaseCallbackManager
 
-    def _is_new_callback_already_in_original_callbacks(new_callback, original_callbacks):
-        return any(
-            isinstance(original_callback, type(new_callback))
-            for original_callback in original_callbacks
-        )
+    return isinstance(callback, BaseCallbackManager)
 
-    if isinstance(original_callbacks, BaseCallbackManager):
-        for callback in new_callbacks:
-            if not _is_new_callback_already_in_original_callbacks(
-                callback, original_callbacks.handlers
-            ):
-                original_callbacks.add_handler(callback)
-        return original_callbacks
 
-    if not isinstance(original_callbacks, list):
-        original_callbacks = [original_callbacks]
+def _inject_callbacks_into_base_callback_manager(original_callbacks, new_callbacks):
+    added_callbacks = []
+    for callback in new_callbacks:
+        if not _is_new_callback_already_in_original_callbacks(
+            callback, original_callbacks.handlers
+        ):
+            added_callbacks.append(callback)
+            original_callbacks.add_handler(callback)
+    return original_callbacks, added_callbacks
 
+
+def _is_list_of_base_callback_handlers(callback):
+    from langchain_core.callbacks.base import BaseCallbackHandler
+
+    return isinstance(callback, list) and all(
+        isinstance(callback_handler, BaseCallbackHandler) for callback_handler in callback
+    )
+
+
+def _inject_callbacks_into_list_of_base_callback_handlers(original_callbacks, new_callbacks):
     # Make a copy of the original callbacks to avoid modifying the original list
     updated_callbacks = list(original_callbacks)
     for new_callback in new_callbacks:
         if not _is_new_callback_already_in_original_callbacks(new_callback, original_callbacks):
             updated_callbacks.append(new_callback)
-
     return updated_callbacks
 
 
+@contextlib.contextmanager
+def _inject_callbacks(original_callbacks, new_callbacks):
+    """
+    Inject list of callbacks into the original callbacks.
+    For RunnableConfig, the callbacks is defined as List[BaseCallbackHandler] or BaseCallbackManager
+    https://github.com/langchain-ai/langchain/blob/ed980601e1c630f996aabf85df5cb26178e53099/libs/core/langchain_core/callbacks/base.py#L636
+    We shouldn't modify user's original callbacks, so we need to revert the changes after the
+    inference is done.
+
+    Args:
+        original_callbacks: List[BaseCallbackHandler] or BaseCallbackManager
+        new_callbacks: List[BaseCallbackHandler]
+    """
+    if _is_base_callback_manager(original_callbacks):
+        added_callbacks = []
+        try:
+            original_callbacks, added_callbacks = _inject_callbacks_into_base_callback_manager(
+                original_callbacks, new_callbacks
+            )
+            yield original_callbacks
+        finally:
+            # avoid modifying original callbackmanager
+            for callback in added_callbacks:
+                original_callbacks.remove_handler(callback)
+
+    elif _is_list_of_base_callback_handlers(original_callbacks):
+        yield _inject_callbacks_into_list_of_base_callback_handlers(
+            original_callbacks, new_callbacks
+        )
+
+    else:
+        _logger.warning(
+            f"Unsupported callbacks type `{original_callbacks}` for autologging with tracing."
+        )
+        yield original_callbacks
+
+
+@contextlib.contextmanager
+def _inject_callbacks_to_config_list(config_list, new_callbacks):
+    """
+    Inject new_callbacks into each config in the config_list.
+    """
+    added_callbacks_list = {}
+    original_callbacks_list = {}
+    for i, config in enumerate(config_list):
+        original_callbacks = config.get("callbacks") or []
+        if _is_base_callback_manager(original_callbacks):
+            original_callbacks, added_callbacks = _inject_callbacks_into_base_callback_manager(
+                original_callbacks, new_callbacks
+            )
+            config["callbacks"] = original_callbacks
+            added_callbacks_list[i] = added_callbacks
+        elif _is_list_of_base_callback_handlers(original_callbacks):
+            config["callbacks"] = _inject_callbacks_into_list_of_base_callback_handlers(
+                original_callbacks, new_callbacks
+            )
+            original_callbacks_list[i] = original_callbacks
+    try:
+        yield config_list
+    finally:
+        for i, config in enumerate(config_list):
+            # original callback must be baseCallbackManager
+            if i in added_callbacks_list:
+                for callback in added_callbacks_list[i]:
+                    config["callbacks"].remove_handler(callback)
+            # original callback must be list of baseCallbackHandlers
+            else:
+                config["callbacks"] = original_callbacks_list[i] or None
+
+
+@contextlib.contextmanager
 def _inject_callbacks_for_runnable(mlflow_callbacks, args, kwargs):
     """
     `config` is the second positional argument of runnable invoke, batch, stream,
@@ -286,6 +375,13 @@ def _inject_callbacks_for_runnable(mlflow_callbacks, args, kwargs):
     """
     from langchain.schema.runnable.config import RunnableConfig
 
+    def _update_args_or_kwargs(in_args, config, args, kwargs):
+        if in_args:
+            yield (args[0], config) + args[2:], kwargs
+        else:
+            kwargs["config"] = config
+            yield args, kwargs
+
     in_args = False
     if len(args) >= 2:
         config = args[1]
@@ -294,43 +390,58 @@ def _inject_callbacks_for_runnable(mlflow_callbacks, args, kwargs):
         config = kwargs.get("config")
     if config is None:
         config = RunnableConfig(callbacks=mlflow_callbacks)
+        yield from _update_args_or_kwargs(in_args, config, args, kwargs)
     else:
         # for `invoke`, `ainvoke`, `stream` and `astream`, config type is RunnableConfig
         # for `batch` and `abatch`, config type is Union[RunnableConfig, List[RunnableConfig]]
         if isinstance(config, list):
-            for c in config:
-                c["callbacks"] = _inject_callbacks(c.get("callbacks") or [], mlflow_callbacks)
+            with _inject_callbacks_to_config_list(config, mlflow_callbacks) as updated_config:
+                yield from _update_args_or_kwargs(in_args, updated_config, args, kwargs)
         else:
-            config["callbacks"] = _inject_callbacks(config.get("callbacks") or [], mlflow_callbacks)
-    if in_args:
-        args = (args[0], config) + args[2:]
-    else:
-        kwargs["config"] = config
-    return args, kwargs
+            original_callbacks = config.get("callbacks") or []
+            with _inject_callbacks(original_callbacks, mlflow_callbacks) as updated_callbacks:
+                try:
+                    config["callbacks"] = updated_callbacks
+                    yield from _update_args_or_kwargs(in_args, config, args, kwargs)
+                finally:
+                    config["callbacks"] = original_callbacks or None
 
 
+@contextlib.contextmanager
 def _inject_mlflow_callbacks(func_name, mlflow_callbacks, args, kwargs):
     """
     Inject list of callbacks into the function named `func_name` of the model.
     """
     if func_name in ["invoke", "batch", "stream", "ainvoke", "abatch", "astream"]:
-        return _inject_callbacks_for_runnable(mlflow_callbacks, args, kwargs)
+        with _inject_callbacks_for_runnable(mlflow_callbacks, args, kwargs) as (
+            args,
+            kwargs,
+        ):
+            yield args, kwargs
 
-    if func_name == "__call__":
+    elif func_name == "__call__":
         # `callbacks` is the third positional argument of chain.__call__ function
         # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/langchain/langchain/chains/base.py#L320
         if len(args) >= 3:
-            callbacks_arg = _inject_callbacks(args[2] or [], mlflow_callbacks)
-            args = args[:2] + (callbacks_arg,) + args[3:]
+            with _inject_callbacks(args[2] or [], mlflow_callbacks) as callbacks_arg:
+                yield args[:2] + (callbacks_arg,) + args[3:], kwargs
         else:
-            kwargs["callbacks"] = _inject_callbacks(kwargs.get("callbacks") or [], mlflow_callbacks)
-        return args, kwargs
+            with _inject_callbacks(
+                kwargs.get("callbacks") or [], mlflow_callbacks
+            ) as callbacks_arg:
+                kwargs["callbacks"] = callbacks_arg
+                yield args, kwargs
 
     # callbacks is only available as kwargs in get_relevant_documents function
     # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/core/langchain_core/retrievers.py#L173
-    if func_name == "get_relevant_documents":
-        kwargs["callbacks"] = _inject_callbacks(kwargs.get("callbacks") or [], mlflow_callbacks)
-        return args, kwargs
+    elif func_name == "get_relevant_documents":
+        with _inject_callbacks(kwargs.get("callbacks") or [], mlflow_callbacks) as callbacks_arg:
+            kwargs["callbacks"] = callbacks_arg
+            yield args, kwargs
+
+    else:
+        _logger.warning(f"Unsupported function `{func_name}` for injecting MLflow callbacks.")
+        yield args, kwargs
 
 
 def _runnable_with_retriever(model):
