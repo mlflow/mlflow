@@ -1,7 +1,7 @@
 Unity Catalog Integration
 =========================
 
-This example demonstrates how to use the Unity Catalog (UC) integration for MLflow Deployments server that allows you to use functions registered in Unity Catalog as tools for your chat application.
+This example illustrates the use of the Unity Catalog (UC) integration with the MLflow Deployments server. This integration enables you to leverage functions registered in Unity Catalog as tools for enhancing your chat application.
 
 Pre-requisites
 --------------
