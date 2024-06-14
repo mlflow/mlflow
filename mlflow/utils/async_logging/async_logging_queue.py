@@ -4,6 +4,7 @@ queue based approach.
 """
 
 import atexit
+import enum
 import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -21,6 +22,21 @@ from mlflow.utils.async_logging.run_batch import RunBatch
 from mlflow.utils.async_logging.run_operations import RunOperations
 
 _logger = logging.getLogger(__name__)
+
+
+ASYNC_LOGGING_WORKER_THREAD_PREFIX = "MLflowBatchLoggingWorkerPool"
+ASYNC_LOGGING_STATUS_CHECK_THREAD_PREFIX = "MLflowAsyncLoggingStatusCheck"
+
+
+class QueueStatus(enum.Enum):
+    """Status of the async queue"""
+
+    # The queue is listening to new data and logging enqueued data to MLflow.
+    ACTIVE = 1
+    # The queue is not listening to new data, but still logging enqueued data to MLflow.
+    TEAR_DOWN = 2
+    # The queue is neither listening to new data or logging enqueued data to MLflow.
+    IDLE = 3
 
 
 class AsyncLoggingQueue:
@@ -42,7 +58,7 @@ class AsyncLoggingQueue:
         self._logging_func = logging_func
 
         self._stop_data_logging_thread_event = threading.Event()
-        self._is_activated = False
+        self._status = QueueStatus.IDLE
 
     def _at_exit_callback(self) -> None:
         """Callback function to be executed when the program is exiting.
@@ -66,7 +82,9 @@ class AsyncLoggingQueue:
             self._stop_data_logging_thread_event.set()
             # Waits till logging queue is drained.
             self._batch_logging_thread.join()
-            self._is_activated = False
+            # Set the status to tear down. The worker threads will still process
+            # the remaining data.
+            self._status = QueueStatus.TEAR_DOWN
 
     def flush(self) -> None:
         """Flush the async logging queue.
@@ -76,6 +94,7 @@ class AsyncLoggingQueue:
         self.end_async_logging()
         self._batch_logging_worker_threadpool.shutdown(wait=True)
         self._batch_status_check_threadpool.shutdown(wait=True)
+        self._status = QueueStatus.IDLE
 
         # Restart the thread to listen to incoming data after flushing.
         self._stop_data_logging_thread_event.clear()
@@ -205,7 +224,7 @@ class AsyncLoggingQueue:
         state = self.__dict__.copy()
         del state["_queue"]
         del state["_lock"]
-        del state["_is_activated"]
+        del state["_status"]
 
         if "_run_data_logging_thread" in state:
             del state["_run_data_logging_thread"]
@@ -234,7 +253,7 @@ class AsyncLoggingQueue:
         self.__dict__.update(state)
         self._queue = Queue()
         self._lock = threading.RLock()
-        self._is_activated = False
+        self._status = QueueStatus.IDLE
         self._batch_logging_thread = None
         self._batch_logging_worker_threadpool = None
         self._batch_status_check_threadpool = None
@@ -260,7 +279,7 @@ class AsyncLoggingQueue:
         """
         from mlflow import MlflowException
 
-        if not self._is_activated:
+        if not self._status == QueueStatus.ACTIVE:
             raise MlflowException("AsyncLoggingQueue is not activated.")
         batch = RunBatch(
             run_id=run_id,
@@ -274,7 +293,10 @@ class AsyncLoggingQueue:
         return RunOperations(operation_futures=[operation_future])
 
     def is_active(self) -> bool:
-        return self._is_activated
+        return self._status == QueueStatus.ACTIVE
+
+    def is_idle(self) -> bool:
+        return self._status == QueueStatus.IDLE
 
     def _set_up_logging_thread(self) -> None:
         """Sets up the logging thread.
@@ -289,12 +311,12 @@ class AsyncLoggingQueue:
             )
             self._batch_logging_worker_threadpool = ThreadPoolExecutor(
                 max_workers=MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE.get() or 10,
-                thread_name_prefix="MLflowBatchLoggingWorkerPool",
+                thread_name_prefix=ASYNC_LOGGING_WORKER_THREAD_PREFIX,
             )
 
             self._batch_status_check_threadpool = ThreadPoolExecutor(
                 max_workers=MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE.get() or 10,
-                thread_name_prefix="MLflowAsyncLoggingStatusCheck",
+                thread_name_prefix=ASYNC_LOGGING_STATUS_CHECK_THREAD_PREFIX,
             )
 
             self._batch_logging_thread.start()
@@ -310,10 +332,10 @@ class AsyncLoggingQueue:
         If the queue is already activated, this method does nothing.
         """
         with self._lock:
-            if self._is_activated:
+            if self.is_active():
                 return
 
             self._set_up_logging_thread()
             atexit.register(self._at_exit_callback)
 
-            self._is_activated = True
+            self._status = QueueStatus.ACTIVE
