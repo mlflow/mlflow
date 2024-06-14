@@ -964,11 +964,20 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
                 reason="base64 feature not present",
             ),
         ),
+        pytest.param(
+            "base64_encodebytes",
+            marks=pytest.mark.skipif(
+                Version(transformers.__version__) < Version("4.41"),
+                reason="base64 encodebytes feature not present",
+            ),
+        ),
     ],
 )
 def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
     if inference_payload == "base64":
         inference_payload = base64.b64encode(image_file_path.read_bytes()).decode("utf-8")
+    elif inference_payload == "base64_encodebytes":
+        inference_payload = base64.encodebytes(image_file_path.read_bytes()).decode("utf-8")
     signature = infer_signature(
         inference_payload,
         mlflow.transformers.generate_signature_output(small_vision_model, inference_payload),
@@ -1731,12 +1740,23 @@ def test_vision_is_base64_image(input_image, result):
                 reason="base64 feature not present",
             ),
         ),
+        pytest.param(
+            "base64_encodebytes",
+            marks=pytest.mark.skipif(
+                Version(transformers.__version__) < Version("4.41"),
+                reason="base64 encodebytes feature not present",
+            ),
+        ),
     ],
 )
 def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
     if inference_payload == "base64":
         inference_payload = [
             base64.b64encode(image_file_path.read_bytes()).decode("utf-8"),
+        ]
+    elif inference_payload == "base64_encodebytes":
+        inference_payload = [
+            base64.encodebytes(image_file_path.read_bytes()).decode("utf-8"),
         ]
     artifact_path = "image_classification_model"
 
