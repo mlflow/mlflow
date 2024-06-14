@@ -40,6 +40,7 @@ organizations that use LLMs on a regular basis.
     :hidden:
 
     guides/index
+    uc_integration
 
 Tutorials and Guides
 ====================
