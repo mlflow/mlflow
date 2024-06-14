@@ -38,6 +38,8 @@ def log_evaluation(
     assessments: Optional[Union[List[Assessment], List[Dict[str, Any]]]] = None,
     metrics: Optional[Union[List[Metric], Dict[str, float]]] = None,
     run_id: Optional[str] = None,
+    error_code: Optional[str] = None,
+    error_message: Optional[str] = None,
 ) -> EvaluationEntity:
     """
     Logs an evaluation to an MLflow Run.
@@ -60,6 +62,10 @@ def log_evaluation(
           evaluation, e.g., "number of input tokens", "number of output tokens".
       run_id (Optional[str]): ID of the MLflow Run to log the evaluation. If unspecified, the
           current active run is used, or a new run is started.
+      error_code (Optional[str]): An error code representing any issues encountered during
+          the evaluation.
+      error_message (Optional[str]): A descriptive error message representing any issues encountered
+          during the evaluation.
 
     Returns:
        EvaluationEntity: The logged Evaluation object.
@@ -87,6 +93,8 @@ def log_evaluation(
         targets=targets,
         assessments=assessments,
         metrics=metrics,
+        error_code=error_code,
+        error_message=error_message,
     )
 
     return log_evaluations(evaluations=[evaluation], run_id=run_id)[0]
