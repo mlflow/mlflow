@@ -15,6 +15,8 @@ To download the files required for this example, clone the MLflow repository:
     git clone --depth=1 https://github.com/mlflow/mlflow.git
     cd mlflow
 
+If you don't have ``git``, you can download the repository as a zip file from https://github.com/mlflow/mlflow/archive/refs/heads/master.zip.
+
 2. Install the required packages:
 
 .. code-block:: bash
