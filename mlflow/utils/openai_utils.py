@@ -215,6 +215,7 @@ class _OAITokenHolder:
     def __init__(self, api_type):
         self._api_token = None
         self._credential = None
+        self.api_type = api_type
         self._is_azure_ad = api_type in ("azure_ad", "azuread")
         self._key_configured = "OPENAI_API_KEY" in os.environ
 
@@ -228,7 +229,14 @@ class _OAITokenHolder:
                 )
             self._credential = DefaultAzureCredential()
 
-    def validate(self, logger=None):
+    def auth_headers(self):
+        self._refresh()
+        if self.api_type == "azure":
+            return {"api-key": self._api_token.token}
+        else:
+            return {"Authorization": f"Bearer {self._api_token.token}"}
+
+    def _refresh(self, logger=None):
         """Validates the token or API key configured for accessing the OpenAI resource."""
 
         if self._key_configured:
@@ -252,8 +260,7 @@ class _OAITokenHolder:
                         "Unable to acquire a valid Azure AD token for the resource due to "
                         f"the following error: {err.message}"
                     ) from err
-                os.environ["OPENAI_API_KEY"] = self._api_token.token
-            if logger:
+
                 logger.debug("Token refreshed successfully")
         else:
             raise mlflow.MlflowException(
