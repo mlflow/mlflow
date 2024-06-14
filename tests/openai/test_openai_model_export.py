@@ -642,10 +642,8 @@ def test_azure_auth_headers(api_type, auth_headers, tmp_path, monkeypatch):
         path=tmp_path,
     )
     model = mlflow.pyfunc.load_model(tmp_path)
-
     with mock.patch("requests.Session.request") as mock_request:
         model.predict("What is the meaning of life?")
-
         mock_request.assert_called_once_with(
             method="post",
             url=mock.ANY,
