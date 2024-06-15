@@ -24,6 +24,7 @@ class Assessment(_MlflowObject):
         metadata: Optional[Dict[str, Any]] = None,
         error_code: Optional[str] = None,
         error_message: Optional[str] = None,
+        sentiment: Optional[str] = None,
     ):
         """Construct a new mlflow.entities.Assessment instance.
 

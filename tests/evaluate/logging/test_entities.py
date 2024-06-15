@@ -11,7 +11,7 @@ from mlflow.exceptions import MlflowException
 def test_assessment_equality():
     source_1 = AssessmentSource(source_type="HUMAN", source_id="user_1")
     source_2 = AssessmentSource(source_type="HUMAN", source_id="user_1")
-    source_3 = AssessmentSource(source_type="AI", source_id="ai_1")
+    source_3 = AssessmentSource(source_type="AI_JUDGE", source_id="ai_1")
 
     # Valid assessments
     assessment_1 = Assessment(
@@ -90,6 +90,19 @@ def test_assessment_must_specify_value_or_error_code():
             error_code="E001",
             error_message="An error occurred.",
         )  # Both value and error_code
+
+
+def test_assessment_source_validation():
+    # Valid source types
+    try:
+        valid_source_1 = AssessmentSource(source_type="HUMAN", source_id="user_1")
+        valid_source_2 = AssessmentSource(source_type="AI_JUDGE", source_id="judge_1")
+    except MlflowException:
+        pytest.fail("Valid source type raised exception")
+
+    # Invalid source type
+    with pytest.raises(MlflowException, match="Invalid assessment source type"):
+        invalid_source = AssessmentSource(source_type="ROBOT", source_id="robot_1")
 
 
 def test_evaluation_equality():

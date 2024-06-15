@@ -1,6 +1,8 @@
 from typing import Any, Dict, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
 class AssessmentSource(_MlflowObject):
@@ -17,6 +19,7 @@ class AssessmentSource(_MlflowObject):
             metadata: Additional metadata about the source, e.g. human-readable name, inlined LLM
             judge parameters, etc.
         """
+        AssessmentSourceType.validate(source_type)
         self._source_type = source_type
         self._source_id = source_id
         self._metadata = metadata or {}
@@ -69,3 +72,15 @@ class AssessmentSource(_MlflowObject):
 class AssessmentSourceType:
     AI_JUDGE = "AI_JUDGE"
     HUMAN = "HUMAN"
+    _SOURCE_TYPES = [AI_JUDGE, HUMAN]
+
+    @staticmethod
+    def validate(source_type: str) -> None:
+        if source_type not in AssessmentSourceType._SOURCE_TYPES:
+            raise MlflowException(
+                message=(
+                    f"Invalid assessment source type: {source_type}. "
+                    f"Valid source types: {AssessmentSourceType._SOURCE_TYPES}"
+                ),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
