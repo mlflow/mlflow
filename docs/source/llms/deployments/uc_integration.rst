@@ -21,9 +21,9 @@ If you don't have ``git``, you can download the repository as a zip file from ht
 
 .. code-block:: bash
 
-    pip install mlflow openai databricks-sdk
+    pip install mlflow>=2.14.0 openai databricks-sdk
 
-3. Create the UC function used in the example script on your Databricks workspace by running the following SQL command:
+3. Create the UC function used in `the example script <https://github.com/mlflow/mlflow/blob/master/examples/deployments/uc_functions/run.py>`_ in your Databricks workspace by running the following SQL command:
 
 .. code-block:: sql
 
@@ -59,6 +59,10 @@ Once you have completed the pre-requisites, you can start the deployments server
     #                     ^^^^^^^^^^^^^^^^
     export DATABRICKS_WAREHOUSE_ID="..."
 
+    # Required to authenticate with OpenAI.
+    # See https://platform.openai.com/docs/guides/authentication for how to get your API key.
+    export OPENAI_API_KEY="..."
+
     # Enable Unity Catalog integration
     export MLFLOW_ENABLE_UC_FUNCTIONS=true
 
@@ -71,6 +75,11 @@ Query the Endpoint with UC Function
 Once the server is running, you can run the example script:
 
 .. code-block:: bash
+
+    # `run.py` uses the `openai.OpenAI` client to query the deployments server,
+    # but it throws an error if the `OPENAI_API_KEY` environment variable is not set.
+    # To avoid this error, use a dummy API key.
+    export OPENAI_API_KEY="test"
 
     # Replace `my.uc_func.add` if your UC function has a different name
     python examples/deployments/uc_functions/run.py  --uc-function-name my.uc_func.add
