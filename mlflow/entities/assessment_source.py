@@ -17,10 +17,9 @@ class AssessmentSource(_MlflowObject):
             source_type: The type of the assessment source (AssessmentSourceType).
             source_id: An identifier for the source, e.g. Databricks user ID or LLM judge ID.
             metadata: Additional metadata about the source, e.g. human-readable name, inlined LLM
-            judge parameters, etc.
+                judge parameters, etc.
         """
-        AssessmentSourceType.validate(source_type)
-        self._source_type = source_type
+        self._source_type = AssessmentSourceType.standardize(source_type)
         self._source_id = source_id
         self._metadata = metadata or {}
 
@@ -74,8 +73,12 @@ class AssessmentSourceType:
     HUMAN = "HUMAN"
     _SOURCE_TYPES = [AI_JUDGE, HUMAN]
 
+    def __init__(self, source_type: str):
+        self._source_type = AssessmentSourceType._parse(source_type)
+
     @staticmethod
-    def validate(source_type: str) -> None:
+    def _parse(source_type: str) -> str:
+        source_type = source_type.upper()
         if source_type not in AssessmentSourceType._SOURCE_TYPES:
             raise MlflowException(
                 message=(
@@ -84,3 +87,11 @@ class AssessmentSourceType:
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        return source_type
+
+    def __str__(self):
+        return self._source_type
+
+    @staticmethod
+    def standardize(source_type: str) -> str:
+        return str(AssessmentSourceType(source_type))
