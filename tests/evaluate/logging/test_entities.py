@@ -95,14 +95,14 @@ def test_assessment_must_specify_value_or_error_code():
 def test_assessment_source_type_validation():
     # Valid source types
     try:
-        valid_source_1 = AssessmentSource(source_type="HUMAN", source_id="user_1")
-        valid_source_2 = AssessmentSource(source_type="AI_JUDGE", source_id="judge_1")
+        AssessmentSource(source_type="HUMAN", source_id="user_1")
+        AssessmentSource(source_type="AI_JUDGE", source_id="judge_1")
     except MlflowException:
         pytest.fail("Valid source type raised exception")
 
     # Invalid source type
     with pytest.raises(MlflowException, match="Invalid assessment source type"):
-        invalid_source = AssessmentSource(source_type="ROBOT", source_id="robot_1")
+        AssessmentSource(source_type="ROBOT", source_id="robot_1")
 
 
 def test_assessment_source_case_insensitivity():
