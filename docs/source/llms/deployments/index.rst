@@ -40,6 +40,7 @@ organizations that use LLMs on a regular basis.
     :hidden:
 
     guides/index
+    uc_integration
 
 Tutorials and Guides
 ====================
@@ -1186,6 +1187,11 @@ MLflow Deployments Server API Documentation
 ===========================================
 
 `API documentation <./api.html>`_
+
+Unity Catalog Integration
+=========================
+
+See `Unity Catalog Integration <./uc_integration.html>`_ for how to integrate the MLflow Deployments Server with Unity Catalog.
 
 .. _deployments_security:
 
