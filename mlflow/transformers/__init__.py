@@ -69,7 +69,7 @@ from mlflow.transformers.llm_inference_utils import (
     postprocess_output_for_llm_inference_task,
     postprocess_output_for_llm_v1_embedding_task,
     preprocess_llm_embedding_params,
-    preprocess_llm_inference_params,
+    preprocess_llm_inference_input,
 )
 from mlflow.transformers.model_io import (
     _COMPONENTS_BINARY_DIR_NAME,
@@ -1655,20 +1655,19 @@ class _TransformersWrapper:
         Returns:
             Model predictions.
         """
-        if self.llm_inference_task == _LLM_INFERENCE_TASK_CHAT:
-            convert_data_messages_with_chat_template(data, self.pipeline.tokenizer)
-            data, params = preprocess_llm_inference_params(data, self.flavor_config)
-        elif self.llm_inference_task == _LLM_INFERENCE_TASK_COMPLETIONS:
-            data, params = preprocess_llm_inference_params(data, self.flavor_config)
-        elif self.llm_inference_task == _LLM_INFERENCE_TASK_EMBEDDING:
-            data, params = preprocess_llm_embedding_params(data)
-
         # NB: This `predict` method updates the model_config several times. To make the predict
         # call idempotent, we keep the original self.model_config immutable and creates a deep
         # copy of it at every predict call.
         model_config = copy.deepcopy(dict(self.model_config))
+        params = self._merge_model_config_with_params(model_config, params)
 
-        model_config = self._merge_model_config_with_params(model_config, params)
+        if self.llm_inference_task == _LLM_INFERENCE_TASK_CHAT:
+            data, params = preprocess_llm_inference_input(data, params, self.flavor_config)
+            data = convert_data_messages_with_chat_template(data, self.pipeline.tokenizer)
+        elif self.llm_inference_task == _LLM_INFERENCE_TASK_COMPLETIONS:
+            data, params = preprocess_llm_inference_input(data, params, self.flavor_config)
+        elif self.llm_inference_task == _LLM_INFERENCE_TASK_EMBEDDING:
+            data, params = preprocess_llm_embedding_params(data)
 
         if isinstance(data, pd.DataFrame):
             input_data = self._convert_pandas_to_dict(data)
@@ -1700,7 +1699,7 @@ class _TransformersWrapper:
                 _validate_input_dictionary_contains_only_strings_and_lists_of_strings(x)
                 for x in input_data
             )
-        return self._predict(input_data, model_config)
+        return self._predict(input_data, params)
 
     def _predict(self, data, model_config):
         import transformers
