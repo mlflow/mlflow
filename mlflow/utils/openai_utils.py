@@ -235,12 +235,13 @@ def _validate_model_params(task, model, params):
 
 class _OAITokenHolder:
     def __init__(self, api_type):
-        self._api_token = None
         self._credential = None
+        self._api_type = api_type
         self._is_azure_ad = api_type in ("azure_ad", "azuread")
-        self._key_configured = "OPENAI_API_KEY" in os.environ
+        self._azure_ad_token = None
+        self._api_token_env = os.environ.get("OPENAI_API_KEY")
 
-        if self._is_azure_ad and not self._key_configured:
+        if self._is_azure_ad and not self._api_token_env:
             try:
                 from azure.identity import DefaultAzureCredential
             except ImportError:
@@ -250,14 +251,26 @@ class _OAITokenHolder:
                 )
             self._credential = DefaultAzureCredential()
 
-    def validate(self, logger=None):
+    @property
+    def token(self):
+        return self._api_token_env or self._azure_ad_token.token
+
+    def auth_headers(self):
+        if self._api_type == "azure":
+            # For Azure OpenAI API keys, the `api-key` header must be used:
+            # https://learn.microsoft.com/en-us/azure/ai-services/openai/reference#authentication
+            return {"api-key": self.token}
+        else:
+            return {"Authorization": f"Bearer {self.token}"}
+
+    def refresh(self, logger=None):
         """Validates the token or API key configured for accessing the OpenAI resource."""
 
-        if self._key_configured:
+        if self._api_token_env:
             return
 
         if self._is_azure_ad:
-            if not self._api_token or self._api_token.expires_on < time.time() + 60:
+            if not self._azure_ad_token or self._azure_ad_token.expires_on < time.time() + 60:
                 from azure.core.exceptions import ClientAuthenticationError
 
                 if logger:
@@ -266,7 +279,7 @@ class _OAITokenHolder:
                         "acquire a new token."
                     )
                 try:
-                    self._api_token = self._credential.get_token(
+                    self._azure_ad_token = self._credential.get_token(
                         "https://cognitiveservices.azure.com/.default"
                     )
                 except ClientAuthenticationError as err:
@@ -274,7 +287,7 @@ class _OAITokenHolder:
                         "Unable to acquire a valid Azure AD token for the resource due to "
                         f"the following error: {err.message}"
                     ) from err
-                os.environ["OPENAI_API_KEY"] = self._api_token.token
+
             if logger:
                 logger.debug("Token refreshed successfully")
         else:
