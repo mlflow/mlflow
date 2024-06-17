@@ -2,20 +2,23 @@
 
 ## 2.14.0 (2024-06-17)
 
-MLflow 2.14.0 includes several major features and improvements
+MLflow 2.14.0 includes several major features and improvements that we're very excited to announce!
 
-Features:
+### Major features:
+
+- **MLflow Tracing**: Tracing is powerful tool designed to enhance your ability to monitor, analyze, and debug GenAI applications by allowing you to inspect the intermediate outputs generated as your application handles a request. This update comes with an automatic LangChain integration to make it as easy as possible to get started, but we've also implemented high-level fluent APIs, and low-level client APIs for users who want more control over their trace instrumentation. For more information, check out the [guide in our docs](https://mlflow.org/docs/latest/llms/tracing/index.html)!
+- **Unity Catalog Integration**: The MLflow Deployments server now has an integration with Unity Catalog, allowing you to leverage registered functions as tools for enhancing your chat application. For more information, check out [this guide](https://mlflow.org/docs/latest/llms/deployments/uc_integration.html)!
+- **OpenAI Autologging**: Autologging support has now been added for the OpenAI model flavor. With this feature, MLflow will automatically log a model upon calling the OpenAI API. Each time a request is made, the inputs and outputs will be logged as artifacts. Check out [the guide](https://mlflow.org/docs/latest/llms/openai/guide/index.html#openai-autologging) for more information!
+
+Other Notable Features:
 
 - [Models] [Transformers] Support input images encoded with b64.encodebytes (#12087, @MadhuM02)
-- [] Unity Catalog integration for deployments server (#12243, @harupy)
 - [Tracking] Support async logging per X seconds (#12324, @chenmoneygithub)
-- [] Introduce log_traces for langchain autologging and deprecate log_inputs_outputs (#12272, @serena-ruan)
 - [Tracking] Provide a way to set urllib's connection number and max size (#12227, @chenmoneygithub)
 - [Projects] Make MLflow project runner supporting submit spark job to databricks runtime >= 13 (#12139, @WeichenXu123)
 - [Artifacts / Deployments / Model Registry / Models / Projects / Recipes / Tracking] Migrate Mlflow API request to databricks sdk authentication way and support OAuth (#12011, @WeichenXu123)
 - [UI] add column description (#11996, @zhouyou9505)
 - [Tracking] Implement Tracing REST APIs (#12091, @B-Step62)
-- [Models] OpenAI flavor autologging (#11749, @gabrielfu)
 
 Bug fixes:
 
