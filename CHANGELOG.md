@@ -16,7 +16,6 @@ Other Notable Features:
 - [Tracking] Support async logging per X seconds (#12324, @chenmoneygithub)
 - [Tracking] Provide a way to set urllib's connection number and max size (#12227, @chenmoneygithub)
 - [Projects] Make MLflow project runner supporting submit spark job to databricks runtime >= 13 (#12139, @WeichenXu123)
-- [Artifacts / Deployments / Model Registry / Models / Projects / Recipes / Tracking] Migrate Mlflow API request to databricks sdk authentication way and support OAuth (#12011, @WeichenXu123)
 - [UI] Add the "description" column to the runs table (#11996, @zhouyou9505)
 - [Tracking] Implement Tracing REST APIs (#12091, @B-Step62)
 
