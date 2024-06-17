@@ -2436,8 +2436,9 @@ class _TransformersWrapper:
             return data
         else:
             raise MlflowException(
-                "An invalid type has been supplied. Please supply a Dict[str, str], str, "
-                "List[str], or a List[Dict[str, str]] for a Text2Text Pipeline.",
+                f"An invalid type has been supplied: {data} (type: {type(data).__name__}). "
+                "Please supply a Dict[str, str], str, List[str], or a List[Dict[str, str]] "
+                "for a Text2Text Pipeline.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
