@@ -25,7 +25,7 @@ Bug fixes:
 - [Model Registry] Handle no headers presigned url (#12349, @artjen)
 - [Tracking] Exclude irrelevant tags from resolve_tags() for tracing (#12330, @xq-yin)
 - [Models] Fix docstring order for ChatResponse class and make object field immutable (#12305, @xq-yin)
-- [] Fix root user checking in get_databricks_nfs_temp_dir and get_databricks_local_temp_dir (#12186, @WeichenXu123)
+- [Databricks] Fix root user checking in get_databricks_nfs_temp_dir and get_databricks_local_temp_dir (#12186, @WeichenXu123)
 - [Tracking] fix _init_server process terminate hang (#12076, @zhouyou9505)
 - [Scoring] Fix MLflow model container and slow test CI failure (#12042, @WeichenXu123)
 
