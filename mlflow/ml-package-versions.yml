@@ -6,7 +6,7 @@ sklearn:
 
   models:
     minimum: "0.24.1"
-    maximum: "1.4.2"
+    maximum: "1.5.0"
     requirements:
       "< 1.0": ["scipy==1.7.3"]
     python:
@@ -16,7 +16,7 @@ sklearn:
 
   autologging:
     minimum: "0.24.1"
-    maximum: "1.4.2"
+    maximum: "1.5.0"
     python:
       "== dev": "3.9"
     requirements:
@@ -37,7 +37,7 @@ pytorch:
 
   models:
     minimum: "1.9.0"
-    maximum: "2.3.0"
+    maximum: "2.3.1"
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
@@ -47,7 +47,7 @@ pytorch:
 
   autologging:
     minimum: "1.9.0"
-    maximum: "2.3.0"
+    maximum: "2.3.1"
     requirements:
       ">= 0.0.0": ["tensorboard"]
     run: |
@@ -62,7 +62,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.9.0"
-    maximum: "2.2.4"
+    maximum: "2.3.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
       # torchmetrics==0.8.0 released a breaking change for versions 1.3 and 1.4 where
@@ -181,7 +181,7 @@ lightgbm:
 
   models:
     minimum: "3.1.1"
-    maximum: "4.3.0"
+    maximum: "4.4.0"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -189,7 +189,7 @@ lightgbm:
 
   autologging:
     minimum: "3.1.1"
-    maximum: "4.3.0"
+    maximum: "4.4.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
     run: |
@@ -289,7 +289,7 @@ onnx:
 
   models:
     minimum: "1.13.1"
-    maximum: "1.16.0"
+    maximum: "1.16.1"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
       "< 1.11.0": ["numpy<1.24.0"]
@@ -304,7 +304,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.7.4"
+    maximum: "3.7.5"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0", "werkzeug<3"]
@@ -501,7 +501,7 @@ h2o:
     pip_release: "h2o"
   models:
     minimum: "3.40.0.1"
-    maximum: "3.46.0.2"
+    maximum: "3.46.0.3"
     run: |
       pytest tests/h2o
 
@@ -539,7 +539,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.25.1"
-    maximum: "4.41.0"
+    maximum: "4.41.2"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -577,7 +577,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.25.1"
-    maximum: "4.41.0"
+    maximum: "4.41.2"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -614,14 +614,14 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "0.27.2"
-    maximum: "1.30.1"
+    maximum: "1.34.0"
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
     run: |
       pytest tests/openai/test_openai_model_export.py
   autologging:
     minimum: "1.17.0"
-    maximum: "1.27.0"
+    maximum: "1.34.0"
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
     run: |
@@ -634,7 +634,7 @@ langchain:
       pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/langchain
   models:
     minimum: "0.0.244"
-    maximum: "0.2.3"
+    maximum: "0.2.5"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -666,7 +666,7 @@ langchain:
       fi
   autologging:
     minimum: "0.1.0"
-    maximum: "0.2.3"
+    maximum: "0.2.5"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -702,7 +702,7 @@ sentence_transformers:
       pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
     minimum: "2.2.2"
-    maximum: "2.7.0"
+    maximum: "3.0.1"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -720,7 +720,7 @@ johnsnowlabs:
     pip_release: "johnsnowlabs"
   models:
     minimum: "4.4.6"
-    maximum: "5.3.5"
+    maximum: "5.3.6"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
       "< 5.2.8": ["pyspark<3.4"]
@@ -739,7 +739,7 @@ promptflow:
       pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow
   models:
     minimum: "1.3.0"
-    maximum: "1.10.1"
+    maximum: "1.12.0"
     requirements:
       # Requirements to run sparkudf predict test
       ">= 0.0.0": ["pyspark", "jinja2"]
