@@ -518,7 +518,7 @@ def test_signature_and_examples_are_saved_correctly(
             assert mlflow_model.saved_input_example_info["type"] == "json_object"
             saved_example = _get_mlflow_model_input_example_dict(mlflow_model, model_path)
             assert saved_example == example
-        if isinstance(example, pd.DataFrame):
+        elif isinstance(example, pd.DataFrame):
             pd.testing.assert_frame_equal(_read_example(mlflow_model, model_path), example)
         else:
             np.testing.assert_equal(_read_example(mlflow_model, model_path), example)
