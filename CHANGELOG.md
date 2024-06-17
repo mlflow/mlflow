@@ -12,7 +12,7 @@ MLflow 2.14.0 includes several major features and improvements that we're very e
 
 Other Notable Features:
 
-- [Models] [Transformers] Support input images encoded with b64.encodebytes (#12087, @MadhuM02)
+- [Models] Support input images encoded with b64.encodebytes (#12087, @MadhuM02)
 - [Tracking] Support async logging per X seconds (#12324, @chenmoneygithub)
 - [Tracking] Provide a way to set urllib's connection number and max size (#12227, @chenmoneygithub)
 - [Projects] Make MLflow project runner supporting submit spark job to databricks runtime >= 13 (#12139, @WeichenXu123)
