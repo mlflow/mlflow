@@ -106,7 +106,7 @@ sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 xethub = ["mlflow-xethub"]
 jfrog = ["mlflow-jfrog-plugin"]
-langchain = ["langchain>=0.1.0,<=0.2.3"]
+langchain = ["langchain>=0.1.0,<=0.2.5"]
 
 [project.urls]
 homepage = "https://mlflow.org"
