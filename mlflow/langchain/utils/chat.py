@@ -123,7 +123,7 @@ class _ChatChunkResponse(pydantic.BaseModel):
     choices: List[_ChatChoiceDelta]
 
 
-def _try_transform_response_to_chat_format(response):
+def try_transform_response_to_chat_format(response):
     if isinstance(response, str):
         message_content = response
         message_id = None
@@ -160,7 +160,7 @@ def _try_transform_response_to_chat_format(response):
         return transformed_response.model_dump(mode="json")
 
 
-def _try_transform_response_iter_to_chat_format(chunk_iter):
+def try_transform_response_iter_to_chat_format(chunk_iter):
     from langchain_core.messages.ai import AIMessageChunk
 
     is_pydantic_v1 = Version(pydantic.__version__) < Version("2.0")
@@ -239,7 +239,7 @@ def _get_lc_model_input_fields(lc_model) -> Set:
     return set()
 
 
-def _transform_request_json_for_chat_if_necessary(request_json, lc_model):
+def transform_request_json_for_chat_if_necessary(request_json, lc_model):
     """
     Convert the input request JSON to LangChain's Message format if the LangChain model
     accepts ChatMessage objects (e.g. AIMessage, HumanMessage, SystemMessage) as input.

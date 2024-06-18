@@ -32,9 +32,9 @@ from langchain.schema import AgentAction
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.utils.chat import (
-    _transform_request_json_for_chat_if_necessary,
-    _try_transform_response_iter_to_chat_format,
-    _try_transform_response_to_chat_format,
+    transform_request_json_for_chat_if_necessary,
+    try_transform_response_iter_to_chat_format,
+    try_transform_response_to_chat_format,
 )
 from mlflow.pyfunc.context import (
     Context,
@@ -145,9 +145,9 @@ class APIRequest:
 
     def _try_convert_response(self, response):
         if self.stream:
-            return _try_transform_response_iter_to_chat_format(response)
+            return try_transform_response_iter_to_chat_format(response)
         else:
-            return _try_transform_response_to_chat_format(response)
+            return try_transform_response_to_chat_format(response)
 
     def single_call_api(self, callback_handlers: Optional[List[BaseCallbackHandler]]):
         from langchain.schema import BaseRetriever
@@ -180,7 +180,7 @@ class APIRequest:
                     (
                         prepared_request_json,
                         did_perform_chat_conversion,
-                    ) = _transform_request_json_for_chat_if_necessary(
+                    ) = transform_request_json_for_chat_if_necessary(
                         self.request_json, self.lc_model
                     )
                     self.did_perform_chat_conversion = did_perform_chat_conversion
@@ -251,14 +251,14 @@ def process_api_requests(
     results = []
     errors = {}
 
-    # Note: we should call `_transform_request_json_for_chat_if_necessary`
+    # Note: we should call `transform_request_json_for_chat_if_necessary`
     # for the whole batch data, because the conversion should obey the rule
     # that if any record in the batch can't be converted, then all the record
     # in this batch can't be converted.
     (
         converted_chat_requests,
         did_perform_chat_conversion,
-    ) = _transform_request_json_for_chat_if_necessary(requests, lc_model)
+    ) = transform_request_json_for_chat_if_necessary(requests, lc_model)
 
     requests_iter = enumerate(converted_chat_requests)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -329,7 +329,7 @@ def process_stream_request(
     (
         converted_chat_requests,
         did_perform_chat_conversion,
-    ) = _transform_request_json_for_chat_if_necessary(request_json, lc_model)
+    ) = transform_request_json_for_chat_if_necessary(request_json, lc_model)
 
     api_request = APIRequest(
         index=0,
