@@ -7,6 +7,14 @@ MLflow LangChain flavor supports autologging, a powerful feature that allows you
 
     MLflow's LangChain Autologging feature has been overhauled in the ``MLflow 2.14.0`` release. If you are using the earlier version of MLflow, please refer to the legacy documentation `here <#documentation-for-old-versions>`_ for applicable autologging documentation.
 
+.. note::
+
+    MLflow LangChain Autologging is verified to be compatible with LangChain versions between 0.1.0 and 0.2.3. Outside of this range, the feature may not work as expected. To install the compatible version of LangChain, please run the following command:
+
+    .. code-block::
+
+        pip install mlflow[langchain] --upgrade
+
 .. contents:: Table of Contents
   :local:
   :depth: 1
@@ -14,7 +22,7 @@ MLflow LangChain flavor supports autologging, a powerful feature that allows you
 Quickstart
 ----------
 
-To enable autologging for LangChain models, call :py:func:`mlflow.langchain.autolog()` at the beginning of your script or notebook. This will automatically log the traces by default as well as other artifacts such as models, datasets, and model signatures if you explicitly enable them. For more information about the configuration, please refer to the `Configure Autologging <#configure-autologging>`_ section.
+To enable autologging for LangChain models, call :py:func:`mlflow.langchain.autolog()` at the beginning of your script or notebook. This will automatically log the traces by default as well as other artifacts such as models, input examples, and model signatures if you explicitly enable them. For more information about the configuration, please refer to the `Configure Autologging <#configure-autologging>`_ section.
 
 .. code-block::
 
@@ -23,7 +31,7 @@ To enable autologging for LangChain models, call :py:func:`mlflow.langchain.auto
     mlflow.langchain.autolog()
 
     # Enable other optional logging
-    # mlflow.langchain.autolog(log_models=True, log_datasets=True)
+    # mlflow.langchain.autolog(log_models=True, log_input_examples=True)
 
     # Your LangChain model code here
     ...
@@ -149,7 +157,7 @@ Sometimes you may want to customize what information is logged in the traces. Yo
 Patch Functions for Logging Artifacts
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Other artifacts such as models, datasets, are logged by patching the invocation functions of the supported models to insert the logging call. MLflow patches the following functions:
+Other artifacts such as models are logged by patching the invocation functions of the supported models to insert the logging call. MLflow patches the following functions:
 
 * ``invoke``
 * ``batch``

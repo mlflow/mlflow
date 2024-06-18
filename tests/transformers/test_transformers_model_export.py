@@ -115,8 +115,8 @@ def mock_pyfunc_wrapper():
 @pytest.fixture
 @flaky()
 def image_for_test():
-    dataset = load_dataset("huggingface/cats-image")
-    return dataset["test"]["image"][0]
+    dataset = load_dataset("hf-internal-testing/dummy_image_text_data")
+    return dataset["train"]["image"][3]
 
 
 @pytest.fixture
@@ -439,14 +439,14 @@ def test_basic_save_model_and_load_vision_pipeline(small_vision_model, model_pat
     )
     loaded = mlflow.transformers.load_model(model_path)
     prediction = loaded(image_for_test)
-    assert prediction[0]["label"] == "tabby, tabby cat"
+    assert prediction[0]["label"] == "wall clock"
     assert prediction[0]["score"] > 0.5
 
 
 @flaky()
 def test_multi_modal_pipeline_save_and_load(small_multi_modal_pipeline, model_path, image_for_test):
     mlflow.transformers.save_model(transformers_model=small_multi_modal_pipeline, path=model_path)
-    question = "How many cats are in the picture?"
+    question = "How many wall clocks are in the picture?"
     # Load components
     components = mlflow.transformers.load_model(model_path, return_type="components")
     if IS_NEW_FEATURE_EXTRACTION_API:
@@ -456,11 +456,11 @@ def test_multi_modal_pipeline_save_and_load(small_multi_modal_pipeline, model_pa
     assert set(components.keys()).intersection(expected_components) == expected_components
     constructed_pipeline = transformers.pipeline(**components)
     answer = constructed_pipeline(image=image_for_test, question=question)
-    assert answer[0]["answer"] == "2"
+    assert answer[0]["answer"] == "1"
     # Load pipeline
     pipeline = mlflow.transformers.load_model(model_path)
     pipeline_answer = pipeline(image=image_for_test, question=question)
-    assert pipeline_answer[0]["answer"] == "2"
+    assert pipeline_answer[0]["answer"] == "1"
     # Test invalid loading mode
     with pytest.raises(MlflowException, match="The specified return_type mode 'magic' is"):
         mlflow.transformers.load_model(model_path, return_type="magic")
@@ -964,11 +964,20 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
                 reason="base64 feature not present",
             ),
         ),
+        pytest.param(
+            "base64_encodebytes",
+            marks=pytest.mark.skipif(
+                Version(transformers.__version__) < Version("4.41"),
+                reason="base64 encodebytes feature not present",
+            ),
+        ),
     ],
 )
 def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
     if inference_payload == "base64":
         inference_payload = base64.b64encode(image_file_path.read_bytes()).decode("utf-8")
+    elif inference_payload == "base64_encodebytes":
+        inference_payload = base64.encodebytes(image_file_path.read_bytes()).decode("utf-8")
     signature = infer_signature(
         inference_payload,
         mlflow.transformers.generate_signature_output(small_vision_model, inference_payload),
@@ -1178,7 +1187,9 @@ def test_invalid_input_to_text2text_pipeline(text2text_generation_pipeline, inva
     # a valid input string: "answer: green. context: grass is primarily green in color."
     # We generate this string from a dict or generate a list of these strings from a list of
     # dictionaries.
-    with pytest.raises(MlflowException, match="An invalid type has been supplied. Please supply"):
+    with pytest.raises(
+        MlflowException, match=r"An invalid type has been supplied: .+\. Please supply"
+    ):
         infer_signature(
             invalid_data,
             mlflow.transformers.generate_signature_output(
@@ -1731,12 +1742,23 @@ def test_vision_is_base64_image(input_image, result):
                 reason="base64 feature not present",
             ),
         ),
+        pytest.param(
+            "base64_encodebytes",
+            marks=pytest.mark.skipif(
+                Version(transformers.__version__) < Version("4.41"),
+                reason="base64 encodebytes feature not present",
+            ),
+        ),
     ],
 )
 def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
     if inference_payload == "base64":
         inference_payload = [
             base64.b64encode(image_file_path.read_bytes()).decode("utf-8"),
+        ]
+    elif inference_payload == "base64_encodebytes":
+        inference_payload = [
+            base64.encodebytes(image_file_path.read_bytes()).decode("utf-8"),
         ]
     artifact_path = "image_classification_model"
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "2.13.3.dev0"
+version = "2.14.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.rst"
 keywords = ["mlflow", "ai", "databricks"]
@@ -106,7 +106,7 @@ sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 xethub = ["mlflow-xethub"]
 jfrog = ["mlflow-jfrog-plugin"]
-langchain = ["langchain>=0.1.4,<=0.2.1"]
+langchain = ["langchain>=0.1.0,<=0.2.5"]
 
 [project.urls]
 homepage = "https://mlflow.org"

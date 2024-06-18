@@ -1187,6 +1187,17 @@ MLflow Deployments Server API Documentation
 
 `API documentation <./api.html>`_
 
+Unity Catalog Integration
+=========================
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    uc_integration
+
+See `Unity Catalog Integration <./uc_integration.html>`_ for how to integrate the MLflow Deployments Server with Unity Catalog.
+
 .. _deployments_security:
 
 Deployments Server Security Considerations

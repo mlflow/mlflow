@@ -114,6 +114,8 @@ def _install_pyfunc_deps(
             install_mlflow_cmd = ["pip install /opt/mlflow/."]
         elif install_mlflow:
             install_mlflow_cmd = [f"pip install mlflow=={MLFLOW_VERSION}"]
+        else:
+            install_mlflow_cmd = []
 
         if install_mlflow_cmd:
             if Popen(["bash", "-c", " && ".join(activate_cmd + install_mlflow_cmd)]).wait() != 0:

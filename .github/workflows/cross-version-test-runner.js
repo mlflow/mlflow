@@ -1,3 +1,7 @@
+function isMaintainer(author_association) {
+  return ["OWNER", "MEMBER", "COLLABORATOR"].includes(author_association);
+}
+
 async function main({ context, github }) {
   const { comment } = context.payload;
   const { owner, repo } = context.repo;
@@ -10,12 +14,12 @@ async function main({ context, github }) {
   }
 
   // Reject non-maintainers
-  if (!["OWNER", "MEMBER", "COLLABORATOR"].includes(comment.author_association)) {
+  if (![pr.author_association, comment.author_association].every(isMaintainer)) {
     await github.rest.issues.createComment({
       owner,
       repo,
       issue_number: pull_number,
-      body: "Only maintainers are allowed to use this command.",
+      body: "Only maintainers can trigger cross-version tests on their PRs.",
     });
     return;
   }

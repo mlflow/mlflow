@@ -176,8 +176,8 @@ Autologging captures the following information:
 
 .. _autolog-keras:
 
-Keras
------
+Keras/TensorFlow
+----------------
 Call the generic autolog function or :py:func:`mlflow.tensorflow.autolog` before your training code to enable automatic logging of metrics and parameters. As an example, try running the `Keras/Tensorflow example <https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py>`_.
 
 Note that only versions of ``tensorflow>=2.3`` are supported.
@@ -201,6 +201,24 @@ Also, MLflow will then automatically end the run once training ends via calls to
 
 If a run already exists when ``autolog()`` captures data, MLflow will log to that run but not automatically end that run after training. You will have to manually stop the run if you wish to start a new run context for logging to a new run.
 
+.. _autolog-langchain:
+
+LangChain
+---------
+
+Call the generic autolog function :py:func:`mlflow.langchain.autolog` before your training code to enable automatic logging of traces.
+See an example usage with `LangChain <https://github.com/mlflow/mlflow/tree/master/examples/langchain>`_.
+
+Autologging captures the following information:
+
++-----------+-------------+----------------+---------------+---------------------------------------------------------------------------------+
+| Framework | Metrics     | Parameters     | Tags          | Artifacts                                                                       |
++-----------+-------------+----------------+---------------+---------------------------------------------------------------------------------+
+| LangChain | --          | --             |  --           | - Traces                                                                        |
+|           |             |                |               | - `MLflow Model`_ (LangChain model) with model signature on training end        |
+|           |             |                |               | - Input example                                                                 |
++-----------+-------------+----------------+---------------+---------------------------------------------------------------------------------+
+
 .. _autolog-lightgbm:
 
 LightGBM
@@ -219,6 +237,55 @@ If early stopping is activated, metrics at the best iteration will be logged as 
 
 .. _lightgbm.train: https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.train.html#lightgbm-train
 
+.. _autolog-openai:
+
+OpenAI
+------
+
+Call the generic autolog function :py:func:`mlflow.openai.autolog` before your training code to enable automatic logging of artifacts.
+See an example usage with `OpenAI <https://github.com/mlflow/mlflow/tree/master/examples/openai>`_.
+
+Autologging captures the following information:
+
++-----------+-------------+----------------+---------------+------------------------------------------------------------------------------+
+| Framework | Metrics     | Parameters     | Tags          | Artifacts                                                                    |
++-----------+-------------+----------------+---------------+------------------------------------------------------------------------------+
+| OpenAI    | --          | --             |  --           | - `MLflow Model`_ (OpenAI model) with model signature on training end        |
+|           |             |                |               | - Input example                                                              |
++-----------+-------------+----------------+---------------+------------------------------------------------------------------------------+
+
+.. _autolog-paddle:
+
+Paddle
+------
+Call the generic autolog function :py:func:`mlflow.paddle.autolog` before your training code to enable automatic logging of metrics and parameters.
+
+Autologging captures the following information:
+
++-----------+------------------------+--------------------------------+---------------+---------------------------------------------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                     | Tags          | Artifacts                                                                                               |
++-----------+------------------------+--------------------------------+---------------+---------------------------------------------------------------------------------------------------------+
+| Paddle    | user-specified metrics | `paddle.Model.fit`_ parameters | --            | `MLflow Model`_ (Paddle model) with model signature on training end                                     |
++-----------+------------------------+--------------------------------+---------------+---------------------------------------------------------------------------------------------------------+
+
+.. _paddle.Model.fit: https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html
+
+.. _autolog-pyspark:
+
+PySpark
+-------
+
+Call :py:func:`mlflow.pyspark.ml.autolog` before your training code to enable automatic logging of metrics, params, and models.
+See example usage with `PySpark <https://github.com/mlflow/mlflow/tree/master/examples/pyspark_ml_autologging>`_.
+
+Autologging for pyspark ml estimators captures the following information:
+
++---------------------------------------+--------------------------+------------------------------+---------------------------------------------------------+
+| Metrics                               | Parameters               | Tags                         | Artifacts                                               |
++---------------------------------------+--------------------------+------------------------------+---------------------------------------------------------+
+| Post training metrics obtained by     | Parameters obtained by   | - Class name                 | - `MLflow Model`_ containing a fitted estimator         |
+| ``Evaluator.evaluate``                | ``Estimator.fit``        | - Fully qualified class name | - ``metric_info.json`` for post training metrics        |
++---------------------------------------+--------------------------+------------------------------+---------------------------------------------------------+
 
 .. _autolog-pytorch:
 
@@ -352,7 +419,6 @@ Autologging captures the following information:
   - Each model subclass that overrides `fit` expects and logs its own parameters.
 
 .. _statsmodels.base.model.Model.fit: https://www.statsmodels.org/dev/dev/generated/statsmodels.base.model.Model.html
-
 
 .. _autolog-xgboost:
 
