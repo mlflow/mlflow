@@ -265,7 +265,16 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 break
 
     main_thread = threading.main_thread()
-    if threads := [t for t in threading.enumerate() if t is not main_thread]:
+    if threads := [
+        t
+        for t in threading.enumerate()
+        if (
+            t is not main_thread
+            # Ignore the 'TMonitor' thread created by tqdm
+            # https://github.com/tqdm/tqdm/issues/1564
+            or t.__class__.__name__ != "TMonitor"
+        )
+    ]:
         terminalreporter.section("Remaining threads", yellow=True)
         for idx, thread in enumerate(threads, start=1):
             terminalreporter.write(f"{idx}: {thread}\n")
@@ -279,6 +288,9 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         if children := current_process.children(recursive=True):
             terminalreporter.section("Remaining child processes", yellow=True)
             for idx, child in enumerate(children, start=1):
+                # Ignore the 'java' process created by Spark
+                if child.name == "java" and child.status == psutil.STATUS_SLEEPING:
+                    continue
                 terminalreporter.write(f"{idx}: {child}\n")
 
 
