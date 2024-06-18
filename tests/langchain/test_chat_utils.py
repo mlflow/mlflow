@@ -1,6 +1,5 @@
 from unittest.mock import MagicMock, patch
 
-import pytest
 from langchain.agents import AgentExecutor
 from langchain.chat_models.base import SimpleChatModel
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
@@ -13,63 +12,74 @@ from mlflow.langchain.chat_utils import (
 )
 
 
-@pytest.mark.parametrize(
-    "response",
-    [
-        "string_response",
-        {"dict_response": "response"},
-        ["list_response"],
-        AIMessage(content="ai_message_response"),
-    ],
-)
-def test_transform_response_to_chat_format(response):
-    if isinstance(response, (list, dict)):
-        assert _try_transform_response_to_chat_format(response) == response
-    else:
-        if isinstance(response, str):
-            converted_response = _try_transform_response_to_chat_format(response)
-            assert isinstance(converted_response, dict)
-            assert converted_response["id"] is None
-            assert converted_response["choices"][0]["message"]["content"] == response
-        elif isinstance(response, AIMessage):
-            converted_response = _try_transform_response_to_chat_format(response)
-            assert isinstance(converted_response, dict)
-            assert converted_response["id"] == getattr(response, "id", None)
-            assert converted_response["choices"][0]["message"]["content"] == response.content
+def test_transform_response_to_chat_format_no_conversion():
+    response = ["list_response"]
+    assert _try_transform_response_to_chat_format(response) == response
+
+    response = {"dict_response": "response"}
+    assert _try_transform_response_to_chat_format(response) == response
 
 
-@pytest.mark.parametrize(
-    "response",
-    [
-        ["string_response"],
-        [{"dict_response": "response"}],
-        [AIMessage(content="ai_message_response")],
-        [
-            AIMessageChunk(
-                content="ai_message_chunk_response",
-                id="123",
-                response_metadata={"finish_reason": "done"},
-            )
-        ],
-    ],
-)
-def test_transform_response_iter_to_chat_format(response):
+def test_transform_response_to_chat_format_conversion():
+    response = "string_response"
+    converted_response = _try_transform_response_to_chat_format(response)
+    assert isinstance(converted_response, dict)
+    assert converted_response["id"] is None
+    assert converted_response["choices"][0]["message"]["content"] == response
+
+    response = AIMessage(content="ai_message_response")
+    converted_response = _try_transform_response_to_chat_format(response)
+    assert isinstance(converted_response, dict)
+    assert converted_response["id"] == getattr(response, "id", None)
+    assert converted_response["choices"][0]["message"]["content"] == response.content
+
+
+def test_transform_response_iter_to_chat_format_no_conversion():
+    response = [{"dict_response": "response"}]
     converted_response = list(_try_transform_response_iter_to_chat_format(response))
     assert len(converted_response) == 1
-    if isinstance(response[0], (list, dict)):
-        assert converted_response[0] == response[0]
-    else:
-        if isinstance(converted_response[0], str):
-            assert converted_response[0]["id"] is None
-            assert converted_response[0]["choices"][0]["delta"]["content"] == response[0]
-        elif isinstance(response[0], AIMessageChunk):
-            assert converted_response[0]["id"] == getattr(response[0], "id", None)
-            assert converted_response[0]["choices"][0]["delta"]["content"] == response[0].content
-            assert converted_response[0]["choices"][0]["finish_reason"] == "done"
-        elif isinstance(response[0], AIMessage):
-            assert converted_response[0]["id"] == getattr(response[0], "id", None)
-            assert converted_response[0]["choices"][0]["delta"]["content"] == response[0].content
-            assert converted_response[0]["choices"][0]["finish_reason"] == "stop"
+    assert converted_response[0] == response[0]
+
+
+def test_transform_response_iter_to_chat_format_ai_message():
+    response = ["string response"]
+    converted_response = list(_try_transform_response_iter_to_chat_format(response))
+    assert len(converted_response) == 1
+    assert converted_response[0]["id"] is None
+    assert converted_response[0]["choices"][0]["delta"]["content"] == response[0]
+
+    response = [
+        AIMessage(
+            content="ai_message_response", id="123", response_metadata={"finish_reason": "done"}
+        )
+    ]
+    converted_response = list(_try_transform_response_iter_to_chat_format(response))
+    assert len(converted_response) == 1
+    assert converted_response[0]["id"] == getattr(response[0], "id", None)
+    assert converted_response[0]["choices"][0]["delta"]["content"] == response[0].content
+    assert converted_response[0]["choices"][0]["finish_reason"] == "stop"
+
+    response = [
+        AIMessageChunk(
+            content="ai_message_chunk_response",
+            id="123",
+            response_metadata={"finish_reason": "done"},
+        ),
+        AIMessageChunk(
+            content="ai_message_chunk_response",
+            id="456",
+            response_metadata={"finish_reason": "stop"},
+        ),
+    ]
+    converted_response = list(_try_transform_response_iter_to_chat_format(response))
+    assert len(converted_response) == 2
+    for i in range(2):
+        assert converted_response[i]["id"] == getattr(response[i], "id", None)
+        assert converted_response[i]["choices"][0]["delta"]["content"] == response[i].content
+        assert (
+            converted_response[i]["choices"][0]["finish_reason"]
+            == response[i].response_metadata["finish_reason"]
+        )
 
 
 def test_transform_request_json_for_chat_if_necessary_no_conversion():
