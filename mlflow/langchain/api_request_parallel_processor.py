@@ -28,6 +28,7 @@ from typing import Any, Dict, List, Optional, Union
 import langchain.chains
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.schema import AgentAction
+from langchain.schema.runnable import Runnable
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -81,10 +82,23 @@ class APIRequest:
     """
     Stores an API request's inputs, outputs, and other metadata. Contains a method to make an API
     call.
+
+    Args:
+        index: The request's index in the tasks list
+        lc_model: The LangChain model to call
+        request_json: The request's input data
+        results: The list to append the request's output data to, it's a list of tuples
+            (index, response)
+        errors: A dictionary to store any errors that occur
+        convert_chat_responses: Whether to convert the model's responses to chat format
+        did_perform_chat_conversion: Whether the input data was converted to chat format
+            based on the model's type and input data.
+        stream: Whether the request is a stream request
+        prediction_context: The prediction context to use for the request
     """
 
     index: int
-    lc_model: langchain.chains.base.Chain
+    lc_model: Runnable
     request_json: dict
     results: list[tuple[int, str]]
     errors: dict
