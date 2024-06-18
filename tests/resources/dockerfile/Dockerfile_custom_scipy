@@ -8,7 +8,7 @@ FROM quay.io/jupyter/scipy-notebook:latest
 WORKDIR /opt/mlflow
 
 # Install MLflow
-RUN pip install mlflow==2.13.2
+RUN pip install mlflow==${{ MLFLOW_VERSION }}
 
 # Copy model to image and install dependencies
 COPY model_dir/model /opt/ml/model
