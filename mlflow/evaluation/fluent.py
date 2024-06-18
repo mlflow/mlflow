@@ -400,16 +400,8 @@ def get_evaluation(*, run_id: str, evaluation_id: str) -> EvaluationEntity:
     Returns:
         Evaluation: The Evaluation object.
     """
-
-    def _contains_evaluation_artifacts(client: MlflowClient, run_id: str) -> bool:
-        return (
-            any(file.path == "_evaluations.json" for file in client.list_artifacts(run_id))
-            and any(file.path == "_metrics.json" for file in client.list_artifacts(run_id))
-            and any(file.path == "_assessments.json" for file in client.list_artifacts(run_id))
-        )
-
     client = MlflowClient()
-    if not _contains_evaluation_artifacts(client, run_id):
+    if not _contains_evaluation_artifacts(client=client, run_id=run_id):
         raise MlflowException(
             "The specified run does not contain any evaluations. "
             "Please log evaluations to the run before retrieving them.",
@@ -419,19 +411,74 @@ def get_evaluation(*, run_id: str, evaluation_id: str) -> EvaluationEntity:
     evaluations_file = client.download_artifacts(run_id=run_id, path="_evaluations.json")
     evaluations_df = read_evaluations_dataframe(evaluations_file)
 
+    assessments_file = client.download_artifacts(run_id=run_id, path="_assessments.json")
+    assessments_df = read_assessments_dataframe(assessments_file)
+
+    metrics_file = client.download_artifacts(run_id=run_id, path="_metrics.json")
+    metrics_df = read_metrics_dataframe(metrics_file)
+
+    return _get_evaluation_from_dataframes(
+        run_id=run_id,
+        evaluation_id=evaluation_id,
+        evaluations_df=evaluations_df,
+        metrics_df=metrics_df,
+        assessments_df=assessments_df,
+    )
+
+
+def search_evaluations(*, run_ids: List[str]) -> List[EvaluationEntity]:
+    """
+    Retrieves all evaluations from the specified MLflow Runs.
+
+    Args:
+        run_ids (List[str]): IDs of the MLflow Runs containing the evaluations to retrieve.
+    """
+    client = MlflowClient()
+    evaluations = []
+    for run_id in run_ids:
+        if not _contains_evaluation_artifacts(client=client, run_id=run_id):
+            continue
+
+        evaluations_file = client.download_artifacts(run_id=run_id, path="_evaluations.json")
+        evaluations_df = read_evaluations_dataframe(evaluations_file)
+
+        assessments_file = client.download_artifacts(run_id=run_id, path="_assessments.json")
+        assessments_df = read_assessments_dataframe(assessments_file)
+
+        metrics_file = client.download_artifacts(run_id=run_id, path="_metrics.json")
+        metrics_df = read_metrics_dataframe(metrics_file)
+
+        for _, row in evaluations_df.iterrows():
+            evaluation_id = row["evaluation_id"]
+            evaluation = _get_evaluation_from_dataframes(
+                run_id=run_id,
+                evaluation_id=evaluation_id,
+                evaluations_df=evaluations_df,
+                metrics_df=metrics_df,
+                assessments_df=assessments_df,
+            )
+            evaluations.append(evaluation)
+
+    return evaluations
+
+
+def _get_evaluation_from_dataframes(
+    *,
+    run_id: str,
+    evaluation_id: str,
+    evaluations_df: pd.DataFrame,
+    metrics_df: pd.DataFrame,
+    assessments_df: pd.DataFrame,
+) -> EvaluationEntity:
+    """
+    Parses an Evaluation object with the specified evaluation ID from the specified DataFrames.
+    """
     evaluation_row = evaluations_df[evaluations_df["evaluation_id"] == evaluation_id]
     if evaluation_row.empty:
         raise MlflowException(
             f"The specified evaluation ID '{evaluation_id}' does not exist in the run '{run_id}'.",
             error_code=RESOURCE_DOES_NOT_EXIST,
         )
-
-    # Extract metrics and assessments
-    metrics_file = client.download_artifacts(run_id=run_id, path="_metrics.json")
-    metrics_df = read_metrics_dataframe(metrics_file)
-
-    assessments_file = client.download_artifacts(run_id=run_id, path="_assessments.json")
-    assessments_df = read_assessments_dataframe(assessments_file)
 
     evaluations: List[Evaluation] = dataframes_to_evaluations(
         evaluations_df=evaluation_row, metrics_df=metrics_df, assessments_df=assessments_df
@@ -444,3 +491,11 @@ def get_evaluation(*, run_id: str, evaluation_id: str) -> EvaluationEntity:
         )
 
     return evaluations[0]
+
+
+def _contains_evaluation_artifacts(*, client: MlflowClient, run_id: str) -> bool:
+    return (
+        any(file.path == "_evaluations.json" for file in client.list_artifacts(run_id))
+        and any(file.path == "_metrics.json" for file in client.list_artifacts(run_id))
+        and any(file.path == "_assessments.json" for file in client.list_artifacts(run_id))
+    )

@@ -11,6 +11,7 @@ from mlflow.evaluation import (
     log_evaluation,
     log_evaluations,
     log_evaluations_df,
+    search_evaluations,
 )
 from mlflow.exceptions import MlflowException
 
@@ -1246,3 +1247,74 @@ def test_assessment_name_with_different_value_types_fails(first_value, second_va
 
         with pytest.raises(MlflowException, match="different value types"):
             log_evaluation(inputs=inputs, outputs=outputs, assessments=[assessment1, assessment2])
+
+
+def test_search_evaluations():
+    inputs_1 = {"feature1": 1.0, "feature2": 2.0}
+    outputs_1 = {"prediction": 0.5}
+    targets_1 = {"actual": 0.5}
+    metrics_1 = [Metric(key="metric1", value=1.1, timestamp=0, step=0)]
+    request_id_1 = "req1"
+    inputs_id_1 = "id1"
+
+    inputs_2 = {"feature1": 3.0, "feature2": 4.0}
+    outputs_2 = {"prediction": 0.75}
+    targets_2 = {"actual": 0.8}
+    metrics_2 = [Metric(key="metric2", value=1.2, timestamp=0, step=0)]
+    request_id_2 = "req2"
+    inputs_id_2 = "id2"
+
+    source_1 = AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1")
+    assessment_1 = Assessment(name="assessment1", source=source_1, value=0.8)
+    source_2 = AssessmentSource(source_type=AssessmentSourceType.AI_JUDGE, source_id="judge_1")
+    assessment_2 = Assessment(name="assessment2", source=source_2, value=0.8)
+
+    with mlflow.start_run() as run1:
+        run_id1 = run1.info.run_id
+        log_evaluation(
+            inputs=inputs_1,
+            outputs=outputs_1,
+            targets=targets_1,
+            metrics=metrics_1,
+            assessments=[assessment_1],
+            inputs_id=inputs_id_1,
+            request_id=request_id_1,
+        )
+
+    with mlflow.start_run() as run2:
+        run_id2 = run2.info.run_id
+        log_evaluation(
+            inputs=inputs_2,
+            outputs=outputs_2,
+            targets=targets_2,
+            metrics=metrics_2,
+            assessments=[assessment_2],
+            inputs_id=inputs_id_2,
+            request_id=request_id_2,
+        )
+
+    # Search for the evaluations
+    evaluations = search_evaluations(run_ids=[run_id1, run_id2])
+
+    assert len(evaluations) == 2  # 2 evaluations should be retrieved
+
+    # Verify the details of the retrieved evaluations
+    eval1 = next(e for e in evaluations if e.inputs_id == inputs_id_1)
+    assert eval1.inputs == inputs_1
+    assert eval1.outputs == outputs_1
+    assert eval1.targets == targets_1
+    assert eval1.request_id == request_id_1
+    assert eval1.assessments[0].name == assessment_1.name
+    assert eval1.assessments[0].numeric_value == assessment_1.value
+    assert eval1.metrics[0].key == metrics_1[0].key
+    assert eval1.metrics[0].value == metrics_1[0].value
+
+    eval2 = next(e for e in evaluations if e.inputs_id == inputs_id_2)
+    assert eval2.inputs == inputs_2
+    assert eval2.outputs == outputs_2
+    assert eval2.targets == targets_2
+    assert eval2.request_id == request_id_2
+    assert eval2.assessments[0].name == assessment_2.name
+    assert eval2.assessments[0].numeric_value == assessment_2.value
+    assert eval2.metrics[0].key == metrics_2[0].key
+    assert eval2.metrics[0].value == metrics_2[0].value

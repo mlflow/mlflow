@@ -7,6 +7,7 @@ from mlflow.evaluation.fluent import (
     log_evaluation,
     log_evaluations,
     log_evaluations_df,
+    search_evaluations,
 )
 
 __all__ = [
@@ -19,4 +20,5 @@ __all__ = [
     "log_evaluations",
     "log_evaluations_df",
     "log_assessments",
+    "search_evaluations",
 ]
