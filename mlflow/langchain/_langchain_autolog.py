@@ -70,6 +70,243 @@ class AutoLoggingConfig:
         )
 
 
+class CallbackInjectionCM(contextlib.AbstractContextManager):
+    """
+    A context manager that injects callbacks into the model for a specific inference function.
+
+    For RunnableConfig, the callbacks is defined as List[BaseCallbackHandler] or BaseCallbackManager
+    https://github.com/langchain-ai/langchain/blob/ed980601e1c630f996aabf85df5cb26178e53099/libs/core/langchain_core/callbacks/base.py#L636
+    We shouldn't modify user's original callbacks, so we need to revert the changes after the
+    inference is done.
+    """
+
+    def __init__(self, original_callbacks, new_callbacks):
+        """
+        Args:
+            original_callbacks: BaseCallbackManager or List[BaseCallbackHandler]
+            new_callbacks: List[BaseCallbackHandler]
+        """
+        self.original_callbacks = original_callbacks
+        self.new_callbacks = new_callbacks
+        self.added_callbacks = []
+        self._is_callback_manager = self._is_base_callback_manager(original_callbacks)
+        self._is_callback_handler_list = self._is_list_of_base_callback_handlers(original_callbacks)
+        if self._is_callback_manager:
+            self.callback_handlers = original_callbacks.handlers
+        elif self._is_callback_handler_list:
+            self.callback_handlers = original_callbacks
+
+    def _is_base_callback_manager(self, callback):
+        from langchain_core.callbacks.base import BaseCallbackManager
+
+        return isinstance(callback, BaseCallbackManager)
+
+    def _is_list_of_base_callback_handlers(self, callback):
+        from langchain_core.callbacks.base import BaseCallbackHandler
+
+        return isinstance(callback, list) and all(
+            isinstance(callback_handler, BaseCallbackHandler) for callback_handler in callback
+        )
+
+    def _is_new_callback_already_in_original_callbacks(self, new_callback, original_callbacks):
+        return any(
+            isinstance(new_callback, type(original_callback))
+            for original_callback in original_callbacks
+        )
+
+    def _inject_callbacks(self, add_callback_func):
+        """
+        Args:
+            add_callback_func (str): The name of the function to add a
+                callback to the original callbacks.
+        """
+        for callback in self.new_callbacks:
+            if not self._is_new_callback_already_in_original_callbacks(
+                callback, self.callback_handlers
+            ):
+                self.added_callbacks.append(callback)
+                getattr(self.original_callbacks, add_callback_func)(callback)
+
+    def __enter__(self):
+        """
+        Returns updated callbacks.
+        """
+        if self._is_callback_manager:
+            self._inject_callbacks("add_handler")
+        elif self._is_callback_handler_list:
+            self._inject_callbacks("append")
+        return self.original_callbacks
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Revert the changes made to the callbacks.
+        """
+        if self._is_callback_manager:
+            for callback in self.added_callbacks:
+                self.original_callbacks.remove_handler(callback)
+        elif self._is_callback_handler_list:
+            for _ in range(len(self.added_callbacks)):
+                self.original_callbacks.pop()
+        return False
+
+
+class RunnableConfigCallbackInjectionCM(contextlib.AbstractContextManager):
+    """
+    Context manager to inject callbacks into the runnable config, update RunnableConfig with new
+    callbacks.
+    For runnable `invoke`, `ainvoke`, `stream` and `astream`, config type is RunnableConfig,
+    for `batch` and `abatch`, config type is Union[RunnableConfig, List[RunnableConfig]]
+    """
+
+    def __init__(self, runnable_config, new_callbacks):
+        """
+        Args:
+            runnable_config: RunnableConfig or List[RunnableConfig]
+            new_callbacks: List[BaseCallbackHandler]
+        """
+        self._is_list_of_runnable_configs = isinstance(runnable_config, list)
+        self.config_list = (
+            runnable_config if self._is_list_of_runnable_configs else [runnable_config]
+        )
+        self.cms = {}
+        for i, config in enumerate(self.config_list):
+            self.cms[i] = CallbackInjectionCM(config.get("callbacks") or [], new_callbacks)
+
+    def __enter__(self):
+        """
+        Returns updated runnable config.
+        """
+        for i, cm in self.cms.items():
+            self.config_list[i]["callbacks"] = cm.__enter__()
+        return self.config_list if self._is_list_of_runnable_configs else self.config_list[0]
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Revert the changes made to the runnable config.
+        """
+        for _, cm in self.cms.items():
+            cm.__exit__(exc_type, exc_val, exc_tb)
+        return False
+
+
+class RunnableCallbackInjectionCM(contextlib.AbstractContextManager):
+    """
+    Inject callbacks to models that are runnables, update args and kwargs with the new callbacks.
+
+    `config` is the second positional argument of runnable invoke, batch, stream,
+    ainvoke, abatch, astream functions
+    https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/core/langchain_core/runnables/base.py#L468
+    https://github.com/langchain-ai/langchain/blob/ed980601e1c630f996aabf85df5cb26178e53099/libs/core/langchain_core/runnables/base.py#L600-L607
+    https://github.com/langchain-ai/langchain/blob/ed980601e1c630f996aabf85df5cb26178e53099/libs/core/langchain_core/runnables/base.py#L801
+    https://github.com/langchain-ai/langchain/blob/25ba7332185e0c6624a2b02b72030f073755d716/libs/core/langchain_core/runnables/base.py#L588
+    https://github.com/langchain-ai/langchain/blob/25ba7332185e0c6624a2b02b72030f073755d716/libs/core/langchain_core/runnables/base.py#L706
+    https://github.com/langchain-ai/langchain/blob/25ba7332185e0c6624a2b02b72030f073755d716/libs/core/langchain_core/runnables/base.py#L810
+    """
+
+    def __init__(self, new_callbacks, args, kwargs):
+        self.new_callbacks = new_callbacks
+        self.args = args
+        self.kwargs = kwargs
+        self.in_args = False
+        if len(args) >= 2:
+            self.config = args[1]
+            self.in_args = True
+        else:
+            self.config = kwargs.get("config")
+        self.cm = (
+            RunnableConfigCallbackInjectionCM(self.config, new_callbacks) if self.config else None
+        )
+
+    def _update_args_or_kwargs(self, updated_config):
+        if self.in_args:
+            return (self.args[0], updated_config) + self.args[2:], self.kwargs
+        else:
+            self.kwargs["config"] = updated_config
+            return self.args, self.kwargs
+
+    def __enter__(self):
+        """
+        Returns updated args and kwargs used for inference.
+        """
+        from langchain.schema.runnable.config import RunnableConfig
+
+        if self.cm:
+            updated_config = self.cm.__enter__()
+            return self._update_args_or_kwargs(updated_config)
+        else:
+            return self._update_args_or_kwargs(RunnableConfig(callbacks=self.new_callbacks))
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.cm:
+            self.cm.__exit__(exc_type, exc_val, exc_tb)
+        return False
+
+
+class MlflowCallbackInjectionCM(contextlib.AbstractContextManager):
+    """
+    A context manager that injects MLflow callbacks into the function call.
+    For runnables, we inject callbacks into `"invoke", "batch", "stream", "ainvoke", "abatch",
+    "astream"` functions.
+    # below two functions are deprecated and will be removed in the future
+    For chain, we inject callbacks into `__call__` function.
+    For retriever, we inject callbacks into `get_relevant_documents` function.
+    """
+
+    def __init__(self, func_name, mlflow_callbacks, args, kwargs):
+        self.func_name = func_name
+        self.patch_runnable = func_name in [
+            "invoke",
+            "batch",
+            "stream",
+            "ainvoke",
+            "abatch",
+            "astream",
+        ]
+        if self.patch_runnable:
+            self.cm = RunnableCallbackInjectionCM(mlflow_callbacks, args, kwargs)
+        # `callbacks` is the third positional argument of chain.__call__ function
+        # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/langchain/langchain/chains/base.py#L320
+        elif self.func_name == "__call__":
+            self.in_args = False
+            if len(args) >= 3:
+                self.cm = CallbackInjectionCM(args[2] or [], mlflow_callbacks)
+                self.in_args = True
+            else:
+                self.cm = CallbackInjectionCM(kwargs.get("callbacks") or [], mlflow_callbacks)
+        # callbacks is only available as kwargs in get_relevant_documents function
+        # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/core/langchain_core/retrievers.py#L173
+        elif self.func_name == "get_relevant_documents":
+            self.cm = CallbackInjectionCM(kwargs.get("callbacks") or [], mlflow_callbacks)
+        else:
+            self.cm = None
+        self.args = args
+        self.kwargs = kwargs
+
+    def __enter__(self):
+        """
+        Returns updated args and kwargs used for inference.
+        """
+        if self.cm is None:
+            return self.args, self.kwargs
+        if self.patch_runnable:
+            return self.cm.__enter__()
+        if self.func_name == "__call__":
+            updated_callbacks = self.cm.__enter__()
+            if self.in_args:
+                return self.args[:2] + (updated_callbacks,) + self.args[3:], self.kwargs
+            else:
+                self.kwargs["callbacks"] = updated_callbacks
+                return self.args, self.kwargs
+        if self.func_name == "get_relevant_documents":
+            self.kwargs["callbacks"] = self.cm.__enter__()
+            return self.args, self.kwargs
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.cm:
+            self.cm.__exit__(exc_type, exc_val, exc_tb)
+        return False
+
+
 def patched_inference(func_name, original, self, *args, **kwargs):
     """
     A patched implementation of langchain models inference process which enables
@@ -104,7 +341,7 @@ def patch_args_and_kwargs(func_name, autologging_config, args, kwargs):
         # Inject MLflow tracer into the callbacks argument
         mlflow_tracer = MlflowLangchainTracer()
         try:
-            with _inject_mlflow_callbacks(func_name, [mlflow_tracer], args, kwargs) as (
+            with MlflowCallbackInjectionCM(func_name, [mlflow_tracer], args, kwargs) as (
                 args,
                 kwargs,
             ):
@@ -247,201 +484,6 @@ def _update_langchain_model_config(model):
         if hasattr(model, "__config__"):
             model.__config__.extra = Extra.allow
         return True
-
-
-def _is_new_callback_already_in_original_callbacks(new_callback, original_callbacks):
-    return any(
-        isinstance(new_callback, type(original_callback))
-        for original_callback in original_callbacks
-    )
-
-
-def _is_base_callback_manager(callback):
-    from langchain_core.callbacks.base import BaseCallbackManager
-
-    return isinstance(callback, BaseCallbackManager)
-
-
-def _inject_callbacks_into_base_callback_manager(original_callbacks, new_callbacks):
-    added_callbacks = []
-    for callback in new_callbacks:
-        if not _is_new_callback_already_in_original_callbacks(
-            callback, original_callbacks.handlers
-        ):
-            added_callbacks.append(callback)
-            original_callbacks.add_handler(callback)
-    return original_callbacks, added_callbacks
-
-
-def _is_list_of_base_callback_handlers(callback):
-    from langchain_core.callbacks.base import BaseCallbackHandler
-
-    return isinstance(callback, list) and all(
-        isinstance(callback_handler, BaseCallbackHandler) for callback_handler in callback
-    )
-
-
-def _inject_callbacks_into_list_of_base_callback_handlers(original_callbacks, new_callbacks):
-    # Make a copy of the original callbacks to avoid modifying the original list
-    updated_callbacks = list(original_callbacks)
-    for new_callback in new_callbacks:
-        if not _is_new_callback_already_in_original_callbacks(new_callback, original_callbacks):
-            updated_callbacks.append(new_callback)
-    return updated_callbacks
-
-
-@contextlib.contextmanager
-def _inject_callbacks(original_callbacks, new_callbacks):
-    """
-    Inject list of callbacks into the original callbacks.
-    For RunnableConfig, the callbacks is defined as List[BaseCallbackHandler] or BaseCallbackManager
-    https://github.com/langchain-ai/langchain/blob/ed980601e1c630f996aabf85df5cb26178e53099/libs/core/langchain_core/callbacks/base.py#L636
-    We shouldn't modify user's original callbacks, so we need to revert the changes after the
-    inference is done.
-
-    Args:
-        original_callbacks: List[BaseCallbackHandler] or BaseCallbackManager
-        new_callbacks: List[BaseCallbackHandler]
-    """
-    if _is_base_callback_manager(original_callbacks):
-        added_callbacks = []
-        try:
-            original_callbacks, added_callbacks = _inject_callbacks_into_base_callback_manager(
-                original_callbacks, new_callbacks
-            )
-            yield original_callbacks
-        finally:
-            # avoid modifying original callbackmanager
-            for callback in added_callbacks:
-                original_callbacks.remove_handler(callback)
-
-    elif _is_list_of_base_callback_handlers(original_callbacks):
-        yield _inject_callbacks_into_list_of_base_callback_handlers(
-            original_callbacks, new_callbacks
-        )
-
-    else:
-        _logger.warning(
-            f"Unsupported callbacks type `{original_callbacks}` for autologging with tracing."
-        )
-        yield original_callbacks
-
-
-@contextlib.contextmanager
-def _inject_callbacks_to_config_list(config_list, new_callbacks):
-    """
-    Inject new_callbacks into each config in the config_list.
-    """
-    added_callbacks_list = {}
-    original_callbacks_list = {}
-    for i, config in enumerate(config_list):
-        original_callbacks = config.get("callbacks") or []
-        if _is_base_callback_manager(original_callbacks):
-            original_callbacks, added_callbacks = _inject_callbacks_into_base_callback_manager(
-                original_callbacks, new_callbacks
-            )
-            config["callbacks"] = original_callbacks
-            added_callbacks_list[i] = added_callbacks
-        elif _is_list_of_base_callback_handlers(original_callbacks):
-            config["callbacks"] = _inject_callbacks_into_list_of_base_callback_handlers(
-                original_callbacks, new_callbacks
-            )
-            original_callbacks_list[i] = original_callbacks
-    try:
-        yield config_list
-    finally:
-        for i, config in enumerate(config_list):
-            # original callback must be baseCallbackManager
-            if i in added_callbacks_list:
-                for callback in added_callbacks_list[i]:
-                    config["callbacks"].remove_handler(callback)
-            # original callback must be list of baseCallbackHandlers
-            else:
-                config["callbacks"] = original_callbacks_list[i] or None
-
-
-@contextlib.contextmanager
-def _inject_callbacks_for_runnable(mlflow_callbacks, args, kwargs):
-    """
-    `config` is the second positional argument of runnable invoke, batch, stream,
-    ainvoke, abatch, astream functions
-    https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/core/langchain_core/runnables/base.py#L468
-    https://github.com/langchain-ai/langchain/blob/ed980601e1c630f996aabf85df5cb26178e53099/libs/core/langchain_core/runnables/base.py#L600-L607
-    https://github.com/langchain-ai/langchain/blob/ed980601e1c630f996aabf85df5cb26178e53099/libs/core/langchain_core/runnables/base.py#L801
-    https://github.com/langchain-ai/langchain/blob/25ba7332185e0c6624a2b02b72030f073755d716/libs/core/langchain_core/runnables/base.py#L588
-    https://github.com/langchain-ai/langchain/blob/25ba7332185e0c6624a2b02b72030f073755d716/libs/core/langchain_core/runnables/base.py#L706
-    https://github.com/langchain-ai/langchain/blob/25ba7332185e0c6624a2b02b72030f073755d716/libs/core/langchain_core/runnables/base.py#L810
-
-    """
-    from langchain.schema.runnable.config import RunnableConfig
-
-    def _update_args_or_kwargs(in_args, config, args, kwargs):
-        if in_args:
-            yield (args[0], config) + args[2:], kwargs
-        else:
-            kwargs["config"] = config
-            yield args, kwargs
-
-    in_args = False
-    if len(args) >= 2:
-        config = args[1]
-        in_args = True
-    else:
-        config = kwargs.get("config")
-    if config is None:
-        config = RunnableConfig(callbacks=mlflow_callbacks)
-        yield from _update_args_or_kwargs(in_args, config, args, kwargs)
-    else:
-        # for `invoke`, `ainvoke`, `stream` and `astream`, config type is RunnableConfig
-        # for `batch` and `abatch`, config type is Union[RunnableConfig, List[RunnableConfig]]
-        if isinstance(config, list):
-            with _inject_callbacks_to_config_list(config, mlflow_callbacks) as updated_config:
-                yield from _update_args_or_kwargs(in_args, updated_config, args, kwargs)
-        else:
-            original_callbacks = config.get("callbacks") or []
-            with _inject_callbacks(original_callbacks, mlflow_callbacks) as updated_callbacks:
-                try:
-                    config["callbacks"] = updated_callbacks
-                    yield from _update_args_or_kwargs(in_args, config, args, kwargs)
-                finally:
-                    config["callbacks"] = original_callbacks or None
-
-
-@contextlib.contextmanager
-def _inject_mlflow_callbacks(func_name, mlflow_callbacks, args, kwargs):
-    """
-    Inject list of callbacks into the function named `func_name` of the model.
-    """
-    if func_name in ["invoke", "batch", "stream", "ainvoke", "abatch", "astream"]:
-        with _inject_callbacks_for_runnable(mlflow_callbacks, args, kwargs) as (
-            args,
-            kwargs,
-        ):
-            yield args, kwargs
-
-    elif func_name == "__call__":
-        # `callbacks` is the third positional argument of chain.__call__ function
-        # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/langchain/langchain/chains/base.py#L320
-        if len(args) >= 3:
-            with _inject_callbacks(args[2] or [], mlflow_callbacks) as callbacks_arg:
-                yield args[:2] + (callbacks_arg,) + args[3:], kwargs
-        else:
-            with _inject_callbacks(
-                kwargs.get("callbacks") or [], mlflow_callbacks
-            ) as callbacks_arg:
-                kwargs["callbacks"] = callbacks_arg
-                yield args, kwargs
-
-    # callbacks is only available as kwargs in get_relevant_documents function
-    # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/core/langchain_core/retrievers.py#L173
-    elif func_name == "get_relevant_documents":
-        with _inject_callbacks(kwargs.get("callbacks") or [], mlflow_callbacks) as callbacks_arg:
-            kwargs["callbacks"] = callbacks_arg
-            yield args, kwargs
-
-    else:
-        _logger.warning(f"Unsupported function `{func_name}` for injecting MLflow callbacks.")
-        yield args, kwargs
 
 
 def _runnable_with_retriever(model):
