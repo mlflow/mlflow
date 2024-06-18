@@ -109,6 +109,7 @@ from mlflow.evaluation.fluent import (
     log_evaluation,
     log_evaluations,
     log_evaluations_df,
+    search_evaluations,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import evaluate
@@ -217,6 +218,7 @@ __all__ = [
     "pyfunc",
     "register_model",
     "run",
+    "search_evaluations",
     "search_experiments",
     "search_model_versions",
     "search_registered_models",
