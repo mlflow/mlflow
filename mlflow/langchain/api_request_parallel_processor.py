@@ -135,7 +135,13 @@ class APIRequest:
             return self.lc_model.stream(
                 single_input, config={"callbacks": callback_handlers}, **kwargs
             )
-        return self.lc_model.invoke(single_input, config={"callbacks": callback_handlers}, **kwargs)
+        if hasattr(self.lc_model, "invoke"):
+            return self.lc_model.invoke(
+                single_input, config={"callbacks": callback_handlers}, **kwargs
+            )
+        else:
+            # for backwards compatibility, __call__ is deprecated and will be removed in 0.3.0
+            return self.lc_model(single_input, config={"callbacks": callback_handlers}, **kwargs)
 
     def _try_convert_response(self, response):
         if self.stream:

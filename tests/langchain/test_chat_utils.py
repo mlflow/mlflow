@@ -34,7 +34,7 @@ def test_transform_response_to_chat_format(response):
         elif isinstance(response, AIMessage):
             converted_response = _try_transform_response_to_chat_format(response)
             assert isinstance(converted_response, dict)
-            assert converted_response["id"] == response.id
+            assert converted_response["id"] == getattr(response, "id", None)
             assert converted_response["choices"][0]["message"]["content"] == response.content
 
 
@@ -63,11 +63,11 @@ def test_transform_response_iter_to_chat_format(response):
             assert converted_response[0]["id"] is None
             assert converted_response[0]["choices"][0]["delta"]["content"] == response[0]
         elif isinstance(response[0], AIMessageChunk):
-            assert converted_response[0]["id"] == response[0].id
+            assert converted_response[0]["id"] == getattr(response[0], "id", None)
             assert converted_response[0]["choices"][0]["delta"]["content"] == response[0].content
             assert converted_response[0]["choices"][0]["finish_reason"] == "done"
         elif isinstance(response[0], AIMessage):
-            assert converted_response[0]["id"] == response[0].id
+            assert converted_response[0]["id"] == getattr(response[0], "id", None)
             assert converted_response[0]["choices"][0]["delta"]["content"] == response[0].content
             assert converted_response[0]["choices"][0]["finish_reason"] == "stop"
 

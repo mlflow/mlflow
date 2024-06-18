@@ -58,7 +58,7 @@ import mlflow.models.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
-from mlflow.langchain.api_request_parallel_processor import APIRequest
+from mlflow.langchain.chat_utils import _try_transform_response_to_chat_format
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.langchain.utils import (
     _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
@@ -2428,7 +2428,7 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
         extra_args=["--env-manager", "local"],
     )
     assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
-        "predictions": [APIRequest._try_transform_response_to_chat_format(answer)]
+        "predictions": [_try_transform_response_to_chat_format(answer)]
     }
 
     pyfunc_model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
@@ -2709,7 +2709,7 @@ def test_save_load_chain_as_code_optional_code_path(chain_model_signature, chain
     # avoid minor diff of created time in the response
     prediction_result = PredictionsResponse.from_json(response.content.decode("utf-8"))
     prediction_result["predictions"][0]["created"] = 123
-    expected_prediction = APIRequest._try_transform_response_to_chat_format(answer)
+    expected_prediction = _try_transform_response_to_chat_format(answer)
     expected_prediction["created"] = 123
     assert prediction_result == {"predictions": [expected_prediction]}
 
@@ -3091,7 +3091,7 @@ def test_save_model_as_code_correct_streamable(chain_model_signature, chain_path
     # avoid minor diff of created time in the response
     prediction_result = PredictionsResponse.from_json(response.content.decode("utf-8"))
     prediction_result["predictions"][0]["created"] = 123
-    expected_prediction = APIRequest._try_transform_response_to_chat_format(answer)
+    expected_prediction = _try_transform_response_to_chat_format(answer)
     expected_prediction["created"] = 123
     assert prediction_result == {"predictions": [expected_prediction]}
 
