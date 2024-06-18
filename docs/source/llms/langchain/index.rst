@@ -196,6 +196,11 @@ I can't load my chain!
 I can't save my chain, agent, or retriever with MLflow.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+.. tip::
+
+    If you're encountering issues with logging or saving LangChain components with MLflow, see the `models from code <../../models.html#models-from-code>`_
+    feature documentation to determine if logging your model from a script file provides a simpler and more robust logging solution!
+
 - **Serialization Challenges with Cloudpickle**: Serialization with cloudpickle can encounter limitations depending on the complexity of the objects. 
 
     Some objects, especially those with intricate internal states or dependencies on external system resources, are not inherently pickleable. This limitation 
@@ -249,7 +254,7 @@ How can I log my chain from code?
     In order to use this feature, you will utilize the :py:func:`mlflow.models.set_model` API to define the chain that you would like to log as an MLflow model. 
     After having this set within your code that defines your chain, when logging your model, you will specify the **path** to the file that defines your chain. 
 
-    For example, here is a simple chain defined in a file named ``langchain-code-chain.py``:
+    For example, here is a simple chain defined in a file named ``langchain_code_chain.py``:
 
     .. code-block:: python
         
@@ -296,7 +301,7 @@ How can I log my chain from code?
 
         import mlflow
 
-        chain_path = "langchain-code-chain.py"
+        chain_path = "langchain_code_chain.py"
 
         with mlflow.start_run():
             info = mlflow.langchain.log_model(lc_model=chain_path, artifact_path="chain")
@@ -322,7 +327,7 @@ How can I log my chain from code?
     
     The model will be logged as a script within the MLflow UI:
 
-    .. figure:: ../../_static/images/tutorials/llms/langchain-model-from-code.gif
+    .. figure:: ../../_static/images/tutorials/llms/langchain-code-model.png
             :alt: Logging a LangChain model from a code script file
             :width: 100%
             :align: center
