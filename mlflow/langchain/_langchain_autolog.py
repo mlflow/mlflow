@@ -72,7 +72,7 @@ class AutoLoggingConfig:
 
 class CallbackInjectionCM(contextlib.AbstractContextManager):
     """
-    A context manager that injects callbacks into the model for a specific inference function.
+    A context manager that injects callbacks into original callbacks used for model inference.
 
     For RunnableConfig, the callbacks is defined as List[BaseCallbackHandler] or BaseCallbackManager
     https://github.com/langchain-ai/langchain/blob/ed980601e1c630f996aabf85df5cb26178e53099/libs/core/langchain_core/callbacks/base.py#L636
@@ -152,8 +152,7 @@ class CallbackInjectionCM(contextlib.AbstractContextManager):
 
 class RunnableConfigCallbackInjectionCM(contextlib.AbstractContextManager):
     """
-    Context manager to inject callbacks into the runnable config, update RunnableConfig with new
-    callbacks.
+    Context manager to inject callbacks into runnable configs passed during runnable inference.
     For runnable `invoke`, `ainvoke`, `stream` and `astream`, config type is RunnableConfig,
     for `batch` and `abatch`, config type is Union[RunnableConfig, List[RunnableConfig]]
     """
@@ -191,7 +190,7 @@ class RunnableConfigCallbackInjectionCM(contextlib.AbstractContextManager):
 
 class RunnableCallbackInjectionCM(contextlib.AbstractContextManager):
     """
-    Inject callbacks to models that are runnables, update args and kwargs with the new callbacks.
+    Context manager to inject callbacks into args or kwargs used for runnable inference.
 
     `config` is the second positional argument of runnable invoke, batch, stream,
     ainvoke, abatch, astream functions
@@ -244,7 +243,8 @@ class RunnableCallbackInjectionCM(contextlib.AbstractContextManager):
 
 class MlflowCallbackInjectionCM(contextlib.AbstractContextManager):
     """
-    A context manager that injects MLflow callbacks into the function call.
+    A context manager that injects MLflow callbacks into the model inference call.
+
     For runnables, we inject callbacks into `"invoke", "batch", "stream", "ainvoke", "abatch",
     "astream"` functions.
     # below two functions are deprecated and will be removed in the future
