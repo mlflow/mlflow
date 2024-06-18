@@ -17,11 +17,6 @@ To learn more about what tracing is, see our `Tracing Concepts Overview <./overv
     MLflow Tracing support is available with the **MLflow 2.14.0** release. Versions of MLflow prior to this release 
     do not contain the full set of features that are required for trace logging support.
 
-.. warning:: 
-    If you are using MLflow tracing from within Databricks, MLflow **2.13.2 and above** contain the required dependencies to utilize tracing functionality 
-    within Databricks. Additionally, it is not recommended to install release candidates of MLflow on Databricks except for compatibility testing. 
-    Other Databricks service integrations with MLflow may not function correctly if you do install an RC build of MLflow.
-
 LangChain Automatic Tracing
 ---------------------------
 
