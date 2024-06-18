@@ -31,7 +31,7 @@ from langchain.schema import AgentAction
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.langchain.chat_utils import (
+from mlflow.langchain.utils.chat import (
     _transform_request_json_for_chat_if_necessary,
     _try_transform_response_iter_to_chat_format,
     _try_transform_response_to_chat_format,
