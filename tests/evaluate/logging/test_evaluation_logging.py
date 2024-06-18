@@ -1280,6 +1280,15 @@ def test_search_evaluations():
             inputs_id=inputs_id_1,
             request_id=request_id_1,
         )
+        log_evaluation(
+            inputs=inputs_2,
+            outputs=outputs_2,
+            targets=targets_2,
+            metrics=metrics_2,
+            assessments=[assessment_2],
+            inputs_id=inputs_id_2,
+            request_id=request_id_2,
+        )
 
     with mlflow.start_run() as run2:
         run_id2 = run2.info.run_id
@@ -1296,7 +1305,7 @@ def test_search_evaluations():
     # Search for the evaluations
     evaluations = search_evaluations(run_ids=[run_id1, run_id2])
 
-    assert len(evaluations) == 2  # 2 evaluations should be retrieved
+    assert len(evaluations) == 3  # 3 evaluations should be retrieved
 
     # Verify the details of the retrieved evaluations
     eval1 = next(e for e in evaluations if e.inputs_id == inputs_id_1)
@@ -1309,12 +1318,28 @@ def test_search_evaluations():
     assert eval1.metrics[0].key == metrics_1[0].key
     assert eval1.metrics[0].value == metrics_1[0].value
 
-    eval2 = next(e for e in evaluations if e.inputs_id == inputs_id_2)
-    assert eval2.inputs == inputs_2
-    assert eval2.outputs == outputs_2
-    assert eval2.targets == targets_2
-    assert eval2.request_id == request_id_2
-    assert eval2.assessments[0].name == assessment_2.name
-    assert eval2.assessments[0].numeric_value == assessment_2.value
-    assert eval2.metrics[0].key == metrics_2[0].key
-    assert eval2.metrics[0].value == metrics_2[0].value
+    eval2_list = [e for e in evaluations if e.inputs_id == inputs_id_2]
+    assert len(eval2_list) == 2  # There should be two evaluations with inputs_id_2
+
+    for eval2 in eval2_list:
+        assert eval2.inputs == inputs_2
+        assert eval2.outputs == outputs_2
+        assert eval2.targets == targets_2
+        assert eval2.request_id == request_id_2
+        assert eval2.assessments[0].name == assessment_2.name
+        assert eval2.assessments[0].numeric_value == assessment_2.value
+        assert eval2.metrics[0].key == metrics_2[0].key
+        assert eval2.metrics[0].value == metrics_2[0].value
+
+
+def test_search_evaluations_no_runids():
+    search_results = search_evaluations(run_ids=[])
+    assert search_results == []
+
+
+def test_search_evaluations_with_run_lacking_evaluations():
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    search_results = search_evaluations(run_ids=[run_id])
+    assert search_results == []
