@@ -11,6 +11,66 @@ Find out about the details of major features, changes, and deprecations below.
         <article class="new-content-grid">
             <div class="grid-card">
                 <div class="content-container">
+                    <div class="header" style="height: 4rem">
+                        MLflow Tracing
+                    </div>
+                    <img class="card-image" src="../_static/images/llms/tracing/trace-feature-card.png" style="max-height: 9rem" alt="MLflow Tracing"></img>
+                    <div class="body">
+                        <a href="../llms/tracing/index.html">MLflow Tracing</a> is powerful tool designed to enhance your ability to monitor, analyze, and debug GenAI applications by allowing you to inspect the intermediate outputs generated as your application handles a request.
+                    </div>
+                    <div class="doc"><a href="../llms/tracing/index.html">Learn more</a></div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.14.0">released in 2.14.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        Unity Catalog Integration in MLflow Deployments Server
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/unity-catalog-logo.png" alt="Unity Catalog"></img>
+                    <div class="body">
+                        The MLflow Deployments server now has <a href="../llms/deployments/uc_integration.html">an integration with Unity Catalog</a>, allowing you to leverage registered functions as tools for enhancing your chat application.
+                    </div>
+                    <div class="doc"><a href="../llms/deployments/uc_integration.html">Learn more</a></div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.14.0">released in 2.14.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        OpenAI Autologging
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/openai-logo.svg" alt="OpenAI" style="max-height: 5rem"></img>
+                    <div class="body">
+                        Autologging support has now been added for the <a href="../llms/openai/guide/index.html#openai-autologging">OpenAI model flavor</a>. With this feature, MLflow will automatically log a model upon calling the OpenAI API.
+                    </div>
+                    <div class="doc"><a href="../llms/openai/guide/index.html#openai-autologging">Learn more</a></div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.14.0">released in 2.14.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        Enhanced Code Dependency Management
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
+                    <div class="body">
+                        The <code>infer_code_path</code> option when logging a model will determine which additional code modules are needed, ensuring the consistency between the training environment and production.
+                    </div>
+                    <div class="doc"><a href="../model/dependencies.html#saving-extra-code-dependencies-with-an-mlflow-model-automatic-inference">Learn more</a></div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.13.0">released in 2.13.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
                     <div class="header">
                         Fully Customizable GenAI Metrics
                     </div>
