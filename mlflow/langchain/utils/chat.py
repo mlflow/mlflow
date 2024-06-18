@@ -14,6 +14,8 @@ from mlflow.types.schema import Array, ColSpec, DataType, Schema
 
 _logger = logging.getLogger(__name__)
 
+IS_PYDANTIC_V1 = Version(pydantic.__version__).major < 2
+
 
 # NB: Even though _ChatMessage is only referenced in one method within this module
 # (as of 12/27/2023), it must be defined at the module level for compatibility with
@@ -44,9 +46,6 @@ class _ChatDeltaMessage(pydantic.BaseModel):
     content: str
 
 
-# NB: Even though _ChatRequest is only referenced in one method within this module
-# (as of 12/27/2023), it must be defined at the module level for compatibility with
-# pydantic < 2
 class _ChatRequest(pydantic.BaseModel, extra="forbid"):
     messages: List[_ChatMessage]
 
@@ -154,7 +153,7 @@ def try_transform_response_to_chat_format(response):
         ),
     )
 
-    if Version(pydantic.__version__) < Version("2.0"):
+    if IS_PYDANTIC_V1:
         return json.loads(transformed_response.json())
     else:
         return transformed_response.model_dump(mode="json")
@@ -162,8 +161,6 @@ def try_transform_response_to_chat_format(response):
 
 def try_transform_response_iter_to_chat_format(chunk_iter):
     from langchain_core.messages.ai import AIMessageChunk
-
-    is_pydantic_v1 = Version(pydantic.__version__) < Version("2.0")
 
     def _gen_converted_chunk(message_content, message_id, finish_reason):
         transformed_response = _ChatChunkResponse(
@@ -182,7 +179,7 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
             ],
         )
 
-        if is_pydantic_v1:
+        if IS_PYDANTIC_V1:
             return json.loads(transformed_response.json())
         else:
             return transformed_response.model_dump(mode="json")
@@ -218,7 +215,7 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
 
 
 def _convert_chat_request_or_throw(chat_request: Dict):
-    if Version(pydantic.__version__) < Version("2.0"):
+    if IS_PYDANTIC_V1:
         model = _ChatRequest.parse_obj(chat_request)
     else:
         model = _ChatRequest.model_validate(chat_request)
@@ -226,7 +223,7 @@ def _convert_chat_request_or_throw(chat_request: Dict):
     return [message.to_langchain_message() for message in model.messages]
 
 
-def _get_lc_model_input_fields(lc_model) -> Set:
+def _get_lc_model_input_fields(lc_model) -> Set[str]:
     try:
         if hasattr(lc_model, "input_schema") and callable(lc_model.input_schema):
             return set(lc_model.input_schema().__fields__)
@@ -237,6 +234,22 @@ def _get_lc_model_input_fields(lc_model) -> Set:
         )
 
     return set()
+
+
+def should_transform_requst_json_for_chat(lc_model):
+    # Avoid converting the request to LangChain's Message format if the chain
+    # is an AgentExecutor, as LangChainChatMessage might not be accepted by the chain
+    if isinstance(lc_model, AgentExecutor):
+        return False
+
+    input_fields = _get_lc_model_input_fields(lc_model)
+    if "messages" in input_fields:
+        # If the chain accepts a "messages" field directly, don't attempt to convert
+        # the request to LangChain's Message format automatically. Assume that the chain
+        # is handling the "messages" field by itself
+        return False
+
+    return True
 
 
 def transform_request_json_for_chat_if_necessary(request_json, lc_model):
@@ -253,16 +266,7 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
             2. A boolean indicating whether or not the request was transformed from the OpenAI
             chat format.
     """
-    # Avoid converting the request to LangChain's Message format if the chain
-    # is an AgentExecutor, as LangChainChatMessage might not be accepted by the chain
-    if isinstance(lc_model, AgentExecutor):
-        return request_json, False
-
-    input_fields = _get_lc_model_input_fields(lc_model)
-    if "messages" in input_fields:
-        # If the chain accepts a "messages" field directly, don't attempt to convert
-        # the request to LangChain's Message format automatically. Assume that the chain
-        # is handling the "messages" field by itself
+    if not should_transform_requst_json_for_chat(lc_model):
         return request_json, False
 
     def json_dict_might_be_chat_request(json_message: Dict):
