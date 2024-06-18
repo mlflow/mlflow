@@ -206,8 +206,7 @@ If a run already exists when ``autolog()`` captures data, MLflow will log to tha
 LangChain
 ---------
 
-Call the generic autolog function :py:func:`mlflow.langchain.autolog` before your training code to enable automatic logging of traces.
-See an example usage with `LangChain <https://github.com/mlflow/mlflow/tree/master/examples/langchain>`_.
+Call the generic autolog function :py:func:`mlflow.langchain.autolog` before your training code to enable automatic logging of traces. See `LangChain Autologging <../llms/langchain/autologging.html>`_ for more details.
 
 Autologging captures the following information:
 
