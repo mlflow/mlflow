@@ -1,7 +1,7 @@
 Unity Catalog Integration
 =========================
 
-This example illustrates the use of the `Unity Catalog (UC) <https://www.databricks.com/product/unity-catalog>`_ integration with the MLflow Deployments server. This integration enables you to leverage functions registered in Unity Catalog as tools for enhancing your chat application.
+This example illustrates the use of the `Unity Catalog (UC) <https://docs.databricks.com/en/data-governance/unity-catalog/index.html>`_ integration with the MLflow Deployments server. This integration enables you to leverage functions registered in Unity Catalog as tools for enhancing your chat application.
 
 Pre-requisites
 --------------
