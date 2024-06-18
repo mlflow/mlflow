@@ -58,13 +58,13 @@ import mlflow.models.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
-from mlflow.langchain.chat_utils import _try_transform_response_to_chat_format
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.langchain.utils import (
     _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
     IS_PICKLE_SERIALIZATION_RESTRICTED,
     lc_runnables_types,
 )
+from mlflow.langchain.utils.chat import _try_transform_response_to_chat_format
 from mlflow.models import Model
 from mlflow.models.dependencies_schemas import DependenciesSchemasType
 from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex, Resource

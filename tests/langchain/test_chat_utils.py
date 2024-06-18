@@ -5,7 +5,7 @@ from langchain.chat_models.base import SimpleChatModel
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from langchain_core.messages.ai import AIMessageChunk
 
-from mlflow.langchain.chat_utils import (
+from mlflow.langchain.utils.chat import (
     _transform_request_json_for_chat_if_necessary,
     _try_transform_response_iter_to_chat_format,
     _try_transform_response_to_chat_format,
@@ -95,12 +95,12 @@ def test_transform_request_json_for_chat_if_necessary_conversion():
     model = MagicMock(spec=SimpleChatModel)
     request_json = {"messages": [{"role": "user", "content": "some_input"}]}
 
-    with patch("mlflow.langchain.chat_utils._get_lc_model_input_fields", return_value={"messages"}):
+    with patch("mlflow.langchain.utils.chat._get_lc_model_input_fields", return_value={"messages"}):
         transformed_request = _transform_request_json_for_chat_if_necessary(request_json, model)
         assert transformed_request == (request_json, False)
 
     with patch(
-        "mlflow.langchain.chat_utils._get_lc_model_input_fields",
+        "mlflow.langchain.utils.chat._get_lc_model_input_fields",
         return_value={},
     ):
         transformed_request = _transform_request_json_for_chat_if_necessary(request_json, model)
@@ -113,7 +113,7 @@ def test_transform_request_json_for_chat_if_necessary_conversion():
         {"messages": [{"role": "user", "content": "Who owns MLflow?"}]},
     ]
     with patch(
-        "mlflow.langchain.chat_utils._get_lc_model_input_fields",
+        "mlflow.langchain.utils.chat._get_lc_model_input_fields",
         return_value={},
     ):
         transformed_request = _transform_request_json_for_chat_if_necessary(request_json, model)
