@@ -141,7 +141,7 @@ class APIRequest:
             )
         else:
             # for backwards compatibility, __call__ is deprecated and will be removed in 0.3.0
-            return self.lc_model(single_input, config={"callbacks": callback_handlers}, **kwargs)
+            return self.lc_model(single_input, callbacks=callback_handlers, **kwargs)
 
     def _try_convert_response(self, response):
         if self.stream:
