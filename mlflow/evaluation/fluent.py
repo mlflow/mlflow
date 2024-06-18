@@ -31,7 +31,7 @@ from mlflow.tracking.fluent import _get_or_start_run
 def log_evaluation(
     *,
     inputs: Dict[str, Any],
-    outputs: Dict[str, Any],
+    outputs: Optional[Dict[str, Any]] = None,
     inputs_id: Optional[str] = None,
     request_id: Optional[str] = None,
     targets: Optional[Dict[str, Any]] = None,
@@ -129,11 +129,13 @@ def log_evaluations(
         run_id=run_id, data=assessments_df, artifact_file="_assessments.json", set_tag=True
     )
 
-    _update_assessments_stats(
-        run_id=run_id,
-        assessments_df=assessments_df,
-        assessment_names=assessments_df["name"].unique(),
-    )
+    # TODO (dbczumar): Uncomment this line once we've made adjustments to the metric names and
+    #                  determined which metrics we want to log.
+    # _update_assessments_stats(
+    #     run_id=run_id,
+    #     assessments_df=assessments_df,
+    #     assessment_names=assessments_df["name"].unique(),
+    # )
     return evaluation_entities
 
 

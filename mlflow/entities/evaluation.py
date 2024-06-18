@@ -16,7 +16,7 @@ class Evaluation(_MlflowObject):
         run_id: str,
         inputs_id: str,
         inputs: Dict[str, Any],
-        outputs: Dict[str, Any],
+        outputs: Optional[Dict[str, Any]] = None,
         request_id: Optional[str] = None,
         targets: Optional[Dict[str, Any]] = None,
         assessments: Optional[List[Assessment]] = None,
@@ -75,7 +75,7 @@ class Evaluation(_MlflowObject):
         return self._inputs
 
     @property
-    def outputs(self) -> Dict[str, Any]:
+    def outputs(self) -> Optional[Dict[str, Any]]:
         """Get the outputs."""
         return self._outputs
 
@@ -127,8 +127,9 @@ class Evaluation(_MlflowObject):
             "run_id": self.run_id,
             "inputs_id": self.inputs_id,
             "inputs": self.inputs,
-            "outputs": self.outputs,
         }
+        if self.outputs:
+            evaluation_dict["outputs"] = self.outputs
         if self.request_id:
             evaluation_dict["request_id"] = self.request_id
         if self.targets:
@@ -158,7 +159,7 @@ class Evaluation(_MlflowObject):
         run_id = evaluation_dict["run_id"]
         inputs_id = evaluation_dict["inputs_id"]
         inputs = evaluation_dict["inputs"]
-        outputs = evaluation_dict["outputs"]
+        outputs = evaluation_dict.get("outputs")
         request_id = evaluation_dict.get("request_id")
         targets = evaluation_dict.get("targets")
         assessments = None

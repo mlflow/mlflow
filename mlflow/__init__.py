@@ -103,6 +103,13 @@ from mlflow.config import (
     set_system_metrics_sampling_interval,
     set_tracking_uri,
 )
+from mlflow.evaluation.fluent import (
+    get_evaluation,
+    log_assessments,
+    log_evaluation,
+    log_evaluations,
+    log_evaluations_df,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models import evaluate
 from mlflow.projects import run
@@ -180,6 +187,7 @@ __all__ = [
     "flush_async_logging",
     "flush_artifact_async_logging",
     "get_artifact_uri",
+    "get_evaluation",
     "get_experiment",
     "get_experiment_by_name",
     "get_parent_run",
@@ -191,7 +199,11 @@ __all__ = [
     "load_table",
     "log_artifact",
     "log_artifacts",
+    "log_assessments",
     "log_dict",
+    "log_evaluation",
+    "log_evaluations",
+    "log_evaluations_df",
     "log_figure",
     "log_image",
     "log_input",

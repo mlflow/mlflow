@@ -17,7 +17,7 @@ class Evaluation(_MlflowObject):
     def __init__(
         self,
         inputs: Dict[str, Any],
-        outputs: Dict[str, Any],
+        outputs: Optional[Dict[str, Any]] = None,
         inputs_id: Optional[str] = None,
         request_id: Optional[str] = None,
         targets: Optional[Dict[str, Any]] = None,
@@ -30,9 +30,9 @@ class Evaluation(_MlflowObject):
         Construct a new Evaluation instance.
 
         Args:
-            inputs_id: A unique identifier for the input names and values for evaluation.
             inputs: Input names and values for evaluation.
             outputs: Outputs obtained during inference.
+            inputs_id: A unique identifier for the input names and values for evaluation.
             request_id: The ID of an MLflow Trace corresponding to the inputs and outputs.
             targets: Expected values that the model should produce during inference.
             assessments: Assessments for the given row.
@@ -68,7 +68,7 @@ class Evaluation(_MlflowObject):
         return self._inputs
 
     @property
-    def outputs(self) -> Dict[str, Any]:
+    def outputs(self) -> Optional[Dict[str, Any]]:
         """Get the outputs."""
         return self._outputs
 
@@ -141,8 +141,9 @@ class Evaluation(_MlflowObject):
         evaluation_dict = {
             "inputs_id": self.inputs_id,
             "inputs": self.inputs,
-            "outputs": self.outputs,
         }
+        if self.outputs:
+            evaluation_dict["outputs"] = self.outputs
         if self.request_id:
             evaluation_dict["request_id"] = self.request_id
         if self.targets:

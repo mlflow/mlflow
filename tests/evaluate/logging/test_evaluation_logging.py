@@ -17,14 +17,20 @@ from mlflow.exceptions import MlflowException
 
 def test_log_evaluation_with_minimal_params_succeeds():
     inputs = {"feature1": 1.0, "feature2": 2.0}
-    outputs = {"prediction": 0.5}
 
     with mlflow.start_run():
-        logged_evaluation = log_evaluation(inputs=inputs, outputs=outputs)
+        logged_evaluation = log_evaluation(inputs=inputs)
         assert logged_evaluation is not None
         assert logged_evaluation.inputs_id is not None
         assert logged_evaluation.inputs == inputs
-        assert logged_evaluation.outputs == outputs
+
+        assert logged_evaluation.outputs is None
+        assert logged_evaluation.request_id is None
+        assert logged_evaluation.targets is None
+        assert logged_evaluation.assessments is None
+        assert logged_evaluation.metrics is None
+        assert logged_evaluation.error_code is None
+        assert logged_evaluation.error_message is None
 
         retrieved_evaluation = get_evaluation(
             evaluation_id=logged_evaluation.evaluation_id, run_id=mlflow.active_run().info.run_id

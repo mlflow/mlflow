@@ -70,7 +70,7 @@ test-examples:
 
 .PHONY: gateway-api-docs
 gateway-api-docs:
-	@python gateway_api_docs.py
+	@python3 gateway_api_docs.py
 
 # Builds only the RST-based documentation (i.e., everything but Java & R docs)
 .PHONY: rsthtml
@@ -82,7 +82,7 @@ rsthtml: gateway-api-docs
 
 .PHONY: view
 view:
-	python -m http.server --directory build/html
+	python3 -m http.server --directory build/html
 
 .PHONY: html
 html: rdocs rsthtml javadocs
