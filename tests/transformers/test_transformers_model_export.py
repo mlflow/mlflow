@@ -1187,7 +1187,9 @@ def test_invalid_input_to_text2text_pipeline(text2text_generation_pipeline, inva
     # a valid input string: "answer: green. context: grass is primarily green in color."
     # We generate this string from a dict or generate a list of these strings from a list of
     # dictionaries.
-    with pytest.raises(MlflowException, match="An invalid type has been supplied. Please supply"):
+    with pytest.raises(
+        MlflowException, match=r"An invalid type has been supplied: .+\. Please supply"
+    ):
         infer_signature(
             invalid_data,
             mlflow.transformers.generate_signature_output(

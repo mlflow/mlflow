@@ -90,6 +90,7 @@ from mlflow.transformers.signature import (
 )
 from mlflow.transformers.torch_utils import _TORCH_DTYPE_KEY, _deserialize_torch_dtype
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
+from mlflow.utils import _truncate_and_ellipsize
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
@@ -2436,8 +2437,9 @@ class _TransformersWrapper:
             return data
         else:
             raise MlflowException(
-                "An invalid type has been supplied. Please supply a Dict[str, str], str, "
-                "List[str], or a List[Dict[str, str]] for a Text2Text Pipeline.",
+                f"An invalid type has been supplied: {_truncate_and_ellipsize(data, 100)} "
+                f"(type: {type(data).__name__}). Please supply a Dict[str, str], str, List[str], "
+                "or a List[Dict[str, str]] for a Text2Text Pipeline.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
