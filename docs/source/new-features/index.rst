@@ -14,7 +14,7 @@ Find out about the details of major features, changes, and deprecations below.
                     <div class="header" style="height: 4rem">
                         MLflow Tracing
                     </div>
-                    <img class="card-image" src="../_static/images/llms/tracing/trace-feature-card.png" style="max-height: 9rem" alt="MLflow Tracing"></img>
+                    <img class="card-image" src="../_static/images/llms/tracing/trace-feature-card.png" style="max-height: 8rem" alt="MLflow Tracing"></img>
                     <div class="body">
                         <a href="../llms/tracing/index.html">MLflow Tracing</a> is powerful tool designed to enhance your ability to monitor, analyze, and debug GenAI applications by allowing you to inspect the intermediate outputs generated as your application handles a request.
                     </div>
