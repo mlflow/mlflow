@@ -3506,11 +3506,14 @@ def test_text_generation_task_completions_predict_with_stop(text_generation_pipe
         {"prompt": "How to learn Python in 3 weeks?"},
     )
 
+    if "Python" not in inference[0]["choices"][0]["text"]:
+        pytest.skip(
+            "Model did not generate text containing 'Python', "
+            "skipping validation of stop parameter in inference"
+        )
+
     assert inference[0]["choices"][0]["finish_reason"] == "stop"
-    assert (
-        inference[0]["choices"][0]["text"].endswith("Python")
-        or "Python" not in inference[0]["choices"][0]["text"]
-    )
+    assert inference[0]["choices"][0]["text"].endswith("Python")
 
     # Override model_config with runtime params
     inference = pyfunc_loaded.predict(

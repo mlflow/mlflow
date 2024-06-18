@@ -9,7 +9,7 @@ import pandas as pd
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.transformers.flavor_config import FlavorKey
 from mlflow.types.llm import (
     CHAT_MODEL_INPUT_SCHEMA,
@@ -81,8 +81,22 @@ def infer_signature_from_llm_inference_task(
     return inferred_signature
 
 
-def convert_data_messages_with_chat_template(messages: List[Dict], tokenizer):
-    """For the Chat inference task, apply chat template to messages to create prompt."""
+def convert_messages_to_prompt(messages: List[Dict], tokenizer) -> str:
+    """For the Chat inference task, apply chat template to messages to create prompt.
+
+    Args:
+        messages: List of message e.g. [{"role": user, "content": xxx}, ...]
+        tokenizer: The tokenizer object used for inference.
+
+    Returns:
+        The prompt string contains the messages.
+    """
+    if not (isinstance(messages, list) and all(isinstance(msg, dict) for msg in messages)):
+        raise MlflowException(
+            f"Input messages for chat task should be list of dictionaries, but got: {type(messages)}.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     try:
         return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     except Exception as e:

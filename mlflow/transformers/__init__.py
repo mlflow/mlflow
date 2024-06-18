@@ -64,7 +64,7 @@ from mlflow.transformers.llm_inference_utils import (
     _METADATA_LLM_INFERENCE_TASK_KEY,
     _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK,
     _get_default_task_for_llm_inference_task,
-    convert_data_messages_with_chat_template,
+    convert_messages_to_prompt,
     infer_signature_from_llm_inference_task,
     postprocess_output_for_llm_inference_task,
     postprocess_output_for_llm_v1_embedding_task,
@@ -1663,7 +1663,7 @@ class _TransformersWrapper:
 
         if self.llm_inference_task == _LLM_INFERENCE_TASK_CHAT:
             data, params = preprocess_llm_inference_input(data, params, self.flavor_config)
-            data = convert_data_messages_with_chat_template(data, self.pipeline.tokenizer)
+            data = [convert_messages_to_prompt(msgs, self.pipeline.tokenizer) for msgs in data]
         elif self.llm_inference_task == _LLM_INFERENCE_TASK_COMPLETIONS:
             data, params = preprocess_llm_inference_input(data, params, self.flavor_config)
         elif self.llm_inference_task == _LLM_INFERENCE_TASK_EMBEDDING:

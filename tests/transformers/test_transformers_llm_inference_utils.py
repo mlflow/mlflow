@@ -15,7 +15,7 @@ from mlflow.transformers.llm_inference_utils import (
     _get_output_and_usage_from_tensor,
     _get_stopping_criteria,
     _get_token_usage,
-    convert_data_messages_with_chat_template,
+    convert_messages_to_prompt,
     infer_signature_from_llm_inference_task,
     preprocess_llm_inference_input,
 )
@@ -62,22 +62,13 @@ class DummyTokenizer:
 
 
 def test_apply_chat_template():
-    tokenizer = DummyTokenizer()
-
-    data1 = pd.DataFrame(
-        {
-            "messages": pd.Series(
-                [[{"role": "A", "content": "one"}, {"role": "B", "content": "two"}]]
-            ),
-            "random": ["value"],
-        }
-    )
-
+    data1 = [{"role": "A", "content": "one"}, {"role": "B", "content": "two"}]
     # Test that the function modifies the data in place for Chat task
-    convert_data_messages_with_chat_template(data1, tokenizer)
+    prompt = convert_messages_to_prompt(data1, DummyTokenizer())
+    assert prompt == "one two"
 
-    expected_data = pd.DataFrame({"random": ["value"], "prompt": ["one two"]})
-    pd.testing.assert_frame_equal(data1, expected_data)
+    with pytest.raises(MlflowException, match=r"Input messages for chat task should"):
+        convert_messages_to_prompt([["one", "two"]], DummyTokenizer())
 
 
 _TestCase = namedtuple("_TestCase", ["data", "params", "expected_data", "expected_params"])
