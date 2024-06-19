@@ -232,6 +232,8 @@ def pyfunc_serve_and_score_model(
     env.update(MLFLOW_HOME=_get_mlflow_home())
     port = get_safe_port()
     scoring_cmd = [
+        sys.executable,
+        "-m",
         "mlflow",
         "models",
         "serve",
@@ -245,10 +247,13 @@ def pyfunc_serve_and_score_model(
     if extra_args is not None:
         scoring_cmd += extra_args
         validate_version = "--enable-mlserver" not in extra_args
-    proc = _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout)
-    return _evaluate_scoring_proc(
-        proc, port, data, content_type, activity_polling_timeout_seconds, validate_version
-    )
+    with _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout) as proc:
+        try:
+            return _evaluate_scoring_proc(
+                proc, port, data, content_type, activity_polling_timeout_seconds, validate_version
+            )
+        finally:
+            proc.terminate()
 
 
 def _get_mlflow_home():
