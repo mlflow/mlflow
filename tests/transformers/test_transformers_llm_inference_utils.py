@@ -67,7 +67,7 @@ def test_apply_chat_template():
     prompt = convert_messages_to_prompt(data1, DummyTokenizer())
     assert prompt == "one two"
 
-    with pytest.raises(MlflowException, match=r"Input messages for chat task should"):
+    with pytest.raises(MlflowException, match=r"Input messages should be list of"):
         convert_messages_to_prompt([["one", "two"]], DummyTokenizer())
 
 
