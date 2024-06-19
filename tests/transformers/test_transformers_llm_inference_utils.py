@@ -1,4 +1,5 @@
 import uuid
+from collections import namedtuple
 from typing import Dict, List
 from unittest import mock
 
@@ -14,9 +15,9 @@ from mlflow.transformers.llm_inference_utils import (
     _get_output_and_usage_from_tensor,
     _get_stopping_criteria,
     _get_token_usage,
-    convert_data_messages_with_chat_template,
+    convert_messages_to_prompt,
     infer_signature_from_llm_inference_task,
-    preprocess_llm_inference_params,
+    preprocess_llm_inference_input,
 )
 from mlflow.types.llm import (
     CHAT_MODEL_INPUT_SCHEMA,
@@ -61,40 +62,134 @@ class DummyTokenizer:
 
 
 def test_apply_chat_template():
-    tokenizer = DummyTokenizer()
-
-    data1 = pd.DataFrame(
-        {
-            "messages": pd.Series(
-                [[{"role": "A", "content": "one"}, {"role": "B", "content": "two"}]]
-            ),
-            "random": ["value"],
-        }
-    )
-
+    data1 = [{"role": "A", "content": "one"}, {"role": "B", "content": "two"}]
     # Test that the function modifies the data in place for Chat task
-    convert_data_messages_with_chat_template(data1, tokenizer)
+    prompt = convert_messages_to_prompt(data1, DummyTokenizer())
+    assert prompt == "one two"
 
-    expected_data = pd.DataFrame({"random": ["value"], "prompt": ["one two"]})
-    pd.testing.assert_frame_equal(data1, expected_data)
+    with pytest.raises(MlflowException, match=r"Input messages should be list of"):
+        convert_messages_to_prompt([["one", "two"]], DummyTokenizer())
 
 
-def test_preprocess_llm_inference_params():
-    data = pd.DataFrame(
-        {
-            "prompt": ["Hello world!"],
-            "temperature": [0.7],
-            "max_tokens": [100],
-            # do not pass this to params as it is None
-            "stop": None,
-        }
-    )
+_TestCase = namedtuple("_TestCase", ["data", "params", "expected_data", "expected_params"])
 
-    data, params = preprocess_llm_inference_params(data, flavor_config=None)
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        # Case 0: Data only includes prompt
+        _TestCase(
+            data={"prompt": ["Hello world!"]},
+            params={},
+            expected_data=["Hello world!"],
+            expected_params={},
+        ),
+        # Case 1: Data includes prompt and params
+        _TestCase(
+            data={
+                "prompt": ["Hello world!"],
+                "temperature": [0.7],
+                "max_tokens": [100],
+                "stop": None,
+            },
+            params={},
+            expected_data=["Hello world!"],
+            expected_params={
+                "temperature": 0.7,
+                # max_tokens is replaced with max_new_tokens
+                "max_new_tokens": 100,
+                # do not pass `stop` to params as it is None
+            },
+        ),
+        # Case 2: Params are passed if not specified in data
+        _TestCase(
+            data={
+                "prompt": ["Hello world!"],
+            },
+            params={
+                "temperature": 0.7,
+                "max_tokens": 100,
+                "stop": ["foo", "bar"],
+            },
+            expected_data=["Hello world!"],
+            expected_params={
+                "temperature": 0.7,
+                "max_new_tokens": 100,
+                # Stopping criteria is _StopSequenceMatchCriteria instance
+                # "stop": ...
+            },
+        ),
+        # Case 3: Data overrides params
+        _TestCase(
+            data={
+                "messages": ["Hello world!"],
+                "temperature": [0.1],
+                "max_tokens": [100],
+                "stop": [["foo", "bar"]],
+            },
+            params={
+                "temperature": [0.2],
+                "max_tokens": [200],
+                "stop": ["foo", "bar", "baz"],
+            },
+            expected_data=["Hello world!"],
+            expected_params={
+                "temperature": 0.1,
+                "max_new_tokens": 100,
+            },
+        ),
+        # Case 4: Batch input
+        _TestCase(
+            data={
+                "prompt": ["Hello!", "Hi", "Hola"],
+                "temperature": [0.1, 0.2, 0.3],
+                "max_tokens": [None, 200, 300],
+            },
+            params={
+                "temperature": 0.4,
+                "max_tokens": 400,
+            },
+            expected_data=["Hello!", "Hi", "Hola"],
+            # The values in the first data is used, otherwise params
+            expected_params={
+                "temperature": 0.1,
+                "max_new_tokens": 400,
+            },
+        ),
+    ],
+)
+def test_preprocess_llm_inference_input(case):
+    data = pd.DataFrame(case.data)
+
+    task = "llm/v1/completions" if "prompt" in case.data else "llm/v1/chat"
+    flavor_config = {"inference_task": task, "source_model_name": "test"}
+
+    with mock.patch(
+        "mlflow.transformers.llm_inference_utils._get_stopping_criteria"
+    ) as mock_get_stopping_criteria:
+        data, params = preprocess_llm_inference_input(data, case.params, flavor_config)
 
     # Test that OpenAI params are separated from data and replaced with Hugging Face params
-    assert data == ["Hello world!"]
-    assert params == {"max_new_tokens": 100, "temperature": 0.7}
+    assert data == case.expected_data
+    if "stopping_criteria" in params:
+        assert params.pop("stopping_criteria") is not None
+        mock_get_stopping_criteria.assert_called_once_with(["foo", "bar"], "test")
+    assert params == case.expected_params
+
+
+def test_preprocess_llm_inference_input_raise_if_key_invalid():
+    # Missing input key
+    with pytest.raises(MlflowException, match=r"Transformer model saved with"):
+        preprocess_llm_inference_input(
+            pd.DataFrame({"invalid_key": [1, 2, 3]}),
+            flavor_config={"inference_task": "llm/v1/completions"},
+        )
+
+    # Unmatched key (should be "messages" for chat task)
+    with pytest.raises(MlflowException, match=r"Transformer model saved with"):
+        preprocess_llm_inference_input(
+            pd.DataFrame({"prompt": ["Hi"]}), flavor_config={"inference_task": "llm/v1/chat"}
+        )
 
 
 @mock.patch("transformers.AutoTokenizer.from_pretrained")
