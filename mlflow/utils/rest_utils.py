@@ -7,14 +7,15 @@ from mlflow.environment_variables import (
     _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT,
     _MLFLOW_HTTP_REQUEST_MAX_RETRIES_LIMIT,
     MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT,
+    MLFLOW_ENABLE_DB_SDK,
     MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
     MLFLOW_HTTP_REQUEST_BACKOFF_JITTER,
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
     MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER,
-    MLFLOW_ENABLE_DB_SDK,
 )
 from mlflow.exceptions import (
+    CUSTOMER_UNAUTHORIZED,
     ERROR_CODE_TO_HTTP_STATUS,
     INVALID_PARAMETER_VALUE,
     InvalidUrlException,
@@ -149,7 +150,8 @@ def http_request(
     elif host_creds.client_secret:
         raise MlflowException(
             "To use OAuth authentication, set environmental variable "
-            f"'{MLFLOW_ENABLE_DB_SDK.name}' to true"
+            f"'{MLFLOW_ENABLE_DB_SDK.name}' to true",
+            error_code=CUSTOMER_UNAUTHORIZED,
         )
 
     from mlflow.tracking.request_header.registry import resolve_request_headers

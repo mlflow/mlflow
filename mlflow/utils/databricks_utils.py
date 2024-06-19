@@ -477,8 +477,8 @@ def _fail_malformed_databricks_auth(tracking_uri):
         "DATABRICKS_HOST + DATABRICKS_CLIENT_ID + DATABRICKS_CLIENT_SECRET, or you can "
         "edit '~/.databrickscfg' file to set host + token or host + client_id + client_secret "
         "for specific profile section. For details of these authentication types, please "
-        "refer to document 'https://docs.databricks.com/en/dev-tools/sdk-python.html"
-        "#use-the-databricks-sdk-for-python-from-a-databricks-notebook'."
+        "refer to document "
+        "'https://docs.databricks.com/en/dev-tools/auth/index.html#unified-auth'."
     )
 
 
@@ -507,6 +507,11 @@ class TrackingURIConfigProvider(DatabricksConfigProvider):
     of format like `databricks://scope:key_prefix`,
     then read host and token value from dbutils secrets by key
     "{key_prefix}-host" and "{key_prefix}-token"
+
+    This provider only works in Databricks runtime and it is deprecated,
+    in Databricks runtime you can simply use 'databricks'
+    as the tracking URI and MLflow can automatically read dynamic token in
+    Databricks runtime.
     """
 
     def __init__(self, tracking_uri):
@@ -546,6 +551,8 @@ def get_databricks_host_creds(server_uri=None):
         MlflowHostCreds which includes the hostname if databricks sdk authentication is available,
         otherwise includes the hostname and authentication information necessary to
         talk to the Databricks server.
+
+    .. Warning:: This API is deprecated. In the future it might be removed.
     """
 
     if MLFLOW_ENABLE_DB_SDK.get():
@@ -554,7 +561,9 @@ def get_databricks_host_creds(server_uri=None):
         profile, _ = get_db_info_from_uri(server_uri)
         try:
             # Using databricks-sdk to create Databricks WorkspaceClient instance,
-            # If authentication is failed, exception is raised.
+            # If authentication is failed, MLflow falls back to legacy authentication methods,
+            # see `SparkTaskContextConfigProvider`, `DatabricksModelServingConfigProvider`,
+            # and `TrackingURIConfigProvider`.
             # databricks-sdk supports many kinds of authentication ways,
             # it will try to read authentication information by the following ways:
             # 1. Read dynamic generated token via databricks `dbutils`.
