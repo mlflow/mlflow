@@ -93,7 +93,7 @@ def convert_messages_to_prompt(messages: List[Dict], tokenizer) -> str:
     """
     if not (isinstance(messages, list) and all(isinstance(msg, dict) for msg in messages)):
         raise MlflowException(
-            f"Input messages for chat task should be list of dictionaries, but got: {type(messages)}.",
+            f"Input messages should be list of dictionaries, but got: {type(messages)}.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
