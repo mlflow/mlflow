@@ -14,7 +14,7 @@ import uuid
 from contextlib import ExitStack, contextmanager
 from functools import wraps
 from unittest import mock
-
+import traceback
 import pytest
 import requests
 import yaml
@@ -226,29 +226,55 @@ def pyfunc_serve_and_score_model(
             ``--env-manager local`` flag to the scoring server to ensure that conda
             environment activation is skipped.
     """
-    env = dict(os.environ)
-    env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    env.update(MLFLOW_TRACKING_URI=mlflow.get_tracking_uri())
-    env.update(MLFLOW_HOME=_get_mlflow_home())
-    port = get_safe_port()
-    scoring_cmd = [
-        "mlflow",
-        "models",
-        "serve",
-        "-m",
-        model_uri,
-        "-p",
-        str(port),
-        "--install-mlflow",
-    ]
-    validate_version = True
-    if extra_args is not None:
-        scoring_cmd += extra_args
-        validate_version = "--enable-mlserver" not in extra_args
-    proc = _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout)
-    return _evaluate_scoring_proc(
-        proc, port, data, content_type, activity_polling_timeout_seconds, validate_version
-    )
+    try:
+        env = dict(os.environ)
+        env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
+        env.update(MLFLOW_TRACKING_URI=mlflow.get_tracking_uri())
+        env.update(MLFLOW_HOME=_get_mlflow_home())
+        port = get_safe_port()
+        scoring_cmd = [
+            "mlflow",
+            "models",
+            "serve",
+            "-m",
+            model_uri,
+            "-p",
+            str(port),
+            "--install-mlflow",
+        ]
+        validate_version = True
+        if extra_args is not None:
+            scoring_cmd += extra_args
+            validate_version = "--enable-mlserver" not in extra_args
+        proc = _start_scoring_proc(
+            cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout
+        )
+        return _evaluate_scoring_proc(
+            proc,
+            port,
+            data,
+            content_type,
+            activity_polling_timeout_seconds,
+            validate_version,
+        )
+    except subprocess.CalledProcessError as e:
+            return {
+                "status": "failure",
+                "error_message": f"Subprocess error: {e}",
+                "traceback": traceback.format_exc(),
+            }
+    except OSError as e:
+        return {
+            "status": "failure",
+            "error_message": f"OS error: {e}",
+            "traceback": traceback.format_exc(),
+        }
+    except Exception as e:
+        return {
+            "status": "failure",
+            "error_message": f"Unexpected error: {e}",
+            "traceback": traceback.format_exc(),
+    }
 
 
 def _get_mlflow_home():
