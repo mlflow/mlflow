@@ -1,4 +1,4 @@
-name: protobuf 3.19.4 tests
+name: legacy protobuf tests
 
 on:
   pull_request:
@@ -34,7 +34,7 @@ env:
   PYTHONUTF8: "1"
 
 jobs:
-  protobuf319:
+  core_tests:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -65,8 +65,8 @@ jobs:
           # Install torch and transformers to test metrics
           pip install torch transformers
           pip install -r requirements/test-requirements.txt
-          # Test against protobuf 3.19.4
-          pip install protobuf==3.19.4
+          # Test against protobuf < 5
+          pip install "protobuf<5"
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
