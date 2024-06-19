@@ -167,6 +167,12 @@ def reload_context_registry():
     reload(mlflow.tracking.context.registry)
 
 
+@pytest.fixture(autouse=True)
+def flush_async_logging():
+    yield
+    mlflow.flush_async_logging()
+
+
 @pytest.fixture(params=["list", "pandas"])
 def search_runs_output_format(request):
     if "MLFLOW_SKINNY" in os.environ and request.param == "pandas":
