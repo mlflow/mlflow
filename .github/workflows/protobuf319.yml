@@ -34,7 +34,7 @@ env:
   PYTHONUTF8: "1"
 
 jobs:
-  protobuf-3.19.4:
+  protobuf319:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
