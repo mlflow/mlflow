@@ -7,10 +7,14 @@ on:
       - synchronize
       - reopened
       - ready_for_review
+    paths:
+      - "mlflow/protos/**"
   push:
     branches:
       - master
       - branch-[0-9]+.[0-9]+
+    paths:
+      - "mlflow/protos/**"
 
 permissions:
   contents: read
