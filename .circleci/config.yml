@@ -59,6 +59,10 @@ jobs:
           environment:
             PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
       - run:
+          name: Find unused images
+          command: |
+            dev/unused-images.sh
+      - run:
           name: Build documentation
           working_directory: docs
           environment:
