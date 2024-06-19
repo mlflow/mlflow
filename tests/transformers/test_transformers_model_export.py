@@ -3465,6 +3465,7 @@ def test_text_generation_task_completions_predict_with_max_tokens(
         transformers_model=text_generation_pipeline,
         path=model_path,
         task="llm/v1/completions",
+        model_config={"max_tokens": 10},
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
@@ -3484,6 +3485,12 @@ def test_text_generation_task_completions_predict_with_max_tokens(
         and inference[0]["usage"]["completion_tokens"] < 10
     )
 
+    # Override model_config with runtime params
+    inference = pyfunc_loaded.predict(
+        {"prompt": "How to learn Python in 3 weeks?", "max_tokens": 5},
+    )
+    assert inference[0]["usage"]["completion_tokens"] == 5
+
 
 def test_text_generation_task_completions_predict_with_stop(text_generation_pipeline, model_path):
     mlflow.transformers.save_model(
@@ -3491,18 +3498,28 @@ def test_text_generation_task_completions_predict_with_stop(text_generation_pipe
         path=model_path,
         task="llm/v1/completions",
         metadata={"foo": "bar"},
+        model_config={"stop": ["Python"]},
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     inference = pyfunc_loaded.predict(
-        {"prompt": "How to learn Python in 3 weeks?", "stop": ["Python"]},
+        {"prompt": "How to learn Python in 3 weeks?"},
     )
 
+    if "Python" not in inference[0]["choices"][0]["text"]:
+        pytest.skip(
+            "Model did not generate text containing 'Python', "
+            "skipping validation of stop parameter in inference"
+        )
+
     assert inference[0]["choices"][0]["finish_reason"] == "stop"
-    assert (
-        inference[0]["choices"][0]["text"].endswith("Python")
-        or "Python" not in inference[0]["choices"][0]["text"]
+    assert inference[0]["choices"][0]["text"].endswith("Python")
+
+    # Override model_config with runtime params
+    inference = pyfunc_loaded.predict(
+        {"prompt": "How to learn Python in 3 weeks?", "stop": ["Abracadabra"]},
     )
+    assert not inference[0]["choices"][0]["text"].endswith("Python")
 
 
 def test_text_generation_task_completions_serve(text_generation_pipeline):
