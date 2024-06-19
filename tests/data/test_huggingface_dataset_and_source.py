@@ -50,14 +50,24 @@ def test_from_huggingface_dataset_constructs_expected_dataset():
 def test_from_huggingface_dataset_constructs_expected_dataset_with_revision():
     new_revision = "c33cbf965006dba64f134f7bef69c53d5d0d285d"
     old_revision = "8ca2693371541a5ba2b23981de4222be3bef149f"
-    ds_new = datasets.load_dataset("rotten_tomatoes", split="train", revision=new_revision)
-    ds_old = datasets.load_dataset("rotten_tomatoes", split="train", revision=old_revision)
+    ds_new = datasets.load_dataset(
+        "cornell-movie-review-data/rotten_tomatoes",
+        split="train",
+        revision=new_revision,
+        trust_remote_code=True,
+    )
+    ds_old = datasets.load_dataset(
+        "cornell-movie-review-data/rotten_tomatoes",
+        split="train",
+        revision=old_revision,
+        trust_remote_code=True,
+    )
 
     mlflow_ds_new = mlflow.data.from_huggingface(
-        ds_new, path="rotten_tomatoes", revision=new_revision
+        ds_new, path="rotten_tomatoes", revision=new_revision, trust_remote_code=True
     )
     mlflow_ds_old = mlflow.data.from_huggingface(
-        ds_old, path="rotten_tomatoes", revision=old_revision
+        ds_old, path="rotten_tomatoes", revision=old_revision, trust_remote_code=True
     )
 
     reloaded_ds_new = mlflow_ds_new.source.load()

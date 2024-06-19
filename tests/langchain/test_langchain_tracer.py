@@ -376,7 +376,7 @@ def test_e2e_rag_model_tracing_in_serving(mock_databricks_serving_with_tracing_e
     assert response == [{"text": TEST_CONTENT}]
     trace = Trace.from_dict(trace_dict)
     assert trace.info.request_id == request_id
-    assert trace.info.tags[TRACE_SCHEMA_VERSION_KEY] == "2"
+    assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "2"
     spans = trace.data.spans
     assert len(spans) == 2
 

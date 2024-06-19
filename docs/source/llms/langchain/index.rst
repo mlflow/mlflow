@@ -196,6 +196,11 @@ I can't load my chain!
 I can't save my chain, agent, or retriever with MLflow.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+.. tip::
+
+    If you're encountering issues with logging or saving LangChain components with MLflow, see the `models from code <../../models.html#models-from-code>`_
+    feature documentation to determine if logging your model from a script file provides a simpler and more robust logging solution!
+
 - **Serialization Challenges with Cloudpickle**: Serialization with cloudpickle can encounter limitations depending on the complexity of the objects. 
 
     Some objects, especially those with intricate internal states or dependencies on external system resources, are not inherently pickleable. This limitation 
@@ -240,3 +245,89 @@ How can I use a streaming API with LangChain?
     As of the MLflow 2.12.2 release, LangChain models that support streaming responses that have been saved using MLflow 2.12.2 (or higher) can be loaded and used for 
     streamable inference using the ``predict_stream`` API. Ensure that you are consuming the return type correctly, as the return from these models is a ``Generator`` object.
     To learn more, refer to the `predict_stream guide <https://mlflow.org/docs/latest/models.html#how-to-load-and-score-python-function-models>`_.
+
+How can I log my chain from code?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Models from Code**: MLflow 2.12.2 introduced the ability to log LangChain models directly from a code definition. 
+
+    In order to use this feature, you will utilize the :py:func:`mlflow.models.set_model` API to define the chain that you would like to log as an MLflow model. 
+    After having this set within your code that defines your chain, when logging your model, you will specify the **path** to the file that defines your chain. 
+
+    For example, here is a simple chain defined in a file named ``langchain_code_chain.py``:
+
+    .. code-block:: python
+        
+        import os
+        from operator import itemgetter
+
+        from langchain_core.output_parsers import StrOutputParser
+        from langchain_core.prompts import PromptTemplate
+        from langchain_core.runnables import RunnableLambda
+        from langchain_openai import OpenAI
+
+        import mlflow
+
+        mlflow.set_experiment("Homework Helper")
+
+        mlflow.langchain.autolog()
+
+        prompt = PromptTemplate(
+            template="You are a helpful tutor that evaluates my homework assignments and provides suggestions on areas for me to study further."
+            " Here is the question: {question} and my answer which I got wrong: {answer}",
+            input_variables=["question", "answer"],
+        )
+
+        model = OpenAI(temperature=0.95)
+
+        chain = (
+            {
+                "question": itemgetter("messages") | RunnableLambda(get_question),
+                "answer": itemgetter("messages") | RunnableLambda(get_answer),
+                "chat_history": itemgetter("messages") | RunnableLambda(extract_chat_history),
+            }
+            | prompt
+            | model
+            | StrOutputParser()
+        )
+
+        mlflow.models.set_model(chain)
+
+    From a different file (in this case, a Jupyter Notebook), logging the model directly via supplying the path to the file that defines the chain:
+
+    .. code-block:: python
+
+        from pprint import pprint
+
+        import mlflow
+
+        chain_path = "langchain_code_chain.py"
+
+        with mlflow.start_run():
+            info = mlflow.langchain.log_model(lc_model=chain_path, artifact_path="chain")
+
+        # Load the model and run inference
+        homework_chain = mlflow.langchain.load_model(model_uri=info.model_uri)
+
+        exam_question = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {
+                        "question": "What is the primary function of control rods in a nuclear reactor?",
+                        "answer": "To stir the primary coolant so that the neutrons are mixed well.",
+                    },
+                },
+            ]
+        }
+
+        response = homework_chain.invoke(exam_question)
+
+        pprint(response)
+    
+    The model will be logged as a script within the MLflow UI:
+
+    .. figure:: ../../_static/images/tutorials/llms/langchain-code-model.png
+            :alt: Logging a LangChain model from a code script file
+            :width: 100%
+            :align: center

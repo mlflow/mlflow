@@ -22,6 +22,10 @@ Each MLflow Model is a directory containing arbitrary files, together with an ``
 file in the root of the directory that can define multiple *flavors* that the model can be viewed
 in.
 
+The **model** aspect of the MLflow Model can either be a serialized object (e.g., a pickled ``scikit-learn`` model)
+or a Python script (or notebook, if running in Databricks) that contains the model instance that has been defined 
+with the :py:func:`mlflow.models.set_model` API. 
+
 Flavors are the key concept that makes MLflow Models powerful: they are a convention that deployment
 tools can use to understand the model, which makes it possible to write tools that work with models
 from any ML library without having to integrate each tool with each library. MLflow defines
@@ -146,6 +150,87 @@ class has four key functions:
   current run using MLflow Tracking.
 * :py:func:`load <mlflow.models.Model.load>` to load a model from a local directory or
   from an artifact in a previous run.
+
+
+Models From Code
+^^^^^^^^^^^^^^^^
+
+.. note::
+    The Models from Code feature is available in MLflow versions 2.12.2 and later. This feature is experimental and may change in future releases.
+
+The Models from Code feature allows you to define and log models directly from Python code. This feature is particularly useful when you want to 
+log models that can be effectively stored as a code representation (models that do not need optimized weights through training) or applications 
+that rely on external services (e.g., LangChain chains). Another benefit is that this approach entirely bypasses the use of the ``pickle`` or 
+``cloudpickle`` modules within Python, which can carry security risks when loading untrusted models.
+
+.. note::
+    This feature is only supported for **LangChain** and **PythonModel** models.
+
+In order to log a model from code, you can leverage the :py:func:`mlflow.models.set_model` API. This API allows you to define a model by specifying
+an instance of the model class directly within the file where the model is defined. When logging such a model, a
+file path is specified (instead of an object) that points to the Python file containing both the model class definition and the usage of the 
+``set_model`` API applied on an instance of your custom model. 
+
+The figure below provides a comparison of the standard model logging process and the Models from Code feature for models that are eligible to be 
+saved using the Models from Code feature:
+
+.. figure:: _static/images/models/models_from_code.png
+    :alt: Models from Code
+    :width: 60%
+    :align: center
+
+For example, defining a model in a separate file named ``my_model.py``:
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.models import set_model
+
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+
+    # Define the custom PythonModel instance that will be used for inference
+    set_model(MyModel())
+
+.. note::
+
+    The Models from code feature does not support capturing import statements that are from external file references. If you have dependencies that 
+    are not captured via a ``pip`` install, dependencies will need to be included and resolved via appropriate absolute path import references from 
+    using the `code_paths feature <https://mlflow.org/docs/latest/model/dependencies.html#saving-extra-code-with-an-mlflow-model-manual-declaration>`_.
+    For simplicity's sake, it is recommended to encapsulate all of your required local dependencies for a model defined from code within the same 
+    python script file due to limitations around ``code_paths`` dependency pathing resolution. 
+
+.. tip::
+
+    When defining a model from code and using the :py:func:`mlflow.models.set_model` API, the code that is defined in the script that is being logged 
+    will be executed internally to ensure that it is valid code. If you have connections to external services within your script (e.g. you are connecting
+    to a GenAI service within LangChain), be aware that you will incur a connection request to that service when the model is being logged.
+
+Then, logging the model from the file path in a different python script:
+
+.. code-block:: python
+
+    import mlflow
+
+    model_path = "my_model.py"
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=model_path,  # Define the model as the path to the Python file
+            artifact_path="my_model",
+        )
+
+    # Loading the model behaves exactly as if an instance of MyModel had been logged
+    my_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+.. warning::
+    The :py:func:`mlflow.models.set_model` API is **not threadsafe**. Do not attempt to use this feature if you are logging models concurrently 
+    from multiple threads. This fluent API utilizes a global active model state that has no consistency guarantees. If you are interested in threadsafe 
+    logging APIs, please use the :py:class:`mlflow.client.MlflowClient` APIs for logging models. 
+
 
 .. _models_built-in-model-flavors:
 

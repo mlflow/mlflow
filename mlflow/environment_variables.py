@@ -621,6 +621,10 @@ MLFLOW_HTTP_POOL_CONNECTIONS = _EnvironmentVariable("MLFLOW_HTTP_POOL_CONNECTION
 #: By adjusting this variable, users can enhance the concurrency of HTTP requests made by MLflow.
 MLFLOW_HTTP_POOL_MAXSIZE = _EnvironmentVariable("MLFLOW_HTTP_POOL_MAXSIZE", int, 10)
 
+#: Enable Unity Catalog integration for mlflow deployments server.
+#: (default: ``False``)
+MLFLOW_ENABLE_UC_FUNCTIONS = _BooleanEnvironmentVariable("MLFLOW_ENABLE_UC_FUNCTIONS", False)
+
 #: Specifies the length of time in seconds for the asynchronous logging thread to wait before
 #: logging a batch.
 MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS = _EnvironmentVariable(

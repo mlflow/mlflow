@@ -62,13 +62,13 @@ def test_json_deserialization(monkeypatch):
             "request_metadata": {
                 "mlflow.traceInputs": '{"x": 2, "y": 5}',
                 "mlflow.traceOutputs": "8",
+                TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
             },
             "tags": {
                 "mlflow.traceName": "predict",
                 "mlflow.source.name": "test",
                 "mlflow.source.type": "LOCAL",
                 "mlflow.artifactLocation": trace.info.tags[MLFLOW_ARTIFACT_LOCATION],
-                TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
             },
         },
         "data": {
