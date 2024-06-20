@@ -1,12 +1,106 @@
 import json
+import logging
 import math
+import struct
 import sys
 
+from packaging.version import Version
+
+import mlflow
 from mlflow.entities import RunTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import insecure_hash
 from mlflow.utils.string_utils import generate_feature_name_if_not_string
+
+try:
+    # `numpy` and `pandas` are not required for `mlflow-skinny`.
+    import numpy as np
+    import pandas as pd
+except ImportError:
+    pass
+
+_logger = logging.getLogger(__name__)
+
+
+def _hash_uint64_ndarray_as_bytes(array):
+    assert len(array.shape) == 1
+    # see struct pack format string https://docs.python.org/3/library/struct.html#format-strings
+    return struct.pack(f">{array.size}Q", *array)
+
+
+def _is_empty_list_or_array(data):
+    if isinstance(data, list):
+        return len(data) == 0
+    elif isinstance(data, np.ndarray):
+        return data.size == 0
+    return False
+
+
+def _is_array_has_dict(nd_array):
+    if _is_empty_list_or_array(nd_array):
+        return False
+
+    # It is less likely the array or list contains heterogeneous elements, so just checking the
+    # first element to avoid performance overhead.
+    elm = nd_array.item(0)
+    if isinstance(elm, (list, np.ndarray)):
+        return _is_array_has_dict(elm)
+    elif isinstance(elm, dict):
+        return True
+
+    return False
+
+
+def _hash_array_of_dict_as_bytes(data):
+    # NB: If an array or list contains dictionary element, it can't be hashed with
+    # pandas.util.hash_array. Hence we need to manually hash the elements here. This is
+    # particularly for the LLM use case where the input can be a list of dictionary
+    # (chat/completion payloads), so doesn't handle more complex case like nested lists.
+    result = b""
+    for elm in data:
+        if isinstance(elm, (list, np.ndarray)):
+            result += _hash_array_of_dict_as_bytes(elm)
+        elif isinstance(elm, dict):
+            result += _hash_dict_as_bytes(elm)
+        else:
+            result += _hash_data_as_bytes(elm)
+    return result
+
+
+def _hash_ndarray_as_bytes(nd_array):
+    if not isinstance(nd_array, np.ndarray):
+        nd_array = np.array(nd_array)
+
+    if _is_array_has_dict(nd_array):
+        return _hash_array_of_dict_as_bytes(nd_array)
+
+    return _hash_uint64_ndarray_as_bytes(
+        pd.util.hash_array(nd_array.flatten(order="C"))
+    ) + _hash_uint64_ndarray_as_bytes(np.array(nd_array.shape, dtype="uint64"))
+
+
+def _hash_data_as_bytes(data):
+    try:
+        if isinstance(data, (list, np.ndarray)):
+            return _hash_ndarray_as_bytes(data)
+        if isinstance(data, dict):
+            return _hash_dict_as_bytes(data)
+        if np.isscalar(data):
+            return _hash_uint64_ndarray_as_bytes(pd.util.hash_array(np.array([data])))
+    finally:
+        return b""  # Skip unsupported types by returning an empty byte string
+
+
+def _hash_dict_as_bytes(data_dict):
+    result = _hash_ndarray_as_bytes(list(data_dict.keys()))
+    try:
+        result += _hash_ndarray_as_bytes(list(data_dict.values()))
+    # If the values containing non-hashable objects, we will hash the values recursively.
+    except Exception:
+        for value in data_dict.values():
+            result += _hash_data_as_bytes(value)
+    return result
 
 
 def _hash_array_like_obj_as_bytes(data):
@@ -75,6 +169,58 @@ def _gen_md5_for_arraylike_obj(md5_gen, data):
         tail_rows = data[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH :]
         md5_gen.update(_hash_array_like_obj_as_bytes(head_rows))
         md5_gen.update(_hash_array_like_obj_as_bytes(tail_rows))
+
+
+def convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
+    """Convert input data to mlflow dataset."""
+    supported_dataframe_types = [pd.DataFrame]
+    if "pyspark" in sys.modules:
+        from pyspark.sql import DataFrame as SparkDataFrame
+
+        supported_dataframe_types.append(SparkDataFrame)
+
+    if predictions is not None:
+        _validate_dataset_type_supports_predictions(
+            data=data, supported_predictions_dataset_types=supported_dataframe_types
+        )
+
+    if isinstance(data, list):
+        # If the list is flat, we assume each element is an independent sample.
+        if not isinstance(data[0], (list, np.ndarray)):
+            data = [[elm] for elm in data]
+
+        return mlflow.data.from_numpy(
+            np.array(data), targets=np.array(targets) if targets else None
+        )
+    elif isinstance(data, np.ndarray):
+        return mlflow.data.from_numpy(data, targets=targets)
+    elif isinstance(data, pd.DataFrame):
+        return mlflow.data.from_pandas(df=data, targets=targets, predictions=predictions)
+    elif "pyspark" in sys.modules and isinstance(data, SparkDataFrame):
+        return mlflow.data.from_spark(df=data, targets=targets, predictions=predictions)
+    else:
+        # Cannot convert to mlflow dataset, return original data.
+        _logger.info(
+            "Cannot convert input data to `evaluate()` to an mlflow dataset, input must be a list, "
+            f"a numpy array, a panda Dataframe or a spark Dataframe, but received {type(data)}."
+        )
+        return data
+
+
+def _validate_dataset_type_supports_predictions(data, supported_predictions_dataset_types):
+    """
+    Validate that the dataset type supports a user-specified "predictions" column.
+    """
+    if not any(isinstance(data, sdt) for sdt in supported_predictions_dataset_types):
+        raise MlflowException(
+            message=(
+                "If predictions is specified, data must be one of the following types, or an"
+                " MLflow Dataset that represents one of the following types:"
+                f" {supported_predictions_dataset_types}."
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
 
 class EvaluationDataset:
     """
