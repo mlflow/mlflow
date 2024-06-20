@@ -17,7 +17,7 @@ Documentation updates:
 
 Small bug fixes and documentation updates:
 
-#12415, #12396, #12394, @harupy; #12403, #12382, @BenWilson2; #12397, @B-Step62; #12388, @daniellok-db
+#12415, #12396, #12394, @harupy; #12403, #12382, @BenWilson2; #12397, @B-Step62
 
 ## 2.14.0 (2024-06-17)
 
