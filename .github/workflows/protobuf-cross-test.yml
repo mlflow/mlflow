@@ -71,7 +71,7 @@ jobs:
           pip install torch transformers
           pip install -r requirements/test-requirements.txt
           # Test against specific protobuf versoin
-          pip install "protobuf<${{ protobuf_major_version_plus_one }}"
+          pip install "protobuf<${{ matrix.protobuf_major_version_plus_one }}"
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
