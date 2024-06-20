@@ -4,9 +4,10 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+import textwrap
+import tempfile
 
-cache_dir = "build/cache"
-temp_gencode_dir = "build/proto_gencode"
+cache_dir = "build/protobuf_cache"
 
 mlflow_protos_dir = "mlflow/protos"
 test_protos_dir = "tests/protos"
@@ -36,7 +37,8 @@ def apply_python_gencode_replacement(file_path):
 
 
 def _get_python_output_filename(proto_file_name):
-    return proto_file_name.split(".")[0] + "_pb2.py"
+    file_path = Path(proto_file_name)
+    return file_path.parent / (Path(file_path.name).stem + "_pb2.py")
 
 
 basic_proto_files = [
@@ -89,7 +91,7 @@ def gen_python_protos(protoc_bin, protoc_include_path, out_dir):
     )
 
     for file_name in python_proto_files:
-        apply_python_gencode_replacement(Path(out_dir, _get_python_output_filename(file_name)))
+        apply_python_gencode_replacement(out_dir / _get_python_output_filename(file_name))
 
 
 def download_and_extract_protoc(version):
@@ -136,10 +138,8 @@ def download_and_extract_protoc(version):
     return downloaded_protoc_bin, downloaded_protoc_include_path
 
 
-def prepend_intent(content):
-    lines = content.split("\n")
-    lines = ["  " + line for line in lines]
-    return "\n".join(lines)
+def prepend_indent(content):
+    return textwrap.indent(content, "  ")
 
 
 def generate_final_python_gencode(gencode3194_path, gencode5260_path, out_path):
@@ -149,41 +149,42 @@ def generate_final_python_gencode(gencode3194_path, gencode5260_path, out_path):
     merged_code = f"""
 import google.protobuf
 from packaging.version import Version
-if Version(google.protobuf.__version__) >= Version("5.26.0"):
-{prepend_intent(gencode5260)}
+if Version(google.protobuf.__version__).major >= 5:
+{prepend_indent(gencode5260)}
 else:
-{prepend_intent(gencode3194)}
+{prepend_indent(gencode3194)}
 """
     out_path.write_text(merged_code, encoding="UTF-8")
 
 
 def main():
     os.makedirs(cache_dir, exist_ok=True)
-    shutil.rmtree(temp_gencode_dir, ignore_errors=True)
+    # with tempfile.TemporaryDirectory() as temp_gencode_dir:
+    with tempfile.TemporaryDirectory() as temp_gencode_dir:
+        temp_gencode_path = Path(temp_gencode_dir)
+        proto3194_out = temp_gencode_path / "3.19.4"
+        proto5260_out = temp_gencode_path / "5.26.0"
+        proto3194_out.mkdir(exist_ok=True)
+        proto5260_out.mkdir(exist_ok=True)
 
-    proto3194_out = f"{temp_gencode_dir}/3.19.4"
-    proto5260_out = f"{temp_gencode_dir}/5.26.0"
-    os.makedirs(proto3194_out, exist_ok=True)
-    os.makedirs(proto5260_out, exist_ok=True)
+        protoc3194, protoc3194_include = download_and_extract_protoc("3.19.4")
+        protoc5260, protoc5260_include = download_and_extract_protoc("26.0")
 
-    protoc3194, protoc3194_include = download_and_extract_protoc("3.19.4")
-    protoc5260, protoc5260_include = download_and_extract_protoc("26.0")
+        gen_python_protos(protoc3194, protoc3194_include, proto3194_out)
+        gen_python_protos(protoc5260, protoc5260_include, proto5260_out)
 
-    gen_python_protos(protoc3194, protoc3194_include, proto3194_out)
-    gen_python_protos(protoc5260, protoc5260_include, proto5260_out)
+        for proto_files, protos_dir in [
+            (python_proto_files, mlflow_protos_dir),
+            (test_proto_files, test_protos_dir),
+        ]:
+            for file_name in proto_files:
+                gencode_filename = _get_python_output_filename(file_name)
 
-    for proto_files, protos_dir in [
-        (python_proto_files, mlflow_protos_dir),
-        (test_proto_files, test_protos_dir),
-    ]:
-        for file_name in proto_files:
-            gencode_filename = _get_python_output_filename(file_name)
-
-            generate_final_python_gencode(
-                Path(proto3194_out, gencode_filename),
-                Path(proto5260_out, gencode_filename),
-                Path(protos_dir, gencode_filename),
-            )
+                generate_final_python_gencode(
+                    proto3194_out / gencode_filename,
+                    proto5260_out / gencode_filename,
+                    Path(protos_dir, gencode_filename),
+                )
 
     # generate java gencode using pinned protoc 3.19.4 version.
     gen_protos(

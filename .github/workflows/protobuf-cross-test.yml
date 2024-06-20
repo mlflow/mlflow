@@ -1,4 +1,4 @@
-name: legacy protobuf tests
+name: protobuf cross tests
 
 on:
   pull_request:
@@ -46,7 +46,7 @@ jobs:
       fail-fast: false
       matrix:
         group: [1, 2]
-        protobuf_version: ["4.25.3", "3.20.3"]
+        protobuf_version: ["3", "4", "5"]
         include:
           - splits: 2
     steps:
@@ -71,7 +71,7 @@ jobs:
           pip install torch transformers
           pip install -r requirements/test-requirements.txt
           # Test against protobuf < 5
-          pip install "protobuf==${{ matrix.protobuf_version }}"
+          pip install "protobuf<${{ major_version + 1 }}"
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
