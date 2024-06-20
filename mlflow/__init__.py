@@ -27,10 +27,32 @@ implement mutual exclusion manually.
 For a lower level API, see the :py:mod:`mlflow.client` module.
 """
 import contextlib
+import sys
 
 from mlflow.version import VERSION
 
 __version__ = VERSION
+
+try:
+    import google.protobuf.runtime_version
+except ImportError:
+    import google.protobuf
+    from mlflow.utils.protobuf import runtime_version as proto_runtime_version
+
+    google.protobuf.runtime_version = proto_runtime_version
+    sys.modules["google.protobuf.runtime_version"] = proto_runtime_version
+
+
+try:
+    import google.protobuf.internal.builder
+except ImportError:
+    import google.protobuf.internal
+    from mlflow.utils.protobuf import builder as proto_builder
+
+    google.protobuf.internal.builder = proto_builder
+    sys.modules["google.protobuf.internal.builder"] = proto_builder
+
+
 from mlflow import (
     artifacts,  # noqa: F401
     client,  # noqa: F401
