@@ -113,16 +113,20 @@ def patched_call(original, self, *args, **kwargs):
             )
             run_id = run.info.run_id
 
+    log_traces = get_autologging_config(mlflow.openai.FLAVOR_NAME, "log_traces", False)
     with disable_autologging():
-        with mlflow.start_span(
-            name=self.__class__.__name__,
-            span_type=_get_span_type(self.__class__),
-        ) as span:
-            # openai does not accept positional arguments
-            # so we do not need to worry about it for now
-            span.set_inputs(kwargs)
+        if log_traces:
+            with mlflow.start_span(
+                name=self.__class__.__name__,
+                span_type=_get_span_type(self.__class__),
+            ) as span:
+                # openai does not accept positional arguments
+                # so we do not need to worry about it for now
+                span.set_inputs(kwargs)
+                result = original(self, *args, **kwargs)
+                span.set_outputs(result)
+        else:
             result = original(self, *args, **kwargs)
-            span.set_outputs(result)
 
     # Use session_id-inference_id as artifact directory where mlflow
     # callback logs artifacts into, to avoid overriding artifacts
