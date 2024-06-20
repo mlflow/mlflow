@@ -1,13 +1,12 @@
 import os
 import platform
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 import textwrap
 import tempfile
 
-cache_dir = "build/protobuf_cache"
+cache_dir = ".cache/protobuf_cache"
 
 mlflow_protos_dir = "mlflow/protos"
 test_protos_dir = "tests/protos"
@@ -135,11 +134,8 @@ def download_and_extract_protoc(version):
                 f"{cache_dir}/{protoc_zip_filename}",
             ]
         )
+        Path(cache_dir, protoc_zip_filename).unlink()
     return downloaded_protoc_bin, downloaded_protoc_include_path
-
-
-def prepend_indent(content):
-    return textwrap.indent(content, "  ")
 
 
 def generate_final_python_gencode(gencode3194_path, gencode5260_path, out_path):
@@ -150,9 +146,9 @@ def generate_final_python_gencode(gencode3194_path, gencode5260_path, out_path):
 import google.protobuf
 from packaging.version import Version
 if Version(google.protobuf.__version__).major >= 5:
-{prepend_indent(gencode5260)}
+{textwrap.indent(gencode5260, "  ")}
 else:
-{prepend_indent(gencode3194)}
+{textwrap.indent(gencode3194, "  ")}
 """
     out_path.write_text(merged_code, encoding="UTF-8")
 
