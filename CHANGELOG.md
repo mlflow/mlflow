@@ -2,7 +2,7 @@
 
 ## 2.14.1 (2024-06-20)
 
-MLflow 2.14.1 includes several major features and improvements
+MLflow 2.14.1 is a patch release that contains several bug fixes and documentation improvements
 
 Bug fixes:
 
