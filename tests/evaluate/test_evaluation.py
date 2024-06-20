@@ -34,6 +34,7 @@ from sklearn.metrics import (
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import Trace, TraceData
 from mlflow.exceptions import MlflowException
@@ -45,7 +46,6 @@ from mlflow.models.evaluation import (
 )
 from mlflow.models.evaluation.artifacts import ImageEvaluationArtifact
 from mlflow.models.evaluation.base import (
-    EvaluationDataset,
     _gen_md5_for_arraylike_obj,
     _is_model_deployment_endpoint_uri,
     _start_run_or_reuse_active_run,

@@ -9,10 +9,10 @@ import mlflow.data
 import mlflow.data.huggingface_dataset
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.dataset_source_registry import get_dataset_source_from_json
+from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.huggingface_dataset import HuggingFaceDataset
 from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
 from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 

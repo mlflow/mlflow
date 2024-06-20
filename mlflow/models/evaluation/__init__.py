@@ -1,6 +1,6 @@
+from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.models.evaluation.base import (
     EvaluationArtifact,
-    EvaluationDataset,
     EvaluationMetric,
     EvaluationResult,
     ModelEvaluator,
