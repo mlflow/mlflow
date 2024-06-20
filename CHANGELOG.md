@@ -8,6 +8,7 @@ Bug fixes:
 
 - [Models] Fix params and model_config handling for llm/v1/xxx Transformers model (#12401, @B-Step62)
 - [UI] Fix dark mode user preference (#12386, @daniellok-db)
+- [Docker] Fix docker image failing to build with `install_mlflow=False` (#12388, @daniellok-db)
 
 Documentation updates:
 
