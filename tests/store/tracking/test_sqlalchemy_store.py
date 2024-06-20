@@ -66,6 +66,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
@@ -3935,7 +3936,7 @@ def store_with_traces(tmp_path):
         execution_time_ms=6,
         status=TraceStatus.OK,
         tags={"mlflow.traceName": "ddd"},
-        request_metadata={"mlflow.sourceRun": "run0"},
+        request_metadata={TraceMetadataKey.SOURCE_RUN: "run0"},
     )
     _create_trace(
         store,
@@ -3945,7 +3946,7 @@ def store_with_traces(tmp_path):
         execution_time_ms=2,
         status=TraceStatus.ERROR,
         tags={"mlflow.traceName": "aaa", "fruit": "apple", "color": "red"},
-        request_metadata={"mlflow.sourceRun": "run1"},
+        request_metadata={TraceMetadataKey.SOURCE_RUN: "run1"},
     )
     _create_trace(
         store,
@@ -4039,11 +4040,11 @@ def test_search_traces_order_by(store_with_traces, order_by, expected_ids):
         ("tags.fruit = 'apple' and tags.color != 'red'", ["tr-2"]),
         # Search by request metadata
         ("run_id = 'run0'", ["tr-0"]),
-        ("request_metadata.mlflow.sourceRun = 'run0'", ["tr-0"]),
-        ("request_metadata.mlflow.sourceRun = 'run1'", ["tr-1"]),
-        ("request_metadata.`mlflow.sourceRun` = 'run0'", ["tr-0"]),
-        ("metadata.mlflow.sourceRun = 'run0'", ["tr-0"]),
-        ("metadata.mlflow.sourceRun != 'run0'", ["tr-1"]),
+        (f"request_metadata.{TraceMetadataKey.SOURCE_RUN} = 'run0'", ["tr-0"]),
+        (f"request_metadata.{TraceMetadataKey.SOURCE_RUN} = 'run1'", ["tr-1"]),
+        (f"request_metadata.`{TraceMetadataKey.SOURCE_RUN}` = 'run0'", ["tr-0"]),
+        (f"metadata.{TraceMetadataKey.SOURCE_RUN} = 'run0'", ["tr-0"]),
+        (f"metadata.{TraceMetadataKey.SOURCE_RUN} != 'run0'", ["tr-1"]),
     ],
 )
 def test_search_traces_with_filter(store_with_traces, filter_string, expected_ids):

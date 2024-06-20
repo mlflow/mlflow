@@ -1,13 +1,42 @@
 import json
-from typing import AsyncIterable
+import os
+from typing import TYPE_CHECKING, AsyncIterable, Dict
 
+from fastapi import HTTPException
+
+from mlflow.environment_variables import MLFLOW_ENABLE_UC_FUNCTIONS
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import OpenAIAPIType, OpenAIConfig, RouteConfig
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.uc_function_utils import (
+    _UC_FUNCTION,
+    TokenUsageAccumulator,
+    execute_function,
+    get_func_schema,
+    join_uc_functions,
+    parse_uc_functions,
+    prepend_uc_functions,
+)
 from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
 from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
+
+if TYPE_CHECKING:
+    from databricks.sdk import FunctionInfo
+
+
+# To mock the WorkspaceClient in tests
+def _get_workspace_client():
+    try:
+        from databricks.sdk import WorkspaceClient
+
+        return WorkspaceClient()
+    except ImportError:
+        raise HTTPException(
+            message="Databricks SDK is required to use Unity Catalog integration",
+            error_code=404,
+        )
 
 
 class OpenAIProvider(BaseProvider):
@@ -121,18 +150,200 @@ class OpenAIProvider(BaseProvider):
                 ],
             )
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
 
-        resp = await send_request(
+        return await send_request(
             headers=self._request_headers,
             base_url=self._request_base_url,
             path="chat/completions",
             payload=self._add_model_to_payload_if_necessary(payload),
         )
+
+    async def _chat_uc_function(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        workspace_client = _get_workspace_client()
+        warehouse_id = os.environ.get("DATABRICKS_WAREHOUSE_ID")
+        if warehouse_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail="DATABRICKS_WAREHOUSE_ID environment variable is not set",
+            )
+
+        from fastapi.encoders import jsonable_encoder
+
+        payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
+
+        token_usage_accumulator = TokenUsageAccumulator()
+        user_tool_messages = [m for m in payload["messages"] if m["role"] == "tool"]
+        user_tool_calls = next(
+            (m["tool_calls"] for m in payload["messages"] if "tool_calls" in m), None
+        )
+        if (
+            user_tool_messages
+            and user_tool_calls
+            and (result := parse_uc_functions(payload["messages"][0]["content"]))
+        ):
+            uc_func_calls, uc_func_messages = result
+            messages = [
+                *[m for m in payload["messages"] if m["role"] == "tool" or "tool_calls" in m],
+                # Join UC function calls and user tool calls
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": uc_func_calls + user_tool_calls,
+                },
+                *uc_func_messages,
+                *user_tool_messages,
+            ]
+            resp = await send_request(
+                headers=self._request_headers,
+                base_url=self._request_base_url,
+                path="chat/completions",
+                payload=self._add_model_to_payload_if_necessary(
+                    {
+                        **payload,
+                        "messages": messages,
+                    }
+                ),
+            )
+            token_usage_accumulator.update(resp.get("usage", {}))
+        elif any(t["type"] == _UC_FUNCTION for t in payload.get("tools", [])):
+            updated_tools = []
+            uc_func_mapping: Dict[str, "FunctionInfo"] = {}
+            for tool in payload.get("tools", []):
+                if tool["type"] == _UC_FUNCTION:
+                    function_name = tool[_UC_FUNCTION]["name"]
+                    function = workspace_client.functions.get(function_name)
+                    param_metadata = get_func_schema(function)
+                    t = {
+                        "type": "function",
+                        "function": param_metadata,
+                    }
+                    uc_func_mapping[t["function"]["name"]] = function
+                    updated_tools.append(t)
+                else:
+                    updated_tools.append(tool)
+
+            payload["tools"] = updated_tools
+
+            messages = payload.pop("messages", [])
+            uc_func_calls = []
+            user_tool_calls = []
+            resp = None
+            for _ in range(20):  # loop until we get a response without tool_calls
+                resp = await send_request(
+                    headers=self._request_headers,
+                    base_url=self._request_base_url,
+                    path="chat/completions",
+                    payload=self._add_model_to_payload_if_necessary(
+                        {
+                            **payload,
+                            "messages": messages,
+                        }
+                    ),
+                )
+                token_usage_accumulator.update(resp.get("usage", {}))
+                # TODO to support n > 1.
+                assistant_msg = resp["choices"][0]["message"]
+                tool_calls = assistant_msg.get("tool_calls")
+                if tool_calls is None:
+                    if uc_func_calls:
+                        original_content = resp["choices"][0]["message"]["content"]
+                        resp["choices"][0]["message"]["content"] = prepend_uc_functions(
+                            original_content, uc_func_calls
+                        )
+
+                    if user_tool_calls:
+                        # Is this line unreachable?
+                        resp["choices"][0]["message"]["tool_calls"] = user_tool_calls
+
+                    break
+
+                tool_messages = []
+                for tool_call in tool_calls:
+                    func = tool_call["function"]
+                    parameters = json.loads(func["arguments"])
+                    if func_info := uc_func_mapping.get(func["name"]):
+                        result = execute_function(
+                            ws=workspace_client,
+                            warehouse_id=warehouse_id,
+                            function=function,
+                            parameters=parameters,
+                        )
+                        tool_messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": tool_call["id"],
+                                "content": result.to_json(),
+                            }
+                        )
+
+                        uc_func_calls.append(
+                            (
+                                {
+                                    "id": tool_call["id"],
+                                    "name": func_info.full_name,
+                                    "arguments": func["arguments"],
+                                },
+                                {
+                                    "tool_call_id": tool_call["id"],
+                                    "content": result.to_json(),
+                                },
+                            )
+                        )
+                    else:
+                        user_tool_calls.append(
+                            {
+                                "id": tool_call["id"],
+                                "type": "function",
+                                "function": {
+                                    "name": func["name"],
+                                    "arguments": func["arguments"],
+                                },
+                            }
+                        )
+
+                if message_content := assistant_msg.pop("content", None):
+                    messages.append({"role": "assistant", "content": message_content})
+                messages += [assistant_msg, *tool_messages]
+
+                if user_tool_calls:
+                    # We can't go on without a response from the user, so we break here
+                    if uc_func_calls:
+                        resp["choices"][0]["message"]["content"] = join_uc_functions(uc_func_calls)
+
+                    resp["choices"][0]["message"]["tool_calls"] = user_tool_calls
+                    break
+            else:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Max iterations reached",
+                )
+        else:
+            # No UC functions to execute
+            resp = await send_request(
+                headers=self._request_headers,
+                base_url=self._request_base_url,
+                path="chat/completions",
+                payload=self._add_model_to_payload_if_necessary(payload),
+            )
+            token_usage_accumulator.update(resp.get("usage", {}))
+
+        # Update the token usage
+        resp["usage"].update(token_usage_accumulator.dict())
+
+        return resp
+
+    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        if MLFLOW_ENABLE_UC_FUNCTIONS.get():
+            resp = await self._chat_uc_function(payload)
+        else:
+            resp = await self._chat(payload)
+
         # Response example (https://platform.openai.com/docs/api-reference/chat/create)
         # ```
         # {
@@ -166,9 +377,14 @@ class OpenAIProvider(BaseProvider):
                 chat.Choice(
                     index=idx,
                     message=chat.ResponseMessage(
-                        role=c["message"]["role"], content=c["message"]["content"]
+                        role=c["message"]["role"],
+                        content=c["message"].get("content"),
+                        tool_calls=(
+                            (calls := c["message"].get("tool_calls"))
+                            and [chat.ToolCall(**c) for c in calls]
+                        ),
                     ),
-                    finish_reason=c["finish_reason"],
+                    finish_reason=c.get("finish_reason"),
                 )
                 for idx, c in enumerate(resp["choices"])
             ],

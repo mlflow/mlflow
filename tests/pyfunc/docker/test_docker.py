@@ -15,7 +15,7 @@ from mlflow.models import Model
 from mlflow.models.docker_utils import build_image_from_context
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import PYTHON_VERSION
-from mlflow.utils.env_manager import CONDA, LOCAL, VIRTUALENV
+from mlflow.utils.env_manager import LOCAL
 from mlflow.version import VERSION
 
 from tests.pyfunc.docker.conftest import RESOURCE_DIR, get_released_mlflow_version
@@ -75,8 +75,9 @@ class Param:
     [
         Param(expected_dockerfile="Dockerfile_default"),
         Param(expected_dockerfile="Dockerfile_default", env_manager=LOCAL),
-        Param(expected_dockerfile="Dockerfile_java_flavor", env_manager=VIRTUALENV),
-        Param(expected_dockerfile="Dockerfile_conda", env_manager=CONDA),
+        # disabling these until 2.14.1 is released
+        # Param(expected_dockerfile="Dockerfile_java_flavor", env_manager=VIRTUALENV),
+        # Param(expected_dockerfile="Dockerfile_conda", env_manager=CONDA),
         Param(install_mlflow=True, expected_dockerfile="Dockerfile_install_mlflow"),
         Param(enable_mlserver=True, expected_dockerfile="Dockerfile_enable_mlserver"),
         Param(mlflow_home=".", expected_dockerfile="Dockerfile_with_mlflow_home"),
@@ -97,7 +98,15 @@ def test_build_image(tmp_path, params):
         dockerfile.write_text(content)
 
         shutil.copytree(context_dir, dst_dir)
-        build_image_from_context(context_dir, image_name)
+        for _ in range(3):
+            try:
+                # Docker image build is unstable on GitHub Actions, retry up to 3 times
+                build_image_from_context(context_dir, image_name)
+                break
+            except RuntimeError:
+                pass
+        else:
+            raise RuntimeError("Docker image build failed.")
 
     dst_dir = tmp_path / "context"
     with mock.patch(
@@ -130,4 +139,21 @@ def test_generate_dockerfile_for_java_flavor(tmp_path):
 
     actual = tmp_path / "Dockerfile"
     expected = Path(RESOURCE_DIR) / "Dockerfile_java_flavor"
+    assert_dockerfiles_equal(actual, expected)
+
+
+def test_generate_dockerfile_for_custom_image(tmp_path):
+    model_path = save_model(tmp_path)
+    add_spark_flavor_to_model(model_path)
+
+    backend = get_flavor_backend(model_path, docker_build=True, env_manager=None)
+
+    backend.generate_dockerfile(
+        base_image="quay.io/jupyter/scipy-notebook:latest",
+        model_uri=model_path,
+        output_dir=tmp_path,
+    )
+
+    actual = tmp_path / "Dockerfile"
+    expected = Path(RESOURCE_DIR) / "Dockerfile_custom_scipy"
     assert_dockerfiles_equal(actual, expected)

@@ -14,7 +14,6 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import FlavorBackend, Model, docker_utils
 from mlflow.models.docker_utils import PYTHON_SLIM_BASE_IMAGE, UBUNTU_BASE_IMAGE
-from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.pyfunc import (
     ENV,
     _extract_conda_env,
@@ -352,6 +351,7 @@ class PyFuncBackend(FlavorBackend):
         install_mlflow=False,
         mlflow_home=None,
         enable_mlserver=False,
+        base_image=None,
     ):
         with TempDir() as tmp:
             cwd = tmp.path()
@@ -362,6 +362,7 @@ class PyFuncBackend(FlavorBackend):
                 install_mlflow=install_mlflow,
                 mlflow_home=mlflow_home,
                 enable_mlserver=enable_mlserver,
+                base_image=base_image,
             )
 
             _logger.info("Building docker image with name %s", image_name)
@@ -375,6 +376,7 @@ class PyFuncBackend(FlavorBackend):
         install_mlflow=False,
         mlflow_home=None,
         enable_mlserver=False,
+        base_image=None,
     ):
         os.makedirs(output_dir, exist_ok=True)
         _logger.debug("Created all folders in path", extra={"output_directory": output_dir})
@@ -383,11 +385,11 @@ class PyFuncBackend(FlavorBackend):
             model_cwd = os.path.join(output_dir, _MODEL_DIR_NAME)
             pathlib.Path(model_cwd).mkdir(parents=True, exist_ok=True)
             model_path = _download_artifact_from_uri(model_uri, output_path=model_cwd)
-            base_image = self._get_base_image(model_path, install_java)
+            base_image = base_image or self._get_base_image(model_path, install_java)
+            env_manager = self._env_manager or em.LOCAL
 
             if base_image.startswith("python"):
                 # we can directly use local env for python image
-                env_manager = self._env_manager or em.LOCAL
                 if env_manager in [em.CONDA, em.VIRTUALENV]:
                     # we can directly use ubuntu image for conda and virtualenv
                     base_image = UBUNTU_BASE_IMAGE
@@ -397,9 +399,6 @@ class PyFuncBackend(FlavorBackend):
                 # , so we recommend using conda or virtualenv instead on ubuntu image
                 if env_manager == em.LOCAL:
                     raise MlflowException.invalid_parameter_value(LOCAL_ENV_MANAGER_ERROR_MESSAGE)
-            # shouldn't reach here but add this so we can validate base_image value above
-            else:
-                raise MlflowException(f"Unexpected base image value '{base_image}'")
 
             model_install_steps = self._model_installation_steps(
                 model_path, env_manager, install_mlflow, enable_mlserver
@@ -408,7 +407,7 @@ class PyFuncBackend(FlavorBackend):
 
         # if no model_uri specified, user must use virtualenv or conda env based on ubuntu image
         else:
-            base_image = UBUNTU_BASE_IMAGE
+            base_image = base_image or UBUNTU_BASE_IMAGE
             env_manager = self._env_manager or em.VIRTUALENV
             if env_manager == em.LOCAL:
                 raise MlflowException.invalid_parameter_value(LOCAL_ENV_MANAGER_ERROR_MESSAGE)
@@ -437,7 +436,7 @@ class PyFuncBackend(FlavorBackend):
         """
         Determine the base image to use for the Dockerfile.
 
-        We use Python slim base image when all of the following conditions are met:
+        We use Python slim base image when all the following conditions are met:
           1. Model URI is specified by the user
           2. Model flavor does not require Java
           3. Python version is specified in the model
@@ -457,19 +456,15 @@ class PyFuncBackend(FlavorBackend):
             return UBUNTU_BASE_IMAGE
 
         # Get Python version from MLmodel
-        model_config_path = os.path.join(model_path, MLMODEL_FILE_NAME)
         try:
-            model = Model.load(model_config_path)
-
-            conf = model.flavors[pyfunc.FLAVOR_NAME]
-            env_conf = conf[pyfunc.ENV]
-            python_env_config_path = os.path.join(model_path, env_conf[em.VIRTUALENV])
+            env_conf = Model.load(model_path).flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV][em.VIRTUALENV]
+            python_env_config_path = os.path.join(model_path, env_conf)
 
             python_env = _PythonEnv.from_yaml(python_env_config_path)
             return PYTHON_SLIM_BASE_IMAGE.format(version=python_env.python)
         except Exception as e:
             _logger.warning(
-                f"Failed to determine Python version from {model_config_path}. "
+                f"Failed to determine Python version from {model_path}. "
                 f"Defaulting to {UBUNTU_BASE_IMAGE}. Error: {e}"
             )
             return UBUNTU_BASE_IMAGE

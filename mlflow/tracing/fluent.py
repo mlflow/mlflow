@@ -28,10 +28,9 @@ from mlflow.tracing.utils import (
     SPANS_COLUMN_NAME,
     capture_function_input_args,
     encode_span_id,
-    extract_span_inputs_outputs,
     get_otel_attribute,
-    traces_to_df,
 )
+from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
@@ -256,6 +255,10 @@ def get_trace(request_id: str) -> Optional[Trace]:
     """
     Get a trace by the given request ID if it exists.
 
+    This function retrieves the trace from the in-memory buffer first, and if it doesn't exist,
+    it fetches the trace from the tracking store. If the trace is not found in the tracking store,
+    it returns None.
+
     Args:
         request_id: The request ID of the trace.
 
@@ -276,7 +279,19 @@ def get_trace(request_id: str) -> Optional[Trace]:
     Returns:
         A :py:class:`mlflow.entities.Trace` objects with the given request ID.
     """
-    return TRACE_BUFFER.get(request_id, None)
+    # Try to get the trace from the in-memory buffer first
+    if trace := TRACE_BUFFER.get(request_id, None):
+        return trace
+
+    try:
+        return MlflowClient().get_trace(request_id, display=False)
+    except MlflowException as e:
+        _logger.warning(
+            f"Failed to get trace from the tracking store: {e}"
+            "For full traceback, set logging level to debug.",
+            exc_info=_logger.isEnabledFor(logging.DEBUG),
+        )
+        return None
 
 
 @experimental
@@ -290,6 +305,13 @@ def search_traces(
     """
     Return traces that match the given list of search expressions within the experiments.
 
+    .. tip::
+
+        This API returns a **Pandas DataFrame** that contains the traces as rows. To retrieve
+        a list of the original :py:class:`Trace <mlflow.entities.Trace>` objects,
+        you can use the :py:meth:`MlflowClient().search_traces
+        <mlflow.client.MlflowClient.search_traces>` method instead.
+
     Args:
         experiment_ids: List of experiment ids to scope the search. If not provided, the search
             will be performed across the current active experiment.
@@ -298,16 +320,16 @@ def search_traces(
             expressions will be returned.
         order_by: List of order_by clauses.
         extract_fields: Specify fields to extract from traces using the format
-            "span_name.[inputs|outputs].field_name" or "span_name.[inputs|outputs]".
-            For instance, "predict.outputs.result" retrieves the output "result" field from
-            a span named "predict", while "predict.outputs" fetches the entire outputs
-            dictionary, including keys "result" and "explanation".
+            ``"span_name.[inputs|outputs].field_name"`` or ``"span_name.[inputs|outputs]"``.
+            For instance, ``"predict.outputs.result"`` retrieves the output ``"result"`` field from
+            a span named ``"predict"``, while ``"predict.outputs"`` fetches the entire outputs
+            dictionary, including keys ``"result"`` and ``"explanation"``.
 
             By default, no fields are extracted into the DataFrame columns. When multiple
             fields are specified, each is extracted as its own column. If an invalid field
             string is provided, the function silently returns without adding that field's column.
-            The supported fields are limited to "inputs" and "outputs" of spans. If the span name
-            or field name contains a dot it must be enclosed in backticks. For example:
+            The supported fields are limited to ``"inputs"`` and ``"outputs"`` of spans. If the
+            span name or field name contains a dot it must be enclosed in backticks. For example:
 
             .. code-block:: python
 

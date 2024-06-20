@@ -48,7 +48,6 @@ from mlflow.langchain.utils import (
     patch_langchain_type_to_cls_dict,
     register_pydantic_v1_serializer_cm,
 )
-from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.dependencies_schemas import (
     _clear_dependencies_schemas,
@@ -105,8 +104,6 @@ logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
-_MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["langchain"]["autologging"]["minimum"])
-_MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["langchain"]["autologging"]["maximum"])
 
 
 def get_default_pip_requirements():
@@ -174,7 +171,13 @@ def save_model(
             `Chain <https://python.langchain.com/docs/modules/chains/>`_,
             `Agent <https://python.langchain.com/docs/modules/agents/>`_,
             `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_,
-            or `RunnableSequence <https://python.langchain.com/docs/modules/chains/foundational/sequential_chains#using-lcel>`_.
+            or `RunnableSequence <https://python.langchain.com/docs/modules/chains/foundational/sequential_chains#using-lcel>`_,
+            or a path containing the `LangChain model code <https://github.com/mlflow/mlflow/blob/master/examples/langchain/chain_as_code_driver.py>`
+            for the above types. When using model as path, make sure to set the model
+            by using :func:`mlflow.models.set_model()`.
+
+            .. Note:: Experimental: Using model as path may change or be removed in a future
+                        release without warning.
         path: Local path where the serialized model (as YAML) is to be saved.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
@@ -260,7 +263,7 @@ def save_model(
                 DataFrame format when saving. This is useful when the model expects a DataFrame
                 input and the input example could be passed directly to the model.
                 Defaults to ``True``.
-        model_config: The model configuration to apply to the model if saving model as code. This
+        model_config: The model configuration to apply to the model if saving model from code. This
             configuration is available during model loading.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
@@ -446,7 +449,13 @@ def log_model(
         lc_model: A LangChain model, which could be a
             `Chain <https://python.langchain.com/docs/modules/chains/>`_,
             `Agent <https://python.langchain.com/docs/modules/agents/>`_, or
-            `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_.
+            `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_
+            or a path containing the `LangChain model code <https://github.com/mlflow/mlflow/blob/master/examples/langchain/chain_as_code_driver.py>`
+            for the above types. When using model as path, make sure to set the model
+            by using :func:`mlflow.models.set_model()`.
+
+            .. Note:: Experimental: Using model as path may change or be removed in a future
+                                    release without warning.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
@@ -544,7 +553,7 @@ def log_model(
         run_id: run_id to associate with this model version. If specified, we resume the
                 run and log the model to that run. Otherwise, a new run is created.
                 Default to None.
-        model_config: The model configuration to apply to the model if saving model as code. This
+        model_config: The model configuration to apply to the model if saving model from code. This
             configuration is available during model loading.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
@@ -929,6 +938,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
 
 
 @experimental
+@trace_disabled  # Suppress traces while loading model
 def load_model(model_uri, dst_path=None):
     """
     Load a LangChain model from a local file or a run.
@@ -957,10 +967,14 @@ def load_model(model_uri, dst_path=None):
 
 def _patch_runnable_cls(cls):
     """
-    For classes that are subclasses of Runnable, we patch the `invoke`, `batch`, and `stream`
-    methods for autologging.
+    For classes that are subclasses of Runnable, we patch the `invoke`, `batch`, `stream` and
+    `ainvoke`, `abatch`, `astream` methods for autologging.
+
+    Args:
+        cls: The class to patch.
     """
-    for func_name in ["invoke", "batch", "stream"]:
+    patch_functions = ["invoke", "batch", "stream", "ainvoke", "abatch", "astream"]
+    for func_name in patch_functions:
         if hasattr(cls, func_name):
             safe_patch(
                 FLAVOR_NAME,
@@ -998,11 +1012,7 @@ def autolog(
     log_model_signatures=False,
     log_models=False,
     log_datasets=False,
-    # TODO: log_inputs_outputs was originally defaulted to True in the production version of
-    # the LangChain autologging, as it is a common use case to log input/output table for
-    # evaluation. Once tracing is fully launched, this should be supported by the tracer
-    # but we should design it to be compatible with the existing UJ.
-    log_inputs_outputs=False,
+    log_inputs_outputs=None,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=True,
@@ -1010,6 +1020,7 @@ def autolog(
     registered_model_name=None,
     extra_tags=None,
     extra_model_classes=None,
+    log_traces=True,
 ):
     """
     Enables (or disables) and configures autologging from Langchain to MLflow.
@@ -1033,7 +1044,11 @@ def autolog(
             are also omitted when ``log_models`` is ``False``.
         log_datasets: If ``True``, dataset information is logged to MLflow Tracking
             if applicable. If ``False``, dataset information is not logged.
-        log_inputs_outputs: If ``True``, inference data and results are combined into a single
+        log_inputs_outputs: **Deprecated** The legacy parameter used for logging inference
+            inputs and outputs. This argument will be removed in a future version of MLflow.
+            The alternative is to use ``log_traces`` which logs traces for Langchain models,
+            including inputs and outputs for each stage.
+            If ``True``, inference data and results are combined into a single
             pandas DataFrame and logged to MLflow Tracking as an artifact.
             If ``False``, inference data and results are not logged.
             Default to ``False``.
@@ -1056,6 +1071,9 @@ def autolog(
             We do not guarantee classes specified in this list can be logged as a model, but tracing
             will be supported. Note that all classes within the list must be subclasses of Runnable,
             and we only patch `invoke`, `batch`, and `stream` methods for tracing.
+        log_traces: If ``True``, traces are logged for Langchain models by using
+            MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
+            collected during inference. Default to ``True``.
     """
     with contextlib.suppress(ImportError):
         import langchain
@@ -1064,14 +1082,6 @@ def autolog(
         from langchain.chains.base import Chain
         from langchain.schema import BaseRetriever
         from langchain.schema.runnable import Runnable
-
-        if not _MIN_REQ_VERSION <= Version(langchain.__version__) <= _MAX_REQ_VERSION:
-            # Suppress the warning after it is shown once
-            warnings.warn(
-                "Autologging is known to be compatible with langchain versions between "
-                f"{_MIN_REQ_VERSION} and {_MAX_REQ_VERSION} and may not succeed with packages "
-                "outside this range."
-            )
 
         # avoid duplicate patching
         patched_classes = set()

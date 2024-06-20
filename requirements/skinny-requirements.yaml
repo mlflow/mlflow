@@ -77,3 +77,8 @@ opentelemetry-sdk:
   pip_release: opentelemetry-sdk
   minimum: "1.9.0"
   max_major_version: 2
+
+databricks-sdk:
+  pip_release: databricks-sdk
+  minimum: "0.20.0"
+  max_major_version: 0

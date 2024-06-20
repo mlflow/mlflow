@@ -31,6 +31,8 @@ from langchain.embeddings.base import Embeddings
 from langchain.embeddings.fake import FakeEmbeddings
 from langchain.evaluation.qa import QAEvalChain
 
+from tests.tracing.helper import get_traces
+
 try:
     from langchain_huggingface import HuggingFacePipeline
 except ImportError:
@@ -68,6 +70,7 @@ from mlflow.models.dependencies_schemas import DependenciesSchemasType
 from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex, Resource
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.pyfunc.context import Context
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.processor.inference_table import _HEADER_REQUEST_ID_KEY
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
@@ -2400,6 +2403,12 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
 
     assert mlflow.models.model_config.__mlflow_model_config__ is None
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+
+    # During the loading process, MLflow executes the chain.py file to
+    # load the model class. It should not generate any traces even if
+    # the code enables autologging and invoke chain.
+    assert len(get_traces()) == 0
+
     assert mlflow.models.model_config.__mlflow_model_config__ is None
     answer = "Databricks"
     assert loaded_model.invoke(input_example) == answer
@@ -2999,6 +3008,10 @@ def test_langchain_model_inject_callback_in_model_serving(
     if enable_mlflow_tracing:
         assert len(_TRACE_BUFFER) == 1
         assert _REQUEST_ID in _TRACE_BUFFER
+        trace = _TRACE_BUFFER[_REQUEST_ID]
+        assert trace["info"]["request_metadata"][TRACE_SCHEMA_VERSION_KEY] == str(
+            TRACE_SCHEMA_VERSION
+        )
     else:
         assert len(_TRACE_BUFFER) == 0
 
@@ -3310,3 +3323,27 @@ def test_langchain_model_streamable_param_in_log_model_for_lc_runnable_types(
             pip_requirements=[],
         )
         assert model_info.flavors["langchain"]["streamable"] is bool(streamable)
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.1.20"), reason="feature not existing"
+)
+def test_agent_executor_model_with_messages_input():
+    question = {"messages": [{"role": "user", "content": "Who owns MLflow?"}]}
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            lc_model=os.path.abspath("tests/langchain/agent_executor/chain.py"),
+            artifact_path="model_path",
+            input_example=question,
+            model_config=os.path.abspath("tests/langchain/agent_executor/config.yml"),
+        )
+    native_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert native_model.invoke(question)["output"] == "Databricks"
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    # TODO: in the future we should fix this and output shouldn't be wrapped
+    # The result is wrapped in a list because during signature enforcement we convert
+    # input data to pandas dataframe, then inside _convert_llm_input_data
+    # we convert pandas dataframe back to records, and a single row will be
+    # wrapped inside a list.
+    assert pyfunc_model.predict(question) == ["Databricks"]

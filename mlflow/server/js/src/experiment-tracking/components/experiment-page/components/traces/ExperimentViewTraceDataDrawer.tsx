@@ -5,6 +5,7 @@ import {
   Spacer,
   TableSkeleton,
   TitleSkeleton,
+  WarningIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { getTraceDisplayName } from './ExperimentViewTraces.utils';
@@ -30,7 +31,15 @@ export const ExperimentViewTraceDataDrawer = ({
   loadingTraceInfo?: boolean;
   onClose: () => void;
 }) => {
-  const { traceData, loading, error } = useExperimentTraceData(requestId);
+  const {
+    traceData,
+    loading: loadingTraceData,
+    error,
+  } = useExperimentTraceData(
+    requestId,
+    // skip fetching trace data if trace is in progress
+    traceInfo?.status === 'IN_PROGRESS',
+  );
   const { theme } = useDesignSystemTheme();
 
   // Usually, we rely on the parent component to provide trace info object (when clicked in a table row).
@@ -74,11 +83,33 @@ export const ExperimentViewTraceDataDrawer = ({
   const containsSpans = (traceData?.spans || []).length > 0;
 
   const renderContent = () => {
-    if (loading) {
+    if (loadingTraceData || loadingTraceInfo || loadingInternalTracingInfo) {
       return (
         <>
           <TitleSkeleton />
           <TableSkeleton lines={5} />
+        </>
+      );
+    }
+    if (traceInfo?.status === 'IN_PROGRESS') {
+      return (
+        <>
+          <Spacer size="lg" />
+          <Empty
+            image={<WarningIcon />}
+            description={
+              <FormattedMessage
+                defaultMessage="Trace data is not available for in-progress traces. Please wait for the trace to complete."
+                description="Experiment page > traces data drawer > in-progress description"
+              />
+            }
+            title={
+              <FormattedMessage
+                defaultMessage="Trace data not available"
+                description="Experiment page > traces data drawer > in-progress title"
+              />
+            }
+          />
         </>
       );
     }
@@ -88,12 +119,17 @@ export const ExperimentViewTraceDataDrawer = ({
         <>
           <Spacer size="lg" />
           <Empty
-            image={<DangerIcon />}
-            description={errorMessage}
+            image={<WarningIcon />}
+            description={
+              <FormattedMessage
+                defaultMessage="Trace data is not available for in-progress traces. Please wait for the trace to complete."
+                description="Experiment page > traces data drawer > in-progress description"
+              />
+            }
             title={
               <FormattedMessage
-                defaultMessage="Error"
-                description="Experiment page > traces data drawer > error state title"
+                defaultMessage="Trace data not available"
+                description="Experiment page > traces data drawer > in-progress title"
               />
             }
           />
@@ -121,10 +157,10 @@ export const ExperimentViewTraceDataDrawer = ({
         <div
           css={{
             height: `calc(100% - ${theme.spacing.lg}px)`,
-            borderTop: `1px solid ${theme.colors.border}`,
             marginLeft: -theme.spacing.lg,
             marginRight: -theme.spacing.lg,
           }}
+          onWheel={(e) => e.stopPropagation()}
         >
           <ModelTraceExplorerFrameRenderer modelTrace={combinedModelTrace} height="100%" />
         </div>
@@ -135,8 +171,7 @@ export const ExperimentViewTraceDataDrawer = ({
 
   return (
     <Drawer.Root
-      // Modal mode is disabled, otherwise Drawer breaks vertical scrolling of the traces view
-      modal={false}
+      modal
       open
       onOpenChange={(open) => {
         if (!open) {
@@ -144,7 +179,7 @@ export const ExperimentViewTraceDataDrawer = ({
         }
       }}
     >
-      <Drawer.Content width="90vw" title={title} expandContentToFullHeight>
+      <Drawer.Content width="85vw" title={title} expandContentToFullHeight>
         {renderContent()}
       </Drawer.Content>
     </Drawer.Root>

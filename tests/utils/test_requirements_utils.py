@@ -428,10 +428,22 @@ def test_capture_imported_modules_include_deps_by_params():
     assert "sklearn" in captured_modules
 
 
-def test_capture_imported_modules_includes_gateway_extra():
+@pytest.mark.parametrize(
+    ("module_to_import", "should_capture_extra"),
+    [
+        ("mlflow.gateway", True),
+        ("mlflow.deployments.server.config", True),
+        # The `mlflow[gateway]`` extra includes requirements for starting the deployment server,
+        # but it is not required when the model only uses the deployment client. These test
+        # cases validate that importing the deployment client alone does not add the extra.
+        ("mlflow.deployments", False),
+        ("mlflow.deployments.get_deploy_client", False),
+    ],
+)
+def test_capture_imported_modules_includes_gateway_extra(module_to_import, should_capture_extra):
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, _, inputs, params=None):
-            import mlflow.gateway  # noqa: F401
+            importlib.import_module(module_to_import)
 
             return inputs
 
@@ -443,10 +455,10 @@ def test_capture_imported_modules_includes_gateway_extra():
         )
 
     captured_modules = _capture_imported_modules(model_info.model_uri, "pyfunc")
-    assert "mlflow.gateway" in captured_modules
+    assert ("mlflow.gateway" in captured_modules) == should_capture_extra
 
     pip_requirements = infer_pip_requirements(model_info.model_uri, "pyfunc")
-    assert f"mlflow[gateway]=={mlflow.__version__}" in pip_requirements
+    assert (f"mlflow[gateway]=={mlflow.__version__}" in pip_requirements) == should_capture_extra
 
 
 def test_warn_dependency_requirement_mismatches():
@@ -559,14 +571,6 @@ model's environment and install dependencies using the resulting environment fil
     "ignore_package_name",
     [
         "databricks-feature-lookup",
-        "databricks-chains",
-        "databricks_chains",
-        "databricks.chains",
-        "databricks-rag-studio",
-        "databricks.rag_studio",
-        "databricks.rag",
-        "databricks-rag",
-        "databricks_rag",
         "databricks-agents",
         "databricks_agents",
         "databricks.agents",

@@ -1007,6 +1007,10 @@
     "defaultMessage": "Hugging Face",
     "description": "Experiment dataset drawer > source type > Hugging Face source type label"
   },
+  "K+5g8S": {
+    "defaultMessage": "Trace data is not available for in-progress traces. Please wait for the trace to complete.",
+    "description": "Experiment page > traces data drawer > in-progress description"
+  },
   "K5rmCE": {
     "defaultMessage": "S3",
     "description": "Experiment dataset drawer > source type > S3 source type label"
@@ -1875,10 +1879,6 @@
     "defaultMessage": "Run page loading",
     "description": "Run page > Loading state"
   },
-  "eavoW/": {
-    "defaultMessage": "Error",
-    "description": "Experiment page > traces data drawer > error state title"
-  },
   "eeLqSn": {
     "defaultMessage": "Submit",
     "description": "Experiment page > artifact compare view > \"add new row\" modal submit button label"
@@ -2346,6 +2346,10 @@
   "owr9l2": {
     "defaultMessage": "No group by columns selected",
     "description": "Experiment page > artifact compare view > empty state for no group by columns selected > title"
+  },
+  "p0O0uP": {
+    "defaultMessage": "Trace data not available",
+    "description": "Experiment page > traces data drawer > in-progress title"
   },
   "p1H1KR": {
     "defaultMessage": "Last 30 days",

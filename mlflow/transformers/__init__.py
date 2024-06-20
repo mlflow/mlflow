@@ -64,12 +64,12 @@ from mlflow.transformers.llm_inference_utils import (
     _METADATA_LLM_INFERENCE_TASK_KEY,
     _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK,
     _get_default_task_for_llm_inference_task,
-    convert_data_messages_with_chat_template,
+    convert_messages_to_prompt,
     infer_signature_from_llm_inference_task,
     postprocess_output_for_llm_inference_task,
     postprocess_output_for_llm_v1_embedding_task,
     preprocess_llm_embedding_params,
-    preprocess_llm_inference_params,
+    preprocess_llm_inference_input,
 )
 from mlflow.transformers.model_io import (
     _COMPONENTS_BINARY_DIR_NAME,
@@ -90,6 +90,7 @@ from mlflow.transformers.signature import (
 )
 from mlflow.transformers.torch_utils import _TORCH_DTYPE_KEY, _deserialize_torch_dtype
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
+from mlflow.utils import _truncate_and_ellipsize
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
@@ -1493,6 +1494,19 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     )
 
 
+def _try_import_conversational_pipeline():
+    """
+    Try importing ConversationalPipeline because for version > 4.41.2
+    it is removed from the transformers package.
+    """
+    try:
+        from transformers import ConversationalPipeline
+
+        return ConversationalPipeline
+    except ImportError:
+        return
+
+
 @experimental
 def generate_signature_output(pipeline, data, model_config=None, params=None, flavor_config=None):
     """
@@ -1641,20 +1655,19 @@ class _TransformersWrapper:
         Returns:
             Model predictions.
         """
-        if self.llm_inference_task == _LLM_INFERENCE_TASK_CHAT:
-            convert_data_messages_with_chat_template(data, self.pipeline.tokenizer)
-            data, params = preprocess_llm_inference_params(data, self.flavor_config)
-        elif self.llm_inference_task == _LLM_INFERENCE_TASK_COMPLETIONS:
-            data, params = preprocess_llm_inference_params(data, self.flavor_config)
-        elif self.llm_inference_task == _LLM_INFERENCE_TASK_EMBEDDING:
-            data, params = preprocess_llm_embedding_params(data)
-
         # NB: This `predict` method updates the model_config several times. To make the predict
         # call idempotent, we keep the original self.model_config immutable and creates a deep
         # copy of it at every predict call.
         model_config = copy.deepcopy(dict(self.model_config))
+        params = self._merge_model_config_with_params(model_config, params)
 
-        model_config = self._merge_model_config_with_params(model_config, params)
+        if self.llm_inference_task == _LLM_INFERENCE_TASK_CHAT:
+            data, params = preprocess_llm_inference_input(data, params, self.flavor_config)
+            data = [convert_messages_to_prompt(msgs, self.pipeline.tokenizer) for msgs in data]
+        elif self.llm_inference_task == _LLM_INFERENCE_TASK_COMPLETIONS:
+            data, params = preprocess_llm_inference_input(data, params, self.flavor_config)
+        elif self.llm_inference_task == _LLM_INFERENCE_TASK_EMBEDDING:
+            data, params = preprocess_llm_embedding_params(data)
 
         if isinstance(data, pd.DataFrame):
             input_data = self._convert_pandas_to_dict(data)
@@ -1686,7 +1699,7 @@ class _TransformersWrapper:
                 _validate_input_dictionary_contains_only_strings_and_lists_of_strings(x)
                 for x in input_data
             )
-        return self._predict(input_data, model_config)
+        return self._predict(input_data, params)
 
     def _predict(self, data, model_config):
         import transformers
@@ -1733,9 +1746,12 @@ class _TransformersWrapper:
             output_key = None
             data = self._parse_feature_extraction_input(data)
             data = self._format_prompt_template(data)
-        elif isinstance(self.pipeline, transformers.ConversationalPipeline):
+        elif (conversational_pipeline := _try_import_conversational_pipeline()) and isinstance(
+            self.pipeline, conversational_pipeline
+        ):
             output_key = None
             if not self._conversation:
+                # this import is valid if conversational_pipeline is not None
                 self._conversation = transformers.Conversation()
             self._conversation.add_user_input(data)
         elif type(self.pipeline).__name__ in self._supported_custom_generator_types:
@@ -1768,7 +1784,7 @@ class _TransformersWrapper:
         data = self._convert_cast_lists_from_np_back_to_list(data)
 
         # Generate inference data with the pipeline object
-        if isinstance(self.pipeline, transformers.ConversationalPipeline):
+        if (cp := _try_import_conversational_pipeline()) and isinstance(self.pipeline, cp):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
         else:
@@ -1988,10 +2004,12 @@ class _TransformersWrapper:
             )
 
     def _parse_conversation_input(self, data):
-        import transformers
+        conversational_pipeline = _try_import_conversational_pipeline()
 
-        if not isinstance(self.pipeline, transformers.ConversationalPipeline) or isinstance(
-            data, str
+        if (
+            not conversational_pipeline
+            or not isinstance(self.pipeline, conversational_pipeline)
+            or isinstance(data, str)
         ):
             return data
         elif isinstance(data, list) and all(isinstance(elem, dict) for elem in data):
@@ -2418,8 +2436,9 @@ class _TransformersWrapper:
             return data
         else:
             raise MlflowException(
-                "An invalid type has been supplied. Please supply a Dict[str, str], str, "
-                "List[str], or a List[Dict[str, str]] for a Text2Text Pipeline.",
+                f"An invalid type has been supplied: {_truncate_and_ellipsize(data, 100)} "
+                f"(type: {type(data).__name__}). Please supply a Dict[str, str], str, List[str], "
+                "or a List[Dict[str, str]] for a Text2Text Pipeline.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -2552,7 +2571,11 @@ class _TransformersWrapper:
         """Check whether input image is a base64 encoded"""
 
         try:
-            return base64.b64encode(base64.b64decode(image)).decode("utf-8") == image
+            b64_decoded_image = base64.b64decode(image)
+            return (
+                base64.b64encode(b64_decoded_image).decode("utf-8") == image
+                or base64.encodebytes(b64_decoded_image).decode("utf-8") == image
+            )
         except binascii.Error:
             return False
 

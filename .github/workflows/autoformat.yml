@@ -40,16 +40,16 @@ jobs:
             core.debug(JSON.stringify(context, null, 2));
             const autoformat = require('./.github/workflows/autoformat.js');
             const { comment } = context.payload;
-            const isMaintainer = autoformat.isMlflowMaintainer(comment.author_association);
+            const pullInfo = await autoformat.getPullInformation(context, github);
+            const isMaintainer = autoformat.isMlflowMaintainer(comment.author_association) && autoformat.isMlflowMaintainer(pullInfo.author_association);
             if (!isMaintainer) {
-              core.setFailed("Only MLflow maintainers can trigger this workflow.");
+              core.setFailed("Only MLflow maintainers can trigger this workflow in their PRs.");
             }
             const shouldAutoformat = autoformat.shouldAutoformat(comment);
             if (shouldAutoformat) {
               await autoformat.createReaction(context, github);
               await autoformat.createStatus(context, github, core);
             }
-            const pullInfo = await autoformat.getPullInformation(context, github);
             return { ...pullInfo, shouldAutoformat };
 
   format:

@@ -58,8 +58,6 @@ from mlflow.store.model_registry import (
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.constant import (
     TRACE_REQUEST_ID_PREFIX,
-    TRACE_SCHEMA_VERSION,
-    TRACE_SCHEMA_VERSION_KEY,
     SpanAttributeKey,
     TraceTagKey,
 )
@@ -108,7 +106,7 @@ _logger = logging.getLogger(__name__)
 _STAGES_DEPRECATION_WARNING = (
     "Model registry stages will be removed in a future major release. To learn more about the "
     "deprecation of model registry stages, see our migration guide here: https://mlflow.org/docs/"
-    f"{mlflow.__version__.replace('.dev0', '')}/model-registry.html#migrating-from-stages"
+    "latest/model-registry.html#migrating-from-stages"
 )
 
 
@@ -456,7 +454,7 @@ class MlflowClient:
         )
 
     @experimental
-    def get_trace(self, request_id: str) -> Trace:
+    def get_trace(self, request_id: str, display=True) -> Trace:
         """
         Get the trace matching the specified ``request_id``.
 
@@ -476,7 +474,8 @@ class MlflowClient:
             trace = client.get_trace(request_id)
         """
         trace = self._tracking_client.get_trace(request_id)
-        get_display_handler().display_traces([trace])
+        if display:
+            get_display_handler().display_traces([trace])
         return trace
 
     @experimental
@@ -617,7 +616,6 @@ class MlflowClient:
                 mlflow_span.set_attributes(attributes)
             trace_manager = InMemoryTraceManager.get_instance()
             tags = exclude_immutable_tags(tags or {})
-            tags.update({TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)})
             if is_in_databricks_model_serving_environment():
                 # Update trace tags for trace in in-memory trace manager
                 with trace_manager.get_trace(request_id) as trace:

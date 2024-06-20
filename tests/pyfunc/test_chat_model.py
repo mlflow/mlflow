@@ -380,3 +380,28 @@ def test_chat_model_predict_stream(tmp_path):
 
     response = next(loaded_model.predict_stream({"messages": messages}))
     assert response["choices"][0]["message"]["content"] == json.dumps(messages)
+
+
+# test that users cannot overwrite the 'object' field in ChatResponse
+def test_chat_model_response_cannot_overwrite_object():
+    message = ChatMessage(role="user", content="Hello!")
+    params = ChatParams(**DEFAULT_PARAMS)
+    mock_response = get_mock_response([message], params)
+
+    # test initialization without setting the property 'object'
+    response = ChatResponse(**mock_response)
+    assert response.object == "chat.completion"
+    with pytest.raises(ValueError, match="`object` field must be 'chat.completion'"):
+        response.object = "other"
+
+    # test to set correct value for 'object' when initializing ChatResponse
+    mock_response["object"] = "chat.completion"
+    response = ChatResponse(**mock_response)
+    assert response.object == "chat.completion"
+    with pytest.raises(ValueError, match="`object` field must be 'chat.completion'"):
+        response.object = "other"
+
+    # test to set incorrect value for 'object' when initializing ChatResponse
+    mock_response["object"] = "invalid.value"
+    with pytest.raises(ValueError, match="`object` field must be 'chat.completion'"):
+        response = ChatResponse(**mock_response)

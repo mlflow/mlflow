@@ -227,6 +227,17 @@ def test_model_info():
         assert model_info_fetched.mlflow_version == loaded_model.mlflow_version
 
 
+def test_model_info_with_model_version(tmp_path):
+    experiment_id = mlflow.create_experiment("test", artifact_location=str(tmp_path))
+    with mlflow.start_run(experiment_id=experiment_id):
+        model_info = Model.log("some/path", TestFlavor, registered_model_name="model_abc")
+        assert model_info.registered_model_version == 1
+        model_info = Model.log("some/path", TestFlavor, registered_model_name="model_abc")
+        assert model_info.registered_model_version == 2
+        model_info = Model.log("some/path", TestFlavor)
+        assert model_info.registered_model_version is None
+
+
 def test_model_metadata():
     with TempDir(chdr=True) as tmp:
         metadata = {"metadata_key": "metadata_value"}

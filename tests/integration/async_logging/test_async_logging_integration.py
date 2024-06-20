@@ -3,11 +3,20 @@ import pickle
 import time
 import uuid
 
+import pytest
+
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
+
+
+@pytest.fixture(autouse=True)
+def flush_async_logging():
+    """Flush async logging after each test to avoid interference between tests"""
+    yield
+    mlflow.flush_async_logging()
 
 
 def test_async_logging_mlflow_client_pickle():
@@ -100,6 +109,10 @@ def test_async_logging_mlflow_client():
         )
         run_operations.append(run_operation)
 
+    # Terminate the run before async operations are completed
+    # The remaining operations should still be processed
+    mlflow_client.set_terminated(run_id=run_id, status="FINISHED", end_time=time.time())
+
     for run_operation in run_operations:
         run_operation.wait()
 
@@ -113,8 +126,6 @@ def test_async_logging_mlflow_client():
     for metric in metrics_to_log:
         assert metric.key in run.data.metrics
         assert metric.value == run.data.metrics[metric.key]
-
-    mlflow_client.set_terminated(run_id=run_id, status="FINISHED", end_time=time.time())
 
 
 def test_async_logging_fluent():
