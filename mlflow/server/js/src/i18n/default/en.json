@@ -2309,7 +2309,7 @@
   },
   "oBjwod": {
     "defaultMessage": "Promote {sourceModelName} version {sourceModelVersion}",
-    "description": "Modal title to pomote the model to a different registered model"
+    "description": "Modal title to promote the model to a different registered model"
   },
   "oHW+ks": {
     "defaultMessage": "Description",
