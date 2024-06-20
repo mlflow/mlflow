@@ -46,7 +46,7 @@ jobs:
       fail-fast: false
       matrix:
         group: [1, 2]
-        protobuf_major_version: [3, 4, 5]
+        protobuf_major_version_plus_one: [4, 5, 6]
         include:
           - splits: 2
     steps:
@@ -71,7 +71,7 @@ jobs:
           pip install torch transformers
           pip install -r requirements/test-requirements.txt
           # Test against specific protobuf versoin
-          pip install "protobuf<$(( matrix.protobuf_major_version + 1 ))"
+          pip install "protobuf<${{ protobuf_major_version_plus_one }}"
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
