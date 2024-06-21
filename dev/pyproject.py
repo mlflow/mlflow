@@ -231,9 +231,9 @@ def main() -> None:
             "https://taplo.tamasfe.dev/cli/introduction.html."
         )
         return
-    build(PackageType.DEV)
-    build(PackageType.RELEASE)
-    build(PackageType.SKINNY)
+
+    for package_type in PackageType:
+        build(package_type)
 
 
 if __name__ == "__main__":
