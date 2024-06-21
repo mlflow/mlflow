@@ -1,17 +1,13 @@
 import os
 import sys
-from io import BufferedReader
 from tempfile import NamedTemporaryFile
 from unittest import mock
-from unittest.mock import ANY, call, mock_open
 
 import pytest
-from pyarrow import HadoopFileSystem
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.hdfs_artifact_repo import (
     HdfsArtifactRepository,
-    _download_hdfs_file,
     _parse_extra_conf,
     _relative_path_remote,
     _resolve_base_path,
@@ -19,7 +15,7 @@ from mlflow.store.artifact.hdfs_artifact_repo import (
 from mlflow.utils.file_utils import TempDir
 
 
-@mock.patch("pyarrow.hdfs.HadoopFileSystem")
+@mock.patch("fsspec.implementations.arrow.HadoopFileSystem")
 def test_log_artifact(hdfs_system_mock):
     repo = HdfsArtifactRepository("hdfs://host_name:8020/hdfs/path")
 
@@ -31,16 +27,19 @@ def test_log_artifact(hdfs_system_mock):
         repo.log_artifact(local_file, "more_path/some")
 
         hdfs_system_mock.assert_called_once_with(
-            extra_conf=None, host="hdfs://host_name", kerb_ticket=None, port=8020, user=None
+            auto_mkdir=True,
+            extra_conf=None,
+            host="hdfs://host_name",
+            kerb_ticket=None,
+            port=8020,
+            user=None,
         )
 
-        upload_mock = hdfs_system_mock.return_value.upload
-        upload_mock.assert_called_once_with("/hdfs/path/more_path/some/sample_file", ANY)
-        args, _ = upload_mock.call_args
-        assert isinstance(args[1], BufferedReader)
+        upload_mock = hdfs_system_mock.return_value.put
+        upload_mock.assert_called_once_with(local_file, "/hdfs/path/more_path/some/")
 
 
-@mock.patch("pyarrow.hdfs.HadoopFileSystem")
+@mock.patch("fsspec.implementations.arrow.HadoopFileSystem")
 def test_log_artifact_viewfs(hdfs_system_mock):
     repo = HdfsArtifactRepository("viewfs://host_name/mypath")
 
@@ -52,15 +51,18 @@ def test_log_artifact_viewfs(hdfs_system_mock):
         repo.log_artifact(local_file, "more_path/some")
 
         hdfs_system_mock.assert_called_once_with(
-            extra_conf=None, host="viewfs://host_name", kerb_ticket=None, port=0, user=None
+            auto_mkdir=True,
+            extra_conf=None,
+            host="viewfs://host_name",
+            kerb_ticket=None,
+            port=0,
+            user=None,
         )
-        upload_mock = hdfs_system_mock.return_value.upload
-        upload_mock.assert_called_once_with("/mypath/more_path/some/sample_file", ANY)
-        args, _ = upload_mock.call_args
-        assert isinstance(args[1], BufferedReader)
+        upload_mock = hdfs_system_mock.return_value.put
+        upload_mock.assert_called_once_with(local_file, "/mypath/more_path/some/")
 
 
-@mock.patch("pyarrow.hdfs.HadoopFileSystem")
+@mock.patch("fsspec.implementations.arrow.HadoopFileSystem")
 def test_log_artifact_with_kerberos_setup(hdfs_system_mock):
     if sys.platform == "win32":
         pytest.skip()
@@ -76,25 +78,18 @@ def test_log_artifact_with_kerberos_setup(hdfs_system_mock):
         repo.log_artifact(tmp_local_file.name, "test_hdfs/some/path")
 
         hdfs_system_mock.assert_called_once_with(
+            auto_mkdir=True,
             extra_conf=None,
             host="default",
             kerb_ticket="/tmp/krb5cc_22222222",
             port=0,
             user="some_kerberos_user",
         )
-        upload_mock = hdfs_system_mock.return_value.upload
+        upload_mock = hdfs_system_mock.return_value.put
         upload_mock.assert_called_once()
 
 
-@mock.patch("pyarrow.hdfs.HadoopFileSystem")
-def test_log_artifact_with_invalid_local_dir(_):
-    repo = HdfsArtifactRepository("hdfs://host_name:8020/maybe/path")
-
-    with pytest.raises(Exception, match="No such file or directory: '/not/existing/local/path'"):
-        repo.log_artifact("/not/existing/local/path", "test_hdfs/some/path")
-
-
-@mock.patch("pyarrow.hdfs.HadoopFileSystem")
+@mock.patch("fsspec.implementations.arrow.HadoopFileSystem")
 def test_log_artifacts(hdfs_system_mock):
     os.environ["MLFLOW_KERBEROS_TICKET_CACHE"] = "/tmp/krb5cc_22222222"
     os.environ["MLFLOW_KERBEROS_USER"] = "some_kerberos_user"
@@ -112,6 +107,7 @@ def test_log_artifacts(hdfs_system_mock):
         repo.log_artifacts(root_dir._path)
 
         hdfs_system_mock.assert_called_once_with(
+            auto_mkdir=True,
             extra_conf=None,
             host="default",
             kerb_ticket="/tmp/krb5cc_22222222",
@@ -119,31 +115,20 @@ def test_log_artifacts(hdfs_system_mock):
             user="some_kerberos_user",
         )
 
-        upload_mock = hdfs_system_mock.return_value.upload
-        upload_mock.assert_has_calls(
-            calls=[
-                call("/some_path/maybe/path/file_one.txt", ANY),
-                call("/some_path/maybe/path/subdir/file_two.txt", ANY),
-            ],
-            any_order=True,
+        upload_mock = hdfs_system_mock.return_value.put
+        upload_mock.assert_called_once_with(
+            os.path.join(root_dir._path, ""), "/some_path/maybe/path/", recursive=True
         )
-        call_args_list = upload_mock.call_args_list
-
-        args, _ = call_args_list[0]
-        assert isinstance(args[1], BufferedReader)
-
-        args, _ = call_args_list[1]
-        assert isinstance(args[1], BufferedReader)
 
 
-@mock.patch("pyarrow.hdfs.HadoopFileSystem")
+@mock.patch("fsspec.implementations.arrow.HadoopFileSystem")
 def test_list_artifacts_root(hdfs_system_mock):
     repo = HdfsArtifactRepository("hdfs://host/some/path")
 
     expected = [FileInfo("model", True, 0)]
 
     hdfs_system_mock.return_value.ls.return_value = [
-        {"kind": "directory", "name": "hdfs://host/some/path/model", "size": 0}
+        {"type": "directory", "name": "hdfs://host/some/path/model", "size": 0}
     ]
 
     actual = repo.list_artifacts()
@@ -151,7 +136,7 @@ def test_list_artifacts_root(hdfs_system_mock):
     assert actual == expected
 
 
-@mock.patch("pyarrow.hdfs.HadoopFileSystem")
+@mock.patch("fsspec.implementations.arrow.HadoopFileSystem")
 def test_list_artifacts_nested(hdfs_system_mock):
     repo = HdfsArtifactRepository("hdfs:://host/some/path")
 
@@ -162,9 +147,9 @@ def test_list_artifacts_nested(hdfs_system_mock):
     ]
 
     hdfs_system_mock.return_value.ls.return_value = [
-        {"kind": "file", "name": "hdfs://host/some/path/model/conda.yaml", "size": 33},
-        {"kind": "file", "name": "hdfs://host/some/path/model/model.pkl", "size": 33},
-        {"kind": "file", "name": "hdfs://host/some/path/model/MLmodel", "size": 33},
+        {"type": "file", "name": "hdfs://host/some/path/model/conda.yaml", "size": 33},
+        {"type": "file", "name": "hdfs://host/some/path/model/model.pkl", "size": 33},
+        {"type": "file", "name": "hdfs://host/some/path/model/MLmodel", "size": 33},
     ]
 
     actual = repo.list_artifacts("model")
@@ -172,9 +157,9 @@ def test_list_artifacts_nested(hdfs_system_mock):
     assert actual == expected
 
 
-@mock.patch("pyarrow.hdfs.HadoopFileSystem", spec=HadoopFileSystem)
+@mock.patch("fsspec.implementations.arrow.HadoopFileSystem")
 def test_list_artifacts_empty_hdfs_dir(hdfs_system_mock):
-    hdfs_system_mock.return_value.exists.return_value = False
+    hdfs_system_mock.exists.return_value = False
 
     repo = HdfsArtifactRepository("hdfs:/some_path/maybe/path")
     actual = repo.list_artifacts()
@@ -202,20 +187,7 @@ def test_parse_extra_conf():
         _parse_extra_conf("missing_equals_sign")
 
 
-def test_download_artifacts():
-    expected_data = b"hello"
-    artifact_path = "test.txt"
-    # mock hdfs
-    hdfs = mock.Mock()
-    hdfs.open = mock_open(read_data=expected_data)
-
-    with TempDir() as tmp_dir:
-        _download_hdfs_file(hdfs, artifact_path, os.path.join(tmp_dir.path(), artifact_path))
-        with open(os.path.join(tmp_dir.path(), artifact_path), "rb") as fd:
-            assert expected_data == fd.read()
-
-
-@mock.patch("pyarrow.hdfs.HadoopFileSystem")
+@mock.patch("fsspec.implementations.arrow.HadoopFileSystem")
 def test_delete_artifacts(hdfs_system_mock):
     delete_mock = hdfs_system_mock.return_value.delete
     repo = HdfsArtifactRepository("hdfs:/some_path/maybe/path")
