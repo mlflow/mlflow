@@ -80,7 +80,6 @@ class ArtifactRepository:
         """
         A context manager that sets the thread pools for the artifact repository. Parallelized
         file upload/download operations must be performed within the context manager.
-
         """
         if self.thread_pool is None or self.chunk_thread_pool is None:
             with self._create_thread_pool() as tp, self._create_thread_pool() as ctp:
@@ -89,6 +88,8 @@ class ArtifactRepository:
                 try:
                     yield
                 finally:
+                    # Detach dead thread pools and ensure new ones will be created in the next
+                    # context manager invocation
                     self.thread_pool = None
                     self.chunk_thread_pool = None
         else:
