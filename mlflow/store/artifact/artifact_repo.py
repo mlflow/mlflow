@@ -78,13 +78,20 @@ class ArtifactRepository:
     @contextmanager
     def _set_thread_pools(self):
         """
-        A context manager that sets the thread pools for the artifact repository. File upload and
-        download operation must be performed within this context manager to ensure that the
-        worker threads are properly cleaned up after the operation is complete.
+        A context manager that sets the thread pools for the artifact repository. Parallelized
+        file upload/download operations must be performed within the context manager.
+
         """
-        with self._create_thread_pool() as tp, self._create_thread_pool() as ctp:
-            self.thread_pool = tp
-            self.chunk_thread_pool = ctp
+        if self.thread_pool is None or self.chunk_thread_pool is None:
+            with self._create_thread_pool() as tp, self._create_thread_pool() as ctp:
+                self.thread_pool = tp
+                self.chunk_thread_pool = ctp
+                try:
+                    yield
+                finally:
+                    self.thread_pool = None
+                    self.chunk_thread_pool = None
+        else:
             yield
 
     def flush_async_logging(self):

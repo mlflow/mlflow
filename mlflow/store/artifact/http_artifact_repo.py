@@ -39,7 +39,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     def _host_creds(self):
         return get_default_host_creds(self.artifact_uri)
 
-    def log_artifact(self, local_file, artifact_path=None):
+    def _log_artifact(self, local_file, artifact_path=None):
         verify_artifact_path(artifact_path)
 
         # Try to perform multipart upload if the file is large.
@@ -65,7 +65,11 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             )
             augmented_raise_for_status(resp)
 
-    def log_artifacts(self, local_dir, artifact_path=None):
+    def log_artifact(self, local_file, artifact_path=None):
+        with self._set_thread_pools():
+            self._log_artifact(local_file, artifact_path)
+
+    def _log_artifacts(self, local_dir, artifact_path=None):
         local_dir = os.path.abspath(local_dir)
         for root, _, filenames in os.walk(local_dir):
             if root == local_dir:
@@ -77,7 +81,11 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                     posixpath.join(artifact_path, rel_path) if artifact_path else rel_path
                 )
             for f in filenames:
-                self.log_artifact(os.path.join(root, f), artifact_dir)
+                self._log_artifact(os.path.join(root, f), artifact_dir)
+
+    def log_artifacts(self, local_dir, artifact_path=None):
+        with self._set_thread_pools():
+            self._log_artifacts(local_dir, artifact_path)
 
     def list_artifacts(self, path=None):
         endpoint = "/mlflow-artifacts/artifacts"
@@ -195,7 +203,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         try:
             futures = {}
             for i, credential in enumerate(create.credentials):
-                future = self.thread_pool.submit(
+                future = self.chunk_thread_pool.submit(
                     self._upload_part,
                     credential=credential,
                     local_file=local_file,

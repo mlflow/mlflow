@@ -256,7 +256,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         )
         return res.credential_info
 
-    def upload_trace_data(self, trace_data: str) -> None:
+    def _upload_trace_data(self, trace_data: str) -> None:
         cred = self._get_upload_trace_data_cred_info()
         with write_local_temp_trace_data_file(trace_data) as temp_file:
             if cred.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
@@ -282,6 +282,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 or cred.type == ArtifactCredentialType.GCP_SIGNED_URL
             ):
                 self._signed_url_upload_file(cred, temp_file)
+
+    def upload_trace_data(self, trace_data: str) -> None:
+        with self._set_thread_pools():
+            self._upload_trace_data(trace_data)
 
     def _get_read_credential_infos(self, remote_file_paths):
         """
