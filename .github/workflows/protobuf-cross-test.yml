@@ -71,8 +71,7 @@ jobs:
           pip install torch transformers
           pip install -r requirements/test-requirements.txt
           # Test the latest minor version in protobuf_major_version
-          protobuf_incremented_version=$((${{ matrix.protobuf_major_version }} + 1))
-          pip install "protobuf<$protobuf_incremented_version"
+          pip install "protobuf==${{ matrix.protobuf_major_version }}.*"
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
