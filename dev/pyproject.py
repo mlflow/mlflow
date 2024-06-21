@@ -45,7 +45,7 @@ def build(package_type: PackageType) -> None:
     skinny_requirements = read_requirements(Path("requirements", "skinny-requirements.txt"))
     core_requirements = read_requirements(Path("requirements", "core-requirements.txt"))
     gateways_requirements = read_requirements(Path("requirements", "gateway-requirements.txt"))
-    version = re.search(
+    package_version = re.search(
         r'^VERSION = "([a-z0-9\.]+)"$',
         Path("mlflow", "version.py").read_text(),
         re.MULTILINE,
@@ -68,7 +68,7 @@ def build(package_type: PackageType) -> None:
     if package_type is PackageType.SKINNY:
         dependencies = sorted(skinny_requirements)
     elif package_type is PackageType.RELEASE:
-        dependencies = [f"mlflow-skinny=={version}"] + sorted(
+        dependencies = [f"mlflow-skinny=={package_version}"] + sorted(
             set(core_requirements) - set(skinny_requirements)
         )
     else:
@@ -77,14 +77,21 @@ def build(package_type: PackageType) -> None:
     if dep_duplicates := find_duplicates(dependencies):
         raise RuntimeError(f"Duplicated dependencies are found: {dep_duplicates}")
 
+    package_name = "mlflow-skinny" if package_type is PackageType.SKINNY else "mlflow"
+    extra_package_data = (
+        []
+        if package_type is PackageType.SKINNY
+        else ["models/container/**/*", "server/js/build/**/*"]
+    )
+
     data = {
         "build-system": {
             "requires": ["setuptools"],
             "build-backend": "setuptools.build_meta",
         },
         "project": {
-            "name": "mlflow-skinny" if package_type is PackageType.SKINNY else "mlflow",
-            "version": version,
+            "name": package_name,
+            "version": package_version,
             "maintainers": [
                 {
                     "name": "Databricks",
@@ -199,11 +206,7 @@ def build(package_type: PackageType) -> None:
                         "recipes/resources/**/*",
                         "recipes/cards/templates/**/*",
                     ]
-                    + (
-                        []
-                        if package_type is PackageType.SKINNY
-                        else ["models/container/**/*", "server/js/build/**/*"]
-                    )
+                    + extra_package_data
                 },
             }
         },
