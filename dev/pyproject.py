@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import argparse
 import re
 import shutil
 import subprocess
@@ -224,17 +223,6 @@ def build(package_type: PackageType) -> None:
 
     if taplo := shutil.which("taplo"):
         subprocess.run([taplo, "fmt", out_path], check=True)
-
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--release",
-        action="store_true",
-        help="If True, make mlflow depend on mlflow-skinny.",
-        required=False,
-    )
-    return parser.parse_args()
 
 
 def main() -> None:
