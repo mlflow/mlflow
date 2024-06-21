@@ -709,7 +709,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             self._abort_multipart_upload(create_mpu_resp.abort_credential_info)
             raise e
 
-    def log_artifact(self, local_file, artifact_path=None):
+    def _log_artifact(self, local_file, artifact_path=None):
         src_file_name = os.path.basename(local_file)
         artifact_file_path = posixpath.join(artifact_path or "", src_file_name)
         write_credential_info = self._get_write_credential_infos([artifact_file_path])[0]
@@ -718,6 +718,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             src_file_path=local_file,
             artifact_file_path=artifact_file_path,
         )
+
+    def log_artifact(self, local_file, artifact_path=None):
+        with self._set_thread_pools():
+            self._log_artifact(local_file, artifact_path)
 
     def list_artifacts(self, path=None):
         if path:
