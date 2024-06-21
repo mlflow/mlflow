@@ -7,8 +7,6 @@ from typing import NamedTuple, Optional
 from unittest import mock
 from unittest.mock import AsyncMock
 
-import requests
-
 import mlflow
 
 TEST_CONTENT = "test"
