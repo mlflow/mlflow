@@ -62,9 +62,9 @@ jobs:
         id: build-dist
         run: |
           if [ "${{ matrix.type }}" == "skinny" ]; then
-            ./dev/build.py --package-type skinny
+            python dev/build.py --package-type skinny
           else
-            ./dev/build.sh
+            python dev/build.sh
           fi
 
           # List distribution files and check their file sizes
