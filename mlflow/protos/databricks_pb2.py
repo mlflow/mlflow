@@ -182,19 +182,23 @@ DocumentationMetadata = _reflection.GeneratedProtocolMessageType('DocumentationM
 _sym_db.RegisterMessage(DocumentationMetadata)
 
 if _descriptor._USE_C_DESCRIPTORS == False:
-  google_dot_protobuf_dot_descriptor__pb2.FieldOptions.RegisterExtension(visibility)
-  google_dot_protobuf_dot_descriptor__pb2.FieldOptions.RegisterExtension(validate_required)
-  google_dot_protobuf_dot_descriptor__pb2.FieldOptions.RegisterExtension(json_inline)
-  google_dot_protobuf_dot_descriptor__pb2.FieldOptions.RegisterExtension(json_map)
-  google_dot_protobuf_dot_descriptor__pb2.FieldOptions.RegisterExtension(field_doc)
-  google_dot_protobuf_dot_descriptor__pb2.MethodOptions.RegisterExtension(rpc)
-  google_dot_protobuf_dot_descriptor__pb2.MethodOptions.RegisterExtension(method_doc)
-  google_dot_protobuf_dot_descriptor__pb2.MethodOptions.RegisterExtension(graphql)
-  google_dot_protobuf_dot_descriptor__pb2.MessageOptions.RegisterExtension(message_doc)
-  google_dot_protobuf_dot_descriptor__pb2.ServiceOptions.RegisterExtension(service_doc)
-  google_dot_protobuf_dot_descriptor__pb2.EnumOptions.RegisterExtension(enum_doc)
-  google_dot_protobuf_dot_descriptor__pb2.EnumValueOptions.RegisterExtension(enum_value_visibility)
-  google_dot_protobuf_dot_descriptor__pb2.EnumValueOptions.RegisterExtension(enum_value_doc)
+  # `RegisterExtension` was removed in v26: https://github.com/protocolbuffers/protobuf/pull/15270
+  # The following code is a workaround for this breaking change.
+  import google.protobuf
+  if int(google.protobuf.__version__.split(".", 1)[0]) < 5:
+    google_dot_protobuf_dot_descriptor__pb2.FieldOptions.RegisterExtension(visibility)
+    google_dot_protobuf_dot_descriptor__pb2.FieldOptions.RegisterExtension(validate_required)
+    google_dot_protobuf_dot_descriptor__pb2.FieldOptions.RegisterExtension(json_inline)
+    google_dot_protobuf_dot_descriptor__pb2.FieldOptions.RegisterExtension(json_map)
+    google_dot_protobuf_dot_descriptor__pb2.FieldOptions.RegisterExtension(field_doc)
+    google_dot_protobuf_dot_descriptor__pb2.MethodOptions.RegisterExtension(rpc)
+    google_dot_protobuf_dot_descriptor__pb2.MethodOptions.RegisterExtension(method_doc)
+    google_dot_protobuf_dot_descriptor__pb2.MethodOptions.RegisterExtension(graphql)
+    google_dot_protobuf_dot_descriptor__pb2.MessageOptions.RegisterExtension(message_doc)
+    google_dot_protobuf_dot_descriptor__pb2.ServiceOptions.RegisterExtension(service_doc)
+    google_dot_protobuf_dot_descriptor__pb2.EnumOptions.RegisterExtension(enum_doc)
+    google_dot_protobuf_dot_descriptor__pb2.EnumValueOptions.RegisterExtension(enum_value_visibility)
+    google_dot_protobuf_dot_descriptor__pb2.EnumValueOptions.RegisterExtension(enum_value_doc)
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n#com.databricks.api.proto.databricks\342?\002\020\001'

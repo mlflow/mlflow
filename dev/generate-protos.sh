@@ -70,4 +70,5 @@ rm "$PROTOS/databricks_managed_catalog_service_pb2.py.old"
 rm "$TEST_PROTOS/test_message_pb2.py.old"
 rm "$PROTOS/databricks_filesystem_service_pb2.py.old"
 
+python ./dev/protobuf_v26_workaround.py
 python ./dev/proto_to_graphql/code_generator.py
