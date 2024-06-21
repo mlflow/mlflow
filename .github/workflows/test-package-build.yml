@@ -62,7 +62,7 @@ jobs:
         id: build-dist
         run: |
           if [ "${{ matrix.type }}" == "skinny" ]; then
-            ./dev/build.sh --skinny
+            ./dev/build.py --package-type skinny
           else
             ./dev/build.sh
           fi
