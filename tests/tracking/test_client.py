@@ -481,7 +481,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run):
 
 
 def test_start_and_end_trace_capture_falsy_input_and_output(tracking_uri):
-    # This test is to verify that the trace is correctly logged when the input and output are falsy values
+    # This test is to verify that falsy input and output values are correctly logged
     client = MlflowClient(tracking_uri)
     experiment_id = client.create_experiment("test_experiment")
 
