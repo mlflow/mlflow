@@ -64,7 +64,7 @@ jobs:
           if [ "${{ matrix.type }}" == "skinny" ]; then
             python dev/build.py --package-type skinny
           else
-            python dev/build.sh
+            python dev/build.py
           fi
 
           # List distribution files and check their file sizes
