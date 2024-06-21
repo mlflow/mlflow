@@ -46,9 +46,7 @@ def build(package_type: PackageType) -> None:
     core_requirements = read_requirements(Path("requirements", "core-requirements.txt"))
     gateways_requirements = read_requirements(Path("requirements", "gateway-requirements.txt"))
     package_version = re.search(
-        r'^VERSION = "([a-z0-9\.]+)"$',
-        Path("mlflow", "version.py").read_text(),
-        re.MULTILINE,
+        r'^VERSION = "([a-z0-9\.]+)"$', Path("mlflow", "version.py").read_text(), re.MULTILINE
     ).group(1)
     python_version = Path("requirements", "python-version.txt").read_text().strip()
     versions_yaml = read_package_versions_yml()
