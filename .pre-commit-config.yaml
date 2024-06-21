@@ -75,6 +75,42 @@ repos:
         stages: [commit]
         require_serial: true
 
+      - id: generate-skinny-requirements
+        name: generate-skinny-requirements
+        entry: >
+          python dev/generate_requirements.py
+            --requirements-yaml-location requirements/skinny-requirements.yaml
+            --requirements-txt-output-location requirements/skinny-requirements.txt
+        files: "^requirements/skinny-requirements.yaml$"
+        language: system
+        stages: [commit]
+        require_serial: true
+        pass_filenames: false
+
+      - id: generate-core-requirements
+        name: generate-core-requirements
+        entry: >
+          python dev/generate_requirements.py
+            --requirements-yaml-location requirements/core-requirements.yaml
+            --requirements-txt-output-location requirements/core-requirements.txt
+        files: "^requirements/core-requirements.yaml$"
+        language: system
+        stages: [commit]
+        require_serial: true
+        pass_filenames: false
+
+      - id: generate-gateway-requirements
+        name: generate-gateway-requirements
+        entry: >
+          python dev/generate_requirements.py
+            --requirements-yaml-location requirements/gateway-requirements.yaml
+            --requirements-txt-output-location requirements/gateway-requirements.txt
+        files: "^requirements/gateway-requirements.yaml$"
+        language: system
+        stages: [commit]
+        require_serial: true
+        pass_filenames: false
+
       - id: pyproject
         name: pyproject
         entry: python dev/pyproject.py
