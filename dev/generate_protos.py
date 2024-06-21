@@ -2,9 +2,9 @@ import os
 import platform
 import subprocess
 import sys
-from pathlib import Path
-import textwrap
 import tempfile
+import textwrap
+from pathlib import Path
 
 cache_dir = ".cache/protobuf_cache"
 
