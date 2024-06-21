@@ -1,4 +1,5 @@
 import argparse
+import contextlib
 import shutil
 import subprocess
 import sys
@@ -6,7 +7,7 @@ from pathlib import Path
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Build MLflow package.")
     parser.add_argument(
         "--package-type",
         help="Package type to build. Default is 'dev'.",
@@ -14,6 +15,14 @@ def parse_args():
         default="dev",
     )
     return parser.parse_args()
+
+
+@contextlib.contextmanager
+def restore_changes():
+    try:
+        yield
+    finally:
+        subprocess.check_call(["git", "restore", ":^dev/build.py"])
 
 
 def main():
@@ -27,24 +36,19 @@ def main():
         else:
             shutil.rmtree(path)
 
-    try:
+    with restore_changes():
+        pyproject = Path("pyproject.toml")
         if args.package_type == "skinny":
-            with open("README_SKINNY.rst") as f1, open("README.rst") as f2:
-                readme = f1.read() + "\n" + f2.read()
+            readme = Path("README.rst")
+            readme_skinny = Path("README_SKINNY.rst")
+            readme.write_text(readme_skinny.read_text() + "\n" + readme.read_text())
 
-            with open("README.rst", "w") as f:
-                f.write(readme)
-
-            with open("pyproject.skinny.toml") as f1, open("pyproject.toml", "w") as f2:
-                f2.write(f1.read())
+            pyproject.write_text(Path("pyproject.skinny.toml").read_text())
 
         elif args.package_type == "release":
-            with open("pyproject.release.toml") as f1, open("pyproject.toml", "w") as f2:
-                f2.write(f1.read())
+            pyproject.write_text(Path("pyproject.release.toml").read_text())
 
         subprocess.check_call([sys.executable, "-m", "build"])
-    finally:
-        subprocess.check_call(["git", "restore", ":^dev/build.py"])
 
 
 if __name__ == "__main__":
