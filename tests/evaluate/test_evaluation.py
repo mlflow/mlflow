@@ -34,6 +34,7 @@ from sklearn.metrics import (
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.data.evaluation_dataset import EvaluationDataset, _gen_md5_for_arraylike_obj
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import Trace, TraceData
 from mlflow.exceptions import MlflowException
@@ -45,8 +46,6 @@ from mlflow.models.evaluation import (
 )
 from mlflow.models.evaluation.artifacts import ImageEvaluationArtifact
 from mlflow.models.evaluation.base import (
-    EvaluationDataset,
-    _gen_md5_for_arraylike_obj,
     _is_model_deployment_endpoint_uri,
     _start_run_or_reuse_active_run,
 )
@@ -2134,3 +2133,9 @@ def test_evaluate_on_model_endpoint_invalid_input_data(input_data, error_message
                 targets="ground_truth",
                 inference_params={"max_tokens": 10, "temperature": 0.5},
             )
+
+
+def test_import_evaluation_dataset():
+    # This test is to validate both imports work at the same time
+    from mlflow.models.evaluation import EvaluationDataset
+    from mlflow.models.evaluation.base import EvaluationDataset  # noqa: F401
