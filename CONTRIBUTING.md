@@ -654,7 +654,7 @@ below.
 
 ##### Building Protobuf Files
 
-To build protobuf files, simply run `generate-protos.sh`. The required
+To build protobuf files, simply run `python ./dev/generate_protos.py`. The required
 `protoc` version is `3.19.4`. You can find the URL of a
 system-appropriate installation of `protoc` at
 <https://github.com/protocolbuffers/protobuf/releases/tag/v3.19.4>, e.g.

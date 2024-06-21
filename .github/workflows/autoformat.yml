@@ -113,7 +113,7 @@ jobs:
           pip install .
       - if: steps.diff.outputs.protos == 'true'
         run: |
-          ./dev/generate-protos.sh
+          python ./dev/generate_protos.py
       # ************************************************************************
       # js
       # ************************************************************************
