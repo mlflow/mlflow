@@ -2133,3 +2133,8 @@ def test_evaluate_on_model_endpoint_invalid_input_data(input_data, error_message
                 targets="ground_truth",
                 inference_params={"max_tokens": 10, "temperature": 0.5},
             )
+
+def test_import_evaluation_dataset():
+    # This test is to validate both imports work at the same time
+    from mlflow.models.evaluation import EvaluationDataset
+    from mlflow.models.evaluation.base import EvaluationDataset  # noqa: F401
