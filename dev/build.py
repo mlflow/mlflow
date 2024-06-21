@@ -1,6 +1,8 @@
 import argparse
+import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 
 def parse_args():
@@ -16,6 +18,15 @@ def parse_args():
 
 def main():
     args = parse_args()
+
+    for path in map(Path, ["build", "dist", "mlflow.egg-info", "mlflow_skinny.egg-info"]):
+        if not path.exists():
+            continue
+        if path.is_file():
+            path.unlink()
+        else:
+            shutil.rmtree(path)
+
     try:
         if args.package_type == "skinny":
             with open("README_SKINNY.rst") as f1, open("README.rst") as f2:
@@ -33,7 +44,7 @@ def main():
 
         subprocess.check_call([sys.executable, "-m", "build"])
     finally:
-        subprocess.check_call(["git", "restore", "."])
+        subprocess.check_call(["git", "restore", ":^dev/build.py"])
 
 
 if __name__ == "__main__":
