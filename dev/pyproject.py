@@ -68,9 +68,7 @@ def build(package_type: PackageType) -> None:
     if package_type is PackageType.SKINNY:
         dependencies = sorted(skinny_requirements)
     elif package_type is PackageType.RELEASE:
-        dependencies = [f"mlflow-skinny=={package_version}"] + sorted(
-            set(core_requirements) - set(skinny_requirements)
-        )
+        dependencies = [f"mlflow-skinny=={package_version}"] + sorted(core_requirements)
     else:
         dependencies = sorted(core_requirements + skinny_requirements)
 
