@@ -70,9 +70,9 @@ jobs:
           # Install torch and transformers to test metrics
           pip install torch transformers
           pip install -r requirements/test-requirements.txt
-          # Test against specific protobuf versoin
+          # Test the latest minor version in protobuf_major_version
           protobuf_incremented_version=$((${{ matrix.protobuf_major_version }} + 1))
-          pip install "protobuf<${{ protobuf_incremented_version }}"
+          pip install "protobuf<${ protobuf_incremented_version }"
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |

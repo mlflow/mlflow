@@ -155,7 +155,6 @@ else:
 
 def main():
     os.makedirs(cache_dir, exist_ok=True)
-    # with tempfile.TemporaryDirectory() as temp_gencode_dir:
     with tempfile.TemporaryDirectory() as temp_gencode_dir:
         temp_gencode_path = Path(temp_gencode_dir)
         proto3194_out = temp_gencode_path / "3.19.4"
