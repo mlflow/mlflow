@@ -480,15 +480,13 @@ def _hash_array_of_dict_as_bytes(data):
 
 
 def _hash_ndarray_as_bytes(nd_array):
-    if not isinstance(nd_array, np.ndarray):
-        nd_array = np.array(nd_array)
+    nd_array = np.array(nd_array, copy=False)
+    flat_array = nd_array.ravel()
 
-    if _is_array_has_dict(nd_array):
-        return _hash_array_of_dict_as_bytes(nd_array)
+    hash_value = _hash_uint64_ndarray_as_bytes(pd.util.hash_array(flat_array))
+    hash_shape = _hash_uint64_ndarray_as_bytes(np.array(nd_array.shape, dtype=np.uint64))
 
-    return _hash_uint64_ndarray_as_bytes(
-        pd.util.hash_array(nd_array.flatten(order="C"))
-    ) + _hash_uint64_ndarray_as_bytes(np.array(nd_array.shape, dtype="uint64"))
+    return hash_value + hash_shape
 
 
 def _hash_data_as_bytes(data):

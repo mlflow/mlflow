@@ -3,6 +3,8 @@ import logging
 import sys
 from typing import Any, Dict, List, Optional
 
+import numpy as np
+
 from mlflow.exceptions import BAD_REQUEST, MlflowException
 from mlflow.models import EvaluationMetric, make_metric
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -83,7 +85,12 @@ def _get_error_fn(tmpl: str, use_probability: bool = False, positive_class: Opti
         The error function for the provided template.
     """
     if tmpl == "regression/v1":
-        return lambda predictions, targets: predictions - targets
+        return lambda pred, target: [
+            [p - t for p, t in zip(p_row, t_row)]
+            if isinstance(p_row, list) and isinstance(t_row, list)
+            else p_row - t_row
+            for p_row, t_row in zip(pred, target)
+        ]
     if tmpl == "classification/v1":
         if use_probability:
             # It computes error rate for binary classification since
@@ -236,3 +243,10 @@ def _get_primary_metric(configured_metric: str, ext_task: str):
         return configured_metric
     else:
         return DEFAULT_METRICS[ext_task]
+
+
+def _format_numbers(value):
+    if isinstance(value, np.ndarray):
+        return ", ".join([f"{v:.6g}" for v in value])
+    else:
+        return f"{value:.6g}"

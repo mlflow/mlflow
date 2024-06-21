@@ -112,8 +112,12 @@ def test_convert_to_proto():
           num_examples: 5
           features {
             name: "Symbol"
-            type: STRING
-            string_stats {
+            type: STRUCT
+            custom_stats {
+              name: "data type"
+              str: "object"
+            }
+            struct_stats {
               common_stats {
                 num_non_missing: 5
                 num_missing: 0
@@ -121,40 +125,6 @@ def test_convert_to_proto():
                 max_num_values: 1
                 avg_num_values: 1.0
               }
-              unique: 3
-              top_values {
-                value: "MSFT"
-                frequency: 2.0
-              }
-              top_values {
-                value: "AAPL"
-                frequency: 2.0
-              }
-              avg_length: 4.0
-              rank_histogram {
-                buckets {
-                  low_rank: 0
-                  high_rank: 0
-                  label: "MSFT"
-                  sample_count: 2.0
-                }
-                buckets {
-                  low_rank: 1
-                  high_rank: 1
-                  label: "AAPL"
-                  sample_count: 2.0
-                }
-                buckets {
-                  low_rank: 2
-                  high_rank: 2
-                  label: "NFLX"
-                  sample_count: 1.0
-                }
-              }
-            }
-            custom_stats {
-              name: "data type"
-              str: "object"
             }
           }
           features {
@@ -296,7 +266,7 @@ def test_convert_to_proto():
                 value: "False"
                 frequency: 2.0
               }
-              avg_length: 0
+              avg_length: 0.0
               rank_histogram {
                 buckets {
                   low_rank: 0
@@ -316,11 +286,15 @@ def test_convert_to_proto():
               name: "data type"
               str: "bool"
             }
-          },
+          }
           features {
             name: "All_Null"
-            type: STRING
-            string_stats {
+            type: STRUCT
+            custom_stats {
+              name: "data type"
+              str: "object"
+            }
+            struct_stats {
               common_stats {
                 num_non_missing: 0
                 num_missing: 5
@@ -328,18 +302,11 @@ def test_convert_to_proto():
                 max_num_values: 1
                 avg_num_values: 1.0
               }
-              unique: 0
-              avg_length: 0.0
-            }
-            custom_stats {
-              name: "data type"
-              str: "object"
             }
           }
         }
         """,
         facet_feature_statistics_pb2.DatasetFeatureStatisticsList(),
     )
-
     converted_proto = pandas_renderer.convert_to_proto(df)
     assert converted_proto == expected_proto

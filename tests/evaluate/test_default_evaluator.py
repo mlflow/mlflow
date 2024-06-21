@@ -917,6 +917,47 @@ def test_get_regressor_metrics(use_sample_weights):
     assert_dict_equal(metrics, expected_metrics, rtol=1e-3)
 
 
+@pytest.mark.parametrize("use_sample_weights", [True, False])
+def test_get_regressor_metrics_2d(use_sample_weights):
+    from sklearn import metrics as sk_metrics
+
+    y = [[1.1, 2.1], [-3.5, 4.5]]
+    y_pred = [[1.5, 2.0], [-3.0, 4.0]]
+    sample_weights = [[1, 2], [3, 4]] if use_sample_weights else None
+
+    metrics = _get_regressor_metrics(y, y_pred, sample_weights)
+
+    y_flat = np.array(y).flatten()
+    y_pred_flat = np.array(y_pred).flatten()
+    sample_weights_flat = np.array(sample_weights).flatten() if sample_weights is not None else None
+
+    expected_metrics = {
+        "example_count": len(y_flat),
+        "mean_absolute_error": sk_metrics.mean_absolute_error(
+            y_flat, y_pred_flat, sample_weight=sample_weights_flat
+        ),
+        "mean_squared_error": sk_metrics.mean_squared_error(
+            y_flat, y_pred_flat, sample_weight=sample_weights_flat
+        ),
+        "root_mean_squared_error": sk_metrics.mean_squared_error(
+            y_flat, y_pred_flat, sample_weight=sample_weights_flat, squared=False
+        ),
+        "sum_on_target": (y_flat * sample_weights_flat).sum()
+        if sample_weights is not None
+        else sum(y_flat),
+        "mean_on_target": (
+            (y_flat * sample_weights_flat).sum() if sample_weights is not None else sum(y_flat)
+        )
+        / len(y_flat),
+        "r2_score": sk_metrics.r2_score(y_flat, y_pred_flat, sample_weight=sample_weights_flat),
+        "max_error": sk_metrics.max_error(y_flat, y_pred_flat),
+        "mean_absolute_percentage_error": sk_metrics.mean_absolute_percentage_error(
+            y_flat, y_pred_flat, sample_weight=sample_weights_flat
+        ),
+    }
+    assert_dict_equal(metrics, expected_metrics, rtol=1e-3)
+
+
 def test_get_binary_sum_up_label_pred_prob():
     y = [0, 1, 2]
     y_pred = [0, 2, 1]

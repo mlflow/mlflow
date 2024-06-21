@@ -32,6 +32,8 @@ def get_facet_type_from_numpy_type(dtype):
         or np.issubdtype(dtype, np.timedelta64)
     ):
         return fs_proto.INT
+    elif dtype == object:
+        return fs_proto.STRUCT
     else:
         return fs_proto.STRING
 
@@ -78,13 +80,21 @@ def compute_common_stats(column) -> facet_feature_statistics_pb2.CommonStatistic
     """
     common_stats = facet_feature_statistics_pb2.CommonStatistics()
     common_stats.num_missing = column.isnull().sum()
-    common_stats.num_non_missing = len(column) - common_stats.num_missing
-    # TODO: Add support to multi dimensional columns similar to
-    # https://github.com/PAIR-code/facets/blob/4742b8b93c2dacf22fc8ace2cee42dd06382c48e/facets_overview/facets_overview/base_generic_feature_statistics_generator.py#L106-L117
-    common_stats.min_num_values = 1
-    common_stats.max_num_values = 1
-    common_stats.avg_num_values = 1.0
+    num_non_missing = len(column) - common_stats.num_missing
 
+    if column.apply(lambda x: isinstance(x, (list, np.ndarray))).any():
+        row_counts = column.dropna().apply(
+            lambda x: len(x) if isinstance(x, (list, np.ndarray)) else 1
+        )
+        common_stats.min_num_values = row_counts.min()
+        common_stats.max_num_values = row_counts.max()
+        common_stats.avg_num_values = row_counts.mean() if num_non_missing > 0 else 0
+    else:
+        common_stats.min_num_values = 1
+        common_stats.max_num_values = 1
+        common_stats.avg_num_values = 1.0
+
+    common_stats.num_non_missing = num_non_missing
     return common_stats
 
 
@@ -195,7 +205,13 @@ def convert_to_dataset_feature_statistics(
                     feat_stats.top_values.add(value=bucket.label, frequency=bucket.sample_count)
 
             feat_stats.common_stats.CopyFrom(compute_common_stats(current_column_value))
+        elif feat.type == fs_proto.STRUCT:
+            struct_stats = facet_feature_statistics_pb2.StructStatistics()
+            # TODO: Add more statistics
+            common_stats = compute_common_stats(current_column_value)
+            struct_stats.common_stats.CopyFrom(common_stats)
 
+            feat.struct_stats.CopyFrom(struct_stats)
     return feature_stats
 
 

@@ -8,6 +8,8 @@ import sys
 import warnings
 
 import cloudpickle
+import numpy as np
+import pandas as pd
 import yaml
 
 import mlflow
@@ -25,6 +27,7 @@ from mlflow.recipes.cards import BaseCard
 from mlflow.recipes.step import BaseStep, StepClass
 from mlflow.recipes.utils.execution import get_step_output_path
 from mlflow.recipes.utils.metrics import (
+    _format_numbers,
     _get_builtin_metrics,
     _get_custom_metrics,
     _get_error_fn,
@@ -325,8 +328,15 @@ class TrainStep(BaseStep):
                             f"skipping rebalancing."
                         )
 
-            X_train, y_train = train_df.drop(columns=[self.target_col]), train_df[self.target_col]
+            X_train = train_df.drop(columns=[self.target_col])
 
+            if train_df[self.target_col].map(type).eq(np.ndarray).all():
+                unique_shapes = train_df[self.target_col].map(np.shape).unique()
+                if len(unique_shapes) > 1:
+                    raise ValueError("All arrays must have the same dimension")
+                y_train = np.vstack(train_df[self.target_col].values)
+            else:
+                y_train = train_df[self.target_col]
             transformed_validation_data_path = get_step_output_path(
                 recipe_root_path=self.recipe_root,
                 step_name="transform",
@@ -530,8 +540,8 @@ class TrainStep(BaseStep):
             )
             pred_and_error_df = pd.DataFrame(
                 {
-                    "target": target_data,
-                    "prediction": prediction_result,
+                    "target": target_data.tolist(),
+                    "prediction": prediction_result.tolist(),
                     "error": error_fn(prediction_result_for_error, target_data.to_numpy()),
                 }
             )
@@ -574,7 +584,9 @@ class TrainStep(BaseStep):
                     worst_examples_df = pd.DataFrame()
 
             else:
-                predicted_training_data = raw_train_df.assign(predicted_data=train_predictions)
+                predicted_training_data = raw_train_df.assign(
+                    predicted_data=train_predictions.tolist()
+                )
                 worst_examples_df = BaseStep._generate_worst_examples_dataframe(
                     raw_train_df,
                     train_predictions,
@@ -855,9 +867,9 @@ class TrainStep(BaseStep):
                 return pd.Series("", row.index)
 
         metric_table_html = BaseCard.render_table(
-            metric_df.style.format({"training": "{:.6g}", "validation": "{:.6g}"}).apply(
-                row_style, axis=1
-            )
+            metric_df.style.format(
+                {"training": _format_numbers, "validation": _format_numbers}
+            ).apply(row_style, axis=1)
         )
 
         # Tab 1: Model performance.
@@ -1130,8 +1142,22 @@ class TrainStep(BaseStep):
                     y_train = y_train.value
                     validation_df = validation_df.value
 
-                X_train_sampled = X_train.sample(frac=sample_fraction, random_state=42)
-                y_train_sampled = y_train.sample(frac=sample_fraction, random_state=42)
+                def sample_data(data, sample_fraction, random_state=42):
+                    if isinstance(data, (pd.DataFrame, pd.Series)):
+                        return data.sample(frac=sample_fraction, random_state=random_state)
+
+                    elif isinstance(data, np.ndarray):
+                        sample_size = int(len(data) * sample_fraction)
+                        np.random.seed(random_state)
+                        random_indices = np.random.choice(
+                            len(data), size=sample_size, replace=False
+                        )
+                        return data[random_indices]
+                    else:
+                        raise TypeError("data must be pandas DataFrame/Series or numpy ndarray")
+
+                X_train_sampled = sample_data(X_train, sample_fraction=sample_fraction)
+                y_train_sampled = sample_data(y_train, sample_fraction=sample_fraction)
 
                 fitted_estimator, _ = self._fitted_estimator(
                     estimator, X_train_sampled, y_train_sampled
