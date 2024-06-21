@@ -93,10 +93,7 @@ def build(package_type: PackageType) -> None:
             "name": package_name,
             "version": package_version,
             "maintainers": [
-                {
-                    "name": "Databricks",
-                    "email": "mlflow-oss-maintainers@googlegroups.com ",
-                }
+                {"name": "Databricks", "email": "mlflow-oss-maintainers@googlegroups.com "}
             ],
             "description": (
                 "MLflow is an open source platform for the complete machine learning lifecycle"
