@@ -1,0 +1,81 @@
+name: protobuf cross tests
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths:
+      - "mlflow/protos/**"
+  push:
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
+    paths:
+      - "mlflow/protos/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Use `bash --noprofile --norc -exo pipefail` by default for all `run` steps in this workflow:
+# https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#defaultsrun
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+env:
+  MLFLOW_HOME: /home/runner/work/mlflow/mlflow
+  # Note miniconda is pre-installed in the virtual environments for GitHub Actions:
+  # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
+  MLFLOW_CONDA_HOME: /usr/share/miniconda
+  SPARK_LOCAL_IP: localhost
+  PYTHONUTF8: "1"
+
+jobs:
+  core_tests:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2]
+        protobuf_major_version: [3, 4, 5]
+        include:
+          - splits: 2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/free-disk-space
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dependencies
+        run: |
+          pip install --no-dependencies tests/resources/mlflow-test-plugin
+          pip install .[extras]
+          pip install pyspark
+          # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
+          pip install datasets
+          # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
+          pip install tensorflow
+          # Install torch and transformers to test metrics
+          pip install torch transformers
+          pip install -r requirements/test-requirements.txt
+          # Test the latest minor version in protobuf_major_version
+          protobuf_incremented_version=$((${{ matrix.protobuf_major_version }} + 1))
+          pip install "protobuf<$protobuf_incremented_version"
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        run: |
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate --ignore tests/deployments/server \
+            tests
