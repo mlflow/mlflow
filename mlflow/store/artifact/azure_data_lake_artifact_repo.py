@@ -108,7 +108,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         self._parse_credentials(new_creds["credential"])
         return self.fs_client
 
-    def log_artifact(self, local_file, artifact_path=None):
+    def _log_artifact(self, local_file, artifact_path=None):
         dest_path = self.base_data_lake_directory
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
@@ -127,6 +127,10 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         _retry_with_new_creds(
             try_func=try_func, creds_func=self._refresh_credentials, og_creds=self.fs_client
         )
+
+    def log_artifact(self, local_file, artifact_path=None):
+        with self._set_thread_pools():
+            return self._log_artifact(local_file, artifact_path)
 
     def list_artifacts(self, path=None):
         directory_to_list = self.base_data_lake_directory

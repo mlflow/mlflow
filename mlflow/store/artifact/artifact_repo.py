@@ -50,10 +50,12 @@ class ArtifactRepository:
 
     def __init__(self, artifact_uri):
         self.artifact_uri = artifact_uri
-        # Limit the number of threads used for artifact uploads/downloads. Use at most
-        # constants._NUM_MAX_THREADS threads or 2 * the number of CPU cores available on the
-        # system (whichever is smaller)
-        self.thread_pool = self._create_thread_pool()
+        self.thread_pool = None
+        # An isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
+        # caused by waiting for a chunk-upload/download task within a file-upload/download task.
+        # See https://superfastpython.com/threadpoolexecutor-deadlock/#Deadlock_1_Submit_and_Wait_for_a_Task_Within_a_Task
+        # for more details
+        self.chunk_thread_pool = None
 
         def log_artifact_handler(filename, artifact_path=None, artifact=None):
             with tempfile.TemporaryDirectory() as tmp_dir:
@@ -72,6 +74,18 @@ class ArtifactRepository:
         return ThreadPoolExecutor(
             max_workers=self.max_workers, thread_name_prefix=f"Mlflow{self.__class__.__name__}"
         )
+
+    @contextmanager
+    def _set_thread_pools(self):
+        """
+        A context manager that sets the thread pools for the artifact repository. File upload and
+        download operation must be performed within this context manager to ensure that the
+        worker threads are properly cleaned up after the operation is complete.
+        """
+        with self._create_thread_pool() as tp, self._create_thread_pool() as ctp:
+            self.thread_pool = tp
+            self.chunk_thread_pool = ctp
+            yield
 
     def flush_async_logging(self):
         """
@@ -197,23 +211,7 @@ class ArtifactRepository:
             else:
                 yield file_info
 
-    def download_artifacts(self, artifact_path, dst_path=None):
-        """
-        Download an artifact file or directory to a local directory if applicable, and return a
-        local path for it.
-        The caller is responsible for managing the lifecycle of the downloaded artifacts.
-
-        Args:
-            artifact_path: Relative source path to the desired artifacts.
-            dst_path: Absolute path of the local filesystem destination directory to which to
-                download the specified artifacts. This directory must already exist.
-                If unspecified, the artifacts will either be downloaded to a new
-                uniquely-named directory on the local filesystem or will be returned
-                directly in the case of the LocalArtifactRepository.
-
-        Returns:
-            Absolute path of the local filesystem location containing the desired artifacts.
-        """
+    def _download_artifacts(self, artifact_path, dst_path=None):
         if dst_path:
             dst_path = os.path.abspath(dst_path)
             if not os.path.exists(dst_path):
@@ -289,6 +287,26 @@ class ArtifactRepository:
             )
 
         return os.path.join(dst_path, artifact_path)
+
+    def download_artifacts(self, artifact_path, dst_path=None):
+        """
+        Download an artifact file or directory to a local directory if applicable, and return a
+        local path for it.
+        The caller is responsible for managing the lifecycle of the downloaded artifacts.
+
+        Args:
+            artifact_path: Relative source path to the desired artifacts.
+            dst_path: Absolute path of the local filesystem destination directory to which to
+                download the specified artifacts. This directory must already exist.
+                If unspecified, the artifacts will either be downloaded to a new
+                uniquely-named directory on the local filesystem or will be returned
+                directly in the case of the LocalArtifactRepository.
+
+        Returns:
+            Absolute path of the local filesystem location containing the desired artifacts.
+        """
+        with self._set_thread_pools():
+            return self._download_artifacts(artifact_path, dst_path)
 
     @abstractmethod
     def _download_file(self, remote_file_path, local_path):

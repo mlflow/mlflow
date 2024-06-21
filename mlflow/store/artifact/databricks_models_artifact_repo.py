@@ -68,11 +68,6 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
         warn_on_deprecated_cross_workspace_registry_uri(self.databricks_profile_uri)
         client = MlflowClient(registry_uri=self.databricks_profile_uri)
         self.model_name, self.model_version = get_model_name_and_version(client, artifact_uri)
-        # Use an isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
-        # caused by waiting for a chunk-upload/download task within a file-upload/download task.
-        # See https://superfastpython.com/threadpoolexecutor-deadlock/#Deadlock_1_Submit_and_Wait_for_a_Task_Within_a_Task
-        # for more details
-        self.chunk_thread_pool = self._create_thread_pool()
 
     def _call_endpoint(self, json, endpoint):
         db_creds = get_databricks_host_creds(self.databricks_profile_uri)
