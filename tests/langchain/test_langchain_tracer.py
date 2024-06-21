@@ -1,6 +1,7 @@
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, List, Optional
+from unittest.mock import MagicMock
 
 import langchain
 import pytest
@@ -19,6 +20,7 @@ from langchain_core.outputs import LLMResult
 from langchain_core.tools import tool
 from packaging.version import Version
 
+import mlflow
 from mlflow.entities import Trace
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
@@ -28,14 +30,14 @@ from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.pyfunc.context import Context
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.export.inference_table import pop_trace
+from mlflow.tracing.provider import trace_disabled
 from mlflow.utils.openai_utils import (
     TEST_CONTENT,
     _mock_chat_completion_response,
     _mock_request,
 )
 
-from tests.tracing.conftest import clear_singleton  # noqa: F401
-from tests.tracing.helper import get_first_trace, get_traces
+from tests.tracing.helper import get_traces
 
 TEST_CONTENT = "test"
 
@@ -111,7 +113,7 @@ def _validate_trace_json_serialization(trace):
                 )
 
 
-def test_llm_success(clear_singleton):
+def test_llm_success():
     callback = MlflowLangchainTracer()
     run_id = str(uuid.uuid4())
     callback.on_llm_start(
@@ -124,7 +126,7 @@ def test_llm_success(clear_singleton):
     callback.on_llm_new_token("test", run_id=run_id)
 
     callback.on_llm_end(LLMResult(generations=[[{"text": "generated text"}]]), run_id=run_id)
-    trace = get_first_trace()
+    trace = mlflow.get_last_active_trace()
     assert len(trace.data.spans) == 1
     llm_span = trace.data.spans[0]
 
@@ -144,7 +146,7 @@ def test_llm_success(clear_singleton):
     _validate_trace_json_serialization(trace)
 
 
-def test_llm_error(clear_singleton):
+def test_llm_error():
     callback = MlflowLangchainTracer()
     run_id = str(uuid.uuid4())
     callback.on_llm_start(
@@ -156,7 +158,7 @@ def test_llm_error(clear_singleton):
     mock_error = Exception("mock exception")
     callback.on_llm_error(error=mock_error, run_id=run_id)
 
-    trace = get_first_trace()
+    trace = mlflow.get_last_active_trace()
     error_event = SpanEvent.from_exception(mock_error)
     assert len(trace.data.spans) == 1
     llm_span = trace.data.spans[0]
@@ -171,7 +173,7 @@ def test_llm_error(clear_singleton):
     _validate_trace_json_serialization(trace)
 
 
-def test_llm_internal_exception(clear_singleton):
+def test_llm_internal_exception():
     callback = MlflowLangchainTracer()
     run_id = str(uuid.uuid4())
     callback.on_llm_start(
@@ -188,7 +190,7 @@ def test_llm_internal_exception(clear_singleton):
         callback.on_llm_end(LLMResult(generations=[[{"text": "generated text"}]]), run_id=run_id)
 
 
-def test_retriever_success(clear_singleton):
+def test_retriever_success():
     callback = MlflowLangchainTracer()
     run_id = str(uuid.uuid4())
     callback.on_retriever_start(
@@ -209,7 +211,7 @@ def test_retriever_success(clear_singleton):
         ),
     ]
     callback.on_retriever_end(documents, run_id=run_id)
-    trace = get_first_trace()
+    trace = mlflow.get_last_active_trace()
     assert len(trace.data.spans) == 1
     retriever_span = trace.data.spans[0]
 
@@ -224,7 +226,7 @@ def test_retriever_success(clear_singleton):
     _validate_trace_json_serialization(trace)
 
 
-def test_retriever_error(clear_singleton):
+def test_retriever_error():
     callback = MlflowLangchainTracer()
     run_id = str(uuid.uuid4())
     callback.on_retriever_start(
@@ -235,7 +237,7 @@ def test_retriever_error(clear_singleton):
     )
     mock_error = Exception("mock exception")
     callback.on_retriever_error(error=mock_error, run_id=run_id)
-    trace = get_first_trace()
+    trace = mlflow.get_last_active_trace()
     assert len(trace.data.spans) == 1
     retriever_span = trace.data.spans[0]
     assert retriever_span.attributes[SpanAttributeKey.INPUTS] == "test query"
@@ -248,7 +250,7 @@ def test_retriever_error(clear_singleton):
     _validate_trace_json_serialization(trace)
 
 
-def test_retriever_internal_exception(clear_singleton):
+def test_retriever_internal_exception():
     callback = MlflowLangchainTracer()
     run_id = str(uuid.uuid4())
     callback.on_retriever_start(
@@ -273,7 +275,7 @@ def test_retriever_internal_exception(clear_singleton):
         )
 
 
-def test_multiple_components(clear_singleton):
+def test_multiple_components():
     callback = MlflowLangchainTracer()
     chain_run_id = str(uuid.uuid4())
     callback.on_chain_start(
@@ -319,7 +321,7 @@ def test_multiple_components(clear_singleton):
         outputs={"output": "test output"},
         run_id=chain_run_id,
     )
-    trace = get_first_trace()
+    trace = mlflow.get_last_active_trace()
     assert len(trace.data.spans) == 5
     chain_span = trace.data.spans[0]
     assert chain_span.start_time_ns is not None
@@ -364,9 +366,7 @@ def _predict_with_callbacks(lc_model, request_id, data):
     return response, trace_dict
 
 
-def test_e2e_rag_model_tracing_in_serving(clear_singleton, monkeypatch):
-    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
-
+def test_e2e_rag_model_tracing_in_serving(mock_databricks_serving_with_tracing_env):
     llm_chain = create_openai_llmchain()
 
     request_id = "test_request_id"
@@ -376,7 +376,7 @@ def test_e2e_rag_model_tracing_in_serving(clear_singleton, monkeypatch):
     assert response == [{"text": TEST_CONTENT}]
     trace = Trace.from_dict(trace_dict)
     assert trace.info.request_id == request_id
-    assert trace.info.tags[TRACE_SCHEMA_VERSION_KEY] == "2"
+    assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "2"
     spans = trace.data.spans
     assert len(spans) == 2
 
@@ -405,9 +405,7 @@ def test_e2e_rag_model_tracing_in_serving(clear_singleton, monkeypatch):
     _validate_trace_json_serialization(trace)
 
 
-def test_agent_success(clear_singleton, monkeypatch):
-    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
-
+def test_agent_success(mock_databricks_serving_with_tracing_env):
     agent = create_openai_llmagent()
     langchain_input = {"input": "What is 123 raised to the .023 power?"}
     expected_output = {"output": TEST_CONTENT}
@@ -456,8 +454,7 @@ def test_agent_success(clear_singleton, monkeypatch):
     _validate_trace_json_serialization(trace)
 
 
-def test_tool_success(clear_singleton, monkeypatch):
-    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+def test_tool_success(mock_databricks_serving_with_tracing_env):
     prompt = SystemMessagePromptTemplate.from_template("You are a nice assistant.") + "{question}"
     llm = OpenAI(temperature=0.9)
 
@@ -503,7 +500,7 @@ def test_tool_success(clear_singleton, monkeypatch):
     _validate_trace_json_serialization(trace)
 
 
-def test_tracer_thread_safe(clear_singleton):
+def test_tracer_thread_safe():
     tracer = MlflowLangchainTracer()
 
     def worker_function(worker_id):
@@ -527,7 +524,7 @@ def test_tracer_thread_safe(clear_singleton):
     Version(langchain.__version__) < Version("0.1.0"),
     reason="ChatPromptTemplate expecting dict input",
 )
-def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished(clear_singleton):
+def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished():
     from langchain.callbacks.manager import CallbackManagerForLLMRun
     from langchain.chat_models.base import SimpleChatModel
     from langchain.schema.messages import BaseMessage
@@ -570,3 +567,26 @@ def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished(clear_si
         # After the chain is invoked, verify that the tracer no longer holds references to spans,
         # ensuring that the tracer does not add spans to the trace after the root run has finished
         tracer.on_chain_end({"output": "test output"}, run_id=run_id_for_on_chain_end, inputs=None)
+
+
+def test_tracer_noop_when_tracing_disabled(monkeypatch):
+    llm_chain = create_openai_llmchain()
+    model = _LangChainModelWrapper(llm_chain)
+
+    @trace_disabled
+    def _predict():
+        with _mock_request(return_value=_mock_chat_completion_response()):
+            return model._predict_with_callbacks(
+                ["MLflow"],
+                callback_handlers=[MlflowLangchainTracer()],
+                convert_chat_responses=True,
+            )
+
+    mock_logger = MagicMock()
+    monkeypatch.setattr(mlflow.tracking.client, "_logger", mock_logger)
+
+    response = _predict()
+    assert response == [{"text": TEST_CONTENT}]
+    assert get_traces() == []
+    # No warning should be issued
+    mock_logger.warning.assert_not_called()

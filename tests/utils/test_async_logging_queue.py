@@ -4,6 +4,7 @@ import random
 import threading
 import time
 import uuid
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -11,7 +12,7 @@ from mlflow import MlflowException
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
-from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
+from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue, QueueStatus
 
 METRIC_PER_BATCH = 250
 TAGS_PER_BATCH = 1
@@ -42,7 +43,39 @@ class RunData:
         self.received_tags.extend(tags or [])
 
 
-def test_single_thread_publish_consume_queue():
+def test_single_thread_publish_consume_queue(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS", "3")
+
+    with patch.object(
+        AsyncLoggingQueue, "_batch_logging_worker_threadpool", create=True
+    ) as mock_worker_threadpool, patch.object(
+        AsyncLoggingQueue, "_batch_status_check_threadpool", create=True
+    ) as mock_check_threadpool:
+        mock_worker_threadpool.submit = MagicMock()
+        mock_check_threadpool.submit = MagicMock()
+        mock_worker_threadpool.shutdown = MagicMock()
+        mock_check_threadpool.shutdown = MagicMock()
+
+        run_id = "test_run_id"
+        run_data = RunData()
+        async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
+        async_logging_queue.activate()
+        async_logging_queue._batch_logging_worker_threadpool = mock_worker_threadpool
+        async_logging_queue._batch_status_check_threadpool = mock_check_threadpool
+
+        for params, tags, metrics in _get_run_data():
+            async_logging_queue.log_batch_async(
+                run_id=run_id, metrics=metrics, tags=tags, params=params
+            )
+        async_logging_queue.flush()
+        # 2 batches are sent to the worker thread pool due to grouping, otherwise it would be 5.
+        assert mock_worker_threadpool.submit.call_count == 2
+        assert async_logging_queue.is_idle()
+        assert mock_check_threadpool.shutdown.call_count == 1
+        assert mock_worker_threadpool.shutdown.call_count == 1
+
+
+def test_grouping_batch_in_time_window():
     run_id = "test_run_id"
     run_data = RunData()
     async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
@@ -75,8 +108,7 @@ def test_queue_activation():
     run_id = "test_run_id"
     run_data = RunData()
     async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
-
-    assert not async_logging_queue._is_activated
+    assert async_logging_queue.is_idle()
 
     metrics = [
         Metric(
@@ -91,7 +123,33 @@ def test_queue_activation():
         async_logging_queue.log_batch_async(run_id=run_id, metrics=metrics, tags=[], params=[])
 
     async_logging_queue.activate()
-    assert async_logging_queue._is_activated
+    assert async_logging_queue.is_active()
+
+
+def test_end_async_logging():
+    run_id = "test_run_id"
+    run_data = RunData()
+    async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
+    async_logging_queue.activate()
+
+    metrics = [
+        Metric(
+            key=f"batch metrics async-{val}",
+            value=val,
+            timestamp=val,
+            step=0,
+        )
+        for val in range(METRIC_PER_BATCH)
+    ]
+    async_logging_queue.log_batch_async(run_id=run_id, metrics=metrics, tags=[], params=[])
+    async_logging_queue.end_async_logging()
+    assert async_logging_queue._status == QueueStatus.TEAR_DOWN
+    # end_async_logging should not shutdown the threadpool
+    assert not async_logging_queue._batch_logging_worker_threadpool._shutdown
+    assert not async_logging_queue._batch_status_check_threadpool._shutdown
+
+    async_logging_queue.flush()
+    assert async_logging_queue.is_idle()
 
 
 def test_partial_logging_failed():
@@ -210,7 +268,7 @@ def test_async_logging_queue_pickle():
     deserialized_queue = pickle.loads(buffer.getvalue())  # Type: AsyncLoggingQueue
     assert deserialized_queue._queue.empty()
     assert deserialized_queue._lock is not None
-    assert deserialized_queue._is_activated is False
+    assert deserialized_queue._status is QueueStatus.IDLE
 
     for run_operation in run_operations:
         run_operation.wait()
@@ -219,7 +277,7 @@ def test_async_logging_queue_pickle():
 
     # try to log using deserialized queue after activating it.
     deserialized_queue.activate()
-    assert deserialized_queue._is_activated
+    assert deserialized_queue.is_active()
 
     run_operations = []
 

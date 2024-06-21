@@ -141,6 +141,8 @@ def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
     """
     name = uuid.uuid4().hex
     cmd = [
+        sys.executable,
+        "-m",
         "mlflow",
         "models",
         "build-docker",
@@ -148,14 +150,20 @@ def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
         "-n",
         name,
     ]
-    mlflow_home = os.environ.get("MLFLOW_HOME")
-    if mlflow_home:
+    if mlflow_home := os.environ.get("MLFLOW_HOME"):
         cmd += ["--mlflow-home", mlflow_home]
     if extra_args:
         cmd += extra_args
-    p = subprocess.Popen(cmd, env=env)
-    assert p.wait() == 0, f"Failed to build docker image to serve model from {model_uri}"
-    return name
+
+    # Docker image build occasionally fails on GitHub Actions while running `apt-get` due to
+    # transient network issues. Retry the build a few times as a workaround.
+    for _ in range(3):
+        p = subprocess.Popen(cmd, env=env)
+        if p.wait() == 0:
+            return name
+        time.sleep(5)
+
+    raise RuntimeError(f"Failed to build docker image to serve model from {model_uri}")
 
 
 def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):

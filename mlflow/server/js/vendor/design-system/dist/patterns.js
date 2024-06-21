@@ -3,10 +3,10 @@ import { useMemo, useState, useCallback } from 'react';
 import { css, createElement } from '@emotion/react';
 import _pick from 'lodash/pick';
 import { jsxs, Fragment, jsx } from '@emotion/react/jsx-runtime';
-import { S as Stepper } from './Stepper-4a3f9cec.js';
-import { u as useDesignSystemTheme, p as getShadowScrollStyles, B as Button, f as addDebugOutlineIfEnabled } from './Typography-af72332b.js';
+import { S as Stepper } from './Stepper-2c82de4e.js';
+import { u as useDesignSystemTheme, p as getShadowScrollStyles, B as Button, f as addDebugOutlineIfEnabled } from './Typography-78b12af3.js';
 import _compact from 'lodash/compact';
-import { S as Spacer, M as Modal } from './Modal-82925a27.js';
+import { S as Spacer, a as useMediaQuery, R as Root, T as Trigger, L as ListIcon, C as Content, M as Modal } from './useMediaQuery-72ec2d25.js';
 import 'antd';
 import '@ant-design/icons';
 import 'lodash/isNil';
@@ -17,39 +17,48 @@ import 'lodash/isString';
 import 'lodash/mapValues';
 import 'lodash/memoize';
 import '@emotion/unitless';
+import '@radix-ui/react-popover';
 
-function useStepperStepsFromWizardSteps(wizardSteps) {
-  return useMemo(() => wizardSteps.map(wizardStep => ({
+function useStepperStepsFromWizardSteps(wizardSteps, currentStepIdx) {
+  return useMemo(() => wizardSteps.map((wizardStep, stepIdx) => ({
     ..._pick(wizardStep, ['title', 'description', 'status']),
-    additionalVerticalContent: wizardStep.additionalHorizontalLayoutStepContent
-  })), [wizardSteps]);
+    additionalVerticalContent: wizardStep.additionalHorizontalLayoutStepContent,
+    clickEnabled: _isUndefined(wizardStep.clickEnabled) ? isWizardStepEnabled(stepIdx, currentStepIdx, wizardStep.status) : wizardStep.clickEnabled
+  })), [currentStepIdx, wizardSteps]);
+}
+function isWizardStepEnabled(stepIdx, currentStepIdx, status) {
+  return stepIdx < currentStepIdx || status === 'completed';
 }
 
 function HorizontalWizardStepsContent(_ref) {
+  var _wizardSteps$currentS, _wizardSteps$currentS2;
   let {
     steps: wizardSteps,
     currentStepIndex,
-    expandContentToFullHeight,
-    useCustomScrollBehavior,
-    localizeStepNumber
+    localizeStepNumber,
+    enableClickingToSteps,
+    goToStep
   } = _ref;
   const {
     theme
   } = useDesignSystemTheme();
-  const stepperSteps = useStepperStepsFromWizardSteps(wizardSteps);
+  const stepperSteps = useStepperStepsFromWizardSteps(wizardSteps, currentStepIndex);
+  const expandContentToFullHeight = (_wizardSteps$currentS = wizardSteps[currentStepIndex].expandContentToFullHeight) !== null && _wizardSteps$currentS !== void 0 ? _wizardSteps$currentS : true;
+  const disableDefaultScrollBehavior = (_wizardSteps$currentS2 = wizardSteps[currentStepIndex].disableDefaultScrollBehavior) !== null && _wizardSteps$currentS2 !== void 0 ? _wizardSteps$currentS2 : false;
   return jsxs(Fragment, {
     children: [jsx(Stepper, {
       currentStepIndex: currentStepIndex,
       direction: "horizontal",
       localizeStepNumber: localizeStepNumber,
       steps: stepperSteps,
-      responsive: false
+      responsive: false,
+      onStepClicked: enableClickingToSteps ? goToStep : undefined
     }), jsx("div", {
       css: /*#__PURE__*/css({
         marginTop: theme.spacing.md,
         flexGrow: expandContentToFullHeight ? 1 : undefined,
-        overflowY: useCustomScrollBehavior ? 'hidden' : 'auto',
-        ...(!useCustomScrollBehavior ? getShadowScrollStyles(theme) : {})
+        overflowY: disableDefaultScrollBehavior ? 'hidden' : 'auto',
+        ...(!disableDefaultScrollBehavior ? getShadowScrollStyles(theme) : {})
       }, process.env.NODE_ENV === "production" ? "" : ";label:HorizontalWizardStepsContent;"),
       children: wizardSteps[currentStepIndex].content
     })]
@@ -118,8 +127,7 @@ function HorizontalWizardContent(_ref) {
     currentStepIndex,
     localizeStepNumber,
     onStepsChange,
-    expandContentToFullHeight = true,
-    useCustomScrollBehavior,
+    enableClickingToSteps,
     ...footerProps
   } = _ref;
   return jsxs("div", {
@@ -135,8 +143,8 @@ function HorizontalWizardContent(_ref) {
       steps: steps,
       currentStepIndex: currentStepIndex,
       localizeStepNumber: localizeStepNumber,
-      expandContentToFullHeight: expandContentToFullHeight,
-      useCustomScrollBehavior: useCustomScrollBehavior
+      enableClickingToSteps: Boolean(enableClickingToSteps),
+      goToStep: footerProps.goToStep
     }), jsx(Spacer, {
       size: "lg"
     }), jsx(WizardFooter, {
@@ -164,7 +172,10 @@ function WizardFooter(props) {
   });
 }
 
+const SmallFixedVerticalStepperWidth = 248;
+const FixedVerticalStepperWidth = 320;
 function VerticalWizardContent(_ref) {
+  var _wizardSteps$currentS, _wizardSteps$currentS2;
   let {
     width,
     height,
@@ -172,44 +183,79 @@ function VerticalWizardContent(_ref) {
     currentStepIndex,
     localizeStepNumber,
     onStepsChange,
-    expandContentToFullHeight = true,
     title,
-    useCustomScrollBehavior,
     padding,
+    verticalCompactButtonContent,
+    enableClickingToSteps,
     ...footerProps
   } = _ref;
   const {
     theme
   } = useDesignSystemTheme();
-  const stepperSteps = useStepperStepsFromWizardSteps(wizardSteps);
+  const stepperSteps = useStepperStepsFromWizardSteps(wizardSteps, currentStepIndex);
+  const expandContentToFullHeight = (_wizardSteps$currentS = wizardSteps[currentStepIndex].expandContentToFullHeight) !== null && _wizardSteps$currentS !== void 0 ? _wizardSteps$currentS : true;
+  const disableDefaultScrollBehavior = (_wizardSteps$currentS2 = wizardSteps[currentStepIndex].disableDefaultScrollBehavior) !== null && _wizardSteps$currentS2 !== void 0 ? _wizardSteps$currentS2 : false;
+  const isCompact = useMediaQuery({
+    query: `not (min-width: ${theme.responsive.breakpoints.lg}px)`
+  }) && Boolean(verticalCompactButtonContent);
   return jsxs("div", {
     css: /*#__PURE__*/css({
       width,
-      height,
+      height: expandContentToFullHeight ? height : 'fit-content',
+      maxHeight: '100%',
       display: 'flex',
-      flexDirection: 'row',
-      columnGap: theme.spacing.lg
+      flexDirection: isCompact ? 'column' : 'row',
+      gap: theme.spacing.lg
     }, process.env.NODE_ENV === "production" ? "" : ";label:VerticalWizardContent;"),
     ...addDebugOutlineIfEnabled(),
-    children: [jsxs("div", {
+    children: [!isCompact && jsxs("div", {
       css: /*#__PURE__*/css({
         display: 'flex',
         flexDirection: 'column',
-        columnGap: theme.spacing.lg,
-        border: `1px solid ${theme.colors.border}`,
         flexShrink: 0,
-        padding: theme.spacing.lg,
         rowGap: theme.spacing.lg,
+        paddingTop: theme.spacing.lg,
+        paddingBottom: theme.spacing.lg,
         height: 'fit-content',
-        maxWidth: '35%',
-        overflowX: 'auto'
+        width: SmallFixedVerticalStepperWidth,
+        [`@media (min-width: ${theme.responsive.breakpoints.xl}px)`]: {
+          width: FixedVerticalStepperWidth
+        },
+        overflowX: 'hidden'
       }, process.env.NODE_ENV === "production" ? "" : ";label:VerticalWizardContent;"),
       children: [title, jsx(Stepper, {
         currentStepIndex: currentStepIndex,
         direction: "vertical",
         localizeStepNumber: localizeStepNumber,
         steps: stepperSteps,
-        responsive: false
+        responsive: false,
+        onStepClicked: enableClickingToSteps ? footerProps.goToStep : undefined
+      })]
+    }), isCompact && jsxs(Root, {
+      children: [jsx(Trigger, {
+        asChild: true,
+        children: jsx("div", {
+          children: jsx(Button, {
+            icon: jsx(ListIcon, {}),
+            componentId: "compact-vertical-wizard-show-stepper-popover",
+            children: verticalCompactButtonContent === null || verticalCompactButtonContent === void 0 ? void 0 : verticalCompactButtonContent(currentStepIndex, stepperSteps.length)
+          })
+        })
+      }), jsx(Content, {
+        align: "start",
+        side: "bottom",
+        css: /*#__PURE__*/css({
+          paddingTop: theme.spacing.md,
+          paddingBottom: theme.spacing.md,
+          paddingRight: theme.spacing.md
+        }, process.env.NODE_ENV === "production" ? "" : ";label:VerticalWizardContent;"),
+        children: jsx(Stepper, {
+          currentStepIndex: currentStepIndex,
+          direction: "vertical",
+          localizeStepNumber: localizeStepNumber,
+          steps: stepperSteps,
+          responsive: false
+        })
       })]
     }), jsxs("div", {
       css: /*#__PURE__*/css({
@@ -217,14 +263,16 @@ function VerticalWizardContent(_ref) {
         flexDirection: 'column',
         columnGap: theme.spacing.lg,
         border: `1px solid ${theme.colors.border}`,
+        borderRadius: theme.borders.borderRadiusLg,
         flexGrow: 1,
         padding: padding !== null && padding !== void 0 ? padding : theme.spacing.lg
       }, process.env.NODE_ENV === "production" ? "" : ";label:VerticalWizardContent;"),
       children: [jsx("div", {
         css: /*#__PURE__*/css({
           flexGrow: expandContentToFullHeight ? 1 : undefined,
-          overflowY: useCustomScrollBehavior ? 'hidden' : 'auto',
-          ...(!useCustomScrollBehavior ? getShadowScrollStyles(theme) : {})
+          overflowY: disableDefaultScrollBehavior ? 'hidden' : 'auto',
+          ...(!disableDefaultScrollBehavior ? getShadowScrollStyles(theme) : {}),
+          borderRadius: theme.borders.borderRadiusLg
         }, process.env.NODE_ENV === "production" ? "" : ";label:VerticalWizardContent;"),
         children: wizardSteps[currentStepIndex].content
       }), jsx("div", {
@@ -368,6 +416,7 @@ function WizardModal(_ref) {
     nextButtonContent,
     previousButtonContent,
     doneButtonContent,
+    enableClickingToSteps,
     ...modalProps
   } = _ref;
   const [currentStepIndex, setCurrentStepIndex] = useState(initialStep !== null && initialStep !== void 0 ? initialStep : 0);
@@ -404,7 +453,8 @@ function WizardModal(_ref) {
       steps: steps,
       currentStepIndex: currentStepIndex,
       localizeStepNumber: localizeStepNumber,
-      expandContentToFullHeight: false
+      enableClickingToSteps: Boolean(enableClickingToSteps),
+      goToStep: footerActions.goToStep
     })
   });
 }

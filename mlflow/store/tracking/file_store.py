@@ -99,6 +99,8 @@ from mlflow.utils.validation import (
     _validate_tag_name,
 )
 
+_logger = logging.getLogger(__name__)
+
 
 def _default_root_dir():
     return MLFLOW_TRACKING_DIR.get() or os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
@@ -1496,7 +1498,7 @@ class FileStore(AbstractStore):
     def _get_trace_info_and_dir(self, request_id: str) -> Tuple[TraceInfo, str]:
         trace_dir = self._find_trace_dir(request_id, assert_exists=True)
         trace_info = self._get_trace_info_from_dir(trace_dir)
-        if trace_info.request_id != request_id:
+        if trace_info and trace_info.request_id != request_id:
             raise MlflowException(
                 f"Trace with request ID '{request_id}' metadata is in invalid state.",
                 databricks_pb2.INVALID_STATE,
@@ -1517,7 +1519,9 @@ class FileStore(AbstractStore):
                 RESOURCE_DOES_NOT_EXIST,
             )
 
-    def _get_trace_info_from_dir(self, trace_dir) -> TraceInfo:
+    def _get_trace_info_from_dir(self, trace_dir) -> Optional[TraceInfo]:
+        if not os.path.exists(os.path.join(trace_dir, FileStore.TRACE_INFO_FILE_NAME)):
+            return None
         trace_info_dict = FileStore._read_yaml(trace_dir, FileStore.TRACE_INFO_FILE_NAME)
         trace_info = TraceInfo.from_dict(trace_info_dict)
         trace_info.request_metadata = self._get_dict_from_trace_sub_folder(
@@ -1560,7 +1564,7 @@ class FileStore(AbstractStore):
             )
         os.remove(tag_path)
 
-    def delete_traces(
+    def _delete_traces(
         self,
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
@@ -1577,57 +1581,38 @@ class FileStore(AbstractStore):
             experiment_id: ID of the associated experiment.
             max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
                 deleting traces. Traces older than or equal to this timestamp will be deleted.
-            max_traces: The maximum number of traces to delete.
+            max_traces: The maximum number of traces to delete. If max_traces is specified, and
+                it is less than the number of traces that would be deleted based on the
+                max_timestamp_millis, the oldest traces will be deleted first.
             request_ids: A set of request IDs to delete.
 
         Returns:
             The number of traces deleted.
         """
-        # request_ids can't be an empty list of string
-        if max_timestamp_millis is None and not request_ids:
-            raise MlflowException(
-                "Either `max_timestamp_millis` or `request_ids` must be specified.",
-                INVALID_PARAMETER_VALUE,
-            )
-        if max_timestamp_millis and request_ids:
-            raise MlflowException(
-                "Only one of `max_timestamp_millis` and `request_ids` can be specified.",
-                INVALID_PARAMETER_VALUE,
-            )
-        if request_ids and max_traces is not None:
-            raise MlflowException(
-                "`max_traces` can't be specified if `request_ids` is specified.",
-                INVALID_PARAMETER_VALUE,
-            )
-        if max_traces is not None and max_traces <= 0:
-            raise MlflowException(
-                f"`max_traces` must be a positive integer, received {max_traces}.",
-                INVALID_PARAMETER_VALUE,
-            )
-
         experiment_path = self._get_experiment_path(experiment_id, assert_exists=True)
         traces_path = os.path.join(experiment_path, FileStore.TRACES_FOLDER_NAME)
         deleted_traces = 0
         if max_timestamp_millis:
             trace_paths = list_all(traces_path, lambda x: os.path.isdir(x), full_path=True)
-            if max_traces is None:
-                max_traces = len(trace_paths)
+            trace_info_and_paths = []
             for trace_path in trace_paths:
                 try:
                     trace_info = self._get_trace_info_from_dir(trace_path)
-                    if trace_info.timestamp_ms <= max_timestamp_millis:
-                        shutil.rmtree(trace_path)
-                        deleted_traces += 1
-                        max_traces -= 1
+                    if trace_info and trace_info.timestamp_ms <= max_timestamp_millis:
+                        trace_info_and_paths.append((trace_info, trace_path))
                 except MissingConfigException as e:
                     # trap malformed trace exception and log warning
                     request_id = os.path.basename(trace_path)
-                    logging.warning(
+                    _logger.warning(
                         f"Malformed trace with request_id '{request_id}'. Detailed error {e}",
-                        exc_info=True,
+                        exc_info=_logger.isEnabledFor(logging.DEBUG),
                     )
-                if max_traces == 0:
-                    break
+            trace_info_and_paths.sort(key=lambda x: x[0].timestamp_ms)
+            # if max_traces is not None then it must > 0
+            deleted_traces = min(len(trace_info_and_paths), max_traces or len(trace_info_and_paths))
+            trace_info_and_paths = trace_info_and_paths[:deleted_traces]
+            for _, trace_path in trace_info_and_paths:
+                shutil.rmtree(trace_path)
             return deleted_traces
         if request_ids:
             for request_id in request_ids:
@@ -1652,7 +1637,7 @@ class FileStore(AbstractStore):
         Args:
             experiment_ids: List of experiment ids to scope the search.
             filter_string: A search filter string. Supported filter keys are `name`,
-                           `status` and `timestamp_ms`.
+                           `status`, `timestamp_ms` and `tags`.
             max_results: Maximum number of traces desired.
             order_by: List of order_by clauses. Supported sort key is `timestamp_ms`. By default
                       we sort by timestamp_ms DESC.
@@ -1691,13 +1676,13 @@ class FileStore(AbstractStore):
         trace_infos = []
         for trace_path in trace_paths:
             try:
-                trace_info = self._get_trace_info_from_dir(trace_path)
-                trace_infos.append(trace_info)
+                if trace_info := self._get_trace_info_from_dir(trace_path):
+                    trace_infos.append(trace_info)
             except MissingConfigException as e:
                 # trap malformed trace exception and log warning
                 request_id = os.path.basename(trace_path)
                 logging.warning(
                     f"Malformed trace with request_id '{request_id}'. Detailed error {e}",
-                    exc_info=True,
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
                 )
         return trace_infos

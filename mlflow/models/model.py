@@ -87,6 +87,7 @@ class ModelInfo:
         mlflow_version: str,
         signature_dict: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        registered_model_version: Optional[int] = None,
     ):
         self._artifact_path = artifact_path
         self._flavors = flavors
@@ -99,6 +100,7 @@ class ModelInfo:
         self._utc_time_created = utc_time_created
         self._mlflow_version = mlflow_version
         self._metadata = metadata
+        self._registered_model_version = registered_model_version
 
     @property
     def artifact_path(self):
@@ -275,6 +277,21 @@ class ModelInfo:
             assert model_info.metadata["metadata_key"] == "metadata_value"
         """
         return self._metadata
+
+    @property
+    def registered_model_version(self) -> Optional[int]:
+        """
+        The registered model version, if the model is registered.
+
+        :getter: Gets the registered model version, if the model is registered in Model Registry.
+        :setter: Sets the registered model version.
+        :type: Optional[int]
+        """
+        return self._registered_model_version
+
+    @registered_model_version.setter
+    def registered_model_version(self, value):
+        self._registered_model_version = value
 
 
 class Model:
@@ -654,7 +671,9 @@ class Model:
             metadata of the logged model.
         """
         from mlflow.models.wheeled_model import _ORIGINAL_REQ_FILE_NAME, WheeledModel
+        from mlflow.utils.model_utils import _validate_and_get_model_config_from_file
 
+        registered_model = None
         with TempDir() as tmp:
             local_path = tmp.path("model")
             if run_id is None:
@@ -663,6 +682,10 @@ class Model:
                 artifact_path=artifact_path, run_id=run_id, metadata=metadata, resources=resources
             )
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
+            # `save_model` calls `load_model` to infer the model requirements, which may result in
+            # __pycache__ directories being created in the model directory.
+            for pycache in Path(local_path).rglob("__pycache__"):
+                shutil.rmtree(pycache, ignore_errors=True)
 
             # Copy model metadata files to a sub-directory 'metadata',
             # For UC sharing use-cases.
@@ -696,8 +719,7 @@ class Model:
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
             # if the model_config kwarg is passed in, then log the model config as an params
-            if "model_config" in kwargs:
-                model_config = kwargs["model_config"]
+            if model_config := kwargs.get("model_config"):
                 if isinstance(model_config, str):
                     try:
                         file_extension = os.path.splitext(model_config)[1].lower()
@@ -705,8 +727,7 @@ class Model:
                             with open(model_config) as f:
                                 model_config = json.load(f)
                         elif file_extension in [".yaml", ".yml"]:
-                            with open(model_config) as f:
-                                model_config = yaml.safe_load(f)
+                            model_config = _validate_and_get_model_config_from_file(model_config)
                         else:
                             _logger.warning(
                                 "Unsupported file format for model config: %s. "
@@ -715,8 +736,19 @@ class Model:
                             )
                     except Exception as e:
                         _logger.warning("Failed to load model config from %s: %s", model_config, e)
+
                 try:
-                    mlflow.tracking.fluent.log_params(model_config or {}, run_id=run_id)
+                    from mlflow.models.utils import _flatten_nested_params
+
+                    # We are using the `/` separator to flatten the nested params
+                    # since we are using the same separator to log nested metrics.
+                    params_to_log = _flatten_nested_params(model_config, sep="/")
+                except Exception as e:
+                    _logger.warning("Failed to flatten nested params: %s", str(e))
+                    params_to_log = model_config
+
+                try:
+                    mlflow.tracking.fluent.log_params(params_to_log or {}, run_id=run_id)
                 except Exception as e:
                     _logger.warning("Failed to log model config as params: %s", str(e))
 
@@ -727,14 +759,18 @@ class Model:
                 # older tracking servers. Only print out a warning for now.
                 _logger.warning(_LOG_MODEL_METADATA_WARNING_TEMPLATE, mlflow.get_artifact_uri())
                 _logger.debug("", exc_info=True)
+
             if registered_model_name is not None:
-                mlflow.tracking._model_registry.fluent._register_model(
+                registered_model = mlflow.tracking._model_registry.fluent._register_model(
                     f"runs:/{run_id}/{mlflow_model.artifact_path}",
                     registered_model_name,
                     await_registration_for=await_registration_for,
                     local_model_path=local_path,
                 )
-        return mlflow_model.get_model_info()
+        model_info = mlflow_model.get_model_info()
+        if registered_model is not None:
+            model_info.registered_model_version = registered_model.version
+        return model_info
 
 
 def get_model_info(model_uri: str) -> ModelInfo:

@@ -287,7 +287,8 @@ def _get_supported_llms():
     return supported_llms
 
 
-def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn):
+# temp_dir is only required when lc_model could be a file path
+def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn, temp_dir=None):
     import langchain.agents.agent
     import langchain.chains.base
     import langchain.chains.llm
@@ -297,7 +298,7 @@ def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn):
 
     # lc_model is a file path
     if isinstance(lc_model, str):
-        return _validate_and_get_model_code_path(lc_model)
+        return _validate_and_get_model_code_path(lc_model, temp_dir)
 
     if not isinstance(lc_model, supported_lc_types()):
         raise mlflow.MlflowException.invalid_parameter_value(

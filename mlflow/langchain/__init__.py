@@ -18,6 +18,7 @@ import inspect
 import json
 import logging
 import os
+import tempfile
 import warnings
 from typing import Any, Dict, Iterator, List, Optional, Union
 
@@ -28,7 +29,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENABLE_TRACE_IN_SERVING
+from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
 from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
@@ -41,14 +42,12 @@ from mlflow.langchain.utils import (
     _MODEL_LOAD_KEY,
     _RUNNABLE_LOAD_KEY,
     _load_base_lcs,
-    _load_from_yaml,
     _save_base_lcs,
     _validate_and_prepare_lc_model_or_path,
     lc_runnables_types,
     patch_langchain_type_to_cls_dict,
     register_pydantic_v1_serializer_cm,
 )
-from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.dependencies_schemas import (
     _clear_dependencies_schemas,
@@ -64,6 +63,7 @@ from mlflow.models.utils import (
 )
 from mlflow.pyfunc import FLAVOR_NAME as PYFUNC_FLAVOR_NAME
 from mlflow.pyfunc.context import get_prediction_context
+from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
@@ -73,7 +73,10 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
     safe_patch,
 )
-from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_model_serving_environment,
+    is_mlflow_tracing_enabled_in_model_serving,
+)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -92,6 +95,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_copy_file_to_directory,
+    _validate_and_get_model_config_from_file,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -100,8 +104,6 @@ logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
-_MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["langchain"]["autologging"]["minimum"])
-_MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["langchain"]["autologging"]["maximum"])
 
 
 def get_default_pip_requirements():
@@ -125,11 +127,13 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-def _infer_signature_from_input_example_for_lc_model(input_example, wrapped_model):
+def _infer_signature_from_input_example_for_lc_model(
+    input_example, wrapped_model, example_no_conversion=True
+):
     from mlflow.langchain.api_request_parallel_processor import _ChatResponse
 
     signature, prediction = _infer_signature_from_input_example(
-        input_example, wrapped_model, return_prediction=True
+        input_example, wrapped_model, return_prediction=True, no_conversion=example_no_conversion
     )
     # try assign output schema if failing to infer it from prediction
     if signature.outputs is None:
@@ -141,6 +145,7 @@ def _infer_signature_from_input_example_for_lc_model(input_example, wrapped_mode
 
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
+@trace_disabled  # Suppress traces for internal predict calls while saving model
 def save_model(
     lc_model,
     path,
@@ -154,8 +159,9 @@ def save_model(
     metadata=None,
     loader_fn=None,
     persist_dir=None,
-    example_no_conversion=False,
+    example_no_conversion=True,
     model_config=None,
+    streamable: Optional[bool] = None,
 ):
     """
     Save a LangChain model to a path on the local file system.
@@ -247,43 +253,44 @@ def save_model(
                     )
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
-        example_no_conversion: {{ example_no_conversion }}
+        example_no_conversion: If ``False``, the input example will be converted to a Pandas
+                DataFrame format when saving. This is useful when the model expects a DataFrame
+                input and the input example could be passed directly to the model.
+                Defaults to ``True``.
         model_config: The model configuration to apply to the model if saving model as code. This
             configuration is available during model loading.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
+        streamable: A boolean value indicating if the model supports streaming prediction. If
+            True, the model must implement `stream` method. If None, streamable is
+            set to True if the model implements `stream` method. Default to `None`.
     """
-    import langchain
-    from langchain.schema import BaseRetriever
+    with tempfile.TemporaryDirectory() as temp_dir:
+        import langchain
+        from langchain.schema import BaseRetriever
 
-    lc_model_or_path = _validate_and_prepare_lc_model_or_path(lc_model, loader_fn)
+        lc_model_or_path = _validate_and_prepare_lc_model_or_path(lc_model, loader_fn, temp_dir)
 
-    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+        _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
-    path = os.path.abspath(path)
-    _validate_and_prepare_target_save_path(path)
+        path = os.path.abspath(path)
+        _validate_and_prepare_target_save_path(path)
 
-    if isinstance(model_config, str):
-        if os.path.exists(model_config):
-            model_config = _load_from_yaml(model_config)
+        if isinstance(model_config, str):
+            model_config = _validate_and_get_model_config_from_file(model_config)
+
+        model_code_path = None
+        if isinstance(lc_model_or_path, str):
+            # The LangChain model is defined as Python code located in the file at the path
+            # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
+            # model directory along with any other specified code modules
+            model_code_path = lc_model_or_path
+
+            lc_model = _load_model_code_path(model_code_path, model_config)
+            _validate_and_copy_file_to_directory(model_code_path, path, "code")
         else:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                f"Model config path '{model_config}' provided is not a valid file path. "
-                "Please provide a valid model configuration."
-            )
-
-    model_code_path = None
-    if isinstance(lc_model_or_path, str):
-        # The LangChain model is defined as Python code located in the file at the path
-        # specified by `lc_model`. Verify that the path exists and, if so, copy it to the
-        # model directory along with any other specified code modules
-        model_code_path = lc_model_or_path
-
-        lc_model = _load_model_code_path(model_code_path, model_config)
-        _validate_and_copy_file_to_directory(model_code_path, path, "code")
-    else:
-        lc_model = lc_model_or_path
+            lc_model = lc_model_or_path
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
@@ -291,7 +298,7 @@ def save_model(
         if input_example is not None:
             wrapped_model = _LangChainModelWrapper(lc_model)
             signature = _infer_signature_from_input_example_for_lc_model(
-                input_example, wrapped_model
+                input_example, wrapped_model, example_no_conversion=example_no_conversion
             )
         else:
             if hasattr(lc_model, "input_keys"):
@@ -340,7 +347,8 @@ def save_model(
                 mlflow_model.metadata = {}
             mlflow_model.metadata.update(schema)
 
-    streamable = isinstance(lc_model, lc_runnables_types())
+    if streamable is None:
+        streamable = hasattr(lc_model, "stream")
 
     model_data_kwargs = {}
     flavor_conf = {}
@@ -408,6 +416,7 @@ def save_model(
 
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
+@trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     lc_model,
     artifact_path,
@@ -422,9 +431,10 @@ def log_model(
     metadata=None,
     loader_fn=None,
     persist_dir=None,
-    example_no_conversion=False,
+    example_no_conversion=True,
     run_id=None,
     model_config=None,
+    streamable=None,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -524,7 +534,10 @@ def log_model(
                     )
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
-        example_no_conversion: {{ example_no_conversion }}
+        example_no_conversion: If ``False``, the input example will be converted to a Pandas
+                DataFrame format when saving. This is useful when the model expects a DataFrame
+                input and the input example could be passed directly to the model.
+                Defaults to ``True``.
         run_id: run_id to associate with this model version. If specified, we resume the
                 run and log the model to that run. Otherwise, a new run is created.
                 Default to None.
@@ -533,18 +546,19 @@ def log_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
+        streamable: A boolean value indicating if the model supports streaming prediction. If
+            True, the model must implement `stream` method. If None, If None, streamable is
+            set to True if the model implements `stream` method. Default to `None`.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
-    lc_model_or_path = _validate_and_prepare_lc_model_or_path(lc_model, loader_fn)
-
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.langchain,
         registered_model_name=registered_model_name,
-        lc_model=lc_model_or_path,
+        lc_model=lc_model,
         conda_env=conda_env,
         code_paths=code_paths,
         signature=signature,
@@ -558,6 +572,7 @@ def log_model(
         example_no_conversion=example_no_conversion,
         run_id=run_id,
         model_config=model_config,
+        streamable=streamable,
     )
 
 
@@ -623,7 +638,17 @@ class _LangChainModelWrapper:
         # TODO: We don't automatically turn tracing on in OSS model serving, because we haven't
         # implemented storage option for traces in OSS model serving (counterpart to the
         # Inference Table in Databricks model serving).
-        if is_in_databricks_model_serving_environment() and MLFLOW_ENABLE_TRACE_IN_SERVING.get():
+        if (
+            is_in_databricks_model_serving_environment()
+            # TODO: This env var was once used for controlling whether or not to inject the
+            #   tracer in Databricks model serving. However, now we have the new env var
+            #   `ENABLE_MLFLOW_TRACING` to control that. We don't remove this condition
+            #   right now in the interest of caution, but we should remove this condition
+            #   after making sure that the functionality is stable.
+            and os.environ.get("MLFLOW_ENABLE_TRACE_IN_SERVING", "false").lower() == "true"
+            # if this is False, tracing is disabled and we shouldn't inject the tracer
+            and is_mlflow_tracing_enabled_in_model_serving()
+        ):
             from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
             callbacks = [MlflowLangchainTracer()]
@@ -874,7 +899,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
                 local_model_path,
                 os.path.basename(model_config),
             )
-            model_config = _load_from_yaml(config_path)
+            model_config = _validate_and_get_model_config_from_file(config_path)
 
         flavor_code_path = pyfunc_flavor_conf.get(
             MODEL_CODE_PATH, flavor_conf.get(MODEL_CODE_PATH, None)
@@ -901,6 +926,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
 
 
 @experimental
+@trace_disabled  # Suppress traces while loading model
 def load_model(model_uri, dst_path=None):
     """
     Load a LangChain model from a local file or a run.
@@ -929,10 +955,14 @@ def load_model(model_uri, dst_path=None):
 
 def _patch_runnable_cls(cls):
     """
-    For classes that are subclasses of Runnable, we patch the `invoke`, `batch`, and `stream`
-    methods for autologging.
+    For classes that are subclasses of Runnable, we patch the `invoke`, `batch`, `stream` and
+    `ainvoke`, `abatch`, `astream` methods for autologging.
+
+    Args:
+        cls: The class to patch.
     """
-    for func_name in ["invoke", "batch", "stream"]:
+    patch_functions = ["invoke", "batch", "stream", "ainvoke", "abatch", "astream"]
+    for func_name in patch_functions:
         if hasattr(cls, func_name):
             safe_patch(
                 FLAVOR_NAME,
@@ -970,11 +1000,7 @@ def autolog(
     log_model_signatures=False,
     log_models=False,
     log_datasets=False,
-    # TODO: log_inputs_outputs was originally defaulted to True in the production version of
-    # the LangChain autologging, as it is a common use case to log input/output table for
-    # evaluation. Once tracing is fully launched, this should be supported by the tracer
-    # but we should design it to be compatible with the existing UJ.
-    log_inputs_outputs=False,
+    log_inputs_outputs=None,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=True,
@@ -982,6 +1008,7 @@ def autolog(
     registered_model_name=None,
     extra_tags=None,
     extra_model_classes=None,
+    log_traces=True,
 ):
     """
     Enables (or disables) and configures autologging from Langchain to MLflow.
@@ -1005,7 +1032,11 @@ def autolog(
             are also omitted when ``log_models`` is ``False``.
         log_datasets: If ``True``, dataset information is logged to MLflow Tracking
             if applicable. If ``False``, dataset information is not logged.
-        log_inputs_outputs: If ``True``, inference data and results are combined into a single
+        log_inputs_outputs: **Deprecated** The legacy parameter used for logging inference
+            inputs and outputs. This argument will be removed in a future version of MLflow.
+            The alternative is to use ``log_traces`` which logs traces for Langchain models,
+            including inputs and outputs for each stage.
+            If ``True``, inference data and results are combined into a single
             pandas DataFrame and logged to MLflow Tracking as an artifact.
             If ``False``, inference data and results are not logged.
             Default to ``False``.
@@ -1028,6 +1059,9 @@ def autolog(
             We do not guarantee classes specified in this list can be logged as a model, but tracing
             will be supported. Note that all classes within the list must be subclasses of Runnable,
             and we only patch `invoke`, `batch`, and `stream` methods for tracing.
+        log_traces: If ``True``, traces are logged for Langchain models by using
+            MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
+            collected during inference. Default to ``True``.
     """
     with contextlib.suppress(ImportError):
         import langchain
@@ -1036,14 +1070,6 @@ def autolog(
         from langchain.chains.base import Chain
         from langchain.schema import BaseRetriever
         from langchain.schema.runnable import Runnable
-
-        if not _MIN_REQ_VERSION <= Version(langchain.__version__) <= _MAX_REQ_VERSION:
-            # Suppress the warning after it is shown once
-            warnings.warn(
-                "Autologging is known to be compatible with langchain versions between "
-                f"{_MIN_REQ_VERSION} and {_MAX_REQ_VERSION} and may not succeed with packages "
-                "outside this range."
-            )
 
         # avoid duplicate patching
         patched_classes = set()

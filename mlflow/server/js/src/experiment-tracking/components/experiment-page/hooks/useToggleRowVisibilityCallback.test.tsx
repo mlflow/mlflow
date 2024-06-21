@@ -4,11 +4,21 @@ import { ExperimentPageUIStateContextProvider } from '../contexts/ExperimentPage
 import { RUNS_VISIBILITY_MODE, createExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { useEffect, useState } from 'react';
 import { RunRowType } from '../utils/experimentPage.row-types';
+import { shouldEnableToggleIndividualRunsInGroups } from '../../../../common/utils/FeatureUtils';
+
+jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual('../../../../common/utils/FeatureUtils'),
+  shouldEnableToggleIndividualRunsInGroups: jest.fn(),
+}));
 
 describe('useToggleRowVisibilityCallback', () => {
   let currentUIState = createExperimentPageUIState();
-  const renderConfiguredHook = (tableRows: RunRowType[] = [], initialUiState = createExperimentPageUIState()) =>
-    renderHook((props) => useToggleRowVisibilityCallback(props.tableRows), {
+  const renderConfiguredHook = (
+    tableRows: RunRowType[] = [],
+    initialUiState = createExperimentPageUIState(),
+    useGroupedValuesInCharts = true,
+  ) =>
+    renderHook((props) => useToggleRowVisibilityCallback(props.tableRows, useGroupedValuesInCharts), {
       initialProps: { tableRows },
       wrapper: function Wrapper({ children }) {
         const [uiState, setUIState] = useState(initialUiState);
@@ -66,6 +76,62 @@ describe('useToggleRowVisibilityCallback', () => {
     expect(currentUIState.runsHiddenMode).toBe(RUNS_VISIBILITY_MODE.CUSTOM);
     // Assert updated hidden runs
     expect(currentUIState.runsHidden).toEqual(['run-1', 'run-3', 'run-5']);
+  });
+
+  test('disables run group when useGroupedValuesInCharts is true', () => {
+    jest.mocked(shouldEnableToggleIndividualRunsInGroups).mockReturnValue(true);
+    const toggleRowVisibility = renderConfiguredHook(
+      [
+        { hidden: false, rowUuid: 'group-1', groupParentInfo: { runUuids: ['run-1-a', 'run-1-b'] } },
+        { hidden: false, runUuid: 'run-1-a' },
+        { hidden: false, runUuid: 'run-1-b' },
+        { hidden: false, rowUuid: 'group-2', groupParentInfo: { runUuids: ['run-2-a', 'run-2-b'] } },
+        { hidden: false, runUuid: 'run-2-a' },
+        { hidden: false, runUuid: 'run-2-b' },
+      ] as any,
+      { ...createExperimentPageUIState() },
+      true,
+    );
+
+    // Assert initial mode
+    expect(currentUIState.runsHiddenMode).toBe(createExperimentPageUIState().runsHiddenMode);
+
+    act(() => {
+      toggleRowVisibility(RUNS_VISIBILITY_MODE.CUSTOM, 'group-2');
+    });
+
+    // Assert updated mode
+    expect(currentUIState.runsHiddenMode).toBe(RUNS_VISIBILITY_MODE.CUSTOM);
+    // Assert updated hidden runs
+    expect(currentUIState.runsHidden).toEqual(['group-2']);
+  });
+
+  test('disables run group when useGroupedValuesInCharts is false', () => {
+    jest.mocked(shouldEnableToggleIndividualRunsInGroups).mockReturnValue(true);
+    const toggleRowVisibility = renderConfiguredHook(
+      [
+        { hidden: false, rowUuid: 'group-1', groupParentInfo: { runUuids: ['run-1-a', 'run-1-b'] } },
+        { hidden: false, runUuid: 'run-1-a' },
+        { hidden: false, runUuid: 'run-1-b' },
+        { hidden: false, rowUuid: 'group-2', groupParentInfo: { runUuids: ['run-2-a', 'run-2-b'] } },
+        { hidden: false, runUuid: 'run-2-a' },
+        { hidden: false, runUuid: 'run-2-b' },
+      ] as any,
+      { ...createExperimentPageUIState() },
+      false,
+    );
+
+    // Assert initial mode
+    expect(currentUIState.runsHiddenMode).toBe(createExperimentPageUIState().runsHiddenMode);
+
+    act(() => {
+      toggleRowVisibility(RUNS_VISIBILITY_MODE.CUSTOM, 'group-2');
+    });
+
+    // Assert updated mode
+    expect(currentUIState.runsHiddenMode).toBe(RUNS_VISIBILITY_MODE.CUSTOM);
+    // Assert updated hidden runs
+    expect(currentUIState.runsHidden).toEqual(['run-2-a', 'run-2-b']);
   });
 
   test('disables certain run row in the UI state', () => {

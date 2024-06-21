@@ -55,11 +55,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "tensorflow"
         },
         "models": {
-            "minimum": "2.6.5",
+            "minimum": "2.7.4",
             "maximum": "2.16.1"
         },
         "autologging": {
-            "minimum": "2.6.5",
+            "minimum": "2.7.4",
             "maximum": "2.16.1"
         }
     },
@@ -263,11 +263,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.0.244",
-            "maximum": "0.2.0"
+            "maximum": "0.2.3"
         },
         "autologging": {
-            "minimum": "0.1.4",
-            "maximum": "0.2.0"
+            "minimum": "0.1.0",
+            "maximum": "0.2.3"
         }
     },
     "sentence_transformers": {

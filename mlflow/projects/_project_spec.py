@@ -4,7 +4,7 @@ import os
 
 import yaml
 
-from mlflow.exceptions import ExecutionException
+from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects import env_type
 from mlflow.tracking import artifact_utils
 from mlflow.utils import data_utils
@@ -41,6 +41,39 @@ def load_project(directory):
         )
 
     project_name = yaml_obj.get("name")
+
+    databricks_spark_job_yaml = yaml_obj.get("databricks_spark_job")
+    if databricks_spark_job_yaml is not None:
+        if "python_file" not in databricks_spark_job_yaml:
+            raise MlflowException("'python_file' field is required for Databricks Spark job.")
+
+        if "entry_points" in yaml_obj:
+            raise MlflowException("Databricks Spark job does not support setting 'entry_points'.")
+
+        if env_type.DOCKER in yaml_obj:
+            raise MlflowException(
+                "Databricks Spark job does not support setting docker environment."
+            )
+
+        if env_type.PYTHON in yaml_obj:
+            raise MlflowException(
+                "Databricks Spark job does not support setting python environment."
+            )
+
+        if env_type.CONDA in yaml_obj:
+            raise MlflowException(
+                "Databricks Spark job does not support setting conda environment."
+            )
+
+        databricks_spark_job_spec = DatabricksSparkJobSpec(
+            python_file=databricks_spark_job_yaml.get("python_file"),
+            parameters=databricks_spark_job_yaml.get("parameters", []),
+            python_libraries=databricks_spark_job_yaml.get("python_libraries", []),
+        )
+        return Project(
+            databricks_spark_job_spec=databricks_spark_job_spec,
+            name=project_name,
+        )
 
     # Parse entry points
     entry_points = {}
@@ -151,14 +184,26 @@ def load_project(directory):
 class Project:
     """A project specification loaded from an MLproject file in the passed-in directory."""
 
-    def __init__(self, env_type, env_config_path, entry_points, docker_env, name):
+    def __init__(
+        self,
+        name,
+        env_type=None,
+        env_config_path=None,
+        entry_points=None,
+        docker_env=None,
+        databricks_spark_job_spec=None,
+    ):
         self.env_type = env_type
         self.env_config_path = env_config_path
         self._entry_points = entry_points
         self.docker_env = docker_env
         self.name = name
+        self.databricks_spark_job_spec = databricks_spark_job_spec
 
     def get_entry_point(self, entry_point):
+        if self.databricks_spark_job_spec:
+            return None
+
         if entry_point in self._entry_points:
             return self._entry_points[entry_point]
         _, file_extension = os.path.splitext(entry_point)
@@ -283,3 +328,10 @@ class Parameter:
             return self._compute_uri_value(param_value)
         else:
             return param_value
+
+
+class DatabricksSparkJobSpec:
+    def __init__(self, python_file, parameters, python_libraries):
+        self.python_file = python_file
+        self.parameters = parameters
+        self.python_libraries = python_libraries

@@ -58,7 +58,6 @@ from tests.helper_functions import (
     assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
 )
-from tests.tracing.conftest import clear_singleton  # noqa: F401
 from tests.tracing.helper import get_traces
 
 
@@ -918,7 +917,7 @@ def test_save_model_with_python_model_argument_of_invalid_type_raises_exception(
         mlflow.pyfunc.save_model(
             path=os.path.join(tmp_path, "model2"), python_model=["not a python model"]
         )
-    with pytest.raises(MlflowException, match="If the provided model"):
+    with pytest.raises(MlflowException, match="The provided model path"):
         mlflow.pyfunc.save_model(
             path=os.path.join(tmp_path, "model3"), python_model="not a valid filepath"
         )
@@ -1835,9 +1834,10 @@ def test_pyfunc_as_code_with_dependencies():
 @pytest.mark.parametrize("is_in_db_model_serving", ["true", "false"])
 @pytest.mark.parametrize("stream", [True, False])
 def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace(
-    clear_singleton, monkeypatch, is_in_db_model_serving, stream
+    monkeypatch, is_in_db_model_serving, stream
 ):
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", is_in_db_model_serving)
+    monkeypatch.setenv("ENABLE_MLFLOW_TRACING", "true")
     is_in_db_model_serving = is_in_db_model_serving == "true"
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
@@ -1888,7 +1888,7 @@ def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace(
 
 @pytest.mark.parametrize("stream", [True, False])
 def test_no_traces_collected_for_pyfunc_as_code_with_dependencies_if_no_tracing_enabled(
-    clear_singleton, monkeypatch, stream
+    monkeypatch, stream
 ):
     # This sets model without trace inside code_with_dependencies.py file
     monkeypatch.setenv("TEST_TRACE", "false")
@@ -1930,7 +1930,7 @@ def test_no_traces_collected_for_pyfunc_as_code_with_dependencies_if_no_tracing_
 def test_pyfunc_as_code_log_and_load_wrong_path():
     with pytest.raises(
         MlflowException,
-        match="If the provided model",
+        match="The provided model path",
     ):
         with mlflow.start_run():
             mlflow.pyfunc.log_model(
@@ -1966,3 +1966,14 @@ def test_predict_as_code_with_config():
     model_input = "asdf"
     expected_output = f"This was the input: {model_input}, timeout 300"
     assert loaded_model.predict(model_input) == expected_output
+
+
+def test_model_as_code_pycache_cleaned_up():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model="tests/pyfunc/sample_code/python_model.py",
+            artifact_path="model",
+        )
+
+    path = _download_artifact_from_uri(model_info.model_uri)
+    assert list(Path(path).rglob("__pycache__")) == []

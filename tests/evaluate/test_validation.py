@@ -1,7 +1,9 @@
+import random
 from unittest import mock
 
 import pytest
 
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import (
     EvaluationResult,
@@ -935,3 +937,54 @@ def test_validation_multi_thresholds_should_fail(
                     validation_thresholds=validation_thresholds,
                     baseline_model=multiclass_logistic_regressor_model_uri,
                 )
+
+
+def test_validation_thresholds_no_mock():
+    targets = [0, 1, 1, 1]
+    data = [[random.random()] for _ in targets]
+
+    class BaseModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return len(model_input) * [0]
+
+    class CandidateModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return len(model_input) * [1]
+
+    with mlflow.start_run():
+        base = mlflow.pyfunc.log_model("base", python_model=BaseModel())
+        candidate = mlflow.pyfunc.log_model("candidate", python_model=CandidateModel())
+
+    evaluate(
+        candidate.model_uri,
+        data=data,
+        model_type="classifier",
+        targets=targets,
+        validation_thresholds={
+            "recall_score": MetricThreshold(
+                threshold=0.9,
+                min_absolute_change=0.1,
+                greater_is_better=True,
+            ),
+        },
+        baseline_model=base.model_uri,
+    )
+
+    with pytest.raises(
+        ModelValidationFailedException,
+        match="recall_score value threshold check failed",
+    ):
+        evaluate(
+            base.model_uri,
+            data=data,
+            model_type="classifier",
+            targets=targets,
+            validation_thresholds={
+                "recall_score": MetricThreshold(
+                    threshold=0.9,
+                    min_absolute_change=0.1,
+                    greater_is_better=True,
+                ),
+            },
+            baseline_model=candidate.model_uri,
+        )

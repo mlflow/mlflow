@@ -796,7 +796,7 @@ class _OpenAIWrapper:
             Model predictions.
         """
 
-        self.api_token.validate()
+        self.api_token.refresh()
         if self.task == "chat.completions":
             return self._predict_chat(data, params or {})
         elif self.task == "completions":

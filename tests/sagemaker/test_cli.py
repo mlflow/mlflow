@@ -27,7 +27,15 @@ def test_build_and_push_container(tmp_path, env_manager):
     # Copy the context dir to a temp dir so we can verify the generated Dockerfile
     def _build_image_with_copy(context_dir, image_name):
         shutil.copytree(context_dir, dst_dir)
-        build_image_from_context(context_dir, image_name)
+        for _ in range(3):
+            try:
+                # Docker image build is unstable on GitHub Actions, so we retry a few times
+                build_image_from_context(context_dir, image_name)
+                break
+            except RuntimeError:
+                pass
+        else:
+            raise RuntimeError("Docker build failed.")
 
     with mock.patch(
         "mlflow.models.docker_utils.build_image_from_context", side_effect=_build_image_with_copy

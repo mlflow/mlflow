@@ -462,6 +462,7 @@ from mlflow.pyfunc.model import (
     get_default_conda_env,  # noqa: F401
     get_default_pip_requirements,
 )
+from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import _try_get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -921,6 +922,7 @@ def _get_pip_requirements_from_model_path(model_path: str):
     return [req.req_str for req in _parse_requirements(req_file_path, is_constraint=False)]
 
 
+@trace_disabled  # Suppress traces while loading model
 def load_model(
     model_uri: str,
     suppress_warnings: bool = False,
@@ -2160,6 +2162,7 @@ def _validate_function_python_model(python_model):
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
+@trace_disabled  # Suppress traces for internal predict calls while saving model
 def save_model(
     path,
     loader_module=None,
@@ -2331,30 +2334,31 @@ def save_model(
     _validate_pyfunc_model_config(model_config)
     _validate_and_prepare_target_save_path(path)
 
-    model_code_path = None
-    if python_model:
-        if isinstance(model_config, Path):
-            model_config = os.fspath(model_config)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        model_code_path = None
+        if python_model:
+            if isinstance(model_config, Path):
+                model_config = os.fspath(model_config)
 
-        if isinstance(model_config, str):
-            model_config = _validate_and_get_model_config_from_file(model_config)
+            if isinstance(model_config, str):
+                model_config = _validate_and_get_model_config_from_file(model_config)
 
-        if isinstance(python_model, Path):
-            python_model = os.fspath(python_model)
+            if isinstance(python_model, Path):
+                python_model = os.fspath(python_model)
 
-        if isinstance(python_model, str):
-            model_code_path = _validate_and_get_model_code_path(python_model)
-            _validate_and_copy_file_to_directory(model_code_path, path, "code")
-            python_model = _load_model_code_path(model_code_path, model_config)
+            if isinstance(python_model, str):
+                model_code_path = _validate_and_get_model_code_path(python_model, temp_dir)
+                _validate_and_copy_file_to_directory(model_code_path, path, "code")
+                python_model = _load_model_code_path(model_code_path, model_config)
 
-        _validate_function_python_model(python_model)
-        if callable(python_model) and all(
-            a is None for a in (input_example, pip_requirements, extra_pip_requirements)
-        ):
-            raise MlflowException(
-                "If `python_model` is a callable object, at least one of `input_example`, "
-                "`pip_requirements`, or `extra_pip_requirements` must be specified."
-            )
+            _validate_function_python_model(python_model)
+            if callable(python_model) and all(
+                a is None for a in (input_example, pip_requirements, extra_pip_requirements)
+            ):
+                raise MlflowException(
+                    "If `python_model` is a callable object, at least one of `input_example`, "
+                    "`pip_requirements`, or `extra_pip_requirements` must be specified."
+                )
 
     mlflow_model = kwargs.pop("model", mlflow_model)
     if len(kwargs) > 0:
@@ -2470,6 +2474,7 @@ def save_model(
                     mlflow_model.signature = _infer_signature_from_input_example(
                         input_example,
                         _PythonModelPyfuncWrapper(python_model, None, None),
+                        no_conversion=example_no_conversion,
                     )
                 except Exception as e:
                     _logger.warning(f"Failed to infer model signature from input example. {e}")
@@ -2528,6 +2533,7 @@ def save_model(
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
+@trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     artifact_path,
     loader_module=None,

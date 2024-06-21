@@ -113,8 +113,8 @@ def mock_pyfunc_wrapper():
 @pytest.fixture
 @flaky()
 def image_for_test():
-    dataset = load_dataset("huggingface/cats-image")
-    return dataset["test"]["image"][0]
+    dataset = load_dataset("hf-internal-testing/dummy_image_text_data")
+    return dataset["train"]["image"][3]
 
 
 @pytest.fixture
@@ -437,14 +437,14 @@ def test_basic_save_model_and_load_vision_pipeline(small_vision_model, model_pat
     )
     loaded = mlflow.transformers.load_model(model_path)
     prediction = loaded(image_for_test)
-    assert prediction[0]["label"] == "tabby, tabby cat"
+    assert prediction[0]["label"] == "wall clock"
     assert prediction[0]["score"] > 0.5
 
 
 @flaky()
 def test_multi_modal_pipeline_save_and_load(small_multi_modal_pipeline, model_path, image_for_test):
     mlflow.transformers.save_model(transformers_model=small_multi_modal_pipeline, path=model_path)
-    question = "How many cats are in the picture?"
+    question = "How many wall clocks are in the picture?"
     # Load components
     components = mlflow.transformers.load_model(model_path, return_type="components")
     if IS_NEW_FEATURE_EXTRACTION_API:
@@ -454,11 +454,11 @@ def test_multi_modal_pipeline_save_and_load(small_multi_modal_pipeline, model_pa
     assert set(components.keys()).intersection(expected_components) == expected_components
     constructed_pipeline = transformers.pipeline(**components)
     answer = constructed_pipeline(image=image_for_test, question=question)
-    assert answer[0]["answer"] == "2"
+    assert answer[0]["answer"] == "1"
     # Load pipeline
     pipeline = mlflow.transformers.load_model(model_path)
     pipeline_answer = pipeline(image=image_for_test, question=question)
-    assert pipeline_answer[0]["answer"] == "2"
+    assert pipeline_answer[0]["answer"] == "1"
     # Test invalid loading mode
     with pytest.raises(MlflowException, match="The specified return_type mode 'magic' is"):
         mlflow.transformers.load_model(model_path, return_type="magic")
@@ -3433,6 +3433,7 @@ def test_text_generation_task_completions_predict_with_max_tokens(
         transformers_model=text_generation_pipeline,
         path=model_path,
         task="llm/v1/completions",
+        model_config={"max_tokens": 10},
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
@@ -3452,6 +3453,12 @@ def test_text_generation_task_completions_predict_with_max_tokens(
         and inference[0]["usage"]["completion_tokens"] < 10
     )
 
+    # Override model_config with runtime params
+    inference = pyfunc_loaded.predict(
+        {"prompt": "How to learn Python in 3 weeks?", "max_tokens": 5},
+    )
+    assert inference[0]["usage"]["completion_tokens"] == 5
+
 
 def test_text_generation_task_completions_predict_with_stop(text_generation_pipeline, model_path):
     mlflow.transformers.save_model(
@@ -3459,18 +3466,28 @@ def test_text_generation_task_completions_predict_with_stop(text_generation_pipe
         path=model_path,
         task="llm/v1/completions",
         metadata={"foo": "bar"},
+        model_config={"stop": ["Python"]},
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     inference = pyfunc_loaded.predict(
-        {"prompt": "How to learn Python in 3 weeks?", "stop": ["Python"]},
+        {"prompt": "How to learn Python in 3 weeks?"},
     )
 
+    if "Python" not in inference[0]["choices"][0]["text"]:
+        pytest.skip(
+            "Model did not generate text containing 'Python', "
+            "skipping validation of stop parameter in inference"
+        )
+
     assert inference[0]["choices"][0]["finish_reason"] == "stop"
-    assert (
-        inference[0]["choices"][0]["text"].endswith("Python")
-        or "Python" not in inference[0]["choices"][0]["text"]
+    assert inference[0]["choices"][0]["text"].endswith("Python")
+
+    # Override model_config with runtime params
+    inference = pyfunc_loaded.predict(
+        {"prompt": "How to learn Python in 3 weeks?", "stop": ["Abracadabra"]},
     )
+    assert not inference[0]["choices"][0]["text"].endswith("Python")
 
 
 def test_text_generation_task_completions_serve(text_generation_pipeline):
