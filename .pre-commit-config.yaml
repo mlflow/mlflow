@@ -75,8 +75,8 @@ repos:
         stages: [commit]
         require_serial: true
 
-      - id: skinny-requirements
-        name: skinny-requirements
+      - id: generate-skinny-requirements
+        name: generate-skinny-requirements
         entry: >
           python dev/generate_requirements.py
             --requirements-yaml-location requirements/skinny-requirements.yaml
@@ -87,8 +87,8 @@ repos:
         require_serial: true
         pass_filenames: false
 
-      - id: core-requirements
-        name: core-requirements
+      - id: generate-core-requirements
+        name: generate-core-requirements
         entry: >
           python dev/generate_requirements.py
             --requirements-yaml-location requirements/core-requirements.yaml
@@ -99,8 +99,8 @@ repos:
         require_serial: true
         pass_filenames: false
 
-      - id: gateway-requirements
-        name: gateway-requirements
+      - id: generate-gateway-requirements
+        name: generate-gateway-requirements
         entry: >
           python dev/generate_requirements.py
             --requirements-yaml-location requirements/gateway-requirements.yaml
