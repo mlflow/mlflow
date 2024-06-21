@@ -12,10 +12,6 @@ mlflow
 MLflow Tracing APIs
 ===================
 
-.. warning::
-
-    The tracing functionality is experimental and currently only available in Databricks. The feature will be fully supported in open-source MLflow in 2.14.0.
-
 The ``mlflow`` module provides a set of high-level APIs for `MLflow Tracing <../llms/tracing/index.html>`_. For the detailed
 guidance on how to use these tracing APIs, please refer to the `Tracing Fluent APIs Guide <../llms/tracing/index.html#tracing-fluent-apis>`_.
 

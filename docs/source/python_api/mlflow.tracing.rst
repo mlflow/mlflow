@@ -1,10 +1,6 @@
 mlflow.tracing
 ==============
 
-.. warning::
-
-    The tracing functionality is experimental and currently only available in Databricks. The feature will be fully supported in open-source MLflow in next major release.
-
 .. attention::
 
     The ``mlflow.tracing`` namespace only contains a few utility functions fo managing traces. The main entry point for MLflow
