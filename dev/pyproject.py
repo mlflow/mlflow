@@ -220,7 +220,7 @@ def build(package_type: PackageType) -> None:
             f.write(original)
 
     if taplo := shutil.which("taplo"):
-        subprocess.run([taplo, "fmt", out_path], check=True)
+        subprocess.check_call([taplo, "fmt", out_path])
 
 
 def main() -> None:
