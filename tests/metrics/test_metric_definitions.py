@@ -333,3 +333,8 @@ def test_ndcg_at_k():
         result = ndcg_at_k(k).eval_fn(predictions, targets)
         # row 1 and 2 have the same ndcg score
         assert pytest.approx(result.scores[0]) == pytest.approx(result.scores[1])
+
+    predictions = pd.Series([["c", "c", "c"]])
+    targets = pd.Series([["a", "b"]])
+    result = ndcg_at_k(k=3).eval_fn(predictions, targets)
+    assert result.scores[0] == 0.0

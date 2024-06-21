@@ -395,7 +395,8 @@ def _expand_duplicate_retrieved_docs(predictions, targets):
                 f"{doc_id}_bc574ae_{counter[doc_id]}"  # adding a random string to avoid collisions
             )
             expanded_predictions.append(new_doc_id)
-            expanded_targets.add(new_doc_id)
+            if doc_id in expanded_targets:
+                expanded_targets.add(new_doc_id)
     return expanded_predictions, expanded_targets
 
 
