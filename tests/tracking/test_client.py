@@ -480,6 +480,25 @@ def test_start_and_end_trace(tracking_uri, with_active_run):
     assert child_span_2.start_time_ns <= child_span_2.end_time_ns - 0.1 * 1e6
 
 
+def test_start_and_end_trace_capture_falsy_input_and_output(tracking_uri):
+    # This test is to verify that falsy input and output values are correctly logged
+    client = MlflowClient(tracking_uri)
+    experiment_id = client.create_experiment("test_experiment")
+
+    root = client.start_trace(name="root", experiment_id=experiment_id, inputs=[])
+    span = client.start_span(
+        name="child", request_id=root.request_id, parent_id=root.span_id, inputs=0
+    )
+    client.end_span(request_id=root.request_id, span_id=span.span_id, outputs=False)
+    client.end_trace(request_id=root.request_id, outputs="")
+
+    trace = client.get_trace(root.request_id)
+    assert trace.data.spans[0].inputs == []
+    assert trace.data.spans[0].outputs == ""
+    assert trace.data.spans[1].inputs == 0
+    assert trace.data.spans[1].outputs is False
+
+
 @pytest.mark.usefixtures("reset_active_experiment")
 def test_start_and_end_trace_before_all_span_end():
     # This test is to verify that the trace is still exported even if some spans are not ended
