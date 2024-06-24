@@ -273,25 +273,6 @@ def _validate_and_prepare_target_save_path(path):
     os.makedirs(path, exist_ok=True)
 
 
-def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_CODE):
-    """Checks if any code_paths were logged with the model in the flavor conf and prepends
-    the directory to the system path.
-
-    Args:
-        local_path: The local path containing model artifacts.
-        conf: The flavor-specific conf that should contain the FLAVOR_CONFIG_CODE
-            key, which specifies the directory containing custom code logged as artifacts.
-        code_key: The key used by the flavor to indicate custom code artifacts.
-            By default this is FLAVOR_CONFIG_CODE.
-    """
-    assert isinstance(conf, dict), "`conf` argument must be a dict."
-
-    if code_key in conf and conf[code_key]:
-        code_path = os.path.join(local_path, conf[code_key])
-        _add_code_to_system_path(code_path)
-        return code_path
-
-
 def _iter_modules(module_name: str) -> Iterator[str]:
     """
     Yields the module name and all its parent modules.
@@ -322,12 +303,29 @@ def _restore_sys_path_and_modules(sys_path: Set[str], start_modules: Set[str]):
 
 
 @contextlib.contextmanager
-def _reset_sys_path_and_modules(sys_path: Set[str]):
-    start_modules = set(sys.modules)
-    try:
+def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_CODE):
+    """Checks if any code_paths were logged with the model in the flavor conf and prepends
+    the directory to the system path.
+
+    Args:
+        local_path: The local path containing model artifacts.
+        conf: The flavor-specific conf that should contain the FLAVOR_CONFIG_CODE
+            key, which specifies the directory containing custom code logged as artifacts.
+        code_key: The key used by the flavor to indicate custom code artifacts.
+            By default this is FLAVOR_CONFIG_CODE.
+    """
+    assert isinstance(conf, dict), "`conf` argument must be a dict."
+
+    if value := conf.get(code_key):
+        code_path = os.path.join(local_path, value)
+        _add_code_to_system_path(code_path)
+        start_modules = set(sys.modules)
+        try:
+            yield
+        finally:
+            _restore_sys_path_and_modules({code_path}, start_modules)
+    else:
         yield
-    finally:
-        _restore_sys_path_and_modules(sys_path, start_modules)
 
 
 def _validate_onnx_session_options(onnx_session_options):
