@@ -542,7 +542,8 @@ class SearchUtils:
         if key_type == cls._TAG_IDENTIFIER:
             if comparator not in cls.VALID_TAG_COMPARATORS:
                 raise MlflowException(
-                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}"
+                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
         return False
@@ -559,7 +560,8 @@ class SearchUtils:
             if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
                     f"Invalid comparator '{comparator}' not one of "
-                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}'"
+                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}'",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
         return False
@@ -570,7 +572,8 @@ class SearchUtils:
             if comparator not in cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
                     f"Invalid comparator '{comparator}' not one of "
-                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}"
+                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
         return False
@@ -581,7 +584,8 @@ class SearchUtils:
             if comparator not in cls.VALID_DATASET_COMPARATORS:
                 raise MlflowException(
                     f"Invalid comparator '{comparator}' "
-                    f"not one of '{cls.VALID_DATASET_COMPARATORS}"
+                    f"not one of '{cls.VALID_DATASET_COMPARATORS}",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
         return False
@@ -1500,8 +1504,27 @@ class SearchTraceUtils(SearchUtils):
         "execution_time",
     }
 
-    _TAG_IDENTIFIER = "tag"
+    # For now, don't support LIKE/ILIKE operators for trace search because it may
+    # cause performance issues with large attributes and tags. We can revisit this
+    # decision if we find a way to support them efficiently.
+    VALID_TAG_COMPARATORS = {"!=", "="}
+    VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN"}
+
     _REQUEST_METADATA_IDENTIFIER = "request_metadata"
+    _TAG_IDENTIFIER = "tag"
+    _ATTRIBUTE_IDENTIFIER = "attribute"
+
+    # These are aliases for the base identifiers
+    # e.g. trace.status is equivalent to attribute.status
+    _ALTERNATE_IDENTIFIERS = {
+        "tags": _TAG_IDENTIFIER,
+        "attributes": _ATTRIBUTE_IDENTIFIER,
+        "trace": _ATTRIBUTE_IDENTIFIER,
+        "metadata": _REQUEST_METADATA_IDENTIFIER,
+    }
+    _IDENTIFIERS = {_TAG_IDENTIFIER, _REQUEST_METADATA_IDENTIFIER, _ATTRIBUTE_IDENTIFIER}
+    _VALID_IDENTIFIERS = _IDENTIFIERS | set(_ALTERNATE_IDENTIFIERS.keys())
+
     SUPPORT_IN_COMPARISON_ATTRIBUTE_KEYS = {"name", "status", "request_id", "run_id"}
 
     # Some search keys are defined differently in the DB models.
@@ -1523,7 +1546,7 @@ class SearchTraceUtils(SearchUtils):
         """Filters a set of traces based on a search filter string."""
         if not filter_string:
             return traces
-        parsed = cls.parse_search_filter(filter_string)
+        parsed = cls.parse_search_filter_for_search_traces(filter_string)
 
         def trace_matches(trace):
             return all(cls._does_trace_match_clause(trace, s) for s in parsed)
@@ -1532,21 +1555,19 @@ class SearchTraceUtils(SearchUtils):
 
     @classmethod
     def _does_trace_match_clause(cls, trace, sed):
+        type_ = sed.get("type")
         key = sed.get("key")
         value = sed.get("value")
         comparator = sed.get("comparator").upper()
 
-        if key in cls.SEARCH_KEY_TO_TAG:
-            key = cls.SEARCH_KEY_TO_TAG[key]
+        if cls.is_tag(type_, comparator):
             lhs = trace.tags.get(key)
-        elif key in cls.SEARCH_KEY_TO_METADATA:
-            key = cls.SEARCH_KEY_TO_METADATA[key]
+        elif cls.is_request_metadata(type_, comparator):
             lhs = trace.request_metadata.get(key)
-        elif key in cls.SEARCH_KEY_TO_ATTRIBUTE:
-            key = cls.SEARCH_KEY_TO_ATTRIBUTE[key]
+        elif cls.is_attribute(type_, key, comparator):
             lhs = getattr(trace, key)
-        elif key in cls.VALID_SEARCH_ATTRIBUTE_KEYS:
-            lhs = getattr(trace, key)
+        elif sed.get("type") == cls._TAG_IDENTIFIER:
+            lhs = trace.tags.get(key)
         else:
             raise MlflowException(
                 f"Invalid search key '{key}', supported are {cls.VALID_SEARCH_ATTRIBUTE_KEYS}",
@@ -1595,10 +1616,24 @@ class SearchTraceUtils(SearchUtils):
             # Request metadata accepts the same set of comparators as tags
             if comparator not in cls.VALID_TAG_COMPARATORS:
                 raise MlflowException(
-                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}'"
+                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}'",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
         return False
+
+    @classmethod
+    def _valid_entity_type(cls, entity_type):
+        entity_type = cls._trim_backticks(entity_type)
+        if entity_type not in cls._VALID_IDENTIFIERS:
+            raise MlflowException(
+                f"Invalid entity type '{entity_type}'. Valid values are {cls._VALID_IDENTIFIERS}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        elif entity_type in cls._ALTERNATE_IDENTIFIERS:
+            return cls._ALTERNATE_IDENTIFIERS[entity_type]
+        else:
+            return entity_type
 
     @classmethod
     def _get_sort_key(cls, order_by_list):
@@ -1625,6 +1660,8 @@ class SearchTraceUtils(SearchUtils):
         if identifier_type == cls._TAG_IDENTIFIER:
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
+            elif isinstance(token, Parenthesis):
+                return cls._parse_attribute_lists(token)
             raise MlflowException(
                 "Expected a quoted string value for "
                 f"{identifier_type} (e.g. 'my-value'). Got value "
@@ -1659,11 +1696,21 @@ class SearchTraceUtils(SearchUtils):
                     f"attributes. Got value {token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
+        elif identifier_type == cls._REQUEST_METADATA_IDENTIFIER:
+            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+                return cls._strip_quotes(token.value, expect_quoted_value=True)
+            else:
+                raise MlflowException(
+                    "Expected a quoted string value for "
+                    f"{identifier_type} (e.g. 'my-value'). Got value "
+                    f"{token.value}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
         else:
             # Expected to be either "param" or "metric".
             raise MlflowException(
-                "Invalid identifier type. Expected one of "
-                f"{[cls._ATTRIBUTE_IDENTIFIER, cls._TAG_IDENTIFIER]}.",
+                f"Invalid identifier type: {identifier_type}. "
+                f"Expected one of {cls._VALID_IDENTIFIERS}.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

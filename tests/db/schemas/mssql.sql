@@ -191,7 +191,7 @@ CREATE TABLE trace_request_metadata (
 	value VARCHAR(8000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	request_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT trace_request_metadata_pk PRIMARY KEY (key, request_id),
-	CONSTRAINT fk_trace_request_metadata_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id)
+	CONSTRAINT fk_trace_request_metadata_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
 
 

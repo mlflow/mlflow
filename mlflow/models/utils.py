@@ -1,17 +1,24 @@
+import base64
 import datetime as dt
 import decimal
+import importlib
 import json
 import logging
 import os
 import re
+import sys
+import uuid
+from contextlib import contextmanager
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 
+import mlflow
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
+from mlflow.models.model_config import _set_model_config
 from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.types import DataType, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.types.schema import Array, Map, Object, Property
@@ -1450,24 +1457,34 @@ def _validate_model_code_from_notebook(code):
     Validate there isn't any code that would work in a notebook but not as exported Python file.
     For now, this checks for dbutils and magic commands.
     """
-    error_message = (
-        "The model file uses 'dbutils' command which is not supported. To ensure your code "
-        "functions correctly, remove or comment out usage of 'dbutils' command."
-    )
 
+    output_code_list = []
     for line in code.splitlines():
         for match in re.finditer(r"\bdbutils\b", line):
             start = match.start()
             if not _is_in_comment(line, start) and not _is_in_string_only(line, "dbutils"):
-                raise ValueError(error_message)
+                _logger.warning(
+                    "The model file uses 'dbutils' commands which are not supported. To ensure "
+                    "your code functions correctly, make sure that it does not rely on these "
+                    "dbutils commands for correctness."
+                )
+        # Prefix any line containing MAGIC commands with a comment. When there is better support
+        # for the Databricks workspace export API, we can get rid of this.
+        if line.startswith("%"):
+            output_code_list.append("# MAGIC " + line)
+        else:
+            output_code_list.append(line)
+    output_code = "\n".join(output_code_list)
 
-    magic_regex = r"^# MAGIC %\S+.*"
-    if re.search(magic_regex, code, re.MULTILINE):
+    magic_regex = r"^# MAGIC %((?!pip)\S+).*"
+    if re.search(magic_regex, output_code, re.MULTILINE):
         _logger.warning(
             "The model file uses magic commands which have been commented out. To ensure your code "
             "functions correctly, make sure that it does not rely on these magic commands for "
             "correctness."
         )
+
+    return output_code.encode("utf-8")
 
 
 # Convert llm input data:
@@ -1498,3 +1515,150 @@ def _convert_llm_input_data(data):
             data = data.to_dict(orient="records")
 
     return _convert_llm_ndarray_to_list(data)
+
+
+def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> str:
+    """
+    Validate model code path exists. Creates a temp file in temp_dir and validate its contents if
+    it's a notebook.
+
+    Returns either `model_code_path` or a temp file path with the contents of the notebook.
+    """
+
+    # If the path is not a absolute path then convert it
+    model_code_path = os.path.abspath(model_code_path)
+
+    if not os.path.exists(model_code_path):
+        raise MlflowException.invalid_parameter_value(
+            f"The provided model path '{model_code_path}' is not a valid Python file path or a "
+            "Databricks Notebook file path containing the code for defining the chain instance. "
+            "Ensure the file path is valid and try again."
+        )
+
+    try:
+        with open(model_code_path) as _:
+            return model_code_path
+    except Exception:
+        try:
+            from databricks.sdk import WorkspaceClient
+            from databricks.sdk.service.workspace import ExportFormat
+
+            w = WorkspaceClient()
+            response = w.workspace.export(path=model_code_path, format=ExportFormat.SOURCE)
+            decoded_content = base64.b64decode(response.content)
+        except Exception:
+            raise MlflowException.invalid_parameter_value(
+                f"The provided model path '{model_code_path}' is not a valid Python file path or a "
+                "Databricks Notebook file path containing the code for defining the chain "
+                "instance. Ensure the file path is valid and try again."
+            )
+
+        _validate_model_code_from_notebook(decoded_content.decode("utf-8"))
+        path = os.path.join(temp_dir, "model.py")
+        with open(path, "wb") as f:
+            f.write(decoded_content)
+        return path
+
+
+@contextmanager
+def _config_context(config: Optional[Union[str, Dict[str, Any]]] = None):
+    # Check if config_path is None and set it to "" so when loading the model
+    # the config_path is set to "" so the ModelConfig can correctly check if the
+    # config is set or not
+    if config is None:
+        config = ""
+
+    _set_model_config(config)
+    try:
+        yield
+    finally:
+        _set_model_config(None)
+
+
+class MockDbutils:
+    def __init__(self, real_dbutils=None):
+        self.real_dbutils = real_dbutils
+
+    def __getattr__(self, name):
+        try:
+            if self.real_dbutils:
+                return getattr(self.real_dbutils, name)
+        except AttributeError:
+            pass
+        return MockDbutils()
+
+    def __call__(self, *args, **kwargs):
+        pass
+
+
+@contextmanager
+def _mock_dbutils(globals_dict):
+    module_name = "dbutils"
+    original_module = sys.modules.get(module_name)
+    sys.modules[module_name] = MockDbutils(original_module)
+
+    # Inject module directly into the global namespace in case it is referenced without an import
+    original_global = globals_dict.get(module_name)
+    globals_dict[module_name] = MockDbutils(original_module)
+
+    try:
+        yield
+    finally:
+        if original_module is not None:
+            sys.modules[module_name] = original_module
+        else:
+            del sys.modules[module_name]
+
+        if original_global is not None:
+            globals_dict[module_name] = original_global
+        else:
+            del globals_dict[module_name]
+
+
+# Python's module caching mechanism prevents the re-importation of previously loaded modules by
+# default. Once a module is imported, it's added to `sys.modules`, and subsequent import attempts
+# retrieve the cached module rather than re-importing it.
+# Here, we want to import the `code path` module multiple times during a single runtime session.
+# This function addresses this by dynamically importing the `code path` module under a unique,
+# dynamically generated module name. This bypasses the caching mechanism, as each import is
+# considered a separate module by the Python interpreter.
+def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, Any]]]):
+    with _config_context(config):
+        try:
+            new_module_name = f"code_model_{uuid.uuid4().hex}"
+            spec = importlib.util.spec_from_file_location(new_module_name, code_path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[new_module_name] = module
+            # Since dbutils will only work in databricks environment, we need to mock it
+            with _mock_dbutils(module.__dict__):
+                spec.loader.exec_module(module)
+        except ImportError as e:
+            raise MlflowException(
+                f"Failed to import code model from {code_path}. Error: {e!s}"
+            ) from e
+        except Exception as e:
+            raise MlflowException(
+                f"Failed to run user code from {code_path}. "
+                f"Error: {e!s}."
+                "Review the stack trace for more information."
+            ) from e
+
+    if mlflow.models.model.__mlflow_model__ is None:
+        raise MlflowException(
+            "If the model is logged as code, ensure the model is set using "
+            "mlflow.models.set_model() within the code file code file."
+        )
+    return mlflow.models.model.__mlflow_model__
+
+
+def _flatten_nested_params(
+    d: Dict[str, Any], parent_key: str = "", sep: str = "/"
+) -> Dict[str, str]:
+    items: Dict[str, Any] = {}
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.update(_flatten_nested_params(v, new_key, sep=sep))
+        else:
+            items[new_key] = v
+    return items

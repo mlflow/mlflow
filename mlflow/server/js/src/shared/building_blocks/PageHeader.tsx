@@ -62,7 +62,7 @@ type PageHeaderProps = {
   infoPopover?: React.ReactNode;
   children?: React.ReactNode;
   spacerSize?: 'xs' | 'sm' | 'md' | 'lg';
-  titleAddOns?: React.ReactNode[];
+  titleAddOns?: React.ReactNode | React.ReactNode[];
 };
 
 /**

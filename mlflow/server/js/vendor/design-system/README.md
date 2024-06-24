@@ -29,6 +29,22 @@ Or alternatively you can directly delete storybook's cache from
 yarn prettier
 ```
 
+### Running Cypress Tests
+
+Cypress tests are located in the `cypress/integration` directory.
+
+To run Cypress tests, first ensure that an existing storybook local development server is running.
+
+```bash
+yarn start:storybook
+```
+
+Then, open the Cypress UI in another terminal.
+
+```bash
+yarn cy:open
+```
+
 ## Publishing to NPM
 
 To publish the package to NPM, you'll need to ask one of the UI Core leads. Ping @oncall in #help-frontend for assistance.

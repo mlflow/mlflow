@@ -1,37 +1,35 @@
 import { act, renderHook } from '@testing-library/react-for-react-18';
 import { useExperimentPageSearchFacets, useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';
-import {
-  MemoryRouter,
-  Routes,
-  Route,
-  useLocation,
-  useNavigate,
-  useSearchParams,
-} from '../../../../common/utils/RoutingUtils';
+import { MemoryRouter, Routes, Route, useLocation, useSearchParams } from '../../../../common/utils/RoutingUtils';
+import { testRoute, TestRouter } from '../../../../common/utils/RoutingTestUtils';
 import { useEffect } from 'react';
 import { screen, renderWithIntl } from 'common/utils/TestUtils.react18';
 import userEvent from '@testing-library/user-event-14';
-import { createExperimentPageSearchFacetsStateV2 } from '../models/ExperimentPageSearchFacetsStateV2';
+import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 
 describe('useExperimentPageSearchFacets', () => {
-  const mountHook = (initialPath = '/') =>
-    renderHook(() => useExperimentPageSearchFacets(), {
+  const mountHook = async (initialPath = '/') => {
+    const hookResult = renderHook(() => useExperimentPageSearchFacets(), {
       wrapper: ({ children }) => (
-        <MemoryRouter initialEntries={[initialPath]}>
-          <Routes>
-            <Route path="/experiments/:experimentId" element={<div>{children}</div>} />
-            <Route path="/compare-experiments" element={<div>{children}</div>} />
-          </Routes>
-        </MemoryRouter>
+        <TestRouter
+          initialEntries={[initialPath]}
+          routes={[
+            testRoute(<div>{children}</div>, '/experiments/:experimentId'),
+            testRoute(<div>{children}</div>, '/compare-experiments'),
+          ]}
+        />
       ),
     });
-  test('return null for uninitialized state', () => {
-    const { result } = mountHook('/experiments/123');
+
+    return hookResult;
+  };
+  test('return null for uninitialized state', async () => {
+    const { result } = await mountHook('/experiments/123');
     expect(result.current).toEqual([null, ['123']]);
   });
 
-  test('return correct data for initialized state', () => {
-    const { result } = mountHook(
+  test('return correct data for initialized state', async () => {
+    const { result } = await mountHook(
       '/experiments/123?orderByKey=foo&orderByAsc=true&searchFilter=test%20string&datasetsFilter=W10=&lifecycleFilter=ACTIVE&modelVersionFilter=All Runs&startTime=ALL',
     );
     expect(result.current).toEqual([
@@ -48,8 +46,8 @@ describe('useExperimentPageSearchFacets', () => {
     ]);
   });
 
-  test('return correct data for multiple compared experiments', () => {
-    const { result } = mountHook('/compare-experiments?experiments=%5B%22444%22%2C%22555%22%5D&orderByKey=foo');
+  test('return correct data for multiple compared experiments', async () => {
+    const { result } = await mountHook('/compare-experiments?experiments=%5B%22444%22%2C%22555%22%5D&orderByKey=foo');
     expect(result.current).toEqual([
       expect.objectContaining({
         orderByKey: 'foo',
@@ -58,8 +56,8 @@ describe('useExperimentPageSearchFacets', () => {
     ]);
   });
 
-  test('return empty list when facing invalid compare experiment IDs', () => {
-    const { result } = mountHook('/compare-experiments?experiments=__invalid_array__&orderByKey=foo');
+  test('return empty list when facing invalid compare experiment IDs', async () => {
+    const { result } = await mountHook('/compare-experiments?experiments=__invalid_array__&orderByKey=foo');
     expect(result.current).toEqual([
       expect.objectContaining({
         orderByKey: 'foo',
@@ -70,8 +68,8 @@ describe('useExperimentPageSearchFacets', () => {
     ]);
   });
 
-  test('ignore unrelated parameters', () => {
-    const { result } = mountHook('/experiments/123?orderByKey=foo&o=123456');
+  test('ignore unrelated parameters', async () => {
+    const { result } = await mountHook('/experiments/123?orderByKey=foo&o=123456');
     expect(result.current).toEqual([
       expect.objectContaining({
         orderByKey: 'foo',
@@ -136,11 +134,11 @@ describe('useExperimentPageSearchFacets', () => {
   });
 
   test('fills gaps when only partial facets are provided', async () => {
-    const { result } = mountHook('/experiments/123?orderByKey=foo&o=123456');
+    const { result } = await mountHook('/experiments/123?orderByKey=foo&o=123456');
 
     expect(result.current).toEqual([
       {
-        ...createExperimentPageSearchFacetsStateV2(),
+        ...createExperimentPageSearchFacetsState(),
         orderByKey: 'foo',
       },
       ['123'],
@@ -157,27 +155,46 @@ describe('useUpdateExperimentPageSearchFacets', () => {
     }, [location]);
     return null;
   };
-  const mountHook = (initialPath = '/') => {
-    return renderHook(() => useUpdateExperimentPageSearchFacets(), {
+
+  const mountHook = async (initialPath = '/') => {
+    const hookResult = renderHook(() => useUpdateExperimentPageSearchFacets(), {
       wrapper: ({ children }) => (
-        <MemoryRouter initialEntries={[initialPath]}>
-          <LocationSpy />
-          <Routes>
-            <Route path="/experiments/:experimentId" element={<div>{children}</div>} />
-            <Route path="/compare-experiments" element={<div>{children}</div>} />
-          </Routes>
-        </MemoryRouter>
+        <>
+          <TestRouter
+            initialEntries={[initialPath]}
+            routes={[
+              testRoute(
+                <div>
+                  <LocationSpy />
+                  {children}
+                </div>,
+                '/experiments/:experimentId',
+              ),
+              testRoute(
+                <div>
+                  <LocationSpy />
+                  {children}
+                </div>,
+                '/compare-experiments',
+              ),
+            ]}
+          />
+        </>
       ),
     });
+
+    return hookResult;
   };
 
   test('correctly change search facets for single experiment', async () => {
-    const { result } = mountHook('/experiments/123');
-    const updateFn = result.current;
+    const { result } = await mountHook('/experiments/123');
+    let updateFn = result.current;
     act(() => {
       updateFn({ orderByKey: 'some-column', orderByAsc: true });
     });
     expect(locationSpyFn).toHaveBeenLastCalledWith('/experiments/123?orderByKey=some-column&orderByAsc=true');
+
+    updateFn = result.current;
     act(() => {
       updateFn({
         datasetsFilter: [{ context: 'ctx', digest: 'digest', experiment_id: '123', name: 'name' }],
@@ -189,7 +206,7 @@ describe('useUpdateExperimentPageSearchFacets', () => {
   });
 
   test('correctly change search facets for compare experiments', async () => {
-    const { result } = mountHook('/compare-experiments?experiments=%5B%22444%22%2C%22555%22%5D');
+    const { result } = await mountHook('/compare-experiments?experiments=%5B%22444%22%2C%22555%22%5D');
 
     expect(locationSpyFn).toHaveBeenLastCalledWith('/compare-experiments?experiments=%5B%22444%22%2C%22555%22%5D');
 
@@ -197,13 +214,14 @@ describe('useUpdateExperimentPageSearchFacets', () => {
     act(() => {
       updateFn({ orderByKey: 'some-column' });
     });
+
     expect(locationSpyFn).toHaveBeenLastCalledWith(
       '/compare-experiments?experiments=%5B%22444%22%2C%22555%22%5D&orderByKey=some-column',
     );
   });
 
   test('correctly retain unrelated parameters', async () => {
-    const { result } = mountHook('/experiments/123?o=12345');
+    const { result } = await mountHook('/experiments/123?o=12345');
     const updateFn = result.current;
     act(() => {
       updateFn({ orderByKey: 'some-column' });

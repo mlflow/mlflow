@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from opentelemetry.trace import NonRecordingSpan
 from opentelemetry.trace import Span as OTelSpan
 
 from mlflow.entities.span_event import SpanEvent
@@ -40,6 +41,31 @@ class SpanType:
     EMBEDDING = "EMBEDDING"
     RERANKER = "RERANKER"
     UNKNOWN = "UNKNOWN"
+
+
+def create_mlflow_span(
+    otel_span: Any, request_id: str, span_type: Optional[str] = None
+) -> Union["Span", "LiveSpan", "NoOpSpan"]:
+    """
+    Factory function to create a span object.
+
+    When creating a MLflow span object from the OpenTelemetry span, the factory function
+    should always be used to ensure the correct span object is created.
+    """
+    if not otel_span or isinstance(otel_span, NonRecordingSpan):
+        return NoOpSpan()
+
+    if isinstance(otel_span, OTelSpan):
+        return LiveSpan(otel_span, request_id, span_type)
+
+    if isinstance(otel_span, OTelReadableSpan):
+        return Span(otel_span)
+
+    raise MlflowException(
+        "The `otel_span` argument must be an instance of one of valid "
+        f"OpenTelemetry span classes, but got {type(otel_span)}.",
+        INVALID_PARAMETER_VALUE,
+    )
 
 
 class Span:
@@ -154,6 +180,12 @@ class Span:
             for event in self._span.events
         ]
 
+    def __repr__(self):
+        return (
+            f"{type(self).__name__}(name={self.name!r}, request_id={self.request_id!r}, "
+            f"span_id={self.span_id!r}, parent_id={self.parent_id!r})"
+        )
+
     def get_attribute(self, key: str) -> Optional[Any]:
         """
         Get a single attribute value from the span.
@@ -179,7 +211,7 @@ class Span:
             "parent_id": self.parent_id,
             "start_time": self.start_time_ns,
             "end_time": self.end_time_ns,
-            "status_code": self.status.status_code,
+            "status_code": self.status.status_code.value,
             "status_message": self.status.description,
             "attributes": dict(self._span.attributes),
             "events": [asdict(event) for event in self.events],
@@ -345,6 +377,18 @@ class LiveSpan(Span):
     def from_dict(cls, data: Dict[str, Any]) -> "Span":
         raise NotImplementedError("The `from_dict` method is not supported for the LiveSpan class.")
 
+    def to_immutable_span(self) -> "Span":
+        """
+        Downcast the live span object to the immutable span.
+
+        :meta private:
+        """
+        # All state of the live span is already persisted in the OpenTelemetry span object.
+        return Span(self._span)
+
+
+NO_OP_SPAN_REQUEST_ID = "MLFLOW_NO_OP_SPAN_REQUEST_ID"
+
 
 class NoOpSpan(Span):
     """
@@ -365,8 +409,16 @@ class NoOpSpan(Span):
 
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self):
+        self._span = NonRecordingSpan(context=None)
         self._attributes = {}
+
+    @property
+    def request_id(self):
+        """
+        No-op span returns a special request ID to distinguish it from the real spans.
+        """
+        return NO_OP_SPAN_REQUEST_ID
 
     @property
     def span_id(self):
@@ -441,7 +493,14 @@ class _SpanAttributesRegistry:
 
     def get(self, key: str):
         serialized_value = self._span.attributes.get(key)
-        return json.loads(serialized_value) if serialized_value else None
+        if serialized_value:
+            try:
+                return json.loads(serialized_value)
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to get value for key {key}, make sure you set the attribute "
+                    f"on mlflow Span class instead of directly to the OpenTelemetry span. {e}"
+                )
 
     def set(self, key: str, value: Any):
         if not isinstance(key, str):

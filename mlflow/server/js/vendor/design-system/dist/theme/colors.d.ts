@@ -1,10 +1,14 @@
 import { primitiveColors } from './_generated/PrimitiveColors';
 import { lightColorList } from './_generated/SemanticColors-Light';
 declare const branded: {
-    /** For AI components, the top-oriented start color of gradient treatments. */
-    aiGradientStart: string;
-    /** For AI components, the bottom-oriented end color of gradient treatments. */
-    aiGradientEnd: string;
+    ai: {
+        /** For AI components, the top-left-oriented start color of gradient treatments. */
+        gradientStart: string;
+        /** For AI components, the mid color of gradient treatments. */
+        gradientMid: string;
+        /** For AI components, the bottom-right-oriented end color of gradient treatments. */
+        gradientEnd: string;
+    };
 };
 type DesignSystemColors = typeof lightColorList & typeof primitiveColors & {
     /** These colors represent specific brand interactions and experiences,

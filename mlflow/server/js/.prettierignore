@@ -11,6 +11,7 @@ __generated__
 /src/i18n/default
 /src/i18n/lang
 /src/data-profiles/sample-data
+/src/experiment-tracking/components/run-page/artifact-fixtures
 /vendor
 /tsconfig.json
 

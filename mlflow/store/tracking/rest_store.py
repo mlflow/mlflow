@@ -231,14 +231,14 @@ class RestStore(AbstractStore):
         for key, value in request_metadata.items():
             attr = TraceRequestMetadata()
             attr.key = key
-            attr.value = value
+            attr.value = str(value)
             request_metadata_proto.append(attr)
 
         tags_proto = []
         for key, value in tags.items():
             tag = TraceTag()
             tag.key = key
-            tag.value = value
+            tag.value = str(value)
             tags_proto.append(tag)
 
         req_body = message_to_json(
@@ -280,14 +280,14 @@ class RestStore(AbstractStore):
         for key, value in request_metadata.items():
             attr = TraceRequestMetadata()
             attr.key = key
-            attr.value = value
+            attr.value = str(value)
             request_metadata_proto.append(attr)
 
         tags_proto = []
         for key, value in tags.items():
             tag = TraceTag()
             tag.key = key
-            tag.value = value
+            tag.value = str(value)
             tags_proto.append(tag)
 
         req_body = message_to_json(
@@ -304,7 +304,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
         return TraceInfo.from_proto(response_proto.trace_info)
 
-    def delete_traces(
+    def _delete_traces(
         self,
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,

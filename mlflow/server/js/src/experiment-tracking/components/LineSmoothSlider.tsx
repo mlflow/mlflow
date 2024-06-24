@@ -1,69 +1,64 @@
-import React from 'react';
-import { Slider, InputNumber, Row, Col } from 'antd';
-import { WithDesignSystemThemeHoc, DesignSystemHocProps } from '@databricks/design-system';
+import { Col, Row, useDesignSystemTheme } from '@databricks/design-system';
+import { InputNumber, Slider } from 'antd';
 
-type Props = {
-  min?: number;
+interface LineSmoothSliderProps {
   max?: number;
-  step?: number;
-  handleLineSmoothChange: (...args: any[]) => any;
-  defaultValue: number;
+  min?: number;
+  step?: number | null;
+  marks?: Record<number, string>;
+  defaultValue: number | undefined;
+  onChange: (value: number) => void;
   disabled?: boolean;
-} & DesignSystemHocProps;
-
-class LineSmoothSliderImpl extends React.Component<Props> {
-  onChange = (value: any) => {
-    if (Number.isNaN(value)) {
-      return;
-    }
-    this.setState({
-      inputValue: value,
-    });
-    this.props.handleLineSmoothChange(value);
-  };
-
-  render() {
-    const {
-      min,
-      max,
-      step = 1,
-      disabled,
-      designSystemThemeApi: { theme },
-      defaultValue,
-    } = this.props;
-
-    // Until DuBois <Slider /> is under development, let's override default antd palette
-    const sliderColor = disabled ? theme.colors.actionDisabledText : theme.colors.primary;
-
-    return (
-      <Row>
-        <Col span={18}>
-          <Slider
-            disabled={disabled}
-            min={min}
-            max={max}
-            onChange={this.onChange}
-            value={typeof defaultValue === 'number' ? defaultValue : 1}
-            step={step}
-            trackStyle={{ background: sliderColor }}
-            handleStyle={{ background: sliderColor, borderColor: sliderColor }}
-          />
-        </Col>
-        <Col span={2}>
-          <InputNumber
-            disabled={disabled}
-            min={min}
-            max={max}
-            style={{ marginLeft: 16, width: 60 }}
-            step={step}
-            value={typeof defaultValue === 'number' ? defaultValue : 1}
-            onChange={this.onChange}
-            data-test-id="InputNumber"
-          />
-        </Col>
-      </Row>
-    );
-  }
+  onAfterChange?: (value: number) => void;
 }
 
-export const LineSmoothSlider = WithDesignSystemThemeHoc(LineSmoothSliderImpl);
+export const LineSmoothSlider = ({
+  max,
+  min,
+  step,
+  marks,
+  defaultValue,
+  onChange,
+  disabled,
+  onAfterChange,
+}: LineSmoothSliderProps) => {
+  const { theme } = useDesignSystemTheme();
+  const STEP_MARKS_DISPLAY_THRESHOLD = 10;
+  const INPUT_NUMBER_WIDTH = 60;
+  // Until DuBois <Slider /> is under development, let's override default antd palette
+  const sliderColor = disabled ? theme.colors.actionDisabledText : theme.colors.primary;
+
+  return (
+    <div css={{ display: 'flex', flexWrap: 'nowrap', height: '32px', gap: theme.spacing.md }}>
+      <Slider
+        css={{
+          '& .ant-slider-dot': {
+            display: marks && Object.keys(marks).length > STEP_MARKS_DISPLAY_THRESHOLD ? 'none' : 'inherit',
+          },
+          width: `calc(100% - ${INPUT_NUMBER_WIDTH + theme.spacing.md}px)`,
+        }}
+        disabled={disabled}
+        min={min}
+        max={max}
+        onChange={onChange}
+        value={typeof defaultValue === 'number' ? defaultValue : 1}
+        trackStyle={{ background: sliderColor }}
+        handleStyle={{ background: sliderColor, borderColor: sliderColor }}
+        marks={marks}
+        step={step}
+        onAfterChange={onAfterChange}
+        data-test-id="Slider"
+      />
+      <InputNumber
+        disabled={disabled}
+        min={min}
+        max={max}
+        css={{ width: INPUT_NUMBER_WIDTH }}
+        step={step === null ? undefined : step}
+        value={typeof defaultValue === 'number' ? defaultValue : 1}
+        onChange={onAfterChange ? onAfterChange : onChange}
+        data-test-id="InputNumber"
+      />
+    </div>
+  );
+};

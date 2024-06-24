@@ -1,26 +1,20 @@
-import { Button, Checkbox, FullscreenExitIcon, FullscreenIcon, SidebarIcon } from '@databricks/design-system';
+import { Button } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import React, { useCallback, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useNavigate } from '../../../../../common/utils/RoutingUtils';
 import { Tooltip } from '@databricks/design-system';
-import { COLUMN_SORT_BY_ASC, LIFECYCLE_FILTER, SORT_DELIMITER_SYMBOL } from '../../../../constants';
+import { LIFECYCLE_FILTER } from '../../../../constants';
 import Routes from '../../../../routes';
-import { UpdateExperimentSearchFacetsFn, UpdateExperimentViewStateFn } from '../../../../types';
-import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
-import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
+import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ExperimentViewRunModals } from './ExperimentViewRunModals';
-import { ExperimentViewRunsSortSelector } from './ExperimentViewRunsSortSelector';
-import { ExperimentViewRunsColumnSelector } from './ExperimentViewRunsColumnSelector';
-import { TAGS_TO_COLUMNS_MAP } from '../../utils/experimentPage.column-utils';
-import type { ExperimentRunSortOption } from '../../hooks/useRunSortOptions';
-import { ToggleIconButton } from '../../../../../common/components/ToggleIconButton';
-import { useExperimentIds } from '../../hooks/useExperimentIds';
+import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import { RunInfoEntity } from '../../../../types';
 
 export type ExperimentViewRunsControlsActionsProps = {
-  viewState: SearchExperimentRunsViewState;
-  searchFacetsState: SearchExperimentRunsFacetsState;
+  viewState: ExperimentPageViewState;
+  searchFacetsState: ExperimentPageSearchFacetsState;
   runsData: ExperimentRunsSelectorResult;
   refreshRuns: () => void;
 };
@@ -42,9 +36,9 @@ export const ExperimentViewRunsControlsActions = React.memo(
 
     const renameButtonClicked = useCallback(() => {
       const runsSelectedList = Object.keys(runsSelected);
-      const selectedRun = runInfos.find((info) => info.run_uuid === runsSelectedList[0]);
+      const selectedRun = runInfos.find((info) => info.runUuid === runsSelectedList[0]);
       if (selectedRun) {
-        setRenamedRunName(selectedRun.run_name);
+        setRenamedRunName(selectedRun.runName);
         setShowRenameRunModal(true);
       }
     }, [runInfos, runsSelected]);
@@ -52,8 +46,8 @@ export const ExperimentViewRunsControlsActions = React.memo(
     const compareButtonClicked = useCallback(() => {
       const runsSelectedList = Object.keys(runsSelected);
       const experimentIds = runInfos
-        .filter(({ run_uuid }: any) => runsSelectedList.includes(run_uuid))
-        .map(({ experiment_id }: any) => experiment_id);
+        .filter(({ runUuid }: RunInfoEntity) => runsSelectedList.includes(runUuid))
+        .map(({ experimentId }: any) => experimentId);
 
       navigate(Routes.getCompareRunPageRoute(runsSelectedList, [...new Set(experimentIds)].sort()));
     }, [navigate, runInfos, runsSelected]);

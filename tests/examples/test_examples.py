@@ -11,7 +11,7 @@ from mlflow import cli
 from mlflow.utils import process
 from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
 
-from tests.helper_functions import clear_hub_cache
+from tests.helper_functions import clear_hub_cache, flaky
 from tests.integration.utils import invoke_cli_runner
 
 EXAMPLES_DIR = "examples"
@@ -38,6 +38,7 @@ def clean_up_mlflow_virtual_environments():
 
 
 @pytest.mark.notrackingurimock
+@flaky()
 @pytest.mark.parametrize(
     ("directory", "params"),
     [
@@ -161,6 +162,9 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("transformers", [sys.executable, "sentence_transformer.py"]),
         ("transformers", [sys.executable, "whisper.py"]),
         ("sentence_transformers", [sys.executable, "simple.py"]),
+        ("tracing", [sys.executable, "fluent.py"]),
+        ("tracing", [sys.executable, "client.py"]),
+        ("tracing", [sys.executable, "multithreading.py"]),
     ],
 )
 def test_command_example(directory, command):

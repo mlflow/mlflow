@@ -3,6 +3,7 @@
  * https://github.com/mlflow/mlflow/blob/master/mlflow/utils/name_utils.py
  */
 
+import { RUNS_COLOR_PALETTE } from '../../common/color-palette';
 import { RunRowType } from '../components/experiment-page/utils/experimentPage.row-types';
 
 // prettier-ignore
@@ -54,29 +55,6 @@ export const getDuplicatedRunName = (originalRunName = '', alreadyExistingRunNam
  * TODO: make a decision on the final color hashing per run
  */
 export const getStableColorForRun = (runUuid: string) => {
-  // Taken from Figma design
-  const colors = [
-    '#077A9D',
-    '#8BCAE7',
-    '#FFAB00',
-    '#FFDB96',
-    '#00A972',
-    '#99DDB4',
-    '#BA7B23',
-    '#FF3621',
-    '#FCA4A1',
-    '#919191',
-    '#00875C',
-    '#1B5162',
-    '#914B9F',
-    '#D01F0B',
-    '#BD89C7',
-    '#AB4057',
-    '#5F5F5F',
-    '#BF7080',
-    '#C2C2C2',
-    '#7F1035',
-  ];
   let a = 0,
     b = 0;
 
@@ -87,5 +65,5 @@ export const getStableColorForRun = (runUuid: string) => {
   }
 
   // eslint-disable-next-line no-bitwise
-  return colors[(a | (b << 8)) % colors.length];
+  return RUNS_COLOR_PALETTE[(a | (b << 8)) % RUNS_COLOR_PALETTE.length];
 };

@@ -5,9 +5,10 @@ import { ExperimentViewDatasetDrawer } from './ExperimentViewDatasetDrawer';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
 import userEvent from '@testing-library/user-event-14';
+import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils';
 
 const httpDataset = {
-  source_type: DatasetSourceTypes.HTTP,
+  sourceType: DatasetSourceTypes.HTTP,
   profile: 'null',
   digest: 'abcdef',
   name: 'test_dataset_name',
@@ -16,7 +17,7 @@ const httpDataset = {
 };
 
 const s3Dataset = {
-  source_type: DatasetSourceTypes.S3,
+  sourceType: DatasetSourceTypes.S3,
   profile: 'null',
   digest: 'abcdef',
   name: 'test_dataset_name',
@@ -25,7 +26,7 @@ const s3Dataset = {
 };
 
 const huggingFaceDataset = {
-  source_type: DatasetSourceTypes.HUGGING_FACE,
+  sourceType: DatasetSourceTypes.HUGGING_FACE,
   profile: 'null',
   digest: 'abcdef',
   name: 'test_dataset_name',
@@ -68,7 +69,9 @@ describe('ExperimentViewDatasetDrawer', () => {
         wrapper: ({ children }) => (
           <IntlProvider locale="en">
             <MemoryRouter>
-              <DesignSystemProvider>{children}</DesignSystemProvider>
+              <MockedReduxStoreProvider state={{ entities: { colorByRunUuid: {} } }}>
+                <DesignSystemProvider>{children}</DesignSystemProvider>
+              </MockedReduxStoreProvider>
             </MemoryRouter>
           </IntlProvider>
         ),

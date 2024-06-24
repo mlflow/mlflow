@@ -130,6 +130,7 @@ def save_model(
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
+    example_no_conversion: bool = False,
 ) -> None:
     """
     .. note::
@@ -169,6 +170,7 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
+        example_no_conversion: {{ example_no_conversion }}
     """
     import sentence_transformers
 
@@ -187,7 +189,9 @@ def save_model(
         )
     elif signature is None and input_example is not None:
         wrapped_model = _SentenceTransformerModelWrapper(model)
-        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+        signature = _infer_signature_from_input_example(
+            input_example, wrapped_model, no_conversion=example_no_conversion
+        )
     elif signature is None:
         signature = _get_default_signature()
     elif signature is False:
@@ -198,7 +202,7 @@ def save_model(
     if signature is not None:
         mlflow_model.signature = signature
     if input_example is not None:
-        _save_example(mlflow_model, input_example, str(path))
+        _save_example(mlflow_model, input_example, str(path), no_conversion=example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
     model_config = None
@@ -312,6 +316,7 @@ def log_model(
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
+    example_no_conversion: bool = False,
 ):
     """
     .. note::
@@ -376,6 +381,7 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
+        example_no_conversion: {{ example_no_conversion }}
     """
     if task is not None:
         metadata = _verify_task_and_update_metadata(task, metadata)
@@ -394,7 +400,22 @@ def log_model(
         input_example=input_example,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        example_no_conversion=example_no_conversion,
     )
+
+
+def _get_load_kwargs():
+    import sentence_transformers
+
+    load_kwargs = {}
+    # The trust_remote_code is supported since Sentence Transformers 2.3.0
+    if Version(sentence_transformers.__version__) >= Version("2.3.0"):
+        # Always set trust_remote_code=True because we save the entire repository files in
+        # the model artifacts, so there is no risk of running untrusted code unless the logged
+        # artifact is modified by a malicious actor, which is much more broader security
+        # concern that even cannot be prevented by setting trust_remote_code=False.
+        load_kwargs["trust_remote_code"] = True
+    return load_kwargs
 
 
 def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
@@ -406,7 +427,8 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     """
     import sentence_transformers
 
-    model = sentence_transformers.SentenceTransformer.load(path)
+    load_kwargs = _get_load_kwargs()
+    model = sentence_transformers.SentenceTransformer(path, **load_kwargs)
     model_config = model_config or {}
     task = model_config.get("task", None)
     return _SentenceTransformerModelWrapper(model, task)
@@ -450,14 +472,7 @@ def load_model(model_uri: str, dst_path: Optional[str] = None):
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
 
-    load_kwargs = {}
-    # The trust_remote_code is supported since Sentence Transformers 2.3.0
-    if Version(sentence_transformers.__version__) >= Version("2.3.0"):
-        # Always set trust_remote_code=True because we save the entire repository files in
-        # the model artifacts, so there is no risk of running untrusted code unless the logged
-        # artifact is modified by a malicious actor, which is much more broader security
-        # concern that even cannot be prevented by setting trust_remote_code=False.
-        load_kwargs["trust_remote_code"] = True
+    load_kwargs = _get_load_kwargs()
     return sentence_transformers.SentenceTransformer(str(local_model_dir), **load_kwargs)
 
 

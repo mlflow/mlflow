@@ -1,14 +1,19 @@
 import { ICellRendererParams } from '@ag-grid-community/core';
 import { Button, MinusBoxIcon, PlusSquareIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link } from '../../../../../../common/utils/RoutingUtils';
 import Routes from '../../../../../routes';
 import { RunRowType } from '../../../utils/experimentPage.row-types';
 import { GroupParentCellRenderer } from './GroupParentCellRenderer';
 import invariant from 'invariant';
 import { RunColorPill } from '../../RunColorPill';
-import { shouldUseNewRunRowsVisibilityModel } from '../../../../../../common/utils/FeatureUtils';
+import {
+  shouldEnableToggleIndividualRunsInGroups,
+  shouldUseNewRunRowsVisibilityModel,
+} from '../../../../../../common/utils/FeatureUtils';
+import { useGetExperimentRunColor, useSaveExperimentRunColor } from '../../../hooks/useExperimentRunColor';
+import { useExperimentViewRunsTableHeaderContext } from '../ExperimentViewRunsTableHeaderContext';
 
 export interface RunNameCellRendererProps extends ICellRendererParams {
   data: RunRowType;
@@ -19,12 +24,16 @@ export interface RunNameCellRendererProps extends ICellRendererParams {
 export const RunNameCellRenderer = React.memo((props: RunNameCellRendererProps) => {
   const { theme } = useDesignSystemTheme();
 
+  const saveRunColor = useSaveExperimentRunColor();
+  const getRunColor = useGetExperimentRunColor();
+  const { useGroupedValuesInCharts } = useExperimentViewRunsTableHeaderContext();
+
   // If we're rendering a group row, use relevant component
   if (props.data.groupParentInfo) {
     return <GroupParentCellRenderer {...props} />;
   }
   const { onExpand, data } = props;
-  const { runName, experimentId, runUuid, runDateAndNestInfo, color, hidden } = data;
+  const { runName, experimentId, runUuid, runDateAndNestInfo, hidden } = data;
 
   // If we are not rendering a group, assert existence of necessary fields
   invariant(experimentId, 'experimentId should be set for run rows');
@@ -34,6 +43,12 @@ export const RunNameCellRenderer = React.memo((props: RunNameCellRendererProps) 
   const { hasExpander, expanderOpen, childrenIds, level, belongsToGroup } = runDateAndNestInfo;
 
   const renderingAsParent = !isNaN(level) && hasExpander;
+  const hideRunColorControl = (() => {
+    if (shouldEnableToggleIndividualRunsInGroups()) {
+      return belongsToGroup && useGroupedValuesInCharts;
+    }
+    return belongsToGroup;
+  })();
 
   return (
     <div css={styles.cellWrapper}>
@@ -59,14 +74,22 @@ export const RunNameCellRenderer = React.memo((props: RunNameCellRendererProps) 
           )}
         </div>
       </div>
-      <Link to={Routes.getRunPageRoute(experimentId, runUuid)} css={styles.runLink}>
-        <RunColorPill
-          color={!belongsToGroup ? color : 'transparent'}
-          hidden={shouldUseNewRunRowsVisibilityModel() && !belongsToGroup && props.isComparingRuns && hidden}
-          data-testid="experiment-view-table-run-color"
-        />
-        <span css={styles.runName}>{runName}</span>
-      </Link>
+      <div css={styles.runLink}>
+        {hideRunColorControl ? (
+          // Render empty color pills for grouped runs
+          <div css={{ width: 12, height: 12, flexShrink: 0 }} />
+        ) : (
+          <RunColorPill
+            color={getRunColor(runUuid)}
+            hidden={shouldUseNewRunRowsVisibilityModel() && props.isComparingRuns && hidden}
+            data-testid="experiment-view-table-run-color"
+            onChangeColor={(colorValue) => saveRunColor({ runUuid, colorValue })}
+          />
+        )}
+        <Link to={Routes.getRunPageRoute(experimentId, runUuid)} css={styles.runLink} tabIndex={0}>
+          <span css={styles.runName}>{runName}</span>
+        </Link>
+      </div>
     </div>
   );
 });
@@ -91,6 +114,9 @@ const styles = {
     display: 'flex',
     gap: 8,
     alignItems: 'center',
+    '&:focus-visible': {
+      textDecoration: 'underline',
+    },
   },
   runName: {
     overflow: 'hidden',

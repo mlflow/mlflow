@@ -380,11 +380,11 @@ In summary, use the function-based Model when you have a simple function to seri
 If you need more power, use  the class-based model.
 
 """
-
 import collections
 import functools
 import importlib
 import inspect
+import json
 import logging
 import os
 import signal
@@ -393,6 +393,7 @@ import sys
 import tempfile
 import threading
 import warnings
+from contextlib import contextmanager
 from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
@@ -412,8 +413,17 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
+from mlflow.models.dependencies_schemas import (
+    _clear_dependencies_schemas,
+    _get_dependencies_schemas,
+)
 from mlflow.models.flavor_backend_registry import get_flavor_backend
-from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE, MLMODEL_FILE_NAME, MODEL_CONFIG
+from mlflow.models.model import (
+    _DATABRICKS_FS_LOADER_MODULE,
+    MLMODEL_FILE_NAME,
+    MODEL_CODE_PATH,
+    MODEL_CONFIG,
+)
 from mlflow.models.resources import Resource, _ResourceBuilder
 from mlflow.models.signature import (
     _infer_signature_from_input_example,
@@ -427,7 +437,9 @@ from mlflow.models.utils import (
     _convert_llm_input_data,
     _enforce_params_schema,
     _enforce_schema,
+    _load_model_code_path,
     _save_example,
+    _validate_and_get_model_code_path,
 )
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -440,6 +452,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     LineageHeaderInfo,
     Notebook,
 )
+from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.pyfunc.model import (
     ChatModel,
     PythonModel,
@@ -449,6 +462,8 @@ from mlflow.pyfunc.model import (
     get_default_conda_env,  # noqa: F401
     get_default_pip_requirements,
 )
+from mlflow.tracing.provider import trace_disabled
+from mlflow.tracing.utils import _try_get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import (
@@ -495,8 +510,10 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _get_flavor_configuration_from_ml_model_file,
     _get_overridden_pyfunc_model_config,
-    _validate_and_copy_code_paths,
+    _validate_and_copy_file_to_directory,
+    _validate_and_get_model_config_from_file,
     _validate_and_prepare_target_save_path,
+    _validate_infer_and_copy_code_paths,
     _validate_pyfunc_model_config,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
@@ -542,6 +559,7 @@ def add_to_model(
     conda_env=None,
     python_env=None,
     model_config=None,
+    model_code_path=None,
     **kwargs,
 ):
     """
@@ -589,6 +607,8 @@ def add_to_model(
             params[ENV][EnvType.VIRTUALENV] = python_env
     if model_config:
         params[MODEL_CONFIG] = model_config
+    if model_code_path:
+        params[MODEL_CODE_PATH] = model_code_path
     return model.add_flavor(FLAVOR_NAME, **params)
 
 
@@ -692,7 +712,31 @@ class PyFuncModel:
             )
         return data, params
 
+    def _update_dependencies_schemas_in_prediction_context(self, context: Context):
+        if self._model_meta and self._model_meta.metadata:
+            dependencies_schemas = self._model_meta.metadata.get("dependencies_schemas", {})
+            context.update(
+                dependencies_schemas={
+                    dependency: json.dumps(schema)
+                    for dependency, schema in dependencies_schemas.items()
+                }
+            )
+
+    @contextmanager
+    def _try_get_or_generate_prediction_context(self):
+        # set context for prediction if it's not set
+        # NB: in model serving the prediction context must be set
+        # with a request_id
+        context = _try_get_prediction_context() or Context()
+        with set_prediction_context(context):
+            yield context
+
     def predict(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncOutput:
+        with self._try_get_or_generate_prediction_context() as context:
+            self._update_dependencies_schemas_in_prediction_context(context)
+            return self._predict(data, params)
+
+    def _predict(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncOutput:
         """
         Generates model predictions.
 
@@ -720,7 +764,6 @@ class PyFuncModel:
         Returns:
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
-
         data, params = self._validate_prediction_input(data, params)
         if inspect.signature(self._predict_fn).parameters.get("params"):
             return self._predict_fn(data, params=params)
@@ -729,6 +772,13 @@ class PyFuncModel:
         return self._predict_fn(data)
 
     def predict_stream(
+        self, data: PyFuncLLMSingleInput, params: Optional[Dict[str, Any]] = None
+    ) -> Iterator[PyFuncLLMOutputChunk]:
+        with self._try_get_or_generate_prediction_context() as context:
+            self._update_dependencies_schemas_in_prediction_context(context)
+            return self._predict_stream(data, params)
+
+    def _predict_stream(
         self, data: PyFuncLLMSingleInput, params: Optional[Dict[str, Any]] = None
     ) -> Iterator[PyFuncLLMOutputChunk]:
         """
@@ -872,11 +922,12 @@ def _get_pip_requirements_from_model_path(model_path: str):
     return [req.req_str for req in _parse_requirements(req_file_path, is_constraint=False)]
 
 
+@trace_disabled  # Suppress traces while loading model
 def load_model(
     model_uri: str,
     suppress_warnings: bool = False,
     dst_path: Optional[str] = None,
-    model_config: Optional[Dict[str, Any]] = None,
+    model_config: Optional[Union[str, Path, Dict[str, Any]]] = None,
 ) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -902,7 +953,8 @@ def load_model(
             This directory must already exist. If unspecified, a local output
             path will be created.
         model_config: The model configuration to apply to the model. This configuration
-            is available during model loading.
+            is available during model loading. The configuration can be passed as a file path,
+            or a dict with string keys.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
@@ -946,6 +998,10 @@ def load_model(
 
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
+
+    if isinstance(model_config, str):
+        model_config = _validate_and_get_model_config_from_file(model_config)
+
     model_config = _get_overridden_pyfunc_model_config(
         conf.get(MODEL_CONFIG, None), model_config, _logger
     )
@@ -970,6 +1026,10 @@ def load_model(
                 BAD_REQUEST,
             ) from None
         raise e
+    finally:
+        # clean up the dependencies schema which is set to global state after loading the model.
+        # This avoids the schema being used by other models loaded in the same process.
+        _clear_dependencies_schemas()
     predict_fn = conf.get("predict_fn", "predict")
     streamable = conf.get("streamable", False)
     predict_stream_fn = conf.get("predict_stream_fn", "predict_stream") if streamable else None
@@ -2011,6 +2071,8 @@ Compound types:
                         tempfile.gettempdir(),
                         "mlflow",
                         insecure_hash.sha1(model_uri.encode()).hexdigest(),
+                        # Use pid to avoid conflict when multiple spark UDF tasks
+                        str(os.getpid()),
                     )
                     try:
                         loaded_model = mlflow.pyfunc.load_model(model_path)
@@ -2086,7 +2148,8 @@ Compound types:
 def _validate_function_python_model(python_model):
     if not (isinstance(python_model, PythonModel) or callable(python_model)):
         raise MlflowException(
-            "`python_model` must be a PythonModel instance or a callable object",
+            "`python_model` must be a PythonModel instance, callable object, or path to a script "
+            "that uses set_model() to set a PythonModel instance or callable object.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -2101,12 +2164,14 @@ def _validate_function_python_model(python_model):
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
+@trace_disabled  # Suppress traces for internal predict calls while saving model
 def save_model(
     path,
     loader_module=None,
     data_path=None,
     code_path=None,  # deprecated
     code_paths=None,
+    infer_code_paths=False,
     conda_env=None,
     mlflow_model=None,
     python_model=None,
@@ -2152,13 +2217,16 @@ def save_model(
         code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
             replaced by ``code_paths`` and will be removed in a future version of MLflow.
         code_paths: {{ code_paths }}
+        infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
         mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
             **python_function** flavor.
         python_model:
             An instance of a subclass of :class:`~PythonModel` or a callable object with a single
             argument (see the examples below). The passed-in object is serialized using the
-            CloudPickle library. Any dependencies of the class should be included in one of the
+            CloudPickle library. The python_model can also be a file path to the PythonModel
+            which defines the model from code artifact rather than serializing the model object.
+            Any dependencies of the class should be included in one of the
             following locations:
 
             - The MLflow library.
@@ -2208,6 +2276,35 @@ def save_model(
                 mlflow.pyfunc.save_model("model", python_model=predict, input_example=["a"])
                 model = mlflow.pyfunc.load_model("model")
                 print(model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
+
+            Model from code
+
+            .. note::
+                Experimental: Model from code model support is experimental and may change or
+                be removed in a future release without warning.
+
+            .. code-block:: python
+
+                # code.py
+                from typing import List
+                import mlflow
+
+
+                class MyModel(mlflow.pyfunc.PythonModel):
+                    def predict(self, context, model_input: List[str], params=None) -> List[str]:
+                        return [i.upper() for i in model_input]
+
+
+                mlflow.models.set_model(MyModel())
+
+                # log_model.py
+                import mlflow
+
+                with mlflow.start_run():
+                    model_info = mlflow.pyfunc.log_model(
+                        artifact_path="model",
+                        python_model="code.py",
+                    )
 
             If the `predict` method or function has type annotations, MLflow automatically
             constructs a model signature based on the type annotations (unless the ``signature``
@@ -2268,15 +2365,33 @@ def save_model(
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     _validate_pyfunc_model_config(model_config)
-    if python_model:
-        _validate_function_python_model(python_model)
-        if callable(python_model) and all(
-            a is None for a in (input_example, pip_requirements, extra_pip_requirements)
-        ):
-            raise MlflowException(
-                "If `python_model` is a callable object, at least one of `input_example`, "
-                "`pip_requirements`, or `extra_pip_requirements` must be specified."
-            )
+    _validate_and_prepare_target_save_path(path)
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        model_code_path = None
+        if python_model:
+            if isinstance(model_config, Path):
+                model_config = os.fspath(model_config)
+
+            if isinstance(model_config, str):
+                model_config = _validate_and_get_model_config_from_file(model_config)
+
+            if isinstance(python_model, Path):
+                python_model = os.fspath(python_model)
+
+            if isinstance(python_model, str):
+                model_code_path = _validate_and_get_model_code_path(python_model, temp_dir)
+                _validate_and_copy_file_to_directory(model_code_path, path, "code")
+                python_model = _load_model_code_path(model_code_path, model_config)
+
+            _validate_function_python_model(python_model)
+            if callable(python_model) and all(
+                a is None for a in (input_example, pip_requirements, extra_pip_requirements)
+            ):
+                raise MlflowException(
+                    "If `python_model` is a callable object, at least one of `input_example`, "
+                    "`pip_requirements`, or `extra_pip_requirements` must be specified."
+                )
 
     mlflow_model = kwargs.pop("model", mlflow_model)
     if len(kwargs) > 0:
@@ -2326,8 +2441,6 @@ def save_model(
         )
         raise MlflowException(message=msg, error_code=INVALID_PARAMETER_VALUE)
 
-    _validate_and_prepare_target_save_path(path)
-
     if mlflow_model is None:
         mlflow_model = Model()
 
@@ -2353,12 +2466,19 @@ def save_model(
                 CHAT_MODEL_INPUT_SCHEMA,
                 CHAT_MODEL_OUTPUT_SCHEMA,
             )
-            input_example = CHAT_MODEL_INPUT_EXAMPLE
+            input_example = input_example or CHAT_MODEL_INPUT_EXAMPLE
 
-            # perform output validation and throw if
-            # output is not coercable to ChatResponse
-            messages = [ChatMessage(**m) for m in input_example["messages"]]
-            params = ChatParams(**{k: v for k, v in input_example.items() if k != "messages"})
+            if isinstance(input_example, list):
+                params = ChatParams()
+                messages = [
+                    each_message
+                    for each_message in input_example
+                    if isinstance(each_message, ChatMessage)
+                ]
+            else:
+                # If the input example is a dictionary, convert it to ChatMessage format
+                messages = [ChatMessage(**m) for m in input_example["messages"]]
+                params = ChatParams(**{k: v for k, v in input_example.items() if k != "messages"})
 
             # call load_context() first, as predict may depend on it
             _logger.info("Predicting on input example to validate output")
@@ -2382,9 +2502,12 @@ def save_model(
                 mlflow_model.signature = signature
             elif input_example is not None:
                 try:
+                    context = PythonModelContext(artifacts, model_config)
+                    python_model.load_context(context)
                     mlflow_model.signature = _infer_signature_from_input_example(
                         input_example,
                         _PythonModelPyfuncWrapper(python_model, None, None),
+                        no_conversion=example_no_conversion,
                     )
                 except Exception as e:
                     _logger.warning(f"Failed to infer model signature from input example. {e}")
@@ -2393,6 +2516,13 @@ def save_model(
         _save_example(mlflow_model, input_example, path, example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
+
+    with _get_dependencies_schemas() as dependencies_schemas:
+        schema = dependencies_schemas.to_dict()
+        if schema is not None:
+            if mlflow_model.metadata is None:
+                mlflow_model.metadata = {}
+            mlflow_model.metadata.update(schema)
 
     if resources is not None:
         if isinstance(resources, (Path, str)):
@@ -2414,6 +2544,7 @@ def save_model(
             extra_pip_requirements=extra_pip_requirements,
             model_config=model_config,
             streamable=streamable,
+            infer_code_paths=infer_code_paths,
         )
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
@@ -2429,16 +2560,20 @@ def save_model(
             extra_pip_requirements=extra_pip_requirements,
             model_config=model_config,
             streamable=streamable,
+            model_code_path=model_code_path,
+            infer_code_paths=infer_code_paths,
         )
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
+@trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     artifact_path,
     loader_module=None,
     data_path=None,
     code_path=None,  # deprecated
     code_paths=None,
+    infer_code_paths=False,
     conda_env=None,
     python_model=None,
     artifacts=None,
@@ -2480,11 +2615,14 @@ def log_model(
         code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
             replaced by ``code_paths`` and will be removed in a future version of MLflow.
         code_paths: {{ code_paths }}
+        infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
         python_model:
             An instance of a subclass of :class:`~PythonModel` or a callable object with a single
             argument (see the examples below). The passed-in object is serialized using the
-            CloudPickle library. Any dependencies of the class should be included in one of the
+            CloudPickle library. The python_model can also be a file path to the PythonModel
+            which defines the model from code artifact rather than serializing the model object.
+            Any dependencies of the class should be included in one of the
             following locations:
 
             - The MLflow library.
@@ -2545,6 +2683,35 @@ def log_model(
 
                 loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
                 print(loaded_model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
+
+            Model from code
+
+            .. note::
+                Experimental: Model from code model support is experimental and may change or
+                be removed in a future release without warning.
+
+            .. code-block:: python
+
+                # code.py
+                from typing import List
+                import mlflow
+
+
+                class MyModel(mlflow.pyfunc.PythonModel):
+                    def predict(self, context, model_input: List[str], params=None) -> List[str]:
+                        return [i.upper() for i in model_input]
+
+
+                mlflow.models.set_model(MyModel())
+
+                # log_model.py
+                import mlflow
+
+                with mlflow.start_run():
+                    model_info = mlflow.pyfunc.log_model(
+                        artifact_path="model",
+                        python_model="code.py",
+                    )
 
             If the `predict` method or function has type annotations, MLflow automatically
             constructs a model signature based on the type annotations (unless the ``signature``
@@ -2640,6 +2807,7 @@ def log_model(
         example_no_conversion=example_no_conversion,
         streamable=streamable,
         resources=resources,
+        infer_code_paths=infer_code_paths,
     )
 
 
@@ -2654,6 +2822,7 @@ def _save_model_with_loader_module_and_data_path(
     extra_pip_requirements=None,
     model_config=None,
     streamable=None,
+    infer_code_paths=False,
 ):
     """
     Export model as a generic Python function model.
@@ -2683,8 +2852,6 @@ def _save_model_with_loader_module_and_data_path(
         model_file = _copy_file_or_tree(src=data_path, dst=path, dst_dir="data")
         data = model_file
 
-    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
-
     if mlflow_model is None:
         mlflow_model = Model()
 
@@ -2692,7 +2859,7 @@ def _save_model_with_loader_module_and_data_path(
     mlflow.pyfunc.add_to_model(
         mlflow_model,
         loader_module=loader_module,
-        code=code_dir_subpath,
+        code=None,
         data=data,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
@@ -2701,6 +2868,14 @@ def _save_model_with_loader_module_and_data_path(
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    code_dir_subpath = _validate_infer_and_copy_code_paths(
+        code_paths, path, infer_code_paths, FLAVOR_NAME
+    )
+    mlflow_model.flavors[FLAVOR_NAME][CODE] = code_dir_subpath
+
+    # `mlflow_model.code` is updated, re-generate `MLmodel` file.
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:

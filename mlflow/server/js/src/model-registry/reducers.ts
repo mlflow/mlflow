@@ -237,7 +237,7 @@ const tagsByRegisteredModel = (state = {}, action: any) => {
         ...newState,
         [modelName]: {
           ...oldTags,
-          [tag.getKey()]: tag,
+          [tag.key]: tag,
         },
       };
       return newState;
@@ -300,7 +300,7 @@ const tagsByModelVersion = (state = {}, action: any) => {
         [modelName]: {
           [version]: {
             ...oldTags,
-            [tag.getKey()]: tag,
+            [tag.key]: tag,
           },
         },
       };

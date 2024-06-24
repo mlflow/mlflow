@@ -46,16 +46,19 @@ export const useGroupedChartRunData = ({
         metricKeys.forEach((metricKey) => {
           invariant(group.groupParentInfo, 'groupParentInfo should be defined');
 
+          const aggregatedRunUuidsInGroup =
+            group.groupParentInfo.runUuidsForAggregation ?? group.groupParentInfo.runUuids;
+
           let aggregatedMetricsHistoryForMetric;
           if (!isNil(selectedXAxisMetricKey)) {
             aggregatedMetricsHistoryForMetric = createValueAggregatedMetricHistory(
-              pick(sampledDataResultsByRunUuid, group.groupParentInfo.runUuids),
+              pick(sampledDataResultsByRunUuid, aggregatedRunUuidsInGroup),
               metricKey,
               selectedXAxisMetricKey,
             );
           } else {
             const metricsHistoryInGroup = compact(
-              group.groupParentInfo.runUuids.flatMap((runUuid) => {
+              aggregatedRunUuidsInGroup.flatMap((runUuid) => {
                 const metricsHistory = sampledDataResultsByRunUuid[runUuid]?.[metricKey]?.metricsHistory;
                 return metricsHistory;
               }),

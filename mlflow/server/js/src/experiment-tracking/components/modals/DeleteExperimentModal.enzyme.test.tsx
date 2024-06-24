@@ -9,6 +9,7 @@ import React from 'react';
 import { shallow } from 'enzyme';
 import { DeleteExperimentModalImpl } from './DeleteExperimentModal';
 import { ConfirmModal } from './ConfirmModal';
+import { createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
 
 describe('DeleteExperimentModal', () => {
   let wrapper: any;
@@ -43,14 +44,14 @@ describe('DeleteExperimentModal', () => {
   test('handleSubmit redirects user to root page if current experiment is the only active experiment', async () => {
     instance = wrapper.instance();
     await instance.handleSubmit();
-    expect(navigate).toBeCalledWith('/');
+    expect(navigate).toBeCalledWith(createMLflowRoutePath('/'));
   });
   test('handleSubmit redirects to compare experiment page if current experiment is one of several active experiments', async () => {
     const props = Object.assign({}, minimalProps, { activeExperimentIds: ['0', '1', '2'] });
     instance = shallow(<DeleteExperimentModalImpl {...props} />).instance();
     await instance.handleSubmit();
 
-    expect(navigate).toBeCalledWith('/compare-experiments/s?experiments=["1","2"]');
+    expect(navigate).toBeCalledWith(createMLflowRoutePath('/compare-experiments/s?experiments=["1","2"]'));
   });
   test('handleSubmit does not perform redirection if DeleteExperiment request fails', async () => {
     const props = {

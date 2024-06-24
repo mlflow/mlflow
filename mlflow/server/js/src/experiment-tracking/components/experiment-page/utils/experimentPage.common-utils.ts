@@ -1,8 +1,9 @@
 import { IntlShape } from 'react-intl';
 import { saveAs } from 'file-saver';
-import { ExperimentEntity, KeyValueEntity } from '../../../types';
+import { ExperimentEntity } from '../../../types';
 import { ExperimentRunsSelectorResult } from './experimentRuns.selector';
-import { runInfosToCsv } from '../../../utils/CsvUtils';
+import { chartDataToCsv, chartMetricHistoryToCsv, runInfosToCsv } from '../../../utils/CsvUtils';
+import type { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
 
 export const EXPERIMENT_FIELD_PREFIX_PARAM = '$$$param$$$';
 export const EXPERIMENT_FIELD_PREFIX_METRIC = '$$$metric$$$';
@@ -46,7 +47,7 @@ export const isExperimentTypeNotebook = (experiment: ExperimentEntity) =>
  * modification. TODO: fix typo in the const name.
  */
 export const canModifyExperiment = (experiment: ExperimentEntity) =>
-  experiment.allowed_actions.includes('MODIFIY_PERMISSION');
+  (experiment.allowedActions || []).includes('MODIFIY_PERMISSION');
 
 /**
  * Function used for downloading run data in CSV form.
@@ -70,6 +71,29 @@ export const downloadRunsCsv = (
   });
   const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
   saveAs(blob, 'runs.csv');
+};
+
+/**
+ * Function used for downloading metric history chart data in CSV form.
+ */
+export const downloadChartMetricHistoryCsv = (traces: RunsChartsRunData[], metricKeys: string[], title: string) => {
+  const csv = chartMetricHistoryToCsv(traces, metricKeys);
+  const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
+  saveAs(blob, `${title}.csv`);
+};
+
+/**
+ * Function used for downloading latest chart data in CSV form.
+ */
+export const downloadChartDataCsv = (
+  traces: RunsChartsRunData[],
+  metricKeys: string[],
+  paramKeys: string[],
+  title: string,
+) => {
+  const csv = chartDataToCsv(traces, metricKeys, paramKeys);
+  const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
+  saveAs(blob, `${title}.csv`);
 };
 
 /**

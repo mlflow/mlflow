@@ -9,7 +9,7 @@ const FETCHED_RUN_NOTIFICATION_KEY = 'FETCHED_RUN_NOTIFICATION_KEY';
 
 const countFetchedRuns = (fetchedRuns: RunEntity[], existingRunInfos: RunInfoEntity[] = []) => {
   // Extract only runs that are not loaded yet
-  const newRuns = fetchedRuns.filter((r) => !existingRunInfos.some((x) => x.run_uuid === r.info.run_uuid));
+  const newRuns = fetchedRuns.filter((r) => !existingRunInfos.some((x) => x.runUuid === r.info.runUuid));
 
   // Next, extract runs containing non-empty "parentRunId" tag
   const runsWithParent = newRuns.filter((run: any) => {

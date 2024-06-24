@@ -5,7 +5,7 @@ export const datasetSummariesEqual = (summary1: DatasetSummary, summary2: Datase
 
 export const getDatasetSourceUrl = (datasetWithTags: RunDatasetWithTags) => {
   const { dataset } = datasetWithTags;
-  const sourceType = dataset.source_type;
+  const sourceType = dataset.sourceType;
   try {
     if (sourceType === DatasetSourceTypes.HTTP) {
       const { url } = JSON.parse(dataset.source);

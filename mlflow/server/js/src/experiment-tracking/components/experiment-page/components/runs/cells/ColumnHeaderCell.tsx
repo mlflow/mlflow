@@ -1,6 +1,4 @@
 import { SortAscendingIcon, SortDescendingIcon, useDesignSystemTheme } from '@databricks/design-system';
-import { useFetchExperimentRuns } from '../../../hooks/useFetchExperimentRuns';
-import { shouldEnableShareExperimentViewByTags } from '../../../../../../common/utils/FeatureUtils';
 import { useUpdateExperimentPageSearchFacets } from '../../../hooks/useExperimentPageSearchFacets';
 
 export interface ColumnHeaderCellProps {
@@ -13,46 +11,14 @@ export interface ColumnHeaderCellProps {
   };
 }
 
-/**
- * A local hook that selects the correct updateSearchFacets function based on the feature flag.
- *
- * TODO: Remove this once we migrate to the new view state model
- */
-const useUpdateOrderByValues = () => {
-  // We can disable this eslint rule because condition uses a stable feature flag evaluation
-  /* eslint-disable react-hooks/rules-of-hooks */
-  if (shouldEnableShareExperimentViewByTags()) {
-    return useUpdateExperimentPageSearchFacets();
-  }
-  const { updateSearchFacets } = useFetchExperimentRuns();
-  return updateSearchFacets;
-};
-
-/**
- * A local hook that selects the correct order by/order direction values based on the feature flag.
- *
- * TODO: Remove this once we migrate to the new view state model
- */
-const useOrderByValues = (tableContext: ColumnHeaderCellProps['context']) => {
-  // We can disable this eslint rule because condition uses a stable feature flag evaluation
-  /* eslint-disable react-hooks/rules-of-hooks */
-  if (shouldEnableShareExperimentViewByTags()) {
-    const { orderByKey, orderByAsc } = tableContext || {};
-    return { orderByAsc, orderByKey };
-  }
-  const { searchFacetsState } = useFetchExperimentRuns();
-  const { orderByAsc, orderByKey } = searchFacetsState;
-  return { orderByAsc, orderByKey };
-};
-
 export const ColumnHeaderCell = ({
   enableSorting,
   canonicalSortKey,
   displayName,
   context: tableContext,
 }: ColumnHeaderCellProps) => {
-  const { orderByKey, orderByAsc } = useOrderByValues(tableContext);
-  const updateSearchFacets = useUpdateOrderByValues();
+  const { orderByKey, orderByAsc } = tableContext || {};
+  const updateSearchFacets = useUpdateExperimentPageSearchFacets();
 
   const handleSortBy = () => {
     let newOrderByAsc = !orderByAsc;

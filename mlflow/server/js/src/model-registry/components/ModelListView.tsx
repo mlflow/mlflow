@@ -43,14 +43,15 @@ type ModelListViewImplProps = {
   orderByKey: string;
   orderByAsc: boolean;
   currentPage: number;
-  nextPageToken?: string;
+  nextPageToken: string | null;
   loading?: boolean;
+  error?: Error;
   onSearch: (...args: any[]) => any;
   onClickNext: (...args: any[]) => any;
   onClickPrev: (...args: any[]) => any;
   onClickSortableColumn: (...args: any[]) => any;
   onSetMaxResult: (...args: any[]) => any;
-  getMaxResultValue: (...args: any[]) => any;
+  maxResultValue: number;
   intl: IntlShape;
 };
 
@@ -61,8 +62,6 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
     super(props);
 
     this.state = {
-      loading: false,
-      lastNavigationActionWasClickPrev: false,
       maxResultsSelection: REGISTERED_MODELS_PER_PAGE_COMPACT,
     };
   }
@@ -90,14 +89,9 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
     Utils.updatePageTitle(pageTitle);
   }
 
-  setLoadingFalse = () => {
-    this.setState({ loading: false });
-  };
-
   handleSearch = (event: any, searchInput: any) => {
     event?.preventDefault();
-    this.setState({ loading: true, lastNavigationActionWasClickPrev: false });
-    this.props.onSearch(this.setLoadingFalse, this.setLoadingFalse, searchInput);
+    this.props.onSearch(searchInput);
   };
 
   static getSortFieldName = (column: any) => {
@@ -127,13 +121,7 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
   };
 
   handleTableChange = (pagination: any, filters: any, sorter: any) => {
-    this.setState({ loading: true, lastNavigationActionWasClickPrev: false });
-    this.props.onClickSortableColumn(
-      ModelListViewImpl.getSortFieldName(sorter.field),
-      sorter.order,
-      this.setLoadingFalse,
-      this.setLoadingFalse,
-    );
+    this.props.onClickSortableColumn(ModelListViewImpl.getSortFieldName(sorter.field), sorter.order);
   };
 
   static getLearnMoreLinkUrl = () => ModelRegistryDocUrl;
@@ -141,18 +129,15 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
   static getLearnMoreDisplayString = () => ModelRegistryOnboardingString;
 
   handleClickNext = () => {
-    this.setState({ loading: true, lastNavigationActionWasClickPrev: false });
-    this.props.onClickNext(this.setLoadingFalse, this.setLoadingFalse);
+    this.props.onClickNext();
   };
 
   handleClickPrev = () => {
-    this.setState({ loading: true, lastNavigationActionWasClickPrev: true });
-    this.props.onClickPrev(this.setLoadingFalse, this.setLoadingFalse);
+    this.props.onClickPrev();
   };
 
   handleSetMaxResult = ({ item, key, keyPath, domEvent }: any) => {
-    this.setState({ loading: true });
-    this.props.onSetMaxResult(key, this.setLoadingFalse, this.setLoadingFalse);
+    this.props.onSetMaxResult(key);
   };
 
   render() {
@@ -163,7 +148,7 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
       nextPageToken,
       searchInput,
     } = this.props;
-    const { loading } = this.state;
+    const { loading, error } = this.props;
 
     // Determine if we use any filters at the moment
     const isFiltered =
@@ -211,7 +196,8 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
           onSortChange={this.unifiedTableSortChange}
           orderByKey={this.props.orderByKey}
           orderByAsc={this.props.orderByAsc}
-          isLoading={loading}
+          isLoading={loading || false}
+          error={error}
           pagination={
             <div
               data-testid="model-list-view-pagination"
@@ -226,7 +212,7 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
                   onPreviousPage={this.handleClickPrev}
                   pageSizeSelect={{
                     onChange: (num) => this.handleSetMaxResult({ key: num }),
-                    default: this.props.getMaxResultValue(),
+                    default: this.props.maxResultValue,
                     options: [10, 25, 50, 100],
                   }}
                 />

@@ -2,7 +2,7 @@ import time
 from threading import Thread
 from typing import Optional
 
-from mlflow.entities import LiveSpan, Trace
+from mlflow.entities import LiveSpan, Span, Trace
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
@@ -56,6 +56,10 @@ def test_add_spans():
     assert trace.info.request_id == request_id_1
     assert len(trace.data.spans) == 3
     assert request_id_1 not in trace_manager._traces
+
+    # The popped trace should only contain non-live (immutable) spans
+    assert isinstance(trace.data.spans[0], Span)
+    assert not isinstance(trace.data.spans[0], LiveSpan)
 
     trace = trace_manager.pop_trace(trace_id_2)
     assert isinstance(trace, Trace)

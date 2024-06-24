@@ -254,7 +254,7 @@ def _get_installed_version(package, module=None):
     return version
 
 
-def _capture_imported_modules(model_uri, flavor):
+def _capture_imported_modules(model_uri, flavor, record_full_module=False):
     """Runs `_capture_modules.py` in a subprocess and captures modules imported during the model
     loading procedure.
     If flavor is `transformers`, `_capture_transformers_modules.py` is run instead.
@@ -286,6 +286,8 @@ def _capture_imported_modules(model_uri, flavor):
         if is_in_databricks_runtime():
             main_env.update(get_databricks_env_vars(mlflow.get_tracking_uri()))
 
+        record_full_module_args = ["--record-full-module"] if record_full_module else []
+
         if flavor == mlflow.transformers.FLAVOR_NAME:
             # Lazily import `_capture_transformers_module` here to avoid circular imports.
             from mlflow.utils import _capture_transformers_modules
@@ -314,6 +316,7 @@ def _capture_imported_modules(model_uri, flavor):
                             json.dumps(sys.path),
                             "--module-to-throw",
                             module_to_throw,
+                            *record_full_module_args,
                         ],
                         timeout_seconds=process_timeout,
                         env={**main_env, **transformer_env},
@@ -342,6 +345,7 @@ def _capture_imported_modules(model_uri, flavor):
                 error_file,
                 "--sys-path",
                 json.dumps(sys.path),
+                *record_full_module_args,
             ],
             timeout_seconds=process_timeout,
             env=main_env,
@@ -622,14 +626,29 @@ def warn_dependency_requirement_mismatches(model_requirements: List[str]):
     Inspects the model's dependencies and prints a warning if the current Python environment
     doesn't satisfy them.
     """
+    # Suppress databricks-feature-lookup warning for feature store cases
+    # Suppress databricks-chains, databricks-rag, and databricks-agents warnings for RAG
+    # Studio cases
+    # NB: When a final name has been decided for GA for the aforementioned
+    # "Databricks RAG Studio" product, remove unrelated names from this listing.
     _DATABRICKS_FEATURE_LOOKUP = "databricks-feature-lookup"
+    _DATABRICKS_AGENTS = "databricks-agents"
+
+    # List of packages to ignore
+    packages_to_ignore = [
+        _DATABRICKS_FEATURE_LOOKUP,
+        _DATABRICKS_AGENTS,
+    ]
+
+    # Normalize package names and create ignore list
+    ignore_packages = list(map(_normalize_package_name, packages_to_ignore))
+
     try:
         mismatch_infos = []
         for req in model_requirements:
             mismatch_info = _check_requirement_satisfied(req)
             if mismatch_info is not None:
-                # Suppress databricks-feature-lookup warning for feature store cases
-                if mismatch_info.package_name == _DATABRICKS_FEATURE_LOOKUP:
+                if _normalize_package_name(mismatch_info.package_name) in ignore_packages:
                     continue
                 mismatch_infos.append(str(mismatch_info))
 

@@ -1,8 +1,8 @@
 import React, { ReactNode, useMemo } from 'react';
-import { ExperimentPageUIStateV2, createExperimentPageUIStateV2 } from '../models/ExperimentPageUIStateV2';
+import { ExperimentPageUIState, createExperimentPageUIState } from '../models/ExperimentPageUIState';
 
 const ExperimentPageUISetStateContext = React.createContext<
-  React.Dispatch<React.SetStateAction<ExperimentPageUIStateV2>>
+  React.Dispatch<React.SetStateAction<ExperimentPageUIState>>
 >((state) => state);
 
 // Creates contexts for setting current UI state
@@ -11,7 +11,7 @@ export const ExperimentPageUIStateContextProvider = ({
   setUIState,
 }: {
   children: ReactNode;
-  setUIState: React.Dispatch<React.SetStateAction<ExperimentPageUIStateV2>>;
+  setUIState: React.Dispatch<React.SetStateAction<ExperimentPageUIState>>;
 }) => (
   <ExperimentPageUISetStateContext.Provider value={setUIState}>{children}</ExperimentPageUISetStateContext.Provider>
 );

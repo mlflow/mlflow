@@ -1,9 +1,7 @@
-import json
-from datetime import datetime
+from unittest import mock
 
 import mlflow
-from mlflow.entities import LiveSpan
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
+from mlflow.entities import LiveSpan, Trace
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
     InferenceTableSpanExporter,
@@ -27,7 +25,7 @@ def test_export():
         span_id=1,
         parent_id=None,
         start_time=0,
-        end_time=1_000_000_000,  # 1 second
+        end_time=1_000_000,  # 1 milisecond
     )
     span = LiveSpan(otel_span, request_id=_REQUEST_ID)
     span.set_inputs({"input1": "very long input" * 100})
@@ -53,42 +51,50 @@ def test_export():
     # Trace should be added to the in-memory buffer and can be extracted
     assert len(_TRACE_BUFFER) == 1
     trace_dict = pop_trace(_REQUEST_ID)
-    assert trace_dict[TRACE_SCHEMA_VERSION_KEY] == 2
-    assert trace_dict["start_timestamp"] == datetime(1970, 1, 1, 0, 0)
-    assert trace_dict["end_timestamp"] == datetime(1970, 1, 1, 0, 0, 1)
-    spans = trace_dict["spans"]
+    trace_info = trace_dict["info"]
+    assert trace_info["timestamp_ms"] == 0
+    assert trace_info["execution_time_ms"] == 1
+
+    spans = trace_dict["data"]["spans"]
     assert len(spans) == 2
     assert spans[0]["name"] == "root"
     assert spans[0]["context"] == {
         "trace_id": encode_trace_id(_TRACE_ID),
         "span_id": encode_span_id(1),
     }
-    assert isinstance(spans[0]["attributes"], str)
+    assert isinstance(spans[0]["attributes"], dict)
 
 
-def test_export_handle_invalid_attributes():
+def test_export_warn_invalid_attributes():
     otel_span = create_mock_otel_span(trace_id=_TRACE_ID, span_id=1)
     span = LiveSpan(otel_span, request_id=_REQUEST_ID)
     span.set_attribute("valid", "value")
-    # Users may set attribute directly to the OpenTelemetry span
-    otel_span.set_attribute("int", 1)
-    otel_span.set_attribute("str", "a")
+    # # Users may set attribute directly to the OpenTelemetry span
+    # otel_span.set_attribute("int", 1)
+    span.set_attribute("str", "a")
     _register_span_and_trace(span)
 
     exporter = InferenceTableSpanExporter()
     exporter.export([otel_span])
 
-    trace = pop_trace(_REQUEST_ID)
-    assert trace is not None
-    span = trace["spans"][0]
-    # Invalid attributes should be exported as is
-    assert json.loads(span["attributes"]) == {
+    trace_dict = pop_trace(_REQUEST_ID)
+    trace = Trace.from_dict(trace_dict)
+    stored_span = trace.data.spans[0]
+    assert stored_span.attributes == {
         "mlflow.traceRequestId": _REQUEST_ID,
         "mlflow.spanType": "UNKNOWN",
         "valid": "value",
-        "int": 1,
         "str": "a",
     }
+
+    # Users shouldn't set attribute directly to the OTel span
+    otel_span.set_attribute("int", 1)
+    exporter.export([otel_span])
+    with mock.patch("mlflow.entities.span._logger.warning") as mock_warning:
+        span.attributes
+        mock_warning.assert_called_once()
+        msg = mock_warning.call_args[0][0]
+        assert msg.startswith("Failed to get value for key int")
 
 
 def test_export_trace_buffer_not_exceeds_max_size(monkeypatch):

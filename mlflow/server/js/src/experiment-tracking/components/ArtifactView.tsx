@@ -8,6 +8,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage } from 'react-intl';
+import { Link } from '../../common/utils/RoutingUtils';
 import { getBasename } from '../../common/utils/FileUtils';
 import { ArtifactNode as ArtifactUtils, ArtifactNode } from '../utils/ArtifactUtils';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'byte... Remove this comment to see the full error message
@@ -23,7 +24,14 @@ import {
 import Utils from '../../common/utils/Utils';
 import _ from 'lodash';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
-import { DesignSystemHocProps, Tooltip, Typography, WithDesignSystemThemeHoc } from '@databricks/design-system';
+import {
+  DesignSystemHocProps,
+  Empty,
+  LayerIcon,
+  Tooltip,
+  Typography,
+  WithDesignSystemThemeHoc,
+} from '@databricks/design-system';
 import './ArtifactView.css';
 
 import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
@@ -32,13 +40,13 @@ import { listArtifactsApi } from '../actions';
 import { MLMODEL_FILE_NAME } from '../constants';
 import { getArtifactLocationUrl } from '../../common/utils/ArtifactUtils';
 import { ArtifactViewTree } from './ArtifactViewTree';
-import { shouldEnableDeepLearningUI, shouldEnableLoggedArtifactTableView } from '../../common/utils/FeatureUtils';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { Button } from '@databricks/design-system';
 import { CopyIcon } from '@databricks/design-system';
 import { DownloadIcon } from '@databricks/design-system';
 import { Checkbox } from '@databricks/design-system';
 import { getLoggedTablesFromTags } from 'common/utils/TagUtils';
+import { CopyButton } from '../../shared/building_blocks/CopyButton';
 
 const { Text } = Typography;
 
@@ -83,7 +91,6 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     const { runUuid } = this.props;
     const { activeNodeId } = this.state;
     const activeNodeRealPath = this.getActiveNodeRealPath();
-    const usingNewRunViewPage = shouldEnableDeepLearningUI();
     return (
       <RegisterModel
         runUuid={runUuid}
@@ -91,7 +98,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
         modelRelativePath={String(activeNodeId)}
         disabled={activeNodeId === undefined}
         showButton
-        buttonType={usingNewRunViewPage ? undefined : 'primary'}
+        buttonType={undefined}
       />
     );
   }
@@ -135,94 +142,75 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     );
   }
 
-  renderPathAndSizeInfoV2() {
+  renderSizeInfo() {
     // We will only be in this function if this.state.activeNodeId is defined
     const node = ArtifactUtils.findChild(this.props.artifactNode, this.state.activeNodeId);
-    const activeNodeRealPath = this.getActiveNodeRealPath();
-
     const { theme } = this.props.designSystemThemeApi;
 
     return (
       <div
         style={{
           display: 'flex',
-          flexDirection: 'column',
+          alignItems: 'center',
+          gap: theme.spacing.sm,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        <Typography.Text bold size="lg" ellipsis title={this.state.activeNodeId}>
+          {this.state.activeNodeId}
+        </Typography.Text>
+        {node.fileInfo.is_dir === false && (
+          <Typography.Text color="secondary">{bytes(this.getActiveNodeSize())}</Typography.Text>
+        )}
+      </div>
+    );
+  }
+
+  renderPathInfo() {
+    const activeNodeRealPath = this.getActiveNodeRealPath();
+    const { theme } = this.props.designSystemThemeApi;
+
+    return (
+      <div
+        css={{
+          display: 'flex',
+          overflow: 'hidden',
+          alignItems: 'center',
           gap: theme.spacing.sm,
         }}
       >
         <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: theme.spacing.sm,
+          css={{
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
             textOverflow: 'ellipsis',
+            flex: '0 auto',
+            color: theme.colors.textSecondary,
           }}
+          title={activeNodeRealPath}
         >
-          <Typography.Text bold size="lg">
-            {this.state.activeNodeId}
-          </Typography.Text>
-          {node.fileInfo.is_dir === false && (
-            <Typography.Text color="secondary">{bytes(this.getActiveNodeSize())}</Typography.Text>
-          )}
+          <FormattedMessage
+            defaultMessage="Path:"
+            description="Label to display the full path of where the artifact of the experiment runs is located"
+          />{' '}
+          {activeNodeRealPath}
         </div>
-        <div
-          style={{
-            display: 'inline-flex',
-            gap: theme.spacing.sm,
-          }}
-        >
-          <Typography.Text
-            color="secondary"
-            dangerouslySetAntdProps={{
-              copyable: {
-                text: activeNodeRealPath,
-                icon: <CopyIcon />,
-                tooltips: [
-                  <FormattedMessage
-                    defaultMessage="Copy path"
-                    description="Tooltip displayed on hover over the copy icon"
-                  />,
-                  <FormattedMessage
-                    defaultMessage="Path copied"
-                    description="Tooltip displayed after path was successfully copied to clipboard"
-                  />,
-                ],
-              },
-            }}
-          >
-            <FormattedMessage
-              defaultMessage="Path:"
-              // eslint-disable-next-line max-len
-              description="Label to display the full path of where the artifact of the experiment runs is located"
-            />{' '}
-            {activeNodeRealPath}
-          </Typography.Text>
-        </div>
+
+        <CopyButton
+          css={{ flex: '0 0 auto' }}
+          showLabel={false}
+          size="small"
+          type="tertiary"
+          copyText={activeNodeRealPath}
+          icon={<CopyIcon />}
+        />
       </div>
     );
   }
 
   onDownloadClick(runUuid: any, artifactPath: any) {
     window.location.href = getArtifactLocationUrl(artifactPath, runUuid);
-  }
-
-  renderDownloadLink() {
-    const { runUuid } = this.props;
-    const { activeNodeId } = this.state;
-    return (
-      <div className="artifact-info-link">
-        {/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
-        <a
-          onClick={() => this.onDownloadClick(runUuid, activeNodeId)}
-          title={this.props.intl.formatMessage({
-            defaultMessage: 'Download artifact',
-            description: 'Link to download the artifact of the experiment',
-          })}
-        >
-          <i className="fas fa-download" />
-        </a>
-      </div>
-    );
   }
 
   renderControls() {
@@ -277,54 +265,33 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     } else if (this.activeNodeIsDirectory()) {
       toRender = null;
     } else {
-      toRender = this.renderDownloadLink();
+      toRender = this.renderControls();
     }
     const { theme } = this.props.designSystemThemeApi;
     return (
       <div
         css={{
-          height: theme.general.heightBase + theme.spacing.md,
-          backgroundColor: theme.colors.backgroundSecondary,
-          padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-          whiteSpace: 'nowrap',
+          padding: `${theme.spacing.xs}px ${theme.spacing.sm}px ${theme.spacing.sm}px ${theme.spacing.md}px`,
           display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.xs,
         }}
       >
-        {this.renderPathAndSizeInfo()}
-        <div className="artifact-info-right">{toRender}</div>
-      </div>
-    );
-  }
-
-  renderArtifactInfoV2() {
-    const existingModelVersions = this.getExistingModelVersions();
-    let toRender;
-    if (existingModelVersions && Utils.isModelRegistryEnabled()) {
-      // note that this case won't trigger for files inside a registered model/model version folder
-      // React searches for existing model versions under the path of the file, which won't exist.
-      toRender = this.renderModelVersionInfoSection(existingModelVersions);
-    } else if (this.activeNodeCanBeRegistered() && Utils.isModelRegistryEnabled()) {
-      toRender = this.renderRegisterModelButton();
-    } else if (this.activeNodeIsDirectory()) {
-      toRender = null;
-    } else {
-      toRender = this.renderControls();
-    }
-    const { theme } = this.props.designSystemThemeApi;
-    return (
-      <>
         <div
           css={{
-            padding: `${theme.spacing.sm}px ${theme.spacing.sm}px ${theme.spacing.sm}px ${theme.spacing.md}px`,
             whiteSpace: 'nowrap',
             display: 'flex',
             justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: theme.spacing.md,
           }}
         >
-          {this.renderPathAndSizeInfoV2()}
-          {toRender}
+          <div css={{ flex: '1 1', overflow: 'hidden' }}>{this.renderSizeInfo()}</div>
+          <div css={{ flex: '0 1' }}>{toRender}</div>
         </div>
-      </>
+
+        {this.renderPathInfo()}
+      </div>
     );
   }
 
@@ -489,56 +456,26 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     }
     const { theme } = this.props.designSystemThemeApi;
 
-    if (shouldEnableLoggedArtifactTableView()) {
-      return (
-        <div
-          className="artifact-view"
-          css={{
-            flex: this.props.useAutoHeight ? 1 : 'unset',
-            height: this.props.useAutoHeight ? 'auto' : undefined,
-          }}
-        >
-          <div
-            style={{
-              minWidth: '200px',
-              maxWidth: '400px',
-              flex: 1,
-              whiteSpace: 'nowrap',
-              borderRight: `1px solid ${theme.colors.borderDecorative}`,
-            }}
-          >
-            <ArtifactViewTree
-              data={this.getTreebeardData(this.props.artifactNode)}
-              onToggleTreebeard={this.onToggleTreebeard}
-            />
-          </div>
-          <div className="artifact-right">
-            {this.state.activeNodeId ? this.renderArtifactInfoV2() : null}
-            <ShowArtifactPage
-              runUuid={this.props.runUuid}
-              path={this.state.activeNodeId}
-              isDirectory={this.activeNodeIsDirectory()}
-              size={this.getActiveNodeSize()}
-              runTags={this.props.runTags}
-              artifactRootUri={this.props.artifactRootUri}
-              modelVersions={this.props.modelVersions}
-              showArtifactLoggedTableView={this.state.viewAsTable && this.shouldShowViewAsTableCheckbox}
-            />
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div
         className="artifact-view"
         css={{
-          border: `1px solid ${theme.colors.borderDecorative}`,
           flex: this.props.useAutoHeight ? 1 : 'unset',
           height: this.props.useAutoHeight ? 'auto' : undefined,
+          [theme.responsive.mediaQueries.xs]: {
+            overflowX: 'auto',
+          },
         }}
       >
-        <div className="artifact-left">
+        <div
+          style={{
+            minWidth: '200px',
+            maxWidth: '400px',
+            flex: 1,
+            whiteSpace: 'nowrap',
+            borderRight: `1px solid ${theme.colors.borderDecorative}`,
+          }}
+        >
           <ArtifactViewTree
             data={this.getTreebeardData(this.props.artifactNode)}
             onToggleTreebeard={this.onToggleTreebeard}
@@ -554,6 +491,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
             runTags={this.props.runTags}
             artifactRootUri={this.props.artifactRootUri}
             modelVersions={this.props.modelVersions}
+            showArtifactLoggedTableView={this.state.viewAsTable && this.shouldShowViewAsTableCheckbox}
           />
         </div>
       </div>
@@ -594,14 +532,14 @@ function ModelVersionInfoSection(props: ModelVersionInfoSectionProps) {
   const { name, version, status, status_message } = modelVersion;
 
   // eslint-disable-next-line prefer-const
-  let mvPageRoute = Utils.getIframeCorrectedRoute(ModelRegistryRoutes.getModelVersionPageRoute(name, version));
+  let mvPageRoute = ModelRegistryRoutes.getModelVersionPageRoute(name, version);
   const modelVersionLink = (
     <Tooltip title={`${name} version ${version}`}>
-      <a href={mvPageRoute} className="model-version-link" target="_blank" rel="noreferrer">
+      <Link to={mvPageRoute} className="model-version-link" target="_blank" rel="noreferrer">
         <span className="model-name">{name}</span>
         <span>,&nbsp;v{version}&nbsp;</span>
         <i className="fas fa-external-link-o" />
-      </a>
+      </Link>
     </Tooltip>
   );
 
@@ -633,32 +571,33 @@ function ModelVersionInfoSection(props: ModelVersionInfoSectionProps) {
 }
 
 function NoArtifactView({ useAutoHeight }: { useAutoHeight?: boolean }) {
+  const { theme } = useDesignSystemTheme();
   return (
     <div
-      className="empty-artifact-outer-container"
       css={{
         flex: useAutoHeight ? 1 : 'unset',
         height: useAutoHeight ? 'auto' : undefined,
+        paddingTop: theme.spacing.md,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
       }}
     >
-      <div className="empty-artifact-container">
-        <div>{/* TODO: put a nice image here */}</div>
-        <div>
-          <div className="no-artifacts">
-            <FormattedMessage
-              defaultMessage="No Artifacts Recorded"
-              description="Empty state string when there are no artifacts record for the experiment"
-            />
-          </div>
-          <div className="no-artifacts-info">
-            <FormattedMessage
-              defaultMessage="Use the log artifact APIs to store file outputs from MLflow runs."
-              // eslint-disable-next-line max-len
-              description="Information in the empty state explaining how one could log artifacts output files for the experiment runs"
-            />
-          </div>
-        </div>
-      </div>
+      <Empty
+        image={<LayerIcon />}
+        title={
+          <FormattedMessage
+            defaultMessage="No Artifacts Recorded"
+            description="Empty state string when there are no artifacts record for the experiment"
+          />
+        }
+        description={
+          <FormattedMessage
+            defaultMessage="Use the log artifact APIs to store file outputs from MLflow runs."
+            description="Information in the empty state explaining how one could log artifacts output files for the experiment runs"
+          />
+        }
+      />
     </div>
   );
 }

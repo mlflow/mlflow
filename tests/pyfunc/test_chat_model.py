@@ -7,8 +7,10 @@ import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.models.model import Model
 from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc.loaders.chat_model import _ChatModelPyfuncWrapper
+from mlflow.tracing.constant import TraceTagKey
 from mlflow.types.llm import (
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
@@ -19,6 +21,7 @@ from mlflow.types.llm import (
 from mlflow.types.schema import ColSpec, DataType, Schema
 
 from tests.helper_functions import expect_status_code, pyfunc_serve_and_score_model
+from tests.tracing.helper import get_traces
 
 # `None`s (`max_tokens` and `stop`) are excluded
 DEFAULT_PARAMS = {
@@ -74,6 +77,13 @@ class ChatModelWithContext(mlflow.pyfunc.ChatModel):
         return ChatResponse(**get_mock_response([message], params))
 
 
+class ChatModelWithTrace(mlflow.pyfunc.ChatModel):
+    @mlflow.trace
+    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+        mock_response = get_mock_response(messages, params)
+        return ChatResponse(**mock_response)
+
+
 def test_chat_model_save_load(tmp_path):
     model = TestChatModel()
     mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
@@ -84,6 +94,27 @@ def test_chat_model_save_load(tmp_path):
     output_schema = loaded_model.metadata.get_output_schema()
     assert input_schema == CHAT_MODEL_INPUT_SCHEMA
     assert output_schema == CHAT_MODEL_OUTPUT_SCHEMA
+
+
+def test_chat_model_with_trace(tmp_path):
+    model = ChatModelWithTrace()
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
+
+    # predict() call during saving chat model should not generate a trace
+    assert len(get_traces()) == 0
+
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant"},
+        {"role": "user", "content": "Hello!"},
+    ]
+    loaded_model.predict({"messages": messages})
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.tags[TraceTagKey.TRACE_NAME] == "predict"
+    request = json.loads(traces[0].data.request)
+    assert request["messages"] == [str(ChatMessage(**msg)) for msg in messages]
 
 
 def test_chat_model_save_throws_with_signature(tmp_path):
@@ -223,3 +254,154 @@ def test_chat_model_works_in_serving(tmp_path):
         **DEFAULT_PARAMS,
         **params_subset,
     }
+
+
+def test_chat_model_works_with_infer_signature_input_example(tmp_path):
+    model = TestChatModel()
+    params_subset = {
+        "max_tokens": 100,
+    }
+    input_example = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "What is Retrieval-augmented Generation?",
+            }
+        ],
+        **params_subset,
+    }
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path, input_example=input_example)
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    input_schema = loaded_model.metadata.get_input_schema()
+    output_schema = loaded_model.metadata.get_output_schema()
+    assert input_schema == CHAT_MODEL_INPUT_SCHEMA
+    assert output_schema == CHAT_MODEL_OUTPUT_SCHEMA
+    mlflow_model = Model.load(tmp_path)
+    assert mlflow_model.load_input_example(tmp_path).to_dict(orient="records")[0] == input_example
+
+    response = pyfunc_serve_and_score_model(
+        model_uri=tmp_path,
+        data=json.dumps(input_example),
+        content_type="application/json",
+        extra_args=["--env-manager", "local"],
+    )
+
+    expect_status_code(response, 200)
+    choices = json.loads(response.content)["choices"]
+    assert choices[0]["message"]["content"] == json.dumps(input_example["messages"])
+    assert json.loads(choices[1]["message"]["content"]) == {
+        **DEFAULT_PARAMS,
+        **params_subset,
+    }
+
+
+def test_chat_model_works_with_chat_message_input_example(tmp_path):
+    model = TestChatModel()
+    input_example = [
+        ChatMessage(role="user", content="What is Retrieval-augmented Generation?", name="chat")
+    ]
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path, input_example=input_example)
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    input_schema = loaded_model.metadata.get_input_schema()
+    output_schema = loaded_model.metadata.get_output_schema()
+    assert input_schema == CHAT_MODEL_INPUT_SCHEMA
+    assert output_schema == CHAT_MODEL_OUTPUT_SCHEMA
+    mlflow_model = Model.load(tmp_path)
+    assert (
+        mlflow_model.load_input_example(tmp_path).to_dict(orient="records")[0]
+        == input_example[0].to_dict()
+    )
+
+    convert_input_example = {"messages": [each_message.to_dict() for each_message in input_example]}
+    response = pyfunc_serve_and_score_model(
+        model_uri=tmp_path,
+        data=json.dumps(convert_input_example),
+        content_type="application/json",
+        extra_args=["--env-manager", "local"],
+    )
+
+    expect_status_code(response, 200)
+    choices = json.loads(response.content)["choices"]
+    assert choices[0]["message"]["content"] == json.dumps(convert_input_example["messages"])
+
+
+def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
+    model = TestChatModel()
+    params_subset = {
+        "max_tokens": 100,
+    }
+    input_example = {
+        "messages": [
+            {
+                "role": "assistant",
+                "content": "You are in helpful assistant!",
+            },
+            {
+                "role": "user",
+                "content": "What is Retrieval-augmented Generation?",
+            },
+        ],
+        **params_subset,
+    }
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path, input_example=input_example)
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    input_schema = loaded_model.metadata.get_input_schema()
+    output_schema = loaded_model.metadata.get_output_schema()
+    assert input_schema == CHAT_MODEL_INPUT_SCHEMA
+    assert output_schema == CHAT_MODEL_OUTPUT_SCHEMA
+    mlflow_model = Model.load(tmp_path)
+    assert mlflow_model.load_input_example(tmp_path).to_dict(orient="records")[0] == input_example
+
+    response = pyfunc_serve_and_score_model(
+        model_uri=tmp_path,
+        data=json.dumps(input_example),
+        content_type="application/json",
+        extra_args=["--env-manager", "local"],
+    )
+
+    expect_status_code(response, 200)
+    choices = json.loads(response.content)["choices"]
+    assert choices[0]["message"]["content"] == json.dumps(input_example["messages"])
+    assert json.loads(choices[1]["message"]["content"]) == {
+        **DEFAULT_PARAMS,
+        **params_subset,
+    }
+
+
+def test_chat_model_predict_stream(tmp_path):
+    model = TestChatModel()
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
+
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant"},
+        {"role": "user", "content": "Hello!"},
+    ]
+
+    response = next(loaded_model.predict_stream({"messages": messages}))
+    assert response["choices"][0]["message"]["content"] == json.dumps(messages)
+
+
+# test that users cannot overwrite the 'object' field in ChatResponse
+def test_chat_model_response_cannot_overwrite_object():
+    message = ChatMessage(role="user", content="Hello!")
+    params = ChatParams(**DEFAULT_PARAMS)
+    mock_response = get_mock_response([message], params)
+
+    # test initialization without setting the property 'object'
+    response = ChatResponse(**mock_response)
+    assert response.object == "chat.completion"
+    with pytest.raises(ValueError, match="`object` field must be 'chat.completion'"):
+        response.object = "other"
+
+    # test to set correct value for 'object' when initializing ChatResponse
+    mock_response["object"] = "chat.completion"
+    response = ChatResponse(**mock_response)
+    assert response.object == "chat.completion"
+    with pytest.raises(ValueError, match="`object` field must be 'chat.completion'"):
+        response.object = "other"
+
+    # test to set incorrect value for 'object' when initializing ChatResponse
+    mock_response["object"] = "invalid.value"
+    with pytest.raises(ValueError, match="`object` field must be 'chat.completion'"):
+        response = ChatResponse(**mock_response)

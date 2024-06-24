@@ -8,7 +8,6 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import { CompareRunContour } from './CompareRunContour';
-import { RunInfo } from '../sdk/MlflowMessages';
 import { shallowWithIntl } from 'common/utils/TestUtils.enzyme';
 
 describe('unit tests', () => {
@@ -17,12 +16,10 @@ describe('unit tests', () => {
   const runUuids = ['run_uuid_0', 'run_uuid_1', 'run_uuid_2'];
   const commonProps = {
     runUuids,
-    runInfos: runUuids.map((run_uuid) =>
-      (RunInfo as any).fromJs({
-        run_uuid,
-        experiment_id: '1',
-      }),
-    ),
+    runInfos: runUuids.map((runUuid) => ({
+      runUuid,
+      experimentId: '1',
+    })),
     runDisplayNames: runUuids,
   };
   beforeEach(() => {});

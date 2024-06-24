@@ -21,6 +21,8 @@ import { Typography } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
 import './ShowArtifactLoggedModelView.css';
+import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
+import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 
 const { Paragraph, Text, Title } = Typography;
 
@@ -402,19 +404,18 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
 
   render() {
     if (this.state.loading) {
-      return (
-        <div className="artifact-logged-model-view-loading">
-          <FormattedMessage defaultMessage="Loading..." description="Loading state text for the artifact model view" />
-        </div>
-      );
+      return <ArtifactViewSkeleton className="artifact-logged-model-view-loading" />;
     } else if (this.state.error) {
       return (
-        <div className="artifact-logged-model-view-error">
-          <FormattedMessage
-            defaultMessage="Couldn't load model information due to an error."
-            description="Error state text when the model artifact was unable to load"
-          />
-        </div>
+        <ArtifactViewErrorState
+          className="artifact-logged-model-view-error"
+          description={
+            <FormattedMessage
+              defaultMessage="Couldn't load model information due to an error."
+              description="Error state text when the model artifact was unable to load"
+            />
+          }
+        />
       );
     } else {
       return (

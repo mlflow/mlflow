@@ -66,7 +66,7 @@ const RunViewMetricsTableSection = ({
               flexBasis: keyColumn.getSize(),
             }}
           >
-            <Link to={Routes.getMetricPageRoute([runInfo.run_uuid], key, [runInfo.experiment_id])}>{key}</Link>
+            <Link to={Routes.getMetricPageRoute([runInfo.runUuid], key, [runInfo.experimentId])}>{key}</Link>
           </TableCell>
           <TableCell
             css={{

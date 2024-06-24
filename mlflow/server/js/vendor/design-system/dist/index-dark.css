@@ -15850,6 +15850,14 @@ span.du-bois-dark-typography-ellipsis-single-line {
 /* stylelint-disable */
 /* stylelint-disable declaration-bang-space-before,no-duplicate-selectors,string-no-newline */
 
+[data-dubois-show-outline] {
+  outline: 1px dashed #308613 !important;
+  outline-offset: 2px !important;
+}
+/* stylelint-disable no-duplicate-selectors */
+/* stylelint-disable */
+/* stylelint-disable declaration-bang-space-before,no-duplicate-selectors,string-no-newline */
+
 /* stylelint-disable at-rule-empty-line-before,at-rule-name-space-after,at-rule-no-unknown */
 .du-bois-dark-switch {
   margin: 0;

@@ -1,0 +1,1 @@
+prompt_with_history_str: "Here is a history between you and a human: {chat_history}\nNow, please answer this question: {question}"

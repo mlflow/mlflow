@@ -10,9 +10,9 @@ import _ from 'lodash';
 import { Button, LegacySelect, Switch, Tooltip, Radio, QuestionMarkIcon } from '@databricks/design-system';
 import { Progress } from '../../common/components/Progress';
 import { CHART_TYPE_LINE, METRICS_PLOT_POLLING_INTERVAL_MS } from './MetricsPlotPanel';
-import { LineSmoothSlider } from './LineSmoothSlider';
 
 import { FormattedMessage, injectIntl } from 'react-intl';
+import { LineSmoothSlider } from './LineSmoothSlider';
 
 const RadioGroup = Radio.Group;
 export const X_AXIS_WALL = 'wall';
@@ -138,7 +138,7 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
                   data-testid="smoothness-toggle"
                   min={1}
                   max={MAX_LINE_SMOOTHNESS}
-                  handleLineSmoothChange={_.debounce(this.props.handleLineSmoothChange, 100)}
+                  onChange={_.debounce(this.props.handleLineSmoothChange, 100)}
                   defaultValue={initialLineSmoothness}
                 />
               </div>
@@ -152,6 +152,7 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
                 />
               </div>
               <RadioGroup
+                name="metrics-plot-x-axis-radio-group"
                 css={styles.xAxisControls}
                 onChange={this.props.handleXAxisChange}
                 value={this.props.selectedXAxis}

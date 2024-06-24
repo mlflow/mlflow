@@ -110,9 +110,9 @@ test('If button to edit experiment is pressed then open RenameExperimentModal', 
 test('If activeExperimentIds is defined then choose all the corresponding experiments', () => {
   const localExperiments = [
     Fixtures.createExperiment(),
-    Fixtures.createExperiment({ experiment_id: '1', name: 'Test' }),
-    Fixtures.createExperiment({ experiment_id: '2', name: 'Second' }),
-    Fixtures.createExperiment({ experiment_id: '3', name: 'Third' }),
+    Fixtures.createExperiment({ experimentId: '1', name: 'Test' }),
+    Fixtures.createExperiment({ experimentId: '2', name: 'Second' }),
+    Fixtures.createExperiment({ experimentId: '3', name: 'Third' }),
   ];
   mountComponent({
     experiments: localExperiments,
@@ -136,7 +136,7 @@ test('should render when both experiments and activeExperimentIds are empty', ()
 
 test('virtual list should not render everything when there are many experiments', () => {
   const keys = Array.from(Array(1000).keys()).map((k) => k.toString());
-  const localExperiments = keys.map((k) => Fixtures.createExperiment({ experiment_id: k, name: k }));
+  const localExperiments = keys.map((k) => Fixtures.createExperiment({ experimentId: k, name: k }));
 
   mountComponent({
     experiments: localExperiments,

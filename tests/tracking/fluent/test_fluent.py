@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import threading
 import time
 import uuid
 from collections import defaultdict
@@ -50,6 +51,10 @@ from mlflow.tracking.fluent import (
     start_run,
 )
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
+from mlflow.utils.async_logging.async_logging_queue import (
+    ASYNC_LOGGING_STATUS_CHECK_THREAD_PREFIX,
+    ASYNC_LOGGING_WORKER_THREAD_PREFIX,
+)
 from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import multi_context
@@ -1370,15 +1375,31 @@ def test_log_param_async_throws():
             mlflow.log_params({"async batch param": "3"}, synchronous=False).wait()
 
 
-def test_flush_async_logging():
+@pytest.mark.parametrize("flush_within_run", [True, False])
+def test_flush_async_logging(flush_within_run):
+    # NB: This test validates whether the async logger threads are cleaned up after flushing.
+    # The validation relies on the thread name so it may false alert if other tests create
+    # similar threads without cleaning them up. To avoid this, we only validates the newly
+    # create threads after the test starts.
+    original_threads = set(threading.enumerate())
+
     with mlflow.start_run() as run:
         for i in range(100):
             mlflow.log_metric("dummy", i, step=i, synchronous=False)
 
+        if flush_within_run:
+            mlflow.flush_async_logging()
+
+    if not flush_within_run:
         mlflow.flush_async_logging()
 
-        metric_history = mlflow.MlflowClient().get_metric_history(run.info.run_id, "dummy")
-        assert len(metric_history) == 100
+    metric_history = mlflow.MlflowClient().get_metric_history(run.info.run_id, "dummy")
+    assert len(metric_history) == 100
+
+    # Ensure logging worker threads are cleaned up after flushing
+    for thread in set(threading.enumerate()) - original_threads:
+        assert not thread.name.startswith(ASYNC_LOGGING_WORKER_THREAD_PREFIX)
+        assert not thread.name.startswith(ASYNC_LOGGING_STATUS_CHECK_THREAD_PREFIX)
 
 
 def test_enable_async_logging():

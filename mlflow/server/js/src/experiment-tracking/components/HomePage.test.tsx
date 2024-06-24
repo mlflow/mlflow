@@ -71,8 +71,8 @@ describe('HomePage', () => {
     renderPage('/', {
       entities: {
         experimentsById: {
-          100: { lifecycle_stage: 'deleted', experiment_id: '100' },
-          200: { lifecycle_stage: 'active', experiment_id: '200' },
+          100: { lifecycleStage: 'deleted', experimentId: '100' },
+          200: { lifecycleStage: 'active', experimentId: '200' },
         },
       },
     });
@@ -84,8 +84,8 @@ describe('HomePage', () => {
     renderPage('/100', {
       entities: {
         experimentsById: {
-          100: { lifecycle_stage: 'deleted', experiment_id: '100' },
-          200: { lifecycle_stage: 'active', experiment_id: '200' },
+          100: { lifecycleStage: 'deleted', experimentId: '100' },
+          200: { lifecycleStage: 'active', experimentId: '200' },
         },
       },
     });
@@ -99,8 +99,8 @@ describe('HomePage', () => {
     renderPage('/?experiments=[100,200]', {
       entities: {
         experimentsById: {
-          100: { lifecycle_stage: 'deleted', experiment_id: '100' },
-          200: { lifecycle_stage: 'active', experiment_id: '200' },
+          100: { lifecycleStage: 'deleted', experimentId: '100' },
+          200: { lifecycleStage: 'active', experimentId: '200' },
         },
       },
     });

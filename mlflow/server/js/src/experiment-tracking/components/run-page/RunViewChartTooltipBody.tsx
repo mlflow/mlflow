@@ -1,15 +1,13 @@
-import { Button, CloseIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import type { MetricHistoryByName, RunInfoEntity } from '../../types';
 import {
   containsMultipleRunsTooltipData,
   RunsChartsTooltipMode,
   type RunsChartsTooltipBodyProps,
 } from '../runs-charts/hooks/useRunsChartsTooltip';
-import { getStableColorForRun } from '../../utils/RunNameUtils';
-import { isSystemMetricKey, normalizeChartMetricKey, normalizeMetricChartTooltipValue } from '../../utils/MetricsUtils';
+import { isSystemMetricKey } from '../../utils/MetricsUtils';
 import Utils from '../../../common/utils/Utils';
 import { FormattedMessage } from 'react-intl';
-import { first, isUndefined } from 'lodash';
+import { isUndefined } from 'lodash';
 import type {
   RunsCompareMultipleTracesTooltipData,
   RunsMetricsSingleTraceTooltipData,
@@ -76,7 +74,7 @@ export const RunViewChartTooltipBody = ({
       )}
       {value && (
         <div css={styles.valueField}>
-          <strong>{metricKey}:</strong> {normalizeMetricChartTooltipValue(value)}
+          <strong>{metricKey}:</strong> {value}
         </div>
       )}
     </div>

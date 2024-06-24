@@ -1,6 +1,12 @@
-import userEvent from '@testing-library/user-event';
-import { type Location, MemoryRouter, useLocation } from '../../../common/utils/RoutingUtils';
-import { renderWithIntl, act, screen, within } from 'common/utils/TestUtils.react17';
+import userEvent from '@testing-library/user-event-14';
+import { type Location, useLocation } from '../../../common/utils/RoutingUtils';
+import {
+  setupTestRouter,
+  testRoute,
+  waitForRoutesToBeRendered,
+  TestRouter,
+} from '../../../common/utils/RoutingTestUtils';
+import { renderWithIntl, act, screen, within } from 'common/utils/TestUtils.react18';
 import { ModelEntity } from '../../../experiment-tracking/types';
 import { ModelsTableAliasedVersionsCell } from './ModelsTableAliasedVersionsCell';
 import { openDropdownMenu } from '@databricks/design-system/test-utils/rtl';
@@ -22,7 +28,7 @@ describe('ModelListTableAliasedVersionsCell', () => {
     ],
   } as any;
 
-  const renderWithRouterWrapper = (element: React.ReactElement) => {
+  const renderWithRouterWrapper = async (element: React.ReactElement) => {
     let _location: Location | null = null;
     const Component = () => {
       _location = useLocation();
@@ -31,35 +37,33 @@ describe('ModelListTableAliasedVersionsCell', () => {
     };
     renderWithIntl(
       <DesignSystemProvider>
-        <MemoryRouter>
-          <Component />
-        </MemoryRouter>
+        <TestRouter routes={[testRoute(<Component />)]} />
       </DesignSystemProvider>,
     );
     return { getLocation: () => _location };
   };
 
-  test('display a single version and navigate to it', () => {
-    const { getLocation } = renderWithRouterWrapper(<ModelsTableAliasedVersionsCell model={modelWithOneAlias} />);
+  test('display a single version and navigate to it', async () => {
+    const { getLocation } = await renderWithRouterWrapper(<ModelsTableAliasedVersionsCell model={modelWithOneAlias} />);
     expect(screen.getByText(/@ alias-version-1/)).toBeInTheDocument();
-    userEvent.click(screen.getByRole('link', { name: 'alias-version-1 : Version 1' }));
-    expect(getLocation()?.pathname).toEqual('/models/test-model/versions/1');
+    await userEvent.click(screen.getByRole('link', { name: 'alias-version-1 : Version 1' }));
+    expect(getLocation()?.pathname).toMatch('/models/test-model/versions/1');
   });
 
   test('display multiple versions and navigate there', async () => {
-    const { getLocation } = renderWithRouterWrapper(
+    const { getLocation } = await renderWithRouterWrapper(
       <ModelsTableAliasedVersionsCell model={modelWithMultipleAliases} />,
     );
     expect(screen.getByText(/@ alias-version-10/)).toBeInTheDocument();
-    userEvent.click(screen.getByRole('link', { name: 'alias-version-10 : Version 10' }));
-    expect(getLocation()?.pathname).toEqual('/models/test-model/versions/10');
+    await userEvent.click(screen.getByRole('link', { name: 'alias-version-10 : Version 10' }));
+    expect(getLocation()?.pathname).toMatch('/models/test-model/versions/10');
 
     await act(async () => {
       await openDropdownMenu(screen.getByRole('button', { name: '+3' }));
     });
 
-    userEvent.click(within(screen.getByRole('menu')).getByText(/Version 2/));
+    await userEvent.click(within(screen.getByRole('menu')).getByText(/Version 2/));
 
-    expect(getLocation()?.pathname).toEqual('/models/test-model/versions/2');
+    expect(getLocation()?.pathname).toMatch('/models/test-model/versions/2');
   });
 });

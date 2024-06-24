@@ -51,7 +51,7 @@ class GatewayAPI(FastAPI):
         super().__init__(*args, **kwargs)
         self.state.limiter = limiter
         self.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-        self.dynamic_routes: Dict[str, Route] = {}
+        self.dynamic_routes: Dict[str, RouteConfig] = {}
         self.set_dynamic_routes(config, limiter)
 
     def set_dynamic_routes(self, config: GatewayConfig, limiter: Limiter) -> None:
@@ -71,10 +71,10 @@ class GatewayAPI(FastAPI):
                 methods=["POST"],
                 include_in_schema=False,
             )
-            self.dynamic_routes[route.name] = route.to_route()
+            self.dynamic_routes[route.name] = route
 
     def get_dynamic_route(self, route_name: str) -> Optional[Route]:
-        return self.dynamic_routes.get(route_name)
+        return r.to_route() if (r := self.dynamic_routes.get(route_name)) else None
 
 
 def _create_chat_endpoint(config: RouteConfig):
@@ -297,7 +297,9 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
 
         end_idx = start_idx + MLFLOW_DEPLOYMENTS_LIST_ENDPOINTS_PAGE_SIZE
         routes = list(app.dynamic_routes.values())
-        result = {"endpoints": [route.to_endpoint() for route in routes[start_idx:end_idx]]}
+        result = {
+            "endpoints": [route.to_route().to_endpoint() for route in routes[start_idx:end_idx]]
+        }
         if len(routes[end_idx:]) > 0:
             next_page_token = SearchRoutesToken(index=end_idx)
             result["next_page_token"] = next_page_token.encode()
@@ -311,7 +313,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
 
         end_idx = start_idx + MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
         routes = list(app.dynamic_routes.values())
-        result = {"routes": routes[start_idx:end_idx]}
+        result = {"routes": [r.to_route() for r in routes[start_idx:end_idx]]}
         if len(routes[end_idx:]) > 0:
             next_page_token = SearchRoutesToken(index=end_idx)
             result["next_page_token"] = next_page_token.encode()
@@ -329,6 +331,66 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     @app.post(MLFLOW_GATEWAY_LIMITS_BASE, include_in_schema=False)
     async def set_limits(payload: SetLimitsModel) -> LimitsConfig:
         raise HTTPException(status_code=501, detail="The set_limits API is not available yet.")
+
+    def _look_up_route(name: str) -> Optional[Route]:
+        if r := app.dynamic_routes.get(name):
+            return r
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"Route {name} not found in the configuration.",
+        )
+
+    @app.post("/v1/chat/completions")
+    async def openai_chat_handler(
+        request: Request, payload: chat.RequestPayload
+    ) -> chat.ResponsePayload:
+        route = _look_up_route(payload.model)
+        if route.route_type != RouteType.LLM_V1_CHAT:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Endpoint {route.name!r} is not a chat endpoint.",
+            )
+
+        prov = get_provider(route.model.provider)(route)
+        payload.model = None  # provider rejects a request with model field, must be set to None
+        if payload.stream:
+            return await make_streaming_response(prov.chat_stream(payload))
+        else:
+            return await prov.chat(payload)
+
+    @app.post("/v1/completions")
+    async def openai_completions_handler(
+        request: Request, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
+        route = _look_up_route(payload.model)
+        if route.route_type != RouteType.LLM_V1_COMPLETIONS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Endpoint {route.name!r} is not a completions endpoint.",
+            )
+
+        prov = get_provider(route.model.provider)(route)
+        payload.model = None  # provider rejects a request with model field, must be set to None
+        if payload.stream:
+            return await make_streaming_response(prov.completions_stream(payload))
+        else:
+            return await prov.completions(payload)
+
+    @app.post("/v1/embeddings")
+    async def openai_embeddings_handler(
+        request: Request, payload: embeddings.RequestPayload
+    ) -> embeddings.ResponsePayload:
+        route = _look_up_route(payload.model)
+        if route.route_type != RouteType.LLM_V1_EMBEDDINGS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Endpoint {route.name!r} is not an embeddings endpoint.",
+            )
+
+        prov = get_provider(route.model.provider)(route)
+        payload.model = None  # provider rejects a request with model field, must be set to None
+        return await prov.embeddings(payload)
 
     return app
 

@@ -1,4 +1,3 @@
-src/common/components/CollapsibleTagsCell.enzyme.test.tsx
 src/common/components/EditableNote.enzyme.test.tsx
 src/common/components/EditableTagsTableView.enzyme.test.tsx
 src/common/components/ErrorView.enzyme.test.tsx
@@ -7,11 +6,9 @@ src/common/components/IconButton.enzyme.test.tsx
 src/common/components/PageNotFoundView.enzyme.test.tsx
 src/common/components/PlotlyStylesProvider.enzyme.test.tsx
 src/common/components/RequestStateWrapper.enzyme.test.tsx
-src/common/components/SearchTree.enzyme.test.tsx
 src/common/components/SimplePagination.enzyme.test.tsx
 src/common/components/Spinner.enzyme.test.tsx
 src/common/components/TrimmedText.enzyme.test.tsx
-src/common/components/ag-grid/RunsTableCustomHeader.enzyme.test.tsx
 src/common/components/error-boundaries/AppErrorBoundary.enzyme.test.tsx
 src/common/components/error-boundaries/SectionErrorBoundary.enzyme.test.tsx
 src/common/utils/TestUtils.enzyme.tsx
@@ -31,16 +28,13 @@ src/endpoints/components/endpoint-table/ServedModelCell.enzyme.test.tsx
 src/endpoints/hooks/useActiveTab.enzyme.test.tsx
 src/experiment-tracking/components/ArtifactPage.enzyme.test.tsx
 src/experiment-tracking/components/ArtifactView.enzyme.test.tsx
-src/experiment-tracking/components/CompareRunBox.enzyme.test.tsx
 src/experiment-tracking/components/CompareRunContour.enzyme.test.tsx
 src/experiment-tracking/components/CompareRunPage.enzyme.test.tsx
 src/experiment-tracking/components/CompareRunScatter.enzyme.test.tsx
 src/experiment-tracking/components/CompareRunView.enzyme.test.tsx
-src/experiment-tracking/components/DirectRunPage.enzyme.test.tsx
 src/experiment-tracking/components/HtmlTableView.enzyme.test.tsx
 src/experiment-tracking/components/LazyPlot.enzyme.test.tsx
 src/experiment-tracking/components/LineSmoothSlider.enzyme.test.tsx
-src/experiment-tracking/components/LoadMoreBar.enzyme.test.tsx
 src/experiment-tracking/components/MetricPage.enzyme.test.tsx
 src/experiment-tracking/components/MetricView.enzyme.test.tsx
 src/experiment-tracking/components/MetricsPlotControls.enzyme.test.tsx
@@ -77,10 +71,6 @@ src/experiment-tracking/components/experiment-page/components/runs/ExperimentVie
 src/experiment-tracking/components/experiment-page/components/runs/ExperimentViewRunsEmptyTable.enzyme.test.tsx
 src/experiment-tracking/components/experiment-page/components/runs/ExperimentViewRunsTable.enzyme.test.tsx
 src/experiment-tracking/components/experiment-page/components/runs/RunsSearchAutoComplete.enzyme.test.tsx
-src/experiment-tracking/components/experiment-page/hooks/useAutoExpandRunRows.enzyme.test.tsx
-src/experiment-tracking/components/experiment-page/hooks/useAutoMLEvaluationMetric.enzyme.test.tsx
-src/experiment-tracking/components/experiment-page/hooks/useAutoMLModelColumn.enzyme.test.tsx
-src/experiment-tracking/components/experiment-page/hooks/useAutoMLVisibleForecastParameters.enzyme.test.tsx
 src/experiment-tracking/components/experiment-page/hooks/useExperimentViewLocalStore.enzyme.test.tsx
 src/experiment-tracking/components/experiment-page/hooks/useExperiments.enzyme.test.tsx
 src/experiment-tracking/components/experiment-page/hooks/useFetchedRunsNotification.enzyme.test.tsx
@@ -106,10 +96,6 @@ src/experiment-tracking/components/runs-compare/hooks/useFetchCompareRunsMetricH
 src/experiment-tracking/components/runs-compare/hooks/useMultipleChartsMetricHistory.enzyme.test.tsx
 src/i18n/I18n.enzyme.test.tsx
 src/i18n/I18nUtils.test.ts.enzyme.test.tsx
-src/model-monitoring/components/JobHistorySection.enzyme.test.tsx
-src/model-monitoring/components/JobScheduleSection.enzyme.test.tsx
-src/model-monitoring/components/MonitorArtifacts.enzyme.test.tsx
-src/model-monitoring/components/MonitoringPane.enzyme.test.tsx
 src/model-registry/components/CompareModelVersionsPage.enzyme.test.tsx
 src/model-registry/components/CompareModelVersionsView.enzyme.test.tsx
 src/model-registry/components/ConfigureInferenceButton.enzyme.test.tsx

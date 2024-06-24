@@ -1,6 +1,8 @@
 import * as Toast from '@radix-ui/react-toast';
 import React from 'react';
-export interface NotificationProps extends Toast.ToastProps {
+import { type DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
+import type { AnalyticsEventOptionalProps } from '../types';
+export interface NotificationProps extends Toast.ToastProps, AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     severity?: 'info' | 'success' | 'warning' | 'error';
     isCloseable?: boolean;
 }
@@ -11,7 +13,7 @@ export declare const Title: React.ForwardRefExoticComponent<NotificationTitlePro
 export interface NotificationDescriptionProps extends Toast.ToastDescriptionProps {
 }
 export declare const Description: React.ForwardRefExoticComponent<NotificationDescriptionProps & React.RefAttributes<HTMLDivElement>>;
-export interface NotificationCloseProps extends Toast.ToastCloseProps {
+export interface NotificationCloseProps extends Toast.ToastCloseProps, AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
     closeLabel?: string;
 }
 export declare const Close: React.ForwardRefExoticComponent<NotificationCloseProps & React.RefAttributes<HTMLButtonElement>>;

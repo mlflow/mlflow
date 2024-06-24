@@ -3,17 +3,41 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { ReduxState, ThunkDispatch } from '../../../../redux-types';
 import { loadMoreRunsApi, searchRunsApi } from '../../../actions';
-import { ExperimentPageUIStateV2 } from '../models/ExperimentPageUIStateV2';
+import { ExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { createSearchRunsParams, fetchModelVersionsForRuns } from '../utils/experimentPage.fetch-utils';
 import { ExperimentRunsSelectorResult, experimentRunsSelector } from '../utils/experimentRuns.selector';
 import { ExperimentQueryParamsSearchFacets } from './useExperimentPageSearchFacets';
-import { ExperimentPageSearchFacetsStateV2 } from '../models/ExperimentPageSearchFacetsStateV2';
+import { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 import { searchModelVersionsApi } from '../../../../model-registry/actions';
+import { shouldEnableExperimentPageAutoRefresh } from '../../../../common/utils/FeatureUtils';
 import Utils from '../../../../common/utils/Utils';
+import { useExperimentRunsAutoRefresh } from './useExperimentRunsAutoRefresh';
+import { RunEntity } from '../../../types';
 
-type RunsRequestParams = ReturnType<typeof createSearchRunsParams> & {
-  requestedFacets: ExperimentPageSearchFacetsStateV2;
+export type FetchRunsHookParams = ReturnType<typeof createSearchRunsParams> & {
+  requestedFacets: ExperimentPageSearchFacetsState;
+};
+
+export type FetchRunsHookFunction = (
+  params: FetchRunsHookParams,
+  options?: {
+    isAutoRefreshing?: boolean;
+    discardResultsFn?: (lastRequestedParams: FetchRunsHookParams) => boolean;
+  },
+) => Promise<RunEntity[]>;
+
+// Calculate actual params to use for fetching runs
+const createFetchRunsRequestParams = (
+  searchFacets: ExperimentQueryParamsSearchFacets | null,
+  experimentIds: string[],
+  runsPinned: string[],
+): FetchRunsHookParams | null => {
+  if (!searchFacets || !experimentIds.length) {
+    return null;
+  }
+  const searchParams = createSearchRunsParams(experimentIds, { ...searchFacets, runsPinned }, Date.now());
+  return { ...searchParams, requestedFacets: searchFacets };
 };
 
 /**
@@ -21,7 +45,7 @@ type RunsRequestParams = ReturnType<typeof createSearchRunsParams> & {
  * Replaces GetExperimentRunsContext and a substantial portion of <ExperimentRuns> component stack.
  */
 export const useExperimentRuns = (
-  uiState: ExperimentPageUIStateV2,
+  uiState: ExperimentPageUIState,
   searchFacets: ExperimentQueryParamsSearchFacets | null,
   experimentIds: string[],
   disabled = false,
@@ -37,6 +61,9 @@ export const useExperimentRuns = (
   const [requestError, setRequestError] = useState<ErrorWrapper | null>(null);
   const cachedPinnedRuns = useRef<string[]>([]);
 
+  const lastFetchedTime = useRef<number | null>(null);
+  const lastRequestedParams = useRef<FetchRunsHookParams | null>(null);
+
   // Reset initial loading state when experiment IDs change
   useEffect(() => {
     if (disabled) {
@@ -47,7 +74,7 @@ export const useExperimentRuns = (
   }, [persistKey, disabled]);
 
   const setResultRunsData = useCallback(
-    (store: ReduxState, experimentIds: string[], requestedFacets: ExperimentPageSearchFacetsStateV2) => {
+    (store: ReduxState, experimentIds: string[], requestedFacets: ExperimentPageSearchFacetsState) => {
       setRunsData(
         experimentRunsSelector(store, {
           datasetsFilter: requestedFacets.datasetsFilter,
@@ -66,23 +93,6 @@ export const useExperimentRuns = (
     cachedPinnedRuns.current = uiState.runsPinned;
   }, [uiState.runsPinned]);
 
-  // Calculate actual params to use for fetching runs
-  const createFetchRunsRequestParams = useCallback(
-    (searchFacets: ExperimentQueryParamsSearchFacets | null, experimentIds: string[]): RunsRequestParams | null => {
-      if (!searchFacets || !experimentIds.length) {
-        return null;
-      }
-      const searchParams = createSearchRunsParams(
-        experimentIds,
-        // We use the cached pinned runs here, but not in the hook deps - we want to use it, but not trigger a new request
-        { ...searchFacets, runsPinned: cachedPinnedRuns.current },
-        Date.now(),
-      );
-      return { ...searchParams, requestedFacets: searchFacets };
-    },
-    [],
-  );
-
   const loadModelVersions = useCallback(
     (runs: Parameters<typeof fetchModelVersionsForRuns>[0]) => {
       fetchModelVersionsForRuns(runs || [], searchModelVersionsApi, dispatch);
@@ -91,20 +101,32 @@ export const useExperimentRuns = (
   );
 
   // Main function for fetching runs
-  const fetchRuns = useCallback(
-    (params: RunsRequestParams) =>
+  const fetchRuns: FetchRunsHookFunction = useCallback(
+    (fetchParams, options = {}) =>
       dispatch((thunkDispatch: ThunkDispatch, getStore: () => ReduxState) => {
-        setIsLoadingRuns(true);
-        return thunkDispatch((params.pageToken ? loadMoreRunsApi : searchRunsApi)(params))
+        // If we're auto-refreshing, we don't want to show the loading spinner and
+        // we don't want to update the last requested params - they're used to determine
+        // whether to discard results when the automatically fetched data changes.
+        if (!options.isAutoRefreshing) {
+          setIsLoadingRuns(true);
+          lastRequestedParams.current = fetchParams;
+        }
+        return thunkDispatch((fetchParams.pageToken ? loadMoreRunsApi : searchRunsApi)(fetchParams))
           .then(async ({ value }) => {
             setNextPageToken(value.next_page_token || null);
+            lastFetchedTime.current = Date.now();
+
             setIsLoadingRuns(false);
             setIsInitialLoadingRuns(false);
+
+            if (lastRequestedParams.current && options.discardResultsFn?.(lastRequestedParams.current)) {
+              return value;
+            }
 
             // We rely on redux reducer to update the state with new runs data,
             // then we pick it up from the store. This benefits other pages that use same data
             // from the same store slice (e.g. run details page). Will be changed when moving to graphQL.
-            setResultRunsData(getStore(), params.experimentIds, params.requestedFacets);
+            setResultRunsData(getStore(), fetchParams.experimentIds, fetchParams.requestedFacets);
 
             // In the end, load model versions for the fetched runs
             loadModelVersions(value.runs || []);
@@ -126,14 +148,14 @@ export const useExperimentRuns = (
     if (disabled) {
       return;
     }
-    const requestParams = createFetchRunsRequestParams(searchFacets, experimentIds);
+    const requestParams = createFetchRunsRequestParams(searchFacets, experimentIds, cachedPinnedRuns.current);
     if (requestParams) {
       fetchRuns(requestParams);
     }
-  }, [createFetchRunsRequestParams, fetchRuns, dispatch, disabled, searchFacets, experimentIds]);
+  }, [fetchRuns, dispatch, disabled, searchFacets, experimentIds]);
 
   const loadMoreRuns = async () => {
-    const requestParams = createFetchRunsRequestParams(searchFacets, experimentIds);
+    const requestParams = createFetchRunsRequestParams(searchFacets, experimentIds, cachedPinnedRuns.current);
     if (!nextPageToken || !requestParams) {
       return [];
     }
@@ -141,11 +163,22 @@ export const useExperimentRuns = (
   };
 
   const refreshRuns = () => {
-    const requestParams = createFetchRunsRequestParams(searchFacets, experimentIds);
+    const requestParams = createFetchRunsRequestParams(searchFacets, experimentIds, cachedPinnedRuns.current);
     if (requestParams) {
       fetchRuns(requestParams);
     }
   };
+
+  useExperimentRunsAutoRefresh({
+    experimentIds,
+    fetchRuns,
+    searchFacets,
+    enabled: uiState.autoRefreshEnabled && shouldEnableExperimentPageAutoRefresh(),
+    cachedPinnedRuns,
+    runsData,
+    isLoadingRuns: isLoadingRuns,
+    lastFetchedTime,
+  });
 
   return {
     isLoadingRuns,

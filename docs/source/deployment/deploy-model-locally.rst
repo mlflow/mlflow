@@ -36,7 +36,7 @@ You can then send a test request to the server as follows:
 
 .. code-block:: bash
 
-    curl http://127.0.0.1:5000/invocations -H "Content-Type:application/json;"  --data '{"inputs": [[1, 2], [3, 4], [5, 6]]}'
+    curl http://127.0.0.1:5000/invocations -H "Content-Type:application/json"  --data '{"inputs": [[1, 2], [3, 4], [5, 6]]}'
 
 
 Several command line options are available to customize the server's behavior. For instance, the ``--env-manager`` option allows you to

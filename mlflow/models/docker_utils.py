@@ -1,12 +1,11 @@
 import os
-from subprocess import PIPE, STDOUT, Popen
+from subprocess import Popen
 from typing import Optional, Union
 from urllib.parse import urlparse
 
 from mlflow.environment_variables import MLFLOW_DOCKER_OPENJDK_VERSION
 from mlflow.utils import env_manager as em
 from mlflow.utils.file_utils import _copy_project
-from mlflow.utils.logging_utils import eprint
 from mlflow.version import VERSION
 
 UBUNTU_BASE_IMAGE = "ubuntu:20.04"
@@ -80,12 +79,15 @@ def generate_dockerfile(
     Generates a Dockerfile that can be used to build a docker image, that serves ML model
     stored and tracked in MLflow.
     """
+
+    setup_java_steps = ""
+    setup_python_venv_steps = ""
+    install_mlflow_steps = _pip_mlflow_install_step(output_dir, mlflow_home)
+
     if base_image.startswith("python:"):
         setup_python_venv_steps = (
             "RUN apt-get -y update && apt-get install -y --no-install-recommends nginx"
         )
-        setup_java_steps = ""
-        install_mlflow_steps = _pip_mlflow_install_step(output_dir, mlflow_home)
 
     elif base_image == UBUNTU_BASE_IMAGE:
         setup_python_venv_steps = (
@@ -104,11 +106,7 @@ def generate_dockerfile(
             f"ENV JAVA_HOME=/usr/lib/jvm/java-{jdk_ver}-openjdk-amd64"
         )
 
-        install_mlflow_steps = _pip_mlflow_install_step(output_dir, mlflow_home)
         install_mlflow_steps += "\n\n" + _java_mlflow_install_step(mlflow_home)
-
-    else:
-        raise ValueError(f"Unsupported base image: {base_image}")
 
     with open(os.path.join(output_dir, "Dockerfile"), "w") as f:
         f.write(
@@ -227,9 +225,6 @@ def build_image_from_context(context_dir: str, image_name: str):
         *platform_option,
         ".",
     ]
-    proc = Popen(commands, cwd=context_dir, stdout=PIPE, stderr=STDOUT, text=True, encoding="utf-8")
-    for x in iter(proc.stdout.readline, ""):
-        eprint(x, end="")
-
+    proc = Popen(commands, cwd=context_dir)
     if proc.wait():
         raise RuntimeError("Docker build failed.")

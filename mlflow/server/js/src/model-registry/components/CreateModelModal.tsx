@@ -48,7 +48,7 @@ export class CreateModelModalImpl extends React.Component<Props> {
 
   handleOnCancel = () => {
     if (this.props.navigateBackOnCancel) {
-      this.props.navigate(-1);
+      this.props.navigate(ModelRegistryRoutes.modelListPageRoute);
     }
   };
 

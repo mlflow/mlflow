@@ -5,22 +5,25 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { escape } from 'lodash';
 import React, { Component } from 'react';
-// @ts-expect-error TS(7016): Could not find a declaration file for module 'html... Remove this comment to see the full error message
-import { AllHtmlEntities } from 'html-entities';
-import { Switch, LegacySelect, Spacer } from '@databricks/design-system';
+import {
+  Switch,
+  Spacer,
+  SimpleSelect,
+  SimpleSelectOptionGroup,
+  SimpleSelectOption,
+  FormUI,
+} from '@databricks/design-system';
 import { getParams, getRunInfo } from '../reducers/Reducers';
 import { connect } from 'react-redux';
 import './CompareRunView.css';
-import { RunInfo } from '../sdk/MlflowMessages';
 import Utils from '../../common/utils/Utils';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import CompareRunUtil from './CompareRunUtil';
 import { FormattedMessage } from 'react-intl';
 import { LazyPlot } from './LazyPlot';
 import { CompareRunPlotContainer } from './CompareRunPlotContainer';
-
-const { Option, OptGroup } = LegacySelect;
 
 type CompareRunContourProps = {
   runInfos: any[]; // TODO: PropTypes.instanceOf(RunInfo)
@@ -36,14 +39,11 @@ export class CompareRunContour extends Component<CompareRunContourProps, Compare
   static MAX_PLOT_KEY_LENGTH = 40;
   static MAX_PLOT_VALUE_LENGTH = 60;
 
-  entities: any;
   metricKeys: any;
   paramKeys: any;
 
   constructor(props: CompareRunContourProps) {
     super(props);
-
-    this.entities = new AllHtmlEntities();
 
     this.metricKeys = CompareRunUtil.getKeys(this.props.metricLists, true);
     this.paramKeys = CompareRunUtil.getKeys(this.props.paramLists, true);
@@ -90,13 +90,6 @@ export class CompareRunContour extends Component<CompareRunContourProps, Compare
   getValue(i: any, { key, isMetric }: any) {
     const value = CompareRunUtil.findInList((isMetric ? this.props.metricLists : this.props.paramLists)[i], key);
     return value === undefined ? value : (value as any).value;
-  }
-
-  /**
-   * Encode HTML entities in a string (since Plotly's tooltips take HTML)
-   */
-  encodeHtml(str: any) {
-    return this.entities.encode(str);
   }
 
   getColorscale() {
@@ -220,11 +213,11 @@ export class CompareRunContour extends Component<CompareRunContourProps, Compare
             },
             hovermode: 'closest',
             xaxis: {
-              title: this.encodeHtml(Utils.truncateString(this.state['xaxis'].key, keyLength)),
+              title: escape(Utils.truncateString(this.state['xaxis'].key, keyLength)),
               range: [Math.min(...xs), Math.max(...xs)],
             },
             yaxis: {
-              title: this.encodeHtml(Utils.truncateString(this.state['yaxis'].key, keyLength)),
+              title: escape(Utils.truncateString(this.state['yaxis'].key, keyLength)),
               range: [Math.min(...ys), Math.max(...ys)],
             },
           }}
@@ -251,32 +244,32 @@ export class CompareRunContour extends Component<CompareRunContourProps, Compare
         controls={
           <>
             <div>
-              <label htmlFor="x-axis-selector">
+              <FormUI.Label htmlFor="xaxis-selector">
                 <FormattedMessage
                   defaultMessage="X-axis:"
                   description="Label text for x-axis in contour plot comparison in MLflow"
                 />
-              </label>
+              </FormUI.Label>
               {this.renderSelect('xaxis')}
             </div>
             <Spacer />
             <div>
-              <label htmlFor="y-axis-selector">
+              <FormUI.Label htmlFor="yaxis-selector">
                 <FormattedMessage
                   defaultMessage="Y-axis:"
                   description="Label text for y-axis in contour plot comparison in MLflow"
                 />
-              </label>
+              </FormUI.Label>
               {this.renderSelect('yaxis')}
             </div>
             <Spacer />
             <div>
-              <label htmlFor="z-axis-selector">
+              <FormUI.Label htmlFor="zaxis-selector">
                 <FormattedMessage
                   defaultMessage="Z-axis:"
                   description="Label text for z-axis in contour plot comparison in MLflow"
                 />
-              </label>
+              </FormUI.Label>
               {this.renderSelect('zaxis')}
             </div>
             <Spacer />
@@ -301,13 +294,13 @@ export class CompareRunContour extends Component<CompareRunContourProps, Compare
     );
   }
 
-  renderSelect(axis: any) {
+  renderSelect(axis: string) {
     return (
-      <LegacySelect
-        css={styles.select}
-        id={axis + '-axis-selector'}
-        aria-label={`${axis} axis`}
-        onChange={(value) => {
+      <SimpleSelect
+        css={{ width: '100%' }}
+        id={axis + '-selector'}
+        onChange={({ target }) => {
+          const { value } = target;
           const [prefix, ...keyParts] = value.split('-');
           const key = keyParts.join('-');
           const isMetric = prefix === 'metric';
@@ -315,21 +308,21 @@ export class CompareRunContour extends Component<CompareRunContourProps, Compare
         }}
         value={(this.state[axis].isMetric ? 'metric-' : 'param-') + this.state[axis].key}
       >
-        <OptGroup label="Parameter">
+        <SimpleSelectOptionGroup label="Parameter">
           {this.paramKeys.map((p: any) => (
-            <Option key={'param-' + p} value={'param-' + p}>
+            <SimpleSelectOption key={'param-' + p} value={'param-' + p}>
               {p}
-            </Option>
+            </SimpleSelectOption>
           ))}
-        </OptGroup>
-        <OptGroup label="Metric">
+        </SimpleSelectOptionGroup>
+        <SimpleSelectOptionGroup label="Metric">
           {this.metricKeys.map((m: any) => (
-            <Option key={'metric-' + m} value={'metric-' + m}>
+            <SimpleSelectOption key={'metric-' + m} value={'metric-' + m}>
               {m}
-            </Option>
+            </SimpleSelectOption>
           ))}
-        </OptGroup>
-      </LegacySelect>
+        </SimpleSelectOptionGroup>
+      </SimpleSelect>
     );
   }
 
@@ -337,20 +330,20 @@ export class CompareRunContour extends Component<CompareRunContourProps, Compare
     const keyLength = CompareRunContour.MAX_PLOT_KEY_LENGTH;
     const valueLength = CompareRunContour.MAX_PLOT_VALUE_LENGTH;
     const runName = this.props.runDisplayNames[index];
-    let result = `<b>${this.encodeHtml(runName)}</b><br>`;
+    let result = `<b>${escape(runName)}</b><br>`;
     const paramList = this.props.paramLists[index];
     paramList.forEach((p) => {
       result +=
-        this.encodeHtml(Utils.truncateString(p.key, keyLength)) +
+        escape(Utils.truncateString(p.key, keyLength)) +
         ': ' +
-        this.encodeHtml(Utils.truncateString(p.value, valueLength)) +
+        escape(Utils.truncateString(p.value, valueLength)) +
         '<br>';
     });
     const metricList = this.props.metricLists[index];
     if (metricList.length > 0) {
       result += paramList.length > 0 ? '<br>' : '';
       metricList.forEach((m) => {
-        result += this.encodeHtml(Utils.truncateString(m.key, keyLength)) + ': ' + Utils.formatMetric(m.value) + '<br>';
+        result += escape(Utils.truncateString(m.key, keyLength)) + ': ' + Utils.formatMetric(m.value) + '<br>';
       });
     }
     return result;
@@ -358,9 +351,6 @@ export class CompareRunContour extends Component<CompareRunContourProps, Compare
 }
 
 const styles = {
-  select: {
-    width: '100%',
-  },
   plot: {
     width: '100%',
   },

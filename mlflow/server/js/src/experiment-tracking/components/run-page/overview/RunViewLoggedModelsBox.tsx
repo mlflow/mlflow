@@ -21,7 +21,7 @@ export const RunViewLoggedModelsBox = ({
   }[];
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { experiment_id, run_uuid } = runInfo;
+  const { experimentId, runUuid } = runInfo;
 
   const getModelFlavorName = (flavors: string[]) => {
     return (
@@ -47,7 +47,7 @@ export const RunViewLoggedModelsBox = ({
       {loggedModels.map((model, index) => {
         return (
           <Link
-            to={Routes.getRunPageRoute(experiment_id, run_uuid, model.artifactPath)}
+            to={Routes.getRunPageRoute(experimentId, runUuid, model.artifactPath)}
             key={model.artifactPath}
             css={{
               display: 'flex',

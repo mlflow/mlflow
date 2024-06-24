@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { Dropdown, Menu, Modal, ChevronDownIcon } from '@databricks/design-system';
+import { Dropdown, Menu, Modal, ChevronDownIcon, ArrowRightIcon } from '@databricks/design-system';
 import { Stages, StageTagComponents, ActivityTypes } from '../constants';
 import { DirectTransitionForm } from './DirectTransitionForm';
 import _ from 'lodash';
@@ -87,9 +87,9 @@ export class ModelStageTransitionDropdown extends React.Component<
               description="Text for transitioning a model version to a different stage under
                  dropdown menu in model version page"
             />
-            &nbsp;&nbsp;&nbsp;&nbsp;
-            <i className="fas fa-long-arrow-right" />
-            &nbsp;&nbsp;&nbsp;&nbsp;
+            &nbsp;&nbsp;&nbsp;
+            <ArrowRightIcon />
+            &nbsp;&nbsp;&nbsp;
             {StageTagComponents[stage]}
           </Menu.Item>
         ))}
@@ -167,8 +167,8 @@ export const renderActivityDescription = (activity: any) => {
              version stage transition"
         />
         &nbsp;&nbsp;&nbsp;
-        <i className="fas fa-long-arrow-right" />
-        &nbsp;&nbsp;&nbsp;&nbsp;
+        <ArrowRightIcon />
+        &nbsp;&nbsp;&nbsp;
         {StageTagComponents[activity.to_stage]}
       </div>
     );

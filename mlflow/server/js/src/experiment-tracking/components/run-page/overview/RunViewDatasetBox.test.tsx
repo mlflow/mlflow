@@ -15,10 +15,10 @@ const testRunName = 'Test run name';
 const testExperimentId = '12345';
 
 const testRunInfo = {
-  experiment_id: testExperimentId,
-  lifecycle_stage: 'active',
-  run_name: testRunName,
-  run_uuid: testRunUuid,
+  experimentId: testExperimentId,
+  lifecycleStage: 'active',
+  runName: testRunName,
+  runUuid: testRunUuid,
 } as RunInfoEntity;
 
 const testTags = { testTag: { key: 'testTag', value: 'xyz' } } as any;

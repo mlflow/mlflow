@@ -1,7 +1,5 @@
-import { useDragAndDropElement } from './useDragAndDropElement';
-import { act, fireEvent, render, screen } from '../utils/TestUtils.react17';
-import { HTML5Backend } from 'react-dnd-html5-backend';
-import { DndProvider } from 'react-dnd';
+import { DragAndDropProvider, useDragAndDropElement } from './useDragAndDropElement';
+import { act, fireEvent, render, screen } from '../utils/TestUtils.react18';
 
 describe('useDragAndDropElement', () => {
   const onDrop = jest.fn();
@@ -38,11 +36,11 @@ describe('useDragAndDropElement', () => {
   test('Test drag and drop within single group', async () => {
     render(
       <div>
-        <DndProvider backend={HTML5Backend}>
+        <DragAndDropProvider>
           <SingleComponent id="a" />
           <SingleComponent id="b" />
           <SingleComponent id="c" />
-        </DndProvider>
+        </DragAndDropProvider>
       </div>,
     );
 
@@ -64,10 +62,10 @@ describe('useDragAndDropElement', () => {
   test('Prevent dropping on elements belonging to a different drag group', async () => {
     render(
       <div>
-        <DndProvider backend={HTML5Backend}>
+        <DragAndDropProvider>
           <SingleComponent id="a" groupKey="group_1" />
           <SingleComponent id="b" groupKey="group_2" />
-        </DndProvider>
+        </DragAndDropProvider>
       </div>,
     );
 
@@ -78,5 +76,22 @@ describe('useDragAndDropElement', () => {
     });
 
     expect(onDrop).not.toHaveBeenCalled();
+  });
+
+  test('Rendering two adjacent drag and drop providers works', async () => {
+    render(
+      <div>
+        <DragAndDropProvider>
+          <SingleComponent id="a" />
+        </DragAndDropProvider>
+        <DragAndDropProvider>
+          <SingleComponent id="b" />
+        </DragAndDropProvider>
+      </div>,
+    );
+
+    // We should have UI rendered without errors
+    expect(screen.getByText('Element a')).toBeInTheDocument();
+    expect(screen.getByText('Element b')).toBeInTheDocument();
   });
 });

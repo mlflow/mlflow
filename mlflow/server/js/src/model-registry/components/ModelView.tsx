@@ -43,7 +43,6 @@ type ModelViewImplProps = {
   emailSubscriptionStatus?: string;
   userLevelEmailSubscriptionStatus?: string;
   handleEmailNotificationPreferenceChange?: (...args: any[]) => any;
-  modelMonitors?: any[];
   tags: any;
   setRegisteredModelTagApi: (...args: any[]) => any;
   deleteRegisteredModelTagApi: (...args: any[]) => any;

@@ -21,12 +21,12 @@ Features:
 from __future__ import annotations
 
 import logging
-import os
 import queue
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from typing import Dict
 
 import requests
 import tiktoken
@@ -92,18 +92,18 @@ class APIRequest:
     last_log_time: int
     timeout: int = 60
 
-    def call_api(self, retry_queue: queue.Queue, status_tracker: StatusTracker):
+    def call_api(
+        self,
+        retry_queue: queue.Queue,
+        status_tracker: StatusTracker,
+        headers: Dict[str, str],
+    ):
         """Calls the OpenAI API and stores results."""
         _logger.debug(f"Request #{self.index} started")
         try:
-            api_key = os.environ["OPENAI_API_KEY"]
-            request_header = {"Authorization": f"Bearer {api_key}"}
-            # use api-key header for Azure deployments
-            if "/deployments" in self.request_url:
-                request_header = {"api-key": f"{api_key}"}
             response = requests.post(
                 url=self.request_url,
-                headers=request_header,
+                headers=headers,
                 json=self.request_json,
                 timeout=self.timeout,
             )
@@ -304,11 +304,12 @@ def process_api_requests(
                     available_token_capacity -= next_request_tokens
                     next_request.attempts_left -= 1
                     # call API
-                    api_token.validate(_logger)
+                    api_token.refresh(logger=_logger)
                     executor.submit(
                         next_request.call_api,
                         retry_queue=retry_queue,
                         status_tracker=status_tracker,
+                        headers=api_token.auth_headers(),
                     )
                     next_request = None  # reset next_request to empty
                 else:

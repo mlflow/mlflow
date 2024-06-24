@@ -6,7 +6,7 @@ sklearn:
 
   models:
     minimum: "0.24.1"
-    maximum: "1.4.2"
+    maximum: "1.5.0"
     requirements:
       "< 1.0": ["scipy==1.7.3"]
     python:
@@ -16,7 +16,7 @@ sklearn:
 
   autologging:
     minimum: "0.24.1"
-    maximum: "1.4.2"
+    maximum: "1.5.0"
     python:
       "== dev": "3.9"
     requirements:
@@ -37,7 +37,7 @@ pytorch:
 
   models:
     minimum: "1.9.0"
-    maximum: "2.2.2"
+    maximum: "2.3.1"
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
@@ -47,7 +47,7 @@ pytorch:
 
   autologging:
     minimum: "1.9.0"
-    maximum: "2.2.2"
+    maximum: "2.3.1"
     requirements:
       ">= 0.0.0": ["tensorboard"]
     run: |
@@ -62,7 +62,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.9.0"
-    maximum: "2.2.2"
+    maximum: "2.3.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
       # torchmetrics==0.8.0 released a breaking change for versions 1.3 and 1.4 where
@@ -86,7 +86,7 @@ keras:
 
   models:
     minimum: "3.0.2"
-    maximum: "3.2.1"
+    maximum: "3.3.3"
     python:
       "== dev": "3.9"
     requirements:
@@ -97,7 +97,7 @@ keras:
 
   autologging:
     minimum: "3.0.2"
-    maximum: "3.2.1"
+    maximum: "3.3.3"
     python:
       "== dev": "3.9"
     requirements:
@@ -113,20 +113,13 @@ tensorflow:
       pip install --pre tf-nightly
 
   models:
-    minimum: "2.6.5"
+    minimum: "2.7.4"
     maximum: "2.16.1"
     python:
       "== dev": "3.9"
     requirements:
       # Requirements to run tests for keras
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
-      "< 2.7.0": ["pandas>=1.3.5,<2.0"]
-      ">= 2.7.0": ["pandas<2.0"]
-      # TensorFlow == 2.6.5 are incompatible with SQLAlchemy 2.x due to
-      # transitive dependency version conflicts with the `typing-extensions` package
-      # They are also incompatible with alembic 1.10.1 and anyio 4.2.0 with the
-      # TypeGuard dependency in py3.8
-      "== 2.6.5": ["sqlalchemy<2", "alembic<1.10", "anyio<4.2.0"]
       # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
       # incompatible with SQLAlchemy 2.0.25 with error
       # `cannot import name 'TypeAliasType' from 'typing_extensions'`
@@ -141,18 +134,12 @@ tensorflow:
         tests/tensorflow/test_keras_pyfunc_model_works_with_all_input_types.py
 
   autologging:
-    minimum: "2.6.5"
+    minimum: "2.7.4"
     maximum: "2.16.1"
     python:
       "== dev": "3.9"
     requirements:
       "== dev": ["scikit-learn"]
-      "< 2.7.0": ["pandas==1.3.5"]
-      # TensorFlow == 2.6.5 are incompatible with SQLAlchemy 2.x due to
-      # transitive dependency version conflicts with the `typing-extensions` package
-      # They are also incompatible with alembic 1.10.1 and anyio 4.2.0 with the
-      # TypeGuard dependency in py3.8
-      "== 2.6.5": ["sqlalchemy<2", "alembic<1.10", "anyio<4.2.0"]
       # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
       # incompatible with SQLAlchemy 2.0.25 with error
       # `cannot import name 'TypeAliasType' from 'typing_extensions'`
@@ -194,7 +181,7 @@ lightgbm:
 
   models:
     minimum: "3.1.1"
-    maximum: "4.3.0"
+    maximum: "4.4.0"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -202,7 +189,7 @@ lightgbm:
 
   autologging:
     minimum: "3.1.1"
-    maximum: "4.3.0"
+    maximum: "4.4.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
     run: |
@@ -218,7 +205,7 @@ catboost:
 
   models:
     minimum: "1.0.0"
-    maximum: "1.2.3"
+    maximum: "1.2.5"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
       "< 1.1": ["pandas<2"]
@@ -262,7 +249,7 @@ fastai:
 
   models:
     minimum: "2.4.1"
-    maximum: "2.7.14"
+    maximum: "2.7.15"
     requirements:
       "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
       ">= 2.8.0": ["torch", "torchvision"]
@@ -271,7 +258,7 @@ fastai:
 
   autologging:
     minimum: "2.4.1"
-    maximum: "2.7.14"
+    maximum: "2.7.15"
     requirements:
       "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
       ">= 2.8.0": ["torch", "torchvision"]
@@ -302,7 +289,7 @@ onnx:
 
   models:
     minimum: "1.13.1"
-    maximum: "1.16.0"
+    maximum: "1.16.1"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
       "< 1.11.0": ["numpy<1.24.0"]
@@ -317,7 +304,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.7.4"
+    maximum: "3.7.5"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0", "werkzeug<3"]
@@ -333,7 +320,7 @@ statsmodels:
 
   models:
     minimum: "0.11.1"
-    maximum: "0.14.1"
+    maximum: "0.14.2"
     python:
       "== dev": "3.9"
     requirements:
@@ -343,7 +330,7 @@ statsmodels:
 
   autologging:
     minimum: "0.11.1"
-    maximum: "0.14.1"
+    maximum: "0.14.2"
     python:
       "== dev": "3.9"
     requirements:
@@ -419,11 +406,16 @@ spark:
       mvn package -DskipTests -q
       popd
 
+      # `test_spark_disable_autologging.py` is flaky if it runs with other tests
+      # so run it individually
+      pytest tests/spark/autologging/datasource/test_spark_disable_autologging.py
+
       # NB: Running each .py file individually is important (instead of
       # 'pytest tests/spark/autologging') not to share SparkSession across tests
       # `test_spark_datasource_autologging_crossframework.py` fails when run with other tests
       pytest tests/spark/autologging/datasource/test_spark_datasource_autologging_crossframework.py
-      find tests/spark/autologging -name 'test*.py' | grep -v crossframework | xargs -L 1 pytest
+
+      find tests/spark/autologging -name 'test*.py' | grep -v crossframework | grep -v test_spark_disable_autologging | xargs -L 1 pytest
 
 mleap:
   package_info:
@@ -509,7 +501,7 @@ h2o:
     pip_release: "h2o"
   models:
     minimum: "3.40.0.1"
-    maximum: "3.46.0.1"
+    maximum: "3.46.0.3"
     run: |
       pytest tests/h2o
 
@@ -518,7 +510,7 @@ shap:
     pip_release: "shap"
   models:
     minimum: "0.41.0"
-    maximum: "0.45.0"
+    maximum: "0.45.1"
     requirements:
       "<= 0.41.0": ["numpy<1.24.0"]
     run: |
@@ -547,7 +539,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.25.1"
-    maximum: "4.39.3"
+    maximum: "4.41.2"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -576,6 +568,7 @@ transformers:
       # See: https://github.com/huggingface/transformers/issues/23352 for discussion
       "< 4.30.0": ["tensorflow<2.13.0"]
     pre_test: |
+      export PYTHONPATH=./
       python tests/transformers/helper.py
     run: |
       # Run all Transformers tests except autologging
@@ -584,7 +577,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.25.1"
-    maximum: "4.39.3"
+    maximum: "4.41.2"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -621,11 +614,18 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "0.27.2"
-    maximum: "1.19.0"
+    maximum: "1.34.0"
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
     run: |
       pytest tests/openai/test_openai_model_export.py
+  autologging:
+    minimum: "1.17.0"
+    maximum: "1.34.0"
+    requirements:
+      ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
+    run: |
+      pytest tests/openai/test_openai_autolog.py
 
 langchain:
   package_info:
@@ -634,7 +634,7 @@ langchain:
       pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/langchain
   models:
     minimum: "0.0.244"
-    maximum: "0.1.16"
+    maximum: "0.2.5"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -649,21 +649,24 @@ langchain:
           "hf_transfer",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
         ]
+      ">= 0.2": ["langchain-huggingface"]
     run: |
-      pytest tests/langchain/test_langchain_model_export.py
-      pytest tests/langchain/test_langchain_databricks_dependency_extraction.py
+      LANGCHAIN_NEW=$(python -c "from packaging.version import Version;import langchain;print(Version(langchain.__version__) >= Version('0.0.267'))")
+      # Run all langchain tests except autologging
+      pytest tests/langchain --ignore tests/langchain/test_langchain_tracer.py --ignore tests/langchain/test_langchain_autolog.py
+      if [[ $LANGCHAIN_NEW = "True" ]]; then
+        pytest tests/langchain/test_langchain_tracer.py
+      fi
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
-      LANGCHAIN_NEW=$(python -c "from packaging.version import Version;import langchain;print(Version(langchain.__version__) >= Version('0.0.267'))")
       if [[ $PYDANTIC_VERSION == 1.* && $LANGCHAIN_NEW = "True" ]]; then
         pip install 'pydantic>2'
         echo "Testing langchain model export with pydantic v2"
-        pytest tests/langchain/test_langchain_model_export.py
-        pytest tests/langchain/test_langchain_databricks_dependency_extraction.py
+        pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
       fi
   autologging:
-    minimum: "0.1.4"
-    maximum: "0.1.16"
+    minimum: "0.1.0"
+    maximum: "0.2.5"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -677,6 +680,7 @@ langchain:
           "numexpr",
           "spacy",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
+          "pytest-asyncio", # for testing runnable async functions patches
         ]
     run: |
       # For MlflowCallback text analysis
@@ -698,7 +702,7 @@ sentence_transformers:
       pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
     minimum: "2.2.2"
-    maximum: "2.6.1"
+    maximum: "3.0.1"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -716,7 +720,7 @@ johnsnowlabs:
     pip_release: "johnsnowlabs"
   models:
     minimum: "4.4.6"
-    maximum: "5.3.4"
+    maximum: "5.3.6"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
       "< 5.2.8": ["pyspark<3.4"]
@@ -735,9 +739,10 @@ promptflow:
       pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow
   models:
     minimum: "1.3.0"
-    maximum: "1.8.0"
+    maximum: "1.12.0"
     requirements:
       # Requirements to run sparkudf predict test
       ">= 0.0.0": ["pyspark", "jinja2"]
+      ">= 1.11.0": ["openai>=1"]
     run: |
       pytest tests/promptflow/test_promptflow_model_export.py

@@ -1,10 +1,10 @@
 /**
  * TODO: implement actual UI for this modal, it's a crude placeholder with minimal logic for now
  */
-import { Modal, LegacySelect } from '@databricks/design-system';
+import { Modal, LegacySelect, useDesignSystemTheme } from '@databricks/design-system';
 import { Interpolation, Theme } from '@emotion/react';
 import React, { useCallback, useMemo, useState } from 'react';
-import { useIntl } from 'react-intl';
+import { useIntl, FormattedMessage } from 'react-intl';
 import {
   RunsChartsBarCardConfig,
   RunsChartsCardConfig,
@@ -13,6 +13,8 @@ import {
   RunsChartsContourCardConfig,
   RunsChartsScatterCardConfig,
   RunsChartsParallelCardConfig,
+  RunsChartsDifferenceCardConfig,
+  RunsChartsImageCardConfig,
 } from '../runs-charts.types';
 
 import { ReactComponent as ChartBarIcon } from '../../../../common/static/chart-bar.svg';
@@ -20,6 +22,8 @@ import { ReactComponent as ChartContourIcon } from '../../../../common/static/ch
 import { ReactComponent as ChartLineIcon } from '../../../../common/static/chart-line.svg';
 import { ReactComponent as ChartParallelIcon } from '../../../../common/static/chart-parallel.svg';
 import { ReactComponent as ChartScatterIcon } from '../../../../common/static/chart-scatter.svg';
+import { ReactComponent as ChartDifferenceIcon } from '../../../../common/static/chart-difference.svg';
+import { ReactComponent as ChartImageIcon } from '../../../../common/static/chart-image.svg';
 import { RunsChartsConfigureBarChart } from './config/RunsChartsConfigureBarChart';
 import { RunsChartsConfigureParallelChart } from './config/RunsChartsConfigureParallelChart';
 import type { RunsChartsRunData } from './RunsCharts.common';
@@ -34,14 +38,26 @@ import { RunsChartsConfigureContourChart } from './config/RunsChartsConfigureCon
 import { RunsChartsConfigureScatterChart } from './config/RunsChartsConfigureScatterChart';
 import { RunsChartsTooltipBody } from './RunsChartsTooltipBody';
 import { RunsChartsTooltipWrapper } from '../hooks/useRunsChartsTooltip';
-import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
+import {
+  shouldEnableDifferenceViewCharts,
+  shouldEnableImageGridCharts,
+  shouldUseNewRunRowsVisibilityModel,
+} from 'common/utils/FeatureUtils';
+import { RunsChartsConfigureDifferenceChartPreview } from './config/RunsChartsConfigureDifferenceChart.preview';
+import { RunsChartsConfigureDifferenceChart } from './config/RunsChartsConfigureDifferenceChart';
+import type { RunsGroupByConfig } from '../../experiment-page/utils/experimentPage.group-row-utils';
+import { RunsChartsConfigureImageChart } from './config/RunsChartsConfigureImageChart';
+import { RunsChartsConfigureImageChartPreview } from './config/RunsChartsConfigureImageChart.preview';
 
 const previewComponentsMap: Record<
   RunsChartType,
   React.FC<{
     previewData: RunsChartsRunData[];
     cardConfig: any;
-    groupBy: string;
+    groupBy: RunsGroupByConfig | null;
+    setCardConfig: (
+      setter: (current: RunsChartsCardConfig) => RunsChartsDifferenceCardConfig | RunsChartsImageCardConfig,
+    ) => void;
   }>
 > = {
   [RunsChartType.BAR]: RunsChartsConfigureBarChartPreview,
@@ -49,6 +65,8 @@ const previewComponentsMap: Record<
   [RunsChartType.LINE]: RunsChartsConfigureLineChartPreview,
   [RunsChartType.PARALLEL]: RunsChartsConfigureParallelChartPreview,
   [RunsChartType.SCATTER]: RunsChartsConfigureScatterChartPreview,
+  [RunsChartType.DIFFERENCE]: RunsChartsConfigureDifferenceChartPreview,
+  [RunsChartType.IMAGE]: RunsChartsConfigureImageChartPreview,
 };
 
 export const RunsChartsConfigureModal = ({
@@ -58,7 +76,7 @@ export const RunsChartsConfigureModal = ({
   chartRunData,
   metricKeyList,
   paramKeyList,
-  groupBy = '',
+  groupBy,
   supportedChartTypes,
 }: {
   metricKeyList: string[];
@@ -66,15 +84,14 @@ export const RunsChartsConfigureModal = ({
   config: RunsChartsCardConfig;
   chartRunData: RunsChartsRunData[];
   onCancel: () => void;
-  groupBy?: string;
+  groupBy: RunsGroupByConfig | null;
   onSubmit: (formData: Partial<RunsChartsCardConfig>) => void;
   supportedChartTypes?: RunsChartType[] | undefined;
 }) => {
   const isChartTypeSupported = (type: RunsChartType) => !supportedChartTypes || supportedChartTypes.includes(type);
+  const { theme } = useDesignSystemTheme();
 
   const [currentFormState, setCurrentFormState] = useState<RunsChartsCardConfig>(config);
-
-  const usingV2ChartImprovements = shouldEnableDeepLearningUI();
 
   const isEditing = Boolean(currentFormState.uuid);
 
@@ -87,6 +104,23 @@ export const RunsChartsConfigureModal = ({
       setCurrentFormState(emptyChartCard);
     }
   }, []);
+
+  const previewData = useMemo(() => {
+    if (shouldUseNewRunRowsVisibilityModel()) {
+      return chartRunData.filter(({ hidden }) => !hidden).reverse();
+    }
+    return chartRunData.slice(0, currentFormState.runsCountToCompare).reverse();
+  }, [chartRunData, currentFormState.runsCountToCompare]);
+
+  const imageKeyList = useMemo(() => {
+    const imageKeys = new Set<string>();
+    previewData.forEach((run) => {
+      Object.keys(run.images).forEach((imageKey) => {
+        imageKeys.add(imageKey);
+      });
+    });
+    return Array.from(imageKeys).sort();
+  }, [previewData]);
 
   const renderConfigOptionsforChartType = (type?: RunsChartType) => {
     if (type === RunsChartType.BAR) {
@@ -137,13 +171,29 @@ export const RunsChartsConfigureModal = ({
         />
       );
     }
+    if (shouldEnableDifferenceViewCharts() && type === RunsChartType.DIFFERENCE) {
+      return (
+        <RunsChartsConfigureDifferenceChart
+          metricKeyList={metricKeyList}
+          paramKeyList={paramKeyList}
+          state={currentFormState as RunsChartsDifferenceCardConfig}
+          onStateChange={setCurrentFormState}
+          groupBy={groupBy}
+        />
+      );
+    }
+    if (shouldEnableImageGridCharts() && type === RunsChartType.IMAGE) {
+      return (
+        <RunsChartsConfigureImageChart
+          previewData={previewData}
+          imageKeyList={imageKeyList}
+          state={currentFormState as RunsChartsImageCardConfig}
+          onStateChange={setCurrentFormState}
+        />
+      );
+    }
     return null;
   };
-
-  const previewData = useMemo(
-    () => chartRunData.slice(0, currentFormState.runsCountToCompare).reverse(),
-    [chartRunData, currentFormState.runsCountToCompare],
-  );
 
   const renderPreviewChartType = (type?: RunsChartType) => {
     if (!type) {
@@ -153,13 +203,20 @@ export const RunsChartsConfigureModal = ({
     if (!PreviewComponent) {
       return null;
     }
-    return <PreviewComponent previewData={previewData} cardConfig={currentFormState} groupBy={groupBy} />;
+    return (
+      <PreviewComponent
+        previewData={previewData}
+        cardConfig={currentFormState}
+        groupBy={groupBy}
+        setCardConfig={setCurrentFormState}
+      />
+    );
   };
 
   const { formatMessage } = useIntl();
 
   let disableSaveButton = false;
-  if (usingV2ChartImprovements && currentFormState.type === RunsChartType.LINE) {
+  if (currentFormState.type === RunsChartType.LINE) {
     const lineCardConfig = currentFormState as RunsChartsLineCardConfig;
     disableSaveButton = (lineCardConfig.selectedMetricKeys ?? []).length === 0;
   }
@@ -213,41 +270,78 @@ export const RunsChartsConfigureModal = ({
               >
                 {isChartTypeSupported(RunsChartType.BAR) && (
                   <LegacySelect.Option value={RunsChartType.BAR}>
-                    <div css={styles.chartTypeOption}>
+                    <div css={styles.chartTypeOption(theme)}>
                       <ChartBarIcon />
-                      Bar chart
+                      <FormattedMessage
+                        defaultMessage="Bar chart"
+                        description="Experiment tracking > runs charts > add chart menu > bar chart"
+                      />
                     </div>
                   </LegacySelect.Option>
                 )}
                 {isChartTypeSupported(RunsChartType.SCATTER) && (
                   <LegacySelect.Option value={RunsChartType.SCATTER}>
-                    <div css={styles.chartTypeOption}>
+                    <div css={styles.chartTypeOption(theme)}>
                       <ChartScatterIcon />
-                      Scatter chart
+                      <FormattedMessage
+                        defaultMessage="Scatter chart"
+                        description="Experiment tracking > runs charts > add chart menu > scatter plot"
+                      />
                     </div>
                   </LegacySelect.Option>
                 )}
                 {isChartTypeSupported(RunsChartType.LINE) && (
                   <LegacySelect.Option value={RunsChartType.LINE}>
-                    <div css={styles.chartTypeOption}>
+                    <div css={styles.chartTypeOption(theme)}>
                       <ChartLineIcon />
-                      Line chart
+                      <FormattedMessage
+                        defaultMessage="Line chart"
+                        description="Experiment tracking > runs charts > add chart menu > line chart"
+                      />
                     </div>
                   </LegacySelect.Option>
                 )}
                 {isChartTypeSupported(RunsChartType.PARALLEL) && (
                   <LegacySelect.Option value={RunsChartType.PARALLEL}>
-                    <div css={styles.chartTypeOption}>
+                    <div css={styles.chartTypeOption(theme)}>
                       <ChartParallelIcon />
-                      Parallel coordinates
+                      <FormattedMessage
+                        defaultMessage="Parallel coordinates"
+                        description="Experiment tracking > runs charts > add chart menu > parallel coordinates"
+                      />
                     </div>
                   </LegacySelect.Option>
                 )}
                 {isChartTypeSupported(RunsChartType.CONTOUR) && (
                   <LegacySelect.Option value={RunsChartType.CONTOUR}>
-                    <div css={styles.chartTypeOption}>
+                    <div css={styles.chartTypeOption(theme)}>
                       <ChartContourIcon />
-                      Contour chart
+                      <FormattedMessage
+                        defaultMessage="Contour chart"
+                        description="Experiment tracking > runs charts > add chart menu > contour chart"
+                      />
+                    </div>
+                  </LegacySelect.Option>
+                )}
+                {shouldEnableDifferenceViewCharts() && isChartTypeSupported(RunsChartType.DIFFERENCE) && (
+                  <LegacySelect.Option value={RunsChartType.DIFFERENCE}>
+                    <div css={styles.chartTypeOption(theme)}>
+                      <ChartDifferenceIcon />
+                      <FormattedMessage
+                        defaultMessage="Difference view"
+                        description="Experiment tracking > runs charts > add chart menu > difference view"
+                      />
+                    </div>
+                  </LegacySelect.Option>
+                )}
+                {shouldEnableImageGridCharts() && isChartTypeSupported(RunsChartType.IMAGE) && (
+                  <LegacySelect.Option value={RunsChartType.IMAGE}>
+                    <div css={styles.chartTypeOption(theme)}>
+                      <ChartImageIcon />
+                      <FormattedMessage
+                        defaultMessage="Image grid"
+                        description="Experiment tracking > runs charts > add chart menu > image grid"
+                      />
                     </div>
                   </LegacySelect.Option>
                 )}
@@ -286,5 +380,6 @@ const styles = {
   } as Interpolation<Theme>,
   chartWrapper: {
     height: 400,
+    width: 500,
   },
 };

@@ -15,8 +15,8 @@ import {
   useDynamicPlotSize,
   getLegendDataFromRuns,
 } from './RunsCharts.common';
-import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
+import { createChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
 
 export interface RunsScatterPlotProps extends RunsPlotsCommonProps {
   /**
@@ -38,6 +38,7 @@ export interface RunsScatterPlotProps extends RunsPlotsCommonProps {
 const PLOT_CONFIG = {
   displaylogo: false,
   scrollZoom: false,
+  modeBarButtonsToRemove: ['toImage'],
 };
 
 export const createTooltipTemplate = () =>
@@ -66,10 +67,9 @@ export const RunsScatterPlot = React.memo(
     height,
     useDefaultHoverBox = true,
     selectedRunUuid,
+    onSetDownloadHandler,
   }: RunsScatterPlotProps) => {
     const { theme } = useDesignSystemTheme();
-
-    const usingV2ChartImprovements = shouldEnableDeepLearningUI();
 
     const { layoutHeight, layoutWidth, setContainerDiv, containerDiv, isDynamicSizeSupported } = useDynamicPlotSize();
 
@@ -83,7 +83,7 @@ export const RunsScatterPlot = React.memo(
       // Iterate through all the runs and aggregate selected metrics/params
       for (const runData of runsData) {
         const { runInfo, metrics, params, color, uuid, displayName } = runData;
-        const { run_uuid, run_name } = runInfo || {};
+        const { runUuid, runName } = runInfo || {};
         const xAxisData = xAxis.type === 'METRIC' ? metrics : params;
         const yAxisData = yAxis.type === 'METRIC' ? metrics : params;
 
@@ -94,8 +94,8 @@ export const RunsScatterPlot = React.memo(
           xValues.push(x);
           yValues.push(y);
           colors.push(color || theme.colors.primary);
-          if (run_uuid) {
-            tooltipData.push([run_uuid, run_name || run_uuid] as any);
+          if (runUuid) {
+            tooltipData.push([runUuid, runName || runUuid] as any);
           } else {
             tooltipData.push([uuid, displayName] as any);
           }
@@ -107,11 +107,13 @@ export const RunsScatterPlot = React.memo(
           x: xValues,
           y: yValues,
           customdata: tooltipData,
+          text: runsData.map(({ displayName }) => displayName),
           hovertemplate: useDefaultHoverBox ? createTooltipTemplate() : undefined,
           hoverinfo: useDefaultHoverBox ? undefined : 'none',
           hoverlabel: useDefaultHoverBox ? runsChartHoverlabel : undefined,
           type: 'scatter',
           mode: 'markers',
+          textposition: 'bottom center',
           marker: {
             size: markerSize,
             color: colors,
@@ -187,6 +189,14 @@ export const RunsScatterPlot = React.memo(
 
     const legendLabelData = useMemo(() => getLegendDataFromRuns(runsData), [runsData]);
 
+    useEffect(() => {
+      const dataToExport: Data[] = plotData.map((trace: Data) => ({
+        ...trace,
+        mode: 'text+markers',
+      }));
+      onSetDownloadHandler?.(createChartImageDownloadHandler(dataToExport, layout));
+    }, [layout, onSetDownloadHandler, plotData]);
+
     const chart = (
       <div
         css={[commonRunsChartStyles.chartWrapper(theme), commonRunsChartStyles.scatterChartHighlightStyles]}
@@ -206,10 +216,6 @@ export const RunsScatterPlot = React.memo(
       </div>
     );
 
-    return usingV2ChartImprovements ? (
-      <RunsMetricsLegendWrapper labelData={legendLabelData}>{chart}</RunsMetricsLegendWrapper>
-    ) : (
-      chart
-    );
+    return <RunsMetricsLegendWrapper labelData={legendLabelData}>{chart}</RunsMetricsLegendWrapper>;
   },
 );

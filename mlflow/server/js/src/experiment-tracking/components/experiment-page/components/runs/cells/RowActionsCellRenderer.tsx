@@ -8,20 +8,23 @@ import {
   Icon,
   visuallyHidden,
 } from '@databricks/design-system';
+import type { SuppressKeyboardEventParams } from '@ag-grid-community/core';
 
 // TODO: Import this icon from design system when added
 import { ReactComponent as VisibleFillIcon } from '../../../../../../common/static/icon-visible-fill.svg';
 import { Theme } from '@emotion/react';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { FormattedMessage, defineMessages } from 'react-intl';
-import { RunRowType } from '../../../utils/experimentPage.row-types';
+import { RunRowType, RunRowVisibilityControl } from '../../../utils/experimentPage.row-types';
 import {
-  shouldEnableShareExperimentViewByTags,
+  shouldEnableToggleIndividualRunsInGroups,
   shouldUseNewRunRowsVisibilityModel,
 } from '../../../../../../common/utils/FeatureUtils';
 import { useUpdateExperimentViewUIState } from '../../../contexts/ExperimentPageUIStateContext';
-import { RUNS_VISIBILITY_MODE } from '../../../models/ExperimentPageUIStateV2';
+import { RUNS_VISIBILITY_MODE } from '../../../models/ExperimentPageUIState';
 import { isRemainingRunsGroup } from '../../../utils/experimentPage.group-row-utils';
+import { RunVisibilityControlButton } from './RunVisibilityControlButton';
+import { useExperimentViewRunsTableHeaderContext } from '../ExperimentViewRunsTableHeaderContext';
 
 const labels = {
   visibility: {
@@ -70,9 +73,6 @@ const labels = {
   },
 };
 
-const VisibleIcon = () =>
-  shouldUseNewRunRowsVisibilityModel() ? <Icon component={VisibleFillIcon} /> : <VisibleHollowIcon />;
-
 // Mouse enter/leave delays passed to tooltips are set to 0 so swift toggling/pinning runs is not hampered
 const MOUSE_DELAYS = { mouseEnterDelay: 0, mouseLeaveDelay: 0 };
 
@@ -83,12 +83,15 @@ export const RowActionsCellRenderer = React.memo(
     onTogglePin: (runUuid: string) => void;
     onToggleVisibility: (runUuidOrToggle: string | RUNS_VISIBILITY_MODE, runUuid?: string) => void;
   }) => {
-    const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
     const updateUIState = useUpdateExperimentViewUIState();
     const { theme } = useDesignSystemTheme();
+    const { useGroupedValuesInCharts } = useExperimentViewRunsTableHeaderContext();
 
-    const { groupParentInfo } = props.data;
+    const { groupParentInfo, runDateAndNestInfo, visibilityControl } = props.data;
+    const { belongsToGroup } = runDateAndNestInfo || {};
     const isGroupRow = Boolean(groupParentInfo);
+    const isVisibilityButtonDisabled =
+      shouldEnableToggleIndividualRunsInGroups() && visibilityControl === RunRowVisibilityControl.Disabled;
     const { pinned, hidden } = props.value;
     const { runUuid, rowUuid } = props.data;
 
@@ -96,11 +99,22 @@ export const RowActionsCellRenderer = React.memo(
     // If this is a run, use runUuid.
     const runUuidToToggle = groupParentInfo ? rowUuid : runUuid;
 
+    const isRowHidden = (() => {
+      // If "Use grouping from the runs table in charts" option is off and we're displaying a group,
+      // we should check if all runs in the group are hidden in order to determine visibility toggle.
+      if (shouldEnableToggleIndividualRunsInGroups() && useGroupedValuesInCharts === false && groupParentInfo) {
+        return Boolean(groupParentInfo.allRunsHidden);
+      }
+
+      // Otherwise, we should use the hidden flag from the row itself.
+      return hidden;
+    })();
+
     const visibilityMessageDescriptor = isGroupRow
-      ? hidden
+      ? isRowHidden
         ? labels.visibility.groups.unhide
         : labels.visibility.groups.hide
-      : hidden
+      : isRowHidden
       ? labels.visibility.runs.unhide
       : labels.visibility.runs.hide;
 
@@ -112,50 +126,32 @@ export const RowActionsCellRenderer = React.memo(
       ? labels.pinning.runs.unpin
       : labels.pinning.runs.pin;
 
-    const displayVisibilityCheckbox =
-      !shouldUseNewRunRowsVisibilityModel() ||
-      (groupParentInfo && !isRemainingRunsGroup(groupParentInfo)) ||
-      (runUuid && !props.data.runDateAndNestInfo?.belongsToGroup);
+    const isVisibilityButtonHidden = useMemo(() => {
+      if (shouldEnableToggleIndividualRunsInGroups()) {
+        return visibilityControl === RunRowVisibilityControl.Hidden;
+      }
+      return !(
+        !shouldUseNewRunRowsVisibilityModel() ||
+        (groupParentInfo && !isRemainingRunsGroup(groupParentInfo)) ||
+        (Boolean(runUuid) && !belongsToGroup)
+      );
+    }, [groupParentInfo, belongsToGroup, runUuid, visibilityControl]);
 
     return (
       <div css={styles.actionsContainer}>
-        {/* Hide/show icon is part of compare runs UI */}
-        {!displayVisibilityCheckbox ? (
-          <div css={{ width: theme.general.iconFontSize }} />
-        ) : (
-          <Tooltip
-            dangerouslySetAntdProps={MOUSE_DELAYS}
-            placement="right"
-            title={<FormattedMessage {...visibilityMessageDescriptor} />}
-          >
-            <label
-              css={[
-                styles.actionCheckbox(theme),
-                // We show this button only in the runs compare mode and only when the feature flag is set
-                shouldUseNewRunRowsVisibilityModel() && styles.showOnlyInCompareMode,
-              ]}
-              className="is-visibility-toggle"
-            >
-              <span css={visuallyHidden}>
-                <FormattedMessage {...visibilityMessageDescriptor} />
-              </span>
-              <input
-                type="checkbox"
-                checked={!hidden}
-                onChange={() => {
-                  if (runUuidToToggle) {
-                    if (shouldUseNewRunRowsVisibilityModel()) {
-                      props.onToggleVisibility(RUNS_VISIBILITY_MODE.CUSTOM, runUuidToToggle);
-                    } else {
-                      props.onToggleVisibility(runUuidToToggle);
-                    }
-                  }
-                }}
-              />
-              {!hidden ? <VisibleIcon /> : <VisibleOffIcon />}
-            </label>
-          </Tooltip>
-        )}
+        <RunVisibilityControlButton
+          rowHidden={isRowHidden}
+          buttonHidden={isVisibilityButtonHidden}
+          disabled={isVisibilityButtonDisabled}
+          label={<FormattedMessage {...visibilityMessageDescriptor} />}
+          onClick={props.onToggleVisibility}
+          runUuid={runUuidToToggle}
+          css={[
+            styles.actionCheckbox(theme),
+            // We show this button only in the runs compare mode and only when the feature flag is set
+            shouldUseNewRunRowsVisibilityModel() && styles.showOnlyInCompareMode,
+          ]}
+        />
         {((props.data.pinnable && runUuid) || groupParentInfo) && (
           <Tooltip
             dangerouslySetAntdProps={MOUSE_DELAYS}
@@ -173,24 +169,18 @@ export const RowActionsCellRenderer = React.memo(
                 type="checkbox"
                 checked={pinned}
                 onChange={() => {
-                  // If using new view state model, update the pinned runs in the UI state.
-                  // TODO: Remove this once we migrate to the new view state model
-                  if (usingNewViewStateModel) {
-                    const uuidToPin = groupParentInfo ? props.data.rowUuid : runUuid;
-                    updateUIState((existingState) => {
-                      if (uuidToPin) {
-                        return {
-                          ...existingState,
-                          runsPinned: !existingState.runsPinned.includes(uuidToPin)
-                            ? [...existingState.runsPinned, uuidToPin]
-                            : existingState.runsPinned.filter((r) => r !== uuidToPin),
-                        };
-                      }
-                      return existingState;
-                    });
-                  } else if (runUuid) {
-                    props.onTogglePin(runUuid);
-                  }
+                  const uuidToPin = groupParentInfo ? props.data.rowUuid : runUuid;
+                  updateUIState((existingState) => {
+                    if (uuidToPin) {
+                      return {
+                        ...existingState,
+                        runsPinned: !existingState.runsPinned.includes(uuidToPin)
+                          ? [...existingState.runsPinned, uuidToPin]
+                          : existingState.runsPinned.filter((r) => r !== uuidToPin),
+                      };
+                    }
+                    return existingState;
+                  });
                 }}
               />
               {pinned ? <PinFillIcon /> : <PinIcon />}
@@ -201,8 +191,28 @@ export const RowActionsCellRenderer = React.memo(
     );
   },
   (prevProps, nextProps) =>
-    prevProps.value.hidden === nextProps.value.hidden && prevProps.value.pinned === nextProps.value.pinned,
+    prevProps.value.hidden === nextProps.value.hidden &&
+    prevProps.value.pinned === nextProps.value.pinned &&
+    prevProps.data.visibilityControl === nextProps.data.visibilityControl &&
+    prevProps.data.groupParentInfo?.allRunsHidden === nextProps.data.groupParentInfo?.allRunsHidden,
 );
+
+/**
+ * A utility function that enables custom keyboard navigation for the row actions cell renderer by providing
+ * conditional suppression of default events.
+ */
+export const RowActionsCellRendererSuppressKeyboardEvents = ({ event }: SuppressKeyboardEventParams) => {
+  if (
+    event.key === 'Tab' &&
+    event.target instanceof HTMLElement &&
+    // Let's suppress the default action if the focus is on cell or on visibility toggle checkbox, allowing
+    // tab to move to the next focusable element.
+    (event.target.classList.contains('ag-cell') || event.target.classList.contains('is-visibility-toggle-checkbox'))
+  ) {
+    return true;
+  }
+  return false;
+};
 
 const styles = {
   actionsContainer: {
@@ -231,14 +241,10 @@ const styles = {
         color: theme.colors.grey500,
       },
     },
-    // Styling for the show/hide button - it uses different color for active/inactive
-    '&.is-visibility-toggle svg': {
-      color: theme.colors.grey400,
-      '.ag-row:hover &': {
-        color: theme.colors.grey500,
-      },
-    },
     '& input:checked + span svg': {
+      color: theme.colors.grey500,
+    },
+    '& input:focus-visible + span svg': {
       color: theme.colors.grey500,
     },
   }),

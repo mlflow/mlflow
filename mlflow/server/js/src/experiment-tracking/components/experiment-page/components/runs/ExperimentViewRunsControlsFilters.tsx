@@ -21,24 +21,17 @@ import {
   ToggleButton,
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
-import {
-  shouldEnableExperimentPageCompactHeader,
-  shouldEnablePromptLab,
-  shouldEnableShareExperimentViewByTags,
-} from 'common/utils/FeatureUtils';
+
+import { shouldEnableExperimentPageAutoRefresh, shouldEnablePromptLab } from 'common/utils/FeatureUtils';
 import React, { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ToggleIconButton } from '../../../../../common/components/ToggleIconButton';
 import { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
 import { LIFECYCLE_FILTER } from '../../../../constants';
-import { UpdateExperimentSearchFacetsFn, UpdateExperimentViewStateFn } from '../../../../types';
+import { UpdateExperimentViewStateFn } from '../../../../types';
 import { useExperimentIds } from '../../hooks/useExperimentIds';
-import {
-  SearchExperimentRunsFacetsState,
-  clearSearchExperimentsFacetsFilters,
-} from '../../models/SearchExperimentRunsFacetsState';
-import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
+import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { getStartTimeColumnDisplayName } from '../../utils/experimentPage.common-utils';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ExperimentViewRefreshButton } from './ExperimentViewRefreshButton';
@@ -50,14 +43,16 @@ import { PreviewBadge } from 'shared/building_blocks/PreviewBadge';
 import { useCreateNewRun } from '../../hooks/useCreateNewRun';
 import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
 import { useUpdateExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
-import { createExperimentPageSearchFacetsStateV2 } from '../../models/ExperimentPageSearchFacetsStateV2';
+import {
+  ExperimentPageSearchFacetsState,
+  createExperimentPageSearchFacetsState,
+} from '../../models/ExperimentPageSearchFacetsState';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 
 export type ExperimentViewRunsControlsFiltersProps = {
-  searchFacetsState: SearchExperimentRunsFacetsState;
-  updateSearchFacets: UpdateExperimentSearchFacetsFn;
+  searchFacetsState: ExperimentPageSearchFacetsState;
   experimentId: string;
-  viewState: SearchExperimentRunsViewState;
+  viewState: ExperimentPageViewState;
   updateViewState: UpdateExperimentViewStateFn;
   runsData: ExperimentRunsSelectorResult;
   onDownloadCsv: () => void;
@@ -65,12 +60,12 @@ export type ExperimentViewRunsControlsFiltersProps = {
   additionalControls?: React.ReactNode;
   refreshRuns: () => void;
   viewMaximized: boolean;
+  autoRefreshEnabled?: boolean;
 };
 
 export const ExperimentViewRunsControlsFilters = React.memo(
   ({
     searchFacetsState,
-    updateSearchFacets,
     experimentId,
     runsData,
     viewState,
@@ -80,8 +75,8 @@ export const ExperimentViewRunsControlsFilters = React.memo(
     additionalControls,
     refreshRuns,
     viewMaximized,
+    autoRefreshEnabled = false,
   }: ExperimentViewRunsControlsFiltersProps) => {
-    const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
     const setUrlSearchFacets = useUpdateExperimentPageSearchFacets();
 
     const [pageViewMode] = useExperimentPageViewMode();
@@ -91,7 +86,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
     const { startTime, lifecycleFilter, datasetsFilter, searchFilter } = searchFacetsState;
 
     // Use modernized view mode value getter if flag is set
-    const compareRunsMode = usingNewViewStateModel ? pageViewMode : searchFacetsState.compareRunsMode;
+    const compareRunsMode = pageViewMode;
 
     const intl = useIntl();
     const { createNewRun } = useCreateNewRun();
@@ -129,44 +124,42 @@ export const ExperimentViewRunsControlsFilters = React.memo(
         ? datasetsFilter.filter((item) => !datasetSummariesEqual(item, summary))
         : [...datasetsFilter, summary];
 
-      if (usingNewViewStateModel) {
-        // In the new view state version, set datasets filter directly in the URL search state
-        setUrlSearchFacets({
-          datasetsFilter: newDatasetsFilter,
-        });
-      } else {
-        updateSearchFacets((existingFacets) => ({
-          ...existingFacets,
-          datasetsFilter: newDatasetsFilter,
-        }));
-      }
+      setUrlSearchFacets({
+        datasetsFilter: newDatasetsFilter,
+      });
     };
 
     const hasDatasets = datasetSummaries !== undefined;
 
     const searchFilterChange = (newSearchFilter: string) => {
-      if (usingNewViewStateModel) {
-        // In the new view state version, set search filter directly in the URL search state
-        setUrlSearchFacets({ searchFilter: newSearchFilter });
-      } else {
-        updateSearchFacets({ searchFilter: newSearchFilter });
-      }
+      setUrlSearchFacets({ searchFilter: newSearchFilter });
     };
 
     return (
-      <div css={styles.groupBar}>
-        <div css={styles.controlBar}>
+      <div
+        css={{
+          display: 'flex',
+          gap: theme.spacing.sm,
+          justifyContent: 'space-between',
+          [theme.responsive.mediaQueries.xs]: {
+            flexDirection: 'column',
+          },
+        }}
+      >
+        <div
+          css={{
+            display: 'flex',
+            gap: theme.spacing.sm,
+            alignItems: 'center',
+            flexWrap: 'wrap' as const,
+          }}
+        >
           <RunsSearchAutoComplete
             runsData={runsData}
             searchFilter={searchFilter}
             onSearchFilterChange={searchFilterChange}
             onClear={() => {
-              if (usingNewViewStateModel) {
-                // In the new view state version, reset URL search state directly
-                setUrlSearchFacets(createExperimentPageSearchFacetsStateV2());
-              } else {
-                updateSearchFacets(clearSearchExperimentsFacetsFilters);
-              }
+              setUrlSearchFacets(createExperimentPageSearchFacetsState());
             }}
             requestError={requestError}
           />
@@ -178,12 +171,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             <DialogComboboxTrigger
               allowClear={startTime !== 'ALL'}
               onClear={() => {
-                if (usingNewViewStateModel) {
-                  // In the new view state version, set time filter directly in the URL search state
-                  setUrlSearchFacets({ startTime: 'ALL' });
-                } else {
-                  updateSearchFacets({ startTime: 'ALL' });
-                }
+                setUrlSearchFacets({ startTime: 'ALL' });
               }}
               data-test-id="start-time-select-dropdown"
             />
@@ -197,12 +185,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                     data-test-id={`start-time-select-${startTimeKey}`}
                     value={startTimeKey}
                     onChange={() => {
-                      if (usingNewViewStateModel) {
-                        // In the new view state version, set time filter directly in the URL search state
-                        setUrlSearchFacets({ startTime: startTimeKey });
-                      } else {
-                        updateSearchFacets({ startTime: startTimeKey });
-                      }
+                      setUrlSearchFacets({ startTime: startTimeKey });
                     }}
                   >
                     {startTimeColumnLabels[startTimeKey]}
@@ -228,12 +211,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                   data-testid="active-runs-menu-item"
                   value={LIFECYCLE_FILTER.ACTIVE}
                   onChange={() => {
-                    if (usingNewViewStateModel) {
-                      // In the new view state version, set lifecycle filter directly in the URL search state
-                      setUrlSearchFacets({ lifecycleFilter: LIFECYCLE_FILTER.ACTIVE });
-                    } else {
-                      updateSearchFacets({ lifecycleFilter: LIFECYCLE_FILTER.ACTIVE });
-                    }
+                    setUrlSearchFacets({ lifecycleFilter: LIFECYCLE_FILTER.ACTIVE });
                   }}
                 >
                   <FormattedMessage
@@ -247,12 +225,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                   data-testid="deleted-runs-menu-item"
                   value={LIFECYCLE_FILTER.DELETED}
                   onChange={() => {
-                    if (usingNewViewStateModel) {
-                      // In the new view state version, set lifecycle filter directly in the URL search state
-                      setUrlSearchFacets({ lifecycleFilter: LIFECYCLE_FILTER.DELETED });
-                    } else {
-                      updateSearchFacets({ lifecycleFilter: LIFECYCLE_FILTER.DELETED });
-                    }
+                    setUrlSearchFacets({ lifecycleFilter: LIFECYCLE_FILTER.DELETED });
                   }}
                 >
                   <FormattedMessage
@@ -283,7 +256,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             >
               <DialogComboboxTrigger
                 allowClear
-                onClear={() => updateSearchFacets({ datasetsFilter: [] })}
+                onClear={() => setUrlSearchFacets({ datasetsFilter: [] })}
                 data-test-id="datasets-select-dropdown"
                 showTagAfterValueCount={1}
                 disabled={!hasDatasets}
@@ -317,8 +290,13 @@ export const ExperimentViewRunsControlsFilters = React.memo(
           </DialogCombobox>
           {additionalControls}
         </div>
-        <div css={styles.groupSeparator} />
-        <div css={styles.controlBar}>
+        <div
+          css={{
+            display: 'flex',
+            gap: theme.spacing.sm,
+            alignItems: 'flex-start',
+          }}
+        >
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
               <Button
@@ -331,14 +309,32 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               />
             </DropdownMenu.Trigger>
             <DropdownMenu.Content>
-              <DropdownMenu.Item
-                className="csv-button"
-                onClick={onDownloadCsv}
-                css={{ display: 'flex', gap: theme.spacing.sm }}
-              >
-                <DownloadIcon />
+              <DropdownMenu.Item className="csv-button" onClick={onDownloadCsv}>
+                <DropdownMenu.IconWrapper>
+                  <DownloadIcon />
+                </DropdownMenu.IconWrapper>
                 {`Download ${runsData.runInfos.length} runs`}
               </DropdownMenu.Item>
+              {shouldEnableExperimentPageAutoRefresh() && (
+                <>
+                  <DropdownMenu.Separator />
+                  <DropdownMenu.CheckboxItem
+                    checked={autoRefreshEnabled}
+                    onClick={() =>
+                      updateUIState((state) => ({
+                        ...state,
+                        autoRefreshEnabled: !state.autoRefreshEnabled,
+                      }))
+                    }
+                  >
+                    <DropdownMenu.ItemIndicator />
+                    <FormattedMessage
+                      defaultMessage="Auto-refresh"
+                      description="String for the auto-refresh button that refreshes the runs list automatically"
+                    />
+                  </DropdownMenu.CheckboxItem>
+                </>
+              )}
             </DropdownMenu.Content>
           </DropdownMenu.Root>
 
@@ -348,39 +344,6 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             experimentId={experimentId}
           />
 
-          {!isComparingExperiments && !shouldEnableExperimentPageCompactHeader() && (
-            /* 
-          When comparing experiments, elements that are hidden upon 
-          maximization are not displayed anyway so let's hide the button then
-         */
-            <Tooltip
-              key={viewState.viewMaximized.toString()}
-              title={intl.formatMessage(
-                {
-                  defaultMessage: 'Click to {isMaximized, select, true {restore} other {maximize}} the view',
-                  description: 'Experiment page > control bar > expanded view toggle button tooltip',
-                },
-                {
-                  isMaximized: viewState.viewMaximized,
-                },
-              )}
-              useAsLabel
-            >
-              <ToggleIconButton
-                componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_380"
-                pressed={viewMaximized}
-                icon={viewMaximized ? <FullscreenExitIcon /> : <FullscreenIcon />}
-                onClick={() => {
-                  if (usingNewViewStateModel) {
-                    // In the new view state version, toggle view maximized in UI state object
-                    updateUIState((state) => ({ ...state, viewMaximized: !state.viewMaximized }));
-                  } else {
-                    updateViewState({ viewMaximized: !viewState.viewMaximized });
-                  }
-                }}
-              />
-            </Tooltip>
-          )}
           {displaySidebarToggleButton && (
             <Tooltip
               title={intl.formatMessage({
@@ -397,7 +360,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               />
             </Tooltip>
           )}
-          <ExperimentViewRefreshButton refreshRuns={refreshRuns} />
+          {!shouldEnableExperimentPageAutoRefresh() && <ExperimentViewRefreshButton refreshRuns={refreshRuns} />}
           {/* TODO: Add tooltip to guide users to this button */}
           {shouldEnablePromptLab() && !isComparingExperiments && (
             <DropdownMenu.Root>
@@ -437,24 +400,3 @@ export const ExperimentViewRunsControlsFilters = React.memo(
     );
   },
 );
-
-const styles = {
-  groupBar: { display: 'grid', gridTemplateColumns: 'auto 1fr auto' },
-  controlBar: (theme: Theme) => ({
-    display: 'flex',
-    gap: theme.spacing.sm,
-    alignItems: 'center',
-    flexWrap: 'wrap' as const,
-  }),
-  groupSeparator: (theme: Theme) => ({ minWidth: theme.spacing.sm }),
-  columnSwitch: { margin: '5px' },
-  searchBox: (theme: Theme) => ({ display: 'flex', gap: theme.spacing.sm, width: 560 }),
-  lifecycleFilters: (theme: Theme) => ({
-    display: 'flex',
-    gap: 8,
-    alignItems: 'center',
-    marginTop: theme.spacing.sm,
-    marginBottom: theme.spacing.sm,
-    marginLeft: theme.spacing.lg * 2,
-  }),
-};

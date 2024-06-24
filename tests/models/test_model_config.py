@@ -2,8 +2,8 @@ import os
 from unittest import mock
 
 import pytest
-import yaml
 
+from mlflow.exceptions import MlflowException
 from mlflow.models import ModelConfig
 
 dir_path = os.path.dirname(os.path.abspath(__file__))
@@ -27,7 +27,7 @@ def test_config_invalid_yaml(tmp_path):
     tmp_file = tmp_path / "invalid_config.yaml"
     tmp_file.write_text("invalid_yaml: \n  - this is not valid \n-yaml")
     config = ModelConfig(development_config=str(tmp_file))
-    with pytest.raises(yaml.YAMLError, match="Error parsing YAML file: "):
+    with pytest.raises(MlflowException, match="Error parsing YAML file: "):
         config.get("key")
 
 

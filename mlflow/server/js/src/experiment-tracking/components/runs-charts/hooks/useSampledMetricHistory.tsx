@@ -1,10 +1,12 @@
 import { chunk, keyBy } from 'lodash';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { ReduxState, ThunkDispatch } from '../../../../redux-types';
 import { createChartAxisRangeKey } from '../components/RunsCharts.common';
 import { getSampledMetricHistoryBulkAction } from '../../../sdk/SampledMetricHistoryService';
 import { SampledMetricsByRunUuidState } from 'experiment-tracking/types';
+import { EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL } from '../../../utils/MetricsUtils';
+import Utils from '../../../../common/utils/Utils';
 
 type SampledMetricData = SampledMetricsByRunUuidState[string][string][string];
 
@@ -27,8 +29,9 @@ export const useSampledMetricHistory = (params: {
   maxResults?: number;
   range?: [number, number];
   enabled?: boolean;
+  autoRefreshEnabled?: boolean;
 }) => {
-  const { metricKeys, runUuids, enabled, maxResults, range } = params;
+  const { metricKeys, runUuids, enabled, maxResults, range, autoRefreshEnabled } = params;
   const dispatch = useDispatch<ThunkDispatch>();
 
   const { resultsByRunUuid, isLoading, isRefreshing } = useSelector((store: ReduxState) => {
@@ -71,25 +74,93 @@ export const useSampledMetricHistory = (params: {
   const refreshFn = useCallback(() => {
     metricKeys.forEach((metricKey) => {
       chunk(runUuids, SAMPLED_METRIC_HISTORY_API_RUN_LIMIT).forEach((runUuidsChunk) => {
-        const action = getSampledMetricHistoryBulkAction(runUuidsChunk, metricKey, maxResults, range, true);
+        const action = getSampledMetricHistoryBulkAction(runUuidsChunk, metricKey, maxResults, range, 'all');
         dispatch(action);
       });
     });
   }, [dispatch, maxResults, runUuids, metricKeys, range]);
 
+  const refreshTimeoutRef = useRef<number | undefined>(undefined);
+  const autoRefreshEnabledRef = useRef(autoRefreshEnabled && params.enabled);
+  autoRefreshEnabledRef.current = autoRefreshEnabled && params.enabled;
+
+  // Serialize runUuids to a string to use as a dependency in the effect,
+  // directly used runUuids can cause unnecessary re-fetches
+  const runUuidsSerialized = useMemo(() => runUuids.join(','), [runUuids]);
+
+  // Regular single fetch effect with no auto-refresh capabilities. Used if auto-refresh is disabled.
   useEffect(() => {
-    // Skip if not disabled (e.g. chart is not visible)
-    if (!enabled) {
+    if (!enabled || autoRefreshEnabled) {
       return;
     }
-
     metricKeys.forEach((metricKey) => {
       chunk(runUuids, SAMPLED_METRIC_HISTORY_API_RUN_LIMIT).forEach((runUuidsChunk) => {
         const action = getSampledMetricHistoryBulkAction(runUuidsChunk, metricKey, maxResults, range);
         dispatch(action);
       });
     });
-  }, [dispatch, maxResults, runUuids, metricKeys, range, enabled]);
+  }, [dispatch, maxResults, runUuids, metricKeys, range, enabled, autoRefreshEnabled]);
+
+  // A fetch effect with auto-refresh capabilities. Used only if auto-refresh is enabled.
+  useEffect(() => {
+    let hookUnmounted = false;
+    if (!enabled || !autoRefreshEnabled) {
+      return;
+    }
+
+    // Base fetching function, used for both initial call and subsequent auto-refresh calls
+    const fetchMetricsFn = async (isAutoRefreshing = false) => {
+      const runUuids = runUuidsSerialized.split(',').filter((runUuid: string) => runUuid !== '');
+      await Promise.all(
+        metricKeys.map(async (metricKey) =>
+          Promise.all(
+            chunk(runUuids, SAMPLED_METRIC_HISTORY_API_RUN_LIMIT).map(async (runUuidsChunk) =>
+              dispatch(
+                getSampledMetricHistoryBulkAction(
+                  runUuidsChunk,
+                  metricKey,
+                  maxResults,
+                  range,
+                  isAutoRefreshing ? 'auto' : undefined,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    };
+
+    const scheduleRefresh = async () => {
+      // Initial check to confirm that auto-refresh is still enabled and the hook is still mounted
+      if (!autoRefreshEnabledRef.current || hookUnmounted) {
+        return;
+      }
+      try {
+        await fetchMetricsFn(true);
+      } catch (e) {
+        // In case of error during auto-refresh, log the error but do break the auto-refresh loop
+        Utils.logErrorAndNotifyUser(e);
+      }
+      clearTimeout(refreshTimeoutRef.current);
+
+      // After loading the data, schedule the next refresh if the hook is still enabled and mounted
+      if (!autoRefreshEnabledRef.current || hookUnmounted) {
+        return;
+      }
+
+      refreshTimeoutRef.current = window.setTimeout(scheduleRefresh, EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL);
+    };
+
+    fetchMetricsFn().then(scheduleRefresh);
+
+    return () => {
+      // Mark the hook as unmounted to prevent scheduling new auto-refreshes with current data
+      hookUnmounted = true;
+
+      // Clear the timeout
+      clearTimeout(refreshTimeoutRef.current);
+    };
+  }, [dispatch, maxResults, runUuidsSerialized, metricKeys, range, enabled, autoRefreshEnabled]);
 
   return { isLoading, isRefreshing, resultsByRunUuid, refresh: refreshFn };
 };
