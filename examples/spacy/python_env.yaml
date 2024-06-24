@@ -4,5 +4,3 @@ build_dependencies:
 dependencies:
   - mlflow>=1.0
   - spacy==2.2.4
-
-
