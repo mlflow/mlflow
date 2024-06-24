@@ -300,6 +300,7 @@ def _iter_modules(module_name: str) -> Iterator[str]:
     yield module_name
     while (ind := module_name.rfind(".")) != -1:
         yield module_name[:ind]
+        module_name = module_name[:ind]
 
 
 def _restore_sys_path_and_modules(start_path: Set[str], start_modules: Set[str]):
