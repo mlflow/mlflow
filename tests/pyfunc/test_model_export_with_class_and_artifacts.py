@@ -2014,7 +2014,12 @@ class MyModel(mlflow.pyfunc.PythonModel):
     sys.path.remove(str(tmp_path))
     sys.modules.pop("my_model", None)
 
+    with pytest.raises(ImportError, match="No module named 'my_model'"):
+        from my_model import MyModel
+
     pred = mlflow.pyfunc.load_model(model1.model_uri).predict([0])
     assert pred == [1]
     pred = mlflow.pyfunc.load_model(model2.model_uri).predict([0])
     assert pred == [2]
+
+    from my_model import MyModel

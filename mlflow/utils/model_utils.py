@@ -297,9 +297,9 @@ def _restore_sys_path_and_modules(sys_path: Set[str], start_modules: Set[str]):
                 for mod in _iter_modules(module_name):
                     sys.modules.pop(mod, None)
 
-    for path in sys_path:
-        while path in sys.path:
-            sys.path.remove(path)
+    # for path in sys_path:
+    #     while path in sys.path:
+    #         sys.path.remove(path)
 
 
 @contextlib.contextmanager
