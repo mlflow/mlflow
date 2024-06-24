@@ -281,6 +281,10 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             for idx, child in enumerate(children, start=1):
                 terminalreporter.write(f"{idx}: {child}\n")
 
+    terminalreporter.section("sys.path", yellow=True)
+    for p in sys.path:
+        terminalreporter.write(f"{p}\n")
+
 
 @pytest.fixture(scope="module", autouse=True)
 def clean_up_envs():
