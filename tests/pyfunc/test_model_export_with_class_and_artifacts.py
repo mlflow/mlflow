@@ -1977,3 +1977,44 @@ def test_model_as_code_pycache_cleaned_up():
 
     path = _download_artifact_from_uri(model_info.model_uri)
     assert list(Path(path).rglob("__pycache__")) == []
+
+
+def test_load_model_custom_code(tmp_path, monkeypatch):
+    sys.path.insert(0, str(tmp_path))
+    my_model_path = tmp_path / "my_model.py"
+    monkeypatch.syspath_prepend(str(tmp_path))
+    code = """
+import mlflow
+
+class MyModel(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input):
+        return [{n}] * len(model_input)
+"""
+    my_model_path.write_text(code.format(n=1))
+
+    from my_model import MyModel
+
+    with mlflow.start_run():
+        model1 = mlflow.pyfunc.log_model(
+            artifact_path="model",
+            python_model=MyModel(),
+            code_paths=[my_model_path],
+        )
+
+    my_model_path.write_text(code.format(n=2))
+
+    with mlflow.start_run():
+        model2 = mlflow.pyfunc.log_model(
+            artifact_path="model",
+            python_model=MyModel(),
+            code_paths=[my_model_path],
+        )
+
+    my_model_path.unlink()
+    sys.path.remove(str(tmp_path))
+    sys.modules.pop("my_model", None)
+
+    pred = mlflow.pyfunc.load_model(model1.model_uri).predict([0])
+    assert pred == [1]
+    pred = mlflow.pyfunc.load_model(model2.model_uri).predict([0])
+    assert pred == [2]

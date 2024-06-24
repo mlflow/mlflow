@@ -1,9 +1,10 @@
+import contextlib
 import json
 import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Set
 
 import yaml
 
@@ -288,6 +289,39 @@ def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_
     if code_key in conf and conf[code_key]:
         code_path = os.path.join(local_path, conf[code_key])
         _add_code_to_system_path(code_path)
+
+
+def _restore_sys_path_and_modules(start_path: Set[str], start_modules: Set[str]):
+    new_paths = set(sys.path) - start_path
+    imported_modules = set(sys.modules) - start_modules
+    for module_name in imported_modules:
+        module = sys.modules.get(module_name)
+        if module is None:
+            continue
+
+        module_file = getattr(module, "__file__", None)
+        if module_file is None:
+            continue
+
+        if any(module_file.startswith(path) for path in new_paths):
+            while module_name in sys.modules:
+                del sys.modules[module_name]
+                if "." in module_name:
+                    module_name = module_name.rsplit(".", 1)[0]
+
+    for path in new_paths:
+        if path in sys.path:
+            sys.path.remove(path)
+
+
+@contextlib.contextmanager
+def _preserve_sys_path_and_modules():
+    start_path = set(sys.path)
+    start_modules = set(sys.modules)
+    try:
+        yield
+    finally:
+        _restore_sys_path_and_modules(start_path, start_modules)
 
 
 def _validate_onnx_session_options(onnx_session_options):

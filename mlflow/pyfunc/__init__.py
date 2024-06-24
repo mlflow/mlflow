@@ -510,6 +510,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _get_flavor_configuration_from_ml_model_file,
     _get_overridden_pyfunc_model_config,
+    _preserve_sys_path_and_modules,
     _validate_and_copy_file_to_directory,
     _validate_and_get_model_config_from_file,
     _validate_and_prepare_target_save_path,
@@ -996,40 +997,44 @@ def load_model(
     if not suppress_warnings:
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
 
-    _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
-    data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
+    with _preserve_sys_path_and_modules():
+        _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
+        data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
 
-    if isinstance(model_config, str):
-        model_config = _validate_and_get_model_config_from_file(model_config)
+        if isinstance(model_config, str):
+            model_config = _validate_and_get_model_config_from_file(model_config)
 
-    model_config = _get_overridden_pyfunc_model_config(
-        conf.get(MODEL_CONFIG, None), model_config, _logger
-    )
+        model_config = _get_overridden_pyfunc_model_config(
+            conf.get(MODEL_CONFIG, None), model_config, _logger
+        )
 
-    try:
-        if model_config:
-            model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, model_config)
-        else:
-            model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
-    except ModuleNotFoundError as e:
-        # This error message is particularly for the case when the error is caused by module
-        # "databricks.feature_store.mlflow_model". But depending on the environment, the offending
-        # module might be "databricks", "databricks.feature_store" or full package. So we will
-        # raise the error with the following note if "databricks" presents in the error. All non-
-        # databricks moduel errors will just be re-raised.
-        if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE and e.name.startswith("databricks"):
-            raise MlflowException(
-                f"{e.msg}; "
-                "Note: mlflow.pyfunc.load_model is not supported for Feature Store models. "
-                "spark_udf() and predict() will not work as expected. Use "
-                "score_batch for offline predictions.",
-                BAD_REQUEST,
-            ) from None
-        raise e
-    finally:
-        # clean up the dependencies schema which is set to global state after loading the model.
-        # This avoids the schema being used by other models loaded in the same process.
-        _clear_dependencies_schemas()
+        try:
+            if model_config:
+                model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(
+                    data_path, model_config
+                )
+            else:
+                model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
+        except ModuleNotFoundError as e:
+            # This error message is particularly for the case when the error is caused by module
+            # "databricks.feature_store.mlflow_model". But depending on the environment,
+            # the offending module might be "databricks", "databricks.feature_store" or full
+            # package. So we will raise the error with the following note if "databricks" presents
+            # in the error. All non-databricks module errors will just be re-raised.
+            if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE and e.name.startswith("databricks"):
+                raise MlflowException(
+                    f"{e.msg}; "
+                    "Note: mlflow.pyfunc.load_model is not supported for Feature Store models. "
+                    "spark_udf() and predict() will not work as expected. Use "
+                    "score_batch for offline predictions.",
+                    BAD_REQUEST,
+                ) from None
+            raise e
+        finally:
+            # clean up the dependencies schema which is set to global state after loading the model.
+            # This avoids the schema being used by other models loaded in the same process.
+            _clear_dependencies_schemas()
+
     predict_fn = conf.get("predict_fn", "predict")
     streamable = conf.get("streamable", False)
     predict_stream_fn = conf.get("predict_stream_fn", "predict_stream") if streamable else None
