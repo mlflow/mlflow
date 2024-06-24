@@ -1983,14 +1983,14 @@ def test_load_model_custom_code_same_module_name(tmp_path, monkeypatch):
     sys.path.insert(0, str(tmp_path))
     my_model_path = tmp_path / "my_model.py"
     monkeypatch.syspath_prepend(str(tmp_path))
-    code = """
+    code_template = """
 import mlflow
 
 class MyModel(mlflow.pyfunc.PythonModel):
     def predict(self, context, model_input):
         return [{n}] * len(model_input)
 """
-    my_model_path.write_text(code.format(n=1))
+    my_model_path.write_text(code_template.format(n=1))
 
     from my_model import MyModel
 
@@ -2001,7 +2001,7 @@ class MyModel(mlflow.pyfunc.PythonModel):
             code_paths=[my_model_path],
         )
 
-    my_model_path.write_text(code.format(n=2))
+    my_model_path.write_text(code_template.format(n=2))
 
     with mlflow.start_run():
         model2 = mlflow.pyfunc.log_model(
