@@ -80,8 +80,13 @@ jobs:
       - name: Push image by digest
         if: github.event_name == 'push'
         run: |
-          digest=$(skopeo inspect docker-daemon:$IMAGE_NAME:latest --format "{{ .Digest }}")
-          skopeo copy docker-daemon:$IMAGE_NAME:latest docker://$IMAGE_NAME@$digest
+          skopeo="docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v $HOME/.docker/config.json:/tmp/auth.json:ro \
+            -e REGISTRY_AUTH_FILE=/tmp/auth.json \
+            quay.io/skopeo/stable:latest"
+          digest=$($skopeo inspect docker-daemon:$IMAGE_NAME:latest --format "{{ .Digest }}")
+          $skopeo copy docker-daemon:$IMAGE_NAME:latest docker://$IMAGE_NAME@$digest
           echo $digest > devcontainer-image-digest-${{ matrix.arch }}.txt
       - name: Upload image digest artifact
         if: github.event_name == 'push'
