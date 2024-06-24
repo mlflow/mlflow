@@ -69,7 +69,7 @@ def build(skinny: bool) -> None:
             "name": "mlflow" if not skinny else "mlflow-skinny",
             "version": version,
             "maintainers": [
-                {"name": "Databricks", "email": "mlflow-oss-maintainers@googlegroups.com "}
+                {"name": "Databricks", "email": "mlflow-oss-maintainers@googlegroups.com"}
             ],
             "description": (
                 "MLflow is an open source platform for the complete machine learning lifecycle"
