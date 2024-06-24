@@ -4,7 +4,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, Dict, Set
+from typing import Any, Dict, Iterator, Set
 
 import yaml
 
@@ -291,23 +291,19 @@ def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_
         _add_code_to_system_path(code_path)
 
 
+def _iter_modules(module_name: str) -> Iterator[str]:
+    while (ind := module_name.rfind(".")) != -1:
+        yield module_name[:ind]
+
+
 def _restore_sys_path_and_modules(start_path: Set[str], start_modules: Set[str]):
     new_paths = set(sys.path) - start_path
     imported_modules = set(sys.modules) - start_modules
     for module_name in imported_modules:
-        module = sys.modules.get(module_name)
-        if module is None:
-            continue
-
-        module_file = getattr(module, "__file__", None)
-        if module_file is None:
-            continue
-
-        if any(module_file.startswith(path) for path in new_paths):
-            while module_name in sys.modules:
-                del sys.modules[module_name]
-                if "." in module_name:
-                    module_name = module_name.rsplit(".", 1)[0]
+        if (md := sys.modules.get(module_name)) and (file := getattr(md, "__file__", None)):
+            if any(file.startswith(path) for path in new_paths):
+                for mod in _iter_modules(module_name):
+                    sys.modules.pop(mod, None)
 
     for path in new_paths:
         if path in sys.path:
