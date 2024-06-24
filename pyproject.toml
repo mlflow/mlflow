@@ -57,7 +57,7 @@ dependencies = [
 ]
 [[project.maintainers]]
 name = "Databricks"
-email = "mlflow-oss-maintainers@googlegroups.com "
+email = "mlflow-oss-maintainers@googlegroups.com"
 
 [project.license]
 file = "LICENSE.txt"
