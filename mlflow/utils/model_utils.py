@@ -298,7 +298,7 @@ def _restore_sys_path_and_modules(sys_path: Set[str], start_modules: Set[str]):
                     sys.modules.pop(mod, None)
 
     for path in sys_path:
-        if path in sys.path:
+        while path in sys.path:
             sys.path.remove(path)
 
 
