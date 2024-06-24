@@ -2021,5 +2021,8 @@ class MyModel(mlflow.pyfunc.PythonModel):
     assert pred == [1]
     pred = mlflow.pyfunc.load_model(model2.model_uri).predict([0])
     assert pred == [2]
+    # loading `m2` should not affect `m1`
+    pred = mlflow.pyfunc.load_model(model1.model_uri).predict([0])
+    assert pred == [1]
 
     from my_model import MyModel
