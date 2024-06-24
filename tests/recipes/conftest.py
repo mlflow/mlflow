@@ -1,6 +1,7 @@
 import os
 import pathlib
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -26,6 +27,8 @@ def enter_recipe_example_directory():
 
     with chdir(recipe_example_path):
         yield recipe_example_path
+
+    subprocess.check_call(["git", "clean", "-fdx"], cwd=recipe_example_path)
 
 
 @pytest.fixture
