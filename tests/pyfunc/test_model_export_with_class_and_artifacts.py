@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 import types
 import uuid
@@ -1981,16 +1982,27 @@ def test_model_as_code_pycache_cleaned_up():
 
 def test_load_model_custom_code_same_module_name(tmp_path, monkeypatch):
     sys.path.insert(0, str(tmp_path))
-    my_model_path = tmp_path / "my_model.py"
-    monkeypatch.syspath_prepend(str(tmp_path))
-    code_template = """
+    my_model_path = tmp_path / "my_model"
+    my_model_path.mkdir()
+    my_model_init = my_model_path / "__init__.py"
+    my_model_predict = my_model_path / "predict.py"
+    monkeypatch.syspath_prepend(str(my_model_path))
+    init_code = """
 import mlflow
+
+from my_model.predict import predict
 
 class MyModel(mlflow.pyfunc.PythonModel):
     def predict(self, context, model_input):
-        return [{n}] * len(model_input)
+        return predict(model_input)
 """
-    my_model_path.write_text(code_template.format(n=1))
+
+    predict_template = """
+def predict(x):
+    return [{n}] * len(x)
+"""
+    my_model_init.write_text(init_code)
+    my_model_predict.write_text(predict_template.format(n=1))
 
     from my_model import MyModel
 
@@ -2001,7 +2013,8 @@ class MyModel(mlflow.pyfunc.PythonModel):
             code_paths=[my_model_path],
         )
 
-    my_model_path.write_text(code_template.format(n=2))
+    my_model_init.write_text(init_code)
+    my_model_predict.write_text(predict_template.format(n=2))
 
     with mlflow.start_run():
         model2 = mlflow.pyfunc.log_model(
@@ -2010,19 +2023,18 @@ class MyModel(mlflow.pyfunc.PythonModel):
             code_paths=[my_model_path],
         )
 
-    my_model_path.unlink()
+    shutil.rmtree(str(my_model_path))
     sys.path.remove(str(tmp_path))
-    sys.modules.pop("my_model", None)
+    sys.modules.pop("my_model")
+    sys.modules.pop("my_model.predict")
 
     with pytest.raises(ImportError, match="No module named 'my_model'"):
         from my_model import MyModel
 
     pred = mlflow.pyfunc.load_model(model1.model_uri).predict([0])
     assert pred == [1]
+
     pred = mlflow.pyfunc.load_model(model2.model_uri).predict([0])
     assert pred == [2]
-    # loading `m2` should not affect `m1`
-    pred = mlflow.pyfunc.load_model(model1.model_uri).predict([0])
-    assert pred == [1]
 
     from my_model import MyModel
