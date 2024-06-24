@@ -550,4 +550,3 @@ def test_trainer_hyperparameter_tuning_functional_does_not_log_sklearn_model(
     runs = client.search_runs([exp.experiment_id])
 
     assert len(runs) == 1
-
