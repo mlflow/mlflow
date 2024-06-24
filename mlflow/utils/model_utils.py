@@ -289,6 +289,7 @@ def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_
     if code_key in conf and conf[code_key]:
         code_path = os.path.join(local_path, conf[code_key])
         _add_code_to_system_path(code_path)
+        return code_path
 
 
 def _iter_modules(module_name: str) -> Iterator[str]:
@@ -307,28 +308,26 @@ def _iter_modules(module_name: str) -> Iterator[str]:
         module_name = module_name[:ind]
 
 
-def _restore_sys_path_and_modules(start_path: Set[str], start_modules: Set[str]):
-    new_paths = set(sys.path) - start_path
+def _restore_sys_path_and_modules(sys_path: Set[str], start_modules: Set[str]):
     imported_modules = set(sys.modules) - start_modules
     for module_name in imported_modules:
         if (md := sys.modules.get(module_name)) and (file := getattr(md, "__file__", None)):
-            if any(file.startswith(path) for path in new_paths):
+            if any(file.startswith(path) for path in sys_path):
                 for mod in _iter_modules(module_name):
                     sys.modules.pop(mod, None)
 
-    for path in new_paths:
+    for path in sys_path:
         if path in sys.path:
             sys.path.remove(path)
 
 
 @contextlib.contextmanager
-def _preserve_sys_path_and_modules():
-    start_path = set(sys.path)
+def _reset_sys_path_and_modules(sys_path: Set[str]):
     start_modules = set(sys.modules)
     try:
         yield
     finally:
-        _restore_sys_path_and_modules(start_path, start_modules)
+        _restore_sys_path_and_modules(sys_path, start_modules)
 
 
 def _validate_onnx_session_options(onnx_session_options):

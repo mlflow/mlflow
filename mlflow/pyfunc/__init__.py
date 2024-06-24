@@ -510,7 +510,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _get_flavor_configuration_from_ml_model_file,
     _get_overridden_pyfunc_model_config,
-    _preserve_sys_path_and_modules,
+    _reset_sys_path_and_modules,
     _validate_and_copy_file_to_directory,
     _validate_and_get_model_config_from_file,
     _validate_and_prepare_target_save_path,
@@ -997,8 +997,8 @@ def load_model(
     if not suppress_warnings:
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
 
-    with _preserve_sys_path_and_modules():
-        _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
+    code_path = _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
+    with _reset_sys_path_and_modules({code_path}):
         data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
 
         if isinstance(model_config, str):
