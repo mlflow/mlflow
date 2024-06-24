@@ -293,6 +293,8 @@ def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_
 
 def _iter_modules(module_name: str) -> Iterator[str]:
     """
+    Yields the module name and all its parent modules.
+
     Example:
     >>> list(_iter_modules("a.b.c"))
     ['a.b.c', 'a.b', 'a']
