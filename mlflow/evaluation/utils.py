@@ -201,6 +201,22 @@ def read_metrics_dataframe(path: str) -> pd.DataFrame:
     )
 
 
+def read_tags_dataframe(path: str) -> pd.DataFrame:
+    """
+    Reads a tags DataFrame from a file.
+
+    Args:
+        path (str): Path to the file.
+
+    Returns:
+        pd.DataFrame: The tags DataFrame.
+    """
+    schema = _get_tags_dataframe_schema()
+    return pd.read_json(path, orient="split", dtype=schema, convert_dates=False).replace(
+        pd.NA, None
+    )
+
+
 def _get_evaluation_dataframe_schema() -> Dict[str, Any]:
     """
     Returns the schema for the evaluation DataFrame.
@@ -279,6 +295,26 @@ def _get_empty_metrics_dataframe() -> pd.DataFrame:
     Creates an empty DataFrame with columns for evaluation metric data.
     """
     schema = _get_metrics_dataframe_schema()
+    df = pd.DataFrame(columns=schema.keys())
+    return _apply_schema_to_dataframe(df, schema)
+
+
+def _get_tags_dataframe_schema() -> Dict[str, Any]:
+    """
+    Returns the schema for the tags DataFrame.
+    """
+    return {
+        "evaluation_id": "string",
+        "key": "string",
+        "value": "string",
+    }
+
+
+def _get_empty_tags_dataframe() -> pd.DataFrame:
+    """
+    Creates an empty DataFrame with columns for evaluation tags data.
+    """
+    schema = _get_tags_dataframe_schema()
     df = pd.DataFrame(columns=schema.keys())
     return _apply_schema_to_dataframe(df, schema)
 
