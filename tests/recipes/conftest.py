@@ -55,6 +55,9 @@ def tmp_recipe_root_path(tmp_path) -> Path:
     yield path
     shutil.rmtree(path)
 
+    if Path("examples/recipes/regression/metadata/mlflow/mlartifacts").exists():
+        raise Exception("Found")
+
 
 @pytest.fixture
 def clear_custom_metrics_module_cache():
