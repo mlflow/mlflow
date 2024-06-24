@@ -13,9 +13,11 @@ from mlflow.evaluation.utils import (
     compute_assessment_stats_by_source,
     dataframes_to_evaluations,
     evaluations_to_dataframes,
+    get_empty_tags_dataframe,
     read_assessments_dataframe,
     read_evaluations_dataframe,
     read_metrics_dataframe,
+    read_tags_dataframe,
     verify_assessments_have_same_value_type,
 )
 from mlflow.exceptions import MlflowException
@@ -120,7 +122,9 @@ def log_evaluations(
         evaluation._to_entity(run_id=run_id, evaluation_id=uuid.uuid4().hex)
         for evaluation in evaluations
     ]
-    evaluations_df, metrics_df, assessments_df = evaluations_to_dataframes(evaluation_entities)
+    evaluations_df, metrics_df, assessments_df, tags_df = evaluations_to_dataframes(
+        evaluation_entities
+    )
     client.log_table(
         run_id=run_id, data=evaluations_df, artifact_file="_evaluations.json", set_tag=True
     )
@@ -128,6 +132,7 @@ def log_evaluations(
     client.log_table(
         run_id=run_id, data=assessments_df, artifact_file="_assessments.json", set_tag=True
     )
+    client.log_table(run_id=run_id, data=tags_df, artifact_file="_tags.json", set_tag=True)
 
     # TODO (dbczumar): Uncomment this line once we've made adjustments to the metric names and
     #                  determined which metrics we want to log.
@@ -417,12 +422,19 @@ def get_evaluation(*, run_id: str, evaluation_id: str) -> EvaluationEntity:
     metrics_file = client.download_artifacts(run_id=run_id, path="_metrics.json")
     metrics_df = read_metrics_dataframe(metrics_file)
 
+    if "_tags.json" in {file.path for file in client.list_artifacts(run_id)}:
+        tags_file = client.download_artifacts(run_id=run_id, path="_tags.json")
+        tags_df = read_tags_dataframe(tags_file)
+    else:
+        tags_df = get_empty_tags_dataframe()
+
     return _get_evaluation_from_dataframes(
         run_id=run_id,
         evaluation_id=evaluation_id,
         evaluations_df=evaluations_df,
         metrics_df=metrics_df,
         assessments_df=assessments_df,
+        tags_df=tags_df,
     )
 
 
@@ -448,6 +460,12 @@ def search_evaluations(*, run_ids: List[str]) -> List[EvaluationEntity]:
         metrics_file = client.download_artifacts(run_id=run_id, path="_metrics.json")
         metrics_df = read_metrics_dataframe(metrics_file)
 
+        if "_tags.json" in {file.path for file in client.list_artifacts(run_id)}:
+            tags_file = client.download_artifacts(run_id=run_id, path="_tags.json")
+            tags_df = read_tags_dataframe(tags_file)
+        else:
+            tags_df = get_empty_tags_dataframe()
+
         for _, row in evaluations_df.iterrows():
             evaluation_id = row["evaluation_id"]
             evaluation = _get_evaluation_from_dataframes(
@@ -456,6 +474,7 @@ def search_evaluations(*, run_ids: List[str]) -> List[EvaluationEntity]:
                 evaluations_df=evaluations_df,
                 metrics_df=metrics_df,
                 assessments_df=assessments_df,
+                tags_df=tags_df,
             )
             evaluations.append(evaluation)
 
@@ -469,6 +488,7 @@ def _get_evaluation_from_dataframes(
     evaluations_df: pd.DataFrame,
     metrics_df: pd.DataFrame,
     assessments_df: pd.DataFrame,
+    tags_df: pd.DataFrame,
 ) -> EvaluationEntity:
     """
     Parses an Evaluation object with the specified evaluation ID from the specified DataFrames.
@@ -481,7 +501,10 @@ def _get_evaluation_from_dataframes(
         )
 
     evaluations: List[Evaluation] = dataframes_to_evaluations(
-        evaluations_df=evaluation_row, metrics_df=metrics_df, assessments_df=assessments_df
+        evaluations_df=evaluation_row,
+        metrics_df=metrics_df,
+        assessments_df=assessments_df,
+        tags_df=tags_df,
     )
     if len(evaluations) != 1:
         raise MlflowException(

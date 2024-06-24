@@ -8,6 +8,7 @@ import pandas as pd
 
 from mlflow.entities.assessment import Assessment
 from mlflow.entities.evaluation import Evaluation
+from mlflow.entities.evaluation_tag import EvaluationTag
 from mlflow.entities.metric import Metric
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -32,6 +33,7 @@ def evaluations_to_dataframes(
     evaluations_data = []
     metrics_data = []
     assessments_data = []
+    tags_data = []
 
     for evaluation in evaluations:
         eval_dict = evaluation.to_dictionary()
@@ -39,6 +41,7 @@ def evaluations_to_dataframes(
         # Extract assessment and metrics
         assessments_list = eval_dict.pop("assessments", [])
         metrics_list = eval_dict.pop("metrics", [])
+        tags_list = eval_dict.pop("tags", [])
 
         evaluations_data.append(eval_dict)
 
@@ -51,6 +54,10 @@ def evaluations_to_dataframes(
         for assess_dict in assessments_list:
             assess_dict["evaluation_id"] = eval_dict["evaluation_id"]
             assessments_data.append(assess_dict)
+
+        for tag_dict in tags_list:
+            tag_dict["evaluation_id"] = eval_dict["evaluation_id"]
+            tags_data.append(tag_dict)
 
     evaluations_df = _apply_schema_to_dataframe(
         pd.DataFrame(evaluations_data), _get_evaluation_dataframe_schema()
@@ -67,12 +74,20 @@ def evaluations_to_dataframes(
         if assessments_data
         else _get_empty_assessments_dataframe()
     )
+    tags_df = (
+        _apply_schema_to_dataframe(pd.DataFrame(tags_data), _get_metrics_dataframe_schema())
+        if tags_data
+        else get_empty_tags_dataframe()
+    )
 
-    return evaluations_df, metrics_df, assessments_df
+    return evaluations_df, metrics_df, assessments_df, tags_df
 
 
 def dataframes_to_evaluations(
-    evaluations_df: pd.DataFrame, metrics_df: pd.DataFrame, assessments_df: pd.DataFrame
+    evaluations_df: pd.DataFrame,
+    metrics_df: pd.DataFrame,
+    assessments_df: pd.DataFrame,
+    tags_df: pd.DataFrame,
 ) -> List[Evaluation]:
     """
     Converts three separate DataFrames (main evaluation data, metrics, and assessment) back to a
@@ -83,6 +98,7 @@ def dataframes_to_evaluations(
             (excluding assessment and metrics).
         metrics_df (pd.DataFrame): DataFrame with metrics.
         assessments_df (pd.DataFrame): DataFrame with assessments.
+        tags_df (pd.DataFrame): DataFrame with tags.
 
     Returns:
         List[Evaluation]: A list of Evaluation objects created from the DataFrames.
@@ -106,6 +122,7 @@ def dataframes_to_evaluations(
     # Group metrics and assessment by evaluation_id
     metrics_by_eval = group_by_evaluation_id(metrics_df, Metric)
     assessments_by_eval = group_by_evaluation_id(assessments_df, Assessment)
+    tags_by_eval = group_by_evaluation_id(tags_df, EvaluationTag)
 
     # Convert main DataFrame to list of dictionaries and create Evaluation objects
     evaluations = []
@@ -113,6 +130,7 @@ def dataframes_to_evaluations(
         evaluation_id = eval_dict["evaluation_id"]
         eval_dict["metrics"] = metrics_by_eval.get(evaluation_id, [])
         eval_dict["assessments"] = assessments_by_eval.get(evaluation_id, [])
+        eval_dict["tags"] = tags_by_eval.get(evaluation_id, [])
         evaluations.append(Evaluation.from_dictionary(eval_dict))
 
     return evaluations
@@ -310,7 +328,7 @@ def _get_tags_dataframe_schema() -> Dict[str, Any]:
     }
 
 
-def _get_empty_tags_dataframe() -> pd.DataFrame:
+def get_empty_tags_dataframe() -> pd.DataFrame:
     """
     Creates an empty DataFrame with columns for evaluation tags data.
     """

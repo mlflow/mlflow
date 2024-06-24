@@ -2550,10 +2550,6 @@ class MlflowClient:
                 )
                 existing_predictions = self._read_from_file(downloaded_artifact_path)
             data = pd.concat([existing_predictions, data], ignore_index=True)
-            _logger.info(
-                "Appending new table to already existing artifact "
-                f"{artifact_file} for run {run_id}."
-            )
 
         with self._log_artifact_helper(run_id, artifact_file) as artifact_path:
             try:
