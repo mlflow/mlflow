@@ -75,7 +75,7 @@ def evaluations_to_dataframes(
         else _get_empty_assessments_dataframe()
     )
     tags_df = (
-        _apply_schema_to_dataframe(pd.DataFrame(tags_data), _get_metrics_dataframe_schema())
+        _apply_schema_to_dataframe(pd.DataFrame(tags_data), _get_tags_dataframe_schema())
         if tags_data
         else get_empty_tags_dataframe()
     )

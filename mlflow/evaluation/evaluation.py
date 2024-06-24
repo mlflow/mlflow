@@ -49,6 +49,8 @@ class Evaluation(_MlflowObject):
             metrics = [
                 Metric(key=key, value=value, timestamp=0, step=0) for key, value in metrics.items()
             ]
+        if isinstance(tags, dict):
+            tags = [EvaluationTag(key=key, value=value) for key, value in tags.items()]
 
         self._inputs_id = inputs_id or _generate_inputs_id(inputs)
         self._inputs = inputs
@@ -123,7 +125,6 @@ class Evaluation(_MlflowObject):
         Returns:
             EvaluationEntity: An EvaluationEntity object.
         """
-        tags = [EvaluationTag(key=key, value=value) for key, value in (self._tags or {}).items()]
         return EvaluationEntity(
             evaluation_id=evaluation_id,
             run_id=run_id,
@@ -138,7 +139,7 @@ class Evaluation(_MlflowObject):
             if self.assessments
             else None,
             metrics=self.metrics,
-            tags=tags,
+            tags=self.tags,
         )
 
     def to_dictionary(self) -> Dict[str, Any]:
@@ -167,7 +168,7 @@ class Evaluation(_MlflowObject):
         if self.metrics:
             evaluation_dict["metrics"] = [metric.to_dictionary() for metric in self.metrics]
         if self.tags:
-            evaluation_dict["tags"] = self.tags
+            evaluation_dict["tags"] = [tag.to_dictionary() for tag in self.tags]
         return evaluation_dict
 
 

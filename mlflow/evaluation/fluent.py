@@ -6,7 +6,7 @@ import pandas as pd
 
 from mlflow.entities import Assessment as AssessmentEntity
 from mlflow.entities import Evaluation as EvaluationEntity
-from mlflow.entities import Metric
+from mlflow.entities import EvaluationTag, Metric
 from mlflow.evaluation.evaluation import Assessment, Evaluation
 from mlflow.evaluation.utils import (
     append_to_assessments_dataframe,
@@ -37,11 +37,12 @@ def log_evaluation(
     inputs_id: Optional[str] = None,
     request_id: Optional[str] = None,
     targets: Optional[Dict[str, Any]] = None,
-    assessments: Optional[Union[List[Assessment], List[Dict[str, Any]]]] = None,
-    metrics: Optional[Union[List[Metric], Dict[str, float]]] = None,
-    run_id: Optional[str] = None,
     error_code: Optional[str] = None,
     error_message: Optional[str] = None,
+    assessments: Optional[Union[List[Assessment], List[Dict[str, Any]]]] = None,
+    metrics: Optional[Union[List[Metric], Dict[str, float]]] = None,
+    tags: Optional[Dict[str, Any]] = None,
+    run_id: Optional[str] = None,
 ) -> EvaluationEntity:
     """
     Logs an evaluation to an MLflow Run.
@@ -57,17 +58,19 @@ def log_evaluation(
       targets (Optional[Dict[str, Any]]): Targets (ground truths) corresponding to one or more of
           the evaluation `outputs`. Helps root cause issues when reviewing the evaluation and adding
           assessments.
+      error_code (Optional[str]): An error code representing any issues encountered during
+          the evaluation.
+      error_message (Optional[str]): A descriptive error message representing any issues encountered
+          during the evaluation.
       assessments (Optional[Union[List[Assessment], List[Dict[str, Any]]]]): Assessment of the
           evaluation, e.g., relevance of documents retrieved by a RAG model to a user input query,
           as assessed by an LLM Judge.
       metrics (Optional[Union[List[Metric], Dict[str, float]]]): Numerical metrics for the
           evaluation, e.g., "number of input tokens", "number of output tokens".
+      tags (Optional[Dict[str, Any]]): Tags to log with the evaluation, e.g.
+          {"topic": "vacation policy"}
       run_id (Optional[str]): ID of the MLflow Run to log the evaluation. If unspecified, the
           current active run is used, or a new run is started.
-      error_code (Optional[str]): An error code representing any issues encountered during
-          the evaluation.
-      error_message (Optional[str]): A descriptive error message representing any issues encountered
-          during the evaluation.
 
     Returns:
        EvaluationEntity: The logged Evaluation object.
@@ -87,6 +90,9 @@ def log_evaluation(
             for k, v in metrics.items()
         ]
 
+    if tags and isinstance(tags, dict):
+        tags = [EvaluationTag(key=key, value=value) for key, value in tags.items()]
+
     evaluation = Evaluation(
         inputs=inputs,
         outputs=outputs,
@@ -95,6 +101,7 @@ def log_evaluation(
         targets=targets,
         assessments=assessments,
         metrics=metrics,
+        tags=tags,
         error_code=error_code,
         error_message=error_message,
     )

@@ -1,3 +1,5 @@
+from typing import Dict
+
 from mlflow.entities._mlflow_object import _MlflowObject
 
 
@@ -22,3 +24,33 @@ class EvaluationTag(_MlflowObject):
     def value(self):
         """String value of the tag."""
         return self._value
+
+    def to_dictionary(self) -> Dict[str, str]:
+        """
+        Convert the EvaluationTag object to a dictionary.
+
+        Returns:
+            dict: The EvaluationTag object represented as a dictionary.
+        """
+        return {
+            "key": self.key,
+            "value": self.value,
+        }
+
+    @classmethod
+    def from_dictionary(cls, evaluation_tag_dict: Dict[str, str]):
+        """
+        Create an EvaluationTag object from a dictionary.
+
+        Args:
+            evaluation_dict (dict): Dictionary containing evaluation tag information.
+
+        Returns:
+            Evaluation: The EvaluationTag object created from the dictionary.
+        """
+        key = evaluation_tag_dict["key"]
+        value = evaluation_tag_dict["value"]
+        return cls(
+            key=key,
+            value=value,
+        )

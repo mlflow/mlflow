@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 
 import mlflow
-from mlflow.entities import AssessmentSource, AssessmentSourceType, Metric
+from mlflow.entities import AssessmentSource, AssessmentSourceType, EvaluationTag, Metric
 from mlflow.evaluation import (
     Assessment,
     Evaluation,
@@ -224,7 +224,16 @@ def test_log_evaluation_with_same_inputs_has_same_inputs_id(inputs, outputs):
 
 
 @pytest.mark.parametrize(
-    ("inputs", "outputs", "targets", "assessments", "metrics", "error_code", "error_message"),
+    (
+        "inputs",
+        "outputs",
+        "targets",
+        "assessments",
+        "metrics",
+        "tags",
+        "error_code",
+        "error_message",
+    ),
     [
         (
             {"feature1": 1.0, "feature2": 2.0},
@@ -264,6 +273,7 @@ def test_log_evaluation_with_same_inputs_has_same_inputs_id(inputs, outputs):
                 Metric(key="metric1", value=1.4, timestamp=1717047609503, step=0),
                 Metric(key="metric2", value=1.2, timestamp=1717047609504, step=0),
             ],
+            {"tag1": "value1", "tag2": "value2"},
             "E001",
             "An error occurred during evaluation.",
         ),
@@ -283,13 +293,14 @@ def test_log_evaluation_with_same_inputs_has_same_inputs_id(inputs, outputs):
                 )
             ],
             {"metric1": 0.8, "metric2": 0.84},
+            {"tag3": "value3", "tag4": "value4"},
             "E002",
             "Another error occurred.",
         ),
     ],
 )
 def test_log_evaluation_with_all_params(
-    inputs, outputs, targets, assessments, metrics, error_code, error_message
+    inputs, outputs, targets, assessments, metrics, tags, error_code, error_message
 ):
     inputs_id = "unique-inputs-id"
     request_id = "unique-request-id"
@@ -305,6 +316,7 @@ def test_log_evaluation_with_all_params(
             targets=targets,
             assessments=assessments,
             metrics=metrics,
+            tags=tags,
             error_code=error_code,
             error_message=error_message,
             run_id=run_id,
@@ -325,6 +337,13 @@ def test_log_evaluation_with_all_params(
             else metrics
         )
         assert {metric.key: metric.value for metric in logged_evaluation.metrics} == metrics
+
+        tags = (
+            {tag.key: tag.value for tag in logged_evaluation.tags}
+            if isinstance(tags, list) and isinstance(tags[0], EvaluationTag)
+            else tags
+        )
+        assert {tag.key: tag.value for tag in logged_evaluation.tags} == tags
 
         # Process assessments
         processed_assessments = []
@@ -394,6 +413,7 @@ def test_log_evaluations_with_all_params():
                 Metric(key="metric1", value=1.4, timestamp=1717047609503, step=0),
                 Metric(key="metric2", value=1.2, timestamp=1717047609504, step=0),
             ],
+            {"tag1": "value1", "tag2": "value2"},
         ),
         (
             {"feature1": "text1", "feature2": "text2"},
@@ -411,6 +431,7 @@ def test_log_evaluations_with_all_params():
                 )
             ],
             {"metric1": 0.8, "metric2": 0.84},
+            {"tag3": "value3", "tag4": "value4"},
         ),
     ]
 
@@ -421,7 +442,7 @@ def test_log_evaluations_with_all_params():
         run_id = run.info.run_id
 
         evaluations = []
-        for inputs, outputs, targets, assessments, metrics in evaluations_data:
+        for inputs, outputs, targets, assessments, metrics, tags in evaluations_data:
             if isinstance(assessments[0], dict):
                 assessments = [Assessment.from_dictionary(assessment) for assessment in assessments]
 
@@ -439,13 +460,14 @@ def test_log_evaluations_with_all_params():
                 targets=targets,
                 assessments=assessments,
                 metrics=metrics,
+                tags=tags,
             )
             evaluations.append(evaluation)
 
         # Log the evaluations
         logged_evaluations = log_evaluations(evaluations=evaluations, run_id=run_id)
 
-        for logged_evaluation, (inputs, outputs, targets, assessments, metrics) in zip(
+        for logged_evaluation, (inputs, outputs, targets, assessments, metrics, tags) in zip(
             logged_evaluations, evaluations_data
         ):
             # Assert the fields of the logged evaluation
@@ -463,6 +485,13 @@ def test_log_evaluations_with_all_params():
             assert {
                 metric.key: metric.value for metric in logged_evaluation.metrics
             } == logged_metrics
+
+            logged_tags = (
+                {tag.key: tag.value for tag in logged_evaluation.tags}
+                if isinstance(tags, list) and isinstance(tags[0], EvaluationTag)
+                else tags
+            )
+            assert {tag.key: tag.value for tag in logged_evaluation.tags} == logged_tags
 
             assessment_entities = [
                 Assessment.from_dictionary(assessment)._to_entity(
