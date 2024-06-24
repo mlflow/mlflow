@@ -50,7 +50,7 @@ class ArtifactRepository:
 
     def __init__(self, artifact_uri):
         self.artifact_uri = artifact_uri
-        self.thread_pool = None
+        self.file_thread_pool = None
         # An isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
         # caused by waiting for a chunk-upload/download task within a file-upload/download task.
         # See https://superfastpython.com/threadpoolexecutor-deadlock/#Deadlock_1_Submit_and_Wait_for_a_Task_Within_a_Task
@@ -81,16 +81,16 @@ class ArtifactRepository:
         A context manager that sets the thread pools for the artifact repository. Parallelized
         file upload/download operations must be performed within the context manager.
         """
-        if self.thread_pool is None or self.chunk_thread_pool is None:
-            with self._create_thread_pool() as tp, self._create_thread_pool() as ctp:
-                self.thread_pool = tp
+        if self.file_thread_pool is None or self.chunk_thread_pool is None:
+            with self._create_thread_pool() as ftp, self._create_thread_pool() as ctp:
+                self.file_thread_pool = ftp
                 self.chunk_thread_pool = ctp
                 try:
                     yield
                 finally:
-                    # Detach dead thread pools and ensure new ones will be created in the next
-                    # context manager invocation
-                    self.thread_pool = None
+                    # Set the thread pools to None to ensure that they are not reused and new ones
+                    # will be created created in the next context manager invocation.
+                    self.file_thread_pool = None
                     self.chunk_thread_pool = None
         else:
             yield
@@ -245,7 +245,7 @@ class ArtifactRepository:
             dst_local_file_path = self._create_download_destination(
                 src_artifact_path=src_artifact_path, dst_local_dir_path=dst_local_dir_path
             )
-            return self.thread_pool.submit(
+            return self.file_thread_pool.submit(
                 self._download_file,
                 remote_file_path=src_artifact_path,
                 local_path=dst_local_file_path,

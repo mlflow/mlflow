@@ -158,7 +158,7 @@ class CloudArtifactRepository(ArtifactRepository):
                 for staged_upload, write_credential_info in zip(
                     staged_upload_chunk, write_credential_infos
                 ):
-                    upload_future = self.thread_pool.submit(
+                    upload_future = self.file_thread_pool.submit(
                         self._upload_to_cloud,
                         cloud_credential_info=write_credential_info,
                         src_file_path=staged_upload.src_file_path,
