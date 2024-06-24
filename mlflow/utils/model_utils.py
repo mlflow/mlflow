@@ -297,9 +297,11 @@ def _iter_modules(module_name: str) -> Iterator[str]:
     >>> list(_iter_modules("a.b.c"))
     ['a.b.c', 'a.b', 'a']
     """
-    yield module_name
-    while (ind := module_name.rfind(".")) != -1:
-        yield module_name[:ind]
+    while True:
+        yield module_name
+        ind = module_name.rfind(".")
+        if ind == -1:
+            break
         module_name = module_name[:ind]
 
 
