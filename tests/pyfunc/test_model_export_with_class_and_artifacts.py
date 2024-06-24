@@ -1979,7 +1979,7 @@ def test_model_as_code_pycache_cleaned_up():
     assert list(Path(path).rglob("__pycache__")) == []
 
 
-def test_load_model_custom_code(tmp_path, monkeypatch):
+def test_load_model_custom_code_same_module_name(tmp_path, monkeypatch):
     sys.path.insert(0, str(tmp_path))
     my_model_path = tmp_path / "my_model.py"
     monkeypatch.syspath_prepend(str(tmp_path))
