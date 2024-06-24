@@ -316,8 +316,8 @@ def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_
     """
     assert isinstance(conf, dict), "`conf` argument must be a dict."
 
-    if value := conf.get(code_key):
-        code_path = os.path.join(local_path, value)
+    if code_value := conf.get(code_key):
+        code_path = os.path.join(local_path, code_value)
         _add_code_to_system_path(code_path)
         start_modules = set(sys.modules)
         try:
