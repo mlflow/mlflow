@@ -132,7 +132,7 @@ access the Dataset's source via the following API:
    # Loading the dataset's source
    dataset_source = mlflow.data.get_source(logged_dataset)
 
-   local_dataset = retrieved_data.load()
+   local_dataset = dataset_source.load()
 
    print(f"The local file where the data has been downloaded to: {local_dataset}")
 
