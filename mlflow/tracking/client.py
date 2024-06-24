@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import posixpath
+import pandas as pd
 import re
 import sys
 import tempfile
@@ -20,9 +21,11 @@ import yaml
 
 import mlflow
 from mlflow.entities import (
+    Dataset,
     DatasetInput,
     Experiment,
     FileInfo,
+    InputTag,
     Metric,
     Param,
     Run,
@@ -80,6 +83,7 @@ from mlflow.utils.databricks_utils import (
 )
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATASET_CONTEXT,
     MLFLOW_LOGGED_ARTIFACTS,
     MLFLOW_LOGGED_IMAGES,
     MLFLOW_PARENT_RUN_ID,
@@ -96,7 +100,6 @@ from mlflow.utils.validation import (
 if TYPE_CHECKING:
     import matplotlib
     import numpy
-    import pandas
     import PIL
     import plotly
 
@@ -1850,19 +1853,36 @@ class MlflowClient:
     def log_inputs(
         self,
         run_id: str,
-        datasets: Optional[Sequence[DatasetInput]] = None,
+        datasets: Union[Optional[Sequence[DatasetInput]], Optional[List[pd.DataFrame]]] = None,
     ) -> None:
         """
         Log one or more dataset inputs to a run.
 
         Args:
             run_id: String ID of the run.
-            datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log.
+            datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log or List of pd.Dataframe.
 
         Raises:
             mlflow.MlflowException: If any errors occur.
         """
-        self._tracking_client.log_inputs(run_id, datasets)
+        if isinstance(datasets, list) and all(isinstance(d, pd.DataFrame) for d in datasets):
+            datasets_asDatasetInput=[]
+            for df in datasets:
+                if not hasattr(df,"name"):
+                    df.name="Default"
+                dataset=mlflow.data.from_pandas(df,name=df.name)
+
+                datasets_asDatasetInput.append(DatasetInput(dataset=dataset._to_mlflow_entity(),tags=[InputTag(key=MLFLOW_DATASET_CONTEXT,value=df.name)]))
+
+            self._tracking_client.log_inputs(run_id,datasets_asDatasetInput)
+
+        elif isinstance(datasets, list) and all(isinstance(d, DatasetInput) for d in datasets):
+            self._tracking_client.log_inputs(run_id, datasets)
+
+        else:
+            raise MlflowException(
+                f"Invalid type for datasets. Expected a list of DatasetInput or a list of pandas DataFrame."
+            )
 
     def log_artifact(self, run_id, local_path, artifact_path=None) -> None:
         """Write a local file or directory to the remote ``artifact_uri``.
