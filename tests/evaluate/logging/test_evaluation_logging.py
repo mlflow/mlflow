@@ -1327,6 +1327,36 @@ def test_set_evaluation_tags_updates_values():
             )
 
 
+def test_set_evaluation_tags_with_empty_tags_succeeds():
+    inputs = {"feature1": 1.0, "feature2": 2.0}
+    outputs = {"prediction": 0.5}
+
+    with mlflow.start_run():
+        logged_evaluation = log_evaluation(inputs=inputs, outputs=outputs)
+        set_evaluation_tags(evaluation_id=logged_evaluation.evaluation_id, tags={})
+
+
+def test_set_evaluation_tags_with_nonexistent_evaluation_fails():
+    with mlflow.start_run():
+        with pytest.raises(
+            MlflowException, match="The specified run does not contain any evaluations"
+        ):
+            set_evaluation_tags(
+                evaluation_id="nonexistent",
+                tags={"tag1": "value1", "tag2": "value2"},
+            )
+
+        log_evaluation(inputs={"feature1": 1.0, "feature2": 2.0}, outputs={"prediction": 0.5})
+        with pytest.raises(
+            MlflowException,
+            match="The specified evaluation ID 'nonexistent' does not exist in the run",
+        ):
+            set_evaluation_tags(
+                evaluation_id="nonexistent",
+                tags={"tag1": "value1", "tag2": "value2"},
+            )
+
+
 def test_search_evaluations():
     inputs_1 = {"feature1": 1.0, "feature2": 2.0}
     outputs_1 = {"prediction": 0.5}
