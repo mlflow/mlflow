@@ -130,7 +130,7 @@ def get_default_conda_env():
 def _infer_signature_from_input_example_for_lc_model(
     input_example, wrapped_model, example_no_conversion=True
 ):
-    from mlflow.langchain.api_request_parallel_processor import _ChatResponse
+    from mlflow.langchain.utils.chat import _ChatResponse
 
     signature, prediction = _infer_signature_from_input_example(
         input_example, wrapped_model, return_prediction=True, no_conversion=example_no_conversion

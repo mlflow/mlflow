@@ -58,13 +58,14 @@ import mlflow.models.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
-from mlflow.langchain.api_request_parallel_processor import APIRequest
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.langchain.utils import (
     _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
+    _LC_MIN_VERSION_SUPPORT_RUNNABLE,
     IS_PICKLE_SERIALIZATION_RESTRICTED,
     lc_runnables_types,
 )
+from mlflow.langchain.utils.chat import try_transform_response_to_chat_format
 from mlflow.models import Model
 from mlflow.models.dependencies_schemas import DependenciesSchemasType
 from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex, Resource
@@ -941,7 +942,7 @@ def test_agent_with_unpicklable_tools(tmp_path):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"),
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
     reason="feature not existing",
 )
 def test_save_load_runnable_passthrough():
@@ -970,7 +971,7 @@ def test_save_load_runnable_passthrough():
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"),
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
     reason="feature not existing",
 )
 def test_save_load_runnable_lambda(spark):
@@ -1015,7 +1016,7 @@ def test_save_load_runnable_lambda(spark):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"),
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
     reason="feature not existing",
 )
 def test_save_load_runnable_lambda_in_sequence():
@@ -1053,7 +1054,7 @@ def test_save_load_runnable_lambda_in_sequence():
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 def test_predict_with_callbacks(fake_chat_model):
     from langchain.callbacks.base import BaseCallbackHandler
@@ -1116,7 +1117,7 @@ def test_predict_with_callbacks(fake_chat_model):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 def test_predict_with_callbacks_supports_chat_response_conversion(fake_chat_model):
     from langchain.prompts import ChatPromptTemplate
@@ -1170,7 +1171,7 @@ def test_predict_with_callbacks_supports_chat_response_conversion(fake_chat_mode
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"),
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
     reason="feature not existing",
 )
 def test_save_load_runnable_parallel():
@@ -1210,7 +1211,7 @@ def test_save_load_runnable_parallel():
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 def test_simple_chat_model_inference():
     from langchain.chat_models.base import SimpleChatModel
@@ -1257,7 +1258,7 @@ def test_simple_chat_model_inference():
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"),
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
     reason="feature not existing",
 )
 def tests_save_load_complex_runnable_parallel():
@@ -1289,7 +1290,7 @@ def tests_save_load_complex_runnable_parallel():
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"),
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
     reason="feature not existing",
 )
 def test_save_load_runnable_parallel_and_assign_in_sequence():
@@ -1330,7 +1331,7 @@ def test_save_load_runnable_parallel_and_assign_in_sequence():
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"),
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
     reason="feature not existing",
 )
 def test_save_load_complex_runnable_assign(fake_chat_model):
@@ -1376,7 +1377,7 @@ def test_save_load_complex_runnable_assign(fake_chat_model):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 def test_save_load_runnable_sequence():
     from langchain.schema.output_parser import StrOutputParser
@@ -1397,7 +1398,7 @@ def test_save_load_runnable_sequence():
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 def test_save_load_long_runnable_sequence(model_path):
     from langchain.schema.output_parser import StrOutputParser
@@ -1422,7 +1423,7 @@ def test_save_load_long_runnable_sequence(model_path):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"),
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
     reason="feature not existing",
 )
 def test_save_load_complex_runnable_sequence():
@@ -1480,7 +1481,7 @@ def test_save_load_runnable_sequence_with_chat_openai():
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 def test_save_load_simple_chat_model(spark, fake_chat_model):
     from langchain.prompts import ChatPromptTemplate
@@ -1523,7 +1524,7 @@ def test_save_load_simple_chat_model(spark, fake_chat_model):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 def test_save_load_rag(tmp_path, spark, fake_chat_model):
     from langchain.prompts import ChatPromptTemplate
@@ -1601,7 +1602,7 @@ def test_save_load_rag(tmp_path, spark, fake_chat_model):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 def test_runnable_branch_save_load():
     from langchain.schema.runnable import RunnableBranch
@@ -1641,7 +1642,7 @@ def test_runnable_branch_save_load():
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 def test_complex_runnable_branch_save_load(fake_chat_model, fake_classifier_chat_model):
     from langchain.prompts import ChatPromptTemplate
@@ -1719,7 +1720,7 @@ def test_complex_runnable_branch_save_load(fake_chat_model, fake_classifier_chat
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 def test_chat_with_history(spark, fake_chat_model):
     from langchain.schema.output_parser import StrOutputParser
@@ -1802,7 +1803,7 @@ def _extract_endpoint_name_from_lc_model(lc_model, dependency_list: List[Resourc
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 @mock.patch(
     "mlflow.langchain.databricks_dependencies._extract_dependency_list_from_lc_model",
@@ -1857,7 +1858,7 @@ def _extract_databricks_dependencies_from_llm(llm, dependency_list: List[Resourc
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 @mock.patch(
     "mlflow.langchain.databricks_dependencies._extract_databricks_dependencies_from_llm",
@@ -1944,7 +1945,7 @@ def test_databricks_dependency_extraction_log_errors_as_warnings(mock_warning):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 def test_predict_with_builtin_pyfunc_chat_conversion(spark):
     from langchain.chat_models.base import SimpleChatModel
@@ -2068,7 +2069,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
     from langchain.chat_models.base import SimpleChatModel
@@ -2136,7 +2137,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 def test_pyfunc_builtin_chat_request_conversion_fails_gracefully():
     from langchain.schema.runnable import RunnablePassthrough
@@ -2230,7 +2231,7 @@ def test_pyfunc_builtin_chat_request_conversion_fails_gracefully():
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 def test_pyfunc_builtin_chat_response_conversion_fails_gracefully():
     from langchain.schema.runnable import RunnablePassthrough
@@ -2277,7 +2278,7 @@ def test_pyfunc_builtin_chat_response_conversion_fails_gracefully():
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 def test_save_load_chain_that_relies_on_pickle_serialization(monkeypatch, model_path):
     from langchain_community.llms.databricks import Databricks
@@ -2356,7 +2357,7 @@ def chain_model_signature():
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 @pytest.mark.parametrize(
     "chain_path",
@@ -2428,7 +2429,7 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
         extra_args=["--env-manager", "local"],
     )
     assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
-        "predictions": [APIRequest._try_transform_response_to_chat_format(answer)]
+        "predictions": [try_transform_response_to_chat_format(answer)]
     }
 
     pyfunc_model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
@@ -2470,7 +2471,7 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 @pytest.mark.parametrize(
     "chain_path",
@@ -2515,7 +2516,7 @@ def test_save_load_chain_as_code_model_config_dict(chain_model_signature, chain_
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 @pytest.mark.parametrize(
     "model_config",
@@ -2566,7 +2567,7 @@ def test_save_load_chain_as_code_with_different_names(
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 @pytest.mark.parametrize(
     "chain_path",
@@ -2630,7 +2631,7 @@ def test_save_load_chain_as_code_multiple_times(
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 @pytest.mark.parametrize("chain_path", [os.path.abspath("tests/langchain1/sample_code/chain.py")])
 def test_save_load_chain_errors(chain_model_signature, chain_path):
@@ -2659,7 +2660,7 @@ def test_save_load_chain_errors(chain_model_signature, chain_path):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 @pytest.mark.parametrize(
     "chain_path",
@@ -2709,7 +2710,7 @@ def test_save_load_chain_as_code_optional_code_path(chain_model_signature, chain
     # avoid minor diff of created time in the response
     prediction_result = PredictionsResponse.from_json(response.content.decode("utf-8"))
     prediction_result["predictions"][0]["created"] = 123
-    expected_prediction = APIRequest._try_transform_response_to_chat_format(answer)
+    expected_prediction = try_transform_response_to_chat_format(answer)
     expected_prediction["created"] = 123
     assert prediction_result == {"predictions": [expected_prediction]}
 
@@ -2776,7 +2777,7 @@ def fake_chat_stream_model():
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 @pytest.mark.parametrize("provide_signature", [True, False])
 def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_signature):
@@ -2863,7 +2864,7 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_sign
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 def test_simple_chat_model_stream_with_callbacks(fake_chat_stream_model):
     from langchain.callbacks.base import BaseCallbackHandler
@@ -2914,7 +2915,7 @@ def test_simple_chat_model_stream_with_callbacks(fake_chat_stream_model):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"),
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
     reason="feature not existing",
 )
 def test_langchain_model_save_exception(fake_chat_model):
@@ -2935,7 +2936,7 @@ def test_langchain_model_save_exception(fake_chat_model):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"),
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
     reason="feature not existing",
 )
 def test_langchain_model_save_load_with_listeners(fake_chat_model):
@@ -2983,6 +2984,10 @@ def test_langchain_model_save_load_with_listeners(fake_chat_model):
 
 
 @pytest.mark.parametrize("enable_mlflow_tracing", [True, False])
+@pytest.mark.skipif(
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
+    reason="feature not existing",
+)
 def test_langchain_model_inject_callback_in_model_serving(
     monkeypatch, model_path, enable_mlflow_tracing
 ):
@@ -3017,6 +3022,10 @@ def test_langchain_model_inject_callback_in_model_serving(
 
 
 @pytest.mark.parametrize("env_var", ["MLFLOW_ENABLE_TRACE_IN_SERVING", "ENABLE_MLFLOW_TRACING"])
+@pytest.mark.skipif(
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
+    reason="feature not existing",
+)
 def test_langchain_model_not_inject_callback_when_disabled(monkeypatch, model_path, env_var):
     # Emulate the model serving environment
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
@@ -3037,7 +3046,7 @@ def test_langchain_model_not_inject_callback_when_disabled(monkeypatch, model_pa
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 @pytest.mark.parametrize(
     "chain_path",
@@ -3091,7 +3100,7 @@ def test_save_model_as_code_correct_streamable(chain_model_signature, chain_path
     # avoid minor diff of created time in the response
     prediction_result = PredictionsResponse.from_json(response.content.decode("utf-8"))
     prediction_result["predictions"][0]["created"] = 123
-    expected_prediction = APIRequest._try_transform_response_to_chat_format(answer)
+    expected_prediction = try_transform_response_to_chat_format(answer)
     expected_prediction["created"] = 123
     assert prediction_result == {"predictions": [expected_prediction]}
 
@@ -3104,7 +3113,7 @@ def test_save_model_as_code_correct_streamable(chain_model_signature, chain_path
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 def test_save_load_langchain_binding(fake_chat_model):
     from langchain_core.output_parsers import StrOutputParser
@@ -3136,7 +3145,7 @@ def test_save_load_langchain_binding(fake_chat_model):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 def test_langchain_bindings_save_load_with_config_and_types(fake_chat_model):
     from langchain_core.output_parsers import StrOutputParser
@@ -3185,7 +3194,7 @@ def test_langchain_bindings_save_load_with_config_and_types(fake_chat_model):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 def test_langchain_2_12_model_loads():
     TEST_DIR = "tests"
@@ -3204,7 +3213,7 @@ def test_langchain_2_12_model_loads():
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 @pytest.mark.parametrize(
     "chain_path",
@@ -3258,7 +3267,7 @@ def test_load_chain_with_model_config_overrides_saved_config(
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 @pytest.mark.parametrize("streamable", [True, False, None])
 def test_langchain_model_streamable_param_in_log_model(streamable, fake_chat_model):
@@ -3294,7 +3303,7 @@ def model_type(request):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 @pytest.mark.parametrize("streamable", [True, False, None])
 @pytest.mark.parametrize("model_type", range(len(lc_runnables_types())), indirect=True)
