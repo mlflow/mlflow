@@ -220,17 +220,16 @@ def trace_disabled(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         is_func_called = False
+        result = None
         try:
             if _is_enabled():
                 disable()
                 try:
-                    is_func_called = True
-                    return f(*args, **kwargs)
+                    is_func_called, result = True, f(*args, **kwargs)
                 finally:
                     enable()
             else:
-                is_func_called = True
-                return f(*args, **kwargs)
+                is_func_called, result = True, f(*args, **kwargs)
         # We should only catch the exception from disable() and enable()
         # and let other exceptions propagate.
         except MlflowTracingException as e:
@@ -244,7 +243,9 @@ def trace_disabled(f):
             # If the exception is raised before the original function
             # is called, we should call the original function
             if not is_func_called:
-                return f(*args, **kwargs)
+                result = f(*args, **kwargs)
+
+        return result
 
     return wrapper
 
