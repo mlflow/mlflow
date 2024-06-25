@@ -542,6 +542,32 @@ def test_start_span_context_manager_with_imperative_apis():
     }
 
 
+@mock.patch("mlflow.tracing.export.mlflow.get_display_handler")
+def test_get_trace(mock_get_display_handler):
+    model = DefaultTestModel()
+    model.predict(2, 5)
+
+    trace = mlflow.get_last_active_trace()
+    request_id = trace.info.request_id
+    mock_get_display_handler.reset_mock()
+
+    # Fetch trace from in-memory buffer
+    trace_in_memory = mlflow.get_trace(request_id)
+    assert trace.info.request_id == trace_in_memory.info.request_id
+    mock_get_display_handler.assert_not_called()
+
+    # Fetch trace from backend
+    TRACE_BUFFER.clear()
+    trace_from_backend = mlflow.get_trace(request_id)
+    assert trace.info.request_id == trace_from_backend.info.request_id
+    mock_get_display_handler.assert_not_called()
+
+    # If not found, return None with warning
+    with mock.patch("mlflow.tracing.fluent._logger") as mock_logger:
+        assert mlflow.get_trace("not_found") is None
+        mock_logger.warning.assert_called_once()
+
+
 def test_test_search_traces_empty(mock_client):
     mock_client.search_traces.return_value = PagedList([], token=None)
 

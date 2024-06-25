@@ -4,11 +4,19 @@ import re
 import shutil
 import subprocess
 from collections import Counter
+from enum import Enum
 from pathlib import Path
 
 import toml
 import yaml
 from packaging.version import Version
+
+
+class PackageType(Enum):
+    SKINNY = "skinny"
+    RELEASE = "release"
+    DEV = "dev"
+
 
 SEPARATOR = """
 # Package metadata: can't be updated manually, use dev/pyproject.py
@@ -33,11 +41,11 @@ def read_package_versions_yml():
         return yaml.safe_load(f)
 
 
-def build(skinny: bool) -> None:
+def build(package_type: PackageType) -> None:
     skinny_requirements = read_requirements(Path("requirements", "skinny-requirements.txt"))
     core_requirements = read_requirements(Path("requirements", "core-requirements.txt"))
     gateways_requirements = read_requirements(Path("requirements", "gateway-requirements.txt"))
-    version = re.search(
+    package_version = re.search(
         r'^VERSION = "([a-z0-9\.]+)"$', Path("mlflow", "version.py").read_text(), re.MULTILINE
     ).group(1)
     python_version = Path("requirements", "python-version.txt").read_text().strip()
@@ -54,11 +62,23 @@ def build(skinny: bool) -> None:
             ),
         )
     ]
-    dependencies = sorted(
-        skinny_requirements if skinny else skinny_requirements + core_requirements
+
+    if package_type is PackageType.SKINNY:
+        dependencies = sorted(skinny_requirements)
+    elif package_type is PackageType.RELEASE:
+        dependencies = [f"mlflow-skinny=={package_version}"] + sorted(core_requirements)
+    else:
+        dependencies = sorted(core_requirements + skinny_requirements)
+
+    if dep_duplicates := find_duplicates(dependencies):
+        raise RuntimeError(f"Duplicated dependencies are found: {dep_duplicates}")
+
+    package_name = "mlflow-skinny" if package_type is PackageType.SKINNY else "mlflow"
+    extra_package_data = (
+        []
+        if package_type is PackageType.SKINNY
+        else ["models/container/**/*", "server/js/build/**/*"]
     )
-    dep_duplicates = find_duplicates(dependencies)
-    assert not dep_duplicates, f"Duplicated dependencies are found: {dep_duplicates}"
 
     data = {
         "build-system": {
@@ -66,10 +86,10 @@ def build(skinny: bool) -> None:
             "build-backend": "setuptools.build_meta",
         },
         "project": {
-            "name": "mlflow" if not skinny else "mlflow-skinny",
-            "version": version,
+            "name": package_name,
+            "version": package_version,
             "maintainers": [
-                {"name": "Databricks", "email": "mlflow-oss-maintainers@googlegroups.com "}
+                {"name": "Databricks", "email": "mlflow-oss-maintainers@googlegroups.com"}
             ],
             "description": (
                 "MLflow is an open source platform for the complete machine learning lifecycle"
@@ -179,14 +199,14 @@ def build(skinny: bool) -> None:
                         "recipes/resources/**/*",
                         "recipes/cards/templates/**/*",
                     ]
-                    + ([] if skinny else ["models/container/**/*", "server/js/build/**/*"])
+                    + extra_package_data
                 },
             }
         },
     }
 
-    if skinny:
-        out_path = "pyproject.skinny.toml"
+    if package_type in [PackageType.SKINNY, PackageType.RELEASE]:
+        out_path = f"pyproject.{package_type.value}.toml"
         with Path(out_path).open("w") as f:
             f.write(toml.dumps(data))
     else:
@@ -198,7 +218,7 @@ def build(skinny: bool) -> None:
             f.write(original)
 
     if taplo := shutil.which("taplo"):
-        subprocess.run([taplo, "fmt", out_path], check=True)
+        subprocess.check_call([taplo, "fmt", out_path])
 
 
 def main() -> None:
@@ -209,8 +229,9 @@ def main() -> None:
             "https://taplo.tamasfe.dev/cli/introduction.html."
         )
         return
-    build(skinny=False)
-    build(skinny=True)
+
+    for package_type in PackageType:
+        build(package_type)
 
 
 if __name__ == "__main__":

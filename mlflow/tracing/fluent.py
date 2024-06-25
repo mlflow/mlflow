@@ -255,6 +255,10 @@ def get_trace(request_id: str) -> Optional[Trace]:
     """
     Get a trace by the given request ID if it exists.
 
+    This function retrieves the trace from the in-memory buffer first, and if it doesn't exist,
+    it fetches the trace from the tracking store. If the trace is not found in the tracking store,
+    it returns None.
+
     Args:
         request_id: The request ID of the trace.
 
@@ -275,7 +279,19 @@ def get_trace(request_id: str) -> Optional[Trace]:
     Returns:
         A :py:class:`mlflow.entities.Trace` objects with the given request ID.
     """
-    return TRACE_BUFFER.get(request_id, None)
+    # Try to get the trace from the in-memory buffer first
+    if trace := TRACE_BUFFER.get(request_id, None):
+        return trace
+
+    try:
+        return MlflowClient().get_trace(request_id, display=False)
+    except MlflowException as e:
+        _logger.warning(
+            f"Failed to get trace from the tracking store: {e}"
+            "For full traceback, set logging level to debug.",
+            exc_info=_logger.isEnabledFor(logging.DEBUG),
+        )
+        return None
 
 
 @experimental

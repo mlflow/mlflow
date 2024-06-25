@@ -39,6 +39,7 @@ from mlflow.transformers import (
     _is_model_distributed_in_memory,
     _should_add_pyfunc_to_model,
     _TransformersWrapper,
+    _try_import_conversational_pipeline,
     _validate_llm_inference_task_type,
     _write_card_data,
     _write_license_information,
@@ -55,9 +56,10 @@ from tests.helper_functions import (
     _get_deps_from_requirement_file,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    flaky,
     pyfunc_serve_and_score_model,
 )
-from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API, flaky
+from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API
 from tests.transformers.test_transformers_peft_model import SKIP_IF_PEFT_NOT_AVAILABLE
 
 # NB: Some pipelines under test in this suite come very close or outright exceed the
@@ -861,6 +863,10 @@ def test_huggingface_hub_not_installed(small_seq2seq_pipeline, model_path):
         assert license_data.rstrip().endswith("mobilebert")
 
 
+@pytest.mark.skipif(
+    _try_import_conversational_pipeline() is None,
+    reason="Conversation model is deprecated and removed.",
+)
 def test_save_pipeline_without_defined_components(small_conversational_model, model_path):
     # This pipeline type explicitly does not have a configuration for an image_processor
     with mlflow.start_run():
@@ -958,11 +964,20 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
                 reason="base64 feature not present",
             ),
         ),
+        pytest.param(
+            "base64_encodebytes",
+            marks=pytest.mark.skipif(
+                Version(transformers.__version__) < Version("4.41"),
+                reason="base64 encodebytes feature not present",
+            ),
+        ),
     ],
 )
 def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
     if inference_payload == "base64":
         inference_payload = base64.b64encode(image_file_path.read_bytes()).decode("utf-8")
+    elif inference_payload == "base64_encodebytes":
+        inference_payload = base64.encodebytes(image_file_path.read_bytes()).decode("utf-8")
     signature = infer_signature(
         inference_payload,
         mlflow.transformers.generate_signature_output(small_vision_model, inference_payload),
@@ -1172,7 +1187,9 @@ def test_invalid_input_to_text2text_pipeline(text2text_generation_pipeline, inva
     # a valid input string: "answer: green. context: grass is primarily green in color."
     # We generate this string from a dict or generate a list of these strings from a list of
     # dictionaries.
-    with pytest.raises(MlflowException, match="An invalid type has been supplied. Please supply"):
+    with pytest.raises(
+        MlflowException, match=r"An invalid type has been supplied: .+\. Please supply"
+    ):
         infer_signature(
             invalid_data,
             mlflow.transformers.generate_signature_output(
@@ -1610,6 +1627,10 @@ def test_ner_pipeline(pipeline_name, model_path, data, result, request):
     assert pd_inference == result
 
 
+@pytest.mark.skipif(
+    _try_import_conversational_pipeline() is None,
+    reason="Conversation model is deprecated and removed.",
+)
 def test_conversational_pipeline(conversational_pipeline, model_path):
     signature = infer_signature(
         "Hi there!",
@@ -1721,12 +1742,23 @@ def test_vision_is_base64_image(input_image, result):
                 reason="base64 feature not present",
             ),
         ),
+        pytest.param(
+            "base64_encodebytes",
+            marks=pytest.mark.skipif(
+                Version(transformers.__version__) < Version("4.41"),
+                reason="base64 encodebytes feature not present",
+            ),
+        ),
     ],
 )
 def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
     if inference_payload == "base64":
         inference_payload = [
             base64.b64encode(image_file_path.read_bytes()).decode("utf-8"),
+        ]
+    elif inference_payload == "base64_encodebytes":
+        inference_payload = [
+            base64.encodebytes(image_file_path.read_bytes()).decode("utf-8"),
         ]
     artifact_path = "image_classification_model"
 

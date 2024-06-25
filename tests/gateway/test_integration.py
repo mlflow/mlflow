@@ -343,6 +343,7 @@ def test_openai_chat(gateway):
                 "message": {
                     "role": "assistant",
                     "content": "\n\nThis is a test!",
+                    "tool_calls": None,
                 },
                 "finish_reason": "stop",
                 "index": 0,
@@ -534,6 +535,7 @@ def test_mosaicml_chat(gateway):
                 "message": {
                     "role": "assistant",
                     "content": "This is a test",
+                    "tool_calls": None,
                 },
                 "finish_reason": None,
                 "index": 0,
@@ -597,6 +599,7 @@ def test_palm_chat(gateway):
                 "message": {
                     "role": "1",
                     "content": "Hi there! How can I help you today?",
+                    "tool_calls": None,
                 },
                 "finish_reason": None,
                 "index": 0,
@@ -844,6 +847,7 @@ def test_mlflow_chat(gateway):
                 "message": {
                     "role": "assistant",
                     "content": "It is a test",
+                    "tool_calls": None,
                 },
                 "finish_reason": None,
                 "index": 0,
@@ -1152,6 +1156,7 @@ def test_togetherai_chat(gateway):
                         "I hope this helps! If you have any other questions or need further "
                         "clarification, just let me know."
                     ),
+                    "tool_calls": None,
                 },
                 "finish_reason": None,
             }

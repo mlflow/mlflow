@@ -185,7 +185,7 @@ def make_genai_metric_from_prompt(
     judge_prompt: Optional[str] = None,
     model: Optional[str] = _get_default_model(),
     parameters: Optional[Dict[str, Any]] = None,
-    aggregations: Optional[List[str]] = ["mean", "variance", "p90"],  # noqa: B006
+    aggregations: Optional[List[str]] = None,
     greater_is_better: bool = True,
     max_workers: int = 10,
     metric_metadata: Optional[Dict[str, Any]] = None,
@@ -245,6 +245,7 @@ def make_genai_metric_from_prompt(
         )
 
     """
+    aggregations = aggregations or ["mean", "variance", "p90"]
 
     def eval_fn(
         *args,
@@ -286,10 +287,10 @@ def make_genai_metric(
     examples: Optional[List[EvaluationExample]] = None,
     version: Optional[str] = _get_latest_metric_version(),
     model: Optional[str] = _get_default_model(),
-    grading_context_columns: Optional[Union[str, List[str]]] = [],  # noqa: B006
+    grading_context_columns: Optional[Union[str, List[str]]] = None,
     include_input: bool = True,
     parameters: Optional[Dict[str, Any]] = None,
-    aggregations: Optional[List[str]] = ["mean", "variance", "p90"],  # noqa: B006
+    aggregations: Optional[List[str]] = None,
     greater_is_better: bool = True,
     max_workers: int = 10,
     metric_metadata: Optional[Dict[str, Any]] = None,
@@ -394,6 +395,9 @@ def make_genai_metric(
             greater_is_better=True,
         )
     """
+    aggregations = aggregations or ["mean", "variance", "p90"]
+    grading_context_columns = grading_context_columns or []
+
     if not isinstance(grading_context_columns, list):
         grading_context_columns = [grading_context_columns]
 

@@ -254,20 +254,49 @@ MLflow also supports running multiple runs in parallel using `multiprocessing <h
 
 .. code-block:: python
 
-        import mlflow
-        import multiprocessing as mp
+    import mlflow
+    import multiprocessing as mp
 
 
-        def train_model(params):
-            with mlflow.start_run():
-                mlflow.log_param("p", params)
-                ...
+    def train_model(param):
+        with mlflow.start_run():
+            mlflow.log_param("p", param)
+            ...
 
 
-        if __name__ == "__main__":
-            params = [0.01, 0.02, ...]
-            pool = mp.Pool(processes=4)
+    if __name__ == "__main__":
+        mlflow.set_experiment("multi-process")
+        params = [0.01, 0.02, ...]
+        with mp.Pool(processes=4) as pool:
             pool.map(train_model, params)
+
+.. attention::
+
+  The above code will only work if the ``fork`` method is used for creating child processes. If you are using
+  the ``spawn`` method, the child processes will not automatically inherit the global state of the parent process, which includes
+  the active experiment and tracking URI, resulting in the child processes not being able to log to the same experiment. To
+  overcome this limitation, you can set the active experiment and tracking URI explicitly in each child process as shown below.
+  The ``fork`` is the default method on POSIX systems except MacOS, but otherwise ``spawn`` method will be used by default.
+
+  .. code-block:: python
+
+    import mlflow
+    import multiprocessing as mp
+
+
+    def train_model(params):
+        # Set the experiment and tracking URI in each child process
+        mlflow.set_tracking_uri("http://localhost:5000")
+        mlflow.set_experiment("multi-process")
+        with mlflow.start_run():
+            ...
+
+
+    if __name__ == "__main__":
+        params = [0.01, 0.02, ...]
+        pool = mp.get_context("spawn").Pool(processes=4)
+        pool.map(train_model, params)
+
 
 **Multi-threading** is a bit more complicated because MLflow uses a global state to keep track of the currently active run i.e. having multiple active
 runs in the same process may cause data corruption. However, you can avoid this issue and use multi threading by using :ref:`Child Runs <child_runs>`.
@@ -279,10 +308,10 @@ You can start child runs in each thread by passing ``nested=True`` to :py:func:`
         import threading
 
 
-        def train_model(params):
+        def train_model(param):
             # Create a child run by passing nested=True
             with mlflow.start_run(nested=True):
-                mlflow.log_param("p", params)
+                mlflow.log_param("p", param)
                 ...
 
 

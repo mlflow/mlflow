@@ -7,7 +7,9 @@ from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.util._once import Once
 
+from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
@@ -114,34 +116,7 @@ def _force_set_otel_tracer_provider(tracer_provider):
     trace.set_tracer_provider(tracer_provider)
 
 
-def _catch_exception(msg: str, default_return=None):
-    """
-    A decorator to make sure that any exception raised in the decorated function is caught
-    and logged as a warning.
-
-    Some tracing operations e.g. enabling/disabling tracing are not critical to the application
-    and should not cause the application to crash if they fail. To ensure the coverage of
-    exception handling, this decorator is used to wrap the functions that might raise exceptions.
-    """
-
-    def decorator(f):
-        @functools.wraps(f)
-        def wrapper(*args, **kwargs):
-            try:
-                return f(*args, **kwargs)
-            except Exception as e:
-                _logger.warning(
-                    f"{msg}: {e}\n For full traceback, set logging level to debug.",
-                    exc_info=_logger.isEnabledFor(logging.DEBUG),
-                )
-                return default_return
-
-        return wrapper
-
-    return decorator
-
-
-@_catch_exception(msg="Failed to disable tracing")
+@raise_as_trace_exception
 def disable():
     """
     Disable tracing.
@@ -182,7 +157,7 @@ def disable():
     _TRACER_PROVIDER_INITIALIZED.do_once(lambda: _setup_tracer_provider(disabled=True))
 
 
-@_catch_exception(msg="Failed to enable tracing")
+@raise_as_trace_exception
 def enable():
     """
     Enable tracing.
@@ -244,15 +219,33 @@ def trace_disabled(f):
 
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
-        was_trace_enabled = _is_enabled()
-        if was_trace_enabled:
-            disable()
-            try:
-                return f(*args, **kwargs)
-            finally:
-                enable()
-        else:
-            return f(*args, **kwargs)
+        is_func_called = False
+        result = None
+        try:
+            if _is_enabled():
+                disable()
+                try:
+                    is_func_called, result = True, f(*args, **kwargs)
+                finally:
+                    enable()
+            else:
+                is_func_called, result = True, f(*args, **kwargs)
+        # We should only catch the exception from disable() and enable()
+        # and let other exceptions propagate.
+        except MlflowTracingException as e:
+            _logger.warning(
+                f"An error occurred while disabling or re-enabling tracing: {e} "
+                "The original function will still be executed, but the tracing "
+                "state may not be as expected. For full traceback, set "
+                "logging level to debug.",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )
+            # If the exception is raised before the original function
+            # is called, we should call the original function
+            if not is_func_called:
+                result = f(*args, **kwargs)
+
+        return result
 
     return wrapper
 
@@ -271,7 +264,7 @@ def reset_tracer_setup():
     _setup_tracer_provider(disabled=True)
 
 
-@_catch_exception(msg="Failed to determine if tracing is enabled", default_return=False)
+@raise_as_trace_exception
 def _is_enabled() -> bool:
     """
     Check if tracing is enabled based on whether the global tracer

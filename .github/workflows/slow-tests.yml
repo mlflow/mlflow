@@ -60,6 +60,8 @@ jobs:
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+        with:
+          python-version: 3.9
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -67,7 +69,9 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
-          python -m pip install langchain_experimental
+          # transformers requires `tf-keras` when keras 3.0 is installed.
+          # See https://github.com/huggingface/transformers/issues/27377 for more details.
+          python -m pip install langchain_experimental tf-keras
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |

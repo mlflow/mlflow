@@ -10,6 +10,7 @@ import sys
 import tarfile
 import time
 import urllib.parse
+import uuid
 from subprocess import Popen
 from typing import Any, Dict, List, Optional
 
@@ -32,7 +33,6 @@ from mlflow.models.container import (
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import get_unique_resource_id
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import dump_input_data
 
@@ -1376,7 +1376,8 @@ def _truncate_name(name, max_length):
 
 
 def _get_unique_name(base_name, unique_suffix, unique_id_length=20):
-    unique_resource_string = f"{unique_suffix}{get_unique_resource_id(unique_id_length)}"
+    unique_id = uuid.uuid4().hex[:unique_id_length]
+    unique_resource_string = f"{unique_suffix}{unique_id}"
     max_length = 63 - len(unique_resource_string)
     return _truncate_name(base_name, max_length) + unique_resource_string
 

@@ -39,7 +39,7 @@ jobs:
         run: |
           pip install .[gateway] \
             pytest pytest-timeout pytest-asyncio \
-            httpx psutil sentence-transformers transformers torchvision openai
+            httpx psutil sentence-transformers transformers torchvision openai databricks-sdk
           # Ensure pydantic v2 is installed
           pip freeze | tail -n +1 | grep -q '^pydantic==2\.'
       - name: Run tests with pydantic v2

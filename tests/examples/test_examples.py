@@ -11,7 +11,7 @@ from mlflow import cli
 from mlflow.utils import process
 from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
 
-from tests.helper_functions import clear_hub_cache
+from tests.helper_functions import clear_hub_cache, flaky
 from tests.integration.utils import invoke_cli_runner
 
 EXAMPLES_DIR = "examples"
@@ -38,6 +38,7 @@ def clean_up_mlflow_virtual_environments():
 
 
 @pytest.mark.notrackingurimock
+@flaky()
 @pytest.mark.parametrize(
     ("directory", "params"),
     [

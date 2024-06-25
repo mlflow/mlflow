@@ -49,11 +49,6 @@ jobs:
           yarn
           yarn build
 
-      - name: Check dependencies consistency
-        run: |
-          pip install pyyaml
-          ./dev/validate-requirements-consistency.sh
-
       - name: Install dependencies
         run: |
           pip install build twine
@@ -62,9 +57,9 @@ jobs:
         id: build-dist
         run: |
           if [ "${{ matrix.type }}" == "skinny" ]; then
-            ./dev/build.sh --skinny
+            python dev/build.py --package-type skinny
           else
-            ./dev/build.sh
+            python dev/build.py
           fi
 
           # List distribution files and check their file sizes

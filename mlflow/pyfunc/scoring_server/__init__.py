@@ -375,7 +375,7 @@ def invocations(data, content_type, model, input_schema):
                 "the data type from `records` (List[Dict]) type to "
                 "`list` (Dict[str, List]) type if the data is a pandas "
                 "dataframe representation. This might cause schema changes. "
-                "Please use `inputs` to avoid this converesion.\n"
+                "Please use `inputs` to avoid this conversion.\n"
             )
         e.message = f"Failed to predict data '{data}'. \nError: {e.message}"
         raise e
