@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from opentelemetry import trace as trace_api
 from packaging.version import Version
 
-from mlflow.exceptions import BAD_REQUEST, MlflowException
+from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 
 _logger = logging.getLogger(__name__)
@@ -172,7 +172,7 @@ def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
         return None
 
     if not context.request_id and is_evaluate:
-        raise MlflowException(
+        raise MlflowTracingException(
             f"Missing request_id for context {context}. "
             "request_id can't be None when is_evaluate=True.",
             error_code=BAD_REQUEST,
