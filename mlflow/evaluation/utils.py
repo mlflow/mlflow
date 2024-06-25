@@ -1,3 +1,4 @@
+import json
 import time
 from collections import defaultdict
 from dataclasses import dataclass
@@ -184,9 +185,28 @@ def read_assessments_dataframe(path: str) -> pd.DataFrame:
         pd.DataFrame: The assessments DataFrame.
     """
     schema = _get_assessments_dataframe_schema()
-    return pd.read_json(path, orient="split", dtype=schema, convert_dates=False).replace(
-        pd.NA, None
-    )
+    with open(path) as json_file:
+        assessments_dict = json.load(json_file)
+
+    sanitized_data = []
+    for data_row in assessments_dict["data"]:
+        if len(data_row) == 9:
+            # Due to a bug in the evaluation UI, assessments appended from the UI are missing
+            # data entries for error_code and error_message. This works around the issue.
+            sanitized_data.append(data_row + [None, None])
+        elif len(data_row) == 11:
+            sanitized_data.append(data_row)
+        else:
+            # An assessments data row should contain exactly 11 columns, unless its missing
+            # error_code and error_message entries (previous case)
+            raise ValueError(f"Invalid assessments data row: {data_row}")
+
+    assessments_dict["data"] = sanitized_data
+    sanitized_assessments_json = json.dumps(assessments_dict)
+
+    return pd.read_json(
+        sanitized_assessments_json, orient="split", dtype=schema, convert_dates=False
+    ).replace(pd.NA, None)
 
 
 def append_to_assessments_dataframe(
