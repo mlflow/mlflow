@@ -135,6 +135,7 @@ def test_evaluation_equality():
     inputs_id_1 = "id1"
     error_code_1 = "E001"
     error_message_1 = "An error occurred during evaluation."
+    tags_1 = {"tag1": "value1", "tag2": "value2"}
 
     inputs_2 = {"feature1": 1.0, "feature2": 2.0}
     outputs_2 = {"prediction": 0.5}
@@ -144,9 +145,11 @@ def test_evaluation_equality():
     inputs_id_2 = "id1"
     error_code_2 = "E001"
     error_message_2 = "An error occurred during evaluation."
+    tags_2 = {"tag1": "value1", "tag2": "value2"}
 
     inputs_3 = {"feature1": 3.0, "feature2": 4.0}
     outputs_3 = {"prediction": 0.7}
+    tags_3 = {"tag3": "value3", "tag4": "value4"}
 
     inputs_4 = {"feature1": 1.0, "feature2": 2.0}
     outputs_4 = {"prediction": 0.5}
@@ -156,6 +159,7 @@ def test_evaluation_equality():
     inputs_id_4 = "id1"
     error_code_4 = "E002"
     error_message_4 = "A different error occurred during evaluation."
+    tags_4 = {"tag1": "new_value1", "tag2": "new_value2"}
 
     source_1 = AssessmentSource(source_type="HUMAN", source_id="user_1")
     assessment_1 = Assessment(
@@ -184,6 +188,7 @@ def test_evaluation_equality():
         assessments=[assessment_1],
         error_code=error_code_1,
         error_message=error_message_1,
+        tags=tags_1,
     )
     evaluation_2 = Evaluation(
         inputs=inputs_2,
@@ -195,8 +200,9 @@ def test_evaluation_equality():
         assessments=[assessment_2],
         error_code=error_code_2,
         error_message=error_message_2,
+        tags=tags_2,
     )
-    evaluation_3 = Evaluation(inputs=inputs_3, outputs=outputs_3)
+    evaluation_3 = Evaluation(inputs=inputs_3, outputs=outputs_3, tags=tags_3)
     evaluation_4 = Evaluation(
         inputs=inputs_4,
         outputs=outputs_4,
@@ -207,11 +213,14 @@ def test_evaluation_equality():
         assessments=[assessment_3],
         error_code=error_code_4,
         error_message=error_message_4,
+        tags=tags_4,
     )
 
     # Same inputs, outputs, targets, metrics, assessments, inputs_id, request_id,
-    # error_code, error_message
+    # error_code, error_message, tags
     assert evaluation_1 == evaluation_2
-    assert evaluation_1 != evaluation_3  # Different inputs and outputs
-    assert evaluation_1 != evaluation_4  # Different error_code and error_message
-    assert evaluation_2 != evaluation_4  # Different assessments, error_code, and error_message
+    assert evaluation_1 != evaluation_3  # Different inputs, outputs, and tags
+    assert evaluation_1 != evaluation_4  # Different error_code, error_message, and tags
+    assert (
+        evaluation_2 != evaluation_4
+    )  # Different assessments, error_code, error_message, and tags
