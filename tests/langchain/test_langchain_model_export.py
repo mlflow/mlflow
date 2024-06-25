@@ -343,6 +343,10 @@ def test_langchain_model_predict():
         assert result == [TEST_CONTENT]
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
+    reason="feature not existing",
+)
 def test_pyfunc_spark_udf_with_langchain_model(spark):
     model = create_openai_llmchain()
     with mlflow.start_run():
@@ -500,7 +504,10 @@ def test_langchain_native_log_and_load_qa_with_sources_chain():
     loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
     assert model == loaded_model
 
-
+@pytest.mark.skipif(
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
+    reason="feature not existing",
+)
 def test_log_and_load_retrieval_qa_chain(tmp_path):
     # Create the vector db, persist the db to a local fs folder
     loader = TextLoader("tests/langchain/state_of_the_union.txt")
@@ -561,7 +568,10 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
         PredictionsResponse.from_json(response.content.decode("utf-8")) == langchain_output_serving
     )
 
-
+@pytest.mark.skipif(
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
+    reason="feature not existing",
+)
 def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
     # Create the vector db, persist the db to a local fs folder
     loader = TextLoader("tests/langchain/state_of_the_union.txt")
@@ -658,7 +668,10 @@ def assert_equal_retrievers(retriever, expected_retreiver):
     assert retriever.search_type == expected_retreiver.search_type
     assert retriever.search_kwargs == expected_retreiver.search_kwargs
 
-
+@pytest.mark.skipif(
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
+    reason="feature not existing",
+)
 def test_log_and_load_retriever_chain(tmp_path):
     # Create the vector db, persist the db to a local fs folder
     loader = TextLoader("tests/langchain/state_of_the_union.txt")
