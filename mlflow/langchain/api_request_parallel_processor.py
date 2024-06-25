@@ -28,7 +28,6 @@ from typing import Any, Dict, List, Optional, Union
 import langchain.chains
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.schema import AgentAction
-from langchain.schema.runnable import Runnable
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -98,7 +97,7 @@ class APIRequest:
     """
 
     index: int
-    lc_model: Runnable
+    lc_model: langchain.chains.base.Chain
     request_json: dict
     results: list[tuple[int, str]]
     errors: dict
