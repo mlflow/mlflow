@@ -898,8 +898,7 @@ def autolog(
             new model version of the registered model with this name.
             The registered model is created if it does not already exist.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
-        log_traces: If ``True``, traces are logged for OpenAI models by using
-            MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
+        log_traces: If ``True``, traces are logged for OpenAI models. If ``False``, no traces are
             collected during inference. Default to ``True``.
     """
 
