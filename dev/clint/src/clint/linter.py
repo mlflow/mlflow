@@ -79,6 +79,11 @@ MLFLOW_CLASS_NAME = Rule(
     "mlflow-class-name",
     "Should use `Mlflow` in class name, not `MLflow` or `MLFlow`.",
 )
+OPTIONAL_IF_NONE = Rule(
+    "Z0004",
+    "optional-if-none",
+    "Use `Optional` type hint if default value is `None`.",
+)
 
 
 class Linter(ast.NodeVisitor):
@@ -117,6 +122,22 @@ class Linter(ast.NodeVisitor):
         if "MLflow" in node.name or "MLFlow" in node.name:
             self._check(node, MLFLOW_CLASS_NAME)
 
+    def _optional_if_none(self, node: ast.AnnAssign) -> None:
+        if (
+            # Is the default value None?
+            node.value is not None
+            and isinstance(node.value, ast.Constant)
+            and node.value.value is None
+            # Is the type hint not Optional?
+            and node.annotation
+            and not (
+                isinstance(node.annotation, ast.Subscript)
+                and isinstance(node.annotation.value, ast.Name)
+                and node.annotation.value.id == "Optional"
+            )
+        ):
+            self._check(node.annotation, OPTIONAL_IF_NONE)
+
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
         self._no_rst(node)
@@ -146,6 +167,10 @@ class Linter(ast.NodeVisitor):
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         if self._is_in_function() and node.module.split(".", 1)[0] in BUILTIN_MODULES:
             self._check(node, LAZY_BUILTIN_IMPORT)
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        self._optional_if_none(node)
         self.generic_visit(node)
 
 

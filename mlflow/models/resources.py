@@ -2,7 +2,7 @@ import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import yaml
 
@@ -65,7 +65,7 @@ class DatabricksServingEndpoint(DatabricksResource):
     """
 
     type: ResourceType = ResourceType.SERVING_ENDPOINT
-    endpoint_name: str = None
+    endpoint_name: Optional[str] = None
 
     def to_dict(self):
         return {self.type.value: [{"name": self.endpoint_name}]} if self.endpoint_name else {}
@@ -86,7 +86,7 @@ class DatabricksVectorSearchIndex(DatabricksResource):
     """
 
     type: ResourceType = ResourceType.VECTOR_SEARCH_INDEX
-    index_name: str = None
+    index_name: Optional[str] = None
 
     def to_dict(self):
         return {self.type.value: [{"name": self.index_name}]} if self.index_name else {}
