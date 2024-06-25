@@ -24,26 +24,39 @@ defaults:
   run:
     shell: bash --noprofile --norc -exo pipefail {0}
 
-env:
-  DOCKER_BUILDKIT: 1
-  BUILDKIT_PROGRESS: plain
-
 jobs:
   devcontainer:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     if: github.repository == 'mlflow/mlflow'
     permissions:
       packages: write # to push to ghcr.io
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v4
       - name: Get image name
+        id: image
         run: |
           IMAGE_NAME=$(yq '.services.mlflow.image' .devcontainer/docker-compose.yml)
           echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+          echo "name=$IMAGE_NAME" >> $GITHUB_OUTPUT
+      - name: Set up QEMU
+        if: matrix.arch != 'amd64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: ${{ matrix.arch }}
       - name: Build image
         run: |
-          docker build -f .devcontainer/Dockerfile.devcontainer -t $IMAGE_NAME .
+          docker buildx build \
+          --cache-from type=registry,ref=$IMAGE_NAME \
+          --cache-to type=inline \
+          --platform linux/${{ matrix.arch }} \
+          --progress plain \
+          -f .devcontainer/Dockerfile.devcontainer \
+          -t $IMAGE_NAME \
+          .
       - name: Show layer sizes
         run: |
           docker history $IMAGE_NAME
@@ -52,14 +65,57 @@ jobs:
           docker image inspect $IMAGE_NAME
       - name: Test Image
         run: |
-          docker run --rm -v $(pwd):/workspaces/mlflow $IMAGE_NAME bash -c "pip install --no-deps -e . && pytest tests/test_version.py"
-      - uses: docker/login-action@v2
+          docker run \
+          --rm \
+          -v $(pwd):/workspaces/mlflow \
+          --platform linux/${{ matrix.arch }} \
+          $IMAGE_NAME \
+          bash -c "pip install --no-deps -e . && pytest tests/test_version.py"
+      - uses: docker/login-action@v3
         if: github.event_name == 'push'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Push image
+      - name: Push image by digest
         if: github.event_name == 'push'
         run: |
-          docker push $IMAGE_NAME
+          skopeo="docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v $HOME/.docker/config.json:/tmp/auth.json:ro \
+            -e REGISTRY_AUTH_FILE=/tmp/auth.json \
+            quay.io/skopeo/stable:latest"
+          digest=$($skopeo inspect docker-daemon:$IMAGE_NAME:latest --format "{{ .Digest }}")
+          $skopeo copy docker-daemon:$IMAGE_NAME:latest docker://$IMAGE_NAME@$digest
+          echo $digest > devcontainer-image-digest-${{ matrix.arch }}.txt
+      - name: Upload image digest artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: devcontainer-image-digest-${{ matrix.arch }}
+          path: devcontainer-image-digest-${{ matrix.arch }}.txt
+    outputs:
+      repo: ${{ steps.image.outputs.name }}
+
+  devcontainer-merge:
+    runs-on: ubuntu-latest
+    needs: devcontainer
+    if: github.event_name == 'push'
+    permissions:
+      packages: write # to push to ghcr.io
+    steps:
+      - name: Download image digest artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: devcontainer-image-digest-*
+          merge-multiple: true
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Merge images and push # necessary to parallelize arch builds
+        run: |
+          repo=${{ needs.devcontainer.outputs.repo }}
+          docker buildx imagetools create --tag $repo \
+            $(printf "$repo@%s " $(cat devcontainer-image-digest-*.txt))
