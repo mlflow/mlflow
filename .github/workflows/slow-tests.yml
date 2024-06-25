@@ -72,7 +72,7 @@ jobs:
           # We need to install `tf-keras` because the transformer flavor
           # tests depends on Keras < 3 but the `./dev/install-common-deps.sh`
           # installs Keras 3 in python 3.9 environment.
-          python -m pip install langchain_experimental "tf-keras<3"
+          python -m pip install langchain_experimental tf-keras
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
