@@ -66,6 +66,7 @@ _UNSUPPORTED_LLM_WARNING_MESSAGE = (
 # Before this version, our hacky patching to support loading ChatOpenAI and AzureChatOpenAI
 # will not work.
 _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI = Version("0.0.307")
+_LC_MIN_VERSION_SUPPORT_RUNNABLE = Version("0.0.311")
 _CHAT_MODELS_ERROR_MSG = re.compile("Loading (openai-chat|azure-openai-chat) LLM not supported")
 
 
