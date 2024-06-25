@@ -4,7 +4,9 @@ set -ex
 
 pip install pip-tools
 
-cd requirements
+cp -r requirements /tmp/requirements
+cd /tmp/requirements
+sed -i -e 's,-e ./,git+https://github.com/mlflow/mlflow.git#subdirectory=,' *.txt
 echo ipykernel >> /tmp/requirements.txt
 pip-compile --verbose \
    --output-file /tmp/output.txt \
