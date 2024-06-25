@@ -504,6 +504,7 @@ def test_langchain_native_log_and_load_qa_with_sources_chain():
     loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
     assert model == loaded_model
 
+
 @pytest.mark.skipif(
     Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
     reason="feature not existing",
@@ -567,6 +568,7 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
     assert (
         PredictionsResponse.from_json(response.content.decode("utf-8")) == langchain_output_serving
     )
+
 
 @pytest.mark.skipif(
     Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
@@ -667,6 +669,7 @@ def assert_equal_retrievers(retriever, expected_retreiver):
     assert retriever.metadata == expected_retreiver.metadata
     assert retriever.search_type == expected_retreiver.search_type
     assert retriever.search_kwargs == expected_retreiver.search_kwargs
+
 
 @pytest.mark.skipif(
     Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
