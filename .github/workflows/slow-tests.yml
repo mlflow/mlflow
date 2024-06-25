@@ -61,7 +61,7 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
         with:
-          python-version: 3.9
+          python-version: 3.8.19
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
