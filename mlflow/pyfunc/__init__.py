@@ -1142,7 +1142,7 @@ def _load_model_or_server(
             # the scoring server is still running but client can't connect to it.
             # kill the server.
             scoring_server_proc.kill()
-            server_output = scoring_server_proc.stdout.read()
+        server_output = scoring_server_proc.stdout.read()
         raise MlflowException(
             "MLflow model server failed to launch, server process stdout / stderr outputs are:\n" +
             server_output
