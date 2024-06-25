@@ -1,0 +1,5 @@
+{
+  "columns": ["evaluation_id", "key", "value"],
+  "index": [0],
+  "data": [["1202cbc411024e22861acd934e6c751a", "foo", "bar2"]]
+}

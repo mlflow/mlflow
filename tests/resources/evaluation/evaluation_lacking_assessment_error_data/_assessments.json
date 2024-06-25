@@ -1,0 +1,28 @@
+{
+  "columns": [
+    "evaluation_id",
+    "name",
+    "source",
+    "timestamp",
+    "boolean_value",
+    "numeric_value",
+    "string_value",
+    "rationale",
+    "metadata",
+    "error_code",
+    "error_message"
+  ],
+  "data": [
+    [
+      "1202cbc411024e22861acd934e6c751a",
+      "overall_assessment",
+      { "source_type": "HUMAN", "source_id": "corey.zumar@databricks.com", "source_metadata": {} },
+      1719294444852,
+      null,
+      null,
+      "yes",
+      null,
+      { "is_overall_assessment": true }
+    ]
+  ]
+}
