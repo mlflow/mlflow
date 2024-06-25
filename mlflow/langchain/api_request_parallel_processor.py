@@ -16,7 +16,6 @@ Features:
 """
 from __future__ import annotations
 
-import json
 import logging
 import queue
 import threading
@@ -24,24 +23,24 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal, Optional, Set, Union
+from typing import Any, Dict, List, Optional, Union
 
 import langchain.chains
-import pydantic
-from langchain.agents import AgentExecutor
 from langchain.callbacks.base import BaseCallbackHandler
-from langchain.schema import AgentAction, AIMessage, HumanMessage, SystemMessage
-from langchain.schema import ChatMessage as LangChainChatMessage
-from packaging.version import Version
+from langchain.schema import AgentAction
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.langchain.utils.chat import (
+    transform_request_json_for_chat_if_necessary,
+    try_transform_response_iter_to_chat_format,
+    try_transform_response_to_chat_format,
+)
 from mlflow.pyfunc.context import (
     Context,
     get_prediction_context,
     maybe_set_prediction_context,
 )
-from mlflow.types.schema import Array, ColSpec, DataType, Schema
 
 _logger = logging.getLogger(__name__)
 
@@ -77,119 +76,24 @@ class StatusTracker:
             self.num_api_errors += 1
 
 
-# NB: Even though _ChatMessage is only referenced in one method within this module
-# (as of 12/27/2023), it must be defined at the module level for compatibility with
-# pydantic < 2
-class _ChatMessage(pydantic.BaseModel, extra="forbid"):
-    role: str
-    content: str
-
-    def to_langchain_message(self) -> LangChainChatMessage:
-        if self.role == "system":
-            return SystemMessage(content=self.content)
-        elif self.role == "assistant":
-            return AIMessage(content=self.content)
-        elif self.role == "user":
-            return HumanMessage(content=self.content)
-        else:
-            raise MlflowException.invalid_parameter_value(
-                f"Unrecognized chat message role: {self.role}"
-            )
-
-    @staticmethod
-    def get_schema():
-        return Schema([ColSpec(DataType.string, "role"), ColSpec(DataType.string, "content")])
-
-
-class _ChatDeltaMessage(pydantic.BaseModel):
-    role: str
-    content: str
-
-
-# NB: Even though _ChatRequest is only referenced in one method within this module
-# (as of 12/27/2023), it must be defined at the module level for compatibility with
-# pydantic < 2
-class _ChatRequest(pydantic.BaseModel, extra="forbid"):
-    messages: List[_ChatMessage]
-
-
-class _ChatChoice(pydantic.BaseModel, extra="forbid"):
-    index: int
-    message: _ChatMessage = None
-    finish_reason: Optional[str] = None
-
-    @staticmethod
-    def get_schema():
-        return Schema(
-            [
-                ColSpec(DataType.integer, "index"),
-                ColSpec(_ChatMessage.get_schema(), "message", required=False),
-                ColSpec(DataType.string, "finish_reason", required=False),
-            ]
-        )
-
-
-class _ChatChoiceDelta(pydantic.BaseModel):
-    index: int
-    finish_reason: Optional[str] = None
-    delta: _ChatDeltaMessage
-
-
-class _ChatUsage(pydantic.BaseModel, extra="forbid"):
-    prompt_tokens: Optional[int] = None
-    completion_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
-
-    @staticmethod
-    def get_schema():
-        return Schema(
-            [
-                ColSpec(DataType.integer, "prompt_tokens", required=False),
-                ColSpec(DataType.integer, "completion_tokens", required=False),
-                ColSpec(DataType.integer, "total_tokens", required=False),
-            ]
-        )
-
-
-class _ChatResponse(pydantic.BaseModel, extra="forbid"):
-    id: Optional[str] = None
-    object: Literal["chat.completion"] = "chat.completion"
-    created: int
-    # Make the model field optional since we may not be able to get a stable model identifier
-    # for an arbitrary LangChain model
-    model: Optional[str] = None
-    choices: List[_ChatChoice]
-    usage: _ChatUsage
-
-    @staticmethod
-    def get_schema():
-        return Schema(
-            [
-                ColSpec(DataType.string, "id", required=False),
-                ColSpec(DataType.string, "object"),
-                ColSpec(DataType.integer, "created"),
-                ColSpec(DataType.string, "model", required=False),
-                ColSpec(Array(_ChatChoice.get_schema()), "choices"),
-                ColSpec(_ChatUsage.get_schema(), "usage"),
-            ]
-        )
-
-
-class _ChatChunkResponse(pydantic.BaseModel):
-    id: Optional[str] = None
-    object: Literal["chat.completion.chunk"] = "chat.completion.chunk"
-    created: int
-    # Make the model field optional since we may not be able to get a stable model identifier
-    # for an arbitrary LangChain model
-    model: Optional[str] = None
-    choices: List[_ChatChoiceDelta]
-
-
 @dataclass
 class APIRequest:
     """
     Stores an API request's inputs, outputs, and other metadata. Contains a method to make an API
     call.
+
+    Args:
+        index: The request's index in the tasks list
+        lc_model: The LangChain model to call
+        request_json: The request's input data
+        results: The list to append the request's output data to, it's a list of tuples
+            (index, response)
+        errors: A dictionary to store any errors that occur
+        convert_chat_responses: Whether to convert the model's responses to chat format
+        did_perform_chat_conversion: Whether the input data was converted to chat format
+            based on the model's type and input data.
+        stream: Whether the request is a stream request
+        prediction_context: The prediction context to use for the request
     """
 
     index: int
@@ -239,6 +143,25 @@ class APIRequest:
                 for doc in response["source_documents"]
             ]
 
+    def _predict_single_input(self, single_input, callback_handlers, **kwargs):
+        if self.stream:
+            return self.lc_model.stream(
+                single_input, config={"callbacks": callback_handlers}, **kwargs
+            )
+        if hasattr(self.lc_model, "invoke"):
+            return self.lc_model.invoke(
+                single_input, config={"callbacks": callback_handlers}, **kwargs
+            )
+        else:
+            # for backwards compatibility, __call__ is deprecated and will be removed in 0.3.0
+            return self.lc_model(single_input, callbacks=callback_handlers, **kwargs)
+
+    def _try_convert_response(self, response):
+        if self.stream:
+            return try_transform_response_iter_to_chat_format(response)
+        else:
+            return try_transform_response_to_chat_format(response)
+
     def single_call_api(self, callback_handlers: Optional[List[BaseCallbackHandler]]):
         from langchain.schema import BaseRetriever
 
@@ -253,21 +176,13 @@ class APIRequest:
                 {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
             ]
         elif isinstance(self.lc_model, lc_runnables_types()):
-
-            def _predict_single_input(single_input):
-                if self.stream:
-                    return self.lc_model.stream(
-                        single_input, config={"callbacks": callback_handlers}
-                    )
-                return self.lc_model.invoke(single_input, config={"callbacks": callback_handlers})
-
             if isinstance(self.request_json, dict):
                 # This is a temporary fix for the case when spark_udf converts
                 # input into pandas dataframe with column name, while the model
                 # does not accept dictionaries as input, it leads to errors like
                 # Expected Scalar value for String field 'query_text'
                 try:
-                    response = _predict_single_input(self.request_json)
+                    response = self._predict_single_input(self.request_json, callback_handlers)
                 except TypeError as e:
                     _logger.warning(
                         f"Failed to invoke {self.lc_model.__class__.__name__} "
@@ -278,34 +193,28 @@ class APIRequest:
                     (
                         prepared_request_json,
                         did_perform_chat_conversion,
-                    ) = APIRequest._transform_request_json_for_chat_if_necessary(
+                    ) = transform_request_json_for_chat_if_necessary(
                         self.request_json, self.lc_model
                     )
                     self.did_perform_chat_conversion = did_perform_chat_conversion
 
-                    response = _predict_single_input(prepared_request_json)
+                    response = self._predict_single_input(prepared_request_json, callback_handlers)
             else:
-                response = _predict_single_input(self.request_json)
+                response = self._predict_single_input(self.request_json, callback_handlers)
 
             if self.did_perform_chat_conversion or self.convert_chat_responses:
-                if self.stream:
-                    response = APIRequest._try_transform_response_iter_to_chat_format(response)
-                else:
-                    response = APIRequest._try_transform_response_to_chat_format(response)
+                response = self._try_convert_response(response)
         else:
-            if isinstance(self.lc_model, langchain.chains.base.Chain):
+            # return_only_outputs is invalid for stream call
+            if isinstance(self.lc_model, langchain.chains.base.Chain) and not self.stream:
                 kwargs = {"return_only_outputs": True}
             else:
                 kwargs = {}
-            response = self.lc_model(
-                self.request_json,
-                callbacks=callback_handlers,
-                **kwargs,
-            )
+            response = self._predict_single_input(self.request_json, callback_handlers, **kwargs)
 
             if self.did_perform_chat_conversion or self.convert_chat_responses:
-                response = APIRequest._try_transform_response_to_chat_format(response)
-            elif len(response) == 1:
+                response = self._try_convert_response(response)
+            elif isinstance(response, dict) and len(response) == 1:
                 # to maintain existing code, single output chains will still return
                 # only the result
                 response = response.popitem()[1]
@@ -335,180 +244,6 @@ class APIRequest:
             status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
 
-    @staticmethod
-    def _transform_request_json_for_chat_if_necessary(request_json, lc_model):
-        """
-        Convert the input request JSON to LangChain's Message format if the LangChain model
-        accepts ChatMessage objects (e.g. AIMessage, HumanMessage, SystemMessage) as input.
-        # TODO: this function should identify if the lc_model accepts ChatMessage objects,
-        # and only converts if it does. ChatModels inputs should be converted.
-
-        Returns:
-            A 2-element tuple containing:
-
-                1. The new request.
-                2. A boolean indicating whether or not the request was transformed from the OpenAI
-                chat format.
-        """
-        # Avoid converting the request to LangChain's Message format if the chain
-        # is an AgentExecutor, as LangChainChatMessage might not be accepted by the chain
-        if isinstance(lc_model, AgentExecutor):
-            return request_json, False
-
-        input_fields = APIRequest._get_lc_model_input_fields(lc_model)
-        if "messages" in input_fields:
-            # If the chain accepts a "messages" field directly, don't attempt to convert
-            # the request to LangChain's Message format automatically. Assume that the chain
-            # is handling the "messages" field by itself
-            return request_json, False
-
-        def json_dict_might_be_chat_request(json_message: Dict):
-            return (
-                isinstance(json_message, dict)
-                and "messages" in json_message
-                and
-                # Additional keys can't be specified when calling LangChain invoke() / batch()
-                # with chat messages
-                len(json_message) == 1
-            )
-
-        if isinstance(request_json, dict) and json_dict_might_be_chat_request(request_json):
-            try:
-                return APIRequest._convert_chat_request_or_throw(request_json), True
-            except pydantic.ValidationError:
-                return request_json, False
-        elif isinstance(request_json, list) and all(
-            json_dict_might_be_chat_request(json) for json in request_json
-        ):
-            try:
-                return (
-                    [
-                        APIRequest._convert_chat_request_or_throw(json_dict)
-                        for json_dict in request_json
-                    ],
-                    True,
-                )
-            except pydantic.ValidationError:
-                return request_json, False
-        else:
-            return request_json, False
-
-    @staticmethod
-    def _try_transform_response_to_chat_format(response):
-        if isinstance(response, str):
-            message_content = response
-            message_id = None
-        elif isinstance(response, AIMessage):
-            message_content = response.content
-            message_id = getattr(response, "id", None)
-        else:
-            return response
-
-        transformed_response = _ChatResponse(
-            id=message_id,
-            created=int(time.time()),
-            model=None,
-            choices=[
-                _ChatChoice(
-                    index=0,
-                    message=_ChatMessage(
-                        role="assistant",
-                        content=message_content,
-                    ),
-                    finish_reason=None,
-                )
-            ],
-            usage=_ChatUsage(
-                prompt_tokens=None,
-                completion_tokens=None,
-                total_tokens=None,
-            ),
-        )
-
-        if Version(pydantic.__version__) < Version("2.0"):
-            return json.loads(transformed_response.json())
-        else:
-            return transformed_response.model_dump(mode="json")
-
-    @staticmethod
-    def _try_transform_response_iter_to_chat_format(chunk_iter):
-        from langchain_core.messages.ai import AIMessageChunk
-
-        is_pydantic_v1 = Version(pydantic.__version__) < Version("2.0")
-
-        def _gen_converted_chunk(message_content, message_id, finish_reason):
-            transformed_response = _ChatChunkResponse(
-                id=message_id,
-                created=int(time.time()),
-                model=None,
-                choices=[
-                    _ChatChoiceDelta(
-                        index=0,
-                        delta=_ChatDeltaMessage(
-                            role="assistant",
-                            content=message_content,
-                        ),
-                        finish_reason=finish_reason,
-                    )
-                ],
-            )
-
-            if is_pydantic_v1:
-                return json.loads(transformed_response.json())
-            else:
-                return transformed_response.model_dump(mode="json")
-
-        def _convert(chunk):
-            if isinstance(chunk, str):
-                message_content = chunk
-                message_id = None
-                finish_reason = None
-            elif isinstance(chunk, AIMessageChunk):
-                message_content = chunk.content
-                message_id = getattr(chunk, "id", None)
-
-                if response_metadata := getattr(chunk, "response_metadata", None):
-                    finish_reason = response_metadata.get("finish_reason")
-                else:
-                    finish_reason = None
-            elif isinstance(chunk, AIMessage):
-                # The langchain chat model does not support stream
-                # so `model.stream` returns the whole result.
-                message_content = chunk.content
-                message_id = getattr(chunk, "id", None)
-                finish_reason = "stop"
-            else:
-                return chunk
-            return _gen_converted_chunk(
-                message_content,
-                message_id=message_id,
-                finish_reason=finish_reason,
-            )
-
-        return map(_convert, chunk_iter)
-
-    @staticmethod
-    def _get_lc_model_input_fields(lc_model) -> Set:
-        try:
-            if hasattr(lc_model, "input_schema") and callable(lc_model.input_schema):
-                return set(lc_model.input_schema().__fields__)
-        except Exception as e:
-            _logger.debug(
-                f"Unexpected exception while checking LangChain input schema for"
-                f" request transformation: {e}"
-            )
-
-        return set()
-
-    @staticmethod
-    def _convert_chat_request_or_throw(chat_request: Dict):
-        if Version(pydantic.__version__) < Version("2.0"):
-            model = _ChatRequest.parse_obj(chat_request)
-        else:
-            model = _ChatRequest.model_validate(chat_request)
-
-        return [message.to_langchain_message() for message in model.messages]
-
 
 def process_api_requests(
     lc_model,
@@ -529,14 +264,14 @@ def process_api_requests(
     results = []
     errors = {}
 
-    # Note: we should call `_transform_request_json_for_chat_if_necessary`
+    # Note: we should call `transform_request_json_for_chat_if_necessary`
     # for the whole batch data, because the conversion should obey the rule
     # that if any record in the batch can't be converted, then all the record
     # in this batch can't be converted.
     (
         converted_chat_requests,
         did_perform_chat_conversion,
-    ) = APIRequest._transform_request_json_for_chat_if_necessary(requests, lc_model)
+    ) = transform_request_json_for_chat_if_necessary(requests, lc_model)
 
     requests_iter = enumerate(converted_chat_requests)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -595,6 +330,9 @@ def process_stream_request(
     callback_handlers: Optional[List[BaseCallbackHandler]] = None,
     convert_chat_responses: bool = False,
 ):
+    """
+    Process single stream request.
+    """
     if not hasattr(lc_model, "stream"):
         raise MlflowException(
             f"Model {lc_model.__class__.__name__} does not support streaming prediction output. "
@@ -604,7 +342,7 @@ def process_stream_request(
     (
         converted_chat_requests,
         did_perform_chat_conversion,
-    ) = APIRequest._transform_request_json_for_chat_if_necessary(request_json, lc_model)
+    ) = transform_request_json_for_chat_if_necessary(request_json, lc_model)
 
     api_request = APIRequest(
         index=0,
