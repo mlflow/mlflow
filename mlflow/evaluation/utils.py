@@ -200,7 +200,7 @@ def append_to_assessments_dataframe(
     """
     new_assessments_data = [assess.to_dictionary() for assess in assessments]
     new_assessments_df = pd.DataFrame(new_assessments_data)
-    return pd.concat([assessments_df, new_assessments_df])
+    return pd.concat([assessments_df, new_assessments_df], ignore_index=True)
 
 
 def read_metrics_dataframe(path: str) -> pd.DataFrame:
@@ -247,7 +247,7 @@ def append_to_tags_dataframe(
     """
     new_tags_data = [{"evaluation_id": evaluation_id, **tag.to_dictionary()} for tag in tags]
     new_tags_df = pd.DataFrame(new_tags_data)
-    return pd.concat([tags_df, new_tags_df])
+    return pd.concat([tags_df, new_tags_df], ignore_index=True)
 
 
 def _get_evaluation_dataframe_schema() -> Dict[str, Any]:

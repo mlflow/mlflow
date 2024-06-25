@@ -1300,6 +1300,33 @@ def test_set_evaluation_tags_with_minimal_params_succeeds():
             )
 
 
+def test_set_evaluation_tags_updates_values():
+    inputs = {"feature1": 1.0, "feature2": 2.0}
+    outputs = {"prediction": 0.5}
+    initial_tags = {"tag1": "value1", "tag2": "value2", "tag3": "value3"}
+    updated_tags = {"tag1": "new_value1", "tag2": "new_value2"}
+    final_tags = {"tag1": "new_value1", "tag2": "new_value2", "tag3": "value3"}
+
+    with mlflow.start_run():
+        logged_evaluation = log_evaluation(inputs=inputs, outputs=outputs)
+
+        # Set initial tags
+        set_evaluation_tags(evaluation_id=logged_evaluation.evaluation_id, tags=initial_tags)
+
+        # Update the tags
+        set_evaluation_tags(evaluation_id=logged_evaluation.evaluation_id, tags=updated_tags)
+
+        retrieved_evaluation = get_evaluation(
+            evaluation_id=logged_evaluation.evaluation_id, run_id=mlflow.active_run().info.run_id
+        )
+
+        assert len(retrieved_evaluation.tags) == len(final_tags)
+        for tag_key, tag_value in final_tags.items():
+            assert any(
+                tag.key == tag_key and tag.value == tag_value for tag in retrieved_evaluation.tags
+            )
+
+
 def test_search_evaluations():
     inputs_1 = {"feature1": 1.0, "feature2": 2.0}
     outputs_1 = {"prediction": 0.5}
