@@ -1,6 +1,6 @@
 import pytest
 
-from mlflow.entities import AssessmentSource, Metric
+from mlflow.entities import AssessmentSource, EvaluationTag, Metric
 from mlflow.evaluation import (
     Assessment,
     Evaluation,
@@ -224,3 +224,14 @@ def test_evaluation_equality():
     assert (
         evaluation_2 != evaluation_4
     )  # Different assessments, error_code, error_message, and tags
+
+
+def test_evaluation_tag_equality():
+    tag_1 = EvaluationTag(key="tag1", value="value1")
+    tag_2 = EvaluationTag(key="tag1", value="value1")
+    tag_3 = EvaluationTag(key="tag1", value="value2")
+    tag_4 = EvaluationTag(key="tag2", value="value1")
+
+    assert tag_1 == tag_2  # Same key and value
+    assert tag_1 != tag_3  # Different value
+    assert tag_1 != tag_4  # Different key
