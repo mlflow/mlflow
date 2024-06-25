@@ -1138,7 +1138,15 @@ def _load_model_or_server(
     try:
         client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
     except Exception as e:
-        raise MlflowException("MLflow model server failed to launch.") from e
+        if scoring_server_proc.poll() is None:
+            # the scoring server is still running but client can't connect to it.
+            # kill the server.
+            scoring_server_proc.kill()
+            server_output = scoring_server_proc.stdout.read()
+        raise MlflowException(
+            "MLflow model server failed to launch, server process stdout / stderr outputs are:\n" +
+            server_output
+        ) from e
 
     return _ServedPyFuncModel(
         model_meta=model_meta, client=client, server_pid=scoring_server_proc.pid
