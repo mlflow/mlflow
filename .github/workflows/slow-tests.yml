@@ -61,7 +61,7 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
         with:
-          python-version: 3.8.19
+          python-version: 3.9
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -69,7 +69,7 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
-          python -m pip install langchain_experimental
+          python -m pip install langchain_experimental tf-keras
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
