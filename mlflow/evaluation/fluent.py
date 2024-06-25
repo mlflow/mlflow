@@ -313,6 +313,28 @@ def log_assessments(
         assessments_df.to_json(tmp_path, orient="split")
 
 
+def set_tags(*, evaluation_id: str, tags: Dict[str, str], run_id: Optional[str] = None):
+    """
+    Sets key-value tags on an existing Evaluation.
+
+    Args:
+        evaluation_id (str): The ID of the evaluation.
+        tags (Dict[str, str]): Tags to set on the evaluation.
+        run_id (Optional[str]): ID of the MLflow Run containing the evaluation on which to set the
+            tags. If unspecified, the current active run is used.
+    """
+    run_id = run_id if run_id is not None else _get_or_start_run().info.run_id
+    # Fetch the evaluation from the run to verify that it exists
+    get_evaluation(run_id=run_id, evaluation_id=evaluation_id)
+    client = MlflowClient()
+
+    tags = [EvaluationTag(key=key, value=value) for key, value in tags.items()]
+    tags_df = _get_tags_dataframe(client=client, run_id=run_id)
+
+    for tag in tags:
+        tags_df = _add_tag_to_df(tags_df=tags_df, tag=tag, evaluation_id=evaluation_id)
+
+
 def _add_assessment_to_df(
     assessments_df: pd.DataFrame, assessment: AssessmentEntity, evaluation_id: str
 ) -> pd.DataFrame:
@@ -380,6 +402,12 @@ def _add_assessment_to_df(
     return assessments_df
 
 
+def _add_tag_to_df(tags_df: pd.DataFrame, tag: EvaluationTag, evaluation_id: str) -> pd.DataFrame:
+    """
+    Adds or updates a tag in the tags DataFrame.
+    """
+
+
 def _update_assessments_stats(
     run_id: str, assessments_df: pd.DataFrame, assessment_names: Set[str]
 ):
@@ -429,11 +457,7 @@ def get_evaluation(*, run_id: str, evaluation_id: str) -> EvaluationEntity:
     metrics_file = client.download_artifacts(run_id=run_id, path="_metrics.json")
     metrics_df = read_metrics_dataframe(metrics_file)
 
-    if "_tags.json" in {file.path for file in client.list_artifacts(run_id)}:
-        tags_file = client.download_artifacts(run_id=run_id, path="_tags.json")
-        tags_df = read_tags_dataframe(tags_file)
-    else:
-        tags_df = get_empty_tags_dataframe()
+    tags_df = _get_tags_dataframe(client=client, run_id=run_id)
 
     return _get_evaluation_from_dataframes(
         run_id=run_id,
@@ -467,11 +491,7 @@ def search_evaluations(*, run_ids: List[str]) -> List[EvaluationEntity]:
         metrics_file = client.download_artifacts(run_id=run_id, path="_metrics.json")
         metrics_df = read_metrics_dataframe(metrics_file)
 
-        if "_tags.json" in {file.path for file in client.list_artifacts(run_id)}:
-            tags_file = client.download_artifacts(run_id=run_id, path="_tags.json")
-            tags_df = read_tags_dataframe(tags_file)
-        else:
-            tags_df = get_empty_tags_dataframe()
+        tags_df = _get_tags_dataframe(client=client, run_id=run_id)
 
         for _, row in evaluations_df.iterrows():
             evaluation_id = row["evaluation_id"]
@@ -529,3 +549,11 @@ def _contains_evaluation_artifacts(*, client: MlflowClient, run_id: str) -> bool
         and any(file.path == "_metrics.json" for file in client.list_artifacts(run_id))
         and any(file.path == "_assessments.json" for file in client.list_artifacts(run_id))
     )
+
+
+def _get_tags_dataframe(*, client: MlflowClient, run_id: str) -> pd.DataFrame:
+    if "_tags.json" in {file.path for file in client.list_artifacts(run_id)}:
+        tags_file = client.download_artifacts(run_id=run_id, path="_tags.json")
+        return read_tags_dataframe(tags_file)
+    else:
+        return get_empty_tags_dataframe()
