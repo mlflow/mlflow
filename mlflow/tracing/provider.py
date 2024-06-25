@@ -15,6 +15,7 @@ from typing import Optional, Tuple
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 
+from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
@@ -164,7 +165,7 @@ def disable():
     _MLFLOW_TRACER_PROVIDER_INITIALIZED.done = True
 
 
-@_catch_exception(msg="Failed to enable tracing")
+@raise_as_trace_exception
 def enable():
     """
     Enable tracing.
@@ -227,15 +228,33 @@ def trace_disabled(f):
 
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
-        was_trace_enabled = _is_enabled()
-        if was_trace_enabled:
-            disable()
-            try:
-                return f(*args, **kwargs)
-            finally:
-                enable()
-        else:
-            return f(*args, **kwargs)
+        is_func_called = False
+        result = None
+        try:
+            if _is_enabled():
+                disable()
+                try:
+                    is_func_called, result = True, f(*args, **kwargs)
+                finally:
+                    enable()
+            else:
+                is_func_called, result = True, f(*args, **kwargs)
+        # We should only catch the exception from disable() and enable()
+        # and let other exceptions propagate.
+        except MlflowTracingException as e:
+            _logger.warning(
+                f"An error occurred while disabling or re-enabling tracing: {e} "
+                "The original function will still be executed, but the tracing "
+                "state may not be as expected. For full traceback, set "
+                "logging level to debug.",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )
+            # If the exception is raised before the original function
+            # is called, we should call the original function
+            if not is_func_called:
+                result = f(*args, **kwargs)
+
+        return result
 
     return wrapper
 
@@ -253,7 +272,7 @@ def reset_tracer_setup():
     _MLFLOW_TRACER_PROVIDER_INITIALIZED.done = False
 
 
-@_catch_exception(msg="Failed to determine if tracing is enabled", default_return=False)
+@raise_as_trace_exception
 def _is_enabled() -> bool:
     """
     Check if tracing is enabled based on whether the global tracer
