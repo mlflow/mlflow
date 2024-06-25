@@ -92,9 +92,9 @@ def _setup_tracer_provider(disabled=False):
     """
     Instantiate a tracer provider and set it as the global tracer provider.
 
-    Note that this function ALWAYS updates the global tracer provider, regardless of the current state.
-    It is the caller's responsibility to ensure that the tracer provider is initialized only once, and
-    update the _MLFLOW_TRACER_PROVIDER_INITIALIZED flag accordingly.
+    Note that this function ALWAYS updates the global tracer provider, regardless of the current
+    state. It is the caller's responsibility to ensure that the tracer provider is initialized
+    only once, and update the _MLFLOW_TRACER_PROVIDER_INITIALIZED flag accordingly.
     """
     global _MLFLOW_TRACER_PROVIDER
 
@@ -122,7 +122,6 @@ def _setup_tracer_provider(disabled=False):
     tracer_provider = TracerProvider()
     tracer_provider.add_span_processor(processor)
     _MLFLOW_TRACER_PROVIDER = tracer_provider
-
 
 
 @raise_as_trace_exception
@@ -164,6 +163,7 @@ def disable():
 
     _setup_tracer_provider(disabled=True)
     _MLFLOW_TRACER_PROVIDER_INITIALIZED.done = True
+
 
 @raise_as_trace_exception
 def enable():

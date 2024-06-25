@@ -1,6 +1,6 @@
+from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
-from concurrent.futures import ThreadPoolExecutor
 import pytest
 from opentelemetry import trace
 
@@ -25,8 +25,9 @@ from mlflow.tracing.provider import (
 @pytest.fixture
 def mock_setup_tracer_provider():
     # To count the number of times _setup_tracer_provider is called
-    with mock.patch("mlflow.tracing.provider._setup_tracer_provider",
-                    side_effect=_setup_tracer_provider) as setup_mock:
+    with mock.patch(
+        "mlflow.tracing.provider._setup_tracer_provider", side_effect=_setup_tracer_provider
+    ) as setup_mock:
         yield setup_mock
 
 
@@ -56,12 +57,13 @@ def test_reset_tracer_setup(mock_setup_tracer_provider):
 
     start_span_in_context("test2")
     assert mock_setup_tracer_provider.call_count == 3
-    mock_setup_tracer_provider.assert_has_calls([
-        mock.call(),
-        mock.call(disabled=True),
-        mock.call(),
-    ])
-
+    mock_setup_tracer_provider.assert_has_calls(
+        [
+            mock.call(),
+            mock.call(disabled=True),
+            mock.call(),
+        ]
+    )
 
 
 def test_span_processor_and_exporter_model_serving(mock_databricks_serving_with_tracing_env):
