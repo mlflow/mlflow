@@ -19,7 +19,7 @@ class AssessmentSource(_MlflowObject):
             metadata: Additional metadata about the source, e.g. human-readable name, inlined LLM
                 judge parameters, etc.
         """
-        self._source_type = AssessmentSourceType.standardize(source_type)
+        self._source_type = AssessmentSourceType._standardize(source_type)
         self._source_id = source_id
         self._metadata = metadata or {}
 
@@ -93,5 +93,5 @@ class AssessmentSourceType:
         return self._source_type
 
     @staticmethod
-    def standardize(source_type: str) -> str:
+    def _standardize(source_type: str) -> str:
         return str(AssessmentSourceType(source_type))
