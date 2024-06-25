@@ -4,35 +4,23 @@ import numpy as np
 import pandas as pd
 import pytest
 from llama_index.core import QueryBundle
-from llama_index.core.base.response.schema import (
-    PydanticResponse,
-    Response,
-)
-from llama_index.core.bridge.pydantic import BaseModel
 from llama_index.core.llms import ChatMessage
-from pyspark.sql import SparkSession
 
 import mlflow
 import mlflow.llama_index
 import mlflow.pyfunc
-from mlflow.llama_index import _LlamaIndexModelWrapper
+from mlflow.llama_index.pyfunc_wrapper import create_engine_wrapper
 from mlflow.models import infer_signature
 
 from tests.llama_index._llama_index_test_fixtures import (
     document,  # noqa: F401
     embed_model,  # noqa: F401
-    llm,  # noqa: F401
     multi_index,  # noqa: F401
     settings,  # noqa: F401
     single_graph,  # noqa: F401
     single_index,  # noqa: F401
+    spark,  # noqa: F401
 )
-
-
-@pytest.fixture(scope="module")
-def spark():
-    with SparkSession.builder.master("local[*]").getOrCreate() as s:
-        yield s
 
 
 @pytest.mark.parametrize(
@@ -78,39 +66,38 @@ def test_llama_index_native_log_and_load_model(request, index_fixture):
     "engine_type",
     ["query", "retriever"],
 )
-def test_format_predict_input_query_and_retriever_correct(single_index, engine_type):
-    wrapped_model = _LlamaIndexModelWrapper(single_index, engine_type)
-    format_func = wrapped_model._format_predict_input_query_and_retriever
+def test_format_predict_input_correct(single_index, engine_type):
+    wrapped_model = create_engine_wrapper(single_index, engine_type)
 
-    assert isinstance(format_func(pd.DataFrame({"query_str": ["hi"]})), QueryBundle)
-    assert isinstance(format_func(np.array(["hi"])), QueryBundle)
-    assert isinstance(format_func({"query_str": ["hi"]}), QueryBundle)
-    assert isinstance(format_func({"query_str": "hi"}), QueryBundle)
-    assert isinstance(format_func(["hi"]), QueryBundle)
-    assert isinstance(format_func("hi"), QueryBundle)
-
-
-@pytest.mark.parametrize(
-    "engine_type",
-    ["query", "retriever"],
-)
-def test_format_predict_input_query_and_retriever_incorrect_schema(single_index, engine_type):
-    wrapped_model = _LlamaIndexModelWrapper(single_index, engine_type)
-    format_func = wrapped_model._format_predict_input_query_and_retriever
-
-    with pytest.raises(ValueError, match="correct schema"):
-        format_func(pd.DataFrame({"incorrect": ["hi"]}))
-    with pytest.raises(ValueError, match="correct schema"):
-        format_func({"incorrect": ["hi"]})
+    assert isinstance(
+        wrapped_model._format_predict_input(pd.DataFrame({"query_str": ["hi"]})), QueryBundle
+    )
+    assert isinstance(wrapped_model._format_predict_input(np.array(["hi"])), QueryBundle)
+    assert isinstance(wrapped_model._format_predict_input({"query_str": ["hi"]}), QueryBundle)
+    assert isinstance(wrapped_model._format_predict_input({"query_str": "hi"}), QueryBundle)
+    assert isinstance(wrapped_model._format_predict_input(["hi"]), QueryBundle)
+    assert isinstance(wrapped_model._format_predict_input("hi"), QueryBundle)
 
 
 @pytest.mark.parametrize(
     "engine_type",
     ["query", "retriever"],
 )
-def test_format_predict_input_query_and_retriever_correct_schema_complex(single_index, engine_type):
-    wrapped_model = _LlamaIndexModelWrapper(single_index, engine_type)
-    format_func = wrapped_model._format_predict_input_query_and_retriever
+def test_format_predict_input_incorrect_schema(single_index, engine_type):
+    wrapped_model = create_engine_wrapper(single_index, engine_type)
+
+    with pytest.raises(ValueError, match="correct schema"):
+        wrapped_model._format_predict_input(pd.DataFrame({"incorrect": ["hi"]}))
+    with pytest.raises(ValueError, match="correct schema"):
+        wrapped_model._format_predict_input({"incorrect": ["hi"]})
+
+
+@pytest.mark.parametrize(
+    "engine_type",
+    ["query", "retriever"],
+)
+def test_format_predict_input_correct_schema_complex(single_index, engine_type):
+    wrapped_model = create_engine_wrapper(single_index, engine_type)
 
     payload = {
         "query_str": "hi",
@@ -118,22 +105,14 @@ def test_format_predict_input_query_and_retriever_correct_schema_complex(single_
         "custom_embedding_strs": [["a"]],
         "embedding": [[1.0]],
     }
-    assert isinstance(format_func(pd.DataFrame(payload)), QueryBundle)
+    assert isinstance(wrapped_model._format_predict_input(pd.DataFrame(payload)), QueryBundle)
     payload.update(
         {
             "custom_embedding_strs": ["a"],
             "embedding": [1.0],
         }
     )
-    assert isinstance(format_func(payload), QueryBundle)
-
-
-def test_format_predict_output_as_str(single_index):
-    wrapped_model = _LlamaIndexModelWrapper(single_index, "query")
-    format_func = wrapped_model._format_predict_output_as_str
-
-    assert isinstance(format_func(Response(response="asdf")), str)
-    assert isinstance(format_func(PydanticResponse(response=BaseModel())), str)
+    assert isinstance(wrapped_model._format_predict_input(payload), QueryBundle)
 
 
 def test_spark_udf_query(tmp_path, spark, single_index):
@@ -155,7 +134,6 @@ def test_spark_udf_query(tmp_path, spark, single_index):
     ]
 
 
-################## PyFunc Inference #################
 @pytest.mark.parametrize("with_signature", [True, False])
 def test_query_engine_str(tmp_path, single_index, with_signature):
     payload = "string"
@@ -295,22 +273,3 @@ def test_chat_engine_dict_raises(tmp_path, single_index, with_signature):
     model = mlflow.pyfunc.load_model(tmp_path)
     with pytest.raises(TypeError, match="unexpected keyword argument"):
         _ = model.predict(payload)
-
-
-# Cases
-# - All input types
-#     - Pandas
-#     - Numpy
-#     - List
-#     - Str
-
-"""
-Query: QueryBundle
-Retriever: QueryBundle
-Chat: str, List[ChatMessage] OR List[ChatMessage]
-"""
-
-
-# Combinations
-# - With and without signature
-# - spark udf, native

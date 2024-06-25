@@ -1,7 +1,10 @@
+import json
 import os
 import re
 import shutil
+import sys
 from typing import List
+from unittest.mock import MagicMock
 
 import pytest
 from llama_index.core import (
@@ -11,9 +14,14 @@ from llama_index.core import (
     Settings,
     VectorStoreIndex,
 )
+from llama_index.core.base.llms.types import (
+    ChatMessage,
+    ChatResponse,
+    LLMMetadata,
+    MessageRole,
+)
 from llama_index.core.callbacks import CallbackManager, TokenCountingHandler
 from llama_index.core.embeddings.mock_embed_model import MockEmbedding
-from llama_index.core.llms.mock import MockLLM
 from llama_index.core.node_parser import SentenceSplitter
 from pyspark.sql import SparkSession
 
@@ -30,14 +38,26 @@ def model_path(tmp_path):
 
 @pytest.fixture(scope="module")
 def spark():
+    # NB: ensure that the driver and workers have the same python version
+    os.environ["PYSPARK_PYTHON"] = sys.executable
+    os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
+
     with SparkSession.builder.master("local[*]").getOrCreate() as s:
         yield s
 
 
 #### Settings ####
-@pytest.fixture
-def llm():
-    return MockLLM()
+class MockChatLLM(MagicMock):
+    def chat(self, prompt: str) -> ChatResponse:
+        test_object = {"hello": "chat"}
+        text = json.dumps(test_object)
+        return ChatResponse(message=ChatMessage(role=MessageRole.ASSISTANT, content=text))
+
+    @property
+    def metadata(self) -> LLMMetadata:
+        metadata = LLMMetadata()
+        metadata.is_chat_model = True
+        return metadata
 
 
 @pytest.fixture
@@ -62,8 +82,8 @@ def _mock_tokenizer(text: str) -> List[str]:
 
 
 @pytest.fixture
-def settings(llm, embed_model):
-    Settings.llm = llm
+def settings(embed_model):
+    Settings.llm = MockChatLLM()
     Settings.embed_model = embed_model
     Settings.callback_manager = CallbackManager([TokenCountingHandler()])
     Settings._tokenizer = _mock_tokenizer  # must bypass setter
