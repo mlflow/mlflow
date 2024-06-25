@@ -128,8 +128,6 @@ Generate the data using the method we just prepared and save its result.
     .. code-block:: python
         :name: client
 
-        # Generate the dataset!
-
         data = generate_apple_sales_data_with_promo_adjustment(base_demand=1_000, n_rows=1_000)
 
         data[-20:]
