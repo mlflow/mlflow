@@ -77,11 +77,11 @@ def test_disable_enable_tracing():
     with mock.patch(
         "mlflow.tracing.provider._is_enabled", side_effect=ValueError("error")
     ) as is_enabled_mock:
-        with pytest.raises(MlflowTracingException, match="An error occurred"):
+        with pytest.raises(MlflowTracingException, match="error"):
             mlflow.tracing.disable()
         assert is_enabled_mock.call_count == 1
 
-        with pytest.raises(MlflowTracingException, match="An error occurred"):
+        with pytest.raises(MlflowTracingException, match="error"):
             mlflow.tracing.enable()
         assert is_enabled_mock.call_count == 2
 
@@ -161,7 +161,7 @@ def test_is_enabled():
     with mock.patch(
         "mlflow.tracing.provider.trace.get_tracer", side_effect=ValueError("error")
     ) as get_tracer_mock:
-        with pytest.raises(MlflowTracingException, match="An error occurred"):
+        with pytest.raises(MlflowTracingException, match="error"):
             assert _is_enabled() is False
         assert get_tracer_mock.call_count == 1
 

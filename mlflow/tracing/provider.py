@@ -221,8 +221,7 @@ def trace_disabled(f):
     def wrapper(*args, **kwargs):
         is_func_called = False
         try:
-            was_trace_enabled = _is_enabled()
-            if was_trace_enabled:
+            if _is_enabled():
                 disable()
                 try:
                     is_func_called = True
@@ -237,7 +236,7 @@ def trace_disabled(f):
         except MlflowTracingException as e:
             _logger.warning(
                 f"An error occurred while disabling or re-enabling tracing: {e} "
-                "The original function was still executed, but the tracing "
+                "The original function will still be executed, but the tracing "
                 "state may not be as expected. For full traceback, set "
                 "logging level to debug.",
                 exc_info=_logger.isEnabledFor(logging.DEBUG),

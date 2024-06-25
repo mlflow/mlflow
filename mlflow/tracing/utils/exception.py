@@ -16,6 +16,6 @@ def raise_as_trace_exception(f):
         try:
             return f(*args, **kwargs)
         except Exception as e:
-            raise MlflowTracingException(f"An error occurred during tracing operation: {e}") from e
+            raise MlflowTracingException(e) from e
 
     return wrapper

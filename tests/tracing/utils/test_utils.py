@@ -1,7 +1,7 @@
 import pytest
 
 from mlflow.entities import LiveSpan
-from mlflow.exceptions import MlflowException, MlflowTracingException
+from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
     encode_span_id,

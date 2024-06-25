@@ -9,9 +9,7 @@ def test_raise_as_trace_exception():
     def test_fn():
         raise ValueError("error")
 
-    with pytest.raises(
-        MlflowTracingException, match="An error occurred during tracing operation: error"
-    ):
+    with pytest.raises(MlflowTracingException, match="error"):
         test_fn()
 
     @raise_as_trace_exception
