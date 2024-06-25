@@ -2208,7 +2208,7 @@ class MlflowClient:
                 .. warning::
 
                     - Out-of-range integer values will raise ValueError.
-                    - Out-of-range float values will raise ValueError.
+                    - Out-of-range float values will auto-scale with min/max and warn.
 
             - shape (H: height, W: width):
 
