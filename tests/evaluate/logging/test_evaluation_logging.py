@@ -12,6 +12,7 @@ from mlflow.evaluation import (
     log_evaluations,
     log_evaluations_df,
     search_evaluations,
+    set_evaluation_tags,
 )
 from mlflow.exceptions import MlflowException
 
@@ -1276,6 +1277,27 @@ def test_assessment_name_with_different_value_types_fails(first_value, second_va
 
         with pytest.raises(MlflowException, match="different value types"):
             log_evaluation(inputs=inputs, outputs=outputs, assessments=[assessment1, assessment2])
+
+
+def test_set_evaluation_tags_with_minimal_params_succeeds():
+    inputs = {"feature1": 1.0, "feature2": 2.0}
+    outputs = {"prediction": 0.5}
+    tags = {"tag1": "value1", "tag2": "value2"}
+
+    with mlflow.start_run():
+        logged_evaluation = log_evaluation(inputs=inputs, outputs=outputs)
+
+        set_evaluation_tags(evaluation_id=logged_evaluation.evaluation_id, tags=tags)
+
+        retrieved_evaluation = get_evaluation(
+            evaluation_id=logged_evaluation.evaluation_id, run_id=mlflow.active_run().info.run_id
+        )
+
+        assert len(retrieved_evaluation.tags) == len(tags)
+        for tag_key, tag_value in tags.items():
+            assert any(
+                tag.key == tag_key and tag.value == tag_value for tag in retrieved_evaluation.tags
+            )
 
 
 def test_search_evaluations():

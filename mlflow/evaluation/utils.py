@@ -235,6 +235,21 @@ def read_tags_dataframe(path: str) -> pd.DataFrame:
     )
 
 
+def append_to_tags_dataframe(
+    tags_df: pd.DataFrame, evaluation_id: str, tags: List[EvaluationTag]
+) -> pd.DataFrame:
+    """
+    Appends tags to a tags DataFrame.
+
+    Args:
+        evaluation_id (str): ID of the Evaluation to which to append tags.
+        tags_df (pd.DataFrame): DataFrame to append tags to.
+    """
+    new_tags_data = [{"evaluation_id": evaluation_id, **tag.to_dictionary()} for tag in tags]
+    new_tags_df = pd.DataFrame(new_tags_data)
+    return pd.concat([tags_df, new_tags_df])
+
+
 def _get_evaluation_dataframe_schema() -> Dict[str, Any]:
     """
     Returns the schema for the evaluation DataFrame.

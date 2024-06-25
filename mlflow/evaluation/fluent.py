@@ -10,6 +10,7 @@ from mlflow.entities import EvaluationTag, Metric
 from mlflow.evaluation.evaluation import Assessment, Evaluation
 from mlflow.evaluation.utils import (
     append_to_assessments_dataframe,
+    append_to_tags_dataframe,
     compute_assessment_stats_by_source,
     dataframes_to_evaluations,
     evaluations_to_dataframes,
@@ -313,7 +314,7 @@ def log_assessments(
         assessments_df.to_json(tmp_path, orient="split")
 
 
-def set_tags(*, evaluation_id: str, tags: Dict[str, str], run_id: Optional[str] = None):
+def set_evaluation_tags(*, evaluation_id: str, tags: Dict[str, str], run_id: Optional[str] = None):
     """
     Sets key-value tags on an existing Evaluation.
 
@@ -333,6 +334,9 @@ def set_tags(*, evaluation_id: str, tags: Dict[str, str], run_id: Optional[str] 
 
     for tag in tags:
         tags_df = _add_tag_to_df(tags_df=tags_df, tag=tag, evaluation_id=evaluation_id)
+
+    with client._log_artifact_helper(run_id, "_tags.json") as tmp_path:
+        tags_df.to_json(tmp_path, orient="split")
 
 
 def _add_assessment_to_df(
@@ -406,6 +410,21 @@ def _add_tag_to_df(tags_df: pd.DataFrame, tag: EvaluationTag, evaluation_id: str
     """
     Adds or updates a tag in the tags DataFrame.
     """
+    # Check if tag with the same name and source already exists
+    matching_idx = None
+    for idx, row in tags_df.iterrows():
+        if row["evaluation_id"] == evaluation_id and row["key"] == tag.key:
+            matching_idx = idx
+            break
+
+    if matching_idx is not None:
+        # Update existing assessment
+        tags_df.iloc[matching_idx] = {"evaluation_id": evaluation_id, **tag.to_dictionary()}
+    else:
+        # Append new assessment
+        tags_df = append_to_tags_dataframe(tags_df=tags_df, evaluation_id=evaluation_id, tags=[tag])
+
+    return tags_df
 
 
 def _update_assessments_stats(
