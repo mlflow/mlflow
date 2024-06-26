@@ -14,15 +14,15 @@ from mlflow.legacy_databricks_cli.configure.provider import (
 )
 from mlflow.utils import databricks_utils
 from mlflow.utils.databricks_utils import (
+    DatabricksConfigProvider,
     check_databricks_secret_scope_access,
+    get_databricks_host_creds,
     get_databricks_runtime_major_minor_version,
     get_mlflow_credential_context_by_run_id,
     get_workspace_info_from_databricks_secrets,
     get_workspace_info_from_dbutils,
     is_databricks_default_tracking_uri,
     is_running_in_ipython_environment,
-    DatabricksConfigProvider,
-    get_databricks_host_creds,
 )
 
 from tests.helper_functions import mock_method_chain
@@ -504,7 +504,7 @@ def test_get_dbr_major_minor_version_throws_on_invalid_version_key(monkeypatch):
         get_databricks_runtime_major_minor_version()
 
 
-def test_priorizing_env_var_config_provider(monkeypatch):
+def test_prioritize_env_var_config_provider(monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "my_host1")
     monkeypatch.setenv("DATABRICKS_TOKEN", "token1")
 
@@ -514,5 +514,6 @@ def test_priorizing_env_var_config_provider(monkeypatch):
 
     monkeypatch.setattr(databricks_utils, "_dynamic_token_config_provider", MyProvider)
 
-    hc = get_databricks_host_creds('databricks')
-    assert hc.host == "my_host1" and hc.token == "token1"
+    hc = get_databricks_host_creds("databricks")
+    assert hc.host == "my_host1"
+    assert hc.token == "token1"
