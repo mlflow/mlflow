@@ -53,3 +53,7 @@ jobs:
       - name: Run Environment tests
         run: |
           TERM=xterm bash ./dev/test-dev-env-setup.sh
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 120
+
