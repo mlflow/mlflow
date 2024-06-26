@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import time
 from collections import namedtuple
 from functools import wraps
@@ -1702,6 +1703,5 @@ def test_get_sagemaker_config_name():
 # Test the behavior when the base name is too long and needs truncation
 def test_name_truncation_for_long_base_name():
     long_base_name = "a" * 100  # 100 characters long
-    with mock.patch("mlflow.sagemaker.get_unique_resource_id", return_value="1234567890abcdef1234"):
-        model_name = mfs._get_sagemaker_model_name(long_base_name)
-    assert model_name == "aaaaaaaaaaaaaaaa---aaaaaaaaaaaaaaaaa-model-1234567890abcdef1234"
+    model_name = mfs._get_sagemaker_model_name(long_base_name)
+    assert re.match(r"^aaaaaaaaaaaaaaaa---aaaaaaaaaaaaaaaaa-model-[0-9a-f]{20}$", model_name)

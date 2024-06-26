@@ -7,8 +7,6 @@ from typing import NamedTuple, Optional
 from unittest import mock
 from unittest.mock import AsyncMock
 
-import requests
-
 import mlflow
 
 TEST_CONTENT = "test"
@@ -107,58 +105,8 @@ def _chat_completion_json_sample(content):
     }
 
 
-def _completion_json_sample(content):
-    return {
-        "id": "cmpl-123",
-        "object": "text_completion",
-        "created": 1589478378,
-        "model": "text-davinci-003",
-        "choices": [{"text": content, "index": 0, "finish_reason": "length"}],
-        "usage": {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
-    }
-
-
-def _models_retrieve_json_sample():
-    # https://platform.openai.com/docs/api-reference/models/retrieve
-    return {
-        "id": "gpt-3.5-turbo",
-        "object": "model",
-        "owned_by": "openai",
-        "permission": [],
-    }
-
-
 def _mock_chat_completion_response(content=TEST_CONTENT):
     return _MockResponse(200, _chat_completion_json_sample(content))
-
-
-def _mock_completion_response(content=TEST_CONTENT):
-    return _MockResponse(200, _completion_json_sample(content))
-
-
-def _mock_embeddings_response(num_texts):
-    return _MockResponse(
-        200,
-        {
-            "object": "list",
-            "data": [
-                {
-                    "object": "embedding",
-                    "embedding": [
-                        0.0,
-                    ],
-                    "index": i,
-                }
-                for i in range(num_texts)
-            ],
-            "model": "text-embedding-ada-002",
-            "usage": {"prompt_tokens": 8, "total_tokens": 8},
-        },
-    )
-
-
-def _mock_models_retrieve_response():
-    return _MockResponse(200, _models_retrieve_json_sample())
 
 
 @contextmanager
@@ -186,35 +134,6 @@ async def _mock_async_chat_completion_response(content=TEST_CONTENT, **kwargs):
     resp.json.return_value = json_data
     resp.read.return_value = resp.content
     return resp
-
-
-@contextmanager
-def _mock_request_post(**kwargs):
-    with mock.patch("requests.post", **kwargs) as m:
-        yield m
-
-
-def _mock_openai_request():
-    original = requests.post
-
-    def request(*args, **kwargs):
-        url = kwargs.get("url")
-        for key in kwargs.get("json"):
-            assert key in REQUEST_FIELDS, f"'{key}' is not a valid request field"
-
-        if "/chat/completions" in url:
-            messages = kwargs.get("json").get("messages")
-            return _mock_chat_completion_response(content=json.dumps(messages))
-        elif "/completions" in url:
-            prompt = kwargs.get("json").get("prompt")
-            return _mock_completion_response(content=json.dumps(prompt))
-        elif "/embeddings" in url:
-            inp = kwargs.get("json").get("input")
-            return _mock_embeddings_response(len(inp) if isinstance(inp, list) else 1)
-        else:
-            return original(*args, **kwargs)
-
-    return _mock_request_post(new=request)
 
 
 def _validate_model_params(task, model, params):

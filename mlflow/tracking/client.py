@@ -610,10 +610,10 @@ class MlflowClient:
             if isinstance(mlflow_span, NoOpSpan):
                 return mlflow_span
 
-            if inputs:
+            if inputs is not None:
                 mlflow_span.set_inputs(inputs)
-            if attributes:
-                mlflow_span.set_attributes(attributes)
+            mlflow_span.set_attributes(attributes or {})
+
             trace_manager = InMemoryTraceManager.get_instance()
             tags = exclude_immutable_tags(tags or {})
             if is_in_databricks_model_serving_environment():
@@ -857,9 +857,8 @@ class MlflowClient:
         try:
             otel_span = mlflow.tracing.provider.start_detached_span(name, parent=parent_span._span)
             span = create_mlflow_span(otel_span, request_id, span_type)
-            if attributes:
-                span.set_attributes(attributes)
-            if inputs:
+            span.set_attributes(attributes or {})
+            if inputs is not None:
                 span.set_inputs(inputs)
 
             trace_manager.register_span(span)
@@ -878,7 +877,7 @@ class MlflowClient:
         request_id: str,
         span_id: str,
         outputs: Optional[Dict[str, Any]] = None,
-        attributes: Optional[Any] = None,
+        attributes: Optional[Dict[str, Any]] = None,
         status: Union[SpanStatus, str] = "OK",
     ):
         """
@@ -909,9 +908,8 @@ class MlflowClient:
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
 
-        if attributes:
-            span.set_attributes(attributes or {})
-        if outputs:
+        span.set_attributes(attributes or {})
+        if outputs is not None:
             span.set_outputs(outputs)
         span.set_status(status)
 
