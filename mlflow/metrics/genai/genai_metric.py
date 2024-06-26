@@ -221,8 +221,6 @@ def make_genai_metric_from_prompt(
         metric_metadata: (Optional) Dictionary of metadata to be attached to the
             EvaluationMetric object. Useful for model evaluators that require additional
             information to determine how to evaluate this metric.
-        genai_metric_args: (Optional) A dictionary containing arguments required to call
-            make_genai_metric_from_prompt for restoring the metric instance later
 
     Returns:
         A metric object.
@@ -351,8 +349,6 @@ def make_genai_metric(
         metric_metadata: (Optional) Dictionary of metadata to be attached to the
             EvaluationMetric object. Useful for model evaluators that require additional
             information to determine how to evaluate this metric.
-        genai_metric_args: (Optional) A dictionary containing arguments required to call
-            make_genai_metric for restoring the metric instance later
 
     Returns:
         A metric object.
