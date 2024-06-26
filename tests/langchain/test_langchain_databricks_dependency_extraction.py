@@ -7,6 +7,7 @@ import pytest
 from packaging.version import Version
 
 from mlflow.langchain.databricks_dependencies import (
+    _detect_databricks_dependencies,
     _extract_databricks_dependencies_from_chat_model,
     _extract_databricks_dependencies_from_llm,
     _extract_databricks_dependencies_from_retriever,
@@ -269,6 +270,43 @@ def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch
     resources = []
     _extract_databricks_dependencies_from_chat_model(chat_model, resources)
     assert resources == [DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat")]
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_parsing_dependency_from_databricks(monkeypatch: pytest.MonkeyPatch):
+    from langchain_community.chat_models import ChatDatabricks
+    from langchain_community.vectorstores import DatabricksVectorSearch
+
+    mock_get_deploy_client = MagicMock()
+
+    monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
+
+    vsc = MockVectorSearchClient()
+    vs_index = vsc.get_index(
+        endpoint_name="dbdemos_vs_endpoint",
+        index_name="mlflow.rag.vs_index",
+        has_embedding_endpoint=True,
+    )
+
+    mock_module = MagicMock()
+    mock_module.VectorSearchIndex = MockVectorSearchIndex
+
+    monkeypatch.setitem(sys.modules, "databricks.vector_search.client", mock_module)
+
+    vectorstore = DatabricksVectorSearch(vs_index, text_column="content")
+    retriever = vectorstore.as_retriever()
+    llm = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
+    llm2 = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
+
+    model = retriever | llm | llm2
+    resources = _detect_databricks_dependencies(model)
+    assert resources == [
+        DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
+        DatabricksServingEndpoint(endpoint_name="embedding-model"),
+        DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat"),
+    ]
 
 
 @contextmanager
