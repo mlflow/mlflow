@@ -147,8 +147,6 @@ class EvaluationMetric:
             parts.append(f"metric_details={self.metric_details}")
         if self.metric_metadata:
             parts.append(f"metric_metadata={self.metric_metadata}")
-        if self.custom_metric_config:
-            parts.append(f"custom_metric_config={self.custom_metric_config}")
 
         return "EvaluationMetric(" + ", ".join(parts) + ")"
 
