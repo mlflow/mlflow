@@ -470,7 +470,7 @@ To work around this limitation, you can remove the module from the cache before 
 
     model1 = mlflow.pyfunc.load_model(info1.model_uri).predict([0])
     sys.modules.pop("my_model")
-    model2 = mlflow.pyfunc.load_model(info1.model_uri).predict([0])
+    model2 = mlflow.pyfunc.load_model(info2.model_uri).predict([0])
 
 Another workaround is to use different module names for different implementations. For example:
 
@@ -478,7 +478,7 @@ Another workaround is to use different module names for different implementation
 
     mlflow.pyfunc.log_model(
         artifact_path="model",
-        python_model=m1,
+        python_model=model1,
         code_paths=["my_model1.py"],
     )
 
