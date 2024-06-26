@@ -466,16 +466,16 @@ To work around this limitation, you can remove the module from the cache before 
 
 .. code-block:: python
 
-    model1 = mlflow.pyfunc.load_model(info1.model_uri).predict([0])
+    model1 = mlflow.pyfunc.load_model(info1.model_uri)
     sys.modules.pop("my_model")
-    model2 = mlflow.pyfunc.load_model(info2.model_uri).predict([0])
+    model2 = mlflow.pyfunc.load_model(info2.model_uri)
 
 Another workaround is to use different module names for different implementations. For example:
 
 .. code-block:: python
 
     mlflow.pyfunc.log_model(
-        artifact_path="model",
+        artifact_path="model1",
         python_model=model1,
         code_paths=["my_model1.py"],
     )
