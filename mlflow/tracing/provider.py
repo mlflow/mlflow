@@ -1,3 +1,12 @@
+"""
+This module provides a set of functions to manage the global tracer provider for MLflow tracing.
+
+Every tracing operation in MLflow *MUST* be managed through this module, instead of directly
+using the OpenTelemetry APIs. This is because MLflow needs to control the initialization of the
+tracer provider and ensure that it won't interfere with the other external libraries that might
+use OpenTelemetry e.g. PromptFlow, Snowpark.
+"""
+
 import functools
 import json
 import logging
@@ -5,19 +14,23 @@ from typing import Optional, Tuple
 
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.util._once import Once
 
 from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils.exception import raise_as_trace_exception
+from mlflow.tracing.utils.once import Once
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
 )
 
+# Global tracer provider instance. We manage the tracer provider by ourselves instead of using
+# the global tracer provider provided by OpenTelemetry.
+_MLFLOW_TRACER_PROVIDER = None
+
 # Once() object ensures a function is executed only once in a process.
 # Note that it doesn't work as expected in a distributed environment.
-_TRACER_PROVIDER_INITIALIZED = Once()
+_MLFLOW_TRACER_PROVIDER_INITIALIZED = Once()
 
 _logger = logging.getLogger(__name__)
 
@@ -66,25 +79,32 @@ def start_detached_span(
 def _get_tracer(module_name: str):
     """
     Get a tracer instance for the given module name.
+
+    If the tracer provider is not initialized, this function will initialize the tracer provider.
+    Other simultaneous calls to this function will block until the initialization is done.
     """
     # Initiate tracer provider only once in the application lifecycle
-    _TRACER_PROVIDER_INITIALIZED.do_once(_setup_tracer_provider)
-
-    tracer_provider = trace.get_tracer_provider()
-    return tracer_provider.get_tracer(module_name)
+    _MLFLOW_TRACER_PROVIDER_INITIALIZED.do_once(_setup_tracer_provider)
+    return _MLFLOW_TRACER_PROVIDER.get_tracer(module_name)
 
 
 def _setup_tracer_provider(disabled=False):
     """
     Instantiate a tracer provider and set it as the global tracer provider.
+
+    Note that this function ALWAYS updates the global tracer provider, regardless of the current
+    state. It is the caller's responsibility to ensure that the tracer provider is initialized
+    only once, and update the _MLFLOW_TRACER_PROVIDER_INITIALIZED flag accordingly.
     """
+    global _MLFLOW_TRACER_PROVIDER
+
     if disabled:
-        _force_set_otel_tracer_provider(trace.NoOpTracerProvider())
+        _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
         return
 
     if is_in_databricks_model_serving_environment():
         if not is_mlflow_tracing_enabled_in_model_serving():
-            _force_set_otel_tracer_provider(trace.NoOpTracerProvider())
+            _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
             return
 
         from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
@@ -101,19 +121,7 @@ def _setup_tracer_provider(disabled=False):
 
     tracer_provider = TracerProvider()
     tracer_provider.add_span_processor(processor)
-    _force_set_otel_tracer_provider(tracer_provider)
-
-
-def _force_set_otel_tracer_provider(tracer_provider):
-    """
-    Resetting internal flag used in OpenTelemetry. If we don't reset the flag,
-    set_tracer_provider() will be a no-op after the first call
-    in the application lifecycle.
-    https://github.com/open-telemetry/opentelemetry-python/blob/v1.24.0/opentelemetry-api/src/opentelemetry/trace/__init__.py#L485
-    """
-    with trace._TRACER_PROVIDER_SET_ONCE._lock:
-        trace._TRACER_PROVIDER_SET_ONCE._done = False
-    trace.set_tracer_provider(tracer_provider)
+    _MLFLOW_TRACER_PROVIDER = tracer_provider
 
 
 @raise_as_trace_exception
@@ -153,8 +161,8 @@ def disable():
     if not _is_enabled():
         return
 
-    reset_tracer_setup()  # Force re-initialization of the tracer provider
-    _TRACER_PROVIDER_INITIALIZED.do_once(lambda: _setup_tracer_provider(disabled=True))
+    _setup_tracer_provider(disabled=True)
+    _MLFLOW_TRACER_PROVIDER_INITIALIZED.done = True
 
 
 @raise_as_trace_exception
@@ -190,11 +198,12 @@ def enable():
         assert len(mlflow.search_traces()) == 2
 
     """
-    if _is_enabled():
+    if _is_enabled() and _MLFLOW_TRACER_PROVIDER_INITIALIZED.done:
         _logger.info("Tracing is already enabled")
         return
 
     _setup_tracer_provider()
+    _MLFLOW_TRACER_PROVIDER_INITIALIZED.done = True
 
 
 def trace_disabled(f):
@@ -252,16 +261,15 @@ def trace_disabled(f):
 
 def reset_tracer_setup():
     """
-    Reset the flags that indicates whether the tracer provider has been initialized.
+    Reset the flags that indicates whether the MLflow tracer provider has been initialized.
     This ensures that the tracer provider is re-initialized when next tracing
     operation is performed.
     """
-    with _TRACER_PROVIDER_INITIALIZED._lock:
-        _TRACER_PROVIDER_INITIALIZED._done = False
     # Set NoOp tracer provider to reset the global tracer to the initial state.
-    # Do not flip _TRACE_PROVIDER_INITIALIZED flag to True so that
-    # the next tracing operation will re-initialize the provider.
     _setup_tracer_provider(disabled=True)
+    # Flip _MLFLOW_TRACE_PROVIDER_INITIALIZED flag to False so that
+    # the next tracing operation will re-initialize the provider.
+    _MLFLOW_TRACER_PROVIDER_INITIALIZED.done = False
 
 
 @raise_as_trace_exception
@@ -274,11 +282,11 @@ def _is_enabled() -> bool:
     1. The default state (before any tracing operation)
     2. The tracer is not either ProxyTracer or NoOpTracer
     """
-    with _TRACER_PROVIDER_INITIALIZED._lock:
-        tracer = trace.get_tracer(__name__)
+    if not _MLFLOW_TRACER_PROVIDER_INITIALIZED.done:
+        return True
 
-        # Occasionally ProxyTracer instance wraps the actual tracer
-        if isinstance(tracer, trace.ProxyTracer):
-            tracer = tracer._tracer
-
-        return not (_TRACER_PROVIDER_INITIALIZED._done and isinstance(tracer, trace.NoOpTracer))
+    tracer = _get_tracer(__name__)
+    # Occasionally ProxyTracer instance wraps the actual tracer
+    if isinstance(tracer, trace.ProxyTracer):
+        tracer = tracer._tracer
+    return not isinstance(tracer, trace.NoOpTracer)

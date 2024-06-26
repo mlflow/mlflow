@@ -542,6 +542,42 @@ def test_start_span_context_manager_with_imperative_apis():
     }
 
 
+def test_mlflow_trace_isolated_from_other_otel_processors():
+    # Set up non-MLFlow tracer
+    import opentelemetry.sdk.trace as trace_sdk
+    from opentelemetry import trace
+
+    class MockOtelExporter(trace_sdk.export.SpanExporter):
+        def __init__(self):
+            self.exported_spans = []
+
+        def export(self, spans):
+            self.exported_spans.extend(spans)
+
+    other_exporter = MockOtelExporter()
+    provider = trace_sdk.TracerProvider()
+    processor = trace_sdk.export.SimpleSpanProcessor(other_exporter)
+    provider.add_span_processor(processor)
+    trace.set_tracer_provider(provider)
+
+    # Create MLflow trace
+    with mlflow.start_span(name="mlflow_span"):
+        pass
+
+    # Create non-MLflow trace
+    tracer = trace.get_tracer(__name__)
+    with tracer.start_as_current_span("non_mlflow_span"):
+        pass
+
+    # MLflow only processes spans created with MLflow APIs
+    assert len(TRACE_BUFFER) == 1
+    assert mlflow.get_last_active_trace().data.spans[0].name == "mlflow_span"
+
+    # Other spans are processed by the other processor
+    assert len(other_exporter.exported_spans) == 1
+    assert other_exporter.exported_spans[0].name == "non_mlflow_span"
+
+
 @mock.patch("mlflow.tracing.export.mlflow.get_display_handler")
 def test_get_trace(mock_get_display_handler):
     model = DefaultTestModel()
