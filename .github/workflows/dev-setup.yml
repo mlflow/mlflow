@@ -50,10 +50,11 @@ jobs:
         run: |
           git config --global user.name "test"
           git config --global user.email "test@mlflow.org"
-      - name: Run Environment tests
-        run: |
-          TERM=xterm bash ./dev/test-dev-env-setup.sh
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
         timeout-minutes: 120
+      - name: Run Environment tests
+        run: |
+          TERM=xterm bash ./dev/test-dev-env-setup.sh
+
 
