@@ -522,7 +522,6 @@ class _SklearnModelWrapper:
                     params: Optional[Dict[str, Any]] = None
                 ):
                     params = params or {}
-                    breakpoint()
                     return fn(data, **params)
 
                 setattr(self, predict_fn, _custom_predict_fn_wrapper)
