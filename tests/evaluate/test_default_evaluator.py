@@ -4212,6 +4212,6 @@ def test_log_llm_custom_metrics_as_artifacts():
     assert table.loc[0, "version"] == "v1"
     assert table.loc[1, "name"] == "custom llm judge"
     assert table.loc[1, "version"] is None
-    # TODO(xq-yin) ML-41356: Validate metric_config value once we implement deser function
-    assert table.loc[0, "metric_config"] is not None
-    assert table.loc[1, "metric_config"] is not None
+    # TODO(xq-yin) ML-41356: Validate metric_args value once we implement deser function
+    assert table.loc[0, "metric_args"] is not None
+    assert table.loc[1, "metric_args"] is not None

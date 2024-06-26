@@ -613,7 +613,7 @@ class _Metric(NamedTuple):
     name: str
     index: int
     version: Optional[str] = None
-    custom_metric_config: Optional[dict] = None
+    genai_metric_args: Optional[dict] = None
 
 
 class _CustomArtifact(NamedTuple):
@@ -1718,7 +1718,7 @@ class DefaultEvaluator(ModelEvaluator):
             index=index,
             name=metric.name,
             version=metric.version,
-            custom_metric_config=metric.custom_metric_config,
+            genai_metric_args=metric.genai_metric_args,
         )
 
     def _evaluate_metrics(self, eval_df):
@@ -1828,12 +1828,12 @@ class DefaultEvaluator(ModelEvaluator):
         if len(genai_custom_metrics) == 0:
             return
 
-        data = {"name": [], "version": [], "metric_config": []}
-        for metric_config in genai_custom_metrics:
-            data["name"].append(metric_config["name"])
+        data = {"name": [], "version": [], "metric_args": []}
+        for genai_metric_args in genai_custom_metrics:
+            data["name"].append(genai_metric_args["name"])
             # Custom metrics created from make_genai_metric_from_prompt don't have version
-            data["version"].append(metric_config.get("version", None))
-            data["metric_config"].append(metric_config)
+            data["version"].append(genai_metric_args.get("version", None))
+            data["metric_args"].append(genai_metric_args)
         mlflow.log_table(data, artifact_file=_GENAI_CUSTOM_METRICS_FILE_NAME)
 
         name = _GENAI_CUSTOM_METRICS_FILE_NAME.split(".", 1)[0]
@@ -1948,8 +1948,8 @@ class DefaultEvaluator(ModelEvaluator):
                         self.extra_metrics.remove(extra_metric)
                     # When the field is present, the metric is created from either make_genai_metric
                     # or make_genai_metric_from_prompt. We will log the metric definition.
-                    if extra_metric.custom_metric_config is not None:
-                        genai_custom_metrics.append(extra_metric.custom_metric_config)
+                    if extra_metric.genai_metric_args is not None:
+                        genai_custom_metrics.append(extra_metric.genai_metric_args)
                 self._generate_model_predictions(compute_latency=compute_latency)
                 self._handle_builtin_metrics_by_model_type()
 
