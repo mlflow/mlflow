@@ -28,6 +28,8 @@ from mlflow.metrics.genai.prompts.v1 import (
     FaithfulnessMetric,
     RelevanceMetric,
 )
+from mlflow.metrics.genai.utils import _get_default_model
+from mlflow.version import VERSION
 
 openai_justification1 = (
     "The provided output mostly answers the question, but it is missing or hallucinating on "
@@ -1130,3 +1132,66 @@ def test_make_custom_prompt_genai_metric_validates_input_kwargs():
         custom_judge_prompt_metric.eval_fn(
             input=pd.Series(inputs),
         )
+
+
+def test_log_custom_metric_config_in_make_genai_metric_from_prompt():
+    custom_judge_prompt = "This is a custom judge prompt that uses {input} and {output}"
+
+    custom_metric = make_genai_metric_from_prompt(
+        name="custom",
+        judge_prompt=custom_judge_prompt,
+        greater_is_better=False,
+        parameters={"temperature": 0.0},
+    )
+
+    assert custom_metric.custom_metric_config is not None
+
+    expected_metric_config = {
+        "name": "custom",
+        "judge_prompt": custom_judge_prompt,
+        "model": _get_default_model(),
+        "parameters": {"temperature": 0.0},
+        "aggregations": None,
+        "greater_is_better": False,
+        "max_workers": 10,
+        "metric_metadata": None,
+        "mlflow_version": VERSION,
+    }
+
+    assert custom_metric.custom_metric_config == expected_metric_config
+
+
+def test_log_custom_metric_config_in_make_genai_metric():
+    custom_metric = make_genai_metric(
+        name="correctness",
+        version="v1",
+        definition=example_definition,
+        grading_prompt=example_grading_prompt,
+        examples=[mlflow_example],
+        model="gateway:/gpt-3.5-turbo",
+        grading_context_columns=["targets"],
+        parameters={"temperature": 0.0},
+        greater_is_better=True,
+        aggregations=["mean", "variance", "p90"],
+    )
+
+    assert custom_metric.custom_metric_config is not None
+
+    expected_metric_config = {
+        "name": "correctness",
+        "definition": example_definition,
+        "grading_prompt": example_grading_prompt,
+        "examples": [mlflow_example],
+        "version": "v1",
+        "model": "gateway:/gpt-3.5-turbo",
+        "grading_context_columns": ["targets"],
+        "include_input": True,
+        "parameters": {"temperature": 0.0},
+        "aggregations": ["mean", "variance", "p90"],
+        "greater_is_better": True,
+        "max_workers": 10,
+        "metric_metadata": None,
+        "mlflow_version": VERSION,
+    }
+
+    assert custom_metric.custom_metric_config == expected_metric_config
