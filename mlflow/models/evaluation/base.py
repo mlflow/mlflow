@@ -111,6 +111,8 @@ class EvaluationMetric:
         version: (Optional) The metric version. For example ``v1``.
         metric_details: (Optional) A description of the metric and how it is calculated.
         metric_metadata: (Optional) A dictionary containing metadata for the metric.
+        genai_metric_args: (Optional) A dictionary containing arguments required to call
+            make_genai_metric or make_genai_metric_from_prompt.
     '''
 
     def __init__(
@@ -122,7 +124,7 @@ class EvaluationMetric:
         version=None,
         metric_details=None,
         metric_metadata=None,
-        custom_metric_config=None,
+        genai_metric_args=None,
     ):
         self.eval_fn = eval_fn
         self.name = name
@@ -131,7 +133,7 @@ class EvaluationMetric:
         self.version = version
         self.metric_details = metric_details
         self.metric_metadata = metric_metadata
-        self.custom_metric_config = custom_metric_config
+        self.genai_metric_args = genai_metric_args
 
     def __str__(self):
         parts = [f"name={self.name}, greater_is_better={self.greater_is_better}"]
@@ -157,7 +159,7 @@ def make_metric(
     version=None,
     metric_details=None,
     metric_metadata=None,
-    custom_metric_config=None,
+    genai_metric_args=None,
 ):
     '''
     A factory function to create an :py:class:`EvaluationMetric` object.
@@ -206,6 +208,8 @@ def make_metric(
         version: (Optional) The metric version. For example ``v1``.
         metric_details: (Optional) A description of the metric and how it is calculated.
         metric_metadata: (Optional) A dictionary containing metadata for the metric.
+        genai_metric_args: (Optional) A dictionary containing arguments required to call
+            make_genai_metric or make_genai_metric_from_prompt.
 
     .. seealso::
 
@@ -260,7 +264,7 @@ def make_metric(
         version,
         metric_details,
         metric_metadata,
-        custom_metric_config,
+        genai_metric_args,
     )
 
 

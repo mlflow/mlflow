@@ -221,6 +221,8 @@ def make_genai_metric_from_prompt(
         metric_metadata: (Optional) Dictionary of metadata to be attached to the
             EvaluationMetric object. Useful for model evaluators that require additional
             information to determine how to evaluate this metric.
+        genai_metric_args: (Optional) A dictionary containing arguments required to call
+            make_genai_metric_from_prompt for restoring the metric instance later
 
     Returns:
         A metric object.
@@ -250,9 +252,9 @@ def make_genai_metric_from_prompt(
     # When users create a custom metric using this function,the metric configuration
     # will be serialized and stored. This enables us to later deserialize the configuration,
     # allowing users to understand their LLM evaluation results more clearly.
-    custom_metric_config = locals()
+    genai_metric_args = locals()
     # Record the mlflow version for serialization in case the function signature changes later
-    custom_metric_config["mlflow_version"] = VERSION
+    genai_metric_args["mlflow_version"] = VERSION
 
     aggregations = aggregations or ["mean", "variance", "p90"]
 
@@ -285,7 +287,7 @@ def make_genai_metric_from_prompt(
         greater_is_better=greater_is_better,
         name=name,
         metric_metadata=metric_metadata,
-        custom_metric_config=custom_metric_config,
+        genai_metric_args=genai_metric_args,
     )
 
 
@@ -340,6 +342,8 @@ def make_genai_metric(
         metric_metadata: (Optional) Dictionary of metadata to be attached to the
             EvaluationMetric object. Useful for model evaluators that require additional
             information to determine how to evaluate this metric.
+        genai_metric_args: (Optional) A dictionary containing arguments required to call
+            make_genai_metric for restoring the metric instance later
 
     Returns:
         A metric object.
@@ -409,9 +413,9 @@ def make_genai_metric(
     # When users create a custom metric using this function,the metric configuration
     # will be serialized and stored. This enables us to later deserialize the configuration,
     # allowing users to understand their LLM evaluation results more clearly.
-    custom_metric_config = locals()
+    genai_metric_args = locals()
     # Record the mlflow version for serialization in case the function signature changes later
-    custom_metric_config["mlflow_version"] = VERSION
+    genai_metric_args["mlflow_version"] = VERSION
 
     aggregations = aggregations or ["mean", "variance", "p90"]
     grading_context_columns = grading_context_columns or []
@@ -576,5 +580,5 @@ def make_genai_metric(
         version=version,
         metric_details=evaluation_context["eval_prompt"].__str__(),
         metric_metadata=metric_metadata,
-        custom_metric_config=custom_metric_config,
+        genai_metric_args=genai_metric_args,
     )

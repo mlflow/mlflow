@@ -1134,7 +1134,7 @@ def test_make_custom_prompt_genai_metric_validates_input_kwargs():
         )
 
 
-def test_log_custom_metric_config_in_make_genai_metric_from_prompt():
+def test_log_make_genai_metric_from_prompt_fn_args():
     custom_judge_prompt = "This is a custom judge prompt that uses {input} and {output}"
 
     custom_metric = make_genai_metric_from_prompt(
@@ -1144,7 +1144,7 @@ def test_log_custom_metric_config_in_make_genai_metric_from_prompt():
         parameters={"temperature": 0.0},
     )
 
-    expected_metric_config = {
+    expected_genai_metric_args = {
         "name": "custom",
         "judge_prompt": custom_judge_prompt,
         "model": _get_default_model(),
@@ -1156,10 +1156,10 @@ def test_log_custom_metric_config_in_make_genai_metric_from_prompt():
         "mlflow_version": VERSION,
     }
 
-    assert custom_metric.custom_metric_config == expected_metric_config
+    assert custom_metric.genai_metric_args == expected_genai_metric_args
 
 
-def test_log_custom_metric_config_in_make_genai_metric():
+def test_log_make_genai_metric_fn_args():
     custom_metric = make_genai_metric(
         name="correctness",
         version="v1",
@@ -1173,7 +1173,7 @@ def test_log_custom_metric_config_in_make_genai_metric():
         aggregations=["mean", "variance", "p90"],
     )
 
-    expected_metric_config = {
+    expected_genai_metric_args = {
         "name": "correctness",
         "definition": example_definition,
         "grading_prompt": example_grading_prompt,
@@ -1190,4 +1190,4 @@ def test_log_custom_metric_config_in_make_genai_metric():
         "mlflow_version": VERSION,
     }
 
-    assert custom_metric.custom_metric_config == expected_metric_config
+    assert custom_metric.genai_metric_args == expected_genai_metric_args
