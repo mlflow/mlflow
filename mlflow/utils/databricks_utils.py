@@ -850,14 +850,21 @@ def _get_databricks_creds_config(tracking_uri):
 
     config = None
 
-    for provider in [
-        _dynamic_token_config_provider,
-        ProfileConfigProvider(profile),
-        SparkTaskContextConfigProvider(),
-        EnvironmentVariableConfigProvider(),
-        DatabricksModelServingConfigProvider(),
-        TrackingURIConfigProvider(tracking_uri),
-    ]:
+    if profile is None:
+        provider_list = [
+            # We should use `EnvironmentVariableConfigProvider` as the highest priority
+            # this is aligned with Databricks-SDK behavior.
+            EnvironmentVariableConfigProvider(),
+            _dynamic_token_config_provider,
+            ProfileConfigProvider(None),
+            SparkTaskContextConfigProvider(),
+            DatabricksModelServingConfigProvider(),
+            TrackingURIConfigProvider(tracking_uri),
+        ]
+    else:
+        provider_list = [ProfileConfigProvider(profile)]
+
+    for provider in provider_list:
         if provider:
             _config = provider.get_config()
             if _config is not None and _config.is_valid:
