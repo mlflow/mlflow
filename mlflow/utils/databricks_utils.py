@@ -846,11 +846,18 @@ def _get_databricks_creds_config(tracking_uri):
     # so that in this function we still have to use
     # configuration providers defined in legacy Databricks CLI python library to
     # read token values.
-    profile, _ = get_db_info_from_uri(tracking_uri)
+    profile, key_prefix = get_db_info_from_uri(tracking_uri)
 
     config = None
 
-    if profile is None:
+    if profile and key_prefix:
+        # legacy reading credentials way by setting `tracking_uri` to 'databricks://scope:prefix'
+        provider_list = [TrackingURIConfigProvider(tracking_uri)]
+    elif profile:
+        # If you set `tracking_uri` to 'databricks://<profile>'
+        # MLflow should only read credentials from this profile
+        provider_list = [ProfileConfigProvider(profile)]
+    else:
         provider_list = [
             # We should use `EnvironmentVariableConfigProvider` as the highest priority
             # this is aligned with Databricks-SDK behavior.
@@ -859,10 +866,7 @@ def _get_databricks_creds_config(tracking_uri):
             ProfileConfigProvider(None),
             SparkTaskContextConfigProvider(),
             DatabricksModelServingConfigProvider(),
-            TrackingURIConfigProvider(tracking_uri),
         ]
-    else:
-        provider_list = [ProfileConfigProvider(profile)]
 
     for provider in provider_list:
         if provider:
