@@ -1144,8 +1144,6 @@ def test_log_custom_metric_config_in_make_genai_metric_from_prompt():
         parameters={"temperature": 0.0},
     )
 
-    assert custom_metric.custom_metric_config is not None
-
     expected_metric_config = {
         "name": "custom",
         "judge_prompt": custom_judge_prompt,
@@ -1174,8 +1172,6 @@ def test_log_custom_metric_config_in_make_genai_metric():
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
     )
-
-    assert custom_metric.custom_metric_config is not None
 
     expected_metric_config = {
         "name": "correctness",
