@@ -30,6 +30,9 @@ from mlflow.metrics import (
     make_metric,
 )
 from mlflow.metrics.genai import model_utils
+from mlflow.metrics.genai.base import EvaluationExample
+from mlflow.metrics.genai.genai_metric import make_genai_metric_from_prompt
+from mlflow.metrics.genai.metric_definitions import answer_similarity
 from mlflow.models import Model
 from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
@@ -42,6 +45,7 @@ from mlflow.models.evaluation.artifacts import (
 )
 from mlflow.models.evaluation.base import evaluate
 from mlflow.models.evaluation.default_evaluator import (
+    _GENAI_CUSTOM_METRICS_FILE_NAME,
     _compute_df_mode_or_mean,
     _CustomArtifact,
     _evaluate_custom_artifacts,
@@ -4128,3 +4132,55 @@ def test_evaluate_custom_metric_with_string_type():
             data["text"],
             check_names=False,
         )
+
+
+def test_log_llm_custom_metrics_as_artifacts():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a"]
+        )
+        data = pd.DataFrame(
+            {
+                "inputs": ["words random", "This is a sentence."],
+                "ground_truth": ["words random", "This is a sentence."],
+            }
+        )
+        example = EvaluationExample(
+            input="What is MLflow?",
+            output="MLflow is an open-source platform for managing machine learning workflows.",
+            score=4,
+            justification="test",
+            grading_context={"targets": "test"},
+        )
+        # This simulates the code path for metrics created from make_genai_metric
+        answer_similarity_metric = answer_similarity(model="openai:/gpt-4", examples=[example])
+        another_custom_metric = make_genai_metric_from_prompt(
+            name="custom llm judge",
+            judge_prompt="This is a custom judge prompt.",
+            greater_is_better=False,
+            parameters={"temperature": 0.0},
+        )
+        result = evaluate(
+            model_info.model_uri,
+            data,
+            targets="ground_truth",
+            predictions="answer",
+            model_type="question-answering",
+            evaluators="default",
+            extra_metrics=[
+                answer_similarity_metric,
+                another_custom_metric,
+            ],
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert _GENAI_CUSTOM_METRICS_FILE_NAME in artifacts
+
+    table = result.tables[_GENAI_CUSTOM_METRICS_FILE_NAME.split(".", 1)[0]]
+    assert table.loc[0, "name"] == "answer_similarity"
+    assert table.loc[0, "version"] == "v1"
+    assert table.loc[0, "metric_config"] is not None
+    assert table.loc[1, "name"] == "custom llm judge"
+    assert table.loc[1, "version"] is None
+    assert table.loc[1, "metric_config"] is not None

@@ -613,6 +613,7 @@ class _Metric(NamedTuple):
     name: str
     index: int
     version: Optional[str] = None
+    custom_metric_config: Optional[dict] = None
 
 
 class _CustomArtifact(NamedTuple):
@@ -1713,7 +1714,11 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _metric_to_metric_tuple(self, index, metric):
         return _Metric(
-            function=metric.eval_fn, index=index, name=metric.name, version=metric.version
+            function=metric.eval_fn,
+            index=index,
+            name=metric.name,
+            version=metric.version,
+            custom_metric_config=metric.custom_metric_config,
         )
 
     def _evaluate_metrics(self, eval_df):
@@ -1823,11 +1828,18 @@ class DefaultEvaluator(ModelEvaluator):
         if len(genai_custom_metrics) == 0:
             return
 
-        data = {}
-        for index, metric in enumerate(genai_custom_metrics):
-            data[f"Metric{index}"] = metric.custom_metric_config
-        artifact_file_name = f"{_GENAI_CUSTOM_METRICS_FILE_NAME}"
-        mlflow.log_table(data, artifact_file=artifact_file_name)
+        data = {"name": [], "version": [], "metric_config": []}
+        for metric_config in genai_custom_metrics:
+            data["name"].append(metric_config["name"])
+            # Custom metrics created from make_genai_metric_from_prompt don't have version
+            data["version"].append(metric_config.get("version", None))
+            data["metric_config"].append(metric_config)
+        mlflow.log_table(data, artifact_file=_GENAI_CUSTOM_METRICS_FILE_NAME)
+
+        name = _GENAI_CUSTOM_METRICS_FILE_NAME.split(".", 1)[0]
+        self.artifacts[name] = JsonEvaluationArtifact(
+            uri=mlflow.get_artifact_uri(_GENAI_CUSTOM_METRICS_FILE_NAME)
+        )
 
     def _update_aggregate_metrics(self):
         self.aggregate_metrics = {}
@@ -1936,8 +1948,8 @@ class DefaultEvaluator(ModelEvaluator):
                         self.extra_metrics.remove(extra_metric)
                     # When the field is present, the metric is created from either make_genai_metric
                     # or make_genai_metric_from_prompt. We will log the metric definition.
-                    if extra_metric.custom_metric_config is not None:
-                        genai_custom_metrics.append(extra_metric)
+                    if hasattr(extra_metric, "custom_metric_config"):
+                        genai_custom_metrics.append(extra_metric.custom_metric_config)
                 self._generate_model_predictions(compute_latency=compute_latency)
                 self._handle_builtin_metrics_by_model_type()
 
