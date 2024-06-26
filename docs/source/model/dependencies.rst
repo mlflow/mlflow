@@ -394,6 +394,98 @@ This way, MLflow will copy the entire ``src/`` directory under ``code/`` and you
 
     By the same reason, the ``code_paths`` option doesn't handle the relative import of ``code_paths=["../src"]``.
 
+Limitation of ``code_paths`` in loading multiple models with the same module name but different implementations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The current implementation of the ``code_paths`` option has a limitation that it doesn't support loading multiple models that depend on modules with the same name but different implementations within the same Python process, as illustrated in the following example:
+
+.. code-block:: python
+
+    import importlib
+    import sys
+    import tempfile
+    from pathlib import Path
+
+    import mlflow
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        my_model_path = tmpdir / "my_model.py"
+        code_template = """
+    import mlflow
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return [{n}] * len(model_input)
+    """
+
+        my_model_path.write_text(code_template.format(n=1))
+
+        sys.path.insert(0, str(tmpdir))
+        import my_model
+
+        # model 1
+        model1 = my_model.MyModel()
+        assert model1.predict(context=None, model_input=[0]) == [1]
+
+        with mlflow.start_run():
+            info1 = mlflow.pyfunc.log_model(
+                artifact_path="model",
+                python_model=model1,
+                code_paths=[my_model_path],
+            )
+
+        # model 2
+        my_model_path.write_text(code_template.format(n=2))
+        importlib.reload(my_model)
+        model2 = my_model.MyModel()
+        assert model2.predict(context=None, model_input=[0]) == [2]
+
+        with mlflow.start_run():
+            info2 = mlflow.pyfunc.log_model(
+                artifact_path="model",
+                python_model=model2,
+                code_paths=[my_model_path],
+            )
+
+    # To simulate a fresh Python process, remove the `my_model` module from the cache
+    sys.modules.pop("my_model")
+
+    # Now we have two models that depend on modules with the same name but different implementations.
+    # Let's load them and check the prediction results.
+    pred = mlflow.pyfunc.load_model(info1.model_uri).predict([0])
+    assert pred == [1], pred  # passes
+
+    # As the `my_model` module was loaded and cached in the previous `load_model` call,
+    # the next `load_model` call will reuse it and return the wrong prediction result.
+    assert "my_model" in sys.modules
+    pred = mlflow.pyfunc.load_model(info2.model_uri).predict([0])
+    assert pred == [2], pred  # doesn't pass, `pred` is [1]
+
+To work around this limitation, you can remove the module from the cache before loading the model. For example:
+
+.. code-block:: python
+
+    model1 = mlflow.pyfunc.load_model(info1.model_uri)
+    sys.modules.pop("my_model")
+    model2 = mlflow.pyfunc.load_model(info2.model_uri)
+
+Another workaround is to use different module names for different implementations. For example:
+
+.. code-block:: python
+
+    mlflow.pyfunc.log_model(
+        artifact_path="model1",
+        python_model=model1,
+        code_paths=["my_model1.py"],
+    )
+
+    mlflow.pyfunc.log_model(
+        artifact_path="model",
+        python_model=model2,
+        code_paths=["my_model2.py"],
+    )
+
 Recommended Project Structure
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 With this limitation for ``code_paths`` in mind, the recommended project structure looks like the following:
