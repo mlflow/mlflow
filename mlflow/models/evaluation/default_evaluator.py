@@ -1715,7 +1715,11 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _metric_to_metric_tuple(self, index, metric):
         return _Metric(
-            function=metric.eval_fn, index=index, name=metric.name, version=metric.version
+            function=metric.eval_fn,
+            index=index,
+            name=metric.name,
+            version=metric.version,
+            genai_metric_args=metric.genai_metric_args,
         )
 
     def _evaluate_metrics(self, eval_df):
