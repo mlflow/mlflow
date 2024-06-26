@@ -42,7 +42,7 @@ jobs:
     if: github.event_name != 'schedule' || github.repository == 'mlflow-automation/mlflow'
     steps:
       - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
+        uses: jlumbroso/free-disk-space@v1.3.1
         with:
           # this might remove tools that are actually needed,
           # when set to "true" but frees about 6 GB
@@ -62,5 +62,3 @@ jobs:
           export PYENV_ROOT="$HOME/.pyenv"
           [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
           TERM=xterm bash ./dev/test-dev-env-setup.sh
-
-
