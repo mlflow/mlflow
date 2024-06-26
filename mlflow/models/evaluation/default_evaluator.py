@@ -1948,7 +1948,7 @@ class DefaultEvaluator(ModelEvaluator):
                         self.extra_metrics.remove(extra_metric)
                     # When the field is present, the metric is created from either make_genai_metric
                     # or make_genai_metric_from_prompt. We will log the metric definition.
-                    if hasattr(extra_metric, "custom_metric_config"):
+                    if extra_metric.custom_metric_config is not None:
                         genai_custom_metrics.append(extra_metric.custom_metric_config)
                 self._generate_model_predictions(compute_latency=compute_latency)
                 self._handle_builtin_metrics_by_model_type()

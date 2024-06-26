@@ -27,7 +27,9 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.metrics import (
     MetricValue,
+    flesch_kincaid_grade_level,
     make_metric,
+    toxicity,
 )
 from mlflow.metrics.genai import model_utils
 from mlflow.metrics.genai.base import EvaluationExample
@@ -4134,6 +4136,34 @@ def test_evaluate_custom_metric_with_string_type():
         )
 
 
+def test_do_not_log_built_in_metrics_as_artifacts():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a"]
+        )
+        data = pd.DataFrame(
+            {
+                "inputs": ["words random", "This is a sentence."],
+                "ground_truth": ["words random", "This is a sentence."],
+            }
+        )
+        evaluate(
+            model_info.model_uri,
+            data,
+            targets="ground_truth",
+            predictions="answer",
+            model_type="question-answering",
+            evaluators="default",
+            extra_metrics=[
+                toxicity(),
+                flesch_kincaid_grade_level(),
+            ],
+        )
+        client = mlflow.MlflowClient()
+        artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+        assert _GENAI_CUSTOM_METRICS_FILE_NAME not in artifacts
+
+
 def test_log_llm_custom_metrics_as_artifacts():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
@@ -4180,7 +4210,8 @@ def test_log_llm_custom_metrics_as_artifacts():
     table = result.tables[_GENAI_CUSTOM_METRICS_FILE_NAME.split(".", 1)[0]]
     assert table.loc[0, "name"] == "answer_similarity"
     assert table.loc[0, "version"] == "v1"
-    assert table.loc[0, "metric_config"] is not None
     assert table.loc[1, "name"] == "custom llm judge"
     assert table.loc[1, "version"] is None
+    # TODO(xq-yin) ML-41356: Validate metric_config value once we implement deser function
+    assert table.loc[0, "metric_config"] is not None
     assert table.loc[1, "metric_config"] is not None
