@@ -122,6 +122,7 @@ class EvaluationMetric:
         version=None,
         metric_details=None,
         metric_metadata=None,
+        custom_metric_config=None,
     ):
         self.eval_fn = eval_fn
         self.name = name
@@ -130,6 +131,7 @@ class EvaluationMetric:
         self.version = version
         self.metric_details = metric_details
         self.metric_metadata = metric_metadata
+        self.custom_metric_config = custom_metric_config
 
     def __str__(self):
         parts = [f"name={self.name}, greater_is_better={self.greater_is_better}"]
@@ -142,6 +144,8 @@ class EvaluationMetric:
             parts.append(f"metric_details={self.metric_details}")
         if self.metric_metadata:
             parts.append(f"metric_metadata={self.metric_metadata}")
+        if self.custom_metric_config:
+            parts.append(f"custom_metric_config={self.custom_metric_config}")
 
         return "EvaluationMetric(" + ", ".join(parts) + ")"
 
@@ -155,6 +159,7 @@ def make_metric(
     version=None,
     metric_details=None,
     metric_metadata=None,
+    custom_metric_config=None,
 ):
     '''
     A factory function to create an :py:class:`EvaluationMetric` object.
@@ -257,6 +262,7 @@ def make_metric(
         version,
         metric_details,
         metric_metadata,
+        custom_metric_config,
     )
 
 

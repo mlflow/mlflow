@@ -23,6 +23,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.class_utils import _get_class_from_string
+from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
 
@@ -245,6 +246,13 @@ def make_genai_metric_from_prompt(
         )
 
     """
+    # When users create a custom metric using this function,the metric configuration
+    # will be serialized and stored. This enables us to later deserialize the configuration,
+    # allowing users to understand their LLM evaluation results more clearly.
+    custom_metric_config = locals()
+    # Record the mlflow version for serialization in case the function signature changes later
+    custom_metric_config["mlflow_version"] = VERSION
+
     aggregations = aggregations or ["mean", "variance", "p90"]
 
     def eval_fn(
@@ -276,6 +284,7 @@ def make_genai_metric_from_prompt(
         greater_is_better=greater_is_better,
         name=name,
         metric_metadata=metric_metadata,
+        custom_metric_config=custom_metric_config,
     )
 
 
@@ -395,6 +404,13 @@ def make_genai_metric(
             greater_is_better=True,
         )
     """
+    # When users create a custom metric using this function,the metric configuration
+    # will be serialized and stored. This enables us to later deserialize the configuration,
+    # allowing users to understand their LLM evaluation results more clearly.
+    custom_metric_config = locals()
+    # Record the mlflow version for serialization in case the function signature changes later
+    custom_metric_config["mlflow_version"] = VERSION
+
     aggregations = aggregations or ["mean", "variance", "p90"]
     grading_context_columns = grading_context_columns or []
 
@@ -558,4 +574,5 @@ def make_genai_metric(
         version=version,
         metric_details=evaluation_context["eval_prompt"].__str__(),
         metric_metadata=metric_metadata,
+        custom_metric_config=custom_metric_config,
     )
