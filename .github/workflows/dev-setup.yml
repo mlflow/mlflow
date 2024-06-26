@@ -58,7 +58,4 @@ jobs:
           git config --global user.email "test@mlflow.org"
       - name: Run Environment tests
         run: |
-          curl https://pyenv.run | bash
-          export PYENV_ROOT="$HOME/.pyenv"
-          [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
           TERM=xterm bash ./dev/test-dev-env-setup.sh
