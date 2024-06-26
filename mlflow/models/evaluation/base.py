@@ -111,14 +111,9 @@ class EvaluationMetric:
         version: (Optional) The metric version. For example ``v1``.
         metric_details: (Optional) A description of the metric and how it is calculated.
         metric_metadata: (Optional) A dictionary containing metadata for the metric.
-<<<<<<< HEAD
         genai_metric_args: (Optional) A dictionary containing arguments specified by users
             when calling make_genai_metric or make_genai_metric_from_prompt. Those args
             are persisted so that we can deserialize the same metric object later.
-=======
-        genai_metric_args: (Optional) A dictionary containing arguments required to call
-            make_genai_metric or make_genai_metric_from_prompt.
->>>>>>> 4b6d2d266 (address comments)
     '''
 
     def __init__(
@@ -214,14 +209,9 @@ def make_metric(
         version: (Optional) The metric version. For example ``v1``.
         metric_details: (Optional) A description of the metric and how it is calculated.
         metric_metadata: (Optional) A dictionary containing metadata for the metric.
-<<<<<<< HEAD
         genai_metric_args: (Optional) A dictionary containing arguments specified by users
             when calling make_genai_metric or make_genai_metric_from_prompt. Those args
             are persisted so that we can deserialize the same metric object later.
-=======
-        genai_metric_args: (Optional) A dictionary containing arguments required to call
-            make_genai_metric or make_genai_metric_from_prompt.
->>>>>>> 4b6d2d266 (address comments)
 
     .. seealso::
 
