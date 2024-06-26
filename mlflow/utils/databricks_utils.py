@@ -851,16 +851,16 @@ def _get_databricks_creds_config(tracking_uri):
     config = None
 
     if profile and key_prefix:
-        # legacy reading credentials way by setting `tracking_uri` to 'databricks://scope:prefix'
+        # legacy way to read credentials by setting `tracking_uri` to 'databricks://scope:prefix'
         provider_list = [TrackingURIConfigProvider(tracking_uri)]
     elif profile:
-        # If you set `tracking_uri` to 'databricks://<profile>'
+        # If `tracking_uri` is 'databricks://<profile>'
         # MLflow should only read credentials from this profile
         provider_list = [ProfileConfigProvider(profile)]
     else:
         provider_list = [
-            # We should use `EnvironmentVariableConfigProvider` as the highest priority
-            # this is aligned with Databricks-SDK behavior.
+            # `EnvironmentVariableConfigProvider` should be prioritized at the highest level,
+            # to align with Databricks-SDK behavior.
             EnvironmentVariableConfigProvider(),
             _dynamic_token_config_provider,
             ProfileConfigProvider(None),

@@ -21,6 +21,8 @@ from mlflow.utils.databricks_utils import (
     get_workspace_info_from_dbutils,
     is_databricks_default_tracking_uri,
     is_running_in_ipython_environment,
+    DatabricksConfigProvider,
+    get_databricks_host_creds,
 )
 
 from tests.helper_functions import mock_method_chain
@@ -500,3 +502,17 @@ def test_get_dbr_major_minor_version_throws_on_invalid_version_key(monkeypatch):
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.x")
     with pytest.raises(MlflowException, match="Failed to parse databricks runtime version"):
         get_databricks_runtime_major_minor_version()
+
+
+def test_priorizing_env_var_config_provider(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "my_host1")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "token1")
+
+    class MyProvider(DatabricksConfigProvider):
+        def get_config(self):
+            return DatabricksConfig(host="my_host2", token="token2")
+
+    monkeypatch.setattr(databricks_utils, "_dynamic_token_config_provider", MyProvider)
+
+    hc = get_databricks_host_creds('databricks')
+    assert hc.host == "my_host1" and hc.token == "token1"
