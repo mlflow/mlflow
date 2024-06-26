@@ -516,7 +516,16 @@ class _SklearnModelWrapper:
         # via `pyfunc_predict_fn` argument when saving or logging.
         for predict_fn in self._SUPPORTED_CUSTOM_PREDICT_FN:
             if fn := getattr(self.sklearn_model, predict_fn, None):
-                setattr(self, predict_fn, fn)
+
+                def _custom_predict_fn_wrapper(
+                    data,
+                    params: Optional[Dict[str, Any]] = None
+                ):
+                    params = params or {}
+                    breakpoint()
+                    return fn(data, **params)
+
+                setattr(self, predict_fn, _custom_predict_fn_wrapper)
 
     def predict(
         self,
@@ -531,7 +540,8 @@ class _SklearnModelWrapper:
         Returns:
             Model predictions.
         """
-        return self.sklearn_model.predict(data)
+        params = params or {}
+        return self.sklearn_model.predict(data, **params)
 
 
 class _SklearnCustomModelPicklingError(pickle.PicklingError):
