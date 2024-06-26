@@ -852,13 +852,13 @@ def _get_databricks_creds_config(tracking_uri):
 
     if profile and key_prefix:
         # legacy way to read credentials by setting `tracking_uri` to 'databricks://scope:prefix'
-        provider_list = [TrackingURIConfigProvider(tracking_uri)]
+        providers = [TrackingURIConfigProvider(tracking_uri)]
     elif profile:
         # If `tracking_uri` is 'databricks://<profile>'
         # MLflow should only read credentials from this profile
-        provider_list = [ProfileConfigProvider(profile)]
+        providers = [ProfileConfigProvider(profile)]
     else:
-        provider_list = [
+        providers = [
             # `EnvironmentVariableConfigProvider` should be prioritized at the highest level,
             # to align with Databricks-SDK behavior.
             EnvironmentVariableConfigProvider(),
@@ -868,7 +868,7 @@ def _get_databricks_creds_config(tracking_uri):
             DatabricksModelServingConfigProvider(),
         ]
 
-    for provider in provider_list:
+    for provider in providers:
         if provider:
             _config = provider.get_config()
             if _config is not None and _config.is_valid:
