@@ -397,12 +397,11 @@ This way, MLflow will copy the entire ``src/`` directory under ``code/`` and you
 Limitation of ``code_paths`` in loading multiple models with the same module name but different implementations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The current implementation of the ``code_paths`` option has a limitation that it doesn't support reloading the model with the same module name but different implementations. The following example illustrates this limitation.
+The current implementation of the ``code_paths`` option has a limitation that it doesn't support loading multiple models that depend on modules with the same name but different implementations within the same Python process, as illustrated in the following example:
 
 .. code-block:: python
 
     import importlib
-    import shutil
     import sys
     import tempfile
     from pathlib import Path
@@ -449,20 +448,19 @@ The current implementation of the ``code_paths`` option has a limitation that it
                 code_paths=[my_model_path],
             )
 
-        shutil.rmtree(tmpdir)
-        sys.path.remove(str(tmpdir))
-        sys.modules.pop("my_model")
+    # To simulate a fresh Python process, remove the `my_model` module from the cache
+    sys.modules.pop("my_model")
 
-        # Now we have two models with the same module name but different implementations.
-        # Let's load them and check the prediction results.
-        pred = mlflow.pyfunc.load_model(info1.model_uri).predict([0])
-        assert pred == [1], pred  # passes
+    # Now we have two models that depend on modules with the same name but different implementations.
+    # Let's load them and check the prediction results.
+    pred = mlflow.pyfunc.load_model(info1.model_uri).predict([0])
+    assert pred == [1], pred  # passes
 
-        # As the `my_model` module was loaded and cached in the previous `load_model` call,
-        # the next `load_model` call will reuse it and return the wrong prediction result.
-        assert "my_model" in sys.modules
-        pred = mlflow.pyfunc.load_model(info2.model_uri).predict([0])
-        assert pred == [2], pred  # doesn't pass, `pred` is [1]
+    # As the `my_model` module was loaded and cached in the previous `load_model` call,
+    # the next `load_model` call will reuse it and return the wrong prediction result.
+    assert "my_model" in sys.modules
+    pred = mlflow.pyfunc.load_model(info2.model_uri).predict([0])
+    assert pred == [2], pred  # doesn't pass, `pred` is [1]
 
 To work around this limitation, you can remove the module from the cache before loading the model. For example:
 
