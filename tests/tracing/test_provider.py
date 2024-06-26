@@ -57,7 +57,7 @@ def test_reset_tracer_setup(mock_setup_tracer_provider):
 
     start_span_in_context("test2")
     assert mock_setup_tracer_provider.call_count == 3
-    mock_setup_tracer_provider.assert_has_calls(
+    assert mock_setup_tracer_provider.mock_calls == (
         [
             mock.call(),
             mock.call(disabled=True),
