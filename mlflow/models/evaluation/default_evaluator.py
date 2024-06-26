@@ -67,6 +67,7 @@ _logger = logging.getLogger(__name__)
 
 _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 _EVAL_TABLE_FILE_NAME = "eval_results_table.json"
+_GENAI_CUSTOM_METRICS_FILE_NAME = "genai_custom_metrics.json"
 _TOKEN_COUNT_METRIC_NAME = "token_count"
 _LATENCY_METRIC_NAME = "latency"
 
@@ -1818,6 +1819,16 @@ class DefaultEvaluator(ModelEvaluator):
             uri=mlflow.get_artifact_uri(artifact_file_name)
         )
 
+    def _log_genai_custom_metrics(self, genai_custom_metrics):
+        if len(genai_custom_metrics) == 0:
+            return
+
+        data = {}
+        for index, metric in enumerate(genai_custom_metrics):
+            data[f"Metric{index}"] = metric.custom_metric_config
+        artifact_file_name = f"{_GENAI_CUSTOM_METRICS_FILE_NAME}"
+        mlflow.log_table(data, artifact_file=artifact_file_name)
+
     def _update_aggregate_metrics(self):
         self.aggregate_metrics = {}
         for metric_name, metric_value in self.metrics_values.items():
@@ -1915,6 +1926,7 @@ class DefaultEvaluator(ModelEvaluator):
                 exemptions=[mlflow.langchain.FLAVOR_NAME]
             ):
                 compute_latency = False
+                genai_custom_metrics = []
                 for extra_metric in self.extra_metrics:
                     # If latency metric is specified, we will compute latency for the model
                     # during prediction, and we will remove the metric from the list of extra
@@ -1922,7 +1934,10 @@ class DefaultEvaluator(ModelEvaluator):
                     if extra_metric.name == _LATENCY_METRIC_NAME:
                         compute_latency = True
                         self.extra_metrics.remove(extra_metric)
-                        break
+                    # When the field is present, the metric is created from either make_genai_metric
+                    # or make_genai_metric_from_prompt. We will log the metric definition.
+                    if extra_metric.custom_metric_config is not None:
+                        genai_custom_metrics.append(extra_metric)
                 self._generate_model_predictions(compute_latency=compute_latency)
                 self._handle_builtin_metrics_by_model_type()
 
@@ -1940,6 +1955,7 @@ class DefaultEvaluator(ModelEvaluator):
                     self._log_artifacts()
                     self._log_metrics()
                     self._log_eval_table()
+                    self._log_genai_custom_metrics(genai_custom_metrics)
                 return EvaluationResult(
                     metrics=self.aggregate_metrics, artifacts=self.artifacts, run_id=self.run_id
                 )
