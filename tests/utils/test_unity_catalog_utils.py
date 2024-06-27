@@ -255,7 +255,7 @@ def test_registered_model_and_registered_model_search_equality():
 
 
 @pytest.mark.parametrize(
-    "temp_credentials,parsed",
+    ("temp_credentials", "parsed"),
     [
         (TemporaryCredentials(), {}),
         (
