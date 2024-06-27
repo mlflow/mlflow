@@ -20,6 +20,7 @@ class Message(BaseModel):
 
 class ChatPayload(BaseModel):
     messages: List[Message]
+    temperature: float = 0
     stream: bool = False
 
 
@@ -79,6 +80,11 @@ async def chat_response_stream():
 
 @app.post("/chat/completions")
 async def chat(payload: ChatPayload):
+    if not 0.0 <= payload.temperature <= 2.0:
+        return fastapi.Response(
+            content="Temperature must be between 0.0 and 2.0",
+            status_code=400,
+        )
     if payload.stream:
         # SSE stream
         return StreamingResponse(
