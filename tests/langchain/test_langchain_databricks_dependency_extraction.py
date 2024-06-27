@@ -50,8 +50,7 @@ def test_parsing_dependency_from_databricks_llm(monkeypatch: pytest.MonkeyPatch)
         llm_kwargs["allow_dangerous_deserialization"] = True
 
     llm = Databricks(**llm_kwargs)
-    resources = []
-    _extract_databricks_dependencies_from_llm(llm, resources)
+    resources = list(_extract_databricks_dependencies_from_llm(llm))
     assert resources == [
         DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct")
     ]
@@ -137,8 +136,7 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
 
     vectorstore = DatabricksVectorSearch(vs_index, text_column="content", embedding=embedding_model)
     retriever = vectorstore.as_retriever()
-    resources = []
-    _extract_databricks_dependencies_from_retriever(retriever, resources)
+    resources = list(_extract_databricks_dependencies_from_retriever(retriever))
     assert resources == [
         DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
         DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
@@ -166,8 +164,7 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
 
     vectorstore = DatabricksVectorSearch(vs_index, text_column="content", embedding=embedding_model)
     retriever = vectorstore.as_retriever()
-    resources = []
-    _extract_databricks_dependencies_from_retriever(retriever, resources)
+    resources = list(_extract_databricks_dependencies_from_retriever(retriever))
     assert resources == [
         DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
         DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
@@ -199,8 +196,7 @@ def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in
 
     vectorstore = DatabricksVectorSearch(vs_index, text_column="content")
     retriever = vectorstore.as_retriever()
-    resources = []
-    _extract_databricks_dependencies_from_retriever(retriever, resources)
+    resources = list(_extract_databricks_dependencies_from_retriever(retriever))
     assert resources == [
         DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
         DatabricksServingEndpoint(endpoint_name="embedding-model"),
@@ -232,8 +228,7 @@ def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in
 
     vectorstore = DatabricksVectorSearch(vs_index, text_column="content")
     retriever = vectorstore.as_retriever()
-    resources = []
-    _extract_databricks_dependencies_from_retriever(retriever, resources)
+    resources = list(_extract_databricks_dependencies_from_retriever(retriever))
     assert resources == [
         DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
         DatabricksServingEndpoint(endpoint_name="embedding-model"),
@@ -251,8 +246,7 @@ def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
 
     chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
-    resources = []
-    _extract_databricks_dependencies_from_chat_model(chat_model, resources)
+    resources = list(_extract_databricks_dependencies_from_chat_model(chat_model))
     assert resources == [DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat")]
 
 
@@ -267,8 +261,7 @@ def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
 
     chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
-    resources = []
-    _extract_databricks_dependencies_from_chat_model(chat_model, resources)
+    resources = _extract_databricks_dependencies_from_chat_model(chat_model)
     assert resources == [DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat")]
 
 
@@ -341,8 +334,7 @@ def test_parsing_dependency_correct_loads_langchain_modules():
             AttributeError, match="module 'langchain_community' has no attribute 'llms'"
         ):
             langchain_community.llms.Databricks
-        resources = []
-        _extract_databricks_dependencies_from_llm("", resources)
+        _extract_databricks_dependencies_from_llm("")
 
         # import works as expected after _extract_databricks_dependencies_from_llm
         langchain_community.llms.Databricks
@@ -360,8 +352,7 @@ def test_parsing_dependency_correct_loads_langchain_modules():
         ):
             langchain_community.vectorstores.DatabricksVectorSearch
 
-        resources = []
-        _extract_databricks_dependencies_from_retriever("", resources)
+        _extract_databricks_dependencies_from_retriever("")
         # import works as expected after _extract_databricks_dependencies_from_retriever
         langchain_community.vectorstores.DatabricksVectorSearch
         langchain_community.embeddings.DatabricksEmbeddings
@@ -374,8 +365,7 @@ def test_parsing_dependency_correct_loads_langchain_modules():
         ):
             langchain_community.chat_models.ChatDatabricks
 
-        resources = []
-        _extract_databricks_dependencies_from_chat_model("", resources)
+        _extract_databricks_dependencies_from_chat_model("")
         # import works as expected after _extract_databricks_dependencies_from_chat_model
         langchain_community.chat_models.ChatDatabricks
 
