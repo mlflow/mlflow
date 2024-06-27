@@ -23,6 +23,7 @@ jobs:
               "harupy",
               "serena-ruan",
               "WeichenXu123",
+              "xq-yin",
             ];
             const author = context.payload.pull_request.user.login;
             const reviews = await github.rest.pulls.listReviews({
