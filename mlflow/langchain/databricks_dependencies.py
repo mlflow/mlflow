@@ -140,7 +140,7 @@ def _traverse_runnable(
 
 def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> List[Resource]:
     """
-    Detects the databricks dependencies of a langchain model and returns a dictionary of
+    Detects the databricks dependencies of a langchain model and returns a list of
     detected endpoint names and index names.
 
     lc_model can be an arbitrary [chain that is built with LCEL](https://python.langchain.com
@@ -162,7 +162,13 @@ def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> Li
     try:
         dependency_list = []
         _traverse_runnable(lc_model, dependency_list, set())
-        return dependency_list
+        # Filter out duplicate dependencies so same dependencies are not added multiple times
+        # We can't use set here as the object is not hashable so we need to filter it out manually.
+        unique_dependencies = []
+        for dependency in dependency_list:
+            if dependency not in unique_dependencies:
+                unique_dependencies.append(dependency)
+        return unique_dependencies
     except Exception:
         if log_errors_as_warnings:
             _logger.warning(
