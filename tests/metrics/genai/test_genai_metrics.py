@@ -1144,6 +1144,12 @@ def test_log_make_genai_metric_from_prompt_fn_args():
         parameters={"temperature": 0.0},
     )
 
+    expected_keys = set(inspect.signature(make_genai_metric_from_prompt).parameters.keys())
+    expected_keys.add("mlflow_version")
+    # When updating the function signature of make_genai_metric_from_prompt, please update
+    # the genai_metric_args dict construction inside the function as well.
+    assert set(custom_metric.genai_metric_args.keys()) == expected_keys
+
     expected_genai_metric_args = {
         "name": "custom",
         "judge_prompt": custom_judge_prompt,
@@ -1172,6 +1178,12 @@ def test_log_make_genai_metric_fn_args():
         greater_is_better=True,
         aggregations=["mean", "variance", "p90"],
     )
+
+    expected_keys = set(inspect.signature(make_genai_metric).parameters.keys())
+    expected_keys.add("mlflow_version")
+    # When updating the function signature of make_genai_metric, please update
+    # the genai_metric_args dict construction inside the function as well.
+    assert set(custom_metric.genai_metric_args.keys()) == expected_keys
 
     expected_genai_metric_args = {
         "name": "correctness",

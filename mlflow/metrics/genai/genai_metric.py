@@ -246,13 +246,21 @@ def make_genai_metric_from_prompt(
         )
 
     """
-    # DO NOT INSERT ANY LOGIC ABOVE. We want locals() to capture initial arguments only.
     # When users create a custom metric using this function,the metric configuration
-    # will be serialized and stored. This enables us to later deserialize the configuration,
-    # allowing users to understand their LLM evaluation results more clearly.
-    genai_metric_args = locals()
-    # Record the mlflow version for serialization in case the function signature changes later
-    genai_metric_args["mlflow_version"] = VERSION
+    # will be serialized and stored as an artifact. This enables us to later deserialize
+    # the configuration, allowing users to understand their LLM evaluation results more clearly.
+    genai_metric_args = {
+        "name": name,
+        "judge_prompt": judge_prompt,
+        "model": model,
+        "parameters": parameters,
+        "aggregations": aggregations,
+        "greater_is_better": greater_is_better,
+        "max_workers": max_workers,
+        "metric_metadata": metric_metadata,
+        # Record the mlflow version for serialization in case the function signature changes later
+        "mlflow_version": VERSION,
+    }
 
     aggregations = aggregations or ["mean", "variance", "p90"]
 
@@ -405,13 +413,26 @@ def make_genai_metric(
             greater_is_better=True,
         )
     """
-    # DO NOT INSERT ANY LOGIC ABOVE. We want locals() to capture initial arguments only.
     # When users create a custom metric using this function,the metric configuration
-    # will be serialized and stored. This enables us to later deserialize the configuration,
-    # allowing users to understand their LLM evaluation results more clearly.
-    genai_metric_args = locals()
-    # Record the mlflow version for serialization in case the function signature changes later
-    genai_metric_args["mlflow_version"] = VERSION
+    # will be serialized and stored as an artifact. This enables us to later deserialize
+    # the configuration, allowing users to understand their LLM evaluation results more clearly.
+    genai_metric_args = {
+        "name": name,
+        "definition": definition,
+        "grading_prompt": grading_prompt,
+        "examples": examples,
+        "version": version,
+        "model": model,
+        "grading_context_columns": grading_context_columns,
+        "include_input": include_input,
+        "parameters": parameters,
+        "aggregations": aggregations,
+        "greater_is_better": greater_is_better,
+        "max_workers": max_workers,
+        "metric_metadata": metric_metadata,
+        # Record the mlflow version for serialization in case the function signature changes later
+        "mlflow_version": VERSION,
+    }
 
     aggregations = aggregations or ["mean", "variance", "p90"]
     grading_context_columns = grading_context_columns or []
