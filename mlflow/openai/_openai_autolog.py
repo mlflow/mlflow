@@ -11,7 +11,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import MlflowException
-from mlflow.entities import RunTag
+from mlflow.entities import RunTag, SpanType
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.fluent import _get_experiment_id
@@ -75,6 +75,19 @@ class _OpenAIJsonEncoder(json.JSONEncoder):
             return str(o)
 
 
+def _get_span_type(task) -> str:
+    from openai.resources.chat.completions import Completions as ChatCompletions
+    from openai.resources.completions import Completions
+    from openai.resources.embeddings import Embeddings
+
+    span_type_mapping = {
+        ChatCompletions: SpanType.CHAT_MODEL,
+        Completions: SpanType.LLM,
+        Embeddings: SpanType.EMBEDDING,
+    }
+    return span_type_mapping.get(task, SpanType.UNKNOWN)
+
+
 def patched_call(original, self, *args, **kwargs):
     from openai import Stream
 
@@ -100,8 +113,20 @@ def patched_call(original, self, *args, **kwargs):
             )
             run_id = run.info.run_id
 
+    log_traces = get_autologging_config(mlflow.openai.FLAVOR_NAME, "log_traces", False)
     with disable_autologging():
-        result = original(self, *args, **kwargs)
+        if log_traces:
+            with mlflow.start_span(
+                name=self.__class__.__name__,
+                span_type=_get_span_type(self.__class__),
+            ) as span:
+                # openai does not accept positional arguments
+                # so we do not need to worry about it for now
+                span.set_inputs(kwargs)
+                result = original(self, *args, **kwargs)
+                span.set_outputs(result)
+        else:
+            result = original(self, *args, **kwargs)
 
     # Use session_id-inference_id as artifact directory where mlflow
     # callback logs artifacts into, to avoid overriding artifacts
