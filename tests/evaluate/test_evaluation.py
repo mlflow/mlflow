@@ -2142,17 +2142,20 @@ def test_import_evaluation_dataset():
 
 
 def test_evaluate_show_error_stack(linear_regressor_model_uri, diabetes_dataset):
-    mlflow.pyfunc.load_model(linear_regressor_model_uri)
-
     with mlflow.start_run():
+        test_err = "Scoring server output 13234"
+        server_proc = mock.MagicMock()
         with mock.patch(
-                "mlflow.pyfunc.scoring_server.client.ScoringServerClient.wait_server_ready"
+            "mlflow.pyfunc.scoring_server.client.ScoringServerClient.wait_server_ready",
+            side_effect=RuntimeError("Wait scoring server ready timeout."),
         ) as mock_wait_server_ready, mock.patch(
-            "subprocess.Popen.communicate",
-            return_value=("Scoring server output 13234", "")
-        ):
-            mock_wait_server_ready.side_effect = RuntimeError("Wait scoring server ready timeout.")
-            with pytest.raises(Exception, match="Scoring server output 13234"):
+            "mlflow.pyfunc.backend.PyFuncBackend.serve",
+            return_value=server_proc,
+        ) as mock_serve:
+            server_proc.poll.return_value = None
+            server_proc.poll.return_value = None
+            server_proc.communicate.return_value = (test_err, "")
+            with pytest.raises(Exception, match=test_err):
                 evaluate(
                     linear_regressor_model_uri,
                     diabetes_dataset._constructor_args["data"],
@@ -2161,3 +2164,6 @@ def test_evaluate_show_error_stack(linear_regressor_model_uri, diabetes_dataset)
                     evaluators="dummy_evaluator",
                     env_manager="virtualenv",
                 )
+            mock_wait_server_ready.assert_called_once()
+            mock_serve.assert_called_once()
+
