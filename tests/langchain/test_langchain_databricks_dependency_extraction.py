@@ -334,7 +334,7 @@ def test_parsing_dependency_correct_loads_langchain_modules():
             AttributeError, match="module 'langchain_community' has no attribute 'llms'"
         ):
             langchain_community.llms.Databricks
-        _extract_databricks_dependencies_from_llm("")
+        list(_extract_databricks_dependencies_from_llm(""))
 
         # import works as expected after _extract_databricks_dependencies_from_llm
         langchain_community.llms.Databricks
