@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 from llama_index.core import QueryBundle
 from llama_index.core.base.response.schema import (
-    PydanticResponse,
+    NodeWithScore,
     Response,
 )
 from llama_index.core.chat_engine.types import (
@@ -201,33 +201,26 @@ def test_format_predict_input_iterable_retriever(single_index, data):
     assert all(isinstance(x, QueryBundle) for x in formatted_data)
 
 
-#### Prediction Formatting ####
-@pytest.mark.parametrize("engine_type", [QUERY_ENGINE_NAME, RETRIEVER_ENGINE_NAME])
-def test_format_prediction_output_query_and_retreiver(single_index, engine_type):
-    example_engine_output = "example output from the engine"
-    for response_type in [Response, PydanticResponse]:
-        wrapped_model = create_engine_wrapper(single_index, engine_type)
-        dummy_prediction = response_type(response=example_engine_output)
-        formatted_output = wrapped_model._format_predict_output(dummy_prediction)
-        assert isinstance(formatted_output, str)
-        assert formatted_output == example_engine_output
-
-
-def test_format_prediction_output_chat(single_index):
-    example_engine_output = "example output from the engine"
-    for response_type in [AgentChatResponse]:
-        wrapped_model = create_engine_wrapper(single_index, CHAT_ENGINE_NAME)
-        dummy_prediction = response_type(example_engine_output)
-        formatted_output = wrapped_model._format_predict_output(dummy_prediction)
-        assert isinstance(formatted_output, str)
-        assert formatted_output == example_engine_output
-
-
 #### E2E Inference ####
-@pytest.mark.parametrize("engine_type", SUPPORTED_ENGINES)
-def test_predict_str(single_index, engine_type):
-    # TODO: we probably don't want to always return strings e.g. retriever payload
+def test_predict_query(single_index):
     payload = "string"
-    wrapped_model = create_engine_wrapper(single_index, engine_type)
+    wrapped_model = create_engine_wrapper(single_index, "chat")
     predictions = wrapped_model.predict(payload)
-    assert isinstance(predictions, str)
+    assert isinstance(predictions, AgentChatResponse)
+    assert predictions.response
+
+
+def test_predict_query(single_index):
+    payload = "string"
+    wrapped_model = create_engine_wrapper(single_index, "query")
+    predictions = wrapped_model.predict(payload)
+    assert isinstance(predictions, Response)
+    assert predictions.response
+
+
+def test_predict_query(single_index):
+    payload = "string"
+    wrapped_model = create_engine_wrapper(single_index, "retriever")
+    predictions = wrapped_model.predict(payload)
+    assert isinstance(predictions, list)
+    assert isinstance(predictions[0], NodeWithScore)

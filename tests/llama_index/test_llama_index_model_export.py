@@ -4,6 +4,12 @@ import numpy as np
 import pandas as pd
 import pytest
 from llama_index.core import QueryBundle
+from llama_index.core.base.response.schema import (
+    Response,
+)
+from llama_index.core.chat_engine.types import (
+    AgentChatResponse,
+)
 from llama_index.core.llms import ChatMessage
 
 import mlflow
@@ -144,7 +150,8 @@ def test_query_engine_str(tmp_path, single_index, with_signature):
     )
     model = mlflow.pyfunc.load_model(tmp_path)
     predictions = model.predict(payload)
-    assert isinstance(predictions, str)
+    assert isinstance(predictions, Response)
+    assert predictions.response
 
 
 @pytest.mark.parametrize("with_signature", [True, False])
@@ -171,7 +178,8 @@ def test_query_engine_list(tmp_path, single_index, with_signature):
     model = mlflow.pyfunc.load_model(tmp_path)
     predictions = model.predict(payload)
     assert isinstance(predictions, list)
-    assert isinstance(predictions[0], str)
+    assert isinstance(predictions[0], Response)
+    assert predictions[0].response
 
 
 @pytest.mark.parametrize("with_signature", [True, False])
@@ -185,7 +193,8 @@ def test_query_engine_array(tmp_path, single_index, with_signature):
     model = mlflow.pyfunc.load_model(tmp_path)
     predictions = model.predict(payload)
     assert isinstance(predictions, list)
-    assert isinstance(predictions[0], str)
+    assert isinstance(predictions[0], Response)
+    assert predictions[0].response
 
 
 @pytest.mark.parametrize("with_signature", [True, False])
@@ -199,6 +208,8 @@ def test_query_engine_pandas_dataframe(tmp_path, single_index, with_signature):
     model = mlflow.pyfunc.load_model(tmp_path)
     predictions = model.predict(payload)
     assert isinstance(predictions, list)
+    assert isinstance(predictions[0], Response)
+    assert predictions[0].response
 
 
 @pytest.mark.parametrize("with_signature", [True, False])
@@ -213,7 +224,8 @@ def test_pyfunc_predict_with_index_valid_schema_pandas(tmp_path, single_index, w
     )
     model = mlflow.pyfunc.load_model(tmp_path)
     predictions = model.predict(payload)
-    assert isinstance(predictions, str)
+    assert isinstance(predictions, Response)
+    assert predictions.response
 
 
 @pytest.mark.parametrize("with_signature", [True, False])
@@ -226,7 +238,8 @@ def test_pyfunc_predict_with_index_valid_schema_dict(tmp_path, single_index, wit
     )
     model = mlflow.pyfunc.load_model(tmp_path)
     predictions = model.predict(payload)
-    assert isinstance(predictions, str)
+    assert isinstance(predictions, Response)
+    assert predictions.response
 
 
 @pytest.mark.parametrize("with_signature", [True, False])
@@ -239,7 +252,8 @@ def test_chat_engine_str(tmp_path, single_index, with_signature):
     )
     model = mlflow.pyfunc.load_model(tmp_path)
     predictions = model.predict(payload)
-    assert isinstance(predictions, str)
+    assert isinstance(predictions, AgentChatResponse)
+    assert predictions.response
 
 
 @pytest.mark.parametrize("with_signature", [True, False])
@@ -255,7 +269,8 @@ def test_chat_engine_dict(tmp_path, single_index, with_signature):
     )
     model = mlflow.pyfunc.load_model(tmp_path)
     predictions = model.predict(payload)
-    assert isinstance(predictions, str)
+    assert isinstance(predictions, AgentChatResponse)
+    assert predictions.response
 
 
 @pytest.mark.parametrize("with_signature", [True, False])

@@ -1,13 +1,6 @@
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from llama_index.core import QueryBundle
-from llama_index.core.base.response.schema import (
-    PydanticResponse,
-    Response,
-)
-from llama_index.core.chat_engine.types import (
-    AgentChatResponse,
-)
 from llama_index.core.llms import ChatMessage
 
 from mlflow.models.utils import _convert_llm_input_data
@@ -34,20 +27,15 @@ class _LlamaIndexModelWrapperBase:
     def _format_predict_input(self, data):
         raise NotImplementedError
 
-    def _format_predict_output(self, data) -> str:
-        raise NotImplementedError
-
     def _do_inference(self, input, params: Optional[Dict[str, Any]]) -> Dict:
         """
         Perform engine inference on a single engine input e.g. not an iterable of
         engine inputs. The engine inputs must already be preprocessed/cleaned.
         """
         if isinstance(input, dict):
-            prediction = self.predict_callable(**input, **(params or {}))
+            return self.predict_callable(**input, **(params or {}))
         else:
-            prediction = self.predict_callable(input, **(params or {}))
-
-        return self._format_predict_output(prediction)
+            return self.predict_callable(input, **(params or {}))
 
     def predict(self, data, params: Optional[Dict[str, Any]] = None) -> Union[List[str], str]:
         data = self._format_predict_input(data)
@@ -106,14 +94,6 @@ class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
                 "[str, dict, list, numpy.ndarray, pandas.DataFrame]"
             )
 
-    def _format_predict_output(self, data) -> str:
-        if isinstance(data, AgentChatResponse):
-            return str(data)
-        else:
-            raise NotImplementedError(
-                f"There is not support for type {type(data)} to be converted to a string."
-            )
-
 
 class QueryEngineWrapper(_LlamaIndexModelWrapperBase):
     def __init__(self, *args, **kwargs):
@@ -147,14 +127,6 @@ class QueryEngineWrapper(_LlamaIndexModelWrapperBase):
                 "[str, dict, list, numpy.ndarray, pandas.DataFrame]"
             )
 
-    def _format_predict_output(self, data) -> str:
-        if isinstance(data, (Response, PydanticResponse)):
-            return data.response or "None"
-        else:
-            raise NotImplementedError(
-                f"There is not support for type {type(data)} to be converted to a string."
-            )
-
 
 class RetrieverEngineWrapper(QueryEngineWrapper):
     def __init__(self, *args, **kwargs):
@@ -163,16 +135,6 @@ class RetrieverEngineWrapper(QueryEngineWrapper):
 
     def _build_engine_method(self) -> Callable:
         return self.index.as_retriever(**self.model_config).retrieve
-
-    def _format_predict_output(self, data):
-        if isinstance(data, (Response, PydanticResponse)):
-            return data.response or "None"
-        elif isinstance(data, list):
-            return str(data)
-        else:
-            raise NotImplementedError(
-                f"There is not support for type {type(data)} to be converted to a string."
-            )
 
 
 def create_engine_wrapper(index, engine_type: str, model_config: Optional[Dict[str, Any]] = None):
