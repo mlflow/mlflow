@@ -110,7 +110,7 @@ jobs:
           sudo chmod -R 777 /tmp/protoc
           echo "/tmp/protoc/bin" >> $GITHUB_PATH
           pip install --upgrade pip
-          pip install .
+          pip install -e .
       - if: steps.diff.outputs.protos == 'true'
         run: |
           python ./dev/generate_protos.py
