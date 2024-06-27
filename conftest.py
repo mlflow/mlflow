@@ -148,7 +148,8 @@ def pytest_report_teststatus(report, config):
                 (
                     f"{result} | "
                     f"MEM {mem_used:.1f}/{mem_total:.1f} GB | "
-                    f"DISK {disk_used:.1f}/{disk_total:.1f} GB"
+                    f"DISK {disk_used:.1f}/{disk_total:.1f} GB | "
+                    f"THREADS {len(threading.enumerate())}"
                 ),
             )
         )

@@ -90,7 +90,7 @@ jobs:
         run: |
           source .venv/bin/activate
           source dev/setup-ssh.sh
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --requires-ssh \
             --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
             --ignore tests/deployments/server tests
 
