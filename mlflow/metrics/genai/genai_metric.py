@@ -1,12 +1,11 @@
 import json
 import logging
 import re
-import tempfile
+import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from inspect import Parameter, Signature
 from tempfile import TemporaryDirectory
 from typing import Any, Dict, List, Optional, Tuple, Union
-import warnings
 
 import pandas as pd
 
@@ -609,8 +608,10 @@ def make_genai_metric(
         genai_metric_args=genai_metric_args,
     )
 
+
 def _filter_by_field(df, field_name, value):
     return df[df[field_name] == value]
+
 
 def _deserialize_genai_metric_args(args_dict):
     mlflow_version_at_ser = args_dict.get("mlflow_version")
@@ -676,9 +677,7 @@ def search_custom_metrics(
         from mlflow.metrics.genai import search_custom_metrics
 
         metrics = search_custom_metrics(
-            run_id=run.info.run_id,
-            name="answer_similarity",
-            version="v1"
+            run_id=run.info.run_id, name="answer_similarity", version="v1"
         )
     """
     client = mlflow.MlflowClient()
@@ -696,7 +695,7 @@ def search_custom_metrics(
         custom_metrics = client._read_from_file(downloaded_artifact_path)
 
     if name is not None:
-            custom_metrics = _filter_by_field(custom_metrics, "name", name)
+        custom_metrics = _filter_by_field(custom_metrics, "name", name)
     if version is not None:
         custom_metrics = _filter_by_field(custom_metrics, "version", version)
     metric_args_list = custom_metrics["metric_args"].tolist()
