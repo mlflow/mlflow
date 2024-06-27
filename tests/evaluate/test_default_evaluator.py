@@ -33,7 +33,7 @@ from mlflow.metrics import (
     toxicity,
 )
 from mlflow.metrics.genai import model_utils
-from mlflow.metrics.genai.base import EvaluationExample
+from mlflow.metrics.genai.base import EvaluationExample, search_custom_metrics
 from mlflow.metrics.genai.genai_metric import make_genai_metric_from_prompt
 from mlflow.metrics.genai.metric_definitions import answer_similarity
 from mlflow.models import Model
@@ -4211,60 +4211,8 @@ def test_log_genai_custom_metrics_as_artifacts():
     assert _GENAI_CUSTOM_METRICS_FILE_NAME in artifacts
 
     table = result.tables[os.path.splitext(_GENAI_CUSTOM_METRICS_FILE_NAME)[0]]
-    table = result.tables[os.path.splitext(_GENAI_CUSTOM_METRICS_FILE_NAME)[0]]
     assert table.loc[0, "name"] == "answer_similarity"
     assert table.loc[0, "version"] == "v1"
-    assert table.loc[1, "name"] == "another custom llm judge"
-    assert table.loc[1, "version"] == ""
-    assert table["version"].dtype == "object"
-
-
-def test_all_genai_custom_metrics_are_from_user_prompt():
-    with mlflow.start_run() as run:
-        model_info = mlflow.pyfunc.log_model(
-            artifact_path="model", python_model=language_model, input_example=["a"]
-        )
-        data = pd.DataFrame(
-            {
-                "inputs": ["words random", "This is a sentence."],
-                "ground_truth": ["words random", "This is a sentence."],
-            }
-        )
-        custom_metric = make_genai_metric_from_prompt(
-            name="custom llm judge",
-            judge_prompt="This is a custom judge prompt.",
-            greater_is_better=False,
-            parameters={"temperature": 0.0},
-        )
-        another_custom_metric = make_genai_metric_from_prompt(
-            name="another custom llm judge",
-            judge_prompt="This is another custom judge prompt.",
-            greater_is_better=False,
-            parameters={"temperature": 0.7},
-        )
-        result = evaluate(
-            model_info.model_uri,
-            data,
-            targets="ground_truth",
-            predictions="answer",
-            model_type="question-answering",
-            evaluators="default",
-            extra_metrics=[
-                custom_metric,
-                another_custom_metric,
-            ],
-        )
-
-    client = mlflow.MlflowClient()
-    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
-    assert _GENAI_CUSTOM_METRICS_FILE_NAME in artifacts
-
-    table = result.tables[os.path.splitext(_GENAI_CUSTOM_METRICS_FILE_NAME)[0]]
-    assert table.loc[0, "name"] == "custom llm judge"
-    assert table.loc[1, "name"] == "another custom llm judge"
-    assert table.loc[0, "version"] == ""
-    assert table.loc[1, "version"] == ""
-    assert table["version"].dtype == "object"
     assert table.loc[1, "name"] == "another custom llm judge"
     assert table.loc[1, "version"] == ""
     assert table["version"].dtype == "object"

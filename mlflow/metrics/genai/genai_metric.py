@@ -1,12 +1,14 @@
 import json
 import logging
 import re
+import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from inspect import Parameter, Signature
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import MetricValue
 from mlflow.metrics.genai import model_utils
@@ -14,6 +16,7 @@ from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai.prompt_template import PromptTemplate
 from mlflow.metrics.genai.utils import _get_default_model, _get_latest_metric_version
 from mlflow.models import EvaluationMetric, make_metric
+from mlflow.models.evaluation.default_evaluator import _GENAI_CUSTOM_METRICS_FILE_NAME
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -599,3 +602,41 @@ def make_genai_metric(
         metric_metadata=metric_metadata,
         genai_metric_args=genai_metric_args,
     )
+
+def _filter_by_field(df, field_name, value):
+    return df[df[field_name] == value]
+
+def _deserialize_genai_metric_args(args):
+    raise ValueError("hhhh", args)
+    return
+
+def search_custom_metrics(
+    run_id: str,
+    name: Optional[str] = None,
+    version: Optional[str] = None,
+) -> List[EvaluationMetric]:
+    """
+        TODO: add docstring
+    """
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run_id)]
+    if _GENAI_CUSTOM_METRICS_FILE_NAME not in artifacts:
+        _logger.warning("No custom metric definitions were found for this evaluation run.")
+        return []
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        downloaded_artifact_path = mlflow.artifacts.download_artifacts(
+        run_id=run_id,
+        artifact_path=_GENAI_CUSTOM_METRICS_FILE_NAME,
+        dst_path=tmpdir,
+    )
+    custom_metrics = client._read_from_file(downloaded_artifact_path)
+    if name is not None:
+        custom_metrics = _filter_by_field(custom_metrics, "name", name)
+    if version is not None:
+        custom_metrics = _filter_by_field(custom_metrics, "version", version)
+    metric_args_list = custom_metrics["metric_args"].tolist()
+    results = []
+    for args in metric_args_list:
+        results.append(_deserialize_genai_metric_args(args))
+    return results
