@@ -2144,8 +2144,7 @@ def test_import_evaluation_dataset():
 
 def test_evaluate_shows_server_stdout_and_stderr_on_error(linear_regressor_model_uri, diabetes_dataset):
     with mlflow.start_run():
-        test_err = "Scoring server output 13234"
-        server_proc = subprocess.Popen("foo", shell=True)
+        server_proc = subprocess.Popen("foo", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         with mock.patch(
             "mlflow.pyfunc.scoring_server.client.ScoringServerClient.wait_server_ready",
             side_effect=RuntimeError("Wait scoring server ready timeout."),
@@ -2153,8 +2152,7 @@ def test_evaluate_shows_server_stdout_and_stderr_on_error(linear_regressor_model
             "mlflow.pyfunc.backend.PyFuncBackend.serve",
             return_value=server_proc,
         ) as mock_serve:
-            server_proc.communicate.return_value = (test_err, "")
-            with pytest.raises(MlflowException, match=test_err):
+            with pytest.raises(MlflowException, match=r"foo:.*not found"):
                 evaluate(
                     linear_regressor_model_uri,
                     diabetes_dataset._constructor_args["data"],
@@ -2165,4 +2163,3 @@ def test_evaluate_shows_server_stdout_and_stderr_on_error(linear_regressor_model
                 )
             mock_wait_server_ready.assert_called_once()
             mock_serve.assert_called_once()
-
