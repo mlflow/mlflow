@@ -656,7 +656,30 @@ def search_custom_metrics(
     version: Optional[str] = None,
 ) -> List[EvaluationMetric]:
     """
-        TODO: add docstring
+    Searches for custom metrics created by users through `make_genai_metric()` or
+    `make_genai_metric_from_prompt()` that are associated with a particular evaluation run.
+
+    Args:
+        run_id: The unique identifier for the run.
+        name: (Optional) The name of the custom metric to search for.
+            If None, search for all metrics.
+        version: (Optional) The version of the custom metric to search for.
+            If None, search for all versions.
+
+    Returns:
+        A list of EvaluationMetric objects that match the search criteria.
+
+    .. code-block:: python
+        :test:
+        :caption: Example for searching for a custom genai metric
+
+        from mlflow.metrics.genai import search_custom_metrics
+
+        metrics = search_custom_metrics(
+            run_id=run.info.run_id,
+            name="answer_similarity",
+            version="v1"
+        )
     """
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run_id)]
