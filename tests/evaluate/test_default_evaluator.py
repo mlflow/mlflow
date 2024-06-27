@@ -33,8 +33,12 @@ from mlflow.metrics import (
     toxicity,
 )
 from mlflow.metrics.genai import model_utils
-from mlflow.metrics.genai.base import EvaluationExample, search_custom_metrics
-from mlflow.metrics.genai.genai_metric import make_genai_metric_from_prompt
+from mlflow.metrics.genai.base import EvaluationExample
+from mlflow.metrics.genai.genai_metric import (
+    _GENAI_CUSTOM_METRICS_FILE_NAME,
+    make_genai_metric_from_prompt,
+    search_custom_metrics,
+)
 from mlflow.metrics.genai.metric_definitions import answer_similarity
 from mlflow.models import Model
 from mlflow.models.evaluation.artifacts import (
@@ -46,7 +50,7 @@ from mlflow.models.evaluation.artifacts import (
     PickleEvaluationArtifact,
     TextEvaluationArtifact,
 )
-from mlflow.models.evaluation.base import evaluate
+from mlflow.models.evaluation.base import EvaluationMetric, evaluate
 from mlflow.models.evaluation.default_evaluator import (
     _GENAI_CUSTOM_METRICS_FILE_NAME,
     _compute_df_mode_or_mean,
@@ -4164,6 +4168,8 @@ def test_do_not_log_built_in_metrics_as_artifacts():
         artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
         assert _GENAI_CUSTOM_METRICS_FILE_NAME not in artifacts
 
+        results = search_custom_metrics(run_id=run.info.run_id)
+        assert len(results) == 0
 
 def test_log_genai_custom_metrics_as_artifacts():
     with mlflow.start_run() as run:
@@ -4264,3 +4270,4 @@ def test_all_genai_custom_metrics_are_from_user_prompt():
     assert table.loc[0, "version"] == ""
     assert table.loc[1, "version"] == ""
     assert table["version"].dtype == "object"
+
