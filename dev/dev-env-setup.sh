@@ -135,7 +135,9 @@ minor_to_micro() {
 # Note: if xcode isn't installed, this will fail.
 # $1: name of package that requires brew
 check_and_install_brew() {
-  if [ -z "$(command -v brew)" ]; then
+  # command -v returns exit code 1 if brew does not exist, which directly terminates our test script.
+  # Appending `|| true` to ignore the exit code.
+  if [ -z "$(command -v brew || true)" ]; then
     echo "Homebrew is required to install $1 on MacOS. Installing in your home directory."
     bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
   fi
@@ -171,8 +173,9 @@ version_gt() {
 
 # Check if pyenv is installed and offer to install it if not present
 check_and_install_pyenv() {
-  pyenv_exist=$(command -v pyenv)
-
+  # command -v returns exit code 1 if pyenv does not exist, which directly terminates our test script.
+  # Appending `|| true` to ignore the exit code.
+  pyenv_exist=$(command -v pyenv || true)
   if [ -z "$pyenv_exist" ]; then
     if [ -z "$GITHUB_ACTIONS" ]; then
       read -p "pyenv is required to be installed to manage python versions. Would you like to install it? $(tput bold)(y/n)$(tput sgr0): " -n 1 -r
