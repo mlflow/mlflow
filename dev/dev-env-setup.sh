@@ -171,11 +171,8 @@ version_gt() {
 
 # Check if pyenv is installed and offer to install it if not present
 check_and_install_pyenv() {
-  if [ -z "$GITHUB_ACTIONS" ]; then
-    pyenv_exist=$(command -v pyenv)
-  else
-    pyenv_exist=""
-  fi
+  # `|| true` is for preventing scrip termination when `set -o errexit` bash flag is set.
+  pyenv_exist=$(command -v pyenv || true)
   if [ -z "$pyenv_exist" ]; then
     if [ -z "$GITHUB_ACTIONS" ]; then
       read -p "pyenv is required to be installed to manage python versions. Would you like to install it? $(tput bold)(y/n)$(tput sgr0): " -n 1 -r
