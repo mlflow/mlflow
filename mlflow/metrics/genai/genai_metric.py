@@ -246,7 +246,6 @@ def make_genai_metric_from_prompt(
         )
 
     """
-    # DO NOT INSERT ANY LOGIC ABOVE. We want locals() to capture initial arguments only.
     # When users create a custom metric using this function,the metric configuration
     # will be serialized and stored as an artifact. This enables us to later deserialize
     # the configuration, allowing users to understand their LLM evaluation results more clearly.
@@ -414,7 +413,6 @@ def make_genai_metric(
             greater_is_better=True,
         )
     """
-    # DO NOT INSERT ANY LOGIC ABOVE. We want locals() to capture initial arguments only.
     # When users create a custom metric using this function,the metric configuration
     # will be serialized and stored as an artifact. This enables us to later deserialize
     # the configuration, allowing users to understand their LLM evaluation results more clearly.
