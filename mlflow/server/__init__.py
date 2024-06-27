@@ -2,6 +2,7 @@ import importlib
 import importlib.metadata
 import os
 import shlex
+import signal
 import sys
 import textwrap
 import types
@@ -295,4 +296,9 @@ def _run_server(
         full_command = _build_waitress_command(waitress_opts, host, port, app, is_factory)
     else:
         full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4, app)
-    _exec_cmd(full_command, extra_env=env_map, capture_output=False)
+    _exec_cmd(
+        full_command,
+        extra_env=env_map,
+        capture_output=False,
+        terminate_signals=(signal.SIGINT, signal.SIGTERM),
+    )
