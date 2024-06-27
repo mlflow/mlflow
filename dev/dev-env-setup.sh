@@ -135,7 +135,7 @@ minor_to_micro() {
 # Note: if xcode isn't installed, this will fail.
 # $1: name of package that requires brew
 check_and_install_brew() {
-  # command -v returns exit code 1 if pyenv does not exist, which directly terminates our test script.
+  # command -v returns exit code 1 if brew does not exist, which directly terminates our test script.
   # Appending `|| true` to ignore the exit code.
   if [ -z "$(command -v brew || true)" ]; then
     echo "Homebrew is required to install $1 on MacOS. Installing in your home directory."
