@@ -1,5 +1,5 @@
 import logging
-from typing import Generator, List, Set
+from typing import Generator, List, Optional, Set
 
 from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex, Resource
 
@@ -108,7 +108,7 @@ def _extract_dependency_list_from_lc_model(lc_model) -> Generator[Resource, None
 
 def _traverse_runnable(
     lc_model,
-    visited: Set[str],
+    visited: Optional[Set[int]] = None,
 ) -> Generator[Resource, None, None]:
     """
     This function contains the logic to traverse a langchain_core.runnables.RunnableSerializable
@@ -118,6 +118,8 @@ def _traverse_runnable(
     This function supports arbitrary LCEL chain.
     """
     from langchain_core.runnables import Runnable
+
+    visited = visited or set()
 
     current_object_id = id(lc_model)
     if current_object_id in visited:
@@ -158,7 +160,7 @@ def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> Li
     If a chat_model is found, it will be used to extract the databricks chat dependencies.
     """
     try:
-        dependency_list = list(_traverse_runnable(lc_model, set()))
+        dependency_list = list(_traverse_runnable(lc_model))
         # Filter out duplicate dependencies so same dependencies are not added multiple times
         # We can't use set here as the object is not hashable so we need to filter it out manually.
         unique_dependencies = []
@@ -166,6 +168,7 @@ def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> Li
             if dependency not in unique_dependencies:
                 unique_dependencies.append(dependency)
         return unique_dependencies
+        return list(_traverse_runnable(lc_model))
     except Exception:
         if log_errors_as_warnings:
             _logger.warning(
