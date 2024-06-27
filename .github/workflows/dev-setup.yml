@@ -6,7 +6,7 @@ on:
       - "dev/dev-env-setup.sh"
       - "dev/test-dev-env-setup.sh"
       - ".github/workflows/dev-setup.yml"
-  pull:
+  pull_request:
     paths:
       - "dev/dev-env-setup.sh"
       - "dev/test-dev-env-setup.sh"
