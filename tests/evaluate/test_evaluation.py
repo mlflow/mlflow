@@ -2139,3 +2139,25 @@ def test_import_evaluation_dataset():
     # This test is to validate both imports work at the same time
     from mlflow.models.evaluation import EvaluationDataset
     from mlflow.models.evaluation.base import EvaluationDataset  # noqa: F401
+
+
+def test_evaluate_show_error_stack(linear_regressor_model_uri, diabetes_dataset):
+    mlflow.pyfunc.load_model(linear_regressor_model_uri)
+
+    with mlflow.start_run():
+        with mock.patch(
+                "mlflow.pyfunc.scoring_server.client.ScoringServerClient.wait_server_ready"
+        ) as mock_wait_server_ready, mock.patch(
+            "subprocess.Popen.communicate",
+            return_value=("Scoring server output 13234", "")
+        ):
+            mock_wait_server_ready.side_effect = RuntimeError("Wait scoring server ready timeout.")
+            with pytest.raises(Exception, match="Scoring server output 13234"):
+                evaluate(
+                    linear_regressor_model_uri,
+                    diabetes_dataset._constructor_args["data"],
+                    model_type="regressor",
+                    targets=diabetes_dataset._constructor_args["targets"],
+                    evaluators="dummy_evaluator",
+                    env_manager="virtualenv",
+                )
