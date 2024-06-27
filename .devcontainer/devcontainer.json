@@ -42,7 +42,8 @@
         "pbkit.vscode-pbkit",
         "PKief.material-icon-theme",
         "ritwickdey.LiveServer",
-        "shardulm94.trailing-spaces"
+        "shardulm94.trailing-spaces",
+        "tamasfe.even-better-toml"
       ]
     }
   }
