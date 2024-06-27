@@ -1,4 +1,4 @@
-from mlflow.metrics.genai.base import EvaluationExample
+from mlflow.metrics.genai.base import EvaluationExample, search_custom_metrics
 from mlflow.metrics.genai.genai_metric import make_genai_metric, make_genai_metric_from_prompt
 from mlflow.metrics.genai.metric_definitions import (
     answer_correctness,
@@ -17,4 +17,5 @@ __all__ = [
     "faithfulness",
     "answer_relevance",
     "relevance",
+    "search_custom_metrics",
 ]
