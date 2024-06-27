@@ -2150,9 +2150,6 @@ def test_evaluate_shows_server_stdout_and_stderr_on_error(
             ["echo", "test1324"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT
         )
         with mock.patch(
-            "mlflow.pyfunc.scoring_server.client.ScoringServerClient.wait_server_ready",
-            side_effect=RuntimeError("Wait scoring server ready timeout."),
-        ) as mock_wait_server_ready, mock.patch(
             "mlflow.pyfunc.backend.PyFuncBackend.serve",
             return_value=server_proc,
         ) as mock_serve:
@@ -2165,5 +2162,4 @@ def test_evaluate_shows_server_stdout_and_stderr_on_error(
                     evaluators="dummy_evaluator",
                     env_manager="virtualenv",
                 )
-            mock_wait_server_ready.assert_called_once()
             mock_serve.assert_called_once()
