@@ -120,7 +120,6 @@ def _traverse_runnable(
     from langchain_core.runnables import Runnable
 
     visited = visited or set()
-
     current_object_id = id(lc_model)
     if current_object_id in visited:
         return
