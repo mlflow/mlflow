@@ -857,6 +857,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     extra_tags=None,
+    log_traces=True,
 ):
     """
     Enables (or disables) and configures autologging from OpenAI to MLflow.
@@ -897,6 +898,8 @@ def autolog(
             new model version of the registered model with this name.
             The registered model is created if it does not already exist.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+        log_traces: If ``True``, traces are logged for OpenAI models. If ``False``, no traces are
+            collected during inference. Default to ``True``.
     """
 
     if Version(_get_openai_package_version()).major < 1:
