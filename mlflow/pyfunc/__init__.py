@@ -1146,7 +1146,7 @@ def _load_model_or_server(
         if isinstance(server_output, bytes):
             server_output = server_output.decode("UTF-8")
         raise MlflowException(
-            "MLflow model server failed to launch, server process stdout / stderr outputs are:\n" +
+            "MLflow model server failed to launch, server process stdout and stderr are:\n" +
             server_output
         ) from e
 
