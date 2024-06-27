@@ -41,12 +41,7 @@ jobs:
     timeout-minutes: 30
     if: github.event_name != 'schedule' || github.repository == 'mlflow-automation/mlflow'
     steps:
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          # this might remove tools that are actually needed,
-          # when set to "true" but frees about 6 GB
-          tool-cache: true
+      - uses: ./.github/actions/free-disk-space
       - uses: actions/checkout@v4
         with:
           submodules: recursive
