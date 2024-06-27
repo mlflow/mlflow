@@ -39,6 +39,7 @@
         "ms-python.python",
         "ms-toolsai.jupyter",
         "oderwat.indent-rainbow",
+        "pbkit.vscode-pbkit",
         "PKief.material-icon-theme",
         "ritwickdey.LiveServer",
         "shardulm94.trailing-spaces"
