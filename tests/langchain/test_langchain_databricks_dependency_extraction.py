@@ -352,7 +352,7 @@ def test_parsing_dependency_correct_loads_langchain_modules():
         ):
             langchain_community.vectorstores.DatabricksVectorSearch
 
-        _extract_databricks_dependencies_from_retriever("")
+        list(_extract_databricks_dependencies_from_retriever(""))
         # import works as expected after _extract_databricks_dependencies_from_retriever
         langchain_community.vectorstores.DatabricksVectorSearch
         langchain_community.embeddings.DatabricksEmbeddings
@@ -365,7 +365,7 @@ def test_parsing_dependency_correct_loads_langchain_modules():
         ):
             langchain_community.chat_models.ChatDatabricks
 
-        _extract_databricks_dependencies_from_chat_model("")
+        list(_extract_databricks_dependencies_from_chat_model(""))
         # import works as expected after _extract_databricks_dependencies_from_chat_model
         langchain_community.chat_models.ChatDatabricks
 
