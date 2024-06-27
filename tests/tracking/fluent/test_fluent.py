@@ -173,7 +173,6 @@ def flush_async():
     Flush async logging threads after each test case.
     """
     yield
-
     mlflow.flush_async_logging()
 
 
