@@ -46,8 +46,8 @@ jobs:
     timeout-minutes: 30
     if: github.event_name != 'schedule' || github.repository == 'mlflow-automation/mlflow'
     steps:
-      - uses: ./.github/actions/free-disk-space
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/free-disk-space
         with:
           submodules: recursive
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
