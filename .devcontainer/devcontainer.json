@@ -17,8 +17,11 @@
         "python.defaultInterpreterPath": "/usr/local/bin/python",
         "python.analysis.autoImportCompletions": false,
         "[python]": {
-          "editor.defaultFormatter": "ms-python.black-formatter",
-          "editor.formatOnSave": true
+          "editor.codeActionsOnSave": {
+            "source.fixAll": "explicit",
+            "source.organizeImports": "explicit"
+          },
+          "editor.defaultFormatter": "charliermarsh.ruff"
         },
         "python.formatting.provider": "none",
         "prettier.prettierPath": "/workspaces/mlflow/mlflow/server/js/node_modules/prettier",
@@ -33,7 +36,6 @@
         "GitHub.copilot-chat",
         "GitHub.vscode-pull-request-github",
         "ms-azuretools.vscode-docker",
-        "ms-python.black-formatter",
         "ms-python.python",
         "ms-toolsai.jupyter",
         "oderwat.indent-rainbow",
