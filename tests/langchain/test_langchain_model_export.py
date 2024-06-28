@@ -508,10 +508,7 @@ def test_langchain_agent_model_predict_stream():
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(model, "langchain_model")
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-    langchain_input = {
-        "input": "What was the high temperature in SF yesterday in Fahrenheit?"
-        "What is that number raised to the .023 power?"
-    }
+    langchain_input = {"input": "foo"}
     with _mock_request(return_value=_MockResponse(200, langchain_agent_output)):
         response = loaded_model.predict_stream([langchain_input])
         assert inspect.isgenerator(response)
