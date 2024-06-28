@@ -125,8 +125,6 @@ enum ArtifactCredentialType {
   // https://docs.microsoft.com/en-us/azure/storage/common/storage-sas-overview
   AZURE_ADLS_GEN2_SAS_URI = 4;
 
-  // The credential is a Databricks URL. For more information, see
-  // https://databricks.atlassian.net/wiki/spaces/UN/pages/3954704497/Migration+of+a+Control+Plane+Service+to+Databricks+URLs
   DATABRICKS_URL = 5;
 }
 
