@@ -878,6 +878,10 @@ def test_model_registration_metadata_handling(sklearn_knn_model, tmp_path):
     assert os.listdir(dst_full) == ["MLmodel"]
 
 
+@pytest.mark.skipif(
+    Version(sklearn.__version__) < Version("1.0.0"),
+    reason="predict_proba method patching for test doesn't work in scikit-learn < 1",
+)
 def test_pipeline_model_wrapper_prediction(sklearn_knn_model, model_path):
     # Test `_SklearnModelWrapper` supports sklearn pipeline model with arbitrary params.
     # Related issue: https://github.com/mlflow/mlflow/issues/12445

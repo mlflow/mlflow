@@ -187,7 +187,8 @@ def test_regressor_evaluation(
 
     expected_metrics = _get_regressor_metrics(y, y_pred, sample_weights=sample_weights)
     expected_metrics["score"] = model._model_impl.score(
-        diabetes_dataset.features_data, diabetes_dataset.labels_data, sample_weight=sample_weights
+        diabetes_dataset.features_data,
+        params={"y": diabetes_dataset.labels_data, "sample_weight": sample_weights},
     )
 
     assert json.loads(tags["mlflow.datasets"]) == [
@@ -243,7 +244,7 @@ def test_regressor_evaluation_disable_logging_metrics_and_artifacts(
 
     expected_metrics = _get_regressor_metrics(y, y_pred, sample_weights=None)
     expected_metrics["score"] = model._model_impl.score(
-        diabetes_dataset.features_data, diabetes_dataset.labels_data
+        diabetes_dataset.features_data, params={"y": diabetes_dataset.labels_data}
     )
 
     check_metrics_not_logged_for_baseline_model_evaluation(
@@ -319,7 +320,8 @@ def test_multi_classifier_evaluation(
         y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=sample_weights
     )
     expected_metrics["score"] = model._model_impl.score(
-        iris_dataset.features_data, iris_dataset.labels_data, sample_weight=sample_weights
+        iris_dataset.features_data,
+        params={"y": iris_dataset.labels_data, "sample_weight": sample_weights},
     )
 
     for metric_key, expected_metric_val in expected_metrics.items():
@@ -380,7 +382,7 @@ def test_multi_classifier_evaluation_disable_logging_metrics_and_artifacts(
         y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=None
     )
     expected_metrics["score"] = model._model_impl.score(
-        iris_dataset.features_data, iris_dataset.labels_data
+        iris_dataset.features_data, params={"y": iris_dataset.labels_data}
     )
 
     check_metrics_not_logged_for_baseline_model_evaluation(
@@ -445,8 +447,7 @@ def test_bin_classifier_evaluation(
     )
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data,
-        breast_cancer_dataset.labels_data,
-        sample_weight=sample_weights,
+        params={"y": breast_cancer_dataset.labels_data, "sample_weight": sample_weights},
     )
 
     for metric_key, expected_metric_val in expected_metrics.items():
@@ -510,7 +511,7 @@ def test_bin_classifier_evaluation_disable_logging_metrics_and_artifacts(
         y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=None
     )
     expected_metrics["score"] = model._model_impl.score(
-        breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
+        breast_cancer_dataset.features_data, params={"y": breast_cancer_dataset.labels_data}
     )
 
     check_metrics_not_logged_for_baseline_model_evaluation(
@@ -670,7 +671,7 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset, baselin
 
     expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, sample_weights=None)
     expected_metrics["score"] = model._model_impl.score(
-        breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
+        breast_cancer_dataset.features_data, params={"y": breast_cancer_dataset.labels_data}
     )
 
     for metric_key, expected_metric_val in expected_metrics.items():
@@ -754,7 +755,7 @@ def test_svm_classifier_evaluation_disable_logging_metrics_and_artifacts(
 
     expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, sample_weights=None)
     expected_metrics["score"] = model._model_impl.score(
-        breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
+        breast_cancer_dataset.features_data, params={"y": breast_cancer_dataset.labels_data}
     )
 
     check_metrics_not_logged_for_baseline_model_evaluation(
