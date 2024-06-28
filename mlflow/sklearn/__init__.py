@@ -502,11 +502,7 @@ def _load_pyfunc(path):
 
 
 def _gen_sklearn_model_predict_fn(origin_fn, fn_name):
-
-    def predict_fn(
-        data,
-        params: Optional[Dict[str, Any]] = None
-    ):
+    def predict_fn(data, params: Optional[Dict[str, Any]] = None):
         params = params or {}
         return origin_fn(data, **params)
 
