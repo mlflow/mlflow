@@ -13,5 +13,5 @@ runs:
             source .venv/bin/activate
           fi
         fi
-        pip install aiohttp > /dev/null
+        pip --disable-pip-version-check install aiohttp > /dev/null
         python dev/show_package_release_dates.py
