@@ -485,6 +485,10 @@ def test_langchain_agent_model_predict(return_intermediate_steps):
         )
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) >= Version("0.0.354"),
+    reason="AgentExecutor does not support streaming before LangChain 0.0.354",
+)
 def test_langchain_agent_model_predict_stream():
     langchain_agent_output = {
         "id": "chatcmpl-123",

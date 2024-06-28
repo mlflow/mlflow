@@ -108,12 +108,6 @@ class APIRequest:
     def _prepare_to_serialize(self, response: dict):
         """
         Converts LangChain objects to JSON-serializable formats.
-
-        TODO: This conversion should not happen within Pyfunc model, because users do not need
-            to serialize the output of the model until serving the model as a REST API. For
-            those users, this implicit change of the output format is not desirable. We keep
-            this logic here for backward compatibility, but this should be instead handled
-            by the serving code in the future.
         """
         from langchain.load.dump import dumps
 
