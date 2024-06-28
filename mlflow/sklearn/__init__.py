@@ -501,6 +501,20 @@ def _load_pyfunc(path):
     )
 
 
+def _gen_sklearn_model_predict_fn(origin_fn, fn_name):
+
+    def predict_fn(
+        data,
+        params: Optional[Dict[str, Any]] = None
+    ):
+        params = params or {}
+        return origin_fn(data, **params)
+
+    predict_fn.__name__ = fn_name
+    predict_fn.__qualname__ = fn_name
+    return predict_fn
+
+
 class _SklearnModelWrapper:
     _SUPPORTED_CUSTOM_PREDICT_FN = [
         "predict_proba",
@@ -514,17 +528,10 @@ class _SklearnModelWrapper:
 
         # Patch the model with custom predict functions that can be specified
         # via `pyfunc_predict_fn` argument when saving or logging.
-        for predict_fn in self._SUPPORTED_CUSTOM_PREDICT_FN:
-            if fn := getattr(self.sklearn_model, predict_fn, None):
-
-                def _custom_predict_fn_wrapper(
-                    data,
-                    params: Optional[Dict[str, Any]] = None
-                ):
-                    params = params or {}
-                    return fn(data, **params)
-
-                setattr(self, predict_fn, _custom_predict_fn_wrapper)
+        for predict_fn_name in self._SUPPORTED_CUSTOM_PREDICT_FN:
+            if fn := getattr(self.sklearn_model, predict_fn_name, None):
+                predict_fn = _gen_sklearn_model_predict_fn(fn, predict_fn_name)
+                setattr(self, predict_fn_name, predict_fn)
 
     def predict(
         self,
