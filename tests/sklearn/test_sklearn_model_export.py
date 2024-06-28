@@ -17,6 +17,7 @@ import yaml
 from packaging.version import Version
 from sklearn import datasets
 from sklearn.pipeline import Pipeline as SKPipeline
+from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import FunctionTransformer as SKFunctionTransformer
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -28,6 +29,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
+from mlflow.sklearn import _SklearnModelWrapper
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -874,3 +876,43 @@ def test_model_registration_metadata_handling(sklearn_knn_model, tmp_path):
     # This validates that the models artifact repo will not attempt to create a
     # "registered model metadata" file if the source of an artifact download is a file.
     assert os.listdir(dst_full) == ["MLmodel"]
+
+
+def test_pipeline_model_wrapper_prediction(sklearn_knn_model, model_path):
+    # Test `_SklearnModelWrapper` supports sklearn pipeline model with arbitrary params.
+    # Related issue: https://github.com/mlflow/mlflow/issues/12445
+    knn_model = sklearn_knn_model.model
+
+    predict_invocation_params = []
+    original_predict = knn_model.predict
+
+    def predict(data, p1=None):
+        predict_invocation_params.append(p1)
+        return original_predict(data)
+
+    knn_model.predict = predict
+
+    predict_proba_invocation_params = []
+    original_predict_proba = knn_model.predict_proba
+
+    def predict_proba(data, p2=None):
+        predict_proba_invocation_params.append(p2)
+        return original_predict_proba(data)
+
+    knn_model.predict_proba = predict_proba
+
+    pipeline = make_pipeline(knn_model)
+
+    sklearn_model_wrapper = _SklearnModelWrapper(pipeline)
+
+    np.testing.assert_array_equal(
+        knn_model.predict(sklearn_knn_model.inference_data, p1=123),
+        sklearn_model_wrapper.predict(sklearn_knn_model.inference_data, params={"p1": 123}),
+    )
+    assert predict_invocation_params == [123] * 2
+
+    np.testing.assert_array_equal(
+        knn_model.predict_proba(sklearn_knn_model.inference_data, p2=456),
+        sklearn_model_wrapper.predict_proba(sklearn_knn_model.inference_data, params={"p2": 456}),
+    )
+    assert predict_proba_invocation_params == [456] * 2
