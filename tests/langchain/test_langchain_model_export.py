@@ -68,7 +68,7 @@ from mlflow.langchain.utils import (
 from mlflow.langchain.utils.chat import try_transform_response_to_chat_format
 from mlflow.models import Model
 from mlflow.models.dependencies_schemas import DependenciesSchemasType
-from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex, Resource
+from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.pyfunc.context import Context
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
@@ -1797,9 +1797,9 @@ def test_chat_with_history(spark, fake_chat_model):
     }
 
 
-def _extract_endpoint_name_from_lc_model(lc_model, dependency_list: List[Resource]):
+def _extract_endpoint_name_from_lc_model(lc_model):
     if type(lc_model).__name__ == type(get_fake_chat_model()).__name__:
-        dependency_list.append(DatabricksServingEndpoint(endpoint_name=lc_model.endpoint_name))
+        yield DatabricksServingEndpoint(endpoint_name=lc_model.endpoint_name)
 
 
 @pytest.mark.skipif(
@@ -1839,22 +1839,22 @@ def test_databricks_dependency_extraction_from_lcel_chain():
     }
 
 
-def _extract_databricks_dependencies_from_retriever(retriever, dependency_list: List[Resource]):
+def _extract_databricks_dependencies_from_retriever(retriever):
     import langchain_community
 
     vectorstore = getattr(retriever, "vectorstore", None)
     if vectorstore:
         if isinstance(vectorstore, langchain_community.vectorstores.faiss.FAISS):
-            dependency_list.append(DatabricksVectorSearchIndex(index_name="faiss-index"))
+            yield DatabricksVectorSearchIndex(index_name="faiss-index")
 
         embeddings = getattr(vectorstore, "embeddings", None)
         if isinstance(embeddings, FakeEmbeddings):
-            dependency_list.append(DatabricksServingEndpoint(endpoint_name="fake-embeddings"))
+            yield DatabricksServingEndpoint(endpoint_name="fake-embeddings")
 
 
-def _extract_databricks_dependencies_from_llm(llm, dependency_list: List[Resource]):
+def _extract_databricks_dependencies_from_llm(llm):
     if isinstance(llm, FakeLLM):
-        dependency_list.append(DatabricksServingEndpoint(endpoint_name=llm.endpoint_name))
+        yield DatabricksServingEndpoint(endpoint_name=llm.endpoint_name)
 
 
 @pytest.mark.skipif(
