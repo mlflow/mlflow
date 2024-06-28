@@ -81,7 +81,7 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
-      - uses: ./.github/actions/show-version
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Import check
         run: |
@@ -337,7 +337,7 @@ jobs:
           # Install torch and transformers to test metrics
           pip install torch transformers
           pip install -r requirements/test-requirements.txt
-      - uses: ./.github/actions/show-version
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark
         run: |
