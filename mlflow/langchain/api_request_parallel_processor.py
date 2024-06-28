@@ -218,7 +218,9 @@ class APIRequest:
                 # to maintain existing code, single output chains will still return
                 # only the result
                 response = response.popitem()[1]
-            else:
+            elif not self.stream:
+                # DO NOT call _prepare_to_serialize for stream output. It will consume the generator
+                # until the end and the iterator will be empty when the user tries to consume it.
                 self._prepare_to_serialize(response)
 
         return response
