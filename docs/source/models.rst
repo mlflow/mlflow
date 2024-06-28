@@ -91,6 +91,11 @@ When logging a model, model metadata files (``MLmodel``, ``conda.yaml``, ``pytho
     This file contains the name and version of the model referenced in the MLflow Model Registry,
     and will be used for deployment and other purposes.
 
+.. attention::
+
+    If you log a model within Databricks, MLflow also creates a ``metadata`` subdirectory within
+    the model directory. This subdirectory contains the lightweight copy of aforementioned
+    metadata files for internal use.
 
 .. toctree::
     :maxdepth: 1
