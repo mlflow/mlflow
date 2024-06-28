@@ -23,7 +23,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import get_databricks_runtime_version
+from mlflow.utils.databricks_utils import get_databricks_runtime_version, is_in_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -670,7 +670,6 @@ class Model:
             A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
             metadata of the logged model.
         """
-        from mlflow.models.wheeled_model import _ORIGINAL_REQ_FILE_NAME, WheeledModel
         from mlflow.utils.model_utils import _validate_and_get_model_config_from_file
 
         registered_model = None
@@ -687,27 +686,8 @@ class Model:
             for pycache in Path(local_path).rglob("__pycache__"):
                 shutil.rmtree(pycache, ignore_errors=True)
 
-            # Copy model metadata files to a sub-directory 'metadata',
-            # For UC sharing use-cases.
-            metadata_path = os.path.join(local_path, "metadata")
-            if isinstance(flavor, WheeledModel):
-                # wheeled model updates several metadata files in original model directory
-                # copy these updated metadata files to the 'metadata' subdirectory
-                os.makedirs(metadata_path, exist_ok=True)
-                for file_name in METADATA_FILES + [
-                    _ORIGINAL_REQ_FILE_NAME,
-                ]:
-                    src_file_path = os.path.join(local_path, file_name)
-                    if os.path.exists(src_file_path):
-                        dest_file_path = os.path.join(metadata_path, file_name)
-                        shutil.copyfile(src_file_path, dest_file_path)
-            else:
-                os.makedirs(metadata_path, exist_ok=True)
-                for file_name in METADATA_FILES:
-                    src_file_path = os.path.join(local_path, file_name)
-                    if os.path.exists(src_file_path):
-                        dest_file_path = os.path.join(metadata_path, file_name)
-                        shutil.copyfile(src_file_path, dest_file_path)
+            if is_in_databricks_runtime():
+                _copy_model_metadata_for_uc_sharing(local_path, flavor)
 
             tracking_uri = _resolve_tracking_uri()
             # We check signature presence here as some flavors have a default signature as a
@@ -771,6 +751,38 @@ class Model:
         if registered_model is not None:
             model_info.registered_model_version = registered_model.version
         return model_info
+
+
+def _copy_model_metadata_for_uc_sharing(local_path, flavor):
+    """
+    Copy model metadata files to a sub-directory 'metadata',
+    For Databricks Unity Catalog sharing use-cases.
+
+    Args:
+        local_path: Local path to the model directory.
+        flavor: Flavor module to save the model with.
+    """
+    from mlflow.models.wheeled_model import _ORIGINAL_REQ_FILE_NAME, WheeledModel
+
+    metadata_path = os.path.join(local_path, "metadata")
+    if isinstance(flavor, WheeledModel):
+        # wheeled model updates several metadata files in original model directory
+        # copy these updated metadata files to the 'metadata' subdirectory
+        os.makedirs(metadata_path, exist_ok=True)
+        for file_name in METADATA_FILES + [
+            _ORIGINAL_REQ_FILE_NAME,
+        ]:
+            src_file_path = os.path.join(local_path, file_name)
+            if os.path.exists(src_file_path):
+                dest_file_path = os.path.join(metadata_path, file_name)
+                shutil.copyfile(src_file_path, dest_file_path)
+    else:
+        os.makedirs(metadata_path, exist_ok=True)
+        for file_name in METADATA_FILES:
+            src_file_path = os.path.join(local_path, file_name)
+            if os.path.exists(src_file_path):
+                dest_file_path = os.path.join(metadata_path, file_name)
+                shutil.copyfile(src_file_path, dest_file_path)
 
 
 def get_model_info(model_uri: str) -> ModelInfo:
