@@ -72,6 +72,7 @@ jobs:
           # transformers requires `tf-keras` when keras 3.0 is installed.
           # See https://github.com/huggingface/transformers/issues/27377 for more details.
           python -m pip install langchain_experimental tf-keras
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
