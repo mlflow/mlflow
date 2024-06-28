@@ -27,7 +27,6 @@ from typing import Any, Dict, List, Optional, Union
 
 import langchain.chains
 from langchain.callbacks.base import BaseCallbackHandler
-from langchain.schema import AgentAction
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -109,33 +108,24 @@ class APIRequest:
     def _prepare_to_serialize(self, response: dict):
         """
         Converts LangChain objects to JSON-serializable formats.
+
+        TODO: This conversion should not happen within Pyfunc model, because users do not need
+            to serialize the output of the model until serving the model as a REST API. For
+            those users, this implicit change of the output format is not desirable. We keep
+            this logic here for backward compatibility, but this should be instead handled
+            by the serving code in the future.
         """
         from langchain.load.dump import dumps
 
         if "intermediate_steps" in response:
             steps = response["intermediate_steps"]
-            if (
-                isinstance(steps, tuple)
-                and len(steps) == 2
-                and isinstance(steps[0], AgentAction)
-                and isinstance(steps[1], str)
-            ):
-                response["intermediate_steps"] = [
-                    {
-                        "tool": agent.tool,
-                        "tool_input": agent.tool_input,
-                        "log": agent.log,
-                        "result": result,
-                    }
-                    for agent, result in response["intermediate_steps"]
-                ]
-            else:
-                try:
-                    # `AgentAction` objects are not yet implemented for serialization in `dumps`
-                    # https://github.com/langchain-ai/langchain/issues/8815#issuecomment-1666763710
-                    response["intermediate_steps"] = dumps(steps)
-                except Exception as e:
-                    _logger.warning(f"Failed to serialize intermediate steps: {e!r}")
+            try:
+                # `AgentAction` objects are not JSON serializable
+                # https://github.com/langchain-ai/langchain/issues/8815#issuecomment-1666763710
+                response["intermediate_steps"] = dumps(steps)
+            except Exception as e:
+                _logger.warning(f"Failed to serialize intermediate steps: {e!r}")
+
         # The `dumps` format for `Document` objects is noisy, so we will still have custom logic
         if "source_documents" in response:
             response["source_documents"] = [
