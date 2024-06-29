@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from mlflow.entities import Metric
@@ -71,7 +73,7 @@ def test_metric_from_dictionary_missing_keys():
     }
 
     with pytest.raises(
-        MlflowException, match="Missing required keys ['step'] in metric dictionary"
+        MlflowException, match=re.escape("Missing required keys ['step'] in metric dictionary")
     ):
         Metric.from_dictionary(incomplete_dict)
 
@@ -82,6 +84,7 @@ def test_metric_from_dictionary_missing_keys():
     }
 
     with pytest.raises(
-        MlflowException, match="Missing required keys ['value'] in metric dictionary"
+        MlflowException,
+        match=re.escape("Missing required keys ['value', 'timestamp'] in metric dictionary"),
     ):
         Metric.from_dictionary(another_incomplete_dict)
