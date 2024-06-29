@@ -55,6 +55,37 @@ class Metric(_MlflowObject):
     def __hash__(self):
         return hash((self._key, self._value, self._timestamp, self._step))
 
+    def to_dictionary(self):
+        """
+        Convert the Metric object to a dictionary.
+
+        Returns:
+            dict: The Metric object represented as a dictionary.
+        """
+        return {
+            "key": self.key,
+            "value": self.value,
+            "timestamp": self.timestamp,
+            "step": self.step,
+        }
+
+    @classmethod
+    def from_dictionary(cls, metric_dict):
+        """
+        Create a Metric object from a dictionary.
+
+        Args:
+            metric_dict (dict): Dictionary containing metric information.
+
+        Returns:
+            Metric: The Metric object created from the dictionary.
+        """
+        key = metric_dict.get("key")
+        value = metric_dict.get("value")
+        timestamp = metric_dict.get("timestamp")
+        step = metric_dict.get("step", 0)
+        return cls(key=key, value=value, timestamp=timestamp, step=step)
+
 
 class MetricWithRunId(Metric):
     def __init__(self, metric: Metric, run_id):
