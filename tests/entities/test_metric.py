@@ -1,4 +1,7 @@
+import pytest
+
 from mlflow.entities import Metric
+from mlflow.exceptions import MlflowException
 from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import random_int, random_str
@@ -57,3 +60,28 @@ def test_metric_to_from_dictionary():
     assert recreated_metric.value == original_metric.value
     assert recreated_metric.timestamp == original_metric.timestamp
     assert recreated_metric.step == original_metric.step
+
+
+def test_metric_from_dictionary_missing_keys():
+    # Dictionary with missing keys
+    incomplete_dict = {
+        "key": "accuracy",
+        "value": 0.95,
+        "timestamp": 1623079352000,
+    }
+
+    with pytest.raises(
+        MlflowException, match="Missing required keys ['step'] in metric dictionary"
+    ):
+        Metric.from_dictionary(incomplete_dict)
+
+    # Another dictionary with different missing keys
+    another_incomplete_dict = {
+        "key": "accuracy",
+        "step": 1,
+    }
+
+    with pytest.raises(
+        MlflowException, match="Missing required keys ['value'] in metric dictionary"
+    ):
+        Metric.from_dictionary(another_incomplete_dict)

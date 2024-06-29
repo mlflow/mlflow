@@ -1,4 +1,6 @@
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
 from mlflow.protos.service_pb2 import MetricWithRunId as ProtoMetricWithRunId
 
@@ -80,11 +82,16 @@ class Metric(_MlflowObject):
         Returns:
             Metric: The Metric object created from the dictionary.
         """
-        key = metric_dict.get("key")
-        value = metric_dict.get("value")
-        timestamp = metric_dict.get("timestamp")
-        step = metric_dict.get("step", 0)
-        return cls(key=key, value=value, timestamp=timestamp, step=step)
+        required_keys = ["key", "value", "timestamp", "step"]
+        missing_keys = [key for key in required_keys if key not in metric_dict]
+
+        if missing_keys:
+            raise MlflowException(
+                f"Missing required keys {missing_keys} in metric dictionary",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        return cls(**{key: metric_dict[key] for key in required_keys})
 
 
 class MetricWithRunId(Metric):
