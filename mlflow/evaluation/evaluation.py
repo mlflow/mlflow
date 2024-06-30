@@ -171,6 +171,52 @@ class Evaluation(_MlflowObject):
             evaluation_dict["tags"] = [tag.to_dictionary() for tag in self.tags]
         return evaluation_dict
 
+    @classmethod
+    def from_dictionary(cls, evaluation_dict: Dict[str, Any]):
+        """
+        Create an Evaluation object from a dictionary.
+
+        Args:
+            evaluation_dict (dict): Dictionary containing evaluation information.
+
+        Returns:
+            Evaluation: The Evaluation object created from the dictionary.
+        """
+        inputs = evaluation_dict["inputs"]
+        outputs = evaluation_dict.get("outputs")
+        inputs_id = evaluation_dict.get("inputs_id")
+        request_id = evaluation_dict.get("request_id")
+        targets = evaluation_dict.get("targets")
+        error_code = evaluation_dict.get("error_code")
+        error_message = evaluation_dict.get("error_message")
+
+        assessments = None
+        if "assessments" in evaluation_dict:
+            assessments = [
+                Assessment.from_dictionary(assess) for assess in evaluation_dict["assessments"]
+            ]
+
+        metrics = None
+        if "metrics" in evaluation_dict:
+            metrics = [Metric.from_dictionary(metric) for metric in evaluation_dict["metrics"]]
+
+        tags = None
+        if "tags" in evaluation_dict:
+            tags = {tag["key"]: tag["value"] for tag in evaluation_dict["tags"]}
+
+        return cls(
+            inputs=inputs,
+            outputs=outputs,
+            inputs_id=inputs_id,
+            request_id=request_id,
+            targets=targets,
+            error_code=error_code,
+            error_message=error_message,
+            assessments=assessments,
+            metrics=metrics,
+            tags=tags,
+        )
+
 
 def _generate_inputs_id(inputs: Dict[str, Any]) -> str:
     """
