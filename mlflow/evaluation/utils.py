@@ -2,19 +2,19 @@ from typing import Any, Dict, List, Tuple
 
 import pandas as pd
 
-from mlflow.entities.evaluation import Evaluation
+from mlflow.entities.evaluation import Evaluation as EvaluationEntity
 
 
 def evaluations_to_dataframes(
-    evaluations: List[Evaluation],
+    evaluations: List[EvaluationEntity],
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    Converts a list of Evaluation objects to four separate DataFrames: one for main evaluation
+    Converts a list of Evaluation entities to four separate DataFrames: one for main evaluation
     data (excluding assessments and metrics), one for metrics, one for assessments, and one for
     tags.
 
     Args:
-        evaluations (List[Evaluation]): List of Evaluation objects.
+        evaluations (List[Evaluation]): List of Evaluation entities.
 
     Returns:
         Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]: A tuple of four DataFrames
