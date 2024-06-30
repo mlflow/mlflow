@@ -125,17 +125,6 @@ def test_evaluation_to_from_dictionary():
     assert recreated_evaluation == evaluation
 
 
-# def test_evaluation_inputs_id_hashing():
-#     inputs = {"feature1": 1.0, "feature2": 2.0}
-#     expected_inputs_id = _generate_inputs_id(inputs)
-#
-#     evaluation = Evaluation(inputs=inputs)
-#     assert evaluation.inputs_id == expected_inputs_id
-#
-#     evaluation_with_id = Evaluation(inputs=inputs, inputs_id="custom_id")
-#     assert evaluation_with_id.inputs_id == "custom_id"
-
-
 @patch("time.time", return_value=1234567890)
 def test_evaluation_to_entity(mock_time):
     inputs = {"feature1": 1.0, "feature2": 2.0}
@@ -178,3 +167,78 @@ def test_evaluation_to_entity(mock_time):
         EvaluationTag(key="tag1", value="value1"),
         EvaluationTag(key="tag2", value="value2"),
     ]
+
+
+def test_evaluation_inputs_id_uniqueness():
+    # Define a few different input objects
+    inputs_1 = {"feature1": 1.0, "feature2": 2.0}
+    inputs_2 = {"feature1": 1.0, "feature2": 2.0}  # Same as inputs_1
+    inputs_3 = {"feature1": 3.0, "feature2": 4.0}  # Different from inputs_1 and inputs_2
+    inputs_4 = {"feature1": "value1", "feature2": "value2"}
+    inputs_5 = {"feature1": "value1", "feature2": "value2"}  # Same as inputs_4
+    inputs_6 = {"feature1": "value3", "feature2": "value4"}  # Different from inputs_4 and inputs_5
+
+    # Create Evaluation objects
+    evaluation_1 = Evaluation(inputs=inputs_1)
+    evaluation_2 = Evaluation(inputs=inputs_2)
+    evaluation_3 = Evaluation(inputs=inputs_3)
+    evaluation_4 = Evaluation(inputs=inputs_4)
+    evaluation_5 = Evaluation(inputs=inputs_5)
+    evaluation_6 = Evaluation(inputs=inputs_6)
+
+    # Verify that inputs_id is the same for equivalent inputs
+    assert evaluation_1.inputs_id == evaluation_2.inputs_id
+    assert evaluation_4.inputs_id == evaluation_5.inputs_id
+
+    # Verify that inputs_id is different for different inputs
+    assert evaluation_1.inputs_id != evaluation_3.inputs_id
+    assert evaluation_1.inputs_id != evaluation_4.inputs_id
+    assert evaluation_1.inputs_id != evaluation_6.inputs_id
+    assert evaluation_4.inputs_id != evaluation_6.inputs_id
+
+    # Additional verification for unique inputs_id generation
+    inputs_7 = {"feature1": 5.0, "feature2": 6.0}
+    inputs_8 = {"feature1": 7.0, "feature2": 8.0}
+    evaluation_7 = Evaluation(inputs=inputs_7)
+    evaluation_8 = Evaluation(inputs=inputs_8)
+
+    assert evaluation_7.inputs_id != evaluation_8.inputs_id
+
+    # Ensure different orders of the same inputs result in the same inputs_id
+    inputs_9 = {"feature2": 2.0, "feature1": 1.0}  # Same values as inputs_1, but different order
+    evaluation_9 = Evaluation(inputs=inputs_9)
+
+    assert evaluation_1.inputs_id == evaluation_9.inputs_id
+
+
+def test_evaluation_with_non_json_serializable_inputs():
+    class NonSerializable:
+        def __init__(self, value):
+            self.value = value
+
+        def __str__(self):
+            return f"NonSerializable(value={self.value})"
+
+    # Define non-JSON-serializable inputs
+    inputs_1 = {"feature1": NonSerializable(1), "feature2": NonSerializable(2)}
+    inputs_2 = {"feature1": NonSerializable(1), "feature2": NonSerializable(2)}  # Same as inputs_1
+    inputs_3 = {
+        "feature1": NonSerializable(3),
+        "feature2": NonSerializable(4),
+    }  # Different from inputs_1
+
+    # Create Evaluation objects
+    evaluation_1 = Evaluation(inputs=inputs_1)
+    evaluation_2 = Evaluation(inputs=inputs_2)
+    evaluation_3 = Evaluation(inputs=inputs_3)
+
+    # Verify that inputs_id is the same for equivalent inputs
+    assert evaluation_1.inputs_id == evaluation_2.inputs_id
+
+    # Verify that inputs_id is different for different inputs
+    assert evaluation_1.inputs_id != evaluation_3.inputs_id
+
+    # Verify that inputs_id is generated
+    assert evaluation_1.inputs_id is not None
+    assert evaluation_2.inputs_id is not None
+    assert evaluation_3.inputs_id is not None
