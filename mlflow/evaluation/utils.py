@@ -7,19 +7,18 @@ from mlflow.entities.evaluation import Evaluation
 
 def evaluations_to_dataframes(
     evaluations: List[Evaluation],
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    Converts a list of Evaluation objects to three separate DataFrames: one for main evaluation
-    data (excluding assessments and metrics), one for metrics, and one for assessments.
+    Converts a list of Evaluation objects to four separate DataFrames: one for main evaluation
+    data (excluding assessments and metrics), one for metrics, one for assessments, and one for
+    tags.
 
     Args:
         evaluations (List[Evaluation]): List of Evaluation objects.
 
     Returns:
-        Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: A tuple containing three DataFrames:
-            1. DataFrame with the main evaluation data (excluding assessments and metrics).
-            2. DataFrame with metrics.
-            3. DataFrame with assessments.
+        Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]: A tuple of four DataFrames
+        containing evaluation data, metrics data, assessments data, and tags data.
     """
     evaluations_data = []
     metrics_data = []
@@ -68,7 +67,7 @@ def evaluations_to_dataframes(
     tags_df = (
         _apply_schema_to_dataframe(pd.DataFrame(tags_data), _get_tags_dataframe_schema())
         if tags_data
-        else get_empty_tags_dataframe()
+        else _get_empty_tags_dataframe()
     )
 
     return evaluations_df, metrics_df, assessments_df, tags_df
@@ -89,22 +88,6 @@ def _get_evaluation_dataframe_schema() -> Dict[str, Any]:
         "error_code": "object",
         "error_message": "object",
     }
-
-
-def _apply_schema_to_dataframe(df: pd.DataFrame, schema: Dict[str, Any]) -> pd.DataFrame:
-    """
-    Applies a schema to a DataFrame.
-
-    Args:
-        df (pd.DataFrame): DataFrame to apply the schema to.
-        schema (Dict[str, Any]): Schema to apply.
-
-    Returns:
-        pd.DataFrame: DataFrame with schema applied.
-    """
-    for column in df.columns:
-        df[column] = df[column].astype(schema[column])
-    return df.replace(pd.NA, None)
 
 
 def _get_assessments_dataframe_schema() -> Dict[str, Any]:
@@ -167,10 +150,26 @@ def _get_tags_dataframe_schema() -> Dict[str, Any]:
     }
 
 
-def get_empty_tags_dataframe() -> pd.DataFrame:
+def _get_empty_tags_dataframe() -> pd.DataFrame:
     """
     Creates an empty DataFrame with columns for evaluation tags data.
     """
     schema = _get_tags_dataframe_schema()
     df = pd.DataFrame(columns=schema.keys())
     return _apply_schema_to_dataframe(df, schema)
+
+
+def _apply_schema_to_dataframe(df: pd.DataFrame, schema: Dict[str, Any]) -> pd.DataFrame:
+    """
+    Applies a schema to a DataFrame.
+
+    Args:
+        df (pd.DataFrame): DataFrame to apply the schema to.
+        schema (Dict[str, Any]): Schema to apply.
+
+    Returns:
+        pd.DataFrame: DataFrame with schema applied.
+    """
+    for column in df.columns:
+        df[column] = df[column].astype(schema[column])
+    return df.replace(pd.NA, None)
