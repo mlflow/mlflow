@@ -3,6 +3,7 @@ The ``mlflow.entities`` module defines entities returned by the MLflow
 `REST API <../rest-api.html>`_.
 """
 
+from mlflow.entities.assessment import Assessment
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.dataset import Dataset
 from mlflow.entities.dataset_input import DatasetInput
@@ -30,6 +31,7 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.view_type import ViewType
 
 __all__ = [
+    "Assessment",
     "AssessmentSource",
     "Experiment",
     "FileInfo",

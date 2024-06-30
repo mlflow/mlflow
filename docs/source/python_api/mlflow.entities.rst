@@ -4,7 +4,7 @@ mlflow.entities
 .. automodule:: mlflow.entities
     :members:
     :undoc-members:
-    :exclude-members: AssessmentSource
+    :exclude-members: Assessment, AssessmentSource
 
 .. automodule:: mlflow.entities.model_registry
     :members:
