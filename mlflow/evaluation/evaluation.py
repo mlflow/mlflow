@@ -65,52 +65,52 @@ class Evaluation(_MlflowObject):
 
     @property
     def inputs_id(self) -> str:
-        """Get the inputs ID."""
+        """The evaluation inputs ID."""
         return self._inputs_id
 
     @property
     def inputs(self) -> Dict[str, Any]:
-        """Get the inputs."""
+        """The evaluation inputs."""
         return self._inputs
 
     @property
     def outputs(self) -> Optional[Dict[str, Any]]:
-        """Get the outputs."""
+        """The evaluation outputs."""
         return self._outputs
 
     @property
     def request_id(self) -> Optional[str]:
-        """Get the request ID."""
+        """The evaluation request ID."""
         return self._request_id
 
     @property
     def targets(self) -> Optional[Dict[str, Any]]:
-        """Get the targets."""
+        """The evaluation targets."""
         return self._targets
 
     @property
     def error_code(self) -> Optional[str]:
-        """Get the error code."""
+        """The evaluation error code."""
         return self._error_code
 
     @property
     def error_message(self) -> Optional[str]:
-        """Get the error message."""
+        """The evaluation error message."""
         return self._error_message
 
     @property
     def assessments(self) -> Optional[List[Assessment]]:
-        """Get the assessments."""
+        """The evaluation assessments."""
         return self._assessments
 
     @property
     def metrics(self) -> Optional[List[Metric]]:
-        """Get the metrics."""
+        """The evaluation metrics."""
         return self._metrics
 
     @property
     def tags(self) -> Optional[Dict[str, str]]:
-        """Get the tags."""
+        """The evaluation tags."""
         return self._tags
 
     def __eq__(self, __o):
