@@ -169,7 +169,7 @@ def test_evaluation_to_from_dictionary():
     assert recreated_evaluation == evaluation
 
 
-def test_evaluation_optional_fields():
+def test_evaluation_construction_with_minimal_required_fields():
     evaluation = Evaluation(
         evaluation_id="eval1",
         run_id="run1",
