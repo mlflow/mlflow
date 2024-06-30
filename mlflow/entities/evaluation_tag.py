@@ -4,7 +4,7 @@ from mlflow.entities._mlflow_object import _MlflowObject
 
 
 class EvaluationTag(_MlflowObject):
-    """Key-valuet tag associated with an evaluation."""
+    """Key-value tag associated with an evaluation."""
 
     def __init__(self, key, value):
         self._key = key
