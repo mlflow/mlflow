@@ -49,8 +49,12 @@ def evaluations_to_dataframes(
             tag_dict["evaluation_id"] = eval_dict["evaluation_id"]
             tags_data.append(tag_dict)
 
-    evaluations_df = _apply_schema_to_dataframe(
-        pd.DataFrame(evaluations_data), _get_evaluation_dataframe_schema()
+    evaluations_df = (
+        _apply_schema_to_dataframe(
+            pd.DataFrame(evaluations_data), get_evaluations_dataframe_schema()
+        )
+        if evaluations_data
+        else _get_empty_evaluations_dataframe()
     )
     metrics_df = (
         _apply_schema_to_dataframe(pd.DataFrame(metrics_data), _get_metrics_dataframe_schema())
@@ -73,7 +77,7 @@ def evaluations_to_dataframes(
     return evaluations_df, metrics_df, assessments_df, tags_df
 
 
-def _get_evaluation_dataframe_schema() -> Dict[str, Any]:
+def get_evaluations_dataframe_schema() -> Dict[str, Any]:
     """
     Returns the schema for the evaluation DataFrame.
     """
@@ -88,6 +92,15 @@ def _get_evaluation_dataframe_schema() -> Dict[str, Any]:
         "error_code": "object",
         "error_message": "object",
     }
+
+
+def _get_empty_evaluations_dataframe() -> pd.DataFrame:
+    """
+    Creates an empty DataFrame with columns for evaluation data.
+    """
+    schema = get_evaluations_dataframe_schema()
+    df = pd.DataFrame(columns=schema.keys())
+    return _apply_schema_to_dataframe(df, schema)
 
 
 def _get_assessments_dataframe_schema() -> Dict[str, Any]:

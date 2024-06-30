@@ -108,10 +108,67 @@ def test_evaluations_to_dataframes_empty():
     evaluations = []
     evaluations_df, metrics_df, assessments_df, tags_df = evaluations_to_dataframes(evaluations)
 
+    # Verify that the DataFrames are empty
     assert evaluations_df.empty
     assert metrics_df.empty
     assert assessments_df.empty
     assert tags_df.empty
+
+    # Verify the column names of the empty DataFrames
+    expected_evaluation_columns = [
+        "evaluation_id",
+        "run_id",
+        "inputs_id",
+        "inputs",
+        "outputs",
+        "request_id",
+        "targets",
+        "error_code",
+        "error_message",
+    ]
+    expected_metrics_columns = ["evaluation_id", "key", "value", "timestamp"]
+    expected_assessments_columns = [
+        "evaluation_id",
+        "name",
+        "source",
+        "timestamp",
+        "boolean_value",
+        "numeric_value",
+        "string_value",
+        "rationale",
+        "metadata",
+        "error_code",
+        "error_message",
+    ]
+    expected_tags_columns = ["evaluation_id", "key", "value"]
+
+    assert list(evaluations_df.columns) == expected_evaluation_columns
+    assert list(metrics_df.columns) == expected_metrics_columns
+    assert list(assessments_df.columns) == expected_assessments_columns
+    assert list(tags_df.columns) == expected_tags_columns
+
+
+def test_evaluations_to_dataframes_basic():
+    # Setup an evaluation with minimal data
+    evaluation = Evaluation(
+        evaluation_id="eval1",
+        run_id="run1",
+        inputs_id="inputs1",
+        inputs={"feature1": 1.0, "feature2": 2.0},
+    )
+
+    evaluations = [evaluation]
+
+    evaluations_df, metrics_df, assessments_df, tags_df = evaluations_to_dataframes(evaluations)
+
+    # Check the evaluations DataFrame
+    assert len(evaluations_df) == 1
+    assert evaluations_df["evaluation_id"].iloc[0] == "eval1"
+    assert evaluations_df["run_id"].iloc[0] == "run1"
+    assert evaluations_df["inputs_id"].iloc[0] == "inputs1"
+    assert evaluations_df["inputs"].iloc[0] == {"feature1": 1.0, "feature2": 2.0}
+
+    # Check that the othe
 
 
 def test_evaluations_to_dataframes_different_assessments():
