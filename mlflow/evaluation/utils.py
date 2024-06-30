@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List, Tuple
 
 import pandas as pd
 
@@ -51,7 +51,7 @@ def evaluations_to_dataframes(
 
     evaluations_df = (
         _apply_schema_to_dataframe(
-            pd.DataFrame(evaluations_data), get_evaluations_dataframe_schema()
+            pd.DataFrame(evaluations_data), _get_evaluations_dataframe_schema()
         )
         if evaluations_data
         else _get_empty_evaluations_dataframe()
@@ -77,7 +77,7 @@ def evaluations_to_dataframes(
     return evaluations_df, metrics_df, assessments_df, tags_df
 
 
-def get_evaluations_dataframe_schema() -> Dict[str, Any]:
+def _get_evaluations_dataframe_schema() -> Dict[str, str]:
     """
     Returns the schema for the evaluation DataFrame.
     """
@@ -98,12 +98,12 @@ def _get_empty_evaluations_dataframe() -> pd.DataFrame:
     """
     Creates an empty DataFrame with columns for evaluation data.
     """
-    schema = get_evaluations_dataframe_schema()
+    schema = _get_evaluations_dataframe_schema()
     df = pd.DataFrame(columns=schema.keys())
     return _apply_schema_to_dataframe(df, schema)
 
 
-def _get_assessments_dataframe_schema() -> Dict[str, Any]:
+def _get_assessments_dataframe_schema() -> Dict[str, str]:
     """
     Returns the schema for the assessments DataFrame.
     """
@@ -131,7 +131,7 @@ def _get_empty_assessments_dataframe() -> pd.DataFrame:
     return _apply_schema_to_dataframe(df, schema)
 
 
-def _get_metrics_dataframe_schema() -> Dict[str, Any]:
+def _get_metrics_dataframe_schema() -> Dict[str, str]:
     """
     Returns the schema for the metrics DataFrame.
     """
@@ -152,7 +152,7 @@ def _get_empty_metrics_dataframe() -> pd.DataFrame:
     return _apply_schema_to_dataframe(df, schema)
 
 
-def _get_tags_dataframe_schema() -> Dict[str, Any]:
+def _get_tags_dataframe_schema() -> Dict[str, str]:
     """
     Returns the schema for the tags DataFrame.
     """
@@ -172,7 +172,7 @@ def _get_empty_tags_dataframe() -> pd.DataFrame:
     return _apply_schema_to_dataframe(df, schema)
 
 
-def _apply_schema_to_dataframe(df: pd.DataFrame, schema: Dict[str, Any]) -> pd.DataFrame:
+def _apply_schema_to_dataframe(df: pd.DataFrame, schema: Dict[str, str]) -> pd.DataFrame:
     """
     Applies a schema to a DataFrame.
 
