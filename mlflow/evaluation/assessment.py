@@ -43,6 +43,12 @@ class Assessment(_MlflowObject):
                 INVALID_PARAMETER_VALUE,
             )
 
+        if (value, error_message).count(None) == 0:
+            raise MlflowException(
+                "error_message cannot be specified when value is specified.",
+                INVALID_PARAMETER_VALUE,
+            )
+
         self._name = name
         self._source = source
         self._value = value
