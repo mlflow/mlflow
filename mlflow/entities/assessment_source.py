@@ -25,17 +25,17 @@ class AssessmentSource(_MlflowObject):
 
     @property
     def source_type(self) -> str:
-        """Get the type of the assessment source."""
+        """The type of the assessment source."""
         return self._source_type
 
     @property
     def source_id(self) -> str:
-        """Get the identifier for the source."""
+        """The identifier for the source."""
         return self._source_id
 
     @property
     def metadata(self) -> Dict[str, Any]:
-        """Get the additional metadata about the source."""
+        """The additional metadata about the source."""
         return self._metadata
 
     def __eq__(self, __o):
