@@ -54,11 +54,18 @@ class Assessment(_MlflowObject):
         self._error_code = error_code
         self._error_message = error_message
 
+        if error_message and any([boolean_value, numeric_value, string_value]):
+            raise MlflowException(
+                "error_message cannot be specified when boolean_value, numeric_value, "
+                "or string_value is specified.",
+                INVALID_PARAMETER_VALUE,
+            )
+
         if (self._boolean_value, self._string_value, self._numeric_value, self._error_code).count(
             None
         ) != 3:
             raise MlflowException(
-                "Exactly one of boolean_value, numeric_value, string_value, and error_code must be "
+                "Exactly one of boolean_value, numeric_value, string_value, or error_code must be "
                 "specified for an assessment.",
                 INVALID_PARAMETER_VALUE,
             )
