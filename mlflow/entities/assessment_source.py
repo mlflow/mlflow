@@ -15,7 +15,7 @@ class AssessmentSource(_MlflowObject):
 
         Args:
             source_type: The type of the assessment source (AssessmentSourceType).
-            source_id: An identifier for the source, e.g. Databricks user ID or LLM judge ID.
+            source_id: An identifier for the source, e.g. user ID or LLM judge ID.
             metadata: Additional metadata about the source, e.g. human-readable name, inlined LLM
                 judge parameters, etc.
         """
