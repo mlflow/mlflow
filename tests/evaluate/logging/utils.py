@@ -2,10 +2,7 @@ from typing import List
 
 import pandas as pd
 
-from mlflow.entities import Metric
-from mlflow.entities.assessment import Assessment
 from mlflow.entities.evaluation import Evaluation as EvaluationEntity
-from mlflow.entities.evaluation_tag import EvaluationTag
 from mlflow.evaluation.utils import (
     _get_assessments_dataframe_schema,
     _get_evaluations_dataframe_schema,
@@ -186,13 +183,12 @@ def _dataframes_to_evaluations(
         List[EvaluationEntity]: A list of Evaluation entities created from the DataFrames.
     """
 
-    def group_by_evaluation_id(df: pd.DataFrame, entity_cls):
+    def group_by_evaluation_id(df: pd.DataFrame):
         """
         Groups rows by 'evaluation_id' and converts them into entities using the provided class.
 
         Args:
             df (pd.DataFrame): DataFrame to group.
-            entity_cls: Class used to create entities from dictionary rows.
 
         Returns:
             Dict[str, List]: A dictionary with 'evaluation_id' as keys and lists of entity
@@ -204,15 +200,29 @@ def _dataframes_to_evaluations(
         return grouped.to_dict()
 
     # Group metrics and assessment by evaluation_id
-    metrics_by_eval = group_by_evaluation_id(metrics_df, Metric)
-    assessments_by_eval = group_by_evaluation_id(assessments_df, Assessment)
-    tags_by_eval = group_by_evaluation_id(tags_df, EvaluationTag)
+    metrics_by_eval = group_by_evaluation_id(metrics_df)
+    assessments_by_eval = group_by_evaluation_id(assessments_df)
+    tags_by_eval = group_by_evaluation_id(tags_df)
 
     # Convert main DataFrame to list of dictionaries and create Evaluation objects
     evaluations = []
     for eval_dict in evaluations_df.to_dict(orient="records"):
         evaluation_id = eval_dict["evaluation_id"]
-        eval_dict["metrics"] = metrics_by_eval.get(evaluation_id, [])
+        eval_dict["metrics"] = [
+            {
+                "key": metric["key"],
+                "value": metric["value"],
+                "timestamp": metric["timestamp"],
+                # Evaluation metrics don't have steps, but we're reusing the MLflow Metric
+                # class to represent Evaluation metrics as entities in Python for now. Accordingly,
+                # we set the step to 0 in order to parse the evaluation metric as an MLflow Metric
+                # Python entity
+                "step": 0,
+                # Also discard the evaluation_id field from the evaluation metric, since this
+                # field is not part of the MLflow Metric Python entity
+            }
+            for metric in metrics_by_eval.get(evaluation_id, [])
+        ]
         eval_dict["assessments"] = assessments_by_eval.get(evaluation_id, [])
         eval_dict["tags"] = tags_by_eval.get(evaluation_id, [])
         evaluations.append(EvaluationEntity.from_dictionary(eval_dict))
