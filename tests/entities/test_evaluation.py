@@ -1,4 +1,8 @@
-from mlflow.entities import Assessment, AssessmentSource, Evaluation, EvaluationTag, Metric
+from mlflow.entities import Metric
+from mlflow.entities.assessment import Assessment
+from mlflow.entities.assessment_source import AssessmentSource
+from mlflow.entities.evaluation import Evaluation
+from mlflow.entities.evaluation_tag import EvaluationTag
 
 
 def test_evaluation_equality():
