@@ -4,6 +4,42 @@ from mlflow.entities import AssessmentSource
 from mlflow.exceptions import MlflowException
 
 
+def test_assessment_source_equality():
+    source1 = AssessmentSource(source_type="HUMAN", source_id="user_1")
+    source2 = AssessmentSource(source_type="HUMAN", source_id="user_1")
+    source3 = AssessmentSource(source_type="AI_JUDGE", source_id="ai_1")
+    source4 = AssessmentSource(source_type="HUMAN", source_id="user_1", metadata={"role": "judge"})
+    source5 = AssessmentSource(source_type="HUMAN", source_id="user_2")
+
+    assert source1 == source2  # Same type and ID
+    assert source1 != source3  # Different type
+    assert source1 != source4  # Different metadata
+    assert source1 != source5  # Different ID
+
+
+def test_assessment_source_properties():
+    source = AssessmentSource(source_type="HUMAN", source_id="user_1", metadata={"role": "judge"})
+
+    assert source.source_type == "HUMAN"
+    assert source.source_id == "user_1"
+    assert source.metadata == {"role": "judge"}
+
+
+def test_assessment_source_to_from_dictionary():
+    source = AssessmentSource(source_type="HUMAN", source_id="user_1", metadata={"role": "judge"})
+    source_dict = source.to_dictionary()
+
+    expected_dict = {
+        "source_type": "HUMAN",
+        "source_id": "user_1",
+        "metadata": {"role": "judge"},
+    }
+    assert source_dict == expected_dict
+
+    recreated_source = AssessmentSource.from_dictionary(source_dict)
+    assert recreated_source == source
+
+
 def test_assessment_source_type_validation():
     # Valid source types
     try:
