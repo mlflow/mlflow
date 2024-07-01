@@ -139,7 +139,8 @@ class Evaluation(_MlflowObject):
             "targets": self.targets,
             "error_code": self.error_code,
             "error_message": self.error_message,
-            "assessments": [assess.to_dictionary() for assess in self.assessments] if self.assessments else None,
+            "assessments": [
+                assess.to_dictionary() for assess in self.assessments] if self.assessments else None,
             "metrics": [metric.to_dictionary() for metric in self.metrics] if self.metrics else None,
             "tags": [tag.to_dictionary() for tag in self.tags] if self.tags else None,
         }
