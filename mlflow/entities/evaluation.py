@@ -8,7 +8,7 @@ from mlflow.entities.metric import Metric
 
 class Evaluation(_MlflowObject):
     """
-    Evaluation result data.
+    Evaluation result data, including inputs, outputs, targets, assessments, and more.
     """
 
     def __init__(
@@ -30,7 +30,7 @@ class Evaluation(_MlflowObject):
         Construct a new mlflow.entities.Evaluation instance.
 
         Args:
-            evaluation_id: A unique identifier for the evaluation result.
+            evaluation_id: A unique identifier for the evaluation.
             run_id: The ID of the MLflow Run containing the Evaluation.
             inputs_id: A unique identifier for the input names and values for evaluation.
             inputs: Input names and values for evaluation.
