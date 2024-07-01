@@ -37,13 +37,13 @@ class Assessment(_MlflowObject):
             error_message: A descriptive error message representing any issues encountered during
                 the assessment.
         """
-        if (value, error_code).count(None) != 1:
+        if (value is None) == (error_code is None):
             raise MlflowException(
                 "Exactly one of value or error_code must be specified for an assessment.",
                 INVALID_PARAMETER_VALUE,
             )
 
-        if (value, error_message).count(None) == 0:
+        if value is not None and error_message is not None:
             raise MlflowException(
                 "error_message cannot be specified when value is specified.",
                 INVALID_PARAMETER_VALUE,
