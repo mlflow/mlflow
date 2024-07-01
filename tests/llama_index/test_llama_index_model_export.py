@@ -260,7 +260,7 @@ def test_chat_engine_str(tmp_path, single_index, with_signature):
 def test_chat_engine_dict(tmp_path, single_index, with_signature):
     payload = {
         "message": "string",
-        "chat_history": [str(ChatMessage(role="user", content="string"))],
+        "chat_history": [{"role": "user", "content": "string"}] * 3,
     }
 
     signature = infer_signature(model_input=payload) if with_signature else None

@@ -10,6 +10,9 @@ QUERY_ENGINE_NAME = "query"
 RETRIEVER_ENGINE_NAME = "retriever"
 SUPPORTED_ENGINES = {CHAT_ENGINE_NAME, QUERY_ENGINE_NAME, RETRIEVER_ENGINE_NAME}
 
+_CHAT_MESSAGE_PARAMETER_NAMES = {"query", "message"}
+_CHAT_MESSAGE_HISTORY_PARAMETER_NAMES = {"messages", "chat_history"}
+
 
 class _LlamaIndexModelWrapperBase:
     def __init__(
@@ -32,6 +35,7 @@ class _LlamaIndexModelWrapperBase:
         Perform engine inference on a single engine input e.g. not an iterable of
         engine inputs. The engine inputs must already be preprocessed/cleaned.
         """
+
         if isinstance(input, dict):
             return self.predict_callable(**input, **(params or {}))
         else:
@@ -54,11 +58,24 @@ class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
     def _build_engine_method(self) -> Callable:
         return self.index.as_chat_engine(**self.model_config).chat
 
-    def _safe_convert_to_chat_messages(self, data) -> Union[List[ChatMessage], str]:
-        # NB: Chat messages that have been converted to a string via str() are formatted as
-        # "`role`: `content`", for example "system: You are a helpful bot".
-        if isinstance(data, (list, tuple)) and all(":" in message for message in data):
-            return [ChatMessage.from_str(*(message.split(": ", 1)[::-1])) for message in data]
+    @staticmethod
+    def _parse_dict_as_chat_message_objects(data: dict) -> dict:
+        message_matches = (name for name in _CHAT_MESSAGE_PARAMETER_NAMES if name in data)
+        if (key := next(message_matches, None)) and data.get(key):
+            if not isinstance(data[key], str):
+                raise ValueError(f"{key} must be a str. Got: {data[key]}")
+
+        message_history_matches = (
+            name for name in _CHAT_MESSAGE_HISTORY_PARAMETER_NAMES if name in data
+        )
+        if (key := next(message_history_matches, None)) and data.get(key):
+            if isinstance(data[key], list):
+                for i, message in enumerate(data[key]):
+                    if isinstance(message, dict):
+                        data[key][i] = ChatMessage(**message)
+
+            if not all(isinstance(message, ChatMessage) for message in data[key]):
+                raise ValueError(f"{key} must be a list of ChatMessage objects. Got: {data[key]}")
 
         return data
 
@@ -76,15 +93,7 @@ class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
         if isinstance(data, str):
             return data
         elif isinstance(data, dict):
-            if len(data) == 1:
-                # Assume this value should be treated as a positional argument
-                payload = next(iter(data.values()))
-                return self._safe_convert_to_chat_messages(payload)
-
-            elif len(data) > 1:
-                # Assume that any kwarg value that's a sequence of strings with a colon
-                # should be converted to a list of ChatMessage objects.
-                return {k: self._safe_convert_to_chat_messages(v) for k, v in data.items()}
+            return self._parse_dict_as_chat_message_objects(data)
         elif isinstance(data, list):
             prediction_input = [self._format_predict_input(d) for d in data]
             return prediction_input if len(prediction_input) > 1 else prediction_input[0]
