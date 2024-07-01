@@ -132,20 +132,6 @@ class Assessment(_MlflowObject):
             return self.to_dictionary() == __o.to_dictionary()
         return False
 
-    def get_value_type(self) -> str:
-        """
-        The type of the assessment value.
-
-        Returns:
-            str: The type of the assessment value.
-        """
-        if self.boolean_value is not None:
-            return "boolean"
-        elif self.numeric_value is not None:
-            return "numeric"
-        elif self.string_value is not None:
-            return "string"
-
     def to_dictionary(self) -> Dict[str, Any]:
         return {
             "evaluation_id": self.evaluation_id,

@@ -60,18 +60,12 @@ class Assessment(_MlflowObject):
         self._boolean_value = None
         self._numeric_value = None
         self._string_value = None
-        self._value_type = None
         if isinstance(value, bool):
             self._boolean_value = value
-            self._value_type = "boolean"
         elif isinstance(value, numbers.Number):
             self._numeric_value = float(value)
-            self._value_type = "numeric"
         elif value is not None:
             self._string_value = str(value)
-            self._value_type = "string"
-        else:
-            self._value_type = None
 
     @property
     def name(self) -> str:
@@ -113,15 +107,6 @@ class Assessment(_MlflowObject):
             return self.to_dictionary() == __o.to_dictionary()
         return False
 
-    def get_value_type(self) -> str:
-        """
-        The type of the assessment value.
-
-        Returns:
-            str: The type of the assessment value.
-        """
-        return self._value_type
-
     def to_dictionary(self) -> Dict[str, Any]:
         return {
             "name": self.name,
@@ -144,22 +129,14 @@ class Assessment(_MlflowObject):
         Returns:
             Assessment: The Assessment object created from the dictionary.
         """
-        name = assessment_dict["name"]
-        source_dict = assessment_dict["source"]
-        source = AssessmentSource.from_dictionary(source_dict)
-        rationale = assessment_dict.get("rationale")
-        metadata = assessment_dict.get("metadata")
-        value = assessment_dict.get("value")
-        error_code = assessment_dict.get("error_code")
-        error_message = assessment_dict.get("error_message")
         return cls(
-            name=name,
-            source=source,
-            value=value,
-            rationale=rationale,
-            metadata=metadata,
-            error_code=error_code,
-            error_message=error_message,
+            name=assessment_dict["name"],
+            source=AssessmentSource.from_dictionary(assessment_dict["source"]),
+            value=assessment_dict.get("value"),
+            rationale=assessment_dict.get("rationale"),
+            metadata=assessment_dict.get("metadata"),
+            error_code=assessment_dict.get("error_code"),
+            error_message=assessment_dict.get("error_message"),
         )
 
     def _to_entity(self, evaluation_id: str) -> AssessmentEntity:
