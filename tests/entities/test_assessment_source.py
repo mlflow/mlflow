@@ -42,11 +42,8 @@ def test_assessment_source_to_from_dictionary():
 
 def test_assessment_source_type_validation():
     # Valid source types
-    try:
-        AssessmentSource(source_type="HUMAN", source_id="user_1")
-        AssessmentSource(source_type="AI_JUDGE", source_id="judge_1")
-    except MlflowException:
-        pytest.fail("Valid source type raised exception")
+    AssessmentSource(source_type="HUMAN", source_id="user_1")
+    AssessmentSource(source_type="AI_JUDGE", source_id="judge_1")
 
     # Invalid source type
     with pytest.raises(MlflowException, match="Invalid assessment source type"):
