@@ -170,3 +170,38 @@ def test_log_evaluations_with_all_params():
                 evaluation_id=logged_evaluation.evaluation_id, run_id=run_id
             )
             assert logged_evaluation == retrieved_evaluation
+
+
+def test_log_evaluation_starts_run_if_not_started():
+    inputs = {"feature1": 1.0, "feature2": {"nested_feature": 2.0}}
+    outputs = {"prediction": 0.5}
+
+    # Ensure there is no active run
+    if mlflow.active_run() is not None:
+        mlflow.end_run()
+
+    # Log evaluation without explicitly starting a run
+    logged_evaluation = log_evaluations(evaluations=[Evaluation(inputs=inputs, outputs=outputs)])
+
+    # Verify that a run has been started
+    active_run = mlflow.active_run()
+    assert active_run is not None, "Expected a run to be started automatically."
+
+    # Retrieve the evaluation using the run ID
+    retrieved_evaluation = get_evaluation(
+        evaluation_id=logged_evaluation.evaluation_id, run_id=active_run.info.run_id
+    )
+    assert retrieved_evaluation == logged_evaluation
+
+    # End the run to clean up
+    mlflow.end_run()
+
+
+def test_evaluation_module_exposes_relevant_apis_for_logging():
+    import mlflow.evaluation
+
+    assert hasattr(mlflow.evaluation, "log_evaluations")
+    assert hasattr(mlflow.evaluation, "Evaluation")
+    assert hasattr(mlflow.evaluation, "Assessment")
+    assert hasattr(mlflow.evaluation, "AssessmentSource")
+    assert hasattr(mlflow.evaluation, "AssessmentSourceType")
