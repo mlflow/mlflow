@@ -178,36 +178,25 @@ class Evaluation(_MlflowObject):
         Returns:
             Evaluation: The Evaluation object created from the dictionary.
         """
-        inputs = evaluation_dict["inputs"]
-        outputs = evaluation_dict.get("outputs")
-        inputs_id = evaluation_dict.get("inputs_id")
-        request_id = evaluation_dict.get("request_id")
-        targets = evaluation_dict.get("targets")
-        error_code = evaluation_dict.get("error_code")
-        error_message = evaluation_dict.get("error_message")
-
         assessments = None
         if "assessments" in evaluation_dict:
             assessments = [
                 Assessment.from_dictionary(assess) for assess in evaluation_dict["assessments"]
             ]
-
         metrics = None
         if "metrics" in evaluation_dict:
             metrics = [Metric.from_dictionary(metric) for metric in evaluation_dict["metrics"]]
-
         tags = None
         if "tags" in evaluation_dict:
-            tags = {tag["key"]: tag["value"] for tag in evaluation_dict["tags"]}
-
+            tags = [EvaluationTag(tag["key"], tag["value"]) for tag in evaluation_dict["tags"]]
         return cls(
-            inputs=inputs,
-            outputs=outputs,
-            inputs_id=inputs_id,
-            request_id=request_id,
-            targets=targets,
-            error_code=error_code,
-            error_message=error_message,
+            inputs_id=evaluation_dict["inputs_id"],
+            inputs=evaluation_dict["inputs"],
+            outputs=evaluation_dict.get("outputs"),
+            request_id=evaluation_dict.get("request_id"),
+            targets=evaluation_dict.get("targets"),
+            error_code=evaluation_dict.get("error_code"),
+            error_message=evaluation_dict.get("error_message"),
             assessments=assessments,
             metrics=metrics,
             tags=tags,
