@@ -40,8 +40,8 @@ class Evaluation(_MlflowObject):
             error_code: An error code representing any issues encountered during the evaluation.
             error_message: A descriptive error message representing any issues encountered during
                 the evaluation.
-            assessments: Assessments for the given row.
-            metrics: Objective numerical metrics for the row, e.g., "number of input tokens",
+            assessments: Assessments for the evaluation.
+            metrics: Objective numerical metrics for the evaluation, e.g., "number of input tokens",
                 "number of output tokens".
             tags: Dictionary of tags associated with the evaluation.
         """
@@ -52,9 +52,9 @@ class Evaluation(_MlflowObject):
         if isinstance(tags, dict):
             tags = [EvaluationTag(key=str(key), value=str(value)) for key, value in tags.items()]
 
-        self._inputs_id = inputs_id or _generate_inputs_id(inputs)
         self._inputs = inputs
         self._outputs = outputs
+        self._inputs_id = inputs_id or _generate_inputs_id(inputs)
         self._request_id = request_id
         self._targets = targets
         self._error_code = error_code
@@ -152,24 +152,20 @@ class Evaluation(_MlflowObject):
         evaluation_dict = {
             "inputs_id": self.inputs_id,
             "inputs": self.inputs,
+            "outputs": self.outputs,
+            "request_id": self.request_id,
+            "targets": self.targets,
+            "error_code": self.error_code,
+            "error_message": self.error_message,
+            "assessments": [assess.to_dictionary() for assess in self.assessments]
+            if self.assessments
+            else None,
+            "metrics": [metric.to_dictionary() for metric in self.metrics]
+            if self.metrics
+            else None,
+            "tags": [tag.to_dictionary() for tag in self.tags] if self.tags else None,
         }
-        if self.outputs:
-            evaluation_dict["outputs"] = self.outputs
-        if self.request_id:
-            evaluation_dict["request_id"] = self.request_id
-        if self.targets:
-            evaluation_dict["targets"] = self.targets
-        if self.error_code:
-            evaluation_dict["error_code"] = self.error_code
-        if self.error_message:
-            evaluation_dict["error_message"] = self.error_message
-        if self.assessments:
-            evaluation_dict["assessments"] = [assess.to_dictionary() for assess in self.assessments]
-        if self.metrics:
-            evaluation_dict["metrics"] = [metric.to_dictionary() for metric in self.metrics]
-        if self.tags:
-            evaluation_dict["tags"] = [tag.to_dictionary() for tag in self.tags]
-        return evaluation_dict
+        return {k: v for k, v in evaluation_dict.items() if v is not None}
 
     @classmethod
     def from_dictionary(cls, evaluation_dict: Dict[str, Any]):
@@ -182,36 +178,25 @@ class Evaluation(_MlflowObject):
         Returns:
             Evaluation: The Evaluation object created from the dictionary.
         """
-        inputs = evaluation_dict["inputs"]
-        outputs = evaluation_dict.get("outputs")
-        inputs_id = evaluation_dict.get("inputs_id")
-        request_id = evaluation_dict.get("request_id")
-        targets = evaluation_dict.get("targets")
-        error_code = evaluation_dict.get("error_code")
-        error_message = evaluation_dict.get("error_message")
-
         assessments = None
         if "assessments" in evaluation_dict:
             assessments = [
                 Assessment.from_dictionary(assess) for assess in evaluation_dict["assessments"]
             ]
-
         metrics = None
         if "metrics" in evaluation_dict:
             metrics = [Metric.from_dictionary(metric) for metric in evaluation_dict["metrics"]]
-
         tags = None
         if "tags" in evaluation_dict:
-            tags = {tag["key"]: tag["value"] for tag in evaluation_dict["tags"]}
-
+            tags = [EvaluationTag(tag["key"], tag["value"]) for tag in evaluation_dict["tags"]]
         return cls(
-            inputs=inputs,
-            outputs=outputs,
-            inputs_id=inputs_id,
-            request_id=request_id,
-            targets=targets,
-            error_code=error_code,
-            error_message=error_message,
+            inputs_id=evaluation_dict["inputs_id"],
+            inputs=evaluation_dict["inputs"],
+            outputs=evaluation_dict.get("outputs"),
+            request_id=evaluation_dict.get("request_id"),
+            targets=evaluation_dict.get("targets"),
+            error_code=evaluation_dict.get("error_code"),
+            error_message=evaluation_dict.get("error_message"),
             assessments=assessments,
             metrics=metrics,
             tags=tags,

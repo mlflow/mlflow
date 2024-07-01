@@ -37,11 +37,8 @@ def test_evaluation_tag_to_from_dictionary():
 
 def test_evaluation_tag_key_value_validation():
     # Valid cases
-    try:
-        EvaluationTag(key="tag1", value="value1")
-        EvaluationTag(key="tag2", value="value2")
-    except Exception:
-        pytest.fail("Valid key-value pair raised exception")
+    EvaluationTag(key="tag1", value="value1")
+    EvaluationTag(key="tag2", value="value2")
 
     # Invalid case: missing key
     with pytest.raises(KeyError, match="key"):

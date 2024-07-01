@@ -79,7 +79,7 @@ def evaluations_to_dataframes(
 
 def _get_evaluations_dataframe_schema() -> Dict[str, str]:
     """
-    Returns the schema for the evaluation DataFrame.
+    Returns the pandas schema for the evaluation DataFrame.
     """
     return {
         "evaluation_id": "string",
@@ -105,7 +105,7 @@ def _get_empty_evaluations_dataframe() -> pd.DataFrame:
 
 def _get_assessments_dataframe_schema() -> Dict[str, str]:
     """
-    Returns the schema for the assessments DataFrame.
+    Returns the pandas schema for the assessments DataFrame.
     """
     return {
         "evaluation_id": "string",
@@ -133,7 +133,7 @@ def _get_empty_assessments_dataframe() -> pd.DataFrame:
 
 def _get_metrics_dataframe_schema() -> Dict[str, str]:
     """
-    Returns the schema for the metrics DataFrame.
+    Returns the pandas schema for the metrics DataFrame.
     """
     return {
         "evaluation_id": "string",
@@ -154,7 +154,7 @@ def _get_empty_metrics_dataframe() -> pd.DataFrame:
 
 def _get_tags_dataframe_schema() -> Dict[str, str]:
     """
-    Returns the schema for the tags DataFrame.
+    Returns the pandas schema for the tags DataFrame.
     """
     return {
         "evaluation_id": "string",
@@ -185,4 +185,7 @@ def _apply_schema_to_dataframe(df: pd.DataFrame, schema: Dict[str, str]) -> pd.D
     """
     for column in df.columns:
         df[column] = df[column].astype(schema[column])
+    # By default, null values are represented as `pd.NA` in pandas when reading a dataframe from
+    # JSON. However, MLflow entities use `None` to represent null values. Accordingly, we convert
+    # instances of pd.NA to None so that DataFrame rows can be parsed as MLflow entities
     return df.replace(pd.NA, None)
