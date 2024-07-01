@@ -54,8 +54,8 @@ class Assessment(_MlflowObject):
         self._error_code = error_code
         self._error_message = error_message
 
-        if error_message and any(
-            [boolean_value is not None, numeric_value is not None, string_value is not None]
+        if error_message is not None and (
+            boolean_value is not None or numeric_value is not None or string_value is not None
         ):
             raise MlflowException(
                 "error_message cannot be specified when boolean_value, numeric_value, "
