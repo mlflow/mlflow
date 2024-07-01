@@ -42,11 +42,8 @@ def test_assessment_source_to_from_dictionary():
 
 def test_assessment_source_type_validation():
     # Valid source types
-    try:
-        AssessmentSource(source_type="HUMAN", source_id="user_1")
-        AssessmentSource(source_type="AI_JUDGE", source_id="judge_1")
-    except MlflowException:
-        pytest.fail("Valid source type raised exception")
+    AssessmentSource(source_type="HUMAN", source_id="user_1")
+    AssessmentSource(source_type="AI_JUDGE", source_id="judge_1")
 
     # Invalid source type
     with pytest.raises(MlflowException, match="Invalid assessment source type"):
@@ -55,15 +52,12 @@ def test_assessment_source_type_validation():
 
 def test_assessment_source_case_insensitivity():
     # Valid source types with different cases
-    try:
-        source_1 = AssessmentSource(source_type="human", source_id="user_1")
-        source_2 = AssessmentSource(source_type="Human", source_id="user_2")
-        source_3 = AssessmentSource(source_type="HUMAN", source_id="user_3")
-        source_4 = AssessmentSource(source_type="ai_judge", source_id="judge_1")
-        source_5 = AssessmentSource(source_type="Ai_Judge", source_id="judge_2")
-        source_6 = AssessmentSource(source_type="AI_JUDGE", source_id="judge_3")
-    except MlflowException:
-        pytest.fail("Valid source type raised exception")
+    source_1 = AssessmentSource(source_type="human", source_id="user_1")
+    source_2 = AssessmentSource(source_type="Human", source_id="user_2")
+    source_3 = AssessmentSource(source_type="HUMAN", source_id="user_3")
+    source_4 = AssessmentSource(source_type="ai_judge", source_id="judge_1")
+    source_5 = AssessmentSource(source_type="Ai_Judge", source_id="judge_2")
+    source_6 = AssessmentSource(source_type="AI_JUDGE", source_id="judge_3")
 
     # Verify that the source type is normalized to uppercase
     assert source_1.source_type == "HUMAN"
