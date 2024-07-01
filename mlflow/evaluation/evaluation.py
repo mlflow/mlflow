@@ -52,9 +52,9 @@ class Evaluation(_MlflowObject):
         if isinstance(tags, dict):
             tags = [EvaluationTag(key=str(key), value=str(value)) for key, value in tags.items()]
 
-        self._inputs_id = inputs_id or _generate_inputs_id(inputs)
         self._inputs = inputs
         self._outputs = outputs
+        self._inputs_id = inputs_id or _generate_inputs_id(inputs)
         self._request_id = request_id
         self._targets = targets
         self._error_code = error_code
