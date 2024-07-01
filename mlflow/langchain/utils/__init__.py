@@ -59,7 +59,7 @@ _UNSUPPORTED_MODEL_WARNING_MESSAGE = (
     "MLflow does not guarantee support for Chains outside of the subclasses of LLMChain, found %s"
 )
 _UNSUPPORTED_LLM_WARNING_MESSAGE = (
-    "MLflow does not guarantee support for LLMs outside of HuggingFaceHub and OpenAI, found %s"
+    "MLflow does not guarantee support for LLMs outside of HuggingFacePipeline and OpenAI, found %s"
 )
 
 # Minimum version of langchain required to support ChatOpenAI and AzureChatOpenAI in MLflow
@@ -271,7 +271,9 @@ def _get_supported_llms():
             pass
 
     safe_import_and_add("langchain.llms.openai", "OpenAI")
-    safe_import_and_add("langchain.llms.huggingface_hub", "HuggingFaceHub")
+    # HuggingFacePipeline is moved to langchain_huggingface since langchain 0.2.0
+    safe_import_and_add("langchain.llms", "HuggingFacePipeline")
+    safe_import_and_add("langchain.langchain_huggingface", "HuggingFacePipeline")
     safe_import_and_add("langchain_openai", "OpenAI")
 
     for llm_name in ["Databricks", "Mlflow"]:
