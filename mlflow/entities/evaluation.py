@@ -40,8 +40,8 @@ class Evaluation(_MlflowObject):
             error_code: An error code representing any issues encountered during the evaluation.
             error_message: A descriptive error message representing any issues encountered during
                 the evaluation.
-            assessments: Assessments for the given row.
-            metrics: Objective numerical metrics for the row, e.g., "number of input tokens",
+            assessments: Assessments for the evaluation.
+            metrics: Objective numerical metrics for the evaluation, e.g., "number of input tokens",
                 "number of output tokens".
             tags: List of tags associated with the evaluation.
         """
