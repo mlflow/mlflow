@@ -181,7 +181,7 @@ def test_log_evaluation_starts_run_if_not_started():
         mlflow.end_run()
 
     # Log evaluation without explicitly starting a run
-    logged_evaluation = log_evaluations(evaluations=[Evaluation(inputs=inputs, outputs=outputs)])
+    logged_evaluation = log_evaluations(evaluations=[Evaluation(inputs=inputs, outputs=outputs)])[0]
 
     # Verify that a run has been started
     active_run = mlflow.active_run()
