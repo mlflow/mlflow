@@ -9,7 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.requested_reviewer.login == 'mlflow-automation'}}
     steps:
-      - uses: actions/checkout@v4
       - uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
