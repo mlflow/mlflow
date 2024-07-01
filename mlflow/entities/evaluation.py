@@ -20,11 +20,11 @@ class Evaluation(_MlflowObject):
         outputs: Optional[Dict[str, Any]] = None,
         request_id: Optional[str] = None,
         targets: Optional[Dict[str, Any]] = None,
+        error_code: Optional[str] = None,
+        error_message: Optional[str] = None,
         assessments: Optional[List[Assessment]] = None,
         metrics: Optional[List[Metric]] = None,
         tags: Optional[List[EvaluationTag]] = None,
-        error_code: Optional[str] = None,
-        error_message: Optional[str] = None,
     ):
         """
         Construct a new mlflow.entities.Evaluation instance.
@@ -126,7 +126,6 @@ class Evaluation(_MlflowObject):
     def to_dictionary(self) -> Dict[str, Any]:
         """
         Convert the Evaluation object to a dictionary.
-
         Returns:
             dict: The Evaluation object represented as a dictionary.
         """
@@ -135,24 +134,16 @@ class Evaluation(_MlflowObject):
             "run_id": self.run_id,
             "inputs_id": self.inputs_id,
             "inputs": self.inputs,
+            "outputs": self.outputs,
+            "request_id": self.request_id,
+            "targets": self.targets,
+            "error_code": self.error_code,
+            "error_message": self.error_message,
+            "assessments": [assess.to_dictionary() for assess in self.assessments] if self.assessments else None,
+            "metrics": [metric.to_dictionary() for metric in self.metrics] if self.metrics else None,
+            "tags": [tag.to_dictionary() for tag in self.tags] if self.tags else None,
         }
-        if self.outputs:
-            evaluation_dict["outputs"] = self.outputs
-        if self.request_id:
-            evaluation_dict["request_id"] = self.request_id
-        if self.targets:
-            evaluation_dict["targets"] = self.targets
-        if self.error_code:
-            evaluation_dict["error_code"] = self.error_code
-        if self.error_message:
-            evaluation_dict["error_message"] = self.error_message
-        if self.assessments:
-            evaluation_dict["assessments"] = [assess.to_dictionary() for assess in self.assessments]
-        if self.metrics:
-            evaluation_dict["metrics"] = [metric.to_dictionary() for metric in self.metrics]
-        if self.tags:
-            evaluation_dict["tags"] = [tag.to_dictionary() for tag in self.tags]
-        return evaluation_dict
+        return {k: v for k, v in evaluation_dict.items() if v is not None}
 
     @classmethod
     def from_dictionary(cls, evaluation_dict: Dict[str, Any]):
