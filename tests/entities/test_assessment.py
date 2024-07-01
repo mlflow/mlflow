@@ -194,7 +194,7 @@ def test_assessment_value_validation():
             name="relevance",
             source=source,
             timestamp=123456789,
-            numeric_value=0.9,
+            numeric_value=0,
             error_message="An error occurred",
         )
 
@@ -222,6 +222,6 @@ def test_assessment_value_validation():
             name="relevance",
             source=source,
             timestamp=123456789,
-            boolean_value=True,
+            boolean_value=False,
             error_message="An error occurred",
         )
