@@ -72,57 +72,57 @@ class Assessment(_MlflowObject):
 
     @property
     def evaluation_id(self) -> str:
-        """Get the evaluation ID."""
+        """The evaluation ID."""
         return self._evaluation_id
 
     @property
     def name(self) -> str:
-        """Get the name of the assessment."""
+        """The name of the assessment."""
         return self._name
 
     @property
     def timestamp(self) -> int:
-        """Get the timestamp of the assessment."""
+        """The timestamp of the assessment."""
         return self._timestamp
 
     @property
     def boolean_value(self) -> Optional[bool]:
-        """Get the boolean assessment value."""
+        """The boolean assessment value."""
         return self._boolean_value
 
     @property
     def numeric_value(self) -> Optional[float]:
-        """Get the numeric assessment value."""
+        """The numeric assessment value."""
         return self._numeric_value
 
     @property
     def string_value(self) -> Optional[str]:
-        """Get the string assessment value."""
+        """The string assessment value."""
         return self._string_value
 
     @property
     def rationale(self) -> Optional[str]:
-        """Get the rationale / justification for the assessment."""
+        """The rationale / justification for the assessment."""
         return self._rationale
 
     @property
     def source(self) -> AssessmentSource:
-        """Get the source of the assessment."""
+        """The source of the assessment."""
         return self._source
 
     @property
     def metadata(self) -> Dict[str, Any]:
-        """Get the metadata associated with the assessment."""
+        """The metadata associated with the assessment."""
         return self._metadata
 
     @property
     def error_code(self) -> Optional[str]:
-        """Get the error code."""
+        """The error code."""
         return self._error_code
 
     @property
     def error_message(self) -> Optional[str]:
-        """Get the error message."""
+        """The error message."""
         return self._error_message
 
     def __eq__(self, __o):
@@ -132,7 +132,7 @@ class Assessment(_MlflowObject):
 
     def get_value_type(self) -> str:
         """
-        Get the type of the assessment value.
+        The type of the assessment value.
 
         Returns:
             str: The type of the assessment value.
