@@ -185,4 +185,7 @@ def _apply_schema_to_dataframe(df: pd.DataFrame, schema: Dict[str, str]) -> pd.D
     """
     for column in df.columns:
         df[column] = df[column].astype(schema[column])
+    # By default, null values are represented as `pd.NA` in pandas when reading a dataframe from
+    # JSON. However, MLflow entities use `None` to represent null values. Accordingly, we convert
+    # instances of pd.NA to None so that DataFrame rows can be parsed as MLflow entities
     return df.replace(pd.NA, None)
