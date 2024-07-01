@@ -15,9 +15,7 @@ def test_evaluations_to_dataframes_basic():
         inputs={"feature1": 1.0, "feature2": 2.0},
     )
 
-    evaluations = [evaluation]
-
-    evaluations_df, metrics_df, assessments_df, tags_df = evaluations_to_dataframes(evaluations)
+    evaluations_df, metrics_df, assessments_df, tags_df = evaluations_to_dataframes([evaluation])
 
     # Check the evaluations DataFrame
     assert len(evaluations_df) == 1
@@ -61,9 +59,7 @@ def test_evaluations_to_dataframes_full_data():
         tags=[tag],
     )
 
-    evaluations = [evaluation]
-
-    evaluations_df, metrics_df, assessments_df, tags_df = evaluations_to_dataframes(evaluations)
+    evaluations_df, metrics_df, assessments_df, tags_df = evaluations_to_dataframes([evaluation])
 
     # Check the evaluations DataFrame
     assert len(evaluations_df) == 1
@@ -105,8 +101,7 @@ def test_evaluations_to_dataframes_full_data():
 
 def test_evaluations_to_dataframes_empty():
     # Empty evaluations list
-    evaluations = []
-    evaluations_df, metrics_df, assessments_df, tags_df = evaluations_to_dataframes(evaluations)
+    evaluations_df, metrics_df, assessments_df, tags_df = evaluations_to_dataframes([])
 
     # Verify that the DataFrames are empty
     assert evaluations_df.empty
@@ -157,9 +152,7 @@ def test_evaluations_to_dataframes_basic():
         inputs={"feature1": 1.0, "feature2": 2.0},
     )
 
-    evaluations = [evaluation]
-
-    evaluations_df, metrics_df, assessments_df, tags_df = evaluations_to_dataframes(evaluations)
+    evaluations_df, metrics_df, assessments_df, tags_df = evaluations_to_dataframes([evaluation])
 
     # Check the evaluations DataFrame
     assert len(evaluations_df) == 1
@@ -199,9 +192,7 @@ def test_evaluations_to_dataframes_different_assessments():
         assessments=[assessment_1, assessment_2],
     )
 
-    evaluations = [evaluation]
-
-    evaluations_df, metrics_df, assessments_df, tags_df = evaluations_to_dataframes(evaluations)
+    evaluations_df, metrics_df, assessments_df, tags_df = evaluations_to_dataframes([evaluation])
 
     # Check the assessments DataFrame
     assert len(assessments_df) == 2
@@ -227,9 +218,7 @@ def test_evaluations_to_dataframes_different_metrics():
         metrics=[metric_1, metric_2],
     )
 
-    evaluations = [evaluation]
-
-    evaluations_df, metrics_df, assessments_df, tags_df = evaluations_to_dataframes(evaluations)
+    evaluations_df, metrics_df, assessments_df, tags_df = evaluations_to_dataframes([evaluation])
 
     # Check the metrics DataFrame
     assert len(metrics_df) == 2
@@ -257,9 +246,7 @@ def test_evaluations_to_dataframes_different_tags():
         tags=[tag1, tag2],
     )
 
-    evaluations = [evaluation]
-
-    evaluations_df, metrics_df, assessments_df, tags_df = evaluations_to_dataframes(evaluations)
+    evaluations_df, metrics_df, assessments_df, tags_df = evaluations_to_dataframes([evaluation])
 
     # Check the tags DataFrame
     assert len(tags_df) == 2
