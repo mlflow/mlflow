@@ -1,6 +1,9 @@
-from typing import Any, Dict, Optional
+import numbers
+import time
+from typing import Any, Dict, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.entities.assessment import Assessment as AssessmentEntity
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -8,33 +11,25 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 class Assessment(_MlflowObject):
     """
-    Assessment data associated with an evaluation.
+    Assessment data associated with an evaluation result.
     """
 
     def __init__(
         self,
-        evaluation_id: str,
         name: str,
         source: AssessmentSource,
-        timestamp: int,
-        boolean_value: Optional[bool] = None,
-        numeric_value: Optional[float] = None,
-        string_value: Optional[str] = None,
+        value: Optional[Union[bool, float, str]] = None,
         rationale: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         error_code: Optional[str] = None,
         error_message: Optional[str] = None,
     ):
-        """Construct a new mlflow.entities.Assessment instance.
+        """Construct a new Assessment instance.
 
         Args:
-            evaluation_id: The ID of the evaluation with which the assessment is associated.
-            name: The name of the assessment.
+            name: The name of the piece of assessment.
             source: The source of the assessment (AssessmentSource instance).
-            timestamp: The timestamp when the assessment was given.
-            boolean_value: The boolean assessment value, if applicable.
-            numeric_value: The numeric assessment value, if applicable.
-            string_value: The string assessment value, if applicable.
+            value: The value of the assessment. This can be a boolean, numeric, or string value.
             rationale: The rationale / justification for the value.
             metadata: Additional metadata for the assessment, e.g. the index of the chunk in the
                       retrieved documents that the assessment applies to.
@@ -42,40 +37,35 @@ class Assessment(_MlflowObject):
             error_message: A descriptive error message representing any issues encountered during
                 the assessment.
         """
-        self._evaluation_id = evaluation_id
+        if (value is None) == (error_code is None):
+            raise MlflowException(
+                "Exactly one of value or error_code must be specified for an assessment.",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        if value is not None and error_message is not None:
+            raise MlflowException(
+                "error_message cannot be specified when value is specified.",
+                INVALID_PARAMETER_VALUE,
+            )
+
         self._name = name
         self._source = source
-        self._timestamp = timestamp
-        self._boolean_value = boolean_value
-        self._numeric_value = numeric_value
-        self._string_value = string_value
+        self._value = value
         self._rationale = rationale
         self._metadata = metadata or {}
         self._error_code = error_code
         self._error_message = error_message
 
-        if error_message is not None and (
-            boolean_value is not None or numeric_value is not None or string_value is not None
-        ):
-            raise MlflowException(
-                "error_message cannot be specified when boolean_value, numeric_value, "
-                "or string_value is specified.",
-                INVALID_PARAMETER_VALUE,
-            )
-
-        if (self._boolean_value, self._string_value, self._numeric_value, self._error_code).count(
-            None
-        ) != 3:
-            raise MlflowException(
-                "Exactly one of boolean_value, numeric_value, string_value, or error_code must be "
-                "specified for an assessment.",
-                INVALID_PARAMETER_VALUE,
-            )
-
-    @property
-    def evaluation_id(self) -> str:
-        """The evaluation ID."""
-        return self._evaluation_id
+        self._boolean_value = None
+        self._numeric_value = None
+        self._string_value = None
+        if isinstance(value, bool):
+            self._boolean_value = value
+        elif isinstance(value, numbers.Number):
+            self._numeric_value = float(value)
+        elif value is not None:
+            self._string_value = str(value)
 
     @property
     def name(self) -> str:
@@ -83,24 +73,9 @@ class Assessment(_MlflowObject):
         return self._name
 
     @property
-    def timestamp(self) -> int:
-        """The timestamp of the assessment."""
-        return self._timestamp
-
-    @property
-    def boolean_value(self) -> Optional[bool]:
-        """The boolean assessment value."""
-        return self._boolean_value
-
-    @property
-    def numeric_value(self) -> Optional[float]:
-        """The numeric assessment value."""
-        return self._numeric_value
-
-    @property
-    def string_value(self) -> Optional[str]:
-        """The string assessment value."""
-        return self._string_value
+    def value(self) -> Union[bool, float, str]:
+        """The assessment value."""
+        return self._value
 
     @property
     def rationale(self) -> Optional[str]:
@@ -134,13 +109,9 @@ class Assessment(_MlflowObject):
 
     def to_dictionary(self) -> Dict[str, Any]:
         return {
-            "evaluation_id": self.evaluation_id,
             "name": self.name,
             "source": self.source.to_dictionary(),
-            "timestamp": self.timestamp,
-            "boolean_value": self.boolean_value,
-            "numeric_value": self.numeric_value,
-            "string_value": self.string_value,
+            "value": self.value,
             "rationale": self.rationale,
             "metadata": self.metadata,
             "error_code": self.error_code,
@@ -159,15 +130,26 @@ class Assessment(_MlflowObject):
             Assessment: The Assessment object created from the dictionary.
         """
         return cls(
-            evaluation_id=assessment_dict["evaluation_id"],
             name=assessment_dict["name"],
             source=AssessmentSource.from_dictionary(assessment_dict["source"]),
-            timestamp=assessment_dict["timestamp"],
-            boolean_value=assessment_dict.get("boolean_value"),
-            numeric_value=assessment_dict.get("numeric_value"),
-            string_value=assessment_dict.get("string_value"),
+            value=assessment_dict.get("value"),
             rationale=assessment_dict.get("rationale"),
             metadata=assessment_dict.get("metadata"),
             error_code=assessment_dict.get("error_code"),
             error_message=assessment_dict.get("error_message"),
+        )
+
+    def _to_entity(self, evaluation_id: str) -> AssessmentEntity:
+        return AssessmentEntity(
+            evaluation_id=evaluation_id,
+            name=self._name,
+            source=self._source,
+            timestamp=int(time.time() * 1000),
+            boolean_value=self._boolean_value,
+            numeric_value=self._numeric_value,
+            string_value=self._string_value,
+            rationale=self._rationale,
+            metadata=self._metadata,
+            error_code=self._error_code,
+            error_message=self._error_message,
         )
