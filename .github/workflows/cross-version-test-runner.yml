@@ -24,7 +24,6 @@ jobs:
         id: get-ref
         with:
           result-encoding: string
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const runner = require('./.github/workflows/cross-version-test-runner.js');
             await runner.main({ context, github });
