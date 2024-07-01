@@ -8,7 +8,7 @@ from mlflow.entities.metric import Metric
 
 class Evaluation(_MlflowObject):
     """
-    Evaluation result data.
+    Evaluation result data, including inputs, outputs, targets, assessments, and more.
     """
 
     def __init__(
@@ -20,17 +20,17 @@ class Evaluation(_MlflowObject):
         outputs: Optional[Dict[str, Any]] = None,
         request_id: Optional[str] = None,
         targets: Optional[Dict[str, Any]] = None,
+        error_code: Optional[str] = None,
+        error_message: Optional[str] = None,
         assessments: Optional[List[Assessment]] = None,
         metrics: Optional[List[Metric]] = None,
         tags: Optional[List[EvaluationTag]] = None,
-        error_code: Optional[str] = None,
-        error_message: Optional[str] = None,
     ):
         """
         Construct a new mlflow.entities.Evaluation instance.
 
         Args:
-            evaluation_id: A unique identifier for the evaluation result.
+            evaluation_id: A unique identifier for the evaluation.
             run_id: The ID of the MLflow Run containing the Evaluation.
             inputs_id: A unique identifier for the input names and values for evaluation.
             inputs: Input names and values for evaluation.
@@ -40,8 +40,8 @@ class Evaluation(_MlflowObject):
             error_code: An error code representing any issues encountered during the evaluation.
             error_message: A descriptive error message representing any issues encountered during
                 the evaluation.
-            assessments: Assessments for the given row.
-            metrics: Objective numerical metrics for the row, e.g., "number of input tokens",
+            assessments: Assessments for the evaluation.
+            metrics: Objective numerical metrics for the evaluation, e.g., "number of input tokens",
                 "number of output tokens".
             tags: List of tags associated with the evaluation.
         """
@@ -135,24 +135,20 @@ class Evaluation(_MlflowObject):
             "run_id": self.run_id,
             "inputs_id": self.inputs_id,
             "inputs": self.inputs,
+            "outputs": self.outputs,
+            "request_id": self.request_id,
+            "targets": self.targets,
+            "error_code": self.error_code,
+            "error_message": self.error_message,
+            "assessments": [assess.to_dictionary() for assess in self.assessments]
+            if self.assessments
+            else None,
+            "metrics": [metric.to_dictionary() for metric in self.metrics]
+            if self.metrics
+            else None,
+            "tags": [tag.to_dictionary() for tag in self.tags] if self.tags else None,
         }
-        if self.outputs:
-            evaluation_dict["outputs"] = self.outputs
-        if self.request_id:
-            evaluation_dict["request_id"] = self.request_id
-        if self.targets:
-            evaluation_dict["targets"] = self.targets
-        if self.error_code:
-            evaluation_dict["error_code"] = self.error_code
-        if self.error_message:
-            evaluation_dict["error_message"] = self.error_message
-        if self.assessments:
-            evaluation_dict["assessments"] = [assess.to_dictionary() for assess in self.assessments]
-        if self.metrics:
-            evaluation_dict["metrics"] = [metric.to_dictionary() for metric in self.metrics]
-        if self.tags:
-            evaluation_dict["tags"] = [tag.to_dictionary() for tag in self.tags]
-        return evaluation_dict
+        return {k: v for k, v in evaluation_dict.items() if v is not None}
 
     @classmethod
     def from_dictionary(cls, evaluation_dict: Dict[str, Any]):
@@ -165,15 +161,6 @@ class Evaluation(_MlflowObject):
         Returns:
             Evaluation: The Evaluation object created from the dictionary.
         """
-        evaluation_id = evaluation_dict["evaluation_id"]
-        run_id = evaluation_dict["run_id"]
-        inputs_id = evaluation_dict["inputs_id"]
-        inputs = evaluation_dict["inputs"]
-        outputs = evaluation_dict.get("outputs")
-        request_id = evaluation_dict.get("request_id")
-        targets = evaluation_dict.get("targets")
-        error_code = evaluation_dict.get("error_code")
-        error_message = evaluation_dict.get("error_message")
         assessments = None
         if "assessments" in evaluation_dict:
             assessments = [
@@ -186,15 +173,15 @@ class Evaluation(_MlflowObject):
         if "tags" in evaluation_dict:
             tags = [EvaluationTag(tag["key"], tag["value"]) for tag in evaluation_dict["tags"]]
         return cls(
-            evaluation_id=evaluation_id,
-            run_id=run_id,
-            inputs_id=inputs_id,
-            inputs=inputs,
-            outputs=outputs,
-            request_id=request_id,
-            targets=targets,
-            error_code=error_code,
-            error_message=error_message,
+            evaluation_id=evaluation_dict["evaluation_id"],
+            run_id=evaluation_dict["run_id"],
+            inputs_id=evaluation_dict["inputs_id"],
+            inputs=evaluation_dict["inputs"],
+            outputs=evaluation_dict.get("outputs"),
+            request_id=evaluation_dict.get("request_id"),
+            targets=evaluation_dict.get("targets"),
+            error_code=evaluation_dict.get("error_code"),
+            error_message=evaluation_dict.get("error_message"),
             assessments=assessments,
             metrics=metrics,
             tags=tags,
