@@ -37,7 +37,6 @@ def test_evaluation_tag_to_from_dictionary():
 
 def test_evaluation_tag_key_value_validation():
     # Valid cases
-    # Valid cases
     EvaluationTag(key="tag1", value="value1")
     EvaluationTag(key="tag2", value="value2")
 
