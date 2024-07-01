@@ -29,7 +29,7 @@ class Assessment(_MlflowObject):
 
         Args:
             evaluation_id: The ID of the evaluation with which the assessment is associated.
-            name: The name of the piece of assessment.
+            name: The name of the assessment.
             source: The source of the assessment (AssessmentSource instance).
             timestamp: The timestamp when the assessment was given.
             boolean_value: The boolean assessment value, if applicable.
