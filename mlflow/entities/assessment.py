@@ -172,28 +172,16 @@ class Assessment(_MlflowObject):
         Returns:
             Assessment: The Assessment object created from the dictionary.
         """
-        evaluation_id = assessment_dict["evaluation_id"]
-        name = assessment_dict["name"]
-        source_dict = assessment_dict["source"]
-        source = AssessmentSource.from_dictionary(source_dict)
-        timestamp = assessment_dict["timestamp"]
-        boolean_value = assessment_dict.get("boolean_value")
-        numeric_value = assessment_dict.get("numeric_value")
-        string_value = assessment_dict.get("string_value")
-        rationale = assessment_dict.get("rationale")
-        metadata = assessment_dict.get("metadata")
-        error_code = assessment_dict.get("error_code")
-        error_message = assessment_dict.get("error_message")
         return cls(
-            evaluation_id=evaluation_id,
-            name=name,
-            source=source,
-            timestamp=timestamp,
-            boolean_value=boolean_value,
-            numeric_value=numeric_value,
-            string_value=string_value,
-            rationale=rationale,
-            metadata=metadata,
-            error_code=error_code,
-            error_message=error_message,
+            evaluation_id=assessment_dict["evaluation_id"],
+            name=assessment_dict["name"],
+            source=AssessmentSource.from_dictionary(assessment_dict["source"]),
+            timestamp=assessment_dict["timestamp"],
+            boolean_value=assessment_dict.get("boolean_value"),
+            numeric_value=assessment_dict.get("numeric_value"),
+            string_value=assessment_dict.get("string_value"),
+            rationale=assessment_dict.get("rationale"),
+            metadata=assessment_dict.get("metadata"),
+            error_code=assessment_dict.get("error_code"),
+            error_message=assessment_dict.get("error_message"),
         )
