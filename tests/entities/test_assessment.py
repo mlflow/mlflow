@@ -122,38 +122,35 @@ def test_assessment_value_validation():
     source = AssessmentSource(source_type="HUMAN", source_id="user_1")
 
     # Valid cases
-    try:
-        Assessment(
-            evaluation_id="eval1",
-            name="relevance",
-            source=source,
-            timestamp=123456789,
-            boolean_value=True,
-        )
-        Assessment(
-            evaluation_id="eval1",
-            name="relevance",
-            source=source,
-            timestamp=123456789,
-            numeric_value=0.9,
-        )
-        Assessment(
-            evaluation_id="eval1",
-            name="relevance",
-            source=source,
-            timestamp=123456789,
-            string_value="value",
-        )
-        Assessment(
-            evaluation_id="eval1",
-            name="relevance",
-            source=source,
-            timestamp=123456789,
-            error_code="E001",
-            error_message="Error",
-        )
-    except MlflowException:
-        pytest.fail("Valid value raised exception")
+    Assessment(
+        evaluation_id="eval1",
+        name="relevance",
+        source=source,
+        timestamp=123456789,
+        boolean_value=True,
+    )
+    Assessment(
+        evaluation_id="eval1",
+        name="relevance",
+        source=source,
+        timestamp=123456789,
+        numeric_value=0.9,
+    )
+    Assessment(
+        evaluation_id="eval1",
+        name="relevance",
+        source=source,
+        timestamp=123456789,
+        string_value="value",
+    )
+    Assessment(
+        evaluation_id="eval1",
+        name="relevance",
+        source=source,
+        timestamp=123456789,
+        error_code="E001",
+        error_message="Error",
+    )
 
     # Invalid case: more than one value type specified
     with pytest.raises(
