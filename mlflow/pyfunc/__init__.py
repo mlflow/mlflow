@@ -766,7 +766,9 @@ class PyFuncModel:
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         data, params = self._validate_prediction_input(data, params)
-        if inspect.signature(self._predict_fn).parameters.get("params"):
+        if (
+            v := inspect.signature(self._predict_fn).parameters.get("params")
+        ) and v.kind != inspect.Parameter.VAR_KEYWORD:
             return self._predict_fn(data, params=params)
 
         _log_warning_if_params_not_in_predict_signature(_logger, params)
