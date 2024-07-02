@@ -62,6 +62,15 @@ public final class DatabricksArtifacts {
      * <code>AZURE_ADLS_GEN2_SAS_URI = 4;</code>
      */
     AZURE_ADLS_GEN2_SAS_URI(4),
+    /**
+     * <pre>
+     * The credential is a Databricks URL. For more information, see
+     * https://databricks.atlassian.net/wiki/spaces/UN/pages/3954704497/Migration+of+a+Control+Plane+Service+to+Databricks+URLs
+     * </pre>
+     *
+     * <code>DATABRICKS_URL = 5;</code>
+     */
+    DATABRICKS_URL(5),
     ;
 
     /**
@@ -103,6 +112,15 @@ public final class DatabricksArtifacts {
      * <code>AZURE_ADLS_GEN2_SAS_URI = 4;</code>
      */
     public static final int AZURE_ADLS_GEN2_SAS_URI_VALUE = 4;
+    /**
+     * <pre>
+     * The credential is a Databricks URL. For more information, see
+     * https://databricks.atlassian.net/wiki/spaces/UN/pages/3954704497/Migration+of+a+Control+Plane+Service+to+Databricks+URLs
+     * </pre>
+     *
+     * <code>DATABRICKS_URL = 5;</code>
+     */
+    public static final int DATABRICKS_URL_VALUE = 5;
 
 
     public final int getNumber() {
@@ -129,6 +147,7 @@ public final class DatabricksArtifacts {
         case 2: return AWS_PRESIGNED_URL;
         case 3: return GCP_SIGNED_URL;
         case 4: return AZURE_ADLS_GEN2_SAS_URI;
+        case 5: return DATABRICKS_URL;
         default: return null;
       }
     }
@@ -17216,43 +17235,43 @@ public final class DatabricksArtifacts {
       "ow.ArtifactCredentialInfo:_\342?(\n&com.data" +
       "bricks.rpc.RPC[$this.Response]\342?1\n/com.d" +
       "atabricks.mlflow.api.MlflowTrackingMessa" +
-      "ge*s\n\026ArtifactCredentialType\022\021\n\rAZURE_SA" +
-      "S_URI\020\001\022\025\n\021AWS_PRESIGNED_URL\020\002\022\022\n\016GCP_SI" +
-      "GNED_URL\020\003\022\033\n\027AZURE_ADLS_GEN2_SAS_URI\020\0042" +
-      "\213\n\n DatabricksMlflowArtifactsService\022\234\001\n" +
-      "\025getCredentialsForRead\022\035.mlflow.GetCrede" +
-      "ntialsForRead\032&.mlflow.GetCredentialsFor" +
-      "Read.Response\"<\362\206\0318\n4\n\004POST\022&/mlflow/art" +
-      "ifacts/credentials-for-read\032\004\010\002\020\000\020\003\022\240\001\n\026" +
-      "getCredentialsForWrite\022\036.mlflow.GetCrede" +
-      "ntialsForWrite\032\'.mlflow.GetCredentialsFo" +
-      "rWrite.Response\"=\362\206\0319\n5\n\004POST\022\'/mlflow/a" +
-      "rtifacts/credentials-for-write\032\004\010\002\020\000\020\003\022\237" +
-      "\001\n\025createMultipartUpload\022\035.mlflow.Create" +
-      "MultipartUpload\032&.mlflow.CreateMultipart" +
-      "Upload.Response\"?\362\206\031;\n7\n\004POST\022)/mlflow/a" +
-      "rtifacts/create-multipart-upload\032\004\010\002\020\000\020\003" +
-      "\022\247\001\n\027completeMultipartUpload\022\037.mlflow.Co" +
-      "mpleteMultipartUpload\032(.mlflow.CompleteM" +
-      "ultipartUpload.Response\"A\362\206\031=\n9\n\004POST\022+/" +
-      "mlflow/artifacts/complete-multipart-uplo" +
-      "ad\032\004\010\002\020\000\020\003\022\260\001\n\031getPresignedUploadPartUrl" +
-      "\022!.mlflow.GetPresignedUploadPartUrl\032*.ml" +
-      "flow.GetPresignedUploadPartUrl.Response\"" +
-      "D\362\206\031@\n<\n\003GET\022//mlflow/artifacts/get-pres" +
-      "igned-upload-part-url\032\004\010\002\020\000\020\003\022\325\001\n\"getCre" +
-      "dentialsForTraceDataDownload\022*.mlflow.Ge" +
-      "tCredentialsForTraceDataDownload\0323.mlflo" +
-      "w.GetCredentialsForTraceDataDownload.Res" +
-      "ponse\"N\362\206\031J\nF\n\003GET\0229/mlflow/traces/{requ" +
-      "est_id}/credentials-for-data-download\032\004\010" +
-      "\002\020\000\020\003\022\315\001\n getCredentialsForTraceDataUplo" +
-      "ad\022(.mlflow.GetCredentialsForTraceDataUp" +
-      "load\0321.mlflow.GetCredentialsForTraceData" +
-      "Upload.Response\"L\362\206\031H\nD\n\003GET\0227/mlflow/tr" +
-      "aces/{request_id}/credentials-for-data-u" +
-      "pload\032\004\010\002\020\000\020\003B,\n\037com.databricks.api.prot" +
-      "o.mlflow\220\001\001\240\001\001\342?\002\020\001"
+      "ge*\207\001\n\026ArtifactCredentialType\022\021\n\rAZURE_S" +
+      "AS_URI\020\001\022\025\n\021AWS_PRESIGNED_URL\020\002\022\022\n\016GCP_S" +
+      "IGNED_URL\020\003\022\033\n\027AZURE_ADLS_GEN2_SAS_URI\020\004" +
+      "\022\022\n\016DATABRICKS_URL\020\0052\213\n\n DatabricksMlflo" +
+      "wArtifactsService\022\234\001\n\025getCredentialsForR" +
+      "ead\022\035.mlflow.GetCredentialsForRead\032&.mlf" +
+      "low.GetCredentialsForRead.Response\"<\362\206\0318" +
+      "\n4\n\004POST\022&/mlflow/artifacts/credentials-" +
+      "for-read\032\004\010\002\020\000\020\003\022\240\001\n\026getCredentialsForWr" +
+      "ite\022\036.mlflow.GetCredentialsForWrite\032\'.ml" +
+      "flow.GetCredentialsForWrite.Response\"=\362\206" +
+      "\0319\n5\n\004POST\022\'/mlflow/artifacts/credential" +
+      "s-for-write\032\004\010\002\020\000\020\003\022\237\001\n\025createMultipartU" +
+      "pload\022\035.mlflow.CreateMultipartUpload\032&.m" +
+      "lflow.CreateMultipartUpload.Response\"?\362\206" +
+      "\031;\n7\n\004POST\022)/mlflow/artifacts/create-mul" +
+      "tipart-upload\032\004\010\002\020\000\020\003\022\247\001\n\027completeMultip" +
+      "artUpload\022\037.mlflow.CompleteMultipartUplo" +
+      "ad\032(.mlflow.CompleteMultipartUpload.Resp" +
+      "onse\"A\362\206\031=\n9\n\004POST\022+/mlflow/artifacts/co" +
+      "mplete-multipart-upload\032\004\010\002\020\000\020\003\022\260\001\n\031getP" +
+      "resignedUploadPartUrl\022!.mlflow.GetPresig" +
+      "nedUploadPartUrl\032*.mlflow.GetPresignedUp" +
+      "loadPartUrl.Response\"D\362\206\031@\n<\n\003GET\022//mlfl" +
+      "ow/artifacts/get-presigned-upload-part-u" +
+      "rl\032\004\010\002\020\000\020\003\022\325\001\n\"getCredentialsForTraceDat" +
+      "aDownload\022*.mlflow.GetCredentialsForTrac" +
+      "eDataDownload\0323.mlflow.GetCredentialsFor" +
+      "TraceDataDownload.Response\"N\362\206\031J\nF\n\003GET\022" +
+      "9/mlflow/traces/{request_id}/credentials" +
+      "-for-data-download\032\004\010\002\020\000\020\003\022\315\001\n getCreden" +
+      "tialsForTraceDataUpload\022(.mlflow.GetCred" +
+      "entialsForTraceDataUpload\0321.mlflow.GetCr" +
+      "edentialsForTraceDataUpload.Response\"L\362\206" +
+      "\031H\nD\n\003GET\0227/mlflow/traces/{request_id}/c" +
+      "redentials-for-data-upload\032\004\010\002\020\000\020\003B,\n\037co" +
+      "m.databricks.api.proto.mlflow\220\001\001\240\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

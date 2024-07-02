@@ -124,6 +124,8 @@ enum ArtifactCredentialType {
   // and
   // https://docs.microsoft.com/en-us/azure/storage/common/storage-sas-overview
   AZURE_ADLS_GEN2_SAS_URI = 4;
+
+  DATABRICKS_URL = 5;
 }
 
 message ArtifactCredentialInfo {
