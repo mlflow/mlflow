@@ -4,22 +4,33 @@ import os
 import pathlib
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 import pydantic
 import yaml
 from packaging import version
 from packaging.version import Version
-from pydantic import ConfigDict, Field, ValidationError, root_validator, validator
+from pydantic import (
+    ConfigDict,
+    Field,
+    ValidationError,
+    root_validator,
+    validator,
+)
 from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.base_models import ConfigModel, LimitModel, ResponseModel
+from mlflow.gateway.base_models import (
+    ConfigModel,
+    LimitModel,
+    ResponseModel,
+)
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES,
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
 )
+from mlflow.gateway.plugin import import_plugin_obj, string_is_plugin_obj
 from mlflow.gateway.utils import (
     check_configuration_deprecated_fields,
     check_configuration_route_name_collisions,
@@ -31,6 +42,10 @@ from mlflow.gateway.utils import (
 _logger = logging.getLogger(__name__)
 
 IS_PYDANTIC_V2 = version.parse(pydantic.version.VERSION) >= version.parse("2.0")
+
+
+if IS_PYDANTIC_V2:
+    from pydantic import SerializeAsAny
 
 
 class Provider(str, Enum):
@@ -245,6 +260,15 @@ config_types = {
 }
 
 
+def _get_plugin_config_model(config_model: str) -> Type[ConfigModel]:
+    conf = import_plugin_obj(config_model)
+    if not (isinstance(conf, type) and issubclass(conf, ConfigModel)):
+        raise MlflowException.invalid_parameter_value(
+            f"Plugin config model {conf} is not a subclass of ConfigModel"
+        )
+    return conf
+
+
 class ModelInfo(ResponseModel):
     name: Optional[str] = None
     provider: Provider
@@ -289,21 +313,12 @@ def _resolve_api_key_from_input(api_key_input):
 class Model(ConfigModel):
     name: Optional[str] = None
     provider: Union[str, Provider]
-    config: Optional[
-        Union[
-            CohereConfig,
-            OpenAIConfig,
-            AI21LabsConfig,
-            AnthropicConfig,
-            AmazonBedrockConfig,
-            MosaicMLConfig,
-            MlflowModelServingConfig,
-            HuggingFaceTextGenerationInferenceConfig,
-            PaLMConfig,
-            MistralConfig,
-            TogetherAIConfig,
-        ]
-    ] = None
+    config_model: Optional[str] = None
+
+    if IS_PYDANTIC_V2:
+        config: Optional[SerializeAsAny[ConfigModel]] = None
+    else:
+        config: Optional[ConfigModel] = None
 
     @validator("provider", pre=True)
     def validate_provider(cls, value):
@@ -312,10 +327,16 @@ class Model(ConfigModel):
         formatted_value = value.replace("-", "_").upper()
         if formatted_value in Provider.__members__:
             return Provider[formatted_value]
+        if string_is_plugin_obj(value):
+            return value
         raise MlflowException.invalid_parameter_value(f"The provider '{value}' is not supported.")
 
     @classmethod
     def _validate_config(cls, info, values):
+        config_model = values.get("config_model")
+        if config_model and string_is_plugin_obj(config_model):
+            config_type = _get_plugin_config_model(config_model)
+            return config_type(**info)
         if provider := values.get("provider"):
             config_type = config_types[provider]
             return config_type(**info)

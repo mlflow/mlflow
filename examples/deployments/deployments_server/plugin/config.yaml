@@ -1,0 +1,9 @@
+endpoints:
+  - name: chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: plugin:foo.providers:FooProvider
+      config_model: plugin:foo.config:FooConfig
+      name: foo-model-0.1.2
+      config:
+        foo_api_key: $FOO_API_KEY

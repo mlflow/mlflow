@@ -1,11 +1,12 @@
-from typing import Type
+from typing import Type, Union
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import Provider
+from mlflow.gateway.plugin import import_plugin_obj, string_is_plugin_obj
 from mlflow.gateway.providers.base import BaseProvider
 
 
-def get_provider(provider: Provider) -> Type[BaseProvider]:
+def get_provider(provider: Union[str, Provider]) -> Type[BaseProvider]:
     from mlflow.gateway.providers.ai21labs import AI21LabsProvider
     from mlflow.gateway.providers.anthropic import AnthropicProvider
     from mlflow.gateway.providers.bedrock import AmazonBedrockProvider
@@ -32,6 +33,14 @@ def get_provider(provider: Provider) -> Type[BaseProvider]:
         Provider.TOGETHERAI: TogetherAIProvider,
     }
     if prov := provider_to_class.get(provider):
+        return prov
+
+    if isinstance(provider, str) and string_is_plugin_obj(provider):
+        prov = import_plugin_obj(provider)
+        if not (isinstance(prov, type) and issubclass(prov, BaseProvider)):
+            raise MlflowException.invalid_parameter_value(
+                f"Plugin provider {provider} is not a subclass of BaseProvider"
+            )
         return prov
 
     raise MlflowException.invalid_parameter_value(f"Provider {provider} not found")
