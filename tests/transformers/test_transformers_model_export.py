@@ -3505,7 +3505,7 @@ def test_text_generation_task_completions_predict_with_stop(text_generation_pipe
         path=model_path,
         task="llm/v1/completions",
         metadata={"foo": "bar"},
-        model_config={"stop": ["Python"]},
+        model_config={"stop": ["Python"], "max_tokens": 50},
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
@@ -3520,22 +3520,19 @@ def test_text_generation_task_completions_predict_with_stop(text_generation_pipe
         )
 
     assert inference[0]["choices"][0]["finish_reason"] == "stop"
-    response_text = inference[0]["choices"][0]["text"]
-    assert response_text.endswith("Python")
+    assert inference[0]["choices"][0]["text"].endswith("Python")
 
     # Override model_config with runtime params
     inference = pyfunc_loaded.predict(
         {"prompt": "How to learn Python in 3 weeks?", "stop": ["Abracadabra"]},
     )
-    # Validate that a nonsense stop word will generate at least as long of a response
-    # as a probabilistic stop word cessation to the token output but only if the
-    # output is sensical
+
     if "Python" not in inference[0]["choices"][0]["text"]:
         pytest.skip(
             "Model did not generate text containing 'Python', "
             "skipping validation of stop parameter in inference"
         )
-    assert len(inference[0]["choices"][0]["text"]) >= len(response_text)
+    assert not inference[0]["choices"][0]["text"].endswith("Python")
 
 
 def test_text_generation_task_completions_serve(text_generation_pipeline):
