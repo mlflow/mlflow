@@ -23,9 +23,9 @@ from packaging.version import InvalidVersion, Version
 
 import mlflow
 from mlflow.environment_variables import (
+    MLFLOW_IN_CAPTURE_MODULE_PROCESS,
     MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
     MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT,
-    MLFLOW_IN_CAPTURE_MODULE_PROCESS,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -205,8 +205,6 @@ def _run_command(cmd, timeout_seconds, env=None):
     """
     Runs the specified command. If it exits with non-zero status, `MlflowException` is raised.
     """
-    env = env or os.environ.copy()
-    env[MLFLOW_IN_CAPTURE_MODULE_PROCESS.name] = "true"
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
     timer = Timer(timeout_seconds, proc.kill)
     try:
@@ -322,7 +320,11 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False):
                             *record_full_module_args,
                         ],
                         timeout_seconds=process_timeout,
-                        env={**main_env, **transformer_env},
+                        env={
+                            **main_env,
+                            **transformer_env,
+                            MLFLOW_IN_CAPTURE_MODULE_PROCESS.name: "true",
+                        },
                     )
                     with open(output_file) as f:
                         return f.read().splitlines()
@@ -351,7 +353,10 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False):
                 *record_full_module_args,
             ],
             timeout_seconds=process_timeout,
-            env=main_env,
+            env={
+                **main_env,
+                MLFLOW_IN_CAPTURE_MODULE_PROCESS.name: "true",
+            },
         )
 
         if os.path.exists(error_file):
