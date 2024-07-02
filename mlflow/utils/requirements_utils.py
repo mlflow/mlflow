@@ -433,19 +433,19 @@ def _load_pypi_package_index():
 _PYPI_PACKAGE_INDEX = None
 
 
-def _infer_requirements(model_uri, flavor):
+def _infer_requirements(model_uri, flavor, raise_on_error=False):
     """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
 
     Args:
         model_uri: The URI of the model.
         flavor: The flavor name of the model.
+        raise_on_error: If True, raise an exception if an unrecognized package is encountered.
 
     Returns:
         A list of inferred pip requirements.
 
     """
-    raise_on_error = MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS.get()
     _init_modules_to_packages_map()
     global _PYPI_PACKAGE_INDEX
     if _PYPI_PACKAGE_INDEX is None:
