@@ -25,6 +25,7 @@ import mlflow
 from mlflow.environment_variables import (
     MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
     MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT,
+    MLFLOW_IN_CAPTURE_MODULE_PROCESS,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -204,6 +205,8 @@ def _run_command(cmd, timeout_seconds, env=None):
     """
     Runs the specified command. If it exits with non-zero status, `MlflowException` is raised.
     """
+    env = env or os.environ.copy()
+    env[MLFLOW_IN_CAPTURE_MODULE_PROCESS.name] = "true"
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
     timer = Timer(timeout_seconds, proc.kill)
     try:

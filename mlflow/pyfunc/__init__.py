@@ -410,6 +410,7 @@ import mlflow.pyfunc.model
 from mlflow.environment_variables import (
     _MLFLOW_TESTING,
     MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT,
+    MLFLOW_IN_CAPTURE_MODULE_PROCESS,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
@@ -961,7 +962,7 @@ def load_model(
     """
 
     lineage_header_info = None
-    if databricks_utils.is_in_databricks_runtime() and (
+    if (not MLFLOW_IN_CAPTURE_MODULE_PROCESS.get()) and databricks_utils.is_in_databricks_runtime() and (
         databricks_utils.is_in_databricks_notebook() or databricks_utils.is_in_databricks_job()
     ):
         entity_list = []
