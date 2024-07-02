@@ -39,7 +39,6 @@ jobs:
       - name: validate-labeled
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             // https://github.com/actions/github-script#run-a-separate-file
             const script = require("./.github/workflows/release-note.js");
@@ -56,7 +55,6 @@ jobs:
       - name: post-merge
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             // https://github.com/actions/github-script#run-a-separate-file
             const script = require("./.github/workflows/release-note.js");

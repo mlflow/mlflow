@@ -156,13 +156,11 @@ jobs:
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
-      - name: Check package versions
-        run: |
-          python dev/show_package_release_dates.py
       - name: Pre-test
         if: matrix.pre_test
         run: |
           ${{ matrix.pre_test }}
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         env:
@@ -204,13 +202,11 @@ jobs:
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
-      - name: Check package versions
-        run: |
-          python dev/show_package_release_dates.py
       - name: Pre-test
         if: matrix.pre_test
         run: |
           ${{ matrix.pre_test }}
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         env:

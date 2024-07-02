@@ -2208,7 +2208,7 @@ class MlflowClient:
                 .. warning::
 
                     - Out-of-range integer values will raise ValueError.
-                    - Out-of-range float values will raise ValueError.
+                    - Out-of-range float values will auto-scale with min/max and warn.
 
             - shape (H: height, W: width):
 
@@ -2548,7 +2548,7 @@ class MlflowClient:
                 )
                 existing_predictions = self._read_from_file(downloaded_artifact_path)
             data = pd.concat([existing_predictions, data], ignore_index=True)
-            _logger.info(
+            _logger.debug(
                 "Appending new table to already existing artifact "
                 f"{artifact_file} for run {run_id}."
             )

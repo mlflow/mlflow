@@ -13,6 +13,8 @@ MLflow offers a number of different options to enable tracing of your GenAI appl
 
 To learn more about what tracing is, see our `Tracing Concepts Overview <./overview.html>`_ guide. 
 
+To explore the structure and schema of MLflow Tracing, please see the `Tracing Schema <./tracing-schema.html>`_ guide.
+
 .. note::
     MLflow Tracing support is available with the **MLflow 2.14.0** release. Versions of MLflow prior to this release 
     do not contain the full set of features that are required for trace logging support.
@@ -438,6 +440,8 @@ spans are properly ended.
         outputs={"final_output_key": "final_output_value"},
         attributes={"token_usage": "1174"},
     )
+
+.. _search_traces:
 
 Searching and Retrieving Traces
 -------------------------------

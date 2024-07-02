@@ -1,5 +1,5 @@
 import logging
-from typing import List, Set
+from typing import Generator, List, Optional, Set
 
 from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex, Resource
 
@@ -18,7 +18,7 @@ def _get_embedding_model_endpoint_names(index):
     return embedding_model_endpoint_names
 
 
-def _extract_databricks_dependencies_from_retriever(retriever, dependency_list: List[Resource]):
+def _extract_databricks_dependencies_from_retriever(retriever) -> Generator[Resource, None, None]:
     try:
         from langchain.embeddings import DatabricksEmbeddings as LegacyDatabricksEmbeddings
         from langchain.vectorstores import (
@@ -39,16 +39,16 @@ def _extract_databricks_dependencies_from_retriever(retriever, dependency_list: 
     if vectorstore:
         if isinstance(vectorstore, (DatabricksVectorSearch, LegacyDatabricksVectorSearch)):
             index = vectorstore.index
-            dependency_list.append(DatabricksVectorSearchIndex(index_name=index.name))
+            yield DatabricksVectorSearchIndex(index_name=index.name)
             for embedding_endpoint in _get_embedding_model_endpoint_names(index):
-                dependency_list.append(DatabricksServingEndpoint(endpoint_name=embedding_endpoint))
+                yield DatabricksServingEndpoint(endpoint_name=embedding_endpoint)
 
         embeddings = getattr(vectorstore, "embeddings", None)
         if isinstance(embeddings, (DatabricksEmbeddings, LegacyDatabricksEmbeddings)):
-            dependency_list.append(DatabricksServingEndpoint(endpoint_name=embeddings.endpoint))
+            yield DatabricksServingEndpoint(endpoint_name=embeddings.endpoint)
 
 
-def _extract_databricks_dependencies_from_llm(llm, dependency_list: List[Resource]):
+def _extract_databricks_dependencies_from_llm(llm) -> Generator[Resource, None, None]:
     try:
         from langchain.llms import Databricks as LegacyDatabricks
     except ImportError:
@@ -57,10 +57,10 @@ def _extract_databricks_dependencies_from_llm(llm, dependency_list: List[Resourc
     from langchain_community.llms import Databricks
 
     if isinstance(llm, (LegacyDatabricks, Databricks)):
-        dependency_list.append(DatabricksServingEndpoint(endpoint_name=llm.endpoint_name))
+        yield DatabricksServingEndpoint(endpoint_name=llm.endpoint_name)
 
 
-def _extract_databricks_dependencies_from_chat_model(chat_model, dependency_list: List[Resource]):
+def _extract_databricks_dependencies_from_chat_model(chat_model) -> Generator[Resource, None, None]:
     try:
         from langchain.chat_models import ChatDatabricks as LegacyChatDatabricks
     except ImportError:
@@ -71,7 +71,7 @@ def _extract_databricks_dependencies_from_chat_model(chat_model, dependency_list
     from langchain_community.chat_models import ChatDatabricks
 
     if isinstance(chat_model, (LegacyChatDatabricks, ChatDatabricks)):
-        dependency_list.append(DatabricksServingEndpoint(endpoint_name=chat_model.endpoint))
+        yield DatabricksServingEndpoint(endpoint_name=chat_model.endpoint)
 
 
 _LEGACY_MODEL_ATTR_SET = {
@@ -87,7 +87,7 @@ _LEGACY_MODEL_ATTR_SET = {
 }
 
 
-def _extract_dependency_list_from_lc_model(lc_model, dependency_list: List[Resource]):
+def _extract_dependency_list_from_lc_model(lc_model) -> Generator[Resource, None, None]:
     """
     This function contains the logic to examine a non-Runnable component of a langchain model.
     The logic here does not cover all legacy chains. If you need to support a custom chain,
@@ -97,20 +97,19 @@ def _extract_dependency_list_from_lc_model(lc_model, dependency_list: List[Resou
         return
 
     # leaf node
-    _extract_databricks_dependencies_from_chat_model(lc_model, dependency_list)
-    _extract_databricks_dependencies_from_retriever(lc_model, dependency_list)
-    _extract_databricks_dependencies_from_llm(lc_model, dependency_list)
+    yield from _extract_databricks_dependencies_from_chat_model(lc_model)
+    yield from _extract_databricks_dependencies_from_retriever(lc_model)
+    yield from _extract_databricks_dependencies_from_llm(lc_model)
 
     # recursively inspect legacy chain
     for attr_name in _LEGACY_MODEL_ATTR_SET:
-        _extract_dependency_list_from_lc_model(getattr(lc_model, attr_name, None), dependency_list)
+        yield from _extract_dependency_list_from_lc_model(getattr(lc_model, attr_name, None))
 
 
 def _traverse_runnable(
     lc_model,
-    dependency_list: List[Resource],
-    visited: Set[str],
-):
+    visited: Optional[Set[int]] = None,
+) -> Generator[Resource, None, None]:
     """
     This function contains the logic to traverse a langchain_core.runnables.RunnableSerializable
     object. It first inspects the current object using _extract_dependency_list_from_lc_model
@@ -120,27 +119,27 @@ def _traverse_runnable(
     """
     from langchain_core.runnables import Runnable
 
+    visited = visited or set()
     current_object_id = id(lc_model)
     if current_object_id in visited:
         return
 
     # Visit the current object
     visited.add(current_object_id)
-    _extract_dependency_list_from_lc_model(lc_model, dependency_list)
+    yield from _extract_dependency_list_from_lc_model(lc_model)
 
     if isinstance(lc_model, Runnable):
         # Visit the returned graph
         for node in lc_model.get_graph().nodes.values():
-            _traverse_runnable(node.data, dependency_list, visited)
+            yield from _traverse_runnable(node.data, visited)
     else:
         # No-op for non-runnable, if any
         pass
-    return
 
 
 def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> List[Resource]:
     """
-    Detects the databricks dependencies of a langchain model and returns a dictionary of
+    Detects the databricks dependencies of a langchain model and returns a list of
     detected endpoint names and index names.
 
     lc_model can be an arbitrary [chain that is built with LCEL](https://python.langchain.com
@@ -160,9 +159,14 @@ def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> Li
     If a chat_model is found, it will be used to extract the databricks chat dependencies.
     """
     try:
-        dependency_list = []
-        _traverse_runnable(lc_model, dependency_list, set())
-        return dependency_list
+        dependency_list = list(_traverse_runnable(lc_model))
+        # Filter out duplicate dependencies so same dependencies are not added multiple times
+        # We can't use set here as the object is not hashable so we need to filter it out manually.
+        unique_dependencies = []
+        for dependency in dependency_list:
+            if dependency not in unique_dependencies:
+                unique_dependencies.append(dependency)
+        return unique_dependencies
     except Exception:
         if log_errors_as_warnings:
             _logger.warning(
