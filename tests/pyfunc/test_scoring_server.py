@@ -1,3 +1,4 @@
+import datetime
 import json
 import math
 import os
@@ -645,6 +646,11 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
 
 
 def test_serving_model_with_param_schema(sklearn_model, model_path):
+    class CustomModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            assert isinstance(params["param1"], datetime.date)
+            return model_input
+
     dataframe = {
         "dataframe_split": pd.DataFrame(sklearn_model.inference_data).to_dict(orient="split")
     }
@@ -653,7 +659,7 @@ def test_serving_model_with_param_schema(sklearn_model, model_path):
         [ParamSpec("param1", DataType.datetime, np.datetime64("2023-07-01"))]
     )
     signature.params = param_schema
-    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path, signature=signature)
+    mlflow.pyfunc.save_model(model_path, python_model=CustomModel(), signature=signature)
 
     # Success if passing no parameters
     response = pyfunc_serve_and_score_model(
