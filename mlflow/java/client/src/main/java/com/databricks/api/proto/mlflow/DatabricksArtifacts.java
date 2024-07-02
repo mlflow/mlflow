@@ -63,11 +63,6 @@ public final class DatabricksArtifacts {
      */
     AZURE_ADLS_GEN2_SAS_URI(4),
     /**
-     * <pre>
-     * The credential is a Databricks URL. For more information, see
-     * https://databricks.atlassian.net/wiki/spaces/UN/pages/3954704497/Migration+of+a+Control+Plane+Service+to+Databricks+URLs
-     * </pre>
-     *
      * <code>DATABRICKS_URL = 5;</code>
      */
     DATABRICKS_URL(5),
@@ -113,11 +108,6 @@ public final class DatabricksArtifacts {
      */
     public static final int AZURE_ADLS_GEN2_SAS_URI_VALUE = 4;
     /**
-     * <pre>
-     * The credential is a Databricks URL. For more information, see
-     * https://databricks.atlassian.net/wiki/spaces/UN/pages/3954704497/Migration+of+a+Control+Plane+Service+to+Databricks+URLs
-     * </pre>
-     *
      * <code>DATABRICKS_URL = 5;</code>
      */
     public static final int DATABRICKS_URL_VALUE = 5;
