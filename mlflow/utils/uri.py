@@ -20,6 +20,8 @@ _INVALID_DB_URI_MSG = (
 _DBFS_FUSE_PREFIX = "/dbfs/"
 _DBFS_HDFS_URI_PREFIX = "dbfs:/"
 _UC_VOLUMES_URI_PREFIX = "/Volumes/"
+_DBFS_UC_VOLUMES_URI_PREFIX = "dbfs:/Volumes/"
+_DBFS_DB_UC_VOLUMES_URI_PREFIX = "dbfs:/databricks/Volumes/"
 _UC_DBFS_SYMLINK_PREFIX = "/.fuse-mounts/"
 _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
 
@@ -102,6 +104,14 @@ def is_fuse_or_uc_volumes_uri(uri):
             _UC_VOLUMES_URI_PREFIX,
             _UC_DBFS_SYMLINK_PREFIX,
         ]
+    )
+
+
+def is_uc_volumes_uri(uri):
+    resolved_uri = re.sub("/+", "/", uri)
+    return any(
+        resolved_uri.startswith(x)
+        for x in [_DBFS_UC_VOLUMES_URI_PREFIX, _DBFS_DB_UC_VOLUMES_URI_PREFIX]
     )
 
 
@@ -239,6 +249,9 @@ def extract_db_type_from_uri(db_uri):
 
 def get_uri_scheme(uri_or_path):
     scheme = urllib.parse.urlparse(uri_or_path).scheme
+    # special case for volumes "dbfs:/Volumes"
+    if is_uc_volumes_uri(uri_or_path):
+        return "volumes"
     if any(scheme.lower().startswith(db) for db in DATABASE_ENGINES):
         return extract_db_type_from_uri(uri_or_path)
     return scheme

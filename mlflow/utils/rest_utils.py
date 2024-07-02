@@ -221,6 +221,9 @@ def http_request_safe(host_creds, endpoint, method, **kwargs):
 def verify_rest_response(response, endpoint):
     """Verify the return code and format, raise exception if the request was not successful."""
     if response.status_code != 200:
+        if response.status_code == 204 and endpoint.startswith(_REST_API_PATH_PREFIX + "/fs"):
+            # volume apis are expected to return 204 for PUT actions
+            return response
         if _can_parse_as_json_object(response.text):
             raise RestException(json.loads(response.text))
         else:
@@ -240,7 +243,9 @@ def verify_rest_response(response, endpoint):
             "API request to endpoint was successful but the response body was not "
             "in a valid JSON format"
         )
-        raise MlflowException(f"{base_msg}. Response body: '{response.text}'")
+        # no longer raising an exception for a succesfful operation
+        # consider adding warning as alternative?
+        # raise MlflowException(f"{base_msg}. Response body: '{response.text}'")
 
     return response
 
