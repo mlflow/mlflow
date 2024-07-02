@@ -3519,7 +3519,14 @@ def test_text_generation_task_completions_predict_with_stop(text_generation_pipe
             "skipping validation of stop parameter in inference"
         )
 
-    assert inference[0]["choices"][0]["finish_reason"] == "stop"
+    assert (
+        inference[0]["choices"][0]["finish_reason"] == "stop"
+        and inference[0]["usage"]["completion_tokens"] < 50
+    ) or (
+        inference[0]["choices"][0]["finish_reason"] == "length"
+        and inference[0]["usage"]["completion_tokens"] == 50
+    )
+
     assert inference[0]["choices"][0]["text"].endswith("Python")
 
     # Override model_config with runtime params
@@ -3527,12 +3534,14 @@ def test_text_generation_task_completions_predict_with_stop(text_generation_pipe
         {"prompt": "How to learn Python in 3 weeks?", "stop": ["Abracadabra"]},
     )
 
-    if "Python" not in inference[0]["choices"][0]["text"]:
-        pytest.skip(
-            "Model did not generate text containing 'Python', "
-            "skipping validation of stop parameter in inference"
-        )
-    assert not inference[0]["choices"][0]["text"].endswith("Python")
+    response_text = inference[0]["choices"][0]["text"]
+
+    # Only check for early stopping if we stop on the word "Python".
+    # If we exhaust the token limit, there is a non-insignificant chance of
+    # terminating on the word due to max tokens, which should not count as
+    # a stop word abort if there are multiple instances of the word in the text.
+    if 0 < response_text.count("Python") < 2:
+        assert not inference[0]["choices"][0]["text"].endswith("Python")
 
 
 def test_text_generation_task_completions_serve(text_generation_pipeline):
