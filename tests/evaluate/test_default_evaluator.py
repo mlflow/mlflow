@@ -4185,8 +4185,7 @@ def test_log_genai_custom_metrics_as_artifacts():
         )
         # This simulates the code path for metrics created from make_genai_metric
         answer_similarity_metric = answer_similarity(
-            model="gateway:/gpt-3.5-turbo",
-            examples=[example]
+            model="gateway:/gpt-3.5-turbo", examples=[example]
         )
         another_custom_metric = make_genai_metric_from_prompt(
             name="another custom llm judge",
