@@ -180,27 +180,10 @@ def _dataframes_to_evaluations(
     Returns:
         List[EvaluationEntity]: A list of Evaluation entities created from the DataFrames.
     """
-
-    def group_by_evaluation_id(df: pd.DataFrame):
-        """
-        Groups rows by 'evaluation_id' and converts them into entities using the provided class.
-
-        Args:
-            df (pd.DataFrame): DataFrame to group.
-
-        Returns:
-            Dict[str, List]: A dictionary with 'evaluation_id' as keys and lists of entity
-                instances as values.
-        """
-        grouped = df.groupby("evaluation_id", group_keys=False).apply(
-            lambda x: x.to_dict(orient="records")
-        )
-        return grouped.to_dict()
-
     # Group metrics and assessment by evaluation_id
-    metrics_by_eval = group_by_evaluation_id(metrics_df)
-    assessments_by_eval = group_by_evaluation_id(assessments_df)
-    tags_by_eval = group_by_evaluation_id(tags_df)
+    metrics_by_eval = _group_dataframe_by_evaluation_id(metrics_df)
+    assessments_by_eval = _group_dataframe_by_evaluation_id(assessments_df)
+    tags_by_eval = _group_dataframe_by_evaluation_id(tags_df)
 
     # Convert main DataFrame to list of dictionaries and create Evaluation objects
     evaluations = []
@@ -226,3 +209,20 @@ def _dataframes_to_evaluations(
         evaluations.append(EvaluationEntity.from_dictionary(eval_dict))
 
     return evaluations
+
+
+def _group_dataframe_by_evaluation_id(df: pd.DataFrame):
+    """
+    Groups evaluation dataframe rows by 'evaluation_id'.
+
+    Args:
+        df (pd.DataFrame): DataFrame to group.
+
+    Returns:
+        Dict[str, List]: A dictionary with 'evaluation_id' as keys and lists of entity
+            dictionaries as values.
+    """
+    grouped = df.groupby("evaluation_id", group_keys=False).apply(
+        lambda x: x.to_dict(orient="records")
+    )
+    return grouped.to_dict()
