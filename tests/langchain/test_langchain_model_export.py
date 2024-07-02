@@ -339,6 +339,7 @@ def test_langchain_model_predict():
         result = loaded_model.predict([{"product": "MLflow"}])
         assert result == [TEST_CONTENT]
 
+
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.354"),
     reason="LLMChain does not support streaming before LangChain 0.0.354",
