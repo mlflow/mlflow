@@ -27,7 +27,6 @@ from typing import Any, Dict, List, Optional, Union
 
 import langchain.chains
 from langchain.callbacks.base import BaseCallbackHandler
-from langchain.schema import AgentAction
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -114,28 +113,13 @@ class APIRequest:
 
         if "intermediate_steps" in response:
             steps = response["intermediate_steps"]
-            if (
-                isinstance(steps, tuple)
-                and len(steps) == 2
-                and isinstance(steps[0], AgentAction)
-                and isinstance(steps[1], str)
-            ):
-                response["intermediate_steps"] = [
-                    {
-                        "tool": agent.tool,
-                        "tool_input": agent.tool_input,
-                        "log": agent.log,
-                        "result": result,
-                    }
-                    for agent, result in response["intermediate_steps"]
-                ]
-            else:
-                try:
-                    # `AgentAction` objects are not yet implemented for serialization in `dumps`
-                    # https://github.com/langchain-ai/langchain/issues/8815#issuecomment-1666763710
-                    response["intermediate_steps"] = dumps(steps)
-                except Exception as e:
-                    _logger.warning(f"Failed to serialize intermediate steps: {e!r}")
+            try:
+                # `AgentAction` objects are not JSON serializable
+                # https://github.com/langchain-ai/langchain/issues/8815#issuecomment-1666763710
+                response["intermediate_steps"] = dumps(steps)
+            except Exception as e:
+                _logger.warning(f"Failed to serialize intermediate steps: {e!r}")
+
         # The `dumps` format for `Document` objects is noisy, so we will still have custom logic
         if "source_documents" in response:
             response["source_documents"] = [
@@ -218,7 +202,9 @@ class APIRequest:
                 # to maintain existing code, single output chains will still return
                 # only the result
                 response = response.popitem()[1]
-            else:
+            elif not self.stream:
+                # DO NOT call _prepare_to_serialize for stream output. It will consume the generator
+                # until the end and the iterator will be empty when the user tries to consume it.
                 self._prepare_to_serialize(response)
 
         return response
