@@ -10,7 +10,7 @@ This page provides an overview of how to use the ``task`` parameter in the MLflo
 Overview
 --------
 
-In the MLflow Transformers flavor, ``task`` plays a crucial role in determining the input and output format of the model. The ``task`` is a fundamental concept in the Transformers library, which describe the “shape” of each model's API (inputs and outputs) and are used to determine which Inference API and widget we want to display for any given model.
+In the MLflow Transformers flavor, ``task`` plays a crucial role in determining the input and output format of the model. The ``task`` is a fundamental concept in the Transformers library, which describe the structure of each model's API (inputs and outputs) and are used to determine which Inference API and widget we want to display for any given model.
 
 MLflow utilizes this concept to determine the input and output format of the model, persists the correct `Model Signature <https://mlflow.org/docs/latest/models.html#model-signatures-and-input-examples>`_, and provides a consistent `Pyfunc Inference API <https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#inference-api>`_ for serving different types of models. Additionally, on top of the native Transformers task types, MLflow defines a few additional task types to support more complex use cases, such as chat-style applications.
 
@@ -163,19 +163,19 @@ The following code snippet demonstrates how to log a Transformers pipeline with 
     # >>   'object': 'chat.completion',
     # >>   'usage': {'completion_tokens': 7, 'prompt_tokens': 13, 'total_tokens': 20}}]
 
-Note that the input and output modifications only apply when the model is loaded with :py:func:`mlflow.pyfunc.load_model()` (e.g. when 
+Note that the input and output modifications only apply when the model is loaded with :py:func:`mlflow.pyfunc.load_model()` (e.g. when
 serving the model with the ``mlflow models serve`` CLI tool). If you want to load just the raw pipeline, you can
-always do so via :py:func:`mlflow.transformers.load_model()`.
+use :py:func:`mlflow.transformers.load_model()`.
 
 Provisioned Throughput on Databricks Model Serving
 --------------------------------------------------
 
-`Provisioned Throughput <https://docs.databricks.com/en/machine-learning/foundation-models/deploy-prov-throughput-foundation-model-apis.html>`_ on Databricks Model Serving is a capability that optimize inference performance for foundation models with performance guarantees. To serve Transformers models with provisioned throughput, specify ``llm/v1/xxx`` task type when logging the model. MLflow logs the required metadata to enable provisioned throughput on Databricks Model Serving.
+`Provisioned Throughput <https://docs.databricks.com/en/machine-learning/foundation-models/deploy-prov-throughput-foundation-model-apis.html>`_ on Databricks Model Serving is a capability that optimizes inference performance for foundation models with performance guarantees. To serve Transformers models with provisioned throughput, specify ``llm/v1/xxx`` task type when logging the model. MLflow logs the required metadata to enable provisioned throughput on Databricks Model Serving.
 
 
 .. tip::
 
-    When logging foundation models, you can use ``save_pretrained=False`` to avoid creating a local copy of the model weights for saving time and disk space. Please refer to the :ref:`documentation <transformers-save-pretrained-guide>` for more details.
+    When logging large models, you can use ``save_pretrained=False`` to avoid creating a local copy of the model weights for saving time and disk space. Please refer to the :ref:`documentation <transformers-save-pretrained-guide>` for more details.
 
 FAQ
 ---
