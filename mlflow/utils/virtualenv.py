@@ -301,10 +301,11 @@ def _copy_model_to_writeable_destination(model_src, dst):
         # Copy individual files and subdirectories, rather than using `shutil.copytree()`
         # because `shutil.copytree()` will apply the permissions from the source directory,
         # which may be read-only
-        copy_fn = shutil.copytree if os.path.isdir(model_item) else shutil.copy2
+        model_item_src = os.path.join(model_src, model_item)
+        copy_fn = shutil.copytree if os.path.isdir(model_item_src) else shutil.copy2
 
         copy_fn(
-            src=os.path.join(model_src, model_item),
+            src=model_item_src,
             dst=os.path.join(dst, model_item),
         )
 
