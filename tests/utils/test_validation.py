@@ -59,7 +59,7 @@ GOOD_ALIAS_NAMES = [
     "temp_V123",
 ]
 
-BAD_ALIAS_NAMES = [
+BAD_ALIAS_NAMES_WITHOUT_LATEST = [
     "",
     ".",
     "/",
@@ -76,11 +76,13 @@ BAD_ALIAS_NAMES = [
     "a" * 256,
     None,
     "$dgs",
-    "latest",
-    "Latest",
     "v123",
     "V1",
 ]
+
+LATEST_TESTS = ["latest", "Latest"]
+
+BAD_ALIAS_NAMES = BAD_ALIAS_NAMES_WITHOUT_LATEST + LATEST_TESTS
 
 
 @pytest.mark.parametrize(
@@ -165,6 +167,14 @@ def test_validate_model_alias_name_bad(alias_name):
         _validate_model_alias_name(alias_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
+@pytest.mark.parametrize("alias_name", BAD_ALIAS_NAMES_WITHOUT_LATEST)
+def test_validate_model_alias_name_bad_but_allow_latest(alias_name):
+    if alias_name not in LATEST_TESTS:
+        with pytest.raises(MlflowException, match="alias name") as e:
+            _validate_model_alias_name(alias_name, perform_latest_check=False)
+        assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    else:
+        _validate_model_alias_name(alias_name)
 
 @pytest.mark.parametrize(
     "run_id",
