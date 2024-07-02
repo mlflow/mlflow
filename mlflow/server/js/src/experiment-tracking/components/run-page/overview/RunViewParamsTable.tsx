@@ -152,7 +152,7 @@ export const RunViewParamsTable = ({
   const [filter, setFilter] = useState('');
   const autoExpandedRowsList = useRef<Record<string, boolean>>({});
 
-  const paramsValues = useMemo(() => values(params), [params]);
+  const paramsValues = useMemo(() => values(params).sort((a, b) => a.key.localeCompare(b.key)), [params]);
 
   const paramsList = useMemo(
     () =>

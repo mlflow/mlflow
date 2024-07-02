@@ -96,7 +96,7 @@ export const RunViewMetricsTable = ({
   const intl = useIntl();
   const [filter, setFilter] = useState('');
 
-  const metricValues = useMemo(() => values(latestMetrics), [latestMetrics]);
+  const metricValues = useMemo(() => values(latestMetrics).sort((a, b) => a.key.localeCompare(b.key)), [latestMetrics]);
 
   const columns = useMemo(
     () => [
