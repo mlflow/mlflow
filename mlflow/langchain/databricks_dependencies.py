@@ -35,6 +35,12 @@ def _extract_databricks_dependencies_from_retriever(retriever) -> Generator[Reso
     from langchain_community.embeddings import DatabricksEmbeddings
     from langchain_community.vectorstores import DatabricksVectorSearch
 
+    if hasattr(retriever, "base_retriever"):
+        retriever = getattr(retriever, "base_retriever", None)
+    
+    if hasattr(retriever, "retriever"):
+        retriever = getattr(retriever, "retriever", None)
+
     vectorstore = getattr(retriever, "vectorstore", None)
     if vectorstore:
         if isinstance(vectorstore, (DatabricksVectorSearch, LegacyDatabricksVectorSearch)):
