@@ -32,6 +32,7 @@ from mlflow.environment_variables import (
     MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY,
     MLFLOW_HUGGINGFACE_USE_DEVICE_MAP,
     MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE,
+    MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import (
@@ -112,7 +113,7 @@ from mlflow.utils.environment import (
     _process_pip_requirements,
     _PythonEnv,
     _validate_env_arguments,
-    infer_pip_requirements_with_timeout,
+    infer_pip_requirements,
 )
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.logging_utils import suppress_logs
@@ -679,8 +680,11 @@ def save_model(
             # the process due to OOM.
             if not is_peft_model(built_pipeline.model):
                 # Infer the pip requirements with a timeout to avoid hanging at prediction
-                inferred_reqs = infer_pip_requirements_with_timeout(
-                    str(path), FLAVOR_NAME, fallback=default_reqs
+                inferred_reqs = infer_pip_requirements(
+                    model_uri=str(path),
+                    flavor=FLAVOR_NAME,
+                    fallback=default_reqs,
+                    timeout=MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT.get(),
                 )
                 default_reqs = set(inferred_reqs).union(default_reqs)
             default_reqs = sorted(default_reqs)
