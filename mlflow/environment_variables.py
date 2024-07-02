@@ -640,5 +640,5 @@ MLFLOW_ENABLE_DB_SDK = _BooleanEnvironmentVariable("MLFLOW_ENABLE_DB_SDK", True)
 
 #: A flag representing whether MLFlow runs in the child process for capturing modules.
 MLFLOW_IN_CAPTURE_MODULE_PROCESS = _BooleanEnvironmentVariable(
-    "MLFLOW_IN_CAPTURE_MODULE_PROCESS", True
+    "MLFLOW_IN_CAPTURE_MODULE_PROCESS", False
 )
