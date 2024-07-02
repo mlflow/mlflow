@@ -1,3 +1,5 @@
+import pytest
+
 import mlflow
 from mlflow.entities import Metric
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
@@ -5,6 +7,14 @@ from mlflow.entities.evaluation_tag import EvaluationTag
 from mlflow.evaluation import Assessment, Evaluation, log_evaluations
 
 from tests.evaluate.logging.utils import get_evaluation
+
+
+@pytest.fixture
+def end_run_at_test_end():
+    try:
+        yield
+    finally:
+        mlflow.end_run()
 
 
 def test_log_evaluations_with_minimal_params_succeeds():
@@ -172,7 +182,7 @@ def test_log_evaluations_with_all_params():
             assert logged_evaluation == retrieved_evaluation
 
 
-def test_log_evaluations_starts_run_if_not_started():
+def test_log_evaluations_starts_run_if_not_started(end_run_at_test_end):
     inputs = {"feature1": 1.0, "feature2": {"nested_feature": 2.0}}
     outputs = {"prediction": 0.5}
 
@@ -192,9 +202,6 @@ def test_log_evaluations_starts_run_if_not_started():
         evaluation_id=logged_evaluation.evaluation_id, run_id=active_run.info.run_id
     )
     assert retrieved_evaluation == logged_evaluation
-
-    # End the run to clean up
-    mlflow.end_run()
 
 
 def test_evaluation_module_exposes_relevant_apis_for_logging():
