@@ -627,3 +627,15 @@ MLFLOW_HTTP_POOL_MAXSIZE = _EnvironmentVariable("MLFLOW_HTTP_POOL_MAXSIZE", int,
 MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS = _EnvironmentVariable(
     "MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS", int, None
 )
+
+#: Whether to enable Databricks SDK. If true, MLflow uses databricks-sdk to send HTTP requests
+#: to Databricks endpoint, otherwise MLflow uses ``requests`` library to send HTTP requests
+#: to Databricks endpoint. Note that if you want to use OAuth authentication, you have to
+#: set this environment variable to true.
+#: (default: ``True``)
+MLFLOW_ENABLE_DB_SDK = _BooleanEnvironmentVariable("MLFLOW_ENABLE_DB_SDK", True)
+
+#: A flag that's set to 'true' in the child process for capturing modules.
+_MLFLOW_IN_CAPTURE_MODULE_PROCESS = _BooleanEnvironmentVariable(
+    "MLFLOW_IN_CAPTURE_MODULE_PROCESS", False
+)
