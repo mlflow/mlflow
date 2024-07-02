@@ -695,7 +695,4 @@ def retrieve_custom_metrics(
         _logger.warning("No matching custom metric definitions were found.")
         return []
 
-    results = []
-    for args_dict in metric_args_list:
-        results.append(_deserialize_genai_metric_args(args_dict))
-    return results
+    return [_deserialize_genai_metric_args(a) for a in metric_args_list]

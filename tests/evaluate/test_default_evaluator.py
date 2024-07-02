@@ -4225,8 +4225,7 @@ def test_log_genai_custom_metrics_as_artifacts():
 
     results = retrieve_custom_metrics(run.info.run_id)
     assert len(results) == 2
-    assert results[0].name == "answer_similarity"
-    assert results[1].name == "another custom llm judge"
+    assert [r.name for r in results] == ["answer_similarity", "another custom llm judge"]
 
     results = retrieve_custom_metrics(run_id=run.info.run_id, name="another custom llm judge")
     assert len(results) == 1
