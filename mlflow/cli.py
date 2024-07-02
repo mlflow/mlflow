@@ -469,6 +469,18 @@ def server(
     "from the ./mlruns directory.",
 )
 @click.option(
+    "--artifacts-destination",
+    envvar="MLFLOW_ARTIFACTS_DESTINATION",
+    metavar="URI",
+    default=None,
+    help=(
+        "The base artifact location from which to resolve artifact upload/download/list requests "
+        "(e.g. 's3://my-bucket'). This option only applies when the tracking server is configured "
+        "to stream artifacts and the experiment's artifact root location is http or "
+        "mlflow-artifacts URI. Otherwise, the default artifact location will be used."
+    ),
+)
+@click.option(
     "--run-ids",
     default=None,
     help="Optional comma separated list of runs to be permanently deleted. If run ids"
@@ -482,7 +494,7 @@ def server(
     "all of their associated runs. If experiment ids are not specified, data is removed for all "
     "experiments in the `deleted` lifecycle stage.",
 )
-def gc(older_than, backend_store_uri, run_ids, experiment_ids):
+def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment_ids):
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
@@ -491,7 +503,7 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     """
     from mlflow.utils.time import get_current_time_millis
 
-    backend_store = _get_store(backend_store_uri, None)
+    backend_store = _get_store(backend_store_uri, artifacts_destination)
     skip_experiments = False
     if not hasattr(backend_store, "_hard_delete_run"):
         raise MlflowException(

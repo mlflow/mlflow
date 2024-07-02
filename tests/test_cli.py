@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import requests
+from botocore.stub import Stubber
 from click.testing import CliRunner
 
 import mlflow
@@ -21,6 +22,7 @@ from mlflow.cli import doctor, gc, server
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.os import is_windows
@@ -382,6 +384,59 @@ def test_mlflow_gc_experiments(get_store_details, request):
     assert sorted([e.experiment_id for e in experiments]) == sorted(
         [exp_id_5, store.DEFAULT_EXPERIMENT_ID]
     )
+
+
+@pytest.fixture
+def sqlite_store_with_s3_artifact_repository():
+    fd, temp_dbfile = tempfile.mkstemp()
+    # Close handle immediately so that we can remove the file later on in Windows
+    os.close(fd)
+    db_uri = f"sqlite:///{temp_dbfile}"
+    s3_uri = "s3://mlflow"
+    store = SqlAlchemyStore(db_uri, s3_uri)
+
+    yield (store, db_uri, s3_uri)
+
+    os.remove(temp_dbfile)
+
+
+def test_mlflow_gc_sqlite_with_s3_artifact_repository(
+    sqlite_store_with_s3_artifact_repository,
+):
+    store = sqlite_store_with_s3_artifact_repository[0]
+    run = _create_run_in_store(store, create_artifacts=False)
+    store.delete_run(run.info.run_uuid)
+
+    artifact_repo = get_artifact_repository(run.info.artifact_uri)
+    bucket, dest_path = artifact_repo.parse_s3_compliant_uri(run.info.artifact_uri)
+    fake_artifact_path = os.path.join(dest_path, "fake_artifact.txt")
+    with Stubber(artifact_repo._get_s3_client()) as s3_stubber:
+        s3_stubber.add_response(
+            "list_objects",
+            {"Contents": [{"Key": fake_artifact_path}]},
+            {"Bucket": bucket, "Prefix": dest_path},
+        )
+        s3_stubber.add_response(
+            "delete_object",
+            {"DeleteMarker": True},
+            {"Bucket": bucket, "Key": fake_artifact_path},
+        )
+
+        CliRunner().invoke(
+            gc,
+            [
+                "--backend-store-uri",
+                sqlite_store_with_s3_artifact_repository[1],
+                "--artifacts-destination",
+                sqlite_store_with_s3_artifact_repository[2],
+            ],
+            catch_exceptions=False,
+        )
+
+        runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
+        assert len(runs) == 0
+        with pytest.raises(MlflowException, match=r"Run .+ not found"):
+            store.get_run(run.info.run_uuid)
 
 
 @pytest.mark.parametrize(
