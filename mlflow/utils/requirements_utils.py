@@ -23,7 +23,7 @@ from packaging.version import InvalidVersion, Version
 
 import mlflow
 from mlflow.environment_variables import (
-    MLFLOW_IN_CAPTURE_MODULE_PROCESS,
+    _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
     MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
     MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT,
 )
@@ -323,7 +323,7 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False):
                         env={
                             **main_env,
                             **transformer_env,
-                            MLFLOW_IN_CAPTURE_MODULE_PROCESS.name: "true",
+                            _MLFLOW_IN_CAPTURE_MODULE_PROCESS.name: "true",
                         },
                     )
                     with open(output_file) as f:
@@ -355,7 +355,7 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False):
             timeout_seconds=process_timeout,
             env={
                 **main_env,
-                MLFLOW_IN_CAPTURE_MODULE_PROCESS.name: "true",
+                _MLFLOW_IN_CAPTURE_MODULE_PROCESS.name: "true",
             },
         )
 
