@@ -56,11 +56,9 @@ def get_evaluation(*, run_id: str, evaluation_id: str) -> EvaluationEntity:
 
 
 def _contains_evaluation_artifacts(*, client: MlflowClient, run_id: str) -> bool:
-    return (
-        any(file.path == "_evaluations.json" for file in client.list_artifacts(run_id))
-        and any(file.path == "_metrics.json" for file in client.list_artifacts(run_id))
-        and any(file.path == "_assessments.json" for file in client.list_artifacts(run_id))
-    )
+    artifact_paths_set = {file.path for file in client.list_artifacts(run_id)}
+    required_files = {"_evaluations.json", "_metrics.json", "_assessments.json", "_tags.json"}
+    return required_files.issubset(artifact_paths_set)
 
 
 def _read_evaluations_dataframe(path: str) -> pd.DataFrame:

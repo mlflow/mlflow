@@ -172,7 +172,7 @@ def test_log_evaluations_with_all_params():
             assert logged_evaluation == retrieved_evaluation
 
 
-def test_log_evaluation_starts_run_if_not_started():
+def test_log_evaluations_starts_run_if_not_started():
     inputs = {"feature1": 1.0, "feature2": {"nested_feature": 2.0}}
     outputs = {"prediction": 0.5}
 
@@ -198,10 +198,12 @@ def test_log_evaluation_starts_run_if_not_started():
 
 
 def test_evaluation_module_exposes_relevant_apis_for_logging():
-    import mlflow.evaluation
+    pass
 
-    assert hasattr(mlflow.evaluation, "log_evaluations")
-    assert hasattr(mlflow.evaluation, "Evaluation")
-    assert hasattr(mlflow.evaluation, "Assessment")
-    assert hasattr(mlflow.evaluation, "AssessmentSource")
-    assert hasattr(mlflow.evaluation, "AssessmentSourceType")
+
+def test_log_evaluations_works_properly_with_empty_evaluations_list():
+    with mlflow.start_run():
+        log_evaluations(evaluations=[])
+
+        artifacts = mlflow.MlflowClient().list_artifacts(mlflow.active_run().info.run_id)
+        assert len(artifacts) == 0

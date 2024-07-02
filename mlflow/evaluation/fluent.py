@@ -23,6 +23,9 @@ def log_evaluations(
       List[EvaluationEntity]: The logged Evaluation objects.
     """
     run_id = run_id if run_id is not None else _get_or_start_run().info.run_id
+    if not evaluations:
+        return []
+
     client = MlflowClient()
     evaluation_entities = [
         evaluation._to_entity(run_id=run_id, evaluation_id=uuid.uuid4().hex)
