@@ -4223,7 +4223,6 @@ def test_log_genai_custom_metrics_as_artifacts():
     assert table.loc[1, "version"] == ""
     assert table["version"].dtype == "object"
 
-    retrieve_custom_metrics(run.info.run_id)
     results = retrieve_custom_metrics(run.info.run_id)
     assert len(results) == 2
     assert results[0].name == "answer_similarity"

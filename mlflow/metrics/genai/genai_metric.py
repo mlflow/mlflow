@@ -654,21 +654,21 @@ def retrieve_custom_metrics(
 
     Args:
         run_id: The unique identifier for the run.
-        name: (Optional) The name of the custom metric to search for.
-            If None, search for all metrics.
-        version: (Optional) The version of the custom metric to search for.
-            If None, search for all versions.
+        name: (Optional) The name of the custom metric to retrieve.
+            If None, retrieve all metrics.
+        version: (Optional) The version of the custom metric to retrieve.
+            If None, retrieve all metrics.
 
     Returns:
-        A list of EvaluationMetric objects that match the search criteria.
+        A list of EvaluationMetric objects that match the retrieval criteria.
 
     .. code-block:: python
         :test:
-        :caption: Example for searching for a custom genai metric
+        :caption: Example for retrieving a custom genai metric
 
-        from mlflow.metrics.genai import search_custom_metrics
+        from mlflow.metrics.genai import retrieve_custom_metrics
 
-        metrics = search_custom_metrics(
+        metrics = retrieve_custom_metrics(
             run_id=run.info.run_id, name="answer_similarity", version="v1"
         )
     """
