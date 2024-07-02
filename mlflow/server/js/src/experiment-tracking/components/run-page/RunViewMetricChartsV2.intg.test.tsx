@@ -117,6 +117,13 @@ describe('RunViewMetricChartsV2 - autorefresh', () => {
                   metricKey: 'metric_2',
                   scaleType: 'linear',
                   xAxisKey: 'step',
+                  xAxisScaleType: 'linear',
+                  range: {
+                    xMin: undefined,
+                    xMax: undefined,
+                    yMin: undefined,
+                    yMax: undefined,
+                  },
                 },
               ],
               compareRunSections: [
