@@ -272,7 +272,7 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
         None, "user", "pass", insecure=True
     )
     ProfileConfigProvider.return_value = mock_provider
-    with pytest.raises(Exception, match="Reading databricks credential configuration failed using"):
+    with pytest.raises(Exception, match="Reading databricks credential configuration failed with"):
         databricks_utils.get_databricks_host_creds()
 
     # No authentication
@@ -281,7 +281,7 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
         "host", None, None, insecure=True
     )
     ProfileConfigProvider.return_value = mock_provider
-    with pytest.raises(Exception, match="Reading databricks credential configuration failed using"):
+    with pytest.raises(Exception, match="Reading databricks credential configuration failed with"):
         databricks_utils.get_databricks_host_creds()
 
 
