@@ -101,7 +101,7 @@ Input and Output Formats
 Code Example of Using ``llm/v1`` Tasks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The following code snippet demonstrates how to log a Transformers pipeline with the ``llm/v1/chat`` task type, and use the model for chat-style inference. Check out the `notebook tutorial <../tutorials/conversational/pyfunc-chat-model.html>`_ to see more examples in action!
+The following code snippet demonstrates how to log a Transformers pipeline with the ``llm/v1/chat`` task type, and use the model for chat-style inference. Check out the `notebook tutorial <tutorials/conversational/pyfunc-chat-model.html>`_ to see more examples in action!
 
 .. code-block:: python
 
