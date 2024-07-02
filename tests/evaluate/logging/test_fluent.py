@@ -11,10 +11,8 @@ from tests.evaluate.logging.utils import get_evaluation
 
 @pytest.fixture
 def end_run_at_test_end():
-    try:
-        yield
-    finally:
-        mlflow.end_run()
+    yield
+    mlflow.end_run()
 
 
 def test_log_evaluations_with_minimal_params_succeeds():
