@@ -315,7 +315,6 @@ def start_run(
         existing_run_id = run_id
     elif run_id := MLFLOW_RUN_ID.get():
         existing_run_id = run_id
-        del os.environ[MLFLOW_RUN_ID.name]
     else:
         existing_run_id = None
     if existing_run_id:
