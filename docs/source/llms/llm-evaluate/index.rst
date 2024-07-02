@@ -229,6 +229,10 @@ Selecting the LLM-as-judge Model
 
 By default, llm-as-judge metrics use ``openai:/gpt-4`` as the judge. You can change the default judge model by passing an override to the ``model`` argument within the metric definition, as shown below. In addition to OpenAI models, you can also use any endpoint via MLflow Deployments. Use :py:func:`mlflow.deployments.set_deployments_target` to set the target deployment client.
 
+.. tip::
+
+    If you are in a Databricks environment, the deployments target is set to "databricks" by default.
+
 To use an endpoint hosted by a local MLflow Deployments Server, you can use the following code.
 
 .. code-block:: python
@@ -505,7 +509,7 @@ Evaluating with an MLflow Deployments Endpoint
 For MLflow >= 2.11.0, :py:func:`mlflow.evaluate()` supports evaluating a model endpoint by directly passing the MLflow Deployments endpoint URI to the ``model`` argument.
 This is particularly useful when you want to evaluate a deployed model hosted by a local `MLflow Deployments Server <../deployments/index.html>`_,  `Databricks Foundation Models API <https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html>`_, and `External Models in Databricks Model Serving <https://docs.databricks.com/en/generative-ai/external-models/index.html>`_, without implementing custom prediction logic to wrap it as an MLflow model or a python function.
 
-Please don't forget to set the target deployment client by using :py:func:`mlflow.deployments.set_deployments_target` before calling :py:func:`mlflow.evaluate()` with the endpoint URI, as shown in the example below. Otherwise, you will see an error message like ``MlflowException: No deployments target has been set...``.
+Note that the endpoint has to be accessible via the current deployments target i.e. the environment that hosts the model endpoint. You can check the current deployment targets by using :py:func:`mlflow.deployments.get_deployments_target`, and set the new target by using :py:func:`mlflow.deployments.set_deployments_target`. If you are in a Databricks environment, the deployments target is set to ``"databricks"`` by default, so models hosted on Databricks can be available without configuring it. Otherwise, you have to set it before calling :py:func:`mlflow.evaluate()` with the endpoint URI, as shown in the example below.
 
 .. hint::
 
@@ -647,7 +651,7 @@ Examples
     from mlflow.deployments import set_deployments_target
     import pandas as pd
 
-    # Point the client to Databricks Foundation Models API
+    # Point the client to Databricks Foundation Models API (not necessary if you are in Databricks environment)
     set_deployments_target("databricks")
 
     eval_data = pd.DataFrame(

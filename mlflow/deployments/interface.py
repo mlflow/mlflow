@@ -50,12 +50,13 @@ def get_deploy_client(target_uri=None):
         try:
             target_uri = get_deployments_target()
         except MlflowException:
-            _logger.info(
-                "No deployments target has been set. Please either set the MLflow deployments "
-                "target via `mlflow.deployments.set_deployments_target()` or set the environment "
-                "variable MLFLOW_DEPLOYMENTS_TARGET to the running deployment server's uri"
+            # Rephrase the error message to suggest passing the target_uri argument as well.
+            raise MlflowException(
+                "No deployments target is found. Please either pass `target_uri` argument, or set  "
+                "the MLflow deployments target via `mlflow.deployments.set_deployments_target()` "
+                "or the environment variable MLFLOW_DEPLOYMENTS_TARGET to the running "
+                "deployment server's uri."
             )
-            return None
     target = parse_target_uri(target_uri)
     plugin = plugin_store[target]
     for _, obj in inspect.getmembers(plugin):
