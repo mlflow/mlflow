@@ -36,6 +36,9 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github
       - name: validate-labeled
         uses: actions/github-script@v7
         with:
@@ -52,6 +55,9 @@ jobs:
       pull-requests: write # postMerge labels PRs
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github
       - name: post-merge
         uses: actions/github-script@v7
         with:
