@@ -314,6 +314,7 @@ def test_create_model_version_with_langchain_dependencies(store, langchain_local
             secret_access_key=secret_access_key,
             session_token=session_token,
             credential_refresh_def=ANY,
+            s3_upload_extra_args={},
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
@@ -377,6 +378,7 @@ def test_create_model_version_with_resources(store, langchain_local_model_dir_wi
             secret_access_key=secret_access_key,
             session_token=session_token,
             credential_refresh_def=ANY,
+            s3_upload_extra_args={},
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
@@ -434,6 +436,7 @@ def test_create_model_version_with_langchain_no_dependencies(
             secret_access_key=secret_access_key,
             session_token=session_token,
             credential_refresh_def=ANY,
+            s3_upload_extra_args={},
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
@@ -1019,6 +1022,7 @@ def test_create_model_version_aws(store, local_model_dir):
             secret_access_key=secret_access_key,
             session_token=session_token,
             credential_refresh_def=ANY,
+            s3_upload_extra_args={},
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(

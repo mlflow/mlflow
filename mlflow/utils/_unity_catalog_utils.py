@@ -23,7 +23,10 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     RegisteredModelTag as ProtoRegisteredModelTag,
 )
-from mlflow.protos.databricks_uc_registry_messages_pb2 import TemporaryCredentials
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    SseEncryptionAlgorithm,
+    TemporaryCredentials,
+)
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 
 _STRING_TO_STATUS = {k: ProtoModelVersionStatus.Value(k) for k in ProtoModelVersionStatus.keys()}
@@ -155,14 +158,17 @@ def _get_artifact_repo_from_storage_info(
         from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
 
         aws_creds = scoped_token.aws_temp_credentials
+        s3_upload_extra_args = _parse_aws_sse_credential(scoped_token)
 
         def aws_credential_refresh():
             new_scoped_token = base_credential_refresh_def()
             new_aws_creds = new_scoped_token.aws_temp_credentials
+            new_s3_upload_extra_args = _parse_aws_sse_credential(new_scoped_token)
             return {
                 "access_key_id": new_aws_creds.access_key_id,
                 "secret_access_key": new_aws_creds.secret_access_key,
                 "session_token": new_aws_creds.session_token,
+                "s3_upload_extra_args": new_s3_upload_extra_args,
             }
 
         return OptimizedS3ArtifactRepository(
@@ -171,6 +177,7 @@ def _get_artifact_repo_from_storage_info(
             secret_access_key=aws_creds.secret_access_key,
             session_token=aws_creds.session_token,
             credential_refresh_def=aws_credential_refresh,
+            s3_upload_extra_args=s3_upload_extra_args,
         )
     elif credential_type == "azure_user_delegation_sas":
         from azure.core.credentials import AzureSasCredential
@@ -230,6 +237,26 @@ def _get_artifact_repo_from_storage_info(
             "access model version files in Unity Catalog. Try upgrading to the latest "
             "version of the MLflow Python client."
         )
+
+
+def _parse_aws_sse_credential(scoped_token: TemporaryCredentials):
+    encryption_details = scoped_token.encryption_details
+    if not encryption_details:
+        return {}
+
+    if encryption_details.WhichOneof("encryption_details_type") != "sse_encryption_details":
+        return {}
+
+    sse_encryption_details = encryption_details.sse_encryption_details
+
+    if sse_encryption_details.algorithm != SseEncryptionAlgorithm.AWS_SSE_KMS:
+        return {}
+
+    key_id = sse_encryption_details.aws_kms_key_arn.split("/")[-1]
+    return {
+        "ServerSideEncryption": "aws:kms",
+        "SSEKMSKeyId": key_id,
+    }
 
 
 def get_full_name_from_sc(name, spark) -> str:

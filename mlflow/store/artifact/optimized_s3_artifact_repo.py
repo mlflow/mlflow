@@ -52,6 +52,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         credential_refresh_def=None,
         addressing_style=None,
         s3_endpoint_url=None,
+        s3_upload_extra_args=None,
     ):
         super().__init__(artifact_uri)
         self._access_key_id = access_key_id
@@ -62,6 +63,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         self._s3_endpoint_url = s3_endpoint_url
         self.bucket, self.bucket_path = self.parse_s3_compliant_uri(self.artifact_uri)
         self._region_name = self._get_region_name()
+        self._s3_upload_extra_args = s3_upload_extra_args if s3_upload_extra_args else {}
 
     def _refresh_credentials(self):
         if not self._credential_refresh_def:
@@ -70,6 +72,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         self._access_key_id = new_creds["access_key_id"]
         self._secret_access_key = new_creds["secret_access_key"]
         self._session_token = new_creds["session_token"]
+        self._s3_upload_extra_args = new_creds["s3_upload_extra_args"]
         return self._get_s3_client()
 
     def _get_region_name(self):
@@ -146,6 +149,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
 
     def _upload_file(self, s3_client, local_file, bucket, key):
         extra_args = {}
+        extra_args.update(self._s3_upload_extra_args)
         guessed_type, guessed_encoding = guess_type(local_file)
         if guessed_type is not None:
             extra_args["ContentType"] = guessed_type

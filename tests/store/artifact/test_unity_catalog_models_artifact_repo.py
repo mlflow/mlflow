@@ -142,6 +142,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(mon
             secret_access_key=fake_secret_access_key,
             session_token=fake_session_token,
             credential_refresh_def=ANY,
+            s3_upload_extra_args={},
         )
         mock_s3_repo.download_artifacts.assert_called_once_with("artifact_path", "dst_path")
         request_mock.assert_called_with(

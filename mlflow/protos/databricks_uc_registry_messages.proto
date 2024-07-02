@@ -141,6 +141,8 @@ message TemporaryCredentials {
   optional int64 expiration_time = 1;
 
   optional StorageMode storage_mode = 6;
+
+  optional EncryptionDetails encryption_details = 7;
 }
 
 // AWS temporary credentials for API authentication.
@@ -188,6 +190,26 @@ enum StorageMode {
   CUSTOMER_HOSTED = 1;
   // Default storage
   DEFAULT_STORAGE = 2;
+}
+
+message EncryptionDetails {
+  oneof encryption_details_type {
+    // Details for CLOUD_MANAGED_SSE_KEYS:
+    SseEncryptionDetails sse_encryption_details = 1;
+  }
+}
+
+enum SseEncryptionAlgorithm {
+  SSE_ENCRYPTION_ALGORITHM_UNSPECIFIED = 0;
+  AWS_SSE_KMS = 2;   // "aws:kms" in x-amz-server-side-encryption' header
+}
+
+message SseEncryptionDetails {
+  optional SseEncryptionAlgorithm algorithm = 1;
+
+  // Optional. The ARN of the SSE-KMS key used with the S3 location, when algorithm = "SSE-KMS".
+  // Sets the value of the 'x-amz-server-side-encryption-aws-kms-key-id' header.
+  optional string aws_kms_key_arn = 2;
 }
 
 message CreateRegisteredModelRequest {
