@@ -32,7 +32,7 @@ dependencies = [
   "gunicorn<23; platform_system != 'Windows'",
   "markdown<4,>=3.3",
   "matplotlib<4",
-  "numpy<2",
+  "numpy<3",
   "pandas<3",
   "pyarrow<16,>=4.0.0",
   "querystring_parser<2",
