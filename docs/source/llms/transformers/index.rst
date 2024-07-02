@@ -258,11 +258,11 @@ To learn more about the nuances of the `transformers` flavor in MLflow, delve in
 
 - `Model Config and Model Signature Params for Inference <guide/index.html#using-model-config-and-model-signature-params-for-inference>`_: Learn how to leverage ``model_config`` and ``ModelSignature`` for flexible and customized model loading and inference.
 
-- `Automatic Metadata and ModelCard Logging <http://localhost:8000/llms/transformers/guide/index.html#automatic-metadata-and-modelcard-logging>`_: Discover the automatic logging features for model cards and other metadata, enhancing model documentation and transparency.
+- `Automatic Metadata and ModelCard Logging <guide/index.html#automatic-metadata-and-modelcard-logging>`_: Discover the automatic logging features for model cards and other metadata, enhancing model documentation and transparency.
 
 - `Model Signature Inference <guide/index.html#automatic-signature-inference>`_ : Learn about MLflow's capability within the ``transformers`` flavor to automatically infer and attach model signatures, facilitating easier model deployment.
 
-- `Overriding Pytorch dtype <http://localhost:8000/llms/transformers/guide/index.html#scale-inference-with-overriding-pytorch-dtype>`_ : Gain insights into optimizing ``transformers`` models for inference, focusing on memory optimization and data type configurations.
+- `Overriding Pytorch dtype <guide/index.html#scale-inference-with-overriding-pytorch-dtype>`_ : Gain insights into optimizing ``transformers`` models for inference, focusing on memory optimization and data type configurations.
 
 - `Input Data Types for Audio Pipelines <guide/index.html#input-data-types-for-audio-pipelines>`_: Understand the specific requirements for handling audio data in transformers pipelines, including the handling of different input types like str, bytes, and np.ndarray.
 
