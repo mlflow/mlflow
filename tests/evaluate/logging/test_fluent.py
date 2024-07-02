@@ -203,7 +203,13 @@ def test_log_evaluations_starts_run_if_not_started(end_run_at_test_end):
 
 
 def test_evaluation_module_exposes_relevant_apis_for_logging():
-    pass
+    import mlflow.evaluation
+
+    assert hasattr(mlflow.evaluation, "log_evaluations")
+    assert hasattr(mlflow.evaluation, "Evaluation")
+    assert hasattr(mlflow.evaluation, "Assessment")
+    assert hasattr(mlflow.evaluation, "AssessmentSource")
+    assert hasattr(mlflow.evaluation, "AssessmentSourceType")
 
 
 def test_log_evaluations_works_properly_with_empty_evaluations_list():
