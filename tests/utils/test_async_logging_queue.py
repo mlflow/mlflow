@@ -343,16 +343,16 @@ def _get_run_data(total_batches=TOTAL_BATCHES):
 def _assert_sent_received_data(
     metrics_sent, params_sent, tags_sent, received_metrics, received_params, received_tags
 ):
-    for num in range(1, len(metrics_sent)):
+    for num in range(len(metrics_sent)):
         assert metrics_sent[num].key == received_metrics[num].key
         assert metrics_sent[num].value == received_metrics[num].value
         assert metrics_sent[num].timestamp == received_metrics[num].timestamp
         assert metrics_sent[num].step == received_metrics[num].step
 
-    for num in range(1, len(tags_sent)):
+    for num in range(len(tags_sent)):
         assert tags_sent[num].key == received_tags[num].key
         assert tags_sent[num].value == received_tags[num].value
 
-    for num in range(1, len(params_sent)):
+    for num in range(len(params_sent)):
         assert params_sent[num].key == received_params[num].key
         assert params_sent[num].value == received_params[num].value

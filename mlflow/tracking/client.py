@@ -1870,10 +1870,6 @@ class MlflowClient:
         Args:
             local_path: Path to the file or directory to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
-            synchronous: *Experimental* If True, blocks until the metric is logged successfully.
-                If False, logs the metric asynchronously and returns a future representing the
-                logging operation. If None, read from environment variable
-                `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
         .. code-block:: python
             :caption: Example

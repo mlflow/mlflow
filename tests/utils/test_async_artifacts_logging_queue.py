@@ -51,14 +51,9 @@ def _assert_sent_received_artifacts(
     recieved_artifact_paths,
     received_artifacts,
 ):
-    for num in range(1, len(filenames_sent)):
-        assert filenames_sent[num] == recieved_filenames[num]
-
-    for num in range(1, len(artifact_paths_sent)):
-        assert artifact_paths_sent[num] == recieved_artifact_paths[num]
-
-    for num in range(1, len(artifacts_sent)):
-        assert artifacts_sent[num] == received_artifacts[num]
+    assert filenames_sent == recieved_filenames
+    assert artifact_paths_sent == recieved_artifact_paths
+    assert artifacts_sent == received_artifacts
 
 
 def test_single_thread_publish_consume_queue():
