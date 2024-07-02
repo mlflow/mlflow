@@ -68,7 +68,7 @@ class Trace(_MlflowObject):
         in Databricks notebooks to display the Trace object in a nicer UI.
         """
         return {
-            "application/databricks.mlflow.trace": self.to_json(),
+            "application/databricks.mlflow.trace": self.info.request_id,
             "text/plain": self.__repr__(),
         }
 
