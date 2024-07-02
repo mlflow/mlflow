@@ -22,7 +22,7 @@ having to worry about the underlying model or the preprocessing steps.
 
 .. figure:: ../../_static/images/tutorials/llms/transformers-pipeline-architecture.png
    :alt: Transformers Pipeline Architecture
-   :width: 90%
+   :width: 80%
    :align: center
 
    Transformers Pipeline Architecture for the Whisper Model
@@ -71,7 +71,7 @@ for deployment.
 Getting Started with the MLflow Transformers Flavor - Tutorials and Guides
 --------------------------------------------------------------------------
 
-Below, you will find a number of guides that focus on different use cases (`tasks`) using `transformers`  that leverage MLflow's 
+Below, you will find a number of guides that focus on different use cases using `transformers`  that leverage MLflow's 
 APIs for tracking and inference capabilities. 
 
 .. toctree::
@@ -233,6 +233,18 @@ When working with the transformers flavor in MLflow, there are several important
 - **Prompt Templates**: Prompt templating is currently supported for a few pipeline types. For a full list of supported pipelines, and more information about the feature, see `this link <guide/index.html#saving-prompt-templates-with-transformer-pipelines>`_.
 
 
+Working with ``tasks`` for Transformer Pipelines
+------------------------------------------------
+
+In MLflow Transformers flavor, ``task`` plays a crucial role in determining the input and output format of the model. Please refer to the `Tasks in MLflow Transformers <task.html>`_ guide on how to use the native Transformers task types, and leverage the advanced tasks such as ``llm/v1/chat`` and ``llm/v1/completions`` for OpenAI-compatible inference.
+
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    task
+
 `Detailed Documentation <guide/index.html>`_
 --------------------------------------------
 
@@ -242,17 +254,15 @@ To learn more about the nuances of the `transformers` flavor in MLflow, delve in
 
 - `Transformers Model as a Python Function <guide/index.html#loading-a-transformers-model-as-a-python-function>`_ : Familiarize yourself with the various ``transformers`` pipeline types compatible with the pyfunc model flavor. Understand the standardization of input and output formats in the pyfunc model implementation for the flavor, ensuring seamless integration with JSON and Pandas DataFrames.
 
-- `Saving Transformer Models with an OpenAI-Compatible Interface <guide/index.html#saving-transformer-pipelines-with-an-openai-compatible-inference-interface>`_: Deploying Transformer models with an OpenAI-compatible chat or completion interface is streamlined: just set the ``task`` parameter to ``llm/v1/chat`` or ``llm/v1/completion``.
-
 - `Prompt Template <guide/index.html#saving-prompt-templates-with-transformer-pipelines>`_: Learn how to save a prompt template with transformers pipelines to optimize inference with less boilerplate.
 
 - `Model Config and Model Signature Params for Inference <guide/index.html#using-model-config-and-model-signature-params-for-inference>`_: Learn how to leverage ``model_config`` and ``ModelSignature`` for flexible and customized model loading and inference.
 
-- `Automatic Metadata and ModelCard Logging <http://localhost:8000/llms/transformers/guide/index.html#automatic-metadata-and-modelcard-logging>`_: Discover the automatic logging features for model cards and other metadata, enhancing model documentation and transparency.
+- `Automatic Metadata and ModelCard Logging <guide/index.html#automatic-metadata-and-modelcard-logging>`_: Discover the automatic logging features for model cards and other metadata, enhancing model documentation and transparency.
 
 - `Model Signature Inference <guide/index.html#automatic-signature-inference>`_ : Learn about MLflow's capability within the ``transformers`` flavor to automatically infer and attach model signatures, facilitating easier model deployment.
 
-- `Overriding Pytorch dtype <http://localhost:8000/llms/transformers/guide/index.html#scale-inference-with-overriding-pytorch-dtype>`_ : Gain insights into optimizing ``transformers`` models for inference, focusing on memory optimization and data type configurations.
+- `Overriding Pytorch dtype <guide/index.html#scale-inference-with-overriding-pytorch-dtype>`_ : Gain insights into optimizing ``transformers`` models for inference, focusing on memory optimization and data type configurations.
 
 - `Input Data Types for Audio Pipelines <guide/index.html#input-data-types-for-audio-pipelines>`_: Understand the specific requirements for handling audio data in transformers pipelines, including the handling of different input types like str, bytes, and np.ndarray.
 
