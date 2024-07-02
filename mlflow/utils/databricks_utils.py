@@ -24,7 +24,11 @@ from mlflow.legacy_databricks_cli.configure.provider import (
 )
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.rest_utils import MlflowHostCreds
-from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri, _DATABRICKS_UNITY_CATALOG_SCHEME
+from mlflow.utils.uri import (
+    _DATABRICKS_UNITY_CATALOG_SCHEME,
+    get_db_info_from_uri,
+    is_databricks_uri,
+)
 
 _logger = logging.getLogger(__name__)
 

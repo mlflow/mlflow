@@ -196,7 +196,7 @@ To use Databricks unity catalog model registry, set MLflow registry URI to ``"da
     import mlflow
     import os
 
-    mlflow.set_registry_uri('databricks-uc')
+    mlflow.set_registry_uri("databricks-uc")
     os.environ["DATABRICKS_HOST"] = "<your Databricks shard URI>"
     os.environ["DATABRICKS_TOKEN"] = "<your Databricks shard access token>"
 
@@ -208,7 +208,7 @@ To use Databricks unity catalog model registry, set MLflow registry URI to ``"da
     import mlflow
     import os
 
-    mlflow.set_registry_uri('databricks-uc')
+    mlflow.set_registry_uri("databricks-uc")
     os.environ["DATABRICKS_HOST"] = "<your Databricks shard URI>"
     os.environ["DATABRICKS_CLIENT_ID"] = "<your Databricks oauth client ID>"
     os.environ["DATABRICKS_CLIENT_SECRET"] = "<your Databricks oauth client secret>"
@@ -227,7 +227,7 @@ token = <your Databricks shard access token>
     import mlflow
     import os
 
-    mlflow.set_registry_uri('databricks-uc://my-databricks-shard1')
+    mlflow.set_registry_uri("databricks-uc://my-databricks-shard1")
 
 
 Deploy and Organize Models with Aliases and Tags
