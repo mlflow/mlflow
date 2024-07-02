@@ -69,7 +69,6 @@ MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG = {
     "log_input_examples": False,
     "log_model_signatures": False,
     "log_models": False,
-    "log_datasets": False,
     "log_inputs_outputs": False,
     "disable": False,
     "exclusive": False,
