@@ -1145,7 +1145,7 @@ def test_log_make_genai_metric_from_prompt_fn_args():
     )
 
     expected_keys = set(inspect.signature(make_genai_metric_from_prompt).parameters.keys())
-    expected_keys.add("mlflow_version")
+    expected_keys.update(["mlflow_version", "fn_name"])
     # When updating the function signature of make_genai_metric_from_prompt, please update
     # the genai_metric_args dict construction inside the function as well.
     assert set(custom_metric.genai_metric_args.keys()) == expected_keys
@@ -1160,6 +1160,7 @@ def test_log_make_genai_metric_from_prompt_fn_args():
         "max_workers": 10,
         "metric_metadata": None,
         "mlflow_version": VERSION,
+        "fn_name": make_genai_metric_from_prompt.__name__,
     }
 
     assert custom_metric.genai_metric_args == expected_genai_metric_args
@@ -1180,7 +1181,7 @@ def test_log_make_genai_metric_fn_args():
     )
 
     expected_keys = set(inspect.signature(make_genai_metric).parameters.keys())
-    expected_keys.add("mlflow_version")
+    expected_keys.update(["mlflow_version", "fn_name"])
     # When updating the function signature of make_genai_metric, please update
     # the genai_metric_args dict construction inside the function as well.
     assert set(custom_metric.genai_metric_args.keys()) == expected_keys
@@ -1200,6 +1201,7 @@ def test_log_make_genai_metric_fn_args():
         "max_workers": 10,
         "metric_metadata": None,
         "mlflow_version": VERSION,
+        "fn_name": make_genai_metric.__name__,
     }
 
     assert custom_metric.genai_metric_args == expected_genai_metric_args
