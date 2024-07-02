@@ -3390,6 +3390,8 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
 @pytest.mark.parametrize(
     ("task", "input_example"),
     [
+        {"llm/v1/completions", None},
+        {"llm/v1/chat", None},
         (
             "llm/v1/completions",
             {
@@ -3411,8 +3413,11 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
     ],
 )
 def test_text_generation_save_model_with_inference_task(
-    task, input_example, text_generation_pipeline, model_path
+    monkeypatch, task, input_example, text_generation_pipeline, model_path
 ):
+    # Strictly raise error during requirements inference for testing purposes
+    monkeypatch.setenv("MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", "true")
+
     mlflow.transformers.save_model(
         transformers_model=text_generation_pipeline,
         path=model_path,
@@ -3421,14 +3426,13 @@ def test_text_generation_save_model_with_inference_task(
     )
 
     mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
-
     flavor_config = mlmodel["flavors"]["transformers"]
     assert flavor_config["inference_task"] == task
-
     assert mlmodel["metadata"]["task"] == task
 
-    saved_input_example = json.loads(model_path.joinpath("input_example.json").read_text())
-    assert saved_input_example == input_example
+    if input_example:
+        saved_input_example = json.loads(model_path.joinpath("input_example.json").read_text())
+        assert saved_input_example == input_example
 
 
 def test_text_generation_save_model_with_invalid_inference_task(
