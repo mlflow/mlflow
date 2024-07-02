@@ -26,6 +26,8 @@ _CLASSIFICATION_SIGNATURE = ModelSignature(
 # Order is important here, the first matching pipeline type will be used
 _DEFAULT_SIGNATURE_FOR_PIPELINES = {
     "TokenClassificationPipeline": _TEXT2TEXT_SIGNATURE,
+    # TODO: ConversationalPipeline is deprecated since Transformers 4.42.0.
+    # Remove this once we drop support for earlier versions.
     "ConversationalPipeline": _TEXT2TEXT_SIGNATURE,
     "TranslationPipeline": _TEXT2TEXT_SIGNATURE,
     "FillMaskPipeline": _TEXT2TEXT_SIGNATURE,
