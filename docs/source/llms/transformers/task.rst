@@ -18,7 +18,7 @@ MLflow utilizes this concept to determine the input and output format of the mod
 Native Transformers Task Types
 ------------------------------
 
-For native Transformers tasks, MLflow will automatically infer the task type from the pipeline when you save a pipeline with :py:func:`mlflow.transformers.log_model()`. You can also specify the task type explicitly by passing the ``task`` parameter. The full list of supported task types is available in the `Transformers documentation <https://huggingface.co/tasks>`_, but note that not all task types are supported in MLflow.
+For native Transformers tasks, MLflow will automatically infer the task type from the pipeline when you save a pipeline with :py:func:`mlflow.transformers.log_model()`. You can also specify the task type explicitly by passing the ``task`` parameter. The full list of supported task types is available in the `Transformers documentation <https://huggingface.co/tasks>`_, but note that **not all task types are supported in MLflow**.
 
 .. code-block:: python
 
@@ -96,7 +96,7 @@ Input and Output Formats
 
 .. note::
 
-    The Completion API is considered as legacy, but it is still supported in MLflow for backward compatibility. We recommend using the Chat API for compatible with the latest APIs from OpenAI and other model providers.
+    The Completion API is considered as legacy, but it is still supported in MLflow for backward compatibility. We recommend using the Chat API for compatibility with the latest APIs from OpenAI and other model providers.
 
 Code Example of Using ``llm/v1`` Tasks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -186,7 +186,7 @@ How to override the default query parameters for the OpenAI-compatible inference
 When serving the model saved with the ``llm/v1`` task type, MLflow uses the same default value as OpenAI APIs for the parameters like ``temperature`` and ``stop``. You can override them by either passing the values at inference time, or by setting different default values when logging the model.
 
 1. At inference time: You can pass the parameters as part of the input dictionary when calling the ``predict()`` method, just like how you pass the input messages.
-2. When logging the model: You can override the default values for the parameters by saving ``model_config`` parameter when logging the model.
+2. When logging the model: You can override the default values for the parameters by saving a ``model_config`` parameter when logging the model.
 
 .. code-block:: python
 
@@ -205,4 +205,4 @@ When serving the model saved with the ``llm/v1`` task type, MLflow uses the same
 
 .. attention::
 
-    The ``stop`` parameter can be used to specify the stop sequence for the ``llm/v1/chat`` and ``llm/v1/completions`` tasks. We emulate the behavior of the ``stop`` parameter in the OpenAI APIs by passing the `stopping_criteria <https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationMixin.generate.stopping_criteria>`_ to the Transformers pipeline, with the token IDs of the given stop sequence. However, the behavior may not be stable because the tokenizer does not always generate the same token IDs for the same sequence in different sentences, especially for sentence-piece based tokenizers.
+    The ``stop`` parameter can be used to specify the stop sequence for the ``llm/v1/chat`` and ``llm/v1/completions`` tasks. We emulate the behavior of the ``stop`` parameter in the OpenAI APIs by passing the `stopping_criteria <https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationMixin.generate.stopping_criteria>`_ to the Transformers pipeline, with the token IDs of the given stop sequence. However, the behavior may not be stable because the tokenizer does not always generate the same token IDs for the same sequence in different sentences, especially for ``sentence-piece`` based tokenizers.
