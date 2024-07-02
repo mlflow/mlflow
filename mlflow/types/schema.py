@@ -1046,7 +1046,19 @@ class ParamSpec:
         self,
         name: str,
         dtype: Union[DataType, str],
-        default: Union[DataType, List[DataType], None],
+        default: Union[
+            int,
+            float,
+            str,
+            bool,
+            bytes,
+            List[int],
+            List[float],
+            List[str],
+            List[bool],
+            List[bytes],
+            None,
+        ],
         shape: Optional[Tuple[int, ...]] = None,
     ):
         self._name = str(name)
