@@ -37,7 +37,7 @@ What is KServe?
 
 `KServe <https://kserve.github.io/website/>`_, formally known as KFServing, provides performant, scalable, and highly-abstracted interfaces for common machine learning frameworks like Tensorflow, XGBoost, scikit-learn, and Pytorch.
 It offers advanced features that aid in operating large-scale machine learning systems, such as **autoscaling**, **canary rollout**, **A/B testing**, **monitoring**,
-**explability**, and more, leveraging the Kubernetes ecosystem, including `KNative <https://knative.dev/>`_ and `Istio <https://istio.io/>`_.
+**explainability**, and more, leveraging the Kubernetes ecosystem, including `KNative <https://knative.dev/>`_ and `Istio <https://istio.io/>`_.
 
 Benefits of using MLflow with KServe
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -506,5 +506,5 @@ and deploying the model to Kubernetes cluster.
 * `MLflow Tracking <../../../tracking.html>`_ - Explore more about MLflow Tracking and various ways to manage experiments and models, such as team collaboration.
 * `MLflow Model Registry <../../../model-registry.html>`_ - Discover more about MLflow Model Registry for managing model versions and stages in a centralized model store.
 * `MLflow Deployment <../../index.html>`_ - Learn more about MLflow deployment and different deployment targets.
-* `KServe official documentation <https://kserve.github.io/website/>`_ - Dive deeper into KServe and its advanced features, including autoscaling, canary rollout, A/B testing, monitoring, explability, etc.
+* `KServe official documentation <https://kserve.github.io/website/>`_ - Dive deeper into KServe and its advanced features, including autoscaling, canary rollout, A/B testing, monitoring, explainability, etc.
 * `Seldon Core official documentation <https://docs.seldon.io/projects/seldon-core/en/latest/>`_ - Learn about Seldon Core, an alternative serverless model serving framework we support for Kubernetes.
