@@ -68,7 +68,14 @@ class Trace(_MlflowObject):
         in Databricks notebooks to display the Trace object in a nicer UI.
         """
         return {
-            "application/databricks.mlflow.trace": self.info.request_id,
+            # databricks notebooks will use the request ID to
+            # fetch the trace from the backend. including the
+            # full JSON can cause notebooks to exceed size limits
+            "application/databricks.mlflow.traceId": json.dumps(
+                {
+                    "request_id": self.info.request_id,
+                }
+            ),
             "text/plain": self.__repr__(),
         }
 
