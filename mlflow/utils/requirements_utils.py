@@ -17,7 +17,6 @@ from threading import Timer
 from typing import List, NamedTuple, Optional
 
 import importlib_metadata
-import pkg_resources  # noqa: TID251
 from packaging.requirements import Requirement
 from packaging.version import InvalidVersion, Version
 
@@ -168,9 +167,13 @@ def _normalize_package_name(pkg_name):
 
 def _get_requires(pkg_name):
     norm_pkg_name = _normalize_package_name(pkg_name)
-    if package := pkg_resources.working_set.by_key.get(norm_pkg_name):
-        for req in package.requires():
-            yield _normalize_package_name(req.name)
+    try:
+        reqs = importlib_metadata.requires(norm_pkg_name)
+    except importlib_metadata.PackageNotFoundError:
+        return
+
+    for req in map(Requirement, reqs or []):
+        yield _normalize_package_name(req.name)
 
 
 def _get_requires_recursive(pkg_name, seen_before=None):
