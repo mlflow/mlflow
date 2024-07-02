@@ -929,6 +929,13 @@ def test_gen_md5_for_arraylike_obj():
     assert get_md5(list3) == get_md5(list4)
 
 
+def test_gen_md5_for_arraylike_obj_with_pandas_df_using_float_idx_does_not_raise_keyerror():
+    float_indices = np.random.uniform(low=0.5, high=13.3, size=(10,))
+    df = pd.DataFrame(np.random.randn(10, 4), index=float_indices, columns=["A", "B", "C", "D"])
+    md5_gen = insecure_hash.md5()
+    assert _gen_md5_for_arraylike_obj(md5_gen, df) is None
+
+
 def test_dataset_hash(
     iris_dataset, iris_pandas_df_dataset, iris_pandas_df_num_cols_dataset, diabetes_spark_dataset
 ):
