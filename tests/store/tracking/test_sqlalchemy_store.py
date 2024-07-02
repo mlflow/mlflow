@@ -793,6 +793,9 @@ def test_create_run_with_tags(store: SqlAlchemyStore):
 
     actual = store.create_run(**expected)
 
+    # run name should be added as a tag by the store
+    tags.append(RunTag(mlflow_tags.MLFLOW_RUN_NAME, expected["run_name"]))
+
     assert actual.info.experiment_id == experiment_id
     assert actual.info.user_id == expected["user_id"]
     assert actual.info.run_name == expected["run_name"]
