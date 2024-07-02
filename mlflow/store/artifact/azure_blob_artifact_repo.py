@@ -216,7 +216,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             blob_name=dest_path,
             account_key=self.client.credential.account_key,
             permission=BlobSasPermissions(read=True, write=True),
-            expiry=datetime.datetime.utcnow() + datetime.timedelta(hours=1),
+            expiry=datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1),
         )
         credentials = []
         for i in range(1, num_parts + 1):
