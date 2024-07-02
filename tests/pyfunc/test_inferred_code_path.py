@@ -112,6 +112,8 @@ def test_python_model_save_load(tmp_path, monkeypatch):
         "custom_model/mod1/mod4.py",
     }
     loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
+
     np.testing.assert_array_equal(
         loaded_pyfunc_model.predict([1, 2, 3]),
         [11, 12, 13],
