@@ -466,7 +466,7 @@ def get_workspace_info_from_databricks_secrets(tracking_uri):
 
 
 def _fail_malformed_databricks_auth(uri):
-    if uri.startswith(_DATABRICKS_UNITY_CATALOG_SCHEME):
+    if uri and uri.startswith(_DATABRICKS_UNITY_CATALOG_SCHEME):
         uri_name = "registry URI"
         uri_scheme = _DATABRICKS_UNITY_CATALOG_SCHEME
     else:
