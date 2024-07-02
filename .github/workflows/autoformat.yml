@@ -35,7 +35,6 @@ jobs:
         id: judge
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             core.debug(JSON.stringify(context, null, 2));
             const autoformat = require('./.github/workflows/autoformat.js');
@@ -203,7 +202,6 @@ jobs:
       - name: Update status
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const needs = ${{ toJson(needs) }};
             const head_sha = '${{ needs.check-comment.outputs.head_sha }}'
