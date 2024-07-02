@@ -17,12 +17,10 @@ from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai.prompt_template import PromptTemplate
 from mlflow.metrics.genai.utils import _get_default_model, _get_latest_metric_version
 from mlflow.models import EvaluationMetric, make_metric
-from mlflow.models.evaluation.default_evaluator import _GENAI_CUSTOM_METRICS_FILE_NAME
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
-    PUBLIC_UNDOCUMENTED,
     UNAUTHENTICATED,
     ErrorCode,
 )
@@ -614,14 +612,14 @@ def _filter_by_field(df, field_name, value):
 
 
 def _deserialize_genai_metric_args(args_dict):
-    mlflow_version_at_ser = args_dict.get("mlflow_version")
-    fn_name = args_dict.get("fn_name")
+    mlflow_version_at_ser = args_dict.pop("mlflow_version", None)
+    fn_name = args_dict.pop("fn_name", None)
     if fn_name is None or mlflow_version_at_ser is None:
         raise MlflowException(
             message="The artifact JSON file appears to be corrupted and cannot be deserialized. "
             "Please regenerate the custom metrics and rerun the evaluation. "
             "Ensure that the file is correctly formatted and not tampered with.",
-            error_code=PUBLIC_UNDOCUMENTED,
+            error_code=INTERNAL_ERROR,
         )
 
     if mlflow_version_at_ser != VERSION:
@@ -634,8 +632,6 @@ def _deserialize_genai_metric_args(args_dict):
             stacklevel=2,
         )
 
-    args_dict.pop("mlflow_version")
-    args_dict.pop("fn_name")
     if fn_name == make_genai_metric_from_prompt.__name__:
         return make_genai_metric_from_prompt(**args_dict)
 
@@ -643,21 +639,17 @@ def _deserialize_genai_metric_args(args_dict):
     if examples is None:
         return make_genai_metric(**args_dict)
 
-    deser_examples = []
-    for example in examples:
-        deser_examples.append(EvaluationExample(**example))
-
-    args_dict["examples"] = deser_examples
+    args_dict["examples"] = [EvaluationExample(**example) for example in examples]
     return make_genai_metric(**args_dict)
 
 
-def search_custom_metrics(
+def retrieve_custom_metrics(
     run_id: str,
     name: Optional[str] = None,
     version: Optional[str] = None,
 ) -> List[EvaluationMetric]:
     """
-    Searches for custom metrics created by users through `make_genai_metric()` or
+    Retrieve the custom metrics created by users through `make_genai_metric()` or
     `make_genai_metric_from_prompt()` that are associated with a particular evaluation run.
 
     Args:
@@ -700,6 +692,7 @@ def search_custom_metrics(
         custom_metrics = _filter_by_field(custom_metrics, "version", version)
     metric_args_list = custom_metrics["metric_args"].tolist()
     if len(metric_args_list) == 0:
+        _logger.warning("No matching custom metric definitions were found.")
         return []
 
     results = []

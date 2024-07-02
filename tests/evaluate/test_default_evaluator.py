@@ -37,7 +37,7 @@ from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai.genai_metric import (
     _GENAI_CUSTOM_METRICS_FILE_NAME,
     make_genai_metric_from_prompt,
-    search_custom_metrics,
+    retrieve_custom_metrics,
 )
 from mlflow.metrics.genai.metric_definitions import answer_similarity
 from mlflow.models import Model
@@ -52,7 +52,6 @@ from mlflow.models.evaluation.artifacts import (
 )
 from mlflow.models.evaluation.base import evaluate
 from mlflow.models.evaluation.default_evaluator import (
-    _GENAI_CUSTOM_METRICS_FILE_NAME,
     _compute_df_mode_or_mean,
     _CustomArtifact,
     _evaluate_custom_artifacts,
@@ -4168,8 +4167,9 @@ def test_do_not_log_built_in_metrics_as_artifacts():
         artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
         assert _GENAI_CUSTOM_METRICS_FILE_NAME not in artifacts
 
-        results = search_custom_metrics(run_id=run.info.run_id)
+        results = retrieve_custom_metrics(run_id=run.info.run_id)
         assert len(results) == 0
+
 
 def test_log_genai_custom_metrics_as_artifacts():
     with mlflow.start_run() as run:
@@ -4223,6 +4223,32 @@ def test_log_genai_custom_metrics_as_artifacts():
     assert table.loc[1, "version"] == ""
     assert table["version"].dtype == "object"
 
+    retrieve_custom_metrics(run.info.run_id)
+    results = retrieve_custom_metrics(run.info.run_id)
+    assert len(results) == 2
+    assert results[0].name == "answer_similarity"
+    assert results[1].name == "another custom llm judge"
+
+    results = retrieve_custom_metrics(run_id=run.info.run_id, name="another custom llm judge")
+    assert len(results) == 1
+    assert results[0].name == "another custom llm judge"
+
+    results = retrieve_custom_metrics(run_id=run.info.run_id, version="v1")
+    assert len(results) == 1
+    assert results[0].name == "answer_similarity"
+
+    results = retrieve_custom_metrics(
+        run_id=run.info.run_id, name="answer_similarity", version="v1"
+    )
+    assert len(results) == 1
+    assert results[0].name == "answer_similarity"
+
+    results = retrieve_custom_metrics(run_id=run.info.run_id, name="do not match")
+    assert len(results) == 0
+
+    results = retrieve_custom_metrics(run_id=run.info.run_id, version="do not match")
+    assert len(results) == 0
+
 
 def test_all_genai_custom_metrics_are_from_user_prompt():
     with mlflow.start_run() as run:
@@ -4270,4 +4296,3 @@ def test_all_genai_custom_metrics_are_from_user_prompt():
     assert table.loc[0, "version"] == ""
     assert table.loc[1, "version"] == ""
     assert table["version"].dtype == "object"
-
