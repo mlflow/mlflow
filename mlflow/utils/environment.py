@@ -11,7 +11,11 @@ import yaml
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.version import Version
 
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT
+from mlflow.environment_variables import (
+    _MLFLOW_TESTING,
+    MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT,
+    MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import PYTHON_VERSION, insecure_hash
@@ -394,8 +398,22 @@ _INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE = (
 )
 
 
-def infer_pip_requirements_with_timeout(model_uri, flavor, fallback):
-    timeout = MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT.get()
+def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None):
+    """Infers the pip requirements of the specified model by creating a subprocess and loading
+    the model in it to determine which packages are imported.
+
+    Args:
+        model_uri: The URI of the model.
+        flavor: The flavor name of the model.
+        fallback: If provided, an unexpected error during the inference procedure is swallowed
+            and the value of ``fallback`` is returned. Otherwise, the error is raised.
+        timeout: If specified, the inference operation is bound by the timeout (in seconds).
+
+    Returns:
+        A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
+
+    """
+    raise_on_error = MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS.get()
 
     if timeout and is_windows():
         timeout = None
@@ -408,54 +426,27 @@ def infer_pip_requirements_with_timeout(model_uri, flavor, fallback):
     try:
         if timeout:
             with run_with_timeout(timeout):
-                return infer_pip_requirements(model_uri, flavor, fallback)
+                return _infer_requirements(model_uri, flavor, raise_on_error=raise_on_error)
         else:
-            return infer_pip_requirements(model_uri, flavor, fallback)
+            return _infer_requirements(model_uri, flavor, raise_on_error=raise_on_error)
     except Exception as e:
-        if fallback is not None:
-            if isinstance(e, MlflowTimeoutError):
-                msg = (
-                    "Attempted to infer pip requirements for the saved model or pipeline but the "
-                    f"operation timed out in {timeout} seconds. Fall back to return {fallback}. "
-                    "You can specify a different timeout by setting the environment variable "
-                    f"{MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT}."
-                )
-            else:
-                msg = _INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE.format(
-                    model_uri=model_uri, flavor=flavor, fallback=fallback
-                )
-            _logger.warning(msg)
-            _logger.debug("", exc_info=True)
-            return fallback
-        raise
+        if raise_on_error or (fallback is None):
+            raise
 
-
-def infer_pip_requirements(model_uri, flavor, fallback=None):
-    """Infers the pip requirements of the specified model by creating a subprocess and loading
-    the model in it to determine which packages are imported.
-
-    Args:
-        model_uri: The URI of the model.
-        flavor: The flavor name of the model.
-        fallback: If provided, an unexpected error during the inference procedure is swallowed
-            and the value of ``fallback`` is returned. Otherwise, the error is raised.
-
-    Returns:
-        A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
-
-    """
-    try:
-        return _infer_requirements(model_uri, flavor)
-    except Exception:
-        if fallback is not None:
-            _logger.warning(
-                msg=_INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE.format(
-                    model_uri=model_uri, flavor=flavor, fallback=fallback
-                )
+        if isinstance(e, MlflowTimeoutError):
+            msg = (
+                "Attempted to infer pip requirements for the saved model or pipeline but the "
+                f"operation timed out in {timeout} seconds. Fall back to return {fallback}. "
+                "You can specify a different timeout by setting the environment variable "
+                f"{MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT}."
             )
-            _logger.debug("", exc_info=True)
-            return fallback
-        raise
+        else:
+            msg = _INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE.format(
+                model_uri=model_uri, flavor=flavor, fallback=fallback
+            )
+        _logger.warning(msg)
+        _logger.debug("", exc_info=True)
+        return fallback
 
 
 def _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements):
