@@ -21,7 +21,11 @@ from mlflow.legacy_databricks_cli.configure.provider import (
 )
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.rest_utils import MlflowHostCreds
-from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
+from mlflow.utils.uri import (
+    _DATABRICKS_UNITY_CATALOG_SCHEME,
+    get_db_info_from_uri,
+    is_databricks_uri,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -462,11 +466,26 @@ def get_workspace_info_from_databricks_secrets(tracking_uri):
     return None, None
 
 
-def _fail_malformed_databricks_auth(profile):
+def _fail_malformed_databricks_auth(uri):
+    if uri and uri.startswith(_DATABRICKS_UNITY_CATALOG_SCHEME):
+        uri_name = "registry URI"
+        uri_scheme = _DATABRICKS_UNITY_CATALOG_SCHEME
+    else:
+        uri_name = "tracking URI"
+        uri_scheme = "databricks"
     raise MlflowException(
-        "Got malformed Databricks CLI profile '%s'. Please make sure the "
-        "Databricks CLI is properly configured as described at "
-        "https://github.com/databricks/databricks-cli." % profile
+        f"Reading databricks credential configuration failed with MLflow {uri_name} '{uri}', "
+        "Please ensure that you installed 'databricks-sdk' library, set correct tracking "
+        "URI and set up databricks authentication configuration correctly. "
+        f"The available {uri_name} can be either '{uri_scheme}' "
+        f"(using 'DEFAULT' authentication profile) or '{uri_scheme}://{{profile}}'. "
+        "To set up databricks authentication configuration, you can set environmental "
+        "variables DATABRICKS_HOST + DATABRICKS_TOKEN, or set environmental variables "
+        "DATABRICKS_HOST + DATABRICKS_CLIENT_ID + DATABRICKS_CLIENT_SECRET, or you can "
+        "edit '~/.databrickscfg' file to set host + token or host + client_id + client_secret "
+        "for specific profile section. For details of these authentication types, please "
+        "refer to document "
+        "'https://docs.databricks.com/en/dev-tools/auth/index.html#unified-auth'."
     )
 
 
