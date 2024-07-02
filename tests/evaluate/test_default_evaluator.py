@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import re
 from os.path import join as path_join
 from pathlib import Path
@@ -4164,7 +4165,7 @@ def test_do_not_log_built_in_metrics_as_artifacts():
         assert _GENAI_CUSTOM_METRICS_FILE_NAME not in artifacts
 
 
-def test_log_llm_custom_metrics_as_artifacts():
+def test_log_genai_custom_metrics_as_artifacts():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a"]
@@ -4183,10 +4184,13 @@ def test_log_llm_custom_metrics_as_artifacts():
             grading_context={"targets": "test"},
         )
         # This simulates the code path for metrics created from make_genai_metric
-        answer_similarity_metric = answer_similarity(model="openai:/gpt-4", examples=[example])
+        answer_similarity_metric = answer_similarity(
+            model="gateway:/gpt-3.5-turbo",
+            examples=[example]
+        )
         another_custom_metric = make_genai_metric_from_prompt(
-            name="custom llm judge",
-            judge_prompt="This is a custom judge prompt.",
+            name="another custom llm judge",
+            judge_prompt="This is aother custom judge prompt.",
             greater_is_better=False,
             parameters={"temperature": 0.0},
         )
@@ -4207,11 +4211,57 @@ def test_log_llm_custom_metrics_as_artifacts():
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert _GENAI_CUSTOM_METRICS_FILE_NAME in artifacts
 
-    table = result.tables[_GENAI_CUSTOM_METRICS_FILE_NAME.split(".", 1)[0]]
+    table = result.tables[os.path.splitext(_GENAI_CUSTOM_METRICS_FILE_NAME)[0]]
     assert table.loc[0, "name"] == "answer_similarity"
     assert table.loc[0, "version"] == "v1"
-    assert table.loc[1, "name"] == "custom llm judge"
-    assert table.loc[1, "version"] is None
-    # TODO(xq-yin) ML-41356: Validate metric_args value once we implement deser function
-    assert table.loc[0, "metric_args"] is not None
-    assert table.loc[1, "metric_args"] is not None
+    assert table.loc[1, "name"] == "another custom llm judge"
+    assert table.loc[1, "version"] == ""
+    assert table["version"].dtype == "object"
+
+
+def test_all_genai_custom_metrics_are_from_user_prompt():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a"]
+        )
+        data = pd.DataFrame(
+            {
+                "inputs": ["words random", "This is a sentence."],
+                "ground_truth": ["words random", "This is a sentence."],
+            }
+        )
+        custom_metric = make_genai_metric_from_prompt(
+            name="custom llm judge",
+            judge_prompt="This is a custom judge prompt.",
+            greater_is_better=False,
+            parameters={"temperature": 0.0},
+        )
+        another_custom_metric = make_genai_metric_from_prompt(
+            name="another custom llm judge",
+            judge_prompt="This is another custom judge prompt.",
+            greater_is_better=False,
+            parameters={"temperature": 0.7},
+        )
+        result = evaluate(
+            model_info.model_uri,
+            data,
+            targets="ground_truth",
+            predictions="answer",
+            model_type="question-answering",
+            evaluators="default",
+            extra_metrics=[
+                custom_metric,
+                another_custom_metric,
+            ],
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert _GENAI_CUSTOM_METRICS_FILE_NAME in artifacts
+
+    table = result.tables[os.path.splitext(_GENAI_CUSTOM_METRICS_FILE_NAME)[0]]
+    assert table.loc[0, "name"] == "custom llm judge"
+    assert table.loc[1, "name"] == "another custom llm judge"
+    assert table.loc[0, "version"] == ""
+    assert table.loc[1, "version"] == ""
+    assert table["version"].dtype == "object"

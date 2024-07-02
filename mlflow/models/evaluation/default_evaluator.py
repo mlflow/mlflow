@@ -4,6 +4,7 @@ import inspect
 import json
 import logging
 import math
+import os
 import pathlib
 import pickle
 import shutil
@@ -14,7 +15,7 @@ import warnings
 from collections import namedtuple
 from contextlib import contextmanager
 from functools import partial
-from typing import Any, Callable, List, NamedTuple, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -613,7 +614,7 @@ class _Metric(NamedTuple):
     name: str
     index: int
     version: Optional[str] = None
-    genai_metric_args: Optional[dict] = None
+    genai_metric_args: Optional[Dict] = None
 
 
 class _CustomArtifact(NamedTuple):
@@ -1828,16 +1829,22 @@ class DefaultEvaluator(ModelEvaluator):
         if len(genai_custom_metrics) == 0:
             return
 
-        data = {"name": [], "version": [], "metric_args": []}
-        for genai_metric_args in genai_custom_metrics:
-            data["name"].append(genai_metric_args["name"])
+        names = []
+        versions = []
+        metric_args_list = []
+
+        for metric_args in genai_custom_metrics:
+            names.append(metric_args["name"])
             # Custom metrics created from make_genai_metric_from_prompt don't have version
-            data["version"].append(genai_metric_args.get("version", None))
-            data["metric_args"].append(genai_metric_args)
+            versions.append(metric_args.get("version", ""))
+            metric_args_list.append(metric_args)
+
+        data = {"name": names, "version": versions, "metric_args": metric_args_list}
+
         mlflow.log_table(data, artifact_file=_GENAI_CUSTOM_METRICS_FILE_NAME)
 
-        name = _GENAI_CUSTOM_METRICS_FILE_NAME.split(".", 1)[0]
-        self.artifacts[name] = JsonEvaluationArtifact(
+        artifact_name = os.path.splitext(_GENAI_CUSTOM_METRICS_FILE_NAME)[0]
+        self.artifacts[artifact_name] = JsonEvaluationArtifact(
             uri=mlflow.get_artifact_uri(_GENAI_CUSTOM_METRICS_FILE_NAME)
         )
 
