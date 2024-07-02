@@ -3390,8 +3390,8 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
 @pytest.mark.parametrize(
     ("task", "input_example"),
     [
-        {"llm/v1/completions", None},
-        {"llm/v1/chat", None},
+        ("llm/v1/completions", None),
+        ("llm/v1/chat", None),
         (
             "llm/v1/completions",
             {
