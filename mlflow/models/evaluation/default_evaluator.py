@@ -4,6 +4,7 @@ import inspect
 import json
 import logging
 import math
+import os
 import pathlib
 import pickle
 import shutil
@@ -14,7 +15,7 @@ import warnings
 from collections import namedtuple
 from contextlib import contextmanager
 from functools import partial
-from typing import Any, Callable, List, NamedTuple, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -67,6 +68,7 @@ _logger = logging.getLogger(__name__)
 
 _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 _EVAL_TABLE_FILE_NAME = "eval_results_table.json"
+_GENAI_CUSTOM_METRICS_FILE_NAME = "genai_custom_metrics.json"
 _TOKEN_COUNT_METRIC_NAME = "token_count"
 _LATENCY_METRIC_NAME = "latency"
 
@@ -612,6 +614,7 @@ class _Metric(NamedTuple):
     name: str
     index: int
     version: Optional[str] = None
+    genai_metric_args: Optional[Dict] = None
 
 
 class _CustomArtifact(NamedTuple):
@@ -1712,7 +1715,11 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _metric_to_metric_tuple(self, index, metric):
         return _Metric(
-            function=metric.eval_fn, index=index, name=metric.name, version=metric.version
+            function=metric.eval_fn,
+            index=index,
+            name=metric.name,
+            version=metric.version,
+            genai_metric_args=metric.genai_metric_args,
         )
 
     def _evaluate_metrics(self, eval_df):
@@ -1818,6 +1825,29 @@ class DefaultEvaluator(ModelEvaluator):
             uri=mlflow.get_artifact_uri(artifact_file_name)
         )
 
+    def _log_genai_custom_metrics(self, genai_custom_metrics):
+        if len(genai_custom_metrics) == 0:
+            return
+
+        names = []
+        versions = []
+        metric_args_list = []
+
+        for metric_args in genai_custom_metrics:
+            names.append(metric_args["name"])
+            # Custom metrics created from make_genai_metric_from_prompt don't have version
+            versions.append(metric_args.get("version", ""))
+            metric_args_list.append(metric_args)
+
+        data = {"name": names, "version": versions, "metric_args": metric_args_list}
+
+        mlflow.log_table(data, artifact_file=_GENAI_CUSTOM_METRICS_FILE_NAME)
+
+        artifact_name = os.path.splitext(_GENAI_CUSTOM_METRICS_FILE_NAME)[0]
+        self.artifacts[artifact_name] = JsonEvaluationArtifact(
+            uri=mlflow.get_artifact_uri(_GENAI_CUSTOM_METRICS_FILE_NAME)
+        )
+
     def _update_aggregate_metrics(self):
         self.aggregate_metrics = {}
         for metric_name, metric_value in self.metrics_values.items():
@@ -1915,6 +1945,7 @@ class DefaultEvaluator(ModelEvaluator):
                 exemptions=[mlflow.langchain.FLAVOR_NAME]
             ):
                 compute_latency = False
+                genai_custom_metrics = []
                 for extra_metric in self.extra_metrics:
                     # If latency metric is specified, we will compute latency for the model
                     # during prediction, and we will remove the metric from the list of extra
@@ -1922,7 +1953,10 @@ class DefaultEvaluator(ModelEvaluator):
                     if extra_metric.name == _LATENCY_METRIC_NAME:
                         compute_latency = True
                         self.extra_metrics.remove(extra_metric)
-                        break
+                    # When the field is present, the metric is created from either make_genai_metric
+                    # or make_genai_metric_from_prompt. We will log the metric definition.
+                    if extra_metric.genai_metric_args is not None:
+                        genai_custom_metrics.append(extra_metric.genai_metric_args)
                 self._generate_model_predictions(compute_latency=compute_latency)
                 self._handle_builtin_metrics_by_model_type()
 
@@ -1940,6 +1974,7 @@ class DefaultEvaluator(ModelEvaluator):
                     self._log_artifacts()
                     self._log_metrics()
                     self._log_eval_table()
+                    self._log_genai_custom_metrics(genai_custom_metrics)
                 return EvaluationResult(
                     metrics=self.aggregate_metrics, artifacts=self.artifacts, run_id=self.run_id
                 )
