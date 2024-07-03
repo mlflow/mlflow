@@ -8,7 +8,7 @@ type: application
 
 version: "0.1.0"
 
-appVersion: "2.10.0"
+appVersion: "2.14.1"
 
 home: https://github.com/mlflow/mlflow/tree/master/charts/mlflow
 

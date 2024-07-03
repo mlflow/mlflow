@@ -150,6 +150,10 @@ spec:
       {{- with .Values.extraContainers }}
       {{ toYaml . | nindent 6 }}
       {{- end }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       volumes:
       {{- if .Values.trackingServer.basicAuth.enabled }}
       - name: basic-auth-volume
