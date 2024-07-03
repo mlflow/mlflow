@@ -2407,24 +2407,27 @@ def chain_model_signature():
     )
 
 
+def _get_message_content(predictions):
+    return predictions[0]["choices"][0]["message"]["content"]
+
+
 @pytest.mark.skipif(
     Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 @pytest.mark.parametrize(
-    "chain_path",
+    ("chain_path", "model_config"),
     [
-        os.path.abspath("tests/langchain/sample_code/chain.py"),
-        "tests/langchain/../langchain/sample_code/chain.py",
+        (
+            os.path.abspath("tests/langchain/sample_code/chain.py"),
+            os.path.abspath("tests/langchain/sample_code/config.yml"),
+        ),
+        (
+            "tests/langchain/../langchain/sample_code/chain.py",
+            "tests/langchain/../langchain/sample_code/config.yml",
+        ),
     ],
 )
-@pytest.mark.parametrize(
-    "model_config",
-    [
-        os.path.abspath("tests/langchain/sample_code/config.yml"),
-        "tests/langchain/../langchain/sample_code/config.yml",
-    ],
-)
-def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config, monkeypatch):
+def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config):
     input_example = {
         "messages": [
             {
@@ -2465,13 +2468,7 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
     answer = "Databricks"
     assert loaded_model.invoke(input_example) == answer
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert (
-        pyfunc_loaded_model.predict(input_example)[0]
-        .get("choices")[0]
-        .get("message")
-        .get("content")
-        == answer
-    )
+    assert answer == _get_message_content(pyfunc_loaded_model.predict(input_example))
 
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
@@ -2479,9 +2476,10 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
-        "predictions": [try_transform_response_to_chat_format(answer)]
-    }
+    predictions = PredictionsResponse.from_json(response.content.decode("utf-8"))["predictions"]
+    # Mock out the `created` timestamp as it is not deterministic
+    expected = [{**try_transform_response_to_chat_format(answer), "created": mock.ANY}]
+    assert expected == predictions
 
     pyfunc_model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
     pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
@@ -2557,13 +2555,7 @@ def test_save_load_chain_as_code_model_config_dict(chain_model_signature, chain_
     answer = "modified response"
     assert loaded_model.invoke(input_example) == answer
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert (
-        pyfunc_loaded_model.predict(input_example)[0]
-        .get("choices")[0]
-        .get("message")
-        .get("content")
-        == answer
-    )
+    assert answer == _get_message_content(pyfunc_loaded_model.predict(input_example))
 
 
 @pytest.mark.skipif(
@@ -2608,13 +2600,7 @@ def test_save_load_chain_as_code_with_different_names(
     answer = "Databricks"
     assert loaded_model.invoke(input_example) == answer
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert (
-        pyfunc_loaded_model.predict(input_example)[0]
-        .get("choices")[0]
-        .get("message")
-        .get("content")
-        == answer
-    )
+    assert answer == _get_message_content(pyfunc_loaded_model.predict(input_example))
 
 
 @pytest.mark.skipif(
