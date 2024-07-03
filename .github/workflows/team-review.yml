@@ -1,7 +1,7 @@
 name: Team review
 
 on:
-  pull_request_target:
+  pull_request:
     types: [review_requested]
 
 jobs:
@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+          # github-token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
             const pull_number = context.payload.pull_request.number;
