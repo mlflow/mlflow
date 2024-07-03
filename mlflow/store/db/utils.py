@@ -55,7 +55,7 @@ from mlflow.store.tracking.dbmodels.models import (
 
 _logger = logging.getLogger(__name__)
 
-MAX_RETRY_COUNT = 15
+MAX_RETRY_COUNT = 10
 
 
 def _get_package_dir():
