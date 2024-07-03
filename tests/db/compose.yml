@@ -36,7 +36,9 @@ services:
     command: tests/db/check_migration.sh
 
   mysql:
-    image: mysql
+    # TODO: MySQL 9.0 causes a hang. Investigate and re-enable.
+    # https://github.com/mlflow/mlflow/pull/12560#issuecomment-2205779414
+    image: mysql:8
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: root-password
