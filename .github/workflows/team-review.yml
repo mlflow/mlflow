@@ -8,10 +8,11 @@ jobs:
   review:
     runs-on: ubuntu-latest
     if: ${{ github.event.requested_reviewer.login == 'mlflow-automation'}}
+    permissions:
+      pull-requests: write
     steps:
       - uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
             const pull_number = context.payload.pull_request.number;
