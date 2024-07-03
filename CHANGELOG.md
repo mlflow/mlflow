@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## 2.14.2 (2024-07-03)
+
+MLflow 2.14.2 is a patch release that includes several important bug fixes and documentation enhancements.
+
+Bug fixes:
+
+- [Models] Fix an issue with requirements inference error handling when disabling the default warning-only behavior (#12547, @B-Step62)
+- [Models] Fix dependency inference issues with Transformers models saved with the unified API `llm/v1/xxx` task definitions. (#12551, @B-Step62)
+- [Models / Databricks] Fix an issue with MLlfow `log_model` introduced in MLflow 2.13.0 that causes Databricks DLT service to crash in some situations (#12514, @WeichenXu123)
+- [Models] Fix an output data structure issue with the `predict_stream` implementation for LangChain AgentExecutor and other non-Runnable chains (#12518, @B-Step62)
+- [Tracking] Fix an issue with the `predict_proba` inference method in the `sklearn` flavor when loading an sklearn pipeline object as `pyfunc` (#12554, @WeichenXu123)
+- [Tracking] Fix an issue with the Tracing implementation where other services usage of OpenTelemetry would activate MLflow tracing and cause errors (#12457, @B-Step62)
+- [Tracking / Databricks] Correct an issue when running dependency inference in Databricks that can cause duplicate dependency entries to be logged (#12493, @sunishsheth2009)
+
+Documentation updates:
+
+- [Docs] Add documentation and guides for the MLflow tracing schema (#12521, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#12311, #12285, #12535, #12543, #12320, #12444, @B-Step62; #12310, #12340, @serena-ruan; #12409, #12432, #12471, #12497, #12499, @harupy; #12555, @nojaf; #12472, #12431, @xq-yin; #12530, #12529, #12528, #12527, #12526, #12524, #12531, #12523, #12525, #12522, @dbczumar; #12483, @jsuchome; #12465, #12441, @BenWilson2; #12450, @StarryZhang-whu
+
 ## 2.14.1 (2024-06-20)
 
 MLflow 2.14.1 is a patch release that contains several bug fixes and documentation improvements
