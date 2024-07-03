@@ -22,6 +22,9 @@ jobs:
       actions: write # to rerun workflows
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github
       - uses: actions/github-script@v7
         with:
           script: |
