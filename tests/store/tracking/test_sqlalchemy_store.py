@@ -153,20 +153,13 @@ def test_fail_on_multiple_drivers():
 
 
 @pytest.fixture
-def store(tmp_path: Path, capsys: pytest.CaptureFixture):
+def store(tmp_path: Path):
     db_uri = MLFLOW_TRACKING_URI.get() or f"{DB_URI}{tmp_path / 'temp.db'}"
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
-    with capsys.disabled():
-        print("Initializing store...")  # noqa: T201
-        store = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
-        print("Initialized store...")  # noqa: T201
-
-        yield store
-
-        print("Cleaning up tables...")  # noqa: T201
-        _cleanup_database(store)
-        print("Cleaned up tables...")  # noqa: T201
+    store = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
+    yield store
+    _cleanup_database(store)
 
 
 def _get_store(tmp_path: Path):
