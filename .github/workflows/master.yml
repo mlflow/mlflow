@@ -107,6 +107,7 @@ jobs:
       - name: Build
         run: |
           ./tests/db/compose.sh pull -q postgresql mysql mssql
+          docker images
           ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(cat requirements/skinny-requirements.txt requirements/core-requirements.txt | grep -Ev '^(#|$)')"
       - name: Run tests
         run: |
@@ -114,7 +115,7 @@ jobs:
           err=0
           trap 'err=1' ERR
 
-          for service in $(./tests/db/compose.sh config --services | grep '^mlflow-')
+          for service in $(./tests/db/compose.sh config --services | grep '^mlflow-' | sort)
           do
             # Set `--no-TTY` to show container logs on GitHub Actions:
             # https://github.com/actions/virtual-environments/issues/5022
