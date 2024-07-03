@@ -107,7 +107,7 @@ jobs:
       - name: Build
         run: |
           ./tests/db/compose.sh pull -q postgresql mysql mssql
-          docker images --filter reference=postgresql --filter reference=mysql --filter reference=mssql
+          docker images
           ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(cat requirements/skinny-requirements.txt requirements/core-requirements.txt | grep -Ev '^(#|$)')"
       - name: Run tests
         run: |
