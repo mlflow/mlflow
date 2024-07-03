@@ -2477,14 +2477,9 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
         extra_args=["--env-manager", "local"],
     )
     predictions = PredictionsResponse.from_json(response.content.decode("utf-8"))["predictions"]
-    expected = [try_transform_response_to_chat_format(answer)]
-
-    # Excldue the `created` timestamp from the comparison as it is not deterministic
-    def _pop_created_timestamp(predictions):
-        for prediction in predictions:
-            prediction.pop("created")
-
-    assert _pop_created_timestamp(predictions) == _pop_created_timestamp(expected)
+    # Mock out the `created` timestamp as it is not deterministic
+    expected = [{**try_transform_response_to_chat_format(answer), "created": mock.ANY}]
+    assert expected == predictions
 
     pyfunc_model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
     pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
