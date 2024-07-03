@@ -636,10 +636,9 @@ def _deserialize_genai_metric_args(args_dict):
         return make_genai_metric_from_prompt(**args_dict)
 
     examples = args_dict["examples"]
-    if examples is None:
-        return make_genai_metric(**args_dict)
+    if examples is not None:
+        args_dict["examples"] = [EvaluationExample(**example) for example in examples]
 
-    args_dict["examples"] = [EvaluationExample(**example) for example in examples]
     return make_genai_metric(**args_dict)
 
 
