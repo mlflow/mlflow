@@ -114,7 +114,7 @@ jobs:
           err=0
           trap 'err=1' ERR
 
-          for service in $(./tests/db/compose.sh config --services | grep '^mlflow-')
+          for service in $(./tests/db/compose.sh config --services | grep '^mlflow-' | grep mysql)
           do
             # Set `--no-TTY` to show container logs on GitHub Actions:
             # https://github.com/actions/virtual-environments/issues/5022
