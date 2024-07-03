@@ -474,7 +474,7 @@ class SqlAlchemyStore(AbstractStore):
             artifact_location = append_to_uri_path(
                 experiment.artifact_location, run_id, SqlAlchemyStore.ARTIFACTS_FOLDER_NAME
             )
-            tags = tags or []
+            tags = tags.copy() if tags else []
             run_name_tag = _get_run_name_from_tags(tags)
             if run_name and run_name_tag and (run_name != run_name_tag):
                 raise MlflowException(
