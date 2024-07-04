@@ -7,8 +7,8 @@ from pydantic import BaseModel, StrictFloat, StrictStr, ValidationError, validat
 
 from mlflow.gateway.config import MlflowModelServingConfig, RouteConfig
 from mlflow.gateway.constants import MLFLOW_SERVING_RESPONSE_KEY
-from mlflow.gateway.providers.base import BaseProvider
-from mlflow.gateway.providers.utils import send_request
+from mlflow.deployments.server.providers.base import BaseProvider
+from mlflow.deployments.server.providers.utils import send_request
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 

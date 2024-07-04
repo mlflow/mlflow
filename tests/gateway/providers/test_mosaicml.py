@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from mlflow import MlflowException
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
-from mlflow.gateway.providers.mosaicml import MosaicMLProvider
+from mlflow.deployments.server.providers.mosaicml import MosaicMLProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.schemas.chat import RequestMessage
 

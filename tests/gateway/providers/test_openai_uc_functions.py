@@ -6,7 +6,7 @@ import pytest
 from fastapi.encoders import jsonable_encoder
 
 from mlflow.gateway.config import RouteConfig
-from mlflow.gateway.providers.openai import OpenAIProvider
+from mlflow.deployments.server.providers.openai import OpenAIProvider
 from mlflow.gateway.schemas import chat
 from mlflow.gateway.uc_function_utils import uc_type_to_json_schema_type
 
@@ -157,7 +157,7 @@ async def test_uc_functions(monkeypatch):
     mock_workspace_client.statement_execution.execute_statement.return_value = mock_statement_result
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client_session), mock.patch(
-        "mlflow.gateway.providers.openai._get_workspace_client", return_value=mock_workspace_client
+        "mlflow.deployments.server.providers.openai._get_workspace_client", return_value=mock_workspace_client
     ) as mock_workspace_client:
         provider = OpenAIProvider(RouteConfig(**config))
         payload = {
@@ -320,7 +320,7 @@ async def test_uc_functions_user_defined_functions(monkeypatch):
     mock_workspace_client.statement_execution.execute_statement.return_value = mock_statement_result
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client_session), mock.patch(
-        "mlflow.gateway.providers.openai._get_workspace_client", return_value=mock_workspace_client
+        "mlflow.deployments.server.providers.openai._get_workspace_client", return_value=mock_workspace_client
     ) as mock_workspace_client:
         provider = OpenAIProvider(RouteConfig(**config))
         payload = {

@@ -4,8 +4,8 @@ from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from mlflow.gateway.config import AI21LabsConfig, RouteConfig
-from mlflow.gateway.providers.base import BaseProvider
-from mlflow.gateway.providers.utils import rename_payload_keys, send_request
+from mlflow.deployments.server.providers.base import BaseProvider
+from mlflow.deployments.server.providers.utils import rename_payload_keys, send_request
 from mlflow.gateway.schemas import completions
 
 

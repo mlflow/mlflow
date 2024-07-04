@@ -6,8 +6,8 @@ from fastapi.encoders import jsonable_encoder
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import RouteConfig, TogetherAIConfig
-from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
-from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
+from mlflow.deployments.server.providers.base import BaseProvider, ProviderAdapter
+from mlflow.deployments.server.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat as chat_schema
 from mlflow.gateway.schemas import completions as completions_schema
 from mlflow.gateway.schemas import embeddings as embeddings_schema

@@ -11,7 +11,7 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
     MLFLOW_SERVING_RESPONSE_KEY,
 )
-from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
+from mlflow.deployments.server.providers.mlflow import MlflowModelServingProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.tools import MockAsyncResponse, mock_http_client

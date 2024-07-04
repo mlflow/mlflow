@@ -3,7 +3,7 @@ from unittest import mock
 import openai
 import pytest
 
-from mlflow.gateway.providers.openai import OpenAIProvider
+from mlflow.deployments.server.providers.openai import OpenAIProvider
 
 from tests.gateway.tools import (
     UvicornGateway,

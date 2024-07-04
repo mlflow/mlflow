@@ -40,7 +40,7 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE,
     MLFLOW_QUERY_SUFFIX,
 )
-from mlflow.gateway.providers import get_provider
+from mlflow.deployments.server.providers import get_provider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.utils import SearchRoutesToken, make_streaming_response
 from mlflow.version import VERSION
