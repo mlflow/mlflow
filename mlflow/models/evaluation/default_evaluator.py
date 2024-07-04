@@ -44,6 +44,7 @@ from mlflow.metrics import (
     token_count,
     toxicity,
 )
+from mlflow.metrics.genai.genai_metric import _GENAI_CUSTOM_METRICS_FILE_NAME
 from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
     ImageEvaluationArtifact,
@@ -68,7 +69,6 @@ _logger = logging.getLogger(__name__)
 
 _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 _EVAL_TABLE_FILE_NAME = "eval_results_table.json"
-_GENAI_CUSTOM_METRICS_FILE_NAME = "genai_custom_metrics.json"
 _TOKEN_COUNT_METRIC_NAME = "token_count"
 _LATENCY_METRIC_NAME = "latency"
 
