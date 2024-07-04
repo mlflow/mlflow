@@ -722,7 +722,6 @@ def test_list_artifacts_handles_pagination(databricks_artifact_repo):
             mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="", page_token="4")),
             mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="", page_token="6")),
         ]
-
         assert message_mock.mock_calls == calls
 
 
