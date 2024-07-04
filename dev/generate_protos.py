@@ -6,6 +6,8 @@ import tempfile
 import textwrap
 from pathlib import Path
 
+from packaging.version import Version
+
 cache_dir = ".cache/protobuf_cache"
 
 mlflow_protos_dir = "mlflow/protos"
@@ -93,6 +95,79 @@ def gen_python_protos(protoc_bin, protoc_include_path, out_dir):
         apply_python_gencode_replacement(out_dir / _get_python_output_filename(file_name))
 
 
+def build_protoc_from_source(version):
+    """
+    Build and install protoc from source for macOS arm64 version 3.19.4 only.
+    """
+    assert (
+        platform.system() == "Darwin"
+        and platform.machine() == "arm64"
+        and Version(version) < Version("26")
+    ), "This function is intended for macOS arm64 only and version 3.19.4."
+
+    src_dir = Path(cache_dir) / f"protobuf-{version}"
+    build_dir = src_dir / "cmake" / "build"
+
+    if not build_dir.exists():
+        build_dir.mkdir(parents=True, exist_ok=True)
+
+        # Download the source code
+        subprocess.check_call(
+            [
+                "curl",
+                "-L",
+                f"https://github.com/protocolbuffers/protobuf/archive/refs/tags/v{version}.tar.gz",
+                "-o",
+                f"{cache_dir}/protobuf-{version}.tar.gz",
+            ]
+        )
+
+        # Extract the source code
+        subprocess.check_call(
+            [
+                "tar",
+                "-xzf",
+                f"{cache_dir}/protobuf-{version}.tar.gz",
+                "-C",
+                str(cache_dir),
+            ]
+        )
+
+        # Build protoc from source
+        subprocess.check_call(["./autogen.sh"], cwd=src_dir)
+        subprocess.check_call(["./configure"], cwd=src_dir)
+        subprocess.check_call(["make", "-j4"], cwd=src_dir)
+
+    protoc_bin = src_dir / "src" / "protoc"
+    protoc_include_path = src_dir / "src"
+    return str(protoc_bin), str(protoc_include_path)
+
+
+def download_file(url, output_path):
+    """
+    Download a file using wget on Linux and curl on macOS.
+    """
+    if platform.system() == "Darwin":
+        subprocess.check_call(
+            [
+                "curl",
+                "-L",
+                url,
+                "-o",
+                output_path,
+            ]
+        )
+    else:
+        subprocess.check_call(
+            [
+                "wget",
+                url,
+                "-O",
+                output_path,
+            ]
+        )
+
+
 def download_and_extract_protoc(version):
     """
     Download and extract specific version protoc tool, return extracted protoc executable file path
@@ -105,25 +180,33 @@ def download_and_extract_protoc(version):
     assert platform.machine() in [
         "x86_64",
         "aarch64",
-    ], "The script only supports x86_64 or aarch64 CPU."
+        "arm64",
+    ], "The script only supports x86_64, arm64 or aarch64 CPU."
+
+    if (
+        platform.system() == "Darwin"
+        and platform.machine() == "arm64"
+        and Version(version) <= Version("3.19.4")
+    ):
+        return build_protoc_from_source(version)
 
     os_type = "osx" if platform.system() == "Darwin" else "linux"
     cpu_type = "x86_64" if platform.machine() == "x86_64" else "aarch_64"
 
+    if platform.system() == "Darwin" and platform.machine() == "arm64":
+        protoc_zip_filename = f"protoc-{version}-osx-universal_binary.zip"
+    else:
+        protoc_zip_filename = f"protoc-{version}-{os_type}-{cpu_type}.zip"
+
     downloaded_protoc_bin = f"{cache_dir}/protoc-{version}/bin/protoc"
     downloaded_protoc_include_path = f"{cache_dir}/protoc-{version}/include"
 
-    protoc_zip_filename = f"protoc-{version}-{os_type}-{cpu_type}.zip"
     if not (
         os.path.isfile(downloaded_protoc_bin) and os.path.isdir(downloaded_protoc_include_path)
     ):
-        subprocess.check_call(
-            [
-                "wget",
-                f"https://github.com/protocolbuffers/protobuf/releases/download/v{version}/{protoc_zip_filename}",
-                "-O",
-                f"{cache_dir}/{protoc_zip_filename}",
-            ]
+        download_file(
+            f"https://github.com/protocolbuffers/protobuf/releases/download/v{version}/{protoc_zip_filename}",
+            f"{cache_dir}/{protoc_zip_filename}",
         )
         subprocess.check_call(
             [
@@ -158,7 +241,7 @@ def main():
     with tempfile.TemporaryDirectory() as temp_gencode_dir:
         temp_gencode_path = Path(temp_gencode_dir)
         proto3194_out = temp_gencode_path / "3.19.4"
-        proto5260_out = temp_gencode_path / "5.26.0"
+        proto5260_out = temp_gencode_path / "26.0"
         proto3194_out.mkdir(exist_ok=True)
         proto5260_out.mkdir(exist_ok=True)
 
