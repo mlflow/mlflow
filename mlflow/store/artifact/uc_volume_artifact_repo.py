@@ -28,7 +28,7 @@ FILE_API_ENDPOINT = "/api/2.0/fs/files"
 DOWNLOAD_CHUNK_SIZE = 1024
 
 
-class VolumesRestArtifactRepository(ArtifactRepository):
+class UCVolumeRestArtifactRepository(ArtifactRepository):
     """
     Stores artifacts on Volumes using the Files REST API.
 
@@ -214,4 +214,4 @@ def volumes_artifact_repo_factory(artifact_uri):
         final_artifact_uri = remove_databricks_profile_info_from_artifact_uri(cleaned_artifact_uri)
         file_uri = "file:///{}".format(strip_prefix(final_artifact_uri, "dbfs:/"))
         return LocalArtifactRepository(file_uri)
-    return VolumesRestArtifactRepository(cleaned_artifact_uri)
+    return UCVolumeRestArtifactRepository(cleaned_artifact_uri)
