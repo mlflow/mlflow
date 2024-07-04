@@ -713,18 +713,18 @@ def test_list_artifacts_handles_pagination(databricks_artifact_repo):
     ) as message_mock, mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
         side_effect=list_artifact_paginated_response_protos,
-    ): 
-
+    ):
         artifacts = databricks_artifact_repo.list_artifacts()
         assert {file.path for file in artifacts} == {"a.txt", "b", "c.txt", "d", "e.txt", "f"}
         calls = [
-        mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="")),
-        mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="", page_token="2")),
-        mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="", page_token="4")),
-        mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="", page_token="6")),
+            mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="")),
+            mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="", page_token="2")),
+            mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="", page_token="4")),
+            mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="", page_token="6")),
         ]
-        
+
         assert message_mock.mock_calls == calls
+
 
 def test_get_read_credential_infos_handles_pagination(databricks_artifact_repo):
     """
