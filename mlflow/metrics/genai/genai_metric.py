@@ -662,7 +662,6 @@ def retrieve_custom_metrics(
         A list of EvaluationMetric objects that match the retrieval criteria.
 
     .. code-block:: python
-        :test:
         :caption: Example for retrieving a custom genai metric
 
         import pandas as pd
