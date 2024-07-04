@@ -669,7 +669,10 @@ def retrieve_custom_metrics(
         import pandas as pd
 
         import mlflow
-        from mlflow.metrics.genai.genai_metric import make_genai_metric_from_prompt, retrieve_custom_metrics
+        from mlflow.metrics.genai.genai_metric import (
+            make_genai_metric_from_prompt,
+            retrieve_custom_metrics,
+        )
 
         eval_df = pd.DataFrame(
             {
@@ -700,12 +703,13 @@ def retrieve_custom_metrics(
                 targets="ground_truth",
                 model_type="question-answering",
                 evaluators="default",
-                extra_metrics=[custom_metric]
+                extra_metrics=[custom_metric],
             )
         metrics = retrieve_custom_metrics(
-            run_id=run.info.run_id, name="custom llm judge",
+            run_id=run.info.run_id,
+            name="custom llm judge",
         )
-    """  # noqa: E501
+    """
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run_id)]
     if _GENAI_CUSTOM_METRICS_FILE_NAME not in artifacts:
