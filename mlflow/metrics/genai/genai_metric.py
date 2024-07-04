@@ -665,12 +665,47 @@ def retrieve_custom_metrics(
         :test:
         :caption: Example for retrieving a custom genai metric
 
-        from mlflow.metrics.genai import retrieve_custom_metrics
+        import openai
+        import pandas as pd
 
-        metrics = retrieve_custom_metrics(
-            run_id=run.info.run_id, name="answer_similarity", version="v1"
+        import mlflow
+        from mlflow.metrics.genai.genai_metric import make_genai_metric_from_prompt, retrieve_custom_metrics
+
+        eval_df = pd.DataFrame(
+            {
+                "inputs": ["foo"],
+                "ground_truth": ["bar"],
+            }
         )
-    """
+        with mlflow.start_run() as run:
+            system_prompt = "Answer the following question in two sentences"
+            basic_qa_model = mlflow.openai.log_model(
+                model="gpt-3.5-turbo",
+                task=openai.chat.completions,
+                artifact_path="model",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": "{question}"},
+                ],
+            )
+            custom_metric = make_genai_metric_from_prompt(
+                name="custom llm judge",
+                judge_prompt="This is a custom judge prompt.",
+                greater_is_better=False,
+                parameters={"temperature": 0.0},
+            )
+            results = mlflow.evaluate(
+                basic_qa_model.model_uri,
+                eval_df,
+                targets="ground_truth",
+                model_type="question-answering",
+                evaluators="default",
+                extra_metrics=[custom_metric]
+            )
+        metrics = retrieve_custom_metrics(
+            run_id=run.info.run_id, name="custom llm judge",
+        )
+    """  # noqa: E501
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run_id)]
     if _GENAI_CUSTOM_METRICS_FILE_NAME not in artifacts:
