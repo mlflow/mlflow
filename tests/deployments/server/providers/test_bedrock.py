@@ -16,13 +16,15 @@ from mlflow.gateway.config import (
     RouteConfig,
 )
 
-from tests.gateway.providers.test_anthropic import (
+from tests.deployments.server.providers.test_anthropic import (
     completions_response as anthropic_completions_response,
 )
-from tests.gateway.providers.test_anthropic import (
+from tests.deployments.server.providers.test_anthropic import (
     parsed_completions_response as anthropic_parsed_completions_response,
 )
-from tests.gateway.providers.test_cohere import completions_response as cohere_completions_response
+from tests.deployments.server.providers.test_cohere import (
+    completions_response as cohere_completions_response,
+)
 
 
 def ai21_completion_response():
