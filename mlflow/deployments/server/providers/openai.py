@@ -4,12 +4,12 @@ from typing import TYPE_CHECKING, AsyncIterable, Dict
 
 from fastapi import HTTPException
 
+from mlflow.deployments.server.providers.base import BaseProvider
+from mlflow.deployments.server.providers.utils import send_request, send_stream_request
+from mlflow.deployments.server.schemas import chat, completions, embeddings
 from mlflow.environment_variables import MLFLOW_ENABLE_UC_FUNCTIONS
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import OpenAIAPIType, OpenAIConfig, RouteConfig
-from mlflow.deployments.server.providers.base import BaseProvider
-from mlflow.deployments.server.providers.utils import send_request, send_stream_request
-from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.uc_function_utils import (
     _UC_FUNCTION,
     TokenUsageAccumulator,

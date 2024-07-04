@@ -3,6 +3,11 @@ from unittest import mock
 import pytest
 from fastapi.encoders import jsonable_encoder
 
+from mlflow.deployments.server.providers.bedrock import (
+    AmazonBedrockModelProvider,
+    AmazonBedrockProvider,
+)
+from mlflow.deployments.server.schemas import completions
 from mlflow.gateway.config import (
     AmazonBedrockConfig,
     AWSBaseConfig,
@@ -10,8 +15,6 @@ from mlflow.gateway.config import (
     AWSRole,
     RouteConfig,
 )
-from mlflow.deployments.server.providers.bedrock import AmazonBedrockModelProvider, AmazonBedrockProvider
-from mlflow.gateway.schemas import completions
 
 from tests.gateway.providers.test_anthropic import (
     completions_response as anthropic_completions_response,
@@ -372,9 +375,11 @@ def test_bedrock_aws_client(provider, config, aws_config):
             fix["response"],
             fix["expected"],
             fix["model_request"],
-            marks=[]
-            if fix["provider"] is not AmazonBedrockModelProvider.COHERE
-            else pytest.mark.skip("Cohere isn't available on Amazon Bedrock yet"),
+            marks=(
+                []
+                if fix["provider"] is not AmazonBedrockModelProvider.COHERE
+                else pytest.mark.skip("Cohere isn't available on Amazon Bedrock yet")
+            ),
         )
         for fix in bedrock_model_provider_fixtures
     ],
@@ -383,7 +388,8 @@ async def test_bedrock_request_response(
     provider, config, payload, response, expected, model_request, aws_config
 ):
     with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "mlflow.deployments.server.providers.bedrock.AmazonBedrockProvider._request", return_value=response
+        "mlflow.deployments.server.providers.bedrock.AmazonBedrockProvider._request",
+        return_value=response,
     ) as mock_request:
         if not expected:
             pytest.skip("no expected value")

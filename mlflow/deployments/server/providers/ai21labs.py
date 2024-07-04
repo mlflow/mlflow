@@ -3,10 +3,10 @@ import time
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
-from mlflow.gateway.config import AI21LabsConfig, RouteConfig
 from mlflow.deployments.server.providers.base import BaseProvider
 from mlflow.deployments.server.providers.utils import rename_payload_keys, send_request
-from mlflow.gateway.schemas import completions
+from mlflow.deployments.server.schemas import completions
+from mlflow.gateway.config import AI21LabsConfig, RouteConfig
 
 
 class AI21LabsProvider(BaseProvider):

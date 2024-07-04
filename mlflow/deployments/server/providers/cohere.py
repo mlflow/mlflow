@@ -5,10 +5,14 @@ from typing import Any, AsyncGenerator, AsyncIterable, Dict
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
-from mlflow.gateway.config import CohereConfig, RouteConfig
 from mlflow.deployments.server.providers.base import BaseProvider, ProviderAdapter
-from mlflow.deployments.server.providers.utils import rename_payload_keys, send_request, send_stream_request
-from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.deployments.server.providers.utils import (
+    rename_payload_keys,
+    send_request,
+    send_stream_request,
+)
+from mlflow.deployments.server.schemas import chat, completions, embeddings
+from mlflow.gateway.config import CohereConfig, RouteConfig
 
 
 class CohereAdapter(ProviderAdapter):

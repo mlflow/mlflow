@@ -6,14 +6,14 @@ from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
+from mlflow.deployments.server.providers.anthropic import AnthropicProvider
+from mlflow.deployments.server.schemas import chat, completions, embeddings
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
     MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS,
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
 )
-from mlflow.deployments.server.providers.anthropic import AnthropicProvider
-from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse
 

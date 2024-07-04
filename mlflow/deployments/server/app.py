@@ -18,6 +18,8 @@ from mlflow.deployments.server.constants import (
     MLFLOW_DEPLOYMENTS_LIST_ENDPOINTS_PAGE_SIZE,
     MLFLOW_DEPLOYMENTS_QUERY_SUFFIX,
 )
+from mlflow.deployments.server.providers import get_provider
+from mlflow.deployments.server.schemas import chat, completions, embeddings
 from mlflow.environment_variables import (
     MLFLOW_DEPLOYMENTS_CONFIG,
     MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI,
@@ -40,8 +42,6 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE,
     MLFLOW_QUERY_SUFFIX,
 )
-from mlflow.deployments.server.providers import get_provider
-from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.utils import SearchRoutesToken, make_streaming_response
 from mlflow.version import VERSION
 

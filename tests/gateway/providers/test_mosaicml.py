@@ -7,11 +7,11 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow import MlflowException
+from mlflow.deployments.server.providers.mosaicml import MosaicMLProvider
+from mlflow.deployments.server.schemas import chat, completions, embeddings
+from mlflow.deployments.server.schemas.chat import RequestMessage
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
-from mlflow.deployments.server.providers.mosaicml import MosaicMLProvider
-from mlflow.gateway.schemas import chat, completions, embeddings
-from mlflow.gateway.schemas.chat import RequestMessage
 
 from tests.gateway.tools import MockAsyncResponse
 

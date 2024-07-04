@@ -3,10 +3,10 @@ from typing import Any, Dict
 
 from fastapi.encoders import jsonable_encoder
 
-from mlflow.gateway.config import MistralConfig, RouteConfig
 from mlflow.deployments.server.providers.base import BaseProvider, ProviderAdapter
 from mlflow.deployments.server.providers.utils import send_request
-from mlflow.gateway.schemas import completions, embeddings
+from mlflow.deployments.server.schemas import completions, embeddings
+from mlflow.gateway.config import MistralConfig, RouteConfig
 
 
 class MistralAdapter(ProviderAdapter):

@@ -4,10 +4,10 @@ from typing import Any, Dict
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
-from mlflow.gateway.config import PaLMConfig, RouteConfig
 from mlflow.deployments.server.providers.base import BaseProvider
 from mlflow.deployments.server.providers.utils import rename_payload_keys, send_request
-from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.deployments.server.schemas import chat, completions, embeddings
+from mlflow.gateway.config import PaLMConfig, RouteConfig
 
 
 class PaLMProvider(BaseProvider):

@@ -1,7 +1,7 @@
 import pydantic
 import pytest
 
-from mlflow.gateway.schemas import embeddings
+from mlflow.deployments.server.schemas import embeddings
 
 
 def test_embeddings_request():

@@ -3,7 +3,7 @@ import time
 import pydantic
 import pytest
 
-from mlflow.gateway.schemas import completions
+from mlflow.deployments.server.schemas import completions
 
 
 def test_completions_request():
