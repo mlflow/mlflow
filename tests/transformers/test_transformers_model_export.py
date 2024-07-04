@@ -1707,10 +1707,10 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
         ("random string", False),
     ],
 )
-def test_vision_is_base64_encoded(input_image, result):
+def test_vision_is_base64_image(input_image, result):
     if input_image == "base64":
         input_image = base64.b64encode(image_file_path.read_bytes()).decode("utf-8")
-    assert _TransformersWrapper.is_base64_encoded(input_image) == result
+    assert _TransformersWrapper.is_base64_image(input_image) == result
 
 
 @pytest.mark.parametrize(
@@ -2677,56 +2677,23 @@ def test_whisper_model_pyfunc_with_malformed_input(whisper_pipeline, model_path)
         pyfunc_model.predict("https:///my/audio.mp3")
 
 
-def test_audio_classification_pipeline(audio_classification_pipeline, raw_audio_file):
-    artifact_path = "audio_classification"
-    signature = infer_signature(
-        raw_audio_file,
-        mlflow.transformers.generate_signature_output(
-            audio_classification_pipeline, raw_audio_file
-        ),
-    )
+@pytest.mark.parametrize("with_input_example", [True, False])
+def test_audio_classification_pipeline(audio_classification_pipeline, with_input_example):
+    audio = read_audio_data("bytes")
 
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             transformers_model=audio_classification_pipeline,
-            artifact_path=artifact_path,
-            signature=signature,
-            input_example=raw_audio_file,
+            artifact_path="audio_classification",
+            input_example=audio if with_input_example else None,
+            save_pretrained=False,
         )
 
-    inference_payload = json.dumps({"inputs": [base64.b64encode(raw_audio_file).decode("ascii")]})
+    inference_payload = json.dumps({"inputs": [base64.b64encode(audio).decode("ascii")]})
 
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=inference_payload,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-
-    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
-    assert isinstance(values, pd.DataFrame)
-    assert len(values) > 1
-    assert list(values.columns) == ["score", "label"]
-
-
-def test_audio_classification_with_default_schema(audio_classification_pipeline, raw_audio_file):
-    artifact_path = "audio_classification"
-
-    with mlflow.start_run():
-        model_info = mlflow.transformers.log_model(
-            transformers_model=audio_classification_pipeline,
-            artifact_path=artifact_path,
-        )
-
-    inference_df = pd.DataFrame(
-        pd.Series([base64.b64encode(raw_audio_file).decode("ascii")], name="audio")
-    )
-    split_dict = {"dataframe_split": inference_df.to_dict(orient="split")}
-    split_json = json.dumps(split_dict)
-
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=split_json,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
