@@ -139,7 +139,7 @@ def _infer_signature_from_input_example_for_lc_model(
     if result is None:
         return None
 
-    prediction, signature = result
+    signature, prediction = result
 
     # try assign output schema if failing to infer it from prediction
     if signature.outputs is None:
