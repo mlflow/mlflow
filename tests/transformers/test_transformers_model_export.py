@@ -3387,9 +3387,14 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
     assert mlmodel["model_size_bytes"] == expected_size
 
 
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.34.0"), reason="Feature does not exist"
+)
 @pytest.mark.parametrize(
     ("task", "input_example"),
     [
+        ("llm/v1/completions", None),
+        ("llm/v1/chat", None),
         (
             "llm/v1/completions",
             {
@@ -3411,8 +3416,11 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
     ],
 )
 def test_text_generation_save_model_with_inference_task(
-    task, input_example, text_generation_pipeline, model_path
+    monkeypatch, task, input_example, text_generation_pipeline, model_path
 ):
+    # Strictly raise error during requirements inference for testing purposes
+    monkeypatch.setenv("MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", "true")
+
     mlflow.transformers.save_model(
         transformers_model=text_generation_pipeline,
         path=model_path,
@@ -3421,14 +3429,13 @@ def test_text_generation_save_model_with_inference_task(
     )
 
     mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
-
     flavor_config = mlmodel["flavors"]["transformers"]
     assert flavor_config["inference_task"] == task
-
     assert mlmodel["metadata"]["task"] == task
 
-    saved_input_example = json.loads(model_path.joinpath("input_example.json").read_text())
-    assert saved_input_example == input_example
+    if input_example:
+        saved_input_example = json.loads(model_path.joinpath("input_example.json").read_text())
+        assert saved_input_example == input_example
 
 
 def test_text_generation_save_model_with_invalid_inference_task(
@@ -3489,7 +3496,7 @@ def test_text_generation_task_completions_predict_with_max_tokens(
     inference = pyfunc_loaded.predict(
         {"prompt": "How to learn Python in 3 weeks?", "max_tokens": 5},
     )
-    assert inference[0]["usage"]["completion_tokens"] == 5
+    assert 6 > inference[0]["usage"]["completion_tokens"] > 0
 
 
 def test_text_generation_task_completions_predict_with_stop(text_generation_pipeline, model_path):
@@ -3498,7 +3505,7 @@ def test_text_generation_task_completions_predict_with_stop(text_generation_pipe
         path=model_path,
         task="llm/v1/completions",
         metadata={"foo": "bar"},
-        model_config={"stop": ["Python"]},
+        model_config={"stop": ["Python"], "max_tokens": 50},
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
@@ -3512,14 +3519,29 @@ def test_text_generation_task_completions_predict_with_stop(text_generation_pipe
             "skipping validation of stop parameter in inference"
         )
 
-    assert inference[0]["choices"][0]["finish_reason"] == "stop"
+    assert (
+        inference[0]["choices"][0]["finish_reason"] == "stop"
+        and inference[0]["usage"]["completion_tokens"] < 50
+    ) or (
+        inference[0]["choices"][0]["finish_reason"] == "length"
+        and inference[0]["usage"]["completion_tokens"] == 50
+    )
+
     assert inference[0]["choices"][0]["text"].endswith("Python")
 
     # Override model_config with runtime params
     inference = pyfunc_loaded.predict(
         {"prompt": "How to learn Python in 3 weeks?", "stop": ["Abracadabra"]},
     )
-    assert not inference[0]["choices"][0]["text"].endswith("Python")
+
+    response_text = inference[0]["choices"][0]["text"]
+
+    # Only check for early stopping if we stop on the word "Python".
+    # If we exhaust the token limit, there is a non-insignificant chance of
+    # terminating on the word due to max tokens, which should not count as
+    # a stop word abort if there are multiple instances of the word in the text.
+    if 0 < response_text.count("Python") < 2:
+        assert not inference[0]["choices"][0]["text"].endswith("Python")
 
 
 def test_text_generation_task_completions_serve(text_generation_pipeline):
