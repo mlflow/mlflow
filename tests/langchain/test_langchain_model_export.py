@@ -3430,7 +3430,7 @@ def test_signature_inference_fails(monkeypatch: pytest.MonkeyPatch):
         model_info = mlflow.langchain.log_model(
             model,
             "model",
-            # `chat` is empty so cannot infer signature
+            # Use an empty array to trigger an error in signature inference
             input_example={"chat": []},
         )
         assert model_info.signature is None
