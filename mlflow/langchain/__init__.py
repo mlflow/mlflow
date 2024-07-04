@@ -132,9 +132,15 @@ def _infer_signature_from_input_example_for_lc_model(
 ):
     from mlflow.langchain.utils.chat import _ChatResponse
 
-    signature, prediction = _infer_signature_from_input_example(
+    result = _infer_signature_from_input_example(
         input_example, wrapped_model, return_prediction=True, no_conversion=example_no_conversion
     )
+
+    if result is None:
+        return None
+
+    prediction, signature = result
+
     # try assign output schema if failing to infer it from prediction
     if signature.outputs is None:
         if isinstance(prediction, _ChatResponse):
