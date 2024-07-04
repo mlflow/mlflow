@@ -102,6 +102,17 @@ class ModelInfo:
         self._metadata = metadata
         self._registered_model_version = registered_model_version
 
+    def __repr__(self) -> str:
+        properties = [
+            attr
+            for attr in dir(ModelInfo)
+            if isinstance(getattr(ModelInfo, attr), property)
+            and not attr.startswith("_")  # Exclude private properties
+            and attr != "signature_dict"  # Exclude deprecated signature_dict
+        ]
+        attrs = ", ".join([f"{p}={getattr(self, p)!r}" for p in properties])
+        return f"{self.__class__.__name__}({attrs})"
+
     @property
     def artifact_path(self):
         """
