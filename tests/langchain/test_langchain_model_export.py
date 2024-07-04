@@ -3419,6 +3419,10 @@ def test_agent_executor_model_with_messages_input():
     ]
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
+    reason="feature not existing",
+)
 def test_signature_inference_fails(monkeypatch: pytest.MonkeyPatch):
     from langchain.schema.runnable import RunnableLambda
 
