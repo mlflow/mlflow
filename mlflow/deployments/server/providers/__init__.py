@@ -1,8 +1,8 @@
 from typing import Type
 
+from mlflow.deployments.server.providers.base import BaseProvider
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import Provider
-from mlflow.deployments.server.providers.base import BaseProvider
 
 
 def get_provider(provider: Provider) -> Type[BaseProvider]:
@@ -10,7 +10,9 @@ def get_provider(provider: Provider) -> Type[BaseProvider]:
     from mlflow.deployments.server.providers.anthropic import AnthropicProvider
     from mlflow.deployments.server.providers.bedrock import AmazonBedrockProvider
     from mlflow.deployments.server.providers.cohere import CohereProvider
-    from mlflow.deployments.server.providers.huggingface import HFTextGenerationInferenceServerProvider
+    from mlflow.deployments.server.providers.huggingface import (
+        HFTextGenerationInferenceServerProvider,
+    )
     from mlflow.deployments.server.providers.mistral import MistralProvider
     from mlflow.deployments.server.providers.mlflow import MlflowModelServingProvider
     from mlflow.deployments.server.providers.mosaicml import MosaicMLProvider

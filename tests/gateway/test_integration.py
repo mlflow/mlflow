@@ -6,9 +6,6 @@ import requests
 
 import mlflow
 import mlflow.gateway.utils
-from mlflow.exceptions import MlflowException
-from mlflow.gateway import MlflowGatewayClient, get_route, query, set_gateway_uri
-from mlflow.gateway.config import Route
 from mlflow.deployments.server.providers.ai21labs import AI21LabsProvider
 from mlflow.deployments.server.providers.anthropic import AnthropicProvider
 from mlflow.deployments.server.providers.bedrock import AmazonBedrockProvider
@@ -20,6 +17,9 @@ from mlflow.deployments.server.providers.mosaicml import MosaicMLProvider
 from mlflow.deployments.server.providers.openai import OpenAIProvider
 from mlflow.deployments.server.providers.palm import PaLMProvider
 from mlflow.deployments.server.providers.togetherai import TogetherAIProvider
+from mlflow.exceptions import MlflowException
+from mlflow.gateway import MlflowGatewayClient, get_route, query, set_gateway_uri
+from mlflow.gateway.config import Route
 from mlflow.utils.request_utils import _cached_get_request_session
 
 from tests.gateway.tools import (
