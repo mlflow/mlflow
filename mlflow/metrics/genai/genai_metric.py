@@ -665,7 +665,6 @@ def retrieve_custom_metrics(
         :test:
         :caption: Example for retrieving a custom genai metric
 
-        import openai
         import pandas as pd
 
         import mlflow
@@ -684,7 +683,7 @@ def retrieve_custom_metrics(
             system_prompt = "Answer the following question in two sentences"
             basic_qa_model = mlflow.openai.log_model(
                 model="gpt-3.5-turbo",
-                task=openai.chat.completions,
+                task="chat.completions",
                 artifact_path="model",
                 messages=[
                     {"role": "system", "content": system_prompt},
