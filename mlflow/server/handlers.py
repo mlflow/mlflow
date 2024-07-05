@@ -125,6 +125,9 @@ _tracking_store = None
 _model_registry_store = None
 _artifact_repo = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
+MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
+MAX_RESULTS_PER_RUN = 2500
+MAX_RESULTS_GET_METRIC_HISTORY = 25000
 
 
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
@@ -1195,10 +1198,6 @@ def _get_sampled_steps_from_steps(
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def get_metric_history_bulk_interval_handler():
-    MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
-    MAX_RESULTS_PER_RUN = 2500
-    MAX_RESULTS_GET_METRIC_HISTORY = 25000
-
     request_message = _get_request_message(
         GetMetricHistoryBulkInterval(),
         schema={
@@ -1227,7 +1226,12 @@ def get_metric_history_bulk_interval_handler():
             ],
         },
     )
+    response_message = get_metric_history_bulk_interval_impl(request_message)
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
 
+
+def get_metric_history_bulk_interval_impl(request_message):
     args = request.args
     run_ids = request_message.run_ids
     metric_key = request_message.metric_key
@@ -1297,9 +1301,7 @@ def get_metric_history_bulk_interval_handler():
 
     response_message = GetMetricHistoryBulkInterval.Response()
     response_message.metrics.extend([m.to_proto() for m in metrics_with_run_ids])
-    response = Response(mimetype="application/json")
-    response.set_data(message_to_json(response_message))
-    return response
+    return response_message
 
 
 @catch_mlflow_exception
