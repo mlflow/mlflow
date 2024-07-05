@@ -130,23 +130,9 @@ def get_default_conda_env():
 def _infer_signature_from_input_example_for_lc_model(
     input_example, wrapped_model, example_no_conversion=True
 ):
-    from mlflow.langchain.utils.chat import _ChatResponse
-
-    result = _infer_signature_from_input_example(
-        input_example, wrapped_model, return_prediction=True, no_conversion=example_no_conversion
+    return _infer_signature_from_input_example(
+        input_example, wrapped_model, no_conversion=example_no_conversion
     )
-
-    if result is None:
-        return None
-
-    signature, prediction = result
-
-    # try assign output schema if failing to infer it from prediction
-    if signature.outputs is None:
-        if isinstance(prediction, _ChatResponse):
-            signature.outputs = prediction.get_schema()
-
-    return signature
 
 
 @experimental
