@@ -24,6 +24,7 @@ from mlflow.utils.uri import (
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
     resolve_uri_if_local,
+    strip_scheme,
     validate_path_is_safe,
 )
 
@@ -897,3 +898,15 @@ def test_validate_path_is_safe_bad(path):
 def test_validate_path_is_safe_windows_bad(path):
     with pytest.raises(MlflowException, match="Invalid path"):
         validate_path_is_safe(path)
+
+
+@pytest.mark.parametrize(
+    ("uri", "expected"),
+    [
+        ("file:///path", "/path"),
+        ("file://host/path", "//host/path"),
+        ("file://host", "//host"),
+    ],
+)
+def test_strip_scheme(uri: str, expected: str):
+    assert strip_scheme(uri) == expected

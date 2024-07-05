@@ -492,3 +492,18 @@ def _decode(url):
         url = parsed
 
     raise ValueError("Failed to decode url")
+
+
+def strip_scheme(uri: str) -> str:
+    """
+    Strips the scheme from the specified URI.
+
+    Example:
+
+    >>> strip_scheme("http://example.com")
+    '//example.com'
+    """
+    parsed = urllib.parse.urlparse(uri)
+    # `_replace` looks like a private method, but it's actually part of the public API:
+    # https://docs.python.org/3/library/collections.html#collections.somenamedtuple._replace
+    return urllib.parse.urlunparse(parsed._replace(scheme=""))
