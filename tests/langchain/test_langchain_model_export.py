@@ -3403,3 +3403,24 @@ def test_agent_executor_model_with_messages_input():
             "messages": [AIMessage(content="Databricks")],
         }
     ]
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
+    reason="feature not existing",
+)
+def test_signature_inference_fails(monkeypatch: pytest.MonkeyPatch):
+    from langchain.schema.runnable import RunnableLambda
+
+    monkeypatch.setenv("MLFLOW_TESTING", "false")
+
+    model = RunnableLambda(lambda x: x)
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            model,
+            "model",
+            # Use an empty array to trigger an error in signature inference
+            input_example={"chat": []},
+        )
+        assert model_info.signature is None
