@@ -22,6 +22,7 @@ from mlflow.utils.uri import (
     is_databricks_model_registry_artifacts_uri,
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
+    strip_scheme,
 )
 
 # The following constants are defined as @developer_stable
@@ -92,8 +93,8 @@ class DbfsRestArtifactRepository(ArtifactRepository):
 
     def _get_dbfs_path(self, artifact_path):
         return "/{}/{}".format(
-            strip_prefix(self.artifact_uri, "dbfs:/"),
-            strip_prefix(artifact_path, "/"),
+            strip_scheme(self.artifact_uri).lstrip("/"),
+            artifact_path.lstrip("/"),
         )
 
     def _get_dbfs_endpoint(self, artifact_path):
