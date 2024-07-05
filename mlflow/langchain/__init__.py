@@ -127,14 +127,6 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-def _infer_signature_from_input_example_for_lc_model(
-    input_example, wrapped_model, example_no_conversion=True
-):
-    return _infer_signature_from_input_example(
-        input_example, wrapped_model, no_conversion=example_no_conversion
-    )
-
-
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces for internal predict calls while saving model
@@ -295,8 +287,8 @@ def save_model(
     if signature is None:
         if input_example is not None:
             wrapped_model = _LangChainModelWrapper(lc_model)
-            signature = _infer_signature_from_input_example_for_lc_model(
-                input_example, wrapped_model, example_no_conversion=example_no_conversion
+            signature = _infer_signature_from_input_example(
+                input_example, wrapped_model, no_conversion=example_no_conversion
             )
         else:
             if hasattr(lc_model, "input_keys"):

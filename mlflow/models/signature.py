@@ -396,12 +396,18 @@ def _infer_signature_from_input_example(
         else:
             signature = ModelSignature(input_schema, output_schema, params_schema)
 
-        # try assign output schema if failing to infer it from prediction
+        # try assign output schema if failing to infer it from prediction for langchain models
         if signature.outputs is None:
-            from mlflow.langchain.utils.chat import _ChatResponse
-
-            if isinstance(prediction, _ChatResponse):
-                signature.outputs = prediction.get_schema()
+            try:
+                from mlflow.langchain import _LangChainModelWrapper
+                from mlflow.langchain.utils.chat import _ChatResponse
+            except ImportError:
+                pass
+            else:
+                if isinstance(wrapped_model, _LangChainModelWrapper) and isinstance(
+                    prediction, _ChatResponse
+                ):
+                    signature.outputs = prediction.get_schema()
 
         return signature
     except Exception as e:
