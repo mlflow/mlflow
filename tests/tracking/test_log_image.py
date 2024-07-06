@@ -305,7 +305,7 @@ def test_async_log_image_flush():
         for i in range(100):
             mlflow.log_image(image1, key="dog", step=i, timestamp=i, synchronous=False)
 
-        mlflow.flush_artifact_async_logging()
+        mlflow.flush_async_logging()
 
         logged_path = "images/"
         artifact_uri = mlflow.get_artifact_uri(logged_path)
