@@ -9,6 +9,8 @@ from llama_index.core import PromptTemplate
 
 _logger = logging.getLogger(__name__)
 
+# TODO: add versioning to the map
+# TODO: think about hierarchy of objects
 OBJECT_DICT_METHOD_MAP = {
     llama_index.core.llms.llm.LLM: ("to_dict", "from_dict"),
     llama_index.core.base.embeddings.base.BaseEmbedding: ("to_dict", "from_dict"),
@@ -33,7 +35,6 @@ def _object_to_dict(obj: object) -> Dict[str, any]:
 
 
 def _get_object_import_path(o: object, do_validate_import: bool = False) -> str:
-    """Return an import path to the object."""
     if not inspect.isclass(o):
         o = o.__class__
 
@@ -97,7 +98,7 @@ def _construct_prompt_template_object(
         return prompt_template
     else:
         raise ValueError(
-            "'template' is a required kwargs and is not present in the prompt " "template kwargs."
+            "'template' is a required kwargs and is not present in the prompt template kwargs."
         )
 
 

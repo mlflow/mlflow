@@ -21,6 +21,7 @@ from mlflow.models import infer_signature
 from tests.llama_index._llama_index_test_fixtures import (
     document,  # noqa: F401
     embed_model,  # noqa: F401
+    llama_index_patches,
     multi_index,  # noqa: F401
     settings,  # noqa: F401
     single_graph,  # noqa: F401
@@ -55,17 +56,18 @@ def test_llama_index_native_save_and_load_model(request, index_fixture, tmp_path
     ],
 )
 def test_llama_index_native_log_and_load_model(request, index_fixture):
-    index = request.getfixturevalue(index_fixture)
-    with mlflow.start_run():
-        logged_model = mlflow.llama_index.log_model(index, "model", engine_type="query")
+    with llama_index_patches():
+        index = request.getfixturevalue(index_fixture)
+        with mlflow.start_run():
+            logged_model = mlflow.llama_index.log_model(index, "model", engine_type="query")
 
-    loaded_model = mlflow.llama_index.load_model(logged_model.model_uri)
+        loaded_model = mlflow.llama_index.load_model(logged_model.model_uri)
 
-    assert "llama_index" in logged_model.flavors
-    assert type(loaded_model) == type(index)
-    engine = loaded_model.as_query_engine()
-    assert engine is not None
-    assert engine.query("Spell llamaindex").response != ""
+        assert "llama_index" in logged_model.flavors
+        assert type(loaded_model) == type(index)
+        engine = loaded_model.as_query_engine()
+        assert engine is not None
+        assert engine.query("Spell llamaindex").response != ""
 
 
 @pytest.mark.parametrize(
@@ -103,41 +105,43 @@ def test_format_predict_input_incorrect_schema(single_index, engine_type):
     ["query", "retriever"],
 )
 def test_format_predict_input_correct_schema_complex(single_index, engine_type):
-    wrapped_model = create_engine_wrapper(single_index, engine_type)
+    with llama_index_patches():
+        wrapped_model = create_engine_wrapper(single_index, engine_type)
 
-    payload = {
-        "query_str": "hi",
-        "image_path": "some/path",
-        "custom_embedding_strs": [["a"]],
-        "embedding": [[1.0]],
-    }
-    assert isinstance(wrapped_model._format_predict_input(pd.DataFrame(payload)), QueryBundle)
-    payload.update(
-        {
-            "custom_embedding_strs": ["a"],
-            "embedding": [1.0],
+        payload = {
+            "query_str": "hi",
+            "image_path": "some/path",
+            "custom_embedding_strs": [["a"]],
+            "embedding": [[1.0]],
         }
-    )
-    assert isinstance(wrapped_model._format_predict_input(payload), QueryBundle)
+        assert isinstance(wrapped_model._format_predict_input(pd.DataFrame(payload)), QueryBundle)
+        payload.update(
+            {
+                "custom_embedding_strs": ["a"],
+                "embedding": [1.0],
+            }
+        )
+        assert isinstance(wrapped_model._format_predict_input(payload), QueryBundle)
 
 
 def test_spark_udf_query(tmp_path, spark, single_index):
-    df = spark.createDataFrame(
-        [
-            ("dummy text", "dummy text"),
-        ],
-        ["x"],
-    )
-    signature = infer_signature(model_input={"query_str": "hi"}, model_output=["output"])
-    mlflow.llama_index.save_model(
-        index=single_index, signature=signature, path=tmp_path, engine_type="query"
-    )
-    udf = mlflow.pyfunc.spark_udf(spark, tmp_path)
-    pdf = df.withColumn("z", udf("x")).toPandas()
-    assert list(map(json.loads, pdf["z"])) == [
-        [{"content": "a b", "role": "user"}],
-        [{"content": "c d", "role": "user"}],
-    ]
+    with llama_index_patches():
+        df = spark.createDataFrame(
+            [
+                ("dummy text", "dummy text"),
+            ],
+            ["x"],
+        )
+        signature = infer_signature(model_input={"query_str": "hi"}, model_output=["output"])
+        mlflow.llama_index.save_model(
+            index=single_index, signature=signature, path=tmp_path, engine_type="query"
+        )
+        udf = mlflow.pyfunc.spark_udf(spark, tmp_path)
+        pdf = df.withColumn("z", udf("x")).toPandas()
+        assert list(map(json.loads, pdf["z"])) == [
+            [{"content": "a b", "role": "user"}],
+            [{"content": "c d", "role": "user"}],
+        ]
 
 
 @pytest.mark.parametrize("with_signature", [True, False])

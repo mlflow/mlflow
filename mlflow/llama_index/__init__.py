@@ -12,11 +12,9 @@ from mlflow.llama_index.serialize_objects import (
     deserialize_settings,
     serialize_settings,
 )
-from mlflow.llama_index.signature import (
-    infer_signature_from_input_example,
-)
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
