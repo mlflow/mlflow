@@ -510,7 +510,18 @@ To use basic authentication, you must set both environment variables.
 
     mlflow.set_tracking_uri("https://<mlflow_tracking_uri>/")
     with mlflow.start_run():
-        ...
+
+Using Tracking URL
+---------------------------
+
+.. code-block:: python
+
+    import mlflow
+
+    mlflow.set_tracking_uri(f"https://<username>:<password>@<mlflow_tracking_uri>")
+    with mlflow.start_run():
+
+Note: avoid hard coding the username and password in the code. Instead, use a library like https://github.com/theskumar/python-dotenv.
 
 Using Credentials File
 ----------------------
