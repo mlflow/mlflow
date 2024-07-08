@@ -138,6 +138,8 @@ def _extract_raw_model(model):
         # with _SklearnModelWrapper, we need to extract the raw model from it.
         if isinstance(model._model_impl, _SklearnModelWrapper):
             return model_loader_module, model._model_impl.sklearn_model
+        # extract the raw model of xgboost flavor so that shap explainer uses the raw model
+        # instead of the wrapper and skip data schema validation
         try:
             from mlflow.xgboost import _XGBModelWrapper
 
@@ -180,12 +182,26 @@ def _extract_predict_fn(
         try:
             import xgboost
 
-            if isinstance(raw_model, xgboost.XGBModel):
+            def xgboost_predict_fn(raw_model):
                 # Because shap evaluation will pass evaluation data in ndarray format
                 # (without feature names), if set validate_features=True it will raise error.
-                predict_fn = partial(predict_fn, validate_features=False)
-                if predict_proba_fn is not None:
-                    predict_proba_fn = partial(predict_proba_fn, validate_features=False)
+                if isinstance(raw_model, xgboost.Booster):
+                    # we need to wrap the predict function to accept data in pandas format
+                    def wrapped_predict_fn(data, *args, **kwargs):
+                        return raw_model.predict(
+                            xgboost.DMatrix(data), *args, validate_features=False, **kwargs
+                        )
+
+                    return wrapped_predict_fn
+                elif isinstance(raw_model, xgboost.XGBModel):
+                    return partial(raw_model.predict, validate_features=False)
+                else:
+                    return raw_model.predict
+
+            predict_fn = xgboost_predict_fn(raw_model)
+
+            if isinstance(raw_model, xgboost.XGBModel) and predict_proba_fn is not None:
+                predict_proba_fn = partial(predict_proba_fn, validate_features=False)
         except ImportError:
             pass
     elif model is not None:
