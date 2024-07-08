@@ -341,6 +341,12 @@ class _XGBModelWrapper:
     def __init__(self, xgb_model):
         self.xgb_model = xgb_model
 
+    def get_raw_model(self):
+        """
+        Returns the underlying XGBoost model.
+        """
+        return self.xgb_model
+
     def predict(
         self,
         dataframe,
