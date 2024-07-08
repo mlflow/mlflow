@@ -9,7 +9,7 @@ import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from queue import Empty, Queue
-from typing import List
+from typing import Callable, List
 
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
@@ -45,7 +45,9 @@ class AsyncLoggingQueue:
     single worker thread.
     """
 
-    def __init__(self, logging_func: callable([str, [Metric], [Param], [RunTag]])) -> None:
+    def __init__(
+        self, logging_func: Callable[[str, List[Metric], List[Param], List[RunTag]], None]
+    ) -> None:
         """Initializes an AsyncLoggingQueue object.
 
         Args:
@@ -260,7 +262,7 @@ class AsyncLoggingQueue:
         self._stop_data_logging_thread_event = threading.Event()
 
     def log_batch_async(
-        self, run_id: str, params: [Param], tags: [RunTag], metrics: [Metric]
+        self, run_id: str, params: List[Param], tags: List[RunTag], metrics: List[Metric]
     ) -> RunOperations:
         """Asynchronously logs a batch of run data (parameters, tags, and metrics).
 
