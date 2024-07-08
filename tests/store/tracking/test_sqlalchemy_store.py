@@ -3419,8 +3419,10 @@ def test_log_inputs_fails_with_too_large_inputs(store: SqlAlchemyStore):
             ],
         )
 
-    # Test dataset schema too large (limit is 65535)
-    with pytest.raises(MlflowException, match="Dataset schema exceeds the maximum length of 65535"):
+    # Test dataset schema too large (limit is 16777215)
+    with pytest.raises(
+        MlflowException, match="Dataset schema exceeds the maximum length of 16777215"
+    ):
         store.log_inputs(
             run.info.run_id,
             [
@@ -3431,7 +3433,7 @@ def test_log_inputs_fails_with_too_large_inputs(store: SqlAlchemyStore):
                         digest="digest",
                         source_type="type",
                         source="source",
-                        schema="a" * 65536,
+                        schema="a" * 16777216,
                     ),
                 )
             ],
