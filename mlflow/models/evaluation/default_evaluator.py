@@ -131,11 +131,20 @@ def _infer_model_type_by_labels(labels):
 
 def _extract_raw_model(model):
     model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
-    if model_loader_module == "mlflow.sklearn" and not isinstance(model, _ServedPyFuncModel):
+    if model_loader_module in ["mlflow.sklearn", "mlflow.xgboost"] and not isinstance(
+        model, _ServedPyFuncModel
+    ):
         # If we load a sklearn model with mlflow.pyfunc.load_model, the model will be wrapped
         # with _SklearnModelWrapper, we need to extract the raw model from it.
         if isinstance(model._model_impl, _SklearnModelWrapper):
             return model_loader_module, model._model_impl.sklearn_model
+        try:
+            from mlflow.xgboost import _XGBModelWrapper
+
+            if isinstance(model._model_impl, _XGBModelWrapper):
+                return model_loader_module, model._model_impl.xgb_model
+        except ImportError:
+            pass
         return model_loader_module, model._model_impl
     else:
         return model_loader_module, None
