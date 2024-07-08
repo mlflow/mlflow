@@ -214,6 +214,12 @@ Explore the guides and tutorials below to start your journey!
                 <p>
                     View the <a href="llms/tracing/overview.html">Tracing Guide</a> for more information on tracing
                 </p>
+                <p>
+                    Learn how to use MLflow autologging with <a href="llms/openai/autologging.html">OpenAI</a> for automated trace logging
+                </p>
+                <p>
+                    Discover the automated <a href="llms/langchain/autologging.html">LangChain trace logging</a> with MLflow autologging
+                </p>
             </div>
             <div class="image-box">
                 <img src="_static/images/intro/tracing-ui.gif" alt="MLflow Tracing">
