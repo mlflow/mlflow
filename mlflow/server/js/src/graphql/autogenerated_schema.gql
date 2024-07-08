@@ -71,7 +71,6 @@ type MlflowRunExtension {
   inputs: MlflowRunInputs
   experiment: MlflowExperiment
   modelVersions: [MlflowModelVersion!]
-  metricHistory(metricKey: String!): [MlflowMetricWithRunId!]
 }
 
 type MlflowRunInfo {

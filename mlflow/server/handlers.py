@@ -1229,6 +1229,7 @@ def get_metric_history_bulk_interval_handler():
     response_message = get_metric_history_bulk_interval_impl(request_message)
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
+    return response
 
 
 def get_metric_history_bulk_interval_impl(request_message):
