@@ -14,7 +14,6 @@ import traceback
 import warnings
 from collections import namedtuple
 from contextlib import contextmanager
-from functools import partial
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
@@ -171,16 +170,17 @@ def _extract_predict_fn(
         predict_fn = raw_model.predict
         predict_proba_fn = getattr(raw_model, "predict_proba", None)
         try:
-            import xgboost
-
-            from mlflow.xgboost import _wrapped_xgboost_model_predict_fn
+            from mlflow.xgboost import (
+                _wrapped_xgboost_model_predict_fn,
+                _wrapped_xgboost_model_predict_proba_fn,
+            )
 
             # Because shap evaluation will pass evaluation data in ndarray format
             # (without feature names), if set validate_features=True it will raise error.
             predict_fn = _wrapped_xgboost_model_predict_fn(raw_model, validate_features=False)
-
-            if isinstance(raw_model, xgboost.XGBModel) and predict_proba_fn is not None:
-                predict_proba_fn = partial(predict_proba_fn, validate_features=False)
+            predict_proba_fn = _wrapped_xgboost_model_predict_proba_fn(
+                raw_model, validate_features=False
+            )
         except ImportError:
             pass
     elif model is not None:

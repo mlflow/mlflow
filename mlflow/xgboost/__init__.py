@@ -385,6 +385,15 @@ def _wrapped_xgboost_model_predict_fn(model, validate_features=True):
         return model.predict
 
 
+def _wrapped_xgboost_model_predict_proba_fn(model, validate_features=True):
+    import xgboost as xgb
+
+    predict_proba_fn = getattr(model, "predict_proba", None)
+    if isinstance(model, xgb.XGBModel) and predict_proba_fn is not None:
+        return partial(predict_proba_fn, validate_features=validate_features)
+    return predict_proba_fn
+
+
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     importance_types=None,
