@@ -2517,7 +2517,7 @@ def test_whisper_model_predict(model_path, whisper_pipeline, input_format, with_
     transcription = loaded_pipeline(audio)
     assert transcription["text"].startswith(" 30")
     # strip the leading space
-    expected_text = transcription["text"].strip()
+    expected_text = transcription["text"].lstrip()
 
     # 2. Single prediction with Pyfunc
     loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
@@ -2616,6 +2616,7 @@ def test_whisper_model_support_timestamps(whisper_pipeline):
 
     def _assert_prediction(pred):
         assert pred["text"] == gt["text"]
+        assert len(pred["chunks"]) == len(gt["chunks"])
         for pred_chunk, gt_chunk in zip(pred["chunks"], gt["chunks"]):
             assert pred_chunk["text"] == gt_chunk["text"]
             # Timestamps are tuples, but converted to list when serialized to JSON.
