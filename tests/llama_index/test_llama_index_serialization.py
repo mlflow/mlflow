@@ -15,7 +15,6 @@ from mlflow.llama_index.serialize_objects import (
 )
 
 from tests.llama_index._llama_index_test_fixtures import (
-    MockChatLLM,  # noqa: F401
     embed_model,  # noqa: F401
     llm,  # noqa: F401
     qa_prompt_template,  # noqa: F401
@@ -65,6 +64,16 @@ def test_sanitize_api_key_keys_not_present():
     assert "another_key" in sanitized_data
     assert sanitized_data["some_key"] == "some_value"
     assert sanitized_data["another_key"] == "another_value"
+
+
+def test_object_to_dict_no_required_param(llm):
+    o = llm
+    result = object_to_dict(o)
+    assert (
+        result["object_constructor"] == "tests.llama_index._llama_index_test_fixtures.MockChatLLM"
+    )
+    expected_kwargs = {k: v for k, v in o.to_dict().items() if k != "class_name"}
+    assert result["object_kwargs"] == expected_kwargs
 
 
 def test_object_to_dict_one_required_param(embed_model):
