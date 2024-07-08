@@ -135,10 +135,14 @@ The model can be loaded by using the ``models`` uri via the model that was logge
 
 .. code-block:: python
 
-    loaded_autologged_model = mlflow.pyfunc.load_model(f"models:/{REGISTERED_MODEL_NAME}/{MODEL_VERSION}")
+    loaded_autologged_model = mlflow.pyfunc.load_model(
+        f"models:/{REGISTERED_MODEL_NAME}/{MODEL_VERSION}"
+    )
 
-    loaded_autologged_model.predict("How much relative time difference would occur between an astronaut travelling at 0.98c for 14 years "
-                                    "as measured by an on-board clock on the spacecraft and humans on Earth, assuming constant speed?")
+    loaded_autologged_model.predict(
+        "How much relative time difference would occur between an astronaut travelling at 0.98c for 14 years "
+        "as measured by an on-board clock on the spacecraft and humans on Earth, assuming constant speed?"
+    )
 
 
 FAQ
@@ -164,9 +168,13 @@ development testing.
 
 .. code-block:: python
 
-    invoke_and_trace("What would happen if a standard trash truck were converted to its energy equivalent in 1 femtosecond?")
+    invoke_and_trace(
+        "What would happen if a standard trash truck were converted to its energy equivalent in 1 femtosecond?"
+    )
 
-    invoke_and_trace("What would a space-based optical telescope be capable of with a primary mirror 200 meters in diameter?")
+    invoke_and_trace(
+        "What would a space-based optical telescope be capable of with a primary mirror 200 meters in diameter?"
+    )
 
 These additional logged traces to the active experiment can be seen in the MLflow UI, as shown below:
 
