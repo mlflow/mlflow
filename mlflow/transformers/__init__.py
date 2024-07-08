@@ -1878,9 +1878,9 @@ class _TransformersWrapper:
 
         if isinstance(self.pipeline, transformers.TableQuestionAnsweringPipeline):
             data = self._coerce_exploded_dict_to_single_dict(data)
-            data = self._parse_input_for_table_question_answering(data)
-        if _is_conversational_pipeline(self.pipeline):
-            data = self._parse_conversation_input(data)
+            return self._parse_input_for_table_question_answering(data)
+        elif _is_conversational_pipeline(self.pipeline):
+            return self._parse_conversation_input(data)
         elif (  # noqa: SIM114
             isinstance(
                 self.pipeline,
