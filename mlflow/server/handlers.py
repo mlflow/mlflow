@@ -1025,6 +1025,13 @@ def _list_artifacts():
             "page_token": [_assert_string],
         },
     )
+    response_message = list_artifacts_impl(request_message)
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+def list_artifacts_impl(request_message):
     response_message = ListArtifacts.Response()
     if request_message.HasField("path"):
         path = request_message.path
@@ -1044,9 +1051,7 @@ def _list_artifacts():
 
     response_message.files.extend([a.to_proto() for a in artifact_entities])
     response_message.root_uri = run.info.artifact_uri
-    response = Response(mimetype="application/json")
-    response.set_data(message_to_json(response_message))
-    return response
+    return response_message
 
 
 @catch_mlflow_exception

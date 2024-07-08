@@ -81263,8 +81263,8 @@ public final class Service {
       "searchRuns\022\022.mlflow.SearchRuns\032\033.mlflow." +
       "SearchRuns.Response\":\362\206\0312\n!\n\004POST\022\023/mlfl" +
       "ow/runs/search\032\004\010\002\020\000\020\001*\013Search Runs\272\214\031\000\022" +
-      "\203\001\n\rlistArtifacts\022\025.mlflow.ListArtifacts" +
-      "\032\036.mlflow.ListArtifacts.Response\";\362\206\0317\n#" +
+      "\207\001\n\rlistArtifacts\022\025.mlflow.ListArtifacts" +
+      "\032\036.mlflow.ListArtifacts.Response\"?\362\206\0317\n#" +
       "\n\003GET\022\026/mlflow/artifacts/list\032\004\010\002\020\000\020\001*\016L" +
       "ist Artifacts\022\225\001\n\020getMetricHistory\022\030.mlf" +
       "low.GetMetricHistory\032!.mlflow.GetMetricH" +
