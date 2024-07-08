@@ -843,7 +843,7 @@ def log_metrics(
             max / min float values.
         step: A single integer step at which to log the specified
             Metrics. If unspecified, each metric is logged at step zero.
-        timestamp: Time when these metric were calculated. Defaults to the current system time.
+        timestamp: Time when these metrics were calculated. Defaults to the current system time.
         synchronous: *Experimental* If True, blocks until the metrics are logged
             successfully. If False, logs the metrics asynchronously and
             returns a future representing the logging operation. If None, read from environment
