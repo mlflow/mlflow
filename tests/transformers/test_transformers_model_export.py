@@ -1632,6 +1632,8 @@ def test_ner_pipeline(pipeline_name, model_path, data, result, request):
     reason="Conversation model is deprecated and removed.",
 )
 def test_conversational_pipeline(conversational_pipeline, model_path):
+    assert mlflow.transformers._is_conversational_pipeline(conversational_pipeline)
+
     signature = infer_signature(
         "Hi there!",
         mlflow.transformers.generate_signature_output(conversational_pipeline, "Hi there!"),
@@ -2223,42 +2225,6 @@ def test_parse_list_of_multiple_dicts(mock_pyfunc_wrapper):
 
     assert (
         mock_pyfunc_wrapper._parse_list_of_multiple_dicts(output_data, target_dict_key)
-        == expected_output
-    )
-
-
-def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper):
-    # Test with a single candidate pipeline output
-    output_data = [["foo", "bar", "baz"]]
-    expected_output = ["foo"]
-    assert (
-        mock_pyfunc_wrapper._parse_list_output_for_multiple_candidate_pipelines(output_data)
-        == expected_output
-    )
-
-    # Test with multiple candidate pipeline outputs
-    output_data = [
-        ["foo", "bar", "baz"],
-        ["qux", "quux"],
-        ["corge", "grault", "garply", "waldo"],
-    ]
-    expected_output = ["foo", "qux", "corge"]
-
-    assert (
-        mock_pyfunc_wrapper._parse_list_output_for_multiple_candidate_pipelines(output_data)
-        == expected_output
-    )
-
-    # Test with an empty list
-    output_data = []
-    with pytest.raises(MlflowException, match="The output of the pipeline contains no"):
-        mock_pyfunc_wrapper._parse_list_output_for_multiple_candidate_pipelines(output_data)
-
-    # Test with a nested list
-    output_data = [["foo"]]
-    expected_output = ["foo"]
-    assert (
-        mock_pyfunc_wrapper._parse_list_output_for_multiple_candidate_pipelines(output_data)
         == expected_output
     )
 
