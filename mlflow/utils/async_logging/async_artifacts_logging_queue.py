@@ -8,13 +8,13 @@ import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Callable, Union
 
 from mlflow.utils.async_logging.run_artifact import RunArtifact
 from mlflow.utils.async_logging.run_operations import RunOperations
 
 if TYPE_CHECKING:
-    import PIL
+    import PIL.Image
 
 _logger = logging.getLogger(__name__)
 
@@ -25,12 +25,14 @@ class AsyncArtifactsLoggingQueue:
     worker thread. This class is used to process artifacts saving in async fashion.
 
     Args:
-        logging_func: A callable function that takes in two arguments: a string
-            representing the run_id and a list of artifact paths to log.
+        logging_func: A callable function that takes in three arguments:
+            - filename: The name of the artifact file.
+            - artifact_path: The path to the artifact.
+            - artifact: The artifact to be logged.
     """
 
     def __init__(
-        self, artifact_logging_func: callable([str, str, Union["PIL.Image.Image"]])
+        self, artifact_logging_func: Callable[[str, str, Union["PIL.Image.Image"]], None]
     ) -> None:
         self._queue = Queue()
         self._lock = threading.RLock()
