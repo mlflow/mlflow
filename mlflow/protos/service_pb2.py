@@ -191,7 +191,7 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_MLFLOWSERVICE'].methods_by_name['getRun']._loaded_options = None
     _globals['_MLFLOWSERVICE'].methods_by_name['getRun']._serialized_options = b'\362\206\031*\n\035\n\003GET\022\020/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run\272\214\031\000'
     _globals['_MLFLOWSERVICE'].methods_by_name['searchRuns']._loaded_options = None
-    _globals['_MLFLOWSERVICE'].methods_by_name['searchRuns']._serialized_options = b'\362\206\0312\n!\n\004POST\022\023/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Search Runs'
+    _globals['_MLFLOWSERVICE'].methods_by_name['searchRuns']._serialized_options = b'\362\206\0312\n!\n\004POST\022\023/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Search Runs\272\214\031\000'
     _globals['_MLFLOWSERVICE'].methods_by_name['listArtifacts']._loaded_options = None
     _globals['_MLFLOWSERVICE'].methods_by_name['listArtifacts']._serialized_options = b'\362\206\0317\n#\n\003GET\022\026/mlflow/artifacts/list\032\004\010\002\020\000\020\001*\016List Artifacts'
     _globals['_MLFLOWSERVICE'].methods_by_name['getMetricHistory']._loaded_options = None
@@ -1267,7 +1267,7 @@ else:
     _MLFLOWSERVICE.methods_by_name['getRun']._options = None
     _MLFLOWSERVICE.methods_by_name['getRun']._serialized_options = b'\362\206\031*\n\035\n\003GET\022\020/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run\272\214\031\000'
     _MLFLOWSERVICE.methods_by_name['searchRuns']._options = None
-    _MLFLOWSERVICE.methods_by_name['searchRuns']._serialized_options = b'\362\206\0312\n!\n\004POST\022\023/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Search Runs'
+    _MLFLOWSERVICE.methods_by_name['searchRuns']._serialized_options = b'\362\206\0312\n!\n\004POST\022\023/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Search Runs\272\214\031\000'
     _MLFLOWSERVICE.methods_by_name['listArtifacts']._options = None
     _MLFLOWSERVICE.methods_by_name['listArtifacts']._serialized_options = b'\362\206\0317\n#\n\003GET\022\026/mlflow/artifacts/list\032\004\010\002\020\000\020\001*\016List Artifacts'
     _MLFLOWSERVICE.methods_by_name['getMetricHistory']._options = None

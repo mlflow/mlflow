@@ -81259,7 +81259,7 @@ public final class Service {
       "\n%\n\004POST\022\027/mlflow/runs/delete-tag\032\004\010\002\020\000\020" +
       "\001*\nDelete Tag\022e\n\006getRun\022\016.mlflow.GetRun\032" +
       "\027.mlflow.GetRun.Response\"2\362\206\031*\n\035\n\003GET\022\020/" +
-      "mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run\272\214\031\000\022u\n\n" +
+      "mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run\272\214\031\000\022y\n\n" +
       "searchRuns\022\022.mlflow.SearchRuns\032\033.mlflow." +
       "SearchRuns.Response\"6\362\206\0312\n!\n\004POST\022\023/mlfl" +
       "ow/runs/search\032\004\010\002\020\000\020\001*\013Search Runs\022\203\001\n\r" +
