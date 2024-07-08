@@ -84,6 +84,8 @@ class AsyncLoggingQueue:
             self._stop_data_logging_thread_event.set()
             # Waits till logging queue is drained.
             self._batch_logging_thread.join()
+            self._batch_logging_worker_threadpool.shutdown(wait=True)
+            self._batch_status_check_threadpool.shutdown(wait=True)
             # Set the status to tear down. The worker threads will still process
             # the remaining data.
             self._status = QueueStatus.TEAR_DOWN
@@ -299,6 +301,9 @@ class AsyncLoggingQueue:
 
     def is_idle(self) -> bool:
         return self._status == QueueStatus.IDLE
+
+    def is_tear_down(self) -> bool:
+        return self._status == QueueStatus.TEAR_DOWN
 
     def _set_up_logging_thread(self) -> None:
         """Sets up the logging thread.

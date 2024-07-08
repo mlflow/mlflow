@@ -625,7 +625,7 @@ class AbstractStore:
         new data (moving the queue state TEAR_DOWN state), but flush will ensure all data
         is processed before returning (moving the queue to IDLE state).
         """
-        if self._async_logging_queue.is_active():
+        if self._async_logging_queue.is_active() or self._async_logging_queue.is_tear_down():
             self._async_logging_queue.end_async_logging()
 
     def flush_async_logging(self):

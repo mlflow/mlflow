@@ -50,6 +50,12 @@ def random_train_data():
     return np.random.random((150, 4))
 
 
+@pytest.fixture(autouse=True)
+def end_async_logging():
+    yield
+    mlflow.end_async_logging()
+
+
 @pytest.fixture
 def random_one_hot_labels():
     n, n_class = (150, 3)
