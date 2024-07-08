@@ -130,10 +130,9 @@ def _infer_model_type_by_labels(labels):
 
 def _extract_raw_model(model):
     model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
-    # If we load a sklearn/xgboost model with mlflow.pyfunc.load_model, the model will be wrapped
-    # with a wrapper, we need to extract the raw model from it.
-    # Extract the raw model of xgboost flavor so that shap explainer uses the raw model
-    # instead of the wrapper and skip data schema validation.
+    # If we load a model with mlflow.pyfunc.load_model, the model will be wrapped
+    # with a pyfunc wrapper. We need to extract the raw model so that shap
+    # explainer uses the raw model instead of the wrapper and skips data schema validation.
     if model_loader_module in ["mlflow.sklearn", "mlflow.xgboost"] and not isinstance(
         model, _ServedPyFuncModel
     ):
@@ -174,23 +173,11 @@ def _extract_predict_fn(
         try:
             import xgboost
 
-            def xgboost_predict_fn(raw_model):
-                # Because shap evaluation will pass evaluation data in ndarray format
-                # (without feature names), if set validate_features=True it will raise error.
-                if isinstance(raw_model, xgboost.Booster):
-                    # we need to wrap the predict function to accept data in pandas format
-                    def wrapped_predict_fn(data, *args, **kwargs):
-                        return raw_model.predict(
-                            xgboost.DMatrix(data), *args, validate_features=False, **kwargs
-                        )
+            from mlflow.xgboost import _wrapped_xgboost_model_predict_fn
 
-                    return wrapped_predict_fn
-                elif isinstance(raw_model, xgboost.XGBModel):
-                    return partial(raw_model.predict, validate_features=False)
-                else:
-                    return raw_model.predict
-
-            predict_fn = xgboost_predict_fn(raw_model)
+            # Because shap evaluation will pass evaluation data in ndarray format
+            # (without feature names), if set validate_features=True it will raise error.
+            predict_fn = _wrapped_xgboost_model_predict_fn(raw_model, validate_features=False)
 
             if isinstance(raw_model, xgboost.XGBModel) and predict_proba_fn is not None:
                 predict_proba_fn = partial(predict_proba_fn, validate_features=False)
