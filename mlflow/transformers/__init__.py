@@ -1498,6 +1498,15 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     )
 
 
+def _is_conversational_pipeline(pipeline):
+    """
+    Checks if the pipeline is a ConversationalPipeline.
+    """
+    if cp := _try_import_conversational_pipeline():
+        return isinstance(pipeline, cp)
+    return False
+
+
 def _try_import_conversational_pipeline():
     """
     Try importing ConversationalPipeline because for version > 4.41.2
@@ -1750,9 +1759,7 @@ class _TransformersWrapper:
             output_key = None
             data = self._parse_feature_extraction_input(data)
             data = self._format_prompt_template(data)
-        elif (conversational_pipeline := _try_import_conversational_pipeline()) and isinstance(
-            self.pipeline, conversational_pipeline
-        ):
+        elif _is_conversational_pipeline(self.pipeline):
             output_key = None
             if not self._conversation:
                 # this import is valid if conversational_pipeline is not None
@@ -1788,7 +1795,7 @@ class _TransformersWrapper:
         data = self._convert_cast_lists_from_np_back_to_list(data)
 
         # Generate inference data with the pipeline object
-        if (cp := _try_import_conversational_pipeline()) and isinstance(self.pipeline, cp):
+        if _is_conversational_pipeline(self.pipeline):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
         else:
@@ -1869,10 +1876,12 @@ class _TransformersWrapper:
         """
         import transformers
 
-        data = self._coerce_exploded_dict_to_single_dict(data)
-        data = self._parse_input_for_table_question_answering(data)
-        data = self._parse_conversation_input(data)
-        if (  # noqa: SIM114
+        if isinstance(self.pipeline, transformers.TableQuestionAnsweringPipeline):
+            data = self._coerce_exploded_dict_to_single_dict(data)
+            return self._parse_input_for_table_question_answering(data)
+        elif _is_conversational_pipeline(self.pipeline):
+            return self._parse_conversation_input(data)
+        elif (  # noqa: SIM114
             isinstance(
                 self.pipeline,
                 (
@@ -2007,14 +2016,8 @@ class _TransformersWrapper:
                 "Only str, list of str, dict, and list of dict are supported."
             )
 
-    def _parse_conversation_input(self, data):
-        conversational_pipeline = _try_import_conversational_pipeline()
-
-        if (
-            not conversational_pipeline
-            or not isinstance(self.pipeline, conversational_pipeline)
-            or isinstance(data, str)
-        ):
+    def _parse_conversation_input(self, data) -> str:
+        if isinstance(data, str):
             return data
         elif isinstance(data, list) and all(isinstance(elem, dict) for elem in data):
             return next(iter(data[0].values()))
@@ -2023,24 +2026,20 @@ class _TransformersWrapper:
             return next(iter(data.values()))
 
     def _parse_input_for_table_question_answering(self, data):
-        import transformers
-
-        if not isinstance(self.pipeline, transformers.TableQuestionAnsweringPipeline):
-            return data
-
         if "table" not in data:
             raise MlflowException(
                 "The input dictionary must have the 'table' key.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-
         elif isinstance(data["table"], dict):
             data["table"] = json.dumps(data["table"])
             return data
         else:
             return data
 
-    def _coerce_exploded_dict_to_single_dict(self, data):
+    def _coerce_exploded_dict_to_single_dict(
+        self, data: List[Dict[str, Any]]
+    ) -> Dict[str, List[Any]]:
         """
         Parses the result of Pandas DataFrame.to_dict(orient="records") from pyfunc
         signature validation to coerce the output to the required format for a
@@ -2055,20 +2054,14 @@ class _TransformersWrapper:
 
         Output:
 
-        [
-          "We should order more pizzas to meet the demand.",
-          "The venue size should be updated to handle the number of guests.",
-        ]
-
+        {
+          "answer": [
+              "We should order more pizzas to meet the demand.",
+              "The venue size should be updated to handle the number of guests.",
+          ]
+        }
         """
-        import transformers
-
-        if not isinstance(
-            self.pipeline,
-            transformers.TableQuestionAnsweringPipeline,
-        ):
-            return data
-        elif isinstance(data, list) and all(isinstance(item, dict) for item in data):
+        if isinstance(data, list) and all(isinstance(item, dict) for item in data):
             collection = data.copy()
             parsed = collection[0]
             for coll in collection:
@@ -2361,22 +2354,6 @@ class _TransformersWrapper:
             ]
         else:
             return [output_data[0][target_dict_key]]
-
-    def _parse_list_output_for_multiple_candidate_pipelines(self, output_data):
-        # NB: This will not continue to parse nested lists. Pipelines do not output complex
-        # types that are greater than 2 levels deep so there is no need for more complex
-        # traversal for outputs.
-        if isinstance(output_data, list) and len(output_data) < 1:
-            raise MlflowException(
-                "The output of the pipeline contains no data.", error_code=BAD_REQUEST
-            )
-
-        if isinstance(output_data[0], list):
-            return [
-                self._parse_list_output_for_multiple_candidate_pipelines(x) for x in output_data
-            ]
-        else:
-            return output_data[0]
 
     def _parse_question_answer_input(self, data):
         """
