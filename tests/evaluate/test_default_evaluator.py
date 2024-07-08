@@ -4301,7 +4301,7 @@ def test_xgboost_model_evaluate_work_with_shap_explainer():
     import xgboost
     from sklearn.model_selection import train_test_split
 
-    mlflow.autolog(log_input_examples=True)
+    mlflow.xgboost.autolog(log_input_examples=True)
     X, y = shap.datasets.adult()
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
