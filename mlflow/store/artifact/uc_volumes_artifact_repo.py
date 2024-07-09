@@ -187,6 +187,6 @@ def uc_volumes_artifact_repo_factory(artifact_uri):
         # to mean the current workspace. Using `VolumeRestArtifactRepository` to access the current
         # workspace's Volumes should still work; it just may be slower.
         final_artifact_uri = remove_databricks_profile_info_from_artifact_uri(cleaned_artifact_uri)
-        file_uri = f"file:///{strip_scheme(final_artifact_uri).lstrip('/')}"
-        return LocalArtifactRepository(file_uri)
+        path = strip_scheme(final_artifact_uri).lstrip("/")
+        return LocalArtifactRepository(f"file:///{path}")
     return UCVolumesRestArtifactRepository(cleaned_artifact_uri)
