@@ -280,8 +280,8 @@ def log_model(
     )
 
 
-def _save_model(index, path):
-    """Serialize settings, additional llama index objects, and the index."""
+def _save_index(index, path):
+    """Serialize the index."""
     index_path = os.path.join(path, _INDEX_PERSIST_FOLDER)
     index.storage_context.persist(persist_dir=index_path)
 
