@@ -2,10 +2,12 @@ import importlib
 import inspect
 import json
 import logging
-from typing import Callable, Dict
+from typing import Any, Callable, Dict
 
 import llama_index
 from llama_index.core import PromptTemplate
+
+from mlflow.exceptions import INTERNAL_ERROR, MlflowException
 
 _logger = logging.getLogger(__name__)
 
@@ -24,13 +26,14 @@ def _object_to_dict(obj: object) -> Dict[str, any]:
         if isinstance(obj, k):
             if not hasattr(obj, v[0]):
                 raise MlflowException(
-                    f"Failed to deserialize object {obj}. This is likely an unsupported object in the MLflow Llama-Index flavor.",
-                    error_code=INTERNAL_ERROR
+                    f"Failed to deserialize object {obj}. This is likely an unsupported "
+                    "object in the MLflow Llama-Index flavor.",
+                    error_code=INTERNAL_ERROR,
                 )
 
             return getattr(obj, v[0])()
 
-return {}
+    return {}
 
 
 def _get_object_import_path(o: object) -> str:
@@ -40,11 +43,10 @@ def _get_object_import_path(o: object) -> str:
     module_name = inspect.getmodule(o).__name__
     class_name = o.__qualname__
 
-    if do_validate_import:
-        module = importlib.import_module(module_name)
-
-        if not hasattr(module, class_name):
-            raise ValueError(f"Module {module} does not have {class_name}")
+    # Validate the import
+    module = importlib.import_module(module_name)
+    if not hasattr(module, class_name):
+        raise ValueError(f"Module {module} does not have {class_name}")
 
     return f"{module_name}.{class_name}"
 
@@ -63,20 +65,18 @@ def _sanitize_api_key(object_as_dict: Dict[str, str]) -> Dict[str, str]:
     return object_as_dict
 
 
-def _object_to_dict(o: object) -> None:
-    try:
-        o_state_as_dict = _object_to_dict(o)
+def object_to_dict(o: object) -> None:
+    o_state_as_dict = _object_to_dict(o)
+
+    if o_state_as_dict != {}:
         o_state_as_dict = _sanitize_api_key(o_state_as_dict)
         o_state_as_dict.pop("class_name")
-    except AttributeError as e:
-        if "does not have a supported deserialization method" in str(e):
-            _logger.warning("Skipping serialization of {o} because...")
-            return {}
-        else:
-            raise
+    else:
+        _logger.warning("Skipping serialization of {o} because...")
+        return o_state_as_dict
 
     return {
-        "object_constructor": _get_object_import_path(o, do_validate_import=True),
+        "object_constructor": _get_object_import_path(o),
         "object_kwargs": o_state_as_dict,
     }
 

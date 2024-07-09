@@ -84,7 +84,7 @@ def _get_llama_index_version() -> str:
     except ImportError:
         raise MlflowException(
             "The llama_index module is not installed. "
-            "Please install it via `pip install llama-index`.",
+            "Please install it via `pip install llama-index`."
         )
 
 
@@ -329,10 +329,10 @@ def load_model(model_uri, dst_path=None):
     # NB: Settings is a singleton and can be loaded via llama_index.core.Settings
     deserialize_settings(settings_path)
 
-    return _load_model(local_model_path, flavor_conf)
+    return _load_index(local_model_path, flavor_conf)
 
 
 def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
     engine_type = model_config.pop("engine_type")
-    return create_engine_wrapper(_load_model(path, flavor_conf), engine_type, model_config)
+    return create_engine_wrapper(_load_index(path, flavor_conf), engine_type, model_config)
