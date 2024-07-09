@@ -273,7 +273,7 @@ def test_registered_model_and_registered_model_search_equality():
                 encryption_details=EncryptionDetails(
                     sse_encryption_details=SseEncryptionDetails(
                         algorithm=SseEncryptionAlgorithm.AWS_SSE_KMS,
-                        aws_kms_key_arn="key_id",
+                        aws_kms_key_arn="some:arn:test:key/key_id",
                     )
                 )
             ),
