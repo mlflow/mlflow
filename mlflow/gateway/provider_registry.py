@@ -1,13 +1,14 @@
-from typing import Type
+from typing import Dict, Type, Union
 
 from mlflow import MlflowException
+from mlflow.gateway.config import Provider
 from mlflow.gateway.providers import BaseProvider
 from mlflow.utils.os import get_entry_points
 
 
 class ProviderRegistry:
     def __init__(self):
-        self._providers = {}
+        self._providers: Dict[Union[str, Provider], Type[BaseProvider]] = {}
 
     def register(self, name: str, provider: Type[BaseProvider]):
         if name in self._providers:
@@ -21,9 +22,11 @@ class ProviderRegistry:
             raise MlflowException.invalid_parameter_value(f"Provider {name} not found")
         return self._providers[name]
 
+    def keys(self):
+        return list(self._providers.keys())
+
 
 def _register_default_providers(registry: ProviderRegistry):
-    from mlflow.gateway.config import Provider
     from mlflow.gateway.providers.ai21labs import AI21LabsProvider
     from mlflow.gateway.providers.anthropic import AnthropicProvider
     from mlflow.gateway.providers.bedrock import AmazonBedrockProvider

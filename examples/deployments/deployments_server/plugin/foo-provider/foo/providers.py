@@ -8,6 +8,7 @@ from mlflow.gateway.schemas import chat
 
 class FooProvider(BaseProvider):
     NAME = "foo"
+    CONFIG_TYPE = FooConfig
 
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
