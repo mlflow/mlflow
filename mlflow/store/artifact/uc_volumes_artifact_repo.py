@@ -1,6 +1,7 @@
 import os
 import posixpath
 from pathlib import Path
+from typing import Optional
 
 import mlflow.utils.databricks_utils
 from mlflow.entities import FileInfo
@@ -15,7 +16,6 @@ from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.utils.request_utils import augmented_raise_for_status
 from mlflow.utils.rest_utils import http_request
-from mlflow.utils.string_utils import strip_prefix
 from mlflow.utils.uri import (
     get_databricks_profile_uri_from_artifact_uri,
     is_databricks_model_registry_artifacts_uri,
@@ -38,15 +38,17 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
     def __init__(self, artifact_uri):
         if not is_valid_dbfs_uri(artifact_uri):
             raise MlflowException(
-                message="Artifact URI must be of the form dbfs:/Volumes/<path>",
+                message=f"Artifact URI must be of the form dbfs:/Volumes/<path>: {artifact_uri}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
         # The dbfs:/ path ultimately used for artifact operations should not contain the
-        # Databricks profile info, so strip it before setting ``artifact_uri``.
+        # Databricks profile info, so strip it before setting `artifact_uri`.
         super().__init__(remove_databricks_profile_info_from_artifact_uri(artifact_uri))
 
-        self.root = "/" + strip_scheme(self.artifact_uri).strip("/")
+        # Absolute path to the root of the volume. For example, '/Volumes/my-volume' for
+        # 'dbfs:/Volumes/my-volume'.
+        self.root_path = "/" + strip_scheme(self.artifact_uri).strip("/")
 
         if databricks_profile_uri := get_databricks_profile_uri_from_artifact_uri(artifact_uri):
             hostcreds_from_uri = get_databricks_host_creds(databricks_profile_uri)
@@ -54,18 +56,57 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
         else:
             self.get_host_creds = _get_host_creds_from_default_store()
 
+    def _relative_to_root(self, path):
+        return posixpath.relpath(path, self.root_path)
+
     def _api_request(self, endpoint, method, **kwargs):
         return http_request(
             host_creds=self.get_host_creds(), endpoint=endpoint, method=method, **kwargs
         )
 
-    def _list_directory_contents(self, directory_path: str):
-        # https://docs.databricks.com/api/workspace/files/listdirectorycontents
+    def _list_directory_contents(self, directory_path: str, next_page_token: Optional[str] = None):
+        """
+        Lists the contents of a directory.
+
+        Args:
+            directory_path: The absolute path of a directory.
+
+        Returns:
+            The response from the API.
+
+        See also:
+            https://docs.databricks.com/api/workspace/files/listdirectorycontents
+        """
         endpoint = f"{DIRECTORIES_API_ENDPOINT}{directory_path}"
         return self._api_request(endpoint=endpoint, method="GET")
 
+    def _paginated_list_directory_contents(self, path, next_page_token=None):
+        response = self._list_directory_contents(
+            self._get_path(path), next_page_token=next_page_token
+        )
+        if response.status_code == 404:
+            return []
+
+        response_json = response.json()
+        contents = response_json.get("contents", [])
+        if next_page_token := response_json.get("next_page_token"):
+            return contents + self._paginated_list_directory_contents(path, next_page_token)
+        return contents
+
     def _download(self, output_path: str, file_path: str):
-        # https://docs.databricks.com/api/workspace/files/download
+        """
+        Downloads a file.
+
+        Args:
+            output_path: The local path to save the downloaded file.
+            file_path: The absolute path of the file to download.
+
+        Returns:
+            The response from the API.
+
+        See also:
+            https://docs.databricks.com/api/workspace/files/download
+        """
         endpoint = f"{FILES_API_ENDPOINT}{file_path}"
         with open(output_path, "wb") as f:
             with self._api_request(endpoint=endpoint, method="GET", stream=True) as resp:
@@ -74,13 +115,29 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
                 return resp
 
     def _upload(self, local_file, file_path):
-        # https://docs.databricks.com/api/workspace/files/upload
+        """
+        Uploads a file.
+
+        Args:
+            local_file: The local path of the file to upload.
+            file_path: The absolute path of the file to upload.
+
+        Returns:
+            The response from the API.
+
+        See also:
+            https://docs.databricks.com/api/workspace/files/upload
+        """
         endpoint = f"{FILES_API_ENDPOINT}{file_path}"
         with open(local_file, "rb") as f:
             return self._api_request(endpoint=endpoint, method="PUT", data=f, allow_redirects=False)
 
     def _get_path(self, artifact_path=None):
-        return self.root if artifact_path else posixpath.join(self.root, artifact_path.strip("/"))
+        return (
+            posixpath.join(self.root_path, artifact_path.strip("/"))
+            if artifact_path
+            else self.root_path
+        )
 
     def log_artifact(self, local_file, artifact_path=None):
         basename = os.path.basename(local_file)
@@ -96,19 +153,15 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
                     artifact_subdir = artifact_path
                 else:
                     rel_path = local_path.relative_to(local_dir)
-                    rel_path = relative_path_to_artifact_path(rel_path)
+                    posix_rel_path = relative_path_to_artifact_path(rel_path)
                     artifact_subdir = (
-                        posixpath.join(artifact_path, rel_path) if artifact_path else rel_path
+                        posixpath.join(artifact_path, posix_rel_path)
+                        if artifact_path
+                        else posix_rel_path
                     )
                 self.log_artifact(local_path, artifact_subdir)
 
     def list_artifacts(self, path=None):
-        response = self._list_directory_contents(self._get_path(path))
-        if response.status_code == 404:
-            return []
-        json_response = response.json()
-
-        artifact_prefix = strip_scheme(self.artifact_uri).rstrip("/")
         # Response sample (https://docs.databricks.com/api/workspace/files/listdirectorycontents):
         # {
         #    "contents": [
@@ -123,22 +176,17 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
         #    "next_page_token": "string",
         # }
         infos = []
-        for file in json_response.get("contents", []):
-            stripped_path = strip_prefix(file["path"], artifact_prefix + "/")
-            # If `path` is a file, the Files list API returns a single list element with the
-            # same name as `path`. The list_artifacts API expects us to return an empty list in this
-            # case, so we do so here.
-            if stripped_path == path:
-                return []
-            infos.append(FileInfo(stripped_path, file["is_directory"], file.get("file_size")))
+        for content in self._paginated_list_directory_contents(path):
+            rel_path = self._relative_to_root(content["path"])
+            infos.append(FileInfo(rel_path, content["is_directory"], content.get("file_size")))
         return sorted(infos, key=lambda f: f.path)
 
     def _download_file(self, remote_file_path, local_path):
-        resp = self._download(output_path=local_path, endpoint=self._get_path(remote_file_path))
+        resp = self._download(output_path=local_path, file_path=self._get_path(remote_file_path))
         augmented_raise_for_status(resp)
 
     def delete_artifacts(self, artifact_path=None):
-        raise NotImplementedError()
+        raise NotImplementedError("Not implemented yet")
 
 
 def _get_host_creds_from_default_store():
@@ -167,12 +215,11 @@ def uc_volumes_artifact_repo_factory(artifact_uri):
     """
     if not is_valid_dbfs_uri(artifact_uri):
         raise MlflowException(
-            "DBFS URI must be of the form dbfs:/Volumes/<path> or "
-            + "dbfs://profile@databricks/Volumes/<path>, but received "
-            + artifact_uri
+            "Artifact URI must be of the form dbfs:/Volumes/<path> or "
+            f"dbfs://profile@databricks/Volumes/<path>, but received {artifact_uri}"
         )
 
-    cleaned_artifact_uri = strip_scheme(artifact_uri).rstrip("/")
+    cleaned_artifact_uri = artifact_uri.rstrip("/")
     db_profile_uri = get_databricks_profile_uri_from_artifact_uri(cleaned_artifact_uri)
     if (
         mlflow.utils.databricks_utils.is_dbfs_fuse_available()
@@ -187,6 +234,6 @@ def uc_volumes_artifact_repo_factory(artifact_uri):
         # to mean the current workspace. Using `VolumeRestArtifactRepository` to access the current
         # workspace's Volumes should still work; it just may be slower.
         final_artifact_uri = remove_databricks_profile_info_from_artifact_uri(cleaned_artifact_uri)
-        path = strip_scheme(final_artifact_uri).lstrip("/")
+        path = strip_scheme(final_artifact_uri).strip("/")
         return LocalArtifactRepository(f"file:///{path}")
     return UCVolumesRestArtifactRepository(cleaned_artifact_uri)
