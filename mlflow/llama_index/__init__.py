@@ -81,9 +81,7 @@ def _get_llama_index_version() -> str:
 
         return llama_index.core.__version__
     except ImportError:
-        raise ImportError("The llama_index module is not installed.")
-    except AttributeError:
-        raise AttributeError("The llama_index module does not have a __version__ attribute.")
+        raise MlflowException("The llama_index module is not installed. Please install it via `pip install llama-index`.", )
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
