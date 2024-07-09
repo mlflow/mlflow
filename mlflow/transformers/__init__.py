@@ -92,7 +92,7 @@ from mlflow.transformers.signature import (
 from mlflow.transformers.torch_utils import _TORCH_DTYPE_KEY, _deserialize_torch_dtype
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils import _truncate_and_ellipsize
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     disable_discrete_autologging,
@@ -427,20 +427,15 @@ def save_model(
 
             .. code-block:: python
 
-                from mlflow.models import infer_signature
-                from mlflow.transformers import generate_signature_output
                 from transformers import pipeline
 
                 en_to_de = pipeline("translation_en_to_de")
 
                 data = "MLflow is great!"
-                output = generate_signature_output(en_to_de, data)
-                signature = infer_signature(data, output)
 
                 mlflow.transformers.save_model(
                     transformers_model=en_to_de,
                     path="/path/to/save/model",
-                    signature=signature,
                     input_example=data,
                 )
 
@@ -883,15 +878,11 @@ def log_model(
 
             .. code-block:: python
 
-                from mlflow.models import infer_signature
-                from mlflow.transformers import generate_signature_output
                 from transformers import pipeline
 
                 en_to_de = pipeline("translation_en_to_de")
 
                 data = "MLflow is great!"
-                output = generate_signature_output(en_to_de, data)
-                signature = infer_signature(data, output)
 
                 with mlflow.start_run() as run:
                     mlflow.transformers.log_model(
@@ -1527,7 +1518,7 @@ def _try_import_conversational_pipeline():
         return
 
 
-@experimental
+@deprecated(since="2.15.0", alternative="input_example")
 def generate_signature_output(pipeline, data, model_config=None, params=None, flavor_config=None):
     """
     Utility for generating the response output for the purposes of extracting an output signature
