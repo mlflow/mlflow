@@ -6,9 +6,7 @@ from unittest.mock import ANY
 import openai
 import pytest
 from llama_index.agent.openai import OpenAIAgent
-from llama_index.core import (
-    Settings,
-)
+from llama_index.core import Settings
 from llama_index.core.llms import ChatMessage, ChatResponse
 from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core.tools import FunctionTool
