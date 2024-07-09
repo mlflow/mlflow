@@ -7,7 +7,6 @@ from mlflow.gateway.base_models import ConfigModel
 from mlflow.gateway.providers import BaseProvider
 from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
-    RESOURCE_DOES_NOT_EXIST,
 )
 
 
@@ -23,14 +22,14 @@ class ProviderRegistry:
     def register(self, name: str, provider: Type[BaseProvider], config: Type[ConfigModel]):
         if name in self._providers:
             raise MlflowException(
-                f"Provider {name} already registered.",
+                f"Provider {name} already registered",
                 error_code=RESOURCE_ALREADY_EXISTS,
             )
         self._providers[name] = ProviderEntry(provider=provider, config=config)
 
     def get(self, name: str) -> ProviderEntry:
         if name not in self._providers:
-            raise MlflowException(f"Provider {name} not found", error_code=RESOURCE_DOES_NOT_EXIST)
+            raise MlflowException.invalid_parameter_value(f"Provider {name} not found")
         return self._providers[name]
 
 
