@@ -1,12 +1,13 @@
 import logging
 import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import yaml
 from llama_index.core import StorageContext, load_index_from_storage
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.llama_index.pyfunc_wrapper import SUPPORTED_ENGINES, create_engine_wrapper
 from mlflow.llama_index.serialize_objects import (
     deserialize_settings,
@@ -81,7 +82,10 @@ def _get_llama_index_version() -> str:
 
         return llama_index.core.__version__
     except ImportError:
-        raise MlflowException("The llama_index module is not installed. Please install it via `pip install llama-index`.", )
+        raise MlflowException(
+            "The llama_index module is not installed. "
+            "Please install it via `pip install llama-index`.",
+        )
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -160,7 +164,7 @@ def save_model(
     settings_path = os.path.join(path, _SETTINGS_DIRECTORY)
     serialize_settings(settings_path)
 
-    _save_model(index, path)
+    _save_index(index, path)
 
     if not model_config:
         model_config = {"engine_type": engine_type}
