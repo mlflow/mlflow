@@ -4,6 +4,17 @@ MLflow OpenAI Autologging
 The OpenAI flavor for MLflow supports autologging to ensure that experimentation, testing, and validation of your ideas can be captured dynamically without 
 having to wrap your code with logging boilerplate. 
 
+.. attention::
+    Autologging is **only supported** for versions of the OpenAI SDK that are 1.17 and higher.
+
+MLflow autologging for the OpenAI SDK supports the following interfaces:
+
+- **Chat Completions** via ``client.chat.completions.create()``
+- **Completions** (legacy) via ``client.completions.create()``
+- **Embeddings** via ``client.embeddings.create()``
+
+Where ``client`` is either ``openai.OpenAI()`` or ``openai.AsyncOpenAI()``.
+
 In this guide, we'll discuss some of the key features that are available in the autologging feature. 
 
 .. contents:: Table of Contents
@@ -26,12 +37,27 @@ will allow you to log additional elements.
     import openai
     import mlflow
 
+    # Enables trace logging by default
     mlflow.openai.autolog()
 
-    openai_client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    openai_client = openai.OpenAI()
 
-    # Use the openai_client and traces will be logged to the active experiment
-    ...
+    messages = [
+        {
+            "role": "user",
+            "content": "What does turning something up to 11 refer to?",
+        }
+    ]
+
+    # The input messages and the response will be logged as a trace to the active experiment
+    answer = openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=messages,
+        temperature=0.99,
+    )
+
+.. note::
+    When using the OpenAI SDK, ensure that your access token is assigned to the environment variable ``OPENAI_API_KEY``.
 
 Configuration of OpenAI Autologging
 -----------------------------------
@@ -65,10 +91,6 @@ The available options and their default values are shown below. To learn more ab
       - ``false``
       - ``log_input_examples``
       - If set to ``True``, input examples from inference data are collected and logged along with OpenAI model artifacts during inference. This option is only available when ``log_models`` is enabled.
-    * - Datasets
-      - ``false``
-      - ``log_datasets``
-      - If set to ``True`` and a dataset is used with interacting with the OpenAI model, information about the dataset will be logged.
 
 
 For example, to disable logging of traces, and instead enable model logging, run the following code:
@@ -92,8 +114,6 @@ Example of using OpenAI Autologging
     import mlflow
     import openai
 
-    OPENAI_MODEL = "gpt-4o"
-    TEMP = 0.95
     API_KEY = os.environ.get("OPENAI_API_KEY")
     EXPERIMENT_NAME = "OpenAI Autologging Demonstration"
     REGISTERED_MODEL_NAME = "openai-auto"
@@ -119,9 +139,9 @@ Example of using OpenAI Autologging
     ]
 
     openai_client.chat.completions.create(
-        model=OPENAI_MODEL,
+        model="gpt-4o",
         messages=messages,
-        temperature=TEMP,
+        temperature=0.95,
     )
 
 Viewing the logged model and the trace used when invoking the OpenAI client within the UI can be seen in the image below:
@@ -148,37 +168,74 @@ The model can be loaded by using the ``models`` uri via the model that was logge
 FAQ
 ---
 
-How can I log all of my traces while developing?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+How can I manually log traces for the OpenAI SDK with MLflow?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 By setting an active experiment (it is not recommended to use the Default Experiment for this), you can use the high-level tracing fluent API
-when working on an interface to OpenAI with a simple wrapper function:
+when working on an interface to your model (whether you log the model or not) by utilizing the MLflow tracing fluent API. 
+
+You can discover how to use the `fluent API here <../tracing/index.html#tracing-fluent-apis>`_.
+
+Are asynchronous APIs supported in autologging?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The MLflow OpenAI autologging feature **does not support asynchronous APIs** for logging models or traces.
+
+Saving your async implementation is best done by using the `models from code feature <../../models.html#models-from-code>`_.
+
+If you would like to log trace events for an async OpenAI API, below is a simplified example of logging the trace for a streaming async request:
 
 .. code-block:: python
 
-    def invoke_and_trace(content: str):
-        with mlflow.start_span(name="Completions", span_type="LLM") as span:
-            span.set_inputs(content)
-            result = loaded_autologged_model.predict(content)
-            span.set_outputs(result)
-            return result
+    import openai
+    import mlflow
+    import asyncio
 
-Using this function to pass in test inputs and have them logged to the Experiment is an effective means of keeping track of a history of 
-development testing.
+    # Activate an experiment for logging traces to
+    mlflow.set_experiment("OpenAI")
 
-.. code-block:: python
 
-    invoke_and_trace(
-        "What would happen if a standard trash truck were converted to its energy equivalent in 1 femtosecond?"
-    )
+    async def fetch_openai_response(messages, model="gpt-4o", temperature=0.99):
+        """
+        Asynchronously gets a response from the OpenAI API using the provided messages and streams the response.
 
-    invoke_and_trace(
-        "What would a space-based optical telescope be capable of with a primary mirror 200 meters in diameter?"
-    )
+        Args:
+            messages (list): List of message dictionaries for the OpenAI API.
+            model (str): The model to use for the OpenAI API. Default is "gpt-4o".
+            temperature (float): The temperature to use for the OpenAI API. Default is 0.99.
 
-These additional logged traces to the active experiment can be seen in the MLflow UI, as shown below:
+        Returns:
+            None
+        """
+        client = openai.AsyncOpenAI()
 
-.. figure:: ../../_static/images/tutorials/llms/logging-traces.png
-    :alt: Logged traces for experimentation
-    :width: 80%
-    :align: center
+        # Create the response stream
+        response_stream = await client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            stream=True,
+        )
+
+        # Manually log traces using the tracing fluent API
+        with mlflow.start_span() as trace:
+            trace.set_inputs(messages)
+            full_response = []
+
+            async for chunk in response_stream:
+                content = chunk.choices[0].delta.content
+                if content is not None:
+                    print(content, end="")
+                    full_response.append(content)
+
+            trace.set_outputs("".join(full_response))
+
+
+    messages = [
+        {
+            "role": "user",
+            "content": "How much additional hydrogen mass would Jupiter require to ignite a sustainable fusion cycle?",
+        }
+    ]
+
+    await fetch_openai_response(messages)
