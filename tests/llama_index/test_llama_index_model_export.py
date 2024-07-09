@@ -1,18 +1,5 @@
-import pytest
-
 import mlflow
-import mlflow.llama_index
-import mlflow.pyfunc
-
-from tests.llama_index._llama_index_test_fixtures import (
-    document,  # noqa: F401
-    embed_model,  # noqa: F401
-    multi_index,  # noqa: F401
-    settings,  # noqa: F401
-    single_graph,  # noqa: F401
-    single_index,  # noqa: F401
-    spark,  # noqa: F401
-)
+import pytest
 
 
 @pytest.mark.parametrize(
