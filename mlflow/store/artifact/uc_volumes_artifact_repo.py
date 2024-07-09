@@ -172,7 +172,7 @@ def uc_volumes_artifact_repo_factory(artifact_uri):
             + artifact_uri
         )
 
-    cleaned_artifact_uri = strip_scheme(artifact_uri)
+    cleaned_artifact_uri = strip_scheme(artifact_uri).rstrip("/")
     db_profile_uri = get_databricks_profile_uri_from_artifact_uri(cleaned_artifact_uri)
     if (
         mlflow.utils.databricks_utils.is_dbfs_fuse_available()
@@ -187,6 +187,6 @@ def uc_volumes_artifact_repo_factory(artifact_uri):
         # to mean the current workspace. Using `VolumeRestArtifactRepository` to access the current
         # workspace's Volumes should still work; it just may be slower.
         final_artifact_uri = remove_databricks_profile_info_from_artifact_uri(cleaned_artifact_uri)
-        file_uri = f"file:///{strip_scheme(final_artifact_uri)}"
+        file_uri = f"file:///{strip_scheme(final_artifact_uri).lstrip('/')}"
         return LocalArtifactRepository(file_uri)
     return UCVolumesRestArtifactRepository(cleaned_artifact_uri)
