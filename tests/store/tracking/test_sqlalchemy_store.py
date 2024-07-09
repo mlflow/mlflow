@@ -3359,20 +3359,23 @@ def test_log_inputs_fails_with_missing_inputs(store: SqlAlchemyStore):
 def _validate_log_inputs(
     store: SqlAlchemyStore,
     exp_name,
-    correct_dataset_inputs,
-    wrong_dataset_inputs,
-    error_message,
+    dataset_inputs,
 ):
     run = _run_factory(store, _get_run_configs(_create_experiments(store, exp_name)))
-    store.log_inputs(run.info.run_id, correct_dataset_inputs)
+    store.log_inputs(run.info.run_id, dataset_inputs)
     run1 = store.get_run(run.info.run_id)
-    assert_dataset_inputs_equal(run1.inputs.dataset_inputs, correct_dataset_inputs)
+    assert_dataset_inputs_equal(run1.inputs.dataset_inputs, dataset_inputs)
 
+
+def _validate_invalid_log_inputs(store: SqlAlchemyStore, run_id, dataset_inputs, error_message):
     with pytest.raises(MlflowException, match=error_message):
-        store.log_inputs(run.info.run_id, wrong_dataset_inputs)
+        store.log_inputs(run_id, dataset_inputs)
 
 
 def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
+    run = _run_factory(store, _get_run_configs(_create_experiments(store, "test_invalid_inputs")))
+    run_id = run.info.run_id
+
     # Test input key
     dataset = entities.Dataset(name="name1", digest="digest1", source_type="type", source="source")
     _validate_log_inputs(
@@ -3384,6 +3387,10 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
                 dataset=dataset,
             )
         ],
+    )
+    _validate_invalid_log_inputs(
+        store,
+        run_id,
         [
             entities.DatasetInput(
                 tags=[entities.InputTag(key="a" * (MAX_INPUT_TAG_KEY_SIZE + 1), value="train")],
@@ -3404,6 +3411,10 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
                 dataset=dataset,
             )
         ],
+    )
+    _validate_invalid_log_inputs(
+        store,
+        run_id,
         [
             entities.DatasetInput(
                 tags=[entities.InputTag(key="key", value="a" * (MAX_INPUT_TAG_VALUE_SIZE + 1))],
@@ -3429,6 +3440,10 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
                 ),
             )
         ],
+    )
+    _validate_invalid_log_inputs(
+        store,
+        run_id,
         [
             entities.DatasetInput(
                 tags=tags,
@@ -3458,6 +3473,10 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
                 ),
             )
         ],
+    )
+    _validate_invalid_log_inputs(
+        store,
+        run_id,
         [
             entities.DatasetInput(
                 tags=tags,
@@ -3487,6 +3506,10 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
                 ),
             )
         ],
+    )
+    _validate_invalid_log_inputs(
+        store,
+        run_id,
         [
             entities.DatasetInput(
                 tags=tags,
@@ -3517,6 +3540,10 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
                 ),
             )
         ],
+    )
+    _validate_invalid_log_inputs(
+        store,
+        run_id,
         [
             entities.DatasetInput(
                 tags=tags,
@@ -3548,6 +3575,10 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
                 ),
             )
         ],
+    )
+    _validate_invalid_log_inputs(
+        store,
+        run_id,
         [
             entities.DatasetInput(
                 tags=tags,
