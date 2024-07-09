@@ -886,7 +886,6 @@ def log_metrics(
     )
 
 
-
 def log_params(
     params: Dict[str, Any], synchronous: Optional[bool] = None, run_id: Optional[str] = None
 ) -> Optional[RunOperations]:
