@@ -871,11 +871,6 @@ def test_invalid_model_type_without_registered_name_does_not_save(model_path):
         mlflow.transformers.save_model(transformers_model=invalid_pipeline, path=model_path)
 
 
-def test_invalid_input_to_pyfunc_signature_output_wrapper_raises(component_multi_modal):
-    with pytest.raises(MlflowException, match="The pipeline type submitted is not a valid"):
-        mlflow.transformers.generate_signature_output(component_multi_modal["model"], "bogus")
-
-
 @pytest.mark.parametrize(
     "inference_payload",
     [
@@ -907,15 +902,10 @@ def test_invalid_input_to_pyfunc_signature_output_wrapper_raises(component_multi
     ],
 )
 def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, inference_payload):
-    signature = infer_signature(
-        inference_payload,
-        mlflow.transformers.generate_signature_output(small_qa_pipeline, inference_payload),
-    )
-
     mlflow.transformers.save_model(
         transformers_model=small_qa_pipeline,
         path=model_path,
-        signature=signature,
+        input_example=inference_payload,
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
@@ -961,14 +951,10 @@ def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, i
         inference_payload = base64.b64encode(image_file_path.read_bytes()).decode("utf-8")
     elif inference_payload == "base64_encodebytes":
         inference_payload = base64.encodebytes(image_file_path.read_bytes()).decode("utf-8")
-    signature = infer_signature(
-        inference_payload,
-        mlflow.transformers.generate_signature_output(small_vision_model, inference_payload),
-    )
     mlflow.transformers.save_model(
         transformers_model=small_vision_model,
         path=model_path,
-        signature=signature,
+        input_example=inference_payload,
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     predictions = pyfunc_loaded.predict(inference_payload)
@@ -995,10 +981,6 @@ def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, i
 def test_text2text_generation_pipeline_with_model_configs(
     text2text_generation_pipeline, tmp_path, data, result
 ):
-    signature = infer_signature(
-        data, mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data)
-    )
-
     model_config = {
         "top_k": 2,
         "num_beams": 5,
@@ -1012,7 +994,7 @@ def test_text2text_generation_pipeline_with_model_configs(
         text2text_generation_pipeline,
         path=model_path1,
         model_config=model_config,
-        signature=signature,
+        input_example=data,
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path1)
 
@@ -1025,15 +1007,10 @@ def test_text2text_generation_pipeline_with_model_configs(
     assert pd_inference == result
 
     model_path2 = tmp_path.joinpath("model2")
-    signature_with_params = infer_signature(
-        data,
-        mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data),
-        model_config,
-    )
     mlflow.transformers.save_model(
         text2text_generation_pipeline,
         path=model_path2,
-        signature=signature_with_params,
+        input_example=(data, model_config),
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path2)
 
@@ -1057,20 +1034,11 @@ def test_text2text_generation_pipeline_with_model_config_and_params(
         "do_sample": True,
     }
     parameters = {"top_k": 3, "max_length": 30}
-    generated_output = mlflow.transformers.generate_signature_output(
-        text2text_generation_pipeline, data
-    )
-    signature = infer_signature(
-        data,
-        generated_output,
-        parameters,
-    )
-
     mlflow.transformers.save_model(
         text2text_generation_pipeline,
         path=model_path,
         model_config=model_config,
-        signature=signature,
+        input_example=(data, parameters),
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
@@ -1092,19 +1060,8 @@ def test_text2text_generation_pipeline_with_params_success(
 ):
     data = "muppet keyboard type"
     parameters = {"top_k": 2, "num_beams": 5, "do_sample": True}
-    generated_output = mlflow.transformers.generate_signature_output(
-        text2text_generation_pipeline, data
-    )
-    signature = infer_signature(
-        data,
-        generated_output,
-        parameters,
-    )
-
     mlflow.transformers.save_model(
-        text2text_generation_pipeline,
-        path=model_path,
-        signature=signature,
+        text2text_generation_pipeline, path=model_path, input_example=(data, parameters)
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
@@ -1119,18 +1076,8 @@ def test_text2text_generation_pipeline_with_params_with_errors(
 ):
     data = "muppet keyboard type"
     parameters = {"top_k": 2, "num_beams": 5, "invalid_param": "invalid_param", "do_sample": True}
-    generated_output = mlflow.transformers.generate_signature_output(
-        text2text_generation_pipeline, data
-    )
-
     mlflow.transformers.save_model(
-        text2text_generation_pipeline,
-        path=model_path,
-        signature=infer_signature(
-            data,
-            generated_output,
-            parameters,
-        ),
+        text2text_generation_pipeline, path=model_path, signature=(data, parameters)
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     with pytest.raises(
@@ -1158,37 +1105,9 @@ def test_text2text_generation_pipeline_with_inferred_schema(text2text_generation
 
 
 @pytest.mark.parametrize(
-    "invalid_data",
-    [
-        ({"answer": "something", "context": ["nothing", "that", "makes", "sense"]}),
-        ([{"answer": ["42"], "context": "life"}, {"unmatched": "keys", "cause": "failure"}]),
-    ],
-)
-def test_invalid_input_to_text2text_pipeline(text2text_generation_pipeline, invalid_data):
-    # Adding this validation test due to the fact that we're constructing the input to the
-    # Pipeline. The Pipeline requires a format of a pseudo-dict-like string. An example of
-    # a valid input string: "answer: green. context: grass is primarily green in color."
-    # We generate this string from a dict or generate a list of these strings from a list of
-    # dictionaries.
-    with pytest.raises(
-        MlflowException, match=r"An invalid type has been supplied: .+\. Please supply"
-    ):
-        infer_signature(
-            invalid_data,
-            mlflow.transformers.generate_signature_output(
-                text2text_generation_pipeline, invalid_data
-            ),
-        )
-
-
-@pytest.mark.parametrize(
     "data", ["Generative models are", (["Generative models are", "Computers are"])]
 )
 def test_text_generation_pipeline(text_generation_pipeline, model_path, data):
-    signature = infer_signature(
-        data, mlflow.transformers.generate_signature_output(text_generation_pipeline, data)
-    )
-
     model_config = {
         "prefix": "software",
         "top_k": 2,
@@ -1202,7 +1121,7 @@ def test_text_generation_pipeline(text_generation_pipeline, model_path, data):
         text_generation_pipeline,
         path=model_path,
         model_config=model_config,
-        signature=signature,
+        input_example=data,
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
@@ -1225,26 +1144,6 @@ def test_text_generation_pipeline(text_generation_pipeline, model_path, data):
 
 
 @pytest.mark.parametrize(
-    "invalid_data",
-    [
-        ({"my_input": "something to predict"}),
-        ([{"bogus_input": "invalid"}, "not_valid"]),
-        (["tell me a story", {"of": "a properly configured pipeline input"}]),
-    ],
-)
-def test_invalid_input_to_text_generation_pipeline(text_generation_pipeline, invalid_data):
-    if isinstance(invalid_data, list):
-        match = "If supplying a list, all values must be of string type"
-    else:
-        match = "The input data is of an incorrect type"
-    with pytest.raises(MlflowException, match=match):
-        infer_signature(
-            invalid_data,
-            mlflow.transformers.generate_signature_output(text_generation_pipeline, invalid_data),
-        )
-
-
-@pytest.mark.parametrize(
     ("inference_payload", "result"),
     [
         ("Riding a <mask> on the beach is fun!", ["bike"]),
@@ -1256,12 +1155,9 @@ def test_invalid_input_to_text_generation_pipeline(text_generation_pipeline, inv
     ],
 )
 def test_fill_mask_pipeline(fill_mask_pipeline, model_path, inference_payload, result):
-    signature = infer_signature(
-        inference_payload,
-        mlflow.transformers.generate_signature_output(fill_mask_pipeline, inference_payload),
+    mlflow.transformers.save_model(
+        fill_mask_pipeline, path=model_path, input_example=inference_payload
     )
-
-    mlflow.transformers.save_model(fill_mask_pipeline, path=model_path, signature=signature)
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
     inference = pyfunc_loaded.predict(inference_payload)
@@ -1290,25 +1186,6 @@ def test_fill_mask_pipeline_with_multiple_masks(fill_mask_pipeline, model_path):
 
 
 @pytest.mark.parametrize(
-    "invalid_data",
-    [
-        ({"a": "b"}),
-        ([{"a": "b"}, [{"a": "c"}]]),
-    ],
-)
-def test_invalid_input_to_fill_mask_pipeline(fill_mask_pipeline, invalid_data):
-    if isinstance(invalid_data, list):
-        match = "Invalid data submission. Ensure all"
-    else:
-        match = "The input data is of an incorrect type"
-    with pytest.raises(MlflowException, match=match):
-        infer_signature(
-            invalid_data,
-            mlflow.transformers.generate_signature_output(fill_mask_pipeline, invalid_data),
-        )
-
-
-@pytest.mark.parametrize(
     "data",
     [
         {
@@ -1323,13 +1200,7 @@ def test_invalid_input_to_fill_mask_pipeline(fill_mask_pipeline, invalid_data):
     ],
 )
 def test_zero_shot_classification_pipeline(zero_shot_pipeline, model_path, data):
-    # NB: The list submission for this pipeline type can accept json-encoded lists or lists within
-    # the values of the dictionary.
-    signature = infer_signature(
-        data, mlflow.transformers.generate_signature_output(zero_shot_pipeline, data)
-    )
-
-    mlflow.transformers.save_model(zero_shot_pipeline, model_path, signature=signature)
+    mlflow.transformers.save_model(zero_shot_pipeline, model_path, input_example=data)
 
     loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
     inference = loaded_pyfunc.predict(data)
@@ -1366,12 +1237,8 @@ def test_table_question_answering_pipeline(
     }
     json_table = json.dumps(table)
     data = {**query, "table": json_table}
-    signature = infer_signature(
-        data, mlflow.transformers.generate_signature_output(table_question_answering_pipeline, data)
-    )
-
     mlflow.transformers.save_model(
-        table_question_answering_pipeline, model_path, signature=signature
+        table_question_answering_pipeline, model_path, input_example=data
     )
     loaded = mlflow.pyfunc.load_model(model_path)
 
@@ -1388,15 +1255,10 @@ def test_table_question_answering_pipeline(
 )
 def test_custom_code_pipeline(custom_code_pipeline, model_path):
     data = "hello"
-
-    signature = infer_signature(
-        data, mlflow.transformers.generate_signature_output(custom_code_pipeline, data)
-    )
-
     mlflow.transformers.save_model(
         custom_code_pipeline,
         path=model_path,
-        signature=signature,
+        input_example=data,
     )
 
     # just test that it doens't blow up when performing inference
@@ -1414,11 +1276,6 @@ def test_custom_code_pipeline(custom_code_pipeline, model_path):
 )
 def test_custom_components_pipeline(custom_components_pipeline, model_path):
     data = "hello"
-
-    signature = infer_signature(
-        data, mlflow.transformers.generate_signature_output(custom_components_pipeline, data)
-    )
-
     components = {
         "model": custom_components_pipeline.model,
         "tokenizer": custom_components_pipeline.tokenizer,
@@ -1426,7 +1283,7 @@ def test_custom_components_pipeline(custom_components_pipeline, model_path):
     }
 
     mlflow.transformers.save_model(
-        transformers_model=components, path=model_path, signature=signature
+        transformers_model=components, path=model_path, input_example=data
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
@@ -1460,11 +1317,7 @@ def test_custom_components_pipeline(custom_components_pipeline, model_path):
     ],
 )
 def test_translation_pipeline(translation_pipeline, model_path, data, result):
-    signature = infer_signature(
-        data, mlflow.transformers.generate_signature_output(translation_pipeline, data)
-    )
-
-    mlflow.transformers.save_model(translation_pipeline, path=model_path, signature=signature)
+    mlflow.transformers.save_model(translation_pipeline, path=model_path, input_example=data)
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     inference = pyfunc_loaded.predict(data)
     assert inference == result
@@ -1497,12 +1350,9 @@ def test_summarization_pipeline(summarizer_pipeline, model_path, data):
         "top_p": 0.85,
         "repetition_penalty": 1.15,
     }
-    signature = infer_signature(
-        data, mlflow.transformers.generate_signature_output(summarizer_pipeline, data)
-    )
 
     mlflow.transformers.save_model(
-        summarizer_pipeline, path=model_path, model_config=model_config, signature=signature
+        summarizer_pipeline, path=model_path, model_config=model_config, input_example=data
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
@@ -1546,11 +1396,8 @@ def test_summarization_pipeline(summarizer_pipeline, model_path, data):
     ],
 )
 def test_classifier_pipeline(text_classification_pipeline, model_path, data):
-    signature = infer_signature(
-        data, mlflow.transformers.generate_signature_output(text_classification_pipeline, data)
-    )
     mlflow.transformers.save_model(
-        text_classification_pipeline, path=model_path, signature=signature
+        text_classification_pipeline, path=model_path, input_example=data
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
@@ -1592,9 +1439,7 @@ def test_classifier_pipeline(text_classification_pipeline, model_path, data):
 def test_ner_pipeline(pipeline_name, model_path, data, result, request):
     pipeline = request.getfixturevalue(pipeline_name)
 
-    signature = infer_signature(data, mlflow.transformers.generate_signature_output(pipeline, data))
-
-    mlflow.transformers.save_model(pipeline, model_path, signature=signature)
+    mlflow.transformers.save_model(pipeline, model_path, input_example=data)
     loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
     inference = loaded_pyfunc.predict(data)
 
@@ -1617,12 +1462,7 @@ def test_ner_pipeline(pipeline_name, model_path, data, result, request):
 def test_conversational_pipeline(conversational_pipeline, model_path):
     assert mlflow.transformers._is_conversational_pipeline(conversational_pipeline)
 
-    signature = infer_signature(
-        "Hi there!",
-        mlflow.transformers.generate_signature_output(conversational_pipeline, "Hi there!"),
-    )
-
-    mlflow.transformers.save_model(conversational_pipeline, model_path, signature=signature)
+    mlflow.transformers.save_model(conversational_pipeline, model_path, input_example="Hi there!")
     loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
 
     first_response = loaded_pyfunc.predict("What is the best way to get to Antarctica?")
@@ -1962,18 +1802,10 @@ def test_table_question_answering_pyfunc_predict(table_question_answering_pipeli
 
 
 def test_feature_extraction_pipeline(feature_extraction_pipeline):
-    sentences = ["hi", "hello"]
-    signature = infer_signature(
-        sentences,
-        mlflow.transformers.generate_signature_output(feature_extraction_pipeline, sentences),
-    )
-
-    artifact_path = "feature_extraction_pipeline"
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             transformers_model=feature_extraction_pipeline,
-            artifact_path=artifact_path,
-            signature=signature,
+            artifact_path="feature_extraction_pipeline",
             input_example=["A sentence", "Another sentence"],
         )
 
@@ -2712,11 +2544,7 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
         model_info = mlflow.transformers.log_model(
             transformers_model=small_vision_model,
             artifact_path=artifact_path,
-            signature=infer_signature(
-                image_url,
-                mlflow.transformers.generate_signature_output(small_vision_model, image_url),
-                params=parameters,
-            ),
+            input_example=(image_url, parameters),
         )
         model_uri = model_info.model_uri
     transformers_loaded_model = mlflow.transformers.load_model(model_uri)
@@ -2762,12 +2590,6 @@ def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
             "params": parameters,
         }
     )
-    output = mlflow.transformers.generate_signature_output(small_qa_pipeline, data)
-    signature_with_params = infer_signature(
-        data,
-        output,
-        parameters,
-    )
     expected_signature = ModelSignature(
         Schema(
             [
@@ -2789,7 +2611,7 @@ def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
         mlflow.transformers.log_model(
             transformers_model=small_qa_pipeline,
             artifact_path=artifact_path,
-            signature=signature_with_params,
+            input_example=(data, parameters),
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
@@ -2907,9 +2729,6 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot():
             python_model=QAModel(),
             artifacts={"bert-tiny-model": "hf:/prajjwal1/bert-tiny"},
             input_example=data,
-            signature=infer_signature(
-                data, mlflow.transformers.generate_signature_output(bert_tiny_pipeline, data)
-            ),
             extra_pip_requirements=["transformers", "torch", "numpy"],
         )
 
