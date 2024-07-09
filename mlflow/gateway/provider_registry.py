@@ -20,12 +20,7 @@ class ProviderRegistry:
     def __init__(self):
         self._providers = {}
 
-    def register(
-        self,
-        name: str,
-        provider: Type[BaseProvider],
-        config: Type[ConfigModel],
-    ):
+    def register(self, name: str, provider: Type[BaseProvider], config: Type[ConfigModel]):
         if name in self._providers:
             raise MlflowException(
                 f"Provider {name} already registered.",
@@ -35,9 +30,7 @@ class ProviderRegistry:
 
     def get(self, name: str) -> ProviderEntry:
         if name not in self._providers:
-            raise MlflowException(
-                f"Provider {name} not found", error_code=RESOURCE_DOES_NOT_EXIST
-            )
+            raise MlflowException(f"Provider {name} not found", error_code=RESOURCE_DOES_NOT_EXIST)
         return self._providers[name]
 
 
@@ -82,9 +75,7 @@ def _register_default_providers(registry: ProviderRegistry):
         MlflowModelServingConfig,
     )
     registry.register(Provider.BEDROCK, AmazonBedrockProvider, AmazonBedrockConfig)
-    registry.register(
-        Provider.AMAZON_BEDROCK, AmazonBedrockProvider, AmazonBedrockConfig
-    )
+    registry.register(Provider.AMAZON_BEDROCK, AmazonBedrockProvider, AmazonBedrockConfig)
     registry.register(
         Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE,
         HFTextGenerationInferenceServerProvider,
