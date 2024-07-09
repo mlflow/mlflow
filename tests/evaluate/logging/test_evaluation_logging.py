@@ -650,7 +650,7 @@ def test_log_assessments_with_minimal_params_succeeds():
         Assessment(
             name="relevance",
             value=0.9,
-            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
+            source=AssessmentSource(source_type=AssessmentSourceType.AUTOMATED, source_id="user_1"),
         ),
         [
             Assessment(
@@ -669,7 +669,7 @@ def test_log_assessments_with_minimal_params_succeeds():
         {
             "name": "relevance",
             "value": 0.9,
-            "source": {"source_type": "HUMAN", "source_id": "user_1"},
+            "source": {"source_type": "AUTOMATED", "source_id": "user_1"},
         },
         [
             {
