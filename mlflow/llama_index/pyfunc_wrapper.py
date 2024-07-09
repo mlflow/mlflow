@@ -36,7 +36,7 @@ class _LlamaIndexModelWrapperBase:
         engine inputs. The engine inputs must already be preprocessed/cleaned.
         """
 
-        if isinstance(input, dict):
+        if isinstance(input, Dict):
             return self.predict_callable(**input, **(params or {}))
         else:
             return self.predict_callable(input, **(params or {}))
@@ -59,7 +59,7 @@ class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
         return self.index.as_chat_engine(**self.model_config).chat
 
     @staticmethod
-    def _parse_dict_as_chat_message_objects(data: dict) -> dict:
+    def _parse_dict_as_chat_message_objects(data: Dict) -> Dict:
         message_matches = (name for name in _CHAT_MESSAGE_PARAMETER_NAMES if name in data)
         if (key := next(message_matches, None)) and data.get(key):
             if not isinstance(data[key], str):
@@ -80,14 +80,6 @@ class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
         return data
 
     def _format_predict_input(self, data):
-        """
-        Chat engines can have a variety of signatures. The two primary standards are:
-        1. chat(str, Sequence[ChatMessage])
-        2. chat(Sequence[ChatMessage])
-
-        There are not consistent naming conventions for either of these standards, so
-        we'll need to leverage positional arguments.
-        """
         data = _convert_llm_input_data(data)
 
         if isinstance(data, str):
