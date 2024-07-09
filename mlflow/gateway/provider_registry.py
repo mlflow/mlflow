@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from mlflow import MlflowException
 from mlflow.gateway.base_models import ConfigModel
 from mlflow.gateway.providers import BaseProvider
+from mlflow.utils.os import get_entry_points
 
 
 class ProviderEntry(BaseModel):
@@ -78,5 +79,16 @@ def _register_default_providers(registry: ProviderRegistry):
     registry.register(Provider.TOGETHERAI, TogetherAIProvider, TogetherAIConfig)
 
 
+def _register_plugin_providers(registry: ProviderRegistry):
+    providers = get_entry_points("mlflow.gateway.providers")
+    for p in providers:
+        cls = p.load()
+        # todo
+        from mlflow.gateway.config import OpenAIConfig
+
+        registry.register(p.name, cls, OpenAIConfig)
+
+
 provider_registry = ProviderRegistry()
 _register_default_providers(provider_registry)
+_register_plugin_providers(provider_registry)
