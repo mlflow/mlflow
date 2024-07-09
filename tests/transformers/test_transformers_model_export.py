@@ -2605,18 +2605,17 @@ def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
             ]
         ),
     )
-    assert signature_with_params == expected_signature
 
     with mlflow.start_run():
-        mlflow.transformers.log_model(
+        model_info = mlflow.transformers.log_model(
             transformers_model=small_qa_pipeline,
             artifact_path=artifact_path,
             input_example=(data, parameters),
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+    assert model_info.signature == expected_signature
 
     response = pyfunc_serve_and_score_model(
-        model_uri,
+        model_info.model_uri,
         data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
@@ -2691,13 +2690,6 @@ def test_uri_directory_renaming_handling_components(model_path, small_seq2seq_pi
 
 
 def test_pyfunc_model_log_load_with_artifacts_snapshot():
-    architecture = "prajjwal1/bert-tiny"
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
-    model = transformers.BertForQuestionAnswering.from_pretrained(architecture)
-    bert_tiny_pipeline = transformers.pipeline(
-        task="question-answering", model=model, tokenizer=tokenizer
-    )
-
     class QAModel(mlflow.pyfunc.PythonModel):
         def load_context(self, context):
             """
