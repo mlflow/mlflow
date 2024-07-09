@@ -44,8 +44,8 @@ organizations that use LLMs on a regular basis.
 Tutorials and Guides
 ====================
 
-If you're interested in diving right in to a step by step guide that will get you up and running with the MLflow Deployments Server 
-as fast as possible, the guides below will be your best first stop. 
+If you're interested in diving right in to a step by step guide that will get you up and running with the MLflow Deployments Server
+as fast as possible, the guides below will be your best first stop.
 
 .. raw:: html
 
@@ -321,8 +321,9 @@ As of now, the MLflow Deployments Server supports the following providers:
 More providers are being added continually. Check the latest version of the MLflow Deployments Server Docs for the
 most up-to-date list of supported providers.
 
-Remember, the provider you specify must be one that the MLflow Deployments Server supports. If the provider
-is not supported, the deployments server will return an error when trying to route requests to that provider.
+If you would like to use a LLM model that is not offered by the above providers, or if you
+would like to integrate a private LLM model, you can create a :ref:`provider plugin <deployments_plugin>`
+to integrate with the MLflow Deployments Server.
 
 .. _deployments-endpoints:
 
@@ -1181,6 +1182,122 @@ Here are some examples for how you might use curl to interact with the MLflow De
            -d '{"input": ["I would like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
 
 **Note:** Remember to replace ``my.deployments:8888`` with the URL of your actual MLflow Deployments Server.
+
+.. _deployments_plugin:
+
+Plugin LLM Provider (Experimental)
+==================================
+
+.. attention::
+    This feature is in active development and is marked as Experimental. It may change in a future release without warning.
+
+The MLflow Deployments Server supports the use of custom language model providers through the use of plugins.
+A plugin is a Python package that provides a custom implementation of a language model provider.
+This allows users to integrate their own language model services with the MLflow Deployments Server.
+
+To create a custom plugin, you need to implement a provider class that inherits from ``mlflow.gateway.providers.BaseProvider``,
+and a config class that inherits from ``mlflow.gateway.base_models.ConfigModel``.
+
+.. code-block:: python
+    :caption: Example
+
+    from typing import AsyncIterable
+
+    from pydantic import validator
+    from mlflow.deployments.server.base_models import ConfigModel
+    from mlflow.deployments.server.config import RouteConfig, _resolve_api_key_from_input
+    from mlflow.deployments.server.providers import BaseProvider
+    from mlflow.deployments.server.schemas import chat, completions, embeddings
+
+
+    class AwesomeConfig(ConfigModel):
+        awesome_api_key: str
+
+        @validator("awesome_api_key", pre=True)
+        def validate_awesome_api_key(cls, value):
+            # This resolves the API key from an environment variable
+            return _resolve_api_key_from_input(value)
+
+
+    class AwesomeProvider(BaseProvider):
+        NAME = "Awesome"
+        CONFIG_TYPE = AwesomeConfig
+
+        def __init__(self, config: RouteConfig) -> None:
+            super().__init__(config)
+            if config.model.config is None or not isinstance(
+                config.model.config, AwesomeConfig
+            ):
+                raise TypeError(f"Unexpected config type {config.model.config}")
+            self.awesome_config: AwesomeConfig = config.model.config
+
+        # You can implement one or more of the following methods
+        # depending on the capabilities of your provider.
+        # Implementing `completions`, `chat` and `embeddings` will enable the respective endpoints.
+        # Implementing `completions_stream` and `chat_stream` will enable the `stream=True`
+        # option for the respective endpoints.
+        # Unimplemented methods will return a 501 Not Implemented HTTP response upon invocation.
+        async def completions_stream(
+            self, payload: completions.RequestPayload
+        ) -> AsyncIterable[completions.StreamResponsePayload]: ...
+
+        async def completions(
+            self, payload: completions.RequestPayload
+        ) -> completions.ResponsePayload: ...
+
+        async def chat_stream(
+            self, payload: chat.RequestPayload
+        ) -> AsyncIterable[chat.StreamResponsePayload]: ...
+
+        async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload: ...
+
+        async def embeddings(
+            self, payload: embeddings.RequestPayload
+        ) -> embeddings.ResponsePayload: ...
+
+Then, you need to create a Python package that contains the plugin implementation. For example:
+
+.. code-block:: toml
+    :caption: pyproject.toml
+
+    [project]
+    name = "awesome"
+    version = "1.0"
+
+    [project.entry-points."mlflow.gateway.providers"]
+    awesome = "awesome:AwesomeProvider"
+
+    [tool.setuptools.packages.find]
+    include = ["awesome*"]
+    namespaces = false
+
+Finally, you need to install the plugin package in the same environment as the MLflow Deployments Server.
+
+.. important::
+
+    Only install plugin packages you trust. Starting a server with plugin provider will
+    execute arbitrary codes in the plugin package.
+
+Then, you can configure the MLflow Deployments Server configuration file
+with the ``plugin:<module>:<class>`` syntax to specify the provider and config model.
+This will import and instantiate the classes from the plugin package.
+
+.. code-block:: yaml
+
+    endpoints:
+      - name: chat
+        endpoint_type: llm/v1/chat
+        model:
+          provider: awesome
+          name: my-awesome-model-0.1.2
+          config:
+            awesome_api_key: $AWESOME_API_KEY
+
+Example
+-------
+
+A working example can be found in the MLflow repository at
+`examples/deployments/deployments_server/plugin <https://github.com/mlflow/mlflow/tree/master/examples/deployments/deployments_server/plugin>`__.
 
 MLflow Deployments Server API Documentation
 ===========================================
