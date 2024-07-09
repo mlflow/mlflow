@@ -4294,3 +4294,37 @@ def test_all_genai_custom_metrics_are_from_user_prompt():
     assert table.loc[0, "version"] == ""
     assert table.loc[1, "version"] == ""
     assert table["version"].dtype == "object"
+
+
+def test_xgboost_model_evaluate_work_with_shap_explainer():
+    import shap
+    import xgboost
+    from sklearn.model_selection import train_test_split
+
+    mlflow.xgboost.autolog(log_input_examples=True)
+    X, y = shap.datasets.adult()
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+
+    xgb_model = xgboost.XGBClassifier()
+    with mlflow.start_run():
+        xgb_model.fit(X_train, y_train)
+
+        eval_data = X_test
+        eval_data["label"] = y_test
+
+        model_uri = mlflow.get_artifact_uri("model")
+        with mock.patch(
+            "mlflow.models.evaluation.default_evaluator._logger.warning"
+        ) as mock_warning:
+            mlflow.evaluate(
+                model_uri,
+                eval_data,
+                targets="label",
+                model_type="classifier",
+                evaluators=["default"],
+            )
+            assert not any(
+                "Shap evaluation failed." in call_arg[0]
+                for call_arg in mock_warning.call_args
+                if isinstance(call_arg, tuple)
+            )
