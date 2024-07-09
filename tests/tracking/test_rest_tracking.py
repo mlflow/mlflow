@@ -2222,7 +2222,7 @@ def test_get_trace_artifact_handler(mlflow_client):
     assert trace_data.spans[0].to_dict() == span.to_dict()
 
 
-def test_get_metric_history_bulk_interval_grapql(mlflow_client):
+def test_get_metric_history_bulk_interval_graphql(mlflow_client):
     name = "GraphqlTest"
     mlflow_client.create_registered_model(name)
     experiment_id = mlflow_client.create_experiment(name)
