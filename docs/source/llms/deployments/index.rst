@@ -1255,7 +1255,9 @@ and a config class that inherits from ``mlflow.gateway.base_models.ConfigModel``
             self, payload: embeddings.RequestPayload
         ) -> embeddings.ResponsePayload: ...
 
-Then, you need to create a Python package that contains the plugin implementation. For example:
+Then, you need to create a Python package that contains the plugin implementation.
+You must specify an entry point under the `mlflow.gateway.providers`, so that your plugin can be detected by MLflow.
+The entry point should be in the format ``<name> = <module>:<class>``.
 
 .. code-block:: toml
     :caption: pyproject.toml
@@ -1271,6 +1273,10 @@ Then, you need to create a Python package that contains the plugin implementatio
     include = ["awesome*"]
     namespaces = false
 
+You can specify more than one entry point in the same package if you have multiple providers.
+Note that entry point names must be globally unique. If two plugins specify the same entry point name,
+MLflow will raise an error at startup time.
+
 Finally, you need to install the plugin package in the same environment as the MLflow Deployments Server.
 
 .. important::
@@ -1279,8 +1285,7 @@ Finally, you need to install the plugin package in the same environment as the M
     execute arbitrary codes in the plugin package.
 
 Then, you can configure the MLflow Deployments Server configuration file
-with the ``plugin:<module>:<class>`` syntax to specify the provider and config model.
-This will import and instantiate the classes from the plugin package.
+with the ``plugin:<module>:<class>`` syntax to specify the provider according to the entry point name.
 
 .. code-block:: yaml
 
