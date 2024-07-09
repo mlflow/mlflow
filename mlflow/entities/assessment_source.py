@@ -71,7 +71,8 @@ class AssessmentSource(_MlflowObject):
 class AssessmentSourceType:
     AI_JUDGE = "AI_JUDGE"
     HUMAN = "HUMAN"
-    _SOURCE_TYPES = [AI_JUDGE, HUMAN]
+    AUTOMATED = "AUTOMATED"
+    _SOURCE_TYPES = [AI_JUDGE, HUMAN, AUTOMATED]
 
     def __init__(self, source_type: str):
         self._source_type = AssessmentSourceType._parse(source_type)
