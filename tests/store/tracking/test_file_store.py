@@ -2329,7 +2329,7 @@ def assert_dataset_inputs_equal(inputs1: List[DatasetInput], inputs2: List[Datas
         tags2 = sorted(inp2.tags, key=lambda tag: tag.key)
         for idx, tag1 in enumerate(tags1):
             tag2 = tags2[idx]
-            assert tag1.key == tag1.key
+            assert tag1.key == tag2.key
             assert tag1.value == tag2.value
 
 
