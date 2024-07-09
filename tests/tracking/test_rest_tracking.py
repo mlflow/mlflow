@@ -2220,3 +2220,41 @@ def test_get_trace_artifact_handler(mlflow_client):
     # Validate content
     trace_data = TraceData.from_dict(json.loads(response.text))
     assert trace_data.spans[0].to_dict() == span.to_dict()
+
+
+def test_get_metric_history_bulk_interval_graphql(mlflow_client):
+    name = "GraphqlTest"
+    mlflow_client.create_registered_model(name)
+    experiment_id = mlflow_client.create_experiment(name)
+    created_run = mlflow_client.create_run(experiment_id)
+
+    metric_name = "metric_0"
+    for i in range(10):
+        mlflow_client.log_metric(created_run.info.run_id, metric_name, i, step=i)
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": f"""
+                query testQuery {{
+                    mlflowGetMetricHistoryBulkInterval(input: {{
+                        runIds: ["{created_run.info.run_id}"],
+                        metricKey: "{metric_name}",
+                    }}) {{
+                        metrics {{
+                            key
+                            timestamp
+                            value
+                        }}
+                    }}
+                }}
+            """,
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+
+    assert response.status_code == 200
+    json = response.json()
+    expected = [{"key": metric_name, "timestamp": mock.ANY, "value": i} for i in range(10)]
+    assert json["data"]["mlflowGetMetricHistoryBulkInterval"]["metrics"] == expected

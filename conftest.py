@@ -364,10 +364,12 @@ def serve_wheel(request, tmp_path_factory):
         ],
         cwd=root,
     ) as prc:
-        url = f"http://localhost:{port}"
-        if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
-            url = f"{existing_url} {url}"
-        os.environ["PIP_EXTRA_INDEX_URL"] = url
+        try:
+            url = f"http://localhost:{port}"
+            if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
+                url = f"{existing_url} {url}"
+            os.environ["PIP_EXTRA_INDEX_URL"] = url
 
-        yield
-        prc.terminate()
+            yield
+        finally:
+            prc.terminate()

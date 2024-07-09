@@ -24,7 +24,7 @@ from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema, Tens
 from mlflow.types.schema import Array, Map, Object, Property
 from mlflow.utils.proto_json_utils import dump_input_data
 
-from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.helper_functions import pyfunc_scoring_endpoint, pyfunc_serve_and_score_model
 from tests.tracing.helper import get_traces
 
 
@@ -1945,68 +1945,61 @@ def test_enforce_schema_with_arrays_in_python_model_serving(sample_params_with_a
             signature=signature,
         )
 
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=dump_input_data(["a", "b"], params=params),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 200
-    prediction = json.loads(response.content.decode("utf-8"))["predictions"]
-    for param, value in params.items():
-        if param == "datetime_array":
-            assert prediction[param] == list(map(np.datetime_as_string, value))
-        else:
-            assert (prediction[param] == value).all()
+    with pyfunc_scoring_endpoint(
+        model_info.model_uri, extra_args=["--env-manager", "local"]
+    ) as endpoint:
+        response = endpoint.invoke(
+            data=dump_input_data(["a", "b"], params=params),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        )
+        assert response.status_code == 200
+        prediction = json.loads(response.content.decode("utf-8"))["predictions"]
+        for param, value in params.items():
+            if param == "datetime_array":
+                assert prediction[param] == list(map(np.datetime_as_string, value))
+            else:
+                assert (prediction[param] == value).all()
 
-    # Test invalid params for model serving
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=dump_input_data(["a", "b"], params={"datetime_array": [1.0, 2.0]}),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 400
-    assert (
-        "Failed to convert value 1.0 from type float to DataType.datetime"
-        in json.loads(response.content.decode("utf-8"))["message"]
-    )
+        # Test invalid params for model serving
+        response = endpoint.invoke(
+            data=dump_input_data(["a", "b"], params={"datetime_array": [1.0, 2.0]}),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        )
+        assert response.status_code == 400
+        assert (
+            "Failed to convert value 1.0 from type float to DataType.datetime"
+            in json.loads(response.content.decode("utf-8"))["message"]
+        )
 
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=dump_input_data(["a", "b"], params={"int_array": np.array([1.0, 2.0])}),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 400
-    assert (
-        "Incompatible types for param 'int_array'"
-        in json.loads(response.content.decode("utf-8"))["message"]
-    )
+        response = endpoint.invoke(
+            data=dump_input_data(["a", "b"], params={"int_array": np.array([1.0, 2.0])}),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        )
+        assert response.status_code == 400
+        assert (
+            "Incompatible types for param 'int_array'"
+            in json.loads(response.content.decode("utf-8"))["message"]
+        )
 
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=dump_input_data(["a", "b"], params={"float_array": [True, False]}),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 400
-    assert (
-        "Incompatible types for param 'float_array'"
-        in json.loads(response.content.decode("utf-8"))["message"]
-    )
+        response = endpoint.invoke(
+            data=dump_input_data(["a", "b"], params={"float_array": [True, False]}),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        )
+        assert response.status_code == 400
+        assert (
+            "Incompatible types for param 'float_array'"
+            in json.loads(response.content.decode("utf-8"))["message"]
+        )
 
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=dump_input_data(["a", "b"], params={"double_array": [1.0, "2.0"]}),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 400
-    assert (
-        "Incompatible types for param 'double_array'"
-        in json.loads(response.content.decode("utf-8"))["message"]
-    )
+        response = endpoint.invoke(
+            data=dump_input_data(["a", "b"], params={"double_array": [1.0, "2.0"]}),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        )
+        assert response.status_code == 400
+        assert (
+            "Incompatible types for param 'double_array'"
+            in json.loads(response.content.decode("utf-8"))["message"]
+        )
 
 
 @pytest.mark.parametrize(

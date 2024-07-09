@@ -79,19 +79,21 @@ _TestCase = namedtuple("_TestCase", ["data", "params", "expected_data", "expecte
     [
         # Case 0: Data only includes prompt
         _TestCase(
-            data={"prompt": ["Hello world!"]},
+            data=pd.DataFrame({"prompt": ["Hello world!"]}),
             params={},
             expected_data=["Hello world!"],
             expected_params={},
         ),
         # Case 1: Data includes prompt and params
         _TestCase(
-            data={
-                "prompt": ["Hello world!"],
-                "temperature": [0.7],
-                "max_tokens": [100],
-                "stop": None,
-            },
+            data=pd.DataFrame(
+                {
+                    "prompt": ["Hello world!"],
+                    "temperature": [0.7],
+                    "max_tokens": [100],
+                    "stop": [None],
+                }
+            ),
             params={},
             expected_data=["Hello world!"],
             expected_params={
@@ -103,9 +105,11 @@ _TestCase = namedtuple("_TestCase", ["data", "params", "expected_data", "expecte
         ),
         # Case 2: Params are passed if not specified in data
         _TestCase(
-            data={
-                "prompt": ["Hello world!"],
-            },
+            data=pd.DataFrame(
+                {
+                    "prompt": ["Hello world!"],
+                }
+            ),
             params={
                 "temperature": 0.7,
                 "max_tokens": 100,
@@ -121,18 +125,30 @@ _TestCase = namedtuple("_TestCase", ["data", "params", "expected_data", "expecte
         ),
         # Case 3: Data overrides params
         _TestCase(
-            data={
-                "messages": ["Hello world!"],
-                "temperature": [0.1],
-                "max_tokens": [100],
-                "stop": [["foo", "bar"]],
-            },
+            data=pd.DataFrame(
+                {
+                    "messages": [
+                        [
+                            {"role": "user", "content": "Hello!"},
+                            {"role": "assistant", "content": "Hi!"},
+                        ]
+                    ],
+                    "temperature": [0.1],
+                    "max_tokens": [100],
+                    "stop": [["foo", "bar"]],
+                }
+            ),
             params={
                 "temperature": [0.2],
                 "max_tokens": [200],
                 "stop": ["foo", "bar", "baz"],
             },
-            expected_data=["Hello world!"],
+            expected_data=[
+                [
+                    {"role": "user", "content": "Hello!"},
+                    {"role": "assistant", "content": "Hi!"},
+                ]
+            ],
             expected_params={
                 "temperature": 0.1,
                 "max_new_tokens": 100,
@@ -140,11 +156,13 @@ _TestCase = namedtuple("_TestCase", ["data", "params", "expected_data", "expecte
         ),
         # Case 4: Batch input
         _TestCase(
-            data={
-                "prompt": ["Hello!", "Hi", "Hola"],
-                "temperature": [0.1, 0.2, 0.3],
-                "max_tokens": [None, 200, 300],
-            },
+            data=pd.DataFrame(
+                {
+                    "prompt": ["Hello!", "Hi", "Hola"],
+                    "temperature": [0.1, 0.2, 0.3],
+                    "max_tokens": [None, 200, 300],
+                }
+            ),
             params={
                 "temperature": 0.4,
                 "max_tokens": 400,
@@ -156,18 +174,39 @@ _TestCase = namedtuple("_TestCase", ["data", "params", "expected_data", "expecte
                 "max_new_tokens": 400,
             },
         ),
+        # Case 5: Raw dict input
+        _TestCase(
+            data={
+                "messages": [
+                    {"role": "user", "content": "Hello!"},
+                    {"role": "assistant", "content": "Hi!"},
+                ],
+                "temperature": 0.1,
+                "max_tokens": 100,
+                "stop": ["foo", "bar"],
+            },
+            params={},
+            expected_data=[
+                [
+                    {"role": "user", "content": "Hello!"},
+                    {"role": "assistant", "content": "Hi!"},
+                ]
+            ],
+            expected_params={
+                "temperature": 0.1,
+                "max_new_tokens": 100,
+            },
+        ),
     ],
 )
 def test_preprocess_llm_inference_input(case):
-    data = pd.DataFrame(case.data)
-
     task = "llm/v1/completions" if "prompt" in case.data else "llm/v1/chat"
     flavor_config = {"inference_task": task, "source_model_name": "test"}
 
     with mock.patch(
         "mlflow.transformers.llm_inference_utils._get_stopping_criteria"
     ) as mock_get_stopping_criteria:
-        data, params = preprocess_llm_inference_input(data, case.params, flavor_config)
+        data, params = preprocess_llm_inference_input(case.data, case.params, flavor_config)
 
     # Test that OpenAI params are separated from data and replaced with Hugging Face params
     assert data == case.expected_data

@@ -24,9 +24,11 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github
       - uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const script = require('./.github/workflows/protect.js');
             await script({ github, context });

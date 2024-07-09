@@ -382,7 +382,7 @@ def test_wheel_download_override_option_works(tmp_path):
     assert len(os.listdir(wheel_dir))  # Wheel dir is not empty
 
 
-def test_copy_metadata(sklearn_knn_model):
+def test_copy_metadata(mock_is_in_databricks, sklearn_knn_model):
     with mlflow.start_run():
         mlflow.sklearn.log_model(
             sk_model=sklearn_knn_model.model,
@@ -392,7 +392,11 @@ def test_copy_metadata(sklearn_knn_model):
 
     with mlflow.start_run():
         model_info = WheeledModel.log_model(model_uri="models:/sklearn_knn_model/1")
-        artifact_path = mlflow.artifacts.download_artifacts(model_info.model_uri)
-        assert set(os.listdir(os.path.join(artifact_path, "metadata"))) == set(
-            METADATA_FILES + [_ORIGINAL_REQ_FILE_NAME]
-        )
+
+    artifact_path = mlflow.artifacts.download_artifacts(model_info.model_uri)
+    metadata_path = os.path.join(artifact_path, "metadata")
+    if mock_is_in_databricks.return_value:
+        assert set(os.listdir(metadata_path)) == set(METADATA_FILES + [_ORIGINAL_REQ_FILE_NAME])
+    else:
+        assert not os.path.exists(metadata_path)
+    assert mock_is_in_databricks.call_count == 2

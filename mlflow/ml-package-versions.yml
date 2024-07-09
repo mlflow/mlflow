@@ -567,6 +567,9 @@ transformers:
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
       # See: https://github.com/huggingface/transformers/issues/23352 for discussion
       "< 4.30.0": ["tensorflow<2.13.0"]
+      # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
+      # `accelerate>=0.32.0` is incompatible with `huggingface_hub==0.17.3`.
+      "== 4.34.1": ["accelerate<0.32.0"]
     pre_test: |
       export PYTHONPATH=./
       python tests/transformers/helper.py
@@ -604,6 +607,9 @@ transformers:
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
       # See: https://github.com/huggingface/transformers/issues/23352 for discussion
       "< 4.30.0": ["tensorflow<2.13.0"]
+      # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
+      # `accelerate>=0.32.0` is incompatible with `huggingface_hub==0.17.3`.
+      "== 4.34.1": ["accelerate<0.32.0"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
 

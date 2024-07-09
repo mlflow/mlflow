@@ -4,6 +4,7 @@ import json
 import os
 import re
 import signal
+import subprocess
 import uuid
 from collections import namedtuple
 from unittest import mock
@@ -2139,3 +2140,26 @@ def test_import_evaluation_dataset():
     # This test is to validate both imports work at the same time
     from mlflow.models.evaluation import EvaluationDataset
     from mlflow.models.evaluation.base import EvaluationDataset  # noqa: F401
+
+
+def test_evaluate_shows_server_stdout_and_stderr_on_error(
+    linear_regressor_model_uri, diabetes_dataset
+):
+    with mlflow.start_run():
+        server_proc = subprocess.Popen(
+            ["echo", "test1324"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        )
+        with mock.patch(
+            "mlflow.pyfunc.backend.PyFuncBackend.serve",
+            return_value=server_proc,
+        ) as mock_serve:
+            with pytest.raises(MlflowException, match="test1324"):
+                evaluate(
+                    linear_regressor_model_uri,
+                    diabetes_dataset._constructor_args["data"],
+                    model_type="regressor",
+                    targets=diabetes_dataset._constructor_args["targets"],
+                    evaluators="dummy_evaluator",
+                    env_manager="virtualenv",
+                )
+            mock_serve.assert_called_once()
