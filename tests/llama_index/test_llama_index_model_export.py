@@ -1,5 +1,6 @@
-import mlflow
 import pytest
+
+import mlflow
 
 
 @pytest.mark.parametrize(
