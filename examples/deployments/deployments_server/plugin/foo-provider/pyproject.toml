@@ -1,0 +1,10 @@
+[project]
+name = "foo"
+version = "1.0"
+
+[project.entry-points."mlflow.gateway.providers"]
+foo = "foo.providers:FooProvider"
+
+[tool.setuptools.packages.find]
+include = ["foo*"]
+namespaces = false
