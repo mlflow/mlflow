@@ -90,7 +90,7 @@ def infer_or_get_default_signature(
     For signature inference in some Pipelines that support complex input types, an input example
     is needed.
     """
-    if example:
+    if example is not None:
         try:
             timeout = MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT.get()
             if timeout and is_windows():
