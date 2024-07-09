@@ -5,9 +5,6 @@ from pydantic import BaseModel
 from mlflow import MlflowException
 from mlflow.gateway.base_models import ConfigModel
 from mlflow.gateway.providers import BaseProvider
-from mlflow.protos.databricks_pb2 import (
-    RESOURCE_ALREADY_EXISTS,
-)
 
 
 class ProviderEntry(BaseModel):
@@ -21,10 +18,7 @@ class ProviderRegistry:
 
     def register(self, name: str, provider: Type[BaseProvider], config: Type[ConfigModel]):
         if name in self._providers:
-            raise MlflowException(
-                f"Provider {name} already registered",
-                error_code=RESOURCE_ALREADY_EXISTS,
-            )
+            raise MlflowException.invalid_parameter_value(f"Provider {name} already registered")
         self._providers[name] = ProviderEntry(provider=provider, config=config)
 
     def get(self, name: str) -> ProviderEntry:
