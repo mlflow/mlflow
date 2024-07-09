@@ -3358,29 +3358,26 @@ def test_log_inputs_fails_with_missing_inputs(store: SqlAlchemyStore):
 
 def _validate_log_inputs(
     store: SqlAlchemyStore,
-    run_id,
+    exp_name,
     correct_dataset_inputs,
     wrong_dataset_inputs,
     error_message,
 ):
-    store.log_inputs(run_id, correct_dataset_inputs)
-    run1 = store.get_run(run_id)
-    # we reuse the same run, so only extract last dataset_inputs and compare
-    assert_dataset_inputs_equal(run1.inputs.dataset_inputs[-1:], correct_dataset_inputs)
+    run = _run_factory(store, _get_run_configs(_create_experiments(store, exp_name)))
+    store.log_inputs(run.info.run_id, correct_dataset_inputs)
+    run1 = store.get_run(run.info.run_id)
+    assert_dataset_inputs_equal(run1.inputs.dataset_inputs, correct_dataset_inputs)
 
     with pytest.raises(MlflowException, match=error_message):
-        store.log_inputs(run_id, wrong_dataset_inputs)
+        store.log_inputs(run.info.run_id, wrong_dataset_inputs)
 
 
 def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
-    experiment_id = _create_experiments(store, "test exp")
-    run = _run_factory(store, config=_get_run_configs(experiment_id))
-
     # Test input key
     dataset = entities.Dataset(name="name1", digest="digest1", source_type="type", source="source")
     _validate_log_inputs(
         store,
-        run.info.run_id,
+        "test_input_key",
         [
             entities.DatasetInput(
                 tags=[entities.InputTag(key="a" * MAX_INPUT_TAG_KEY_SIZE, value="train")],
@@ -3400,7 +3397,7 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
     dataset = entities.Dataset(name="name2", digest="digest1", source_type="type", source="source")
     _validate_log_inputs(
         store,
-        run.info.run_id,
+        "test_input_value",
         [
             entities.DatasetInput(
                 tags=[entities.InputTag(key="key", value="a" * MAX_INPUT_TAG_VALUE_SIZE)],
@@ -3420,7 +3417,7 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
     tags = [entities.InputTag(key="key", value="train")]
     _validate_log_inputs(
         store,
-        run.info.run_id,
+        "test_dataset_name",
         [
             entities.DatasetInput(
                 tags=tags,
@@ -3449,7 +3446,7 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
     # Test dataset digest
     _validate_log_inputs(
         store,
-        run.info.run_id,
+        "test_dataset_digest",
         [
             entities.DatasetInput(
                 tags=tags,
@@ -3478,7 +3475,7 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
     # Test dataset source
     _validate_log_inputs(
         store,
-        run.info.run_id,
+        "test_dataset_source",
         [
             entities.DatasetInput(
                 tags=tags,
@@ -3507,7 +3504,7 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
     # Test dataset schema
     _validate_log_inputs(
         store,
-        run.info.run_id,
+        "test_dataset_schema",
         [
             entities.DatasetInput(
                 tags=tags,
@@ -3538,7 +3535,7 @@ def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
     # Test dataset profile
     _validate_log_inputs(
         store,
-        run.info.run_id,
+        "test_dataset_profile",
         [
             entities.DatasetInput(
                 tags=tags,
