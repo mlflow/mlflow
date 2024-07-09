@@ -1256,7 +1256,7 @@ and a config class that inherits from ``mlflow.gateway.base_models.ConfigModel``
         ) -> embeddings.ResponsePayload: ...
 
 Then, you need to create a Python package that contains the plugin implementation.
-You must specify an entry point under the `mlflow.gateway.providers`, so that your plugin can be detected by MLflow.
+You must specify an entry point under the ``mlflow.gateway.providers`` group, so that your plugin can be detected by MLflow.
 The entry point should be in the format ``<name> = <module>:<class>``.
 
 .. code-block:: toml
