@@ -6,7 +6,7 @@ import {
   waitForRoutesToBeRendered,
   TestRouter,
 } from '../../../common/utils/RoutingTestUtils';
-import { renderWithIntl, act, screen, within } from 'common/utils/TestUtils.react18';
+import { renderWithIntl, act, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { ModelEntity } from '../../../experiment-tracking/types';
 import { ModelsTableAliasedVersionsCell } from './ModelsTableAliasedVersionsCell';
 import { openDropdownMenu } from '@databricks/design-system/test-utils/rtl';

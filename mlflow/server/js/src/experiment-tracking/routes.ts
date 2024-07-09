@@ -143,9 +143,9 @@ class Routes {
 
     const queryString =
       `?runs=${JSON.stringify(runUuids)}` +
-      `&metric=${JSON.stringify(metricKey)}` +
+      `&metric=${encodeURIComponent(JSON.stringify(metricKey))}` +
       `&experiments=${JSON.stringify(experimentIds)}` +
-      `&plot_metric_keys=${JSON.stringify(finalPlotMetricKeys)}` +
+      `&plot_metric_keys=${encodeURIComponent(JSON.stringify(finalPlotMetricKeys))}` +
       `&plot_layout=${JSON.stringify(plotLayout)}` +
       `&x_axis=${selectedXAxis}` +
       `&y_axis_scale=${yAxisScale}` +

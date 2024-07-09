@@ -1,4 +1,4 @@
-import { ExperimentRunsSelectorResult } from 'experiment-tracking/components/experiment-page/utils/experimentRuns.selector';
+import { ExperimentRunsSelectorResult } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/utils/experimentRuns.selector';
 import {
   DifferenceCardAttributes,
   DifferenceCardConfigCompareGroup,
@@ -7,7 +7,7 @@ import {
 } from '../../runs-charts.types';
 import { RunsChartsRunData } from '../RunsCharts.common';
 import { ReactChild, ReactFragment, ReactPortal, useCallback, useMemo, useState } from 'react';
-import { MLFLOW_SYSTEM_METRIC_PREFIX } from 'experiment-tracking/constants';
+import { MLFLOW_SYSTEM_METRIC_PREFIX } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import {
   Table,
@@ -17,14 +17,14 @@ import {
   useDesignSystemTheme,
   Typography,
   Tag,
-  Tooltip,
+  LegacyTooltip,
 } from '@databricks/design-system';
-import { RunColorPill } from 'experiment-tracking/components/experiment-page/components/RunColorPill';
+import { RunColorPill } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/components/RunColorPill';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { MetricEntitiesByName } from 'experiment-tracking/types';
+import { MetricEntitiesByName } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { differenceView, getDifferenceViewDataGroups, getFixedPointValue } from '../../utils/differenceView';
 import { OverflowIcon, Button, DropdownMenu } from '@databricks/design-system';
-import Utils from 'common/utils/Utils';
+import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { TableSkeletonRows } from '@databricks/design-system';
 import { ArrowUpIcon } from '@databricks/design-system';
 import { ArrowDownIcon } from '@databricks/design-system';
@@ -32,6 +32,33 @@ import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimen
 
 const HEADING_COLUMN_ID = 'headingColumn';
 const COLUMN_WIDTH = 200;
+
+/**
+ * A placeholder component displayed when no difference view data is available to be displayed
+ */
+
+const NoDifferenceDataPlaceholder = () => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div css={{ display: 'flex', flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <div css={{ display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: 360 }}>
+        <Typography.Title css={{ marginTop: theme.spacing.md, textAlign: 'center' }} color="secondary" level={3}>
+          <FormattedMessage
+            defaultMessage="No run differences to display"
+            description="Experiment tracking > runs charts > charts > DifferenceViewPlot > no runs to display warning > title"
+          />
+        </Typography.Title>
+        <Typography.Text css={{ marginBottom: theme.spacing.md, textAlign: 'center' }} color="secondary">
+          <FormattedMessage
+            defaultMessage="Select other runs, toggle 'Show differences only', or re-configure the chart to compare model metrics, system metrics, parameters, tag, or attributes."
+            description="Experiment tracking > runs charts > charts > DifferenceViewPlot > no runs to display warning > text"
+          />
+        </Typography.Text>
+      </div>
+    </div>
+  );
+};
 
 export const DifferenceViewPlot = ({
   previewData,
@@ -187,63 +214,79 @@ export const DifferenceViewPlot = ({
     return null;
   }
 
+  if (table.getRowModel().rows.length === 0) {
+    return <NoDifferenceDataPlaceholder />;
+  }
+
   return (
-    <Table style={{ width: table.getTotalSize() }} scrollable>
-      {table.getHeaderGroups().map((headerGroup) => (
-        <TableRow key={headerGroup.id} isHeader>
-          {headerGroup.headers.map((header, index) => {
-            return (
-              <TableHeader
-                key={header.id}
-                style={{
-                  maxWidth: header.column.getSize(),
-                }}
-                resizable={header.column.getCanResize()}
-                resizeHandler={header.getResizeHandler()}
-              >
-                <div
-                  css={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    gap: theme.spacing.xs,
-                    alignItems: 'center',
-                  }}
-                >
-                  <div css={{ flexShrink: 1, flexGrow: 1, overflow: 'hidden' }}>
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                  </div>
-                  {index !== 0 && setCardConfig && (
-                    <div>
-                      <DropdownMenu.Root>
-                        <DropdownMenu.Trigger asChild>
-                          <Button componentId="set_as_baseline_button" icon={<OverflowIcon />} />
-                        </DropdownMenu.Trigger>
-                        <DropdownMenu.Content>
-                          <DropdownMenu.Item onClick={() => updateBaselineColumnUuid(header.id)}>
-                            <FormattedMessage
-                              defaultMessage="Set as baseline"
-                              description="Runs charts > components > charts > DifferenceViewPlot > Set as baseline dropdown option"
-                            />
-                          </DropdownMenu.Item>
-                        </DropdownMenu.Content>
-                      </DropdownMenu.Root>
+    <div
+      css={{
+        display: 'flex',
+        overflow: 'auto hidden',
+        cursor: 'pointer',
+        height: undefined,
+        width: '100%',
+      }}
+    >
+      <div css={{ width: '100%' }}>
+        <Table style={{ width: table.getTotalSize() }} scrollable>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow key={headerGroup.id} isHeader>
+              {headerGroup.headers.map((header, index) => {
+                return (
+                  <TableHeader
+                    key={header.id}
+                    style={{
+                      maxWidth: header.column.getSize(),
+                    }}
+                    resizable={header.column.getCanResize()}
+                    resizeHandler={header.getResizeHandler()}
+                  >
+                    <div
+                      css={{
+                        display: 'flex',
+                        flexDirection: 'row',
+                        gap: theme.spacing.xs,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <div css={{ flexShrink: 1, flexGrow: 1, overflow: 'hidden' }}>
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                      </div>
+                      {index !== 0 && setCardConfig && (
+                        <div>
+                          <DropdownMenu.Root>
+                            <DropdownMenu.Trigger asChild>
+                              <Button componentId="set_as_baseline_button" icon={<OverflowIcon />} />
+                            </DropdownMenu.Trigger>
+                            <DropdownMenu.Content>
+                              <DropdownMenu.Item onClick={() => updateBaselineColumnUuid(header.id)}>
+                                <FormattedMessage
+                                  defaultMessage="Set as baseline"
+                                  description="Runs charts > components > charts > DifferenceViewPlot > Set as baseline dropdown option"
+                                />
+                              </DropdownMenu.Item>
+                            </DropdownMenu.Content>
+                          </DropdownMenu.Root>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </TableHeader>
-            );
-          })}
-        </TableRow>
-      ))}
-      {table.getRowModel().rows.map((row) => (
-        <TableRow key={row.id}>
-          {row.getAllCells().map((cell) => (
-            <TableCell key={cell.id} style={{ maxWidth: cell.column.getSize() }} multiline>
-              {flexRender(cell.column.columnDef.cell, cell.getContext())}
-            </TableCell>
+                  </TableHeader>
+                );
+              })}
+            </TableRow>
           ))}
-        </TableRow>
-      ))}
-    </Table>
+          {table.getRowModel().rows.map((row) => (
+            <TableRow key={row.id}>
+              {row.getAllCells().map((cell) => (
+                <TableCell key={cell.id} style={{ maxWidth: cell.column.getSize() }} multiline>
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </Table>
+      </div>
+    </div>
   );
 };

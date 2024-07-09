@@ -490,6 +490,8 @@ test('getMetricPlotStateFromUrl', () => {
   const url1 =
     '?runs=["runUuid1","runUuid2"]&plot_metric_keys=["metric_1"]&plot_layout={}&x_axis=wall&y_axis_scale=log&show_point=false';
   const url2 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=["metric_1","metric_2"]';
+  const url3 =
+    '?runs=["runUuid1","runUuid2"]&plot_metric_keys=%5B%22some%20%23%40!%20unusual%20metric%20name%22%2C%22metric_key_2%22%5D';
   // Test extracting plot keys, point info, y axis log scale, line smoothness, layout info
   expect(Utils.getMetricPlotStateFromUrl(url0)).toEqual({
     selectedXAxis: X_AXIS_STEP,
@@ -516,6 +518,16 @@ test('getMetricPlotStateFromUrl', () => {
   expect(Utils.getMetricPlotStateFromUrl(url2)).toEqual({
     selectedXAxis: X_AXIS_RELATIVE,
     selectedMetricKeys: ['metric_1', 'metric_2'],
+    showPoint: false,
+    yAxisLogScale: false,
+    lineSmoothness: 0,
+    layout: { autosize: true },
+    deselectedCurves: [],
+    lastLinearYAxisRange: [],
+  });
+  expect(Utils.getMetricPlotStateFromUrl(url3)).toEqual({
+    selectedXAxis: X_AXIS_RELATIVE,
+    selectedMetricKeys: ['some #@! unusual metric name', 'metric_key_2'],
     showPoint: false,
     yAxisLogScale: false,
     lineSmoothness: 0,

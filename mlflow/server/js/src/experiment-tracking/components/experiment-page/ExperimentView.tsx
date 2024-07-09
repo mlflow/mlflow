@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { ErrorCodes } from '../../../common/constants';
 import NotFoundPage from '../NotFoundPage';
 import { PermissionDeniedView } from '../PermissionDeniedView';
-import { ExperimentViewTraces } from './components/traces/ExperimentViewTraces';
+import { TracesView } from '../traces/TracesView';
 import { ExperimentViewHeaderCompare } from './components/header/ExperimentViewHeaderCompare';
 import { ExperimentViewRuns } from './components/runs/ExperimentViewRuns';
 import { useExperiments } from './hooks/useExperiments';
@@ -27,6 +27,7 @@ import { ExperimentViewDescriptionNotes } from './components/ExperimentViewDescr
 import { ExperimentViewHeader } from './components/header/ExperimentViewHeader';
 import invariant from 'invariant';
 import { useExperimentPageViewMode } from './hooks/useExperimentPageViewMode';
+import { ExperimentViewTraces } from './components/ExperimentViewTraces';
 
 export const ExperimentView = () => {
   const dispatch = useDispatch<ThunkDispatch>();
@@ -134,6 +135,7 @@ export const ExperimentView = () => {
     if (shouldEnableTracingUI() && viewMode === 'TRACES') {
       return <ExperimentViewTraces experimentIds={experimentIds} />;
     }
+
     return (
       <ExperimentViewRuns
         isLoading={false}

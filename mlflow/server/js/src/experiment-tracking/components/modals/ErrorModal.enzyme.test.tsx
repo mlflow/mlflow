@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { ErrorModalWithIntl } from './ErrorModal';
 import { Modal } from '@databricks/design-system';
 

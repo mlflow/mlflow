@@ -13,7 +13,7 @@ import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 
 describe('CompareRunPage', () => {
   let wrapper;

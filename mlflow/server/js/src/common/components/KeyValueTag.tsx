@@ -1,4 +1,4 @@
-import { Tag, Tooltip, Typography } from '@databricks/design-system';
+import { Tag, LegacyTooltip, Typography } from '@databricks/design-system';
 import { KeyValueEntity } from '../../experiment-tracking/types';
 import React, { useState } from 'react';
 import { useIntl } from 'react-intl';
@@ -57,7 +57,7 @@ export const KeyValueTag = ({
   return (
     <div>
       <Tag closable={isClosable} onClose={onClose} title={tag.key} className={className}>
-        <Tooltip title={allowFullViewModal ? fullViewModalLabel : ''}>
+        <LegacyTooltip title={allowFullViewModal ? fullViewModalLabel : ''}>
           <span
             css={{ maxWidth, display: 'inline-flex' }}
             onClick={() => (allowFullViewModal ? setIsKeyValueTagFullViewModalVisible(true) : undefined)}
@@ -71,7 +71,7 @@ export const KeyValueTag = ({
               </Typography.Text>
             )}
           </span>
-        </Tooltip>
+        </LegacyTooltip>
       </Tag>
       <div>
         {isKeyValueTagFullViewModalVisible && (

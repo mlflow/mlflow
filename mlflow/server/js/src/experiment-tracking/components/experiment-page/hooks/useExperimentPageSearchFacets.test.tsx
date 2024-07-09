@@ -3,7 +3,7 @@ import { useExperimentPageSearchFacets, useUpdateExperimentPageSearchFacets } fr
 import { MemoryRouter, Routes, Route, useLocation, useSearchParams } from '../../../../common/utils/RoutingUtils';
 import { testRoute, TestRouter } from '../../../../common/utils/RoutingTestUtils';
 import { useEffect } from 'react';
-import { screen, renderWithIntl } from 'common/utils/TestUtils.react18';
+import { screen, renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import userEvent from '@testing-library/user-event-14';
 import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 

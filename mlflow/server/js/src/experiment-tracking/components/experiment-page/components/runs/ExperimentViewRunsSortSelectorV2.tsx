@@ -18,6 +18,7 @@ import { useUpdateExperimentPageSearchFacets } from '../../hooks/useExperimentPa
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 import { ToggleIconButton } from '../../../../../common/components/ToggleIconButton';
 import { makeCanonicalSortKey } from '../../utils/experimentPage.common-utils';
+import { customMetricBehaviorDefs } from '../../utils/customMetricBehaviorUtils';
 
 type SORT_KEY_TYPE = keyof (typeof ATTRIBUTE_COLUMN_SORT_KEY & typeof ATTRIBUTE_COLUMN_SORT_LABEL);
 
@@ -189,7 +190,7 @@ export const ExperimentViewRunsSortSelectorV2 = React.memo(
     const metricsSortOptions = useMemo(
       () =>
         metricKeys.map((sortLabelKey) => ({
-          label: sortLabelKey,
+          label: customMetricBehaviorDefs[sortLabelKey]?.displayName ?? sortLabelKey,
           value: `${makeCanonicalSortKey(COLUMN_TYPES.METRICS, sortLabelKey)}`,
         })),
       [metricKeys],

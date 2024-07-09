@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/consistent-type-imports */
-
 // Intentionally not importing `jest` from `@jest/globals` because the transpilation of this library will
 // cause `jest.mock` to become something like `jest_1.default.mock` which doesn't get processed by jest.
 // `jest` cannot be required either due to https://github.com/jestjs/jest/issues/9920

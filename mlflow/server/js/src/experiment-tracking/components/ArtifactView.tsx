@@ -28,7 +28,7 @@ import {
   DesignSystemHocProps,
   Empty,
   LayerIcon,
-  Tooltip,
+  LegacyTooltip,
   Typography,
   WithDesignSystemThemeHoc,
 } from '@databricks/design-system';
@@ -45,7 +45,7 @@ import { Button } from '@databricks/design-system';
 import { CopyIcon } from '@databricks/design-system';
 import { DownloadIcon } from '@databricks/design-system';
 import { Checkbox } from '@databricks/design-system';
-import { getLoggedTablesFromTags } from 'common/utils/TagUtils';
+import { getLoggedTablesFromTags } from '@mlflow/mlflow/src/common/utils/TagUtils';
 import { CopyButton } from '../../shared/building_blocks/CopyButton';
 
 const { Text } = Typography;
@@ -234,7 +234,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
               />
             </Checkbox>
           )}
-          <Tooltip
+          <LegacyTooltip
             arrowPointAtCenter
             placement="topLeft"
             title={this.props.intl.formatMessage({
@@ -247,7 +247,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
               icon={<DownloadIcon />}
               onClick={() => this.onDownloadClick(runUuid, activeNodeId)}
             />
-          </Tooltip>
+          </LegacyTooltip>
         </div>
       </div>
     );
@@ -534,21 +534,21 @@ function ModelVersionInfoSection(props: ModelVersionInfoSectionProps) {
   // eslint-disable-next-line prefer-const
   let mvPageRoute = ModelRegistryRoutes.getModelVersionPageRoute(name, version);
   const modelVersionLink = (
-    <Tooltip title={`${name} version ${version}`}>
+    <LegacyTooltip title={`${name} version ${version}`}>
       <Link to={mvPageRoute} className="model-version-link" target="_blank" rel="noreferrer">
         <span className="model-name">{name}</span>
         <span>,&nbsp;v{version}&nbsp;</span>
         <i className="fas fa-external-link-o" />
       </Link>
-    </Tooltip>
+    </LegacyTooltip>
   );
 
   return (
     <div className="model-version-info">
       <div className="model-version-link-section">
-        <Tooltip title={status_message || modelVersionStatusIconTooltips[status]}>
+        <LegacyTooltip title={status_message || modelVersionStatusIconTooltips[status]}>
           <div>{ModelVersionStatusIcons[status]}</div>
-        </Tooltip>
+        </LegacyTooltip>
         {modelVersionLink}
       </div>
       <div className="model-version-status-text">
