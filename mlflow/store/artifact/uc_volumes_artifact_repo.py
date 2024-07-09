@@ -19,7 +19,7 @@ from mlflow.utils.rest_utils import http_request
 from mlflow.utils.uri import (
     get_databricks_profile_uri_from_artifact_uri,
     is_databricks_model_registry_artifacts_uri,
-    is_valid_dbfs_uri,
+    is_valid_uc_volume_uri,
     remove_databricks_profile_info_from_artifact_uri,
     strip_scheme,
 )
@@ -30,15 +30,25 @@ FILES_API_ENDPOINT = "/api/2.0/fs/files"
 DOWNLOAD_CHUNK_SIZE = 1024
 
 
+def _get_host_creds_factory(artist_uri: str):
+    if databricks_profile_uri := get_databricks_profile_uri_from_artifact_uri(artist_uri):
+        hostcreds_from_uri = get_databricks_host_creds(databricks_profile_uri)
+        return lambda: hostcreds_from_uri
+    return _get_host_creds_from_default_store()
+
+
 class UCVolumesRestArtifactRepository(ArtifactRepository):
     """
     Stores artifacts on UC Volumes using the Files REST API.
     """
 
     def __init__(self, artifact_uri):
-        if not is_valid_dbfs_uri(artifact_uri):
+        if not is_valid_uc_volume_uri(artifact_uri):
             raise MlflowException(
-                message=f"Artifact URI must be of the form dbfs:/Volumes/<path>: {artifact_uri}",
+                message=(
+                    f"Artifact URI must be of the form "
+                    f"dbfs:/Volumes/<catalog>/<schema>/<volume>/<path>: {artifact_uri}"
+                ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -49,12 +59,7 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
         # Absolute path to the root of the volume. For example, '/Volumes/my-volume' for
         # 'dbfs:/Volumes/my-volume'.
         self.root_path = "/" + strip_scheme(self.artifact_uri).strip("/")
-
-        if databricks_profile_uri := get_databricks_profile_uri_from_artifact_uri(artifact_uri):
-            hostcreds_from_uri = get_databricks_host_creds(databricks_profile_uri)
-            self.get_host_creds = lambda: hostcreds_from_uri
-        else:
-            self.get_host_creds = _get_host_creds_from_default_store()
+        self.get_host_creds = _get_host_creds_factory(artifact_uri)
 
     def _relative_to_root(self, path):
         return posixpath.relpath(path, self.root_path)
@@ -213,10 +218,13 @@ def uc_volumes_artifact_repo_factory(artifact_uri):
     Returns:
         Subclass of ArtifactRepository capable of storing artifacts on DBFS.
     """
-    if not is_valid_dbfs_uri(artifact_uri):
+    if not is_valid_uc_volume_uri(artifact_uri):
         raise MlflowException(
-            "Artifact URI must be of the form dbfs:/Volumes/<path> or "
-            f"dbfs://profile@databricks/Volumes/<path>, but received {artifact_uri}"
+            message=(
+                f"Artifact URI must be of the form "
+                f"dbfs:/Volumes/<catalog>/<schema>/<volume>/<path>: {artifact_uri}"
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
     cleaned_artifact_uri = artifact_uri.rstrip("/")
