@@ -19,7 +19,9 @@ class ProviderRegistry:
 
     def register(self, name: str, provider: Type[BaseProvider], config: Type[ConfigModel]):
         if name in self._providers:
-            raise MlflowException.invalid_parameter_value(f"Provider {name} already registered")
+            raise MlflowException.invalid_parameter_value(
+                f"Provider {name} is already registered: {self._providers[name]}"
+            )
         self._providers[name] = ProviderEntry(provider=provider, config=config)
 
     def get(self, name: str) -> ProviderEntry:
