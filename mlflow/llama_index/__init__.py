@@ -286,8 +286,8 @@ def _save_index(index, path):
     index.storage_context.persist(persist_dir=index_path)
 
 
-def _load_model(path, flavor_conf):
-    """Deserialize settings, additional llama index objects, and the index."""
+def _load_index(path, flavor_conf):
+    """Deserialize the index."""
     _add_code_from_conf_to_system_path(path, flavor_conf)
 
     index_path = os.path.join(path, _INDEX_PERSIST_FOLDER)

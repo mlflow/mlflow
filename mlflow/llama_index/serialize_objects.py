@@ -12,9 +12,6 @@ _logger = logging.getLogger(__name__)
 # TODO: add versioning to the map
 # TODO: think about hierarchy of objects
 OBJECT_DICT_METHOD_MAP = {
-    # Testing support
-    llama_index.core.llms.mock.MockLLM: ("to_dict", "from_dict"),
-    llama_index.core.embeddings.mock_embed_model.MockEmbedding: ("to_dict", "from_dict"),
     llama_index.core.llms.llm.LLM: ("to_dict", "from_dict"),
     llama_index.core.base.embeddings.base.BaseEmbedding: ("to_dict", "from_dict"),
     llama_index.core.node_parser.interface.NodeParser: ("to_dict", "from_dict"),
@@ -26,18 +23,17 @@ def _object_to_dict(obj: object) -> Dict[str, any]:
     for k, v in OBJECT_DICT_METHOD_MAP.items():
         if isinstance(obj, k):
             if not hasattr(obj, v[0]):
-                raise AttributeError(
-                    f"Object {obj} was inferred to be of type {k} but does not "
-                    "have a {v[0]} method. Ensure that `OBJECT_DICT_METHOD_MAP` is "
-                    "correct and the object is of type {k}."
+                raise MlflowException(
+                    f"Failed to deserialize object {obj}. This is likely an unsupported object in the MLflow Llama-Index flavor.",
+                    error_code=INTERNAL_ERROR
                 )
 
             return getattr(obj, v[0])()
 
-    raise AttributeError(f"Object {obj} does not have a supported deserialization method.")
+return {}
 
 
-def _get_object_import_path(o: object, do_validate_import: bool = False) -> str:
+def _get_object_import_path(o: object) -> str:
     if not inspect.isclass(o):
         o = o.__class__
 
@@ -67,14 +63,14 @@ def _sanitize_api_key(object_as_dict: Dict[str, str]) -> Dict[str, str]:
     return object_as_dict
 
 
-def object_to_dict(o: object) -> None:
+def _object_to_dict(o: object) -> None:
     try:
         o_state_as_dict = _object_to_dict(o)
         o_state_as_dict = _sanitize_api_key(o_state_as_dict)
         o_state_as_dict.pop("class_name")
     except AttributeError as e:
         if "does not have a supported deserialization method" in str(e):
-            _logger.info(str(e))
+            _logger.warning("Skipping serialization of {o} because...")
             return {}
         else:
             raise
@@ -105,7 +101,7 @@ def _construct_prompt_template_object(
         )
 
 
-def dict_to_object(object_representation: Dict[str, str]) -> object:
+def dict_to_object(object_representation: Dict[str, Any]) -> object:
     if "object_constructor" not in object_representation:
         raise ValueError("'object_constructor' key not found in dict.")
     if "object_kwargs" not in object_representation:
