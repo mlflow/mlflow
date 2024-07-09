@@ -14,7 +14,6 @@ import traceback
 import warnings
 from collections import namedtuple
 from contextlib import contextmanager
-from functools import partial
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
@@ -60,7 +59,6 @@ from mlflow.models.evaluation.base import (
 from mlflow.models.utils import plot_lines
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc import _ServedPyFuncModel
-from mlflow.sklearn import _SklearnModelWrapper
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.utils.time import get_current_time_millis
@@ -131,11 +129,14 @@ def _infer_model_type_by_labels(labels):
 
 def _extract_raw_model(model):
     model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
-    if model_loader_module == "mlflow.sklearn" and not isinstance(model, _ServedPyFuncModel):
-        # If we load a sklearn model with mlflow.pyfunc.load_model, the model will be wrapped
-        # with _SklearnModelWrapper, we need to extract the raw model from it.
-        if isinstance(model._model_impl, _SklearnModelWrapper):
-            return model_loader_module, model._model_impl.sklearn_model
+    # If we load a model with mlflow.pyfunc.load_model, the model will be wrapped
+    # with a pyfunc wrapper. We need to extract the raw model so that shap
+    # explainer uses the raw model instead of the wrapper and skips data schema validation.
+    if model_loader_module in ["mlflow.sklearn", "mlflow.xgboost"] and not isinstance(
+        model, _ServedPyFuncModel
+    ):
+        if hasattr(model._model_impl, "get_raw_model"):
+            return model_loader_module, model._model_impl.get_raw_model()
         return model_loader_module, model._model_impl
     else:
         return model_loader_module, None
@@ -169,14 +170,17 @@ def _extract_predict_fn(
         predict_fn = raw_model.predict
         predict_proba_fn = getattr(raw_model, "predict_proba", None)
         try:
-            import xgboost
+            from mlflow.xgboost import (
+                _wrapped_xgboost_model_predict_fn,
+                _wrapped_xgboost_model_predict_proba_fn,
+            )
 
-            if isinstance(raw_model, xgboost.XGBModel):
-                # Because shap evaluation will pass evaluation data in ndarray format
-                # (without feature names), if set validate_features=True it will raise error.
-                predict_fn = partial(predict_fn, validate_features=False)
-                if predict_proba_fn is not None:
-                    predict_proba_fn = partial(predict_proba_fn, validate_features=False)
+            # Because shap evaluation will pass evaluation data in ndarray format
+            # (without feature names), if set validate_features=True it will raise error.
+            predict_fn = _wrapped_xgboost_model_predict_fn(raw_model, validate_features=False)
+            predict_proba_fn = _wrapped_xgboost_model_predict_proba_fn(
+                raw_model, validate_features=False
+            )
         except ImportError:
             pass
     elif model is not None:
