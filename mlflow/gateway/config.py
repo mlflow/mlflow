@@ -229,22 +229,6 @@ class MistralConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
-config_types = {
-    Provider.COHERE: CohereConfig,
-    Provider.OPENAI: OpenAIConfig,
-    Provider.ANTHROPIC: AnthropicConfig,
-    Provider.AI21LABS: AI21LabsConfig,
-    Provider.MOSAICML: MosaicMLConfig,
-    Provider.BEDROCK: AmazonBedrockConfig,
-    Provider.AMAZON_BEDROCK: AmazonBedrockConfig,
-    Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
-    Provider.PALM: PaLMConfig,
-    Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HuggingFaceTextGenerationInferenceConfig,
-    Provider.MISTRAL: MistralConfig,
-    Provider.TOGETHERAI: TogetherAIConfig,
-}
-
-
 class ModelInfo(ResponseModel):
     name: Optional[str] = None
     provider: Provider
@@ -316,8 +300,10 @@ class Model(ConfigModel):
 
     @classmethod
     def _validate_config(cls, info, values):
+        from mlflow.gateway.provider_registry import provider_registry
+
         if provider := values.get("provider"):
-            config_type = config_types[provider]
+            config_type = provider_registry.get(provider).config
             return config_type(**info)
 
         raise MlflowException.invalid_parameter_value(
