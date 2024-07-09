@@ -72,7 +72,7 @@ def _validate_engine_type(engine_type: str):
         raise ValueError(
             f"Currently mlflow only supports the following engine types: "
             f"{SUPPORTED_ENGINES}. {engine_type} is not supported, so please"
-            "use one of the above types"
+            "use one of the above types."
         )
 
 
@@ -166,11 +166,6 @@ def save_model(
 
     _save_index(index, path)
 
-    if not model_config:
-        model_config = {"engine_type": engine_type}
-    elif isinstance(model_config, dict):
-        model_config.update({"engine_type": engine_type})
-
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.llama_index",
@@ -178,6 +173,7 @@ def save_model(
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
         model_config=model_config,
+        engine_type=engine_type,
     )
     mlflow_model.add_flavor(
         FLAVOR_NAME,
@@ -334,5 +330,5 @@ def load_model(model_uri, dst_path=None):
 
 def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
-    engine_type = model_config.pop("engine_type")
+    engine_type = flavor_conf.pop("engine_type")
     return create_engine_wrapper(_load_index(path, flavor_conf), engine_type, model_config)
