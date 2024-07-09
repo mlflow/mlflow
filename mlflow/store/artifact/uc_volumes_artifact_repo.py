@@ -46,7 +46,7 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
         if not is_valid_uc_volume_uri(artifact_uri):
             raise MlflowException(
                 message=(
-                    f"Artifact URI must be of the form "
+                    f"UC volume URI must be of the form "
                     f"dbfs:/Volumes/<catalog>/<schema>/<volume>/<path>: {artifact_uri}"
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
@@ -91,6 +91,8 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
         )
         if response.status_code == 404:
             return []
+
+        augmented_raise_for_status(response)
 
         response_json = response.json()
         contents = response_json.get("contents", [])
@@ -157,7 +159,7 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
                 if local_path.parent == local_dir:
                     artifact_subdir = artifact_path
                 else:
-                    rel_path = local_path.relative_to(local_dir)
+                    rel_path = local_path.parent.relative_to(local_dir)
                     posix_rel_path = relative_path_to_artifact_path(rel_path)
                     artifact_subdir = (
                         posixpath.join(artifact_path, posix_rel_path)
@@ -221,7 +223,7 @@ def uc_volumes_artifact_repo_factory(artifact_uri):
     if not is_valid_uc_volume_uri(artifact_uri):
         raise MlflowException(
             message=(
-                f"Artifact URI must be of the form "
+                f"UC volume URI must be of the form "
                 f"dbfs:/Volumes/<catalog>/<schema>/<volume>/<path>: {artifact_uri}"
             ),
             error_code=INVALID_PARAMETER_VALUE,
