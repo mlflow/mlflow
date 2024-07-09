@@ -1,9 +1,12 @@
+import logging
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from llama_index.core import QueryBundle
 from llama_index.core.llms import ChatMessage
 
 from mlflow.models.utils import _convert_llm_input_data
+
+_logger = logging.getLogger(__name__)
 
 CHAT_ENGINE_NAME = "chat"
 QUERY_ENGINE_NAME = "query"
@@ -59,33 +62,29 @@ class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
         return self.index.as_chat_engine(**self.model_config).chat
 
     @staticmethod
-    def _parse_dict_as_chat_message_objects(data: Dict) -> Dict:
-        message_matches = (name for name in _CHAT_MESSAGE_PARAMETER_NAMES if name in data)
-        if (key := next(message_matches, None)) and data.get(key):
-            if not isinstance(data[key], str):
-                raise ValueError(f"{key} must be a str. Got: {data[key]}")
+    def _convert_inferred_chat_message_history_to_chat_message_objects(data: Dict) -> Dict:
+        for name in _CHAT_MESSAGE_HISTORY_PARAMETER_NAMES:
+            if inferred_message_history := data.get(name):
+                if isinstance(inferred_message_history, list):
+                    for i, message in enumerate(inferred_message_history):
+                        if isinstance(message, dict):
+                            data[name][i] = ChatMessage(**message)
 
-        message_history_matches = (
-            name for name in _CHAT_MESSAGE_HISTORY_PARAMETER_NAMES if name in data
+            return data
+
+        _logger.warning(
+            f"Could not find any chat message history in the input data. "
+            f"Expected one of {_CHAT_MESSAGE_HISTORY_PARAMETER_NAMES}."
         )
-        if (key := next(message_history_matches, None)) and data.get(key):
-            if isinstance(data[key], list):
-                for i, message in enumerate(data[key]):
-                    if isinstance(message, dict):
-                        data[key][i] = ChatMessage(**message)
-
-            if not all(isinstance(message, ChatMessage) for message in data[key]):
-                raise ValueError(f"{key} must be a list of ChatMessage objects. Got: {data[key]}")
-
         return data
 
-    def _format_predict_input(self, data):
+    def _format_predict_input(self, data) -> Union[str, Dict, List]:
         data = _convert_llm_input_data(data)
 
         if isinstance(data, str):
             return data
         elif isinstance(data, dict):
-            return self._parse_dict_as_chat_message_objects(data)
+            return self._convert_inferred_chat_message_history_to_chat_message_objects(data)
         elif isinstance(data, list):
             prediction_input = [self._format_predict_input(d) for d in data]
             return prediction_input if len(prediction_input) > 1 else prediction_input[0]
@@ -104,7 +103,7 @@ class QueryEngineWrapper(_LlamaIndexModelWrapperBase):
     def _build_engine_method(self) -> Callable:
         return self.index.as_query_engine(**self.model_config).query
 
-    def _format_predict_input(self, data):
+    def _format_predict_input(self, data) -> QueryBundle:
         """Convert pyfunc input to a QueryBundle."""
         data = _convert_llm_input_data(data)
 
