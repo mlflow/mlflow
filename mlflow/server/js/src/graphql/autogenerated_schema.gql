@@ -5,6 +5,7 @@ directive @component(name: String!) on QUERY | MUTATION
 
 type Query {
   mlflowGetExperiment(input: MlflowGetExperimentInput): MlflowGetExperimentResponse
+  mlflowGetMetricHistoryBulkInterval(input: MlflowGetMetricHistoryBulkIntervalInput): MlflowGetMetricHistoryBulkIntervalResponse
   mlflowGetRun(input: MlflowGetRunInput): MlflowGetRunResponse
   mlflowSearchModelVersions(input: MlflowSearchModelVersionsInput): MlflowSearchModelVersionsResponse
 
@@ -38,6 +39,26 @@ type MlflowExperimentTag {
 
 input MlflowGetExperimentInput {
   experimentId: String
+}
+
+type MlflowGetMetricHistoryBulkIntervalResponse {
+  metrics: [MlflowMetricWithRunId!]
+}
+
+type MlflowMetricWithRunId {
+  key: String
+  value: Float
+  timestamp: LongString
+  step: LongString
+  runId: String
+}
+
+input MlflowGetMetricHistoryBulkIntervalInput {
+  runIds: [String]
+  metricKey: String
+  startStep: Int
+  endStep: Int
+  maxResults: Int
 }
 
 type MlflowGetRunResponse {
