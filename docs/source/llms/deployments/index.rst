@@ -1284,8 +1284,8 @@ Finally, you need to install the plugin package in the same environment as the M
     Only install plugin packages you trust. Starting a server with plugin provider will
     execute arbitrary codes in the plugin package.
 
-Then, you can configure the MLflow Deployments Server configuration file
-with the ``plugin:<module>:<class>`` syntax to specify the provider according to the entry point name.
+Then, you can specify the plugin provider according to the entry point name
+in the MLflow Deployments Server configuration file.
 
 .. code-block:: yaml
 
