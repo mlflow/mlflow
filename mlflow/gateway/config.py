@@ -303,7 +303,7 @@ class Model(ConfigModel):
         from mlflow.gateway.provider_registry import provider_registry
 
         if provider := values.get("provider"):
-            config_type = provider_registry.get(provider).config
+            config_type = provider_registry.get(provider).CONFIG_TYPE
             return config_type(**info)
 
         raise MlflowException.invalid_parameter_value(
