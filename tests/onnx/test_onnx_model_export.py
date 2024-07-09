@@ -225,11 +225,6 @@ def predicted_multiple_inputs(data_multiple_inputs):
 
 
 @pytest.fixture
-def model_path(tmp_path):
-    return os.path.join(tmp_path, "model")
-
-
-@pytest.fixture
 def onnx_custom_env(tmp_path):
     conda_env = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["onnx", "pytest", "torch"])

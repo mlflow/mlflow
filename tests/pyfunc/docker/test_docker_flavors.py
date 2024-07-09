@@ -11,7 +11,6 @@ To run this test, run the following command manually
 import contextlib
 import json
 import os
-import shutil
 import sys
 import threading
 import time
@@ -68,19 +67,6 @@ pytestmark = pytest.mark.skipif(
     not _MLFLOW_RUN_SLOW_TESTS.get(),
     reason="Skip slow tests. Set MLFLOW_RUN_SLOW_TESTS environment variable to run them.",
 )
-
-
-@pytest.fixture
-def model_path(tmp_path):
-    model_path = tmp_path.joinpath("model")
-
-    yield model_path
-
-    # Pytest keeps the temporary directory created by `tmp_path` fixture for 3 recent test sessions
-    # by default. This is useful for debugging during local testing, but in CI it just wastes the
-    # disk space.
-    if os.getenv("GITHUB_ACTIONS") == "true":
-        shutil.rmtree(model_path, ignore_errors=True)
 
 
 @contextlib.contextmanager

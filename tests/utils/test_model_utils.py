@@ -25,11 +25,6 @@ def sklearn_knn_model():
     return knn_model
 
 
-@pytest.fixture
-def model_path(tmp_path):
-    return os.path.join(tmp_path, "model")
-
-
 def test_get_flavor_configuration_throws_exception_when_model_configuration_does_not_exist(
     model_path,
 ):

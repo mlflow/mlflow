@@ -36,11 +36,6 @@ IS_TENSORFLOW_AVAILABLE = _is_available_on_pypi("tensorflow")
 EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if IS_TENSORFLOW_AVAILABLE else ["--env-manager", "local"]
 
 
-@pytest.fixture
-def model_path(tmp_path):
-    return os.path.join(tmp_path, "model")
-
-
 @pytest.fixture(scope="module")
 def data():
     iris = datasets.load_iris()

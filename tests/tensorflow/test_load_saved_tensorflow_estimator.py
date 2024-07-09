@@ -30,11 +30,6 @@ def tf_custom_env(tmp_path):
     return conda_env
 
 
-@pytest.fixture
-def model_path(tmp_path):
-    return os.path.join(tmp_path, "model")
-
-
 ModelDataInfo = collections.namedtuple(
     "ModelDataInfo",
     [

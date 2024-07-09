@@ -186,11 +186,6 @@ def spark_model_estimator(iris_df):
     )
 
 
-@pytest.fixture
-def model_path(tmp_path):
-    return os.path.join(tmp_path, "model")
-
-
 @pytest.mark.usefixtures("spark")
 def test_hadoop_filesystem(tmp_path):
     # copy local dir to and back from HadoopFS and make sure the results match

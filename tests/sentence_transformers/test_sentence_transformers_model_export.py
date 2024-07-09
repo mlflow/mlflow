@@ -32,11 +32,6 @@ from tests.helper_functions import (
 
 
 @pytest.fixture
-def model_path(tmp_path):
-    return tmp_path.joinpath("model")
-
-
-@pytest.fixture
 def basic_model():
     return SentenceTransformer("all-MiniLM-L6-v2")
 

@@ -137,11 +137,6 @@ def spark():
         yield session
 
 
-@pytest.fixture
-def model_path(tmp_path):
-    return os.path.join(tmp_path, "model")
-
-
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 

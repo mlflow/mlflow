@@ -194,11 +194,6 @@ def keras_model():
     return ModelWithData(model=model, inference_data=X)
 
 
-@pytest.fixture
-def model_path(tmp_path):
-    return os.path.join(tmp_path, "model")
-
-
 def test_scoring_server_responds_to_malformed_json_input_with_error_code_and_message(
     sklearn_model, model_path
 ):

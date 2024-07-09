@@ -88,11 +88,6 @@ def spacy_custom_env(tmp_path):
     return conda_env
 
 
-@pytest.fixture
-def model_path(tmp_path):
-    return os.path.join(tmp_path, "model")
-
-
 def test_model_save_load(spacy_model_with_data, model_path):
     spacy_model = spacy_model_with_data.model
     mlflow.spacy.save_model(spacy_model=spacy_model, path=model_path)

@@ -107,11 +107,6 @@ def jsl_model(load_and_init_model):
 
 
 @pytest.fixture
-def model_path(tmp_path):
-    return str(tmp_path / "model")
-
-
-@pytest.fixture
 def spark_custom_env(tmp_path):
     conda_env = str(tmp_path / "conda_env.yml")
     additional_pip_deps = ["pyspark", "pytest"]

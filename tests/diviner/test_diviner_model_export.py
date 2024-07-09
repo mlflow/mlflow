@@ -39,11 +39,6 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
 )
 
 
-@pytest.fixture
-def model_path(tmp_path):
-    return tmp_path.joinpath("model")
-
-
 @pytest.fixture(scope="module")
 def diviner_data():
     return example_data_generator.generate_example_data(

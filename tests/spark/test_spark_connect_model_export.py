@@ -1,5 +1,4 @@
 import json
-import os
 
 import numpy as np
 import pandas as pd
@@ -30,11 +29,6 @@ def _get_spark_connect_session():
             "spark.jars.packages", f"org.apache.spark:spark-connect_2.12:{pyspark.__version__}"
         )
     return builder.getOrCreate()
-
-
-@pytest.fixture
-def model_path(tmp_path):
-    return os.path.join(tmp_path, "model")
 
 
 def score_model_as_udf(model_uri, pandas_df, result_type):
@@ -80,11 +74,6 @@ def spark_model(iris_df):
         pandas_df=iris_pandas_df,
         predictions=preds_pandas_df,
     )
-
-
-@pytest.fixture
-def model_path(tmp_path):
-    return os.path.join(tmp_path, "model")
 
 
 def test_model_export(spark_model, model_path):

@@ -101,11 +101,6 @@ def _mock_async_request(content=TEST_CONTENT):
         yield m
 
 
-@pytest.fixture
-def model_path(tmp_path):
-    return tmp_path / "model"
-
-
 @pytest.fixture(scope="module")
 def spark():
     with SparkSession.builder.master("local[*]").getOrCreate() as s:
