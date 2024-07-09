@@ -46,6 +46,8 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
         # Databricks profile info, so strip it before setting ``artifact_uri``.
         super().__init__(remove_databricks_profile_info_from_artifact_uri(artifact_uri))
 
+        self.root = "/" + strip_scheme(self.artifact_uri).strip("/")
+
         if databricks_profile_uri := get_databricks_profile_uri_from_artifact_uri(artifact_uri):
             hostcreds_from_uri = get_databricks_host_creds(databricks_profile_uri)
             self.get_host_creds = lambda: hostcreds_from_uri
@@ -78,8 +80,7 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
             return self._api_request(endpoint=endpoint, method="PUT", data=f, allow_redirects=False)
 
     def _get_path(self, artifact_path=None):
-        prefix = "/" + strip_scheme(self.artifact_uri).strip("/")
-        return prefix if artifact_path else posixpath.join(prefix, artifact_path.strip("/"))
+        return self.root if artifact_path else posixpath.join(self.root, artifact_path.strip("/"))
 
     def log_artifact(self, local_file, artifact_path=None):
         basename = os.path.basename(local_file)
@@ -133,7 +134,8 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
         return sorted(infos, key=lambda f: f.path)
 
     def _download_file(self, remote_file_path, local_path):
-        self._download(output_path=local_path, endpoint=self._get_path(remote_file_path))
+        resp = self._download(output_path=local_path, endpoint=self._get_path(remote_file_path))
+        augmented_raise_for_status(resp)
 
     def delete_artifacts(self, artifact_path=None):
         raise NotImplementedError()
