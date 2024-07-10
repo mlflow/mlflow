@@ -218,24 +218,27 @@ describe('EvaluationArtifactCompareTable', () => {
 
     renderComponent(resultList, ['data'], 'output', false);
 
-    await waitFor(() => {
-      expect(screen.getByRole('columnheader', { name: 'data' })).toBeInTheDocument();
-      expect(screen.getByRole('columnheader', { name: new RegExp('output', 'i') })).toBeInTheDocument();
-      ['able-panda-761', 'able-panda-762', 'able-panda-763'].forEach((value) => {
-        expect(screen.getByRole('columnheader', { name: new RegExp(value, 'i') })).toBeInTheDocument();
-      });
-      resultList.forEach((result) => {
-        Object.values(result.groupByCellValues).forEach((value) => {
-          expect(screen.getByRole('gridcell', { name: value })).toBeInTheDocument();
+    await waitFor(
+      () => {
+        expect(screen.getByRole('columnheader', { name: 'data' })).toBeInTheDocument();
+        expect(screen.getByRole('columnheader', { name: new RegExp('output', 'i') })).toBeInTheDocument();
+        ['able-panda-761', 'able-panda-762', 'able-panda-763'].forEach((value) => {
+          expect(screen.getByRole('columnheader', { name: new RegExp(value, 'i') })).toBeInTheDocument();
         });
-        Object.values(result.cellValues).forEach((value) => {
-          if (typeof value === 'string') {
+        resultList.forEach((result) => {
+          Object.values(result.groupByCellValues).forEach((value) => {
             expect(screen.getByRole('gridcell', { name: value })).toBeInTheDocument();
-          }
+          });
+          Object.values(result.cellValues).forEach((value) => {
+            if (typeof value === 'string') {
+              expect(screen.getByRole('gridcell', { name: value })).toBeInTheDocument();
+            }
+          });
         });
-      });
-    });
-  }, 120000);
+      },
+      { timeout: 120000 },
+    );
+  });
 
   it('should render the component with multiple groups', async () => {
     const resultList: UseEvaluationArtifactTableDataResult = [
