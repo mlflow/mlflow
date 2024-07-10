@@ -24,7 +24,7 @@ class BaseProvider(ABC):
                 f"override 'NAME' attribute as a non-empty string."
             )
 
-        if not hasattr(self, "CONFIG_TYPE") or not self.CONFIG_TYPE:
+        if not hasattr(self, "CONFIG_TYPE") or not issubclass(self.CONFIG_TYPE, ConfigModel):
             raise ValueError(
                 f"{self.__class__.__name__} is a subclass of BaseProvider and must "
                 f"define 'CONFIG_TYPE' attribute as a subclass of ConfigModel."
