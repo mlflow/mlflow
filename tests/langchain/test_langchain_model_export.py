@@ -411,7 +411,10 @@ def test_save_and_load_chat_openai_with_unsupported_version_raise_helpful_messag
 def test_save_and_load_azure_chat_openai(model_path):
     from langchain.chat_models import AzureChatOpenAI
 
-    llm = AzureChatOpenAI(temperature=0.9)
+    llm = AzureChatOpenAI(
+        temperature=0.9,
+        api_version="2023-05-15",
+    )
     prompt = PromptTemplate.from_template("What is a good name for a company that makes {product}?")
     chain = LLMChain(llm=llm, prompt=prompt)
     mlflow.langchain.save_model(chain, model_path)
