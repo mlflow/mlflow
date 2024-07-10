@@ -9,6 +9,12 @@ from mlflow.entities.model_registry import (
 )
 from mlflow.entities.model_registry.model_version_search import ModelVersionSearch
 from mlflow.entities.model_registry.registered_model_search import RegisteredModelSearch
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    EncryptionDetails,
+    SseEncryptionAlgorithm,
+    SseEncryptionDetails,
+    TemporaryCredentials,
+)
 from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     ModelVersionStatus as ProtoModelVersionStatus,
@@ -26,6 +32,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     RegisteredModelTag as ProtoRegisteredModelTag,
 )
 from mlflow.utils._unity_catalog_utils import (
+    _parse_aws_sse_credential,
     model_version_from_uc_proto,
     model_version_search_from_uc_proto,
     registered_model_from_uc_proto,
@@ -245,3 +252,37 @@ def test_registered_model_and_registered_model_search_equality():
     registered_model_search_2 = RegisteredModelSearch(**kwargs)
 
     assert registered_model_2 == registered_model_search_2
+
+
+@pytest.mark.parametrize(
+    ("temp_credentials", "parsed"),
+    [
+        (TemporaryCredentials(), {}),
+        (
+            TemporaryCredentials(
+                encryption_details=EncryptionDetails(
+                    sse_encryption_details=SseEncryptionDetails(
+                        algorithm=SseEncryptionAlgorithm.SSE_ENCRYPTION_ALGORITHM_UNSPECIFIED
+                    )
+                )
+            ),
+            {},
+        ),
+        (
+            TemporaryCredentials(
+                encryption_details=EncryptionDetails(
+                    sse_encryption_details=SseEncryptionDetails(
+                        algorithm=SseEncryptionAlgorithm.AWS_SSE_KMS,
+                        aws_kms_key_arn="some:arn:test:key/key_id",
+                    )
+                )
+            ),
+            {
+                "ServerSideEncryption": "aws:kms",
+                "SSEKMSKeyId": "key_id",
+            },
+        ),
+    ],
+)
+def test_parse_aws_sse_credential(temp_credentials, parsed):
+    assert _parse_aws_sse_credential(temp_credentials) == parsed
