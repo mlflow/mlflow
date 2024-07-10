@@ -78,10 +78,10 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
         endpoint = f"{DIRECTORIES_API_ENDPOINT}{directory_path}"
         return self._api_request(endpoint=endpoint, method="GET")
 
-    def _paginated_list_directory_contents(self, path, next_page_token=None):
-        response = self._list_directory_contents(
-            self._get_path(path), next_page_token=next_page_token
-        )
+    def _paginated_list_directory_contents(
+        self, directory_path: str, next_page_token: Optional[str] = None
+    ):
+        response = self._list_directory_contents(directory_path, next_page_token=next_page_token)
         if response.status_code == 404:
             return []
 
@@ -90,7 +90,8 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
         response_json = response.json()
         contents = response_json.get("contents", [])
         if next_page_token := response_json.get("next_page_token"):
-            return contents + self._paginated_list_directory_contents(path, next_page_token)
+            next_contents = self._paginated_list_directory_contents(directory_path, next_page_token)
+            return contents + next_contents
         return contents
 
     def _download(self, output_path: str, file_path: str):
@@ -176,7 +177,7 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
         #    "next_page_token": "string",
         # }
         infos = []
-        for content in self._paginated_list_directory_contents(path):
+        for content in self._paginated_list_directory_contents(self._get_path(path)):
             rel_path = self._relative_to_root(content["path"])
             infos.append(FileInfo(rel_path, content["is_directory"], content.get("file_size")))
         return sorted(infos, key=lambda f: f.path)
