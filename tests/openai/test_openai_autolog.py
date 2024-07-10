@@ -66,10 +66,10 @@ def test_chat_completions_autolog_streaming(client, monkeypatch):
     assert isinstance(trace.data.response, str)
 
     response_data = json.loads(trace.data.response)
-    assert response_data["chunks"][0]["id"] == "chatcmpl-123"
-    assert response_data["chunks"][0]["choices"][0]["delta"]["content"] == "Hello"
-    assert response_data["chunks"][1]["id"] == "chatcmpl-123"
-    assert response_data["chunks"][1]["choices"][0]["delta"]["content"] == " world"
+    assert response_data["result"][0]["id"] == "chatcmpl-123"
+    assert response_data["result"][0]["choices"][0]["delta"]["content"] == "Hello"
+    assert response_data["result"][1]["id"] == "chatcmpl-123"
+    assert response_data["result"][1]["choices"][0]["delta"]["content"] == " world"
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
