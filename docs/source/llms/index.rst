@@ -24,6 +24,7 @@ Whether through decorators, context managers, or explicit API calls, MLflow prov
 of your GenAI models and retain your traced data within the tracking server for further analysis.
 
 - `Automated tracing with LangChain <tracing/index.html#langchain-automatic-tracing>`_: Seamless integration with LangChain for automatic trace data collection.
+- `Automated tracing with OpenAI <tracing/index.html#openai-automatic-tracing>`_: Automated logging of traces when using the OpenAI SDK.
 - `Manual trace instrumentation with high-level fluent APIs <tracing/index.html#tracing-fluent-apis>`_: Easy-to-use decorators and context managers for adding tracing with minimal code changes.
 - `Low-level client APIs for tracing <tracing/index.html#tracing-client-apis>`_: Thread-safe methods for detailed and explicit control over trace data management.
 
