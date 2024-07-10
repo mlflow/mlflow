@@ -452,8 +452,9 @@ def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded
             elif f == _assert_required:
                 message = f"Missing value for required parameter '{param}'."
             else:
+                formattedValue = json.dumps(value, sort_keys=True, separators=(",", ":"))
                 message = (
-                    f"Invalid value {value} for parameter '{param}' supplied."
+                    f"Invalid value {formattedValue} for parameter '{param}' supplied."
                     f" Hint: Value was of type '{type(value).__name__}'."
                 )
             raise MlflowException(
