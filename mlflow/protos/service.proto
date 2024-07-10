@@ -366,6 +366,7 @@ service MlflowService {
       }],
       visibility: PUBLIC_UNDOCUMENTED,
     };
+    option (graphql) = {};
   }
 
   // Log a batch of metrics, params, and tags for a run.

@@ -1,4 +1,5 @@
 import importlib
+import inspect
 import json
 import os
 import shutil
@@ -339,6 +340,21 @@ def test_langchain_model_predict():
         assert result == [TEST_CONTENT]
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.354"),
+    reason="LLMChain does not support streaming before LangChain 0.0.354",
+)
+def test_langchain_model_predict_stream():
+    with _mock_request(return_value=_mock_chat_completion_response()):
+        model = create_openai_llmchain()
+        with mlflow.start_run():
+            logged_model = mlflow.langchain.log_model(model, "langchain_model")
+        loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+        result = loaded_model.predict_stream([{"product": "MLflow"}])
+        assert inspect.isgenerator(result)
+        assert list(result) == [{"product": "MLflow", "text": "test"}]
+
+
 def test_pyfunc_spark_udf_with_langchain_model(spark):
     model = create_openai_llmchain()
     with mlflow.start_run():
@@ -392,8 +408,10 @@ def test_save_and_load_chat_openai_with_unsupported_version_raise_helpful_messag
     Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
     reason=f"Chat model loading only works for Langchain>={_LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI}",
 )
-def test_save_and_load_azure_chat_openai(model_path):
+def test_save_and_load_azure_chat_openai(model_path, monkeypatch):
     from langchain.chat_models import AzureChatOpenAI
+
+    monkeypatch.setenv("OPENAI_API_VERSION", "2023-05-15")
 
     llm = AzureChatOpenAI(temperature=0.9)
     prompt = PromptTemplate.from_template("What is a good name for a company that makes {product}?")
@@ -471,6 +489,41 @@ def test_langchain_agent_model_predict(return_intermediate_steps):
             PredictionsResponse.from_json(response.content.decode("utf-8"))
             == langchain_agent_output_serving
         )
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.354"),
+    reason="AgentExecutor does not support streaming before LangChain 0.0.354",
+)
+def test_langchain_agent_model_predict_stream():
+    langchain_agent_output = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1677652288,
+        "choices": [
+            {
+                "index": 0,
+                "finish_reason": "stop",
+                "text": f"Final Answer: {TEST_CONTENT}",
+            }
+        ],
+        "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
+    }
+    model = create_openai_llmagent()
+
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(model, "langchain_model")
+    loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+    langchain_input = {"input": "foo"}
+    with _mock_request(return_value=_MockResponse(200, langchain_agent_output)):
+        response = loaded_model.predict_stream([langchain_input])
+        assert inspect.isgenerator(response)
+        assert list(response) == [
+            {
+                "output": TEST_CONTENT,
+                "messages": [AIMessage(content=f"Final Answer: {TEST_CONTENT}")],
+            }
+        ]
 
 
 def test_langchain_native_log_and_load_qaevalchain():
@@ -2356,24 +2409,27 @@ def chain_model_signature():
     )
 
 
+def _get_message_content(predictions):
+    return predictions[0]["choices"][0]["message"]["content"]
+
+
 @pytest.mark.skipif(
     Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
 )
 @pytest.mark.parametrize(
-    "chain_path",
+    ("chain_path", "model_config"),
     [
-        os.path.abspath("tests/langchain/sample_code/chain.py"),
-        "tests/langchain/../langchain/sample_code/chain.py",
+        (
+            os.path.abspath("tests/langchain/sample_code/chain.py"),
+            os.path.abspath("tests/langchain/sample_code/config.yml"),
+        ),
+        (
+            "tests/langchain/../langchain/sample_code/chain.py",
+            "tests/langchain/../langchain/sample_code/config.yml",
+        ),
     ],
 )
-@pytest.mark.parametrize(
-    "model_config",
-    [
-        os.path.abspath("tests/langchain/sample_code/config.yml"),
-        "tests/langchain/../langchain/sample_code/config.yml",
-    ],
-)
-def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config, monkeypatch):
+def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config):
     input_example = {
         "messages": [
             {
@@ -2414,13 +2470,7 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
     answer = "Databricks"
     assert loaded_model.invoke(input_example) == answer
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert (
-        pyfunc_loaded_model.predict(input_example)[0]
-        .get("choices")[0]
-        .get("message")
-        .get("content")
-        == answer
-    )
+    assert answer == _get_message_content(pyfunc_loaded_model.predict(input_example))
 
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
@@ -2428,9 +2478,10 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
-        "predictions": [try_transform_response_to_chat_format(answer)]
-    }
+    predictions = PredictionsResponse.from_json(response.content.decode("utf-8"))["predictions"]
+    # Mock out the `created` timestamp as it is not deterministic
+    expected = [{**try_transform_response_to_chat_format(answer), "created": mock.ANY}]
+    assert expected == predictions
 
     pyfunc_model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
     pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
@@ -2506,13 +2557,7 @@ def test_save_load_chain_as_code_model_config_dict(chain_model_signature, chain_
     answer = "modified response"
     assert loaded_model.invoke(input_example) == answer
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert (
-        pyfunc_loaded_model.predict(input_example)[0]
-        .get("choices")[0]
-        .get("message")
-        .get("content")
-        == answer
-    )
+    assert answer == _get_message_content(pyfunc_loaded_model.predict(input_example))
 
 
 @pytest.mark.skipif(
@@ -2557,13 +2602,7 @@ def test_save_load_chain_as_code_with_different_names(
     answer = "Databricks"
     assert loaded_model.invoke(input_example) == answer
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert (
-        pyfunc_loaded_model.predict(input_example)[0]
-        .get("choices")[0]
-        .get("message")
-        .get("content")
-        == answer
-    )
+    assert answer == _get_message_content(pyfunc_loaded_model.predict(input_example))
 
 
 @pytest.mark.skipif(
@@ -3356,3 +3395,34 @@ def test_agent_executor_model_with_messages_input():
     # we convert pandas dataframe back to records, and a single row will be
     # wrapped inside a list.
     assert pyfunc_model.predict(question) == ["Databricks"]
+
+    # Test stream output
+    response = pyfunc_model.predict_stream(question)
+    assert inspect.isgenerator(response)
+    assert list(response) == [
+        {
+            "output": "Databricks",
+            "messages": [AIMessage(content="Databricks")],
+        }
+    ]
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
+    reason="feature not existing",
+)
+def test_signature_inference_fails(monkeypatch: pytest.MonkeyPatch):
+    from langchain.schema.runnable import RunnableLambda
+
+    monkeypatch.setenv("MLFLOW_TESTING", "false")
+
+    model = RunnableLambda(lambda x: x)
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            model,
+            "model",
+            # Use an empty array to trigger an error in signature inference
+            input_example={"chat": []},
+        )
+        assert model_info.signature is None

@@ -129,8 +129,8 @@ def test_log_image_numpy_emits_warning_for_out_of_range_values(array):
         ):
             mlflow.log_image(image, "image.png")
     else:
-        with mlflow.start_run(), pytest.raises(
-            ValueError, match="Float pixel values out of acceptable range"
+        with mlflow.start_run(), pytest.warns(
+            UserWarning, match="Float pixel values out of acceptable range"
         ):
             mlflow.log_image(image, "image.png")
 

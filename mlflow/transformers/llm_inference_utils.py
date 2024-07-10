@@ -104,26 +104,38 @@ def convert_messages_to_prompt(messages: List[Dict], tokenizer) -> str:
 
 
 def preprocess_llm_inference_input(
-    data: pd.DataFrame,
+    data: Union[pd.DataFrame, Dict],
     params: Optional[Dict[str, Any]] = None,
     flavor_config: Optional[Dict[str, Any]] = None,
 ) -> Tuple[List[Any], Dict[str, Any]]:
     """
     When a MLflow inference task is given, return updated `data` and `params` that
-    - Extract the parameters from the input data.
+    - Extract the parameters from the input data (from the first row if passed multiple rows)
     - Replace OpenAI specific parameters with Hugging Face specific parameters, in particular
       - `max_tokens` with `max_new_tokens`
       - `stop` with `stopping_criteria`
+
+    Args:
+        data: Input data for the LLM inference task. Either a pandas DataFrame (after signature
+            enforcement) or a raw dictionary payload.
+        params: Optional dictionary of parameters.
+        flavor_config: Optional dictionary of flavor configuration.
     """
-    if not isinstance(data, pd.DataFrame):
+    if isinstance(data, pd.DataFrame):
+        # Pandas convert None to np.nan internally, which is not preferred
+        data = data.replace(np.nan, None).to_dict(orient="list")
+    elif isinstance(data, dict):
+        # Convert single value to list for consistency with DataFrame
+        data = {k: [v] for k, v in data.items()}
+    else:
         raise MlflowException(
-            "`data` is expected to be a pandas DataFrame for MLflow inference task after signature "
-            f"enforcement, but got type: {type(data)}."
+            "Input data for a Transformer model logged with `llm/v1/chat` or `llm/v1/completions`"
+            f"task is expected to be a pandas DataFrame or a dictionary, but got: {type(data)}.",
+            error_code=BAD_REQUEST,
         )
+
     flavor_config = flavor_config or {}
     params = params or {}
-    # Pandas convert None to np.nan internally, which is not preferred
-    data = data.replace(np.nan, None).to_dict(orient="list")
 
     # Extract list of input data (prompt, messages) to LLM
     task = flavor_config[_LLM_INFERENCE_TASK_KEY]

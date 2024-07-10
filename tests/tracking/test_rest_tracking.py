@@ -169,7 +169,7 @@ def test_create_experiment_validation(mlflow_client):
             "artifact_location": "my_location",
             "tags": "5",
         },
-        "Invalid value 5 for parameter 'tags'",
+        "Invalid value \\\"5\\\" for parameter 'tags'",
     )
 
 
@@ -354,7 +354,7 @@ def test_log_metric_validation(mlflow_client):
             "timestamp": 59,
             "step": "foo",
         },
-        "Invalid value foo for parameter 'step' supplied",
+        "Invalid value \\\"foo\\\" for parameter 'step' supplied",
     )
     assert_bad_request(
         {
@@ -364,7 +364,7 @@ def test_log_metric_validation(mlflow_client):
             "timestamp": "foo",
             "step": 41,
         },
-        "Invalid value foo for parameter 'timestamp' supplied",
+        "Invalid value \\\"foo\\\" for parameter 'timestamp' supplied",
     )
     assert_bad_request(
         {
@@ -655,13 +655,14 @@ def test_log_batch_validation(mlflow_client):
                 "run_id": run_id,
                 request_parameter: "foo",
             },
-            f"Invalid value foo for parameter '{request_parameter}' supplied",
+            f"Invalid value \\\"foo\\\" for parameter '{request_parameter}' supplied",
         )
 
     ## Should 400 if missing timestamp
     assert_bad_request(
         {"run_id": run_id, "metrics": [{"key": "mae", "value": 2.5}]},
-        "Invalid value [{'key': 'mae', 'value': 2.5}] for parameter 'metrics' supplied",
+        """Invalid value [{\\"key\\":\\"mae\\",\\"value\\":2.5}] """
+        + "for parameter 'metrics' supplied",
     )
 
     ## Should 200 if timestamp provided but step is not
@@ -2220,3 +2221,41 @@ def test_get_trace_artifact_handler(mlflow_client):
     # Validate content
     trace_data = TraceData.from_dict(json.loads(response.text))
     assert trace_data.spans[0].to_dict() == span.to_dict()
+
+
+def test_get_metric_history_bulk_interval_graphql(mlflow_client):
+    name = "GraphqlTest"
+    mlflow_client.create_registered_model(name)
+    experiment_id = mlflow_client.create_experiment(name)
+    created_run = mlflow_client.create_run(experiment_id)
+
+    metric_name = "metric_0"
+    for i in range(10):
+        mlflow_client.log_metric(created_run.info.run_id, metric_name, i, step=i)
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": f"""
+                query testQuery {{
+                    mlflowGetMetricHistoryBulkInterval(input: {{
+                        runIds: ["{created_run.info.run_id}"],
+                        metricKey: "{metric_name}",
+                    }}) {{
+                        metrics {{
+                            key
+                            timestamp
+                            value
+                        }}
+                    }}
+                }}
+            """,
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+
+    assert response.status_code == 200
+    json = response.json()
+    expected = [{"key": metric_name, "timestamp": mock.ANY, "value": i} for i in range(10)]
+    assert json["data"]["mlflowGetMetricHistoryBulkInterval"]["metrics"] == expected

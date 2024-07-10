@@ -43,7 +43,6 @@ services:
       MYSQL_DATABASE: mlflowdb
       MYSQL_USER: mlflowuser
       MYSQL_PASSWORD: mlflowpassword
-    command: mysqld --mysql-native-password=ON
 
   mlflow-mysql:
     extends:

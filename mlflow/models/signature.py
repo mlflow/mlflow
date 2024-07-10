@@ -351,7 +351,7 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
 
 
 def _infer_signature_from_input_example(
-    input_example: ModelInputExample, wrapped_model, return_prediction=False, no_conversion=False
+    input_example: ModelInputExample, wrapped_model, no_conversion=False
 ) -> Optional[ModelSignature]:
     """
     Infer the signature from an example input and a PyFunc wrapped model. Catches all exceptions.
@@ -395,8 +395,20 @@ def _infer_signature_from_input_example(
             signature = ModelSignature(inputs=input_schema, params=params_schema)
         else:
             signature = ModelSignature(input_schema, output_schema, params_schema)
-        if return_prediction:
-            return signature, prediction
+
+        # try assign output schema if failing to infer it from prediction for langchain models
+        if signature.outputs is None:
+            try:
+                from mlflow.langchain import _LangChainModelWrapper
+                from mlflow.langchain.utils.chat import _ChatResponse
+            except ImportError:
+                pass
+            else:
+                if isinstance(wrapped_model, _LangChainModelWrapper) and isinstance(
+                    prediction, _ChatResponse
+                ):
+                    signature.outputs = prediction.get_schema()
+
         return signature
     except Exception as e:
         if environment_variables._MLFLOW_TESTING.get():

@@ -1,12 +1,15 @@
 import json
 import logging
 import re
+import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from inspect import Parameter, Signature
+from tempfile import TemporaryDirectory
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import MetricValue
 from mlflow.metrics.genai import model_utils
@@ -27,6 +30,7 @@ from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
 
+_GENAI_CUSTOM_METRICS_FILE_NAME = "genai_custom_metrics.json"
 _PROMPT_FORMATTING_WRAPPER = """
 
 You must return the following fields in your response in two lines, one below the other:
@@ -260,6 +264,7 @@ def make_genai_metric_from_prompt(
         "metric_metadata": metric_metadata,
         # Record the mlflow version for serialization in case the function signature changes later
         "mlflow_version": VERSION,
+        "fn_name": make_genai_metric_from_prompt.__name__,
     }
 
     aggregations = aggregations or ["mean", "variance", "p90"]
@@ -432,6 +437,7 @@ def make_genai_metric(
         "metric_metadata": metric_metadata,
         # Record the mlflow version for serialization in case the function signature changes later
         "mlflow_version": VERSION,
+        "fn_name": make_genai_metric.__name__,
     }
 
     aggregations = aggregations or ["mean", "variance", "p90"]
@@ -599,3 +605,130 @@ def make_genai_metric(
         metric_metadata=metric_metadata,
         genai_metric_args=genai_metric_args,
     )
+
+
+def _filter_by_field(df, field_name, value):
+    return df[df[field_name] == value]
+
+
+def _deserialize_genai_metric_args(args_dict):
+    mlflow_version_at_ser = args_dict.pop("mlflow_version", None)
+    fn_name = args_dict.pop("fn_name", None)
+    if fn_name is None or mlflow_version_at_ser is None:
+        raise MlflowException(
+            message="The artifact JSON file appears to be corrupted and cannot be deserialized. "
+            "Please regenerate the custom metrics and rerun the evaluation. "
+            "Ensure that the file is correctly formatted and not tampered with.",
+            error_code=INTERNAL_ERROR,
+        )
+
+    if mlflow_version_at_ser != VERSION:
+        warnings.warn(
+            f"The custom metric definitions were serialized using MLflow {mlflow_version_at_ser}. "
+            f"Deserializing them with the current version {VERSION} might cause mismatches. "
+            "Please ensure compatibility or consider regenerating the metrics "
+            "using the current version.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    if fn_name == make_genai_metric_from_prompt.__name__:
+        return make_genai_metric_from_prompt(**args_dict)
+
+    examples = args_dict["examples"]
+    if examples is not None:
+        args_dict["examples"] = [EvaluationExample(**example) for example in examples]
+
+    return make_genai_metric(**args_dict)
+
+
+def retrieve_custom_metrics(
+    run_id: str,
+    name: Optional[str] = None,
+    version: Optional[str] = None,
+) -> List[EvaluationMetric]:
+    """
+    Retrieve the custom metrics created by users through `make_genai_metric()` or
+    `make_genai_metric_from_prompt()` that are associated with a particular evaluation run.
+
+    Args:
+        run_id: The unique identifier for the run.
+        name: (Optional) The name of the custom metric to retrieve.
+            If None, retrieve all metrics.
+        version: (Optional) The version of the custom metric to retrieve.
+            If None, retrieve all metrics.
+
+    Returns:
+        A list of EvaluationMetric objects that match the retrieval criteria.
+
+    .. code-block:: python
+        :caption: Example for retrieving a custom genai metric
+
+        import pandas as pd
+
+        import mlflow
+        from mlflow.metrics.genai.genai_metric import (
+            make_genai_metric_from_prompt,
+            retrieve_custom_metrics,
+        )
+
+        eval_df = pd.DataFrame(
+            {
+                "inputs": ["foo"],
+                "ground_truth": ["bar"],
+            }
+        )
+        with mlflow.start_run() as run:
+            system_prompt = "Answer the following question in two sentences"
+            basic_qa_model = mlflow.openai.log_model(
+                model="gpt-3.5-turbo",
+                task="chat.completions",
+                artifact_path="model",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": "{question}"},
+                ],
+            )
+            custom_metric = make_genai_metric_from_prompt(
+                name="custom llm judge",
+                judge_prompt="This is a custom judge prompt.",
+                greater_is_better=False,
+                parameters={"temperature": 0.0},
+            )
+            results = mlflow.evaluate(
+                basic_qa_model.model_uri,
+                eval_df,
+                targets="ground_truth",
+                model_type="question-answering",
+                evaluators="default",
+                extra_metrics=[custom_metric],
+            )
+        metrics = retrieve_custom_metrics(
+            run_id=run.info.run_id,
+            name="custom llm judge",
+        )
+    """
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run_id)]
+    if _GENAI_CUSTOM_METRICS_FILE_NAME not in artifacts:
+        _logger.warning("No custom metric definitions were found for this evaluation run.")
+        return []
+
+    with TemporaryDirectory() as tmpdir:
+        downloaded_artifact_path = mlflow.artifacts.download_artifacts(
+            run_id=run_id,
+            artifact_path=_GENAI_CUSTOM_METRICS_FILE_NAME,
+            dst_path=tmpdir,
+        )
+        custom_metrics = client._read_from_file(downloaded_artifact_path)
+
+    if name is not None:
+        custom_metrics = _filter_by_field(custom_metrics, "name", name)
+    if version is not None:
+        custom_metrics = _filter_by_field(custom_metrics, "version", version)
+    metric_args_list = custom_metrics["metric_args"].tolist()
+    if len(metric_args_list) == 0:
+        _logger.warning("No matching custom metric definitions were found.")
+        return []
+
+    return [_deserialize_genai_metric_args(a) for a in metric_args_list]

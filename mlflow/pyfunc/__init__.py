@@ -408,6 +408,7 @@ import mlflow
 import mlflow.pyfunc.loaders
 import mlflow.pyfunc.model
 from mlflow.environment_variables import (
+    _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
     _MLFLOW_TESTING,
     MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT,
 )
@@ -765,7 +766,8 @@ class PyFuncModel:
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         data, params = self._validate_prediction_input(data, params)
-        if inspect.signature(self._predict_fn).parameters.get("params"):
+        params_arg = inspect.signature(self._predict_fn).parameters.get("params")
+        if params_arg and params_arg.kind != inspect.Parameter.VAR_KEYWORD:
             return self._predict_fn(data, params=params)
 
         _log_warning_if_params_not_in_predict_signature(_logger, params)
@@ -961,8 +963,12 @@ def load_model(
     """
 
     lineage_header_info = None
-    if databricks_utils.is_in_databricks_runtime() and (
-        databricks_utils.is_in_databricks_notebook() or databricks_utils.is_in_databricks_job()
+    if (
+        (not _MLFLOW_IN_CAPTURE_MODULE_PROCESS.get())
+        and databricks_utils.is_in_databricks_runtime()
+        and (
+            databricks_utils.is_in_databricks_notebook() or databricks_utils.is_in_databricks_job()
+        )
     ):
         entity_list = []
         # Get notebook id and job id, pack them into lineage_header_info
