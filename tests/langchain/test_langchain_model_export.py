@@ -1626,7 +1626,6 @@ def test_save_load_rag(tmp_path, spark, fake_chat_model):
             loader_fn=load_retriever,
             persist_dir=persist_dir,
             input_example=question,
-            example_no_conversion=False,
         )
 
     # Remove the persist_dir
@@ -3163,9 +3162,7 @@ def test_save_load_langchain_binding(fake_chat_model):
     assert model.invoke("Say something") == "Databricks"
 
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(
-            model, "model_path", input_example="Say something", example_no_conversion=False
-        )
+        model_info = mlflow.langchain.log_model(model, "model_path", input_example="Say something")
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     assert loaded_model.first.kwargs == {"stop": ["-"]}
     assert loaded_model.invoke("hello") == "Databricks"

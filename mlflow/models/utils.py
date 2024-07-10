@@ -305,9 +305,11 @@ class _Example:
                         "format": "tf-serving",
                     }
                 )
+                self.serving_input = self.data
             elif _is_sparse_matrix(input_example):
                 self.data = _handle_sparse_matrix(input_example)
-                self.serving_input = {INPUTS: self.data}
+                # This type of input is not supported by the scoring server yet
+                self.serving_input = None
                 if isinstance(input_example, csc_matrix):
                     example_type = "sparse_matrix_csc"
                 else:

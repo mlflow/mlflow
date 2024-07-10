@@ -338,7 +338,9 @@ def invocations(data, content_type, model, input_schema):
         data = parse_csv_input(csv_input=csv_input, schema=input_schema)
         params = None
     elif mime_type == CONTENT_TYPE_JSON:
-        data, params = _parse_json_data(data, model.metadata, input_schema)
+        data, params, should_parse_as_unified_llm_input = _parse_json_data(
+            data, model.metadata, input_schema
+        )
     else:
         return InvocationsResponse(
             response=(
@@ -396,7 +398,8 @@ def _should_parse_as_unified_llm_input(json_input: dict):
 
 def _parse_json_data(data, metadata, input_schema):
     json_input = _decode_json_input(data)
-    if _should_parse_as_unified_llm_input(json_input):
+    should_parse_as_unified_llm_input = _should_parse_as_unified_llm_input(json_input)
+    if should_parse_as_unified_llm_input:
         # Unified LLM input format
         if hasattr(metadata, "get_params_schema"):
             params_schema = metadata.get_params_schema()
@@ -407,7 +410,7 @@ def _parse_json_data(data, metadata, input_schema):
         # Traditional json input format
         data, params = _split_data_and_params(data)
         data = infer_and_parse_data(data, input_schema)
-    return data, params
+    return data, params, should_parse_as_unified_llm_input
 
 
 def init(model: PyFuncModel):

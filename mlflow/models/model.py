@@ -775,23 +775,34 @@ class Model:
                     "signature is not provided when logging the model."
                 )
             if serving_input:
-                from mlflow.pyfunc.scoring_server import _parse_json_data
-
                 try:
+                    # sklearn model might not have python_function flavor if it
+                    # doesn't define a predict function.
+                    # we should not fail if pyfunc model does not exist as the
+                    # model can not be served anyways
                     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
-                    parsed_input, parsed_params = _parse_json_data(
-                        serving_input,
-                        pyfunc_model.metadata,
-                        pyfunc_model.metadata.get_input_schema(),
-                    )
-                    pyfunc_model.predict(parsed_input, params=parsed_params)
                 except Exception as e:
-                    raise MlflowException.invalid_parameter_value(
-                        "Failed to validate serving input example. Please ensure that the input "
-                        "example is valid and that the model's predict() method can accept it. "
-                        "Got error when calling predict() on the serving input example "
-                        f"`{serving_input}`: {e}",
+                    _logger.debug(
+                        f"Failed to load model for serving validation: {e}", exc_info=True
                     )
+                else:
+                    from mlflow.pyfunc.scoring_server import _parse_json_data
+
+                    try:
+                        parsed_input, parsed_params, _ = _parse_json_data(
+                            serving_input,
+                            pyfunc_model.metadata,
+                            pyfunc_model.metadata.get_input_schema(),
+                        )
+                        pyfunc_model.predict(parsed_input, params=parsed_params)
+                    except Exception as e:
+                        _logger.debug("", exc_info=True)
+                        raise MlflowException.invalid_parameter_value(
+                            "Failed to validate serving input example. Please ensure that the "
+                            "input example is valid and the model's predict() method can accept "
+                            "it. Got error when calling predict() on the serving input example "
+                            f"`{serving_input}`: {e}",
+                        )
 
         return model_info
 
