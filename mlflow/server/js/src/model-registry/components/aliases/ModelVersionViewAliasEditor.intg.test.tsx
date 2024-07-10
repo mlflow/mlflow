@@ -250,6 +250,6 @@ describe('useEditRegisteredModelAliasesModal integration', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
 
     // Confirm a button with "Add aliases" title is displayed now
-    expect(screen.queryByTitle("Add aliases")).toBeInTheDocument();
+    expect(screen.queryByTitle('Add aliases')).toBeInTheDocument();
   });
 });
