@@ -28,7 +28,7 @@ FILES_API_ENDPOINT = "/api/2.0/fs/files"
 DOWNLOAD_CHUNK_SIZE = 1024
 
 
-class UCVolumesRestArtifactRepository(ArtifactRepository):
+class UCVolumeArtifactRepository(ArtifactRepository):
     """
     Stores artifacts on UC Volumes using the Files REST API.
     """
@@ -194,7 +194,7 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
         raise NotImplementedError("Not implemented yet")
 
 
-def uc_volumes_artifact_repo_factory(artifact_uri):
+def uc_volume_artifact_repo_factory(artifact_uri):
     """
     Returns an ArtifactRepository subclass for storing artifacts on Volumes.
 
@@ -228,9 +228,9 @@ def uc_volumes_artifact_repo_factory(artifact_uri):
         # /Volumes/... using local filesystem APIs.
         # Note: it is possible for a named Databricks profile to point to the current workspace,
         # but we're going to avoid doing a complex check and assume users will use `databricks`
-        # to mean the current workspace. Using `UCVolumesRestArtifactRepository` to access
+        # to mean the current workspace. Using `UCVolumeArtifactRepository` to access
         # the current workspace's Volumes should still work; it just may be slower.
         uri_without_profile = remove_databricks_profile_info_from_artifact_uri(artifact_uri)
         path = strip_scheme(uri_without_profile).strip("/")
         return LocalArtifactRepository(f"file:///{path}")
-    return UCVolumesRestArtifactRepository(artifact_uri)
+    return UCVolumeArtifactRepository(artifact_uri)

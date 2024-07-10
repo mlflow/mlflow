@@ -18,7 +18,7 @@ from mlflow.store.artifact.r2_artifact_repo import R2ArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.sftp_artifact_repo import SFTPArtifactRepository
-from mlflow.store.artifact.uc_volumes_artifact_repo import uc_volumes_artifact_repo_factory
+from mlflow.store.artifact.uc_volume_artifact_repo import uc_volume_artifact_repo_factory
 from mlflow.utils.uri import get_uri_scheme, is_uc_volume_uri
 
 
@@ -89,7 +89,7 @@ class ArtifactRepositoryRegistry:
 
 def _dbfs_artifact_repo_factory(artifact_uri: str) -> ArtifactRepository:
     return (
-        uc_volumes_artifact_repo_factory(artifact_uri)
+        uc_volume_artifact_repo_factory(artifact_uri)
         if is_uc_volume_uri(artifact_uri)
         else dbfs_artifact_repo_factory(artifact_uri)
     )
