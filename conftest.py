@@ -172,6 +172,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/johnsnowlabs",
             "tests/keras",
             "tests/keras_core",
+            "tests/llama_index",
             "tests/langchain",
             "tests/lightgbm",
             "tests/mleap",
