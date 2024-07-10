@@ -176,6 +176,49 @@ when working on an interface to your model (whether you log the model or not) by
 
 You can discover how to use the `fluent API here <../tracing/index.html#tracing-fluent-apis>`_.
 
+If I'm using streaming for my OpenAI model, will autologging log the trace data correctly?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Yes. For each of the MLflow-supported client interface types that have the ability to stream responses from OpenAI, autologging will record the 
+iterator response chunks in the output. 
+
+As an example:
+
+.. code-block:: python
+
+    import openai
+    import mlflow
+
+    mlflow.set_experiment("OpenAI")
+
+    # Enable trace logging
+    mlflow.openai.autolog()
+
+    client = openai.OpenAI()
+
+    stream = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "user", "content": "How fast would a glass of water freeze on Titan?"}
+        ],
+        stream=True,  # Stream response
+    )
+    for chunk in stream:
+        print(chunk.choices[0].delta.content or "", end="")
+
+Within the MLflow UI, the traces for a streaming model will be displayed as shown below:
+
+.. figure:: ../../_static/images/tutorials/llms/openai-stream-trace.png
+    :alt: OpenAI Autologging stream traces
+    :width: 100%
+    :align: center
+
+.. note::
+
+    OpenAI configurations that specify streaming responses are **not yet supported** for using the ``predict_stream()`` pyfunc invocation API in MLflow.
+    However, you can still record streaming traces. When loading a the logged openai model as pyfunc via :py:func:`mlflow.pyfunc.load_model`, the only 
+    available interface for inference is the synchronous blocking ``predict()`` API. 
+
 Are asynchronous APIs supported in autologging?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
