@@ -13228,6 +13228,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"d3-ease@npm:1":
+  version: 1.0.7
+  resolution: "d3-ease@npm:1.0.7"
+  checksum: 10c0/784de7696cc683f251b2186ae4e248761758bdbfab1f78f1a7bddb08a4832923033be765dba907485f8911270f9343c3068e543d33d77cca1182582b34cb4970
+  languageName: node
+  linkType: hard
+
 "d3-ease@npm:1 - 3":
   version: 3.0.1
   resolution: "d3-ease@npm:3.0.1"
@@ -13334,7 +13341,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"d3-selection@npm:1, d3-selection@npm:^1.3.0":
+"d3-selection@npm:1, d3-selection@npm:^1.1.0, d3-selection@npm:^1.3.0":
   version: 1.4.2
   resolution: "d3-selection@npm:1.4.2"
   checksum: 10c0/e755b6b62d794d0b968cc6264f37109e425de0d9fd306ce94414b07e46a2c6830d21c1fe0821a660d07e82069b6fe3b67da1b3b909e8f6af8f16f020cd25cae0
@@ -13380,7 +13387,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"d3-transition@npm:1, d3-transition@npm:^1.1.1":
+"d3-transition@npm:1":
+  version: 1.3.2
+  resolution: "d3-transition@npm:1.3.2"
+  dependencies:
+    d3-color: "npm:1"
+    d3-dispatch: "npm:1"
+    d3-ease: "npm:1"
+    d3-interpolate: "npm:1"
+    d3-selection: "npm:^1.1.0"
+    d3-timer: "npm:1"
+  checksum: 10c0/b78a34108b2514c2e5ce65837742027497ea36408ad19d725ec7d0cc9fcead3c40353d6d8640813210c9367d3e7ae7f4b608beed8cafb4e0cabaa56fd610e3f0
+  languageName: node
+  linkType: hard
+
+"d3-transition@npm:^1.1.1":
   version: 3.0.1
   resolution: "d3-transition@npm:3.0.1"
   dependencies:
