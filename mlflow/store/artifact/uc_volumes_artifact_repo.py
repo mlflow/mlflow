@@ -62,7 +62,7 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
         creds = get_databricks_host_creds(self.databricks_profile_uri)
         return http_request(host_creds=creds, endpoint=endpoint, method=method, **kwargs)
 
-    def _list_directory_contents(self, directory_path: str, next_page_token: Optional[str] = None):
+    def _list_directory_contents(self, directory_path: str, page_token: Optional[str] = None):
         """
         Lists the contents of a directory.
 
@@ -76,12 +76,16 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
             https://docs.databricks.com/api/workspace/files/listdirectorycontents
         """
         endpoint = f"{DIRECTORIES_API_ENDPOINT}{directory_path}"
-        return self._api_request(endpoint=endpoint, method="GET")
+        return self._api_request(
+            endpoint=endpoint,
+            method="GET",
+            params={"page_token": page_token} if page_token else None,
+        )
 
     def _paginated_list_directory_contents(
-        self, directory_path: str, next_page_token: Optional[str] = None
+        self, directory_path: str, page_token: Optional[str] = None
     ):
-        response = self._list_directory_contents(directory_path, next_page_token=next_page_token)
+        response = self._list_directory_contents(directory_path, page_token)
         if response.status_code == 404:
             return []
 
