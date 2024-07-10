@@ -2459,6 +2459,7 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
 
     hints = None
     if signature is not None:
@@ -2516,20 +2517,17 @@ def save_model(
                 input_example=input_example,
             ):
                 mlflow_model.signature = signature
-            elif input_example is not None:
+            elif saved_example is not None:
                 try:
                     context = PythonModelContext(artifacts, model_config)
                     python_model.load_context(context)
                     mlflow_model.signature = _infer_signature_from_input_example(
-                        input_example,
+                        saved_example,
                         _PythonModelPyfuncWrapper(python_model, None, None),
-                        no_conversion=example_no_conversion,
                     )
                 except Exception as e:
                     _logger.warning(f"Failed to infer model signature from input example. {e}")
 
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path, example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
 

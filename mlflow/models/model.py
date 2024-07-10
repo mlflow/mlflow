@@ -353,6 +353,22 @@ class Model:
         """
         return getattr(self.signature, "params", None)
 
+    def get_serving_input(self, path: str):
+        """
+        Load serving input exaple from a model directory. Returns None if there is no serving input
+        example. Raises FileNotFoundError if there is model metadata but the serving input example
+        file is missing.
+
+        Args:
+            path: Path to the model directory.
+
+        Returns:
+            Serving input example or None if the model has no serving input example.
+        """
+        from mlflow.models.utils import _load_serving_input_example
+
+        return _load_serving_input_example(self, path)
+
     def load_input_example(self, path: str):
         """
         Load the input example saved along a model. Returns None if there is no example metadata
@@ -747,9 +763,36 @@ class Model:
                     await_registration_for=await_registration_for,
                     local_model_path=local_path,
                 )
-        model_info = mlflow_model.get_model_info()
-        if registered_model is not None:
-            model_info.registered_model_version = registered_model.version
+            model_info = mlflow_model.get_model_info()
+            if registered_model is not None:
+                model_info.registered_model_version = registered_model.version
+
+            # validate input example works for serving when logging the model
+            serving_input = mlflow_model.get_serving_input(local_path)
+            if mlflow_model.signature is None and serving_input is None:
+                _logger.warning(
+                    "Input example should be provided to infer model signature if the model "
+                    "signature is not provided when logging the model."
+                )
+            if serving_input:
+                from mlflow.pyfunc.scoring_server import _parse_json_data
+
+                try:
+                    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+                    parsed_input, parsed_params = _parse_json_data(
+                        serving_input,
+                        pyfunc_model.metadata,
+                        pyfunc_model.metadata.get_input_schema(),
+                    )
+                    pyfunc_model.predict(parsed_input, params=parsed_params)
+                except Exception as e:
+                    raise MlflowException.invalid_parameter_value(
+                        "Failed to validate serving input example. Please ensure that the input "
+                        "example is valid and that the model's predict() method can accept it. "
+                        "Got error when calling predict() on the serving input example "
+                        f"`{serving_input}`: {e}",
+                    )
+
         return model_info
 
 

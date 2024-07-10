@@ -73,6 +73,7 @@ INSTANCES = "instances"
 INPUTS = "inputs"
 
 SUPPORTED_FORMATS = {DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS}
+SERVING_PARAMS_KEY = "params"
 
 # Support unwrapped JSON with these keys for LLM use cases of Chat, Completions, Embeddings tasks
 LLM_CHAT_KEY = "messages"
@@ -200,7 +201,7 @@ def _split_data_and_params_for_llm_input(json_input, param_schema: Optional[Para
 def _split_data_and_params(json_input):
     input_dict = _decode_json_input(json_input)
     data = {k: v for k, v in input_dict.items() if k in SUPPORTED_FORMATS}
-    params = input_dict.pop("params", None)
+    params = input_dict.pop(SERVING_PARAMS_KEY, None)
     return data, params
 
 
@@ -337,19 +338,7 @@ def invocations(data, content_type, model, input_schema):
         data = parse_csv_input(csv_input=csv_input, schema=input_schema)
         params = None
     elif mime_type == CONTENT_TYPE_JSON:
-        json_input = _decode_json_input(data)
-        should_parse_as_unified_llm_input = any(x in json_input for x in SUPPORTED_LLM_FORMATS)
-        if should_parse_as_unified_llm_input:
-            # Unified LLM input format
-            if hasattr(model.metadata, "get_params_schema"):
-                params_schema = model.metadata.get_params_schema()
-            else:
-                params_schema = None
-            data, params = _split_data_and_params_for_llm_input(json_input, params_schema)
-        else:
-            # Traditional json input format
-            data, params = _split_data_and_params(data)
-            data = infer_and_parse_data(data, input_schema)
+        data, params = _parse_json_data(data, model.metadata, input_schema)
     else:
         return InvocationsResponse(
             response=(
@@ -399,6 +388,26 @@ def invocations(data, content_type, model, input_schema):
         predictions_to_json(raw_predictions, result)
 
     return InvocationsResponse(response=result.getvalue(), status=200, mimetype="application/json")
+
+
+def _should_parse_as_unified_llm_input(json_input: dict):
+    return any(x in json_input for x in SUPPORTED_LLM_FORMATS)
+
+
+def _parse_json_data(data, metadata, input_schema):
+    json_input = _decode_json_input(data)
+    if _should_parse_as_unified_llm_input(json_input):
+        # Unified LLM input format
+        if hasattr(metadata, "get_params_schema"):
+            params_schema = metadata.get_params_schema()
+        else:
+            params_schema = None
+        data, params = _split_data_and_params_for_llm_input(json_input, params_schema)
+    else:
+        # Traditional json input format
+        data, params = _split_data_and_params(data)
+        data = infer_and_parse_data(data, input_schema)
+    return data, params
 
 
 def init(model: PyFuncModel):
