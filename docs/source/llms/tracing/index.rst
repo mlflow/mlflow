@@ -19,6 +19,10 @@ To explore the structure and schema of MLflow Tracing, please see the `Tracing S
     MLflow Tracing support is available with the **MLflow 2.14.0** release. Versions of MLflow prior to this release 
     do not contain the full set of features that are required for trace logging support.
 
+.. contents:: Table of Contents
+    :local:
+    :depth: 1
+
 LangChain Automatic Tracing
 ---------------------------
 
@@ -102,6 +106,51 @@ If we navigate to the MLflow UI, we can see not only the model that has been aut
     The example above is purposely simple (a simple chat completions demonstration) for purposes of brevity. In real-world scenarios involving complex 
     RAG chains, the trace that is recorded by MLflow will be significantly more complex and verbose. 
 
+OpenAI Automatic Tracing
+------------------------
+
+The MLflow OpenAI flavor's autologging feature has a direct integration with MLflow tracing. When OpenAI autologging is enabled with :py:func:`mlflow.openai.autolog`, 
+usage of the OpenAI SDK will automatically record generated traces during interactive development. 
+
+For example, the code below will log traces to the currently active experiment (in this case, the activated experiment ``"OpenAI"``, set through the use 
+of the :py:func:`mlflow.set_experiment` API).
+
+.. code-block:: python
+
+    import os
+    import openai
+    import mlflow
+
+    # Calling the autolog API will enable trace logging by default.
+    mlflow.openai.autolog()
+
+    mlflow.set_experiment("OpenAI")
+
+    openai_client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
+    messages = [
+        {
+            "role": "user",
+            "content": "How can I improve my resting metabolic rate most effectively?",
+        }
+    ]
+
+    response = openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=messages,
+        temperature=0.99,
+    )
+
+    print(response)
+
+The logged trace, associated with the ``OpenAI`` experiment, can be seen in the MLflow UI, as shown below:
+
+.. figure:: ../../_static/images/llms/tracing/openai-tracing.png
+    :alt: OpenAI Tracing
+    :width: 100%
+    :align: center
+
+To learn more about OpenAI autologging, you can `view the documentation here <../openai/autologging.html>`_.
 
 Tracing Fluent APIs
 -------------------
