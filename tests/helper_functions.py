@@ -690,3 +690,42 @@ def flaky(max_tries=3):
         return decorated_func
 
     return flaky_test_func
+
+
+@contextmanager
+def start_mock_openai_server():
+    """
+    Start a fake service that mimics the OpenAI endpoints such as /chat/completions.
+
+    Yields:
+        The base URL of the mock OpenAI server.
+    """
+    port = get_safe_port()
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "tests.openai.mock_openai:app",
+            "--host",
+            "localhost",
+            "--port",
+            str(port),
+        ]
+    ) as proc:
+        try:
+            base_url = f"http://localhost:{port}"
+            for _ in range(3):
+                try:
+                    resp = requests.get(f"{base_url}/health")
+                except requests.ConnectionError:
+                    time.sleep(1)
+                    continue
+                if resp.ok:
+                    break
+            else:
+                raise RuntimeError("Failed to start mock OpenAI server")
+
+            yield base_url
+        finally:
+            proc.kill()
