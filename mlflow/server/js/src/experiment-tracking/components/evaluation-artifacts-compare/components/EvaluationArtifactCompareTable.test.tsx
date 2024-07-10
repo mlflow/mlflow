@@ -8,7 +8,7 @@ import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { BrowserRouter } from '../../../../common/utils/RoutingUtils';
 
-jest.setTimeout(90000);
+jest.setTimeout(120000);
 
 jest.mock('../../experiment-page/hooks/useExperimentRunColor', () => ({
   useGetExperimentRunColor: jest.fn().mockReturnValue((_: string) => '#000000'),

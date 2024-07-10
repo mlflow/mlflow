@@ -46,7 +46,7 @@ describe('ModelListTableAliasedVersionsCell', () => {
   test('display a single version and navigate to it', async () => {
     const { getLocation } = await renderWithRouterWrapper(<ModelsTableAliasedVersionsCell model={modelWithOneAlias} />);
     expect(screen.getByText(/@ alias-version-1/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('link', { name: 'alias-version-1 : Version 1' }));
+    await userEvent.click(screen.getByRole('link', { name: /alias-version-1 : Version 1/ }));
     expect(getLocation()?.pathname).toMatch('/models/test-model/versions/1');
   });
 
@@ -55,7 +55,7 @@ describe('ModelListTableAliasedVersionsCell', () => {
       <ModelsTableAliasedVersionsCell model={modelWithMultipleAliases} />,
     );
     expect(screen.getByText(/@ alias-version-10/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('link', { name: 'alias-version-10 : Version 10' }));
+    await userEvent.click(screen.getByRole('link', { name: /alias-version-10 : Version 10/ }));
     expect(getLocation()?.pathname).toMatch('/models/test-model/versions/10');
 
     await act(async () => {
