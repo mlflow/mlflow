@@ -1,4 +1,3 @@
-import contextlib
 import posixpath
 from unittest import mock
 
@@ -8,7 +7,6 @@ from mlflow.entities.file_info import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.uc_volumes_artifact_repo import UCVolumesRestArtifactRepository
-from mlflow.utils.rest_utils import MlflowHostCreds
 
 HOST = "http://localhost:5000"
 
@@ -17,25 +15,19 @@ def join_non_empty(*args):
     """
     Join path components, ignoring empty components.
     """
-    return posixpath.join(*(a for a in args if a))
+    non_empty_args = [a for a in args if a]
+    return posixpath.join(*non_empty_args)
 
 
-@contextlib.contextmanager
-def mock_get_host_creds_factory():
-    with mock.patch(
-        "mlflow.store.artifact.uc_volumes_artifact_repo._get_host_creds_factory",
-        return_value=lambda: MlflowHostCreds(host=HOST),
-    ) as mock_creds_factory:
-        try:
-            yield
-        finally:
-            mock_creds_factory.assert_called_once()
+@pytest.fixture(autouse=True)
+def set_creds(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "http://localhost:5000")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "abc")
 
 
 @pytest.fixture
-def artifact_repo():
-    with mock_get_host_creds_factory():
-        yield get_artifact_repository("dbfs:/Volumes/catalog/schema/volume/run_id/artifacts")
+def artifact_repo(monkeypatch):
+    return get_artifact_repository("dbfs:/Volumes/catalog/schema/volume/run_id/artifacts")
 
 
 @pytest.mark.parametrize(
@@ -50,9 +42,8 @@ def artifact_repo():
     ],
 )
 def test_get_artifact_repository(artifact_uri: str):
-    with mock_get_host_creds_factory():
-        repo = get_artifact_repository(artifact_uri)
-        assert isinstance(repo, UCVolumesRestArtifactRepository)
+    repo = get_artifact_repository(artifact_uri)
+    assert isinstance(repo, UCVolumesRestArtifactRepository)
 
 
 @pytest.mark.parametrize(

@@ -10,8 +10,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
-from mlflow.store.tracking.rest_store import RestStore
-from mlflow.tracking._tracking_service import utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.utils.request_utils import augmented_raise_for_status
@@ -28,13 +26,6 @@ from mlflow.utils.uri import (
 DIRECTORIES_API_ENDPOINT = "/api/2.0/fs/directories"
 FILES_API_ENDPOINT = "/api/2.0/fs/files"
 DOWNLOAD_CHUNK_SIZE = 1024
-
-
-def _get_host_creds_factory(artist_uri: str):
-    if databricks_profile_uri := get_databricks_profile_uri_from_artifact_uri(artist_uri):
-        hostcreds_from_uri = get_databricks_host_creds(databricks_profile_uri)
-        return lambda: hostcreds_from_uri
-    return _get_host_creds_from_default_store()
 
 
 class UCVolumesRestArtifactRepository(ArtifactRepository):
@@ -59,15 +50,17 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
         # Absolute path to the root of the volume. For example, '/Volumes/my-volume' for
         # 'dbfs:/Volumes/my-volume'.
         self.root_path = "/" + strip_scheme(self.artifact_uri).strip("/")
-        self.get_host_creds = _get_host_creds_factory(artifact_uri)
+        self.databricks_profile_uri = (
+            get_databricks_profile_uri_from_artifact_uri(artifact_uri)
+            or mlflow.tracking.get_tracking_uri()
+        )
 
     def _relative_to_root(self, path):
         return posixpath.relpath(path, self.root_path)
 
     def _api_request(self, endpoint, method, **kwargs):
-        return http_request(
-            host_creds=self.get_host_creds(), endpoint=endpoint, method=method, **kwargs
-        )
+        creds = get_databricks_host_creds(self.databricks_profile_uri)
+        return http_request(host_creds=creds, endpoint=endpoint, method=method, **kwargs)
 
     def _list_directory_contents(self, directory_path: str, next_page_token: Optional[str] = None):
         """
@@ -194,17 +187,6 @@ class UCVolumesRestArtifactRepository(ArtifactRepository):
 
     def delete_artifacts(self, artifact_path=None):
         raise NotImplementedError("Not implemented yet")
-
-
-def _get_host_creds_from_default_store():
-    store = utils._get_store()
-    if not isinstance(store, RestStore):
-        raise MlflowException(
-            "Failed to get credentials for DBFS; they are read from the "
-            + "Databricks CLI credentials or MLFLOW_TRACKING* environment "
-            + "variables."
-        )
-    return store.get_host_creds
 
 
 def uc_volumes_artifact_repo_factory(artifact_uri):
