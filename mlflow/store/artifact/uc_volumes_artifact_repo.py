@@ -5,7 +5,7 @@ from typing import Optional
 
 import mlflow.utils.databricks_utils
 from mlflow.entities import FileInfo
-from mlflow.environment_variables import MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO
+from mlflow.environment_variables import MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -216,21 +216,21 @@ def uc_volumes_artifact_repo_factory(artifact_uri):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    cleaned_artifact_uri = artifact_uri.rstrip("/")
-    db_profile_uri = get_databricks_profile_uri_from_artifact_uri(cleaned_artifact_uri)
+    artifact_uri = artifact_uri.rstrip("/")
+    db_profile_uri = get_databricks_profile_uri_from_artifact_uri(artifact_uri)
     if (
-        mlflow.utils.databricks_utils.is_dbfs_fuse_available()
-        and MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO.get()
+        mlflow.utils.databricks_utils.is_uc_volume_fuse_available()
+        and MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO.get()
         and not is_databricks_model_registry_artifacts_uri(artifact_uri)
         and (db_profile_uri is None or db_profile_uri == "databricks")
     ):
-        # If the DBFS FUSE mount is available, write artifacts directly to
+        # If the UC Volume FUSE mount is available, write artifacts directly to
         # /Volumes/... using local filesystem APIs.
         # Note: it is possible for a named Databricks profile to point to the current workspace,
         # but we're going to avoid doing a complex check and assume users will use `databricks`
-        # to mean the current workspace. Using `VolumeRestArtifactRepository` to access the current
-        # workspace's Volumes should still work; it just may be slower.
-        final_artifact_uri = remove_databricks_profile_info_from_artifact_uri(cleaned_artifact_uri)
-        path = strip_scheme(final_artifact_uri).strip("/")
+        # to mean the current workspace. Using `UCVolumesRestArtifactRepository` to access
+        # the current workspace's Volumes should still work; it just may be slower.
+        uri_without_profile = remove_databricks_profile_info_from_artifact_uri(artifact_uri)
+        path = strip_scheme(uri_without_profile).strip("/")
         return LocalArtifactRepository(f"file:///{path}")
-    return UCVolumesRestArtifactRepository(cleaned_artifact_uri)
+    return UCVolumesRestArtifactRepository(artifact_uri)
