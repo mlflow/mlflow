@@ -199,7 +199,7 @@
     "rc-virtual-list@^3.2.0": "patch:rc-virtual-list@npm%3A3.2.0#yarn/patches/rc-virtual-list-npm-3.2.0-5efaefc12e.patch",
     "rc-virtual-list@^3.0.3": "patch:rc-virtual-list@npm%3A3.2.0#yarn/patches/rc-virtual-list-npm-3.2.0-5efaefc12e.patch",
     "rc-virtual-list@^3.0.1": "patch:rc-virtual-list@npm%3A3.2.0#yarn/patches/rc-virtual-list-npm-3.2.0-5efaefc12e.patch",
-    "d3-transition": "3.0.1"
+    "d3-transition": "1.1.1"
   },
   "//": "homepage is hard to configure without resorting to env variables and doesn't play nicely with other webpack settings. This field should be removed.",
   "homepage": "static-files",
