@@ -103,7 +103,7 @@ describe('ExperimentViewTracesTable', () => {
     expect(screen.getByRole('cell', { name: 'test-inputs' })).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: 'test-outputs' })).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: '1234' })).toBeInTheDocument();
-    expect(screen.getByRole('cell', { name: 'some-test-tag' })).toBeInTheDocument();
+    expect(screen.getByText('some-test-tag')).toBeInTheDocument();
     expect(screen.getByText('test-notebook')).toBeInTheDocument();
   });
 

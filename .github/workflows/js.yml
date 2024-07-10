@@ -55,6 +55,9 @@ jobs:
         run: |
           echo "::remove-matcher owner=eslint-compact::"
           echo "::remove-matcher owner=eslint-stylish::"
+      - uses: actions/upload-artifact@v4
+        with:
+          path: mlflow/server/js/vendor/design-system
       - name: Install dependencies (windows)
         if: runner.os == 'Windows'
         run: |
