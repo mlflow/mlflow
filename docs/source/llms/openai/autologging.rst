@@ -13,7 +13,7 @@ MLflow autologging for the OpenAI SDK supports the following interfaces:
 - **Completions** (legacy) via ``client.completions.create()``
 - **Embeddings** via ``client.embeddings.create()``
 
-Where ``client`` is either ``openai.OpenAI()`` or ``openai.AsyncOpenAI()``.
+Where ``client`` is an instance of ``openai.OpenAI()``.
 
 In this guide, we'll discuss some of the key features that are available in the autologging feature. 
 
