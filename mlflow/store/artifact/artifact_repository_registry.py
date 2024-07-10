@@ -19,7 +19,7 @@ from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.sftp_artifact_repo import SFTPArtifactRepository
 from mlflow.store.artifact.uc_volumes_artifact_repo import uc_volumes_artifact_repo_factory
-from mlflow.utils.uri import get_uri_scheme
+from mlflow.utils.uri import get_uri_scheme, is_uc_volume_uri
 
 
 class ArtifactRepositoryRegistry:
@@ -87,6 +87,14 @@ class ArtifactRepositoryRegistry:
         return self._registry
 
 
+def _dbfs_artifact_repo_factory(artifact_uri: str) -> ArtifactRepository:
+    return (
+        uc_volumes_artifact_repo_factory(artifact_uri)
+        if is_uc_volume_uri(artifact_uri)
+        else dbfs_artifact_repo_factory(artifact_uri)
+    )
+
+
 _artifact_repository_registry = ArtifactRepositoryRegistry()
 
 _artifact_repository_registry.register("", LocalArtifactRepository)
@@ -97,8 +105,7 @@ _artifact_repository_registry.register("gs", GCSArtifactRepository)
 _artifact_repository_registry.register("wasbs", AzureBlobArtifactRepository)
 _artifact_repository_registry.register("ftp", FTPArtifactRepository)
 _artifact_repository_registry.register("sftp", SFTPArtifactRepository)
-_artifact_repository_registry.register("dbfs", dbfs_artifact_repo_factory)
-_artifact_repository_registry.register("uc-volumes", uc_volumes_artifact_repo_factory)
+_artifact_repository_registry.register("dbfs", _dbfs_artifact_repo_factory)
 _artifact_repository_registry.register("hdfs", HdfsArtifactRepository)
 _artifact_repository_registry.register("viewfs", HdfsArtifactRepository)
 _artifact_repository_registry.register("runs", RunsArtifactRepository)
