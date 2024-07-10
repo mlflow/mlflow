@@ -33,7 +33,7 @@ def test_create_create_engine_wrapper(single_index, engine_type):
 def test_format_predict_input_str_chat(single_index):
     wrapped_model = create_engine_wrapper(single_index, CHAT_ENGINE_NAME)
     formatted_data = wrapped_model._format_predict_input("string")
-    assert isinstance(formatted_data, str)
+    assert formatted_data == "string"
 
 
 def test_format_predict_input_dict_chat(single_index):
