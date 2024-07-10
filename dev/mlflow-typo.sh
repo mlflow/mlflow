@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 
 ALLOWED_PATTERNS='Mlflow\(|"Mlflow"|import Mlflow$'
-# comma separated string of excluded directories
-EXCLUDED_DIRS="mlflow/server/js/src/lang"
+# add globs to this list to ignore them in grep
+EXCLUDED_FILES=("mlflow/server/js/src/lang/*.json")
 
-if grep -InE ' \bM(lf|LF|lF)low\b' --exclude-dir={$EXCLUDED_DIRS} "$@" | grep -vE "$ALLOWED_PATTERNS"; then
+EXCLUDE_ARGS=""
+for pattern in "${EXCLUDED_FILES[@]}"; do
+    EXCLUDE_ARGS="$EXCLUDE_ARGS --exclude=$pattern"
+done
+
+if grep -InE ' \bM(lf|LF|lF)low\b' $EXCLUDE_ARGS "$@" | grep -vE "$ALLOWED_PATTERNS"; then
     echo -e "\nFound typo for MLflow spelling in above file(s). Please use 'MLflow' instead of 'Mlflow'."
     exit 1
 else
