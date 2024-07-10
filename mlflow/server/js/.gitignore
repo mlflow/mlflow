@@ -5,7 +5,7 @@
 /node_modules
 /yarn-cache-folder
 # Allow dist folders in vendor folder
-!/vendor/*/dist
+!/vendor/**/dist
 # Allow lib folders in public folder
 !/public/lib
 
