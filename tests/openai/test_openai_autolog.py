@@ -61,6 +61,16 @@ def test_chat_completions_autolog_streaming(client, monkeypatch):
         assert output[1]["id"] == "chatcmpl-123"
         assert output[1]["choices"][0]["delta"]["content"] == " world"
 
+    trace = mlflow.get_last_active_trace()
+    assert trace is not None
+    assert isinstance(trace.data.response, str)
+
+    response_data = json.loads(trace.data.response)
+    assert response_data["chunks"][0]["id"] == "chatcmpl-123"
+    assert response_data["chunks"][0]["choices"][0]["delta"]["content"] == "Hello"
+    assert response_data["chunks"][1]["id"] == "chatcmpl-123"
+    assert response_data["chunks"][1]["choices"][0]["delta"]["content"] == " world"
+
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
 def test_loaded_chat_completions_autolog(client, monkeypatch):

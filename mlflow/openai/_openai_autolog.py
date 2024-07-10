@@ -94,6 +94,8 @@ def patched_call(original, self, *args, **kwargs):
     run_id = getattr(self, "_mlflow_run_id", None)
     active_run = mlflow.active_run()
     mlflow_client = mlflow.MlflowClient()
+    request_id = None
+
     if run_id is None:
         # only log the tags once
         extra_tags = get_autologging_config(mlflow.openai.FLAVOR_NAME, "extra_tags", None)
@@ -114,19 +116,14 @@ def patched_call(original, self, *args, **kwargs):
             run_id = run.info.run_id
 
     log_traces = get_autologging_config(mlflow.openai.FLAVOR_NAME, "log_traces", False)
-    with disable_autologging():
-        if log_traces:
-            with mlflow.start_span(
-                name=self.__class__.__name__,
-                span_type=_get_span_type(self.__class__),
-            ) as span:
-                # openai does not accept positional arguments
-                # so we do not need to worry about it for now
-                span.set_inputs(kwargs)
-                result = original(self, *args, **kwargs)
-                span.set_outputs(result)
-        else:
-            result = original(self, *args, **kwargs)
+    if log_traces:
+        root_span = mlflow_client.start_trace(
+            name=self.__class__.__name__, span_type=_get_span_type(self.__class__), inputs=kwargs
+        )
+        request_id = root_span.request_id
+
+    # Execute the original function
+    result = original(self, *args, **kwargs)
 
     # Use session_id-inference_id as artifact directory where mlflow
     # callback logs artifacts into, to avoid overriding artifacts
@@ -152,12 +149,17 @@ def patched_call(original, self, *args, **kwargs):
                 yield chunk
 
             try:
-                chunks = [chunk.to_dict() for chunk in chunks]
+                chunk_dicts = [chunk.to_dict() for chunk in chunks]
                 mlflow_client.log_text(
                     run_id=run_id,
-                    text=json.dumps(chunks),
+                    text=json.dumps(chunk_dicts),
                     artifact_file=f"artifacts-{session_id}-{inference_id}/output.json",
                 )
+                if log_traces and request_id:
+                    mlflow_client.end_trace(
+                        request_id=request_id,
+                        outputs={"result": chunk_dicts},
+                    )
             except Exception as e:
                 _logger.warning(f"Encountered unexpected error during openai autologging: {e}")
 
@@ -169,6 +171,11 @@ def patched_call(original, self, *args, **kwargs):
             text=result.to_json(),
             artifact_file=f"artifacts-{session_id}-{inference_id}/output.json",
         )
+        if log_traces and request_id:
+            try:
+                mlflow_client.end_trace(request_id=request_id, outputs={"result": result.to_json()})
+            except Exception as e:
+                _logger.warning(f"Encountered unexpected error when ending trace: {e}")
 
     log_models = get_autologging_config(mlflow.openai.FLAVOR_NAME, "log_models", False)
     log_input_examples = get_autologging_config(
