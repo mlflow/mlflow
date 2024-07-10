@@ -1284,7 +1284,21 @@ The entry point should be in the format ``<name> = <module>:<class>``.
 
 You can specify more than one entry point in the same package if you have multiple providers.
 Note that entry point names must be globally unique. If two plugins specify the same entry point name,
-MLflow will raise an error at startup time.
+MLflow will raise an error at startup time. Currently, the following names are reserved for default providers:
+- ``openai``
+- ``anthropic``
+- ``cohere``
+- ``ai21labs``
+- ``mlflow-model-serving``
+- ``mosaicml``
+- ``huggingface-text-generation-inference``
+- ``palm``
+- ``bedrock``
+- ``amazon-bedrock``
+- ``databricks-model-serving``
+- ``databricks``
+- ``mistral``
+- ``togetherai``
 
 Finally, you need to install the plugin package in the same environment as the MLflow Deployments Server.
 
