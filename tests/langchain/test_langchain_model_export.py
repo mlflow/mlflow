@@ -408,8 +408,10 @@ def test_save_and_load_chat_openai_with_unsupported_version_raise_helpful_messag
     Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI,
     reason=f"Chat model loading only works for Langchain>={_LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI}",
 )
-def test_save_and_load_azure_chat_openai(model_path):
+def test_save_and_load_azure_chat_openai(model_path, monkeypatch):
     from langchain.chat_models import AzureChatOpenAI
+
+    monkeypatch.setenv("OPENAI_API_VERSION", "2023-05-15")
 
     llm = AzureChatOpenAI(temperature=0.9)
     prompt = PromptTemplate.from_template("What is a good name for a company that makes {product}?")
