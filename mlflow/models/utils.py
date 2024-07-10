@@ -272,7 +272,6 @@ class _Example:
 
         self.info = {
             INPUT_EXAMPLE_PATH: EXAMPLE_FILENAME,
-            SERVING_INPUT_PATH: SERVING_INPUT_FILENAME,
         }
 
         # Avoid changing the variable passed in
@@ -310,6 +309,7 @@ class _Example:
                 self.data = _handle_sparse_matrix(input_example)
                 # This type of input is not supported by the scoring server yet
                 self.serving_input = None
+                self.info.pop(SERVING_INPUT_PATH, None)
                 if isinstance(input_example, csc_matrix):
                     example_type = "sparse_matrix_csc"
                 else:
@@ -390,8 +390,10 @@ class _Example:
             serving_input = self.serving_input
         with open(os.path.join(parent_dir_path, self.info[INPUT_EXAMPLE_PATH]), "w") as f:
             json.dump(data, f, cls=NumpyEncoder)
-        with open(os.path.join(parent_dir_path, self.info[SERVING_INPUT_PATH]), "w") as f:
-            json.dump(serving_input, f, cls=NumpyEncoder)
+        if serving_input:
+            self.info[SERVING_INPUT_PATH] = SERVING_INPUT_FILENAME
+            with open(os.path.join(parent_dir_path, self.info[SERVING_INPUT_PATH]), "w") as f:
+                json.dump(serving_input, f, cls=NumpyEncoder)
 
     @property
     def inference_data(self):
@@ -488,11 +490,13 @@ def _load_serving_input_example(mlflow_model: Model, path: str):
     Returns:
         Serving input example or None if the model has no serving input example.
     """
-    if mlflow_model.saved_input_example_info is None:
+    if (
+        mlflow_model.saved_input_example_info is None
+        or (serving_input_path := mlflow_model.saved_input_example_info.get(SERVING_INPUT_PATH))
+        is None
+    ):
         return None
-    with open(
-        os.path.join(path, mlflow_model.saved_input_example_info[SERVING_INPUT_PATH])
-    ) as handle:
+    with open(os.path.join(path, serving_input_path)) as handle:
         return handle.read()
 
 

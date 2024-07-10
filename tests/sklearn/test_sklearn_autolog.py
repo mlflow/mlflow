@@ -1041,7 +1041,9 @@ def test_autolog_does_not_throw_when_predict_fails():
     # Note that `mock_warning` will be called twice because if `predict` throws, `score` also throws
     with mlflow.start_run() as run, mock.patch(
         "sklearn.linear_model.LinearRegression.predict", side_effect=Exception("Failed")
-    ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+    ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning, mock.patch(
+        "mlflow.models.model.Model.get_serving_input", return_value=None
+    ):
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
