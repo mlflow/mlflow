@@ -1211,6 +1211,7 @@ and a config class that inherits from ``mlflow.gateway.base_models.ConfigModel``
 
 
     class AwesomeConfig(ConfigModel):
+        # This model defines the configuration for the provider such as API keys
         awesome_api_key: str
 
         @validator("awesome_api_key", pre=True)
@@ -1220,7 +1221,10 @@ and a config class that inherits from ``mlflow.gateway.base_models.ConfigModel``
 
 
     class AwesomeProvider(BaseProvider):
+        # Define the provider name. This will be displayed in log and error messages.
         NAME = "Awesome"
+        # Define the config model for the provider.
+        # This must be a subclass of ConfigModel.
         CONFIG_TYPE = AwesomeConfig
 
         def __init__(self, config: RouteConfig) -> None:
@@ -1239,21 +1243,26 @@ and a config class that inherits from ``mlflow.gateway.base_models.ConfigModel``
         # Unimplemented methods will return a 501 Not Implemented HTTP response upon invocation.
         async def completions_stream(
             self, payload: completions.RequestPayload
-        ) -> AsyncIterable[completions.StreamResponsePayload]: ...
+        ) -> AsyncIterable[completions.StreamResponsePayload]:
+            ...
 
         async def completions(
             self, payload: completions.RequestPayload
-        ) -> completions.ResponsePayload: ...
+        ) -> completions.ResponsePayload:
+            ...
 
         async def chat_stream(
             self, payload: chat.RequestPayload
-        ) -> AsyncIterable[chat.StreamResponsePayload]: ...
+        ) -> AsyncIterable[chat.StreamResponsePayload]:
+            ...
 
-        async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload: ...
+        async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+            ...
 
         async def embeddings(
             self, payload: embeddings.RequestPayload
-        ) -> embeddings.ResponsePayload: ...
+        ) -> embeddings.ResponsePayload:
+            ...
 
 Then, you need to create a Python package that contains the plugin implementation.
 You must specify an entry point under the ``mlflow.gateway.providers`` group, so that your plugin can be detected by MLflow.
