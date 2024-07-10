@@ -14,7 +14,7 @@ export const TracesViewTableCellCheckbox = ({ row }: TracesViewCellCheckboxProps
       disabled={!row.getCanSelect()}
       isChecked={row.getIsSelected()}
       wrapperStyle={{ padding: 0, margin: 0 }}
-      onChange={row.toggleSelected}
+      onChange={row.toggleSelected as () => void}
     />
   );
 };

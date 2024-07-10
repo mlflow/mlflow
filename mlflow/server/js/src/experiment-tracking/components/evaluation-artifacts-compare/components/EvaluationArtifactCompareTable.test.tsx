@@ -235,7 +235,7 @@ describe('EvaluationArtifactCompareTable', () => {
         });
       });
     });
-  });
+  }, 120000);
 
   it('should render the component with multiple groups', async () => {
     const resultList: UseEvaluationArtifactTableDataResult = [

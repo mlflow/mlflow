@@ -12,6 +12,12 @@ import json
 import os
 import urllib.request
 
+IGNORE_PATHS = [
+    "mlflow/server/js/vendor/design-system/"
+]
+
+def is_ignored(path):
+    return any(path.startswith(ignored_path) for ignored_path in IGNORE_PATHS)
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -34,7 +40,7 @@ def main():
         req = urllib.request.Request(full_url, headers=headers)
         with urllib.request.urlopen(req) as resp:
             files = json.loads(resp.read().decode())
-        changed_files.extend(f["filename"] for f in files)
+        changed_files.extend(f["filename"] for f in files if not is_ignored(f["filename"]))
         if len(files) < per_page:
             break
         page += 1
