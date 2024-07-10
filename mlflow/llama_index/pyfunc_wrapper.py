@@ -110,14 +110,7 @@ class QueryEngineWrapper(_LlamaIndexModelWrapperBase):
         if isinstance(data, str):
             return QueryBundle.from_dict({"query_str": data})
         elif isinstance(data, dict):
-            try:
-                return QueryBundle.from_dict(data)
-            except KeyError:
-                raise ValueError(
-                    "The input dictionary did not have the correct schema. It must support the "
-                    "supported in a llama_index QueryBundle: "
-                    "['query_str', 'image_path', 'custom_embedding_strs', 'embedding']"
-                )
+            return QueryBundle(**data)
         elif isinstance(data, list):
             prediction_input = [self._format_predict_input(d) for d in data]
             return prediction_input if len(prediction_input) > 1 else prediction_input[0]
