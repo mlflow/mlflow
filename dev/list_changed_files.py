@@ -12,12 +12,12 @@ import json
 import os
 import urllib.request
 
-IGNORE_PATHS = [
-    "mlflow/server/js/vendor/design-system/"
-]
+IGNORE_PATHS = ["mlflow/server/js/vendor/design-system/"]
+
 
 def is_ignored(path):
     return any(path.startswith(ignored_path) for ignored_path in IGNORE_PATHS)
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
