@@ -2077,6 +2077,44 @@ def test_pyfunc_model_input_example_with_params(
     np.testing.assert_equal(result, expected_df.values.tolist()[0])
 
 
+def test_input_example_validation_during_logging(tmp_path):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            assert isinstance(model_input, pd.DataFrame)
+            return "string"
+
+    with pytest.raises(MlflowException, match="Failed to validate serving input example."):
+        with mlflow.start_run():
+            mlflow.pyfunc.log_model(
+                python_model=MyModel(),
+                artifact_path="test_model",
+                input_example=["some string"],
+            )
+
+    input_example = pd.DataFrame({"a": [1, 2, 3]})
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            input_example=input_example,
+        )
+        assert model_info.signature.inputs == Schema([ColSpec(DataType.long, "a")])
+        assert model_info.signature.outputs == Schema([ColSpec(DataType.string)])
+
+    mlflow_model = Model.load(model_info.model_uri)
+    local_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
+    serving_input_example = mlflow_model.get_serving_input(local_path)
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=serving_input_example,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 200, response.content
+    result = json.loads(response.content.decode("utf-8"))["predictions"]
+    assert result == "string"
+
+
 def test_pyfunc_schema_inference_not_generate_trace():
     # Test that the model logging call does not generate a trace.
     # When input example is provided, we run prediction to infer
