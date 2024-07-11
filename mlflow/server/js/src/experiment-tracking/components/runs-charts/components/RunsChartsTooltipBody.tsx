@@ -1,5 +1,13 @@
 import { isNil } from 'lodash';
-import { Button, CloseIcon, PinIcon, PinFillIcon, Tooltip, VisibleIcon, Typography } from '@databricks/design-system';
+import {
+  Button,
+  CloseIcon,
+  PinIcon,
+  PinFillIcon,
+  LegacyTooltip,
+  VisibleIcon,
+  Typography,
+} from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../../common/utils/RoutingUtils';
@@ -25,7 +33,8 @@ import {
   type RunsMetricsSingleTraceTooltipData,
 } from './RunsMetricsLinePlot';
 import { RunsMultipleTracesTooltipBody } from './RunsMultipleTracesTooltipBody';
-import { shouldEnableRelativeTimeDateAxis } from 'common/utils/FeatureUtils';
+import { shouldEnableRelativeTimeDateAxis } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { customMetricBehaviorDefs } from '../../experiment-page/utils/customMetricBehaviorUtils';
 
 interface RunsChartsContextMenuContentDataType {
   runs: RunsChartsRunData[];
@@ -43,9 +52,13 @@ const createBarChartValuesBox = (cardConfig: RunsChartsBarCardConfig, activeRun:
     return null;
   }
 
+  const customMetricBehaviorDef = customMetricBehaviorDefs[metric.key];
+  const displayName = customMetricBehaviorDef?.displayName ?? metric.key;
+  const displayValue = customMetricBehaviorDef?.valueFormatter({ value: metric.value }) ?? metric.value;
+
   return (
     <div css={styles.value}>
-      <strong>{metric.key}:</strong> {metric.value}
+      <strong>{displayName}:</strong> {displayValue}
     </div>
   );
 };
@@ -320,7 +333,7 @@ export const RunsChartsTooltipBody = ({
 
       <div css={styles.actionsWrapper}>
         {activeRun.pinnable && onTogglePin && (
-          <Tooltip
+          <LegacyTooltip
             title={
               activeRun.pinned ? (
                 <FormattedMessage
@@ -345,10 +358,10 @@ export const RunsChartsTooltipBody = ({
               }}
               icon={activeRun.pinned ? <PinFillIcon /> : <PinIcon />}
             />
-          </Tooltip>
+          </LegacyTooltip>
         )}
         {onHideRun && (
-          <Tooltip
+          <LegacyTooltip
             title={
               <FormattedMessage
                 defaultMessage="Click to hide the run"
@@ -367,7 +380,7 @@ export const RunsChartsTooltipBody = ({
               }}
               icon={<VisibleIcon />}
             />
-          </Tooltip>
+          </LegacyTooltip>
         )}
       </div>
     </div>
@@ -391,7 +404,6 @@ const styles = {
     alignItems: 'center',
   },
   value: {
-    maxWidth: 300,
     whiteSpace: 'nowrap' as const,
     overflow: 'hidden',
     textOverflow: 'ellipsis',

@@ -1,5 +1,5 @@
 import {
-  Tooltip,
+  LegacyTooltip,
   TableFilterLayout,
   Button,
   TableFilterInput,

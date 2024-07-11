@@ -1,7 +1,7 @@
 import userEvent from '@testing-library/user-event';
 
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
-import { renderWithIntl, fastFillInput, act, screen, within } from 'common/utils/TestUtils.react17';
+import { renderWithIntl, fastFillInput, act, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
 import { setRunTagsBulkApi } from '../../../actions';
 import { KeyValueEntity } from '../../../types';
 import { RunViewTagsBox } from './RunViewTagsBox';

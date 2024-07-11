@@ -19,7 +19,7 @@ import { useUpdateExperimentViewUIState } from '../experiment-page/contexts/Expe
 import { ExperimentPageUIState, RUNS_VISIBILITY_MODE } from '../experiment-page/models/ExperimentPageUIState';
 import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { RunsChartsSectionAccordion } from '../runs-charts/components/sections/RunsChartsSectionAccordion';
-import { ReduxState, ThunkDispatch } from 'redux-types';
+import { ReduxState, ThunkDispatch } from '@mlflow/mlflow/src/redux-types';
 import { SearchIcon } from '@databricks/design-system';
 import { Input } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
@@ -56,6 +56,7 @@ export interface RunsCompareProps {
   compareRunSections?: ChartSectionConfig[];
   groupBy: null | string | RunsGroupByConfig;
   autoRefreshEnabled?: boolean;
+  hideEmptyCharts?: boolean;
 }
 
 /**
@@ -136,6 +137,7 @@ export const RunsCompareImpl = ({
   compareRunSections,
   groupBy,
   autoRefreshEnabled,
+  hideEmptyCharts,
 }: RunsCompareProps) => {
   // Updater function for the general experiment view UI state
   const updateUIState = useUpdateExperimentViewUIState();
@@ -428,6 +430,7 @@ export const RunsCompareImpl = ({
             groupBy={groupByNormalized}
             setFullScreenChart={setFullScreenChart}
             autoRefreshEnabled={autoRefreshEnabled}
+            hideEmptyCharts={hideEmptyCharts}
           />
         </DragAndDropProvider>
       </RunsChartsTooltipWrapper>

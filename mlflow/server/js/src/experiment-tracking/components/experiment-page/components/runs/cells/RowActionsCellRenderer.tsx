@@ -1,7 +1,7 @@
 import {
   PinIcon,
   PinFillIcon,
-  Tooltip,
+  LegacyTooltip,
   VisibleIcon as VisibleHollowIcon,
   VisibleOffIcon,
   useDesignSystemTheme,
@@ -153,7 +153,7 @@ export const RowActionsCellRenderer = React.memo(
           ]}
         />
         {((props.data.pinnable && runUuid) || groupParentInfo) && (
-          <Tooltip
+          <LegacyTooltip
             dangerouslySetAntdProps={MOUSE_DELAYS}
             placement="right"
             // We have to force remount of the tooltip with every rerender, otherwise it will jump
@@ -185,7 +185,7 @@ export const RowActionsCellRenderer = React.memo(
               />
               {pinned ? <PinFillIcon /> : <PinIcon />}
             </label>
-          </Tooltip>
+          </LegacyTooltip>
         )}
       </div>
     );

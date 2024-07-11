@@ -35,13 +35,9 @@ import { RunRowType } from '../../utils/experimentPage.row-types';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { createLoadMoreRow } from './cells/LoadMoreRowRenderer';
 import { ExperimentViewRunsEmptyTable } from './ExperimentViewRunsEmptyTable';
-import { ExperimentViewRunsTableCollapse } from './ExperimentViewRunsTableCollapse';
 import { ExperimentViewRunsTableAddColumnCTA } from './ExperimentViewRunsTableAddColumnCTA';
 import { ExperimentViewRunsTableStatusBar } from './ExperimentViewRunsTableStatusBar';
-import {
-  shouldEnableRunsTableRunNameColumnResize,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../../common/utils/FeatureUtils';
+import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/FeatureUtils';
 import { getDatasetsCellHeight } from './cells/DatasetsCellRenderer';
 import { PreviewSidebar } from '../../../../../common/components/PreviewSidebar';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../../constants';
@@ -58,6 +54,11 @@ import {
 import { useExperimentTableSelectRowHandler } from '../../hooks/useExperimentTableSelectRowHandler';
 import { useToggleRowVisibilityCallback } from '../../hooks/useToggleRowVisibilityCallback';
 import { ExperimentViewRunsTableHeaderContextProvider } from './ExperimentViewRunsTableHeaderContext';
+import {
+  ChartsTraceHighlightSource,
+  useRunsChartTraceHighlight,
+} from '../../../runs-charts/hooks/useRunsChartTraceHighlight';
+import { useRunsHighlightTableRow } from '../../../runs-charts/hooks/useRunsHighlightTableRow';
 
 const ROW_HEIGHT = 32;
 const ROW_BUFFER = 101; // How many rows to keep rendered, even ones not visible
@@ -223,9 +224,6 @@ export const ExperimentViewRunsTable = React.memo(
 
     const gridSizeHandler = useCallback(
       (api: GridApi) => {
-        if (!shouldEnableRunsTableRunNameColumnResize()) {
-          return;
-        }
         if (api && isComparingRuns) {
           api.sizeColumnsToFit();
         }
@@ -342,10 +340,11 @@ export const ExperimentViewRunsTable = React.memo(
     const displayPreviewSidebar = !isComparingRuns && viewState.previewPaneVisible;
     const displayRunsTable = !runListHidden || !isComparingRuns;
     const displayStatusBar = !runListHidden;
-    const displayRunListCollapse = isComparingRuns && !shouldEnableRunsTableRunNameColumnResize();
     const displayEmptyState = rowsData.length < 1 && !isLoading && !runListHidden;
 
     const tableContext = useMemo(() => ({ orderByAsc, orderByKey }), [orderByAsc, orderByKey]);
+
+    const { cellMouseOverHandler, cellMouseOutHandler } = useRunsHighlightTableRow(containerElement);
 
     return (
       <div
@@ -403,6 +402,8 @@ export const ExperimentViewRunsTable = React.memo(
                 rowBuffer={ROW_BUFFER}
                 onCellClicked={handleCellClicked}
                 onGridSizeChanged={({ api }) => gridSizeHandler(api)}
+                onCellMouseOver={cellMouseOverHandler}
+                onCellMouseOut={cellMouseOutHandler}
               />
             </ExperimentViewRunsTableHeaderContextProvider>
             {displayAddColumnsCTA && (
@@ -425,9 +426,6 @@ export const ExperimentViewRunsTable = React.memo(
             />
           )}
           {displayStatusBar && <ExperimentViewRunsTableStatusBar allRunsCount={allRunsCount} isLoading={isLoading} />}
-          {displayRunListCollapse && (
-            <ExperimentViewRunsTableCollapse runListHidden={runListHidden} updateRunListHidden={updateRunListHidden} />
-          )}
         </div>
         {displayPreviewSidebar && (
           <PreviewSidebar
@@ -458,9 +456,9 @@ export const ExperimentViewRunsTable = React.memo(
 const getGridColors = (theme: Theme) => ({
   rowForeground: theme.colors.textPrimary, // regular row background
   rowBackground: theme.colors.backgroundPrimary, // regular row background
-  rowBackgroundHover: `${theme.colors.backgroundSecondary}0A`, // hovered row (4% opacity)
-  rowBackgroundSelected: `${theme.colors.backgroundSecondary}14`, // selected row (8% opacity)
-  rowBackgroundHoverSelected: `${theme.colors.backgroundSecondary}1F`, // selected and hovered row (12% opacity)
+  rowBackgroundHover: theme.colors.tableBackgroundUnselectedHover,
+  rowBackgroundSelected: theme.colors.tableBackgroundSelectedDefault,
+  rowBackgroundHoverSelected: theme.colors.tableBackgroundSelectedHover,
   columnSortedBy: `${theme.colors.blue400}1F`,
   headerBackground: theme.colors.backgroundSecondary,
   headerTextColor: theme.colors.textSecondary, // directly from Figma design
@@ -549,7 +547,9 @@ const styles = {
         '.ag-row.ag-row-selected.ag-row-hover': {
           backgroundColor: gridColors.rowBackgroundHoverSelected,
         },
-
+        '.ag-row.is-highlighted': {
+          backgroundColor: gridColors.rowBackgroundHoverSelected,
+        },
         // Hides resize guidelines when header is not hovered
         '.ag-header:not(:hover) .ag-header-cell::after, .ag-header:not(:hover) .ag-header-group-cell::after': {
           opacity: 0,

@@ -1,6 +1,6 @@
 import { NotificationInstance } from '@databricks/design-system';
 import { useEffect } from 'react';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { RunEntity, RunInfoEntity } from '../../../types';
 import { EXPERIMENT_PARENT_ID_TAG } from '../utils/experimentPage.common-utils';
 import { useFetchedRunsNotification } from './useFetchedRunsNotification';

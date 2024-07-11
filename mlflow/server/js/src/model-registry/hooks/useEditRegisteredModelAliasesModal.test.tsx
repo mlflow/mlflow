@@ -7,7 +7,7 @@ import {
   findAntdOptionContaining,
   renderWithIntl,
   type RenderResult,
-} from 'common/utils/TestUtils.react18';
+} from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { Services } from '../services';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { Provider } from 'react-redux';

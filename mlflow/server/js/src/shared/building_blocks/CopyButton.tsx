@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { Button, type ButtonProps, Tooltip } from '@databricks/design-system';
+import { Button, type ButtonProps, LegacyTooltip } from '@databricks/design-system';
 
 interface CopyButtonProps extends Partial<ButtonProps> {
   copyText: string;
@@ -23,7 +23,7 @@ export const CopyButton = ({ copyText, showLabel = true, ...buttonProps }: CopyB
   };
 
   return (
-    <Tooltip
+    <LegacyTooltip
       title={
         <FormattedMessage defaultMessage="Copied" description="Tooltip text shown when copy operation completes" />
       }
@@ -43,6 +43,6 @@ export const CopyButton = ({ copyText, showLabel = true, ...buttonProps }: CopyB
         }
         {...buttonProps}
       />
-    </Tooltip>
+    </LegacyTooltip>
   );
 };

@@ -13,7 +13,7 @@ import { Provider } from 'react-redux';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { CreateModelButton } from './CreateModelButton';
 import { GenericInputModal } from '../../experiment-tracking/components/modals/GenericInputModal';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 
 describe('CreateModelButton', () => {
   let wrapper: any;

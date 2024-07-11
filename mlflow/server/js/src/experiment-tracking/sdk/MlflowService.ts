@@ -236,4 +236,12 @@ export class MlflowService {
         key,
       },
     });
+
+  static deleteTraces = (traceRequestIds: string[]) =>
+    postJson({
+      relativeUrl: `ajax-api/2.0/mlflow/traces/delete-traces`,
+      data: {
+        request_ids: traceRequestIds,
+      },
+    }) as Promise<{ traces_deleted: number }>;
 }

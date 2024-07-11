@@ -1,6 +1,6 @@
 import { Button, CloseIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { Global } from '@emotion/react';
-import { FormattedJsonDisplay } from 'common/components/JsonFormatting';
+import { FormattedJsonDisplay } from '@mlflow/mlflow/src/common/components/JsonFormatting';
 import { isUndefined } from 'lodash';
 import { useState } from 'react';
 import { FormattedMessage } from 'react-intl';
@@ -69,10 +69,11 @@ export const ShowArtifactLoggedTableViewDataPreview = ({
         }
         css={{
           position: 'relative',
+          display: 'flex',
         }}
       >
-        <div css={{ padding: theme.spacing.sm }}>
-          <div css={{ display: 'flex', justifyContent: 'space-between' }}>
+        <div css={{ padding: theme.spacing.sm, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div css={{ display: 'flex', justifyContent: 'space-between', flexShrink: 0 }}>
             <Typography.Title level={5}>
               <FormattedMessage
                 defaultMessage="Preview"
@@ -93,7 +94,9 @@ export const ShowArtifactLoggedTableViewDataPreview = ({
               />
             </Typography.Text>
           )}
-          <FormattedJsonDisplay json={data} />
+          <div css={{ flex: 1, overflow: 'auto' }}>
+            <FormattedJsonDisplay json={data} />
+          </div>
         </div>
       </ResizableBox>
     </div>

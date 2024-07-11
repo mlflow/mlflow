@@ -5,7 +5,7 @@ import {
   ChevronUpIcon,
   Modal,
   PencilIcon,
-  Tooltip,
+  LegacyTooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useCallback, useState } from 'react';
@@ -16,7 +16,11 @@ import { useFetchExperiments } from '../hooks/useFetchExperiments';
 import { ThunkDispatch } from '../../../../redux-types';
 import React from 'react';
 import ReactMde, { SvgIcon } from 'react-mde';
-import { forceAnchorTagNewTab, getConverter, sanitizeConvertedHtml } from '../../../../common/utils/MarkdownUtils';
+import {
+  forceAnchorTagNewTab,
+  getMarkdownConverter,
+  sanitizeConvertedHtml,
+} from '../../../../common/utils/MarkdownUtils';
 import { FormattedMessage } from 'react-intl';
 
 const extractNoteFromTags = (tags: Record<string, KeyValueEntity>) =>
@@ -28,7 +32,7 @@ const toolbarCommands = [
   ['unordered-list', 'ordered-list'],
 ];
 
-const converter = getConverter();
+const converter = getMarkdownConverter();
 
 const getSanitizedHtmlContent = (markdown: string | undefined) => {
   if (markdown) {
@@ -169,11 +173,11 @@ export const ExperimentViewDescriptionNotes = ({
             onTabChange={(newTab) => setSelectedTab(newTab)}
             generateMarkdownPreview={() => Promise.resolve(getSanitizedHtmlContent(tmpNote))}
             getIcon={(name) => (
-              <Tooltip title={name}>
+              <LegacyTooltip title={name}>
                 <span css={{ color: theme.colors.textPrimary }}>
                   <SvgIcon icon={name} />
                 </span>
-              </Tooltip>
+              </LegacyTooltip>
             )}
           />
         </React.Fragment>

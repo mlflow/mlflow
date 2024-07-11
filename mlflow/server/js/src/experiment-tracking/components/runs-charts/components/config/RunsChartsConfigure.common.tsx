@@ -10,14 +10,19 @@ import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/
  */
 export const RunsChartsConfigureField = ({
   title,
+  compact = false,
   children,
 }: PropsWithChildren<{
   title: string;
+  compact?: boolean;
 }>) => {
   const { theme } = useDesignSystemTheme();
   return (
-    <div css={{ marginBottom: theme.spacing.md * 2 }} data-testid="experiment-view-compare-runs-config-field">
-      <Typography.Title level={4}>{title}:</Typography.Title>
+    <div
+      css={{ marginBottom: compact ? theme.spacing.sm : theme.spacing.md * 2 }}
+      data-testid="experiment-view-compare-runs-config-field"
+    >
+      <Typography.Title level={4}>{title}</Typography.Title>
       {children}
     </div>
   );

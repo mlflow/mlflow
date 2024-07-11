@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import { RunsChartType } from '../../runs-charts.types';
 import type {
   RunsChartsBarCardConfig,
@@ -36,10 +36,11 @@ export interface RunsChartsCardProps extends RunsChartCardReorderProps, RunsChar
   index: number;
   sectionIndex: number;
   autoRefreshEnabled?: boolean;
+  hideEmptyCharts?: boolean;
   groupBy: RunsGroupByConfig | null;
 }
 
-export const RunsChartsCard = ({
+const RunsChartsCardRaw = ({
   cardConfig,
   chartRunData,
   index,
@@ -51,36 +52,47 @@ export const RunsChartsCard = ({
   fullScreen,
   canMoveDown,
   canMoveUp,
-  onMoveDown,
-  onMoveUp,
+  previousChartUuid,
+  nextChartUuid,
   onReorderWith,
   autoRefreshEnabled,
   onDownloadFullMetricHistoryCsv,
+  hideEmptyCharts,
 }: RunsChartsCardProps) => {
   const chartElementKey = `${cardConfig.uuid}-${index}-${sectionIndex}`;
 
-  const reorderProps = {
-    onReorderWith,
-    canMoveDown,
-    canMoveUp,
-    onMoveDown,
-    onMoveUp,
-  };
+  const reorderProps = useMemo(
+    () => ({
+      onReorderWith,
+      canMoveDown,
+      canMoveUp,
+      previousChartUuid,
+      nextChartUuid,
+    }),
+    [onReorderWith, canMoveDown, canMoveUp, previousChartUuid, nextChartUuid],
+  );
 
-  const editProps = {
-    onEdit: () => onStartEditChart(cardConfig),
-    onDelete: () => onRemoveChart(cardConfig),
-    setFullScreenChart,
-  };
+  const editProps = useMemo(
+    () => ({
+      onEdit: () => onStartEditChart(cardConfig),
+      onDelete: () => onRemoveChart(cardConfig),
+      setFullScreenChart,
+    }),
+    [onStartEditChart, onRemoveChart, setFullScreenChart, cardConfig],
+  );
 
-  const commonChartProps = {
-    fullScreen,
-    key: chartElementKey,
-    autoRefreshEnabled,
-    groupBy,
-    ...editProps,
-    ...reorderProps,
-  };
+  const commonChartProps = useMemo(
+    () => ({
+      fullScreen,
+      key: chartElementKey,
+      autoRefreshEnabled,
+      groupBy,
+      hideEmptyCharts,
+      ...editProps,
+      ...reorderProps,
+    }),
+    [fullScreen, chartElementKey, autoRefreshEnabled, groupBy, editProps, reorderProps, hideEmptyCharts],
+  );
 
   const slicedRuns = useMemo(() => {
     if (shouldUseNewRunRowsVisibilityModel()) {
@@ -155,3 +167,5 @@ export const RunsChartsCard = ({
   }
   return null;
 };
+
+export const RunsChartsCard = memo(RunsChartsCardRaw);

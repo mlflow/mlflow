@@ -9,7 +9,7 @@ import {
   SearchIcon,
   Spinner,
   Tag,
-  Tooltip,
+  LegacyTooltip,
   XCircleFillIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -207,7 +207,7 @@ const GroupBySelectorBody = ({
           }}
         />
         <DropdownMenu.Root>
-          <Tooltip
+          <LegacyTooltip
             placement="right"
             title={
               <FormattedMessage
@@ -226,7 +226,7 @@ const GroupBySelectorBody = ({
                 aria-label="Change aggregation function"
               />
             </DropdownMenu.Trigger>
-          </Tooltip>
+          </LegacyTooltip>
           <DropdownMenu.Content align="start" side="right">
             {shouldEnableToggleIndividualRunsInGroups() && (
               <>

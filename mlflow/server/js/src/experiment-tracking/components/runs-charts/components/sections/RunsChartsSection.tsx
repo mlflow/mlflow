@@ -17,6 +17,7 @@ export interface RunsChartsSectionProps {
   sectionIndex: number;
   setFullScreenChart: RunsChartCardSetFullscreenFn;
   autoRefreshEnabled?: boolean;
+  hideEmptyCharts?: boolean;
 }
 
 export const RunsChartsSection = ({
@@ -32,6 +33,7 @@ export const RunsChartsSection = ({
   sectionIndex,
   setFullScreenChart,
   autoRefreshEnabled,
+  hideEmptyCharts,
 }: RunsChartsSectionProps) => {
   return (
     <RunsCharts
@@ -47,6 +49,7 @@ export const RunsChartsSection = ({
       sectionIndex={sectionIndex}
       setFullScreenChart={setFullScreenChart}
       autoRefreshEnabled={autoRefreshEnabled}
+      hideEmptyCharts={hideEmptyCharts}
     />
   );
 };

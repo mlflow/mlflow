@@ -13,8 +13,8 @@ import {
 import MetricChartsAccordion, { METRIC_CHART_SECTION_HEADER_SIZE } from '../../../MetricChartsAccordion';
 import { RunsChartsSectionHeader } from './RunsChartsSectionHeader';
 import { RunsChartsSection } from './RunsChartsSection';
-import { useEffect, useMemo } from 'react';
-import { getUUID } from 'common/utils/ActionUtils';
+import { useCallback, useMemo } from 'react';
+import { getUUID } from '@mlflow/mlflow/src/common/utils/ActionUtils';
 import { useState } from 'react';
 import { Button, PlusIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
@@ -25,6 +25,7 @@ import { useUpdateRunsChartsUIConfiguration } from '../../hooks/useRunsChartsUIC
 import { isArray } from 'lodash';
 import { RunsChartCardSetFullscreenFn } from '../cards/ChartCard.common';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
+import { shouldEnableHidingChartsWithNoData } from '../../../../../common/utils/FeatureUtils';
 
 const chartMatchesFilter = (filter: string, config: RunsChartsCardConfig) => {
   const filterLowerCase = filter.toLowerCase();
@@ -70,6 +71,7 @@ export interface RunsChartsSectionAccordionProps {
   search: string;
   groupBy: RunsGroupByConfig | null;
   autoRefreshEnabled?: boolean;
+  hideEmptyCharts?: boolean;
   supportedChartTypes?: RunsChartType[] | undefined;
   setFullScreenChart: RunsChartCardSetFullscreenFn;
 }
@@ -88,6 +90,7 @@ export const RunsChartsSectionAccordion = ({
   search,
   groupBy,
   supportedChartTypes,
+  hideEmptyCharts,
   setFullScreenChart = () => {},
 }: RunsChartsSectionAccordionProps) => {
   const updateUIState = useUpdateRunsChartsUIConfiguration();
@@ -111,93 +114,102 @@ export const RunsChartsSectionAccordion = ({
   /**
    * Updates the active (expanded) panels for the accordion
    */
-  const onActivePanelChange = (key: string | string[]) => {
-    updateUIState((current) => {
-      const newCompareRunPanels = (current.compareRunSections || []).map((sectionConfig: ChartSectionConfig) => {
-        const sectionId = sectionConfig.uuid;
-        const shouldDisplaySection =
-          (typeof key === 'string' && sectionId === key) || (Array.isArray(key) && key.includes(sectionId));
+  const onActivePanelChange = useCallback(
+    (key: string | string[]) => {
+      updateUIState((current) => {
+        const newCompareRunPanels = (current.compareRunSections || []).map((sectionConfig: ChartSectionConfig) => {
+          const sectionId = sectionConfig.uuid;
+          const shouldDisplaySection =
+            (typeof key === 'string' && sectionId === key) || (Array.isArray(key) && key.includes(sectionId));
+          return {
+            ...sectionConfig,
+            display: shouldDisplaySection,
+          };
+        });
         return {
-          ...sectionConfig,
-          display: shouldDisplaySection,
+          ...current,
+          compareRunSections: newCompareRunPanels,
         };
       });
-      return {
-        ...current,
-        compareRunSections: newCompareRunPanels,
-      };
-    });
-  };
+    },
+    [updateUIState],
+  );
 
   /**
    * Deletes a section from the accordion
    */
-  const deleteSection = (sectionId: string) => {
-    updateUIState((current) => {
-      const newCompareRunCharts = (current.compareRunCharts || [])
-        // Keep charts that are generated or not in section
-        .filter((chartConfig: RunsChartsCardConfig) => {
-          return chartConfig.isGenerated || chartConfig.metricSectionId !== sectionId;
-        })
-        // For charts that are generated and in section, set deleted to true
-        .map((chartConfig: RunsChartsCardConfig) => {
-          if (chartConfig.isGenerated && chartConfig.metricSectionId === sectionId) {
-            return { ...chartConfig, deleted: true };
-          } else {
-            return chartConfig;
-          }
-        });
+  const deleteSection = useCallback(
+    (sectionId: string) => {
+      updateUIState((current) => {
+        const newCompareRunCharts = (current.compareRunCharts || [])
+          // Keep charts that are generated or not in section
+          .filter((chartConfig: RunsChartsCardConfig) => {
+            return chartConfig.isGenerated || chartConfig.metricSectionId !== sectionId;
+          })
+          // For charts that are generated and in section, set deleted to true
+          .map((chartConfig: RunsChartsCardConfig) => {
+            if (chartConfig.isGenerated && chartConfig.metricSectionId === sectionId) {
+              return { ...chartConfig, deleted: true };
+            } else {
+              return chartConfig;
+            }
+          });
 
-      // Delete section
-      const newCompareRunSections = (current.compareRunSections || [])
-        .slice()
-        .filter((sectionConfig: ChartSectionConfig) => {
-          return sectionConfig.uuid !== sectionId;
-        });
+        // Delete section
+        const newCompareRunSections = (current.compareRunSections || [])
+          .slice()
+          .filter((sectionConfig: ChartSectionConfig) => {
+            return sectionConfig.uuid !== sectionId;
+          });
 
-      return {
-        ...current,
-        compareRunCharts: newCompareRunCharts,
-        compareRunSections: newCompareRunSections,
-        isAccordionReordered: true,
-      };
-    });
-  };
+        return {
+          ...current,
+          compareRunCharts: newCompareRunCharts,
+          compareRunSections: newCompareRunSections,
+          isAccordionReordered: true,
+        };
+      });
+    },
+    [updateUIState],
+  );
 
   /**
    * Adds a section to the accordion
    * @param sectionId indicates the section selected to anchor at
    * @param above is a boolean value indicating whether to add the section above or below the anchor
    */
-  const addSection = (sectionId: string, above: boolean) => {
-    let idx = -1;
-    updateUIState((current) => {
-      // Look for index
-      const newCompareRunSections = [...(current.compareRunSections || [])];
-      idx = newCompareRunSections.findIndex((sectionConfig: ChartSectionConfig) => sectionConfig.uuid === sectionId);
-      const newSection = { name: '', uuid: getUUID(), display: false, isReordered: false };
-      if (idx < 0) {
-        // Index not found, add to end
-        newCompareRunSections.push(newSection);
-      } else if (above) {
-        newCompareRunSections.splice(idx, 0, newSection);
-      } else {
-        idx += 1;
-        newCompareRunSections.splice(idx, 0, newSection);
-      }
-      return {
-        ...current,
-        compareRunSections: newCompareRunSections,
-        isAccordionReordered: true,
-      };
-    });
-    return idx;
-  };
+  const addSection = useCallback(
+    (sectionId: string, above: boolean) => {
+      let idx = -1;
+      updateUIState((current) => {
+        // Look for index
+        const newCompareRunSections = [...(current.compareRunSections || [])];
+        idx = newCompareRunSections.findIndex((sectionConfig: ChartSectionConfig) => sectionConfig.uuid === sectionId);
+        const newSection = { name: '', uuid: getUUID(), display: false, isReordered: false };
+        if (idx < 0) {
+          // Index not found, add to end
+          newCompareRunSections.push(newSection);
+        } else if (above) {
+          newCompareRunSections.splice(idx, 0, newSection);
+        } else {
+          idx += 1;
+          newCompareRunSections.splice(idx, 0, newSection);
+        }
+        return {
+          ...current,
+          compareRunSections: newCompareRunSections,
+          isAccordionReordered: true,
+        };
+      });
+      return idx;
+    },
+    [updateUIState],
+  );
 
   /**
    * Appends a section to the end of the accordion
    */
-  const appendSection = () => {
+  const appendSection = useCallback(() => {
     updateUIState((current) => {
       const newCompareRunSections = [
         ...(current.compareRunSections || []),
@@ -210,62 +222,69 @@ export const RunsChartsSectionAccordion = ({
       };
     });
     setEditSection(compareRunSections?.length || -1);
-  };
+  }, [updateUIState, compareRunSections?.length]);
 
   /**
    * Updates the name of a section
    * @param sectionId the section to update the name of
    * @param name the new name of the section
    */
-  const setSectionName = (sectionId: string, name: string) => {
-    updateUIState((current) => {
-      const newCompareRunSections = (current.compareRunSections || []).map((sectionConfig: ChartSectionConfig) => {
-        if (sectionConfig.uuid === sectionId) {
-          return { ...sectionConfig, name: name };
-        } else {
-          return sectionConfig;
-        }
+  const setSectionName = useCallback(
+    (sectionId: string, name: string) => {
+      updateUIState((current) => {
+        const newCompareRunSections = (current.compareRunSections || []).map((sectionConfig: ChartSectionConfig) => {
+          if (sectionConfig.uuid === sectionId) {
+            return { ...sectionConfig, name: name };
+          } else {
+            return sectionConfig;
+          }
+        });
+        return {
+          ...current,
+          compareRunSections: newCompareRunSections,
+          isAccordionReordered: true,
+        };
       });
-      return {
-        ...current,
-        compareRunSections: newCompareRunSections,
-        isAccordionReordered: true,
-      };
-    });
-  };
+    },
+    [updateUIState],
+  );
 
   /**
    * Reorders the sections in the accordion
    * @param sourceSectionId the section you are dragging
    * @param targetSectionId the section to drop
    */
-  const sectionReorder = (sourceSectionId: string, targetSectionId: string) => {
-    updateUIState((current) => {
-      const newCompareRunSections = (current.compareRunSections || []).slice();
-      const sourceSectionIdx = newCompareRunSections.findIndex(
-        (sectionConfig: ChartSectionConfig) => sectionConfig.uuid === sourceSectionId,
-      );
-      const targetSectionIdx = newCompareRunSections.findIndex(
-        (sectionConfig: ChartSectionConfig) => sectionConfig.uuid === targetSectionId,
-      );
-      const sourceSection = newCompareRunSections.splice(sourceSectionIdx, 1)[0];
-      // If the source section is above the target section, the target section index will be shifted down by 1
-      newCompareRunSections.splice(targetSectionIdx, 0, sourceSection);
-      return {
-        ...current,
-        compareRunSections: newCompareRunSections,
-        isAccordionReordered: true,
-      };
-    });
-  };
+  const sectionReorder = useCallback(
+    (sourceSectionId: string, targetSectionId: string) => {
+      updateUIState((current) => {
+        const newCompareRunSections = (current.compareRunSections || []).slice();
+        const sourceSectionIdx = newCompareRunSections.findIndex(
+          (sectionConfig: ChartSectionConfig) => sectionConfig.uuid === sourceSectionId,
+        );
+        const targetSectionIdx = newCompareRunSections.findIndex(
+          (sectionConfig: ChartSectionConfig) => sectionConfig.uuid === targetSectionId,
+        );
+        const sourceSection = newCompareRunSections.splice(sourceSectionIdx, 1)[0];
+        // If the source section is above the target section, the target section index will be shifted down by 1
+        newCompareRunSections.splice(targetSectionIdx, 0, sourceSection);
+        return {
+          ...current,
+          compareRunSections: newCompareRunSections,
+          isAccordionReordered: true,
+        };
+      });
+    },
+    [updateUIState],
+  );
 
-  if (!compareRunSections || !compareRunCharts) {
-    return null;
-  }
+  const noRunsSelected = useMemo(() => chartData.filter(({ hidden }) => !hidden).length === 0, [chartData]);
 
-  // If search is not empty, render the filtered charts
-  if (search !== '') {
-    const compareRunChartsFiltered = compareRunCharts.filter((config: RunsChartsCardConfig) => {
+  const { sectionsToRender, chartsToRender } = useMemo(() => {
+    if (search === '') {
+      return { sectionsToRender: compareRunSections, chartsToRender: compareRunCharts };
+    }
+
+    const compareRunChartsFiltered = (compareRunCharts || []).filter((config: RunsChartsCardConfig) => {
       return !config.deleted && chartMatchesFilter(search, config);
     });
     // Get the sections that have these charts
@@ -276,106 +295,62 @@ export const RunsChartsSectionAccordion = ({
       }
     });
     // Filter the sections
-    const compareRunSectionsFiltered = compareRunSections.filter((sectionConfig: ChartSectionConfig) => {
+    const compareRunSectionsFiltered = (compareRunSections || []).filter((sectionConfig: ChartSectionConfig) => {
       return sectionsWithCharts.has(sectionConfig.uuid);
     });
 
-    if (compareRunChartsFiltered.length === 0) {
-      // Render empty in the center of the page
-      return (
-        <>
-          <Spacer size="lg" />
-          <Empty
-            title={
-              <FormattedMessage
-                defaultMessage="No metric charts"
-                description="Experiment page > compare runs > no metric charts"
-              />
-            }
-            description={
-              <FormattedMessage
-                defaultMessage="All charts are filtered. Clear the search filter to see hidden metric charts."
-                description="Experiment page > compare runs > no metric charts > description"
-              />
-            }
-          />
-        </>
-      );
-    }
+    return { sectionsToRender: compareRunSectionsFiltered, chartsToRender: compareRunChartsFiltered };
+  }, [search, compareRunCharts, compareRunSections]);
 
+  const isSearching = search !== '';
+
+  if (!compareRunSections || !compareRunCharts) {
+    return null;
+  }
+
+  if (noRunsSelected && shouldEnableHidingChartsWithNoData()) {
+    return (
+      <div css={{ marginTop: theme.spacing.lg }}>
+        <Empty
+          description={
+            <FormattedMessage
+              defaultMessage="All runs are hidden. Select at least one run to view charts."
+              description="Experiment tracking > runs charts > indication displayed when no runs are selected for comparison"
+            />
+          }
+        />
+      </div>
+    );
+  }
+
+  if (isSearching && chartsToRender?.length === 0) {
+    // Render empty in the center of the page
     return (
       <>
-        <MetricChartsAccordion activeKey={compareRunSectionsFiltered.map(({ uuid }) => uuid)} disableCollapse>
-          {compareRunSectionsFiltered.map((sectionConfig: ChartSectionConfig, index: number) => {
-            const HEADING_PADDING_HEIGHT = 4;
-            const EDITABLE_LABEL_PADDING_WIDTH = 6;
-            const EDITABLE_LABEL_BORDER_WIDTH = 1;
-            const EDITABLE_LABEL_OFFSET = EDITABLE_LABEL_PADDING_WIDTH + EDITABLE_LABEL_BORDER_WIDTH;
-            // Get the charts in the section that are not deleted
-            const filteredSectionCharts = compareRunChartsFiltered.filter((config: RunsChartsCardConfig) => {
-              const section = (config as RunsChartsBarCardConfig).metricSectionId;
-              return section === sectionConfig.uuid;
-            });
-
-            const runsCompareSearchHeader = (
-              <div
-                role="figure"
-                css={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  width: '100%',
-                  padding: `${HEADING_PADDING_HEIGHT}px 0px`,
-                  height: `${METRIC_CHART_SECTION_HEADER_SIZE}px`,
-                }}
-              >
-                <div
-                  css={{
-                    paddingLeft: EDITABLE_LABEL_OFFSET,
-                    whiteSpace: 'pre-wrap',
-                  }}
-                  data-testid="on-search-runs-compare-section-header"
-                >
-                  {sectionConfig.name}
-                </div>
-                <div
-                  css={{
-                    padding: theme.spacing.xs,
-                    position: 'relative',
-                  }}
-                >
-                  {`(${filteredSectionCharts.length})`}
-                </div>
-              </div>
-            );
-
-            return (
-              <Accordion.Panel header={runsCompareSearchHeader} key={sectionConfig.uuid} collapsible="disabled">
-                <RunsChartsSection
-                  sectionId={sectionConfig.uuid}
-                  sectionCharts={filteredSectionCharts}
-                  reorderCharts={reorderCharts}
-                  insertCharts={insertCharts}
-                  isMetricHistoryLoading={isMetricHistoryLoading}
-                  chartData={chartData}
-                  startEditChart={startEditChart}
-                  removeChart={removeChart}
-                  groupBy={groupBy}
-                  sectionIndex={index}
-                  setFullScreenChart={setFullScreenChart}
-                  autoRefreshEnabled={autoRefreshEnabled}
-                />
-              </Accordion.Panel>
-            );
-          })}
-        </MetricChartsAccordion>
+        <Spacer size="lg" />
+        <Empty
+          title={
+            <FormattedMessage
+              defaultMessage="No metric charts"
+              description="Experiment page > compare runs > no metric charts"
+            />
+          }
+          description={
+            <FormattedMessage
+              defaultMessage="All charts are filtered. Clear the search filter to see hidden metric charts."
+              description="Experiment page > compare runs > no metric charts > description"
+            />
+          }
+        />
       </>
     );
   }
+
   return (
     <div>
       <MetricChartsAccordion activeKey={activeKey} onActiveKeyChange={onActivePanelChange}>
-        {(compareRunSections || []).map((sectionConfig: ChartSectionConfig, index: number) => {
-          const sectionCharts = (compareRunCharts || []).filter((config: RunsChartsCardConfig) => {
+        {(sectionsToRender || []).map((sectionConfig: ChartSectionConfig, index: number) => {
+          const sectionCharts = (chartsToRender || []).filter((config: RunsChartsCardConfig) => {
             const section = (config as RunsChartsBarCardConfig).metricSectionId;
             return !config.deleted && section === sectionConfig.uuid;
           });
@@ -396,9 +371,12 @@ export const RunsChartsSectionAccordion = ({
                   onSectionReorder={sectionReorder}
                   isExpanded={activeKey.includes(sectionConfig.uuid)}
                   supportedChartTypes={supportedChartTypes}
+                  // When searching, hide the section placement controls
+                  hideExtraControls={isSearching}
                 />
               }
               key={sectionConfig.uuid}
+              aria-hidden={!activeKey.includes(sectionConfig.uuid)}
             >
               <RunsChartsSection
                 sectionId={sectionConfig.uuid}
@@ -413,25 +391,28 @@ export const RunsChartsSectionAccordion = ({
                 sectionIndex={index}
                 setFullScreenChart={setFullScreenChart}
                 autoRefreshEnabled={autoRefreshEnabled}
+                hideEmptyCharts={hideEmptyCharts}
               />
             </Accordion.Panel>
           );
         })}
       </MetricChartsAccordion>
-      <div>
-        <Button
-          componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-compare_sections_runscomparesectionaccordion.tsx_405"
-          block
-          onClick={appendSection}
-          icon={<PlusIcon />}
-          style={{ border: 'none', marginTop: '6px' }}
-        >
-          <FormattedMessage
-            defaultMessage="Add section"
-            description="Experiment page > compare runs > chart section > add section bar"
-          />
-        </Button>
-      </div>
+      {!isSearching && (
+        <div>
+          <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-compare_sections_runscomparesectionaccordion.tsx_405"
+            block
+            onClick={appendSection}
+            icon={<PlusIcon />}
+            style={{ border: 'none', marginTop: '6px' }}
+          >
+            <FormattedMessage
+              defaultMessage="Add section"
+              description="Experiment page > compare runs > chart section > add section bar"
+            />
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

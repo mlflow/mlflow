@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
   TableRowSelectCell,
-  Tooltip,
+  LegacyTooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -149,9 +149,9 @@ export const ModelVersionTable = ({
         cell: ({ row: { original } }) => {
           const { status, status_message } = original || {};
           return (
-            <Tooltip title={status_message || modelVersionStatusIconTooltips[status]}>
+            <LegacyTooltip title={status_message || modelVersionStatusIconTooltips[status]}>
               <Typography.Text>{ModelVersionStatusIcons[status]}</Typography.Text>
-            </Tooltip>
+            </LegacyTooltip>
           );
         },
       },

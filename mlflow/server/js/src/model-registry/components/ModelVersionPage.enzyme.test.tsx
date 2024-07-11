@@ -20,7 +20,7 @@ import Utils from '../../common/utils/Utils';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { ErrorCodes } from '../../common/constants';
 import { ModelRegistryRoutes } from '../routes';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { getUUID } from '../../common/utils/ActionUtils';
 
 jest.mock('../../common/utils/ActionUtils', () => ({

@@ -30,7 +30,7 @@ export function renderWithIntl(ui: React.ReactElement, renderOptions = {}, provi
     ...defaultProviderProps,
     ...providerProps,
   };
-  const wrapper: React.JSXElementConstructor<{ children: React.ReactElement }> = ({ children }) => (
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
     <IntlProvider {...mergedProviderProps}>{children}</IntlProvider>
   );
 
