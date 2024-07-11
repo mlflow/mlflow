@@ -731,4 +731,3 @@ def start_mock_openai_server():
             yield base_url
         finally:
             proc.kill()
-            proc.wait()
