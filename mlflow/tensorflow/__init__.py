@@ -330,6 +330,12 @@ def save_model(
     import tensorflow as tf
     from tensorflow.keras.models import Model as KerasModel
 
+    # check if path exists
+    path = os.path.abspath(path)
+    _validate_and_prepare_target_save_path(path)
+
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
     if mlflow_model is None:
         mlflow_model = Model()
     saved_example = _save_example(mlflow_model, input_example, path)
@@ -368,12 +374,6 @@ def save_model(
                 )
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
-
-    # check if path exists
-    path = os.path.abspath(path)
-    _validate_and_prepare_target_save_path(path)
-
-    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if signature is not None:
         mlflow_model.signature = signature
