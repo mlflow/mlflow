@@ -65,6 +65,18 @@ class MlflowGetMetricHistoryBulkIntervalResponse(graphene.ObjectType):
     metrics = graphene.List(graphene.NonNull(MlflowMetricWithRunId))
 
 
+class MlflowFileInfo(graphene.ObjectType):
+    path = graphene.String()
+    is_dir = graphene.Boolean()
+    file_size = LongString()
+
+
+class MlflowListArtifactsResponse(graphene.ObjectType):
+    root_uri = graphene.String()
+    files = graphene.List(graphene.NonNull(MlflowFileInfo))
+    next_page_token = graphene.String()
+
+
 class MlflowDataset(graphene.ObjectType):
     name = graphene.String()
     digest = graphene.String()
@@ -171,6 +183,13 @@ class MlflowGetMetricHistoryBulkIntervalInput(graphene.InputObjectType):
     start_step = graphene.Int()
     end_step = graphene.Int()
     max_results = graphene.Int()
+
+
+class MlflowListArtifactsInput(graphene.InputObjectType):
+    run_id = graphene.String()
+    run_uuid = graphene.String()
+    path = graphene.String()
+    page_token = graphene.String()
 
 
 class MlflowSearchRunsInput(graphene.InputObjectType):
