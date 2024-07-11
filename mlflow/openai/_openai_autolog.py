@@ -11,7 +11,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import MlflowException
-from mlflow.entities import RunTag
+from mlflow.entities import RunTag, SpanType
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.fluent import _get_experiment_id
@@ -73,6 +73,19 @@ class _OpenAIJsonEncoder(json.JSONEncoder):
             return super().default(o)
         except TypeError:
             return str(o)
+
+
+def _get_span_type(task) -> str:
+    from openai.resources.chat.completions import Completions as ChatCompletions
+    from openai.resources.completions import Completions
+    from openai.resources.embeddings import Embeddings
+
+    span_type_mapping = {
+        ChatCompletions: SpanType.CHAT_MODEL,
+        Completions: SpanType.LLM,
+        Embeddings: SpanType.EMBEDDING,
+    }
+    return span_type_mapping.get(task, SpanType.UNKNOWN)
 
 
 def patched_call(original, self, *args, **kwargs):
