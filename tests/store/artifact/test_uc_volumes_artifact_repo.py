@@ -6,7 +6,7 @@ import pytest
 from mlflow.entities.file_info import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.uc_volume_artifact_repo import UCVolumeArtifactRepository
+from mlflow.store.artifact.uc_volume_artifact_repo import UCVolumesArtifactRepository
 
 HOST = "http://localhost:5000"
 
@@ -43,7 +43,7 @@ def artifact_repo(monkeypatch):
 )
 def test_get_artifact_repository(artifact_uri: str):
     repo = get_artifact_repository(artifact_uri)
-    assert isinstance(repo, UCVolumeArtifactRepository)
+    assert isinstance(repo, UCVolumesArtifactRepository)
 
 
 @pytest.mark.parametrize(

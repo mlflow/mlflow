@@ -105,12 +105,12 @@ def is_fuse_or_uc_volumes_uri(uri):
     )
 
 
-def is_uc_volume_uri(uri):
+def is_uc_volumes_uri(uri):
     parsed_uri = urllib.parse.urlparse(uri)
     return parsed_uri.scheme == "dbfs" and bool(re.match(r"^/[vV]olumes?/", parsed_uri.path))
 
 
-def is_valid_uc_volume_uri(uri):
+def is_valid_uc_volumes_uri(uri):
     parsed_uri = urllib.parse.urlparse(uri)
     return parsed_uri.scheme == "dbfs" and bool(
         re.match(r"^/[vV]olumes?/[^/]+/[^/]+/[^/]+/[^/]+", parsed_uri.path)

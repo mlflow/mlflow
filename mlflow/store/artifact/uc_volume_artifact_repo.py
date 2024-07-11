@@ -17,7 +17,7 @@ from mlflow.utils.rest_utils import http_request
 from mlflow.utils.uri import (
     get_databricks_profile_uri_from_artifact_uri,
     is_databricks_model_registry_artifacts_uri,
-    is_valid_uc_volume_uri,
+    is_valid_uc_volumes_uri,
     remove_databricks_profile_info_from_artifact_uri,
     strip_scheme,
 )
@@ -28,13 +28,13 @@ FILES_API_ENDPOINT = "/api/2.0/fs/files"
 DOWNLOAD_CHUNK_SIZE = 1024
 
 
-class UCVolumeArtifactRepository(ArtifactRepository):
+class UCVolumesArtifactRepository(ArtifactRepository):
     """
     Stores artifacts on UC Volumes using the Files REST API.
     """
 
     def __init__(self, artifact_uri):
-        if not is_valid_uc_volume_uri(artifact_uri):
+        if not is_valid_uc_volumes_uri(artifact_uri):
             raise MlflowException(
                 message=(
                     f"UC volume URI must be of the form "
@@ -207,7 +207,7 @@ def uc_volume_artifact_repo_factory(artifact_uri):
     Returns:
         Subclass of ArtifactRepository capable of storing artifacts on DBFS.
     """
-    if not is_valid_uc_volume_uri(artifact_uri):
+    if not is_valid_uc_volumes_uri(artifact_uri):
         raise MlflowException(
             message=(
                 f"UC volume URI must be of the form "
@@ -228,9 +228,9 @@ def uc_volume_artifact_repo_factory(artifact_uri):
         # /Volumes/... using local filesystem APIs.
         # Note: it is possible for a named Databricks profile to point to the current workspace,
         # but we're going to avoid doing a complex check and assume users will use `databricks`
-        # to mean the current workspace. Using `UCVolumeArtifactRepository` to access
+        # to mean the current workspace. Using `UCVolumesArtifactRepository` to access
         # the current workspace's Volumes should still work; it just may be slower.
         uri_without_profile = remove_databricks_profile_info_from_artifact_uri(artifact_uri)
         path = strip_scheme(uri_without_profile).lstrip("/")
         return LocalArtifactRepository(f"file:///{path}")
-    return UCVolumeArtifactRepository(artifact_uri)
+    return UCVolumesArtifactRepository(artifact_uri)
