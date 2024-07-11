@@ -89,7 +89,8 @@ class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
                     ]
                 else:
                     raise ValueError(
-                        f"Unsupported input type: {type(chat_message_history)}. It must be a list of dicts."
+                        f"Unsupported input type: {type(chat_message_history)}. "
+                        "It must be a list of dicts."
                     )
 
         return data
