@@ -13,8 +13,26 @@ QUERY_ENGINE_NAME = "query"
 RETRIEVER_ENGINE_NAME = "retriever"
 SUPPORTED_ENGINES = {CHAT_ENGINE_NAME, QUERY_ENGINE_NAME, RETRIEVER_ENGINE_NAME}
 
-_CHAT_MESSAGE_PARAMETER_NAMES = {"query", "message"}
-_CHAT_MESSAGE_HISTORY_PARAMETER_NAMES = {"messages", "chat_history"}
+_CHAT_MESSAGE_HISTORY_PARAMETER_NAME = "message_history"
+
+
+def _format_predict_input_query_engine_and_retriever(data) -> QueryBundle:
+    """Convert pyfunc input to a QueryBundle."""
+    data = _convert_llm_input_data(data)
+
+    if isinstance(data, str):
+        return QueryBundle(query_str=data)
+    elif isinstance(data, dict):
+        return QueryBundle(**data)
+    elif isinstance(data, list):
+        # NB: handle pandas returning lists when there is a single row
+        prediction_input = [_format_predict_input_query_engine_and_retriever(d) for d in data]
+        return prediction_input if len(prediction_input) > 1 else prediction_input[0]
+    else:
+        raise ValueError(
+            f"Unsupported input type: {type(data)}. It must be one of "
+            "[str, dict, list, numpy.ndarray, pandas.DataFrame]"
+        )
 
 
 class _LlamaIndexModelWrapperBase:
@@ -62,20 +80,18 @@ class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
         return self.index.as_chat_engine(**self.model_config).chat
 
     @staticmethod
-    def _convert_inferred_chat_message_history_to_chat_message_objects(data: Dict) -> Dict:
-        for name in _CHAT_MESSAGE_HISTORY_PARAMETER_NAMES:
-            if inferred_message_history := data.get(name):
-                if isinstance(inferred_message_history, list):
-                    for i, message in enumerate(inferred_message_history):
-                        if isinstance(message, dict):
-                            data[name][i] = ChatMessage(**message)
+    def _convert_chat_message_history_to_chat_message_objects(data: Dict) -> Dict:
+        if chat_message_history := data.get(_CHAT_MESSAGE_HISTORY_PARAMETER_NAME):
+            if isinstance(chat_message_history, list):
+                if all(isinstance(message, dict) for message in chat_message_history):
+                    data[_CHAT_MESSAGE_HISTORY_PARAMETER_NAME] = [
+                        ChatMessage(**message) for message in chat_message_history
+                    ]
+                else:
+                    raise ValueError(
+                        f"Unsupported input type: {type(chat_message_history)}. It must be a list of dicts."
+                    )
 
-            return data
-
-        _logger.warning(
-            f"Could not find any chat message history in the input data. "
-            f"Expected one of {_CHAT_MESSAGE_HISTORY_PARAMETER_NAMES}."
-        )
         return data
 
     def _format_predict_input(self, data) -> Union[str, Dict, List]:
@@ -84,8 +100,9 @@ class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
         if isinstance(data, str):
             return data
         elif isinstance(data, dict):
-            return self._convert_inferred_chat_message_history_to_chat_message_objects(data)
+            return self._convert_chat_message_history_to_chat_message_objects(data)
         elif isinstance(data, list):
+            # NB: handle pandas returning lists when there is a single row
             prediction_input = [self._format_predict_input(d) for d in data]
             return prediction_input if len(prediction_input) > 1 else prediction_input[0]
         else:
@@ -104,30 +121,19 @@ class QueryEngineWrapper(_LlamaIndexModelWrapperBase):
         return self.index.as_query_engine(**self.model_config).query
 
     def _format_predict_input(self, data) -> QueryBundle:
-        """Convert pyfunc input to a QueryBundle."""
-        data = _convert_llm_input_data(data)
-
-        if isinstance(data, str):
-            return QueryBundle.from_dict({"query_str": data})
-        elif isinstance(data, dict):
-            return QueryBundle(**data)
-        elif isinstance(data, list):
-            prediction_input = [self._format_predict_input(d) for d in data]
-            return prediction_input if len(prediction_input) > 1 else prediction_input[0]
-        else:
-            raise ValueError(
-                f"Unsupported input type: {type(data)}. It must be one of "
-                "[str, dict, list, numpy.ndarray, pandas.DataFrame]"
-            )
+        return _format_predict_input_query_engine_and_retriever(data)
 
 
-class RetrieverEngineWrapper(QueryEngineWrapper):
+class RetrieverEngineWrapper(_LlamaIndexModelWrapperBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.engine_type = RETRIEVER_ENGINE_NAME
 
     def _build_engine_method(self) -> Callable:
         return self.index.as_retriever(**self.model_config).retrieve
+
+    def _format_predict_input(self, data) -> QueryBundle:
+        return _format_predict_input_query_engine_and_retriever(data)
 
 
 def create_engine_wrapper(index, engine_type: str, model_config: Optional[Dict[str, Any]] = None):

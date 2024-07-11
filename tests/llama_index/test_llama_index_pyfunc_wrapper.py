@@ -11,7 +11,7 @@ from llama_index.core.chat_engine.types import (
 from llama_index.core.llms import ChatMessage
 
 from mlflow.llama_index.pyfunc_wrapper import (
-    _CHAT_MESSAGE_HISTORY_PARAMETER_NAMES,
+    _CHAT_MESSAGE_HISTORY_PARAMETER_NAME,
     CHAT_ENGINE_NAME,
     QUERY_ENGINE_NAME,
     RETRIEVER_ENGINE_NAME,
@@ -41,22 +41,18 @@ def test_format_predict_input_dict_chat(single_index):
     assert isinstance(formatted_data, dict)
 
 
-@pytest.mark.parametrize(
-    ("chat_history_key"),
-    _CHAT_MESSAGE_HISTORY_PARAMETER_NAMES,
-)
-def test_format_predict_input_message_history_chat(single_index, chat_history_key):
+def test_format_predict_input_message_history_chat(single_index):
     payload = {
-        "query": "string",
-        chat_history_key: [{"role": "user", "content": "hi"}] * 3,
+        "message": "string",
+        _CHAT_MESSAGE_HISTORY_PARAMETER_NAME: [{"role": "user", "content": "hi"}] * 3,
     }
     wrapped_model = create_engine_wrapper(single_index, CHAT_ENGINE_NAME)
     formatted_data = wrapped_model._format_predict_input(payload)
 
     assert isinstance(formatted_data, dict)
-    assert formatted_data["query"] == payload["query"]
-    assert isinstance(formatted_data[chat_history_key], list)
-    assert all(isinstance(x, ChatMessage) for x in formatted_data[chat_history_key])
+    assert formatted_data["message"] == payload["message"]
+    assert isinstance(formatted_data[_CHAT_MESSAGE_HISTORY_PARAMETER_NAME], list)
+    assert all(isinstance(x, ChatMessage) for x in formatted_data[_CHAT_MESSAGE_HISTORY_PARAMETER_NAME])
 
 
 @pytest.mark.parametrize(
@@ -65,7 +61,7 @@ def test_format_predict_input_message_history_chat(single_index, chat_history_ke
         [
             {
                 "query": "string",
-                "message_history": [{"role": "user", "content": "hi"}] * 3,
+                _CHAT_MESSAGE_HISTORY_PARAMETER_NAME: [{"role": "user", "content": "hi"}] * 3,
             }
         ]
         * 3,
@@ -73,7 +69,7 @@ def test_format_predict_input_message_history_chat(single_index, chat_history_ke
             [
                 {
                     "query": "string",
-                    "message_history": [{"role": "user", "content": "hi"}] * 3,
+                    _CHAT_MESSAGE_HISTORY_PARAMETER_NAME: [{"role": "user", "content": "hi"}] * 3,
                 }
             ]
             * 3
@@ -89,20 +85,16 @@ def test_format_predict_input_message_history_chat_iterable(single_index, data):
 
     assert isinstance(formatted_data, list)
     assert formatted_data[0]["query"] == data[0]["query"]
-    assert isinstance(formatted_data[0]["message_history"], list)
-    assert all(isinstance(x, dict) for x in formatted_data[0]["message_history"])
-    assert ChatMessage(**formatted_data[0]["message_history"][0])
+    assert isinstance(formatted_data[0][_CHAT_MESSAGE_HISTORY_PARAMETER_NAME], list)
+    assert all(isinstance(x, ChatMessage) for x in formatted_data[0][_CHAT_MESSAGE_HISTORY_PARAMETER_NAME])
 
 
-def test_format_predict_input_message_history_chat_invalid(single_index):
-    payload = {"query": "string", "message_history": ["invalid history string", "user: hi"]}
+def test_format_predict_input_message_history_chat_invalid_type(single_index):
+    payload = {"message": "string", _CHAT_MESSAGE_HISTORY_PARAMETER_NAME:["invalid history string", "user: hi"]}
     wrapped_model = create_engine_wrapper(single_index, CHAT_ENGINE_NAME)
-    formatted_data = wrapped_model._format_predict_input(payload)
+    with pytest.raises(ValueError, match="It must be a list of dicts"):
+        _ = wrapped_model._format_predict_input(payload)
 
-    assert isinstance(formatted_data, dict)
-    assert formatted_data["query"] == payload["query"]
-    assert isinstance(formatted_data["message_history"], list)
-    assert not any(isinstance(x, ChatMessage) for x in formatted_data["message_history"])
 
 
 @pytest.mark.parametrize(
