@@ -52,7 +52,9 @@ def test_format_predict_input_message_history_chat(single_index):
     assert isinstance(formatted_data, dict)
     assert formatted_data["message"] == payload["message"]
     assert isinstance(formatted_data[_CHAT_MESSAGE_HISTORY_PARAMETER_NAME], list)
-    assert all(isinstance(x, ChatMessage) for x in formatted_data[_CHAT_MESSAGE_HISTORY_PARAMETER_NAME])
+    assert all(
+        isinstance(x, ChatMessage) for x in formatted_data[_CHAT_MESSAGE_HISTORY_PARAMETER_NAME]
+    )
 
 
 @pytest.mark.parametrize(
@@ -86,15 +88,19 @@ def test_format_predict_input_message_history_chat_iterable(single_index, data):
     assert isinstance(formatted_data, list)
     assert formatted_data[0]["query"] == data[0]["query"]
     assert isinstance(formatted_data[0][_CHAT_MESSAGE_HISTORY_PARAMETER_NAME], list)
-    assert all(isinstance(x, ChatMessage) for x in formatted_data[0][_CHAT_MESSAGE_HISTORY_PARAMETER_NAME])
+    assert all(
+        isinstance(x, ChatMessage) for x in formatted_data[0][_CHAT_MESSAGE_HISTORY_PARAMETER_NAME]
+    )
 
 
 def test_format_predict_input_message_history_chat_invalid_type(single_index):
-    payload = {"message": "string", _CHAT_MESSAGE_HISTORY_PARAMETER_NAME:["invalid history string", "user: hi"]}
+    payload = {
+        "message": "string",
+        _CHAT_MESSAGE_HISTORY_PARAMETER_NAME: ["invalid history string", "user: hi"],
+    }
     wrapped_model = create_engine_wrapper(single_index, CHAT_ENGINE_NAME)
     with pytest.raises(ValueError, match="It must be a list of dicts"):
         _ = wrapped_model._format_predict_input(payload)
-
 
 
 @pytest.mark.parametrize(
