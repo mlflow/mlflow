@@ -60,7 +60,10 @@ MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH = 5000
 MAX_EXPERIMENTS_LISTED_PER_PAGE = 50000
 MAX_DATASET_NAME_SIZE = 500
 MAX_DATASET_DIGEST_SIZE = 36
-MAX_DATASET_SCHEMA_SIZE = 16777215  # 16MB -1 (the db limit for MEDIUMTEXT column)
+# 1MB -1, the db limit for MEDIUMTEXT column is 16MB, but
+# we restrict to 1MB because user might log lots of datasets
+# to a single run, 16MB increases burden on db
+MAX_DATASET_SCHEMA_SIZE = 1048575
 MAX_DATASET_SOURCE_SIZE = 65535  # 64KB -1 (the db limit for TEXT column)
 MAX_DATASET_PROFILE_SIZE = 16777215  # 16MB -1 (the db limit for MEDIUMTEXT column)
 MAX_INPUT_TAG_KEY_SIZE = 255
