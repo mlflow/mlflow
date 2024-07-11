@@ -715,15 +715,17 @@ def start_mock_openai_server():
     ) as proc:
         try:
             base_url = f"http://localhost:{port}"
-            for _ in range(3):
+            for _ in range(10):
                 try:
                     resp = requests.get(f"{base_url}/health")
                 except requests.ConnectionError:
-                    time.sleep(1)
+                    time.sleep(2)
                     continue
                 if resp.ok:
                     break
             else:
+                proc.kill()
+                proc.wait()
                 raise RuntimeError("Failed to start mock OpenAI server")
 
             yield base_url
