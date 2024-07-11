@@ -238,8 +238,7 @@ def test_model_card_acquisition_vision_model(small_vision_model):
 def test_license_acquisition(repo_id, license_file, tmp_path):
     card_data = _fetch_model_card(repo_id)
     _write_license_information(repo_id, card_data, tmp_path)
-    files = os.listdir(tmp_path)
-    license_file = [file for file in files if "LICENSE" in file]
+    license_file = list(tmp_path.glob("*LICENSE*"))
     assert len(license_file) == 1
     assert tmp_path.joinpath(license_file[0]).stat().st_size > 0
 
