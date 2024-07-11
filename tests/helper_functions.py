@@ -661,3 +661,73 @@ def clear_hub_cache():
     except ImportError:
         # Local import check for mlflow-skinny not including huggingface_hub
         pass
+
+
+def flaky(max_tries=3):
+    """
+    Annotation decorator for retrying flaky functions up to max_tries times, and raise the Exception
+    if it fails after max_tries attempts.
+
+    Args:
+        max_tries: Maximum number of times to retry the function.
+
+    Returns:
+        Decorated function.
+    """
+
+    def flaky_test_func(test_func):
+        @wraps(test_func)
+        def decorated_func(*args, **kwargs):
+            for i in range(max_tries):
+                try:
+                    return test_func(*args, **kwargs)
+                except Exception as e:
+                    _logger.warning(f"Attempt {i+1} failed with error: {e}")
+                    if i == max_tries - 1:
+                        raise
+                    time.sleep(3)
+
+        return decorated_func
+
+    return flaky_test_func
+
+
+@contextmanager
+def start_mock_openai_server():
+    """
+    Start a fake service that mimics the OpenAI endpoints such as /chat/completions.
+
+    Yields:
+        The base URL of the mock OpenAI server.
+    """
+    port = get_safe_port()
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "tests.openai.mock_openai:app",
+            "--host",
+            "localhost",
+            "--port",
+            str(port),
+        ]
+    ) as proc:
+        try:
+            base_url = f"http://localhost:{port}"
+            for _ in range(10):
+                try:
+                    resp = requests.get(f"{base_url}/health")
+                except requests.ConnectionError:
+                    time.sleep(2)
+                    continue
+                if resp.ok:
+                    break
+            else:
+                proc.kill()
+                proc.wait()
+                raise RuntimeError("Failed to start mock OpenAI server")
+
+            yield base_url
+        finally:
+            proc.kill()
