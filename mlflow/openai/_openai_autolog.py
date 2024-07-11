@@ -90,6 +90,8 @@ def _get_span_type(task) -> str:
 
 def patched_call(original, self, *args, **kwargs):
     from openai import Stream
+    from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
+    from openai.types.completion import Completion
 
     run_id = getattr(self, "_mlflow_run_id", None)
     active_run = mlflow.active_run()
@@ -144,7 +146,12 @@ def patched_call(original, self, *args, **kwargs):
         # and then log the outputs as a single artifact when the stream ends
         def _stream_output_logging_hook(stream: Iterator) -> Iterator:
             chunks = []
+            output = []
             for chunk in stream:
+                if isinstance(chunk, Completion):
+                    output.append(chunk.choices[0].text or "")
+                elif isinstance(chunk, ChatCompletionChunk):
+                    output.append(chunk.choices[0].delta.content or "")
                 chunks.append(chunk)
                 yield chunk
 
@@ -158,7 +165,8 @@ def patched_call(original, self, *args, **kwargs):
                 if log_traces and request_id:
                     mlflow_client.end_trace(
                         request_id=request_id,
-                        outputs={"result": chunk_dicts},
+                        attributes={"events": chunk_dicts},
+                        outputs={"result": "".join(output)},
                     )
             except Exception as e:
                 _logger.warning(f"Encountered unexpected error during openai autologging: {e}")
