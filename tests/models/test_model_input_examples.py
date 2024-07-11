@@ -1,6 +1,5 @@
 import json
 import math
-from unittest import mock
 
 import numpy as np
 import pandas as pd
@@ -11,6 +10,7 @@ from sklearn import datasets
 from sklearn.base import BaseEstimator, ClassifierMixin
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import (
@@ -23,8 +23,6 @@ from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.types.utils import TensorsNotSupportedException
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import dataframe_from_raw_json
-
-from tests.helper_functions import AnyStringWith
 
 
 @pytest.fixture
@@ -357,7 +355,7 @@ def test_infer_signature_from_example_can_be_disabled():
     assert mlflow_model.signature is None
 
 
-def test_infer_signature_silently_fails(monkeypatch):
+def test_infer_signature_raises_if_predict_on_input_example_fails(monkeypatch):
     monkeypatch.setenv("MLFLOW_TESTING", "false")
 
     class ErrorModel(BaseEstimator, ClassifierMixin):
@@ -367,12 +365,11 @@ def test_infer_signature_silently_fails(monkeypatch):
         def predict(self, X):
             raise Exception("oh no!")
 
-    with mlflow.start_run(), mock.patch("mlflow.models.signature._logger.warning") as mock_warning:
-        mlflow.sklearn.log_model(ErrorModel(), artifact_path="model", input_example=np.array([[1]]))
-        mock_warning.assert_called_once_with(
-            AnyStringWith("Failed to infer the model signature from the input example."),
-            AnyStringWith("oh no!"),
-        )
+    with pytest.raises(MlflowException, match="Failed to validate serving input example."):
+        with mlflow.start_run():
+            mlflow.sklearn.log_model(
+                ErrorModel(), artifact_path="model", input_example=np.array([[1]])
+            )
 
 
 @pytest.fixture(scope="module")
