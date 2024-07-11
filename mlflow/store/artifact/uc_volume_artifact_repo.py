@@ -60,9 +60,7 @@ class UCVolumesArtifactRepository(ArtifactRepository):
 
     def _api_request(self, endpoint, method, **kwargs):
         creds = get_databricks_host_creds(self.databricks_profile_uri)
-        return http_request(
-            host_creds=creds, endpoint=endpoint, method=method, allow_redirects=False, **kwargs
-        )
+        return http_request(host_creds=creds, endpoint=endpoint, method=method, **kwargs)
 
     def _list_directory_contents(self, directory_path: str, page_token: Optional[str] = None):
         """
