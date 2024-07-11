@@ -67,15 +67,15 @@ def test_log_artifact(artifact_repo, artifact_path, tmp_path):
     mock_response = mock.MagicMock()
     mock_response.status_code = 204
 
-    with mock.patch("requests.Session.request") as mock_request:
+    with mock.patch("mlflow.store.artifact.uc_volume_artifact_repo.http_request") as mock_request:
         tmp_file = tmp_path.joinpath("local_file")
         tmp_file.touch()
         artifact_repo.log_artifact(tmp_file, artifact_path)
         mock_request.assert_called_once()
         rel_path = join_non_empty(artifact_path, tmp_file.name)
-        url = mock_request.call_args[0][1]
+        endpoint = mock_request.call_args.kwargs["endpoint"]
         file_path = join_non_empty(artifact_repo.root_path, rel_path)
-        assert url == f"{HOST}/api/2.0/fs/files{file_path}"
+        assert endpoint == f"/api/2.0/fs/files{file_path}"
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
@@ -83,7 +83,9 @@ def test_log_artifacts(artifact_repo, artifact_path, tmp_path):
     mock_response = mock.MagicMock()
     mock_response.status_code = 204
 
-    with mock.patch("requests.Session.request", return_value=mock_response) as mock_request:
+    with mock.patch(
+        "mlflow.store.artifact.uc_volume_artifact_repo.http_request", return_value=mock_response
+    ) as mock_request:
         file1 = tmp_path.joinpath("local_file1")
         file1.touch()
         subdir = tmp_path.joinpath("dir")
@@ -96,13 +98,10 @@ def test_log_artifacts(artifact_repo, artifact_path, tmp_path):
         rel_path_1 = join_non_empty(artifact_path, file1.name)
         rel_path_2 = join_non_empty(artifact_path, subdir.name, file2.name)
 
-        urls = [args[1] for (args, _) in mock_request.call_args_list]
+        endpoints = [c.kwargs["endpoint"] for c in mock_request.call_args_list]
         file_path1 = join_non_empty(artifact_repo.root_path, rel_path_1)
         file_path2 = join_non_empty(artifact_repo.root_path, rel_path_2)
-        assert urls == [
-            f"{HOST}/api/2.0/fs/files{file_path1}",
-            f"{HOST}/api/2.0/fs/files{file_path2}",
-        ]
+        assert endpoints == [f"/api/2.0/fs/files{file_path1}", f"/api/2.0/fs/files{file_path2}"]
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
@@ -127,16 +126,18 @@ def test_list_artifacts(artifact_repo, artifact_path):
             },
         ],
     }
-    with mock.patch("requests.Session.request", return_value=mock_response) as mock_request:
+    with mock.patch(
+        "mlflow.store.artifact.uc_volume_artifact_repo.http_request", return_value=mock_response
+    ) as mock_request:
         artifacts = artifact_repo.list_artifacts(artifact_path)
         assert artifacts == [
             FileInfo(join_non_empty(artifact_path, "directory"), True, None),
             FileInfo(join_non_empty(artifact_path, "file"), False, 1),
         ]
         mock_request.assert_called_once()
-        url = mock_request.call_args[0][1]
+        endpoint = mock_request.call_args.kwargs["endpoint"]
         directory_path = join_non_empty(artifact_repo.root_path, artifact_path)
-        assert url == f"{HOST}/api/2.0/fs/directories{directory_path}"
+        assert endpoint == f"/api/2.0/fs/directories{directory_path}"
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
@@ -183,7 +184,8 @@ def test_list_artifacts_pagination(artifact_repo, artifact_path):
     }
 
     with mock.patch(
-        "requests.Session.request", side_effect=[first_mock_response, second_mock_response]
+        "mlflow.store.artifact.uc_volume_artifact_repo.http_request",
+        side_effect=[first_mock_response, second_mock_response],
     ) as mock_request:
         artifacts = artifact_repo.list_artifacts(artifact_path)
         assert artifacts == [
@@ -194,11 +196,11 @@ def test_list_artifacts_pagination(artifact_repo, artifact_path):
         ]
         assert mock_request.call_count == 2
 
-        urls = [args[1] for (args, _) in mock_request.call_args_list]
+        endpoints = [c.kwargs["endpoint"] for c in mock_request.call_args_list]
         directory_path = join_non_empty(artifact_repo.root_path, artifact_path)
-        assert urls == [
-            f"{HOST}/api/2.0/fs/directories{directory_path}",
-            f"{HOST}/api/2.0/fs/directories{directory_path}",
+        assert endpoints == [
+            f"/api/2.0/fs/directories{directory_path}",
+            f"/api/2.0/fs/directories{directory_path}",
         ]
 
 
@@ -207,12 +209,14 @@ def test_download_file(artifact_repo, remote_file_path, tmp_path):
     mock_response = mock.MagicMock()
     mock_response.status_code = 200
     mock_response.__enter__.return_value.iter_content.return_value = iter([b"content"])
-    with mock.patch("requests.Session.request", return_value=mock_response) as mock_request:
+    with mock.patch(
+        "mlflow.store.artifact.uc_volume_artifact_repo.http_request", return_value=mock_response
+    ) as mock_request:
         output_path = tmp_path.joinpath("output_path")
         artifact_repo._download_file(remote_file_path, output_path)
         mock_request.assert_called_once()
         assert output_path.read_bytes() == b"content"
 
-        url = mock_request.call_args[0][1]
+        endpoint = mock_request.call_args.kwargs["endpoint"]
         file_path = join_non_empty(artifact_repo.root_path, remote_file_path)
-        assert url == f"{HOST}/api/2.0/fs/files{file_path}"
+        assert endpoint == f"/api/2.0/fs/files{file_path}"
