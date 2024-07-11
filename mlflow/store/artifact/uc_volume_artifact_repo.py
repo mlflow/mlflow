@@ -37,7 +37,7 @@ class UCVolumesArtifactRepository(ArtifactRepository):
         if not is_valid_uc_volumes_uri(artifact_uri):
             raise MlflowException(
                 message=(
-                    f"UC volume URI must be of the form "
+                    f"UC volumes URI must be of the form "
                     f"dbfs:/Volumes/<catalog>/<schema>/<volume>/<path>: {artifact_uri}"
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
@@ -60,7 +60,9 @@ class UCVolumesArtifactRepository(ArtifactRepository):
 
     def _api_request(self, endpoint, method, **kwargs):
         creds = get_databricks_host_creds(self.databricks_profile_uri)
-        return http_request(host_creds=creds, endpoint=endpoint, method=method, **kwargs)
+        return http_request(
+            host_creds=creds, endpoint=endpoint, method=method, allow_redirects=False, **kwargs
+        )
 
     def _list_directory_contents(self, directory_path: str, page_token: Optional[str] = None):
         """
@@ -158,7 +160,7 @@ class UCVolumesArtifactRepository(ArtifactRepository):
                     artifact_subdir = artifact_path
                 else:
                     rel_path = local_path.parent.relative_to(local_dir)
-                    posix_rel_path = relative_path_to_artifact_path(rel_path)
+                    posix_rel_path = relative_path_to_artifact_path(str(rel_path))
                     artifact_subdir = (
                         posixpath.join(artifact_path, posix_rel_path)
                         if artifact_path
@@ -210,7 +212,7 @@ def uc_volume_artifact_repo_factory(artifact_uri):
     if not is_valid_uc_volumes_uri(artifact_uri):
         raise MlflowException(
             message=(
-                f"UC volume URI must be of the form "
+                f"UC volumes URI must be of the form "
                 f"dbfs:/Volumes/<catalog>/<schema>/<volume>/<path>: {artifact_uri}"
             ),
             error_code=INVALID_PARAMETER_VALUE,

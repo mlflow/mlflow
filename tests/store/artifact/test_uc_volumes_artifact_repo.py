@@ -58,7 +58,7 @@ def test_get_artifact_repository(artifact_uri: str):
     ],
 )
 def test_get_artifact_repository_invalid_uri(artifact_uri: str):
-    with pytest.raises(MlflowException, match="UC volume URI must be of the form"):
+    with pytest.raises(MlflowException, match="UC volumes URI must be of the form"):
         get_artifact_repository(artifact_uri)
 
 
