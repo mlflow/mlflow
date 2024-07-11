@@ -172,6 +172,7 @@ class MlflowGetMetricHistoryBulkIntervalInput(graphene.InputObjectType):
     end_step = graphene.Int()
     max_results = graphene.Int()
 
+
 class MlflowSearchRunsInput(graphene.InputObjectType):
     experiment_ids = graphene.List(graphene.String)
     filter = graphene.String()

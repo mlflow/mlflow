@@ -2259,3 +2259,38 @@ def test_get_metric_history_bulk_interval_graphql(mlflow_client):
     json = response.json()
     expected = [{"key": metric_name, "timestamp": mock.ANY, "value": i} for i in range(10)]
     assert json["data"]["mlflowGetMetricHistoryBulkInterval"]["metrics"] == expected
+
+
+def test_search_runs_graphql(mlflow_client):
+    name = "GraphqlTest"
+    mlflow_client.create_registered_model(name)
+    experiment_id = mlflow_client.create_experiment(name)
+    created_run_1 = mlflow_client.create_run(experiment_id)
+    created_run_2 = mlflow_client.create_run(experiment_id)
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": f"""
+                mutation testMutation {{
+                    mlflowSearchRuns(input: {{ experimentIds: ["{experiment_id}"] }}) {{
+                        runs {{
+                            info {{
+                                runId
+                            }}
+                        }}
+                    }}
+                }}
+            """,
+            "operationName": "testMutation",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+
+    assert response.status_code == 200
+    json = response.json()
+    expected = [
+        {"info": {"runId": created_run_2.info.run_id}},
+        {"info": {"runId": created_run_1.info.run_id}},
+    ]
+    assert json["data"]["mlflowSearchRuns"]["runs"] == expected
