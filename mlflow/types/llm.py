@@ -101,8 +101,6 @@ class ChatParams(_BaseDataclass):
             comprising the top 10% probability mass are considered.
         top_k (int): An optional param for reducing the vocabulary size to top k tokens
             (sorted in descending order by their probabilites).
-        logit_bias (dict): An optional param for specifying a dict that maps tokens
-            (specified by their token ID in the tokenizer) to an associated bias value.
         frequency_penalty: (float): An optional param of positive or negative value,
             positive values penalize new tokens based on
             their existing frequency in the text so far, decreasing the model's likelihood to repeat
@@ -120,7 +118,6 @@ class ChatParams(_BaseDataclass):
 
     top_p: Optional[float] = None
     top_k: Optional[int] = None
-    logit_bias: Optional[dict] = None
     frequency_penalty: Optional[float] = None
     presence_penalty: Optional[float] = None
 
@@ -133,7 +130,6 @@ class ChatParams(_BaseDataclass):
 
         self._validate_field("top_p", float, False)
         self._validate_field("top_k", int, False)
-        self._validate_field("logit_bias", dict, False)
         self._validate_field("frequency_penalty", float, False)
         self._validate_field("presence_penalty", float, False)
 
@@ -361,6 +357,11 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
         ColSpec(name="stop", type=Array(DataType.string), required=False),
         ColSpec(name="n", type=DataType.long, required=False),
         ColSpec(name="stream", type=DataType.boolean, required=False),
+
+        ColSpec(name="top_p", type=DataType.double, required=False),
+        ColSpec(name="top_k", type=DataType.long, required=False),
+        ColSpec(name="frequency_penalty", type=DataType.double, required=False),
+        ColSpec(name="presence_penalty", type=DataType.double, required=False),
     ]
 )
 
