@@ -61,6 +61,7 @@ const InputTooltip = () => {
 };
 
 export const TracesViewControls = ({
+  experimentIds,
   filter,
   onChangeFilter,
   hiddenColumns = [],
@@ -70,6 +71,7 @@ export const TracesViewControls = ({
   setRowSelection,
   refreshTraces,
 }: {
+  experimentIds: string[];
   filter: string;
   onChangeFilter: (newFilter: string) => void;
   hiddenColumns?: string[];
@@ -99,6 +101,7 @@ export const TracesViewControls = ({
 
   return showActionButtons ? (
     <TracesViewControlsActions
+      experimentIds={experimentIds}
       rowSelection={rowSelection}
       setRowSelection={setRowSelection}
       refreshTraces={refreshTraces}

@@ -4,10 +4,12 @@ import { FormattedMessage } from 'react-intl';
 import { TracesViewDeleteTraceModal } from './TracesViewDeleteTraceModal';
 
 export const TracesViewControlsActions = ({
+  experimentIds,
   rowSelection,
   setRowSelection,
   refreshTraces,
 }: {
+  experimentIds: string[];
   rowSelection: { [id: string]: boolean };
   setRowSelection: (rowSelection: { [id: string]: boolean }) => void;
   refreshTraces: () => void;
@@ -39,6 +41,7 @@ export const TracesViewControlsActions = ({
         />
       </Button>
       <TracesViewDeleteTraceModal
+        experimentIds={experimentIds}
         visible={isModalOpen}
         rowSelection={rowSelection}
         handleClose={closeModal}

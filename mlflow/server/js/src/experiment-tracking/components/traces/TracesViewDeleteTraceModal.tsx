@@ -7,12 +7,14 @@ import { Modal, Typography } from '@databricks/design-system';
 import { useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 
 export const TracesViewDeleteTraceModal = ({
+  experimentIds,
   visible,
   rowSelection,
   setRowSelection,
   handleClose,
   refreshTraces,
 }: {
+  experimentIds: string[];
   visible: boolean;
   rowSelection: { [id: string]: boolean };
   setRowSelection: (rowSelection: { [id: string]: boolean }) => void;
@@ -23,11 +25,13 @@ export const TracesViewDeleteTraceModal = ({
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const tracesToDelete = keys(pickBy(rowSelection, (value) => value));
-  const { experimentId } = useParams<{ experimentId: string }>();
 
   const submitDeleteTraces = async () => {
     try {
-      await MlflowService.deleteTraces(experimentId ?? '', tracesToDelete);
+      // TODO: Add support for deleting traces from multiple experiments
+      // The trace data contains the experiment ID, so we simply need to
+      // pass the trace data instead of just the trace IDs.
+      await MlflowService.deleteTraces(experimentIds[0] ?? '', tracesToDelete);
 
       // reset row selection and refresh traces
       setRowSelection({});

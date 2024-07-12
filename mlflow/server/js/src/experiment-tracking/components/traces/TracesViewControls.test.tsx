@@ -18,6 +18,7 @@ describe('ExperimentViewTracesControls', () => {
     const filter = 'test-filter';
     renderWithIntl(
       <TracesViewControls
+        experimentIds={['0']}
         filter={filter}
         onChangeFilter={mockOnChangeFilter}
         toggleHiddenColumn={mockToggleHiddenColumn}
@@ -36,6 +37,7 @@ describe('ExperimentViewTracesControls', () => {
     const filter = 'test-filter';
     renderWithIntl(
       <TracesViewControls
+        experimentIds={['0']}
         filter={filter}
         onChangeFilter={mockOnChangeFilter}
         toggleHiddenColumn={mockToggleHiddenColumn}
@@ -57,6 +59,7 @@ describe('ExperimentViewTracesControls', () => {
     const filter = 'test-filter';
     renderWithIntl(
       <TracesViewControls
+        experimentIds={['0']}
         filter={filter}
         onChangeFilter={mockOnChangeFilter}
         toggleHiddenColumn={mockToggleHiddenColumn}
@@ -79,6 +82,7 @@ describe('ExperimentViewTracesControls', () => {
     const hiddenColumns = [ExperimentViewTracesTableColumns.latency];
     renderWithIntl(
       <TracesViewControls
+        experimentIds={['0']}
         filter={filter}
         hiddenColumns={hiddenColumns}
         onChangeFilter={mockOnChangeFilter}

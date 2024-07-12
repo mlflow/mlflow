@@ -135,6 +135,7 @@ export const TracesView = ({
       }}
     >
       <TracesViewControls
+        experimentIds={experimentIds}
         filter={filter}
         onChangeFilter={setFilter}
         hiddenColumns={uiState.hiddenColumns ?? []}
