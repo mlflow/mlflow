@@ -518,6 +518,12 @@ class _SklearnModelWrapper:
             if fn := getattr(self.sklearn_model, predict_fn, None):
                 setattr(self, predict_fn, fn)
 
+    def get_raw_model(self):
+        """
+        Returns the underlying scikit-learn model.
+        """
+        return self.sklearn_model
+
     def predict(
         self,
         data,

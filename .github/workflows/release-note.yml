@@ -36,10 +36,12 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github
       - name: validate-labeled
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             // https://github.com/actions/github-script#run-a-separate-file
             const script = require("./.github/workflows/release-note.js");
@@ -53,10 +55,12 @@ jobs:
       pull-requests: write # postMerge labels PRs
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github
       - name: post-merge
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             // https://github.com/actions/github-script#run-a-separate-file
             const script = require("./.github/workflows/release-note.js");

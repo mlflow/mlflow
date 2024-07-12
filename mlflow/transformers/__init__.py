@@ -32,6 +32,7 @@ from mlflow.environment_variables import (
     MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY,
     MLFLOW_HUGGINGFACE_USE_DEVICE_MAP,
     MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE,
+    MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import (
@@ -112,7 +113,7 @@ from mlflow.utils.environment import (
     _process_pip_requirements,
     _PythonEnv,
     _validate_env_arguments,
-    infer_pip_requirements_with_timeout,
+    infer_pip_requirements,
 )
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.logging_utils import suppress_logs
@@ -171,6 +172,13 @@ _PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO = (
     "`model_config` dict with `return_full_text` set to `True` when saving the model."
 )
 
+
+# Alias for the audio data types that Transformers pipeline (e.g. Whisper) expects.
+# It can be one of:
+#  1. A string representing the path or URL to an audio file.
+#  2. A bytes object representing the raw audio data.
+#  3. A float numpy array representing the audio time series.
+AudioInput = Union[str, bytes, np.ndarray]
 
 _logger = logging.getLogger(__name__)
 
@@ -679,8 +687,11 @@ def save_model(
             # the process due to OOM.
             if not is_peft_model(built_pipeline.model):
                 # Infer the pip requirements with a timeout to avoid hanging at prediction
-                inferred_reqs = infer_pip_requirements_with_timeout(
-                    str(path), FLAVOR_NAME, fallback=default_reqs
+                inferred_reqs = infer_pip_requirements(
+                    model_uri=str(path),
+                    flavor=FLAVOR_NAME,
+                    fallback=default_reqs,
+                    timeout=MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT.get(),
                 )
                 default_reqs = set(inferred_reqs).union(default_reqs)
             default_reqs = sorted(default_reqs)
@@ -1494,6 +1505,15 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     )
 
 
+def _is_conversational_pipeline(pipeline):
+    """
+    Checks if the pipeline is a ConversationalPipeline.
+    """
+    if cp := _try_import_conversational_pipeline():
+        return isinstance(pipeline, cp)
+    return False
+
+
 def _try_import_conversational_pipeline():
     """
     Try importing ConversationalPipeline because for version > 4.41.2
@@ -1746,9 +1766,7 @@ class _TransformersWrapper:
             output_key = None
             data = self._parse_feature_extraction_input(data)
             data = self._format_prompt_template(data)
-        elif (conversational_pipeline := _try_import_conversational_pipeline()) and isinstance(
-            self.pipeline, conversational_pipeline
-        ):
+        elif _is_conversational_pipeline(self.pipeline):
             output_key = None
             if not self._conversation:
                 # this import is valid if conversational_pipeline is not None
@@ -1784,7 +1802,7 @@ class _TransformersWrapper:
         data = self._convert_cast_lists_from_np_back_to_list(data)
 
         # Generate inference data with the pipeline object
-        if (cp := _try_import_conversational_pipeline()) and isinstance(self.pipeline, cp):
+        if _is_conversational_pipeline(self.pipeline):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
         else:
@@ -1865,10 +1883,12 @@ class _TransformersWrapper:
         """
         import transformers
 
-        data = self._coerce_exploded_dict_to_single_dict(data)
-        data = self._parse_input_for_table_question_answering(data)
-        data = self._parse_conversation_input(data)
-        if (  # noqa: SIM114
+        if isinstance(self.pipeline, transformers.TableQuestionAnsweringPipeline):
+            data = self._coerce_exploded_dict_to_single_dict(data)
+            return self._parse_input_for_table_question_answering(data)
+        elif _is_conversational_pipeline(self.pipeline):
+            return self._parse_conversation_input(data)
+        elif (  # noqa: SIM114
             isinstance(
                 self.pipeline,
                 (
@@ -2003,14 +2023,8 @@ class _TransformersWrapper:
                 "Only str, list of str, dict, and list of dict are supported."
             )
 
-    def _parse_conversation_input(self, data):
-        conversational_pipeline = _try_import_conversational_pipeline()
-
-        if (
-            not conversational_pipeline
-            or not isinstance(self.pipeline, conversational_pipeline)
-            or isinstance(data, str)
-        ):
+    def _parse_conversation_input(self, data) -> str:
+        if isinstance(data, str):
             return data
         elif isinstance(data, list) and all(isinstance(elem, dict) for elem in data):
             return next(iter(data[0].values()))
@@ -2019,24 +2033,20 @@ class _TransformersWrapper:
             return next(iter(data.values()))
 
     def _parse_input_for_table_question_answering(self, data):
-        import transformers
-
-        if not isinstance(self.pipeline, transformers.TableQuestionAnsweringPipeline):
-            return data
-
         if "table" not in data:
             raise MlflowException(
                 "The input dictionary must have the 'table' key.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-
         elif isinstance(data["table"], dict):
             data["table"] = json.dumps(data["table"])
             return data
         else:
             return data
 
-    def _coerce_exploded_dict_to_single_dict(self, data):
+    def _coerce_exploded_dict_to_single_dict(
+        self, data: List[Dict[str, Any]]
+    ) -> Dict[str, List[Any]]:
         """
         Parses the result of Pandas DataFrame.to_dict(orient="records") from pyfunc
         signature validation to coerce the output to the required format for a
@@ -2051,20 +2061,14 @@ class _TransformersWrapper:
 
         Output:
 
-        [
-          "We should order more pizzas to meet the demand.",
-          "The venue size should be updated to handle the number of guests.",
-        ]
-
+        {
+          "answer": [
+              "We should order more pizzas to meet the demand.",
+              "The venue size should be updated to handle the number of guests.",
+          ]
+        }
         """
-        import transformers
-
-        if not isinstance(
-            self.pipeline,
-            transformers.TableQuestionAnsweringPipeline,
-        ):
-            return data
-        elif isinstance(data, list) and all(isinstance(item, dict) for item in data):
+        if isinstance(data, list) and all(isinstance(item, dict) for item in data):
             collection = data.copy()
             parsed = collection[0]
             for coll in collection:
@@ -2358,22 +2362,6 @@ class _TransformersWrapper:
         else:
             return [output_data[0][target_dict_key]]
 
-    def _parse_list_output_for_multiple_candidate_pipelines(self, output_data):
-        # NB: This will not continue to parse nested lists. Pipelines do not output complex
-        # types that are greater than 2 levels deep so there is no need for more complex
-        # traversal for outputs.
-        if isinstance(output_data, list) and len(output_data) < 1:
-            raise MlflowException(
-                "The output of the pipeline contains no data.", error_code=BAD_REQUEST
-            )
-
-        if isinstance(output_data[0], list):
-            return [
-                self._parse_list_output_for_multiple_candidate_pipelines(x) for x in output_data
-            ]
-        else:
-            return output_data[0]
-
     def _parse_question_answer_input(self, data):
         """
         Parses the single string input representation for a question answer pipeline into the
@@ -2629,94 +2617,65 @@ class _TransformersWrapper:
 
         return input_data
 
-    def _convert_audio_input(self, data):
+    def _convert_audio_input(
+        self, data: Union[AudioInput, List[Dict[int, List[AudioInput]]]]
+    ) -> Union[AudioInput, List[AudioInput]]:
         """
-        Conversion utility for decoding the base64 encoded bytes data of a raw soundfile when
-        parsed through model serving, if applicable. Direct usage of the pyfunc implementation
-        outside of model serving will treat this utility as a noop.
+        Convert the input data into the format that the Transformers pipeline expects.
 
-        For reference, the expected encoding for input to Model Serving will be:
+        Args:
+            data: The input data to be converted. This can be one of the following:
+                1. A single input audio data (bytes, numpy array, or a path or URI to an audio file)
+                2. List of dictionaries, derived from Pandas DataFrame with `orient="records"`.
+                   This is the outcome of the pyfunc signature validation for the audio input.
+                   E.g. [{[0]: <audio data>}, {[1]: <audio data>}]
 
-        import requests
-        import base64
-
-        response = requests.get("https://www.my.sound/a/sound/file.wav")
-        encoded_audio = base64.b64encode(response.content).decode("ascii")
-
-        inference_data = json.dumps({"inputs": [encoded_audio]})
-
-        or
-
-        inference_df = pd.DataFrame(
-        pd.Series([encoded_audio], name="audio_file")
-        )
-        split_dict = {"dataframe_split": inference_df.to_dict(orient="split")}
-        split_json = json.dumps(split_dict)
-
-        or
-
-        records_dict = {"dataframe_records": inference_df.to_dict(orient="records")}
-        records_json = json.dumps(records_dict)
-
-        This utility will convert this JSON encoded, base64 encoded text back into bytes for
-        input into the AutomaticSpeechRecognitionPipeline for inference.
+        Returns:
+            A single or list of audio data.
         """
+        if isinstance(data, list):
+            data = [list(element.values())[0] for element in data]
+            decoded = [self._decode_audio(audio) for audio in data]
+            # Signature validation converts a single audio data into a list (via Pandas Series).
+            # We have to unwrap it back not to confuse with batch processing.
+            return decoded if len(decoded) > 1 else decoded[0]
+        else:
+            return self._decode_audio(data)
 
-        def is_base64(s):
-            try:
-                return base64.b64encode(base64.b64decode(s)) == s
-            except binascii.Error:
-                return False
-
-        def decode_audio(encoded):
-            if isinstance(encoded, str):
-                # This is to support blob style passing of uri locations to process audio files
-                # on disk or object store. Note that if a uri is passed, a signature *must be*
-                # provided for serving to function as the default signature uses bytes.
-                return encoded
-            elif isinstance(encoded, bytes):
-                # For input types 'dataframe_split' and 'dataframe_records', the encoding
-                # conversion to bytes is handled.
-                if not is_base64(encoded):
-                    return encoded
-                else:
-                    # For input type 'inputs', explicit decoding of the b64encoded audio is needed.
-                    return base64.b64decode(encoded)
+    def _decode_audio(self, audio: AudioInput) -> AudioInput:
+        """
+        Decode the audio data if it is base64 encoded bytes, otherwise no-op.
+        """
+        if isinstance(audio, str):
+            # Input is an URI to the audio file to be processed.
+            self._validate_str_input_uri_or_file(audio)
+            return audio
+        elif isinstance(audio, np.ndarray):
+            # Input is a numpy array that contains floating point time series of the audio.
+            return audio
+        elif isinstance(audio, bytes):
+            # Input is a bytes object. In model serving, the input audio data is b64encoded.
+            # They are typically decoded before reaching here, but iff the inference payload
+            # contains raw bytes in the key 'inputs', the upstream code will not decode the
+            # bytes. Therefore, we need to decode the bytes here. For other cases like
+            # 'dataframe_records' or 'dataframe_split', the bytes should be already decoded.
+            if self.is_base64_audio(audio):
+                return base64.b64decode(audio)
             else:
-                try:
-                    return base64.b64decode(encoded)
-                except binascii.Error as e:
-                    raise MlflowException(
-                        "The encoded soundfile that was passed has not been properly base64 "
-                        "encoded. Please ensure that the raw sound bytes have been processed with "
-                        "`base64.b64encode(<audio data bytes>).decode('ascii')`"
-                    ) from e
+                return audio
+        else:
+            raise MlflowException(
+                "Invalid audio data. Must be either bytes, str, or np.ndarray.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
-        # The example input data that is processed by this logic is from the pd.DataFrame
-        # conversion that happens within serving wherein the bytes input data is cast to
-        # a pd.DataFrame(pd.Series([raw_bytes])) and then cast to JSON serializable data in the
-        # format:
-        # {[0]: [{[0]: <audio data>}]}
-        # In the inputs format, due to the modification of how types are not enforced, the
-        # logic that is present in processing `records` and `split` format orientation when casting
-        # back to dictionary does not do the automatic decoding of the data from base64 encoded
-        # back to bytes. This is the reason for the conditional logic within `decode_audio` based
-        # on whether the bytes data is base64 encoded or standard bytes format.
-        # The output of the conversion present in the conditional structural validation below is
-        # to return the only input format that the audio transcription pipeline permits:
-        # a bytes input of a single element.
-        if isinstance(data, list) and all(isinstance(element, dict) for element in data):
-            encoded_audio = list(data[0].values())[0]
-            if isinstance(encoded_audio, str):
-                self._validate_str_input_uri_or_file(encoded_audio)
-            return decode_audio(encoded_audio)
-        elif isinstance(data, str):
-            self._validate_str_input_uri_or_file(data)
-        # For new schema, we extract the data field out when converting
-        # pandas DataFrame to dictionary.
-        elif isinstance(data, bytes):
-            return decode_audio(data)
-        return data
+    @staticmethod
+    def is_base64_audio(audio: bytes) -> bool:
+        """Check whether input audio is a base64 encoded"""
+        try:
+            return base64.b64encode(base64.b64decode(audio)) == audio
+        except binascii.Error:
+            return False
 
     @staticmethod
     def _validate_str_input_uri_or_file(input_str):

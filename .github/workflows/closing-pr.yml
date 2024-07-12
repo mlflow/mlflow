@@ -23,7 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
+          sparse-checkout: |
+            .github
       - uses: actions/github-script@v7
         with:
           script: |

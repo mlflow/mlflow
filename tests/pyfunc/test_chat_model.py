@@ -1,6 +1,7 @@
 import json
 import pathlib
 import pickle
+from dataclasses import asdict
 from typing import List
 
 import pytest
@@ -114,7 +115,7 @@ def test_chat_model_with_trace(tmp_path):
     assert len(traces) == 1
     assert traces[0].info.tags[TraceTagKey.TRACE_NAME] == "predict"
     request = json.loads(traces[0].data.request)
-    assert request["messages"] == [str(ChatMessage(**msg)) for msg in messages]
+    assert request["messages"] == [asdict(ChatMessage(**msg)) for msg in messages]
 
 
 def test_chat_model_save_throws_with_signature(tmp_path):

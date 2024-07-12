@@ -22,6 +22,7 @@ import logging
 import os
 import tempfile
 from copy import deepcopy
+from functools import partial
 from typing import Any, Dict, Optional
 
 import yaml
@@ -341,6 +342,12 @@ class _XGBModelWrapper:
     def __init__(self, xgb_model):
         self.xgb_model = xgb_model
 
+    def get_raw_model(self):
+        """
+        Returns the underlying XGBoost model.
+        """
+        return self.xgb_model
+
     def predict(
         self,
         dataframe,
@@ -354,12 +361,37 @@ class _XGBModelWrapper:
         Returns:
             Model predictions.
         """
-        import xgboost as xgb
+        predict_fn = _wrapped_xgboost_model_predict_fn(self.xgb_model)
+        return predict_fn(dataframe, **(params or {}))
 
-        if isinstance(self.xgb_model, xgb.Booster):
-            return self.xgb_model.predict(xgb.DMatrix(dataframe))
-        else:
-            return self.xgb_model.predict(dataframe)
+
+def _wrapped_xgboost_model_predict_fn(model, validate_features=True):
+    """
+    Wraps the predict method of the raw model to accept a DataFrame as input.
+    """
+    import xgboost as xgb
+
+    if isinstance(model, xgb.Booster):
+        # we need to wrap the predict function to accept data in pandas format
+        def wrapped_predict_fn(data, *args, **kwargs):
+            return model.predict(
+                xgb.DMatrix(data), *args, validate_features=validate_features, **kwargs
+            )
+
+        return wrapped_predict_fn
+    elif isinstance(model, xgb.XGBModel):
+        return partial(model.predict, validate_features=validate_features)
+    else:
+        return model.predict
+
+
+def _wrapped_xgboost_model_predict_proba_fn(model, validate_features=True):
+    import xgboost as xgb
+
+    predict_proba_fn = getattr(model, "predict_proba", None)
+    if isinstance(model, xgb.XGBModel) and predict_proba_fn is not None:
+        return partial(predict_proba_fn, validate_features=validate_features)
+    return predict_proba_fn
 
 
 @autologging_integration(FLAVOR_NAME)

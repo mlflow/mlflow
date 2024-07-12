@@ -17,6 +17,11 @@ from mlflow.llama_index.pyfunc_wrapper import create_engine_wrapper
 from mlflow.models import infer_signature
 
 
+@pytest.fixture
+def model_path(tmp_path):
+    return tmp_path / "model"
+
+
 @pytest.mark.parametrize(
     "index_fixture",
     [
@@ -25,13 +30,14 @@ from mlflow.models import infer_signature
         "single_graph",
     ],
 )
-def test_llama_index_native_save_and_load_model(request, index_fixture, tmp_path):
+
+def test_llama_index_native_save_and_load_model(request, index_fixture, model_path):
     index = request.getfixturevalue(index_fixture)
-    mlflow.llama_index.save_model(index, tmp_path, engine_type="query")
-    loaded_model = mlflow.llama_index.load_model(tmp_path)
+    mlflow.llama_index.save_model(index, model_path, engine_type="query")
+    loaded_model = mlflow.llama_index.load_model(model_path)
 
     assert type(loaded_model) == type(index)
-    assert loaded_model.as_query_engine().query("Spell llamaindex").response.lower() != ""
+    assert loaded_model.as_query_engine().query("Spell llamaindex").response != ""
 
 
 @pytest.mark.parametrize(

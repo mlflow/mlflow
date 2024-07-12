@@ -47,6 +47,18 @@ class MlflowSearchModelVersionsResponse(graphene.ObjectType):
     next_page_token = graphene.String()
 
 
+class MlflowMetricWithRunId(graphene.ObjectType):
+    key = graphene.String()
+    value = graphene.Float()
+    timestamp = LongString()
+    step = LongString()
+    run_id = graphene.String()
+
+
+class MlflowGetMetricHistoryBulkIntervalResponse(graphene.ObjectType):
+    metrics = graphene.List(graphene.NonNull(MlflowMetricWithRunId))
+
+
 class MlflowDataset(graphene.ObjectType):
     name = graphene.String()
     digest = graphene.String()
@@ -142,6 +154,14 @@ class MlflowSearchModelVersionsInput(graphene.InputObjectType):
     page_token = graphene.String()
 
 
+class MlflowGetMetricHistoryBulkIntervalInput(graphene.InputObjectType):
+    run_ids = graphene.List(graphene.String)
+    metric_key = graphene.String()
+    start_step = graphene.Int()
+    end_step = graphene.Int()
+    max_results = graphene.Int()
+
+
 class MlflowGetRunInput(graphene.InputObjectType):
     run_id = graphene.String()
     run_uuid = graphene.String()
@@ -153,6 +173,7 @@ class MlflowGetExperimentInput(graphene.InputObjectType):
 
 class QueryType(graphene.ObjectType):
     mlflow_get_experiment = graphene.Field(MlflowGetExperimentResponse, input=MlflowGetExperimentInput())
+    mlflow_get_metric_history_bulk_interval = graphene.Field(MlflowGetMetricHistoryBulkIntervalResponse, input=MlflowGetMetricHistoryBulkIntervalInput())
     mlflow_get_run = graphene.Field(MlflowGetRunResponse, input=MlflowGetRunInput())
     mlflow_search_model_versions = graphene.Field(MlflowSearchModelVersionsResponse, input=MlflowSearchModelVersionsInput())
 
@@ -161,6 +182,12 @@ class QueryType(graphene.ObjectType):
         request_message = mlflow.protos.service_pb2.GetExperiment()
         parse_dict(input_dict, request_message)
         return mlflow.server.handlers.get_experiment_impl(request_message)
+
+    def resolve_mlflow_get_metric_history_bulk_interval(self, info, input):
+        input_dict = vars(input)
+        request_message = mlflow.protos.service_pb2.GetMetricHistoryBulkInterval()
+        parse_dict(input_dict, request_message)
+        return mlflow.server.handlers.get_metric_history_bulk_interval_impl(request_message)
 
     def resolve_mlflow_get_run(self, info, input):
         input_dict = vars(input)

@@ -184,6 +184,52 @@ as shown below to create a new version of the model.
     )
 
 
+Databricks Unity Catalog Model Registry
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To use Databricks unity catalog model registry, set MLflow registry URI to ``"databricks-uc"``, and set the two environmental variables ``"DATABRICKS_HOST"`` and ``"DATABRICKS_TOKEN"``. If you are using Databricks OAuth authentication, set the three environmental variables ``"DATABRICKS_HOST"``, ``"DATABRICKS_CLIENT_ID"`` and ``"DATABRICKS_CLIENT_SECRET"``. If you have configured your access auth within the ``'~/.databrickscfg'`` file, then you don't need to set above environmental variables. Instead, you can set the MLflow registry URI to ``"databricks-uc://{profile}"``, the ``'{profile}'`` part being the profile name in your ``'~/.databrickscfg'`` configuration file. For details of Databricks authentication types, please refer to `this document <https://docs.databricks.com/en/dev-tools/auth/index.html#unified-auth>`.
+
+**Use Databricks unity catalog model registry by Databricks shard token**
+
+.. code-block:: python
+
+    import mlflow
+    import os
+
+    mlflow.set_registry_uri("databricks-uc")
+    os.environ["DATABRICKS_HOST"] = "<your Databricks shard URI>"
+    os.environ["DATABRICKS_TOKEN"] = "<your Databricks shard access token>"
+
+
+**Use Databricks unity catalog model registry by Databricks OAuth authentication**
+
+.. code-block:: python
+
+    import mlflow
+    import os
+
+    mlflow.set_registry_uri("databricks-uc")
+    os.environ["DATABRICKS_HOST"] = "<your Databricks shard URI>"
+    os.environ["DATABRICKS_CLIENT_ID"] = "<your Databricks oauth client ID>"
+    os.environ["DATABRICKS_CLIENT_SECRET"] = "<your Databricks oauth client secret>"
+
+
+**Use Databricks unity catalog model registry with '~/.databrickscfg' configuration file**
+
+Assuming you have configured local '~/.databrickscfg' file with a section like:
+
+[my-databricks-shard1]
+host = <your Databricks shard URI>
+token = <your Databricks shard access token>
+
+.. code-block:: python
+
+    import mlflow
+    import os
+
+    mlflow.set_registry_uri("databricks-uc://my-databricks-shard1")
+
+
 Deploy and Organize Models with Aliases and Tags
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
