@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ColumnDef, flexRender, getCoreRowModel, getExpandedRowModel, useReactTable } from '@tanstack/react-table';
 import { Interpolation, Theme } from '@emotion/react';
+import { ExpandedJSONValueCell } from '@mlflow/mlflow/src/common/components/ExpandableCell';
 
 type ParamsColumnDef = ColumnDef<KeyValueEntity> & {
   meta?: { styles?: Interpolation<Theme>; multiline?: boolean };
@@ -104,35 +105,8 @@ const ExpandableParamValueCell = ({
         }}
         ref={cellRef}
       >
-        {isExpanded ? <ExpandedParamCell value={value} /> : value}
+        {isExpanded ? <ExpandedJSONValueCell value={value} /> : value}
       </div>
-    </div>
-  );
-};
-
-/**
- * Displays expanded cell with pretty printed JSON.
- */
-const ExpandedParamCell = ({ value }: { value: string }) => {
-  const structuredJSONValue = useMemo(() => {
-    // Attempts to parse the value as JSON and returns a pretty printed version if successful.
-    // If JSON structure is not found, returns null.
-    try {
-      const objectData = JSON.parse(value);
-      return JSON.stringify(objectData, null, 2);
-    } catch (e) {
-      return null;
-    }
-  }, [value]);
-  return (
-    <div
-      css={{
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-        fontFamily: structuredJSONValue ? 'monospace' : undefined,
-      }}
-    >
-      {structuredJSONValue || value}
     </div>
   );
 };

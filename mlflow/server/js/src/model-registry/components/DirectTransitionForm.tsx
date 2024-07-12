@@ -6,7 +6,7 @@
  */
 
 import { Form } from 'antd';
-import { Checkbox, Tooltip } from '@databricks/design-system';
+import { Checkbox, LegacyTooltip } from '@databricks/design-system';
 import React from 'react';
 import { ACTIVE_STAGES, archiveExistingVersionToolTipText, Stages, StageTagComponents } from '../constants';
 import { FormattedMessage, injectIntl } from 'react-intl';
@@ -29,7 +29,7 @@ export class DirectTransitionFormImpl extends React.Component<Props> {
         {toStage && ACTIVE_STAGES.includes(toStage) && (
           <Form.Item name="archiveExistingVersions" initialValue="true" valuePropName="checked" preserve={false}>
             <Checkbox>
-              <Tooltip title={archiveExistingVersionToolTipText(toStage)}>
+              <LegacyTooltip title={archiveExistingVersionToolTipText(toStage)}>
                 <FormattedMessage
                   defaultMessage="Transition existing {currentStage} model versions to
                     {archivedStage}"
@@ -41,7 +41,7 @@ export class DirectTransitionFormImpl extends React.Component<Props> {
                   }}
                 />
                 &nbsp;
-              </Tooltip>
+              </LegacyTooltip>
             </Checkbox>
           </Form.Item>
         )}

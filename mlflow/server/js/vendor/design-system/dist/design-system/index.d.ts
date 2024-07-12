@@ -30,6 +30,7 @@ export * from './LegacyPopover';
 export * from './LegacySelect';
 export * from './LegacySkeleton';
 export * from './LegacyTable';
+export * from './LegacyTooltip';
 export * from './LoadingState';
 export * from './Menu';
 export * from './Modal';

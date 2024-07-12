@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "baseUrl": "./src",
     "noImplicitAny": true,
     "noImplicitReturns": true,
     "noImplicitThis": true,
@@ -34,8 +33,11 @@
     "resolveJsonModule": true,
     "jsxImportSource": "@emotion/react",
     "paths": {
+      "@mlflow/mlflow/*": [
+        "./*"
+      ],
       "@databricks/web-shared/*": [
-        "./shared/web-shared/*"
+        "./src/shared/web-shared/*"
       ]
     }
   },

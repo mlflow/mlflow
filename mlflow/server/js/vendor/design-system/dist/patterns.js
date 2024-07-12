@@ -3,11 +3,13 @@ import { useMemo, useState, useCallback } from 'react';
 import { css, createElement } from '@emotion/react';
 import _pick from 'lodash/pick';
 import { jsxs, Fragment, jsx } from '@emotion/react/jsx-runtime';
-import { S as Stepper } from './Stepper-2c82de4e.js';
-import { u as useDesignSystemTheme, p as getShadowScrollStyles, B as Button, f as addDebugOutlineIfEnabled } from './Typography-78b12af3.js';
+import { S as Stepper } from './Stepper-431a4a97.js';
+import { a as useDesignSystemTheme, w as getShadowScrollStyles, B as Button, h as addDebugOutlineIfEnabled, k as Root, T as Trigger, l as Content } from './Typography-c0049677.js';
 import _compact from 'lodash/compact';
-import { S as Spacer, a as useMediaQuery, R as Root, T as Trigger, L as ListIcon, C as Content, M as Modal } from './useMediaQuery-72ec2d25.js';
+import { S as Spacer, a as useMediaQuery, L as ListIcon, M as Modal } from './useMediaQuery-3b982e75.js';
 import 'antd';
+import '@radix-ui/react-popover';
+import '@radix-ui/react-tooltip';
 import '@ant-design/icons';
 import 'lodash/isNil';
 import 'lodash/endsWith';
@@ -17,17 +19,21 @@ import 'lodash/isString';
 import 'lodash/mapValues';
 import 'lodash/memoize';
 import '@emotion/unitless';
-import '@radix-ui/react-popover';
 
 function useStepperStepsFromWizardSteps(wizardSteps, currentStepIdx) {
   return useMemo(() => wizardSteps.map((wizardStep, stepIdx) => ({
     ..._pick(wizardStep, ['title', 'description', 'status']),
     additionalVerticalContent: wizardStep.additionalHorizontalLayoutStepContent,
-    clickEnabled: _isUndefined(wizardStep.clickEnabled) ? isWizardStepEnabled(stepIdx, currentStepIdx, wizardStep.status) : wizardStep.clickEnabled
+    clickEnabled: _isUndefined(wizardStep.clickEnabled) ? isWizardStepEnabled(wizardSteps, stepIdx, currentStepIdx, wizardStep.status) : wizardStep.clickEnabled
   })), [currentStepIdx, wizardSteps]);
 }
-function isWizardStepEnabled(stepIdx, currentStepIdx, status) {
-  return stepIdx < currentStepIdx || status === 'completed';
+function isWizardStepEnabled(steps, stepIdx, currentStepIdx, status) {
+  if (stepIdx < currentStepIdx || status === 'completed' || status === 'error' || status === 'warning') {
+    return true;
+  }
+
+  // if every step before stepIdx is completed then the step is enabled
+  return steps.slice(0, stepIdx - 1).every(step => step.status === 'completed');
 }
 
 function HorizontalWizardStepsContent(_ref) {
@@ -65,6 +71,18 @@ function HorizontalWizardStepsContent(_ref) {
   });
 }
 
+/* eslint-disable react/no-unused-prop-types */
+// eslint doesn't like passing props as object through to a function
+// disabling to avoid a bunch of duplicate code.
+function _EMOTION_STRINGIFIED_CSS_ERROR__() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref2 = process.env.NODE_ENV === "production" ? {
+  name: "1ff36h2",
+  styles: "flex-grow:1"
+} : {
+  name: "1vyl5dv-getWizardFooterButtons",
+  styles: "flex-grow:1;label:getWizardFooterButtons;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__
+};
 // Buttons are returned in order with primary button last
 function getWizardFooterButtons(_ref) {
   var _extraFooterButtonsRi;
@@ -88,24 +106,30 @@ function getWizardFooterButtons(_ref) {
     doneButtonContent,
     extraFooterButtonsLeft,
     extraFooterButtonsRight,
-    onCancel
+    onCancel,
+    moveCancelToOtherSide
   } = _ref;
-  return _compact([!cancelStepButtonHidden && jsx(Button, {
-    onClick: onCancel,
-    type: "tertiary",
-    componentId: "codegen_dubois_src_wizard_wizardfooter_cancel",
-    children: cancelButtonContent
-  }, "cancel"), extraFooterButtonsLeft && extraFooterButtonsLeft.map((buttonProps, index) => createElement(Button, {
-    ...buttonProps,
-    type: undefined,
-    key: `extra-left-${index}`
-  })), currentStepIndex > 0 && !previousStepButtonHidden && jsx(Button, {
+  return _compact([!cancelStepButtonHidden && (moveCancelToOtherSide ? jsx("div", {
+    css: _ref2,
+    children: jsx(CancelButton, {
+      onCancel: onCancel,
+      cancelButtonContent: cancelButtonContent
+    })
+  }, "cancel") : jsx(CancelButton, {
+    onCancel: onCancel,
+    cancelButtonContent: cancelButtonContent
+  }, "cancel")), currentStepIndex > 0 && !previousStepButtonHidden && jsx(Button, {
     onClick: goToPreviousStep,
+    type: "tertiary",
     disabled: previousButtonDisabled,
     loading: previousButtonLoading,
     componentId: "codegen_dubois_src_wizard_wizardfooter_previous",
     children: previousButtonContentOverride ? previousButtonContentOverride : previousButtonContent
-  }, "previous"), jsx(Button, {
+  }, "previous"), extraFooterButtonsLeft && extraFooterButtonsLeft.map((buttonProps, index) => createElement(Button, {
+    ...buttonProps,
+    type: undefined,
+    key: `extra-left-${index}`
+  })), jsx(Button, {
     onClick: goToNextStepOrDone,
     disabled: nextButtonDisabled,
     loading: nextButtonLoading || busyValidatingNextStep,
@@ -117,6 +141,18 @@ function getWizardFooterButtons(_ref) {
     type: index === extraFooterButtonsRight.length - 1 ? 'primary' : undefined,
     key: `extra-right-${index}`
   }))]);
+}
+function CancelButton(_ref3) {
+  let {
+    onCancel,
+    cancelButtonContent
+  } = _ref3;
+  return jsx(Button, {
+    onClick: onCancel,
+    type: "tertiary",
+    componentId: "codegen_dubois_src_wizard_wizardfooter_cancel",
+    children: cancelButtonContent
+  }, "cancel");
 }
 
 function HorizontalWizardContent(_ref) {
@@ -150,7 +186,8 @@ function HorizontalWizardContent(_ref) {
     }), jsx(WizardFooter, {
       currentStepIndex: currentStepIndex,
       ...steps[currentStepIndex],
-      ...footerProps
+      ...footerProps,
+      moveCancelToOtherSide: true
     })]
   });
 }
@@ -172,8 +209,11 @@ function WizardFooter(props) {
   });
 }
 
-const SmallFixedVerticalStepperWidth = 248;
-const FixedVerticalStepperWidth = 320;
+const SmallFixedVerticalStepperWidth = 240;
+const FixedVerticalStepperWidth = 280;
+const MaxWizardContentWidth = 920;
+const ExtraCompactButtonHeight = 32 + 24; // button height + gap
+
 function VerticalWizardContent(_ref) {
   var _wizardSteps$currentS, _wizardSteps$currentS2;
   let {
@@ -205,7 +245,8 @@ function VerticalWizardContent(_ref) {
       maxHeight: '100%',
       display: 'flex',
       flexDirection: isCompact ? 'column' : 'row',
-      gap: theme.spacing.lg
+      gap: theme.spacing.lg,
+      justifyContent: 'center'
     }, process.env.NODE_ENV === "production" ? "" : ";label:VerticalWizardContent;"),
     ...addDebugOutlineIfEnabled(),
     children: [!isCompact && jsxs("div", {
@@ -245,16 +286,15 @@ function VerticalWizardContent(_ref) {
         align: "start",
         side: "bottom",
         css: /*#__PURE__*/css({
-          paddingTop: theme.spacing.md,
-          paddingBottom: theme.spacing.md,
-          paddingRight: theme.spacing.md
+          padding: theme.spacing.md
         }, process.env.NODE_ENV === "production" ? "" : ";label:VerticalWizardContent;"),
         children: jsx(Stepper, {
           currentStepIndex: currentStepIndex,
           direction: "vertical",
           localizeStepNumber: localizeStepNumber,
           steps: stepperSteps,
-          responsive: false
+          responsive: false,
+          onStepClicked: enableClickingToSteps ? footerProps.goToStep : undefined
         })
       })]
     }), jsxs("div", {
@@ -265,7 +305,9 @@ function VerticalWizardContent(_ref) {
         border: `1px solid ${theme.colors.border}`,
         borderRadius: theme.borders.borderRadiusLg,
         flexGrow: 1,
-        padding: padding !== null && padding !== void 0 ? padding : theme.spacing.lg
+        padding: padding !== null && padding !== void 0 ? padding : theme.spacing.lg,
+        height: isCompact ? `calc(100% - ${ExtraCompactButtonHeight}px)` : '100%',
+        maxWidth: MaxWizardContentWidth
       }, process.env.NODE_ENV === "production" ? "" : ";label:VerticalWizardContent;"),
       children: [jsx("div", {
         css: /*#__PURE__*/css({
@@ -289,7 +331,8 @@ function VerticalWizardContent(_ref) {
         children: getWizardFooterButtons({
           currentStepIndex: currentStepIndex,
           ...wizardSteps[currentStepIndex],
-          ...footerProps
+          ...footerProps,
+          moveCancelToOtherSide: true
         })
       })]
     })]

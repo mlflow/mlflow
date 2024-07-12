@@ -10,10 +10,11 @@ import {
 } from './experimentPage.row-types';
 import type { SingleRunData } from './experimentPage.row-utils';
 import type { MetricEntity, RunDatasetWithTags } from '../../../types';
-import type { SampledMetricsByRun } from 'experiment-tracking/components/runs-charts/hooks/useSampledMetricHistory';
+import type { SampledMetricsByRun } from '@mlflow/mlflow/src/experiment-tracking/components/runs-charts/hooks/useSampledMetricHistory';
 import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import { shouldEnableToggleIndividualRunsInGroups } from '../../../../common/utils/FeatureUtils';
 import { determineIfRowIsHidden } from './experimentPage.common-row-utils';
+import { removeOutliersFromMetricHistory } from '../../runs-charts/components/RunsCharts.common';
 
 type AggregableParamEntity = { key: string; value: string };
 type AggregableMetricEntity = { key: string; value: number; step: number };
@@ -427,15 +428,18 @@ export const createValueAggregatedMetricHistory = (
   metricsByRun: Dictionary<SampledMetricsByRun>,
   metricKey: string,
   selectedXAxisMetricKey: string,
+  ignoreOutliers: boolean,
 ) => {
   // create a { x : [y1, y2, ...] } map for each run
   const allXYMaps = compact(
     Object.keys(metricsByRun).map((runUuid) => {
       const xMetricHistory = metricsByRun[runUuid]?.[selectedXAxisMetricKey]?.metricsHistory;
-      const yMetricHistory = metricsByRun[runUuid]?.[metricKey]?.metricsHistory;
+      let yMetricHistory = metricsByRun[runUuid]?.[metricKey]?.metricsHistory;
       if (!xMetricHistory || !yMetricHistory) {
         return null;
       }
+
+      yMetricHistory = ignoreOutliers ? removeOutliersFromMetricHistory(yMetricHistory) : yMetricHistory;
 
       // create a step: x map to make it easy to associate x and y values
       const xByStep = xMetricHistory.reduce<Record<number, number>>((acc, metricEntity) => {
@@ -474,7 +478,9 @@ export const createValueAggregatedMetricHistory = (
     });
   });
 
-  const values = Object.keys(historyByValue).map(Number).sort();
+  const values = Object.keys(historyByValue)
+    .map(Number)
+    .sort((a, b) => a - b);
   const syntheticHistoryMaxValues = values.map((value, idx) => ({
     key: metricKey,
     value: Math.max(...reject(historyByValue[value] ?? [], isNil)),

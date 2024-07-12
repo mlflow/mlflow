@@ -10,7 +10,7 @@ import {
   Popover,
   RHFControlledComponents,
   RestoreAntDDefaultClsPrefix,
-  Tooltip,
+  LegacyTooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { Typography } from '@databricks/design-system';
@@ -162,7 +162,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
           {showPopoverMessage ? (
             <UnsavedTagPopoverTrigger formValues={formValues} isLoading={isLoading} onSaveTask={saveTags} />
           ) : (
-            <Tooltip
+            <LegacyTooltip
               title={
                 !hasNewValues
                   ? intl.formatMessage({
@@ -185,7 +185,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
                   description: 'Key-value tag editor modal > Manage Tag save button',
                 })}
               </Button>
-            </Tooltip>
+            </LegacyTooltip>
           )}
         </RestoreAntDDefaultClsPrefix>
       }
@@ -241,7 +241,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
             />
           </div>
         </div>
-        <Tooltip
+        <LegacyTooltip
           title={intl.formatMessage({
             defaultMessage: 'Add tag',
             description: 'Key-value tag editor modal > Add tag button',
@@ -257,7 +257,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
           >
             <PlusIcon />
           </Button>
-        </Tooltip>
+        </LegacyTooltip>
       </form>
       {errorMessage && <FormUI.Message type="error" message={errorMessage} />}
       <div

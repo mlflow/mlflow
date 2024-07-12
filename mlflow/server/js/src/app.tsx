@@ -1,6 +1,6 @@
 import React from 'react';
 import { ApolloProvider } from '@apollo/client';
-import { IntlProvider } from 'react-intl';
+import { RawIntlProvider } from 'react-intl';
 import './index.css';
 import { ApplyGlobalStyles } from '@databricks/design-system';
 import '@databricks/design-system/dist/index.css';
@@ -17,12 +17,12 @@ import { useMLflowDarkTheme } from './common/hooks/useMLflowDarkTheme';
 
 export function MLFlowRoot() {
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  const i18n = useI18nInit();
+  const intl = useI18nInit();
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const [isDarkTheme, setIsDarkTheme, MlflowThemeGlobalStyles] = useMLflowDarkTheme();
 
-  if (!i18n) {
+  if (!intl) {
     return (
       <DesignSystemContainer>
         <LegacySkeleton />
@@ -30,10 +30,10 @@ export function MLFlowRoot() {
     );
   }
 
-  const { locale, messages } = i18n;
+  const { locale, messages } = intl;
 
   return (
-    <IntlProvider locale={locale} messages={messages}>
+    <RawIntlProvider value={intl} key={intl.locale}>
       <Provider store={store}>
         <DesignSystemContainer isDarkTheme={isDarkTheme}>
           <ApplyGlobalStyles />
@@ -43,6 +43,6 @@ export function MLFlowRoot() {
           </ConfigProvider>
         </DesignSystemContainer>
       </Provider>
-    </IntlProvider>
+    </RawIntlProvider>
   );
 }

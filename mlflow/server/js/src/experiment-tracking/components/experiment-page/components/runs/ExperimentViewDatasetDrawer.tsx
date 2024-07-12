@@ -7,7 +7,7 @@ import {
   Spacer,
   TableIcon,
   Tag,
-  Tooltip,
+  LegacyTooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -196,11 +196,11 @@ export const ExperimentViewDatasetDrawerImpl = ({
                   title={
                     <div css={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                       <TableIcon css={{ marginRight: theme.spacing.xs }} />
-                      <Tooltip title={datasetWithTags.dataset.name}>
+                      <LegacyTooltip title={datasetWithTags.dataset.name}>
                         <Typography.Title ellipsis level={3} css={{ marginBottom: 0, maxWidth: 200 }}>
                           {datasetWithTags.dataset.name}
                         </Typography.Title>
-                      </Tooltip>
+                      </LegacyTooltip>
                       {contextTag && (
                         <Tag
                           css={{

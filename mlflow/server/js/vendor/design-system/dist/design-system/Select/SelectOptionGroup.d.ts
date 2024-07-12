@@ -1,4 +1,3 @@
-/// <reference types="react" />
 export interface SelectOptionGroupProps extends React.HTMLAttributes<HTMLDivElement> {
     name: string | React.ReactNode;
     children: React.ReactNode;

@@ -5,19 +5,20 @@ import {
   OverflowIcon,
   Typography,
   useDesignSystemTheme,
-  InfoTooltip,
+  LegacyInfoTooltip,
   FullscreenIcon,
   Switch,
   Spinner,
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
-import { PropsWithChildren, ReactNode } from 'react';
+import { PropsWithChildren, ReactNode, memo, useCallback, useRef } from 'react';
 import { useDragAndDropElement } from '../../../../../common/hooks/useDragAndDropElement';
 import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/FeatureUtils';
 import { FormattedMessage } from 'react-intl';
 import { RunsChartsRunData } from '../RunsCharts.common';
 import type { RunsChartsCardConfig } from '../../runs-charts.types';
 import type { ExperimentChartImageDownloadFileFormat } from '../../hooks/useChartImageDownloadHandler';
+import { noop } from 'lodash';
 
 export enum RunsChartsChartsDragGroup {
   PARALLEL_CHARTS_AREA = 'PARALLEL_CHARTS_AREA',
@@ -28,8 +29,8 @@ export interface RunsChartCardReorderProps {
   onReorderWith: (draggedKey: string, targetDropKey: string) => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
+  previousChartUuid?: string;
+  nextChartUuid?: string;
 }
 
 export type RunsChartCardSetFullscreenFn = (chart: {
@@ -63,9 +64,10 @@ export interface ChartCardWrapperProps extends RunsChartCardReorderProps {
   isRefreshing?: boolean;
   onClickDownload?: (format: ExperimentChartImageDownloadFileFormat | 'csv' | 'csv-full') => void;
   supportedDownloadFormats?: (ExperimentChartImageDownloadFileFormat | 'csv' | 'csv-full')[];
+  isHidden?: boolean;
 }
 
-export const ChartRunsCountIndicator = ({ runsOrGroups }: { runsOrGroups: RunsChartsRunData[] }) => {
+export const ChartRunsCountIndicator = memo(({ runsOrGroups }: { runsOrGroups: RunsChartsRunData[] }) => {
   const containsGroups = runsOrGroups.some(({ groupParentInfo }) => groupParentInfo);
   const containsRuns = runsOrGroups.some(({ runInfo }) => runInfo);
 
@@ -93,13 +95,13 @@ export const ChartRunsCountIndicator = ({ runsOrGroups }: { runsOrGroups: RunsCh
       description="Experiment page > compare runs > chart header > compared runs count label"
     />
   );
-};
+});
 
 /**
  * Wrapper components for all chart cards. Provides styles and adds
  * a dropdown menu with actions for configure and delete.
  */
-export const RunsChartCardWrapper = ({
+export const RunsChartCardWrapperRaw = ({
   title,
   subtitle,
   onDelete,
@@ -108,16 +110,17 @@ export const RunsChartCardWrapper = ({
   uuid,
   dragGroupKey,
   tooltip = '',
-  onReorderWith = () => {},
+  onReorderWith = noop,
   canMoveDown,
   canMoveUp,
-  onMoveDown,
-  onMoveUp,
+  previousChartUuid,
+  nextChartUuid,
   additionalMenuContent,
   toggleFullScreenChart,
   toggles,
   supportedDownloadFormats = [],
   onClickDownload,
+  isHidden,
   isRefreshing = false,
 }: PropsWithChildren<ChartCardWrapperProps>) => {
   const { theme } = useDesignSystemTheme();
@@ -126,8 +129,17 @@ export const RunsChartCardWrapper = ({
     dragGroupKey,
     dragKey: uuid || '',
     onDrop: onReorderWith,
-    disabled: false,
+    disabled: isHidden,
   });
+
+  const onMoveUp = useCallback(
+    () => onReorderWith(uuid || '', previousChartUuid || ''),
+    [onReorderWith, uuid, previousChartUuid],
+  );
+  const onMoveDown = useCallback(
+    () => onReorderWith(uuid || '', nextChartUuid || ''),
+    [onReorderWith, uuid, nextChartUuid],
+  );
 
   return (
     <div
@@ -187,7 +199,7 @@ export const RunsChartCardWrapper = ({
             {title}
           </Typography.Title>
           {subtitle && <span css={styles.subtitle(theme)}>{subtitle}</span>}
-          {tooltip && <InfoTooltip css={{ verticalAlign: 'middle' }} title={tooltip} />}
+          {tooltip && <LegacyInfoTooltip css={{ verticalAlign: 'middle' }} title={tooltip} />}
         </div>
         {isRefreshing && (
           <div
@@ -325,3 +337,5 @@ const styles = {
     verticalAlign: 'middle',
   }),
 };
+
+export const RunsChartCardWrapper = memo(RunsChartCardWrapperRaw);

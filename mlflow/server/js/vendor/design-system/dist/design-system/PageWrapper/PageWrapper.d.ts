@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { HTMLDataAttributes } from '../types';
 export interface PageWrapperProps extends HTMLDataAttributes, React.HTMLAttributes<HTMLDivElement> {
 }

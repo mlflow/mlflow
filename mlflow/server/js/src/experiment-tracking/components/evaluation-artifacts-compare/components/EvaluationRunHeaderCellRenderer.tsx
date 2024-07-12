@@ -4,7 +4,7 @@ import {
   OverflowIcon,
   PlayIcon,
   StopIcon,
-  Tooltip,
+  LegacyTooltip,
   VisibleIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -113,7 +113,7 @@ export const EvaluationRunHeaderCellRenderer = ({
         {shouldEnablePromptLab() && canEvaluateInRunColumn(run) && (
           <>
             <div css={{ flexBasis: theme.spacing.sm }} />
-            <Tooltip title={evaluateAllTooltipContent}>
+            <LegacyTooltip title={evaluateAllTooltipContent}>
               <Button
                 componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationrunheadercellrenderer.tsx_118"
                 disabled={!evaluateAllButtonEnabled}
@@ -133,7 +133,7 @@ export const EvaluationRunHeaderCellRenderer = ({
                   />
                 )}
               </Button>
-            </Tooltip>
+            </LegacyTooltip>
           </>
         )}
         <div css={{ flexBasis: theme.spacing.sm }} />

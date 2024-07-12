@@ -1,4 +1,4 @@
-import { Button, PlusIcon, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, PlusIcon, LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
 interface EvaluationTableActionsCellRendererProps {
@@ -25,7 +25,7 @@ export const EvaluationTableActionsCellRenderer = ({
         padding: theme.spacing.xs,
       }}
     >
-      <Tooltip
+      <LegacyTooltip
         placement="right"
         title={
           <FormattedMessage
@@ -39,7 +39,7 @@ export const EvaluationTableActionsCellRenderer = ({
           icon={<PlusIcon />}
           onClick={onAddNewInputs}
         />
-      </Tooltip>
+      </LegacyTooltip>
     </div>
   );
 };

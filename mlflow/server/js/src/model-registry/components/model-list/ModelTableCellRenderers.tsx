@@ -5,7 +5,7 @@ import {
   Button,
   ChevronDoubleDownIcon,
   ChevronDoubleUpIcon,
-  Tooltip,
+  LegacyTooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -37,7 +37,7 @@ export const ModelListTagsCell = ({ tags }: { tags: KeyValueEntity[] }) => {
   return (
     <div>
       {tagsToDisplay.map((tag) => (
-        <Tooltip
+        <LegacyTooltip
           key={tag.key}
           title={
             <>
@@ -53,7 +53,7 @@ export const ModelListTagsCell = ({ tags }: { tags: KeyValueEntity[] }) => {
           >
             <Typography.Text bold>{tag.key}</Typography.Text>: {tag.value || noValue}
           </div>
-        </Tooltip>
+        </LegacyTooltip>
       ))}
       {tags.length > tagsToShowInitially && (
         <Button

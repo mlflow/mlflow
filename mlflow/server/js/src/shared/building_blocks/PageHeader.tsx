@@ -16,6 +16,7 @@ import {
   OverflowIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
+import { useIntl } from 'react-intl';
 
 import { PreviewBadge } from './PreviewBadge';
 
@@ -83,6 +84,8 @@ export function PageHeader(props: PageHeaderProps) {
     spacerSize,
   } = props;
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+
   return (
     <>
       <Header

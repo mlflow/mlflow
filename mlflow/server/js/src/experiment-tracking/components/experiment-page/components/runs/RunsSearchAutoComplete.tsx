@@ -4,7 +4,7 @@ import {
   AutoComplete,
   Input,
   SearchIcon,
-  Tooltip,
+  LegacyTooltip,
   InfoIcon,
   Button,
   CloseIcon,
@@ -259,7 +259,7 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
                   <CloseIcon />
                 </Button>
               )}
-              <Tooltip
+              <LegacyTooltip
                 title={<RunsSearchTooltipContent />}
                 placement="right"
                 dangerouslySetAntdProps={{
@@ -280,7 +280,7 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
                     />
                   }
                 />
-              </Tooltip>
+              </LegacyTooltip>
             </div>
           }
         />

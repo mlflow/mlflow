@@ -6,6 +6,7 @@ import { scaleSequential } from 'd3-scale';
 import { useDynamicPlotSize } from '../RunsCharts.common';
 import './ParallelCoordinatesPlot.css';
 import { truncateChartMetricString } from '../../../../utils/MetricsUtils';
+import { useRunsChartTraceHighlight } from '../../hooks/useRunsChartTraceHighlight';
 
 /**
  * Attaches custom tooltip to the axis label inside SVG
@@ -79,6 +80,31 @@ const ParallelCoordinatesPlotImpl = (props: {
     if (parcoord.current.brushed() !== false) return parcoord.current.brushed();
     return parcoord.current.data();
   }, []);
+
+  const { onHighlightChange } = useRunsChartTraceHighlight();
+
+  // Listener that will be called when the highlight changes
+  const highlightListener = useCallback(
+    (traceUuid: string | null) => {
+      if (!traceUuid) {
+        parcoord.current.unhighlight();
+        return;
+      }
+      // Get immediate displayed runs data
+      const displayedData: { uuid: string; [k: string]: number | string }[] = getActiveData();
+
+      const runsToHighlight = displayedData.filter(({ uuid }) => traceUuid === uuid);
+
+      if (runsToHighlight.length) {
+        parcoord.current.highlight(runsToHighlight);
+      } else {
+        parcoord.current.unhighlight();
+      }
+    },
+    [getActiveData],
+  );
+
+  useEffect(() => onHighlightChange(highlightListener), [onHighlightChange, highlightListener]);
 
   // Basing on the stateful hovered run uuid and selected run uuid, determine
   // which runs should be highlighted

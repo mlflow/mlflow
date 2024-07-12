@@ -1,8 +1,9 @@
-import { Tag, Tooltip, Typography } from '@databricks/design-system';
+import { Tag, LegacyTooltip, Typography } from '@databricks/design-system';
 import { KeyValueEntity } from '../../experiment-tracking/types';
 import React, { useState } from 'react';
 import { useIntl } from 'react-intl';
 import { KeyValueTagFullViewModal } from './KeyValueTagFullViewModal';
+import { Interpolation, Theme } from '@emotion/react';
 
 /**
  * An arbitrary number that is used to determine if a tag is too
@@ -11,7 +12,7 @@ import { KeyValueTagFullViewModal } from './KeyValueTagFullViewModal';
  * */
 export const TRUNCATE_ON_CHARS_LENGTH = 30;
 
-function getTruncatedStyles(shouldTruncate = true) {
+function getTruncatedStyles(shouldTruncate = true): Interpolation<Theme> {
   return shouldTruncate
     ? {
         overflow: 'hidden',
@@ -57,7 +58,7 @@ export const KeyValueTag = ({
   return (
     <div>
       <Tag closable={isClosable} onClose={onClose} title={tag.key} className={className}>
-        <Tooltip title={allowFullViewModal ? fullViewModalLabel : ''}>
+        <LegacyTooltip title={allowFullViewModal ? fullViewModalLabel : ''}>
           <span
             css={{ maxWidth, display: 'inline-flex' }}
             onClick={() => (allowFullViewModal ? setIsKeyValueTagFullViewModalVisible(true) : undefined)}
@@ -71,7 +72,7 @@ export const KeyValueTag = ({
               </Typography.Text>
             )}
           </span>
-        </Tooltip>
+        </LegacyTooltip>
       </Tag>
       <div>
         {isKeyValueTagFullViewModalVisible && (

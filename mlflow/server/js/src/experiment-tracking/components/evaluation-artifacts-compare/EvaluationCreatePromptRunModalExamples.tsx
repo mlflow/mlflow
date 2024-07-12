@@ -9,7 +9,7 @@ import {
 } from '@databricks/design-system';
 import { Divider } from 'antd';
 import { FormattedMessage } from 'react-intl';
-import { PROMPT_TEMPLATE_EXAMPLES } from 'experiment-tracking/components/evaluation-artifacts-compare/utils/PromptExamples';
+import { PROMPT_TEMPLATE_EXAMPLES } from '@mlflow/mlflow/src/experiment-tracking/components/evaluation-artifacts-compare/utils/PromptExamples';
 
 const { TextArea } = Input;
 type Props = {

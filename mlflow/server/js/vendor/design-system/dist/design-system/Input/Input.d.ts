@@ -9,10 +9,10 @@ interface InputStylesOptions {
     useFocusWithin?: boolean;
 }
 export declare const getInputStyles: (clsPrefix: string, theme: Theme, { validationState }: {
-    validationState?: ValidationState | undefined;
+    validationState?: ValidationState;
 }, { useTransparent, useFocusWithin }: InputStylesOptions) => CSSObject;
 export declare const getInputEmotionStyles: (clsPrefix: string, theme: Theme, { validationState }: {
-    validationState?: ValidationState | undefined;
+    validationState?: ValidationState;
 }, useTransparent?: boolean) => SerializedStyles;
 export declare const Input: React.ForwardRefExoticComponent<InputProps & React.RefAttributes<AntDInput>>;
 export {};

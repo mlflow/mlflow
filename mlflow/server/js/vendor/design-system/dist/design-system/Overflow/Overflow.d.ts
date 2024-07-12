@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { PopoverProps } from '../Popover/Popover';
 export interface OverflowProps extends PopoverProps {
     /** Used for components like Tag which have already have margins */

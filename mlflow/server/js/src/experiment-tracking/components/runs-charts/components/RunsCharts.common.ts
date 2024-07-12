@@ -16,7 +16,8 @@ import { RunGroupParentInfo, RunGroupingAggregateFunction } from '../../experime
 import { RunsChartsChartMouseEvent } from '../hooks/useRunsChartsTooltip';
 import { defineMessages } from 'react-intl';
 import type { ExperimentChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
-import { shouldEnableRelativeTimeDateAxis } from 'common/utils/FeatureUtils';
+import { quantile } from 'd3-array';
+import type { UseGetRunQueryResponseRunInfo } from '../../run-page/hooks/useGetRunQuery';
 
 /**
  * Common props for all charts used in experiment runs
@@ -104,7 +105,7 @@ export interface RunsChartsRunData {
    * Run's RunInfo object containing the metadata.
    * Unset for run groups.
    */
-  runInfo?: RunInfoEntity;
+  runInfo?: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   /**
    * Run's parent group info. Set only for run groups.
    */
@@ -445,4 +446,11 @@ export const getChartAxisLabelDescriptor = (
   axisKey: Exclude<RunsChartsLineChartXAxisType, RunsChartsLineChartXAxisType.METRIC>,
 ) => {
   return axisKeyToLabel[axisKey];
+};
+
+export const removeOutliersFromMetricHistory = (metricHistory: MetricEntity[]): MetricEntity[] => {
+  const values = metricHistory.map((metric) => metric.value);
+  const lowerBound = quantile(values, 0.05) ?? -Infinity;
+  const upperBound = quantile(values, 0.95) ?? Infinity;
+  return metricHistory.filter((metric) => metric.value >= lowerBound && metric.value <= upperBound);
 };

@@ -5,9 +5,9 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import { MLFLOW_LOGGED_ARTIFACTS_TAG } from 'experiment-tracking/constants';
+import { MLFLOW_LOGGED_ARTIFACTS_TAG } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import Utils from './Utils';
-import { KeyValueEntity, RunLoggedArtifactType } from 'experiment-tracking/types';
+import { KeyValueEntity, RunLoggedArtifactType } from '@mlflow/mlflow/src/experiment-tracking/types';
 
 export const MLFLOW_INTERNAL_PREFIX = 'mlflow.';
 

@@ -1,4 +1,4 @@
-import { renderWithIntl, screen, waitFor } from 'common/utils/TestUtils.react18';
+import { renderWithIntl, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { RunPage } from './run-page/RunPage';
 import thunk from 'redux-thunk';
 import configureStore from 'redux-mock-store';

@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { ModalProps as AntDModalProps } from 'antd';
 import type { ButtonProps } from '../Button';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
@@ -14,7 +13,7 @@ export interface ModalProps extends HTMLDataAttributes, DangerouslySetAntdProps<
     title?: AntDModalProps['title'];
     /** Contents displayed in the body of the modal */
     children?: React.ReactNode;
-    /** A custom JSX element to render in place of the default footer */
+    /** A custom JSX element to render in place of the default footer. If `footer` is not provided or is set to `undefined`, the default footer will be rendered. `footer` must be explicitly set to `null` to hide the footer. */
     footer?: AntDModalProps['footer'];
     /** Sets the horizontal size according to the size presets */
     size?: 'normal' | 'wide';

@@ -2,10 +2,13 @@ import type { Interpolation } from '@emotion/react';
 import * as RadixTabs from '@radix-ui/react-tabs';
 import React from 'react';
 import type { ButtonProps } from '../../design-system';
-import type { DangerousGeneralProps } from '../../design-system/types';
+import { DesignSystemEventProviderAnalyticsEventTypes } from '../../design-system';
+import type { AnalyticsEventValueChangeNoPiiFlagProps, DangerousGeneralProps } from '../../design-system/types';
 import type { Theme } from '../../theme';
-export declare const Root: React.ForwardRefExoticComponent<Omit<RadixTabs.TabsProps, "orientation" | "dir" | "asChild" | "activationMode"> & React.RefAttributes<HTMLDivElement>>;
-interface AddButtonProps extends DangerousGeneralProps, Pick<ButtonProps, 'onClick' | 'componentId' | 'className'> {
+interface RootProps extends Omit<RadixTabs.TabsProps, 'asChild' | 'orientation' | 'dir' | 'activationMode'>, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+}
+export declare const Root: React.ForwardRefExoticComponent<RootProps & React.RefAttributes<HTMLDivElement>>;
+interface AddButtonProps extends DangerousGeneralProps, Pick<ButtonProps, 'onClick' | 'className'> {
 }
 interface ListProps extends DangerousGeneralProps, Omit<RadixTabs.TabsListProps, 'asChild' | 'loop'> {
     /** The add tab button is only displayed when this prop is passed. Include the `onClick` handler for the button's action */

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Modal, Typography, CopyIcon, useDesignSystemTheme } from '@databricks/design-system';
 const { Paragraph } = Typography;
-import { CopyButton } from 'shared/building_blocks/CopyButton';
+import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 
 export interface KeyValueTagFullViewModalProps {
   tagKey: string;

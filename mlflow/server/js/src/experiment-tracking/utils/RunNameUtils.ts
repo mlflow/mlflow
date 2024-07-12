@@ -3,9 +3,10 @@
  * https://github.com/mlflow/mlflow/blob/master/mlflow/utils/name_utils.py
  */
 
-import { RUNS_COLOR_PALETTE } from '../../common/color-palette';
+import { RUNS_COLOR_PALETTE, RUNS_COLOR_PALETTE_400 } from '../../common/color-palette';
+import { shouldEnableLargerColorSelection } from '../../common/utils/FeatureUtils';
 import { RunRowType } from '../components/experiment-page/utils/experimentPage.row-types';
-
+import { murmurhash } from './ColorHashUtils';
 // prettier-ignore
 const dictionaryAdjectives = ['abundant','able','abrasive','adorable','adaptable','adventurous','aged','agreeable','ambitious','amazing','amusing','angry','auspicious','awesome','bald','beautiful','bemused','bedecked','big','bittersweet','blushing','bold','bouncy','brawny','bright','burly','bustling','calm','capable','carefree','capricious','caring','casual','charming','chill','classy','clean','clumsy','colorful','crawling','dapper','debonair','dashing','defiant','delicate','delightful','dazzling','efficient','enchanting','entertaining','enthused','exultant','fearless','flawless','fortunate','fun','funny','gaudy','gentle','gifted','glamorous','grandiose','gregarious','handsome','hilarious','honorable','illustrious','incongruous','indecisive','industrious','intelligent','inquisitive','intrigued','invincible','judicious','kindly','languid','learned','legendary','likeable','loud','luminous','luxuriant','lyrical','magnificent','marvelous','masked','melodic','merciful','mercurial','monumental','mysterious','nebulous','nervous','nimble','nosy','omniscient','orderly','overjoyed','peaceful','painted','persistent','placid','polite','popular','powerful','puzzled','rambunctious','rare','rebellious','respected','resilient','righteous','receptive','redolent','resilient','rogue','rumbling','salty','sassy','secretive','selective','sedate','serious','shivering','skillful','sincere','skittish','silent','smiling','sneaky','sophisticated','spiffy','stately','suave','stylish','tasteful','thoughtful','thundering','traveling','treasured','trusting','unequaled','upset','unique','unleashed','useful','upbeat','unruly','valuable','vaunted','victorious','welcoming','whimsical','wistful','wise','worried','youthful','zealous'];
 // prettier-ignore
@@ -55,6 +56,10 @@ export const getDuplicatedRunName = (originalRunName = '', alreadyExistingRunNam
  * TODO: make a decision on the final color hashing per run
  */
 export const getStableColorForRun = (runUuid: string) => {
+  if (shouldEnableLargerColorSelection()) {
+    const hash = murmurhash(runUuid, 42);
+    return RUNS_COLOR_PALETTE_400[hash % RUNS_COLOR_PALETTE_400.length];
+  }
   let a = 0,
     b = 0;
 

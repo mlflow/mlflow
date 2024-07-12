@@ -1,4 +1,4 @@
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { ModelListFilters, ModelListFiltersProps } from './ModelListFilters';
 
 describe('ModelListFilters', () => {

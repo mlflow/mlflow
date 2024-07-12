@@ -7,7 +7,7 @@
 
 import React from 'react';
 import _ from 'lodash';
-import { Button, ButtonProps, Modal, Spacer, Tooltip } from '@databricks/design-system';
+import { Button, ButtonProps, Modal, Spacer, LegacyTooltip } from '@databricks/design-system';
 import { FormattedMessage, injectIntl, type IntlShape } from 'react-intl';
 import {
   CREATE_NEW_MODEL_OPTION_VALUE,
@@ -203,7 +203,7 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
     return (
       <div className="register-model-btn-wrapper">
         {showButton && (
-          <Tooltip title={this.props.tooltip || null} placement="left">
+          <LegacyTooltip title={this.props.tooltip || null} placement="left">
             <Button
               componentId="codegen_mlflow_app_src_model-registry_components_registermodel.tsx_261"
               className="register-model-btn"
@@ -217,7 +217,7 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
                 description="Button text to register the model for deployment"
               />
             </Button>
-          </Tooltip>
+          </LegacyTooltip>
         )}
         <Modal
           title={this.props.intl.formatMessage({

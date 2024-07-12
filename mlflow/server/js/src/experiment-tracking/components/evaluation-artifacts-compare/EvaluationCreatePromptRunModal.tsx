@@ -13,7 +13,7 @@ import {
   Modal,
   PlusIcon,
   Spinner,
-  Tooltip,
+  LegacyTooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -266,10 +266,6 @@ export const EvaluationCreatePromptRunModal = ({
       });
   }, [inputVariableValues, modelRoutesUnified, parameters, promptTemplate, selectedModel, intl]);
 
-  const getEvaluateButtonHandler = () => {
-    return handleEvaluate;
-  };
-
   // create a handleCancel function to terminate the evaluation if it is in progress
   const handleCancel = useCallback(() => {
     if (cancelTokenRef.current) {
@@ -446,7 +442,7 @@ export const EvaluationCreatePromptRunModal = ({
               description="Experiment page > new run modal > cancel button label"
             />
           </Button>
-          <Tooltip title={createRunButtonTooltip}>
+          <LegacyTooltip title={createRunButtonTooltip}>
             <Button
               componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_596"
               onClick={onHandleSubmit}
@@ -459,7 +455,7 @@ export const EvaluationCreatePromptRunModal = ({
                 description='Experiment page > new run modal > "Create run" confirm button label'
               />
             </Button>
-          </Tooltip>
+          </LegacyTooltip>
         </div>
       }
       title={
@@ -612,7 +608,7 @@ export const EvaluationCreatePromptRunModal = ({
             isEvaluating={isEvaluating}
             isOutputDirty={outputDirty}
             onCancelClick={handleCancel}
-            onEvaluateClick={getEvaluateButtonHandler()}
+            onEvaluateClick={handleEvaluate}
             evaluationError={lastEvaluationError}
           />
         </div>

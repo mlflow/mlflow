@@ -8,11 +8,12 @@ import { useMediaQuery } from '@databricks/web-shared/hooks';
  */
 export const RunViewArtifactTab = ({
   runTags,
-  experimentId,
+  artifactUri,
   runUuid,
 }: {
   runUuid: string;
   experimentId: string;
+  artifactUri?: string;
   runTags: Record<string, KeyValueEntity>;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -30,7 +31,12 @@ export const RunViewArtifactTab = ({
         position: 'relative',
       }}
     >
-      <ArtifactPage runUuid={runUuid} runTags={runTags} useAutoHeight={useFullHeightPage} />
+      <ArtifactPage
+        runUuid={runUuid}
+        runTags={runTags}
+        useAutoHeight={useFullHeightPage}
+        artifactRootUri={artifactUri}
+      />
     </div>
   );
 };

@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { AlertProps as AntDAlertProps } from 'antd';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
 import type { AnalyticsEventOptionalProps, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';

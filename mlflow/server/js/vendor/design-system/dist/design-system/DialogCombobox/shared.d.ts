@@ -8,9 +8,9 @@ export declare const highlightOption: (currentSelection: HTMLElement, prevSelect
 export declare const findHighlightedOption: (options: HTMLElement[]) => HTMLElement | undefined;
 export declare const getContentOptions: (element: HTMLElement) => HTMLElement[] | undefined;
 export declare const getKeyboardNavigationFunctions: (handleSelect: (...args: any[]) => any, { onKeyDown, onMouseEnter, onDefaultKeyDown, }: {
-    onKeyDown?: ((...args: any[]) => any) | undefined;
-    onMouseEnter?: ((...args: any[]) => any) | undefined;
-    onDefaultKeyDown?: ((...args: any[]) => any) | undefined;
+    onKeyDown?: (...args: any[]) => any;
+    onMouseEnter?: (...args: any[]) => any;
+    onDefaultKeyDown?: (...args: any[]) => any;
 }) => {
     onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
     onMouseEnter: (e: React.MouseEvent<HTMLDivElement>) => void;

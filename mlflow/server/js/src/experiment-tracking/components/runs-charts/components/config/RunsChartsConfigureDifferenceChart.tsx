@@ -3,9 +3,9 @@ import {
   Input,
   Switch,
   useDesignSystemTheme,
-  Tooltip,
+  LegacyTooltip,
   InfoIcon,
-  InfoTooltip,
+  LegacyInfoTooltip,
 } from '@databricks/design-system';
 import {
   DISABLED_GROUP_WHEN_GROUPBY,
@@ -105,7 +105,7 @@ export const RunsChartsConfigureDifferenceChart = ({
                   {group}
                 </Checkbox>
                 {groupedCondition && (
-                  <InfoTooltip
+                  <LegacyInfoTooltip
                     title={
                       <FormattedMessage
                         defaultMessage="Disable grouped runs to compare"

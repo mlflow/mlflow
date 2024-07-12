@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import { type UseComboboxReturnValue, type UseComboboxStateChange, type UseMultipleSelectionReturnValue } from 'downshift';
 interface SingleSelectProps<T> extends CommonComboboxStateProps<T> {
     multiSelect?: false;

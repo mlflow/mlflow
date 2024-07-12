@@ -4,15 +4,15 @@ import {
   TableHeader,
   TableCell,
   Table,
-  Tooltip,
+  LegacyTooltip,
   Typography,
 } from '@databricks/design-system';
-import { RunColorPill } from 'experiment-tracking/components/experiment-page/components/RunColorPill';
+import { RunColorPill } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/components/RunColorPill';
 import { useMemo } from 'react';
 import { RunsChartsImageCardConfig, RunsChartsCardConfig } from '../../runs-charts.types';
 import { RunsChartsRunData } from '../RunsCharts.common';
 import { EmptyImageGridPlot, getImageSize, ImagePlotWithHistory } from './ImageGridPlot.common';
-import { ImageEntity } from 'experiment-tracking/types';
+import { ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { FormattedMessage } from 'react-intl';
 
 export const ImageGridMultipleKeyPlot = ({
@@ -50,7 +50,7 @@ export const ImageGridMultipleKeyPlot = ({
           {displayRuns.map((run: RunsChartsRunData) => {
             return (
               <TableHeader key={run.uuid} css={{ minWidth: imageSize + theme.spacing.md }}>
-                <Tooltip title={run.displayName}>
+                <LegacyTooltip title={run.displayName}>
                   <div
                     css={{
                       height: theme.typography.lineHeightMd,
@@ -64,7 +64,7 @@ export const ImageGridMultipleKeyPlot = ({
                     <RunColorPill color={run.color} />
                     {run.displayName}
                   </div>
-                </Tooltip>
+                </LegacyTooltip>
               </TableHeader>
             );
           })}

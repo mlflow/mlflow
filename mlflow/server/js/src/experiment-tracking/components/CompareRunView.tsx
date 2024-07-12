@@ -8,7 +8,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage } from 'react-intl';
-import { Spacer, Switch, Tabs, Tooltip } from '@databricks/design-system';
+import { Spacer, Switch, Tabs, LegacyTooltip } from '@databricks/design-system';
 
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import './CompareRunView.css';
@@ -362,7 +362,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
         </th>
         {data.map(([runUuid, value]) => (
           <td className="data-value" key={runUuid} css={colWidthStyle}>
-            <Tooltip
+            <LegacyTooltip
               title={value}
               // @ts-expect-error TS(2322): Type '{ children: any; title: any; color: string; ... Remove this comment to see the full error message
               color="gray"
@@ -372,7 +372,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
               dangerouslySetAntdProps={{ mouseEnterDelay: 1 }}
             >
               {value}
-            </Tooltip>
+            </LegacyTooltip>
           </td>
         ))}
       </tr>
@@ -498,7 +498,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
                 </th>
                 {this.props.runInfos.map((r) => (
                   <th scope="row" className="data-value" key={r.runUuid} css={colWidthStyle}>
-                    <Tooltip
+                    <LegacyTooltip
                       title={r.runUuid}
                       // @ts-expect-error TS(2322): Type '{ children: Element; title: any; color: stri... Remove this comment to see the full error message
                       color="gray"
@@ -507,7 +507,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
                       mouseEnterDelay={1.0}
                     >
                       <Link to={Routes.getRunPageRoute(r.experimentId ?? '0', r.runUuid ?? '')}>{r.runUuid}</Link>
-                    </Tooltip>
+                    </LegacyTooltip>
                   </th>
                 ))}
               </tr>
@@ -524,7 +524,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
                   return (
                     <td className="data-value" key={runInfos[i].runUuid} css={colWidthStyle}>
                       <div className="truncate-text single-line">
-                        <Tooltip
+                        <LegacyTooltip
                           title={runName}
                           // @ts-expect-error TS(2322): Type '{ children: string; title: string; color: st... Remove this comment to see the full error message
                           color="gray"
@@ -533,7 +533,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
                           mouseEnterDelay={1.0}
                         >
                           {runName}
-                        </Tooltip>
+                        </LegacyTooltip>
                       </div>
                     </td>
                   );
@@ -641,7 +641,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
                 const cellText = value === undefined ? '' : formatter(value);
                 return (
                   <td className="data-value" key={this.props.runInfos[i].runUuid} css={colWidthStyle}>
-                    <Tooltip
+                    <LegacyTooltip
                       title={cellText}
                       // @ts-expect-error TS(2322): Type '{ children: Element; title: any; color: stri... Remove this comment to see the full error message
                       color="gray"
@@ -650,7 +650,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
                       mouseEnterDelay={1.0}
                     >
                       <span className="truncate-text single-line">{cellText}</span>
-                    </Tooltip>
+                    </LegacyTooltip>
                   </td>
                 );
               })}

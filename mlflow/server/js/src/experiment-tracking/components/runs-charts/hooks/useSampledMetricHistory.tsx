@@ -1,10 +1,10 @@
-import { chunk, keyBy } from 'lodash';
+import { chunk, isEqual, keyBy } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { ReduxState, ThunkDispatch } from '../../../../redux-types';
 import { createChartAxisRangeKey } from '../components/RunsCharts.common';
 import { getSampledMetricHistoryBulkAction } from '../../../sdk/SampledMetricHistoryService';
-import { SampledMetricsByRunUuidState } from 'experiment-tracking/types';
+import { SampledMetricsByRunUuidState } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL } from '../../../utils/MetricsUtils';
 import Utils from '../../../../common/utils/Utils';
 
@@ -34,42 +34,48 @@ export const useSampledMetricHistory = (params: {
   const { metricKeys, runUuids, enabled, maxResults, range, autoRefreshEnabled } = params;
   const dispatch = useDispatch<ThunkDispatch>();
 
-  const { resultsByRunUuid, isLoading, isRefreshing } = useSelector((store: ReduxState) => {
-    const rangeKey = createChartAxisRangeKey(range);
+  const { resultsByRunUuid, isLoading, isRefreshing } = useSelector(
+    (store: ReduxState) => {
+      const rangeKey = createChartAxisRangeKey(range);
 
-    let anyRunRefreshing = false;
-    let anyRunLoading = false;
+      let anyRunRefreshing = false;
+      let anyRunLoading = false;
 
-    const returnValues: SampledMetricsByRun[] = runUuids.map((runUuid) => {
-      const metricsByMetricKey = metricKeys.reduce(
-        (dataByMetricKey: { [key: string]: SampledMetricData }, metricKey: string) => {
-          const runMetricData = store.entities.sampledMetricsByRunUuid[runUuid]?.[metricKey]?.[rangeKey];
+      const returnValues: SampledMetricsByRun[] = runUuids.map((runUuid) => {
+        const metricsByMetricKey = metricKeys.reduce(
+          (dataByMetricKey: { [key: string]: SampledMetricData }, metricKey: string) => {
+            const runMetricData = store.entities.sampledMetricsByRunUuid[runUuid]?.[metricKey]?.[rangeKey];
 
-          if (!runMetricData) {
+            if (!runMetricData) {
+              return dataByMetricKey;
+            }
+
+            anyRunLoading = anyRunLoading || Boolean(runMetricData.loading);
+            anyRunRefreshing = anyRunRefreshing || Boolean(runMetricData.refreshing);
+
+            dataByMetricKey[metricKey] = runMetricData;
             return dataByMetricKey;
-          }
+          },
+          {},
+        );
 
-          anyRunLoading = anyRunLoading || Boolean(runMetricData.loading);
-          anyRunRefreshing = anyRunRefreshing || Boolean(runMetricData.refreshing);
-
-          dataByMetricKey[metricKey] = runMetricData;
-          return dataByMetricKey;
-        },
-        {},
-      );
+        return {
+          runUuid,
+          ...metricsByMetricKey,
+        };
+      });
 
       return {
-        runUuid,
-        ...metricsByMetricKey,
+        isLoading: anyRunLoading,
+        isRefreshing: anyRunRefreshing,
+        resultsByRunUuid: keyBy(returnValues, 'runUuid'),
       };
-    });
-
-    return {
-      isLoading: anyRunLoading,
-      isRefreshing: anyRunRefreshing,
-      resultsByRunUuid: keyBy(returnValues, 'runUuid'),
-    };
-  });
+    },
+    (left, right) =>
+      isEqual(left.resultsByRunUuid, right.resultsByRunUuid) &&
+      left.isLoading === right.isLoading &&
+      left.isRefreshing === right.isRefreshing,
+  );
 
   const refreshFn = useCallback(() => {
     metricKeys.forEach((metricKey) => {

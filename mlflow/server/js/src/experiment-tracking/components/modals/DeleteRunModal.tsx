@@ -61,8 +61,8 @@ export class DeleteRunModalImpl extends Component<Props> {
                 {number} experiment {Utils.pluralize('run', number)} will be deleted.
               </b>
             </p>
-            {/* @ts-expect-error TS(4111): Property 'SHOW_GDPR_PURGING_MESSAGES' comes from a... Remove this comment to see the full error message */}
-            {process.env.SHOW_GDPR_PURGING_MESSAGES === 'true' ? (
+            {/* @ts-expect-error TS(4111): Property 'MLFLOW_SHOW_GDPR_PURGING_MESSAGES' comes from a... Remove this comment to see the full error message */}
+            {process.env.MLFLOW_SHOW_GDPR_PURGING_MESSAGES === 'true' ? (
               <p>
                 Deleted runs are restorable for 30 days, after which they are purged along with associated metrics,
                 params, tags, and artifacts.

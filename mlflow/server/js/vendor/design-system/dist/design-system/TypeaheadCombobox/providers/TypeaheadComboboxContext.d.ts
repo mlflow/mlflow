@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { ExtendedRefs } from '@floating-ui/react';
 import type { DesignSystemEventProviderAnalyticsEventTypes } from '../../DesignSystemEventProvider/DesignSystemEventProvider';
 import type { AnalyticsEventOptionalProps } from '../../types';

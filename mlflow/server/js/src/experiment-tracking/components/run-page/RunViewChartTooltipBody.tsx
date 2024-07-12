@@ -19,13 +19,13 @@ import { RunsMultipleTracesTooltipBody } from '../runs-charts/components/RunsMul
  * Tooltip body displayed when hovering over run view metric charts
  */
 export const RunViewChartTooltipBody = ({
-  contextData: { runInfo, metricsForRun },
+  contextData: { metricsForRun },
   hoverData,
   chartData: { metricKey },
   isHovering,
   mode,
 }: RunsChartsTooltipBodyProps<
-  { runInfo: RunInfoEntity; metricsForRun: MetricHistoryByName },
+  { metricsForRun: MetricHistoryByName },
   { metricKey: string },
   RunsMetricsBarPlotHoverData | RunsMetricsSingleTraceTooltipData | RunsCompareMultipleTracesTooltipData
 >) => {

@@ -4,7 +4,7 @@ import { EvaluationArtifactTable, EvaluationArtifactTableEntry } from '../types'
 // Reflects structure logged by mlflow.log_table()
 export interface RawEvaluationArtifact {
   columns: string[];
-  data: string[][];
+  data: (string | number | null | boolean | Record<string, any>)[][];
 }
 
 /**
