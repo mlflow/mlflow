@@ -18,6 +18,8 @@ from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
 from pyspark.sql import SparkSession
 
+from mlflow.tracing.provider import trace_disabled
+
 from tests.helper_functions import start_mock_openai_server
 
 
@@ -88,11 +90,13 @@ def document():
 
 
 @pytest.fixture
+@trace_disabled
 def single_index(document):
     return VectorStoreIndex(nodes=[document])
 
 
 @pytest.fixture
+@trace_disabled
 def multi_index(document):
     return VectorStoreIndex(nodes=[document] * 5)
 

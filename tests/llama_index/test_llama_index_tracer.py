@@ -7,9 +7,7 @@ import openai
 import pytest
 from llama_index.agent.openai import OpenAIAgent
 from llama_index.core import (
-    Document,
     Settings,
-    VectorStoreIndex,
 )
 from llama_index.core.instrumentation import get_dispatcher
 from llama_index.core.llms import ChatMessage, ChatResponse
@@ -24,7 +22,6 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.llama_index.tracer import MlflowEventHandler, MlflowSpanHandler
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 
 
@@ -47,17 +44,6 @@ def set_handlers():
 def _get_all_traces() -> List[Trace]:
     """Utility function to get all traces in the test experiment."""
     return mlflow.MlflowClient().search_traces(experiment_ids=[DEFAULT_EXPERIMENT_ID])
-
-
-@pytest.fixture
-@trace_disabled
-def index():
-    documents = [
-        Document(text="apple", meta={"category": "fruit"}),
-        Document(text="carrot", meta={"category": "vegetable"}),
-        Document(text="tuna", meta={"category": "fish"}),
-    ]
-    return VectorStoreIndex(documents)
 
 
 @pytest.mark.parametrize("is_async", [True, False])
@@ -157,14 +143,14 @@ def test_trace_llm_error(monkeypatch):
 
 
 @pytest.mark.parametrize("is_async", [True, False])
-def test_trace_retriever(index, is_async):
-    retriever = VectorIndexRetriever(index, similarity_top_k=3)
+def test_trace_retriever(multi_index, is_async):
+    retriever = VectorIndexRetriever(multi_index, similarity_top_k=3)
 
     if is_async:
         retrieved = asyncio.run(retriever.aretrieve("apple"))
     else:
         retrieved = retriever.retrieve("apple")
-    assert len(retrieved) == 3
+    assert len(retrieved) == 1
 
     traces = _get_all_traces()
     assert len(traces) == 1
@@ -179,9 +165,8 @@ def test_trace_retriever(index, is_async):
     assert spans[0].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.RETRIEVER
     assert spans[0].attributes[SpanAttributeKey.INPUTS] == {"str_or_query_bundle": "apple"}
     output = spans[0].attributes[SpanAttributeKey.OUTPUTS]
-    assert len(output) == 3
-    for node, expected in zip(output, retrieved):
-        assert node["node"]["text"] == expected.text
+    assert len(output) == 1
+    assert output[0]["node"]["text"] == retrieved[0].text
 
     assert spans[1].name.startswith("VectorIndexRetriever")
     assert spans[1].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.RETRIEVER
@@ -205,8 +190,8 @@ def test_trace_retriever(index, is_async):
 
 
 @pytest.mark.parametrize("is_async", [True, False])
-def test_trace_query_engine(index, is_async):
-    engine = index.as_query_engine()
+def test_trace_query_engine(multi_index, is_async):
+    engine = multi_index.as_query_engine()
 
     response = asyncio.run(engine.aquery("Hello")) if is_async else engine.query("Hello")
     assert response.response.startswith('[{"role": "system", "content": "You are an')
@@ -336,8 +321,8 @@ def test_trace_agent():
 
 
 @pytest.mark.parametrize("is_async", [True, False])
-def test_trace_chat_engine(index, is_async):
-    chat_engine = index.as_chat_engine()
+def test_trace_chat_engine(multi_index, is_async):
+    chat_engine = multi_index.as_chat_engine()
 
     response = asyncio.run(chat_engine.achat("Hello")) if is_async else chat_engine.chat("Hello")
     assert response.response == '[{"role": "user", "content": "Hello"}]'
