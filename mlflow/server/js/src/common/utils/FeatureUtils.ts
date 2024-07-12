@@ -73,8 +73,8 @@ export const shouldEnableRelativeTimeDateAxis = () => false;
 export const shouldEnableTracingUI = () => true;
 export const shouldEnableRunDetailsPageTracesTab = () => false;
 export const shouldUseCompressedExperimentViewSharedState = () => true;
-export const shouldEnableUnifiedChartDataTraceHighlight = () => false;
-export const shouldDeferLineChartRendering = () => false;
+export const shouldEnableUnifiedChartDataTraceHighlight = () => true;
+export const shouldDeferLineChartRendering = () => true;
 
 /**
  * A flag determining if we should display the new models UI.
