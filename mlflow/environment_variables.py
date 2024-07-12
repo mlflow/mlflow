@@ -392,6 +392,12 @@ MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO", True
 )
 
+#: Specifies whether or not to use UC Volume FUSE mount to store artifacts on Databricks
+#: (default: ``True``)
+MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO", True
+)
+
 #: Private environment variable that should be set to ``True`` when running autologging tests.
 #: (default: ``False``)
 _MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TESTING", False)
