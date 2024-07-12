@@ -50,7 +50,6 @@ class _ChatModelPyfuncWrapper:
 
         messages = [ChatMessage(**message) for message in dict_input.pop("messages", [])]
         params = ChatParams(**dict_input)
-
         return messages, params
 
     def predict(

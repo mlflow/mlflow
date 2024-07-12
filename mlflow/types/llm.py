@@ -96,6 +96,18 @@ class ChatParams(_BaseDataclass):
             **Optional**, defaults to ``1``
         stream (bool): Whether to stream back responses as they are generated.
             **Optional**, defaults to ``False``
+        top_p (float): An optional param to control sampling with temperature, the model considers
+            the results of the tokens with top_p probability mass. E.g., 0.1 means only the tokens
+            comprising the top 10% probability mass are considered.
+        top_k (int): An optional param for reducing the vocabulary size to top k tokens
+            (sorted in descending order by their probabilites).
+        frequency_penalty: (float): An optional param of positive or negative value,
+            positive values penalize new tokens based on
+            their existing frequency in the text so far, decreasing the model's likelihood to repeat
+            the same line verbatim.
+        presence_penalty: (float): An optional param of positive or negative value,
+            positive values penalize new tokens based on whether they appear in the text so far,
+            increasing the model's likelihood to talk about new topics.
     """
 
     temperature: float = 1.0
@@ -104,12 +116,22 @@ class ChatParams(_BaseDataclass):
     n: int = 1
     stream: bool = False
 
+    top_p: Optional[float] = None
+    top_k: Optional[int] = None
+    frequency_penalty: Optional[float] = None
+    presence_penalty: Optional[float] = None
+
     def __post_init__(self):
         self._validate_field("temperature", float, True)
         self._validate_field("max_tokens", int, False)
         self._validate_list("stop", str, False)
         self._validate_field("n", int, True)
         self._validate_field("stream", bool, True)
+
+        self._validate_field("top_p", float, False)
+        self._validate_field("top_k", int, False)
+        self._validate_field("frequency_penalty", float, False)
+        self._validate_field("presence_penalty", float, False)
 
 
 @dataclass()
@@ -335,6 +357,10 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
         ColSpec(name="stop", type=Array(DataType.string), required=False),
         ColSpec(name="n", type=DataType.long, required=False),
         ColSpec(name="stream", type=DataType.boolean, required=False),
+        ColSpec(name="top_p", type=DataType.double, required=False),
+        ColSpec(name="top_k", type=DataType.long, required=False),
+        ColSpec(name="frequency_penalty", type=DataType.double, required=False),
+        ColSpec(name="presence_penalty", type=DataType.double, required=False),
     ]
 )
 
