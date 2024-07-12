@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM node:16.18 AS ui-builder
+FROM --platform=$BUILDPLATFORM node:20.15 AS ui-builder
 
 WORKDIR /mlflow
 COPY mlflow/server/js .
