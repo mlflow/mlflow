@@ -55,6 +55,7 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     PARAM_VALIDATION_MSG,
     _validate_experiment_artifact_location,
+    _validate_experiment_name,
     _validate_run_id,
 )
 
@@ -495,6 +496,7 @@ class TrackingServiceClient:
             Integer ID of the created experiment.
 
         """
+        _validate_experiment_name(name)
         _validate_experiment_artifact_location(artifact_location)
         return self.store.create_experiment(
             name=name,

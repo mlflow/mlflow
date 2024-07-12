@@ -84,6 +84,7 @@ from mlflow.utils.validation import (
     MAX_DATASET_PROFILE_SIZE,
     MAX_DATASET_SCHEMA_SIZE,
     MAX_DATASET_SOURCE_SIZE,
+    MAX_EXPERIMENT_NAME_LENGTH,
     MAX_INPUT_TAG_KEY_SIZE,
     MAX_INPUT_TAG_VALUE_SIZE,
 )
@@ -662,6 +663,9 @@ def test_create_experiments(store: SqlAlchemyStore):
     assert actual.name == "test exp"
     assert actual.creation_time >= time_before_create
     assert actual.last_update_time == actual.creation_time
+
+    with pytest.raises(MlflowException, match=r"Experiment name exceeds the maximum length"):
+        store.create_experiment(name="x" * (MAX_EXPERIMENT_NAME_LENGTH + 1))
 
 
 def test_create_experiment_with_tags_works_correctly(store: SqlAlchemyStore):
