@@ -17,6 +17,7 @@ import Routes from '../../../routes';
 import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import { isSystemMetricKey } from '../../../utils/MetricsUtils';
 import { Table as TableDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
 
 const { systemMetricsLabel, modelMetricsLabel } = defineMessages({
   systemMetricsLabel: {
@@ -40,7 +41,7 @@ const RunViewMetricsTableSection = ({
   header,
   table,
 }: {
-  runInfo: RunInfoEntity;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   metricsList: MetricEntity[];
   header?: React.ReactNode;
   table: TableDef<MetricEntity>;
@@ -66,7 +67,9 @@ const RunViewMetricsTableSection = ({
               flexBasis: keyColumn.getSize(),
             }}
           >
-            <Link to={Routes.getMetricPageRoute([runInfo.runUuid], key, [runInfo.experimentId])}>{key}</Link>
+            <Link to={Routes.getMetricPageRoute([runInfo.runUuid ?? ''], key, [runInfo.experimentId ?? ''])}>
+              {key}
+            </Link>
           </TableCell>
           <TableCell
             css={{
@@ -90,7 +93,7 @@ export const RunViewMetricsTable = ({
   runInfo,
 }: {
   latestMetrics: MetricEntitiesByName;
-  runInfo: RunInfoEntity;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();

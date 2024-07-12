@@ -7,7 +7,7 @@
 
 import React from 'react';
 import _ from 'lodash';
-import { Button, LegacySelect, Switch, Tooltip, Radio, QuestionMarkIcon } from '@databricks/design-system';
+import { Button, LegacySelect, Switch, LegacyTooltip, Radio, QuestionMarkIcon } from '@databricks/design-system';
 import { Progress } from '../../common/components/Progress';
 import { CHART_TYPE_LINE, METRICS_PLOT_POLLING_INTERVAL_MS } from './MetricsPlotPanel';
 
@@ -100,9 +100,9 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
                   defaultMessage="Completed Runs"
                   description="Label for the progress bar to show the number of completed runs"
                 />{' '}
-                <Tooltip title={completedRunsTooltipText}>
+                <LegacyTooltip title={completedRunsTooltipText}>
                   <QuestionMarkIcon />
-                </Tooltip>
+                </LegacyTooltip>
                 <Progress
                   percent={Math.round((100 * numCompletedRuns) / numRuns)}
                   format={() => `${numCompletedRuns}/${numRuns}`}
@@ -130,9 +130,9 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
                     defaultMessage="Line Smoothness"
                     description="Label for the smoothness slider for the graph plot for metrics"
                   />{' '}
-                  <Tooltip title={lineSmoothnessTooltipText}>
+                  <LegacyTooltip title={lineSmoothnessTooltipText}>
                     <QuestionMarkIcon />
-                  </Tooltip>
+                  </LegacyTooltip>
                 </div>
                 <LineSmoothSlider
                   data-testid="smoothness-toggle"

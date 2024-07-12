@@ -21,10 +21,7 @@ import { useFetchedRunsNotification } from '../../hooks/useFetchedRunsNotificati
 import { DatasetWithRunType, ExperimentViewDatasetDrawer } from './ExperimentViewDatasetDrawer';
 import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
 import { EvaluationArtifactCompareView } from '../../../evaluation-artifacts-compare/EvaluationArtifactCompareView';
-import {
-  shouldEnableExperimentPageAutoRefresh,
-  shouldEnableRunsTableRunNameColumnResize,
-} from '../../../../../common/utils/FeatureUtils';
+import { shouldEnableExperimentPageAutoRefresh } from '../../../../../common/utils/FeatureUtils';
 import { CreateNewRunContextProvider } from '../../hooks/useCreateNewRun';
 import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
 import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
@@ -34,6 +31,7 @@ import { ReduxState, ThunkDispatch } from '../../../../../redux-types';
 import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { useIsTabActive } from '../../../../../common/hooks/useIsTabActive';
 import { ExperimentViewRunsTableResizer } from './ExperimentViewRunsTableResizer';
+import { RunsChartsSetHighlightContextProvider } from '../../../runs-charts/hooks/useRunsChartTraceHighlight';
 
 export interface ExperimentViewRunsOwnProps {
   isLoading: boolean;
@@ -67,20 +65,6 @@ const createCurrentTime = () => {
 };
 
 export const INITIAL_RUN_COLUMN_SIZE = 295;
-
-const getTableLayoutStyles = (isComparingRuns = false, runListHidden = false) =>
-  shouldEnableRunsTableRunNameColumnResize()
-    ? {
-        display: 'flex',
-      }
-    : {
-        display: 'grid',
-        gridTemplateColumns: isComparingRuns
-          ? runListHidden
-            ? '10px 1fr'
-            : `${INITIAL_RUN_COLUMN_SIZE}px 1fr`
-          : '1fr',
-      };
 
 export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) => {
   const [compareRunsMode] = useExperimentPageViewMode();
@@ -236,72 +220,73 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
 
   return (
     <CreateNewRunContextProvider visibleRuns={visibleRuns} refreshRuns={refreshRuns}>
-      <ExperimentViewRunsControls
-        viewState={viewState}
-        updateViewState={updateViewState}
-        runsData={runsData}
-        searchFacetsState={searchFacetsState}
-        experimentId={experimentId}
-        requestError={requestError}
-        expandRows={expandRows}
-        updateExpandRows={updateExpandRows}
-        refreshRuns={refreshRuns}
-        uiState={uiState}
-        isLoading={isLoadingRuns}
-      />
-      <div
-        css={[
-          {
+      <RunsChartsSetHighlightContextProvider>
+        <ExperimentViewRunsControls
+          viewState={viewState}
+          updateViewState={updateViewState}
+          runsData={runsData}
+          searchFacetsState={searchFacetsState}
+          experimentId={experimentId}
+          requestError={requestError}
+          expandRows={expandRows}
+          updateExpandRows={updateExpandRows}
+          refreshRuns={refreshRuns}
+          uiState={uiState}
+          isLoading={isLoadingRuns}
+        />
+        <div
+          css={{
             minHeight: 225, // This is the exact height for displaying a minimum five rows and table header
             height: '100%',
             position: 'relative',
-          },
-          getTableLayoutStyles(isComparingRuns, runListHidden),
-        ]}
-      >
-        {isComparingRuns && shouldEnableRunsTableRunNameColumnResize() ? (
-          <ExperimentViewRunsTableResizer
-            onResize={setTableAreaWidth}
-            runListHidden={runListHidden}
-            width={tableAreaWidth}
-          >
-            {tableElement}
-          </ExperimentViewRunsTableResizer>
-        ) : (
-          tableElement
-        )}
-        {compareRunsMode === 'CHART' && (
-          <RunsCompare
-            isLoading={isLoadingRuns}
-            comparedRuns={visibleRuns}
-            metricKeyList={runsData.metricKeyList}
-            paramKeyList={runsData.paramKeyList}
-            experimentTags={runsData.experimentTags}
-            compareRunCharts={uiState.compareRunCharts}
-            compareRunSections={uiState.compareRunSections}
-            groupBy={usingGroupedValuesInCharts ? uiState.groupBy : null}
-            autoRefreshEnabled={autoRefreshEnabled}
-          />
-        )}
-        {compareRunsMode === 'ARTIFACT' && (
-          <EvaluationArtifactCompareView
-            comparedRuns={visibleRuns}
-            viewState={viewState}
-            updateViewState={updateViewState}
-            onDatasetSelected={datasetSelected}
-            disabled={Boolean(uiState.groupBy)}
-          />
-        )}
-        {notificationContainer}
-        {selectedDatasetWithRun && (
-          <ExperimentViewDatasetDrawer
-            isOpen={isDrawerOpen}
-            setIsOpen={setIsDrawerOpen}
-            selectedDatasetWithRun={selectedDatasetWithRun}
-            setSelectedDatasetWithRun={setSelectedDatasetWithRun}
-          />
-        )}
-      </div>
+            display: 'flex',
+          }}
+        >
+          {isComparingRuns ? (
+            <ExperimentViewRunsTableResizer
+              onResize={setTableAreaWidth}
+              runListHidden={runListHidden}
+              width={tableAreaWidth}
+            >
+              {tableElement}
+            </ExperimentViewRunsTableResizer>
+          ) : (
+            tableElement
+          )}
+          {compareRunsMode === 'CHART' && (
+            <RunsCompare
+              isLoading={isLoadingRuns}
+              comparedRuns={visibleRuns}
+              metricKeyList={runsData.metricKeyList}
+              paramKeyList={runsData.paramKeyList}
+              experimentTags={runsData.experimentTags}
+              compareRunCharts={uiState.compareRunCharts}
+              compareRunSections={uiState.compareRunSections}
+              groupBy={usingGroupedValuesInCharts ? uiState.groupBy : null}
+              autoRefreshEnabled={autoRefreshEnabled}
+              hideEmptyCharts={uiState.hideEmptyCharts}
+            />
+          )}
+          {compareRunsMode === 'ARTIFACT' && (
+            <EvaluationArtifactCompareView
+              comparedRuns={visibleRuns}
+              viewState={viewState}
+              updateViewState={updateViewState}
+              onDatasetSelected={datasetSelected}
+              disabled={Boolean(uiState.groupBy)}
+            />
+          )}
+          {notificationContainer}
+          {selectedDatasetWithRun && (
+            <ExperimentViewDatasetDrawer
+              isOpen={isDrawerOpen}
+              setIsOpen={setIsDrawerOpen}
+              selectedDatasetWithRun={selectedDatasetWithRun}
+              setSelectedDatasetWithRun={setSelectedDatasetWithRun}
+            />
+          )}
+        </div>
+      </RunsChartsSetHighlightContextProvider>
     </CreateNewRunContextProvider>
   );
 });

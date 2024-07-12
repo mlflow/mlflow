@@ -51,7 +51,7 @@ export const RunsChartsConfigureParallelChart = ({
           mode={emptyParamsList ? undefined : 'multiple'}
           onChange={updateSelectedParams}
           style={{
-            width: 300,
+            width: 275,
           }}
           value={emptyParamsList ? ('No parameters available' as any) : state.selectedParams}
           disabled={emptyParamsList}
@@ -68,7 +68,7 @@ export const RunsChartsConfigureParallelChart = ({
           mode={emptyMetricsList ? undefined : 'multiple'}
           onChange={updateSelectedMetrics}
           style={{
-            width: 300,
+            width: 275,
           }}
           value={emptyMetricsList ? ('No metrics available' as any) : state.selectedMetrics}
           disabled={emptyMetricsList}

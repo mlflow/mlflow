@@ -61,7 +61,42 @@ describe('experiment tracking page routes', () => {
         [],
       ),
     ).toEqual(
-      '/metric?runs=["run_uuid_1","run_uuid_2"]&metric="primary_metric_key"&experiments=["123","124"]&plot_metric_keys=["metric_key_1","metric_key_2"]&plot_layout={"some_plot_layout":"layout_value"}&x_axis=relative&y_axis_scale=log&line_smoothness=2&show_point=false&deselected_curves=[]&last_linear_y_axis_range=[]',
+      '/metric?runs=["run_uuid_1","run_uuid_2"]&metric=%22primary_metric_key%22&experiments=["123","124"]&plot_metric_keys=%5B%22metric_key_1%22%2C%22metric_key_2%22%5D&plot_layout={"some_plot_layout":"layout_value"}&x_axis=relative&y_axis_scale=log&line_smoothness=2&show_point=false&deselected_curves=[]&last_linear_y_axis_range=[]',
     );
+  });
+
+  test('yields correct route paths for page route of a metric with special chars', () => {
+    const route = Routes.getMetricPageRoute(
+      // Run UUIDs
+      ['run_uuid_1', 'run_uuid_2'],
+      // Main metric key
+      'some metric with !#@$~*& special chars',
+      // Experiment IDs
+      ['123', '124'],
+      // Plot metric keys
+      ['another #@! weird metric', 'metric_key_2'],
+      // Mocked plot layout
+      { some_plot_layout: 'layout_value' },
+      // Selected X Axis
+      'relative',
+      // Logarithmic Y axis
+      true,
+      // Line smoothness
+      2,
+      // Showing point
+      false,
+      // DeselectedCurves
+      [],
+      // Last X range
+      [],
+    );
+
+    const parsedUrl = Object.fromEntries(new URLSearchParams(route).entries());
+
+    const resultMetricKey = JSON.parse(parsedUrl['metric']);
+    const resultPlotMetricKeys = JSON.parse(parsedUrl['plot_metric_keys']);
+
+    expect(resultMetricKey).toEqual('some metric with !#@$~*& special chars');
+    expect(resultPlotMetricKeys).toEqual(['another #@! weird metric', 'metric_key_2']);
   });
 });

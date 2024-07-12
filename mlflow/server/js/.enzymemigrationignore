@@ -21,10 +21,8 @@ src/endpoints/components/LogsPane.enzyme.test.tsx
 src/endpoints/components/MetricsPane.enzyme.test.tsx
 src/endpoints/components/ServedModelsTable.enzyme.test.tsx
 src/endpoints/components/ServedModelsTableTitle.enzyme.test.tsx
-src/endpoints/components/endpoint-form/EndpointForm.enzyme.test.tsx
 src/endpoints/components/endpoint-table/EndpointsTable.enzyme.test.tsx
 src/endpoints/components/endpoint-table/EndpointsTableUtils.enzyme.test.tsx
-src/endpoints/components/endpoint-table/ServedModelCell.enzyme.test.tsx
 src/endpoints/hooks/useActiveTab.enzyme.test.tsx
 src/experiment-tracking/components/ArtifactPage.enzyme.test.tsx
 src/experiment-tracking/components/ArtifactView.enzyme.test.tsx
@@ -49,8 +47,6 @@ src/experiment-tracking/components/ParallelCoordinatesPlotView.enzyme.test.tsx
 src/experiment-tracking/components/PermissionDeniedView.enzyme.test.tsx
 src/experiment-tracking/components/RunLinksPopover.enzyme.test.tsx
 src/experiment-tracking/components/RunNotFoundView.enzyme.test.tsx
-src/experiment-tracking/components/RunPage.enzyme.test.tsx
-src/experiment-tracking/components/RunView.enzyme.test.tsx
 src/experiment-tracking/components/artifact-view-components/ShowArtifactHtmlView.enzyme.test.tsx
 src/experiment-tracking/components/artifact-view-components/ShowArtifactImageView.enzyme.test.tsx
 src/experiment-tracking/components/artifact-view-components/ShowArtifactLoggedModelView.enzyme.test.tsx
@@ -90,10 +86,7 @@ src/experiment-tracking/components/modals/RenameRunModal.enzyme.test.tsx
 src/experiment-tracking/components/modals/RestoreRunModal.enzyme.test.tsx
 src/experiment-tracking/components/modals/DeleteRunModal.enzyme.test.tsx
 src/experiment-tracking/components/runs-charts/hooks/useRunsChartsTooltip.enzyme.test.tsx
-src/experiment-tracking/components/runs-compare/RunsCompare.enzyme.test.tsx
-src/experiment-tracking/components/runs-compare/RunsCompareCharts.enzyme.test.tsx
 src/experiment-tracking/components/runs-compare/hooks/useFetchCompareRunsMetricHistory.enzyme.test.tsx
-src/experiment-tracking/components/runs-compare/hooks/useMultipleChartsMetricHistory.enzyme.test.tsx
 src/i18n/I18n.enzyme.test.tsx
 src/i18n/I18nUtils.test.ts.enzyme.test.tsx
 src/model-registry/components/CompareModelVersionsPage.enzyme.test.tsx
@@ -120,16 +113,9 @@ src/model-registry/components/TransitionRequestForm.enzyme.test.tsx
 src/model-registry/components/model-list/ModelListFilters.enzyme.test.tsx
 src/model-registry/components/model-list/ModelListTable.enzyme.test.tsx
 src/model-serving/components/CallModelView.test.ts.enzyme.test.tsx
-src/model-serving/components/ComputeConfigView.test.ts.enzyme.test.tsx
 src/model-serving/components/CurlClientCode.enzyme.test.tsx
 src/model-serving/components/EditableClusterSettingsView.enzyme.test.tsx
-src/model-serving/components/EditableComputeSettingsView.test.ts.enzyme.test.tsx
 src/model-serving/components/EnableServing.enzyme.test.tsx
-src/model-serving/components/EventsView.test.ts.enzyme.test.tsx
-src/model-serving/components/LogsView.test.ts.enzyme.test.tsx
-src/model-serving/components/MetricsView.test.ts.enzyme.test.tsx
-src/model-serving/components/ModelEndpointVersionView.test.ts.enzyme.test.tsx
-src/model-serving/components/PayloadLoggingView.test.ts.enzyme.test.tsx
 src/model-serving/components/ServingPane.enzyme.test.tsx
 src/model-serving/components/ServingView.test.ts.enzyme.test.tsx
 src/model-serving/components/ShowExampleButton.enzyme.test.tsx

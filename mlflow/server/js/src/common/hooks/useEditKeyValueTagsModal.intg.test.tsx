@@ -9,7 +9,7 @@ import { ModelVersionInfoEntity } from '../../experiment-tracking/types';
 import { updateModelVersionTagsApi } from '../../model-registry/actions';
 import { Services as ModelRegistryServices } from '../../model-registry/services';
 import { ThunkDispatch } from '../../redux-types';
-import { act, screen, within, fastFillInput, renderWithIntl } from 'common/utils/TestUtils.react18';
+import { act, screen, within, fastFillInput, renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { useEditKeyValueTagsModal } from './useEditKeyValueTagsModal';
 
 const ERRONEOUS_TAG_KEY = 'forbidden_tag';

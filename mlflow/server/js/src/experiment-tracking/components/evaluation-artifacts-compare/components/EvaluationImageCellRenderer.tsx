@@ -3,8 +3,8 @@ import type { ICellRendererParams } from '@ag-grid-community/core';
 import { FormattedMessage } from 'react-intl';
 import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
-import { ImagePlot } from 'experiment-tracking/components/runs-charts/components/charts/ImageGridPlot.common';
-import { EvaluateCellImage } from 'experiment-tracking/types';
+import { ImagePlot } from '@mlflow/mlflow/src/experiment-tracking/components/runs-charts/components/charts/ImageGridPlot.common';
+import { EvaluateCellImage } from '@mlflow/mlflow/src/experiment-tracking/types';
 
 interface EvaluationImageCellRendererProps extends ICellRendererParams {
   value: EvaluateCellImage;

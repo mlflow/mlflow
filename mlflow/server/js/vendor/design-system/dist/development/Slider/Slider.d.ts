@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import * as RadixSlider from '@radix-ui/react-slider';
 export type SliderRootProps = Omit<RadixSlider.SliderProps, 'orientation'>;
 export type SliderTrackProps = RadixSlider.SliderTrackProps;

@@ -1,4 +1,4 @@
-import { Button, PencilIcon, Spinner, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, PencilIcon, Spinner, LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { useEditKeyValueTagsModal } from '../../../../common/hooks/useEditKeyValueTagsModal';
 import { KeyValueEntity } from '../../../types';
 import { KeyValueTag } from '../../../../common/components/KeyValueTag';
@@ -77,7 +77,7 @@ export const RunViewTagsBox = ({
           {visibleTagEntities.map((tag) => (
             <KeyValueTag tag={tag} key={`${tag.key}-${tag.value}`} enableFullViewModal />
           ))}
-          <Tooltip title={editTagsLabel}>
+          <LegacyTooltip title={editTagsLabel}>
             <Button
               componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewtagsbox.tsx_76"
               aria-label={editTagsLabel}
@@ -85,7 +85,7 @@ export const RunViewTagsBox = ({
               icon={<PencilIcon />}
               onClick={showEditModal}
             />
-          </Tooltip>
+          </LegacyTooltip>
         </>
       )}
       {isLoading && <Spinner size="small" />}

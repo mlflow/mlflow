@@ -1,4 +1,4 @@
-import { Button, DropdownMenu, Typography } from '@databricks/design-system';
+import { Button, DropdownMenu, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useCallback, useMemo } from 'react';
 import { ReactComponent as ParallelChartSvg } from '../../../../../common/static/parallel-chart-placeholder.svg';
 import type { RunsChartsRunData } from '../RunsCharts.common';
@@ -12,15 +12,21 @@ import {
   RunsChartCardFullScreenProps,
 } from './ChartCard.common';
 import { useIsInViewport } from '../../hooks/useIsInViewport';
-import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/FeatureUtils';
+import {
+  shouldEnableHidingChartsWithNoData,
+  shouldUseNewRunRowsVisibilityModel,
+} from '../../../../../common/utils/FeatureUtils';
 import { FormattedMessage } from 'react-intl';
 import { useUpdateExperimentViewUIState } from '../../../experiment-page/contexts/ExperimentPageUIStateContext';
 import { downloadChartDataCsv } from '../../../experiment-page/utils/experimentPage.common-utils';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
+import { RunsChartsNoDataFoundIndicator } from '../RunsChartsNoDataFoundIndicator';
 
 export interface RunsChartsParallelChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
   config: RunsChartsParallelCardConfig;
   chartRunData: RunsChartsRunData[];
+
+  hideEmptyCharts?: boolean;
 
   onDelete: () => void;
   onEdit: () => void;
@@ -30,23 +36,30 @@ export interface RunsChartsParallelChartCardProps extends RunsChartCardReorderPr
 /**
  * A placeholder component displayed before parallel coords chart is being configured by user
  */
-const EmptyParallelCoordsPlaceholder = ({ onEdit }: { onEdit: () => void }) => {
+const NotConfiguredParallelCoordsPlaceholder = ({ onEdit }: { onEdit: () => void }) => {
+  const { theme } = useDesignSystemTheme();
+
   return (
     <div css={{ display: 'flex', flex: 1, justifyContent: 'center', alignItems: 'center' }}>
       <div css={{ display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: 360 }}>
         <ParallelChartSvg />
-        <Typography.Title css={{ marginTop: 16 }} color="secondary" level={3}>
-          Compare parameter importance
+        <Typography.Title css={{ marginTop: theme.spacing.md }} color="secondary" level={3}>
+          <FormattedMessage
+            defaultMessage="Compare parameter importance"
+            description="Experiment page > compare runs > parallel coordinates chart > chart not configured warning > title"
+          />
         </Typography.Title>
-        <Typography.Text css={{ marginBottom: 16 }} color="secondary">
-          Use the parallel coordinates chart to compare how various parameters in model affect your model metrics.
+        <Typography.Text css={{ marginBottom: theme.spacing.md }} color="secondary">
+          <FormattedMessage
+            defaultMessage="Use the parallel coordinates chart to compare how various parameters in model affect your model metrics."
+            description="Experiment page > compare runs > parallel coordinates chart > chart not configured warning > description"
+          />
         </Typography.Text>
-        <Button
-          componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-compare_cards_runscompareparallelchartcard.tsx_51"
-          type="primary"
-          onClick={onEdit}
-        >
-          Configure chart
+        <Button componentId="mlflow.charts.parallel_coords_chart_configure_button" type="primary" onClick={onEdit}>
+          <FormattedMessage
+            defaultMessage="Configure chart"
+            description="Experiment page > compare runs > parallel coordinates chart > configure chart button"
+          />
         </Button>
       </div>
     </div>
@@ -56,39 +69,40 @@ const EmptyParallelCoordsPlaceholder = ({ onEdit }: { onEdit: () => void }) => {
 /**
  * A placeholder component displayed before parallel coords chart is being configured by user
  */
-const UnsupportedDataPlaceholder = () => (
-  <div css={{ display: 'flex', flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-    <div css={{ display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: 360 }}>
-      <ParallelChartSvg />
-      <Typography.Title css={{ marginTop: 16, textAlign: 'center' }} color="secondary" level={3}>
-        <FormattedMessage
-          defaultMessage="Parallel coordinates chart does not support aggregated string values."
-          description="Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > title"
-        />
-      </Typography.Title>
-      <Typography.Text css={{ marginBottom: 16 }} color="secondary">
-        <FormattedMessage
-          defaultMessage="Use other parameters or disable run grouping to continue."
-          description="Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > description"
-        />
-      </Typography.Text>
+const UnsupportedDataPlaceholder = () => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div css={{ display: 'flex', flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <div css={{ display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: 360 }}>
+        <ParallelChartSvg />
+        <Typography.Title css={{ marginTop: theme.spacing.md, textAlign: 'center' }} color="secondary" level={3}>
+          <FormattedMessage
+            defaultMessage="Parallel coordinates chart does not support aggregated string values."
+            description="Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > title"
+          />
+        </Typography.Title>
+        <Typography.Text css={{ marginBottom: theme.spacing.md }} color="secondary">
+          <FormattedMessage
+            defaultMessage="Use other parameters or disable run grouping to continue."
+            description="Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > description"
+          />
+        </Typography.Text>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export const RunsChartsParallelChartCard = ({
   config,
   chartRunData,
   onDelete,
   onEdit,
-  onReorderWith,
-  canMoveDown,
-  canMoveUp,
-  onMoveDown,
-  onMoveUp,
   groupBy,
   fullScreen,
   setFullScreenChart,
+  hideEmptyCharts,
+  ...reorderProps
 }: RunsChartsParallelChartCardProps) => {
   const updateUIState = useUpdateExperimentViewUIState();
 
@@ -147,6 +161,10 @@ export const RunsChartsParallelChartCard = ({
     return [configured, data];
   }, [config, configuredChartRunData]);
 
+  const isEmptyDataset = useMemo(() => {
+    return shouldEnableHidingChartsWithNoData() && parallelCoordsData.length === 0;
+  }, [parallelCoordsData]);
+
   const { elementRef, isInViewport } = useIsInViewport();
 
   const { setTooltip, resetTooltip, selectedRunUuid, closeContextMenu } = useRunsChartsTooltip(config);
@@ -175,10 +193,12 @@ export const RunsChartsParallelChartCard = ({
   const chartBody = (
     <>
       {!isConfigured ? (
-        <EmptyParallelCoordsPlaceholder onEdit={onEdit} />
+        <NotConfiguredParallelCoordsPlaceholder onEdit={onEdit} />
       ) : containsUnsupportedValues ? (
         <UnsupportedDataPlaceholder />
-      ) : parallelCoordsData.length ? (
+      ) : parallelCoordsData.length === 0 ? (
+        <RunsChartsNoDataFoundIndicator />
+      ) : (
         // Avoid displaying empty set, otherwise parcoord-es goes crazy
         <div
           css={[
@@ -202,13 +222,20 @@ export const RunsChartsParallelChartCard = ({
             />
           ) : null}
         </div>
-      ) : null}
+      )}
     </>
   );
 
   if (fullScreen) {
     return chartBody;
   }
+
+  // Do not render the card if the chart is empty and the user has enabled hiding empty charts
+  if (hideEmptyCharts && isEmptyDataset) {
+    return null;
+  }
+
+  const fullScreenEnabled = isConfigured && !containsUnsupportedValues && !isEmptyDataset;
 
   return (
     <RunsChartCardWrapper
@@ -219,12 +246,8 @@ export const RunsChartsParallelChartCard = ({
       uuid={config.uuid}
       tooltip="The Parallel Coordinates Chart now only shows runs with columns that are either numbers or strings. If a column has string entries, the runs corresponding to the 30 most recent unique values will be shown."
       dragGroupKey={RunsChartsChartsDragGroup.PARALLEL_CHARTS_AREA}
-      onReorderWith={onReorderWith}
-      canMoveDown={canMoveDown}
-      canMoveUp={canMoveUp}
-      onMoveDown={onMoveDown}
-      onMoveUp={onMoveUp}
-      toggleFullScreenChart={isConfigured && !containsUnsupportedValues ? toggleFullScreenChart : undefined}
+      // Disable fullscreen button if the chart is empty
+      toggleFullScreenChart={fullScreenEnabled ? toggleFullScreenChart : undefined}
       additionalMenuContent={
         shouldUseNewRunRowsVisibilityModel() ? (
           <>
@@ -254,6 +277,7 @@ export const RunsChartsParallelChartCard = ({
           downloadChartDataCsv(configuredChartRunData, config.selectedMetrics, config.selectedParams, savedChartTitle);
         }
       }}
+      {...reorderProps}
     >
       {chartBody}
     </RunsChartCardWrapper>

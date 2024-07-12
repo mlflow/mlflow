@@ -4,7 +4,7 @@ import {
   DropdownMenu,
   NewWindowIcon,
   Tag,
-  Tooltip,
+  LegacyTooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { first, last, orderBy } from 'lodash';
@@ -177,7 +177,7 @@ export const RunViewHeaderRegisterModelButton = ({
           />
         )}
         <DropdownMenu.Root modal={false}>
-          <Tooltip
+          <LegacyTooltip
             placement="bottom"
             title={
               <FormattedMessage
@@ -199,7 +199,7 @@ export const RunViewHeaderRegisterModelButton = ({
                 />
               </Button>
             </DropdownMenu.Trigger>
-          </Tooltip>
+          </LegacyTooltip>
           <DropdownMenu.Content align="end">
             <LoggedModelsDropdownContent
               models={models}

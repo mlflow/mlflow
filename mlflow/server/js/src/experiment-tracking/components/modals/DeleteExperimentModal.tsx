@@ -71,8 +71,8 @@ export class DeleteExperimentModalImpl extends Component<Props> {
                 Experiment "{this.props.experimentName}" (Experiment ID: {this.props.experimentId}) will be deleted.
               </b>
             </p>
-            {/* @ts-expect-error TS(4111): Property 'SHOW_GDPR_PURGING_MESSAGES' comes from a... Remove this comment to see the full error message */}
-            {process.env.SHOW_GDPR_PURGING_MESSAGES === 'true' ? (
+            {/* @ts-expect-error TS(4111): Property 'MLFLOW_SHOW_GDPR_PURGING_MESSAGES' comes from a... Remove this comment to see the full error message */}
+            {process.env.MLFLOW_SHOW_GDPR_PURGING_MESSAGES === 'true' ? (
               <p>
                 Deleted experiments are restorable for 30 days, after which they are purged along with their associated
                 runs, including metrics, params, tags, and artifacts.

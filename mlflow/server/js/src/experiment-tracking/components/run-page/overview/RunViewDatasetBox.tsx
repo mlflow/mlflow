@@ -6,7 +6,7 @@ import {
   DatasetWithRunType,
   ExperimentViewDatasetDrawer,
 } from '../../experiment-page/components/runs/ExperimentViewDatasetDrawer';
-import { getStableColorForRun } from '../../../utils/RunNameUtils';
+import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
 
 /**
  * Renders single dataset, either in overview table cell or within a dropdown
@@ -34,7 +34,7 @@ export const RunViewDatasetBox = ({
   datasets,
 }: {
   tags: Record<string, KeyValueEntity>;
-  runInfo: RunInfoEntity;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   datasets: RunDatasetWithTags[];
 }) => {
   const [selectedDatasetWithRun, setSelectedDatasetWithRun] = useState<DatasetWithRunType | null>(null);
@@ -52,9 +52,9 @@ export const RunViewDatasetBox = ({
     setSelectedDatasetWithRun({
       datasetWithTags: dataset,
       runData: {
-        experimentId: runInfo.experimentId,
-        runUuid: runInfo.runUuid,
-        runName: runInfo.runName,
+        experimentId: runInfo.experimentId ?? undefined,
+        runUuid: runInfo.runUuid ?? '',
+        runName: runInfo.runName ?? undefined,
         datasets: datasets,
         tags: tags,
       },

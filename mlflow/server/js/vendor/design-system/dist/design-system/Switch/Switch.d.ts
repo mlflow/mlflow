@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { WithConditionalCSSProp } from '@emotion/react/types/jsx-namespace';
 import type { SwitchProps as AntDSwitchProps } from 'antd';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';

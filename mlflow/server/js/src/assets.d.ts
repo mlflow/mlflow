@@ -38,7 +38,7 @@ declare module '*.svg' {
 }
 
 declare module '*.gql' {
-  import type { DocumentNode } from 'graphql';
+  import type { DocumentNode } from '@mlflow/mlflow/src/graphql';
   const value: DocumentNode;
   export default value;
 }

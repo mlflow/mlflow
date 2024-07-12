@@ -41,7 +41,7 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: actions/setup-node@v3
         with:
-          node-version: "16"
+          node-version: "20"
 
       - name: Build UI
         working-directory: mlflow/server/js
