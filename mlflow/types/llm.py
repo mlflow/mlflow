@@ -357,7 +357,6 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
         ColSpec(name="stop", type=Array(DataType.string), required=False),
         ColSpec(name="n", type=DataType.long, required=False),
         ColSpec(name="stream", type=DataType.boolean, required=False),
-
         ColSpec(name="top_p", type=DataType.double, required=False),
         ColSpec(name="top_k", type=DataType.long, required=False),
         ColSpec(name="frequency_penalty", type=DataType.double, required=False),
