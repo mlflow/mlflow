@@ -177,9 +177,10 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
         # Streaming response content are composed of multiple lines.
         # Each line format depends on specific endpoint
+        decoded = (l.decode("utf-8") for l in response.iter_lines())
         return (
             line.strip()
-            for line in response.iter_lines(decode_unicode=True)
+            for line in decoded
             if line.strip()  # filter out keep-alive new lines
         )
 
