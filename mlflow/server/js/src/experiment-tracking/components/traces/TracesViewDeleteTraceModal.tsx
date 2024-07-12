@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { MlflowService } from '../../sdk/MlflowService';
 import { Modal, Typography } from '@databricks/design-system';
+import { useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 
 export const TracesViewDeleteTraceModal = ({
   visible,
@@ -22,10 +23,11 @@ export const TracesViewDeleteTraceModal = ({
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const tracesToDelete = keys(pickBy(rowSelection, (value) => value));
+  const { experimentId } = useParams<{ experimentId: string }>();
 
   const submitDeleteTraces = async () => {
     try {
-      await MlflowService.deleteTraces(tracesToDelete);
+      await MlflowService.deleteTraces(experimentId ?? '', tracesToDelete);
 
       // reset row selection and refresh traces
       setRowSelection({});
