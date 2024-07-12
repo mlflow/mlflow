@@ -19,7 +19,7 @@ _INVALID_DB_URI_MSG = (
 
 _DBFS_FUSE_PREFIX = "/dbfs/"
 _DBFS_HDFS_URI_PREFIX = "dbfs:/"
-_UC_VOLUMES_URI_PREFIX = "/Volumes/"
+_uc_volume_URI_PREFIX = "/Volumes/"
 _UC_DBFS_SYMLINK_PREFIX = "/.fuse-mounts/"
 _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
 
@@ -99,9 +99,21 @@ def is_fuse_or_uc_volumes_uri(uri):
         for x in [
             _DBFS_FUSE_PREFIX,
             _DBFS_HDFS_URI_PREFIX,
-            _UC_VOLUMES_URI_PREFIX,
+            _uc_volume_URI_PREFIX,
             _UC_DBFS_SYMLINK_PREFIX,
         ]
+    )
+
+
+def is_uc_volumes_uri(uri):
+    parsed_uri = urllib.parse.urlparse(uri)
+    return parsed_uri.scheme == "dbfs" and bool(re.match(r"^/[vV]olumes?/", parsed_uri.path))
+
+
+def is_valid_uc_volumes_uri(uri):
+    parsed_uri = urllib.parse.urlparse(uri)
+    return parsed_uri.scheme == "dbfs" and bool(
+        re.match(r"^/[vV]olumes?/[^/]+/[^/]+/[^/]+/[^/]+", parsed_uri.path)
     )
 
 
