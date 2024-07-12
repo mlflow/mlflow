@@ -46,7 +46,6 @@ properly_formatted_openai_response1 = f"""\
   "justification": "{openai_justification1}"
 }}"""
 
-
 properly_formatted_openai_response2 = (
     '{\n  "score": 2,\n  "justification": "The provided output gives a correct '
     "and adequate explanation of what Apache Spark is, covering its main functions and "
@@ -1205,3 +1204,18 @@ def test_log_make_genai_metric_fn_args():
     }
 
     assert custom_metric.genai_metric_args == expected_genai_metric_args
+
+
+@pytest.mark.parametrize(
+    "metric_fn",
+    [
+        answer_similarity,
+        answer_correctness,
+        faithfulness,
+        answer_relevance,
+        relevance,
+    ],
+)
+def test_metric_metadata_on_prebuilt_genai_metrics(metric_fn):
+    metric = metric_fn(metric_metadata={"metadata_field": "metadata_value"})
+    assert metric.metric_metadata == {"metadata_field": "metadata_value"}
