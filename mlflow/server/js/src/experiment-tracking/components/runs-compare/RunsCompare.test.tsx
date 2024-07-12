@@ -100,6 +100,12 @@ describe('RunsCompare', () => {
     xAxisScaleType: 'linear',
     selectedXAxisMetricKey: '',
     selectedMetricKeys: ['metric-beta', 'metric-alpha'],
+    range: {
+      xMin: undefined,
+      xMax: undefined,
+      yMin: undefined,
+      yMax: undefined,
+    },
   };
 
   const compareRunSections = [

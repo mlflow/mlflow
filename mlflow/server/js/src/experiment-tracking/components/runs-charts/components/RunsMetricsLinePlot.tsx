@@ -26,7 +26,11 @@ import {
 } from './RunsCharts.common';
 import { EMA } from '../../MetricsPlotView';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
-import { shouldEnableDeepLearningUIPhase3, shouldEnableRelativeTimeDateAxis } from 'common/utils/FeatureUtils';
+import {
+  shouldEnableDeepLearningUIPhase3,
+  shouldEnableManualRangeControls,
+  shouldEnableRelativeTimeDateAxis,
+} from 'common/utils/FeatureUtils';
 import { useRunsMultipleTracesTooltipData } from '../hooks/useRunsChartsMultipleTracesTooltip';
 import { createChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
 import {
@@ -374,6 +378,23 @@ const prepareXAxisDataForMetricType = (
     });
 };
 
+const getXAxisPlotlyType = (
+  xAxisKey: RunsChartsLineChartXAxisType,
+  xAxisScaleType: 'linear' | 'log',
+  dynamicXAxisKey: RunsChartsLineChartXAxisType,
+) => {
+  if (
+    xAxisKey === RunsChartsLineChartXAxisType.TIME ||
+    (shouldEnableRelativeTimeDateAxis() && dynamicXAxisKey === RunsChartsLineChartXAxisType.TIME_RELATIVE)
+  ) {
+    return 'date';
+  }
+  if (xAxisKey === RunsChartsLineChartXAxisType.STEP && xAxisScaleType === 'log') {
+    return 'log';
+  }
+  return 'linear';
+};
+
 /**
  * Implementation of plotly.js chart displaying
  * line plot comparing metrics' history for a given
@@ -408,6 +429,7 @@ export const RunsMetricsLinePlot = React.memo(
   }: RunsMetricsLinePlotProps) => {
     const { theme } = useDesignSystemTheme();
     const usingMultipleRunsHoverTooltip = shouldEnableDeepLearningUIPhase3();
+    const usingManualRangeControls = shouldEnableManualRangeControls();
 
     const dynamicXAxisKey = useMemo(() => {
       let dynamicXAxisKey = xAxisKey;
@@ -503,6 +525,8 @@ export const RunsMetricsLinePlot = React.memo(
       bandsData.length,
     );
 
+    const xAxisPlotlyType = getXAxisPlotlyType(xAxisKey, xAxisScaleType, dynamicXAxisKey);
+
     const xAxisKeyLabel = useMemo(() => {
       if (dynamicXAxisKey === RunsChartsLineChartXAxisType.METRIC) {
         return selectedXAxisMetricKey;
@@ -511,23 +535,47 @@ export const RunsMetricsLinePlot = React.memo(
       return formatMessage(getChartAxisLabelDescriptor(dynamicXAxisKey));
     }, [formatMessage, dynamicXAxisKey, selectedXAxisMetricKey]);
 
-    const yAxisParams: Partial<LayoutAxis> = useMemo(
-      () => ({
-        tickfont: { size: 11, color: theme.colors.textSecondary },
-        type: scaleType === 'log' ? 'log' : 'linear',
-        fixedrange: lockXAxisZoom,
-      }),
-      [scaleType, lockXAxisZoom, theme],
-    );
+    const yAxisParams: Partial<LayoutAxis> = useMemo(() => {
+      if (usingManualRangeControls) {
+        return {
+          tickfont: { size: 11, color: theme.colors.textSecondary },
+          type: scaleType === 'log' ? 'log' : 'linear',
+          fixedrange: lockXAxisZoom,
+          range: yRange,
+          autorange: yRange === undefined,
+          tickformat: 'f',
+        };
+      } else {
+        return {
+          tickfont: { size: 11, color: theme.colors.textSecondary },
+          type: scaleType === 'log' ? 'log' : 'linear',
+          fixedrange: lockXAxisZoom,
+        };
+      }
+    }, [scaleType, lockXAxisZoom, theme, yRange, usingManualRangeControls]);
+
+    const xAxisParams: Partial<LayoutAxis> = useMemo(() => {
+      if (usingManualRangeControls) {
+        return {
+          title: xAxisKeyLabel,
+          tickfont: { size: 11, color: theme.colors.textSecondary },
+          range: xRange,
+          autorange: xRange === undefined,
+          type: xAxisPlotlyType,
+        };
+      } else {
+        return {
+          title: xAxisKeyLabel,
+          tickfont: { size: 11, color: theme.colors.textSecondary },
+        };
+      }
+    }, [theme, xAxisKeyLabel, xRange, xAxisPlotlyType, usingManualRangeControls]);
 
     const [layout, setLayout] = useState<Partial<Layout>>({
       width: width || layoutWidth,
       height: height || layoutHeight,
       margin,
-      xaxis: {
-        title: xAxisKeyLabel,
-        tickfont: { size: 11, color: theme.colors.textSecondary },
-      },
+      xaxis: xAxisParams,
       yaxis: yAxisParams,
       showlegend: false,
     });
@@ -542,12 +590,25 @@ export const RunsMetricsLinePlot = React.memo(
           yaxis: yAxisParams,
           showlegend: false,
         };
+        if (usingManualRangeControls) {
+          updatedLayout.xaxis = xAxisParams;
+        }
         if (isEqual(updatedLayout, current)) {
           return current;
         }
         return updatedLayout;
       });
-    }, [layoutWidth, layoutHeight, margin, yAxisParams, width, height, xAxisKeyLabel]);
+    }, [
+      layoutWidth,
+      layoutHeight,
+      margin,
+      xAxisParams,
+      yAxisParams,
+      width,
+      height,
+      xAxisKeyLabel,
+      usingManualRangeControls,
+    ]);
 
     const containsMultipleMetricKeys = useMemo(() => (selectedMetricKeys?.length || 0) > 1, [selectedMetricKeys]);
 
@@ -591,19 +652,6 @@ export const RunsMetricsLinePlot = React.memo(
 
     const themedPlotlyLayout = useMemo(() => createThemedPlotlyLayout(theme), [theme]);
 
-    const getXAxisType = (xAxisKey: RunsChartsLineChartXAxisType, xAxisScaleType: 'linear' | 'log') => {
-      if (
-        xAxisKey === RunsChartsLineChartXAxisType.TIME ||
-        (shouldEnableRelativeTimeDateAxis() && dynamicXAxisKey === RunsChartsLineChartXAxisType.TIME_RELATIVE)
-      ) {
-        return 'date';
-      }
-      if (xAxisKey === RunsChartsLineChartXAxisType.STEP && xAxisScaleType === 'log') {
-        return 'log';
-      }
-      return 'linear';
-    };
-
     const getXAxisRange = (
       xAxisKey: RunsChartsLineChartXAxisType,
       xRange: [number | string, number | string],
@@ -638,10 +686,13 @@ export const RunsMetricsLinePlot = React.memo(
     const immediateLayout = layout;
     if (immediateLayout.xaxis) {
       immediateLayout.xaxis.title = xAxisKeyLabel;
-      immediateLayout.xaxis.type = getXAxisType(xAxisKey, xAxisScaleType);
+      immediateLayout.xaxis.type = xAxisPlotlyType;
       if (xRange) {
-        immediateLayout.xaxis.range = getXAxisRange(xAxisKey, xRange, xAxisScaleType);
+        immediateLayout.xaxis.range = usingManualRangeControls
+          ? xRange
+          : getXAxisRange(xAxisKey, xRange, xAxisScaleType);
       }
+      immediateLayout.xaxis.automargin = true;
       immediateLayout.xaxis.tickformat =
         shouldEnableRelativeTimeDateAxis() && dynamicXAxisKey === RunsChartsLineChartXAxisType.TIME_RELATIVE
           ? '%H:%M:%S'
@@ -649,7 +700,7 @@ export const RunsMetricsLinePlot = React.memo(
     }
     immediateLayout.template = { layout: themedPlotlyLayout };
 
-    if (yRange && immediateLayout.yaxis) {
+    if (immediateLayout.yaxis && yRange) {
       immediateLayout.yaxis.range = yRange;
       immediateLayout.yaxis.automargin = true;
       immediateLayout.yaxis.tickformat = 'f';

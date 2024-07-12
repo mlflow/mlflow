@@ -2299,6 +2299,10 @@
     "defaultMessage": "MLflow deployment returned the following error: \"{errorMessage}\"",
     "description": "Experiment page > MLflow deployment error message"
   },
+  "o21MFS": {
+    "defaultMessage": "Invalid log value",
+    "description": "Experiment tracking > runs charts > line chart configuration > invalid log value message"
+  },
   "o7dzKo": {
     "defaultMessage": "Last Modified",
     "description": "Label name for last modified timestamp metadata in model version page"
