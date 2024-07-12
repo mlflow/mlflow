@@ -64,17 +64,15 @@ def test_object_to_dict_no_required_param():
     o = OpenAI()
     result = object_to_dict(o)
     assert result["object_constructor"] == "llama_index.llms.openai.base.OpenAI"
-    expected_kwargs = {k: v for k, v in o.to_dict().items() if k != "class_name"}
+    expected_kwargs = {k: v for k, v in o.to_dict().items() if k not in {"class_name", "api_key"}}
     assert result["object_kwargs"] == expected_kwargs
 
 
 def test_object_to_dict_one_required_param():
-    o = OpenAIEmbedding
+    o = OpenAIEmbedding()
     result = object_to_dict(o)
-    assert (
-        result["object_constructor"] == "llama_index.core.embeddings.mock_embed_model.MockEmbedding"
-    )
-    expected_kwargs = {k: v for k, v in o.to_dict().items() if k != "class_name"}
+    assert result["object_constructor"] == "llama_index.embeddings.openai.base.OpenAIEmbedding"
+    expected_kwargs = {k: v for k, v in o.to_dict().items() if k not in {"class_name", "api_key"}}
     assert result["object_kwargs"] == expected_kwargs
 
 
@@ -118,6 +116,7 @@ def test_deserialize_dict_of_objects(tmp_path, settings):
 def test_settings_serde(tmp_path, settings):
     path = tmp_path / "serialized_settings.json"
     _llm = settings.llm
+    assert settings.llm.api_key == "test"
     _embed_model = settings.embed_model
     _callback_manager = settings.callback_manager
     _tokenizer = settings.tokenizer
@@ -134,6 +133,9 @@ def test_settings_serde(tmp_path, settings):
 
     assert Settings is not None
     assert Settings.llm == _llm
+    assert not hasattr(
+        Settings.llm, "api_key"
+    )  # Ensure that we're reading from cleaned serialized object
     assert Settings.embed_model == _embed_model
     assert Settings.callback_manager == _callback_manager  # Auto-generated from defaults
     assert Settings.tokenizer == _tokenizer  # Auto-generated from defaults

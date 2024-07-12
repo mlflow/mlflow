@@ -13,7 +13,7 @@ QUERY_ENGINE_NAME = "query"
 RETRIEVER_ENGINE_NAME = "retriever"
 SUPPORTED_ENGINES = {CHAT_ENGINE_NAME, QUERY_ENGINE_NAME, RETRIEVER_ENGINE_NAME}
 
-_CHAT_MESSAGE_HISTORY_PARAMETER_NAME = "message_history"
+_CHAT_MESSAGE_HISTORY_PARAMETER_NAME = "chat_history"
 
 
 def _format_predict_input_query_engine_and_retriever(data) -> QueryBundle:
@@ -122,7 +122,6 @@ class QueryEngineWrapper(_LlamaIndexModelWrapperBase):
         return self.index.as_query_engine(**self.model_config).query
 
     def _format_predict_input(self, data) -> QueryBundle:
-
         return _format_predict_input_query_engine_and_retriever(data)
 
 
@@ -137,7 +136,7 @@ class RetrieverEngineWrapper(_LlamaIndexModelWrapperBase):
     def _format_predict_input(self, data) -> QueryBundle:
         return _format_predict_input_query_engine_and_retriever(data)
 
-      
+
 def create_engine_wrapper(index, engine_type: str, model_config: Optional[Dict[str, Any]] = None):
     if engine_type == QUERY_ENGINE_NAME:
         return QueryEngineWrapper(index, model_config)
