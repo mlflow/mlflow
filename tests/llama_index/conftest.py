@@ -12,7 +12,6 @@ from llama_index.core import (
     Settings,
     VectorStoreIndex,
 )
-
 from llama_index.core.callbacks import CallbackManager, TokenCountingHandler
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.embeddings.openai import OpenAIEmbedding
@@ -42,7 +41,6 @@ def spark():
         yield s
 
 
-
 @pytest.fixture(scope="module", autouse=True)
 def mock_openai():
     with start_mock_openai_server() as base_url:
@@ -59,7 +57,6 @@ def _mock_tokenizer(text: str) -> List[str]:
             continue
         result.append(token.strip())
     return result
-
 
 
 @pytest.fixture(autouse=True)
@@ -80,6 +77,8 @@ def settings(monkeypatch, mock_openai):
     monkeypatch.setattr(Settings, "transformations", [SentenceSplitter(chunk_size=1024)])
 
     assert all(Settings.__dict__.values())  # ensure the full object is populated
+
+    return Settings
 
 
 #### Indexes ####

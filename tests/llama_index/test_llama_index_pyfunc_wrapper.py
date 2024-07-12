@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pytest
 from llama_index.core import QueryBundle
@@ -39,7 +40,6 @@ def test_format_predict_input_dict_chat(single_index):
     wrapped_model = create_engine_wrapper(single_index, CHAT_ENGINE_NAME)
     formatted_data = wrapped_model._format_predict_input({"query": "string"})
     assert isinstance(formatted_data, dict)
-
 
 
 def test_format_predict_input_message_history_chat(single_index):
@@ -189,6 +189,59 @@ def test_format_predict_input_iterable_retriever(single_index, data):
     formatted_data = wrapped_model._format_predict_input(data)
     assert isinstance(formatted_data, list)
     assert all(isinstance(x, QueryBundle) for x in formatted_data)
+
+
+@pytest.mark.parametrize(
+    "engine_type",
+    ["query", "retriever"],
+)
+def test_format_predict_input_correct(single_index, engine_type):
+    wrapped_model = create_engine_wrapper(single_index, engine_type)
+
+    assert isinstance(
+        wrapped_model._format_predict_input(pd.DataFrame({"query_str": ["hi"]})), QueryBundle
+    )
+    assert isinstance(wrapped_model._format_predict_input(np.array(["hi"])), QueryBundle)
+    assert isinstance(wrapped_model._format_predict_input({"query_str": ["hi"]}), QueryBundle)
+    assert isinstance(wrapped_model._format_predict_input({"query_str": "hi"}), QueryBundle)
+    assert isinstance(wrapped_model._format_predict_input(["hi"]), QueryBundle)
+    assert isinstance(wrapped_model._format_predict_input("hi"), QueryBundle)
+
+
+@pytest.mark.parametrize(
+    "engine_type",
+    ["query", "retriever"],
+)
+def test_format_predict_input_incorrect_schema(single_index, engine_type):
+    wrapped_model = create_engine_wrapper(single_index, engine_type)
+
+    with pytest.raises(TypeError, match="missing 1 required positional argument"):
+        wrapped_model._format_predict_input(pd.DataFrame({"incorrect": ["hi"]}))
+    with pytest.raises(TypeError, match="missing 1 required positional argument"):
+        wrapped_model._format_predict_input({"incorrect": ["hi"]})
+
+
+@pytest.mark.parametrize(
+    "engine_type",
+    ["query", "retriever"],
+)
+def test_format_predict_input_correct_schema_complex(single_index, engine_type):
+    wrapped_model = create_engine_wrapper(single_index, engine_type)
+
+    payload = {
+        "query_str": "hi",
+        "image_path": "some/path",
+        "custom_embedding_strs": [["a"]],
+        "embedding": [[1.0]],
+    }
+    assert isinstance(wrapped_model._format_predict_input(pd.DataFrame(payload)), QueryBundle)
+    payload.update(
+        {
+            "custom_embedding_strs": ["a"],
+            "embedding": [1.0],
+        }
+    )
+    assert isinstance(wrapped_model._format_predict_input(payload), QueryBundle)
 
 
 #### E2E Inference ####

@@ -3,6 +3,8 @@ from collections import Counter, deque
 
 import pytest
 from llama_index.core import PromptTemplate
+from llama_index.embeddings.openai import OpenAIEmbedding
+from llama_index.llms.openai import OpenAI
 
 from mlflow.llama_index.serialize_objects import (
     _construct_prompt_template_object,
@@ -58,16 +60,16 @@ def test_sanitize_api_key_keys_not_present():
     assert sanitized_data["another_key"] == "another_value"
 
 
-def test_object_to_dict_no_required_param(llm):
-    o = llm
+def test_object_to_dict_no_required_param():
+    o = OpenAI()
     result = object_to_dict(o)
-    assert result["object_constructor"] == "conftest.MockChatLLM"
+    assert result["object_constructor"] == "llama_index.llms.openai.base.OpenAI"
     expected_kwargs = {k: v for k, v in o.to_dict().items() if k != "class_name"}
     assert result["object_kwargs"] == expected_kwargs
 
 
-def test_object_to_dict_one_required_param(embed_model):
-    o = embed_model
+def test_object_to_dict_one_required_param():
+    o = OpenAIEmbedding
     result = object_to_dict(o)
     assert (
         result["object_constructor"] == "llama_index.core.embeddings.mock_embed_model.MockEmbedding"

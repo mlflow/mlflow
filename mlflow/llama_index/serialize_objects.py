@@ -14,7 +14,7 @@ _logger = logging.getLogger(__name__)
 # TODO: add versioning to the map
 # TODO: think about hierarchy of objects
 OBJECT_DICT_METHOD_MAP = {
-    llama_index.core.llms.llm.LLM: ("to_dict", "from_dict"),
+    llama_index.core.base.llms.base.BaseLLM: ("to_dict", "from_dict"),
     llama_index.core.base.embeddings.base.BaseEmbedding: ("to_dict", "from_dict"),
     llama_index.core.node_parser.interface.NodeParser: ("to_dict", "from_dict"),
     llama_index.core.indices.prompt_helper.PromptHelper: ("to_dict", "from_dict"),
@@ -72,7 +72,7 @@ def object_to_dict(o: object) -> None:
         o_state_as_dict = _sanitize_api_key(o_state_as_dict)
         o_state_as_dict.pop("class_name")
     else:
-        _logger.warning("Skipping serialization of {o} because...")
+        _logger.warning(f"Skipping serialization of {o} because...")
         return o_state_as_dict
 
     return {
