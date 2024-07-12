@@ -490,11 +490,10 @@ def _load_serving_input_example(mlflow_model: Model, path: str):
     Returns:
         Serving input example or None if the model has no serving input example.
     """
-    if (
-        mlflow_model.saved_input_example_info is None
-        or (serving_input_path := mlflow_model.saved_input_example_info.get(SERVING_INPUT_PATH))
-        is None
-    ):
+    if mlflow_model.saved_input_example_info is None:
+        return None
+    serving_input_path = mlflow_model.saved_input_example_info.get(SERVING_INPUT_PATH)
+    if serving_input_path is None:
         return None
     with open(os.path.join(path, serving_input_path)) as handle:
         return handle.read()

@@ -2083,7 +2083,7 @@ def test_input_example_validation_during_logging(tmp_path):
             assert isinstance(model_input, pd.DataFrame)
             return "string"
 
-    with pytest.raises(MlflowException, match="Failed to validate serving input example."):
+    with pytest.raises(MlflowException, match=r"Failed to validate serving input example\."):
         with mlflow.start_run():
             mlflow.pyfunc.log_model(
                 python_model=MyModel(),

@@ -789,12 +789,12 @@ class Model:
                     from mlflow.pyfunc.scoring_server import _parse_json_data
 
                     try:
-                        parsed_input, parsed_params, _ = _parse_json_data(
+                        parsed_input = _parse_json_data(
                             serving_input,
                             pyfunc_model.metadata,
                             pyfunc_model.metadata.get_input_schema(),
                         )
-                        pyfunc_model.predict(parsed_input, params=parsed_params)
+                        pyfunc_model.predict(parsed_input.data, params=parsed_input.params)
                     except Exception as e:
                         _logger.debug("", exc_info=True)
                         raise MlflowException.invalid_parameter_value(
