@@ -211,6 +211,10 @@ def test_chat_model_predict(tmp_path):
         "stop": ["\n"],
         "n": 2,
         "stream": True,
+        "top_p": 0.1,
+        "top_k": 20,
+        "frequency_penalty": 0.5,
+        "presence_penalty": -0.5,
     }
     response = loaded_model.predict({"messages": messages, **params_override})
     assert response["choices"][0]["message"]["content"] == json.dumps(messages)
