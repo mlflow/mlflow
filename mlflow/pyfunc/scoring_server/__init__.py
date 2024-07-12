@@ -354,6 +354,8 @@ def invocations(data, content_type, model, input_schema):
         )
 
     # Do the prediction
+    # NB: Model.log mimic the scoring process here to validate input_example
+    # work for serving, so any changes here should be reflected there as well
     try:
         if inspect.signature(model.predict).parameters.get("params"):
             raw_predictions = model.predict(data, params=params)
@@ -404,6 +406,11 @@ class ParsedJsonInput(NamedTuple):
 
 
 def _parse_json_data(data, metadata, input_schema):
+    """
+    This function is used for data parsing before invoking the model's predict method.
+    It is used in Model.log to validate input_example work for serving as well, so
+    any changes here should be reflected there as well.
+    """
     json_input = _decode_json_input(data)
     should_parse_as_unified_llm_input = _should_parse_as_unified_llm_input(json_input)
     if should_parse_as_unified_llm_input:
