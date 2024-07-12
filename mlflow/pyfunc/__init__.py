@@ -870,7 +870,7 @@ class PyFuncModel:
         """
         try:
             if type(self._model_impl)==mlflow.pytorch._PyTorchWrapper:
-              python_model = python_model._model_impl.pytorch_model
+              python_model = self._model_impl.pytorch_model
             else:
               python_model = self._model_impl.python_model
             if python_model is None:
