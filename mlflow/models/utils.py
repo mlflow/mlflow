@@ -68,11 +68,6 @@ EXAMPLE_PARAMS_KEY = "params"
 EXAMPLE_FILENAME = "input_example.json"
 SERVING_INPUT_PATH = "serving_input_path"
 SERVING_INPUT_FILENAME = "serving_input.json"
-# re-define here to avoid circular import from
-# mlflow.pyfunc.scoring_server
-DF_SPLIT = "dataframe_split"
-INPUTS = "inputs"
-SERVING_PARAMS_KEY = "params"
 
 ModelInputExample = Union[
     pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes, tuple
@@ -152,6 +147,8 @@ def _handle_ndarray_nans(x: np.ndarray):
 
 
 def _handle_ndarray_input(input_array: Union[np.ndarray, dict]):
+    from mlflow.pyfunc.scoring_server import INPUTS
+
     if isinstance(input_array, dict):
         result = {}
         for name in input_array.keys():
@@ -258,6 +255,8 @@ class _Example:
     """
 
     def __init__(self, input_example: ModelInputExample, no_conversion: bool = False):
+        from mlflow.pyfunc.scoring_server import DF_SPLIT, INPUTS
+
         try:
             import pyspark.sql
 
@@ -382,6 +381,8 @@ class _Example:
         Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`.
         Save serving input as json at ``parent_dir_path``/`self.info['serving_input_path']`.
         """
+        from mlflow.pyfunc.scoring_server import SERVING_PARAMS_KEY
+
         if self._inference_params is not None:
             data = {EXAMPLE_DATA_KEY: self.data, EXAMPLE_PARAMS_KEY: self._inference_params}
             serving_input = {**self.serving_input, SERVING_PARAMS_KEY: self._inference_params}
