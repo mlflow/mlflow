@@ -18,28 +18,7 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.llama_index.tracer import MlflowEventHandler, MlflowSpanHandler
 from mlflow.tracing.constant import SpanAttributeKey
-
-_TEST_EXPERIMENT = "__test-llama-index-tracing"
-
-
-@pytest.fixture(autouse=True)
-def experiment_id(tmp_path):
-    """Create a new experiment for each test and clean up after."""
-    # Delete the experiment if it already exists
-    exp = mlflow.get_experiment_by_name(_TEST_EXPERIMENT)
-    if exp is not None:
-        mlflow.delete_experiment(exp.experiment_id)
-
-    exp_id = mlflow.create_experiment(
-        name=_TEST_EXPERIMENT,
-        artifact_location=str(tmp_path),
-    )
-    mlflow.set_experiment(experiment_id=exp_id)
-    yield exp_id
-
-    # Clean up
-    mlflow.delete_experiment(exp_id)
-    mlflow.set_experiment(experiment_id=0)  # default experiment
+from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 
 
 @pytest.fixture(autouse=True)
@@ -74,8 +53,7 @@ def set_handlers():
 
 def _get_all_traces() -> List[Trace]:
     """Utility function to get all traces in the test experiment."""
-    exp_id = mlflow.get_experiment_by_name(_TEST_EXPERIMENT).experiment_id
-    return mlflow.MlflowClient().search_traces(experiment_ids=[exp_id])
+    return mlflow.MlflowClient().search_traces(experiment_ids=[DEFAULT_EXPERIMENT_ID])
 
 
 @pytest.mark.parametrize("is_async", [True, False])

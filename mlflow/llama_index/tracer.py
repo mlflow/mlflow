@@ -2,12 +2,13 @@ import inspect
 import json
 import logging
 from functools import singledispatchmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from llama_index.core.base.agent.types import BaseAgent, BaseAgentWorker
 from llama_index.core.base.base_retriever import BaseRetriever
 from llama_index.core.base.embeddings.base import BaseEmbedding
 from llama_index.core.base.llms.base import BaseLLM
+from llama_index.core.base.llms.types import ChatResponse, CompletionResponse
 from llama_index.core.instrumentation.event_handlers import BaseEventHandler
 from llama_index.core.instrumentation.events import BaseEvent
 from llama_index.core.instrumentation.events.agent import AgentToolCallEvent
@@ -257,7 +258,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
 
     @_handle_event.register
     def _(self, event: LLMCompletionEndEvent, span: LiveSpan):
-        span.set_attribute("usage", self._extract_token_counts(event.response))
+        span.set_attribute("usage", self._extract_token_usage(event.response))
 
     @_handle_event.register
     def _(self, event: LLMChatStartEvent, span: LiveSpan):
@@ -266,7 +267,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
 
     @_handle_event.register
     def _(self, event: LLMChatEndEvent, span: LiveSpan):
-        span.set_attribute("usage", self._extract_token_counts(event.response))
+        span.set_attribute("usage", self._extract_token_usage(event.response))
 
     @_handle_event.register
     def _(self, event: ReRankStartEvent, span: LiveSpan):
@@ -278,12 +279,10 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
             }
         )
 
-    def _extract_token_counts(self, response) -> Dict[str, int]:
-        if (
-            (raw := getattr(response, "raw", None))
-            and hasattr(raw, "get")
-            and (usage := raw.get("usage"))
-        ):
+    def _extract_token_usage(
+        self, response: Union[ChatResponse, CompletionResponse]
+    ) -> Dict[str, int]:
+        if (raw := response.raw) and (usage := raw.get("usage")):
             return usage
         else:
             usage = {}
