@@ -429,6 +429,10 @@ class StreamResolver:
             )
             return False
 
+        if inspect.getgeneratorstate(stream) == inspect.GEN_CLOSED:
+            # Not registering the span because the generator is already exhausted
+            return False
+
         self._span_id_to_span_and_gen[span.span_id] = (span, stream)
         return True
 
@@ -441,7 +445,7 @@ class StreamResolver:
         if not stream:
             return
 
-        if isinstance(event(LLMChatEndEvent, LLMCompletionEndEvent)):
+        if isinstance(event, (LLMChatEndEvent, LLMCompletionEndEvent)):
             outputs = event.response
             status = SpanStatusCode.OK
         elif isinstance(event, ExceptionEvent):
@@ -471,5 +475,5 @@ class StreamResolver:
             # Check if the generator is still running. The LLMxxxEndEvent is emitted inside the
             # generator function after emitting the last element. Therefore, the parent generators
             # should still be running as well at this point.
-            if stream is not None and stream.gi_running:
+            if stream is not None:
                 _end_span(client=self._client, span=span, status=status, outputs=output_text)

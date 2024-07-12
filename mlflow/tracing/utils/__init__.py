@@ -73,12 +73,39 @@ class TraceJSONEncoder(json.JSONEncoder):
         # representation, so we use dict representation instead.
         # E.g. https://github.com/run-llama/llama_index/blob/29ece9b058f6b9a1cf29bc723ed4aa3a39879ad5/llama-index-core/llama_index/core/chat_engine/types.py#L63-L64
         if is_dataclass(obj):
-            return asdict(obj)
+            try:
+                return asdict(obj)
+            except TypeError:
+                pass
+
+        # Some object has dangerous side effect in __str__ method, so we use class name instead.
+        if not self._is_safe_to_encode_str(obj):
+            return type(obj)
 
         try:
             return super().default(obj)
         except TypeError:
             return str(obj)
+
+    def _is_safe_to_encode_str(self, obj) -> bool:
+        """Check if it's safe to encode the object as a string."""
+        try:
+            # These Llama Index objects are not safe to encode as string, because their __str__
+            # method consumes the stream and make it unusable.
+            from llama_index.core.base.response.schema import (
+                AsyncStreamingResponse,
+                StreamingResponse,
+            )
+            from llama_index.core.chat_engine.types import StreamingAgentChatResponse
+
+            if isinstance(
+                obj, (AsyncStreamingResponse, StreamingResponse, StreamingAgentChatResponse)
+            ):
+                return False
+        except ImportError:
+            pass
+
+        return True
 
 
 @lru_cache(maxsize=1)
