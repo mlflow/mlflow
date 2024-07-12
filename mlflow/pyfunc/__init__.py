@@ -869,7 +869,10 @@ class PyFuncModel:
             print(unwrapped_model.predict(None, some_input))
         """
         try:
-            python_model = self._model_impl.python_model
+            if type(self._model_impl)==mlflow.pytorch._PyTorchWrapper:
+              python_model = python_model._model_impl.pytorch_model
+            else:
+              python_model = self._model_impl.python_model
             if python_model is None:
                 raise AttributeError("Expected python_model attribute not to be None.")
         except AttributeError as e:
