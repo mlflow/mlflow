@@ -218,7 +218,8 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
 
     @singledispatchmethod
     def _handle_event(self, event: BaseEvent, span: LiveSpan):
-        ...
+        # Pass through the events we are not interested in
+        pass
 
     @_handle_event.register
     def _(self, event: AgentToolCallEvent, span: LiveSpan):
