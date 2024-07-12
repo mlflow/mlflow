@@ -2,16 +2,16 @@
 
 ## 2.14.3 (2024-07-12)
 
-MLflow 2.14.3 includes several major features and improvements
+MLflow 2.14.3 is a patch release that addresses bug fixes and additional documentation for released features
 
 Features:
 
-- [Model Registry] Handle AWS encryption details (#12495, @artjen)
+- [Model Registry] Add support for server-side encryption when uploading files to AWS S3 (#12495, @artjen)
 
 Bug fixes:
 
 - [Models] Fix stream trace logging with the OpenAI autologging implementation to record the correct chunk structure (#12629, @BenWilson2)
-- [Models] Fix batch inference for Whisper model and refactor tests (#12575, @B-Step62)
+- [Models] Fix batch inference behavior for Whisper-based translation models to allow for multiple audio file inputs (#12575, @B-Step62)
 
 Documentation updates:
 
