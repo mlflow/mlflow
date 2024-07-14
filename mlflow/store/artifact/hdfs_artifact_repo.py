@@ -3,7 +3,10 @@ import posixpath
 import urllib.parse
 from contextlib import contextmanager
 
-from pyarrow.fs import FileSelector, FileType, HadoopFileSystem
+try:
+    from pyarrow.fs import FileSelector, FileType, HadoopFileSystem
+except ImportError:
+    pass
 
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
@@ -155,14 +158,13 @@ def hdfs_system(scheme, host, port):
 
     host = scheme + "://" + host if host else "default"
 
-    connected = HadoopFileSystem(
+    yield HadoopFileSystem(
         host=host,
         port=port or 0,
         user=kerberos_user,
         kerb_ticket=kerb_ticket,
         extra_conf=extra_conf,
     )
-    yield connected
 
 
 def _resolve_connection_params(artifact_uri):
