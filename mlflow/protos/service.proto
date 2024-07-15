@@ -458,6 +458,18 @@ service MlflowService {
     };
   }
 
+  rpc searchDatasets(SearchDatasets) returns (SearchDatasets.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "mlflow/experiments/search-datasets"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Search Datasets",
+    };
+  }
+
   // Start a new trace within an experiment.
   rpc startTrace(StartTrace) returns (StartTrace.Response) {
     option (rpc) = {
@@ -748,6 +760,17 @@ message Dataset {
   // in a table, the mean / std / mode of each column in a table, or the number of elements
   // in an array.
   optional string profile = 6;
+}
+
+message DatasetSummary {
+  // The name of the dataset
+  optional string name = 1;
+  // An md5 hash of the dataset that uniquely identifies it within datasets of the same name
+  optional string digest = 2;
+  // User-supplied string describing the context in which the dataset is used
+  optional string context = 3;
+  // The ID of the experiment that the dataset was logged to
+  optional string experiment_id = 4;
 }
 
 message CreateExperiment {
@@ -1466,5 +1489,16 @@ message DeleteTraceTag {
   optional string key = 2;
 
   message Response {
+  }
+}
+
+message SearchDatasets {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // List of experiment IDs to search over.
+  repeated string experiment_ids = 1;
+
+  message Response {
+    repeated DatasetSummary dataset_summaries = 1;
   }
 }
