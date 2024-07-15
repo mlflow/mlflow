@@ -641,6 +641,30 @@ def _validate_params(params, model_metadata):
     return
 
 
+def _validate_prediction_input(data: PyFuncInput, params, input_schema, params_schema, flavor=None):
+    """
+    Internal helper function to transform and validate input data and params for prediction.
+    Any additional transformation logics related to input data and params should be added here.
+    """
+    if input_schema is not None:
+        try:
+            data = _enforce_schema(data, input_schema, flavor)
+        except Exception as e:
+            # Include error in message for backwards compatibility
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to enforce schema of data '{data}' "
+                f"with schema '{input_schema}'. "
+                f"Error: {e}",
+            )
+    params = _enforce_params_schema(params, params_schema)
+    if HAS_PYSPARK and isinstance(data, SparkDataFrame):
+        _logger.warning(
+            "Input data is a Spark DataFrame. Note that behaviour for "
+            "Spark DataFrames is model dependent."
+        )
+    return data, params
+
+
 class PyFuncModel:
     """
     MLflow 'python function' model.
@@ -678,6 +702,8 @@ class PyFuncModel:
             self._predict_stream_fn = getattr(model_impl, predict_stream_fn)
         else:
             self._predict_stream_fn = None
+        self.input_schema = self.metadata.get_input_schema()
+        self.params_schema = self.metadata.get_params_schema()
 
     @property
     @developer_stable
@@ -688,30 +714,6 @@ class PyFuncModel:
         NOTE: This is a stable developer API.
         """
         return self.__model_impl
-
-    def _validate_prediction_input(
-        self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None
-    ) -> PyFuncInput:
-        input_schema = self.metadata.get_input_schema()
-        flavor = self.loader_module
-        if input_schema is not None:
-            try:
-                data = _enforce_schema(data, input_schema, flavor)
-            except Exception as e:
-                # Include error in message for backwards compatibility
-                raise MlflowException.invalid_parameter_value(
-                    f"Failed to enforce schema of data '{data}' "
-                    f"with schema '{input_schema}'. "
-                    f"Error: {e}",
-                )
-
-        params = _validate_params(params, self.metadata)
-        if HAS_PYSPARK and isinstance(data, SparkDataFrame):
-            _logger.warning(
-                "Input data is a Spark DataFrame. Note that behaviour for "
-                "Spark DataFrames is model dependent."
-            )
-        return data, params
 
     def _update_dependencies_schemas_in_prediction_context(self, context: Context):
         if self._model_meta and self._model_meta.metadata:
@@ -765,7 +767,9 @@ class PyFuncModel:
         Returns:
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
-        data, params = self._validate_prediction_input(data, params)
+        data, params = _validate_prediction_input(
+            data, params, self.input_schema, self.params_schema, self.loader_module
+        )
         params_arg = inspect.signature(self._predict_fn).parameters.get("params")
         if params_arg and params_arg.kind != inspect.Parameter.VAR_KEYWORD:
             return self._predict_fn(data, params=params)
@@ -803,7 +807,9 @@ class PyFuncModel:
         if self._predict_stream_fn is None:
             raise MlflowException("This model does not support predict_stream method.")
 
-        data, params = self._validate_prediction_input(data, params)
+        data, params = _validate_prediction_input(
+            data, params, self.input_schema, self.params_schema, self.loader_module
+        )
         data = _convert_llm_input_data(data)
         if isinstance(data, list):
             # `predict_stream` only accepts single input.

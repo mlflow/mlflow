@@ -2060,24 +2060,28 @@ def test_pyfunc_model_input_example_with_params(
             expected_example = example
         pd.testing.assert_frame_equal(loaded_example, expected_example)
 
-    # Test model serving
-    if isinstance(example, pd.DataFrame):
-        payload = {"dataframe_split": example.to_dict(orient="split")}
-    else:
-        payload = {"inputs": example}
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=json.dumps(payload),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 200, response.content
-    result = json.loads(response.content.decode("utf-8"))["predictions"]
-    result = pd.DataFrame(result).values.tolist()[0]
-    np.testing.assert_equal(result, expected_df.values.tolist()[0])
+    for test_example in ["saved_example", "manual_example"]:
+        if test_example == "saved_example":
+            payload = mlflow_model.get_serving_input(local_path)
+        else:
+            if isinstance(example, pd.DataFrame):
+                payload = json.dumps({"dataframe_split": example.to_dict(orient="split")})
+            else:
+                payload = json.dumps({"inputs": example})
+
+        response = pyfunc_serve_and_score_model(
+            model_info.model_uri,
+            data=payload,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+            extra_args=["--env-manager", "local"],
+        )
+        assert response.status_code == 200, response.content
+        result = json.loads(response.content.decode("utf-8"))["predictions"]
+        result = pd.DataFrame(result).values.tolist()[0]
+        np.testing.assert_equal(result, expected_df.values.tolist()[0])
 
 
-def test_input_example_validation_during_logging(tmp_path):
+def test_invalid_input_example_warn_when_model_logging():
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
             assert isinstance(model_input, pd.DataFrame)
@@ -2093,15 +2097,108 @@ def test_input_example_validation_during_logging(tmp_path):
         mock_warning.assert_called_once()
         assert "Failed to validate serving input example" in mock_warning.call_args[0][0]
 
-    input_example = pd.DataFrame({"a": [1, 2, 3]})
+
+def assert_equal(a, b):
+    if isinstance(a, pd.DataFrame):
+        pd.testing.assert_frame_equal(a, b)
+    elif isinstance(a, np.ndarray) or isinstance(b, np.ndarray):
+        np.testing.assert_equal(a, b)
+    elif isinstance(a, dict):
+        assert a.keys() == b.keys()
+        for key in a:
+            assert_equal(a[key], b[key])
+    else:
+        assert a == b
+
+
+@pytest.mark.parametrize(
+    ("example", "signature", "expected_input", "expected_output"),
+    [
+        (
+            pd.DataFrame({"a": ["input1", "input2", "input3"]}),
+            ModelSignature(
+                Schema([ColSpec(DataType.string, "a")]), Schema([ColSpec(DataType.string)])
+            ),
+            pd.DataFrame({"a": ["input1", "input2", "input3"]}),
+            "string output",
+        ),
+        (
+            np.array([1, 2, 3]),
+            ModelSignature(
+                Schema([TensorSpec(np.dtype("int64"), (-1,))]),
+                Schema([TensorSpec(np.dtype("float64"), (-1,))]),
+            ),
+            np.array([1, 2, 3]),
+            np.array([1.0, 2.0, 3.0]),
+        ),
+        (
+            {"a": np.array([1, 2, 3])},
+            ModelSignature(
+                Schema([TensorSpec(np.dtype("int64"), (-1,), "a")]),
+                Schema([TensorSpec(np.dtype("float64"), (-1,), "b")]),
+            ),
+            {"a": np.array([1, 2, 3])},
+            {"b": np.array([1.0, 2.0, 3.0])},
+        ),
+        (
+            ["input1", "input2", "input3"],
+            ModelSignature(Schema([ColSpec(DataType.string)]), Schema([ColSpec(DataType.string)])),
+            # This is due to _enforce_schema
+            pd.DataFrame(["input1", "input2", "input3"]),
+            ["input1", "input2", "input3"],
+        ),
+        (
+            [{"a": ["sentence1", "sentence2"], "b": ["answer1", "answer2"]}],
+            ModelSignature(
+                Schema(
+                    [ColSpec(Array(DataType.string), "a"), ColSpec(Array(DataType.string), "b")]
+                ),
+                Schema([ColSpec(DataType.string, "output")]),
+            ),
+            pd.DataFrame([{"a": ["sentence1", "sentence2"], "b": ["answer1", "answer2"]}]),
+            {"output": "some prediction"},
+        ),
+        (
+            {"messages": [{"role": "user", "content": "some question"}]},
+            ModelSignature(
+                Schema(
+                    [
+                        ColSpec(
+                            Array(
+                                Object(
+                                    [
+                                        Property("role", DataType.string),
+                                        Property("content", DataType.string),
+                                    ]
+                                )
+                            ),
+                            "messages",
+                        )
+                    ]
+                ),
+                Schema([ColSpec(DataType.string, "output")]),
+            ),
+            # we assume the field is array so we need another list wrapper
+            pd.DataFrame([{"messages": [{"role": "user", "content": "some question"}]}]),
+            {"output": "some prediction"},
+        ),
+    ],
+)
+def test_input_example_validation_during_logging(
+    tmp_path, example, signature, expected_input, expected_output
+):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            assert_equal(model_input, expected_input)
+            return expected_output
+
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             python_model=MyModel(),
             artifact_path="test_model",
-            input_example=input_example,
+            input_example=example,
         )
-        assert model_info.signature.inputs == Schema([ColSpec(DataType.long, "a")])
-        assert model_info.signature.outputs == Schema([ColSpec(DataType.string)])
+        assert model_info.signature == signature
 
     mlflow_model = Model.load(model_info.model_uri)
     local_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
@@ -2114,7 +2211,7 @@ def test_input_example_validation_during_logging(tmp_path):
     )
     assert response.status_code == 200, response.content
     result = json.loads(response.content.decode("utf-8"))["predictions"]
-    assert result == "string"
+    assert_equal(result, expected_output)
 
 
 def test_pyfunc_schema_inference_not_generate_trace():

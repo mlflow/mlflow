@@ -365,6 +365,8 @@ def _infer_signature_from_input_example(
         based on the `input_example` and the model's outputs based on the prediction from the
         `wrapped_model`.
     """
+    from mlflow.pyfunc import _validate_prediction_input
+
     if input_example is None:
         return None
 
@@ -375,6 +377,11 @@ def _infer_signature_from_input_example(
 
         input_schema = _infer_schema(input_data)
         params_schema = _infer_param_schema(params) if params else None
+        # do the same validation as pyfunc predict to make sure the signature is correctly
+        # applied to the model
+        input_data, params = _validate_prediction_input(
+            input_data, params, input_schema, params_schema
+        )
         prediction = wrapped_model.predict(input_data, params=params)
         # For column-based inputs, 1D numpy arrays likely signify row-based predictions. Thus, we
         # convert them to a Pandas series for inferring as a single ColSpec Schema.

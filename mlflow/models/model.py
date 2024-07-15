@@ -789,7 +789,8 @@ class Model:
                         "uri and serving input example. A serving input example can be generated "
                         "from model input example using "
                         "`mlflow.models.utils.convert_input_example_to_serving_input` function.\n"
-                        f"Got error: {e}"
+                        f"Got error: {e}",
+                        exc_info=_logger.isEnabledFor(logging.DEBUG),
                     )
 
         return model_info
