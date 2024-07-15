@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.genai.base import EvaluationExample
@@ -15,6 +15,7 @@ def answer_similarity(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
     examples: Optional[List[EvaluationExample]] = None,
+    metric_metadata: Optional[Dict[str, Any]] = None,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the answer similarity of an LLM
@@ -37,6 +38,9 @@ def answer_similarity(
         examples: (Optional) Provide a list of examples to help the judge model evaluate the
             answer similarity. It is highly recommended to add examples to be used as a reference to
             evaluate the new results.
+        metric_metadata: (Optional) Dictionary of metadata to be attached to the
+            EvaluationMetric object. Useful for model evaluators that require additional
+            information to determine how to evaluate this metric.
 
     Returns:
         A metric object
@@ -75,6 +79,7 @@ def answer_similarity(
         parameters=answer_similarity_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
+        metric_metadata=metric_metadata,
     )
 
 
@@ -83,6 +88,7 @@ def answer_correctness(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
     examples: Optional[List[EvaluationExample]] = None,
+    metric_metadata: Optional[Dict[str, Any]] = None,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the answer correctness of an LLM
@@ -105,6 +111,9 @@ def answer_correctness(
         examples: Provide a list of examples to help the judge model evaluate the
             answer correctness. It is highly recommended to add examples to be used as a reference
             to evaluate the new results.
+        metric_metadata: (Optional) Dictionary of metadata to be attached to the
+            EvaluationMetric object. Useful for model evaluators that require additional
+            information to determine how to evaluate this metric.
 
     Returns:
         A metric object
@@ -142,6 +151,7 @@ def answer_correctness(
         parameters=answer_correctness_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
+        metric_metadata=metric_metadata,
     )
 
 
@@ -150,6 +160,7 @@ def faithfulness(
     model: Optional[str] = None,
     metric_version: Optional[str] = _get_latest_metric_version(),
     examples: Optional[List[EvaluationExample]] = None,
+    metric_metadata: Optional[Dict[str, Any]] = None,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the faithfullness of an LLM using the
@@ -172,6 +183,9 @@ def faithfulness(
         examples: Provide a list of examples to help the judge model evaluate the
             faithfulness. It is highly recommended to add examples to be used as a reference to
             evaluate the new results.
+        metric_metadata: (Optional) Dictionary of metadata to be attached to the
+            EvaluationMetric object. Useful for model evaluators that require additional
+            information to determine how to evaluate this metric.
 
     Returns:
         A metric object
@@ -208,6 +222,7 @@ def faithfulness(
         parameters=faithfulness_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
+        metric_metadata=metric_metadata,
     )
 
 
@@ -216,6 +231,7 @@ def answer_relevance(
     model: Optional[str] = None,
     metric_version: Optional[str] = _get_latest_metric_version(),
     examples: Optional[List[EvaluationExample]] = None,
+    metric_metadata: Optional[Dict[str, Any]] = None,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the answer relevance of an LLM
@@ -234,6 +250,9 @@ def answer_relevance(
         examples: Provide a list of examples to help the judge model evaluate the
             answer relevance. It is highly recommended to add examples to be used as a reference to
             evaluate the new results.
+        metric_metadata: (Optional) Dictionary of metadata to be attached to the
+            EvaluationMetric object. Useful for model evaluators that require additional
+            information to determine how to evaluate this metric.
 
     Returns:
         A metric object
@@ -268,6 +287,7 @@ def answer_relevance(
         parameters=answer_relevance_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
+        metric_metadata=metric_metadata,
     )
 
 
@@ -275,6 +295,7 @@ def relevance(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
     examples: Optional[List[EvaluationExample]] = None,
+    metric_metadata: Optional[Dict[str, Any]] = None,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the evaluate the relevance of an
@@ -297,6 +318,9 @@ def relevance(
         examples: (Optional) Provide a list of examples to help the judge model evaluate the
             relevance. It is highly recommended to add examples to be used as a reference to
             evaluate the new results.
+        metric_metadata: (Optional) Dictionary of metadata to be attached to the
+            EvaluationMetric object. Useful for model evaluators that require additional
+            information to determine how to evaluate this metric.
 
     Returns:
         A metric object
@@ -334,4 +358,5 @@ def relevance(
         parameters=relevance_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
+        metric_metadata=metric_metadata,
     )
