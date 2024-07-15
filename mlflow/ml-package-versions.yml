@@ -620,7 +620,7 @@ openai:
     install_dev: |
       pip install git+https://github.com/openai/openai-python
   models:
-    minimum: "0.27.2"
+    minimum: "1.0.0"
     maximum: "1.36.1"
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
@@ -640,7 +640,7 @@ langchain:
     install_dev: |
       pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/langchain
   models:
-    minimum: "0.0.244"
+    minimum: "0.1.0"
     maximum: "0.2.10"
     requirements:
       ">= 0.0.0": [
