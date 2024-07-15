@@ -65,6 +65,18 @@ class MlflowGetMetricHistoryBulkIntervalResponse(graphene.ObjectType):
     metrics = graphene.List(graphene.NonNull(MlflowMetricWithRunId))
 
 
+class MlflowFileInfo(graphene.ObjectType):
+    path = graphene.String()
+    is_dir = graphene.Boolean()
+    file_size = LongString()
+
+
+class MlflowListArtifactsResponse(graphene.ObjectType):
+    root_uri = graphene.String()
+    files = graphene.List(graphene.NonNull(MlflowFileInfo))
+    next_page_token = graphene.String()
+
+
 class MlflowDataset(graphene.ObjectType):
     name = graphene.String()
     digest = graphene.String()
@@ -173,6 +185,13 @@ class MlflowGetMetricHistoryBulkIntervalInput(graphene.InputObjectType):
     max_results = graphene.Int()
 
 
+class MlflowListArtifactsInput(graphene.InputObjectType):
+    run_id = graphene.String()
+    run_uuid = graphene.String()
+    path = graphene.String()
+    page_token = graphene.String()
+
+
 class MlflowSearchRunsInput(graphene.InputObjectType):
     experiment_ids = graphene.List(graphene.String)
     filter = graphene.String()
@@ -195,6 +214,7 @@ class QueryType(graphene.ObjectType):
     mlflow_get_experiment = graphene.Field(MlflowGetExperimentResponse, input=MlflowGetExperimentInput())
     mlflow_get_metric_history_bulk_interval = graphene.Field(MlflowGetMetricHistoryBulkIntervalResponse, input=MlflowGetMetricHistoryBulkIntervalInput())
     mlflow_get_run = graphene.Field(MlflowGetRunResponse, input=MlflowGetRunInput())
+    mlflow_list_artifacts = graphene.Field(MlflowListArtifactsResponse, input=MlflowListArtifactsInput())
     mlflow_search_model_versions = graphene.Field(MlflowSearchModelVersionsResponse, input=MlflowSearchModelVersionsInput())
 
     def resolve_mlflow_get_experiment(self, info, input):
@@ -214,6 +234,12 @@ class QueryType(graphene.ObjectType):
         request_message = mlflow.protos.service_pb2.GetRun()
         parse_dict(input_dict, request_message)
         return mlflow.server.handlers.get_run_impl(request_message)
+
+    def resolve_mlflow_list_artifacts(self, info, input):
+        input_dict = vars(input)
+        request_message = mlflow.protos.service_pb2.ListArtifacts()
+        parse_dict(input_dict, request_message)
+        return mlflow.server.handlers.list_artifacts_impl(request_message)
 
     def resolve_mlflow_search_model_versions(self, info, input):
         input_dict = vars(input)

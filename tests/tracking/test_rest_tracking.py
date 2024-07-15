@@ -2294,3 +2294,54 @@ def test_search_runs_graphql(mlflow_client):
         {"info": {"runId": created_run_1.info.run_id}},
     ]
     assert json["data"]["mlflowSearchRuns"]["runs"] == expected
+
+
+def test_list_artifacts_graphql(mlflow_client, tmp_path):
+    name = "GraphqlTest"
+    experiment_id = mlflow_client.create_experiment(name)
+    created_run_id = mlflow_client.create_run(experiment_id).info.run_id
+    file_path = tmp_path / "test.txt"
+    file_path.write_text("hello world")
+    mlflow_client.log_artifact(created_run_id, file_path.absolute().as_posix())
+    mlflow_client.log_artifact(created_run_id, file_path.absolute().as_posix(), "testDir")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": f"""
+                fragment FilesFragment on MlflowListArtifactsResponse {{
+                    files {{
+                        path
+                        isDir
+                        fileSize
+                    }}
+                }}
+
+                query testQuery {{
+                    file: mlflowListArtifacts(input: {{ runId: "{created_run_id}" }}) {{
+                        ...FilesFragment
+                    }}
+                    subdir: mlflowListArtifacts(input: {{
+                        runId: "{created_run_id}",
+                        path: "testDir",
+                    }}) {{
+                        ...FilesFragment
+                    }}
+                }}
+            """,
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+
+    assert response.status_code == 200
+    json = response.json()
+    file_expected = [
+        {"path": "test.txt", "isDir": False, "fileSize": "11"},
+        {"path": "testDir", "isDir": True, "fileSize": "0"},
+    ]
+    assert json["data"]["file"]["files"] == file_expected
+    subdir_expected = [
+        {"path": "testDir/test.txt", "isDir": False, "fileSize": "11"},
+    ]
+    assert json["data"]["subdir"]["files"] == subdir_expected
