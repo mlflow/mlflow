@@ -486,7 +486,8 @@ class TrackingServiceClient:
         """Create an experiment.
 
         Args:
-            name: The experiment name. Must be unique.
+            name: The experiment name, which must be a unique string
+                with maximum length of 500 characters.
             artifact_location: The location to store run artifacts. If not provided, the server
                 picks an appropriate default.
             tags: A dictionary of key-value pairs that are converted into
