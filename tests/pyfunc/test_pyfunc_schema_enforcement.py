@@ -2132,6 +2132,15 @@ def assert_equal(a, b):
             np.array([1.0, 2.0, 3.0]),
         ),
         (
+            np.array([1, 2, 3, np.nan]),
+            ModelSignature(
+                Schema([TensorSpec(np.dtype("float64"), (-1,))]),
+                Schema([TensorSpec(np.dtype("float64"), (-1,))]),
+            ),
+            np.array([1, 2, 3, np.nan]),
+            np.array([1.0, 2.0, 3.0, np.nan]),
+        ),
+        (
             {"a": np.array([1, 2, 3])},
             ModelSignature(
                 Schema([TensorSpec(np.dtype("int64"), (-1,), "a")]),
