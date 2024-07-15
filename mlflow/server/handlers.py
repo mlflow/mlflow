@@ -989,6 +989,13 @@ def _search_runs():
             "order_by": [_assert_array, _assert_item_type_string],
         },
     )
+    response_message = search_runs_impl(request_message)
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+def search_runs_impl(request_message):
     response_message = SearchRuns.Response()
     run_view_type = ViewType.ACTIVE_ONLY
     if request_message.HasField("run_view_type"):
@@ -1004,9 +1011,7 @@ def _search_runs():
     response_message.runs.extend([r.to_proto() for r in run_entities])
     if run_entities.token:
         response_message.next_page_token = run_entities.token
-    response = Response(mimetype="application/json")
-    response.set_data(message_to_json(response_message))
-    return response
+    return response_message
 
 
 @catch_mlflow_exception

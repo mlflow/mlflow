@@ -20,6 +20,12 @@ class MlflowRunStatus(graphene.Enum):
     KILLED = 5
 
 
+class MlflowViewType(graphene.Enum):
+    ACTIVE_ONLY = 1
+    DELETED_ONLY = 2
+    ALL = 3
+
+
 class MlflowModelVersionTag(graphene.ObjectType):
     key = graphene.String()
     value = graphene.String()
@@ -124,6 +130,11 @@ class MlflowRun(graphene.ObjectType):
     inputs = graphene.Field(MlflowRunInputs)
 
 
+class MlflowSearchRunsResponse(graphene.ObjectType):
+    runs = graphene.List(graphene.NonNull('mlflow.server.graphql.graphql_schema_extensions.MlflowRunExtension'))
+    next_page_token = graphene.String()
+
+
 class MlflowGetRunResponse(graphene.ObjectType):
     run = graphene.Field('mlflow.server.graphql.graphql_schema_extensions.MlflowRunExtension')
 
@@ -160,6 +171,15 @@ class MlflowGetMetricHistoryBulkIntervalInput(graphene.InputObjectType):
     start_step = graphene.Int()
     end_step = graphene.Int()
     max_results = graphene.Int()
+
+
+class MlflowSearchRunsInput(graphene.InputObjectType):
+    experiment_ids = graphene.List(graphene.String)
+    filter = graphene.String()
+    run_view_type = graphene.Field(MlflowViewType)
+    max_results = graphene.Int()
+    order_by = graphene.List(graphene.String)
+    page_token = graphene.String()
 
 
 class MlflowGetRunInput(graphene.InputObjectType):
@@ -203,4 +223,10 @@ class QueryType(graphene.ObjectType):
 
 
 class MutationType(graphene.ObjectType):
-    pass
+    mlflow_search_runs = graphene.Field(MlflowSearchRunsResponse, input=MlflowSearchRunsInput())
+
+    def resolve_mlflow_search_runs(self, info, input):
+        input_dict = vars(input)
+        request_message = mlflow.protos.service_pb2.SearchRuns()
+        parse_dict(input_dict, request_message)
+        return mlflow.server.handlers.search_runs_impl(request_message)

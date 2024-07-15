@@ -325,6 +325,7 @@ service MlflowService {
       visibility: PUBLIC,
       rpc_doc_title: "Search Runs",
     };
+    option (graphql) = {};
   }
 
   // List artifacts for a run. Takes an optional ``artifact_path`` prefix which if specified,

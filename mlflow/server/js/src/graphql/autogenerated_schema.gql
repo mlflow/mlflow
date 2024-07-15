@@ -191,8 +191,30 @@ type Test {
 }
 
 type Mutation {
+  mlflowSearchRuns(input: MlflowSearchRunsInput): MlflowSearchRunsResponse
+
   """Simple echoing field"""
   testMutation(inputString: String): TestMutation
+}
+
+type MlflowSearchRunsResponse {
+  runs: [MlflowRunExtension!]
+  nextPageToken: String
+}
+
+input MlflowSearchRunsInput {
+  experimentIds: [String]
+  filter: String
+  runViewType: MlflowViewType = null
+  maxResults: Int
+  orderBy: [String]
+  pageToken: String
+}
+
+enum MlflowViewType {
+  ACTIVE_ONLY
+  DELETED_ONLY
+  ALL
 }
 
 type TestMutation {
