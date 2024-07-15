@@ -465,9 +465,9 @@ service MlflowService {
         path: "mlflow/experiments/search-datasets"
         since { major: 2, minor: 0 },
       }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Search Datasets",
+      visibility: PUBLIC_UNDOCUMENTED,
     };
+    option (graphql) = {};
   }
 
   // Start a new trace within an experiment.
@@ -760,17 +760,6 @@ message Dataset {
   // in a table, the mean / std / mode of each column in a table, or the number of elements
   // in an array.
   optional string profile = 6;
-}
-
-message DatasetSummary {
-  // The name of the dataset
-  optional string name = 1;
-  // An md5 hash of the dataset that uniquely identifies it within datasets of the same name
-  optional string digest = 2;
-  // User-supplied string describing the context in which the dataset is used
-  optional string context = 3;
-  // The ID of the experiment that the dataset was logged to
-  optional string experiment_id = 4;
 }
 
 message CreateExperiment {
@@ -1492,13 +1481,31 @@ message DeleteTraceTag {
   }
 }
 
+// DatasetSummary. Represents a summary of information about a dataset.
+message DatasetSummary {
+  // Unique identifier for the experiment.
+  optional string experiment_id = 1 [(validate_required) = true];
+
+  // The name of the dataset. E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
+  optional string name = 2 [(validate_required) = true];
+
+  // Dataset digest, e.g. an md5 hash of the dataset that uniquely identifies it
+  // within datasets of the same name.
+  optional string digest = 3 [(validate_required) = true];
+
+  // Value of "context" tag if set for the given dataset.
+  optional string context = 4;
+}
+
 message SearchDatasets {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // List of experiment IDs to search over.
   repeated string experiment_ids = 1;
 
   message Response {
+    // Return the summary for most recently created N datasets, as configured in backend
     repeated DatasetSummary dataset_summaries = 1;
   }
 }

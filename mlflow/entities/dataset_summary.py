@@ -48,7 +48,8 @@ class _DatasetSummary:
         dataset_summary.experiment_id = self.experiment_id
         dataset_summary.name = self.name
         dataset_summary.digest = self.digest
-        dataset_summary.context = self.context
+        if self.context:
+            dataset_summary.context = self.context
         return dataset_summary
 
     @classmethod
