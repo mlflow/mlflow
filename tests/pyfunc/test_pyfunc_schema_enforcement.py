@@ -2003,25 +2003,32 @@ def test_enforce_schema_with_arrays_in_python_model_serving(sample_params_with_a
 
 
 @pytest.mark.parametrize(
-    ("example", "schema"),
+    ("example", "input_schema", "output_schema"),
     [
-        (["input1", "input2", "input3"], Schema([ColSpec(DataType.string)])),
+        (
+            ["input1", "input2", "input3"],
+            Schema([ColSpec(DataType.string)]),
+            Schema([ColSpec(DataType.string, 0)]),
+        ),
         (
             [{"a": "a", "b": "b"}, {"a": "b"}],
+            Schema([ColSpec(DataType.string, "a"), ColSpec(DataType.string, "b", required=False)]),
             Schema([ColSpec(DataType.string, "a"), ColSpec(DataType.string, "b", required=False)]),
         ),
         (
             {"a": ["a", "b", "c"], "b": "b"},
             Schema([ColSpec(Array(DataType.string), "a"), ColSpec(DataType.string, "b")]),
+            Schema([ColSpec(Array(DataType.string), "a"), ColSpec(DataType.string, "b")]),
         ),
         (
             pd.DataFrame({"a": ["a", "b", "c"], "b": "b"}),
+            Schema([ColSpec(DataType.string, "a"), ColSpec(DataType.string, "b")]),
             Schema([ColSpec(DataType.string, "a"), ColSpec(DataType.string, "b")]),
         ),
     ],
 )
 def test_pyfunc_model_input_example_with_params(
-    sample_params_basic, param_schema_basic, tmp_path, example, schema
+    sample_params_basic, param_schema_basic, tmp_path, example, input_schema, output_schema
 ):
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
@@ -2035,8 +2042,8 @@ def test_pyfunc_model_input_example_with_params(
         )
 
     # Test _infer_signature_from_input_example
-    assert model_info.signature.inputs == schema
-    assert model_info.signature.outputs == schema
+    assert model_info.signature.inputs == input_schema
+    assert model_info.signature.outputs == output_schema
     assert model_info.signature.params == param_schema_basic
 
     # Test predict
@@ -2084,7 +2091,9 @@ def test_pyfunc_model_input_example_with_params(
 def test_invalid_input_example_warn_when_model_logging():
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
-            assert isinstance(model_input, pd.DataFrame)
+            # List[str] is converted to pandas DataFrame
+            # after schema enforcement, so this is invalid
+            assert isinstance(model_input, list)
             return "string"
 
     with mock.patch("mlflow.models.model._logger.warning") as mock_warning:

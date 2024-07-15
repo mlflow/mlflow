@@ -702,8 +702,6 @@ class PyFuncModel:
             self._predict_stream_fn = getattr(model_impl, predict_stream_fn)
         else:
             self._predict_stream_fn = None
-        self.input_schema = self.metadata.get_input_schema()
-        self.params_schema = self.metadata.get_params_schema()
 
     @property
     @developer_stable
@@ -767,6 +765,9 @@ class PyFuncModel:
         Returns:
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
+        # fetch the schema from metadata to avoid signature change after model is loaded
+        self.input_schema = self.metadata.get_input_schema()
+        self.params_schema = self.metadata.get_params_schema()
         data, params = _validate_prediction_input(
             data, params, self.input_schema, self.params_schema, self.loader_module
         )
@@ -807,6 +808,8 @@ class PyFuncModel:
         if self._predict_stream_fn is None:
             raise MlflowException("This model does not support predict_stream method.")
 
+        self.input_schema = self.metadata.get_input_schema()
+        self.params_schema = self.metadata.get_params_schema()
         data, params = _validate_prediction_input(
             data, params, self.input_schema, self.params_schema, self.loader_module
         )

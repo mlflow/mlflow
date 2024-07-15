@@ -69,6 +69,11 @@ EXAMPLE_FILENAME = "input_example.json"
 SERVING_INPUT_PATH = "serving_input_path"
 SERVING_INPUT_FILENAME = "serving_input_payload.json"
 
+# TODO: import from scoring_server after refactoring
+DF_SPLIT = "dataframe_split"
+INPUTS = "inputs"
+SERVING_PARAMS_KEY = "params"
+
 ModelInputExample = Union[
     pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes, tuple
 ]
@@ -147,8 +152,6 @@ def _handle_ndarray_nans(x: np.ndarray):
 
 
 def _handle_ndarray_input(input_array: Union[np.ndarray, dict]):
-    from mlflow.pyfunc.scoring_server import INPUTS
-
     if isinstance(input_array, dict):
         result = {}
         for name in input_array.keys():
@@ -255,11 +258,6 @@ class _Example:
     """
 
     def __init__(self, input_example: ModelInputExample, no_conversion: bool = False):
-        # TODO: import from scoring_server after refactoring
-        DF_SPLIT = "dataframe_split"
-        INPUTS = "inputs"
-        SERVING_PARAMS_KEY = "params"
-
         try:
             import pyspark.sql
 
