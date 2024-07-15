@@ -255,7 +255,10 @@ class _Example:
     """
 
     def __init__(self, input_example: ModelInputExample, no_conversion: bool = False):
-        from mlflow.pyfunc.scoring_server import DF_SPLIT, INPUTS, SERVING_PARAMS_KEY
+        # TODO: import from scoring_server after refactoring
+        DF_SPLIT = "dataframe_split"
+        INPUTS = "inputs"
+        SERVING_PARAMS_KEY = "params"
 
         try:
             import pyspark.sql
