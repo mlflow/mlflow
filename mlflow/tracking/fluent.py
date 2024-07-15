@@ -829,6 +829,7 @@ def log_metrics(
     metrics: Dict[str, float],
     step: Optional[int] = None,
     synchronous: Optional[bool] = None,
+    timestamp: Optional[int] = None,
     run_id: Optional[str] = None,
 ) -> Optional[RunOperations]:
     """
@@ -842,6 +843,7 @@ def log_metrics(
             max / min float values.
         step: A single integer step at which to log the specified
             Metrics. If unspecified, each metric is logged at step zero.
+        timestamp: Time when these metrics were calculated. Defaults to the current system time.
         synchronous: *Experimental* If True, blocks until the metrics are logged
             successfully. If False, logs the metrics asynchronously and
             returns a future representing the logging operation. If None, read from environment
@@ -869,7 +871,7 @@ def log_metrics(
             mlflow.log_metrics(metrics, synchronous=False)
     """
     run_id = run_id or _get_or_start_run().info.run_id
-    timestamp = get_current_time_millis()
+    timestamp = timestamp or get_current_time_millis()
     metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_batch(
