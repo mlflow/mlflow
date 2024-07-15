@@ -871,15 +871,8 @@ def log_metrics(
             mlflow.log_metrics(metrics, synchronous=False)
     """
     run_id = run_id or _get_or_start_run().info.run_id
-    metrics_arr = [
-        Metric(
-            key,
-            value,
-            timestamp or get_current_time_millis(),
-            step or 0,
-        )
-        for key, value in metrics.items()
-    ]
+    timestamp = timestamp or get_current_time_millis(),
+    metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_batch(
         run_id=run_id, metrics=metrics_arr, params=[], tags=[], synchronous=synchronous
