@@ -11,14 +11,12 @@ The API is hosted under the ``/api`` route on the MLflow tracking server. For ex
 experiments on a tracking server hosted at ``http://localhost:5000``, make a POST request to
 ``http://localhost:5000/api/2.0/mlflow/experiments/search``.
 
-.. important::
-    The MLflow REST API requires content type ``application/json`` for all POST requests.
-
 .. contents:: Table of Contents
     :local:
     :depth: 1
 
 ===========================
+
 
 
 .. _mlflowMlflowServicecreateExperiment:
@@ -813,8 +811,7 @@ Log Inputs
 | ``2.0/mlflow/runs/log-inputs`` | ``POST``    |
 +--------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
+
 
 
 
@@ -826,8 +823,7 @@ Request Structure
 
 
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
+
 
 
 +------------+---------------------------------------+----------------------------+
@@ -1029,7 +1025,7 @@ Request Structure
 |            |            | This field is required.                                                                      |
 |            |            |                                                                                              |
 +------------+------------+----------------------------------------------------------------------------------------------+
-| value      | ``STRING`` | String value of the param being logged. Maximum size is 500 bytes.                           |
+| value      | ``STRING`` | String value of the param being logged. Maximum size is 6000 bytes.                          |
 |            |            | This field is required.                                                                      |
 |            |            |                                                                                              |
 +------------+------------+----------------------------------------------------------------------------------------------+
@@ -1590,12 +1586,11 @@ Request Structure
 Get Latest ModelVersions
 ========================
 
-.. warning:: Model Stages are deprecated and will be removed in a future major release. To learn more about this deprecation, see our :ref:`migration guide<migrating-from-stages>`.
 
 +------------------------------------------------------+-------------+
 |                       Endpoint                       | HTTP Method |
 +======================================================+=============+
-| ``2.0/mlflow/registered-models/get-latest-versions`` | ``GET``     |
+| ``2.0/mlflow/registered-models/get-latest-versions`` | ``POST``    |
 +------------------------------------------------------+-------------+
 
 
@@ -2006,7 +2001,6 @@ Response Structure
 Transition ModelVersion Stage
 =============================
 
-.. warning:: Model Stages are deprecated and will be removed in a future major release. To learn more about this deprecation, see our :ref:`migration guide<migrating-from-stages>`.
 
 +------------------------------------------------+-------------+
 |                    Endpoint                    | HTTP Method |
@@ -2490,9 +2484,6 @@ Dataset
 
 
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
-
 Dataset. Represents a reference to data used for training, testing, or evaluation during
 the model development process.
 
@@ -2532,9 +2523,6 @@ DatasetInput
 ------------
 
 
-
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 DatasetInput. Represents a dataset and input tags.
 
@@ -2622,9 +2610,6 @@ InputTag
 --------
 
 
-
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 Tag for an input.
 
@@ -2897,9 +2882,6 @@ RunInputs
 ---------
 
 
-
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 Run inputs.
 
