@@ -1683,7 +1683,8 @@ def create_experiment(
     Create an experiment.
 
     Args:
-        name: The experiment name, which must be unique and is case sensitive.
+        name: The experiment name, which must be a unique string with maximum
+            length of 500 characters, and it is case sensitive.
         artifact_location: The location to store run artifacts. If not provided, the server picks
             an appropriate default.
         tags: An optional dictionary of string keys and values to set as tags on the experiment.

@@ -52,6 +52,7 @@ MAX_ENTITIES_PER_BATCH = 1000
 MAX_BATCH_LOG_REQUEST_SIZE = int(1e6)
 MAX_PARAM_VAL_LENGTH = 6000
 MAX_TAG_VAL_LENGTH = 5000
+MAX_EXPERIMENT_NAME_LENGTH = 500
 MAX_EXPERIMENT_TAG_KEY_LENGTH = 250
 MAX_EXPERIMENT_TAG_VAL_LENGTH = 5000
 MAX_ENTITY_KEY_LENGTH = 250
@@ -369,6 +370,11 @@ def _validate_experiment_name(experiment_name):
         raise MlflowException(
             f"Invalid experiment name: {experiment_name}. Expects a string.",
             error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if len(experiment_name) > MAX_EXPERIMENT_NAME_LENGTH:
+        raise MlflowException.invalid_parameter_value(
+            f"Experiment name exceeds the maximum length of {MAX_EXPERIMENT_NAME_LENGTH} characters"
         )
 
 

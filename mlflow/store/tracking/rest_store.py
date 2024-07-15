@@ -51,6 +51,7 @@ from mlflow.utils.rest_utils import (
     get_single_trace_endpoint,
     get_trace_info_endpoint,
 )
+from mlflow.utils.validation import _validate_experiment_name
 
 _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _logger = logging.getLogger(__name__)
@@ -110,11 +111,13 @@ class RestStore(AbstractStore):
         If an experiment with the given name already exists, throws exception.
 
         Args:
-            name: Desired name for an experiment
+            name: Desired name for an experiment. The name must be a string
+                with maximum length of 500 characters.
 
         Returns:
             experiment_id for the newly created experiment if successful, else None
         """
+        _validate_experiment_name(name)
         tag_protos = [tag.to_proto() for tag in tags] if tags else []
         req_body = message_to_json(
             CreateExperiment(name=name, artifact_location=artifact_location, tags=tag_protos)

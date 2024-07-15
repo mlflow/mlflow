@@ -50,6 +50,7 @@ from mlflow.utils.name_utils import _EXPERIMENT_ID_FIXED_WIDTH, _GENERATOR_PREDI
 from mlflow.utils.os import is_windows
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import append_to_uri_path
+from mlflow.utils.validation import MAX_EXPERIMENT_NAME_LENGTH
 
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
 
@@ -589,6 +590,8 @@ def test_create_experiment(store):
         store.create_experiment(None)
     with pytest.raises(Exception, match="Invalid experiment name: ''"):
         store.create_experiment("")
+    with pytest.raises(MlflowException, match=r"Experiment name exceeds the maximum length"):
+        store.create_experiment(name="x" * (MAX_EXPERIMENT_NAME_LENGTH + 1))
     name = random_str(25)  # since existing experiments are 10 chars long
     time_before_create = get_current_time_millis()
     created_id = store.create_experiment(name)
