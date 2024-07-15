@@ -67,7 +67,7 @@ EXAMPLE_DATA_KEY = "inputs"
 EXAMPLE_PARAMS_KEY = "params"
 EXAMPLE_FILENAME = "input_example.json"
 SERVING_INPUT_PATH = "serving_input_path"
-SERVING_INPUT_FILENAME = "serving_input.json"
+SERVING_INPUT_FILENAME = "serving_input_payload.json"
 
 ModelInputExample = Union[
     pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes, tuple
