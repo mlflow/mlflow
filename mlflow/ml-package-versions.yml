@@ -645,6 +645,7 @@ langchain:
       ">= 0.0.0": [
           "pyspark",
           "transformers",
+          "tensorflow",
           "openai",
           "google-search-results",
           "psutil",
@@ -653,6 +654,7 @@ langchain:
           "numexpr",
           "hf_transfer",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
+          "typing_extensions>=4.6.0",
         ]
       ">= 0.2": ["langchain-huggingface"]
     run: |
@@ -675,8 +677,6 @@ langchain:
     requirements:
       ">= 0.0.0": [
           "pyspark",
-          "transformers",
-          "tensorflow",
           "openai",
           "google-search-results",
           "psutil",
