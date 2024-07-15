@@ -255,7 +255,7 @@ class _Example:
     """
 
     def __init__(self, input_example: ModelInputExample, no_conversion: bool = False):
-        from mlflow.pyfunc.scoring_server import DF_SPLIT, INPUTS
+        from mlflow.pyfunc.scoring_server import DF_SPLIT, INPUTS, SERVING_PARAMS_KEY
 
         try:
             import pyspark.sql
@@ -373,6 +373,20 @@ class _Example:
                     }
                 )
 
+        if self._inference_params is not None:
+            self.data = {EXAMPLE_DATA_KEY: self.data, EXAMPLE_PARAMS_KEY: self._inference_params}
+            self.serving_input = {
+                **(self.serving_input or {}),
+                SERVING_PARAMS_KEY: self._inference_params,
+            }
+
+        self.json_data = json.dumps(self.data, cls=NumpyEncoder)
+        if self.serving_input:
+            self.json_serving_input = json.dumps(self.serving_input, cls=NumpyEncoder)
+            self.info[SERVING_INPUT_PATH] = SERVING_INPUT_FILENAME
+        else:
+            self.json_serving_input = None
+
     # TODO: isolate to make sure `artifact_path` saves an example that can be
     # directly passed to model.predict. `serving_input_path` saves an example that
     # can be directly passed to model serving inference.
@@ -381,20 +395,11 @@ class _Example:
         Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`.
         Save serving input as json at ``parent_dir_path``/`self.info['serving_input_path']`.
         """
-        from mlflow.pyfunc.scoring_server import SERVING_PARAMS_KEY
-
-        if self._inference_params is not None:
-            data = {EXAMPLE_DATA_KEY: self.data, EXAMPLE_PARAMS_KEY: self._inference_params}
-            serving_input = {**self.serving_input, SERVING_PARAMS_KEY: self._inference_params}
-        else:
-            data = self.data
-            serving_input = self.serving_input
         with open(os.path.join(parent_dir_path, self.info[INPUT_EXAMPLE_PATH]), "w") as f:
-            json.dump(data, f, cls=NumpyEncoder)
-        if serving_input:
-            self.info[SERVING_INPUT_PATH] = SERVING_INPUT_FILENAME
+            f.write(self.json_data)
+        if self.json_serving_input:
             with open(os.path.join(parent_dir_path, self.info[SERVING_INPUT_PATH]), "w") as f:
-                json.dump(serving_input, f, cls=NumpyEncoder)
+                f.write(self.json_serving_input)
 
     @property
     def inference_data(self):
@@ -419,6 +424,28 @@ def _contains_params(input_example):
         and len(input_example) == 2
         and isinstance(input_example[1], dict)
     )
+
+
+def convert_input_example_to_serving_input(
+    input_example, example_no_conversion=False
+) -> Optional[str]:
+    """
+    Helper function to convert a model's input example to a serving input example that
+    can be used for model inference in the scoring server.
+
+    Args:
+        input_example: model input example
+        example_no_conversion: If True, the input example is not converted and directly
+            saved as a json object. Default to False.
+
+    Returns:
+        serving input example as a json string
+    """
+    if input_example is None:
+        return None
+
+    example = _Example(input_example, no_conversion=example_no_conversion)
+    return example.json_serving_input
 
 
 def _save_example(

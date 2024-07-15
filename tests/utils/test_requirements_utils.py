@@ -630,9 +630,7 @@ def test_capture_imported_modules_with_exception():
             raise Exception("Test exception")
             import sklearn  # noqa: F401
 
-    with mlflow.start_run(), mock.patch(
-        "mlflow.models.model.Model.get_serving_input", return_value=None
-    ):
+    with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             "model",
             python_model=TestModel(),

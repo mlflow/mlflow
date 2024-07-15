@@ -1,5 +1,6 @@
 import json
 import math
+from unittest import mock
 
 import numpy as np
 import pandas as pd
@@ -10,7 +11,6 @@ from sklearn import datasets
 from sklearn.base import BaseEstimator, ClassifierMixin
 
 import mlflow
-from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import (
@@ -365,11 +365,13 @@ def test_infer_signature_raises_if_predict_on_input_example_fails(monkeypatch):
         def predict(self, X):
             raise Exception("oh no!")
 
-    with pytest.raises(MlflowException, match="Failed to validate serving input example."):
+    with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
         with mlflow.start_run():
             mlflow.sklearn.log_model(
                 ErrorModel(), artifact_path="model", input_example=np.array([[1]])
             )
+        mock_warning.assert_called_once()
+        assert "Failed to validate serving input example" in mock_warning.call_args[0][0]
 
 
 @pytest.fixture(scope="module")

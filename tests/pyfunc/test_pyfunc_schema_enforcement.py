@@ -2083,13 +2083,15 @@ def test_input_example_validation_during_logging(tmp_path):
             assert isinstance(model_input, pd.DataFrame)
             return "string"
 
-    with pytest.raises(MlflowException, match=r"Failed to validate serving input example\."):
+    with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
         with mlflow.start_run():
             mlflow.pyfunc.log_model(
                 python_model=MyModel(),
                 artifact_path="test_model",
                 input_example=["some string"],
             )
+        mock_warning.assert_called_once()
+        assert "Failed to validate serving input example" in mock_warning.call_args[0][0]
 
     input_example = pd.DataFrame({"a": [1, 2, 3]})
     with mlflow.start_run():

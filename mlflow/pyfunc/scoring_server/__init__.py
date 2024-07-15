@@ -341,7 +341,7 @@ def invocations(data, content_type, model, input_schema):
         parsed_json_input = _parse_json_data(data, model.metadata, input_schema)
         data = parsed_json_input.data
         params = parsed_json_input.params
-        should_parse_as_unified_llm_input = parsed_json_input.should_parse_as_unified_llm_input
+        should_parse_as_unified_llm_input = parsed_json_input.is_unified_llm_input
     else:
         return InvocationsResponse(
             response=(
@@ -354,7 +354,7 @@ def invocations(data, content_type, model, input_schema):
         )
 
     # Do the prediction
-    # NB: Model.log mimic the scoring process here to validate input_example
+    # NB: utils.validate_serving_input mimic the scoring process here to validate input_example
     # work for serving, so any changes here should be reflected there as well
     try:
         if inspect.signature(model.predict).parameters.get("params"):
@@ -402,18 +402,13 @@ def _should_parse_as_unified_llm_input(json_input: dict):
 class ParsedJsonInput(NamedTuple):
     data: Any
     params: Optional[Dict]
-    should_parse_as_unified_llm_input: bool
+    is_unified_llm_input: bool
 
 
 def _parse_json_data(data, metadata, input_schema):
-    """
-    This function is used for data parsing before invoking the model's predict method.
-    It is used in Model.log to validate input_example work for serving as well, so
-    any changes here should be reflected there as well.
-    """
     json_input = _decode_json_input(data)
-    should_parse_as_unified_llm_input = _should_parse_as_unified_llm_input(json_input)
-    if should_parse_as_unified_llm_input:
+    is_unified_llm_input = _should_parse_as_unified_llm_input(json_input)
+    if is_unified_llm_input:
         # Unified LLM input format
         if hasattr(metadata, "get_params_schema"):
             params_schema = metadata.get_params_schema()
@@ -424,7 +419,7 @@ def _parse_json_data(data, metadata, input_schema):
         # Traditional json input format
         data, params = _split_data_and_params(data)
         data = infer_and_parse_data(data, input_schema)
-    return ParsedJsonInput(data, params, should_parse_as_unified_llm_input)
+    return ParsedJsonInput(data, params, is_unified_llm_input)
 
 
 def init(model: PyFuncModel):

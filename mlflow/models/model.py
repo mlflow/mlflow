@@ -775,34 +775,22 @@ class Model:
                     "signature is not provided when logging the model."
                 )
             if serving_input:
-                try:
-                    # sklearn model might not have python_function flavor if it
-                    # doesn't define a predict function.
-                    # we should not fail if pyfunc model does not exist as the
-                    # model can not be served anyways
-                    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
-                except Exception as e:
-                    _logger.debug(
-                        f"Failed to load model for serving validation: {e}", exc_info=True
-                    )
-                else:
-                    from mlflow.pyfunc.scoring_server import _parse_json_data
+                from mlflow.pyfunc.scoring_server.utils import validate_serving_input
 
-                    try:
-                        parsed_input = _parse_json_data(
-                            serving_input,
-                            pyfunc_model.metadata,
-                            pyfunc_model.metadata.get_input_schema(),
-                        )
-                        pyfunc_model.predict(parsed_input.data, params=parsed_input.params)
-                    except Exception as e:
-                        _logger.debug("", exc_info=True)
-                        raise MlflowException.invalid_parameter_value(
-                            "Failed to validate serving input example. Please ensure that the "
-                            "input example is valid and the model's predict() method can accept "
-                            "it. Got error when calling predict() on the serving input example "
-                            f"`{serving_input}`: {e}",
-                        )
+                try:
+                    validate_serving_input(model_info.model_uri, serving_input)
+                except Exception as e:
+                    _logger.warning(
+                        f"Failed to validate serving input example {serving_input}. "
+                        "Alternatively, you can avoid passing input example and pass model "
+                        "signature instead when logging the model. To ensure the input example "
+                        "is valid prior serving, please try calling "
+                        "`mlflow.pyfunc.scoring_server.utils.validate_serving_input` on the model "
+                        "uri and serving input example. A serving input example can be generated "
+                        "from model input example using "
+                        "`mlflow.models.utils.convert_input_example_to_serving_input` function.\n"
+                        f"Got error: {e}"
+                    )
 
         return model_info
 
