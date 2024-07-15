@@ -341,6 +341,7 @@ service MlflowService {
       visibility: PUBLIC,
       rpc_doc_title: "List Artifacts",
     };
+    option (graphql) = {};
   }
 
   // Get a list of all values for the specified metric for a given run.
