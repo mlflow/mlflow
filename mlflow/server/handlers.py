@@ -133,6 +133,9 @@ _tracking_store = None
 _model_registry_store = None
 _artifact_repo = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
+MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
+MAX_RESULTS_PER_RUN = 2500
+MAX_RESULTS_GET_METRIC_HISTORY = 25000
 
 
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
