@@ -440,6 +440,7 @@ from mlflow.models.utils import (
     _enforce_schema,
     _load_model_code_path,
     _save_example,
+    _split_input_data_and_params,
     _validate_and_get_model_code_path,
 )
 from mlflow.protos.databricks_pb2 import (
@@ -2468,7 +2469,7 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
-    saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+    saved_example = None
 
     hints = None
     if signature is not None:
@@ -2493,18 +2494,24 @@ def save_model(
                 CHAT_MODEL_OUTPUT_SCHEMA,
             )
             input_example = input_example or CHAT_MODEL_INPUT_EXAMPLE
+            input_example, input_params = _split_input_data_and_params(input_example)
 
             if isinstance(input_example, list):
                 params = ChatParams()
-                messages = [
-                    each_message
-                    for each_message in input_example
-                    if isinstance(each_message, ChatMessage)
-                ]
+                messages = []
+                for each_message in input_example:
+                    if isinstance(each_message, ChatMessage):
+                        messages.append(each_message)
+                    else:
+                        messages.append(ChatMessage(**each_message))
             else:
                 # If the input example is a dictionary, convert it to ChatMessage format
                 messages = [ChatMessage(**m) for m in input_example["messages"]]
                 params = ChatParams(**{k: v for k, v in input_example.items() if k != "messages"})
+            input_example = (
+                {"messages": [m.to_dict() for m in messages]},
+                {**params.to_dict(), **(input_params or {})},
+            )
 
             # call load_context() first, as predict may depend on it
             _logger.info("Predicting on input example to validate output")
@@ -2519,6 +2526,7 @@ def save_model(
                     "`ChatResponse(**output)`",
                 )
         elif isinstance(python_model, PythonModel):
+            saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
             input_arg_index = 1  # second argument
             if signature := _infer_signature_from_type_hints(
                 python_model.predict,
@@ -2539,6 +2547,8 @@ def save_model(
 
     if metadata is not None:
         mlflow_model.metadata = metadata
+    if saved_example is None:
+        saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
 
     with _get_dependencies_schemas() as dependencies_schemas:
         schema = dependencies_schemas.to_dict()

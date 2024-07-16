@@ -276,22 +276,19 @@ class _Example:
 
         # Avoid changing the variable passed in
         input_example = deepcopy(input_example)
-        if _contains_params(input_example):
-            input_example, self._inference_params = input_example
-            _validate_params(self._inference_params)
+        input_example, self._inference_params = _split_input_data_and_params(input_example)
+        if self._inference_params:
             self.info[EXAMPLE_PARAMS_KEY] = "true"
-        else:
-            self._inference_params = None
         self._inference_data = input_example
 
+        parsed_as_unified_llm_input = False
         if no_conversion:
             from mlflow.pyfunc.scoring_server import _should_parse_as_unified_llm_input
 
             self.info["type"] = "json_object"
             self.data = input_example
-            if isinstance(input_example, dict) and _should_parse_as_unified_llm_input(
-                input_example
-            ):
+            parsed_as_unified_llm_input = _should_parse_as_unified_llm_input(input_example)
+            if isinstance(input_example, dict) and parsed_as_unified_llm_input:
                 self.serving_input = input_example
             else:
                 self.serving_input = {INPUTS: input_example}
@@ -376,10 +373,16 @@ class _Example:
 
         if self._inference_params is not None:
             self.data = {EXAMPLE_DATA_KEY: self.data, EXAMPLE_PARAMS_KEY: self._inference_params}
-            self.serving_input = {
-                **(self.serving_input or {}),
-                SERVING_PARAMS_KEY: self._inference_params,
-            }
+            if parsed_as_unified_llm_input:
+                self.serving_input = {
+                    **(self.serving_input or {}),
+                    **self._inference_params,
+                }
+            else:
+                self.serving_input = {
+                    **(self.serving_input or {}),
+                    SERVING_PARAMS_KEY: self._inference_params,
+                }
 
         self.json_data = json.dumps(self.data, cls=NumpyEncoder)
         if self.serving_input:
@@ -425,6 +428,14 @@ def _contains_params(input_example):
         and len(input_example) == 2
         and isinstance(input_example[1], dict)
     )
+
+
+def _split_input_data_and_params(input_example):
+    if _contains_params(input_example):
+        input_data, inference_params = input_example
+        _validate_params(inference_params)
+        return input_data, inference_params
+    return input_example, None
 
 
 def convert_input_example_to_serving_input(

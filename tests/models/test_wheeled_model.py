@@ -1,4 +1,3 @@
-import json
 import os
 import random
 import re
@@ -29,6 +28,7 @@ from mlflow.utils.environment import (
 from tests.helper_functions import (
     _is_available_on_pypi,
     _mlflow_major_version_string,
+    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 
@@ -328,20 +328,21 @@ def test_serving_wheeled_model(sklearn_knn_model):
 
     # Log a model
     with mlflow.start_run():
-        mlflow.sklearn.log_model(
+        model_info = mlflow.sklearn.log_model(
             sk_model=model,
             artifact_path=artifact_path,
             registered_model_name=model_name,
+            input_example=pd.DataFrame(inference_data),
         )
 
     # Re-log with wheels
     with mlflow.start_run():
         WheeledModel.log_model(model_uri=model_uri)
 
-    data = json.dumps({"dataframe_split": pd.DataFrame(inference_data).to_dict(orient="split")})
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
         wheeled_model_uri,
-        data=data,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
