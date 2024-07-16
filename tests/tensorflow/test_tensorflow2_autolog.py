@@ -24,6 +24,7 @@ from mlflow.models.utils import _read_example
 from mlflow.tensorflow import load_checkpoint
 from mlflow.tensorflow.autologging import _TensorBoard
 from mlflow.tensorflow.callback import MlflowCallback
+from mlflow.tracking import _get_store
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
@@ -37,6 +38,13 @@ SavedModelInfo = collections.namedtuple(
     "SavedModelInfo",
     ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"],
 )
+
+
+@pytest.fixture(autouse=True)
+def flush_async_logging():
+    """Flush async logging after each test to avoid interference between tests"""
+    yield
+    _get_store().end_async_logging()
 
 
 @pytest.fixture(autouse=True)
