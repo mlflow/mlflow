@@ -117,7 +117,7 @@ describe('Artifact page, artifact files rendering integration test', () => {
   });
   it.each(artifactTestCases)('renders artifact file: %s', async (fileName) => {
     const fileContents = loadLocalArtifactFixtureFile(fileName);
-    const baseFilename = last(fileName.split('/'))!;
+    const baseFilename = last(fileName.split('/')) ?? '';
 
     const runTags = createRunTagsForFile(baseFilename);
 
