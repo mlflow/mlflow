@@ -711,7 +711,9 @@ llama_index:
     maximum: "0.10.53"
     requirements:
       ">= 0.0.0": ["openai"]
-    run:
+      # LlamaIndex doesn't pin upper bounds on the core package.
+      "< 0.10.35": ["llama-index-core<0.10.35"]
+    run: |
       # TODO: Add --ignore flag for autologging test once it's implemented
       pytest tests/llama_index
 
