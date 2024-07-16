@@ -457,12 +457,7 @@ class StreamResolver:
 
         _end_span(client=self._client, span=span, status=status, outputs=outputs)
 
-        # Extract the complete text generated from the stream
-        # TODO: This may not be 100% correct, because the element of generator can be tweaked
-        #   in a parent generator function. However, it does not seem to happen in current
-        #   LlamaIndex streaming impl. Also it's technically challenging to get the full
-        #   response for those modified generators, because the streaming events are only
-        #   emitted from LLM classes.
+        # Extract the complete text from the event.
         if isinstance(outputs, ChatResponse):
             output_text = outputs.message.content
         elif isinstance(outputs, CompletionResponse):
@@ -470,10 +465,12 @@ class StreamResolver:
         else:
             output_text = None
 
+        # Recursively resolve the parent spans that are also waiting for the same token
+        # stream to be exhausted.
         while span.parent_id in self._span_id_to_span_and_gen:
             span, stream = self._span_id_to_span_and_gen.pop(span.parent_id)
-            # Check if the generator is still running. The LLMxxxEndEvent is emitted inside the
-            # generator function after emitting the last element. Therefore, the parent generators
-            # should still be running as well at this point.
             if stream is not None:
+                # We reuse the same output text for parent spans. This may not be 100% correct
+                # as token stream can be modified by callers. However, it is technically
+                # challenging to track the modified stream across multiple spans.
                 _end_span(client=self._client, span=span, status=status, outputs=output_text)

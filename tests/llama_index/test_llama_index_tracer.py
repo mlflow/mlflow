@@ -24,17 +24,17 @@ from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 
 
-def _get_all_traces() -> List[Trace]:
-    """Utility function to get all traces in the test experiment."""
-    return mlflow.MlflowClient().search_traces(experiment_ids=[DEFAULT_EXPERIMENT_ID])
-
-
 @pytest.fixture(autouse=True)
 def set_handlers():
     set_llama_index_tracer()
     yield
     # Clean up
     remove_llama_index_tracer()
+
+
+def _get_all_traces() -> List[Trace]:
+    """Utility function to get all traces in the test experiment."""
+    return mlflow.MlflowClient().search_traces(experiment_ids=[DEFAULT_EXPERIMENT_ID])
 
 
 @pytest.mark.parametrize("is_async", [True, False])
