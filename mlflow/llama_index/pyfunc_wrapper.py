@@ -13,7 +13,7 @@ QUERY_ENGINE_NAME = "query"
 RETRIEVER_ENGINE_NAME = "retriever"
 SUPPORTED_ENGINES = {CHAT_ENGINE_NAME, QUERY_ENGINE_NAME, RETRIEVER_ENGINE_NAME}
 
-_CHAT_MESSAGE_HISTORY_PARAMETER_NAME = "message_history"
+_CHAT_MESSAGE_HISTORY_PARAMETER_NAME = "chat_history"
 
 
 def _format_predict_input_query_engine_and_retriever(data) -> QueryBundle:

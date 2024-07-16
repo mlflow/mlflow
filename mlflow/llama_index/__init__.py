@@ -173,12 +173,12 @@ def save_model(
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
         model_config=model_config,
-        engine_type=engine_type,
     )
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         llama_index_version=_get_llama_index_version(),
         code=code_dir_subpath,
+        engine_type=engine_type,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
