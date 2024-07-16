@@ -43,8 +43,8 @@ SavedModelInfo = collections.namedtuple(
 @pytest.fixture(autouse=True)
 def clear_session():
     yield
-    # Tear down async logging to ensure we terminate thread pools.
-    _get_store().tear_down_async_logging()
+    # Shut down async logging to ensure we terminate thread pools.
+    _get_store().shut_down_async_logging()
     tf.keras.backend.clear_session()
 
 
