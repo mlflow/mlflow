@@ -96,6 +96,7 @@ from mlflow.utils.rest_utils import (
     http_request,
     verify_rest_response,
 )
+from mlflow.utils.uri import _is_uc_volumes_path
 
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
@@ -661,16 +662,13 @@ class UcModelRegistryStore(BaseRestStore):
 
     @contextmanager
     def _local_model_dir(self, source, local_model_path):
-        print("local_model_model", local_model_path)  # noqa: T201
         if local_model_path is not None:
             yield local_model_path
         else:
             try:
-                print("source", source)  # noqa: T201
                 local_model_dir = mlflow.artifacts.download_artifacts(
                     artifact_uri=source, tracking_uri=self.tracking_uri
                 )
-                print("successfully downloaded", local_model_dir)  # noqa: T201
             except Exception as e:
                 raise MlflowException(
                     f"Unable to download model artifacts from source artifact location "
@@ -678,13 +676,15 @@ class UcModelRegistryStore(BaseRestStore):
                     f"the source artifact location exists and that you can download from "
                     f"it via mlflow.artifacts.download_artifacts()"
                 ) from e
-            # Clean up temporary model directory at end of block. We assume a temporary
-            # model directory was created if the `source` is not a local path (must be downloaded
-            # from remote to a temporary directory)
-            yield local_model_dir
-            if not os.path.exists(source):
-                print("cleaning up tmp_path", local_model_dir)  # noqa: T201
-                shutil.rmtree(local_model_dir)
+            try:
+                yield local_model_dir
+            finally:
+                # Clean up temporary model directory at end of block. We assume a temporary
+                # model directory was created if the `source` is not a local path
+                # (must be downloaded from remote to a temporary directory) and
+                # `local_model_dir` is not a UC volumes path
+                if not os.path.exists(source) and not _is_uc_volumes_path(local_model_dir):
+                    shutil.rmtree(local_model_dir)
 
     def create_model_version(
         self,
