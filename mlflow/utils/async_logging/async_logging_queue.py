@@ -89,9 +89,9 @@ class AsyncLoggingQueue:
             # the remaining data.
             self._status = QueueStatus.TEAR_DOWN
 
-    def tear_down(self) -> None:
+    def shut_down_async_logging(self) -> None:
         """
-        Tear down the async logging queue.
+        Shut down the async logging queue.
         """
         self.end_async_logging()
         self._batch_logging_worker_threadpool.shutdown(wait=True)
@@ -103,7 +103,7 @@ class AsyncLoggingQueue:
 
         Calling this method will flush the queue to ensure all the data are logged.
         """
-        self.tear_down()
+        self.shut_down_async_logging()
 
         # Restart the thread to listen to incoming data after flushing.
         self._stop_data_logging_thread_event.clear()
