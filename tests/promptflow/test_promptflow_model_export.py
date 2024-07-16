@@ -101,7 +101,7 @@ def test_promptflow_model_serve_predict():
         "greeting message."
     )
     assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
-        "predictions": {"output": expected_result}
+        "predictions": [{"output": expected_result}]
     }
 
 
