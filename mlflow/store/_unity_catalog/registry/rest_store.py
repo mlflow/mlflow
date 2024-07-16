@@ -670,6 +670,7 @@ class UcModelRegistryStore(BaseRestStore):
                 local_model_dir = mlflow.artifacts.download_artifacts(
                     artifact_uri=source, tracking_uri=self.tracking_uri
                 )
+                print("successfully downloaded", local_model_dir)  # noqa: T201
             except Exception as e:
                 raise MlflowException(
                     f"Unable to download model artifacts from source artifact location "
