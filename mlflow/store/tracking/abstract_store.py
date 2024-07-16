@@ -633,9 +633,18 @@ class AbstractStore:
         """
         Flushes the async logging queue. This method is a no-op if the queue is already
         at IDLE state. This methods also shutdown the logging worker threads.
+        After flushing, logging thread is setup again.
         """
         if not self._async_logging_queue.is_idle():
             self._async_logging_queue.flush()
+
+    def tear_down_async_logging(self):
+        """
+        Tears down the async logging queue. This method is a no-op if the queue is already
+        at IDLE state. This methods also shutdown the logging worker threads.
+        """
+        if not self._async_logging_queue.is_idle():
+            self._async_logging_queue.tear_down()
 
     @abstractmethod
     def record_logged_model(self, run_id, mlflow_model):
