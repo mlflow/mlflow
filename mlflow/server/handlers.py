@@ -25,7 +25,10 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     MLFLOW_DEPLOYMENTS_TARGET,
-    MLFLOW_TRACKING_TOKEN,
+    MLFLOW_HTTP_REQUEST_TIMEOUT,
+)
+from mlflow.deployments.constants import (
+    MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
 )
 from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.models import Model
@@ -115,10 +118,12 @@ from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
+from mlflow.utils.rest_utils import http_request
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import is_local_uri, validate_path_is_safe, validate_query_string
 from mlflow.utils.validation import _validate_batch_log_api_req
@@ -128,9 +133,6 @@ _tracking_store = None
 _model_registry_store = None
 _artifact_repo = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
-MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
-MAX_RESULTS_PER_RUN = 2500
-MAX_RESULTS_GET_METRIC_HISTORY = 25000
 
 
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
@@ -1366,18 +1368,15 @@ def gateway_proxy_handler():
             message="Deployments proxy request must specify a gateway_path.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-
-    request_type = request.method
-
-    target_token = MLFLOW_TRACKING_TOKEN.get()
-    request_headers = {"Authorization": f"bearer {target_token}"} if target_token else None
-
     json_data = args.get("json_data", None)
 
-    response = requests.request(
-        request_type,
-        f"{target_uri}/{gateway_path}",
-        headers=request_headers,
+    response = http_request(
+        host_creds=get_default_host_creds(target_uri),
+        endpoint=f"/{gateway_path}",
+        method=request.method,
+        timeout=MLFLOW_HTTP_REQUEST_TIMEOUT.get(),
+        retry_codes=MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
+        raise_on_status=False,
         json=json_data,
     )
 
