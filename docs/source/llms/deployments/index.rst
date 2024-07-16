@@ -1087,6 +1087,7 @@ The example below demonstrates how to use a deployments server from within a cus
     def predict(data):
         from mlflow.deployments import get_deploy_client
 
+        # export MLFLOW_TRACKING_TOKEN=token for secure targets (optional)
         client = get_deploy_client(os.environ["MLFLOW_DEPLOYMENTS_TARGET"])
 
         payload = data.to_dict(orient="records")

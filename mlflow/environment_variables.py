@@ -413,12 +413,6 @@ MLFLOW_GATEWAY_URI = _EnvironmentVariable("MLFLOW_GATEWAY_URI", str, None)
 #: (default: ``None``)
 MLFLOW_DEPLOYMENTS_TARGET = _EnvironmentVariable("MLFLOW_DEPLOYMENTS_TARGET", str, None)
 
-#: (Experimental, may be changed or removed)
-#: Specifies the access token of a MLflow Deployments Server instance to be used with the Deployments
-#: Client APIs
-#: (default: ``None``)
-MLFLOW_DEPLOYMENTS_TOKEN= _EnvironmentVariable("MLFLOW_DEPLOYMENTS_TOKEN", str, None)
-
 #: Specifies the path of the config file for MLflow AI Gateway.
 #: (default: ``None``)
 MLFLOW_GATEWAY_CONFIG = _EnvironmentVariable("MLFLOW_GATEWAY_CONFIG", str, None)

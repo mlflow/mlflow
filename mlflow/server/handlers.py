@@ -23,10 +23,7 @@ from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import (
-    MLFLOW_DEPLOYMENTS_TARGET,
-    MLFLOW_DEPLOYMENTS_TOKEN,
-)
+from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_TARGET
 from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.models import Model
 from mlflow.protos import databricks_pb2
@@ -1369,7 +1366,7 @@ def gateway_proxy_handler():
 
     request_type = request.method
 
-    target_token = MLFLOW_DEPLOYMENTS_TOKEN.get()
+    target_token = MLFLOW_TRACKING_TOKEN.get()
     request_headers = {"Authorization": f"bearer {target_token}"} if target_token else None
 
     json_data = args.get("json_data", None)
