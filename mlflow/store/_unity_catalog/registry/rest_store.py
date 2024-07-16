@@ -683,6 +683,7 @@ class UcModelRegistryStore(BaseRestStore):
             # from remote to a temporary directory)
             yield local_model_dir
             if not os.path.exists(source):
+                print("cleaning up tmp_path", local_model_dir)  # noqa: T201
                 shutil.rmtree(local_model_dir)
 
     def create_model_version(
