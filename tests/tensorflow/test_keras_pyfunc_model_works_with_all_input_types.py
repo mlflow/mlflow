@@ -289,6 +289,10 @@ def test_model_multi_multidim_tensor_input(
 
 
 @pytest.mark.parametrize("env_manager", ["local", "virtualenv"])
+@pytest.mark.skipif(
+    Version(tf.__version__) in [Version("2.16.2"), Version("2.17.0")],
+    reason="model concurrent loading fails due to https://github.com/keras-team/keras/issues/19976",
+)
 def test_single_multidim_input_model_spark_udf(
     env_manager, single_multidim_tensor_input_model, spark_session, data
 ):
@@ -316,6 +320,10 @@ def test_single_multidim_input_model_spark_udf(
 
 
 @pytest.mark.parametrize("env_manager", ["local", "virtualenv"])
+@pytest.mark.skipif(
+    Version(tf.__version__) in [Version("2.16.2"), Version("2.17.0")],
+    reason="model loading fails due to https://github.com/keras-team/keras/issues/19976",
+)
 def test_multi_multidim_input_model_spark_udf(
     env_manager, multi_multidim_tensor_input_model, spark_session, data
 ):
