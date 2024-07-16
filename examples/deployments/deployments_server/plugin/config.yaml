@@ -2,7 +2,7 @@ endpoints:
   - name: chat
     endpoint_type: llm/v1/chat
     model:
-      provider: foo
-      name: foo-model-0.1.2
+      provider: my_llm
+      name: my-model-0.1.2
       config:
-        foo_api_key: $FOO_API_KEY
+        my_llm_api_key: $MY_LLM_API_KEY
