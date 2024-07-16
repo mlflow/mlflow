@@ -661,10 +661,12 @@ class UcModelRegistryStore(BaseRestStore):
 
     @contextmanager
     def _local_model_dir(self, source, local_model_path):
+        print("local_model_model", local_model_path)  # noqa: T201
         if local_model_path is not None:
             yield local_model_path
         else:
             try:
+                print("source", source)  # noqa: T201
                 local_model_dir = mlflow.artifacts.download_artifacts(
                     artifact_uri=source, tracking_uri=self.tracking_uri
                 )
