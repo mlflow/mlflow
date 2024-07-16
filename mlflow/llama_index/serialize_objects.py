@@ -150,10 +150,7 @@ def _serialize_dict_of_objects(dict_of_objects: Dict[str, object], path: str) ->
     to_serialize = {}
 
     for k, v in dict_of_objects.items():
-        if isinstance(v, list):  # noqa
-            object_json = [object_to_dict(vv) for vv in v]
-        else:
-            object_json = object_to_dict(v)
+        object_json = [object_to_dict(vv) for vv in v] if isinstance(v, list) else object_to_dict(v)
 
         if object_json == {}:
             _logger.info(
