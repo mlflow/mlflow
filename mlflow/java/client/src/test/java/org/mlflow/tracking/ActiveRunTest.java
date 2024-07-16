@@ -2,6 +2,7 @@ package org.mlflow.tracking;
 
 import com.google.common.collect.ImmutableMap;
 import org.mlflow.api.proto.Service.*;
+import org.mlflow.tracking.utils.MlflowTagConstants;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.Test;
 import org.testng.collections.Lists;
@@ -159,6 +160,34 @@ public class ActiveRunTest {
   }
 
   @Test
+  public void testStartChildRun() {
+    // Sets the appropriate tags
+    ArgumentCaptor<CreateRun> createRunArgument = ArgumentCaptor.forClass(CreateRun.class);
+    ActiveRun activeRun = getActiveRun();
+    activeRun.startChildRun("apple");
+    verify(mockClient).createRun(createRunArgument.capture());
+    List<RunTag> tags = createRunArgument.getValue().getTagsList();
+    assertTrue(tags.contains(createRunTag(MlflowTagConstants.RUN_NAME, "apple")));
+    assertTrue(tags.contains(createRunTag(MlflowTagConstants.SOURCE_TYPE, "LOCAL")));
+    assertTrue(tags.contains(createRunTag(MlflowTagConstants.USER, System.getProperty("user.name"))));
+    assertTrue(tags.contains(createRunTag(MlflowTagConstants.PARENT_RUN_ID, activeRun.getId())));
+  }
+
+  @Test
+  public void testStartChildRunWithNoName() {
+    // Sets the appropriate tags
+    ArgumentCaptor<CreateRun> createRunArgument = ArgumentCaptor.forClass(CreateRun.class);
+    ActiveRun activeRun = getActiveRun();
+    activeRun.startChildRun();
+    verify(mockClient).createRun(createRunArgument.capture());
+    List<RunTag> tags = createRunArgument.getValue().getTagsList();
+    assertFalse(tags.stream().anyMatch(tag -> tag.getKey().equals(MlflowTagConstants.RUN_NAME)));
+    assertTrue(tags.contains(createRunTag(MlflowTagConstants.SOURCE_TYPE, "LOCAL")));
+    assertTrue(tags.contains(createRunTag(MlflowTagConstants.USER, System.getProperty("user.name"))));
+    assertTrue(tags.contains(createRunTag(MlflowTagConstants.PARENT_RUN_ID, activeRun.getId())));
+  }
+
+  @Test
   public void testEndRun() {
     ActiveRun activeRun = getActiveRun();
     activeRun.endRun();
@@ -170,5 +199,9 @@ public class ActiveRunTest {
     ActiveRun activeRun = getActiveRun();
     activeRun.endRun(RunStatus.FAILED);
     verify(mockClient).setTerminated(RUN_ID, RunStatus.FAILED);
+  }
+
+  private static RunTag createRunTag(String key, String value) {
+    return RunTag.newBuilder().setKey(key).setValue(value).build();
   }
 }

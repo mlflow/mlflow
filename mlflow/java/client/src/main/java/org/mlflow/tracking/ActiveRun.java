@@ -1,6 +1,8 @@
 package org.mlflow.tracking;
 
 import org.mlflow.api.proto.Service.*;
+import org.mlflow.tracking.utils.DatabricksContext;
+import org.mlflow.tracking.utils.MlflowTagConstants;
 
 import java.nio.file.Path;
 import java.util.*;
@@ -182,6 +184,52 @@ public class ActiveRun {
    */
   public String getArtifactUri() {
     return this.runInfo.getArtifactUri();
+  }
+
+  /**
+   * Starts a MLflow run ID with the {@code mlflow.parentRunId} tag set as this run,
+   * in order to create nested runs.
+   *
+   * @param runName The name of this run. For display purposes only and is stored in the
+   *                mlflow.runName tag.
+   * @return An {@code ActiveRun} object to log data to.
+   */
+  public ActiveRun startChildRun(String runName) {
+    Map<String, String> tags = new HashMap<>();
+    if (runName != null) {
+      tags.put(MlflowTagConstants.RUN_NAME, runName);
+    }
+    tags.put(MlflowTagConstants.USER, System.getProperty("user.name"));
+    tags.put(MlflowTagConstants.SOURCE_TYPE, "LOCAL");
+    tags.put(MlflowTagConstants.PARENT_RUN_ID, runInfo.getRunId());
+
+    // Add tags from DatabricksContext if they exist
+    DatabricksContext databricksContext = DatabricksContext.createIfAvailable();
+    if (databricksContext != null) {
+      tags.putAll(databricksContext.getTags());
+    }
+
+    CreateRun.Builder createRunBuilder = CreateRun.newBuilder()
+      .setExperimentId(runInfo.getExperimentId())
+      .setStartTime(System.currentTimeMillis());
+    for (Map.Entry<String, String> tag: tags.entrySet()) {
+      createRunBuilder.addTags(
+        RunTag.newBuilder().setKey(tag.getKey()).setValue(tag.getValue()).build());
+    }
+    RunInfo runInfo = client.createRun(createRunBuilder.build());
+
+    ActiveRun newRun = new ActiveRun(runInfo, client);
+    return newRun;
+  }
+
+  /**
+   * Starts a MLflow run without a name and with the {@code mlflow.parentRunId} tag
+   * set as this run ID, in order to create nested runs.
+   *
+   * @return An {@code ActiveRun} object to log data to.
+   */
+  public ActiveRun startChildRun() {
+    return startChildRun(null);
   }
 
   /**
