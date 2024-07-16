@@ -41,16 +41,11 @@ SavedModelInfo = collections.namedtuple(
 
 
 @pytest.fixture(autouse=True)
-def flush_async_logging():
-    """Flush async logging after each test to avoid interference between tests"""
-    yield
-    _get_store().end_async_logging()
-
-
-@pytest.fixture(autouse=True)
 def clear_session():
     yield
     tf.keras.backend.clear_session()
+    # Flush async logging to ensure we terminate thread pools.
+    mlflow.flush_async_logging()
 
 
 @pytest.fixture

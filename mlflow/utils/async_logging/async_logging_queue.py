@@ -281,7 +281,7 @@ class AsyncLoggingQueue:
         """
         from mlflow import MlflowException
 
-        if not self._status == QueueStatus.ACTIVE:
+        if not self.is_active():
             raise MlflowException("AsyncLoggingQueue is not activated.")
         batch = RunBatch(
             run_id=run_id,
