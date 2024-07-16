@@ -1,9 +1,9 @@
 import time
 
-from my_llm.config import MyLLMConfig
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.providers import BaseProvider
 from mlflow.gateway.schemas import chat
+from my_llm.config import MyLLMConfig
 
 
 class MyLLmProvider(BaseProvider):
