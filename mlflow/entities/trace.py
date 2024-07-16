@@ -63,6 +63,12 @@ class Trace(_MlflowObject):
             )
         return cls.from_dict(trace_dict)
 
+    def _serialize_for_mimebundle(self) -> str:
+        json_str = self.to_json()
+        if len(json_str.encode("utf-8")) >= MAX_TRACE_JSON_SIZE_BYTES:
+            return json.dumps(self.info.to_dict())
+        return json_str
+
     def _repr_mimebundle_(self, include=None, exclude=None):
         """
         This method is used to trigger custom display logic in IPython notebooks.
@@ -73,17 +79,11 @@ class Trace(_MlflowObject):
         which contains a JSON representation of the Trace object. This object is deserialized
         in Databricks notebooks to display the Trace object in a nicer UI.
         """
-        json_str = self.to_json()
-        if len(json_str.encode("utf-8")) >= 100000:
-            data = json.dumps(self.info.to_dict())
-        else:
-            data = json_str
-
         return {
             # databricks notebooks will use the request ID to
             # fetch the trace from the backend. including the
             # full JSON can cause notebooks to exceed size limits
-            "application/databricks.mlflow.trace": data,
+            "application/databricks.mlflow.trace": self._serialize_for_mimebundle(),
             "text/plain": repr(self),
         }
 
