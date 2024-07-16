@@ -23,7 +23,10 @@ from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_TARGET
+from mlflow.environment_variables import (
+    MLFLOW_DEPLOYMENTS_TARGET,
+    MLFLOW_DEPLOYMENTS_TOKEN,
+)
 from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.models import Model
 from mlflow.protos import databricks_pb2
@@ -1363,10 +1366,20 @@ def gateway_proxy_handler():
             message="Deployments proxy request must specify a gateway_path.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+
     request_type = request.method
+
+    target_token = MLFLOW_DEPLOYMENTS_TOKEN.get()
+    request_headers = {"Authorization": f"bearer {target_token}"} if target_token else None
+
     json_data = args.get("json_data", None)
 
-    response = requests.request(request_type, f"{target_uri}/{gateway_path}", json=json_data)
+    response = requests.request(
+        request_type,
+        f"{target_uri}/{gateway_path}",
+        headers=request_headers,
+        json=json_data,
+    )
 
     if response.status_code == 200:
         return response.json()
