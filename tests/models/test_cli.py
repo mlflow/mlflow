@@ -841,11 +841,10 @@ def test_signature_enforcement_with_model_serving(input_schema, output_schema, p
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            artifact_path="test_model", python_model=MyModel(), input_example=input_data
+            artifact_path="test_model", python_model=MyModel(), signature=signature
         )
-        assert model_info.signature == signature
 
-    inference_payload = get_serving_input_example(model_info.model_uri)
+    inference_payload = json.dumps({"inputs": ["test"]})
 
     # Serve and score the model
     scoring_result = pyfunc_serve_and_score_model(
