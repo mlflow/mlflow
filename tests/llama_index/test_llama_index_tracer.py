@@ -9,7 +9,6 @@ from llama_index.agent.openai import OpenAIAgent
 from llama_index.core import (
     Settings,
 )
-from llama_index.core.instrumentation import get_dispatcher
 from llama_index.core.llms import ChatMessage, ChatResponse
 from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core.tools import FunctionTool
@@ -20,25 +19,17 @@ import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.llama_index.tracer import MlflowEventHandler, MlflowSpanHandler
+from mlflow.llama_index.tracer import remove_llama_index_tracer, set_llama_index_tracer
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 
 
 @pytest.fixture(autouse=True)
 def set_handlers():
-    span_handler = MlflowSpanHandler(mlflow.MlflowClient())
-    event_handler = MlflowEventHandler(span_handler)
-
-    dsp = get_dispatcher()
-    dsp.add_span_handler(span_handler)
-    dsp.add_event_handler(event_handler)
-
+    set_llama_index_tracer()
     yield
-
     # Clean up
-    dsp.span_handlers = []
-    dsp.event_handlers = []
+    remove_llama_index_tracer()
 
 
 def _get_all_traces() -> List[Trace]:

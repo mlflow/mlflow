@@ -36,6 +36,44 @@ from mlflow.tracing.constant import SpanAttributeKey
 _logger = logging.getLogger(__name__)
 
 
+def set_llama_index_tracer():
+    """
+    Set the MlflowSpanHandler and MlflowEventHandler to the global dispatcher.
+    If the handlers are already set, skip setting.
+    """
+    from llama_index.core.instrumentation import get_dispatcher
+
+    dsp = get_dispatcher()
+
+    span_handler = None
+    for handler in dsp.span_handlers:
+        if handler.class_name() == "MlflowSpanHandler":
+            _logger.debug("MlflowSpanHandler is already set to the dispatcher. Skip setting.")
+            span_handler = handler
+            break
+    else:
+        span_handler = MlflowSpanHandler(mlflow.MlflowClient())
+        dsp.add_span_handler(span_handler)
+
+    for handler in dsp.event_handlers:
+        if handler.class_name() == "MlflowEventHandler":
+            _logger.debug("MlflowEventHandler is already set to the dispatcher. Skip setting.")
+            break
+    else:
+        dsp.add_event_handler(MlflowEventHandler(span_handler))
+
+
+def remove_llama_index_tracer():
+    """
+    Remove the MlflowSpanHandler and MlflowEventHandler from the global dispatcher.
+    """
+    from llama_index.core.instrumentation import get_dispatcher
+
+    dsp = get_dispatcher()
+    dsp.span_handlers = [h for h in dsp.span_handlers if h.class_name() != "MlflowSpanHandler"]
+    dsp.event_handlers = [h for h in dsp.event_handlers if h.class_name() != "MlflowEventHandler"]
+
+
 class _LlamaSpan(BaseSpan, extra="allow"):
     _mlflow_span: LiveSpan = PrivateAttr()
 

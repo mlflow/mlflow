@@ -3,7 +3,6 @@ import os
 from typing import Any, Dict, List, Literal, Optional, Union
 
 import yaml
-from llama_index.core import StorageContext, load_index_from_storage
 
 import mlflow
 from mlflow import pyfunc
@@ -13,12 +12,15 @@ from mlflow.llama_index.serialize_objects import (
     deserialize_settings,
     serialize_settings,
 )
+from mlflow.llama_index.tracer import remove_llama_index_tracer, set_llama_index_tracer
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.annotations import experimental
+from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -288,6 +290,8 @@ def _save_index(index, path):
 
 def _load_index(path, flavor_conf):
     """Deserialize the index."""
+    from llama_index.core import StorageContext, load_index_from_storage
+
     _add_code_from_conf_to_system_path(path, flavor_conf)
 
     index_path = os.path.join(path, _INDEX_PERSIST_FOLDER)
@@ -332,3 +336,40 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
     engine_type = flavor_conf.pop("engine_type")
     return create_engine_wrapper(_load_index(path, flavor_conf), engine_type, model_config)
+
+
+@experimental
+def autolog(
+    disable: bool = False,
+    silent: bool = False,
+):
+    """
+    Enables (or disables) and configures autologging from llama_index to MLflow. Currently, MLflow
+    only supports autologging for tracing.
+
+    Args:
+        disable: If ``True``, disables the llama_index autologging integration. If ``False``,
+            enables the llama_index autologging integration.
+        silent: If ``True``, suppress all event logs and warnings from MLflow during LlamaIndex
+            autologging. If ``False``, show all events and warnings.
+    """
+    # NB: The @autologging_integration annotation is used for adding shared logic. However, one
+    # caveat is that the wrapped function is NOT executed when disable=True is passed. This prevents
+    # us from running cleaning up logging when autologging is turned off. To workaround this, we
+    # annotate _autolog() instead of this entrypoint, and define the cleanup logic outside it.
+    if disable:
+        remove_llama_index_tracer()
+    else:
+        set_llama_index_tracer()
+
+    _autolog(disable=disable, silent=silent)
+
+
+@autologging_integration(FLAVOR_NAME)
+def _autolog(
+    disable: bool = False,
+    silent: bool = False,
+):
+    """
+    TODO: Implement patching logic for autologging models and artifacts.
+    """
