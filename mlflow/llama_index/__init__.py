@@ -340,6 +340,7 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
 
 @experimental
 def autolog(
+    log_traces: bool = True,
     disable: bool = False,
     silent: bool = False,
 ):
@@ -348,6 +349,9 @@ def autolog(
     only supports autologging for tracing.
 
     Args:
+        log_traces: If ``True``, traces are logged for Langchain models by using
+            MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
+            collected during inference. Default to ``True``.
         disable: If ``True``, disables the llama_index autologging integration. If ``False``,
             enables the llama_index autologging integration.
         silent: If ``True``, suppress all event logs and warnings from MLflow during LlamaIndex
@@ -357,10 +361,10 @@ def autolog(
     # caveat is that the wrapped function is NOT executed when disable=True is passed. This prevents
     # us from running cleaning up logging when autologging is turned off. To workaround this, we
     # annotate _autolog() instead of this entrypoint, and define the cleanup logic outside it.
-    if disable:
-        remove_llama_index_tracer()
-    else:
+    if log_traces and not disable:
         set_llama_index_tracer()
+    else:
+        remove_llama_index_tracer()
 
     _autolog(disable=disable, silent=silent)
 

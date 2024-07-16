@@ -47,7 +47,7 @@ def set_llama_index_tracer():
 
     span_handler = None
     for handler in dsp.span_handlers:
-        if handler.class_name() == "MlflowSpanHandler":
+        if isinstance(handler, MlflowSpanHandler):
             _logger.debug("MlflowSpanHandler is already set to the dispatcher. Skip setting.")
             span_handler = handler
             break
@@ -56,7 +56,7 @@ def set_llama_index_tracer():
         dsp.add_span_handler(span_handler)
 
     for handler in dsp.event_handlers:
-        if handler.class_name() == "MlflowEventHandler":
+        if isinstance(handler, MlflowEventHandler):
             _logger.debug("MlflowEventHandler is already set to the dispatcher. Skip setting.")
             break
     else:
