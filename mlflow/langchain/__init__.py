@@ -113,9 +113,15 @@ def get_default_pip_requirements():
         Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
         that, at a minimum, contains these requirements.
     """
+    import langchain
+
     # pin pydantic and cloudpickle version as they are used in langchain
     # model saving and loading
-    return list(map(_get_pinned_requirement, ["langchain", "pydantic", "cloudpickle"]))
+    pip_reqs = list(map(_get_pinned_requirement, ["langchain", "pydantic", "cloudpickle"]))
+    # temp fix for https://github.com/langchain-ai/langchain/issues/24287
+    if Version(langchain.__version__) >= Version("0.2.8"):
+        pip_reqs.append("typing_extensions>=4.7.0")
+    return pip_reqs
 
 
 def get_default_conda_env():
