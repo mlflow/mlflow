@@ -86,7 +86,7 @@ class _LlamaSpan(BaseSpan, extra="allow"):
 
 def _end_span(client: mlflow.MlflowClient, span: LiveSpan, status=SpanStatusCode.OK, outputs=None):
     """An utility function to end the span or trace."""
-    if isinstance(outputs, (StreamingResponse, AsyncStreamingResponse)):
+    if isinstance(outputs, (StreamingResponse, AsyncStreamingResponse, StreamingAgentChatResponse)):
         _logger.warning(
             "Trying to record streaming response to the MLflow trace. This may consume "
             "the generator and result in an empty response."
@@ -114,7 +114,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
     def class_name(cls) -> str:
         return "MlflowSpanHandler"
 
-    def get_span_for_event(self, event: Any) -> LiveSpan:
+    def get_span_for_event(self, event: BaseEvent) -> LiveSpan:
         llama_span = self.open_spans.get(event.span_id) or self._pending_spans.get(event.span_id)
         return llama_span._mlflow_span if llama_span else None
 
@@ -468,8 +468,8 @@ class StreamResolver:
         # Recursively resolve the parent spans that are also waiting for the same token
         # stream to be exhausted.
         while span.parent_id in self._span_id_to_span_and_gen:
-            span, stream = self._span_id_to_span_and_gen.pop(span.parent_id)
-            if stream is not None:
+            if span_and_stream := self._span_id_to_span_and_gen.pop(span.parent_id):
+                span, stream = span_and_stream
                 # We reuse the same output text for parent spans. This may not be 100% correct
                 # as token stream can be modified by callers. However, it is technically
                 # challenging to track the modified stream across multiple spans.
