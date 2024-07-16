@@ -110,8 +110,7 @@ class RestStore(AbstractStore):
         If an experiment with the given name already exists, throws exception.
 
         Args:
-            name: Desired name for an experiment. The name must be a string
-                with maximum length of 500 characters.
+            name: Desired name for an experiment.
 
         Returns:
             experiment_id for the newly created experiment if successful, else None
