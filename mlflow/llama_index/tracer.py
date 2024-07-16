@@ -380,7 +380,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
             return usage
 
 
-_StreamEndEvents = Union[LLMChatEndEvent, LLMCompletionEndEvent, ExceptionEvent]
+_StreamEndEvent = Union[LLMChatEndEvent, LLMCompletionEndEvent, ExceptionEvent]
 
 
 class StreamResolver:
@@ -436,7 +436,7 @@ class StreamResolver:
         self._span_id_to_span_and_gen[span.span_id] = (span, stream)
         return True
 
-    def resolve(self, span: LiveSpan, event: _StreamEndEvents):
+    def resolve(self, span: LiveSpan, event: _StreamEndEvent):
         """
         Finish the streaming span and recursively resolve the parent spans that
         returns the same (or derived) stream.

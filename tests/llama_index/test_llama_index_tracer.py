@@ -143,12 +143,10 @@ def test_trace_llm_chat_stream():
     assert len(_get_all_traces()) == 0
     assert inspect.isgenerator(response_gen)
 
-    chunk_count = 0
-    for chunk, expected in zip(response_gen, ["Hello", "Hello world"]):
-        assert isinstance(chunk.message, ChatMessage)
-        assert chunk.message.content == expected
-        chunk_count += 1
-    assert chunk_count == 2
+    chunks = list(response_gen)
+    assert len(chunks) == 2
+    assert all(isinstance(c.message, ChatMessage) for c in chunks)
+    assert [c.message.content for c in chunks] == ["Hello", "Hello world"]
 
     traces = _get_all_traces()
     assert len(traces) == 1
@@ -192,7 +190,7 @@ def test_trace_llm_error(monkeypatch, is_stream):
     message = ChatMessage(role="system", content="Hello")
 
     with pytest.raises(openai.APIConnectionError, match="Connection error."):
-        _ = list(llm.stream_chat([message])) if is_stream else llm.chat([message])
+        list(llm.stream_chat([message])) if is_stream else llm.chat([message])
 
     traces = _get_all_traces()
     assert len(traces) == 1
@@ -283,7 +281,7 @@ def test_trace_query_engine(multi_index, is_stream, is_async):
     assert traces[0].info.status == TraceStatus.OK
 
     spans = traces[0].data.spans
-    assert len(spans) == 13 if is_stream or is_async else 14
+    assert len(spans) == (13 if is_stream or is_async else 14)
 
     # Validate the tree structure
     # 0 -- 1 -- 2 -- 3 -- 4 -- 5
