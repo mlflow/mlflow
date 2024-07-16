@@ -2,13 +2,6 @@ import numpy as np
 import pandas as pd
 import pytest
 from llama_index.core import QueryBundle
-from llama_index.core.base.response.schema import (
-    NodeWithScore,
-    Response,
-)
-from llama_index.core.chat_engine.types import (
-    AgentChatResponse,
-)
 from llama_index.core.llms import ChatMessage
 
 from mlflow.llama_index.pyfunc_wrapper import (
