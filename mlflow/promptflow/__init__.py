@@ -108,6 +108,7 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config: Optional[Dict[str, Any]] = None,
+    example_no_conversion=False,
 ):
     """
     Log a Promptflow model as an MLflow artifact for the current run.
@@ -169,6 +170,10 @@ def log_model(
                     logged_model = mlflow.promptflow.log_model(
                         flow, artifact_path="promptflow_model", model_config=model_config
                     )
+        example_no_conversion: If ``False``, the input example will be converted to a Pandas
+            DataFrame format when saving. This is useful when the model expects a DataFrame
+            input and the input example could be passed directly to the model.
+            Defaults to ``False``.
 
     Returns
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -189,6 +194,7 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
         model_config=model_config,
+        example_no_conversion=example_no_conversion,
     )
 
 
@@ -206,6 +212,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config: Optional[Dict[str, Any]] = None,
+    example_no_conversion=False,
 ):
     """
     Save a Promptflow model to a path on the local file system.
@@ -262,6 +269,10 @@ def save_model(
                     logged_model = mlflow.promptflow.log_model(
                         flow, artifact_path="promptflow_model", model_config=model_config
                     )
+        example_no_conversion: If ``False``, the input example will be converted to a Pandas
+            DataFrame format when saving. This is useful when the model expects a DataFrame
+            input and the input example could be passed directly to the model.
+            Defaults to ``False``.
     """
     import promptflow
     from promptflow._sdk._mlflow import (
@@ -302,7 +313,7 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
-    saved_example = _save_example(mlflow_model, input_example, path)
+    saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
 
     if signature is None and saved_example is not None:
         wrapped_model = _PromptflowModelWrapper(model)
