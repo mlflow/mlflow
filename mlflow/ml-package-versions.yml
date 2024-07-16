@@ -645,7 +645,7 @@ langchain:
       ">= 0.0.0": [
           "pyspark",
           "transformers",
-          "tensorflow",
+          "tensorflow<2.16.0", # keras 3 is not supported in transformers
           "openai",
           "google-search-results",
           "psutil",
