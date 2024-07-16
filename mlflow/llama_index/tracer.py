@@ -44,6 +44,25 @@ class _LlamaSpan(BaseSpan, extra="allow"):
         self._mlflow_span = mlflow_span
 
 
+def _get_span_type(instance: Any) -> SpanType:
+    """
+    Map LlamaIndex instance type to MLflow span type. Some span type cannot be determined
+    by instance type alone, rather need event info e.g. ChatModel, ReRanker
+    """
+    if isinstance(instance, (BaseLLM, MultiModalLLM)):
+        return SpanType.LLM
+    elif isinstance(instance, BaseRetriever):
+        return SpanType.RETRIEVER
+    elif isinstance(instance, (BaseAgent, BaseAgentWorker)):
+        return SpanType.AGENT
+    elif isinstance(instance, BaseEmbedding):
+        return SpanType.EMBEDDING
+    elif isinstance(instance, BaseTool):
+        return SpanType.TOOL
+    else:
+        return SpanType.CHAIN
+
+
 class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
     _mlflow_client: mlflow.MlflowClient = PrivateAttr()
 
@@ -65,7 +84,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         try:
             input_args = bound_args.arguments
             attributes = self._get_instance_attributes(instance)
-            span_type = self._get_span_type(instance) or SpanType.UNKNOWN
+            span_type = _get_span_type(instance) or SpanType.UNKNOWN
             if parent_span_id and (parent := self.open_spans.get(parent_span_id)):
                 parent_span = parent._mlflow_span
                 span = self._mlflow_client.start_span(
@@ -115,24 +134,6 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         else:
             self._mlflow_client.end_span(span.request_id, span.span_id, status="ERROR")
         return llama_span
-
-    def _get_span_type(self, instance: Any) -> SpanType:
-        """
-        Map LlamaIndex instance type to MLflow span type. Some span type cannot be determined
-        by instance type alone, rather need event info e.g. ChatModel, ReRanker
-        """
-        if isinstance(instance, (BaseLLM, MultiModalLLM)):
-            return SpanType.LLM
-        elif isinstance(instance, BaseRetriever):
-            return SpanType.RETRIEVER
-        elif isinstance(instance, (BaseAgent, BaseAgentWorker)):
-            return SpanType.AGENT
-        elif isinstance(instance, BaseEmbedding):
-            return SpanType.EMBEDDING
-        elif isinstance(instance, BaseTool):
-            return SpanType.TOOL
-        else:
-            return SpanType.CHAIN
 
     @singledispatchmethod
     def _get_instance_attributes(self, instance: Any) -> Dict[str, Any]:

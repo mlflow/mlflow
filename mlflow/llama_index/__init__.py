@@ -8,17 +8,23 @@ from llama_index.core import StorageContext, load_index_from_storage
 import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.llama_index.pyfunc_wrapper import SUPPORTED_ENGINES, create_engine_wrapper
+from mlflow.llama_index.pyfunc_wrapper import (
+    SUPPORTED_ENGINES,
+    create_engine_wrapper,
+)
 from mlflow.llama_index.serialize_objects import (
     deserialize_settings,
     serialize_settings,
 )
+from mlflow.llama_index.tracer import MlflowEventHandler, MlflowSpanHandler
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.annotations import experimental
+from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -43,6 +49,17 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 FLAVOR_NAME = "llama_index"
 _INDEX_PERSIST_FOLDER = "index"
 _SETTINGS_DIRECTORY = "settings"
+
+# This functionality will be added to autologging
+_UNSUPPORTED_AUTOLOGGING_PARAMETERS = (
+    "log_input_examples",
+    "log_model_signatures",
+    "log_models",
+    "log_datasets",
+    "registered_model_name",
+    "extra_tags",
+    "log_traces",
+)
 
 
 _logger = logging.getLogger(__name__)
@@ -173,12 +190,12 @@ def save_model(
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
         model_config=model_config,
-        engine_type=engine_type,
     )
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         llama_index_version=_get_llama_index_version(),
         code=code_dir_subpath,
+        engine_type=engine_type,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -332,3 +349,71 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
     engine_type = flavor_conf.pop("engine_type")
     return create_engine_wrapper(_load_index(path, flavor_conf), engine_type, model_config)
+
+
+@experimental
+@autologging_integration(FLAVOR_NAME)
+def autolog(
+    log_input_examples: bool = False,
+    log_model_signatures: bool = False,
+    log_models: bool = False,
+    log_datasets: bool = False,
+    disable: bool = False,
+    exclusive: bool = False,
+    disable_for_unsupported_versions: bool = True,
+    silent: bool = False,
+    registered_model_name: Optional[bool] = None,
+    extra_tags: Optional[bool] = None,
+    log_traces: bool = False,
+):
+    """
+    Enables (or disables) and configures autologging from llama_index to MLflow.
+
+    Args:
+        log_input_examples: If ``True``, input examples from inference data are collected. If
+            ``False``, input examples are not logged.
+            Note: Input examples are MLflow model attributes
+            and are only collected if ``log_models`` is also ``True``.
+        log_model_signatures: If ``True``,
+            :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+            describing model inputs and outputs are collected and logged along
+            with llama_index model artifacts during inference. If ``False``,
+            signatures are not logged.
+            Note: Model signatures are MLflow model attributes
+            and are only collected if ``log_models`` is also ``True``.
+        log_models: If ``True``, llama_index models are logged as MLflow model artifacts.
+            If ``False``, llama_index models are not logged.
+            Input examples and model signatures, which are attributes of MLflow models,
+            are also omitted when ``log_models`` is ``False``.
+        log_datasets: If ``True``, dataset information is logged to MLflow Tracking
+            if applicable. If ``False``, dataset information is not logged.
+        disable: If ``True``, disables the llama_index autologging integration. If ``False``,
+            enables the llama_index autologging integration.
+        exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+            If ``False``, autologged content is logged to the active fluent run,
+            which may be user-created.
+        disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+            llama_index that have not been tested against this version of the MLflow
+            client or are incompatible.
+        silent: If ``True``, suppress all event logs and warnings from MLflow during llama_index
+            autologging. If ``False``, show all events and warnings during llama_index
+            autologging.
+        registered_model_name: If given, each time a model is trained, it is registered as a
+            new model version of the registered model with this name.
+            The registered model is created if it does not already exist.
+        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+        log_traces: If ``True``, traces are logged for llama_index models. If ``False``, no traces
+            are collected during inference. Default to ``True``.
+    """
+
+    for parameter in _UNSUPPORTED_AUTOLOGGING_PARAMETERS:
+        if eval(parameter):  # noqa: S307
+            _logger.info(f"Parameter {parameter} is not supported in llama_index autologging.")
+
+    from llama_index.core import Settings
+
+    span_handler = MlflowSpanHandler(mlflow.MlflowClient())
+    event_handler = MlflowEventHandler(span_handler)
+    from llama_index.core.callbacks import CallbackManager
+
+    Settings.callback_manager = CallbackManager(handlers=[event_handler])
