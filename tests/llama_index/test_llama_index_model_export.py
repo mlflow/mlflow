@@ -119,47 +119,47 @@ def test_format_predict_input_correct_schema_complex(single_index, engine_type):
 
 
 @pytest.mark.parametrize("with_input_example", [True, False])
-def test_query_engine_str(tmp_path, single_index, with_input_example):
+def test_query_engine_str(model_path, single_index, with_input_example):
     payload = "string"
 
     input_example = payload if with_input_example else None
     mlflow.llama_index.save_model(
-        index=single_index, input_example=input_example, path=tmp_path, engine_type="query"
+        index=single_index, input_example=input_example, path=model_path, engine_type="query"
     )
-    model = mlflow.pyfunc.load_model(tmp_path)
+    model = mlflow.pyfunc.load_model(model_path)
     predictions = model.predict(payload)
     assert isinstance(predictions, Response)
     assert predictions.response
 
 
 @pytest.mark.parametrize("with_input_example", [True, False])
-def test_query_engine_numeric(tmp_path, single_index, with_input_example):
+def test_query_engine_numeric(model_path, single_index, with_input_example):
     payload = 1
 
     input_example = payload if with_input_example else None
     if with_input_example:
         with pytest.raises(ValueError, match="Unsupported input type"):
             mlflow.llama_index.save_model(
-                index=single_index, input_example=input_example, path=tmp_path, engine_type="query"
+                index=single_index, input_example=input_example, path=model_path, engine_type="query"
             )
     else:
         mlflow.llama_index.save_model(
-            index=single_index, input_example=input_example, path=tmp_path, engine_type="query"
+            index=single_index, input_example=input_example, path=model_path, engine_type="query"
         )
-        model = mlflow.pyfunc.load_model(tmp_path)
+        model = mlflow.pyfunc.load_model(model_path)
         with pytest.raises(ValueError, match="Unsupported input type"):
             _ = model.predict(payload)
 
 
 @pytest.mark.parametrize("with_input_example", [True, False])
-def test_query_engine_list(tmp_path, single_index, with_input_example):
+def test_query_engine_list(model_path, single_index, with_input_example):
     payload = ["string", "string"]
 
     input_example = payload if with_input_example else None
     mlflow.llama_index.save_model(
-        index=single_index, input_example=input_example, path=tmp_path, engine_type="query"
+        index=single_index, input_example=input_example, path=model_path, engine_type="query"
     )
-    model = mlflow.pyfunc.load_model(tmp_path)
+    model = mlflow.pyfunc.load_model(model_path)
     predictions = model.predict(payload)
     assert isinstance(predictions, list)
     assert isinstance(predictions[0], Response)
@@ -167,14 +167,14 @@ def test_query_engine_list(tmp_path, single_index, with_input_example):
 
 
 @pytest.mark.parametrize("with_input_example", [True, False])
-def test_query_engine_array(tmp_path, single_index, with_input_example):
+def test_query_engine_array(model_path, single_index, with_input_example):
     payload = np.array(["string", "string"])
 
     input_example = payload if with_input_example else None
     mlflow.llama_index.save_model(
-        index=single_index, input_example=input_example, path=tmp_path, engine_type="query"
+        index=single_index, input_example=input_example, path=model_path, engine_type="query"
     )
-    model = mlflow.pyfunc.load_model(tmp_path)
+    model = mlflow.pyfunc.load_model(model_path)
     predictions = model.predict(payload)
     assert isinstance(predictions, list)
     assert isinstance(predictions[0], Response)
@@ -182,14 +182,14 @@ def test_query_engine_array(tmp_path, single_index, with_input_example):
 
 
 @pytest.mark.parametrize("with_input_example", [True, False])
-def test_query_engine_pandas_dataframe(tmp_path, single_index, with_input_example):
+def test_query_engine_pandas_dataframe(model_path, single_index, with_input_example):
     payload = pd.DataFrame({"query_str": ["string", "string"]})
 
     input_example = payload if with_input_example else None
     mlflow.llama_index.save_model(
-        index=single_index, input_example=input_example, path=tmp_path, engine_type="query"
+        index=single_index, input_example=input_example, path=model_path, engine_type="query"
     )
-    model = mlflow.pyfunc.load_model(tmp_path)
+    model = mlflow.pyfunc.load_model(model_path)
     predictions = model.predict(payload)
     assert isinstance(predictions, list)
     assert isinstance(predictions[0], Response)
@@ -197,7 +197,7 @@ def test_query_engine_pandas_dataframe(tmp_path, single_index, with_input_exampl
 
 
 @pytest.mark.parametrize("with_input_example", [True, False])
-def test_pyfunc_predict_with_index_valid_schema_pandas(tmp_path, single_index, with_input_example):
+def test_pyfunc_predict_with_index_valid_schema_pandas(model_path, single_index, with_input_example):
     payload = pd.DataFrame(
         {
             "query_str": ["hi"],
@@ -208,16 +208,16 @@ def test_pyfunc_predict_with_index_valid_schema_pandas(tmp_path, single_index, w
 
     input_example = payload if with_input_example else None
     mlflow.llama_index.save_model(
-        index=single_index, input_example=input_example, path=tmp_path, engine_type="query"
+        index=single_index, input_example=input_example, path=model_path, engine_type="query"
     )
-    model = mlflow.pyfunc.load_model(tmp_path)
+    model = mlflow.pyfunc.load_model(model_path)
     predictions = model.predict(payload)
     assert isinstance(predictions, Response)
     assert predictions.response
 
 
 @pytest.mark.parametrize("with_input_example", [True, False])
-def test_pyfunc_predict_with_index_valid_schema_dict(tmp_path, single_index, with_input_example):
+def test_pyfunc_predict_with_index_valid_schema_dict(model_path, single_index, with_input_example):
     payload = {
         "query_str": "hi",
         "custom_embedding_strs": ["a"] * _EMBEDDING_DIM,
@@ -226,30 +226,30 @@ def test_pyfunc_predict_with_index_valid_schema_dict(tmp_path, single_index, wit
 
     input_example = payload if with_input_example else None
     mlflow.llama_index.save_model(
-        index=single_index, input_example=input_example, path=tmp_path, engine_type="query"
+        index=single_index, input_example=input_example, path=model_path, engine_type="query"
     )
-    model = mlflow.pyfunc.load_model(tmp_path)
+    model = mlflow.pyfunc.load_model(model_path)
     predictions = model.predict(payload)
     assert isinstance(predictions, Response)
     assert predictions.response
 
 
 @pytest.mark.parametrize("with_input_example", [True, False])
-def test_chat_engine_str(tmp_path, single_index, with_input_example):
+def test_chat_engine_str(model_path, single_index, with_input_example):
     payload = "string"
 
     input_example = payload if with_input_example else None
     mlflow.llama_index.save_model(
-        index=single_index, input_example=input_example, path=tmp_path, engine_type="chat"
+        index=single_index, input_example=input_example, path=model_path, engine_type="chat"
     )
-    model = mlflow.pyfunc.load_model(tmp_path)
+    model = mlflow.pyfunc.load_model(model_path)
     predictions = model.predict(payload)
     assert isinstance(predictions, AgentChatResponse)
     assert predictions.response
 
 
 @pytest.mark.parametrize("with_input_example", [True, False])
-def test_chat_engine_dict(tmp_path, single_index, with_input_example):
+def test_chat_engine_dict(model_path, single_index, with_input_example):
     payload = {
         "message": "string",
         _CHAT_MESSAGE_HISTORY_PARAMETER_NAME: [{"role": "user", "content": "string"}] * 3,
@@ -257,16 +257,16 @@ def test_chat_engine_dict(tmp_path, single_index, with_input_example):
 
     input_example = payload if with_input_example else None
     mlflow.llama_index.save_model(
-        index=single_index, input_example=input_example, path=tmp_path, engine_type="chat"
+        index=single_index, input_example=input_example, path=model_path, engine_type="chat"
     )
-    model = mlflow.pyfunc.load_model(tmp_path)
+    model = mlflow.pyfunc.load_model(model_path)
     predictions = model.predict(payload)
     assert isinstance(predictions, AgentChatResponse)
     assert predictions.response
 
 
 @pytest.mark.parametrize("with_input_example", [True, False])
-def test_chat_engine_dict_raises(tmp_path, single_index, with_input_example):
+def test_chat_engine_dict_raises(model_path, single_index, with_input_example):
     payload = {
         "message": "string",
         "key_that_no_exist": [str(ChatMessage(role="user", content="string"))],
@@ -276,13 +276,13 @@ def test_chat_engine_dict_raises(tmp_path, single_index, with_input_example):
     if with_input_example:
         with pytest.raises(TypeError, match="got an unexpected keyword argument"):
             mlflow.llama_index.save_model(
-                index=single_index, input_example=input_example, path=tmp_path, engine_type="chat"
+                index=single_index, input_example=input_example, path=model_path, engine_type="chat"
             )
     else:
         mlflow.llama_index.save_model(
-            index=single_index, input_example=input_example, path=tmp_path, engine_type="chat"
+            index=single_index, input_example=input_example, path=model_path, engine_type="chat"
         )
 
-        model = mlflow.pyfunc.load_model(tmp_path)
+        model = mlflow.pyfunc.load_model(model_path)
         with pytest.raises(TypeError, match="unexpected keyword argument"):
             _ = model.predict(payload)
