@@ -1220,7 +1220,7 @@ and a config class that inherits from ``mlflow.gateway.base_models.ConfigModel``
             return _resolve_api_key_from_input(value)
 
 
-    class my_llmProvider(BaseProvider):
+    class MyLLMProvider(BaseProvider):
         # Define the provider name. This will be displayed in log and error messages.
         NAME = "my_llm"
         # Define the config model for the provider.
