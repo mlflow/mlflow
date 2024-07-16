@@ -13,7 +13,6 @@ import langchain
 import numpy as np
 import openai
 import pytest
-import transformers
 import yaml
 from langchain import SQLDatabase
 from langchain.agents import AgentType, initialize_agent
@@ -125,6 +124,8 @@ def set_envs(monkeypatch):
 
 
 def create_huggingface_model(model_path):
+    import transformers
+
     architecture = "lordtt13/emo-mobilebert"
     mlflow.transformers.save_model(
         transformers_model={

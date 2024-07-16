@@ -645,7 +645,7 @@ langchain:
       ">= 0.0.0": [
           "pyspark",
           "transformers",
-          "tensorflow<2.16",
+          "tensorflow",
           "openai",
           "google-search-results",
           "psutil",
@@ -654,6 +654,7 @@ langchain:
           "numexpr",
           "hf_transfer",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
+          "typing_extensions>=4.7.0", # https://github.com/langchain-ai/langchain/issues/24287
         ]
       ">= 0.2": ["langchain-huggingface"]
     run: |
@@ -676,8 +677,6 @@ langchain:
     requirements:
       ">= 0.0.0": [
           "pyspark",
-          "transformers",
-          "tensorflow",
           "openai",
           "google-search-results",
           "psutil",
@@ -689,8 +688,6 @@ langchain:
           "pytest-asyncio", # for testing runnable async functions patches
         ]
     run: |
-      # For MlflowCallback text analysis
-      python -m spacy download en_core_web_sm
       pytest tests/langchain/test_langchain_autolog.py
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
