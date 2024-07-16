@@ -105,8 +105,7 @@ class AbstractStore:
         If an experiment with the given name already exists, throws exception.
 
         Args:
-            name: Desired name for an experiment. The name must be a string
-                with maximum length of 500 characters.
+            name: Desired name for an experiment.
             artifact_location: Base location for artifacts in runs. May be None.
             tags: Experiment tags to set upon experiment creation
 
