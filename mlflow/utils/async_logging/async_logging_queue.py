@@ -127,12 +127,8 @@ class AsyncLoggingQueue:
         batches = []
         if self._queue.empty():
             return batches
-        queue_size = self._queue.qsize()  # Estimate the queue's size.
         merged_batch = self._queue.get()
-        for i in range(queue_size):
-            if self._queue.empty():
-                # `queue_size` is an estimate, so we need to check if the queue is empty.
-                break
+        while not self._queue.empty():
             batch = self._queue.get()
             if (
                 merged_batch.run_id != batch.run_id
