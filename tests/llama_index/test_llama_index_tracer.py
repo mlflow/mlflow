@@ -1,16 +1,20 @@
 import asyncio
+from dataclasses import asdict
 from typing import List
 from unittest.mock import ANY
 
 import openai
 import pytest
+from llama_index.agent.openai import OpenAIAgent
 from llama_index.core import (
     Settings,
 )
 from llama_index.core.instrumentation import get_dispatcher
-from llama_index.core.llms import ChatMessage
-from llama_index.embeddings.openai import OpenAIEmbedding
+from llama_index.core.llms import ChatMessage, ChatResponse
+from llama_index.core.retrievers import VectorIndexRetriever
+from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai import OpenAI
+from openai.types.chat import ChatCompletionMessageToolCall
 
 import mlflow
 from mlflow.entities.span import SpanType
@@ -19,20 +23,6 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.llama_index.tracer import MlflowEventHandler, MlflowSpanHandler
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
-
-
-@pytest.fixture(autouse=True)
-def patch_settings(monkeypatch, mock_openai):
-    """Set the LLM and Embedding model to the mock OpenAI server."""
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": mock_openai,
-        }
-    )
-    # Need to reset the settings to reflect the new env variables
-    monkeypatch.setattr(Settings, "llm", OpenAI())
-    monkeypatch.setattr(Settings, "embed_model", OpenAIEmbedding())
 
 
 @pytest.fixture(autouse=True)
@@ -152,25 +142,194 @@ def test_trace_llm_error(monkeypatch):
     assert events[0].attributes["exception.message"] == "Connection error."
 
 
-def test_trace_retriever():
-    pass
+@pytest.mark.parametrize("is_async", [True, False])
+def test_trace_retriever(multi_index, is_async):
+    retriever = VectorIndexRetriever(multi_index, similarity_top_k=3)
+
+    if is_async:
+        retrieved = asyncio.run(retriever.aretrieve("apple"))
+    else:
+        retrieved = retriever.retrieve("apple")
+    assert len(retrieved) == 1
+
+    traces = _get_all_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == TraceStatus.OK
+
+    spans = traces[0].data.spans
+    assert len(spans) == 4
+    for i in range(1, 4):
+        assert spans[i].parent_id == spans[i - 1].span_id
+
+    assert spans[0].name == "BaseRetriever.aretrieve" if is_async else "BaseRetriever.retrieve"
+    assert spans[0].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.RETRIEVER
+    assert spans[0].attributes[SpanAttributeKey.INPUTS] == {"str_or_query_bundle": "apple"}
+    output = spans[0].attributes[SpanAttributeKey.OUTPUTS]
+    assert len(output) == 1
+    assert output[0]["node"]["text"] == retrieved[0].text
+
+    assert spans[1].name.startswith("VectorIndexRetriever")
+    assert spans[1].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.RETRIEVER
+    assert spans[1].attributes[SpanAttributeKey.INPUTS]["query_bundle"]["query_str"] == "apple"
+    assert (
+        spans[1].attributes[SpanAttributeKey.OUTPUTS]
+        == spans[0].attributes[SpanAttributeKey.OUTPUTS]
+    )
+
+    assert spans[2].name.startswith("BaseEmbedding")
+    assert spans[2].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.EMBEDDING
+    assert spans[2].attributes[SpanAttributeKey.INPUTS] == {"query": "apple"}
+    assert len(spans[2].attributes[SpanAttributeKey.OUTPUTS]) == 1536  # embedding size
+    assert spans[2].attributes["model_name"] == Settings.embed_model.model_name
+
+    assert spans[3].name.startswith("OpenAIEmbedding")
+    assert spans[3].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.EMBEDDING
+    assert spans[3].attributes[SpanAttributeKey.INPUTS] == {"query": "apple"}
+    assert len(spans[3].attributes[SpanAttributeKey.OUTPUTS]) == 1536  # embedding size
+    assert spans[3].attributes["model_name"] == Settings.embed_model.model_name
+
+
+@pytest.mark.parametrize("is_async", [True, False])
+def test_trace_query_engine(multi_index, is_async):
+    engine = multi_index.as_query_engine()
+
+    response = asyncio.run(engine.aquery("Hello")) if is_async else engine.query("Hello")
+    assert response.response.startswith('[{"role": "system", "content": "You are an')
+    response = asdict(response)
+
+    traces = _get_all_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == TraceStatus.OK
+
+    spans = traces[0].data.spans
+    assert len(spans) == 13 if is_async else 14
+
+    # Validate the tree structure
+    # 0 -- 1 -- 2 -- 3 -- 4 -- 5
+    #   \- 6 -- 7 -- 8
+    #             \- 9 -- 10
+    #                  \- 11 -- 12 (-- 13)
+    for i in range(1, 6):
+        assert spans[i].parent_id == spans[i - 1].span_id
+    assert spans[6].parent_id == spans[1].span_id
+    assert spans[7].parent_id == spans[6].span_id
+    assert spans[8].parent_id == spans[7].span_id
+    assert spans[9].parent_id == spans[7].span_id
+    assert spans[10].parent_id == spans[9].span_id
+    assert spans[11].parent_id == spans[9].span_id
+    assert spans[12].parent_id == spans[11].span_id
+    if not is_async:
+        assert spans[13].parent_id == spans[12].span_id
+
+    # Async methods have "a" prefix
+    prefix = "a" if is_async else ""
+
+    # Validate span attributes for some key spans
+    assert spans[0].name == f"BaseQueryEngine.{prefix}query"
+    assert spans[0].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.CHAIN
+    assert spans[0].attributes[SpanAttributeKey.INPUTS] == {"str_or_query_bundle": "Hello"}
+    assert spans[0].attributes[SpanAttributeKey.OUTPUTS] == response
+
+    assert spans[2].name == f"BaseRetriever.{prefix}retrieve"
+    assert spans[2].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.RETRIEVER
+
+    assert spans[6].name == f"BaseSynthesizer.{prefix}synthesize"
+    assert spans[6].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.CHAIN
+    assert spans[6].attributes[SpanAttributeKey.INPUTS] == {"query": ANY, "nodes": ANY}
+
+    assert spans[9].name == f"Refine.{prefix}get_response"
+    assert spans[9].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.CHAIN
+    assert spans[9].attributes[SpanAttributeKey.INPUTS] == {
+        "query_str": "Hello",
+        "text_chunks": ANY,
+        "prev_response": None,
+    }
+
+    llm_method_name = f"OpenAI.{prefix}chat"
+    assert spans[-1].name == llm_method_name
+    assert spans[-1].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.CHAT_MODEL
+    assert spans[-1].attributes[SpanAttributeKey.INPUTS] == {
+        "messages": [
+            {"role": "system", "content": ANY, "additional_kwargs": {}},
+            {"role": "user", "content": ANY, "additional_kwargs": {}},
+        ]
+    }
 
 
 def test_trace_agent():
-    pass
+    # Mock LLM to return deterministic responses and let the agent use a tool
+    class MockLLMForAgent(OpenAI, extra="allow"):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._mock_response = iter(
+                [
+                    ChatResponse(
+                        message=ChatMessage(
+                            role="assistant",
+                            content=None,
+                            additional_kwargs={
+                                "tool_calls": [
+                                    ChatCompletionMessageToolCall(
+                                        id="test",
+                                        function={
+                                            "name": "add",
+                                            "arguments": '{"a": 1, "b": 2}',
+                                        },
+                                        type="function",
+                                    )
+                                ]
+                            },
+                        )
+                    ),
+                    ChatResponse(
+                        message=ChatMessage(
+                            role="assistant",
+                            content="The result is 3",
+                        )
+                    ),
+                ]
+            )
+
+        def chat(self, *args, **kwargs):
+            return next(self._mock_response)
+
+    def add(a: int, b: int) -> int:
+        """Add two integers and returns the result integer"""
+        return a + b
+
+    add_tool = FunctionTool.from_defaults(fn=add)
+
+    llm = MockLLMForAgent()
+    agent = OpenAIAgent.from_tools([add_tool], llm=llm)
+    response = agent.chat("What is 1 + 2?").response
+
+    assert response == "The result is 3"
+
+    traces = _get_all_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == TraceStatus.OK
+
+    spans = traces[0].data.spans
+    name_to_span = {span.name: span for span in spans}
+    tool_span = name_to_span["FunctionTool.call"]
+    assert tool_span.attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.TOOL
+    assert tool_span.attributes[SpanAttributeKey.INPUTS] == {"kwargs": {"a": 1, "b": 2}}
+    assert tool_span.attributes[SpanAttributeKey.OUTPUTS]["content"] == "3"
+    assert tool_span.attributes["name"] == "add"
+    assert tool_span.attributes["description"] is not None
+    assert tool_span.attributes["parameters"] is not None
 
 
-def test_trace_query_engine():
-    pass
+@pytest.mark.parametrize("is_async", [True, False])
+def test_trace_chat_engine(multi_index, is_async):
+    chat_engine = multi_index.as_chat_engine()
 
+    response = asyncio.run(chat_engine.achat("Hello")) if is_async else chat_engine.chat("Hello")
+    assert response.response == '[{"role": "user", "content": "Hello"}]'
 
-def test_trace_query_engine_async():
-    pass
-
-
-def test_trace_chat_engine():
-    pass
-
-
-def test_trace_reranker():
-    pass
+    # Since chat engine is a complex agent-based system, it is challenging to strictly
+    # validate the trace structure and attributes. The detailed validation is done in
+    # other tests for individual components.
+    traces = _get_all_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == TraceStatus.OK
