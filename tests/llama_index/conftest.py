@@ -78,6 +78,8 @@ def settings(monkeypatch, mock_openai):
 
     assert all(Settings.__dict__.values())  # ensure the full object is populated
 
+    return Settings
+
 
 #### Indexes ####
 @pytest.fixture
