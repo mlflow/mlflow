@@ -654,7 +654,7 @@ langchain:
           "numexpr",
           "hf_transfer",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
-          "typing_extensions>=4.6.0",
+          "typing_extensions>=4.7.0", # https://github.com/langchain-ai/langchain/issues/24287
         ]
       ">= 0.2": ["langchain-huggingface"]
     run: |
