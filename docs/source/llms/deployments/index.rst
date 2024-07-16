@@ -1210,30 +1210,30 @@ and a config class that inherits from ``mlflow.gateway.base_models.ConfigModel``
     from mlflow.deployments.server.schemas import chat, completions, embeddings
 
 
-    class AwesomeConfig(ConfigModel):
+    class MyLLMConfig(ConfigModel):
         # This model defines the configuration for the provider such as API keys
-        awesome_api_key: str
+        my_llm_api_key: str
 
-        @validator("awesome_api_key", pre=True)
-        def validate_awesome_api_key(cls, value):
+        @validator("my_llm_api_key", pre=True)
+        def validate_my_llm_api_key(cls, value):
             # This resolves the API key from an environment variable
             return _resolve_api_key_from_input(value)
 
 
-    class AwesomeProvider(BaseProvider):
+    class my_llmProvider(BaseProvider):
         # Define the provider name. This will be displayed in log and error messages.
-        NAME = "Awesome"
+        NAME = "my_llm"
         # Define the config model for the provider.
         # This must be a subclass of ConfigModel.
-        CONFIG_TYPE = AwesomeConfig
+        CONFIG_TYPE = MyLLMConfig
 
         def __init__(self, config: RouteConfig) -> None:
             super().__init__(config)
             if config.model.config is None or not isinstance(
-                config.model.config, AwesomeConfig
+                config.model.config, MyLLMConfig
             ):
                 raise TypeError(f"Unexpected config type {config.model.config}")
-            self.awesome_config: AwesomeConfig = config.model.config
+            self.my_llm_config: MyLLMConfig = config.model.config
 
         # You can implement one or more of the following methods
         # depending on the capabilities of your provider.
@@ -1272,33 +1272,22 @@ The entry point should be in the format ``<name> = <module>:<class>``.
     :caption: pyproject.toml
 
     [project]
-    name = "awesome"
+    name = "my_llm"
     version = "1.0"
 
     [project.entry-points."mlflow.gateway.providers"]
-    awesome = "awesome:AwesomeProvider"
+    my_llm = "my_llm.providers:MyLLMProvider"
 
     [tool.setuptools.packages.find]
-    include = ["awesome*"]
+    include = ["my_llm*"]
     namespaces = false
 
 You can specify more than one entry point in the same package if you have multiple providers.
 Note that entry point names must be globally unique. If two plugins specify the same entry point name,
-MLflow will raise an error at startup time. Currently, the following names are reserved for default providers:
-- ``openai``
-- ``anthropic``
-- ``cohere``
-- ``ai21labs``
-- ``mlflow-model-serving``
-- ``mosaicml``
-- ``huggingface-text-generation-inference``
-- ``palm``
-- ``bedrock``
-- ``amazon-bedrock``
-- ``databricks-model-serving``
-- ``databricks``
-- ``mistral``
-- ``togetherai``
+MLflow will raise an error at startup time. 
+
+MLflow already provides a number of providers by default. Your plugin name cannot be the same as any one 
+of them. See :ref:`deployments_configuration_details` for a complete list of default providers.
 
 Finally, you need to install the plugin package in the same environment as the MLflow Deployments Server.
 
@@ -1316,10 +1305,10 @@ in the MLflow Deployments Server configuration file.
       - name: chat
         endpoint_type: llm/v1/chat
         model:
-          provider: awesome
-          name: my-awesome-model-0.1.2
+          provider: my_llm
+          name: my-model-0.1.2
           config:
-            awesome_api_key: $AWESOME_API_KEY
+            my_llm_api_key: $MY_LLM_API_KEY
 
 Example
 -------
