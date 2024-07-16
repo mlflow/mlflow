@@ -276,7 +276,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.10.0",
-            "maximum": "0.10.53"
+            "maximum": "0.10.55"
         }
     },
     "sentence_transformers": {

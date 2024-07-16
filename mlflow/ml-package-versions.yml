@@ -710,11 +710,8 @@ llama_index:
     minimum: "0.10.0"
     maximum: "0.10.53"
     requirements:
-      ">= 0.0.0": ["llama-index", "openai"]
-    run: |
-      # Install the same version of llama-index-core as llama-index
-      LLAMA_VERSION=$(python -c "import llama_index; print(llama_index.__version__)")
-      pip install "llama-index-core==$LLAMA_VERSION"
+      ">= 0.0.0": ["openai"]
+    run:
       # TODO: Add --ignore flag for autologging test once it's implemented
       pytest tests/llama_index
 
