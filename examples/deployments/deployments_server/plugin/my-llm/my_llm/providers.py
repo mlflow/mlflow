@@ -1,31 +1,31 @@
 import time
 
-from foo.config import FooConfig
+from my_llm.config import MyLLMConfig
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.providers import BaseProvider
 from mlflow.gateway.schemas import chat
 
 
-class FooProvider(BaseProvider):
-    NAME = "foo"
-    CONFIG_TYPE = FooConfig
+class MyLLmProvider(BaseProvider):
+    NAME = "MyLLM"
+    CONFIG_TYPE = MyLLMConfig
 
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
-        if config.model.config is None or not isinstance(config.model.config, FooConfig):
+        if config.model.config is None or not isinstance(config.model.config, MyLLMConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
-        self.foo_config: FooConfig = config.model.config
+        self.my_llm_config: MyLLMConfig = config.model.config
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         return chat.ResponsePayload(
             id="id-123",
             created=int(time.time()),
-            model=self.config.model.name,
+            model=self.my_llm_config.model.name,
             choices=[
                 chat.Choice(
                     index=0,
                     message=chat.ResponseMessage(
-                        role="assistant", content="This is a response from FooProvider"
+                        role="assistant", content="This is a response from MyLLMProvider"
                     ),
                 )
             ],

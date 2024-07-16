@@ -1,10 +1,10 @@
 [project]
-name = "foo"
+name = "my_llm"
 version = "1.0"
 
 [project.entry-points."mlflow.gateway.providers"]
-foo = "foo.providers:FooProvider"
+my_llm = "my_llm.providers:MyLLMProvider"
 
 [tool.setuptools.packages.find]
-include = ["foo*"]
+include = ["my_llm*"]
 namespaces = false
