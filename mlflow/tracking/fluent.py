@@ -770,8 +770,8 @@ def log_metric(
     value: float,
     step: Optional[int] = None,
     synchronous: Optional[bool] = None,
-    timestamp: Optional[int] = None,
     run_id: Optional[str] = None,
+    timestamp: Optional[int] = None,
 ) -> Optional[RunOperations]:
     """
     Log a metric under the current run. If no run is active, this method will create
@@ -788,11 +788,11 @@ def log_metric(
             All backend stores will support values up to length 5000, but some
             may support larger values.
         step: Metric step. Defaults to zero if unspecified.
-        timestamp: Time when this metric was calculated. Defaults to the current system time.
         synchronous: *Experimental* If True, blocks until the metric is logged
             successfully. If False, logs the metric asynchronously and
             returns a future representing the logging operation. If None, read from environment
             variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
+        timestamp: Time when this metric was calculated. Defaults to the current system time.
 
     Returns:
         When `synchronous=True`, returns None.
