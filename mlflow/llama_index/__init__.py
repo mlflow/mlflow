@@ -410,10 +410,11 @@ def autolog(
         if eval(parameter):  # noqa: S307
             _logger.info(f"Parameter {parameter} is not supported in llama_index autologging.")
 
-    from llama_index.core import Settings
+    from llama_index.core.instrumentation import get_dispatcher
 
     span_handler = MlflowSpanHandler(mlflow.MlflowClient())
     event_handler = MlflowEventHandler(span_handler)
-    from llama_index.core.callbacks import CallbackManager
 
-    Settings.callback_manager = CallbackManager(handlers=[event_handler])
+    dsp = get_dispatcher()
+    dsp.add_span_handler(span_handler)
+    dsp.add_event_handler(event_handler)
