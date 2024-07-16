@@ -12,6 +12,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.system_metrics.metrics.cpu_monitor import CPUMonitor
 from mlflow.system_metrics.metrics.disk_monitor import DiskMonitor
 from mlflow.system_metrics.metrics.gpu_monitor import GPUMonitor
+from mlflow.system_metrics.metrics.rocm_monitor import ROCMMonitor
 from mlflow.system_metrics.metrics.network_monitor import NetworkMonitor
 
 _logger = logging.getLogger(__name__)
@@ -61,7 +62,12 @@ class SystemMetricsMonitor:
         # Instantiate default monitors.
         self.monitors = [CPUMonitor(), DiskMonitor(), NetworkMonitor()]
         try:
-            gpu_monitor = GPUMonitor()
+            if torch.cuda.is_available() and not torch.version.hip:
+                # NVIDIA GPU
+                gpu_monitor = GPUMonitor()
+            elif torch.version.hip:
+                # AMD/HIP GPU
+                gpu_monitor = ROCMMonitor()
             self.monitors.append(gpu_monitor)
         except Exception as e:
             _logger.warning(
