@@ -6,6 +6,7 @@ import org.mlflow.tracking.utils.MlflowTagConstants;
 
 import java.nio.file.Path;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -230,6 +231,41 @@ public class ActiveRun {
    */
   public ActiveRun startChildRun() {
     return startChildRun(null);
+  }
+
+  /**
+   * Like {@link #startChildRun(String)} but will terminate the run after the activeRunFunction is
+   * executed.
+   *
+   * @param activeRunFunction A function which takes an {@code ActiveRun} and logs data to it.
+   */
+  public void withActiveChildRun(Consumer<ActiveRun> activeRunFunction) {
+    ActiveRun newRun = startChildRun();
+    try {
+      activeRunFunction.accept(newRun);
+    } catch(Exception e) {
+      newRun.endRun(RunStatus.FAILED);
+      return;
+    }
+    newRun.endRun(RunStatus.FINISHED);
+  }
+
+  /**
+   * Like {@link #withActiveChildRun(Consumer)} with an explicity run name.
+   *
+   * @param runName The name of this run. For display purposes only and is stored in the
+   *                mlflow.runName tag.
+   * @param activeRunFunction A function which takes an {@code ActiveRun} and logs data to it.
+   */
+  public void withActiveChildRun(String runName, Consumer<ActiveRun> activeRunFunction) {
+    ActiveRun newRun = startChildRun(runName);
+    try {
+      activeRunFunction.accept(newRun);
+    } catch(Exception e) {
+      newRun.endRun(RunStatus.FAILED);
+      return;
+    }
+    newRun.endRun(RunStatus.FINISHED);
   }
 
   /**

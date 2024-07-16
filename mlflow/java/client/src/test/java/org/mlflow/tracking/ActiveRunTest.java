@@ -188,6 +188,34 @@ public class ActiveRunTest {
   }
 
   @Test
+  public void testWithActiveChildRun() {
+    ActiveRun activeRun = getActiveRun();
+
+    when(mockClient.createRun(any(CreateRun.class)))
+      .thenReturn(RunInfo.newBuilder().setRunId("test-id").build());
+
+    activeRun.withActiveChildRun("apple", activeChildRun -> {
+      assertEquals(activeChildRun.getId(), "test-id");
+    });
+    verify(mockClient).createRun(any(CreateRun.class));
+    verify(mockClient).setTerminated(any(), any());
+  }
+
+  @Test
+  public void testWithChildActiveRunNoRunName() {
+    ActiveRun activeRun = getActiveRun();
+
+    when(mockClient.createRun(any(CreateRun.class)))
+      .thenReturn(RunInfo.newBuilder().setRunId("test-id").build());
+
+    activeRun.withActiveChildRun("apple", activeChildRun -> {
+      assertEquals(activeChildRun.getId(), "test-id");
+    });
+    verify(mockClient).createRun(any(CreateRun.class));
+    verify(mockClient).setTerminated(any(), any());
+  }
+
+  @Test
   public void testEndRun() {
     ActiveRun activeRun = getActiveRun();
     activeRun.endRun();
