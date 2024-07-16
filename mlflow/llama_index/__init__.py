@@ -94,7 +94,7 @@ def _get_llama_index_version() -> str:
 def save_model(
     index,
     path: str,
-    engine_type: Union[Literal["chat", "query", "retriever"]],
+    engine_type: str,
     model_config: Optional[Dict[str, Any]] = None,
     code_paths=None,
     mlflow_model: Optional[Model] = None,
@@ -220,7 +220,7 @@ def log_model(
     index,
     artifact_path: str,
     engine_type: str,
-    model_config: Optional[Dict[str, any]] = None,
+    model_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
     registered_model_name: Optional[str] = None,
     signature: Optional[ModelSignature] = None,

@@ -249,6 +249,7 @@ Harnessing the power of LLMs becomes effortless with flavors designed specifical
     openai/index
     sentence-transformers/index
     langchain/index
+    llama-index/index
 
 Explore the Native LLM Flavors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
