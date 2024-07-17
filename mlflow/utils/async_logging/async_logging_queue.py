@@ -96,16 +96,16 @@ class AsyncLoggingQueue:
         self._batch_logging_worker_threadpool.shutdown(wait=True)
         self._batch_status_check_threadpool.shutdown(wait=True)
         self._status = QueueStatus.IDLE
+        self._stop_data_logging_thread_event.clear()
 
     def flush(self) -> None:
-        """Flush the async logging queue.
+        """
+        Flush the async logging queue and restart thread to listen
+        to incoming data after flushing.
 
         Calling this method will flush the queue to ensure all the data are logged.
         """
         self.shut_down_async_logging()
-
-        # Restart the thread to listen to incoming data after flushing.
-        self._stop_data_logging_thread_event.clear()
         self._set_up_logging_thread()
 
     def _logging_loop(self) -> None:

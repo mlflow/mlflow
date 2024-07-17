@@ -1340,7 +1340,9 @@ def autolog(
                 history=history,
             )
             # Ensure all data are logged.
-            mlflow.flush_async_logging()
+            # Shut down the async logging (instead of flushing)
+            # to avoid leaving zombie threads between patchings.
+            mlflow.shut_down_async_logging()
 
             mlflow.log_artifacts(
                 local_dir=self.log_dir.location,
