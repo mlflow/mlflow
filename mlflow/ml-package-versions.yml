@@ -704,14 +704,12 @@ llama_index:
     install_dev: |
       pip install git@github.com:run-llama/llama_index.git
   models:
-    # TODO: Setting min version to 0.10.0 because it is the first version
-    #   with new split package structure e.g llama-index-core. We may be
-    #   able to lower this by adjusting some import statements.
-    minimum: "0.10.0"
+    # New event/span framework is fully implemented in 0.10.44
+    minimum: "0.10.44"
     maximum: "0.10.53"
     requirements:
-      ">= 0.0.0": ["llama-index", "openai"]
-    run:
+      ">= 0.0.0": ["openai"]
+    run: |
       # TODO: Add --ignore flag for autologging test once it's implemented
       pytest tests/llama_index
 

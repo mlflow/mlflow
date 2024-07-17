@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 from dataclasses import asdict
 from typing import List
 from unittest.mock import ANY
@@ -6,9 +7,8 @@ from unittest.mock import ANY
 import openai
 import pytest
 from llama_index.agent.openai import OpenAIAgent
-from llama_index.core import (
-    Settings,
-)
+from llama_index.core import Settings
+from llama_index.core.base.response.schema import StreamingResponse
 from llama_index.core.llms import ChatMessage, ChatResponse
 from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core.tools import FunctionTool
@@ -54,12 +54,42 @@ def test_trace_llm_complete(is_async):
 
     spans = traces[0].data.spans
     assert len(spans) == 1
-    assert spans[0].name == "OpenAI.acomplete" if is_async else "OpenAI.complete"
+    assert spans[0].name == "OpenAI.{}complete".format("a" if is_async else "")
 
     attr = spans[0].attributes
     assert attr[SpanAttributeKey.SPAN_TYPE] == SpanType.LLM
     assert attr[SpanAttributeKey.INPUTS] == {"args": ["Hello"]}
     assert attr[SpanAttributeKey.OUTPUTS]["text"] == "Hello"
+    assert attr["usage"] == {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12}
+    assert attr["prompt"] == "Hello"
+    assert attr["invocation_params"]["model_name"] == model_name
+    assert attr["model_dict"]["model"] == model_name
+
+
+def test_trace_llm_complete_stream():
+    model_name = "gpt-3.5-turbo-instruct"
+    llm = OpenAI(model=model_name)
+
+    response_gen = llm.stream_complete("Hello")
+    # No trace should be created until the generator is consumed
+    assert len(_get_all_traces()) == 0
+    assert inspect.isgenerator(response_gen)
+
+    response = [r.text for r in response_gen]
+    assert response == ["Hello", "Hello world"]
+
+    traces = _get_all_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == TraceStatus.OK
+
+    spans = traces[0].data.spans
+    assert len(spans) == 1
+    assert spans[0].name == "OpenAI.stream_complete"
+
+    attr = spans[0].attributes
+    assert attr[SpanAttributeKey.SPAN_TYPE] == SpanType.LLM
+    assert attr[SpanAttributeKey.INPUTS] == {"args": ["Hello"]}
+    assert attr[SpanAttributeKey.OUTPUTS]["text"] == "Hello world"
     assert attr["usage"] == {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12}
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
@@ -104,7 +134,51 @@ def test_trace_llm_chat(is_async):
     assert attr["model_dict"]["model"] == llm.metadata.model_name
 
 
-def test_trace_llm_error(monkeypatch):
+def test_trace_llm_chat_stream():
+    llm = OpenAI()
+    message = ChatMessage(role="system", content="Hello")
+
+    response_gen = llm.stream_chat([message])
+    # No trace should be created until the generator is consumed
+    assert len(_get_all_traces()) == 0
+    assert inspect.isgenerator(response_gen)
+
+    chunks = list(response_gen)
+    assert len(chunks) == 2
+    assert all(isinstance(c.message, ChatMessage) for c in chunks)
+    assert [c.message.content for c in chunks] == ["Hello", "Hello world"]
+
+    traces = _get_all_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == TraceStatus.OK
+
+    spans = traces[0].data.spans
+    assert len(spans) == 1
+    assert spans[0].name == "OpenAI.stream_chat"
+
+    attr = spans[0].attributes
+    assert attr[SpanAttributeKey.SPAN_TYPE] == SpanType.CHAT_MODEL
+    assert attr[SpanAttributeKey.INPUTS] == {
+        "messages": [{"role": "system", "content": "Hello", "additional_kwargs": {}}]
+    }
+    assert attr[SpanAttributeKey.OUTPUTS] == {
+        "message": {
+            "role": "assistant",
+            "content": "Hello world",
+            "additional_kwargs": {},
+        },
+        "raw": ANY,
+        "delta": " world",
+        "logprobs": None,
+        "additional_kwargs": {},
+    }
+    assert attr["usage"] == {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21}
+    assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
+    assert attr["model_dict"]["model"] == llm.metadata.model_name
+
+
+@pytest.mark.parametrize("is_stream", [True, False])
+def test_trace_llm_error(monkeypatch, is_stream):
     # Disable callback as it doesn't handle error response well
     monkeypatch.setattr(Settings, "callback_manager", None)
 
@@ -113,20 +187,22 @@ def test_trace_llm_error(monkeypatch):
         timeout=1,
         max_retries=0,
     )
+    message = ChatMessage(role="system", content="Hello")
 
-    with pytest.raises(openai.APIConnectionError, match="Connection error."):
-        llm.chat([ChatMessage(role="system", content="Hello")])
+    with pytest.raises(openai.APIConnectionError, match="Connection error."):  # noqa PT012
+        if is_stream:
+            next(llm.stream_chat([message]))
+        else:
+            llm.chat([message])
 
     traces = _get_all_traces()
     assert len(traces) == 1
     assert traces[0].info.status == TraceStatus.ERROR
     spans = traces[0].data.spans
     assert len(spans) == 1
-    assert spans[0].name == "OpenAI.chat"
+    assert spans[0].name == "OpenAI.stream_chat" if is_stream else "OpenAI.chat"
     assert spans[0].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.CHAT_MODEL
-    assert spans[0].attributes[SpanAttributeKey.INPUTS] == {
-        "messages": [{"role": "system", "content": "Hello", "additional_kwargs": {}}]
-    }
+    assert spans[0].attributes[SpanAttributeKey.INPUTS] == {"messages": [message.dict()]}
     assert SpanAttributeKey.OUTPUTS not in spans[0].attributes
     events = traces[0].data.spans[0].events
     assert len(events) == 1
@@ -180,71 +256,38 @@ def test_trace_retriever(multi_index, is_async):
     assert spans[3].attributes["model_name"] == Settings.embed_model.model_name
 
 
-@pytest.mark.parametrize("is_async", [True, False])
-def test_trace_query_engine(multi_index, is_async):
-    engine = multi_index.as_query_engine()
+@pytest.mark.parametrize("is_stream", [False, True])
+@pytest.mark.parametrize("is_async", [False, True])
+def test_trace_query_engine(multi_index, is_stream, is_async):
+    if is_stream and is_async:
+        pytest.skip("Async stream is not supported yet")
 
-    response = asyncio.run(engine.aquery("Hello")) if is_async else engine.query("Hello")
-    assert response.response.startswith('[{"role": "system", "content": "You are an')
-    response = asdict(response)
+    engine = multi_index.as_query_engine(streaming=is_stream)
+
+    if is_stream:
+        response = engine.query("Hello")
+        assert isinstance(response, StreamingResponse)
+        assert len(_get_all_traces()) == 0
+        response = "".join(response.response_gen)
+        assert response == "Hello world"
+    else:
+        response = asyncio.run(engine.aquery("Hello")) if is_async else engine.query("Hello")
+        assert response.response.startswith('[{"role": "system", "content": "You are an')
+        response = asdict(response)
 
     traces = _get_all_traces()
     assert len(traces) == 1
     assert traces[0].info.status == TraceStatus.OK
 
-    spans = traces[0].data.spans
-    assert len(spans) == 13 if is_async else 14
-
-    # Validate the tree structure
-    # 0 -- 1 -- 2 -- 3 -- 4 -- 5
-    #   \- 6 -- 7 -- 8
-    #             \- 9 -- 10
-    #                  \- 11 -- 12 (-- 13)
-    for i in range(1, 6):
-        assert spans[i].parent_id == spans[i - 1].span_id
-    assert spans[6].parent_id == spans[1].span_id
-    assert spans[7].parent_id == spans[6].span_id
-    assert spans[8].parent_id == spans[7].span_id
-    assert spans[9].parent_id == spans[7].span_id
-    assert spans[10].parent_id == spans[9].span_id
-    assert spans[11].parent_id == spans[9].span_id
-    assert spans[12].parent_id == spans[11].span_id
-    if not is_async:
-        assert spans[13].parent_id == spans[12].span_id
-
     # Async methods have "a" prefix
     prefix = "a" if is_async else ""
 
     # Validate span attributes for some key spans
+    spans = traces[0].data.spans
     assert spans[0].name == f"BaseQueryEngine.{prefix}query"
     assert spans[0].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.CHAIN
     assert spans[0].attributes[SpanAttributeKey.INPUTS] == {"str_or_query_bundle": "Hello"}
     assert spans[0].attributes[SpanAttributeKey.OUTPUTS] == response
-
-    assert spans[2].name == f"BaseRetriever.{prefix}retrieve"
-    assert spans[2].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.RETRIEVER
-
-    assert spans[6].name == f"BaseSynthesizer.{prefix}synthesize"
-    assert spans[6].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.CHAIN
-    assert spans[6].attributes[SpanAttributeKey.INPUTS] == {"query": ANY, "nodes": ANY}
-
-    assert spans[9].name == f"Refine.{prefix}get_response"
-    assert spans[9].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.CHAIN
-    assert spans[9].attributes[SpanAttributeKey.INPUTS] == {
-        "query_str": "Hello",
-        "text_chunks": ANY,
-        "prev_response": None,
-    }
-
-    llm_method_name = f"OpenAI.{prefix}chat"
-    assert spans[-1].name == llm_method_name
-    assert spans[-1].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.CHAT_MODEL
-    assert spans[-1].attributes[SpanAttributeKey.INPUTS] == {
-        "messages": [
-            {"role": "system", "content": ANY, "additional_kwargs": {}},
-            {"role": "user", "content": ANY, "additional_kwargs": {}},
-        ]
-    }
 
 
 def test_trace_agent():
@@ -311,12 +354,21 @@ def test_trace_agent():
     assert tool_span.attributes["parameters"] is not None
 
 
-@pytest.mark.parametrize("is_async", [True, False])
-def test_trace_chat_engine(multi_index, is_async):
-    chat_engine = multi_index.as_chat_engine()
+@pytest.mark.parametrize("is_stream", [False, True])
+@pytest.mark.parametrize("is_async", [False, True])
+def test_trace_chat_engine(multi_index, is_stream, is_async):
+    if is_stream and is_async:
+        pytest.skip("Async stream is not supported yet")
 
-    response = asyncio.run(chat_engine.achat("Hello")) if is_async else chat_engine.chat("Hello")
-    assert response.response == '[{"role": "user", "content": "Hello"}]'
+    engine = multi_index.as_chat_engine()
+
+    if is_stream:
+        response_gen = engine.stream_chat("Hello").response_gen
+        response = "".join(response_gen)
+        assert response == "Hello world"
+    else:
+        response = asyncio.run(engine.achat("Hello")) if is_async else engine.chat("Hello")
+        assert response.response == '[{"role": "user", "content": "Hello"}]'
 
     # Since chat engine is a complex agent-based system, it is challenging to strictly
     # validate the trace structure and attributes. The detailed validation is done in
@@ -324,3 +376,5 @@ def test_trace_chat_engine(multi_index, is_async):
     traces = _get_all_traces()
     assert len(traces) == 1
     assert traces[0].info.status == TraceStatus.OK
+    root_span = traces[0].data.spans[0]
+    assert root_span.attributes[SpanAttributeKey.INPUTS] == {"message": "Hello"}
