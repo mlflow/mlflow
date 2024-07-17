@@ -11,8 +11,6 @@ from mlflow.exceptions import INTERNAL_ERROR, MlflowException
 
 _logger = logging.getLogger(__name__)
 
-# TODO: add versioning to the map
-# TODO: think about hierarchy of objects
 OBJECT_DICT_METHOD_MAP = {
     llama_index.core.base.llms.base.BaseLLM: ("to_dict", "from_dict"),
     llama_index.core.base.embeddings.base.BaseEmbedding: ("to_dict", "from_dict"),
@@ -72,7 +70,6 @@ def object_to_dict(o: object) -> None:
         o_state_as_dict = _sanitize_api_key(o_state_as_dict)
         o_state_as_dict.pop("class_name")
     else:
-        _logger.warning(f"Skipping serialization of {o} because...")
         return o_state_as_dict
 
     return {
@@ -148,16 +145,21 @@ def _deserialize_dict_of_objects(path: str) -> Dict[str, any]:
 
 def _serialize_dict_of_objects(dict_of_objects: Dict[str, object], path: str) -> None:
     to_serialize = {}
+    unsupported_objects = []
 
     for k, v in dict_of_objects.items():
         object_json = [object_to_dict(vv) for vv in v] if isinstance(v, list) else object_to_dict(v)
 
         if object_json == {}:
-            _logger.info(
-                f"{k} serialization is not supported. It will not be logged with your model"
-            )
+            unsupported_objects.append(k)
         else:
             to_serialize.update({k: object_json})
+
+    if unsupported_objects:
+        _logger.info(
+            "Serialization of the following objects are not supported and will not be logged with "
+            f"your model: {', '.join(unsupported_objects)}"
+        )
 
     with open(path, "w") as f:
         json.dump(to_serialize, f, indent=2)
@@ -176,5 +178,3 @@ def deserialize_settings(path: str):
 
     for k, v in settings_dict.items():
         setattr(Settings, k, v)
-
-    return Settings
