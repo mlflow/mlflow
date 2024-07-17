@@ -704,15 +704,13 @@ llama_index:
     install_dev: |
       pip install git@github.com:run-llama/llama_index.git
   models:
-    # TODO: Setting min version to 0.10.0 because it is the first version
-    #   with new split package structure e.g llama-index-core. We may be
-    #   able to lower this by adjusting some import statements.
-    minimum: "0.10.0"
+    # Setting min version to 0.10.41 where llama-index starts to pin the core subpackage version.
+    # Before 0.10.41, the subpackages are installed without version pinning, which causes the
+    # tests to fail due to the mismatched version between the root package and the subpackages.
+    minimum: "0.10.41"
     maximum: "0.10.53"
     requirements:
       ">= 0.0.0": ["openai"]
-      # LlamaIndex doesn't pin upper bounds on the core package.
-      "< 0.10.35": ["llama-index-core<0.10.35"]
     run: |
       # TODO: Add --ignore flag for autologging test once it's implemented
       pytest tests/llama_index
