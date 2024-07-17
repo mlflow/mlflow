@@ -1470,6 +1470,22 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         )
 
 
+def test_local_model_dir_preserves_uc_volumes_path(tmp_path):
+    store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks-uc")
+    with mock.patch(
+        "mlflow.artifacts.download_artifacts", return_value=str(tmp_path)
+    ) as mock_download_artifacts, mock.patch(
+        # Pretend that `tmp_path` is a UC Volumes path
+        "mlflow.store._unity_catalog.registry.rest_store._is_uc_volumes_path",
+        return_value=True,
+    ) as mock_is_uc_volumes_path:
+        with store._local_model_dir(source=f"dbfs:{tmp_path}", local_model_path=None):
+            pass
+        mock_download_artifacts.assert_called_once()
+        mock_is_uc_volumes_path.assert_called_once()
+        assert tmp_path.exists()
+
+
 @pytest.mark.parametrize(
     ("num_inputs", "expected_truncation_size"),
     [
