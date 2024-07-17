@@ -646,6 +646,7 @@ langchain:
           "pyspark",
           "transformers",
           "torch",
+          "torchvision",
           "openai",
           "google-search-results",
           "psutil",
