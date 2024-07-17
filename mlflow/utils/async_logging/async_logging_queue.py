@@ -299,6 +299,8 @@ class AsyncLoggingQueue:
         If the logging thread is already set up, this method does nothing.
         """
         with self._lock:
+            # clear the status to enable logging data
+            self._stop_data_logging_thread_event.clear()
             self._batch_logging_thread = threading.Thread(
                 target=self._logging_loop,
                 name="MLflowAsyncLoggingLoop",
