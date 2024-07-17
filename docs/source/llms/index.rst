@@ -304,6 +304,17 @@ Select the integration below to read the documentation on how to leverage MLflow
                     </p>
                 </a>
             </div>
+            <div class="simple-card">
+                <a href="llama-index/index.html">
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/llamaindex-logo.svg" alt="LlamaIndex Logo" style="width: 90%"/>
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with LlamaIndex and see example notebooks that leverage 
+                        MLflow and LlamaIndex to build advanced QA systems, chatbots, and other AI-driven applications.
+                    </p>
+                </a>
+            </div>
         </article>
     </section>
 
