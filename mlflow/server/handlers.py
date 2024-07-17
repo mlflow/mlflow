@@ -92,6 +92,7 @@ from mlflow.protos.service_pb2 import (
     MlflowService,
     RestoreExperiment,
     RestoreRun,
+    SearchDatasets,
     SearchExperiments,
     SearchRuns,
     SearchTraces,
@@ -1319,9 +1320,19 @@ def get_metric_history_bulk_interval_impl(request_message):
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def search_datasets_handler():
+    request_message = _get_request_message(
+        SearchDatasets(),
+    )
+    response_message = search_datasets_impl(request_message)
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+def search_datasets_impl(request_message):
     MAX_EXPERIMENT_IDS_PER_REQUEST = 20
     _validate_content_type(request, ["application/json"])
-    experiment_ids = request.json.get("experiment_ids", [])
+    experiment_ids = request_message.experiment_ids or []
     if not experiment_ids:
         raise MlflowException(
             message="SearchDatasets request must specify at least one experiment_id.",
@@ -1339,11 +1350,11 @@ def search_datasets_handler():
     store = _get_tracking_store()
 
     if hasattr(store, "_search_datasets"):
-        return {
-            "dataset_summaries": [
-                summary.to_dict() for summary in store._search_datasets(experiment_ids)
-            ]
-        }
+        response_message = SearchDatasets.Response()
+        response_message.dataset_summaries.extend(
+            [summary.to_proto() for summary in store._search_datasets(experiment_ids)]
+        )
+        return response_message
     else:
         return _not_implemented()
 
