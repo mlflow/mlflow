@@ -211,10 +211,26 @@ type Test {
 }
 
 type Mutation {
+  mlflowSearchDatasets(input: MlflowSearchDatasetsInput): MlflowSearchDatasetsResponse
   mlflowSearchRuns(input: MlflowSearchRunsInput): MlflowSearchRunsResponse
 
   """Simple echoing field"""
   testMutation(inputString: String): TestMutation
+}
+
+type MlflowSearchDatasetsResponse {
+  datasetSummaries: [MlflowDatasetSummary!]
+}
+
+type MlflowDatasetSummary {
+  experimentId: String
+  name: String
+  digest: String
+  context: String
+}
+
+input MlflowSearchDatasetsInput {
+  experimentIds: [String]
 }
 
 type MlflowSearchRunsResponse {
