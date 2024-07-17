@@ -2,23 +2,24 @@ import inspect
 import json
 import logging
 from functools import singledispatchmethod
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Generator, Optional, Tuple, Union
 
-from llama_index.core.base.agent.types import BaseAgent, BaseAgentWorker
+from llama_index.core.base.agent.types import BaseAgent, BaseAgentWorker, TaskStepOutput
 from llama_index.core.base.base_retriever import BaseRetriever
 from llama_index.core.base.embeddings.base import BaseEmbedding
 from llama_index.core.base.llms.base import BaseLLM
 from llama_index.core.base.llms.types import ChatResponse, CompletionResponse
+from llama_index.core.base.response.schema import AsyncStreamingResponse, StreamingResponse
+from llama_index.core.chat_engine.types import StreamingAgentChatResponse
 from llama_index.core.instrumentation.event_handlers import BaseEventHandler
 from llama_index.core.instrumentation.events import BaseEvent
 from llama_index.core.instrumentation.events.agent import AgentToolCallEvent
 from llama_index.core.instrumentation.events.embedding import EmbeddingStartEvent
+from llama_index.core.instrumentation.events.exception import ExceptionEvent
 from llama_index.core.instrumentation.events.llm import (
     LLMChatEndEvent,
-    LLMChatInProgressEvent,
     LLMChatStartEvent,
     LLMCompletionEndEvent,
-    LLMCompletionInProgressEvent,
     LLMCompletionStartEvent,
     LLMPredictStartEvent,
 )
@@ -31,6 +32,7 @@ from pydantic import PrivateAttr
 
 import mlflow
 from mlflow.entities import LiveSpan, SpanEvent, SpanType
+from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey
 
 _logger = logging.getLogger(__name__)
@@ -82,16 +84,39 @@ class _LlamaSpan(BaseSpan, extra="allow"):
         self._mlflow_span = mlflow_span
 
 
+def _end_span(client: mlflow.MlflowClient, span: LiveSpan, status=SpanStatusCode.OK, outputs=None):
+    """An utility function to end the span or trace."""
+    if isinstance(outputs, (StreamingResponse, AsyncStreamingResponse, StreamingAgentChatResponse)):
+        _logger.warning(
+            "Trying to record streaming response to the MLflow trace. This may consume "
+            "the generator and result in an empty response."
+        )
+
+    if outputs is None:
+        outputs = span.outputs
+
+    if span.parent_id is None:
+        client.end_trace(span.request_id, status=status, outputs=outputs)
+    else:
+        client.end_span(span.request_id, span.span_id, status=status, outputs=outputs)
+
+
 class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
     _mlflow_client: mlflow.MlflowClient = PrivateAttr()
 
     def __init__(self, client: mlflow.MlflowClient):
         super().__init__()
         self._mlflow_client = client
+        self._stream_resolver = StreamResolver(client)
+        self._pending_spans: Dict[str, _LlamaSpan] = {}
 
     @classmethod
     def class_name(cls) -> str:
         return "MlflowSpanHandler"
+
+    def get_span_for_event(self, event: BaseEvent) -> LiveSpan:
+        llama_span = self.open_spans.get(event.span_id) or self._pending_spans.get(event.span_id)
+        return llama_span._mlflow_span if llama_span else None
 
     def new_span(
         self,
@@ -133,25 +158,36 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
     ) -> _LlamaSpan:
         try:
             llama_span = self.open_spans.get(id_)
+            if not llama_span:
+                return
             span = llama_span._mlflow_span
-            if span.parent_id is None:
-                self._mlflow_client.end_trace(span.request_id, outputs=result)
+
+            if self._stream_resolver.is_streaming_result(result):
+                # If the result is a generator, we keep the span in progress for streaming
+                # and end it when the generator is exhausted.
+                is_pended = self._stream_resolver.register_stream_span(span, result)
+                if is_pended:
+                    self._pending_spans[id_] = llama_span
+                else:
+                    # If the span is not pended successfully, end it immediately
+                    _end_span(self._mlflow_client, span=span, outputs=result)
             else:
-                self._mlflow_client.end_span(span.request_id, span.span_id, outputs=result)
+                _end_span(self._mlflow_client, span=span, outputs=result)
             return llama_span
         except BaseException as e:
             _logger.debug(f"Failed to end a span: {e}", exc_info=True)
+
+    def resolve_pending_stream_span(self, span: LiveSpan, event: Any):
+        """End the pending streaming span(s)"""
+        self._stream_resolver.resolve(span, event)
+        self._pending_spans.pop(event.span_id, None)
 
     def prepare_to_drop_span(self, id_: str, err: Optional[Exception], **kwargs) -> _LlamaSpan:
         """Logic for handling errors during the model execution."""
         llama_span = self.open_spans.get(id_)
         span = llama_span._mlflow_span
         span.add_event(SpanEvent.from_exception(err))
-
-        if span.parent_id is None:
-            self._mlflow_client.end_trace(span.request_id, status="ERROR")
-        else:
-            self._mlflow_client.end_span(span.request_id, span.span_id, status="ERROR")
+        _end_span(self._mlflow_client, span=span, status="ERROR")
         return llama_span
 
     def _get_span_type(self, instance: Any) -> SpanType:
@@ -246,13 +282,11 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
         self._span_handler = _span_handler
 
     def handle(self, event: BaseEvent) -> Any:
-        # TODO: These two InProgress events are triggered per streaming chunk. We
-        # ignore them for now but they should be accumulated as SpanEvents of the parent span.
-        if isinstance(event, (LLMChatInProgressEvent, LLMCompletionInProgressEvent)):
-            return
-
-        if span := self._span_handler.open_spans.get(event.span_id):
-            self._handle_event(event, span._mlflow_span)
+        try:
+            if span := self._span_handler.get_span_for_event(event):
+                self._handle_event(event, span)
+        except Exception as e:
+            _logger.debug(f"Failed to handle event: {e}", exc_info=True)
 
     @singledispatchmethod
     def _handle_event(self, event: BaseEvent, span: LiveSpan):
@@ -298,6 +332,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     @_handle_event.register
     def _(self, event: LLMCompletionEndEvent, span: LiveSpan):
         span.set_attribute("usage", self._extract_token_usage(event.response))
+        self._span_handler.resolve_pending_stream_span(span, event)
 
     @_handle_event.register
     def _(self, event: LLMChatStartEvent, span: LiveSpan):
@@ -307,6 +342,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     @_handle_event.register
     def _(self, event: LLMChatEndEvent, span: LiveSpan):
         span.set_attribute("usage", self._extract_token_usage(event.response))
+        self._span_handler.resolve_pending_stream_span(span, event)
 
     @_handle_event.register
     def _(self, event: ReRankStartEvent, span: LiveSpan):
@@ -317,6 +353,17 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
                 "top_n": event.top_n,
             }
         )
+
+    @_handle_event.register
+    def _(self, event: ExceptionEvent, span: LiveSpan):
+        """
+        Handle an exception event for stream spans.
+
+        For non-stream spans, exception is processed by the prepare_to_drop_span() handler of
+        the span handler. However, for stream spans, the exception may raised during the
+        streaming after it exit. Therefore, we need to resolve the span here.
+        """
+        self._span_handler.resolve_pending_stream_span(span, event)
 
     def _extract_token_usage(
         self, response: Union[ChatResponse, CompletionResponse]
@@ -331,3 +378,99 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
                     if (v := additional_kwargs.get(k)) is not None:
                         usage[k] = v
             return usage
+
+
+_StreamEndEvent = Union[LLMChatEndEvent, LLMCompletionEndEvent, ExceptionEvent]
+
+
+class StreamResolver:
+    """
+    A class is responsible for closing the pending streaming spans that are waiting
+    for the stream to be exhausted. Once the associated stream is exhausted, this
+    class will resolve the span, as well as recursively resolve the parent spans
+    that returns the same (or derived) stream.
+    """
+
+    def __init__(self, client: mlflow.MlflowClient):
+        self._client = client
+        self._span_id_to_span_and_gen: Dict[str, Tuple[LiveSpan, Generator]] = {}
+
+    def is_streaming_result(self, result: Any) -> bool:
+        return (
+            inspect.isgenerator(result)  # noqa: SIM101
+            or isinstance(result, (StreamingResponse, AsyncStreamingResponse))
+            or isinstance(result, StreamingAgentChatResponse)
+            or (isinstance(result, TaskStepOutput) and self.is_streaming_result(result.output))
+        )
+
+    def register_stream_span(self, span: LiveSpan, result: Any) -> bool:
+        """
+        Register the pending streaming span with the associated generator.
+
+        Args:
+            span: The span that has a streaming output.
+            result: The streaming result that is being processed.
+
+        Returns:
+            True if the span is registered successfully, False otherwise.
+        """
+        if inspect.isgenerator(result):
+            stream = result
+        elif isinstance(result, (StreamingResponse, AsyncStreamingResponse)):
+            stream = result.response_gen
+        elif isinstance(result, StreamingAgentChatResponse):
+            stream = result.chat_stream
+        elif isinstance(result, TaskStepOutput):
+            stream = result.output.chat_stream
+        else:
+            raise ValueError(f"Unsupported streaming response type: {type(result)}")
+
+        if inspect.getgeneratorstate(stream) == inspect.GEN_CLOSED:
+            # Not registering the span because the generator is already exhausted.
+            # It's counter-intuitive that the generator is closed before the response
+            # is returned, but it can happen because some agents run streaming request
+            # in a separate thread. In this case, the generator can be closed before
+            # the response is returned in the main thread.
+            return False
+
+        self._span_id_to_span_and_gen[span.span_id] = (span, stream)
+        return True
+
+    def resolve(self, span: LiveSpan, event: _StreamEndEvent):
+        """
+        Finish the streaming span and recursively resolve the parent spans that
+        returns the same (or derived) stream.
+        """
+        _, stream = self._span_id_to_span_and_gen.pop(span.span_id, (None, None))
+        if not stream:
+            return
+
+        if isinstance(event, (LLMChatEndEvent, LLMCompletionEndEvent)):
+            outputs = event.response
+            status = SpanStatusCode.OK
+        elif isinstance(event, ExceptionEvent):
+            outputs = None
+            status = SpanStatusCode.ERROR
+            span.add_event(SpanEvent.from_exception(event.exception))
+        else:
+            raise ValueError(f"Unsupported event type to resolve streaming: {type(event)}")
+
+        _end_span(client=self._client, span=span, status=status, outputs=outputs)
+
+        # Extract the complete text from the event.
+        if isinstance(outputs, ChatResponse):
+            output_text = outputs.message.content
+        elif isinstance(outputs, CompletionResponse):
+            output_text = outputs.response.text
+        else:
+            output_text = None
+
+        # Recursively resolve the parent spans that are also waiting for the same token
+        # stream to be exhausted.
+        while span.parent_id in self._span_id_to_span_and_gen:
+            if span_and_stream := self._span_id_to_span_and_gen.pop(span.parent_id, None):
+                span, stream = span_and_stream
+                # We reuse the same output text for parent spans. This may not be 100% correct
+                # as token stream can be modified by callers. However, it is technically
+                # challenging to track the modified stream across multiple spans.
+                _end_span(client=self._client, span=span, status=status, outputs=output_text)
