@@ -155,10 +155,11 @@ def _serialize_dict_of_objects(dict_of_objects: Dict[str, object], path: str) ->
         else:
             to_serialize.update({k: object_json})
 
-    _logger.info(
-        "Serialization of the following objects are not supported and will not be logged with "
-        f"your model: {', '.join(unsupported_objects)}"
-    )
+    if unsupported_objects:
+        _logger.info(
+            "Serialization of the following objects are not supported and will not be logged with "
+            f"your model: {', '.join(unsupported_objects)}"
+        )
 
     with open(path, "w") as f:
         json.dump(to_serialize, f, indent=2)
