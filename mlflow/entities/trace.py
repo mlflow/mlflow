@@ -14,7 +14,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 # for databricks notebooks. For traces above this size, we will only
 # serialize the trace info, and the notebook cell renderer will fetch
 # the data asynchronously using the request ID.
-MAX_TRACE_JSON_SIZE_BYTES = 100000  # 100 KB
+MAX_TRACE_JSON_SIZE_BYTES = 100_000  # 100 KB
 
 
 @dataclass
