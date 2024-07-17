@@ -92,6 +92,7 @@ class TraceJSONEncoder(json.JSONEncoder):
         try:
             # These Llama Index objects are not safe to encode as string, because their __str__
             # method consumes the stream and make it unusable.
+            # E.g. https://github.com/run-llama/llama_index/blob/54f2da61ba8a573284ab8336f2b2810d948c3877/llama-index-core/llama_index/core/base/response/schema.py#L120-L127
             from llama_index.core.base.response.schema import (
                 AsyncStreamingResponse,
                 StreamingResponse,

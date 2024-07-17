@@ -189,7 +189,7 @@ def test_trace_llm_error(monkeypatch, is_stream):
     )
     message = ChatMessage(role="system", content="Hello")
 
-    with pytest.raises(openai.APIConnectionError, match="Connection error."):
+    with pytest.raises(openai.APIConnectionError, match="Connection error."):  # noqa PT012
         if is_stream:
             next(llm.stream_chat([message]))
         else:
@@ -256,16 +256,12 @@ def test_trace_retriever(multi_index, is_async):
     assert spans[3].attributes["model_name"] == Settings.embed_model.model_name
 
 
-@pytest.mark.parametrize(
-    ("is_stream", "is_async"),
-    [
-        (False, False),
-        (True, False),
-        (False, True),
-        # (True, True),  # Async stream is not supported yet
-    ],
-)
+@pytest.mark.parametrize("is_stream", [False, True])
+@pytest.mark.parametrize("is_async", [False, True])
 def test_trace_query_engine(multi_index, is_stream, is_async):
+    if is_stream and is_async:
+        pytest.skip("Async stream is not supported yet")
+
     engine = multi_index.as_query_engine(streaming=is_stream)
 
     if is_stream:
@@ -358,16 +354,12 @@ def test_trace_agent():
     assert tool_span.attributes["parameters"] is not None
 
 
-@pytest.mark.parametrize(
-    ("is_stream", "is_async"),
-    [
-        (False, False),
-        (True, False),
-        (False, True),
-        # (True, True),  # Async stream is not supported yet
-    ],
-)
+@pytest.mark.parametrize("is_stream", [False, True])
+@pytest.mark.parametrize("is_async", [False, True])
 def test_trace_chat_engine(multi_index, is_stream, is_async):
+    if is_stream and is_async:
+        pytest.skip("Async stream is not supported yet")
+
     engine = multi_index.as_chat_engine()
 
     if is_stream:

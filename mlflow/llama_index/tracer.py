@@ -426,7 +426,11 @@ class StreamResolver:
             raise ValueError(f"Unsupported streaming response type: {type(result)}")
 
         if inspect.getgeneratorstate(stream) == inspect.GEN_CLOSED:
-            # Not registering the span because the generator is already exhausted
+            # Not registering the span because the generator is already exhausted.
+            # It's counter-intuitive that the generator is closed before the response
+            # is returned, but it can happen because some agents run streaming request
+            # in a separate thread. In this case, the generator can be closed before
+            # the response is returned in the main thread.
             return False
 
         self._span_id_to_span_and_gen[span.span_id] = (span, stream)
@@ -464,7 +468,7 @@ class StreamResolver:
         # Recursively resolve the parent spans that are also waiting for the same token
         # stream to be exhausted.
         while span.parent_id in self._span_id_to_span_and_gen:
-            if span_and_stream := self._span_id_to_span_and_gen.pop(span.parent_id):
+            if span_and_stream := self._span_id_to_span_and_gen.pop(span.parent_id, None):
                 span, stream = span_and_stream
                 # We reuse the same output text for parent spans. This may not be 100% correct
                 # as token stream can be modified by callers. However, it is technically

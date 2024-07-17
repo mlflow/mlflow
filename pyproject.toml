@@ -195,6 +195,7 @@ select = [
   "PT009",   # pytest-unittest-assertion
   "PT010",   # pytest-raises-without-exception
   "PT011",   # pytest-raises-too-broad
+  "PT012",   # pytest-raises-with-multiple-statements
   "PT013",   # pytest-incorrect-pytest-import
   "PT014",   # pytest-duplicate-parametrize-test-cases
   "PT018",   # pytest-composite-assertion
