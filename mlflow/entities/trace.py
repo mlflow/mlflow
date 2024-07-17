@@ -64,9 +64,12 @@ class Trace(_MlflowObject):
         return cls.from_dict(trace_dict)
 
     def _serialize_for_mimebundle(self) -> str:
+        from mlflow.tracing.utils import TraceJSONEncoder
+
         json_str = self.to_json()
         if len(json_str.encode("utf-8")) >= MAX_TRACE_JSON_SIZE_BYTES:
-            return json.dumps(self.info.to_dict())
+            return json.dumps(self.info.to_dict(), cls=TraceJSONEncoder)
+
         return json_str
 
     def _repr_mimebundle_(self, include=None, exclude=None):
