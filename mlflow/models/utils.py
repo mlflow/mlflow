@@ -306,7 +306,6 @@ class _Example:
                 self.data = _handle_sparse_matrix(input_example)
                 # This type of input is not supported by the scoring server yet
                 self.serving_input = None
-                self.info.pop(SERVING_INPUT_PATH, None)
                 if isinstance(input_example, csc_matrix):
                     example_type = "sparse_matrix_csc"
                 else:

@@ -170,10 +170,7 @@ def log_model(
                     logged_model = mlflow.promptflow.log_model(
                         flow, artifact_path="promptflow_model", model_config=model_config
                     )
-        example_no_conversion: If ``False``, the input example will be converted to a Pandas
-            DataFrame format when saving. This is useful when the model expects a DataFrame
-            input and the input example could be passed directly to the model.
-            Defaults to ``False``.
+        example_no_conversion: {{ example_no_conversion }}
 
     Returns
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -269,10 +266,7 @@ def save_model(
                     logged_model = mlflow.promptflow.log_model(
                         flow, artifact_path="promptflow_model", model_config=model_config
                     )
-        example_no_conversion: If ``False``, the input example will be converted to a Pandas
-            DataFrame format when saving. This is useful when the model expects a DataFrame
-            input and the input example could be passed directly to the model.
-            Defaults to ``False``.
+        example_no_conversion: {{ example_no_conversion }}
     """
     import promptflow
     from promptflow._sdk._mlflow import (
