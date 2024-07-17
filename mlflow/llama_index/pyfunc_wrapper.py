@@ -13,7 +13,7 @@ SUPPORTED_ENGINES = {CHAT_ENGINE_NAME, QUERY_ENGINE_NAME, RETRIEVER_ENGINE_NAME}
 _CHAT_MESSAGE_HISTORY_PARAMETER_NAME = "chat_history"
 
 
-def _format_predict_input_query_engine_and_retriever(data) -> QueryBundle:
+def _format_predict_input_query_engine_and_retriever(data) -> "QueryBundle":
     """Convert pyfunc input to a QueryBundle."""
     from llama_index.core import QueryBundle
 
@@ -123,7 +123,7 @@ class QueryEngineWrapper(_LlamaIndexModelWrapperBase):
     def _predict_single(self, *args, **kwargs) -> str:
         return self.engine.query(*args, **kwargs).response
 
-    def _format_predict_input(self, data) -> QueryBundle:
+    def _format_predict_input(self, data) -> "QueryBundle":
         return _format_predict_input_query_engine_and_retriever(data)
 
 
@@ -137,7 +137,7 @@ class RetrieverEngineWrapper(_LlamaIndexModelWrapperBase):
         response = self.engine.retrieve(*args, **kwargs)
         return [node.dict() for node in response]
 
-    def _format_predict_input(self, data) -> QueryBundle:
+    def _format_predict_input(self, data) -> "QueryBundle":
         return _format_predict_input_query_engine_and_retriever(data)
 
 
