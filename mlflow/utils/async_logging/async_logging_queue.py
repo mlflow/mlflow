@@ -189,11 +189,7 @@ class AsyncLoggingQueue:
                 _logger.error(f"Run Id {run_batch.run_id}: Failed to log run data: Exception: {e}")
                 run_batch.exception = e
             finally:
-                # Signal the batch processing is done.
-                run_batch.completion_event.set()
-                for child_batch in run_batch.child_batches:
-                    # Signal the child batch processing is done.
-                    child_batch.completion_event.set()
+                run_batch.complete()
 
         for run_batch in run_batches:
             self._batch_logging_worker_threadpool.submit(logging_func, run_batch)
