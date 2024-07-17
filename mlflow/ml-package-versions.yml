@@ -704,10 +704,8 @@ llama_index:
     install_dev: |
       pip install git@github.com:run-llama/llama_index.git
   models:
-    # Setting min version to 0.10.41 where llama-index starts to pin the core subpackage version.
-    # Before 0.10.41, the subpackages are installed without version pinning, which causes the
-    # tests to fail due to the mismatched version between the root package and the subpackages.
-    minimum: "0.10.41"
+    # New event/span framework is fully implemented in 0.10.44
+    minimum: "0.10.44"
     maximum: "0.10.53"
     requirements:
       ">= 0.0.0": ["openai"]

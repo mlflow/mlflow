@@ -275,7 +275,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "llama-index"
         },
         "models": {
-            "minimum": "0.10.41",
+            "minimum": "0.10.44",
             "maximum": "0.10.53"
         }
     },
