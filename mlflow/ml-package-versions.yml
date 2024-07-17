@@ -145,16 +145,7 @@ tensorflow:
       # `cannot import name 'TypeAliasType' from 'typing_extensions'`
       ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25"]
     run: |
-      pytest tests/tensorflow/test_tensorflow2_autolog.py::test_tf_keras_autolog_implicit_batch_size_works
-      pytest tests/tensorflow/test_tensorflow2_autolog.py::test_tf_keras_autolog_implicit_batch_size_works
-      pytest tests/tensorflow/test_tensorflow2_autolog.py::test_tf_keras_autolog_implicit_batch_size_works
-      pytest tests/tensorflow/test_tensorflow2_autolog.py::test_tf_keras_autolog_implicit_batch_size_works
-      pytest tests/tensorflow/test_tensorflow2_autolog.py::test_tf_keras_autolog_implicit_batch_size_works
-      pytest tests/tensorflow/test_tensorflow2_autolog.py::test_tf_keras_autolog_implicit_batch_size_works
-      pytest tests/tensorflow/test_tensorflow2_autolog.py::test_tf_keras_autolog_implicit_batch_size_works
-      pytest tests/tensorflow/test_tensorflow2_autolog.py::test_tf_keras_autolog_implicit_batch_size_works
-      pytest tests/tensorflow/test_tensorflow2_autolog.py::test_tf_keras_autolog_implicit_batch_size_works
-      pytest tests/tensorflow/test_tensorflow2_autolog.py::test_tf_keras_autolog_implicit_batch_size_works
+      pytest tests/tensorflow/test_tensorflow2_autolog.py
 
 xgboost:
   package_info:
