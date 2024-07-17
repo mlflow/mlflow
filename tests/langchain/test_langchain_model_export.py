@@ -126,12 +126,10 @@ def set_envs(monkeypatch):
 def create_huggingface_model(model_path):
     import transformers
 
-    architecture = "lordtt13/emo-mobilebert"
+    architecture = "distilgpt2"
     mlflow.transformers.save_model(
         transformers_model={
-            "model": transformers.TFMobileBertForSequenceClassification.from_pretrained(
-                architecture
-            ),
+            "model": transformers.AutoModelWithLMHead.from_pretrained(architecture),
             "tokenizer": transformers.AutoTokenizer.from_pretrained(architecture),
         },
         path=model_path,

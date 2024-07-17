@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import traceback
 
 import click
 import pytest
@@ -269,6 +270,15 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         terminalreporter.section("Remaining threads", yellow=True)
         for idx, thread in enumerate(threads, start=1):
             terminalreporter.write(f"{idx}: {thread}\n")
+
+        if non_daemon_threads := [t for t in threads if not t.daemon]:
+            frames = sys._current_frames()
+            terminalreporter.section("Tracebacks of non-daemon threads", yellow=True)
+            for thread in non_daemon_threads:
+                thread.join(timeout=1)
+                if thread.is_alive() and (frame := frames.get(thread.ident)):
+                    terminalreporter.section(repr(thread), sep="~")
+                    terminalreporter.write("".join(traceback.format_stack(frame)))
 
     try:
         import psutil

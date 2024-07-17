@@ -2345,3 +2345,72 @@ def test_list_artifacts_graphql(mlflow_client, tmp_path):
         {"path": "testDir/test.txt", "isDir": False, "fileSize": "11"},
     ]
     assert json["data"]["subdir"]["files"] == subdir_expected
+
+
+def test_search_datasets_graphql(mlflow_client):
+    name = "GraphqlTest"
+    experiment_id = mlflow_client.create_experiment(name)
+    created_run_id = mlflow_client.create_run(experiment_id).info.run_id
+    dataset1 = Dataset(
+        name="test-dataset-1",
+        digest="12345",
+        source_type="script",
+        source="test",
+    )
+    dataset_input1 = DatasetInput(dataset=dataset1, tags=[])
+    dataset2 = Dataset(
+        name="test-dataset-2",
+        digest="12346",
+        source_type="script",
+        source="test",
+    )
+    dataset_input2 = DatasetInput(
+        dataset=dataset2, tags=[InputTag(key=MLFLOW_DATASET_CONTEXT, value="training")]
+    )
+    mlflow_client.log_inputs(created_run_id, [dataset_input1, dataset_input2])
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": f"""
+                mutation testMutation {{
+                    mlflowSearchDatasets(input:{{experimentIds: ["{experiment_id}"]}}) {{
+                        datasetSummaries {{
+                            experimentId
+                            name
+                            digest
+                            context
+                        }}
+                    }}
+                }}
+            """,
+            "operationName": "testMutation",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+
+    assert response.status_code == 200
+    json = response.json()
+
+    def sort_dataset_summaries(l1):
+        return sorted(l1, key=lambda x: x["digest"])
+
+    expected = sort_dataset_summaries(
+        [
+            {
+                "experimentId": experiment_id,
+                "name": "test-dataset-2",
+                "digest": "12346",
+                "context": "training",
+            },
+            {
+                "experimentId": experiment_id,
+                "name": "test-dataset-1",
+                "digest": "12345",
+                "context": "",
+            },
+        ]
+    )
+    assert (
+        sort_dataset_summaries(json["data"]["mlflowSearchDatasets"]["datasetSummaries"]) == expected
+    )

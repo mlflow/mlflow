@@ -458,6 +458,18 @@ service MlflowService {
     };
   }
 
+  rpc searchDatasets(SearchDatasets) returns (SearchDatasets.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "mlflow/experiments/search-datasets"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+    option (graphql) = {};
+  }
+
   // Start a new trace within an experiment.
   rpc startTrace(StartTrace) returns (StartTrace.Response) {
     option (rpc) = {
@@ -1466,5 +1478,34 @@ message DeleteTraceTag {
   optional string key = 2;
 
   message Response {
+  }
+}
+
+// DatasetSummary. Represents a summary of information about a dataset.
+message DatasetSummary {
+  // Unique identifier for the experiment.
+  optional string experiment_id = 1 [(validate_required) = true];
+
+  // The name of the dataset. E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
+  optional string name = 2 [(validate_required) = true];
+
+  // Dataset digest, e.g. an md5 hash of the dataset that uniquely identifies it
+  // within datasets of the same name.
+  optional string digest = 3 [(validate_required) = true];
+
+  // Value of "context" tag if set for the given dataset.
+  optional string context = 4;
+}
+
+message SearchDatasets {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // List of experiment IDs to search over.
+  repeated string experiment_ids = 1;
+
+  message Response {
+    // Return the summary for most recently created N datasets, as configured in backend
+    repeated DatasetSummary dataset_summaries = 1;
   }
 }

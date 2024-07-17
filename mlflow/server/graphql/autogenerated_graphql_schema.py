@@ -53,6 +53,17 @@ class MlflowSearchModelVersionsResponse(graphene.ObjectType):
     next_page_token = graphene.String()
 
 
+class MlflowDatasetSummary(graphene.ObjectType):
+    experiment_id = graphene.String()
+    name = graphene.String()
+    digest = graphene.String()
+    context = graphene.String()
+
+
+class MlflowSearchDatasetsResponse(graphene.ObjectType):
+    dataset_summaries = graphene.List(graphene.NonNull(MlflowDatasetSummary))
+
+
 class MlflowMetricWithRunId(graphene.ObjectType):
     key = graphene.String()
     value = graphene.Float()
@@ -177,6 +188,10 @@ class MlflowSearchModelVersionsInput(graphene.InputObjectType):
     page_token = graphene.String()
 
 
+class MlflowSearchDatasetsInput(graphene.InputObjectType):
+    experiment_ids = graphene.List(graphene.String)
+
+
 class MlflowGetMetricHistoryBulkIntervalInput(graphene.InputObjectType):
     run_ids = graphene.List(graphene.String)
     metric_key = graphene.String()
@@ -249,7 +264,14 @@ class QueryType(graphene.ObjectType):
 
 
 class MutationType(graphene.ObjectType):
+    mlflow_search_datasets = graphene.Field(MlflowSearchDatasetsResponse, input=MlflowSearchDatasetsInput())
     mlflow_search_runs = graphene.Field(MlflowSearchRunsResponse, input=MlflowSearchRunsInput())
+
+    def resolve_mlflow_search_datasets(self, info, input):
+        input_dict = vars(input)
+        request_message = mlflow.protos.service_pb2.SearchDatasets()
+        parse_dict(input_dict, request_message)
+        return mlflow.server.handlers.search_datasets_impl(request_message)
 
     def resolve_mlflow_search_runs(self, info, input):
         input_dict = vars(input)
