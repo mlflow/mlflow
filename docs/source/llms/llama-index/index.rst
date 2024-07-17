@@ -8,7 +8,7 @@ MLflow LlamaIndex Flavor
 Introduction
 ------------
 
-**LlamaIndex** 🦙 is a powerful data centric framework designed to seamlessly connect custom data sources to large language models (LLMs).
+**LlamaIndex** 🦙 is a powerful data-centric framework designed to seamlessly connect custom data sources to large language models (LLMs).
 It offers a comprehensive suite of data structures and tools that simplify the process of ingesting, structuring, and
 accessing private or domain-specific data for use with LLMs. LlamaIndex excels in enabling context-aware AI applications
 by providing efficient indexing and retrieval mechanisms, making it easier to build advanced QA systems, chatbots,
@@ -25,13 +25,13 @@ Why use LlamaIndex with MLflow?
 
 The integration of the LlamaIndex library with MLflow provides a seamless experience for managing and deploying LlamaIndex engines. The following are some of the key benefits of using LlamaIndex with MLflow:
 
-* `MLflow Tracking <../../tracking.html>`_ allows you to track your index to MLflow and manage a lot of moving parts in your LlamaIndex project, such as prompts, LLMs, retrievers, tools, global configurations, and more.
+* `MLflow Tracking <../../tracking.html>`_ allows you to track your index in MLflow and manage many moving parts in your LlamaIndex project, such as prompts, LLMs, retrievers, tools, global configurations, and more.
 
 * `MLflow Model <../../models.html>`_ packages your LlamaIndex engine with all its dependency versions, input and output interfaces, and other essential metadata. This allows you to deploy your LlamaIndex engine with ease, knowing that the environment is consistent across different stages of the ML lifecycle.
 
-* `MLflow Evaluate <../llm-evaluate/index.html>`_ provides native capabilities within MLflow to **evaluate** language models. This capability facilitates the efficient assessment of inference results from your LlamaIndex engine, ensuring robust performance analytics and facilitating quick iterations.
+* `MLflow Evaluate <../llm-evaluate/index.html>`_ provides native capabilities within MLflow to evaluate language models. This capability facilitates the efficient assessment of inference results from your LlamaIndex engine, ensuring robust performance analytics and facilitating quick iterations.
 
-* `MLflow Tracing <../tracing/index.html>`_ is a powerful **observability** tool for monitoring and debugging what happens inside the LlamaIndex models, helping you identifying potential bottlenecks or issues quickly. With its powerful automatic logging capability, you can instrument your LlamaIndex application without any code change but just running a single command.
+* `MLflow Tracing <../tracing/index.html>`_ is a powerful observability tool for monitoring and debugging what happens inside the LlamaIndex models, helping you identify potential bottlenecks or issues quickly. With its powerful automatic logging capability, you can instrument your LlamaIndex application without any code change but just by running a single command.
 
 
 
@@ -47,7 +47,8 @@ Concepts
 ``Index``
 ^^^^^^^^^
 
-The ``Index`` object is the core foundation in LlamaIndex, which is a collection of documents that are indexed for fast information retrieval. such as Retrieval-Augmented generation (RAG) and Agents use cases. The ``Index`` object can be logged to MLflow experiments and loaded back as an inference engine.
+The ``Index`` object is the core foundation in LlamaIndex, which is a collection of documents that are indexed for fast information retrieval. Such as Retrieval-Augmented Generation (RAG) and Agents use cases. The ``Index`` object can be logged to MLflow experiments and loaded back as an inference engine.
+
 
 ``Engine``
 ^^^^^^^^^^
@@ -68,7 +69,7 @@ Saving and Loading Index in MLflow Experiment
 Creating an Index
 ~~~~~~~~~~~~~~~~~
 
-The ``index`` object is a centerpiece of the LlamaIndex and MLflow integration. With LlamaIndex, you can create an index from a collection of documents. Following code creates a sample index from Paul Graham's essay data available on the LlamaIndex repository.
+The ``index`` object is a centerpiece of the LlamaIndex and MLflow integration. With LlamaIndex, you can create an index from a collection of documents. The following code creates a sample index from Paul Graham's essay data available in the LlamaIndex repository.
 
 .. code-block:: shell
 
@@ -90,9 +91,9 @@ You can log the ``index`` object to the MLflow experiment using the :py:func:`ml
 One key step here is to specify the ``engine_type`` parameter. The choice of engine type does not affect the index itself,
 but dictates the interface of how you query the index when you load it back for inference.
 
-1. QueryEngine (``engine_type="query"``) is designed for simple query-response system that takes a single query string and returns a response.
-2. ChatEngine (``engine_type="chat"``) is designed for conversational agent that keeps track of the conversation history and answer tp the user query based on the context.
-3. Retriever (``engine_type="retriever"``) is a lower level component that returns the top-k relevant documents matching the query.
+1. QueryEngine (``engine_type="query"``) is designed for a simple query-response system that takes a single query string and returns a response.
+2. ChatEngine (``engine_type="chat"``) is designed for a conversational agent that keeps track of the conversation history and answer tp the user query based on the context.
+3. Retriever (``engine_type="retriever"``) is a lower-level component that returns the top-k relevant documents matching the query.
 
 
 The following code is an example of logging the index to MLflow with chat engine type.
@@ -154,7 +155,7 @@ gives an MLflow Python Model backed by the LlamaIndex engine, with the engine ty
 Enable Tracing
 ^^^^^^^^^^^^^^
 
-You can easily enable tracing for your LlamaIndex engine calling the :py:func:`mlflow.llama_index.autolog` function. This function automatically logs the input and output of the LlamaIndex engine to MLflow, providing you with a detailed view of the engine's behavior.
+You can enable tracing for your LlamaIndex code by calling the :py:func:`mlflow.llama_index.autolog` function. MLflow automatically logs the input and output of the LlamaIndex execution to the active MLflow experiment, providing you with a detailed view of the model's behavior.
 
 .. code-block:: python
 
@@ -165,7 +166,7 @@ You can easily enable tracing for your LlamaIndex engine calling the :py:func:`m
     chat_engine = index.as_chat_engine()
     response = chat_engine.chat("What was the first program the author wrote?")
 
-Then you can navigate to the MLflow UI, select the experiment, and open the "Traces" tab to find the logged trace for the prediction made by the engine. It is impressive to see how the chat engine coordinates and executes numbers of tasks to answer your question!
+Then you can navigate to the MLflow UI, select the experiment, and open the "Traces" tab to find the logged trace for the prediction made by the engine. It is impressive to see how the chat engine coordinates and executes a number of tasks to answer your question!
 
 .. figure:: ../../_static/images/llms/llama-index/llama-index-trace.png
     :alt: Trace view in MLflow UI
@@ -182,4 +183,4 @@ You can disable tracing by running the same function with the ``disable`` parame
 .. note::
 
     The tracing supports async prediction and streaming response, however, it does not
-    support the combination of async and streaming, such as ``astream_chat`` method.
+    support the combination of async and streaming, such as the ``astream_chat`` method.

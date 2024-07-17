@@ -1,18 +1,12 @@
 import logging
 import os
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import yaml
 
 import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.llama_index.pyfunc_wrapper import SUPPORTED_ENGINES, create_engine_wrapper
-from mlflow.llama_index.serialize_objects import (
-    deserialize_settings,
-    serialize_settings,
-)
-from mlflow.llama_index.tracer import remove_llama_index_tracer, set_llama_index_tracer
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
@@ -70,6 +64,8 @@ def get_default_conda_env():
 
 
 def _validate_engine_type(engine_type: str):
+    from mlflow.llama_index.pyfunc_wrapper import SUPPORTED_ENGINES
+
     if engine_type not in SUPPORTED_ENGINES:
         raise ValueError(
             f"Currently mlflow only supports the following engine types: "
@@ -136,6 +132,8 @@ def save_model(
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
     """
+    from mlflow.llama_index.pyfunc_wrapper import create_engine_wrapper
+    from mlflow.llama_index.serialize_objects import serialize_settings
 
     _validate_engine_type(engine_type)
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
@@ -328,6 +326,8 @@ def load_model(model_uri, dst_path=None):
     Returns:
         A ``llama_index`` index object.
     """
+    from mlflow.llama_index.serialize_objects import deserialize_settings
+
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
 
@@ -338,6 +338,8 @@ def load_model(model_uri, dst_path=None):
 
 
 def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
+    from mlflow.llama_index.pyfunc_wrapper import create_engine_wrapper
+
     index = load_model(path)
     flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
     engine_type = flavor_conf.pop("engine_type")
@@ -363,6 +365,8 @@ def autolog(
         silent: If ``True``, suppress all event logs and warnings from MLflow during LlamaIndex
             autologging. If ``False``, show all events and warnings.
     """
+    from mlflow.llama_index.tracer import remove_llama_index_tracer, set_llama_index_tracer
+
     # NB: The @autologging_integration annotation is used for adding shared logic. However, one
     # caveat is that the wrapped function is NOT executed when disable=True is passed. This prevents
     # us from running cleaning up logging when autologging is turned off. To workaround this, we
