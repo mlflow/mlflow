@@ -4,6 +4,7 @@ import pytest
 from llama_index.core import QueryBundle
 from llama_index.core.llms import ChatMessage
 
+import mlflow
 from mlflow.llama_index.pyfunc_wrapper import (
     _CHAT_MESSAGE_HISTORY_PARAMETER_NAME,
     CHAT_ENGINE_NAME,
@@ -226,3 +227,47 @@ def test_format_predict_input_correct_schema_complex(single_index, engine_type):
         }
     )
     assert isinstance(wrapped_model._format_predict_input(payload), QueryBundle)
+
+
+@pytest.mark.parametrize(
+    ("engine_type", "input"),
+    [
+        ("query", {"query_str": "hello!"}),
+        ("retriever", {"query_str": "hello!"}),
+    ],
+)
+def test_spark_udf_retriever_and_query_engine(model_path, spark, single_index, engine_type, input):
+    mlflow.llama_index.save_model(
+        index=single_index,
+        engine_type=engine_type,
+        path=model_path,
+        input_example=input,
+    )
+    udf = mlflow.pyfunc.spark_udf(spark, model_path, result_type="string")
+    df = spark.createDataFrame([{"query_str": "hi"}])
+    df = df.withColumn("predictions", udf())
+    pdf = df.toPandas()
+    assert len(pdf["predictions"].tolist()) == 1
+    assert isinstance(pdf["predictions"].tolist()[0], str)
+
+
+def test_spark_udf_chat(model_path, spark, single_index):
+    engine_type = "chat"
+    input = pd.DataFrame(
+        {
+            "message": ["string"],
+            _CHAT_MESSAGE_HISTORY_PARAMETER_NAME: [[{"role": "user", "content": "string"}]],
+        }
+    )
+    mlflow.llama_index.save_model(
+        index=single_index,
+        engine_type=engine_type,
+        path=model_path,
+        input_example=input,
+    )
+    udf = mlflow.pyfunc.spark_udf(spark, model_path, result_type="string")
+    df = spark.createDataFrame(input)
+    df = df.withColumn("predictions", udf())
+    pdf = df.toPandas()
+    assert len(pdf["predictions"].tolist()) == 1
+    assert isinstance(pdf["predictions"].tolist()[0], str)
