@@ -10,45 +10,95 @@ from mlflow.gateway.constants import MLFLOW_SERVING_RESPONSE_KEY
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import send_request
 from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.config import IS_PYDANTIC_V2
 
 
 class ServingTextResponse(BaseModel):
     predictions: List[StrictStr]
 
-    @validator("predictions", pre=True)
-    def extract_choices(cls, predictions):
-        if isinstance(predictions, list) and not predictions:
-            raise ValueError("The input list is empty")
-        if isinstance(predictions, dict):
-            if "choices" not in predictions and len(predictions) > 1:
-                raise ValueError(
-                    "The dict format is invalid for this route type. Ensure the served model "
-                    "returns a dict key containing 'choices'"
-                )
-            if len(predictions) == 1:
-                predictions = next(iter(predictions.values()))
-            else:
-                predictions = predictions.get("choices", predictions)
-            if not predictions:
+    if IS_PYDANTIC_V2:
+        from pydantic import field_validator as _field_validator
+
+        @_field_validator("predictions", mode="before")
+        @classmethod
+        def extract_choices(cls, predictions):
+            if isinstance(predictions, list) and not predictions:
                 raise ValueError("The input list is empty")
-        return predictions
+            if isinstance(predictions, dict):
+                if "choices" not in predictions and len(predictions) > 1:
+                    raise ValueError(
+                        "The dict format is invalid for this route type. Ensure the served model "
+                        "returns a dict key containing 'choices'"
+                    )
+                if len(predictions) == 1:
+                    predictions = next(iter(predictions.values()))
+                else:
+                    predictions = predictions.get("choices", predictions)
+                if not predictions:
+                    raise ValueError("The input list is empty")
+            return predictions
+
+    else:
+        from pydantic import validator as _validator
+
+        @_validator("predictions", pre=True)
+        def extract_choices(cls, predictions):
+            if isinstance(predictions, list) and not predictions:
+                raise ValueError("The input list is empty")
+            if isinstance(predictions, dict):
+                if "choices" not in predictions and len(predictions) > 1:
+                    raise ValueError(
+                        "The dict format is invalid for this route type. Ensure the served model "
+                        "returns a dict key containing 'choices'"
+                    )
+                if len(predictions) == 1:
+                    predictions = next(iter(predictions.values()))
+                else:
+                    predictions = predictions.get("choices", predictions)
+                if not predictions:
+                    raise ValueError("The input list is empty")
+            return predictions
 
 
 class EmbeddingsResponse(BaseModel):
     predictions: List[List[StrictFloat]]
 
-    @validator("predictions", pre=True)
-    def validate_predictions(cls, predictions):
-        if isinstance(predictions, list) and not predictions:
-            raise ValueError("The input list is empty")
-        if isinstance(predictions, list) and all(
-            isinstance(item, list) and not item for item in predictions
-        ):
-            raise ValueError("One or more lists in the returned prediction response are empty")
-        elif all(isinstance(item, float) for item in predictions):
-            return [predictions]
-        else:
-            return predictions
+    if IS_PYDANTIC_V2:
+        from pydantic import field_validator as _field_validator
+
+        @_field_validator("predictions", mode="before")
+        @classmethod
+        def validate_predictions(cls, predictions):
+            if isinstance(predictions, list) and not predictions:
+                raise ValueError("The input list is empty")
+            if isinstance(predictions, list) and all(
+                isinstance(item, list) and not item for item in predictions
+            ):
+                raise ValueError(
+                    "One or more lists in the returned prediction response are empty"
+                )
+            elif all(isinstance(item, float) for item in predictions):
+                return [predictions]
+            else:
+                return predictions
+
+    else:
+        from pydantic import validator as _validator
+
+        @_validator("predictions", pre=True)
+        def validate_predictions(cls, predictions):
+            if isinstance(predictions, list) and not predictions:
+                raise ValueError("The input list is empty")
+            if isinstance(predictions, list) and all(
+                isinstance(item, list) and not item for item in predictions
+            ):
+                raise ValueError(
+                    "One or more lists in the returned prediction response are empty"
+                )
+            elif all(isinstance(item, float) for item in predictions):
+                return [predictions]
+            else:
+                return predictions
 
 
 class MlflowModelServingProvider(BaseProvider):
@@ -77,7 +127,9 @@ class MlflowModelServingProvider(BaseProvider):
         payload = jsonable_encoder(payload, exclude_none=True)
 
         input_data = payload.pop(key, None)
-        request_payload = {"inputs": input_data if isinstance(input_data, list) else [input_data]}
+        request_payload = {
+            "inputs": input_data if isinstance(input_data, list) else [input_data]
+        }
 
         if payload:
             request_payload["params"] = payload
@@ -97,7 +149,9 @@ class MlflowModelServingProvider(BaseProvider):
             for idx, entry in enumerate(inference_data)
         ]
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
         # Example request to MLflow REST API server for completions:
         # {
         #     "inputs": ["hi", "hello", "bye"],
@@ -181,7 +235,9 @@ class MlflowModelServingProvider(BaseProvider):
                     ),
                     finish_reason=None,
                 )
-                for idx, c in enumerate(self._process_chat_response_for_mlflow_serving(resp))
+                for idx, c in enumerate(
+                    self._process_chat_response_for_mlflow_serving(resp)
+                )
             ],
             usage=chat.ChatUsage(
                 prompt_tokens=None,
@@ -199,7 +255,9 @@ class MlflowModelServingProvider(BaseProvider):
 
         return inference_data
 
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    async def embeddings(
+        self, payload: embeddings.RequestPayload
+    ) -> embeddings.ResponsePayload:
         # Example request to MLflow REST API server for embeddings:
         # {
         #     "inputs": ["a sentence", "another sentence"],

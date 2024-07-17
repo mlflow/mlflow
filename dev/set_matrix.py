@@ -24,6 +24,7 @@ python dev/set_matrix.py --flavors sklearn
 python dev/set_matrix.py --versions 1.1.1
 ```
 """
+
 import argparse
 import functools
 import json
@@ -45,6 +46,8 @@ VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
 # Treat "dev" as "newer than any existing versions"
 DEV_NUMERIC = "9999.9999.9999"
+
+from mlflow.gateway.config import IS_PYDANTIC_V2
 
 
 class Version(OriginalVersion):
@@ -79,17 +82,50 @@ class TestConfig(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-    @validator("minimum", pre=True)
-    def validate_minimum(cls, v):
-        return Version(v)
+    if IS_PYDANTIC_V2:
+        from pydantic import field_validator as _field_validator
 
-    @validator("maximum", pre=True)
-    def validate_maximum(cls, v):
-        return Version(v)
+        @_field_validator("minimum", mode="before")
+        @classmethod
+        def validate_minimum(cls, v):
+            return Version(v)
 
-    @validator("unsupported", pre=True)
-    def validate_unsupported(cls, v):
-        return [Version(v) for v in v] if v else None
+    else:
+        from pydantic import validator as _validator
+
+        @_validator("minimum", pre=True)
+        def validate_minimum(cls, v):
+            return Version(v)
+
+    if IS_PYDANTIC_V2:
+        from pydantic import field_validator as _field_validator
+
+        @_field_validator("maximum", mode="before")
+        @classmethod
+        def validate_maximum(cls, v):
+            return Version(v)
+
+    else:
+        from pydantic import validator as _validator
+
+        @_validator("maximum", pre=True)
+        def validate_maximum(cls, v):
+            return Version(v)
+
+    if IS_PYDANTIC_V2:
+        from pydantic import field_validator as _field_validator
+
+        @_field_validator("unsupported", mode="before")
+        @classmethod
+        def validate_unsupported(cls, v):
+            return [Version(v) for v in v] if v else None
+
+    else:
+        from pydantic import validator as _validator
+
+        @_validator("unsupported", pre=True)
+        def validate_unsupported(cls, v):
+            return [Version(v) for v in v] if v else None
 
 
 class MatrixItem(BaseModel):
@@ -134,7 +170,9 @@ def get_released_versions(package_name):
     data = pypi_json(package_name)
     versions = []
     for version, distributions in data["releases"].items():
-        if len(distributions) == 0 or any(d.get("yanked", False) for d in distributions):
+        if len(distributions) == 0 or any(
+            d.get("yanked", False) for d in distributions
+        ):
             continue
 
         try:
@@ -269,11 +307,15 @@ def get_requires_python(package: str, version: str) -> str:
     return next((c for c in candidates if spec.contains(c)), None) or candidates[0]
 
 
-def get_python_version(python: Optional[Dict[str, str]], package: str, version: str) -> str:
+def get_python_version(
+    python: Optional[Dict[str, str]], package: str, version: str
+) -> str:
     if python:
         for specifier, py_ver in python.items():
             specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
-            if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
+            if specifier_set.contains(
+                DEV_NUMERIC if version == DEV_VERSION else version
+            ):
                 return py_ver
 
     return get_requires_python(package, version)
@@ -288,7 +330,9 @@ def make_pip_install_command(packages):
 
 
 def divider(title, length=None):
-    length = shutil.get_terminal_size(fallback=(80, 24))[0] if length is None else length
+    length = (
+        shutil.get_terminal_size(fallback=(80, 24))[0] if length is None else length
+    )
     rest = length - len(title) - 2
     left = rest // 2 if rest % 2 else (rest + 1) // 2
     return "\n{} {} {}\n".format("=" * left, title, "=" * (rest - left))
@@ -300,7 +344,9 @@ def split_by_comma(x):
 
 
 def parse_args(args):
-    parser = argparse.ArgumentParser(description="Set a test matrix for the cross version tests")
+    parser = argparse.ArgumentParser(
+        description="Set a test matrix for the cross version tests"
+    )
     parser.add_argument(
         "--versions-yaml",
         required=False,
@@ -396,10 +442,14 @@ def expand_config(config):
 
             for ver in versions:
                 requirements = [f"{package_info.pip_release}=={ver}"]
-                requirements.extend(get_matched_requirements(cfg.requirements or {}, str(ver)))
+                requirements.extend(
+                    get_matched_requirements(cfg.requirements or {}, str(ver))
+                )
                 install = make_pip_install_command(requirements)
                 run = remove_comments(cfg.run)
-                python = get_python_version(cfg.python, package_info.pip_release, str(ver))
+                python = get_python_version(
+                    cfg.python, package_info.pip_release, str(ver)
+                )
                 java = get_java_version(cfg.java, str(ver))
 
                 matrix.add(
@@ -422,12 +472,18 @@ def expand_config(config):
 
             if package_info.install_dev:
                 install_dev = remove_comments(package_info.install_dev)
-                requirements = get_matched_requirements(cfg.requirements or {}, DEV_VERSION)
+                requirements = get_matched_requirements(
+                    cfg.requirements or {}, DEV_VERSION
+                )
                 if requirements:
-                    install = make_pip_install_command(requirements) + "\n" + install_dev
+                    install = (
+                        make_pip_install_command(requirements) + "\n" + install_dev
+                    )
                 else:
                     install = install_dev
-                python = get_python_version(cfg.python, package_info.pip_release, DEV_VERSION)
+                python = get_python_version(
+                    cfg.python, package_info.pip_release, DEV_VERSION
+                )
                 java = get_java_version(cfg.java, DEV_VERSION)
 
                 run = remove_comments(cfg.run)
@@ -551,7 +607,9 @@ def validate_action_config(num_jobs: int):
     jobs = yaml.safe_load(s)["jobs"]
     jobs = [v for name, v in jobs.items() if name.startswith("test")]
     assert len(jobs) == num_jobs, f"Expected {num_jobs} jobs, but got {len(jobs)}"
-    assert all(jobs[0] == j for j in jobs[1:]), "All jobs must have the same configuration"
+    assert all(
+        jobs[0] == j for j in jobs[1:]
+    ), "All jobs must have the same configuration"
 
 
 def main(args):
@@ -566,14 +624,18 @@ def main(args):
     matrix = generate_matrix(args)
     matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
     matrix = [x for x in matrix if x.flavor not in ("gluon", "mleap")]
-    assert len(matrix) <= MAX_ITEMS * 2, f"Too many jobs: {len(matrix)} > {MAX_ITEMS * NUM_JOBS}"
+    assert (
+        len(matrix) <= MAX_ITEMS * 2
+    ), f"Too many jobs: {len(matrix)} > {MAX_ITEMS * NUM_JOBS}"
     for idx, mat in enumerate(split(matrix, NUM_JOBS), start=1):
         mat = {"include": mat, "job_name": [x.job_name for x in mat]}
         print(divider(f"Matrix {idx}"))
         print(json.dumps(mat, indent=2, cls=CustomEncoder))
         if "GITHUB_ACTIONS" in os.environ:
             set_action_output(f"matrix{idx}", json.dumps(mat, cls=CustomEncoder))
-            set_action_output(f"is_matrix{idx}_empty", "true" if len(mat) == 0 else "false")
+            set_action_output(
+                f"is_matrix{idx}_empty", "true" if len(mat) == 0 else "false"
+            )
 
 
 if __name__ == "__main__":
