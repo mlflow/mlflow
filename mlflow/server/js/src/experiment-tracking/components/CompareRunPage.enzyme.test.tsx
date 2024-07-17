@@ -68,12 +68,13 @@ describe('CompareRunPage URI encoded', () => {
     global.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
     minimalProps = {
       location: {
-        search: "?runs=%5B%252281d708375e574d6cbf4985b8701d67d2%2522,%25225f70fea1ef004d3180a6c34fe2d0d94e%2522%5D&experiments=%5B%25220%2522%5D",
+        search:
+          '?runs=%5B%252281d708375e574d6cbf4985b8701d67d2%2522,%25225f70fea1ef004d3180a6c34fe2d0d94e%2522%5D&experiments=%5B%25220%2522%5D',
       },
       experimentIds: ['12345'],
       runUuids: ['runn-1234-5678-9012', 'runn-1234-5678-9034'],
       dispatch: jest.fn(),
-    }; 
+    };
     minimalStore = mockStore({
       entities: {},
       apis: jest.fn((key) => {

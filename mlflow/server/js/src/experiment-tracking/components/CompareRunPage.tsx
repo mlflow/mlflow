@@ -63,13 +63,17 @@ class CompareRunPageImpl extends Component<CompareRunPageProps> {
   }
 }
 
+/**
+ * When integrated via IFrame in Kubeflow it re-encodes the URI (sometimes multiple times), leading to an unparsable JSON.
+ * This function decodes the URI until it is parsable.
+ */
 const decodeURI = (uri: string): string => {
   const decodedURI = decodeURIComponent(uri);
   if (uri !== decodedURI) {
     return decodeURI(decodedURI);
   }
   return decodedURI;
-}
+};
 
 const mapStateToProps = (state: any, ownProps: WithRouterNextProps) => {
   const { location } = ownProps;
