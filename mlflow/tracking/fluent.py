@@ -667,8 +667,8 @@ def flush_async_logging() -> None:
     _get_store().flush_async_logging()
 
 
-def shut_down_async_logging() -> None:
-    """Flush all pending data and shutdown the async logging."""
+def _shut_down_async_logging() -> None:
+    """Shutdown the async logging and flush all pending data."""
     _get_store().shut_down_async_logging()
 
 

@@ -156,7 +156,6 @@ from mlflow.tracking.fluent import (
     set_experiment_tags,
     set_tag,
     set_tags,
-    shut_down_async_logging,
     start_run,
 )
 from mlflow.tracking.multimedia import Image
@@ -222,7 +221,6 @@ __all__ = [
     "set_tag",
     "set_tags",
     "set_tracking_uri",
-    "shut_down_async_logging",
     "start_run",
     "Image",
     # Tracing Fluent APIs

@@ -33,6 +33,7 @@ from mlflow.tensorflow.callback import MlflowCallback, MlflowModelCheckpointCall
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
+from mlflow.tracking.fluent import _shut_down_async_logging
 from mlflow.types.schema import TensorSpec
 from mlflow.utils import is_iterator
 from mlflow.utils.autologging_utils import (
@@ -1342,7 +1343,7 @@ def autolog(
             # Ensure all data are logged.
             # Shut down the async logging (instead of flushing)
             # to avoid leaving zombie threads between patchings.
-            mlflow.shut_down_async_logging()
+            _shut_down_async_logging()
 
             mlflow.log_artifacts(
                 local_dir=self.log_dir.location,
