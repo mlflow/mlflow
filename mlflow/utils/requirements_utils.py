@@ -197,6 +197,15 @@ def _prune_packages(packages):
     """
     packages = set(packages)
     requires = set(_flatten(map(_get_requires_recursive, packages)))
+
+    # LlamaIndex have one root "llama-index" package that bundles many sub-packages such as
+    # llama-index-llms-openai. Many of those sub-packages are optional, but some are defined
+    # as dependencies of the root package. However, the root package does not pin the versions
+    # for those sub-packages, resulting in non-deterministic behavior when loading the model
+    # later. To address this issue, we keep all sub-packages within the requirements.
+    # Ref: https://github.com/run-llama/llama_index/issues/14788#issuecomment-2232107585
+    requires = {req for req in requires if not req.startswith("llama-index-")}
+
     # Do not exclude mlflow's dependencies
     return packages - (requires - set(_get_requires("mlflow")))
 

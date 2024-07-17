@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import pytest
-from llama_index.core import QueryBundle
+from llama_index.core import QueryBundle, Settings
 from llama_index.core.llms import ChatMessage
 
 import mlflow
@@ -58,6 +58,33 @@ def test_llama_index_native_log_and_load_model(request, index_fixture):
     engine = loaded_model.as_query_engine()
     assert engine is not None
     assert engine.query("Spell llamaindex").response != ""
+
+
+def test_llama_index_requirement_inference(monkeypatch, single_index, model_path):
+    from llama_index.llms.databricks import Databricks
+
+    # NB: Setting Databricks LLM so that the subpackage llama-index-llms-databricks
+    #     will be inferred as a requirement. We don't have to set API keys here as
+    #     Databricks LLM class simply delegates the failed API calls to OpenAI,
+    #     which we have mocked with the fake local server.
+    monkeypatch.setattr(Settings, "llm", Databricks(model="dbrx-instruct"))
+
+    mlflow.llama_index.save_model(
+        single_index, path=model_path, input_example="hi", engine_type="query"
+    )
+
+    with model_path.joinpath("requirements.txt").open() as file:
+        requirements = file.read()
+    reqs = {req.split("==")[0] for req in requirements.split("\n") if requirements}
+    assert "llama-index" in reqs
+    # The subpackage should be listed as requirements while they are dependencies
+    # of the root "llama-index" package. This is to ensure that the version of
+    # the subpackage is fixed.
+    assert "llama-index-core" in reqs
+    assert "llama-index-llms-openai" in reqs
+
+    # Subpackage that is not declared as a dependency of the root package
+    assert "llama-index-llms-databricks" in reqs
 
 
 @pytest.mark.parametrize(

@@ -708,8 +708,12 @@ llama_index:
     minimum: "0.10.44"
     maximum: "0.10.53"
     requirements:
-      ">= 0.0.0": ["openai"]
-    run: |
+      ">= 0.0.0": [
+          "openai",
+          # Required to test Databricks LLMs
+          "llama-index-llms-databricks",
+        ]
+    run:
       # TODO: Add --ignore flag for autologging test once it's implemented
       pytest tests/llama_index
 
