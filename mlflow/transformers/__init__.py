@@ -1334,20 +1334,49 @@ def _write_license_information(model_name, card_data, path):
     path.joinpath(_LICENSE_FILE_NAME).write_text(fallback, encoding="utf-8")
 
 
+def _get_supported_pretrained_model_types():
+    """
+    Users might not have all the necessary libraries installed to determine the supported model
+    """
+
+    supported_model_types = ()
+
+    try:
+        from transformers import FlaxPreTrainedModel
+
+        supported_model_types += (FlaxPreTrainedModel,)
+    except Exception:
+        pass
+
+    try:
+        from transformers import PreTrainedModel
+
+        supported_model_types += (PreTrainedModel,)
+    except Exception:
+        pass
+
+    try:
+        from transformers import TFPreTrainedModel
+
+        supported_model_types += (TFPreTrainedModel,)
+    except Exception:
+        pass
+
+    return supported_model_types
+
+
 def _build_pipeline_from_model_input(model_dict: Dict[str, Any], task: Optional[str]) -> Pipeline:
     """
     Utility for generating a pipeline from component parts. If required components are not
     specified, use the transformers library pipeline component validation to force raising an
     exception. The underlying Exception thrown in transformers is verbose enough for diagnosis.
     """
-    from transformers import FlaxPreTrainedModel, PreTrainedModel, TFPreTrainedModel, pipeline
+
+    from transformers import pipeline
 
     model = model_dict[FlavorKey.MODEL]
 
-    if not (
-        isinstance(model, (TFPreTrainedModel, PreTrainedModel, FlaxPreTrainedModel))
-        or is_peft_model(model)
-    ):
+    if not (isinstance(model, _get_supported_pretrained_model_types()) or is_peft_model(model)):
         raise MlflowException(
             "The supplied model type is unsupported. The model must be one of: "
             "PreTrainedModel, TFPreTrainedModel, FlaxPreTrainedModel, or PeftModel",
