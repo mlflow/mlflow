@@ -146,6 +146,10 @@ tensorflow:
       ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25"]
     run: |
       pytest tests/tensorflow/test_tensorflow2_autolog.py
+      pytest tests/tensorflow/test_tensorflow2_autolog.py
+      pytest tests/tensorflow/test_tensorflow2_autolog.py
+      pytest tests/tensorflow/test_tensorflow2_autolog.py
+      pytest tests/tensorflow/test_tensorflow2_autolog.py
 
 xgboost:
   package_info:
