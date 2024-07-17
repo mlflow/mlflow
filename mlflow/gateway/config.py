@@ -4,13 +4,13 @@ import os
 import pathlib
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, Self
+from typing import Any, Dict, List, Optional, Self, Union
 
 import pydantic
 import yaml
 from packaging import version
 from packaging.version import Version
-from pydantic import ConfigDict, Field, ValidationError, root_validator, validator
+from pydantic import ConfigDict, Field, ValidationError
 from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
@@ -152,9 +152,7 @@ class OpenAIAPIType(str, Enum):
             if api_type.value == value.lower():
                 return api_type
 
-        raise MlflowException.invalid_parameter_value(
-            f"Invalid OpenAI API type '{value}'"
-        )
+        raise MlflowException.invalid_parameter_value(f"Invalid OpenAI API type '{value}'")
 
 
 class OpenAIConfig(ConfigModel):
@@ -210,9 +208,7 @@ class OpenAIConfig(ConfigModel):
                     f"'{OpenAIAPIType.AZURE}' or '{OpenAIAPIType.AZUREAD}'."
                 )
         else:
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid OpenAI API type '{api_type}'"
-            )
+            raise MlflowException.invalid_parameter_value(f"Invalid OpenAI API type '{api_type}'")
 
         return info
 
@@ -516,10 +512,7 @@ class RouteConfig(AliasedConfigModel):
         def validate_model(cls, model):
             if model:
                 model_instance = Model(**model)
-                if (
-                    model_instance.provider in Provider.values()
-                    and model_instance.config is None
-                ):
+                if model_instance.provider in Provider.values() and model_instance.config is None:
                     raise MlflowException.invalid_parameter_value(
                         "A config must be supplied when setting a provider. The provider entry for "
                         f"{model_instance.provider} is incorrect."
@@ -533,10 +526,7 @@ class RouteConfig(AliasedConfigModel):
         def validate_model(cls, model):
             if model:
                 model_instance = Model(**model)
-                if (
-                    model_instance.provider in Provider.values()
-                    and model_instance.config is None
-                ):
+                if model_instance.provider in Provider.values() and model_instance.config is None:
                     raise MlflowException.invalid_parameter_value(
                         "A config must be supplied when setting a provider. The provider entry for "
                         f"{model_instance.provider} is incorrect."
@@ -561,11 +551,7 @@ class RouteConfig(AliasedConfigModel):
                     f"Ensure the model selected starts with one of: "
                     f"{MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES}"
                 )
-            if (
-                model
-                and model.provider == "ai21labs"
-                and not is_valid_ai21labs_model(model.name)
-            ):
+            if model and model.provider == "ai21labs" and not is_valid_ai21labs_model(model.name):
                 raise MlflowException.invalid_parameter_value(
                     f"An Unsupported AI21Labs model has been specified: '{model.name}'. "
                     f"Please see documentation for supported models."
@@ -590,11 +576,7 @@ class RouteConfig(AliasedConfigModel):
                     f"Ensure the model selected starts with one of: "
                     f"{MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES}"
                 )
-            if (
-                model
-                and model.provider == "ai21labs"
-                and not is_valid_ai21labs_model(model.name)
-            ):
+            if model and model.provider == "ai21labs" and not is_valid_ai21labs_model(model.name):
                 raise MlflowException.invalid_parameter_value(
                     f"An Unsupported AI21Labs model has been specified: '{model.name}'. "
                     f"Please see documentation for supported models."
@@ -753,9 +735,7 @@ def _load_route_config(path: Union[str, Path]) -> GatewayConfig:
 def _save_route_config(config: GatewayConfig, path: Union[str, Path]) -> None:
     if isinstance(path, str):
         path = Path(path)
-    path.write_text(
-        yaml.safe_dump(json.loads(json.dumps(config.dict(), default=pydantic_encoder)))
-    )
+    path.write_text(yaml.safe_dump(json.loads(json.dumps(config.dict(), default=pydantic_encoder))))
 
 
 def _validate_config(config_path: str) -> GatewayConfig:
@@ -765,6 +745,4 @@ def _validate_config(config_path: str) -> GatewayConfig:
     try:
         return _load_route_config(config_path)
     except ValidationError as e:
-        raise MlflowException.invalid_parameter_value(
-            f"Invalid gateway configuration: {e}"
-        ) from e
+        raise MlflowException.invalid_parameter_value(f"Invalid gateway configuration: {e}") from e
