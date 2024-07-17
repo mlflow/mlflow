@@ -2,13 +2,6 @@ import numpy as np
 import pandas as pd
 import pytest
 from llama_index.core import QueryBundle
-from llama_index.core.base.response.schema import (
-    NodeWithScore,
-    Response,
-)
-from llama_index.core.chat_engine.types import (
-    AgentChatResponse,
-)
 from llama_index.core.llms import ChatMessage
 
 from mlflow.llama_index.pyfunc_wrapper import (
@@ -16,17 +9,8 @@ from mlflow.llama_index.pyfunc_wrapper import (
     CHAT_ENGINE_NAME,
     QUERY_ENGINE_NAME,
     RETRIEVER_ENGINE_NAME,
-    SUPPORTED_ENGINES,
     create_engine_wrapper,
 )
-
-
-@pytest.mark.parametrize("engine_type", SUPPORTED_ENGINES)
-def test_create_create_engine_wrapper(single_index, engine_type):
-    wrapped_model = create_engine_wrapper(single_index, engine_type)
-    assert wrapped_model is not None
-    assert wrapped_model.engine_type == engine_type
-    assert engine_type in str(wrapped_model.predict_callable)
 
 
 ################## Inferece Input #################
@@ -242,28 +226,3 @@ def test_format_predict_input_correct_schema_complex(single_index, engine_type):
         }
     )
     assert isinstance(wrapped_model._format_predict_input(payload), QueryBundle)
-
-
-#### E2E Inference ####
-def test_predict_query(single_index):
-    payload = "string"
-    wrapped_model = create_engine_wrapper(single_index, "chat")
-    predictions = wrapped_model.predict(payload)
-    assert isinstance(predictions, AgentChatResponse)
-    assert predictions.response
-
-
-def test_predict_query(single_index):
-    payload = "string"
-    wrapped_model = create_engine_wrapper(single_index, "query")
-    predictions = wrapped_model.predict(payload)
-    assert isinstance(predictions, Response)
-    assert predictions.response
-
-
-def test_predict_query(single_index):
-    payload = "string"
-    wrapped_model = create_engine_wrapper(single_index, "retriever")
-    predictions = wrapped_model.predict(payload)
-    assert isinstance(predictions, list)
-    assert isinstance(predictions[0], NodeWithScore)

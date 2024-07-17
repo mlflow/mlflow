@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from llama_index.core import QueryBundle
 from llama_index.core.llms import ChatMessage
@@ -43,9 +43,8 @@ class _LlamaIndexModelWrapperBase:
     ):
         self.index = index
         self.model_config = model_config or {}
-        self.predict_callable = self._build_engine_method()
 
-    def _build_engine_method(self) -> Callable:
+    def _predict_single(self, *args, **kwargs) -> Any:
         raise NotImplementedError
 
     def _format_predict_input(self, data):
@@ -58,9 +57,9 @@ class _LlamaIndexModelWrapperBase:
         """
 
         if isinstance(input, Dict):
-            return self.predict_callable(**input, **(params or {}))
+            return self._predict_single(**input, **(params or {}))
         else:
-            return self.predict_callable(input, **(params or {}))
+            return self._predict_single(input, **(params or {}))
 
     def predict(self, data, params: Optional[Dict[str, Any]] = None) -> Union[List[str], str]:
         data = self._format_predict_input(data)
@@ -75,9 +74,10 @@ class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.engine_type = CHAT_ENGINE_NAME
+        self.engine = self.index.as_chat_engine(**self.model_config)
 
-    def _build_engine_method(self) -> Callable:
-        return self.index.as_chat_engine(**self.model_config).chat
+    def _predict_single(self, *args, **kwargs) -> str:
+        return self.engine.chat(*args, **kwargs).response
 
     @staticmethod
     def _convert_chat_message_history_to_chat_message_objects(data: Dict) -> Dict:
@@ -117,9 +117,10 @@ class QueryEngineWrapper(_LlamaIndexModelWrapperBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.engine_type = QUERY_ENGINE_NAME
+        self.engine = self.index.as_query_engine(**self.model_config)
 
-    def _build_engine_method(self) -> Callable:
-        return self.index.as_query_engine(**self.model_config).query
+    def _predict_single(self, *args, **kwargs) -> str:
+        return self.engine.query(*args, **kwargs).response
 
     def _format_predict_input(self, data) -> QueryBundle:
         return _format_predict_input_query_engine_and_retriever(data)
@@ -129,9 +130,11 @@ class RetrieverEngineWrapper(_LlamaIndexModelWrapperBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.engine_type = RETRIEVER_ENGINE_NAME
+        self.engine = self.index.as_retriever(**self.model_config)
 
-    def _build_engine_method(self) -> Callable:
-        return self.index.as_retriever(**self.model_config).retrieve
+    def _predict_single(self, *args, **kwargs) -> List[Dict]:
+        response = self.engine.retrieve(*args, **kwargs)
+        return [node.dict() for node in response]
 
     def _format_predict_input(self, data) -> QueryBundle:
         return _format_predict_input_query_engine_and_retriever(data)
