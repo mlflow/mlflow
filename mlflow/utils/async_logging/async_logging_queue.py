@@ -87,16 +87,18 @@ class AsyncLoggingQueue:
             # Set the status to tear down. The worker threads will still process
             # the remaining data.
             self._status = QueueStatus.TEAR_DOWN
+            # Clear the status to avoid blocking next logging.
+            self._stop_data_logging_thread_event.clear()
 
     def shut_down_async_logging(self) -> None:
         """
-        Shut down the async logging queue.
+        Shut down the async logging queue and wait for the queue to be drained.
+        Use this method if the async logging should be terminated.
         """
         self.end_async_logging()
         self._batch_logging_worker_threadpool.shutdown(wait=True)
         self._batch_status_check_threadpool.shutdown(wait=True)
         self._status = QueueStatus.IDLE
-        self._stop_data_logging_thread_event.clear()
 
     def flush(self) -> None:
         """
@@ -106,7 +108,8 @@ class AsyncLoggingQueue:
         Calling this method will flush the queue to ensure all the data are logged.
         """
         self.shut_down_async_logging()
-        self._set_up_logging_thread()
+        # Reinitialize the logging thread and set the status to active.
+        self.activate()
 
     def _logging_loop(self) -> None:
         """
@@ -293,14 +296,15 @@ class AsyncLoggingQueue:
     def is_idle(self) -> bool:
         return self._status == QueueStatus.IDLE
 
+    # NB: this method shouldn't be called directly without
+    # shuting down the async logging first if an existing async logging exists,
+    # otherwise it might hang the program.
     def _set_up_logging_thread(self) -> None:
         """Sets up the logging thread.
 
         If the logging thread is already set up, this method does nothing.
         """
         with self._lock:
-            # clear the status to enable logging data
-            self._stop_data_logging_thread_event.clear()
             self._batch_logging_thread = threading.Thread(
                 target=self._logging_loop,
                 name="MLflowAsyncLoggingLoop",

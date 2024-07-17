@@ -70,9 +70,10 @@ def test_single_thread_publish_consume_queue(monkeypatch):
         async_logging_queue.flush()
         # 2 batches are sent to the worker thread pool due to grouping, otherwise it would be 5.
         assert mock_worker_threadpool.submit.call_count == 2
-        assert async_logging_queue.is_idle()
+        assert async_logging_queue.is_active()
         assert mock_check_threadpool.shutdown.call_count == 1
         assert mock_worker_threadpool.shutdown.call_count == 1
+        async_logging_queue.shut_down_async_logging()
 
 
 def test_grouping_batch_in_time_window():
@@ -103,6 +104,8 @@ def test_grouping_batch_in_time_window():
         run_data.received_tags,
     )
 
+    async_logging_queue.shut_down_async_logging()
+
 
 def test_queue_activation():
     run_id = "test_run_id"
@@ -124,6 +127,7 @@ def test_queue_activation():
 
     async_logging_queue.activate()
     assert async_logging_queue.is_active()
+    async_logging_queue.shut_down_async_logging()
 
 
 def test_end_async_logging():
@@ -149,7 +153,8 @@ def test_end_async_logging():
     assert not async_logging_queue._batch_status_check_threadpool._shutdown
 
     async_logging_queue.flush()
-    assert async_logging_queue.is_idle()
+    assert async_logging_queue.is_active()
+    async_logging_queue.shut_down_async_logging()
 
 
 def test_partial_logging_failed():
@@ -194,6 +199,7 @@ def test_partial_logging_failed():
         run_data.received_params,
         run_data.received_tags,
     )
+    async_logging_queue.shut_down_async_logging()
 
 
 def test_publish_multithread_consume_single_thread():
@@ -222,6 +228,8 @@ def test_publish_multithread_consume_single_thread():
     assert len(run_data.received_metrics) == 2 * METRIC_PER_BATCH * TOTAL_BATCHES
     assert len(run_data.received_tags) == 2 * TAGS_PER_BATCH * TOTAL_BATCHES
     assert len(run_data.received_params) == 2 * PARAMS_PER_BATCH * TOTAL_BATCHES
+
+    async_logging_queue.shut_down_async_logging()
 
 
 class Consumer:
@@ -295,6 +303,8 @@ def test_async_logging_queue_pickle():
         run_operation.wait()
 
     assert len(deserialized_queue._logging_func.__self__.metrics) == 10
+
+    async_logging_queue.shut_down_async_logging()
 
 
 def _send_metrics_tags_params(run_data_queueing_processor, run_id, run_operations=None):
