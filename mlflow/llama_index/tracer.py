@@ -423,11 +423,7 @@ class StreamResolver:
         elif isinstance(result, TaskStepOutput):
             stream = result.output.chat_stream
         else:
-            _logger.warning(
-                f"Unsupported streaming response type: {type(result)}. The span will "
-                "be ended immediately without waiting for the stream to finish."
-            )
-            return False
+            raise ValueError(f"Unsupported streaming response type: {type(result)}")
 
         if inspect.getgeneratorstate(stream) == inspect.GEN_CLOSED:
             # Not registering the span because the generator is already exhausted
