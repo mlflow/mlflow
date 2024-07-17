@@ -24,7 +24,6 @@ from mlflow.models.utils import _read_example
 from mlflow.tensorflow import load_checkpoint
 from mlflow.tensorflow.autologging import _TensorBoard
 from mlflow.tensorflow.callback import MlflowCallback
-from mlflow.tracking import _get_store
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
@@ -46,7 +45,7 @@ def clear_session():
         yield
     finally:
         # Shut down async logging to ensure we terminate thread pools.
-        _get_store().shut_down_async_logging()
+        mlflow.shut_down_async_logging()
         tf.keras.backend.clear_session()
 
 

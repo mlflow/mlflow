@@ -185,16 +185,11 @@ class AsyncLoggingQueue:
                     params=run_batch.params,
                     tags=run_batch.tags,
                 )
-
-                # Signal the batch processing is done.
-                run_batch.completion_event.set()
-                for child_batch in run_batch.child_batches:
-                    # Signal the child batch processing is done.
-                    child_batch.completion_event.set()
-
             except Exception as e:
                 _logger.error(f"Run Id {run_batch.run_id}: Failed to log run data: Exception: {e}")
                 run_batch.exception = e
+            finally:
+                # Signal the batch processing is done.
                 run_batch.completion_event.set()
                 for child_batch in run_batch.child_batches:
                     # Signal the child batch processing is done.
