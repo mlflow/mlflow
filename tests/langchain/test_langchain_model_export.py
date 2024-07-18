@@ -31,6 +31,9 @@ from langchain.embeddings.base import Embeddings
 from langchain.embeddings.fake import FakeEmbeddings
 from langchain.evaluation.qa import QAEvalChain
 
+from mlflow.tracing.export.inference_table import pop_trace
+from mlflow.tracing.provider import reset_tracer_setup
+
 from tests.tracing.helper import get_traces
 
 try:
@@ -2428,7 +2431,7 @@ def _get_message_content(predictions):
         ),
     ],
 )
-def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config):
+def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config, monkeypatch):
     input_example = {
         "messages": [
             {
@@ -2499,6 +2502,12 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
             }
         ]
     }
+
+    # Emulate the model serving environment
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("ENABLE_MLFLOW_TRACING", "true")
+    reset_tracer_setup()
+
     request_id = "mock_request_id"
     tracer = MlflowLangchainTracer(prediction_context=Context(request_id))
     input_example = {"messages": [{"role": "user", "content": "What is MLflow?"}]}
@@ -2506,8 +2515,8 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
         data=input_example, callback_handlers=[tracer]
     )
     assert response["choices"][0]["message"]["content"] == "Databricks"
-    trace = mlflow.get_trace(tracer._request_id)
-    assert trace.info.tags[DependenciesSchemasType.RETRIEVERS.value] == json.dumps(
+    trace = pop_trace(request_id)
+    assert trace["info"]["tags"][DependenciesSchemasType.RETRIEVERS.value] == json.dumps(
         [
             {
                 "doc_uri": "doc-uri",
