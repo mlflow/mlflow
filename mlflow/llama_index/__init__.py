@@ -44,7 +44,7 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "llama_index"
 _INDEX_PERSIST_FOLDER = "index"
-_SETTINGS_DIRECTORY = "settings"
+_SETTINGS_FILE = "settings.json"
 
 
 _logger = logging.getLogger(__name__)
@@ -163,7 +163,7 @@ def save_model(
     # for a given llama_index application. Given it holds the required objects for most of
     # the index's functionality, we look to serialize the entire object. For components of
     # the object that are not serializable, we log a warning.
-    settings_path = os.path.join(path, _SETTINGS_DIRECTORY)
+    settings_path = os.path.join(path, _SETTINGS_FILE)
     serialize_settings(settings_path)
 
     _save_index(index, path)
@@ -331,7 +331,7 @@ def load_model(model_uri, dst_path=None):
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
 
-    settings_path = os.path.join(local_model_path, _SETTINGS_DIRECTORY)
+    settings_path = os.path.join(local_model_path, _SETTINGS_FILE)
     # NB: Settings is a singleton and can be loaded via llama_index.core.Settings
     deserialize_settings(settings_path)
 
