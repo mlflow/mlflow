@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Union
 from uuid import UUID
 
 from langchain.callbacks.base import BaseCallbackHandler
@@ -58,13 +58,14 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     def __init__(
         self, parent_span: Optional[LiveSpan] = None, prediction_context: Optional[Context] = None
     ):
+        # NB: The tracer can handle multiple traces in parallel under multi-threading scenarios.
+        # DO NOT use instance variables to manage the state of single trace.
         super().__init__()
         self._mlflow_client = MlflowClient()
         self._parent_span = parent_span
         self._run_span_mapping: Dict[str, LiveSpan] = {}
+        self._active_request_ids: Set[str] = set()
         self._prediction_context = prediction_context
-        self._request_id = None
-        self._root_run_id = None
 
     def _get_span_by_run_id(self, run_id: UUID) -> Optional[LiveSpan]:
         if span := self._run_span_mapping.get(str(run_id)):
@@ -106,8 +107,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     attributes=attributes,
                     tags=dependencies_schemas,
                 )
-                self._request_id = span.request_id
-                self._root_run_id = run_id
+                self._active_request_ids.add(span.request_id)
 
             self._run_span_mapping[str(run_id)] = span
         return span
@@ -137,14 +137,21 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         status=SpanStatus(SpanStatusCode.OK),
     ):
         """Close MLflow Span (or Trace if it is root component)"""
-        root_run_active = str(self._root_run_id) in self._run_span_mapping
         self._run_span_mapping.pop(str(run_id), None)
-        if not root_run_active:
-            # If the root run is not found in the mapping, it means that the root span is already
-            # closed. In this case, the trace is likely no longer active, so we do not attempt
-            # to write the span to the trace. For example, this occurs during streaming inference
-            # if the generator returned by stream() is not consumed completely
+        if span.request_id not in self._active_request_ids:
+            # If the request ID is not found in the active list, it means that the trace is already
+            # ended i.e. a parent span ends earlier then its child. For example, this occurs during
+            # streaming inference if the generator returned by stream() is not consumed completely
+            # while the child span still wait until the stream is exhausted.
+            _logger.debug(
+                f"Request ID {span.request_id} is not started or already ended. "
+                f"Skipping end span for {span}."
+            )
             return
+
+        # Remove the request ID from the active list if the span being ended is the root span
+        if span.parent_id is None:
+            self._active_request_ids.remove(span.request_id)
 
         with maybe_set_prediction_context(self._prediction_context):
             self._mlflow_client.end_span(
