@@ -40,6 +40,7 @@ tiktoken
 # Required by progress bar tests
 ipywidgets
 tqdm
+# Required for LLM eval in `mlflow.evaluate`
 openai>=1.0.0
 # Required for showing pytest stats
 psutil
