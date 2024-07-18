@@ -354,7 +354,7 @@ def invocations(data, content_type, model, input_schema):
         )
 
     # Do the prediction
-    # NB: utils.validate_serving_input mimic the scoring process here to validate input_example
+    # NB: utils._validate_serving_input mimic the scoring process here to validate input_example
     # work for serving, so any changes here should be reflected there as well
     try:
         if inspect.signature(model.predict).parameters.get("params"):

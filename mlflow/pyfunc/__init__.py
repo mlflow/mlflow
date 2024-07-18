@@ -2944,3 +2944,10 @@ def _save_model_with_loader_module_and_data_path(
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
     return mlflow_model
+
+
+# Define this method here so user can directly use mlflow.pyfunc.validate_serving_input
+def validate_serving_input(*args, **kwargs):
+    from mlflow.pyfunc.scoring_server.utils import _validate_serving_input
+
+    return _validate_serving_input(*args, **kwargs)

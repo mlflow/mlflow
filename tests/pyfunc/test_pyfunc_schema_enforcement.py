@@ -17,7 +17,11 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, infer_signature
-from mlflow.models.utils import _enforce_params_schema, _enforce_schema
+from mlflow.models.utils import (
+    _enforce_params_schema,
+    _enforce_schema,
+    convert_input_example_to_serving_input,
+)
 from mlflow.pyfunc import PyFuncModel
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
@@ -2205,6 +2209,8 @@ def assert_equal(a, b):
 def test_input_example_validation_during_logging(
     tmp_path, example, signature, expected_input, expected_output
 ):
+    from mlflow.pyfunc import validate_serving_input
+
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
             assert_equal(model_input, expected_input)
@@ -2229,6 +2235,11 @@ def test_input_example_validation_during_logging(
     )
     assert response.status_code == 200, response.content
     result = json.loads(response.content.decode("utf-8"))["predictions"]
+    assert_equal(result, expected_output)
+
+    # make sure validate_serving_input has the same output
+    assert convert_input_example_to_serving_input(example) == serving_input_example
+    result = validate_serving_input(model_info.model_uri, serving_input_example)
     assert_equal(result, expected_output)
 
 
