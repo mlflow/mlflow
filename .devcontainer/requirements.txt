@@ -392,7 +392,7 @@ numpy==1.24.4
     #   shap
     #   tritonclient
     #   xgboost
-openai==1.0.0
+openai==0.28.1
     # via -r test-requirements.txt
 opentelemetry-api==1.25.0
     # via
