@@ -10,12 +10,6 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
-# Max size that a trace JSON can be before we truncate the serialization
-# for databricks notebooks. For traces above this size, we will only
-# serialize the trace info, and the notebook cell renderer will fetch
-# the data asynchronously using the request ID.
-MAX_TRACE_JSON_SIZE_BYTES = 100_000  # 100 KB
-
 
 @dataclass
 class Trace(_MlflowObject):
@@ -63,14 +57,11 @@ class Trace(_MlflowObject):
             )
         return cls.from_dict(trace_dict)
 
-    def _serialize_for_mimebundle(self) -> str:
-        from mlflow.tracing.utils import TraceJSONEncoder
-
-        json_str = self.to_json()
-        if len(json_str.encode("utf-8")) >= MAX_TRACE_JSON_SIZE_BYTES:
-            return json.dumps(self.info.to_dict(), cls=TraceJSONEncoder)
-
-        return json_str
+    def _serialize_for_mimebundle(self):
+        # databricks notebooks will use the request ID to
+        # fetch the trace from the backend. including the
+        # full JSON can cause notebooks to exceed size limits
+        return json.dumps({"request_id": self.info.request_id})
 
     def _repr_mimebundle_(self, include=None, exclude=None):
         """
@@ -83,9 +74,6 @@ class Trace(_MlflowObject):
         in Databricks notebooks to display the Trace object in a nicer UI.
         """
         return {
-            # databricks notebooks will use the request ID to
-            # fetch the trace from the backend. including the
-            # full JSON can cause notebooks to exceed size limits
             "application/databricks.mlflow.trace": self._serialize_for_mimebundle(),
             "text/plain": repr(self),
         }
