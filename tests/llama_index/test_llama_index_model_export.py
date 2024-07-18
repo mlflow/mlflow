@@ -338,3 +338,9 @@ def test_llama_index_databricks_integration(monkeypatch, document, model_path, m
     response = loaded_model.predict("Spell llamaindex")
     assert isinstance(response, str)
     assert response != ""
+
+    loaded_model = mlflow.llama_index.load_model(model_path)
+
+    response = loaded_model.as_query_engine().query("Spell llamaindex")
+    assert isinstance(response, str)
+    assert response != ""
