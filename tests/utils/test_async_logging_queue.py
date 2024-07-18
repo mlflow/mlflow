@@ -4,6 +4,7 @@ import random
 import threading
 import time
 import uuid
+from typing import Any, NamedTuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -43,7 +44,21 @@ class RunData:
         self.received_tags.extend(tags or [])
 
 
-def test_single_thread_publish_consume_queue(monkeypatch):
+class AsyncLoggingData(NamedTuple):
+    async_logging_queue: AsyncLoggingQueue
+    clazz: Any
+
+
+@pytest.fixture
+def async_logging_data(request):
+    clazz = request.param or RunData()
+    async_logging_queue = AsyncLoggingQueue(clazz.consume_queue_data)
+    yield AsyncLoggingData(async_logging_queue, clazz)
+    async_logging_queue.shut_down_async_logging()
+
+
+@pytest.mark.parametrize("async_logging_data", [None], indirect=True)
+def test_single_thread_publish_consume_queue(monkeypatch, async_logging_data):
     monkeypatch.setenv("MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS", "3")
 
     with patch.object(
@@ -57,8 +72,7 @@ def test_single_thread_publish_consume_queue(monkeypatch):
         mock_check_threadpool.shutdown = MagicMock()
 
         run_id = "test_run_id"
-        run_data = RunData()
-        async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
+        async_logging_queue = async_logging_data.async_logging_queue
         async_logging_queue.activate()
         async_logging_queue._batch_logging_worker_threadpool = mock_worker_threadpool
         async_logging_queue._batch_status_check_threadpool = mock_check_threadpool
@@ -73,13 +87,13 @@ def test_single_thread_publish_consume_queue(monkeypatch):
         assert async_logging_queue.is_active()
         assert mock_check_threadpool.shutdown.call_count == 1
         assert mock_worker_threadpool.shutdown.call_count == 1
-        async_logging_queue.shut_down_async_logging()
 
 
-def test_grouping_batch_in_time_window():
+@pytest.mark.parametrize("async_logging_data", [None], indirect=True)
+def test_grouping_batch_in_time_window(async_logging_data):
     run_id = "test_run_id"
-    run_data = RunData()
-    async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
+    run_data = async_logging_data.clazz
+    async_logging_queue = async_logging_data.async_logging_queue
     async_logging_queue.activate()
     metrics_sent = []
     tags_sent = []
@@ -104,13 +118,11 @@ def test_grouping_batch_in_time_window():
         run_data.received_tags,
     )
 
-    async_logging_queue.shut_down_async_logging()
 
-
-def test_queue_activation():
+@pytest.mark.parametrize("async_logging_data", [None], indirect=True)
+def test_queue_activation(async_logging_data):
     run_id = "test_run_id"
-    run_data = RunData()
-    async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
+    async_logging_queue = async_logging_data.async_logging_queue
     assert async_logging_queue.is_idle()
 
     metrics = [
@@ -127,13 +139,12 @@ def test_queue_activation():
 
     async_logging_queue.activate()
     assert async_logging_queue.is_active()
-    async_logging_queue.shut_down_async_logging()
 
 
-def test_end_async_logging():
+@pytest.mark.parametrize("async_logging_data", [None], indirect=True)
+def test_end_async_logging(async_logging_data):
     run_id = "test_run_id"
-    run_data = RunData()
-    async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
+    async_logging_queue = async_logging_data.async_logging_queue
     async_logging_queue.activate()
 
     metrics = [
@@ -154,14 +165,15 @@ def test_end_async_logging():
 
     async_logging_queue.flush()
     assert async_logging_queue.is_active()
-    async_logging_queue.shut_down_async_logging()
 
 
-def test_partial_logging_failed():
+@pytest.mark.parametrize(
+    "async_logging_data", [RunData(throw_exception_on_batch_number=[3, 4])], indirect=True
+)
+def test_partial_logging_failed(async_logging_data):
     run_id = "test_run_id"
-    run_data = RunData(throw_exception_on_batch_number=[3, 4])
-
-    async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
+    async_logging_queue = async_logging_data.async_logging_queue
+    run_data = async_logging_data.clazz
     async_logging_queue.activate()
 
     metrics_sent = []
@@ -199,14 +211,15 @@ def test_partial_logging_failed():
         run_data.received_params,
         run_data.received_tags,
     )
-    async_logging_queue.shut_down_async_logging()
 
 
-def test_publish_multithread_consume_single_thread():
+@pytest.mark.parametrize(
+    "async_logging_data", [RunData(throw_exception_on_batch_number=[])], indirect=True
+)
+def test_publish_multithread_consume_single_thread(async_logging_data):
     run_id = "test_run_id"
-    run_data = RunData(throw_exception_on_batch_number=[])
-
-    async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
+    run_data = async_logging_data.clazz
+    async_logging_queue = async_logging_data.async_logging_queue
     async_logging_queue.activate()
 
     run_operations = []
@@ -229,8 +242,6 @@ def test_publish_multithread_consume_single_thread():
     assert len(run_data.received_tags) == 2 * TAGS_PER_BATCH * TOTAL_BATCHES
     assert len(run_data.received_params) == 2 * PARAMS_PER_BATCH * TOTAL_BATCHES
 
-    async_logging_queue.shut_down_async_logging()
-
 
 class Consumer:
     def __init__(self) -> None:
@@ -245,10 +256,11 @@ class Consumer:
         self.tags.extend(tags or [])
 
 
-def test_async_logging_queue_pickle():
+@pytest.mark.parametrize("async_logging_data", [Consumer()], indirect=True)
+def test_async_logging_queue_pickle(async_logging_data):
     run_id = "test_run_id"
-    consumer = Consumer()
-    async_logging_queue = AsyncLoggingQueue(consumer.consume_queue_data)
+    consumer = async_logging_data.clazz
+    async_logging_queue = async_logging_data.async_logging_queue
 
     # Pickle the queue without activating it.
     buffer = io.BytesIO()
@@ -304,7 +316,7 @@ def test_async_logging_queue_pickle():
 
     assert len(deserialized_queue._logging_func.__self__.metrics) == 10
 
-    async_logging_queue.shut_down_async_logging()
+    deserialized_queue.shut_down_async_logging()
 
 
 def _send_metrics_tags_params(run_data_queueing_processor, run_id, run_operations=None):
