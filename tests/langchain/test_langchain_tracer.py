@@ -596,6 +596,10 @@ def test_tracer_noop_when_tracing_disabled(monkeypatch):
     mock_logger.warning.assert_not_called()
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.1.0"),
+    reason="ChatPromptTemplate expecting dict input",
+)
 def test_tracer_nested_trace():
     # Validate if the callback works properly if it is used in a context
     # of an active span created by MLflow fluent API.

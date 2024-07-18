@@ -175,9 +175,9 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                 (active_span := mlflow.get_current_active_span())
                 and (active_span.request_id == request_id)
             )
-            # Case 3: The root span is created by client API outside this callback.
-            # In this case, we have no way to check if it is active so just assume
-            # it is active.
+            # Case 3: The root span is created by client API outside this callback,
+            # and passed via the `parent_span` argument of the callback. In this case,
+            # we have no way to check if it is active or not, so just assume it is.
             or self._parent_span
         )
 
