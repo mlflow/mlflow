@@ -3,6 +3,7 @@
 import graphene
 import mlflow
 from mlflow.server.graphql.graphql_custom_scalars import LongString
+from mlflow.server.graphql.graphql_errors import ApiError
 from mlflow.utils.proto_json_utils import parse_dict
 
 
@@ -51,6 +52,7 @@ class MlflowModelVersion(graphene.ObjectType):
 class MlflowSearchModelVersionsResponse(graphene.ObjectType):
     model_versions = graphene.List(graphene.NonNull(MlflowModelVersion))
     next_page_token = graphene.String()
+    apiError = graphene.Field(ApiError)
 
 
 class MlflowDatasetSummary(graphene.ObjectType):
@@ -62,6 +64,7 @@ class MlflowDatasetSummary(graphene.ObjectType):
 
 class MlflowSearchDatasetsResponse(graphene.ObjectType):
     dataset_summaries = graphene.List(graphene.NonNull(MlflowDatasetSummary))
+    apiError = graphene.Field(ApiError)
 
 
 class MlflowMetricWithRunId(graphene.ObjectType):
@@ -74,6 +77,7 @@ class MlflowMetricWithRunId(graphene.ObjectType):
 
 class MlflowGetMetricHistoryBulkIntervalResponse(graphene.ObjectType):
     metrics = graphene.List(graphene.NonNull(MlflowMetricWithRunId))
+    apiError = graphene.Field(ApiError)
 
 
 class MlflowFileInfo(graphene.ObjectType):
@@ -86,6 +90,7 @@ class MlflowListArtifactsResponse(graphene.ObjectType):
     root_uri = graphene.String()
     files = graphene.List(graphene.NonNull(MlflowFileInfo))
     next_page_token = graphene.String()
+    apiError = graphene.Field(ApiError)
 
 
 class MlflowDataset(graphene.ObjectType):
@@ -156,10 +161,12 @@ class MlflowRun(graphene.ObjectType):
 class MlflowSearchRunsResponse(graphene.ObjectType):
     runs = graphene.List(graphene.NonNull('mlflow.server.graphql.graphql_schema_extensions.MlflowRunExtension'))
     next_page_token = graphene.String()
+    apiError = graphene.Field(ApiError)
 
 
 class MlflowGetRunResponse(graphene.ObjectType):
     run = graphene.Field('mlflow.server.graphql.graphql_schema_extensions.MlflowRunExtension')
+    apiError = graphene.Field(ApiError)
 
 
 class MlflowExperimentTag(graphene.ObjectType):
@@ -179,6 +186,7 @@ class MlflowExperiment(graphene.ObjectType):
 
 class MlflowGetExperimentResponse(graphene.ObjectType):
     experiment = graphene.Field(MlflowExperiment)
+    apiError = graphene.Field(ApiError)
 
 
 class MlflowSearchModelVersionsInput(graphene.InputObjectType):
