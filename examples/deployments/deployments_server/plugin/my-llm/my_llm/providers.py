@@ -6,7 +6,7 @@ from mlflow.gateway.schemas import chat
 from my_llm.config import MyLLMConfig
 
 
-class MyLLmProvider(BaseProvider):
+class MyLLMProvider(BaseProvider):
     NAME = "MyLLM"
     CONFIG_TYPE = MyLLMConfig
 
@@ -20,7 +20,7 @@ class MyLLmProvider(BaseProvider):
         return chat.ResponsePayload(
             id="id-123",
             created=int(time.time()),
-            model=self.my_llm_config.model.name,
+            model=self.config.model.name,
             choices=[
                 chat.Choice(
                     index=0,
