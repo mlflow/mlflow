@@ -23,6 +23,9 @@ class Trace(_MlflowObject):
     info: TraceInfo
     data: TraceData
 
+    def __repr__(self) -> str:
+        return f"Trace(request_id={self.info.request_id})"
+
     def to_dict(self) -> Dict[str, Any]:
         return {"info": self.info.to_dict(), "data": self.data.to_dict()}
 
