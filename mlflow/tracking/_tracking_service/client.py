@@ -873,6 +873,25 @@ class TrackingServiceClient:
         """
         return self._get_artifact_repo(run_id).download_artifacts(path, dst_path)
 
+    def _log_url(self, run_id):
+        try:
+            host_url = self.store.get_host_creds().host
+        except AttributeError:
+            # If the store does not have host creds, we cannot log the URL. This is expected for
+            # SqlAlchemyStore.
+            return
+        run_info = self.store.get_run(run_id).info
+        experiment_id = run_info.experiment_id
+        run_name = run_info.run_name
+        if self.tracking_uri == "databricks":
+            experment_url = f"{host_url}/ml/experiments/{experiment_id}"
+        else:
+            experment_url = f"{host_url}/#/experiments/{experiment_id}"
+        run_url = f"{experment_url}/runs/{run_id}"
+
+        _logger.info(f"🎊 View run {run_name} at: {run_url}.")
+        _logger.info(f"💫 View your experiment at: {experment_url}.")
+
     def set_terminated(self, run_id, status=None, end_time=None):
         """Set a run's status to terminated.
 
@@ -886,6 +905,7 @@ class TrackingServiceClient:
         # data in the background. This call is making sure every async logging data has been
         # submitted for logging, but not necessarily finished logging.
         self.store.shut_down_async_logging()
+        self._log_url(run_id)
         self.store.update_run_info(
             run_id,
             run_status=RunStatus.from_string(status),
