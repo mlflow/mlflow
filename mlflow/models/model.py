@@ -355,9 +355,8 @@ class Model:
 
     def get_serving_input(self, path: str):
         """
-        Load serving input exaple from a model directory. Returns None if there is no serving input
-        example. Raises FileNotFoundError if there is model metadata but the serving input example
-        file is missing.
+        Load serving input example from a model directory. Returns None if there is no serving input
+        example.
 
         Args:
             path: Path to the model directory.
@@ -788,7 +787,7 @@ class Model:
                         "`mlflow.pyfunc.validate_serving_input` on the model uri and serving "
                         "input example. A serving input example can be generated from model "
                         "input example using "
-                        "`mlflow.models.utils.convert_input_example_to_serving_input` function.\n"
+                        "`mlflow.models.convert_input_example_to_serving_input` function.\n"
                         f"Got error: {e}",
                         exc_info=_logger.isEnabledFor(logging.DEBUG),
                     )

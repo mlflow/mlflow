@@ -16,11 +16,15 @@ from packaging.version import Version
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, ModelSignature, infer_signature
+from mlflow.models import (
+    Model,
+    ModelSignature,
+    convert_input_example_to_serving_input,
+    infer_signature,
+)
 from mlflow.models.utils import (
     _enforce_params_schema,
     _enforce_schema,
-    convert_input_example_to_serving_input,
 )
 from mlflow.pyfunc import PyFuncModel
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri

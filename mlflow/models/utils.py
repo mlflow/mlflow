@@ -385,7 +385,7 @@ class _Example:
 
         self.json_data = json.dumps(self.data, cls=NumpyEncoder)
         if self.serving_input:
-            self.json_serving_input = json.dumps(self.serving_input, cls=NumpyEncoder)
+            self.json_serving_input = json.dumps(self.serving_input, cls=NumpyEncoder, indent=2)
             self.info[SERVING_INPUT_PATH] = SERVING_INPUT_FILENAME
         else:
             self.json_serving_input = None

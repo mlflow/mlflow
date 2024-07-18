@@ -18,6 +18,9 @@ def _validate_serving_input(model_uri: str, serving_input: Union[str, Dict[str, 
     Args:
         model_uri: URI of the model to be served.
         serving_input: Input data to be validated. Should be a dictionary or a JSON string.
+
+    Returns:
+        The prediction result from the model.
     """
 
     try:
