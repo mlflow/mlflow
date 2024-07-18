@@ -134,7 +134,7 @@ def dict_to_object(object_representation: Dict[str, Any]) -> object:
                 # Therefore, we have to handle it here.
                 # E.g. https://github.com/run-llama/llama_index/blob/2b18eb4654b14c68d63f6239cddb10740668fbc8/llama-index-integrations/embeddings/llama-index-embeddings-openai/llama_index/embeddings/openai/base.py#L316-L320
                 if (
-                    (k == BaseEmbedding or k == BaseLLM)
+                    k == BaseEmbedding
                     and (model := kwargs.get("model"))
                     and (model_name := kwargs.get("model_name"))
                     and model == model_name
