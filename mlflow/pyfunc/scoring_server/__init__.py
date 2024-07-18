@@ -395,7 +395,7 @@ def invocations(data, content_type, model, input_schema):
     return InvocationsResponse(response=result.getvalue(), status=200, mimetype="application/json")
 
 
-def _should_parse_as_unified_llm_input(json_input: dict):
+def _is_unified_llm_input(json_input: dict):
     return any(x in json_input for x in SUPPORTED_LLM_FORMATS)
 
 
@@ -407,7 +407,7 @@ class ParsedJsonInput(NamedTuple):
 
 def _parse_json_data(data, metadata, input_schema):
     json_input = _decode_json_input(data)
-    is_unified_llm_input = _should_parse_as_unified_llm_input(json_input)
+    is_unified_llm_input = _is_unified_llm_input(json_input)
     if is_unified_llm_input:
         # Unified LLM input format
         if hasattr(metadata, "get_params_schema"):

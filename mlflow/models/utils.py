@@ -281,14 +281,14 @@ class _Example:
             self.info[EXAMPLE_PARAMS_KEY] = "true"
         self._inference_data = input_example
 
-        parsed_as_unified_llm_input = False
+        is_unified_llm_input = False
         if no_conversion:
-            from mlflow.pyfunc.scoring_server import _should_parse_as_unified_llm_input
+            from mlflow.pyfunc.scoring_server import _is_unified_llm_input
 
             self.info["type"] = "json_object"
             self.data = input_example
-            parsed_as_unified_llm_input = _should_parse_as_unified_llm_input(input_example)
-            if isinstance(input_example, dict) and parsed_as_unified_llm_input:
+            is_unified_llm_input = _is_unified_llm_input(input_example)
+            if isinstance(input_example, dict) and is_unified_llm_input:
                 self.serving_input = input_example
             else:
                 self.serving_input = {INPUTS: input_example}
@@ -372,7 +372,7 @@ class _Example:
 
         if self._inference_params is not None:
             self.data = {EXAMPLE_DATA_KEY: self.data, EXAMPLE_PARAMS_KEY: self._inference_params}
-            if parsed_as_unified_llm_input:
+            if is_unified_llm_input:
                 self.serving_input = {
                     **(self.serving_input or {}),
                     **self._inference_params,
@@ -519,8 +519,7 @@ def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
 def _load_serving_input_example(mlflow_model: Model, path: str):
     """
     Load serving input exaple from a model directory. Returns None if there is no serving input
-    example. Raises FileNotFoundError if there is model metadata but the serving input example file
-    is missing.
+    example.
 
     Args:
         mlflow_model: Model metadata.
