@@ -4,18 +4,21 @@ import json
 import logging
 from typing import Any, Callable, Dict
 
-import llama_index
 from llama_index.core import PromptTemplate
+from llama_index.core.base.embeddings.base import BaseEmbedding
+from llama_index.core.base.llms.base import BaseLLM
+from llama_index.core.indices.prompt_helper import PromptHelper
+from llama_index.core.node_parser.interface import NodeParser
 
 from mlflow.exceptions import INTERNAL_ERROR, MlflowException
 
 _logger = logging.getLogger(__name__)
 
 OBJECT_DICT_METHOD_MAP = {
-    llama_index.core.base.llms.base.BaseLLM: ("to_dict", "from_dict"),
-    llama_index.core.base.embeddings.base.BaseEmbedding: ("to_dict", "from_dict"),
-    llama_index.core.node_parser.interface.NodeParser: ("to_dict", "from_dict"),
-    llama_index.core.indices.prompt_helper.PromptHelper: ("to_dict", "from_dict"),
+    BaseLLM: ("to_dict", "from_dict"),
+    BaseEmbedding: ("to_dict", "from_dict"),
+    NodeParser: ("to_dict", "from_dict"),
+    PromptHelper: ("to_dict", "from_dict"),
 }
 
 
@@ -116,14 +119,27 @@ def dict_to_object(object_representation: Dict[str, Any]) -> object:
         object_class = getattr(module, class_name)
 
         for k, v in OBJECT_DICT_METHOD_MAP.items():
-            if isinstance(object_class, k):
+            if issubclass(object_class, k):
                 if not hasattr(object_class, v[1]):
-                    raise AttributeError(
-                        f"Object {object_class} was inferred to be of type {k} but does not "
-                        "have a {v[1]} method. Ensure that `OBJECT_DICT_METHOD_MAP` is "
-                        "correct and the object is of type {k}."
+                    raise MlflowException(
+                        f"Failed to deserialize an object of class {object_class}. The "
+                        f"class {object_class} does not have the {v[1]} method.",
+                        error_code=INTERNAL_ERROR,
                     )
 
+                # Many embeddings model accepts parameter `model`, while BaseEmbedding accepts
+                # `model_name`. Both parameters will be serialized as kwargs, but passing both
+                # to the constructor will raise duplicate argument error. Some class like
+                # OpenAIEmbedding handles this in its constructor, but not all integrations do.
+                # Therefore, we have to handle it here.
+                # E.g. https://github.com/run-llama/llama_index/blob/2b18eb4654b14c68d63f6239cddb10740668fbc8/llama-index-integrations/embeddings/llama-index-embeddings-openai/llama_index/embeddings/openai/base.py#L316-L320
+                if (
+                    k == BaseEmbedding
+                    and (model := kwargs.get("model"))
+                    and (model_name := kwargs.get("model_name"))
+                    and model == model_name
+                ):
+                    kwargs.pop("model_name")
                 return object_class.from_dict(kwargs)
 
         return object_class(**kwargs)

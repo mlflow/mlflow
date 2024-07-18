@@ -334,14 +334,14 @@ def load_model(model_uri, dst_path=None):
     settings_path = os.path.join(local_model_path, _SETTINGS_FILE)
     # NB: Settings is a singleton and can be loaded via llama_index.core.Settings
     deserialize_settings(settings_path)
-
     return _load_index(local_model_path, flavor_conf)
 
 
 def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
+    index = load_model(path)
     flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
     engine_type = flavor_conf.pop("engine_type")
-    return create_engine_wrapper(_load_index(path, flavor_conf), engine_type, model_config)
+    return create_engine_wrapper(index, engine_type, model_config)
 
 
 @experimental

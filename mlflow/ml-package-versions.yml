@@ -711,8 +711,9 @@ llama_index:
     requirements:
       ">= 0.0.0": [
           "openai",
-          # Required to test Databricks LLMs
+          # Required to test Databricks integration
           "llama-index-llms-databricks",
+          "llama-index-embeddings-databricks",
         ]
     run:
       # TODO: Add --ignore flag for autologging test once it's implemented
