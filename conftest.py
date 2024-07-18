@@ -276,7 +276,8 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             frames = sys._current_frames()
             terminalreporter.section("Tracebacks of non-daemon threads", yellow=True)
             for thread in non_daemon_threads:
-                if frame := frames.get(thread.ident):
+                thread.join(timeout=1)
+                if thread.is_alive() and (frame := frames.get(thread.ident)):
                     terminalreporter.section(repr(thread), sep="~")
                     terminalreporter.write("".join(traceback.format_stack(frame)))
 

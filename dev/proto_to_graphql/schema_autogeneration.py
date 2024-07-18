@@ -84,6 +84,7 @@ def generate_schema(state):
     schema_builder += "import graphene\n"
     schema_builder += "import mlflow\n"
     schema_builder += "from mlflow.server.graphql.graphql_custom_scalars import LongString\n"
+    schema_builder += "from mlflow.server.graphql.graphql_errors import ApiError\n"
     schema_builder += "from mlflow.utils.proto_json_utils import parse_dict\n"
     schema_builder += "\n"
 
@@ -102,6 +103,9 @@ def generate_schema(state):
         for field in type.fields:
             graphene_type = get_graphene_type_for_field(field, False)
             schema_builder += f"\n{INDENT}{camel_to_snake(field.name)} = {graphene_type}"
+
+        if type in state.outputs:
+            schema_builder += f"\n{INDENT}apiError = graphene.Field(ApiError)"
 
         if len(type.fields) == 0:
             schema_builder += f"\n{INDENT}{DUMMY_FIELD}"

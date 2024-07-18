@@ -1,3 +1,5 @@
+import random
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, List, Optional
@@ -508,6 +510,8 @@ def test_tracer_thread_safe():
         tracer.on_chain_start(
             {}, {"input": "test input"}, run_id=chain_run_id, name=f"chain_{worker_id}"
         )
+        # wait for a random time (0.5 ~ 1s) to simulate real-world scenario
+        time.sleep(random.random() / 2 + 0.5)
         tracer.on_chain_end({"output": "test output"}, run_id=chain_run_id)
 
     with ThreadPoolExecutor(max_workers=10) as executor:

@@ -31,7 +31,7 @@ MLflow Evaluate
 
 Observability
 ^^^^^^^^^^^^^
-`MLflow Tracing <../tracing/index.html>`_ is a new feature of MLflow that allows you to trace how data flows through your LangChain chain/agents/etc. This feature provides a visual representation of the data flow, making it easier to understand the behavior of your LangChain application and identify potential bottlenecks or issues. With its powerful `Automatic Tracing <../tracing/index.html##langchain-automatic-tracing>`_ capability, you can instrument your LangChain application without any code change but just running ``mlflow.langchain.autolog()`` command once.
+`MLflow Tracing <../tracing/index.html>`_ is a new feature of MLflow that allows you to trace how data flows through your LangChain chain/agents/etc. This feature provides a visual representation of the data flow, making it easier to understand the behavior of your LangChain application and identify potential bottlenecks or issues. With its powerful `Automatic Tracing <../tracing/index.html#automatic-tracing>`_ capability, you can instrument your LangChain application without any code change but just running ``mlflow.langchain.autolog()`` command once.
 
 
 Automatic Logging
