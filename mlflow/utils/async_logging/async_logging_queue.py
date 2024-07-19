@@ -136,9 +136,13 @@ class AsyncLoggingQueue:
         batches = []
         if self._queue.empty():
             return batches
+        queue_size = self._queue.qsize()  # Estimate the queue's size.
         merged_batch = self._queue.get()
-        while not self._queue.empty():
+        for i in range(queue_size - 1):
             batch = self._queue.get()
+            if self._queue.empty():
+                # `queue_size` is an estimate, so we need to check if the queue is empty.
+                break
             if (
                 merged_batch.run_id != batch.run_id
                 or len(merged_batch.metrics) + len(batch.metrics) >= 1000
@@ -296,13 +300,13 @@ class AsyncLoggingQueue:
     def is_idle(self) -> bool:
         return self._status == QueueStatus.IDLE
 
-    # NB: this method shouldn't be called directly without
-    # shuting down the async logging first if an existing async logging exists,
-    # otherwise it might hang the program.
     def _set_up_logging_thread(self) -> None:
-        """Sets up the logging thread.
+        """
+        Sets up the logging thread.
 
-        If the logging thread is already set up, this method does nothing.
+        This method shouldn't be called directly without shuting down the async
+        logging first if an existing async logging exists, otherwise it might
+        hang the program.
         """
         with self._lock:
             self._batch_logging_thread = threading.Thread(
