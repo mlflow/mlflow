@@ -28,6 +28,7 @@ from llama_index.core.instrumentation.span.base import BaseSpan
 from llama_index.core.instrumentation.span_handlers import BaseSpanHandler
 from llama_index.core.multi_modal_llms import MultiModalLLM
 from llama_index.core.tools import BaseTool
+from mlflow.tracking.client import MlflowClient
 from pydantic import PrivateAttr
 
 import mlflow
@@ -54,7 +55,7 @@ def set_llama_index_tracer():
             span_handler = handler
             break
     else:
-        span_handler = MlflowSpanHandler(mlflow.MlflowClient())
+        span_handler = MlflowSpanHandler()
         dsp.add_span_handler(span_handler)
 
     for handler in dsp.event_handlers:
@@ -84,7 +85,7 @@ class _LlamaSpan(BaseSpan, extra="allow"):
         self._mlflow_span = mlflow_span
 
 
-def _end_span(client: mlflow.MlflowClient, span: LiveSpan, status=SpanStatusCode.OK, outputs=None):
+def _end_span(span: LiveSpan, status=SpanStatusCode.OK, outputs=None):
     """An utility function to end the span or trace."""
     if isinstance(outputs, (StreamingResponse, AsyncStreamingResponse, StreamingAgentChatResponse)):
         _logger.warning(
@@ -96,18 +97,16 @@ def _end_span(client: mlflow.MlflowClient, span: LiveSpan, status=SpanStatusCode
         outputs = span.outputs
 
     if span.parent_id is None:
-        client.end_trace(span.request_id, status=status, outputs=outputs)
+        # NB: Initiate the new client every time to handle tracking URI updates.
+        MlflowClient().end_trace(span.request_id, status=status, outputs=outputs)
     else:
-        client.end_span(span.request_id, span.span_id, status=status, outputs=outputs)
+        MlflowClient().end_span(span.request_id, span.span_id, status=status, outputs=outputs)
 
 
 class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
-    _mlflow_client: mlflow.MlflowClient = PrivateAttr()
-
-    def __init__(self, client: mlflow.MlflowClient):
+    def __init__(self):
         super().__init__()
-        self._mlflow_client = client
-        self._stream_resolver = StreamResolver(client)
+        self._stream_resolver = StreamResolver()
         self._pending_spans: Dict[str, _LlamaSpan] = {}
 
     @classmethod
@@ -131,7 +130,8 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             span_type = self._get_span_type(instance) or SpanType.UNKNOWN
             if parent_span_id and (parent := self.open_spans.get(parent_span_id)):
                 parent_span = parent._mlflow_span
-                span = self._mlflow_client.start_span(
+                # NB: Initiate the new client every time to handle tracking URI updates.
+                span = MlflowClient().start_span(
                     request_id=parent_span.request_id,
                     parent_id=parent_span.span_id,
                     name=id_.partition("-")[0],
@@ -140,7 +140,8 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                     attributes=attributes,
                 )
             else:
-                span = self._mlflow_client.start_trace(
+                print(mlflow.get_tracking_uri())
+                span = MlflowClient().start_trace(
                     name=id_.partition("-")[0],
                     span_type=span_type,
                     inputs=input_args,
@@ -170,9 +171,9 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                     self._pending_spans[id_] = llama_span
                 else:
                     # If the span is not pended successfully, end it immediately
-                    _end_span(self._mlflow_client, span=span, outputs=result)
+                    _end_span(span=span, outputs=result)
             else:
-                _end_span(self._mlflow_client, span=span, outputs=result)
+                _end_span(span=span, outputs=result)
             return llama_span
         except BaseException as e:
             _logger.debug(f"Failed to end a span: {e}", exc_info=True)
@@ -187,7 +188,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         llama_span = self.open_spans.get(id_)
         span = llama_span._mlflow_span
         span.add_event(SpanEvent.from_exception(err))
-        _end_span(self._mlflow_client, span=span, status="ERROR")
+        _end_span(span=span, status="ERROR")
         return llama_span
 
     def _get_span_type(self, instance: Any) -> SpanType:
@@ -391,8 +392,7 @@ class StreamResolver:
     that returns the same (or derived) stream.
     """
 
-    def __init__(self, client: mlflow.MlflowClient):
-        self._client = client
+    def __init__(self):
         self._span_id_to_span_and_gen: Dict[str, Tuple[LiveSpan, Generator]] = {}
 
     def is_streaming_result(self, result: Any) -> bool:
@@ -455,7 +455,7 @@ class StreamResolver:
         else:
             raise ValueError(f"Unsupported event type to resolve streaming: {type(event)}")
 
-        _end_span(client=self._client, span=span, status=status, outputs=outputs)
+        _end_span(span=span, status=status, outputs=outputs)
 
         # Extract the complete text from the event.
         if isinstance(outputs, ChatResponse):
@@ -473,4 +473,4 @@ class StreamResolver:
                 # We reuse the same output text for parent spans. This may not be 100% correct
                 # as token stream can be modified by callers. However, it is technically
                 # challenging to track the modified stream across multiple spans.
-                _end_span(client=self._client, span=span, status=status, outputs=output_text)
+                _end_span(span=span, status=status, outputs=output_text)
