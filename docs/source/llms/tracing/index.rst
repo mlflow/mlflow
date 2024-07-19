@@ -195,7 +195,7 @@ for model/API invocations to the active MLflow Experiment.
         |
 
         The MLflow LlamaIndex flavor's autologging feature has a direct integration with MLflow tracing. When LlamaIndex autologging is enabled with :py:func:`mlflow.llama_index.autolog`, invocation of components
-        such as LLMs, agents, query/chat engines will automatically record generated traces during interactive development.
+        such as LLMs, agents, and query/chat engines will automatically record generated traces during interactive development.
 
         .. code-block:: python
 
