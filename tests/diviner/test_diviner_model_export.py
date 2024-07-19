@@ -30,6 +30,7 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 
@@ -398,19 +399,18 @@ def test_diviner_model_log_without_conda_env_uses_default_env_with_expected_depe
 def test_pmdarima_pyfunc_serve_and_score(grouped_prophet):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.diviner.log_model(
-            grouped_prophet,
-            artifact_path,
+        model_info = mlflow.diviner.log_model(
+            grouped_prophet, artifact_path, input_example={"horizon": 10, "frequency": "W"}
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
     local_predict = grouped_prophet.forecast(horizon=10, frequency="W")
 
-    inference_data = pd.DataFrame({"horizon": 10, "frequency": "W"}, index=[0])
+    # inference_data = pd.DataFrame({"horizon": 10, "frequency": "W"}, index=[0])
 
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_data,
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )

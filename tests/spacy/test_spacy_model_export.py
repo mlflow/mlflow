@@ -31,6 +31,7 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _mlflow_major_version_string,
     allow_infer_pip_requirements_fallback_if,
+    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 
@@ -391,12 +392,17 @@ def test_pyfunc_serve_and_score(spacy_model_with_data):
             extra_pip_requirements = ["click<8.1.0"]
         else:
             extra_pip_requirements = None
-        mlflow.spacy.log_model(model, artifact_path, extra_pip_requirements=extra_pip_requirements)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.spacy.log_model(
+            model,
+            artifact_path,
+            extra_pip_requirements=extra_pip_requirements,
+            input_example=inference_dataframe,
+        )
 
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_dataframe,
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
