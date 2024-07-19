@@ -10,11 +10,17 @@ from llama_index.llms.openai import OpenAI
 from mlflow.llama_index.serialize_objects import (
     _construct_prompt_template_object,
     _get_object_import_path,
-    _object_to_dict,
     _sanitize_api_key,
     deserialize_settings,
+    object_to_dict,
     serialize_settings,
 )
+
+
+@pytest.fixture
+def mock_logger():
+    with mock.patch("mlflow.llama_index.serialize_objects._logger") as mock_logger:
+        yield mock_logger
 
 
 def test_get_object_import_path_class_instantiated():
@@ -62,7 +68,7 @@ def test_sanitize_api_key_keys_not_present():
 
 def test_object_to_dict_no_required_param():
     o = OpenAI()
-    result = _object_to_dict(o)
+    result = object_to_dict(o)
     assert result["object_constructor"] == "llama_index.llms.openai.base.OpenAI"
     expected_kwargs = {k: v for k, v in o.to_dict().items() if k not in {"class_name", "api_key"}}
     assert result["object_kwargs"] == expected_kwargs
@@ -70,7 +76,7 @@ def test_object_to_dict_no_required_param():
 
 def test_object_to_dict_one_required_param():
     o = OpenAIEmbedding()
-    result = _object_to_dict(o)
+    result = object_to_dict(o)
     assert result["object_constructor"] == "llama_index.embeddings.openai.base.OpenAIEmbedding"
     expected_kwargs = {k: v for k, v in o.to_dict().items() if k not in {"class_name", "api_key"}}
     assert result["object_kwargs"] == expected_kwargs
@@ -98,7 +104,7 @@ def test_settings_serialization_full_object(tmp_path, settings):
     assert len(set(objects.keys()) - set(settings.__dict__.keys())) == 0
 
 
-def test_settings_serde(tmp_path, settings):
+def test_settings_serde(tmp_path, settings, mock_logger):
     path = tmp_path / "serialized_settings.json"
     _llm = settings.llm
     assert settings.llm.api_key == "test"
@@ -107,14 +113,13 @@ def test_settings_serde(tmp_path, settings):
     _prompt_helper = settings.prompt_helper
     _transformations = settings.transformations
 
-    with mock.patch("mlflow.llama_index.serialize_objects._logger") as mock_logger:
-        serialize_settings(path)
+    serialize_settings(path)
 
-        assert mock_logger.info.call_count == 2  # 1 for API key, 1 for unsupported objects
-        log_message = mock_logger.info.call_args[0][0]
-        assert log_message.startswith("The following objects in Settings are not supported")
-        assert " - function for Settings.tokenizer" in log_message
-        assert " - CallbackManager for Settings.callback_manager" in log_message
+    assert mock_logger.info.call_count == 2  # 1 for API key, 1 for unsupported objects
+    log_message = mock_logger.info.call_args[0][0]
+    assert log_message.startswith("The following objects in Settings are not supported")
+    assert " - function for Settings.tokenizer" in log_message
+    assert " - CallbackManager for Settings.callback_manager" in log_message
 
     for k in Settings.__dict__.keys():
         setattr(Settings, k, None)

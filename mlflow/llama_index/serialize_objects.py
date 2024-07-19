@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict
 
 from llama_index.core import PromptTemplate
 from llama_index.core.base.embeddings.base import BaseEmbedding
+from llama_index.core.callbacks.base import CallbackManager
 from llama_index.core.schema import BaseComponent
 
 _logger = logging.getLogger(__name__)
@@ -30,9 +31,9 @@ def _sanitize_api_key(object_as_dict: Dict[str, str]) -> Dict[str, str]:
     return {k: v for k, v in object_as_dict.items() if "api_key" not in k.lower()}
 
 
-def _object_to_dict(o: object):
+def object_to_dict(o: object):
     if isinstance(o, (list, tuple)):
-        return [_object_to_dict(v) for v in o]
+        return [object_to_dict(v) for v in o]
 
     if isinstance(o, BaseComponent):
         o_state_as_dict = o.to_dict()
@@ -71,7 +72,7 @@ def _construct_prompt_template_object(
         )
 
 
-def _dict_to_object(object_representation: Dict[str, Any]) -> object:
+def dict_to_object(object_representation: Dict[str, Any]) -> object:
     if "object_constructor" not in object_representation:
         raise ValueError("'object_constructor' key not found in dict.")
     if "object_kwargs" not in object_representation:
@@ -111,9 +112,9 @@ def _deserialize_dict_of_objects(path: str) -> Dict[str, any]:
         output = {}
         for k, v in to_deserialize.items():
             if isinstance(v, list):
-                output.update({k: [_dict_to_object(vv) for vv in v]})
+                output.update({k: [dict_to_object(vv) for vv in v]})
             else:
-                output.update({k: _dict_to_object(v)})
+                output.update({k: dict_to_object(v)})
 
         return output
 
@@ -134,8 +135,12 @@ def serialize_settings(path: str) -> None:
         if v is None:
             continue
 
+        # Setting.callback_manager is default to an empty CallbackManager instance.
+        if (k == "_callback_manager") and isinstance(v, CallbackManager) and v.handlers == []:
+            continue
+
         def _convert(obj):
-            object_json = _object_to_dict(obj)
+            object_json = object_to_dict(obj)
             if object_json is None:
                 prop_name = k[1:] if k.startswith("_") else k
                 unsupported_objects.append((prop_name, v))
