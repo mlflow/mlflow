@@ -1,12 +1,9 @@
-import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-from llama_index.core import QueryBundle
-from llama_index.core.llms import ChatMessage
+if TYPE_CHECKING:
+    from llama_index.core import QueryBundle
 
 from mlflow.models.utils import _convert_llm_input_data
-
-_logger = logging.getLogger(__name__)
 
 CHAT_ENGINE_NAME = "chat"
 QUERY_ENGINE_NAME = "query"
@@ -16,8 +13,10 @@ SUPPORTED_ENGINES = {CHAT_ENGINE_NAME, QUERY_ENGINE_NAME, RETRIEVER_ENGINE_NAME}
 _CHAT_MESSAGE_HISTORY_PARAMETER_NAME = "chat_history"
 
 
-def _format_predict_input_query_engine_and_retriever(data) -> QueryBundle:
+def _format_predict_input_query_engine_and_retriever(data) -> "QueryBundle":
     """Convert pyfunc input to a QueryBundle."""
+    from llama_index.core import QueryBundle
+
     data = _convert_llm_input_data(data)
 
     if isinstance(data, str):
@@ -81,6 +80,8 @@ class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
 
     @staticmethod
     def _convert_chat_message_history_to_chat_message_objects(data: Dict) -> Dict:
+        from llama_index.core.llms import ChatMessage
+
         if chat_message_history := data.get(_CHAT_MESSAGE_HISTORY_PARAMETER_NAME):
             if isinstance(chat_message_history, list):
                 if all(isinstance(message, dict) for message in chat_message_history):
@@ -122,7 +123,7 @@ class QueryEngineWrapper(_LlamaIndexModelWrapperBase):
     def _predict_single(self, *args, **kwargs) -> str:
         return self.engine.query(*args, **kwargs).response
 
-    def _format_predict_input(self, data) -> QueryBundle:
+    def _format_predict_input(self, data) -> "QueryBundle":
         return _format_predict_input_query_engine_and_retriever(data)
 
 
@@ -136,7 +137,7 @@ class RetrieverEngineWrapper(_LlamaIndexModelWrapperBase):
         response = self.engine.retrieve(*args, **kwargs)
         return [node.dict() for node in response]
 
-    def _format_predict_input(self, data) -> QueryBundle:
+    def _format_predict_input(self, data) -> "QueryBundle":
         return _format_predict_input_query_engine_and_retriever(data)
 
 
