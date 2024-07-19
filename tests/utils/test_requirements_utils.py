@@ -424,7 +424,6 @@ def test_capture_imported_modules_include_deps_by_params():
         # but it is not required when the model only uses the deployment client. These test
         # cases validate that importing the deployment client alone does not add the extra.
         ("mlflow.deployments", False),
-        ("mlflow.deployments.get_deploy_client", False),
     ],
 )
 def test_capture_imported_modules_includes_gateway_extra(module_to_import, should_capture_extra):
@@ -446,6 +445,27 @@ def test_capture_imported_modules_includes_gateway_extra(module_to_import, shoul
 
     pip_requirements = infer_pip_requirements(model_info.model_uri, "pyfunc")
     assert (f"mlflow[gateway]=={mlflow.__version__}" in pip_requirements) == should_capture_extra
+
+
+def test_gateway_extra_not_captured_when_importing_deployment_client_only():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, _, inputs, params=None):
+            from mlflow.deployments import get_deploy_client  # noqa: F401
+
+            return inputs
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            input_example=([1, 2, 3]),
+        )
+
+    captured_modules = _capture_imported_modules(model_info.model_uri, "pyfunc")
+    assert "mlflow.gateway" not in captured_modules
+
+    pip_requirements = infer_pip_requirements(model_info.model_uri, "pyfunc")
+    assert f"mlflow[gateway]=={mlflow.__version__}" not in pip_requirements
 
 
 def test_warn_dependency_requirement_mismatches():

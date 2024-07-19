@@ -284,12 +284,14 @@ def save_model(
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+
     if signature is None:
-        if input_example is not None:
+        if saved_example is not None:
             wrapped_model = _LangChainModelWrapper(lc_model)
-            signature = _infer_signature_from_input_example(
-                input_example, wrapped_model, no_conversion=example_no_conversion
-            )
+            signature = _infer_signature_from_input_example(saved_example, wrapped_model)
         else:
             if hasattr(lc_model, "input_keys"):
                 input_columns = [
@@ -320,13 +322,8 @@ def save_model(
                 else None
             )
 
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path, example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
