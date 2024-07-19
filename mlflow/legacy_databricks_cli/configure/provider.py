@@ -414,7 +414,7 @@ class DatabricksConfig:
         self.jobs_api_version = jobs_api_version
         self.client_id = client_id
         self.client_secret = client_secret
-        self.auth_type=auth_type
+        self.auth_type = auth_type
 
     @classmethod
     def from_token(cls, host, token, refresh_token=None, insecure=None, jobs_api_version=None):
