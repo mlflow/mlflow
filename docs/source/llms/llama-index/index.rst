@@ -57,6 +57,11 @@ The ``Engine`` is a generic interface built on top of the ``Index`` object, whic
 query and returns a response based on the index. The ``ChatEngine`` is designed for conversational agents, which keeps track of the conversation history as well.
 
 
+``Retriever``
+^^^^^^^^^^^^^
+
+The ``Retriever`` is a lower-level component built on top of the ``Index`` object. It is responsible for fetching the most relevant context given a user query (or chat message), and used as a building block for the ``ChatEngine`` and ``QueryEngine``. MLflow supports ``Retriever`` as a third engine type, which is useful for scenarios where you need more fine-grained control over the retrieval process in your application.
+
 Usage
 -----
 
@@ -69,7 +74,7 @@ Saving and Loading Index in MLflow Experiment
 Creating an Index
 ~~~~~~~~~~~~~~~~~
 
-The ``index`` object is the centerpiece of the LlamaIndex and MLflow integration. With LlamaIndex, you can create an index from a collection of documents. The following code creates a sample index from Paul Graham's essay data available within the LlamaIndex repository.
+The ``index`` object is the centerpiece of the LlamaIndex and MLflow integration. With LlamaIndex, you can create an index from a collection of documents or external vector stores. The following code creates a sample index from Paul Graham's essay data available within the LlamaIndex repository.
 
 .. code-block:: shell
 
@@ -92,7 +97,7 @@ One key step here is to specify the ``engine_type`` parameter. The choice of eng
 but dictates the interface of how you query the index when you load it back for inference.
 
 1. QueryEngine (``engine_type="query"``) is designed for a simple query-response system that takes a single query string and returns a response.
-2. ChatEngine (``engine_type="chat"``) is designed for a conversational agent that keeps track of the conversation history and answer tp the user query based on the context.
+2. ChatEngine (``engine_type="chat"``) is designed for a conversational agent that keeps track of the conversation history and responds to a user message.
 3. Retriever (``engine_type="retriever"``) is a lower-level component that returns the top-k relevant documents matching the query.
 
 
@@ -218,3 +223,47 @@ different engine types.
             # Specify the chat engine type this time
             engine_type="chat",
         )
+
+Alternatively, you can leverage their standard inference APIs on the loaded LlamaIndex native index object, specifically:
+
+* ``index.as_chat_engine().chat("hi")``
+* ``index.as_query_engine().query("hi")``
+* ``index.as_retriever().retrieve("hi")``
+
+
+How to use different LLMs for inference with the loaded engine?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When saving the index to MLflow, it persists the global `Settings <https://docs.llamaindex.ai/en/stable/module_guides/supporting_modules/settings/>`_ object as a part of the model. This object contains settings such as LLM and embedding
+models to be used by engines.
+
+.. code-block:: python
+
+    import mlflow
+    from llama_index.core import Settings
+    from llama_index.llms.openai import OpenAI
+
+    Settings.llm = OpenAI("gpt-3.5-turbo")
+
+    # MLflow saves GPT-3.5-turbo as the LLM to use for inference
+    with mlflow.start_run():
+        model_info = mlflow.llama_index.log_model(
+            index, artifact_path="index", engine_type="chat"
+        )
+
+Then later when you load the index back, the persisted settings are also applied globally. This means that the loaded engine will use the same LLM as when it was logged.
+
+However, sometimes you may want to use a different LLM for inference. In such cases, you can update the global ``Settings`` object directly after loading the index.
+
+.. code-block:: python
+
+    import mlflow
+
+    # Load the index back
+    loaded_index = mlflow.llama_index.load_model(model_info.model_uri)
+    assert Settings.llm.model == "gpt-3.5-turbo"
+
+    # Update the settings to use GPT-4 instead
+    Settings.llm = OpenAI("gpt-4")
+    query_engine = loaded_index.as_query_engine()
+    response = query_engine.query("What is the capital of France?")
