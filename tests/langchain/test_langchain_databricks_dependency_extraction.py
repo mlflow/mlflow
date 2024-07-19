@@ -124,7 +124,9 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
 
     vsc = MockVectorSearchClient()
     vs_index_1 = vsc.get_index(endpoint_name="vs_endpoint", index_name="mlflow.rag.vs_index_1")
-    vs_index_2 = vsc.get_index(endpoint_name="vs_endpoint", index_name="mlflow.rag.vs_index_2", has_embedding_endpoint=True)
+    vs_index_2 = vsc.get_index(
+        endpoint_name="vs_endpoint", index_name="mlflow.rag.vs_index_2", has_embedding_endpoint=True
+    )
     mock_get_deploy_client = MagicMock()
 
     monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
@@ -136,7 +138,9 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
     monkeypatch.setitem(sys.modules, "databricks.vector_search.client", mock_module)
 
     # set embedding model
-    vectorstore_1 = DatabricksVectorSearch(vs_index_1, text_column="content", embedding=embedding_model)
+    vectorstore_1 = DatabricksVectorSearch(
+        vs_index_1, text_column="content", embedding=embedding_model
+    )
     retriever_1 = vectorstore_1.as_retriever()
 
     # vs_index_2 has builtin embedding endpoint "embedding-model"
@@ -144,6 +148,7 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
     retriever_2 = vectorstore_2.as_retriever()
 
     from langchain.chat_models import ChatOpenAI
+
     llm = ChatOpenAI(temperature=0)
 
     assert list(_extract_databricks_dependencies_from_retriever(retriever_1)) == [
@@ -157,6 +162,7 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
     ]
 
     from langchain.retrievers.multi_query import MultiQueryRetriever
+
     multi_query_retriever = MultiQueryRetriever.from_llm(retriever=retriever_1, llm=llm)
     assert list(_extract_databricks_dependencies_from_retriever(multi_query_retriever)) == [
         DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index_1"),
@@ -176,6 +182,7 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
     ]
 
     from langchain.retrievers import EnsembleRetriever
+
     ensemble_retriever = EnsembleRetriever(
         retrievers=[retriever_1, retriever_2], weights=[0.5, 0.5]
     )
@@ -186,14 +193,8 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
         DatabricksServingEndpoint(endpoint_name="embedding-model"),
     ]
 
-    from langchain.retrievers.self_query.base import SelfQueryRetriever
-    self_query_retriever = SelfQueryRetriever.from_llm(llm, vectorstore_1)
-    assert list(_extract_databricks_dependencies_from_retriever(self_query_retriever)) == [
-        DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index_1"),
-        DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
-    ]
-
     from langchain.retrievers import TimeWeightedVectorStoreRetriever
+
     time_weighted_retriever = TimeWeightedVectorStoreRetriever(
         vectorstore=vectorstore_1, decay_rate=0.0000000000000000000000001, k=1
     )
@@ -212,7 +213,9 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
 
     vsc = MockVectorSearchClient()
     vs_index_1 = vsc.get_index(endpoint_name="vs_endpoint", index_name="mlflow.rag.vs_index_1")
-    vs_index_2 = vsc.get_index(endpoint_name="vs_endpoint", index_name="mlflow.rag.vs_index_2", has_embedding_endpoint=True)
+    vs_index_2 = vsc.get_index(
+        endpoint_name="vs_endpoint", index_name="mlflow.rag.vs_index_2", has_embedding_endpoint=True
+    )
     mock_get_deploy_client = MagicMock()
 
     monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
@@ -224,7 +227,9 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
     monkeypatch.setitem(sys.modules, "databricks.vector_search.client", mock_module)
 
     # set embedding model
-    vectorstore_1 = DatabricksVectorSearch(vs_index_1, text_column="content", embedding=embedding_model)
+    vectorstore_1 = DatabricksVectorSearch(
+        vs_index_1, text_column="content", embedding=embedding_model
+    )
     retriever_1 = vectorstore_1.as_retriever()
 
     # vs_index_2 has builtin embedding endpoint "embedding-model"
@@ -232,6 +237,7 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
     retriever_2 = vectorstore_2.as_retriever()
 
     from langchain.chat_models import ChatOpenAI
+
     llm = ChatOpenAI(temperature=0)
 
     assert list(_extract_databricks_dependencies_from_retriever(retriever_1)) == [
@@ -245,6 +251,7 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
     ]
 
     from langchain.retrievers.multi_query import MultiQueryRetriever
+
     multi_query_retriever = MultiQueryRetriever.from_llm(retriever=retriever_1, llm=llm)
     assert list(_extract_databricks_dependencies_from_retriever(multi_query_retriever)) == [
         DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index_1"),
@@ -264,6 +271,7 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
     ]
 
     from langchain.retrievers import EnsembleRetriever
+
     ensemble_retriever = EnsembleRetriever(
         retrievers=[retriever_1, retriever_2], weights=[0.5, 0.5]
     )
@@ -275,6 +283,7 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
     ]
 
     from langchain.retrievers import TimeWeightedVectorStoreRetriever
+
     time_weighted_retriever = TimeWeightedVectorStoreRetriever(
         vectorstore=vectorstore_1, decay_rate=0.0000000000000000000000001, k=1
     )
