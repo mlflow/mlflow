@@ -75,3 +75,18 @@ def test_autolog_preserve_user_provided_handlers():
 
     traces = _get_all_traces()
     assert len(traces) == 1
+
+
+def test_autolog_should_not_generate_traces_during_logging_loading(single_index):
+    mlflow.llama_index.autolog()
+
+    with mlflow.start_run():
+        model_info = mlflow.llama_index.log_model(
+            single_index, "model", input_example="Hello", engine_type="query"
+        )
+    loaded = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    assert len(_get_all_traces()) == 0
+
+    loaded.predict("Hello")
+    assert len(_get_all_traces()) == 1
