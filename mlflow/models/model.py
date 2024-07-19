@@ -774,7 +774,7 @@ class Model:
                     "signature is not provided when logging the model."
                 )
             if serving_input:
-                from mlflow.pyfunc import validate_serving_input
+                from mlflow.models import validate_serving_input
 
                 try:
                     validate_serving_input(model_info.model_uri, serving_input)
@@ -783,8 +783,8 @@ class Model:
                         f"Failed to validate serving input example {serving_input}. "
                         "Alternatively, you can avoid passing input example and pass model "
                         "signature instead when logging the model. To ensure the input example "
-                        "is valid prior serving, please try calling "
-                        "`mlflow.pyfunc.validate_serving_input` on the model uri and serving "
+                        "is valid prior to serving, please try calling "
+                        "`mlflow.models.validate_serving_input` on the model uri and serving "
                         "input example. A serving input example can be generated from model "
                         "input example using "
                         "`mlflow.models.convert_input_example_to_serving_input` function.\n"

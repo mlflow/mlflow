@@ -78,6 +78,7 @@ try:
         add_libraries_to_model,
         convert_input_example_to_serving_input,
         validate_schema,
+        validate_serving_input,
     )
 
     __all__ += [
@@ -89,6 +90,7 @@ try:
         "convert_input_example_to_serving_input",
         "set_signature",
         "predict",
+        "validate_serving_input",
     ]
 except ImportError:
     pass

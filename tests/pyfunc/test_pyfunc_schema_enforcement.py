@@ -2213,7 +2213,7 @@ def assert_equal(a, b):
 def test_input_example_validation_during_logging(
     tmp_path, example, signature, expected_input, expected_output
 ):
-    from mlflow.pyfunc import validate_serving_input
+    from mlflow.models import validate_serving_input
 
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
