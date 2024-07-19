@@ -28,13 +28,12 @@ from llama_index.core.instrumentation.span.base import BaseSpan
 from llama_index.core.instrumentation.span_handlers import BaseSpanHandler
 from llama_index.core.multi_modal_llms import MultiModalLLM
 from llama_index.core.tools import BaseTool
-from mlflow.tracking.client import MlflowClient
 from pydantic import PrivateAttr
 
-import mlflow
 from mlflow.entities import LiveSpan, SpanEvent, SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracking.client import MlflowClient
 
 _logger = logging.getLogger(__name__)
 
@@ -140,7 +139,6 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                     attributes=attributes,
                 )
             else:
-                print(mlflow.get_tracking_uri())
                 span = MlflowClient().start_trace(
                     name=id_.partition("-")[0],
                     span_type=span_type,

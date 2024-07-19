@@ -4,8 +4,6 @@ from dataclasses import asdict
 from typing import List
 from unittest.mock import ANY
 
-import mlflow.tracking._tracking_service
-from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 import openai
 import pytest
 from llama_index.agent.openai import OpenAIAgent
@@ -18,11 +16,13 @@ from llama_index.llms.openai import OpenAI
 from openai.types.chat import ChatCompletionMessageToolCall
 
 import mlflow
+import mlflow.tracking._tracking_service
 from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.llama_index.tracer import remove_llama_index_tracer, set_llama_index_tracer
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 
 
