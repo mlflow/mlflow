@@ -591,7 +591,8 @@ transformers:
       ">= 0.0.0": [
           "datasets",
           # 0.22.0 is broken: https://github.com/huggingface/huggingface_hub/issues/2157
-          "huggingface_hub!=0.22.0",
+          # 0.24.0 contains a breaking change for setfit: https://github.com/huggingface/setfit/issues/544
+          "huggingface_hub<0.24.0,!=0.22.0",
           "hf_transfer",
           "torch",
           "torchvision",
