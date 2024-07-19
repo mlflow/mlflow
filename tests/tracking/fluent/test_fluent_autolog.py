@@ -11,9 +11,7 @@ import pyspark
 import pyspark.ml
 import pytest
 import pytorch_lightning
-
-# commenting out setfit as it's broken with huggingface-hub >= 0.24.0
-# import setfit
+import setfit
 import sklearn
 import statsmodels
 import tensorflow
@@ -45,7 +43,7 @@ library_to_mlflow_module_without_spark_datasource = {
     pytorch_lightning: mlflow.pytorch,
     lightning: mlflow.pytorch,
     transformers: mlflow.transformers,
-    # setfit: mlflow.transformers,
+    setfit: mlflow.transformers,
 }
 
 library_to_mlflow_module = {
