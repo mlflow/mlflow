@@ -13,6 +13,7 @@ from llama_index.llms.openai import OpenAI
 import mlflow
 import mlflow.llama_index
 import mlflow.pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.llama_index.pyfunc_wrapper import (
     _CHAT_MESSAGE_HISTORY_PARAMETER_NAME,
     create_engine_wrapper,
@@ -64,6 +65,11 @@ def test_llama_index_native_log_and_load_model(request, index_fixture):
     engine = loaded_model.as_query_engine()
     assert engine is not None
     assert engine.query("Spell llamaindex").response != ""
+
+
+def test_llama_index_save_invalid_object_raise():
+    with pytest.raises(MlflowException, match="The provided object of type "):
+        mlflow.llama_index.save_model(index=OpenAI(), path="model", engine_type="query")
 
 
 @pytest.mark.parametrize(

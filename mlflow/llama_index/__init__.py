@@ -138,6 +138,7 @@ def save_model(
     """
 
     _validate_engine_type(engine_type)
+    _validate_index(index)
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
@@ -286,6 +287,16 @@ def log_model(
         metadata=metadata,
         **kwargs,
     )
+
+
+def _validate_index(index):
+    from llama_index.core.indices.base import BaseIndex
+
+    if not isinstance(index, BaseIndex):
+        raise MlflowException.invalid_parameter_value(
+            message=f"The provided object of type {type(index).__name__} is not a valid "
+            "index. MLflow llama-index flavor only supports saving LlamaIndex indices."
+        )
 
 
 def _save_index(index, path):
