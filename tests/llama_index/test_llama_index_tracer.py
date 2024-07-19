@@ -16,11 +16,13 @@ from llama_index.llms.openai import OpenAI
 from openai.types.chat import ChatCompletionMessageToolCall
 
 import mlflow
+import mlflow.tracking._tracking_service
 from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.llama_index.tracer import remove_llama_index_tracer, set_llama_index_tracer
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 
 
@@ -378,3 +380,16 @@ def test_trace_chat_engine(multi_index, is_stream, is_async):
     assert traces[0].info.status == TraceStatus.OK
     root_span = traces[0].data.spans[0]
     assert root_span.attributes[SpanAttributeKey.INPUTS] == {"message": "Hello"}
+
+
+def test_tracer_handle_tracking_uri_update(tmp_path):
+    OpenAI().complete("Hello")
+    assert len(_get_all_traces()) == 1
+
+    # Set different tracking URI and initialize the tracer
+    with _use_tracking_uri(tmp_path / "dummy"):
+        assert len(_get_all_traces()) == 0
+
+        # The new trace will be logged to the updated tracking URI
+        OpenAI().complete("Hello")
+        assert len(_get_all_traces()) == 1

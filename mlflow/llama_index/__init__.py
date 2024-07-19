@@ -11,6 +11,7 @@ from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
+from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
@@ -69,7 +70,7 @@ def _validate_engine_type(engine_type: str):
     if engine_type not in SUPPORTED_ENGINES:
         raise ValueError(
             f"Currently mlflow only supports the following engine types: "
-            f"{SUPPORTED_ENGINES}. {engine_type} is not supported, so please"
+            f"{SUPPORTED_ENGINES}. {engine_type} is not supported, so please "
             "use one of the above types."
         )
 
@@ -86,7 +87,9 @@ def _get_llama_index_version() -> str:
         )
 
 
+@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
+@trace_disabled  # Suppress traces while loading model
 def save_model(
     index,
     path: str,
@@ -213,7 +216,9 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
+@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
+@trace_disabled  # Suppress traces while loading model
 def log_model(
     index,
     artifact_path: str,
@@ -303,6 +308,8 @@ def _load_index(path, flavor_conf):
     return load_index_from_storage(storage_context)
 
 
+@experimental
+@trace_disabled  # Suppress traces while loading model
 def load_model(model_uri, dst_path=None):
     """
     Load a ``llama_index`` index from a local file or a run.
