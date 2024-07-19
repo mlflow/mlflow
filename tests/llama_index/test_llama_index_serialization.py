@@ -1,18 +1,18 @@
 import json
 from collections import Counter, deque
+from unittest import mock
 
 import pytest
-from llama_index.core import PromptTemplate
+from llama_index.core import PromptTemplate, Settings
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
 
 from mlflow.llama_index.serialize_objects import (
     _construct_prompt_template_object,
-    _deserialize_dict_of_objects,
     _get_object_import_path,
+    _object_to_dict,
     _sanitize_api_key,
     deserialize_settings,
-    object_to_dict,
     serialize_settings,
 )
 
@@ -62,7 +62,7 @@ def test_sanitize_api_key_keys_not_present():
 
 def test_object_to_dict_no_required_param():
     o = OpenAI()
-    result = object_to_dict(o)
+    result = _object_to_dict(o)
     assert result["object_constructor"] == "llama_index.llms.openai.base.OpenAI"
     expected_kwargs = {k: v for k, v in o.to_dict().items() if k not in {"class_name", "api_key"}}
     assert result["object_kwargs"] == expected_kwargs
@@ -70,7 +70,7 @@ def test_object_to_dict_no_required_param():
 
 def test_object_to_dict_one_required_param():
     o = OpenAIEmbedding()
-    result = object_to_dict(o)
+    result = _object_to_dict(o)
     assert result["object_constructor"] == "llama_index.embeddings.openai.base.OpenAIEmbedding"
     expected_kwargs = {k: v for k, v in o.to_dict().items() if k not in {"class_name", "api_key"}}
     assert result["object_kwargs"] == expected_kwargs
@@ -98,21 +98,6 @@ def test_settings_serialization_full_object(tmp_path, settings):
     assert len(set(objects.keys()) - set(settings.__dict__.keys())) == 0
 
 
-def test_deserialize_dict_of_objects(tmp_path, settings):
-    path = tmp_path / "serialized_settings.json"
-    serialize_settings(path)
-    observed = _deserialize_dict_of_objects(path)
-
-    assert len(set(observed.keys()) - set(settings.__dict__.keys())) == 0
-    assert observed["_llm"] == settings.llm
-    assert observed["_embed_model"] == settings.embed_model
-    assert "_callback_manager" not in observed.keys()
-    assert "_tokenizer" not in observed.keys()  # TODO
-    assert observed["_node_parser"] == settings.node_parser
-    assert observed["_prompt_helper"] == settings.prompt_helper
-    assert observed["_transformations"] == settings.transformations
-
-
 def test_settings_serde(tmp_path, settings):
     path = tmp_path / "serialized_settings.json"
     _llm = settings.llm
@@ -122,9 +107,14 @@ def test_settings_serde(tmp_path, settings):
     _prompt_helper = settings.prompt_helper
     _transformations = settings.transformations
 
-    serialize_settings(path)
+    with mock.patch("mlflow.llama_index.serialize_objects._logger") as mock_logger:
+        serialize_settings(path)
 
-    from llama_index.core import Settings
+        assert mock_logger.info.call_count == 2  # 1 for API key, 1 for unsupported objects
+        log_message = mock_logger.info.call_args[0][0]
+        assert log_message.startswith("The following objects in Settings are not supported")
+        assert " - function for Settings.tokenizer" in log_message
+        assert " - CallbackManager for Settings.callback_manager" in log_message
 
     for k in Settings.__dict__.keys():
         setattr(Settings, k, None)
