@@ -282,11 +282,21 @@ def start_run(
         print("version tag value: {}".format(parent_run.data.tags.get("version")))
         print("priority tag value: {}".format(parent_run.data.tags.get("priority")))
         print("--")
+
         # Search all child runs with a parent id
         query = f"tags.mlflow.parentRunId = '{parent_run.info.run_id}'"
         results = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=query)
         print("child runs:")
         print(results[["run_id", "params.child", "tags.mlflow.runName"]])
+
+        # Create a nested run under the existing parent run
+        with mlflow.start_run(
+            run_name="NEW_CHILD_RUN",
+            experiment_id=experiment_id,
+            description="new child",
+            parent_run_id=parent_run.info.run_id,
+        ) as child_run:
+            mlflow.log_param("new-child", "yes")
 
     .. code-block:: text
         :caption: Output
