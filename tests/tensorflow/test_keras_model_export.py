@@ -660,7 +660,7 @@ def test_pyfunc_serve_and_score_transformers():
             model,
             artifact_path="model",
             extra_pip_requirements=extra_pip_requirements,
-            input_example=dummy_inputs.tolist(),
+            input_example=dummy_inputs,
         )
 
     inference_payload = get_serving_input_example(model_info.model_uri)

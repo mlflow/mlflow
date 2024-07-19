@@ -106,7 +106,11 @@ def test_signature_and_examples_are_saved_correctly(fastai_model):
                     model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
+                if signature is not None or example is None:
+                    assert signature == mlflow_model.signature
+                else:
+                    # signature is inferred from input_example
+                    assert mlflow_model.signature is not None
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:

@@ -457,7 +457,7 @@ def test_pyfunc_serve_and_score(input1, input2, basic_model):
 
     # Check that the giving the same string to the served model results in the same result
     inference_data = get_serving_input_example(model_info.model_uri)
-    assert inference_data == json.dumps({"inputs": input1})
+    assert json.loads(inference_data) == {"inputs": input1}
     resp = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=inference_data,
