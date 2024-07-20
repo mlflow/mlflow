@@ -667,6 +667,11 @@ def flush_async_logging() -> None:
     _get_store().flush_async_logging()
 
 
+def end_async_logging() -> None:
+    """Flush all pending async logging."""
+    _get_store().end_async_logging()
+
+
 def flush_artifact_async_logging() -> None:
     """Flush all pending artifact async logging."""
     run_id = _get_or_start_run().info.run_id
