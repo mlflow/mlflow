@@ -7,7 +7,7 @@ Tracing in MLflow
 
 MLflow offers a number of different options to enable tracing of your GenAI applications. 
 
-- **Automated tracing**: MLflow provides a fully automated integration with some integrated libraries such as LangChain and OpenAI, that can activate by simply enabling ``mlflow.<library>.autolog()``.
+- **Automated tracing**: MLflow provides a fully automated integration with integrated libraries such as LangChain, OpenAI, and LlamaIndex, that can activate by simply enabling ``mlflow.<library>.autolog()``.
 - **Manual trace instrumentation with high-level fluent APIs**: Decorators, function wrappers and context managers via the fluent API allow you to add tracing functionality with minor code modifications.
 - **Low-level client APIs for tracing**: The MLflow client API provides a thread-safe way to handle trace implementations, even in aysnchronous modes of operation.
 
@@ -28,7 +28,7 @@ Automatic Tracing
 -----------------
 
 The easiest way to get started with MLflow Tracing is to leverage the built-in capabilities with MLflow's integrated libraries. MLflow provides automatic tracing capabilities for some of the integrated libraries such as
-LangChain and OpenAI. For these libraries, you can instrument your code with
+LangChain, OpenAI, and LlamaIndex. For these libraries, you can instrument your code with
 just a single command ``mlflow.<library>.autolog()`` and MLflow will automatically log traces
 for model/API invocations to the active MLflow Experiment.
 
@@ -185,6 +185,32 @@ for model/API invocations to the active MLflow Experiment.
             :alt: OpenAI Tracing
             :width: 100%
             :align: center
+
+    .. tab:: LlamaIndex
+
+        .. raw:: html
+
+            <h3>LlamaIndex Automatic Tracing</h3>
+
+        |
+
+        The MLflow LlamaIndex flavor's autologging feature has a direct integration with MLflow tracing. When LlamaIndex autologging is enabled with :py:func:`mlflow.llama_index.autolog`, invocation of components
+        such as LLMs, agents, and query/chat engines will automatically record generated traces during interactive development.
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.llama_index.autolog()
+
+
+        To see the full example of tracing LlamaIndex, please visit `LLamaIndex Tracing documentation <../llama-index/index.html##enable-tracing>`_.
+
+        .. figure:: ../../_static/images/llms/llama-index/llama-index-trace.png
+            :alt: LlamaIndex Tracing
+            :width: 100%
+            :align: center
+
 
 Tracing Fluent APIs
 -------------------

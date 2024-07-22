@@ -70,6 +70,11 @@ def _make_chat_stream_chunk(content):
                 "logprobs": None,
             }
         ],
+        "usage": {
+            "prompt_tokens": 9,
+            "completion_tokens": 12,
+            "total_tokens": 21,
+        },
     }
 
 

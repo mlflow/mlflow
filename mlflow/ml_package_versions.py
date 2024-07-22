@@ -270,6 +270,15 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "0.2.5"
         }
     },
+    "llama_index": {
+        "package_info": {
+            "pip_release": "llama-index"
+        },
+        "models": {
+            "minimum": "0.10.44",
+            "maximum": "0.10.53"
+        }
+    },
     "sentence_transformers": {
         "package_info": {
             "pip_release": "sentence-transformers"
