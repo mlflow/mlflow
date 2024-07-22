@@ -442,7 +442,7 @@ class Array:
     def __init__(
         self,
         dtype: Union["Array", "Map", DataType, Object, str],
-        is_sparkml_vector: bool = False,
+        _is_sparkml_vector: bool = False,
     ) -> None:
         try:
             self._dtype = DataType[dtype] if isinstance(dtype, str) else dtype
@@ -458,12 +458,12 @@ class Array:
                 f"'dtype' argument, but got '{self.dtype.__class__}'"
             )
 
-        if is_sparkml_vector and self.dtype not in (DataType.double, DataType.float):
+        if _is_sparkml_vector and self.dtype != DataType.double:
             raise MlflowException(
-                "Only 'Array(float)' or 'Array(double)' type can be set to Spark ML vector type."
+                "Only 'Array(double)' type can be set as Spark ML vector type."
             )
 
-        self._is_sparkml_vector = is_sparkml_vector
+        self._is_sparkml_vector = _is_sparkml_vector
 
     @property
     def is_sparkml_vector(self) -> bool:
@@ -518,6 +518,8 @@ class Array:
         return cls(dtype=item_type, is_sparkml_vector=is_sparkml_vector)
 
     def __repr__(self) -> str:
+        if self.is_sparkml_vector:
+            return "SparkML vector"
         return f"Array({self.dtype!r})"
 
     def _merge(self, arr: "Array") -> "Array":
@@ -540,6 +542,13 @@ class Array:
             return Array(dtype=self.dtype._merge(arr.dtype))
 
         raise MlflowException(f"Array type {self!r} and {arr!r} are incompatible")
+
+
+def get_spark_ml_vector_type():
+    """
+    Get the spark ML vector type.
+    """
+    return Array(dtype=DataType.double, _is_sparkml_vector=True)
 
 
 class Map:
