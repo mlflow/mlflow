@@ -353,6 +353,21 @@ class Model:
         """
         return getattr(self.signature, "params", None)
 
+    def get_serving_input(self, path: str):
+        """
+        Load serving input example from a model directory. Returns None if there is no serving input
+        example.
+
+        Args:
+            path: Path to the model directory.
+
+        Returns:
+            Serving input example or None if the model has no serving input example.
+        """
+        from mlflow.models.utils import _load_serving_input_example
+
+        return _load_serving_input_example(self, path)
+
     def load_input_example(self, path: str):
         """
         Load the input example saved along a model. Returns None if there is no example metadata
@@ -747,9 +762,36 @@ class Model:
                     await_registration_for=await_registration_for,
                     local_model_path=local_path,
                 )
-        model_info = mlflow_model.get_model_info()
-        if registered_model is not None:
-            model_info.registered_model_version = registered_model.version
+            model_info = mlflow_model.get_model_info()
+            if registered_model is not None:
+                model_info.registered_model_version = registered_model.version
+
+            # validate input example works for serving when logging the model
+            serving_input = mlflow_model.get_serving_input(local_path)
+            if mlflow_model.signature is None and serving_input is None:
+                _logger.warning(
+                    "Input example should be provided to infer model signature if the model "
+                    "signature is not provided when logging the model."
+                )
+            if serving_input:
+                from mlflow.models import validate_serving_input
+
+                try:
+                    validate_serving_input(model_info.model_uri, serving_input)
+                except Exception as e:
+                    _logger.warning(
+                        f"Failed to validate serving input example {serving_input}. "
+                        "Alternatively, you can avoid passing input example and pass model "
+                        "signature instead when logging the model. To ensure the input example "
+                        "is valid prior to serving, please try calling "
+                        "`mlflow.models.validate_serving_input` on the model uri and serving "
+                        "input example. A serving input example can be generated from model "
+                        "input example using "
+                        "`mlflow.models.convert_input_example_to_serving_input` function.\n"
+                        f"Got error: {e}",
+                        exc_info=_logger.isEnabledFor(logging.DEBUG),
+                    )
+
         return model_info
 
 
