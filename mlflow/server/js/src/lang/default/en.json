@@ -2191,10 +2191,6 @@
     "defaultMessage": "Unpin group",
     "description": "A tooltip for the pin icon button in the runs table next to the pinned run group"
   },
-  "jm6p+r": {
-    "defaultMessage": "Run below code to validate model inference works on the example payload, prior to deploying it to a serving endpoint",
-    "description": "Section heading to display the code block on how we can use validate an input against registered model prior to serving"
-  },
   "jq95vC": {
     "defaultMessage": "Group: {groupName}",
     "description": "Experiment page > grouped runs table > run group header label"
@@ -2650,6 +2646,10 @@
   "tLb7+M": {
     "defaultMessage": "{timeSince, plural, =1 {1 day} other {# days}} ago",
     "description": "Text for time in days since given date for MLflow views"
+  },
+  "tNySO0": {
+    "defaultMessage": "Run the following code to validate model inference works on the example payload, prior to deploying it to a serving endpoint",
+    "description": "Section heading to display the code block on how we can use validate an input against registered model prior to serving"
   },
   "tbAlJg": {
     "defaultMessage": "Go to external location",

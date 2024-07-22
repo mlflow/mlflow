@@ -339,7 +339,7 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
       <div css={styles.item}>
         <Text>
           <FormattedMessage
-            defaultMessage="Run below code to validate model inference works on the example payload, prior to deploying it to a serving endpoint" // eslint-disable-next-line max-len
+            defaultMessage="Run the following code to validate model inference works on the example payload, prior to deploying it to a serving endpoint" // eslint-disable-next-line max-len
             description="Section heading to display the code block on how we can use validate an input against registered model prior to serving"
           />
         </Text>
