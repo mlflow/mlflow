@@ -291,6 +291,10 @@
     "defaultMessage": "This version",
     "description": "Model registry > model version alias select > Indicator for alias of selected version"
   },
+  "4S2N8w": {
+    "defaultMessage": "Run below code to validate the model works on the serving payload prior to serving",
+    "description": "Section heading to display the code block on how we can use validate an input against registered model prior to serving"
+  },
   "4idqpX": {
     "defaultMessage": "Add",
     "description": "Add button text in editable tags table view in MLflow"
@@ -310,6 +314,10 @@
   "58xhem": {
     "defaultMessage": "Click to pin the run",
     "description": "A tooltip for the pin icon button in the runs chart tooltip next to the not pinned run"
+  },
+  "5B5dhT": {
+    "defaultMessage": "Validate the model before deployment",
+    "description": "Heading text for validating the model before deploying it for serving"
   },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
@@ -1326,6 +1334,10 @@
   "RzZVxC": {
     "defaultMessage": "An error occurred while rendering this component.",
     "description": "Description of error fallback component"
+  },
+  "S0Qif0": {
+    "defaultMessage": "Validate the serving payload works on the model",
+    "description": "Code comment which states how to validate serving payload"
   },
   "S7ESYH": {
     "defaultMessage": "Visualizations",
