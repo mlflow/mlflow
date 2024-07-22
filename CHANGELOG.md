@@ -2,51 +2,69 @@
 
 ## 2.15.0rc0 (2024-07-22)
 
-MLflow 2.15.0rc0 includes several major features and improvements
+We are excited to announce the release candidate for MLflow 2.15.0 (`mlflow-2.15.0rc0`). This release candidate provides users with an early preview of the major features and changes coming in the stable release. We encourage you to try out these new features, and if you encounter any issues or have suggestions, please open an issue on our GitHub repository!
+
+
+### Try It Out
+
+To install the release candidate, run the following command:
+
+```
+pip install mlflow==2.15.0rc0
+```
+
+Please note that this is a release candidate and may contain bugs or incomplete features. We encourage you to test it in a non-production environment and provide feedback on any issues you encounter.
+
+### Major features:
+
+- **LlamaIndex Flavor** - MLflow now introduces a native integration with [LlamaIndex](https://www.llamaindex.ai/), one of the most popular libraries for building GenAI apps centered around custom data. This integration allows you to log LlamaIndex indices within MLflow, load and deploy for inference with different engine types. MLflow also provides comprehensive tracing support for LlamaIndex operations, offering unprecedented transparency into complex queries. Check out [MLflow LlamaIndex documentation](https://mlflow.org/docs/latest/llms/llama-index/index.html) to get started! (#12633, @michael-berk, @B-Step62)
+
+- **OpenAI Tracing** - We've enhanced our OpenAI integration with a new tracing feature that works seamlessly with MLflow OpenAI autologging. Users can now enable tracing of their OpenAI API usage with a single `mlflow.openai.autolog()` call, then MLflow automatically logs valuable metadata such as token usage, providing deeper insights into your OpenAI-powered applications. To start exploring this new capability, please check out [the tracing documentation](https://mlflow.org/docs/latest/llms/tracing/index.html#automatic-tracing)! (#12267, @gabrielfu)
+
+- **Enhanced Model Deployment with New Validation Feature** - To improve the reliability of model deployments, MLflow has added a new method to validate your model before deploying it to the inference endpoint. This feature helps eliminate typical errors in input and output handling, streamlining the process of model deployment and increasing confidence in your deployed models. By catching potential issues early, you can ensure a smoother transition from development to production. (#12710, @serena-ruan)
+
+- **Custom Metrics Definition Recording for Evaluations** - We've strengthened the flexibility of defining custom metrics for model evaluation by automatically logging and versioning metrics definitions, including models used as judges and prompt templates. With this new capability, you can ensure reproducibility of evaluations across different runs and easily reuse evaluation setups for consistency, facilitating more meaningful comparisons between different models or versions. (#12487, #12509, @xq-yin)
+
+- **Databricks SDK Integration** - MLflow's interaction with Databricks endpoints has been fully migrated to use the [Databricks SDK](https://docs.databricks.com/en/dev-tools/sdk-python.html), replacing the legacy CLI. This change brings more robust and reliable connections between MLflow and Databricks, and access to the latest Databricks features and capabilities. (#12313, @WeichenXu123)
+
+
+
+
+### Other Notable Changes
 
 Features:
 
-- [] Serving input example support (#12710, @serena-ruan)
-- [Docs / Models] Llama index flavor (#12633, @michael-berk)
 - [Tracking] Make parent id a parameter (#12721, @Flametaa)
 - [Tracking] Make MLflow supporting U2M authentication (#12713, @WeichenXu123)
 - [Models] Add more chat params for ChatModel (#12612, @WeichenXu123)
-- [Model Registry] Handle AWS encryption details (#12495, @artjen)
-- [Artifacts] [3/x] Add search_custom_metrics API and deserialization function (#12509, @xq-yin)
-- [Artifacts] [2/x] Log genAI custom metric definitions to JSON artifact (#12487, @xq-yin)
-- [] Add tracing to OpenAI autologging (#12267, @gabrielfu)
-- [Artifacts / Deployments / Model Registry / Models / Projects / Recipes / Scoring / Server-infra / Tracking] Merge Databricks-sdk feature branch to master (#12313, @WeichenXu123)
 - [Models] [Transformers] Support input images encoded with b64.encodebytes (#12087, @MadhuM02)
-- [] Unity Catalog integration for deployments server (#12243, @harupy)
+- [Models Registry] Handle AWS encryption details (#12495, @artjen)
 
 Bug fixes:
 
-- [] Creating compatibility with Kubeflow Dashboard UI (#12663, @cgilviadee)
+- [Tracking] Fix mlflow evaluate using xgboost model (#12599, @serena-ruan)
+- [Tracking] fixes hard removal of s3 artifacts using mlflow gc mlflow/mlflow#7558 (#12451, @M4nouel)
+- [Tracing] [OpenAI] Fix stream tracing for OpenAI to record the correct chunk structure (#12629, @BenWilson2)
+- [Tracing] [LangChain] Fix nested trace issue in LangChain tracer. (#12705, @B-Step62)
+- [Tracing] [LangChain] Fix thread-safety of LangChain tracer (#12701, @B-Step62)
+- [Tracing] Isolate tracer provider from OpenTelemetry global state (#12457, @B-Step62)
+- [Models] [Transformers] Fix batch inference for Whisper model and refactor tests (#12575, @B-Step62)
+- [Models] [LangChain] Fix predict_stream for AgentExecutor and other non-Runnable chains (#12518, @B-Step62)
+- [Models] Fix log_model issue in MLflow >= 2.13 that causes databricks DLT py4j service crashing (#12514, @WeichenXu123)
 - [Models] Fix `_gen_md5_for_arraylike_obj` to use access pandas DF rows via `iloc` (#12410, @julcsii)
-- [Tracking] Fix nested trace issue in LangChain tracer. (#12705, @B-Step62)
-- [Tracking] Fix thread-safety of LangChain tracer (#12701, @B-Step62)
-- [Models] Fix stream trace logging with the OpenAI autologging implementation to record the correct chunk structure (#12629, @BenWilson2)
-- [] Fix mlflow evaluate using xgboost model (#12599, @serena-ruan)
-- [Models] Fix batch inference for Whisper model and refactor tests (#12575, @B-Step62)
-- [] fixes hard removal of s3 artifacts using mlflow gc mlflow/mlflow#7558 (#12451, @M4nouel)
-- [Models] [2.14.2 blocker] Fix log_model issue in MLflow >= 2.13 that causes databricks DLT py4j service crashing (#12514, @WeichenXu123)
-- [Models] Fix predict_stream for AgentExecutor and other non-Runnable chains (#12518, @B-Step62)
-- [Tracking] Isolate tracer provider from OpenTelemetry global state (#12457, @B-Step62)
-- [Tracking] Upgrade protobuf generation code and add a new `generate_protos.py` script (#12360, @WeichenXu123)
-- [Model Registry] Handle no headers presigned url (#12349, @artjen)
-- [] Fix docstring order for ChatResponse class and make object field immutable (#12305, @xq-yin)
+- [Models Registry] Handle no headers presigned url (#12349, @artjen)
+- [UI] Creating compatibility with Kubeflow Dashboard UI (#12663, @cgilviadee)
 
 Documentation updates:
 
-- [Docs] Change the HTTP method of the API get-latest-versions from POST to GET (#12600, @ZTZK)
-- [Tracking] Databricks SDK doc / error message improvement (#12552, @WeichenXu123)
-- [Docs / Examples] Fix the transformer model saving example in mlflow public doc (#12417, @dannikay)
-- [Tracking] [MLflow-docs] Adding Langchain as a code example and doc string (#12325, @sunishsheth2009)
-- [Tracking] [MLflow-docs] Adding Pyfunc as a code example and doc string (#12336, @sunishsheth2009)
-- [Docs] Add FAQ entry for viewing trace exceptions in Docs (#12309, @BenWilson2)
-- [Docs] Add note about 'fork' vs 'spawn' method when using multiprocessing for parallel runs (#12337, @B-Step62)
-- [Docs] Fix type error in tracing example for function wrapping (#12338, @B-Step62)
-- [Docs] Add example usage of "extract_fields" for mlflow.search_traces in documentation (#12319, @xq-yin)
+-  Change the HTTP method of the API get-latest-versions from POST to GET (#12600, @ZTZK)
+- Databricks SDK doc / error message improvement (#12552, @WeichenXu123)
+- Fix the transformer model saving example in mlflow public doc (#12417, @dannikay)
+- Adding model-from-code documentation for LangChain and Pyfunc (#12325, #12336, @sunishsheth2009)
+- Add FAQ entry for viewing trace exceptions in Docs (#12309, @BenWilson2)
+- Add note about 'fork' vs 'spawn' method when using multiprocessing for parallel runs (#12337, @B-Step62)
+- Fix type error in tracing example for function wrapping (#12338, @B-Step62)
+- Add example usage of "extract_fields" for mlflow.search_traces in documentation (#12319, @xq-yin)
 
 Small bug fixes and documentation updates:
 
