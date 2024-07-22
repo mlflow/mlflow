@@ -427,9 +427,9 @@ to evaluate your model as an MLflow model, we recommend following the steps belo
 
         with mlflow.start_run():
             system_prompt = "Answer the following question in two sentences"
-            # Wrap "gpt-3.5-turbo" as an MLflow model.
+            # Wrap "gpt-4o-mini" as an MLflow model.
             logged_model_info = mlflow.openai.log_model(
-                model="gpt-3.5-turbo",
+                model="gpt-4o-mini",
                 task=openai.chat.completions,
                 artifact_path="model",
                 messages=[
@@ -479,7 +479,7 @@ up OpenAI authentication to run the code below.
         system_prompt = "Please answer the following question in formal language."
         for index, row in inputs.iterrows():
             completion = openai.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": "{row}"},
