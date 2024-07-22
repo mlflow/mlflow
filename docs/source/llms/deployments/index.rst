@@ -191,7 +191,7 @@ Firstly, update the :ref:`MLflow Deployments Server config <deployments_configur
             openai_api_key: $OPENAI_API_KEY
 
 This updated configuration adds a new completions endpoint ``completions-gpt4`` while still preserving the original ``completions``
-endpoint that was configured with the ``gpt-3.5-turbo``  model.
+endpoint that was configured with the ``gpt-4o-mini``  model.
 
 Once the configuration file is updated, simply save your changes. The deployments server will automatically create the new endpoint with zero downtime.
 
@@ -340,8 +340,8 @@ an endpoint in the MLflow Deployments Server consists of the following fields:
 
 * **model**: Defines the model to which this endpoint will forward requests. The model contains the following details:
 
-    * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for OpenAI's ``GPT-3.5`` models.
-    * **name**: The name of the model to use. For example, ``gpt-3.5-turbo`` for OpenAI's ``GPT-3.5-Turbo`` model.
+    * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for OpenAI's ``GPT-4o`` models.
+    * **name**: The name of the model to use. For example, ``gpt-4o-mini`` for OpenAI's ``GPT-4o-Mini`` model.
     * **config**: Contains any additional configuration details required for the model. This includes specifying the API base URL and the API key.
 
 * **limit**: Specify the rate limit setting this endpoint will follow. The limit field contains the following fields:

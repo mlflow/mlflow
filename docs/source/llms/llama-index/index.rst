@@ -245,7 +245,7 @@ models to be used by engines.
 
     Settings.llm = OpenAI("gpt-4o-mini")
 
-    # MLflow saves GPT-3.5-turbo as the LLM to use for inference
+    # MLflow saves GPT-4o-Mini as the LLM to use for inference
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
             index, artifact_path="index", engine_type="chat"

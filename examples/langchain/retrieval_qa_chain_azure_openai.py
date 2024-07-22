@@ -37,7 +37,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
 
     llm = AzureOpenAI(
         deployment_name="<your-deployment-name>",
-        model_name="gpt-35-turbo-instruct",
+        model_name="gpt-4o-mini",
     )
     # Create the RetrievalQA chain
     retrievalQA = RetrievalQA.from_llm(llm=llm, retriever=db.as_retriever())

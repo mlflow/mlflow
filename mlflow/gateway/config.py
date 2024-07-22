@@ -457,7 +457,7 @@ _ROUTE_EXTRA_SCHEMA = {
         "name": "openai-completions",
         "route_type": "llm/v1/completions",
         "model": {
-            "name": "gpt-3.5-turbo",
+            "name": "gpt-4o-mini",
             "provider": "openai",
         },
         "route_url": "/gateway/routes/completions/invocations",
