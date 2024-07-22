@@ -12,9 +12,11 @@ import pyspark
 import pytest
 import yaml
 from packaging.version import Version
+from pyspark.sql.functions import col
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.pipeline import Pipeline
+from pyspark.ml.functions import array_to_vector
 from sklearn import datasets
 
 import mlflow
@@ -984,3 +986,9 @@ def test_model_log_with_signature_inference(spark_model_iris, input_example):
     else:
         assert column_names == ["0", "1", "2", "3"]
     assert mlflow_model.signature.outputs == Schema([ColSpec(type=DataType.double)])
+
+
+def test_model_with_vector_type_input_output(model_path):
+    train_df = spark.createDataFrame(
+        [([3., 4.], 0), ([5., 6.], 1)], schema="features array<double>, label long"
+    ).select(array_to_vector("features").alias("features"), col("label"))

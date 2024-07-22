@@ -756,10 +756,10 @@ def _get_columns_with_unsupported_data_type(df):
     from mlflow.types.schema import DataType
     from pyspark.ml.linalg import VectorUDT
 
-    supported_spark_types = [*DataType.get_spark_types(), VectorUDT]
+    supported_spark_types = DataType.get_spark_types()
     unsupported_columns = []
     for field in df.schema.fields:
-        if field.dataType not in supported_spark_types:
+        if (field.dataType not in supported_spark_types) and not isinstance(field.dataType, VectorUDT):
             unsupported_columns.append(field)
     return unsupported_columns
 
@@ -1044,19 +1044,16 @@ def autolog(
 
                 spark = SparkSession.builder.getOrCreate()
 
-                def _get_input_example_as_pd_df():
+                def _get_input_example_df():
                     feature_cols = list(get_feature_cols(input_df, spark_model))
                     limited_input_df = input_df.select(feature_cols).limit(
                         INPUT_EXAMPLE_SAMPLE_ROWS
                     )
-                    return cast_spark_df_with_vector_to_array(limited_input_df).toPandas()
+                    return limited_input_df
 
                 def _infer_model_signature(input_example_slice):
-                    input_slice_df = _find_and_set_features_col_as_vector_if_needed(
-                        spark.createDataFrame(input_example_slice), spark_model
-                    )
-                    model_output = spark_model.transform(input_slice_df).drop(
-                        *input_slice_df.columns
+                    model_output = spark_model.transform(input_example_slice).drop(
+                        *input_example_slice.columns
                     )
                     # TODO: Remove this once we support non-scalar spark data types
                     unsupported_columns = _get_columns_with_unsupported_data_type(model_output)
@@ -1067,7 +1064,7 @@ def autolog(
                         )
                         model_output = None
                     else:
-                        model_output = model_output.toPandas()
+                        model_output = model_output
 
                     return infer_signature(input_example_slice, model_output)
 
@@ -1083,7 +1080,7 @@ def autolog(
                         log_model_signatures = False
 
                 input_example, signature = resolve_input_example_and_signature(
-                    _get_input_example_as_pd_df,
+                    _get_input_example_df,
                     _infer_model_signature,
                     log_input_examples,
                     log_model_signatures,

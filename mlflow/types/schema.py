@@ -458,7 +458,7 @@ class Array:
                 f"'dtype' argument, but got '{self.dtype.__class__}'"
             )
 
-        if is_sparkml_vector and not isinstance(self.dtype, (DataType.float, DataType.double)):
+        if is_sparkml_vector and self.dtype not in (DataType.double, DataType.float):
             raise MlflowException(
                 "Only 'Array(float)' or 'Array(double)' type can be set to Spark ML vector type."
             )

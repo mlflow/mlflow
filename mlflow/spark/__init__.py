@@ -947,6 +947,7 @@ def _find_and_set_features_col_as_vector_if_needed(spark_df, spark_model):
                 return spark_df.withColumn(
                     features_col_name, array_to_vector_udf(features_col_name)
                 )
+            breakpoint()
         return spark_df
 
     if hasattr(spark_model, "stages"):
