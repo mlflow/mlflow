@@ -499,6 +499,7 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
 def _infer_spark_type(x, data=None, col_name=None) -> DataType:
     import pyspark.sql.types
     from pyspark.sql.functions import col, collect_list
+    from pyspark.ml.linalg import VectorUDT
 
     if isinstance(x, pyspark.sql.types.NumericType):
         if isinstance(x, pyspark.sql.types.IntegralType):
@@ -569,6 +570,8 @@ def _infer_spark_type(x, data=None, col_name=None) -> DataType:
                 for k in keys
             ]
         )
+    elif isinstance(x, VectorUDT):
+        return Array(dtype=DataType.double, is_sparkml_vector=True)
 
     else:
         raise MlflowException.invalid_parameter_value(

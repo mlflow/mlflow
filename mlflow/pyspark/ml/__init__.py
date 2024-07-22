@@ -754,8 +754,9 @@ _AUTOLOGGING_METRICS_MANAGER = _AutologgingMetricsManager()
 
 def _get_columns_with_unsupported_data_type(df):
     from mlflow.types.schema import DataType
+    from pyspark.ml.linalg import VectorUDT
 
-    supported_spark_types = DataType.get_spark_types()
+    supported_spark_types = [*DataType.get_spark_types(), VectorUDT]
     unsupported_columns = []
     for field in df.schema.fields:
         if field.dataType not in supported_spark_types:

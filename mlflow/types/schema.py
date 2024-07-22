@@ -442,6 +442,7 @@ class Array:
     def __init__(
         self,
         dtype: Union["Array", "Map", DataType, Object, str],
+        is_sparkml_vector: bool = False,
     ) -> None:
         try:
             self._dtype = DataType[dtype] if isinstance(dtype, str) else dtype
@@ -457,6 +458,17 @@ class Array:
                 f"'dtype' argument, but got '{self.dtype.__class__}'"
             )
 
+        if is_sparkml_vector and not isinstance(self.dtype, (DataType.float, DataType.double)):
+            raise MlflowException(
+                "Only 'Array(float)' or 'Array(double)' type can be set to Spark ML vector type."
+            )
+
+        self._is_sparkml_vector = is_sparkml_vector
+
+    @property
+    def is_sparkml_vector(self) -> bool:
+        return self._is_sparkml_vector
+
     @property
     def dtype(self) -> Union["Array", DataType, Object]:
         """The array data type."""
@@ -471,7 +483,7 @@ class Array:
         items = (
             {"type": self.dtype.name} if isinstance(self.dtype, DataType) else self.dtype.to_dict()
         )
-        return {"type": ARRAY_TYPE, "items": items}
+        return {"type": ARRAY_TYPE, "items": items, "is_sparkml_vector": self.is_sparkml_vector}
 
     @classmethod
     def from_json_dict(cls, **kwargs):
@@ -481,7 +493,7 @@ class Array:
         `items` keys.
         Example: {"type": "array", "items": "string"}
         """
-        if not {"items", "type"} <= set(kwargs.keys()):
+        if not {"items", "type", "is_sparkml_vector"} <= set(kwargs.keys()):
             raise MlflowException(
                 "Missing keys in Array JSON. Expected to find keys `items` and `type`"
             )
@@ -491,13 +503,19 @@ class Array:
             raise MlflowException("Expected items to be a dictionary of Object JSON")
         if not {"type"} <= set(kwargs["items"].keys()):
             raise MlflowException("Missing keys in Array's items JSON. Expected to find key `type`")
+
+        is_sparkml_vector = kwargs.get("is_sparkml_vector", False)
+
         if kwargs["items"]["type"] == OBJECT_TYPE:
-            return cls(dtype=Object.from_json_dict(**kwargs["items"]))
-        if kwargs["items"]["type"] == ARRAY_TYPE:
-            return cls(dtype=Array.from_json_dict(**kwargs["items"]))
-        if kwargs["items"]["type"] == MAP_TYPE:
-            return cls(dtype=Map.from_json_dict(**kwargs["items"]))
-        return cls(dtype=kwargs["items"]["type"])
+            item_type = Object.from_json_dict(**kwargs["items"])
+        elif kwargs["items"]["type"] == ARRAY_TYPE:
+            item_type = Array.from_json_dict(**kwargs["items"])
+        elif kwargs["items"]["type"] == MAP_TYPE:
+            item_type = Map.from_json_dict(**kwargs["items"])
+        else:
+            item_type = kwargs["items"]["type"]
+
+        return cls(dtype=item_type, is_sparkml_vector=is_sparkml_vector)
 
     def __repr__(self) -> str:
         return f"Array({self.dtype!r})"
