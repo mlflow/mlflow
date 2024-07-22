@@ -83,7 +83,6 @@ from mlflow.utils.openai_utils import (
     TEST_INTERMEDIATE_STEPS,
     TEST_SOURCE_DOCUMENTS,
     _mock_chat_completion_response,
-    _mock_openai_arequest,
     _mock_request,
     _MockResponse,
 )
