@@ -28,8 +28,6 @@ Please note that this is a release candidate and may contain bugs or incomplete 
 - **Databricks SDK Integration** - MLflow's interaction with Databricks endpoints has been fully migrated to use the [Databricks SDK](https://docs.databricks.com/en/dev-tools/sdk-python.html), replacing the legacy CLI. This change brings more robust and reliable connections between MLflow and Databricks, and access to the latest Databricks features and capabilities. (#12313, @WeichenXu123)
 
 
-
-
 ### Other Notable Changes
 
 Features:
