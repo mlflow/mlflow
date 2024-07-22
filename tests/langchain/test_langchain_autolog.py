@@ -299,7 +299,7 @@ def test_llmchain_autolog():
             "What is a good name for a company that makes MLflow?"
         ]
         assert attrs[SpanAttributeKey.OUTPUTS]["generations"][0][0]["text"] == "test"
-        assert attrs["invocation_params"]["model_name"] == "gpt-3.5-turbo-instruct"
+        assert attrs["invocation_params"]["model_name"] == "gpt-4o-mini-instruct"
         assert attrs["invocation_params"]["temperature"] == 0.9
 
 

@@ -158,7 +158,7 @@ class ListEndpointsResponse(BaseModel):
                         "name": "openai-chat",
                         "endpoint_type": "llm/v1/chat",
                         "model": {
-                            "name": "gpt-3.5-turbo",
+                            "name": "gpt-4o-mini",
                             "provider": "openai",
                         },
                         "limit": {"calls": 1, "key": None, "renewal_period": "minute"},
@@ -197,7 +197,7 @@ class SearchRoutesResponse(BaseModel):
                         "name": "openai-chat",
                         "route_type": "llm/v1/chat",
                         "model": {
-                            "name": "gpt-3.5-turbo",
+                            "name": "gpt-4o-mini",
                             "provider": "openai",
                         },
                     },

@@ -148,7 +148,7 @@ def test_make_genai_metric_correct_response():
         definition=example_definition,
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
-        model="gateway:/gpt-3.5-turbo",
+        model="gateway:/gpt-4o-mini",
         grading_context_columns=["targets"],
         parameters={"temperature": 0.0},
         greater_is_better=True,
@@ -194,7 +194,7 @@ def test_make_genai_metric_correct_response():
                 grading_context={"targets": "example-ground_truth"},
             )
         ],
-        model="openai:/gpt-3.5-turbo",
+        model="openai:/gpt-4o-mini",
         grading_context_columns=["targets"],
         greater_is_better=True,
     )
@@ -210,7 +210,7 @@ def test_make_genai_metric_correct_response():
             pd.Series(["ground_truth"]),
         )
         assert mock_predict_function.call_count == 1
-        assert mock_predict_function.call_args[0][0] == "openai:/gpt-3.5-turbo"
+        assert mock_predict_function.call_args[0][0] == "openai:/gpt-4o-mini"
         assert mock_predict_function.call_args[0][1] == (
             "\nTask:\nYou must return the following fields in your response in two "
             "lines, one below the other:\nscore: Your numerical score for the model's "
@@ -256,7 +256,7 @@ def test_make_genai_metric_supports_string_value_for_grading_context_columns():
         version="v1",
         definition="Fake metric definition",
         grading_prompt="Fake metric grading prompt",
-        model="openai:/gpt-3.5-turbo",
+        model="openai:/gpt-4o-mini",
         grading_context_columns="targets",
         greater_is_better=True,
         examples=[
@@ -286,7 +286,7 @@ def test_make_genai_metric_supports_string_value_for_grading_context_columns():
             pd.Series(["ground_truth"]),
         )
         assert mock_predict_function.call_count == 1
-        assert mock_predict_function.call_args[0][0] == "openai:/gpt-3.5-turbo"
+        assert mock_predict_function.call_args[0][0] == "openai:/gpt-4o-mini"
         assert mock_predict_function.call_args[0][1] == (
             "\nTask:\nYou must return the following fields in your response in two "
             "lines, one below the other:\nscore: Your numerical score for the model's "
@@ -333,7 +333,7 @@ def test_make_genai_metric_incorrect_response():
         definition=example_definition,
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
-        model="gateway:/gpt-3.5-turbo",
+        model="gateway:/gpt-4o-mini",
         grading_context_columns=["targets"],
         parameters={"temperature": 0.0},
         greater_is_better=True,
@@ -407,7 +407,7 @@ def test_make_genai_metric_multiple():
         definition=example_definition,
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
-        model="gateway:/gpt-3.5-turbo",
+        model="gateway:/gpt-4o-mini",
         grading_context_columns=["targets"],
         parameters={"temperature": 0.0},
         greater_is_better=True,
@@ -506,7 +506,7 @@ def test_make_genai_metric_failure():
             definition="definition",
             grading_prompt="grading_prompt",
             examples=[example],
-            model="openai:/gpt-3.5-turbo",
+            model="openai:/gpt-4o-mini",
             grading_context_columns=["targets"],
             parameters={"temperature": 0.0},
             greater_is_better=True,
@@ -632,7 +632,7 @@ def test_extract_score_and_justification():
 
 def test_similarity_metric():
     similarity_metric = answer_similarity(
-        model="gateway:/gpt-3.5-turbo", metric_version="v1", examples=[mlflow_example]
+        model="gateway:/gpt-4o-mini", metric_version="v1", examples=[mlflow_example]
     )
 
     input = "What is MLflow?"
@@ -647,7 +647,7 @@ def test_similarity_metric():
         )
 
         assert mock_predict_function.call_count == 1
-        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
+        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-4o-mini"
         assert mock_predict_function.call_args[0][1] == (
             "\nTask:\nYou must return the following fields in your response in two "
             "lines, one below the other:\nscore: Your numerical score for the model's "
@@ -700,14 +700,14 @@ def test_similarity_metric():
         match="Failed to find answer similarity metric for version non-existent-version",
     ):
         answer_similarity(
-            model="gateway:/gpt-3.5-turbo",
+            model="gateway:/gpt-4o-mini",
             metric_version="non-existent-version",
             examples=[mlflow_example],
         )
 
 
 def test_faithfulness_metric():
-    faithfulness_metric = faithfulness(model="gateway:/gpt-3.5-turbo", examples=[])
+    faithfulness_metric = faithfulness(model="gateway:/gpt-4o-mini", examples=[])
     input = "What is MLflow?"
 
     with mock.patch.object(
@@ -722,7 +722,7 @@ def test_faithfulness_metric():
             pd.Series([mlflow_ground_truth]),
         )
         assert mock_predict_function.call_count == 1
-        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
+        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-4o-mini"
         assert mock_predict_function.call_args[0][1] == (
             "\nTask:\nYou must return the following fields in your response in two "
             "lines, one below the other:\nscore: Your numerical score for the model's "
@@ -769,7 +769,7 @@ def test_faithfulness_metric():
         MlflowException, match="Failed to find faithfulness metric for version non-existent-version"
     ):
         faithfulness_metric = faithfulness(
-            model="gateway:/gpt-3.5-turbo",
+            model="gateway:/gpt-4o-mini",
             metric_version="non-existent-version",
             examples=[mlflow_example],
         )
@@ -853,7 +853,7 @@ def test_answer_correctness_metric():
 
 
 def test_answer_relevance_metric():
-    answer_relevance_metric = answer_relevance(model="gateway:/gpt-3.5-turbo", examples=[])
+    answer_relevance_metric = answer_relevance(model="gateway:/gpt-4o-mini", examples=[])
     input = "What is MLflow?"
 
     with mock.patch.object(
@@ -868,7 +868,7 @@ def test_answer_relevance_metric():
             pd.Series([mlflow_ground_truth]),
         )
         assert mock_predict_function.call_count == 1
-        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
+        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-4o-mini"
         assert mock_predict_function.call_args[0][1] == (
             "\nTask:\nYou must return the following fields in your response in two "
             "lines, one below the other:\nscore: Your numerical score for the model's "
@@ -916,14 +916,14 @@ def test_answer_relevance_metric():
         match="Failed to find answer relevance metric for version non-existent-version",
     ):
         answer_relevance(
-            model="gateway:/gpt-3.5-turbo",
+            model="gateway:/gpt-4o-mini",
             metric_version="non-existent-version",
             examples=[mlflow_example],
         )
 
 
 def test_relevance_metric():
-    relevance_metric = relevance(model="gateway:/gpt-3.5-turbo", examples=[])
+    relevance_metric = relevance(model="gateway:/gpt-4o-mini", examples=[])
 
     input = "What is MLflow?"
     pd.DataFrame(
@@ -946,7 +946,7 @@ def test_relevance_metric():
             pd.Series([mlflow_ground_truth]),
         )
         assert mock_predict_function.call_count == 1
-        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
+        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-4o-mini"
         assert mock_predict_function.call_args[0][1] == (
             "\nTask:\nYou must return the following fields in your response in two "
             "lines, one below the other:\nscore: Your numerical score for the model's "
@@ -994,7 +994,7 @@ def test_relevance_metric():
         MlflowException, match="Failed to find relevance metric for version non-existent-version"
     ):
         relevance_metric = relevance(
-            model="gateway:/gpt-3.5-turbo",
+            model="gateway:/gpt-4o-mini",
             metric_version="non-existent-version",
             examples=[mlflow_example],
         )
@@ -1007,7 +1007,7 @@ def test_make_genai_metric_metric_details():
         definition=example_definition,
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
-        model="gateway:/gpt-3.5-turbo",
+        model="gateway:/gpt-4o-mini",
         grading_context_columns=["targets"],
         parameters={"temperature": 0.0},
         greater_is_better=True,
@@ -1030,7 +1030,7 @@ def test_make_genai_metric_without_example():
         version="v1",
         definition=example_definition,
         grading_prompt=example_grading_prompt,
-        model="gateway:/gpt-3.5-turbo",
+        model="gateway:/gpt-4o-mini",
         grading_context_columns=["targets"],
         parameters={"temperature": 0.0},
         greater_is_better=True,
@@ -1047,7 +1047,7 @@ def test_make_genai_metric_metric_metadata():
         definition=example_definition,
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
-        model="gateway:/gpt-3.5-turbo",
+        model="gateway:/gpt-4o-mini",
         grading_context_columns=["targets"],
         parameters={"temperature": 0.0},
         greater_is_better=True,
@@ -1172,7 +1172,7 @@ def test_log_make_genai_metric_fn_args():
         definition=example_definition,
         grading_prompt=example_grading_prompt,
         examples=[mlflow_example],
-        model="gateway:/gpt-3.5-turbo",
+        model="gateway:/gpt-4o-mini",
         grading_context_columns=["targets"],
         parameters={"temperature": 0.0},
         greater_is_better=True,
@@ -1191,7 +1191,7 @@ def test_log_make_genai_metric_fn_args():
         "grading_prompt": example_grading_prompt,
         "examples": [mlflow_example],
         "version": "v1",
-        "model": "gateway:/gpt-3.5-turbo",
+        "model": "gateway:/gpt-4o-mini",
         "grading_context_columns": ["targets"],
         "include_input": True,
         "parameters": {"temperature": 0.0},
