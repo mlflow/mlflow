@@ -9,7 +9,7 @@ assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environmen
 
 with mlflow.start_run():
     model_info = mlflow.openai.log_model(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         task=openai.chat.completions,
         messages=[{"role": "user", "content": "Tell me a {adjective} joke about {animal}."}],
         artifact_path="model",
