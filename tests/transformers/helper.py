@@ -175,8 +175,17 @@ def load_zero_shot_pipeline():
 @prefetch
 @flaky()
 def load_table_question_answering_pipeline():
+    # transformers>4.42.2 includes a change that causes this
+    # model to fail saving without the low_cpu_mem_usage flag.
+    # see https://github.com/huggingface/transformers/issues/32128
+    low_cpu_mem_usage = Version(transformers.__version__) > Version("4.42.2")
+
+    model = transformers.TapasForQuestionAnswering.from_pretrained(
+        "google/tapas-tiny-finetuned-wtq",
+        low_cpu_mem_usage=low_cpu_mem_usage,
+    )
     return transformers.pipeline(
-        task="table-question-answering", model="google/tapas-tiny-finetuned-wtq"
+        task="table-question-answering", model=model, tokenizer="google/tapas-tiny-finetuned-wtq"
     )
 
 
