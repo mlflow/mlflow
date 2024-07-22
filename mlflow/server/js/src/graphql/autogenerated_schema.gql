@@ -16,6 +16,7 @@ type Query {
 
 type MlflowGetExperimentResponse {
   experiment: MlflowExperiment
+  apiError: ApiError
 }
 
 type MlflowExperiment {
@@ -38,12 +39,26 @@ type MlflowExperimentTag {
   value: String
 }
 
+type ApiError {
+  code: String
+  message: String
+  helpUrl: String
+  traceId: String
+  errorDetails: [ErrorDetail]
+}
+
+type ErrorDetail {
+  field: String
+  message: String
+}
+
 input MlflowGetExperimentInput {
   experimentId: String
 }
 
 type MlflowGetMetricHistoryBulkIntervalResponse {
   metrics: [MlflowMetricWithRunId!]
+  apiError: ApiError
 }
 
 type MlflowMetricWithRunId {
@@ -64,6 +79,7 @@ input MlflowGetMetricHistoryBulkIntervalInput {
 
 type MlflowGetRunResponse {
   run: MlflowRunExtension
+  apiError: ApiError
 }
 
 type MlflowRunExtension {
@@ -178,6 +194,7 @@ type MlflowListArtifactsResponse {
   rootUri: String
   files: [MlflowFileInfo!]
   nextPageToken: String
+  apiError: ApiError
 }
 
 type MlflowFileInfo {
@@ -196,6 +213,7 @@ input MlflowListArtifactsInput {
 type MlflowSearchModelVersionsResponse {
   modelVersions: [MlflowModelVersion!]
   nextPageToken: String
+  apiError: ApiError
 }
 
 input MlflowSearchModelVersionsInput {
@@ -220,6 +238,7 @@ type Mutation {
 
 type MlflowSearchDatasetsResponse {
   datasetSummaries: [MlflowDatasetSummary!]
+  apiError: ApiError
 }
 
 type MlflowDatasetSummary {
@@ -236,6 +255,7 @@ input MlflowSearchDatasetsInput {
 type MlflowSearchRunsResponse {
   runs: [MlflowRunExtension!]
   nextPageToken: String
+  apiError: ApiError
 }
 
 input MlflowSearchRunsInput {
