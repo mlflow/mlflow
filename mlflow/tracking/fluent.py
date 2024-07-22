@@ -238,7 +238,7 @@ def start_run(
             created and ``run_name`` is not specified, a random name will be generated for the run.
         nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
         parent_run_id: If specified, the current run will be nested under the the run with
-            the specified UUID.
+            the specified UUID. The parent run must be in the ACTIVE state.
         tags: An optional dictionary of string keys and values to set as tags on the run.
             If a run is being resumed, these tags are set on the resumed run. If a new run is
             being created, these tags are set on the new run.
