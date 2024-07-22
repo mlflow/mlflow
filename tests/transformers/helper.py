@@ -179,7 +179,7 @@ def load_table_question_answering_pipeline():
         "google/tapas-tiny-finetuned-wtq",
         low_cpu_mem_usage=True,
     )
-    tokenizer = transformers.AutoTokenizer.from_pretrained("tapas-tiny-finetuned-wtq")
+    tokenizer = transformers.AutoTokenizer.from_pretrained("google/tapas-tiny-finetuned-wtq")
     return transformers.pipeline(task="table-question-answering", model=model, tokenizer=tokenizer)
 
 
