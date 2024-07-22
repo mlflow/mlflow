@@ -106,8 +106,6 @@ def save_model(
 ) -> None:
     """Save ``llama_index`` index to a path on the local file system.
 
-    TODO: add note on supported model types
-
     Args:
         index: llama_index index to be saved.
         path: Local path where the serialized model (as YAML) is to be saved.
