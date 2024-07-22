@@ -339,6 +339,61 @@ If we look at this trace from within the MLflow UI, we can see the relationship 
     :width: 100%
     :align: center
 
+
+Span Type
+#########
+
+Span types are a way to categorize spans within a trace. By default, the span type is set to ``"UNKNOWN"`` when using the trace decorator. MLflow provides a set of predefined span types for common use cases, while also allowing you to setting custom span types.
+
+The following span types are available:
+
+.. list-table::
+    :header-rows: 1
+
+    * - Span Type
+      - Description
+    * - ``"LLM"``
+      - Represents a call to an LLM endpoint or a local model.
+    * - ``"CHAT_MODEL"``
+      - Represents a query to a chat model. This is a special case of an LLM interaction.
+    * - ``"CHAIN"``
+      - Represents a chain of operations.
+    * - ``"AGENT"``
+      - Represents an autonomous agent operation.
+    * - ``"TOOL"``
+      - Represents a tool execution (typically by an agent), such as querying a search engine.
+    * - ``"EMBEDDING"``
+      - Represents a text embedding operation.
+    * - ``"RETRIEVER"``
+      - Represents a context retrieval operation, such as querying a vector database.
+    * - ``"PARSER"``
+      - Represents a parsing operation, transforming text into a structured format.
+    * - ``"RERANKER"``
+      - Represents a re-ranking operation, ordering the retrieved contexts based on relevance.
+    * - ``"UNKNOWN"``
+      - A default span type that is used when no other span type is specified.
+
+To set a span type, you can pass the ``span_type`` parameter to the :py:func:`@mlflow.trace <mlflow.trace>` decorator or :py:func:`mlflow.start_span <mlflow.start_span>` context manager. When you are using `automatic tracing <#automatic-tracing>`_, the span type is automatically set by MLflow.
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.entities import SpanType
+
+
+    # Using a built-in span type
+    @mlflow.trace(span_type=SpanType.RETRIEVER)
+    def retrieve_documents(query: str):
+        ...
+
+
+    # Setting a custom span type
+    with mlflow.start_span(name="add", span_type="MATH") as span:
+        span.set_inputs({"x": z, "y": y})
+        z = x + y
+        span.set_outputs({"z": z})
+
+
 Context Handler
 ###############
 
