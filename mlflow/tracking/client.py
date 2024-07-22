@@ -697,11 +697,11 @@ class MlflowClient:
             parsed_span = {}
 
             parsed_span["name"] = span.name
-            parsed_span["type"] = span.get_attribute(SpanAttributeKey.SPAN_TYPE)
-            span_inputs = span.get_attribute(SpanAttributeKey.INPUTS)
+            parsed_span["type"] = span.span_type
+            span_inputs = span.inputs
             if span_inputs and isinstance(span_inputs, dict):
                 parsed_span["inputs"] = list(span_inputs.keys())
-            span_outputs = span.get_attribute(SpanAttributeKey.OUTPUTS)
+            span_outputs = span.outputs
             if span_outputs and isinstance(span_outputs, dict):
                 parsed_span["outputs"] = list(span_outputs.keys())
 

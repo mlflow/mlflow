@@ -30,7 +30,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.langchain import _LangChainModelWrapper
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.pyfunc.context import Context
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.provider import trace_disabled
 from mlflow.utils.openai_utils import (
@@ -134,15 +134,12 @@ def test_llm_success():
 
     assert llm_span.name == "test_llm"
 
-    assert llm_span.attributes[SpanAttributeKey.SPAN_TYPE] == "LLM"
+    assert llm_span.span_type == "LLM"
     assert llm_span.start_time_ns is not None
     assert llm_span.end_time_ns is not None
     assert llm_span.status == SpanStatus(SpanStatusCode.OK)
-    assert llm_span.attributes[SpanAttributeKey.INPUTS] == ["test prompt"]
-    assert (
-        llm_span.attributes[SpanAttributeKey.OUTPUTS]["generations"][0][0]["text"]
-        == "generated text"
-    )
+    assert llm_span.inputs == ["test prompt"]
+    assert llm_span.outputs["generations"][0][0]["text"] == "generated text"
     assert llm_span.events[0].name == "new_token"
 
     _validate_trace_json_serialization(trace)
@@ -166,8 +163,8 @@ def test_llm_error():
     llm_span = trace.data.spans[0]
     assert llm_span.status.status_code == SpanStatusCode.ERROR
     assert llm_span.status.description == str(mock_error)
-    assert llm_span.attributes[SpanAttributeKey.INPUTS] == ["test prompt"]
-    assert llm_span.attributes.get(SpanAttributeKey.OUTPUTS) is None
+    assert llm_span.inputs == ["test prompt"]
+    assert llm_span.outputs is None
     # timestamp is auto-generated when converting the error to event
     assert llm_span.events[0].name == error_event.name
     assert llm_span.events[0].attributes == error_event.attributes
@@ -218,9 +215,9 @@ def test_retriever_success():
     retriever_span = trace.data.spans[0]
 
     assert retriever_span.name == "test_retriever"
-    assert retriever_span.attributes[SpanAttributeKey.SPAN_TYPE] == "RETRIEVER"
-    assert retriever_span.attributes[SpanAttributeKey.INPUTS] == "test query"
-    assert retriever_span.attributes[SpanAttributeKey.OUTPUTS] == [doc.dict() for doc in documents]
+    assert retriever_span.span_type == "RETRIEVER"
+    assert retriever_span.inputs == "test query"
+    assert retriever_span.outputs == [doc.dict() for doc in documents]
     assert retriever_span.start_time_ns is not None
     assert retriever_span.end_time_ns is not None
     assert retriever_span.status.status_code == SpanStatusCode.OK
@@ -242,8 +239,8 @@ def test_retriever_error():
     trace = mlflow.get_last_active_trace()
     assert len(trace.data.spans) == 1
     retriever_span = trace.data.spans[0]
-    assert retriever_span.attributes[SpanAttributeKey.INPUTS] == "test query"
-    assert retriever_span.attributes.get(SpanAttributeKey.OUTPUTS) is None
+    assert retriever_span.inputs == "test query"
+    assert retriever_span.outputs is None
     error_event = SpanEvent.from_exception(mock_error)
     assert retriever_span.status.status_code == SpanStatusCode.ERROR
     assert retriever_span.events[0].name == error_event.name
@@ -329,23 +326,20 @@ def test_multiple_components():
     assert chain_span.start_time_ns is not None
     assert chain_span.end_time_ns is not None
     assert chain_span.name == "test_chain"
-    assert chain_span.attributes[SpanAttributeKey.SPAN_TYPE] == "CHAIN"
+    assert chain_span.span_type == "CHAIN"
     assert chain_span.parent_id is None
     assert chain_span.status.status_code == SpanStatusCode.OK
-    assert chain_span.attributes[SpanAttributeKey.INPUTS] == {"input": "test input"}
-    assert chain_span.attributes[SpanAttributeKey.OUTPUTS] == {"output": "test output"}
+    assert chain_span.inputs == {"input": "test input"}
+    assert chain_span.outputs == {"output": "test output"}
     for i in range(2):
         llm_span = trace.data.spans[1 + i * 2]
-        assert llm_span.attributes[SpanAttributeKey.INPUTS] == [f"test prompt {i}"]
-        assert (
-            llm_span.attributes[SpanAttributeKey.OUTPUTS]["generations"][0][0]["text"]
-            == f"generated text {i}"
-        )
+        assert llm_span.inputs == [f"test prompt {i}"]
+        assert llm_span.outputs["generations"][0][0]["text"] == f"generated text {i}"
 
         retriever_span = trace.data.spans[2 + i * 2]
-        assert retriever_span.attributes[SpanAttributeKey.INPUTS] == f"test query {i}"
+        assert retriever_span.inputs == f"test query {i}"
         assert (
-            retriever_span.attributes[SpanAttributeKey.OUTPUTS][0]
+            retriever_span.outputs[0]
             == Document(
                 page_content=f"document content {i}",
                 metadata={
@@ -389,20 +383,16 @@ def test_e2e_rag_model_tracing_in_serving(mock_databricks_serving_with_tracing_e
         root_span.end_time_ns // 1_000_000
         - (trace.info.timestamp_ms + trace.info.execution_time_ms)
     ) <= 1
-    assert root_span.attributes[SpanAttributeKey.INPUTS] == {"product": "MLflow"}
-    assert root_span.attributes[SpanAttributeKey.OUTPUTS] == {"text": TEST_CONTENT}
-    assert root_span.attributes[SpanAttributeKey.SPAN_TYPE] == "CHAIN"
+    assert root_span.inputs == {"product": "MLflow"}
+    assert root_span.outputs == {"text": TEST_CONTENT}
+    assert root_span.span_type == "CHAIN"
 
     root_span_id = root_span.span_id
     child_span = spans[1]
     assert child_span.parent_id == root_span_id
-    assert child_span.attributes[SpanAttributeKey.INPUTS] == [
-        "What is a good name for a company that makes MLflow?"
-    ]
-    assert (
-        child_span.attributes[SpanAttributeKey.OUTPUTS]["generations"][0][0]["text"] == TEST_CONTENT
-    )
-    assert child_span.attributes[SpanAttributeKey.SPAN_TYPE] == "LLM"
+    assert child_span.inputs == ["What is a good name for a company that makes MLflow?"]
+    assert child_span.outputs["generations"][0][0]["text"] == TEST_CONTENT
+    assert child_span.span_type == "LLM"
 
     _validate_trace_json_serialization(trace)
 
@@ -425,9 +415,9 @@ def test_agent_success(mock_databricks_serving_with_tracing_env):
     # AgentExecutor
     root_span = spans[0]
     assert root_span.name == "AgentExecutor"
-    assert root_span.attributes[SpanAttributeKey.SPAN_TYPE] == "CHAIN"
-    assert root_span.attributes[SpanAttributeKey.INPUTS] == langchain_input
-    assert root_span.attributes[SpanAttributeKey.OUTPUTS] == expected_output
+    assert root_span.span_type == "CHAIN"
+    assert root_span.inputs == langchain_input
+    assert root_span.outputs == expected_output
     assert root_span.start_time_ns // 1_000_000 == trace.info.timestamp_ms
     assert (
         root_span.end_time_ns // 1_000_000
@@ -438,20 +428,15 @@ def test_agent_success(mock_databricks_serving_with_tracing_env):
     # LLMChain of the agent
     llm_chain_span = spans[1]
     assert llm_chain_span.parent_id == root_span_id
-    assert llm_chain_span.attributes[SpanAttributeKey.SPAN_TYPE] == "CHAIN"
-    assert llm_chain_span.attributes[SpanAttributeKey.INPUTS]["input"] == langchain_input["input"]
-    assert llm_chain_span.attributes[SpanAttributeKey.OUTPUTS] == {
-        "text": f"Final Answer: {TEST_CONTENT}"
-    }
+    assert llm_chain_span.span_type == "CHAIN"
+    assert llm_chain_span.inputs["input"] == langchain_input["input"]
+    assert llm_chain_span.outputs == {"text": f"Final Answer: {TEST_CONTENT}"}
 
     # LLM of the LLMChain
     llm_span = spans[2]
     assert llm_span.parent_id == llm_chain_span.span_id
-    assert llm_span.attributes[SpanAttributeKey.SPAN_TYPE] == "LLM"
-    assert (
-        llm_span.attributes[SpanAttributeKey.OUTPUTS]["generations"][0][0]["text"]
-        == f"Final Answer: {TEST_CONTENT}"
-    )
+    assert llm_span.span_type == "LLM"
+    assert llm_span.outputs["generations"][0][0]["text"] == f"Final Answer: {TEST_CONTENT}"
 
     _validate_trace_json_serialization(trace)
 
@@ -476,28 +461,28 @@ def test_tool_success(mock_databricks_serving_with_tracing_env):
 
     # Tool
     tool_span = spans[0]
-    assert tool_span.attributes[SpanAttributeKey.SPAN_TYPE] == "TOOL"
-    assert tool_span.attributes[SpanAttributeKey.INPUTS] == str(tool_input)
-    assert tool_span.attributes[SpanAttributeKey.OUTPUTS] == TEST_CONTENT
+    assert tool_span.span_type == "TOOL"
+    assert tool_span.inputs == str(tool_input)
+    assert tool_span.outputs == TEST_CONTENT
     tool_span_id = tool_span.span_id
 
     # RunnableSequence
     runnable_sequence_span = spans[1]
     assert runnable_sequence_span.parent_id == tool_span_id
-    assert runnable_sequence_span.attributes[SpanAttributeKey.SPAN_TYPE] == "CHAIN"
-    assert runnable_sequence_span.attributes[SpanAttributeKey.INPUTS] == tool_input
-    assert runnable_sequence_span.attributes[SpanAttributeKey.OUTPUTS] == TEST_CONTENT
+    assert runnable_sequence_span.span_type == "CHAIN"
+    assert runnable_sequence_span.inputs == tool_input
+    assert runnable_sequence_span.outputs == TEST_CONTENT
 
     # PromptTemplate
     prompt_template_span = spans[2]
-    assert prompt_template_span.attributes[SpanAttributeKey.SPAN_TYPE] == "CHAIN"
+    assert prompt_template_span.span_type == "CHAIN"
     # LLM
     llm_span = spans[3]
-    assert llm_span.attributes[SpanAttributeKey.SPAN_TYPE] == "LLM"
+    assert llm_span.span_type == "LLM"
     # StrOutputParser
     output_parser_span = spans[4]
-    assert output_parser_span.attributes[SpanAttributeKey.SPAN_TYPE] == "CHAIN"
-    assert output_parser_span.attributes[SpanAttributeKey.OUTPUTS] == TEST_CONTENT
+    assert output_parser_span.span_type == "CHAIN"
+    assert output_parser_span.outputs == TEST_CONTENT
 
     _validate_trace_json_serialization(trace)
 
@@ -623,13 +608,13 @@ def test_tracer_nested_trace():
     assert trace is not None
     spans = trace.data.spans
     assert spans[0].name == "parent"
-    assert spans[0].attributes[SpanAttributeKey.SPAN_TYPE] == "SPECIAL"
-    assert spans[0].attributes[SpanAttributeKey.INPUTS] == {"message": "MLflow"}
-    assert spans[0].attributes[SpanAttributeKey.OUTPUTS] == TEST_CONTENT
+    assert spans[0].span_type == "SPECIAL"
+    assert spans[0].inputs == {"message": "MLflow"}
+    assert spans[0].outputs == TEST_CONTENT
     assert spans[0].status == SpanStatus(SpanStatusCode.OK)
     assert spans[1].name == "RunnableSequence"
-    assert spans[1].attributes[SpanAttributeKey.SPAN_TYPE] == "CHAIN"
-    assert spans[1].attributes[SpanAttributeKey.INPUTS] == "MLflow"
-    assert spans[1].attributes[SpanAttributeKey.OUTPUTS] == TEST_CONTENT
+    assert spans[1].span_type == "CHAIN"
+    assert spans[1].inputs == "MLflow"
+    assert spans[1].outputs == TEST_CONTENT
     assert spans[1].status == SpanStatus(SpanStatusCode.OK)
     assert spans[1].parent_id == spans[0].span_id
