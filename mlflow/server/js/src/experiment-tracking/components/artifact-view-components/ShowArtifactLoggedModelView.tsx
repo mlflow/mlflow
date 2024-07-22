@@ -162,8 +162,9 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
         `from mlflow.models import validate_serving_input\n\n` +
         `model_uri = '${modelPath}'\n\n` +
         `# The model logged does not contain input_example, you need to manually generate a serving payload\n` +
-        `from mlflow.models import convert_input_example_to_serving_input\n` +
+        `from mlflow.models import convert_input_example_to_serving_input\n\n` +
         `# Replace INPUT_EXAMPLE with your own input example to the model\n` +
+        `# A valid input example is a data instance that can be passed for pyfunc predict\n` +
         `serving_payload = convert_input_example_to_serving_input(INPUT_EXAMPLE)\n\n` +
         `# Validate the serving payload works on the model\n` +
         `validate_serving_input(model_uri, serving_payload)`
@@ -173,7 +174,9 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
         `import mlflow\n` +
         `from mlflow.models import validate_serving_input\n\n` +
         `model_uri = '${modelPath}'\n\n` +
-        `# The model is logged with input_example, 'serving_input_payload.json' file saves a valid serving payload\n` +
+        `# The model is logged with an input example. MLflow converts\n` +
+        `# it into a request payload format for deployed model endpoint,\n` +
+        `# and saves it to 'serving_input_payload.json' file\n` +
         `serving_payload = """${servingInput}"""\n\n` +
         `# Validate the serving payload works on the model\n` +
         `validate_serving_input(model_uri, serving_payload)`
@@ -309,7 +312,10 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
           </span>
           <span className="code-keyword">from</span> mlflow.models <span className="code-keyword">import</span>{' '}
           convert_input_example_to_serving_input{`\n\n`}
-          <span className="code-comment">{'# Replace INPUT_EXAMPLE with your own input example to the model\n'}</span>
+          <span className="code-comment">
+            {`# Replace INPUT_EXAMPLE with your own input example to the model
+# A valid input example is a data instance that can be passed for pyfunc predict\n`}
+          </span>
           serving_payload = convert_input_example_to_serving_input(INPUT_EXAMPLE)
         </div>
       );
@@ -317,9 +323,9 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
       return (
         <div>
           <span className="code-comment">
-            {
-              '# The model is logged with input_example, `serving_input_payload.json` file saves a valid serving payload\n'
-            }
+            {`# The model is logged with an input example. MLflow converts
+# it into a request payload format for the deployed model endpoint,
+# and saves it to \`serving_input_payload.json\` file\n`}
           </span>
           serving_payload = <span className="code-string">{`"""${servingInput}"""`}</span>
         </div>
@@ -333,7 +339,7 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
       <div css={styles.item}>
         <Text>
           <FormattedMessage
-            defaultMessage="Run below code to validate the model works on the serving payload prior to serving" // eslint-disable-next-line max-len
+            defaultMessage="Run below code to validate model inference works on the example payload, prior to deploying it to a serving endpoint" // eslint-disable-next-line max-len
             description="Section heading to display the code block on how we can use validate an input against registered model prior to serving"
           />
         </Text>

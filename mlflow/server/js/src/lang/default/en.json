@@ -291,10 +291,6 @@
     "defaultMessage": "This version",
     "description": "Model registry > model version alias select > Indicator for alias of selected version"
   },
-  "4S2N8w": {
-    "defaultMessage": "Run below code to validate the model works on the serving payload prior to serving",
-    "description": "Section heading to display the code block on how we can use validate an input against registered model prior to serving"
-  },
   "4idqpX": {
     "defaultMessage": "Add",
     "description": "Add button text in editable tags table view in MLflow"
@@ -2194,6 +2190,10 @@
   "jkeYf8": {
     "defaultMessage": "Unpin group",
     "description": "A tooltip for the pin icon button in the runs table next to the pinned run group"
+  },
+  "jm6p+r": {
+    "defaultMessage": "Run below code to validate model inference works on the example payload, prior to deploying it to a serving endpoint",
+    "description": "Section heading to display the code block on how we can use validate an input against registered model prior to serving"
   },
   "jq95vC": {
     "defaultMessage": "Group: {groupName}",
