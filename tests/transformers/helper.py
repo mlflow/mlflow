@@ -153,7 +153,9 @@ def load_summarizer_pipeline():
 def load_text_classification_pipeline():
     task = "text-classification"
     architecture = "distilbert-base-uncased-finetuned-sst-2-english"
-    model = transformers.AutoModelForSequenceClassification.from_pretrained(architecture)
+    model = transformers.AutoModelForSequenceClassification.from_pretrained(
+        architecture, low_cpu_mem_usage=True
+    )
     tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
     return transformers.pipeline(
         task=task,

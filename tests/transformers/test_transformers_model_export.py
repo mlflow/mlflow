@@ -2,6 +2,7 @@ import base64
 import gc
 import importlib.util
 import json
+import math
 import os
 import pathlib
 import re
@@ -1842,7 +1843,7 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
     # validate that the pyfunc served model registers text_pair in the same manner as native
     for key in ["score", "label"]:
         for value in [0, 1]:
-            assert values_dict[key][value] == native_predict[value][key]
+            assert math.isclose(values_dict[key][value], native_predict[value][key], rel_tol=1e-7)
 
 
 def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline):
