@@ -11,7 +11,7 @@ from mlflow.gateway.config import (
     RouteConfig,
 )
 from mlflow.gateway.providers.bedrock import AmazonBedrockModelProvider, AmazonBedrockProvider
-from mlflow.gateway.schemas import completions
+from mlflow.gateway.schemas import chat, completions
 
 from tests.gateway.providers.test_anthropic import (
     completions_response as anthropic_completions_response,
@@ -398,3 +398,92 @@ async def test_bedrock_request_response(
 
         mock_request.assert_called_once()
         mock_request.assert_called_once_with(model_request)
+
+
+def anthropic_chat_response():
+    return {
+        "content": [{"text": "Hello, world", "type": "text"}],
+        "id": "test-id",
+        "model": "aws-bedrock-model",
+        "role": "assistant",
+        "stop_reason": "end_turn",
+        "type": "message",
+        "usage": {"input_tokens": 10, "output_tokens": 25},
+    }
+
+
+# The response as returned by MLflow
+def anthropic_parsed_chat_response():
+    response = anthropic_chat_response()
+    return {
+        "id": response["id"],
+        "created": 1686935002,
+        "object": "chat.completion",
+        "model": response["model"],
+        "choices": [
+            {
+                "message": {
+                    "role": response["role"],
+                    "content": response["content"][0]["text"],
+                    "tool_calls": None,
+                },
+                "finish_reason": "stop",
+                "index": 0,
+            }
+        ],
+        "usage": {
+            "prompt_tokens": response["usage"]["input_tokens"],
+            "completion_tokens": response["usage"]["output_tokens"],
+            "total_tokens": response["usage"]["input_tokens"] + response["usage"]["output_tokens"],
+        },
+    }
+
+
+def chat_config():
+    return {
+        "name": "eu-central-1.anthropic.claude-3-sonnet",
+        "route_type": "llm/v1/chat",
+        "model": {
+            "provider": "bedrock",
+            "name": "anthropic.claude-3-sonnet-20240229-v1:0",
+            "config": {
+                "aws_config": {
+                    "aws_region": "us-east-1",
+                    "aws_access_key_id": "test-access-key-id",
+                    "aws_secret_access_key": "test-secret-access-key",
+                },
+            },
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_chat_success():
+    mock_response = anthropic_chat_response()
+    payload = {
+        "messages": [
+            {"role": "user", "content": "User message"},
+        ],
+        "temperature": 0.5,
+        "max_tokens": 2000,
+    }
+    anthropic_payload = payload.copy()
+    anthropic_payload["temperature"] /= 2  # The temperature is halved for Anthropic
+    anthropic_payload["anthropic_version"] = "bedrock-2023-05-31"
+    expected_response = anthropic_parsed_chat_response()
+
+    with (
+        mock.patch("time.time", return_value=1686935002),
+        mock.patch(
+            "mlflow.gateway.providers.bedrock.AmazonBedrockProvider._request",
+            return_value=mock_response,
+        ) as mock_response,
+    ):
+        provider = AmazonBedrockProvider(RouteConfig(**chat_config()))
+        provider.get_bedrock_client()
+
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+        assert jsonable_encoder(response) == expected_response
+        mock_response.assert_called_once()
+        mock_response.assert_called_once_with(anthropic_payload)
