@@ -2035,10 +2035,10 @@ def test_feature_extraction_pipeline_pyfunc_predict(feature_extraction_pipeline)
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-
-    # A single string input is an invalid input to serving. Verify that this throws.
-    with pytest.raises(MlflowException, match="Invalid response. Predictions response contents"):
-        PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    assert response.status_code == 200
+    prediction = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    assert len(prediction.columns) == 384
+    assert len(prediction) == 4
 
 
 def test_loading_unsupported_pipeline_type_as_pyfunc(small_multi_modal_pipeline, model_path):

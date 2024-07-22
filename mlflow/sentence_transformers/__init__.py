@@ -183,26 +183,26 @@ def save_model(
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, str(path))
 
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(
+        mlflow_model, input_example, path, no_conversion=example_no_conversion
+    )
+
     if task is not None:
         signature = ModelSignature(
             inputs=EMBEDDING_MODEL_INPUT_SCHEMA, outputs=EMBEDDING_MODEL_OUTPUT_SCHEMA
         )
-    elif signature is None and input_example is not None:
+    elif signature is None and saved_example is not None:
         wrapped_model = _SentenceTransformerModelWrapper(model)
-        signature = _infer_signature_from_input_example(
-            input_example, wrapped_model, no_conversion=example_no_conversion
-        )
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is None:
         signature = _get_default_signature()
     elif signature is False:
         signature = None
 
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, str(path), no_conversion=example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
     model_config = None

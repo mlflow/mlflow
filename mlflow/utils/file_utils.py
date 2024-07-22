@@ -63,9 +63,6 @@ _PROGRESS_BAR_DISPLAY_THRESHOLD = 500_000_000  # 500 MB
 _logger = logging.getLogger(__name__)
 
 
-_logger = logging.getLogger(__name__)
-
-
 class ArtifactProgressBar:
     def __init__(self, desc, total, step, **kwargs) -> None:
         self.desc = desc

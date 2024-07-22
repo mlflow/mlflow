@@ -7,6 +7,7 @@ import logging
 import os
 import re
 import sys
+import tempfile
 import uuid
 from contextlib import contextmanager
 from copy import deepcopy
@@ -66,6 +67,13 @@ INPUT_EXAMPLE_PATH = "artifact_path"
 EXAMPLE_DATA_KEY = "inputs"
 EXAMPLE_PARAMS_KEY = "params"
 EXAMPLE_FILENAME = "input_example.json"
+SERVING_INPUT_PATH = "serving_input_path"
+SERVING_INPUT_FILENAME = "serving_input_payload.json"
+
+# TODO: import from scoring_server after refactoring
+DF_SPLIT = "dataframe_split"
+INPUTS = "inputs"
+SERVING_PARAMS_KEY = "params"
 
 ModelInputExample = Union[
     pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes, tuple
@@ -149,9 +157,9 @@ def _handle_ndarray_input(input_array: Union[np.ndarray, dict]):
         result = {}
         for name in input_array.keys():
             result[name] = _handle_ndarray_nans(input_array[name]).tolist()
-        return {"inputs": result}
+        return {INPUTS: result}
     else:
-        return {"inputs": _handle_ndarray_nans(input_array).tolist()}
+        return {INPUTS: _handle_ndarray_nans(input_array).tolist()}
 
 
 def _handle_sparse_matrix(x: Union["csr_matrix", "csc_matrix"]):
@@ -195,7 +203,7 @@ def _coerce_to_pandas_df(input_ex):
     return input_ex
 
 
-def _handle_dataframe_input(df):
+def _convert_dataframe_to_split_dict(df):
     result = _handle_dataframe_nans(df).to_dict(orient="split")
     # Do not include row index
     del result["index"]
@@ -215,6 +223,8 @@ class _Example:
     The _Example is created from example data provided by user. The example(s) can be provided as
     pandas.DataFrame, numpy.ndarray, python dictionary or python list. The assumption is that the
     example contains jsonable elements (see storage format section below).
+    If the example is a tuple, the first element is considered as the example data and the second
+    element is considered as the example params.
 
     NOTE: If the example is 1 dimensional (e.g. dictionary of str -> scalar, or a list of scalars),
     the assumption is that it is a single column of data.
@@ -223,6 +233,8 @@ class _Example:
 
     The _Example metadata contains the following information:
         - artifact_path: Relative path to the serialized example within the model directory.
+        - serving_input_path: Relative path to the serialized example used for model serving
+            within the model directory.
         - type: Type of example data provided by the user. E.g. dataframe, ndarray.
         - One of the following metadata based on the `type`:
             - pandas_orient: For dataframes, this attribute specifies how is the dataframe encoded
@@ -246,7 +258,7 @@ class _Example:
           corresponding python types or their closest equivalent.
     """
 
-    def __init__(self, input_example: ModelInputExample):
+    def __init__(self, input_example: ModelInputExample, no_conversion: bool = False):
         try:
             import pyspark.sql
 
@@ -262,97 +274,136 @@ class _Example:
         self.info = {
             INPUT_EXAMPLE_PATH: EXAMPLE_FILENAME,
         }
+
         # Avoid changing the variable passed in
         input_example = deepcopy(input_example)
-        if _contains_params(input_example):
-            input_example, self._inference_params = input_example
-            _validate_params(self._inference_params)
+        input_example, self._inference_params = _split_input_data_and_params(input_example)
+        if self._inference_params:
             self.info[EXAMPLE_PARAMS_KEY] = "true"
-        else:
-            self._inference_params = None
+        self._inference_data = input_example
 
-        if _is_ndarray(input_example):
-            self._inference_data = input_example
-            self.data = _handle_ndarray_input(input_example)
-            self.info.update(
-                {
-                    "type": "ndarray",
-                    "format": "tf-serving",
-                }
-            )
-        elif _is_sparse_matrix(input_example):
-            self._inference_data = input_example
-            self.data = _handle_sparse_matrix(input_example)
-            if isinstance(input_example, csc_matrix):
-                example_type = "sparse_matrix_csc"
+        is_unified_llm_input = False
+        if no_conversion:
+            from mlflow.pyfunc.scoring_server import _is_unified_llm_input
+
+            self.info["type"] = "json_object"
+            self.data = input_example
+            is_unified_llm_input = _is_unified_llm_input(input_example)
+            if isinstance(input_example, dict) and is_unified_llm_input:
+                self.serving_input = input_example
             else:
-                example_type = "sparse_matrix_csr"
-            self.info.update(
-                {
-                    "type": example_type,
-                }
-            )
-        elif isinstance(input_example, list):
-            for i, x in enumerate(input_example):
-                if isinstance(x, np.ndarray) and len(x.shape) > 1:
-                    raise TensorsNotSupportedException(f"Row '{i}' has shape {x.shape}")
-            if all(_is_scalar(x) for x in input_example):
-                # We should not convert data for langchain flavors
-                # List[scalar] is a typical langchain model input type
-                _logger.info(
-                    "Lists of scalar values are not converted to a pandas DataFrame. "
-                    "If you expect to use pandas DataFrames for inference, please "
-                    "construct a DataFrame and pass it to input_example instead."
-                )
-                self._inference_data = input_example
-                self.data = {"inputs": self._inference_data}
+                self.serving_input = {INPUTS: input_example}
+        else:
+            if _is_ndarray(input_example):
+                self.data = _handle_ndarray_input(input_example)
                 self.info.update(
                     {
                         "type": "ndarray",
                         "format": "tf-serving",
                     }
                 )
+                self.serving_input = self.data
+            elif _is_sparse_matrix(input_example):
+                self.data = _handle_sparse_matrix(input_example)
+                # This type of input is not supported by the scoring server yet
+                self.serving_input = None
+                if isinstance(input_example, csc_matrix):
+                    example_type = "sparse_matrix_csc"
+                else:
+                    example_type = "sparse_matrix_csr"
+                self.info.update(
+                    {
+                        "type": example_type,
+                    }
+                )
+            elif isinstance(input_example, list):
+                for i, x in enumerate(input_example):
+                    if isinstance(x, np.ndarray) and len(x.shape) > 1:
+                        raise TensorsNotSupportedException(f"Row '{i}' has shape {x.shape}")
+                if all(_is_scalar(x) for x in input_example):
+                    # We should not convert data for langchain flavors
+                    # List[scalar] is a typical langchain model input type
+                    _logger.info(
+                        "Lists of scalar values are not converted to a pandas DataFrame. "
+                        "If you expect to use pandas DataFrames for inference, please "
+                        "construct a DataFrame and pass it to input_example instead."
+                    )
+                    self.data = {INPUTS: self._inference_data}
+                    self.serving_input = self.data
+                    self.info.update(
+                        {
+                            "type": "ndarray",
+                            "format": "tf-serving",
+                        }
+                    )
+                else:
+                    self._inference_data = pd.DataFrame(input_example)
+                    self.data = _convert_dataframe_to_split_dict(self._inference_data)
+                    self.serving_input = {DF_SPLIT: self.data}
+                    self.info.update(
+                        {
+                            "type": "dataframe",
+                            "pandas_orient": "split",
+                        }
+                    )
             else:
-                self._inference_data = pd.DataFrame(input_example)
-                self.data = _handle_dataframe_input(self._inference_data)
+                self._inference_data = _coerce_to_pandas_df(input_example)
+                if self._inference_data is None:
+                    raise TypeError(
+                        "Expected one of the following types:\n"
+                        "- pandas.DataFrame\n"
+                        "- numpy.ndarray\n"
+                        "- dictionary of (name -> numpy.ndarray)\n"
+                        "- scipy.sparse.csr_matrix\n"
+                        "- scipy.sparse.csc_matrix\n"
+                        "- dict\n"
+                        "- list\n"
+                        "- scalars\n"
+                        f"but got '{type(input_example)}'",
+                    )
+                self.data = _convert_dataframe_to_split_dict(self._inference_data)
+                self.serving_input = {DF_SPLIT: self.data}
+                orient = "split" if "columns" in self.data else "values"
                 self.info.update(
                     {
                         "type": "dataframe",
-                        "pandas_orient": "split",
+                        "pandas_orient": orient,
                     }
                 )
-        else:
-            self._inference_data = _coerce_to_pandas_df(input_example)
-            if self._inference_data is None:
-                raise TypeError(
-                    "Expected one of the following types:\n"
-                    "- pandas.DataFrame\n"
-                    "- numpy.ndarray\n"
-                    "- dictionary of (name -> numpy.ndarray)\n"
-                    "- scipy.sparse.csr_matrix\n"
-                    "- scipy.sparse.csc_matrix\n"
-                    "- dict\n"
-                    "- list\n"
-                    "- scalars\n"
-                    f"but got '{type(input_example)}'",
-                )
-            self.data = _handle_dataframe_input(self._inference_data)
-            orient = "split" if "columns" in self.data else "values"
-            self.info.update(
-                {
-                    "type": "dataframe",
-                    "pandas_orient": orient,
-                }
-            )
 
-    def save(self, parent_dir_path: str):
-        """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`."""
         if self._inference_params is not None:
-            data = {EXAMPLE_DATA_KEY: self.data, EXAMPLE_PARAMS_KEY: self._inference_params}
+            self.data = {EXAMPLE_DATA_KEY: self.data, EXAMPLE_PARAMS_KEY: self._inference_params}
+            if is_unified_llm_input:
+                self.serving_input = {
+                    **(self.serving_input or {}),
+                    **self._inference_params,
+                }
+            else:
+                self.serving_input = {
+                    **(self.serving_input or {}),
+                    SERVING_PARAMS_KEY: self._inference_params,
+                }
+
+        self.json_data = json.dumps(self.data, cls=NumpyEncoder)
+        if self.serving_input:
+            self.json_serving_input = json.dumps(self.serving_input, cls=NumpyEncoder, indent=2)
+            self.info[SERVING_INPUT_PATH] = SERVING_INPUT_FILENAME
         else:
-            data = self.data
+            self.json_serving_input = None
+
+    # TODO: isolate to make sure `artifact_path` saves an example that can be
+    # directly passed to model.predict. `serving_input_path` saves an example that
+    # can be directly passed to model serving inference.
+    def save(self, parent_dir_path: str):
+        """
+        Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`.
+        Save serving input as json at ``parent_dir_path``/`self.info['serving_input_path']`.
+        """
         with open(os.path.join(parent_dir_path, self.info[INPUT_EXAMPLE_PATH]), "w") as f:
-            json.dump(data, f, cls=NumpyEncoder)
+            f.write(self.json_data)
+        if self.json_serving_input:
+            with open(os.path.join(parent_dir_path, self.info[SERVING_INPUT_PATH]), "w") as f:
+                f.write(self.json_serving_input)
 
     @property
     def inference_data(self):
@@ -379,9 +430,39 @@ def _contains_params(input_example):
     )
 
 
+def _split_input_data_and_params(input_example):
+    if _contains_params(input_example):
+        input_data, inference_params = input_example
+        _validate_params(inference_params)
+        return input_data, inference_params
+    return input_example, None
+
+
+def convert_input_example_to_serving_input(
+    input_example, example_no_conversion=False
+) -> Optional[str]:
+    """
+    Helper function to convert a model's input example to a serving input example that
+    can be used for model inference in the scoring server.
+
+    Args:
+        input_example: model input example
+        example_no_conversion: If True, the input example is not converted and directly
+            saved as a json object. Default to False.
+
+    Returns:
+        serving input example as a json string
+    """
+    if input_example is None:
+        return None
+
+    example = _Example(input_example, no_conversion=example_no_conversion)
+    return example.json_serving_input
+
+
 def _save_example(
-    mlflow_model: Model, input_example: ModelInputExample, path: str, no_conversion=False
-):
+    mlflow_model: Model, input_example: Optional[ModelInputExample], path: str, no_conversion=False
+) -> Optional[_Example]:
     """
     Saves example to a file on the given path and updates passed Model with example metadata.
 
@@ -398,26 +479,17 @@ def _save_example(
     Args:
         mlflow_model: Model metadata that will get updated with the example metadata.
         path: Where to store the example file. Should be model the model directory.
+
+    Returns:
+        _Example object that contains saved input example.
     """
-    if no_conversion:
-        example_info = {
-            INPUT_EXAMPLE_PATH: EXAMPLE_FILENAME,
-            "type": "json_object",
-        }
-        try:
-            with open(os.path.join(path, example_info[INPUT_EXAMPLE_PATH]), "w") as f:
-                json.dump(input_example, f, cls=NumpyEncoder)
-        except Exception as e:
-            raise MlflowException.invalid_parameter_value(
-                "Failed to save input example. Please make sure the input example is jsonable "
-                f"when no_conversion is True. Got error: {e}"
-            ) from e
-        else:
-            mlflow_model.saved_input_example_info = example_info
-    else:
-        example = _Example(input_example)
-        example.save(path)
-        mlflow_model.saved_input_example_info = example.info
+    if input_example is None:
+        return None
+
+    example = _Example(input_example, no_conversion=no_conversion)
+    example.save(path)
+    mlflow_model.saved_input_example_info = example.info
+    return example
 
 
 def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
@@ -440,9 +512,30 @@ def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
         "json_object",
     ]:
         raise MlflowException(f"This version of mlflow can not load example of type {example_type}")
-    path = os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"])
+    path = os.path.join(path, mlflow_model.saved_input_example_info[INPUT_EXAMPLE_PATH])
     with open(path) as handle:
         return json.load(handle)
+
+
+def _load_serving_input_example(mlflow_model: Model, path: str):
+    """
+    Load serving input exaple from a model directory. Returns None if there is no serving input
+    example.
+
+    Args:
+        mlflow_model: Model metadata.
+        path: Path to the model directory.
+
+    Returns:
+        Serving input example or None if the model has no serving input example.
+    """
+    if mlflow_model.saved_input_example_info is None:
+        return None
+    serving_input_path = mlflow_model.saved_input_example_info.get(SERVING_INPUT_PATH)
+    if serving_input_path is None:
+        return None
+    with open(os.path.join(path, serving_input_path)) as handle:
+        return handle.read()
 
 
 def _read_example(mlflow_model: Model, path: str):
@@ -1662,3 +1755,32 @@ def _flatten_nested_params(
         else:
             items[new_key] = v
     return items
+
+
+# NB: this function should always be kept in sync with the serving
+# process in scoring_server invocations.
+def validate_serving_input(model_uri: str, serving_input: Union[str, Dict[str, Any]]):
+    """
+    Helper function to validate the model can be served and provided input is valid
+    prior to serving the model.
+
+    Args:
+        model_uri: URI of the model to be served.
+        serving_input: Input data to be validated. Should be a dictionary or a JSON string.
+
+    Returns:
+        The prediction result from the model.
+    """
+    from mlflow.pyfunc.scoring_server import _parse_json_data
+
+    # sklearn model might not have python_function flavor if it
+    # doesn't define a predict function. In such case the model
+    # can not be served anyways
+    with tempfile.TemporaryDirectory() as temp_output_dir:
+        pyfunc_model = mlflow.pyfunc.load_model(model_uri, dst_path=temp_output_dir)
+        parsed_input = _parse_json_data(
+            serving_input,
+            pyfunc_model.metadata,
+            pyfunc_model.metadata.get_input_schema(),
+        )
+        return pyfunc_model.predict(parsed_input.data, params=parsed_input.params)

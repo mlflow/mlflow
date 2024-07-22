@@ -2354,7 +2354,9 @@ def question_classifier(inputs):
 def test_evaluate_question_answering_with_numerical_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            artifact_path="model", python_model=question_classifier, input_example=[0, 1]
+            artifact_path="model",
+            python_model=question_classifier,
+            input_example=pd.DataFrame({"question": ["a", "b"]}),
         )
         data = pd.DataFrame({"question": ["a", "b"], "answer": [0, 1]})
         results = mlflow.evaluate(
@@ -2498,7 +2500,9 @@ def test_evaluate_text_summarization_with_targets_no_type_hints():
 
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            artifact_path="model", python_model=another_language_model, input_example=["a", "b"]
+            artifact_path="model",
+            python_model=another_language_model,
+            input_example=pd.DataFrame({"text": ["a", "b"]}),
         )
         data = pd.DataFrame({"text": ["a", "b"], "summary": ["a", "b"]})
         results = evaluate(

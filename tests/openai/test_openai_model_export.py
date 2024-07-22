@@ -15,7 +15,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
 
-from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.helper_functions import get_serving_input_example, pyfunc_serve_and_score_model
 from tests.openai.conftest import is_v1
 
 
@@ -537,20 +537,23 @@ def test_embeddings_batch_size_azure(tmp_path, monkeypatch):
     assert model._model_impl.api_config.batch_size == 16
 
 
-def test_embeddings_pyfunc_server_and_score(tmp_path):
-    mlflow.openai.save_model(
-        model="text-embedding-ada-002",
-        task=embeddings(),
-        path=tmp_path,
-    )
+def test_embeddings_pyfunc_server_and_score():
     df = pd.DataFrame({"text": ["a", "b"]})
+    with mlflow.start_run():
+        model_info = mlflow.openai.log_model(
+            model="text-embedding-ada-002",
+            task=embeddings(),
+            artifact_path="model",
+            input_example=df,
+        )
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        tmp_path,
-        data=pd.DataFrame(df),
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    expected = mlflow.pyfunc.load_model(tmp_path).predict(df)
+    expected = mlflow.pyfunc.load_model(model_info.model_uri).predict(df)
     actual = pd.DataFrame(data=json.loads(resp.content.decode("utf-8")))
     pd.testing.assert_frame_equal(actual, pd.DataFrame({"predictions": expected}))
 
