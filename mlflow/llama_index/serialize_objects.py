@@ -124,8 +124,9 @@ def serialize_settings(path: str) -> None:
     from llama_index.core import Settings
 
     _logger.info(
-        "API key(s) will be deducted from the global Settings object during serialization. "
-        "At inference time, the key(s) must be passed as environment variables."
+        "API key(s) will be removed from the global Settings object during serialization "
+        "to protect against key leakage. At inference time, the key(s) must be passed as "
+        "environment variables."
     )
 
     to_serialize = {}
