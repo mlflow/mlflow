@@ -58,9 +58,9 @@ def _sanitize_api_key(object_as_dict: Dict[str, str]) -> Dict[str, str]:
     for k in keys_to_remove:
         if object_as_dict.pop(k, None):
             _logger.info(
-                "API key removed from object serialization. At inference time,"
-                " the key must be passed as an environment variable or via inference"
-                " parameters."
+                f"API key removed from {object_as_dict.get('class_name', 'object')} serialization. "
+                "At inference time, the key must be passed as an environment variable or via "
+                "inference parameters."
             )
 
     return object_as_dict
