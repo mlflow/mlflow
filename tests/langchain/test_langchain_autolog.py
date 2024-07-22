@@ -198,9 +198,9 @@ def test_autolog_manage_run():
     assert len(traces) == 2
     for trace in traces:
         span = trace.data.spans[0]
-        assert span.inputs == "CHAIN"
-        assert span.outputs == {"product": "MLflow"}
-        assert span.span_type == {"text": TEST_CONTENT}
+        assert span.span_type == "CHAIN"
+        assert span.inputs == {"product": "MLflow"}
+        assert span.outputs == {"text": TEST_CONTENT}
 
 
 def test_autolog_manage_run_no_active_run():
