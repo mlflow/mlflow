@@ -39,6 +39,7 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.artifact_utils import get_artifact_uri_for_trace
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags
 from mlflow.tracking._tracking_service import utils
@@ -874,12 +875,9 @@ class TrackingServiceClient:
         return self._get_artifact_repo(run_id).download_artifacts(path, dst_path)
 
     def _log_url(self, run_id):
-        try:
-            host_url = self.store.get_host_creds().host
-        except AttributeError:
-            # If the store does not have host creds, we cannot log the URL. This is expected for
-            # SqlAlchemyStore.
+        if not isinstance(self.store, RestStore):
             return
+        host_url = self.store.get_host_creds().host
         run_info = self.store.get_run(run_id).info
         experiment_id = run_info.experiment_id
         run_name = run_info.run_name
