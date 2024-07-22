@@ -102,7 +102,7 @@ For details about the configuration file's parameters (including parameters for 
         endpoint_type: llm/v1/completions
         model:
           provider: openai
-          name: gpt-3.5-turbo
+          name: gpt-4o-mini
           config:
             openai_api_key: $OPENAI_API_KEY
         limit:
@@ -113,7 +113,7 @@ For details about the configuration file's parameters (including parameters for 
         endpoint_type: llm/v1/chat
         model:
           provider: openai
-          name: gpt-3.5-turbo
+          name: gpt-4o-mini
           config:
             openai_api_key: $OPENAI_API_KEY
 
@@ -179,7 +179,7 @@ Firstly, update the :ref:`MLflow Deployments Server config <deployments_configur
         endpoint_type: llm/v1/completions
         model:
           provider: openai
-          name: gpt-3.5-turbo
+          name: gpt-4o-mini
           config:
             openai_api_key: $OPENAI_API_KEY
       - name: completions-gpt4
@@ -358,7 +358,7 @@ Here's an example of an endpoint configuration:
         endpoint_type: llm/v1/chat
         model:
           provider: openai
-          name: gpt-3.5-turbo
+          name: gpt-4o-mini
           config:
             openai_api_key: $OPENAI_API_KEY
         limit:
@@ -366,7 +366,7 @@ Here's an example of an endpoint configuration:
           calls: 10
 
 In the example above, a request sent to the completions endpoint would be forwarded to the
-``gpt-3.5-turbo`` model provided by ``openai``.
+``gpt-4o-mini`` model provided by ``openai``.
 
 The endpoints in the configuration file can be updated at any time, and the MLflow Deployments Server will
 automatically update its available endpoints without requiring a restart. This feature provides you
@@ -448,7 +448,7 @@ Here is an example of a single-endpoint configuration:
         endpoint_type: llm/v1/chat
         model:
           provider: openai
-          name: gpt-3.5-turbo
+          name: gpt-4o-mini
           config:
             openai_api_key: $OPENAI_API_KEY
         limit:
@@ -457,7 +457,7 @@ Here is an example of a single-endpoint configuration:
 
 
 In this example, we define an endpoint named ``chat`` that corresponds to the ``llm/v1/chat`` type, which
-will use the ``gpt-3.5-turbo`` model from OpenAI to return query responses from the OpenAI service, and accept up to 10 requests per minute.
+will use the ``gpt-4o-mini`` model from OpenAI to return query responses from the OpenAI service, and accept up to 10 requests per minute.
 
 The MLflow Deployments Server configuration is very easy to update.
 Simply edit the configuration file and save your changes, and the MLflow Deployments Server will automatically

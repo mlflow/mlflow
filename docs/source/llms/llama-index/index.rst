@@ -243,7 +243,7 @@ models to be used by engines.
     from llama_index.core import Settings
     from llama_index.llms.openai import OpenAI
 
-    Settings.llm = OpenAI("gpt-3.5-turbo")
+    Settings.llm = OpenAI("gpt-4o-mini")
 
     # MLflow saves GPT-3.5-turbo as the LLM to use for inference
     with mlflow.start_run():
@@ -261,7 +261,7 @@ However, sometimes you may want to use a different LLM for inference. In such ca
 
     # Load the index back
     loaded_index = mlflow.llama_index.load_model(model_info.model_uri)
-    assert Settings.llm.model == "gpt-3.5-turbo"
+    assert Settings.llm.model == "gpt-4o-mini"
 
     # Update the settings to use GPT-4 instead
     Settings.llm = OpenAI("gpt-4")
