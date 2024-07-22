@@ -175,9 +175,11 @@ def load_zero_shot_pipeline():
 @prefetch
 @flaky()
 def load_table_question_answering_pipeline():
-    return transformers.pipeline(
-        task="table-question-answering", model="google/tapas-tiny-finetuned-wtq"
+    model = transformers.AutoModel.from_pretrained(
+        "google/tapas-tiny-finetuned-wtq",
+        low_cpu_mem_usage=True,
     )
+    return transformers.pipeline(task="table-question-answering", model=model)
 
 
 @prefetch
