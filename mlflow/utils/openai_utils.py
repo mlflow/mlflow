@@ -1,14 +1,12 @@
-from http import HTTPStatus
 import json
 import os
 import time
 from contextlib import contextmanager
 from enum import Enum
+from http import HTTPStatus
 from typing import NamedTuple, Optional
 from unittest import mock
 from unittest.mock import AsyncMock, MagicMock
-
-import httpx
 
 import mlflow
 
@@ -90,7 +88,7 @@ class _MockResponse:
 
         def mock_raise_for_status():
             if 400 <= status_code < 600:
-                raise httpx.HTTPStatusError(f"Mock HTTPX request {status_code} Error")
+                raise Exception(f"Mock HTTPX request {status_code} Error")
         self.raise_for_status = mock_raise_for_status
 
     def json(self):
