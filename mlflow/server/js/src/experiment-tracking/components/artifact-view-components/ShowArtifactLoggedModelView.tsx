@@ -307,20 +307,23 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
           <span className="code-comment">
             {'# The model logged does not contain input_example, you need to manually generate a serving payload\n'}
           </span>
-          <span className="code-keyword">from</span> mlflow.models <span className="code-keyword">import</span> convert_input_example_to_serving_input{`\n\n`}
+          <span className="code-keyword">from</span> mlflow.models <span className="code-keyword">import</span>{' '}
+          convert_input_example_to_serving_input{`\n\n`}
           <span className="code-comment">{'# Replace INPUT_EXAMPLE with your own input example to the model\n'}</span>
           serving_payload = convert_input_example_to_serving_input(INPUT_EXAMPLE)
         </div>
-      )
+      );
     } else {
       return (
         <div>
           <span className="code-comment">
-            {'# The model is logged with input_example, `serving_input_payload.json` file saves a valid serving payload\n'}
+            {
+              '# The model is logged with input_example, `serving_input_payload.json` file saves a valid serving payload\n'
+            }
           </span>
           serving_payload = <span className="code-string">{`"""${servingInput}"""`}</span>
         </div>
-      )
+      );
     }
   }
 
@@ -342,7 +345,8 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
           <pre style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
             <div className="code">
               <span className="code-keyword">import</span> mlflow{`\n`}
-              <span className="code-keyword">from</span> mlflow.models <span className="code-keyword">import</span> validate_serving_input{`\n\n`}
+              <span className="code-keyword">from</span> mlflow.models <span className="code-keyword">import</span>{' '}
+              validate_serving_input{`\n\n`}
               model_uri = <span className="code-string">{`'${modelPath}'\n\n`}</span>
               {this.renderServingPayload(servingInput)}
             </div>
@@ -383,7 +387,6 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
       </>
     );
   }
-
 
   renderPyfuncCodeSnippet() {
     if (this.state.loader_module === 'mlflow.spark') {
@@ -649,17 +652,19 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
   }
 
   fetchServingInputExample() {
-    const servingInputFileLocation = getArtifactLocationUrl(`${this.props.path}/${SERVING_INPUT_FILE_NAME}`, this.props.runUuid);
+    const servingInputFileLocation = getArtifactLocationUrl(
+      `${this.props.path}/${SERVING_INPUT_FILE_NAME}`,
+      this.props.runUuid,
+    );
     this.props
       .getArtifact(servingInputFileLocation)
       .then((response: any) => {
         this.setState({ serving_input: response });
       })
       .catch(() => {
-        this.setState({ serving_input: null});
+        this.setState({ serving_input: null });
       });
   }
-
 }
 
 const styles = {

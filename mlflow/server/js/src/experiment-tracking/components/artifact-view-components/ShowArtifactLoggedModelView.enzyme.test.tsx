@@ -152,7 +152,9 @@ flavors:
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.find('.artifact-logged-model-view-code-content').at(1).html()).toContain('runs:/fakeUuid/modelPath');
+      expect(wrapper.find('.artifact-logged-model-view-code-content').at(1).html()).toContain(
+        'runs:/fakeUuid/modelPath',
+      );
       done();
     });
   });
@@ -162,7 +164,9 @@ flavors:
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.find('.artifact-logged-model-view-code-content').at(0).html()).toContain('validate_serving_input(model_uri, serving_payload)');
+      expect(wrapper.find('.artifact-logged-model-view-code-content').at(0).html()).toContain(
+        'validate_serving_input(model_uri, serving_payload)',
+      );
       done();
     });
   });
@@ -239,14 +243,17 @@ flavors:
   });
 
   test('should render serving validation code snippet if serving_input_payload exists', (done) => {
-    const getArtifact = jest.fn().mockImplementationOnce((artifactLocation) => {
-      return Promise.resolve(`
+    const getArtifact = jest
+      .fn()
+      .mockImplementationOnce((artifactLocation) => {
+        return Promise.resolve(`
 flavors:
   sklearn:
     version: 1.2.3
 `);
-    }).mockImplementationOnce((artifactLocation) => {
-      return Promise.resolve(`
+      })
+      .mockImplementationOnce((artifactLocation) => {
+        return Promise.resolve(`
 {
   "dataframe_split": {
     "columns": [
@@ -265,7 +272,7 @@ flavors:
   }
 }
 `);
-    });
+      });
     const props = { ...minimalProps, getArtifact };
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
@@ -281,15 +288,18 @@ flavors:
   });
 
   test('should render serving validation code snippet if serving_input_payload does not exist', (done) => {
-    const getArtifact = jest.fn().mockImplementationOnce((artifactLocation) => {
-      return Promise.resolve(`
+    const getArtifact = jest
+      .fn()
+      .mockImplementationOnce((artifactLocation) => {
+        return Promise.resolve(`
 flavors:
   sklearn:
     version: 1.2.3
 `);
-    }).mockImplementationOnce((artifactLocation) => {
-      return Promise.reject(new Error('file not existing'));
-    });
+      })
+      .mockImplementationOnce((artifactLocation) => {
+        return Promise.reject(new Error('file not existing'));
+      });
     const props = { ...minimalProps, getArtifact };
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
