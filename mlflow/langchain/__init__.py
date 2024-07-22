@@ -647,7 +647,7 @@ class _LangChainModelWrapper:
         ):
             from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
-            callbacks = [MlflowLangchainTracer()]
+            callbacks = [MlflowLangchainTracer(prediction_context=get_prediction_context())]
         elif (context := get_prediction_context()) and context.is_evaluate:
             # NB: We enable traces automatically for the model evaluation. Note that we have to
             #   manually pass the context instance to callback, because LangChain callback may be
@@ -658,7 +658,10 @@ class _LangChainModelWrapper:
         else:
             callbacks = None
 
-        return self._predict_with_callbacks(data, params, callback_handlers=callbacks)
+        convert_chat_responses = params.pop("convert_chat_responses", False) if params else False
+        return self._predict_with_callbacks(
+            data, params, callback_handlers=callbacks, convert_chat_responses=convert_chat_responses
+        )
 
     def _update_dependencies_schemas_in_prediction_context(self, callback_handlers):
         from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
