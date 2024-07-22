@@ -337,9 +337,9 @@ The following span types are available:
     * - ``"TOOL"``
       - Represents a tool execution (typically by an agent), such as querying a search engine.
     * - ``"EMBEDDING"``
-      - Represents an text embedding operation.
+      - Represents a text embedding operation.
     * - ``"RETRIEVER"``
-      - Represents a context retrieval operations, such as querying a vector database.
+      - Represents a context retrieval operation, such as querying a vector database.
     * - ``"PARSER"``
       - Represents a parsing operation, transforming text into a structured format.
     * - ``"RERANKER"``
