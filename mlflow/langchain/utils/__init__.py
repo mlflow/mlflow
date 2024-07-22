@@ -617,7 +617,7 @@ def patch_langchain_type_to_cls_dict():
     # LangChain codebase, but we patch them separately to avoid any potential issues.
     modules_to_patch = [
         "langchain.llms",
-        "langchain.llms.loading",
+        "langchain.llms.loading", # Required for LangChain version < 0.0.349
         "langchain_community.llms.loading",
     ]
     originals = {}

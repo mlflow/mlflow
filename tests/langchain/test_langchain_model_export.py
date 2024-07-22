@@ -415,6 +415,7 @@ def test_save_and_load_azure_chat_openai(model_path, monkeypatch):
     from langchain.chat_models import AzureChatOpenAI
 
     monkeypatch.setenv("OPENAI_API_VERSION", "2023-05-15")
+    monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://mlflowtest.foo.bar/")
 
     llm = AzureChatOpenAI(temperature=0.9)
     prompt = PromptTemplate.from_template("What is a good name for a company that makes {product}?")
@@ -2880,7 +2881,7 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_sign
 
         chunk_iter = loaded_model.predict_stream(input_example)
 
-        finish_reason = None if Version(langchain.__version__) < Version("0.1.0") else "stop"
+        finish_reason = None if Version(langchain.__version__) < Version("0.1.8") else "stop"
 
         with mock.patch("time.time", return_value=1677858242):
             chunks = list(chunk_iter)
