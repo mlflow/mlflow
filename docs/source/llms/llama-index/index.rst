@@ -58,6 +58,12 @@ use an index.
         </article>
     </section>
 
+.. toctree::
+    :maxdepth: 2
+    :hidden:
+
+    notebooks/llama_index_quickstart.ipynb
+
 
 Concepts
 --------
