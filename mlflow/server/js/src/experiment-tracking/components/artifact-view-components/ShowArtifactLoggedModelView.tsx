@@ -8,7 +8,7 @@
 import React, { Component } from 'react';
 import yaml from 'js-yaml';
 import '../../../common/styles/CodeSnippet.css';
-import { MLMODEL_FILE_NAME } from '../../constants';
+import { MLMODEL_FILE_NAME, SERVING_INPUT_FILE_NAME } from '../../constants';
 import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
 import { SchemaTable } from '../../../model-registry/components/SchemaTable';
 import {
@@ -42,6 +42,7 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.fetchLoggedModelMetadata = this.fetchLoggedModelMetadata.bind(this);
+    this.fetchServingInputExample = this.fetchServingInputExample.bind(this);
   }
 
   static defaultProps = {
@@ -55,15 +56,18 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
     outputs: undefined,
     flavor: undefined,
     loader_module: undefined,
+    serving_input: undefined,
   };
 
   componentDidMount() {
     this.fetchLoggedModelMetadata();
+    this.fetchServingInputExample();
   }
 
   componentDidUpdate(prevProps: Props) {
     if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
       this.fetchLoggedModelMetadata();
+      this.fetchServingInputExample();
     }
   }
   static getLearnModelRegistryLinkUrl = () => RegisteringModelDocUrl;
@@ -149,6 +153,37 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
       `# Perform inference via model.transform()\n` +
       `loaded_model.transform(data)`
     );
+  }
+
+  validateModelForServingText(modelPath: any, servingInput?: string) {
+    if (servingInput) {
+      return `from mlflow.models import validate_serving_input
+
+model_uri = '${modelPath}'
+
+# The model is logged with an input example. MLflow converts
+# it into the serving payload format for the deployed model endpoint,
+# and saves it to 'serving_input_payload.json'
+serving_payload = """${servingInput}"""
+
+# Validate the serving payload works on the model
+validate_serving_input(model_uri, serving_payload)`;
+    } else {
+      return `from mlflow.models import validate_serving_input
+
+model_uri = '${modelPath}'
+
+# The logged model does not contain an input_example.
+# Manually generate a serving payload to verify your model prior to deployment.
+from mlflow.models import convert_input_example_to_serving_input
+
+# Define INPUT_EXAMPLE via assignment with your own input example to the model
+# A valid input example is a data instance suitable for pyfunc prediction
+serving_payload = convert_input_example_to_serving_input(INPUT_EXAMPLE)
+
+# Validate the serving payload works on the model
+validate_serving_input(model_uri, serving_payload)`;
+    }
   }
 
   renderNonPyfuncCodeSnippet() {
@@ -270,6 +305,97 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
     );
   }
 
+  renderServingPayload(servingInput?: string) {
+    if (servingInput) {
+      return (
+        <div>
+          <span className="code-comment">
+            {`# The model is logged with an input example. MLflow converts
+# it into the serving payload format for the deployed model endpoint,
+# and saves it to 'serving_input_payload.json'\n`}
+          </span>
+          serving_payload = <span className="code-string">{`"""${servingInput}"""`}</span>
+        </div>
+      );
+    } else {
+      return (
+        <div className="code">
+          <span className="code-comment">
+            {`# The logged model does not contain an input_example. 
+# Manually generate a serving payload to verify your model prior to deployment.\n`}
+          </span>
+          <span className="code-keyword">from</span> mlflow.models <span className="code-keyword">import</span>{' '}
+          convert_input_example_to_serving_input{`\n\n`}
+          <span className="code-comment">
+            {`# Define INPUT_EXAMPLE via assignment with your own input example to the model
+# A valid input example is a data instance suitable for pyfunc prediction\n`}
+          </span>
+          serving_payload = convert_input_example_to_serving_input(INPUT_EXAMPLE)
+        </div>
+      );
+    }
+  }
+
+  renderValidateServingInput(modelPath: any, servingInput?: string) {
+    return (
+      // @ts-expect-error TS(2322): Type '{ position: string; pre: { margin: number; }... Remove this comment to see the full error message
+      <div css={styles.item}>
+        <Text>
+          <FormattedMessage
+            defaultMessage="Run the following code to validate model inference works on the example payload, prior to deploying it to a serving endpoint" // eslint-disable-next-line max-len
+            description="Section heading to display the code block on how we can use validate an input against registered model prior to serving"
+          />
+        </Text>
+        <Paragraph
+          dangerouslySetAntdProps={{
+            copyable: { text: this.validateModelForServingText(modelPath, servingInput) },
+          }}
+        >
+          <pre style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
+            <div className="code">
+              <span className="code-keyword">from</span> mlflow.models <span className="code-keyword">import</span>{' '}
+              validate_serving_input{`\n\n`}
+              model_uri = <span className="code-string">{`'${modelPath}'\n\n`}</span>
+              {this.renderServingPayload(servingInput)}
+            </div>
+            <br />
+            <div className="code">
+              <span className="code-comment">
+                {'# '}
+                <FormattedMessage
+                  defaultMessage="Validate the serving payload works on the model"
+                  description="Code comment which states how to validate serving payload"
+                />
+              </span>
+              {`\n`}
+              validate_serving_input(model_uri, serving_payload)
+            </div>
+            <br />
+          </pre>
+        </Paragraph>
+      </div>
+    );
+  }
+
+  renderValidateServingInputCodeSnippet() {
+    const { runUuid, path } = this.props;
+    const modelPath = `runs:/${runUuid}/${path}`;
+    return (
+      <>
+        <Title level={3}>
+          <FormattedMessage
+            defaultMessage="Validate the model before deployment"
+            // eslint-disable-next-line max-len
+            description="Heading text for validating the model before deploying it for serving"
+          />
+        </Title>
+        <div className="artifact-logged-model-view-code-content">
+          {this.renderValidateServingInput(modelPath, this.state.serving_input)}
+        </div>
+      </>
+    );
+  }
+
   renderPyfuncCodeSnippet() {
     if (this.state.loader_module === 'mlflow.spark') {
       return this.renderMlflowSparkCodeSnippet();
@@ -286,6 +412,7 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
           />
         </Title>
         <div className="artifact-logged-model-view-code-content">
+          {this.renderPandasDataFramePrediction(modelPath)}
           {/* @ts-expect-error TS(2322): Type '{ position: string; pre: { margin: number; }... Remove this comment to see the full error message */}
           <div css={styles.item}>
             <Text>
@@ -336,7 +463,6 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
               </pre>
             </Paragraph>
           </div>
-          {this.renderPandasDataFramePrediction(modelPath)}
         </div>
       </>
     );
@@ -355,6 +481,7 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
           />
         </Title>
         <div className="artifact-logged-model-view-code-content">
+          {this.renderPandasDataFramePrediction(modelPath)}
           {/* @ts-expect-error TS(2322): Type '{ position: string; pre: { margin: number; }... Remove this comment to see the full error message */}
           <div css={styles.item}>
             <Paragraph
@@ -396,7 +523,6 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
               </pre>
             </Paragraph>
           </div>
-          {this.renderPandasDataFramePrediction(modelPath)}
         </div>
       </>
     );
@@ -484,6 +610,7 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
               className="artifact-logged-model-view-code-group"
               style={{ width: '50%', marginRight: 16, float: 'right' }}
             >
+              {this.renderValidateServingInputCodeSnippet()}
               {this.state.flavor === 'pyfunc' ? this.renderPyfuncCodeSnippet() : this.renderNonPyfuncCodeSnippet()}
             </div>
           </div>
@@ -529,6 +656,21 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
       })
       .catch((error: any) => {
         this.setState({ error: error, loading: false });
+      });
+  }
+
+  fetchServingInputExample() {
+    const servingInputFileLocation = getArtifactLocationUrl(
+      `${this.props.path}/${SERVING_INPUT_FILE_NAME}`,
+      this.props.runUuid,
+    );
+    this.props
+      .getArtifact(servingInputFileLocation)
+      .then((response: any) => {
+        this.setState({ serving_input: response });
+      })
+      .catch(() => {
+        this.setState({ serving_input: null });
       });
   }
 }
