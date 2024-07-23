@@ -89,6 +89,7 @@ class _MockResponse:
         def mock_raise_for_status():
             if 400 <= status_code < 600:
                 raise Exception(f"Mock HTTPX request {status_code} Error")
+
         self.raise_for_status = mock_raise_for_status
 
     def json(self):
