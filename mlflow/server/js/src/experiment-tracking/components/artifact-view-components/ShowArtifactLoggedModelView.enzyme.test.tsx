@@ -308,7 +308,7 @@ flavors:
       const codeContent = wrapper.find('.artifact-logged-model-view-code-content');
       expect(codeContent.length).toBe(2);
       const codeContentText = codeContent.at(0).text();
-      expect(codeContentText.includes('# The model logged does not contain input_example')).toBe(true);
+      expect(codeContentText.includes('# The logged model does not contain an input_example')).toBe(true);
       expect(codeContentText.includes('validate_serving_input(model_uri, serving_payload)')).toBe(true);
       done();
     });

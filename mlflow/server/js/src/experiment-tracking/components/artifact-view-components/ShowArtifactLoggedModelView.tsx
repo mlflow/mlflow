@@ -156,23 +156,31 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
   }
 
   validateModelForServingText(modelPath: any, servingInput?: string) {
-    if (servingInput === null) {
-      return `from mlflow.models import validate_serving_input\n
-model_uri = '${modelPath}'\n
-# The model logged does not contain input_example, you need to manually generate a serving payload
-from mlflow.models import convert_input_example_to_serving_input\n
-# Replace INPUT_EXAMPLE with your own input example to the model
-# A valid input example is a data instance that can be passed for pyfunc predict
-serving_payload = convert_input_example_to_serving_input(INPUT_EXAMPLE)\n
+    if (servingInput) {
+      return `from mlflow.models import validate_serving_input
+
+model_uri = '${modelPath}'
+
+# The model is logged with an input example. MLflow converts
+# it into the serving payload format for the deployed model endpoint,
+# and saves it to 'serving_input_payload.json'
+serving_payload = """${servingInput}"""
+
 # Validate the serving payload works on the model
 validate_serving_input(model_uri, serving_payload)`;
     } else {
-      return `from mlflow.models import validate_serving_input\n
-model_uri = '${modelPath}'\n
-# The model is logged with an input example. MLflow converts
-# it into the serving payload format for deployed model endpoint,
-# and saves it to 'serving_input_payload.json' file
-serving_payload = """${servingInput}"""\n
+      return `from mlflow.models import validate_serving_input
+
+model_uri = '${modelPath}'
+
+# The logged model does not contain an input_example.
+# Manually generate a serving payload to verify your model prior to deployment.
+from mlflow.models import convert_input_example_to_serving_input
+
+# Define INPUT_EXAMPLE via assignment with your own input example to the model
+# A valid input example is a data instance suitable for pyfunc prediction
+serving_payload = convert_input_example_to_serving_input(INPUT_EXAMPLE)
+
 # Validate the serving payload works on the model
 validate_serving_input(model_uri, serving_payload)`;
     }
@@ -298,30 +306,31 @@ validate_serving_input(model_uri, serving_payload)`;
   }
 
   renderServingPayload(servingInput?: string) {
-    if (servingInput === null) {
-      return (
-        <div className="code">
-          <span className="code-comment">
-            {'# The model logged does not contain input_example, you need to manually generate a serving payload\n'}
-          </span>
-          <span className="code-keyword">from</span> mlflow.models <span className="code-keyword">import</span>{' '}
-          convert_input_example_to_serving_input{`\n\n`}
-          <span className="code-comment">
-            {`# Replace INPUT_EXAMPLE with your own input example to the model
-# A valid input example is a data instance that can be passed for pyfunc predict\n`}
-          </span>
-          serving_payload = convert_input_example_to_serving_input(INPUT_EXAMPLE)
-        </div>
-      );
-    } else {
+    if (servingInput) {
       return (
         <div>
           <span className="code-comment">
             {`# The model is logged with an input example. MLflow converts
 # it into the serving payload format for the deployed model endpoint,
-# and saves it to \`serving_input_payload.json\` file\n`}
+# and saves it to 'serving_input_payload.json'\n`}
           </span>
           serving_payload = <span className="code-string">{`"""${servingInput}"""`}</span>
+        </div>
+      );
+    } else {
+      return (
+        <div className="code">
+          <span className="code-comment">
+            {`# The logged model does not contain an input_example. 
+# Manually generate a serving payload to verify your model prior to deployment.\n`}
+          </span>
+          <span className="code-keyword">from</span> mlflow.models <span className="code-keyword">import</span>{' '}
+          convert_input_example_to_serving_input{`\n\n`}
+          <span className="code-comment">
+            {`# Define INPUT_EXAMPLE via assignment with your own input example to the model
+# A valid input example is a data instance suitable for pyfunc prediction\n`}
+          </span>
+          serving_payload = convert_input_example_to_serving_input(INPUT_EXAMPLE)
         </div>
       );
     }
