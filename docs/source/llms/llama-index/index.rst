@@ -38,7 +38,25 @@ The integration of the LlamaIndex library with MLflow provides a seamless experi
 Getting Started
 ---------------
 
-TBA
+In this introductory tutorial, you will learn the most fundamental components of LlamaIndex and how to leverage the integration with MLflow to store, retrieve, and 
+use an index. 
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="notebooks/llama_index_quickstart.html">
+                    <div class="header">
+                        LlamaIndex Quickstart
+                    </div>
+                    <p>
+                        Get started with MLflow and LlamaIndex by exploring the simplest possible index configuration of a VectorStoreIndex.
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
 
 
 Concepts
@@ -191,81 +209,17 @@ You can disable tracing by running the same function with the ``disable`` parame
     support the combination of async and streaming, such as the ``astream_chat`` method.
 
 
-FAQ
----
+`Detailed Documentation <guide/index.html>`_
+--------------------------------------------
 
-I have an index logged with ``query`` engine type. Can I load it back a ``chat`` engine?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+To learn more about the details of the MLflow LlamaIndex flavor, read the detailed guide below.
 
-While it is not possible to update the engine type of the logged model in-place,
-you can always load the index back and re-log it with the desired engine type. This process
-does **not require re-creating the index**, so it is an efficient way to switch between
-different engine types.
+.. raw:: html
 
-.. code-block:: python
+    <a href="guide/index.html" class="download-btn">View the Comprehensive Guide</a>
 
-    import mlflow
+.. toctree::
+    :maxdepth: 1
+    :hidden:
 
-    # Log the index with the query engine type first
-    with mlflow.start_run():
-        model_info = mlflow.llama_index.log_model(
-            index,
-            artifact_path="index-query",
-            engine_type="query",
-        )
-
-    # Load the index back and re-log it with the chat engine type
-    index = mlflow.llama_index.load_model(model_info.model_uri)
-    with mlflow.start_run():
-        model_info = mlflow.llama_index.log_model(
-            index,
-            artifact_path="index-chat",
-            # Specify the chat engine type this time
-            engine_type="chat",
-        )
-
-Alternatively, you can leverage their standard inference APIs on the loaded LlamaIndex native index object, specifically:
-
-* ``index.as_chat_engine().chat("hi")``
-* ``index.as_query_engine().query("hi")``
-* ``index.as_retriever().retrieve("hi")``
-
-
-How to use different LLMs for inference with the loaded engine?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-When saving the index to MLflow, it persists the global `Settings <https://docs.llamaindex.ai/en/stable/module_guides/supporting_modules/settings/>`_ object as a part of the model. This object contains settings such as LLM and embedding
-models to be used by engines.
-
-.. code-block:: python
-
-    import mlflow
-    from llama_index.core import Settings
-    from llama_index.llms.openai import OpenAI
-
-    Settings.llm = OpenAI("gpt-4o-mini")
-
-    # MLflow saves GPT-3.5-turbo as the LLM to use for inference
-    with mlflow.start_run():
-        model_info = mlflow.llama_index.log_model(
-            index, artifact_path="index", engine_type="chat"
-        )
-
-Then later when you load the index back, the persisted settings are also applied globally. This means that the loaded engine will use the same LLM as when it was logged.
-
-However, sometimes you may want to use a different LLM for inference. In such cases, you can update the global ``Settings`` object directly after loading the index.
-
-.. code-block:: python
-
-    import mlflow
-
-    # Load the index back
-    loaded_index = mlflow.llama_index.load_model(model_info.model_uri)
-    
-    assert Settings.llm.model == "gpt-4o-mini"
-
-
-    # Update the settings to use GPT-4 instead
-    Settings.llm = OpenAI("gpt-4")
-    query_engine = loaded_index.as_query_engine()
-    response = query_engine.query("What is the capital of France?")
+    guide/index.rst
