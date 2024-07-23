@@ -515,7 +515,7 @@ class Array:
         else:
             item_type = kwargs["items"]["type"]
 
-        return cls(dtype=item_type, is_sparkml_vector=is_sparkml_vector)
+        return cls(dtype=item_type, _is_sparkml_vector=is_sparkml_vector)
 
     def __repr__(self) -> str:
         if self.is_sparkml_vector:

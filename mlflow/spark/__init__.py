@@ -44,6 +44,7 @@ from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
     _get_root_uri_and_artifact_path,
 )
+from mlflow.types.schema import Array
 from mlflow.utils import _get_fully_qualified_class_name, databricks_utils
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.class_utils import _get_class_from_string
@@ -899,7 +900,7 @@ def _load_pyfunc(path):
 
         spark_model = _load_model(model_uri=path)
 
-    return _PyFuncModelWrapper(spark, spark_model)
+    return _PyFuncModelWrapper(spark, spark_model, signature=model_meta.signature)
 
 
 def _find_and_set_features_col_as_vector_if_needed(spark_df, spark_model):
@@ -947,7 +948,6 @@ def _find_and_set_features_col_as_vector_if_needed(spark_df, spark_model):
                 return spark_df.withColumn(
                     features_col_name, array_to_vector_udf(features_col_name)
                 )
-            breakpoint()
         return spark_df
 
     if hasattr(spark_model, "stages"):
@@ -961,9 +961,10 @@ class _PyFuncModelWrapper:
     Wrapper around Spark MLlib PipelineModel providing interface for scoring pandas DataFrame.
     """
 
-    def __init__(self, spark, spark_model):
+    def __init__(self, spark, spark_model, signature):
         self.spark = spark
         self.spark_model = spark_model
+        self.signature = signature
 
     def predict(
         self,
@@ -980,8 +981,6 @@ class _PyFuncModelWrapper:
         Returns:
             List with model predictions.
         """
-        from pyspark.ml import PipelineModel
-
         if _is_spark_connect_model(self.spark_model):
             # Spark connect ML model directly appends prediction result column to input pandas
             # dataframe. To make input dataframe intact, make a copy first.
@@ -993,26 +992,66 @@ class _PyFuncModelWrapper:
             # Spark model uses "prediction" as default model inference output column name.
             return self.spark_model.transform(pandas_df)["prediction"]
 
-        spark_df = _find_and_set_features_col_as_vector_if_needed(
-            self.spark.createDataFrame(pandas_df), self.spark_model
-        )
-        prediction_column = "prediction"
-        if isinstance(self.spark_model, PipelineModel) and self.spark_model.stages[-1].hasParam(
-            "outputCol"
-        ):
-            from pyspark.sql import SparkSession
+        # Convert List[np.float64] / np.array[np.float64] type to List[float] type,
+        # otherwise it will break `spark.createDataFrame` column type inferring.
+        if self.signature.inputs:
+            for col_spec in self.signature.inputs.inputs:
+                if isinstance(col_spec.type, Array) and col_spec.type.is_sparkml_vector:
+                    if col_spec.name is None:
+                        col_name = pandas_df.columns[0]
+                    else:
+                        col_name = col_spec.name
 
-            spark = SparkSession.builder.getOrCreate()
-            # do a transform with an empty input DataFrame
-            # to get the schema of the transformed DataFrame
-            transformed_df = self.spark_model.transform(spark.createDataFrame([], spark_df.schema))
-            # Ensure prediction column doesn't already exist
-            if prediction_column not in transformed_df.columns:
-                # make sure predict work by default for Transformers
-                self.spark_model.stages[-1].setOutputCol(prediction_column)
+                    pandas_df[col_name] = pd.Series([
+                        [float(elem) for elem in array]
+                        for array in pandas_df[col_name]
+                    ])
+
+        spark_df = self.spark.createDataFrame(pandas_df)
+
+        # Convert Array[Double] column to spark ML vector type according to signature
+        if self.signature.inputs:
+            for col_spec in self.signature.inputs.inputs:
+                if isinstance(col_spec.type, Array) and col_spec.type.is_sparkml_vector:
+                    from pyspark.ml.functions import array_to_vector
+
+                    if col_spec.name is None:
+                        col_name = spark_df.columns[0]
+                    else:
+                        col_name = col_spec.name
+                    spark_df = spark_df.withColumn(col_name, array_to_vector(col_name))
+
+        # For the case of no signature or signature logged by old version MLflow,
+        # the signature does not support spark ML vector type, in this case,
+        # automatically infer vector type input columns and do the conversion
+        # using `_find_and_set_features_col_as_vector_if_needed` utility function.
+        spark_df = _find_and_set_features_col_as_vector_if_needed(
+            spark_df, self.spark_model
+        )
+
+        prediction_column = mlflow.pyspark.ml._check_or_set_model_prediction_column(
+            self.spark_model, spark_df
+        )
+        prediction_df = self.spark_model.transform(spark_df).select(prediction_column)
+
+        # If signature output schema exists and it contains vector type columns,
+        # Convert spark ML vector type column to Array[Double] otherwise it will
+        # break enforce_schema checking
+        if self.signature.outputs:
+            for col_spec in self.signature.outputs.inputs:
+                if isinstance(col_spec.type, Array) and col_spec.type.is_sparkml_vector:
+                    from pyspark.ml.functions import vector_to_array
+
+                    if col_spec.name is None:
+                        col_name = prediction_df.columns[0]
+                    else:
+                        col_name = col_spec.name
+
+                    prediction_df = prediction_df.withColumn(col_name, vector_to_array(col_name))
+        breakpoint()
         return [
             x.prediction
-            for x in self.spark_model.transform(spark_df).select(prediction_column).collect()
+            for x in prediction_df.collect()
         ]
 
 

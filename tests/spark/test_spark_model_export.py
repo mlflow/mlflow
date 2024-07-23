@@ -988,7 +988,58 @@ def test_model_log_with_signature_inference(spark_model_iris, input_example):
     assert mlflow_model.signature.outputs == Schema([ColSpec(type=DataType.double)])
 
 
-def test_model_with_vector_type_input_output(model_path):
+def test_model_with_vector_input(model_path, spark):
+    from mlflow.types.schema import Array
+
+    mlflow.pyspark.ml.autolog()
     train_df = spark.createDataFrame(
         [([3., 4.], 0), ([5., 6.], 1)], schema="features array<double>, label long"
     ).select(array_to_vector("features").alias("features"), col("label"))
+
+    lor = LogisticRegression(maxIter=2)
+    with mlflow.start_run() as run:
+        lor.fit(train_df)
+
+    model_uri = f"runs:/{run.info.run_id}/model"
+
+    # check vector type is inferred correctly
+    model_info = mlflow.models.get_model_info(model_uri)
+    input_type = model_info.signature.inputs.input_dict()['features'].type
+    assert isinstance(input_type, Array) and input_type.is_sparkml_vector
+
+    assert model_info.signature.outputs.input_dict()['prediction'].type == DataType.double
+
+    model = mlflow.pyfunc.load_model(model_uri)
+
+    test_pdf = pd.DataFrame({'features': [[1., 2.], [3., 4.]]})
+    model.predict(test_pdf)  # ensure enforcing input / output schema passing
+
+
+def test_model_with_vector_input_vector_output(model_path, spark):
+    from mlflow.types.schema import Array
+
+    mlflow.pyspark.ml.autolog()
+    train_df = spark.createDataFrame(
+        [([3., 4.], 0), ([5., 6.], 1)], schema="features array<double>, label long"
+    ).select(array_to_vector("features").alias("features"), col("label"))
+
+    lor = LogisticRegression(maxIter=2)\
+        .setPredictionCol("") \
+        .setProbabilityCol("prediction")  # set probability outputs as prediction column
+    with mlflow.start_run() as run:
+        lor.fit(train_df)
+
+    model_uri = f"runs:/{run.info.run_id}/model"
+
+    # check vector type is inferred correctly
+    model_info = mlflow.models.get_model_info(model_uri)
+    input_type = model_info.signature.inputs.input_dict()['features'].type
+    assert isinstance(input_type, Array) and input_type.is_sparkml_vector
+
+    output_type = model_info.signature.outputs.input_dict()["prediction"].type
+    assert isinstance(output_type, Array) and output_type.is_sparkml_vector
+
+    model = mlflow.pyfunc.load_model(model_uri)
+
+    test_pdf = pd.DataFrame({'features': [[1., 2.], [3., 4.]]})
+    model.predict(test_pdf)  # ensure enforcing input / output schema passing

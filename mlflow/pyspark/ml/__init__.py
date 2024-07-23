@@ -764,6 +764,25 @@ def _get_columns_with_unsupported_data_type(df):
     return unsupported_columns
 
 
+def _check_or_set_model_prediction_column(spark_model, input_spark_df):
+    from pyspark.ml import PipelineModel
+
+    prediction_column = "prediction"
+    if isinstance(spark_model, PipelineModel) and spark_model.stages[-1].hasParam("outputCol"):
+        from pyspark.sql import SparkSession
+
+        spark = SparkSession.builder.getOrCreate()
+        # do a transform with an empty input DataFrame
+        # to get the schema of the transformed DataFrame
+        transformed_df = spark_model.transform(spark.createDataFrame([], input_spark_df.schema))
+        # Ensure prediction column doesn't already exist
+        if prediction_column not in transformed_df.columns:
+            # make sure predict work by default for Transformers
+            spark_model.stages[-1].setOutputCol(prediction_column)
+
+    return prediction_column
+
+
 @autologging_integration(AUTOLOGGING_INTEGRATION_NAME)
 def autolog(
     log_models=True,
@@ -1040,10 +1059,6 @@ def autolog(
                     cast_spark_df_with_vector_to_array,
                     get_feature_cols,
                 )
-                from mlflow.spark import _find_and_set_features_col_as_vector_if_needed
-
-                spark = SparkSession.builder.getOrCreate()
-
                 def _get_input_example_df():
                     feature_cols = list(get_feature_cols(input_df, spark_model))
                     limited_input_df = input_df.select(feature_cols).limit(
@@ -1052,9 +1067,8 @@ def autolog(
                     return limited_input_df
 
                 def _infer_model_signature(input_example_slice):
-                    model_output = spark_model.transform(input_example_slice).drop(
-                        *input_example_slice.columns
-                    )
+                    prediction_column = _check_or_set_model_prediction_column(spark_model, input_example_slice)
+                    model_output = spark_model.transform(input_example_slice).select(prediction_column)
                     # TODO: Remove this once we support non-scalar spark data types
                     unsupported_columns = _get_columns_with_unsupported_data_type(model_output)
                     if unsupported_columns:
