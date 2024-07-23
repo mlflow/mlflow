@@ -294,8 +294,7 @@ def is_in_cluster():
 @_use_repl_context_if_available("notebookId")
 def get_notebook_id():
     """Should only be called if is_in_databricks_notebook is true"""
-    notebook_id = _get_property_from_spark_context("spark.databricks.notebook.id")
-    if notebook_id is not None:
+    if notebook_id := _get_property_from_spark_context("spark.databricks.notebook.id"):
         return notebook_id
     if (path := acl_path_of_acl_root()) and path.startswith("/workspace"):
         return path.split("/")[-1]
