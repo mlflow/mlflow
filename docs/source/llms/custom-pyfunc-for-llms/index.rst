@@ -27,7 +27,20 @@ Explore the Tutorial
 
 .. raw:: html
 
-    <a href="notebooks/index.html" class="download-btn">View the Custom Pyfunc for LLMs Tutorial</a><br/>
+     <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="notebooks/custom-pyfunc-advanced-llm.html" >
+                    <div class="header">
+                        Serving LLMs with MLflow: Leveraging Custom PyFunc
+                    </div>
+                    <p>
+                        Learn how to use the MLflow Custom Pyfunc Model to serve Large Language Models (LLMs) in a RESTful environment.
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
 
 .. toctree::
     :maxdepth: 1

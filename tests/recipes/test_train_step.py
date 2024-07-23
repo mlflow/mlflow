@@ -26,6 +26,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RECIPE_TEMPLATE_NAME,
     MLFLOW_SOURCE_TYPE,
 )
+from mlflow.utils.os import is_windows
 
 
 # Sets up the train step output dir
@@ -361,7 +362,7 @@ def xgb_classifier():
     return xgb.XGBClassifier()
 
 
-def early_stop_fn(trial, count=0):  # pylint: disable=unused-argument
+def early_stop_fn(trial, count=0):
     return count + 1 <= 2, [count + 1]
 
 
@@ -838,7 +839,7 @@ def test_train_step_with_label_encoding(tmp_recipe_root_path: Path, tmp_recipe_e
 
 
 @pytest.mark.skipif(
-    os.name == "nt",
+    is_windows(),
     reason="Flaky on windows, sometimes fails with `(sqlite3.OperationalError) database is locked`",
 )
 def test_train_step_with_probability_calibration(

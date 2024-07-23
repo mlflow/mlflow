@@ -1,98 +1,63 @@
-import { first } from 'lodash';
+import type { Figure } from 'react-plotly.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { MetricHistoryByName, RunInfoEntity } from '../../types';
-import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import type { RunInfoEntity } from '../../types';
+import { Empty, LegacySkeleton, WarningIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { useRunsChartsTooltip } from '../runs-charts/hooks/useRunsChartsTooltip';
 import { isSystemMetricKey } from '../../utils/MetricsUtils';
-import { RunsMetricsLinePlot } from '../runs-charts/components/RunsMetricsLinePlot';
-import { RunsMetricsBarPlot } from '../runs-charts/components/RunsMetricsBarPlot';
+import { useSampledMetricHistory } from '../runs-charts/hooks/useSampledMetricHistory';
+import { useSelector } from 'react-redux';
+import { ReduxState } from '../../../redux-types';
+import { compact, isEqual } from 'lodash';
+import { RunViewMetricHistoryChart } from './RunViewMetricHistoryChart';
+import { RunViewMetricSingleValueChart } from './RunViewMetricSingleValueChart';
+import { first } from 'lodash';
+import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
+import { FormattedMessage } from 'react-intl';
+import { findChartStepsByTimestamp } from '../runs-charts/utils/findChartStepsByTimestamp';
+import { useDragAndDropElement } from '../../../common/hooks/useDragAndDropElement';
+import { RunViewMetricChartHeader } from './RunViewMetricChartHeader';
+import { useIsInViewport } from '../runs-charts/hooks/useIsInViewport';
+import { ChartRefreshManager } from './useChartRefreshManager';
+import type { UseGetRunQueryResponseRunInfo } from './hooks/useGetRunQuery';
 
 export interface RunViewMetricChartProps {
+  /**
+   * Key of the metric that this chart is displayed for.
+   */
   metricKey: string;
-  runInfo: RunInfoEntity;
-  metricsHistory: MetricHistoryByName;
-  isLoading: boolean;
+  /**
+   * Run info for the run that this chart is displayed for.
+   */
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
+  /**
+   * Key of the drag group that this chart belongs to.
+   */
+  dragGroupKey: string;
+  /**
+   * Callback to reorder the chart when swapping with the other chart.
+   */
+  onReorderWith: (draggedKey: string, targetDropKey: string) => void;
+  /**
+   * If true, the chart can be moved up in the list of charts.
+   */
+  canMoveUp: boolean;
+  /**
+   * If true, the chart can be moved down in the list of charts.
+   */
+  canMoveDown: boolean;
+  /**
+   * Callback to move the chart up in the list of charts.
+   */
+  onMoveUp: () => void;
+  /**
+   * Callback to move the chart down in the list of charts.
+   */
+  onMoveDown: () => void;
+  /**
+   * Reference to a overarching refresh manager (entity that will trigger refresh of subscribed charts)
+   */
+  chartRefreshManager: ChartRefreshManager;
 }
-
-/**
- * Chart variant displaying metric history using line plot
- */
-const RunViewMetricHistoryChart = ({
-  runInfo,
-  metricKey,
-  metricsHistory,
-}: Omit<RunViewMetricChartProps, 'isLoading'>) => {
-  const { theme } = useDesignSystemTheme();
-  const { setTooltip, resetTooltip } = useRunsChartsTooltip({ metricKey });
-
-  // Prepare a single trace for the line chart
-  const chartData = useMemo(
-    () => [
-      {
-        runInfo,
-        metricsHistory,
-        color: theme.colors.primary,
-      },
-    ],
-    [runInfo, metricsHistory, theme],
-  );
-
-  return (
-    <RunsMetricsLinePlot
-      metricKey={metricKey}
-      runsData={chartData}
-      height={300}
-      xAxisKey={isSystemMetricKey(metricKey) ? 'time' : 'step'}
-      onHover={setTooltip}
-      onUnhover={resetTooltip}
-      useDefaultHoverBox={false}
-      lineSmoothness={0}
-    />
-  );
-};
-
-/**
- * Chart variant displaying single (non-history) value using bar plot
- */
-const RunViewMetricSingleValueChart = ({
-  runInfo,
-  metricKey,
-  metricsHistory,
-}: Omit<RunViewMetricChartProps, 'isLoading'>) => {
-  const { theme } = useDesignSystemTheme();
-  const { setTooltip, resetTooltip } = useRunsChartsTooltip({ metricKey });
-
-  const firstMetricEntry = first(metricsHistory[metricKey]);
-
-  // Prepare a single trace for the line chart
-  const chartData = useMemo(
-    () =>
-      firstMetricEntry
-        ? [
-            {
-              runInfo,
-              metrics: { [metricKey]: firstMetricEntry },
-              color: theme.colors.primary,
-            },
-          ]
-        : [],
-    [runInfo, firstMetricEntry, metricKey, theme],
-  );
-
-  return (
-    <RunsMetricsBarPlot
-      metricKey={metricKey}
-      runsData={chartData}
-      height={300}
-      onHover={setTooltip}
-      onUnhover={resetTooltip}
-      useDefaultHoverBox={false}
-      displayRunNames={false}
-      displayMetricKey={false}
-      barLabelTextPosition='inside'
-    />
-  );
-};
 
 /**
  * A single chart component displayed in run view metric charts tab.
@@ -100,35 +65,117 @@ const RunViewMetricSingleValueChart = ({
 export const RunViewMetricChart = ({
   metricKey,
   runInfo,
-  metricsHistory,
-  isLoading,
+  dragGroupKey,
+  onReorderWith,
+  canMoveUp,
+  canMoveDown,
+  onMoveUp,
+  onMoveDown,
+  chartRefreshManager,
 }: RunViewMetricChartProps) => {
-  const loaded = metricsHistory?.[metricKey] && !isLoading;
-  const isSingleMetricEntry = loaded && metricsHistory?.[metricKey].length === 1;
+  const { dragHandleRef, dragPreviewRef, dropTargetRef, isDragging, isOver } = useDragAndDropElement({
+    dragGroupKey,
+    dragKey: metricKey,
+    onDrop: onReorderWith,
+  });
 
-  const elementRef = useRef<HTMLDivElement>(null);
+  const runUuidsArray = useMemo(() => compact([runInfo.runUuid]), [runInfo]);
+  const metricKeys = useMemo(() => [metricKey], [metricKey]);
+  const [xRange, setRange] = useState<[number | string, number | string] | undefined>(undefined);
+  const { theme } = useDesignSystemTheme();
 
-  const [isInViewport, setIsInViewport] = useState(false);
+  const [stepRange, setStepRange] = useState<[number, number] | undefined>(undefined);
 
-  // Let's use IntersectionObserver to determine if the chart is displayed within the viewport
-  useEffect(() => {
-    // If IntersectionObserver is not available, assume that the chart is visible
-    if (!elementRef.current || !window.IntersectionObserver) {
-      setIsInViewport(true);
-      return () => {};
-    }
+  const fullMetricHistoryForRun = useSelector(
+    (state: ReduxState) => state.entities.sampledMetricsByRunUuid[runInfo.runUuid ?? '']?.[metricKey],
+  );
 
-    // Set the state flag only if chart is in viewport
-    const intersectionObserver = new IntersectionObserver(([entry]) => {
-      setIsInViewport(entry.isIntersecting);
+  const { elementRef, isInViewport } = useIsInViewport();
+
+  const { isLoading, isRefreshing, resultsByRunUuid, refresh } = useSampledMetricHistory({
+    runUuids: runUuidsArray,
+    metricKeys,
+    enabled: isInViewport,
+    range: stepRange,
+    maxResults: 320,
+  });
+
+  const { metricsHistory, error } = resultsByRunUuid[runInfo.runUuid ?? '']?.[metricKey] || {};
+
+  const isSingleMetricEntry = !isLoading && metricsHistory?.length === 1;
+
+  const updateStepRange = (newStepRange: [number, number] | undefined) =>
+    setStepRange((current) => {
+      if (isEqual(current, newStepRange)) {
+        return current;
+      }
+      return newStepRange;
     });
 
-    intersectionObserver.observe(elementRef.current);
-    return () => intersectionObserver.disconnect();
-  }, []);
+  const { destroyTooltip } = useRunsChartsTooltip({ metricKey });
+
+  useEffect(() => {
+    if (isLoading) {
+      destroyTooltip();
+    }
+  }, [destroyTooltip, isLoading]);
+
+  // Subscribe to the overarching refresh manager if chart is in viewport
+  useEffect(() => {
+    if (isInViewport) {
+      return chartRefreshManager.registerRefreshCallback(() => {
+        refresh();
+      });
+    }
+    return () => {};
+  }, [chartRefreshManager, refresh, isInViewport]);
+
+  const yRange = useRef<[number, number] | undefined>(undefined);
+
+  const chartLayoutUpdated = ({ layout }: Readonly<Figure>) => {
+    // Remove saved range if chart is back to default viewport
+    if (layout.xaxis?.autorange === true) {
+      setRange(undefined);
+      updateStepRange(undefined);
+    }
+
+    const newYRange = layout.yaxis?.range;
+    yRange.current = newYRange ? [...(newYRange as [number, number])] : undefined;
+
+    // If the custom range is used, memoize it
+    if (layout.xaxis?.autorange === false && layout.xaxis?.range) {
+      setRange([...(layout.xaxis.range as [number, number])]);
+      // If we're dealing with time-based chart axis, find corresponding steps based on timestamp
+      if (isSystemMetricKey(metricKey)) {
+        updateStepRange(findChartStepsByTimestamp(fullMetricHistoryForRun, layout.xaxis.range as [number, number]));
+      } else {
+        // If we're dealing with step-based chart axis, use those steps but incremented/decremented
+        const lowerBound = Math.floor(layout.xaxis?.range[0]);
+        const upperBound = Math.ceil(layout.xaxis?.range[1]);
+        updateStepRange(lowerBound && upperBound ? [lowerBound - 1, upperBound + 1] : undefined);
+      }
+    }
+  };
+  const { resetTooltip } = useRunsChartsTooltip({ metricKey });
 
   const getChartBody = () => {
-    if (!loaded) {
+    if (error) {
+      return (
+        <div css={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Empty
+            image={<WarningIcon />}
+            description={error instanceof ErrorWrapper ? error.getMessageField() : error?.message?.toString()}
+            title={
+              <FormattedMessage
+                defaultMessage="Error while fetching chart data"
+                description="Run page > Charts tab > Metric chart box > fetch error"
+              />
+            }
+          />
+        </div>
+      );
+    }
+    if (isLoading || !metricsHistory) {
       return <LegacySkeleton />;
     }
     if (!isInViewport) {
@@ -136,11 +183,7 @@ export const RunViewMetricChart = ({
     }
     if (isSingleMetricEntry) {
       return (
-        <RunViewMetricSingleValueChart
-          metricKey={metricKey}
-          metricsHistory={metricsHistory}
-          runInfo={runInfo}
-        />
+        <RunViewMetricSingleValueChart metricKey={metricKey} metricEntry={first(metricsHistory)} runInfo={runInfo} />
       );
     }
     return (
@@ -148,13 +191,68 @@ export const RunViewMetricChart = ({
         metricKey={metricKey}
         metricsHistory={metricsHistory}
         runInfo={runInfo}
+        onUpdate={chartLayoutUpdated}
+        // X-axis is stateful since it's used for sampling recalculation. For Y-axis,
+        // the immediate value is sufficient. It will not kick off rerender, but in those
+        // cases the plotly will use last known range.
+        xRange={xRange}
+        yRange={yRange.current}
       />
     );
   };
 
   return (
-    <div css={{ height: 300 }} ref={elementRef}>
-      {getChartBody()}
+    <div
+      role="figure"
+      ref={(element) => {
+        // Use this element for both drag preview and drop target
+        dragPreviewRef?.(element);
+        dropTargetRef?.(element);
+      }}
+      css={{
+        border: `1px solid ${theme.colors.borderDecorative}`,
+        borderRadius: theme.general.borderRadiusBase,
+        padding: theme.spacing.md,
+        background: theme.colors.backgroundPrimary,
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      <div ref={elementRef} onMouseLeave={resetTooltip}>
+        <RunViewMetricChartHeader
+          canMoveDown={canMoveDown}
+          canMoveUp={canMoveUp}
+          dragHandleRef={dragHandleRef}
+          metricKey={metricKey}
+          onMoveDown={onMoveDown}
+          onMoveUp={onMoveUp}
+          onRefresh={refresh}
+          isRefreshing={isRefreshing}
+        />
+        <div css={{ height: 300 }}>{getChartBody()}</div>
+      </div>
+      {isDragging && (
+        // Visual overlay for dragged source element
+        <div
+          css={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: theme.isDarkMode ? theme.colors.blue800 : theme.colors.blue100,
+          }}
+        />
+      )}
+      {isOver && (
+        // Visual overlay for target drop element
+        <div
+          css={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: theme.isDarkMode ? theme.colors.blue800 : theme.colors.blue100,
+            border: `2px dashed ${theme.colors.blue400}`,
+            opacity: 0.75,
+          }}
+        />
+      )}
     </div>
   );
 };

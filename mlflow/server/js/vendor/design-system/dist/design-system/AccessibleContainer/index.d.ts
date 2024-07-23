@@ -1,4 +1,3 @@
-/// <reference types="react" />
 export interface AccessibleContainerProps {
     children: React.ReactNode;
     label?: React.ReactNode;

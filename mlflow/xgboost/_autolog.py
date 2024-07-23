@@ -42,11 +42,10 @@ if IS_TRAINING_CALLBACK_SUPPORTED:
         metaclass=ExceptionSafeAbstractClass,
     ):
         def __init__(self, metrics_logger, eval_results):
-            # pylint: disable=super-init-not-called
             self.metrics_logger = metrics_logger
             self.eval_results = eval_results
 
-        def after_iteration(self, model, epoch, evals_log):  # pylint: disable=unused-argument
+        def after_iteration(self, model, epoch, evals_log):
             """
             Run after each iteration. Return True when training should stop.
             """

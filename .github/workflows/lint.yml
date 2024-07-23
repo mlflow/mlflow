@@ -32,22 +32,24 @@ jobs:
     timeout-minutes: 30
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
         id: setup-python
       - name: Add problem matchers
         run: |
-          echo "::add-matcher::.github/workflows/matchers/pylint.json"
-          echo "::add-matcher::.github/workflows/matchers/black.json"
+          echo "::add-matcher::.github/workflows/matchers/clint.json"
+          echo "::add-matcher::.github/workflows/matchers/format.json"
           echo "::add-matcher::.github/workflows/matchers/ruff.json"
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
           python -m venv .venv
           source .venv/bin/activate
-          source ./dev/install-common-deps.sh --ml
           pip install -r requirements/lint-requirements.txt
+          # TODO: Use a precompiled binary once it's available: https://github.com/tamasfe/taplo/issues/542
+          cargo install taplo-cli@0.9.0 --locked
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Install pre-commit hooks
         run: |
@@ -57,6 +59,7 @@ jobs:
         id: pre-commit
         env:
           IS_MAINTAINER: ${{ contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association )}}
+          NO_FIX: "true"
         run: |
           source .venv/bin/activate
           pre-commit run --all-files

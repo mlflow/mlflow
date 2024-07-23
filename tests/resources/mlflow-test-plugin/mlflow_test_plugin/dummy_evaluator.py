@@ -27,9 +27,7 @@ class Array2DEvaluationArtifact(EvaluationArtifact):
         return pdf.to_numpy()
 
 
-# pylint: disable=attribute-defined-outside-init
 class DummyEvaluator(ModelEvaluator):
-    # pylint: disable=unused-argument
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         return model_type in ["classifier", "regressor"]
 
@@ -113,7 +111,6 @@ class DummyEvaluator(ModelEvaluator):
 
         return EvaluationResult(metrics=metrics, artifacts=artifacts)
 
-    # pylint: disable=unused-argument
     def evaluate(
         self, *, model, model_type, dataset, run_id, evaluator_config, baseline_model=None, **kwargs
     ):

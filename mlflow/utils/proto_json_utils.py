@@ -213,8 +213,8 @@ class MlflowFailedTypeConversion(MlflowInvalidInputException):
 def cast_df_types_according_to_schema(pdf, schema):
     import numpy as np
 
-    from mlflow.models.utils import _enforce_array, _enforce_object
-    from mlflow.types.schema import Array, DataType, Object
+    from mlflow.models.utils import _enforce_array, _enforce_map, _enforce_object
+    from mlflow.types.schema import Array, DataType, Map, Object
 
     actual_cols = set(pdf.columns)
     if schema.has_input_names():
@@ -250,6 +250,8 @@ def cast_df_types_according_to_schema(pdf, schema):
                     pdf[col_name] = pdf[col_name].map(lambda x: _enforce_array(x, col_type_spec))
                 elif isinstance(col_type_spec, Object):
                     pdf[col_name] = pdf[col_name].map(lambda x: _enforce_object(x, col_type_spec))
+                elif isinstance(col_type_spec, Map):
+                    pdf[col_name] = pdf[col_name].map(lambda x: _enforce_map(x, col_type_spec))
                 else:
                     pdf[col_name] = pdf[col_name].astype(col_type, copy=False)
             except Exception as ex:
@@ -379,8 +381,8 @@ def convert_data_type(data, spec):
     """
     import numpy as np
 
-    from mlflow.models.utils import _enforce_array, _enforce_object
-    from mlflow.types.schema import Array, ColSpec, DataType, Object, TensorSpec
+    from mlflow.models.utils import _enforce_array, _enforce_map, _enforce_object
+    from mlflow.types.schema import Array, ColSpec, DataType, Map, Object, TensorSpec
 
     try:
         if spec is None:
@@ -399,6 +401,8 @@ def convert_data_type(data, spec):
                 return np.array(_enforce_array(data, spec.type))
             elif isinstance(spec.type, Object):
                 return _enforce_object(data, spec.type)
+            elif isinstance(spec.type, Map):
+                return _enforce_map(data, spec.type)
     except MlflowException as e:
         raise MlflowInvalidInputException(e.message)
     except Exception as ex:
@@ -410,6 +414,8 @@ def convert_data_type(data, spec):
 
 
 def _cast_schema_type(input_data, schema=None):
+    import numpy as np
+
     input_data = deepcopy(input_data)
     # spec_name -> spec mapping
     types_dict = schema.input_dict() if schema and schema.has_input_names() else {}
@@ -421,12 +427,15 @@ def _cast_schema_type(input_data, schema=None):
         ):
             # for data with a single column (not List[Dict]), match input with column
             input_data = {next(iter(types_dict)): input_data}
-        # Un-named schema should only contain a single column
-        elif not schema.has_input_names() and not isinstance(input_data, list):
+        # Un-named schema should only contain a single column or a single value
+        elif not schema.has_input_names() and not (
+            isinstance(input_data, list) or np.isscalar(input_data)
+        ):
             raise MlflowInvalidInputException(
-                "Failed to parse input data. This model contains an un-named tensor-based"
-                " model signature which expects a single n-dimensional array as input,"
-                f" however, an input of type {type(input_data)} was found."
+                "Failed to parse input data. This model contains an un-named "
+                " model signature which expects a single n-dimensional array or "
+                "a single value as input, however, an input of type "
+                f"{type(input_data)} was found."
             )
     if isinstance(input_data, dict):
         # each key corresponds to a column, values should be
@@ -452,10 +461,8 @@ def _cast_schema_type(input_data, schema=None):
             input_data = convert_data_type(input_data, spec)
         except Exception as e:
             raise MlflowInvalidInputException(
-                "Failed to parse input data. This model contains a tensor-based model "
-                "signature with input names, which suggests a dictionary / a list of "
-                "dictionaries input mapping input name to tensor or a pure list, but "
-                f"an input of `{input_data}` was found."
+                f"Failed to convert data `{input_data}` to type `{spec}` defined "
+                "in the model signature."
             ) from e
     return input_data
 
@@ -517,7 +524,6 @@ def parse_tf_serving_input(inp_dict, schema=None):
         schema: MLflow schema used when parsing the data.
     """
 
-    # pylint: disable=broad-except
     if "signature_name" in inp_dict:
         raise MlflowInvalidInputException('"signature_name" parameter is currently not supported')
 
@@ -546,7 +552,7 @@ def parse_tf_serving_input(inp_dict, schema=None):
     except Exception as e:
         # Add error into message to provide details for serving usage
         raise MlflowInvalidInputException(
-            "Ensure that the input is a valid JSON-formatted string.\n" f"Error: {e!r}"
+            f"Ensure that the input is a valid JSON-formatted string.\nError: {e!r}"
         ) from e
 
 
@@ -580,9 +586,6 @@ def dump_input_data(data, inputs_key="inputs", params: Optional[Dict[str, Any]] 
         data: Input data.
         inputs_key: Key to represent data in the request payload.
         params: Additional parameters to pass to the model for inference.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
     """
     import numpy as np
     import pandas as pd

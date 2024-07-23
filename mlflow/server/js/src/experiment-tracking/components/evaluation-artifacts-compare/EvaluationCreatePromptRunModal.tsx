@@ -13,31 +13,22 @@ import {
   Modal,
   PlusIcon,
   Spinner,
-  Tooltip,
+  LegacyTooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { sortBy } from 'lodash';
+import { sortBy, compact } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useDispatch, useSelector } from 'react-redux';
 import Utils from '../../../common/utils/Utils';
 import { ThunkDispatch } from '../../../redux-types';
 import { createPromptLabRunApi } from '../../actions';
-import {
-  queryModelGatewayRouteApi,
-  searchModelGatewayRoutesApi,
-} from '../../actions/ModelGatewayActions';
 import { ModelGatewayReduxState } from '../../reducers/ModelGatewayReducer';
-import {
-  GatewayErrorWrapper,
-  ModelGatewayResponseType,
-  ModelGatewayRouteType,
-  ModelGatewayService,
-} from '../../sdk/ModelGatewayService';
+import { ModelGatewayResponseType, ModelGatewayService } from '../../sdk/ModelGatewayService';
+import { ModelGatewayRouteTask } from '../../sdk/MlflowEnums';
 import { generateRandomRunName, getDuplicatedRunName } from '../../utils/RunNameUtils';
 import { useExperimentIds } from '../experiment-page/hooks/useExperimentIds';
-import { useFetchExperimentRuns } from '../experiment-page/hooks/useFetchExperimentRuns';
 import {
   compilePromptInputText,
   extractEvaluationPrerequisitesForRun,
@@ -51,6 +42,9 @@ import { EvaluationCreateRunPromptTemplateErrors } from './components/Evaluation
 import type { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { EvaluationCreatePromptRunModalExamples } from './EvaluationCreatePromptRunModalExamples';
 import { EvaluationCreatePromptRunOutput } from './components/EvaluationCreatePromptRunOutput';
+import { useExperimentPageViewMode } from '../experiment-page/hooks/useExperimentPageViewMode';
+import { searchAllPromptLabAvailableEndpoints } from '../../actions/PromptEngineeringActions';
+import { getPromptEngineeringErrorMessage } from './utils/PromptEngineeringErrorUtils';
 
 const { TextArea } = Input;
 type Props = {
@@ -58,6 +52,7 @@ type Props = {
   closeModal: () => void;
   runBeingDuplicated: RunRowType | null;
   visibleRuns?: RunRowType[];
+  refreshRuns: (() => Promise<never[]>) | (() => Promise<any> | null) | (() => void);
 };
 
 export const EvaluationCreatePromptRunModal = ({
@@ -65,10 +60,12 @@ export const EvaluationCreatePromptRunModal = ({
   closeModal,
   runBeingDuplicated,
   visibleRuns = [],
+  refreshRuns,
 }: Props): JSX.Element => {
   const [experimentId] = useExperimentIds();
   const { theme } = useDesignSystemTheme();
   const { parameters, updateParameter } = usePromptEvaluationParameters();
+  const [, setViewMode] = useExperimentPageViewMode();
 
   const [selectedModel, updateSelectedModel] = useState('');
   const [newRunName, setNewRunName] = useState('');
@@ -76,9 +73,7 @@ export const EvaluationCreatePromptRunModal = ({
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [lastEvaluationError, setLastEvaluationError] = useState<string | null>(null);
   const [evaluationOutput, setEvaluationOutput] = useState('');
-  const [evaluationMetadata, setEvaluationMetadata] = useState<
-    Partial<ModelGatewayResponseType['usage']>
-  >({});
+  const [evaluationMetadata, setEvaluationMetadata] = useState<Partial<ModelGatewayResponseType['metadata']>>({});
   const [outputDirty, setOutputDirty] = useState(false);
   const [isViewExamplesModalOpen, setViewExamplesModalOpen] = useState(false);
   const cancelTokenRef = useRef<string | null>(null);
@@ -86,7 +81,7 @@ export const EvaluationCreatePromptRunModal = ({
   const dispatch = useDispatch<ThunkDispatch>();
 
   useEffect(() => {
-    dispatch(searchModelGatewayRoutesApi()).catch((e) => {
+    dispatch(searchAllPromptLabAvailableEndpoints()).catch((e) => {
       Utils.logErrorAndNotifyUser(e?.message || e);
     });
   }, [dispatch]);
@@ -102,12 +97,8 @@ export const EvaluationCreatePromptRunModal = ({
     clearInputVariableValues,
   } = usePromptEvaluationInputValues();
 
-  const {
-    handleAddVariableToTemplate,
-    savePromptTemplateInputRef,
-    promptTemplate,
-    updatePromptTemplate,
-  } = usePromptEvaluationPromptTemplateValue();
+  const { handleAddVariableToTemplate, savePromptTemplateInputRef, promptTemplate, updatePromptTemplate } =
+    usePromptEvaluationPromptTemplateValue();
 
   useEffect(() => {
     if (isOpen && !runBeingDuplicated) {
@@ -147,42 +138,29 @@ export const EvaluationCreatePromptRunModal = ({
       setOutputDirty(false);
       const duplicatedRunName = getDuplicatedRunName(
         runBeingDuplicated.runName,
-        visibleRuns.map(({ runName }) => runName),
+        compact(visibleRuns.map(({ runName }) => runName)),
       );
       setNewRunName(duplicatedRunName);
       clearInputVariableValues();
     }
-  }, [
-    runBeingDuplicated,
-    clearInputVariableValues,
-    updateParameter,
-    updatePromptTemplate,
-    visibleRuns,
-  ]);
+  }, [runBeingDuplicated, clearInputVariableValues, updateParameter, updatePromptTemplate, visibleRuns]);
 
-  // Select model gateway routes from the state
-  const modelRoutes = useSelector(
+  const modelRoutesUnified = useSelector(
     ({ modelGateway }: { modelGateway: ModelGatewayReduxState }) => modelGateway.modelGatewayRoutes,
   );
 
-  // Limit model routes to "COMPLETIONS" and "CHAT" types only and sort them alphabetically
-  const supportedModelRouteList = useMemo(
-    () =>
-      sortBy(
-        Object.values(modelRoutes).filter((modelRoute) =>
-          [ModelGatewayRouteType.LLM_V1_COMPLETIONS, ModelGatewayRouteType.LLM_V1_CHAT].includes(
-            modelRoute.endpoint_type,
-          ),
-        ),
-        'name',
-      ),
-    [modelRoutes],
+  // In the next version, routes are already filtered
+  const supportedModelRouteListUnified = useMemo(
+    () => sortBy(Object.values(modelRoutesUnified), 'name'),
+    // .filter(
+    //   (x) => x.name.includes('ann-chat') || x.name.includes('bedrock-ai21labs'),
+    // )
+    [modelRoutesUnified],
   );
 
   // Determines if model gateway routes are being loaded
   const modelRoutesLoading = useSelector(
-    ({ modelGateway }: { modelGateway: ModelGatewayReduxState }) =>
-      modelGateway.modelGatewayRoutesLoading,
+    ({ modelGateway }: { modelGateway: ModelGatewayReduxState }) => modelGateway.modelGatewayRoutesLoading.loading,
   );
   useEffect(() => {
     if (evaluationOutput) {
@@ -191,18 +169,19 @@ export const EvaluationCreatePromptRunModal = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputVariableValues, promptTemplate, parameters, selectedModel]);
 
-  const { refreshRuns, updateSearchFacets } = useFetchExperimentRuns();
-
   const onHandleSubmit = () => {
     setIsCreatingRun(true);
+    const modelRouteName = modelRoutesUnified[selectedModel]?.name;
+    const modelParameters = { ...parameters, route_type: modelRoutesUnified[selectedModel]?.type };
+
     const modelInput = compilePromptInputText(promptTemplate, inputVariableValues);
     dispatch(
       createPromptLabRunApi({
         experimentId,
         promptTemplate,
         modelInput,
-        modelParameters: parameters,
-        modelRouteName: selectedModel,
+        modelParameters,
+        modelRouteName,
         promptParameters: inputVariableValues,
         modelOutput: evaluationOutput,
         runName: newRunName,
@@ -213,14 +192,7 @@ export const EvaluationCreatePromptRunModal = ({
         refreshRuns();
         closeModal();
         setIsCreatingRun(false);
-
-        // If the view if not in the "evaluation" mode already, open it
-        updateSearchFacets((currentState) => {
-          if (currentState.compareRunsMode !== 'ARTIFACT') {
-            return { ...currentState, compareRunsMode: 'ARTIFACT' };
-          }
-          return currentState;
-        });
+        setViewMode('ARTIFACT');
       })
       .catch((e) => {
         Utils.logErrorAndNotifyUser(e?.message || e);
@@ -230,7 +202,7 @@ export const EvaluationCreatePromptRunModal = ({
   };
 
   const handleEvaluate = useCallback(() => {
-    const modelRoute = modelRoutes[selectedModel];
+    const modelRoute = modelRoutesUnified[selectedModel];
     const cancelToken = Math.random().toString(36);
     cancelTokenRef.current = cancelToken;
     if (!modelRoute) {
@@ -240,21 +212,20 @@ export const EvaluationCreatePromptRunModal = ({
     setLastEvaluationError(null);
     setIsEvaluating(true);
     const inputText = compilePromptInputText(promptTemplate, inputVariableValues);
-    dispatch(
-      queryModelGatewayRouteApi(modelRoute, {
-        inputText,
-        parameters,
-      }),
-    )
-      .then(({ value, action }) => {
+    const startTime = performance.now();
+    ModelGatewayService.queryModelGatewayRoute(modelRoute, {
+      inputText,
+      parameters,
+    })
+      .then((value) => {
         if (cancelTokenRef.current === cancelToken) {
-          const { text, usage } = ModelGatewayService.parseEvaluationResponse(value);
+          const { text, metadata } = value;
 
           // TODO: Consider calculating actual model call latency on the backend side
-          const latency = performance.now() - action.meta.startTime;
+          const latency = performance.now() - startTime;
 
           setEvaluationOutput(text);
-          const metadataWithEvaluationTime = { ...usage, latency };
+          const metadataWithEvaluationTime = { ...metadata, latency };
 
           // Prefix the metadata keys with "MLFLOW_"
           const prefixedMetadata = Object.entries(metadataWithEvaluationTime).reduce(
@@ -274,12 +245,12 @@ export const EvaluationCreatePromptRunModal = ({
           }
         }
       })
-      .catch((e: GatewayErrorWrapper) => {
-        const errorMessage = e.getGatewayErrorMessage() || e.getUserVisibleError();
+      .catch((e) => {
+        const errorMessage = getPromptEngineeringErrorMessage(e);
         const wrappedMessage = intl.formatMessage(
           {
             defaultMessage: 'MLflow deployment returned the following error: "{errorMessage}"',
-            description: 'Experiment page > new run modal > MLflow deployment error message',
+            description: 'Experiment page > MLflow deployment error message',
           },
           {
             errorMessage,
@@ -293,7 +264,7 @@ export const EvaluationCreatePromptRunModal = ({
           cancelTokenRef.current = null;
         }
       });
-  }, [dispatch, inputVariableValues, modelRoutes, parameters, promptTemplate, selectedModel, intl]);
+  }, [inputVariableValues, modelRoutesUnified, parameters, promptTemplate, selectedModel, intl]);
 
   // create a handleCancel function to terminate the evaluation if it is in progress
   const handleCancel = useCallback(() => {
@@ -304,12 +275,12 @@ export const EvaluationCreatePromptRunModal = ({
   }, [setIsEvaluating]);
 
   const selectModelLabel = intl.formatMessage({
-    defaultMessage: 'Model',
-    description: 'Experiment page > new run modal > AI gateway selector label',
+    defaultMessage: 'Served LLM model',
+    description: 'Experiment page > new run modal > served LLM model endpoint label',
   });
   const selectModelPlaceholder = intl.formatMessage({
-    defaultMessage: 'Select endpoint',
-    description: 'Experiment page > new run modal > AI gateway selector placeholder',
+    defaultMessage: 'Select LLM model endpoint',
+    description: 'Experiment page > new run modal > served LLM model endpoint placeholder',
   });
 
   const promptTemplateProvided = promptTemplate.trim().length > 0;
@@ -342,15 +313,14 @@ export const EvaluationCreatePromptRunModal = ({
   const createRunButtonTooltip = useMemo(() => {
     if (!selectedModel) {
       return intl.formatMessage({
-        defaultMessage: 'You need to select an endpoint from the MLflow deployment  dropdown first',
-        description: 'Experiment page > new run modal > invalid state - no AI gateway selected',
+        defaultMessage: 'You need to select a served model endpoint using dropdown first',
+        description: 'Experiment page > new run modal > invalid state - no model endpoint selected',
       });
     }
     if (!promptTemplateProvided) {
       return intl.formatMessage({
         defaultMessage: 'You need to provide a prompt template',
-        description:
-          'Experiment page > new run modal > invalid state - no prompt template provided',
+        description: 'Experiment page > new run modal > invalid state - no prompt template provided',
       });
     }
     if (!allInputValuesProvided) {
@@ -367,8 +337,7 @@ export const EvaluationCreatePromptRunModal = ({
     }
     if (outputDirty) {
       return intl.formatMessage({
-        defaultMessage:
-          'Input data or prompt template have changed since last evaluation of the output',
+        defaultMessage: 'Input data or prompt template have changed since last evaluation of the output',
         description: 'Experiment page > new run modal > dirty output (out of sync with new data)',
       });
     }
@@ -400,15 +369,14 @@ export const EvaluationCreatePromptRunModal = ({
   const evaluateButtonTooltip = useMemo(() => {
     if (!selectedModel) {
       return intl.formatMessage({
-        defaultMessage: 'You need to select an endpoint from the MLflow deployment dropdown first',
-        description: 'Experiment page > new run modal > invalid state - no AI gateway selected',
+        defaultMessage: 'You need to select a served model endpoint using dropdown first',
+        description: 'Experiment page > new run modal > invalid state - no model endpoint selected',
       });
     }
     if (!promptTemplateProvided) {
       return intl.formatMessage({
         defaultMessage: 'You need to provide a prompt template',
-        description:
-          'Experiment page > new run modal > invalid state - no prompt template provided',
+        description: 'Experiment page > new run modal > invalid state - no prompt template provided',
       });
     }
     if (!allInputValuesProvided) {
@@ -432,49 +400,71 @@ export const EvaluationCreatePromptRunModal = ({
     );
   }
 
+  const formatVisibleRouteName = (selectedRouteName: string) => {
+    if (selectedRouteName.includes(':')) {
+      return selectedRouteName.split(':')[1];
+    }
+    return selectedRouteName;
+  };
+
+  const getRouteOptionList = () => {
+    return supportedModelRouteListUnified.map((modelRoute) => (
+      <DialogComboboxOptionListSelectItem
+        value={modelRoute.key}
+        key={modelRoute.key}
+        onChange={(value) => {
+          updateSelectedModel(value);
+        }}
+        checked={selectedModel === modelRoute.key}
+      >
+        {modelRoute.name}
+        {modelRoute.mlflowDeployment && (
+          <DialogComboboxHintRow>{modelRoute.mlflowDeployment.model.name}</DialogComboboxHintRow>
+        )}
+      </DialogComboboxOptionListSelectItem>
+    ));
+  };
+
   return (
     <Modal
-      verticalSizing='maxed_out'
+      verticalSizing="maxed_out"
       visible={isOpen}
       onCancel={closeModal}
       onOk={closeModal}
       footer={
         <div css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end' }}>
-          <Button onClick={closeModal}>
+          <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_589"
+            onClick={closeModal}
+          >
             <FormattedMessage
-              defaultMessage='Cancel'
-              description='Experiment page > new run modal > cancel button label'
+              defaultMessage="Cancel"
+              description="Experiment page > new run modal > cancel button label"
             />
           </Button>
-          <Tooltip title={createRunButtonTooltip}>
+          <LegacyTooltip title={createRunButtonTooltip}>
             <Button
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_596"
               onClick={onHandleSubmit}
-              data-testid='button-create-run'
-              type='primary'
+              data-testid="button-create-run"
+              type="primary"
               disabled={!createRunButtonEnabled}
             >
               <FormattedMessage
-                defaultMessage='Create run'
+                defaultMessage="Create run"
                 description='Experiment page > new run modal > "Create run" confirm button label'
               />
             </Button>
-          </Tooltip>
+          </LegacyTooltip>
         </div>
       }
       title={
         <div>
-          <Typography.Title
-            level={2}
-            css={{ marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs }}
-          >
-            <FormattedMessage
-              defaultMessage='New run'
-              description='Experiment page > new run modal > modal title'
-            />
+          <Typography.Title level={2} css={{ marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs }}>
+            <FormattedMessage defaultMessage="New run" description="Experiment page > new run modal > modal title" />
           </Typography.Title>
           <Typography.Hint css={{ marginTop: 0, fontWeight: 'normal' }}>
-            Create a new run using a large-language model by giving it a prompt template and model
-            parameters
+            Create a new run using a large-language model by giving it a prompt template and model parameters
           </Typography.Hint>
         </div>
       }
@@ -488,17 +478,17 @@ export const EvaluationCreatePromptRunModal = ({
         }}
       >
         <div>
-          <FormUI.Label htmlFor='selected_model' css={{ marginBottom: theme.spacing.sm }}>
+          <FormUI.Label htmlFor="selected_model" css={{ marginBottom: theme.spacing.sm }}>
             {selectModelLabel}
           </FormUI.Label>
           <div css={{ marginBottom: theme.spacing.lg, display: 'flex', alignItems: 'center' }}>
             <DialogCombobox
               label={selectModelLabel}
               modal={false}
-              value={selectedModel ? [selectedModel] : undefined}
+              value={selectedModel ? [formatVisibleRouteName(selectedModel)] : undefined}
             >
               <DialogComboboxTrigger
-                id='selected_model'
+                id="selected_model"
                 css={{ width: '100%' }}
                 allowClear={false}
                 placeholder={selectModelPlaceholder}
@@ -507,71 +497,35 @@ export const EvaluationCreatePromptRunModal = ({
               <DialogComboboxContent loading={modelRoutesLoading} maxHeight={400} matchTriggerWidth>
                 {!modelRoutesLoading && (
                   <DialogComboboxOptionList>
-                    <DialogComboboxOptionListSearch autoFocus>
-                      {supportedModelRouteList.map((modelRoute) => (
-                        <DialogComboboxOptionListSelectItem
-                          value={modelRoute.name}
-                          key={modelRoute.name}
-                          onChange={(value) => {
-                            updateSelectedModel(value);
-                          }}
-                          checked={selectedModel === modelRoute.name}
-                        >
-                          {modelRoute.name}
-                          <DialogComboboxHintRow>{modelRoute.model.name}</DialogComboboxHintRow>
-                        </DialogComboboxOptionListSelectItem>
-                      ))}
-                    </DialogComboboxOptionListSearch>
+                    <DialogComboboxOptionListSearch autoFocus>{getRouteOptionList()}</DialogComboboxOptionListSearch>
                   </DialogComboboxOptionList>
                 )}
               </DialogComboboxContent>
             </DialogCombobox>
-            <Tooltip
-              title={
-                <FormattedMessage
-                  defaultMessage={
-                    'These endpoints come from the MLflow deployment. Check out the MLflow deployment documentation to get started'
-                  }
-                  description={'Information about MLflow deployment endpoints'}
-                />
-              }
-              placement='right'
-            >
-              <InfoIcon
-                css={{
-                  marginLeft: theme.spacing.sm,
-                  color: theme.colors.textSecondary,
-                }}
-              />
-            </Tooltip>
           </div>
           {selectedModel && (
-            <EvaluationCreatePromptParameters
-              parameters={parameters}
-              updateParameter={updateParameter}
-            />
+            <EvaluationCreatePromptParameters parameters={parameters} updateParameter={updateParameter} />
           )}
           <div css={styles.formItem}>
             <>
-              <FormUI.Label htmlFor={'new_run_name'}>
+              <FormUI.Label htmlFor="new_run_name">
                 <FormattedMessage
-                  defaultMessage='New run name'
-                  description='Experiment page > new run modal > run name input label'
+                  defaultMessage="New run name"
+                  description="Experiment page > new run modal > run name input label"
                 />
                 {!newRunName.trim() && (
                   <FormUI.Message
-                    type='error'
+                    type="error"
                     message={intl.formatMessage({
                       defaultMessage: 'Please provide run name',
-                      description:
-                        'Experiment page > new run modal > invalid state - no run name provided',
+                      description: 'Experiment page > new run modal > invalid state - no run name provided',
                     })}
                   />
                 )}
               </FormUI.Label>
               <Input
-                id='new_run_name'
-                data-testid='run-name-input'
+                id="new_run_name"
+                data-testid="run-name-input"
                 required
                 value={newRunName}
                 onChange={(e) => setNewRunName(e.target.value)}
@@ -583,35 +537,36 @@ export const EvaluationCreatePromptRunModal = ({
           <div css={styles.formItem}>
             <>
               <div css={{ display: 'flex', justifyContent: 'space-between' }}>
-                <FormUI.Label htmlFor={'prompt_template'}>
+                <FormUI.Label htmlFor="prompt_template">
                   <FormattedMessage
-                    defaultMessage='Prompt Template'
-                    description='Experiment page > new run modal > prompt template input label'
+                    defaultMessage="Prompt Template"
+                    description="Experiment page > new run modal > prompt template input label"
                   />
                 </FormUI.Label>
                 <Button
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_695"
                   onClick={() => setViewExamplesModalOpen(true)}
                   style={{ marginLeft: 'auto' }}
-                  size='small'
+                  size="small"
                 >
                   <FormattedMessage
-                    defaultMessage='View Examples'
-                    description='Experiment page > new run modal > prompt examples button'
+                    defaultMessage="View Examples"
+                    description="Experiment page > new run modal > prompt examples button"
                   />
                 </Button>
               </div>
               <FormUI.Hint>
                 <FormattedMessage
                   defaultMessage={`Give instructions to the model. Use '{{ }}' or the "Add new variable" button to add variables to your prompt.`}
-                  description='Experiment page > new run modal > prompt template input hint'
+                  description="Experiment page > new run modal > prompt template input hint"
                 />
               </FormUI.Hint>
             </>
 
             <TextArea
-              id='prompt_template'
+              id="prompt_template"
               autoSize={{ minRows: 3 }}
-              data-testid='prompt-template-input'
+              data-testid="prompt-template-input"
               value={promptTemplate}
               onChange={(e) => updatePromptTemplate(e.target.value)}
               ref={savePromptTemplateInputRef}
@@ -627,18 +582,20 @@ export const EvaluationCreatePromptRunModal = ({
                 <TextArea
                   id={inputVariable}
                   autoSize
-                  value={
-                    inputVariableValues[inputVariable] ? inputVariableValues[inputVariable] : ''
-                  }
+                  value={inputVariableValues[inputVariable] ? inputVariableValues[inputVariable] : ''}
                   onChange={(e) => updateInputVariableValue(inputVariable, e.target.value)}
                 />
               </>
             </div>
           ))}
           <div css={{ marginBottom: 2 * theme.spacing.md }}>
-            <Button icon={<PlusIcon />} onClick={handleAddVariableToTemplate}>
+            <Button
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_736"
+              icon={<PlusIcon />}
+              onClick={handleAddVariableToTemplate}
+            >
               <FormattedMessage
-                defaultMessage='Add new variable'
+                defaultMessage="Add new variable"
                 description='Experiment page > new run modal > "add new variable" button label'
               />
             </Button>

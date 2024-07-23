@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
 
-import { act, renderWithIntl, screen, waitFor } from '../../../../common/utils/TestUtils';
+import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
 import { EvaluationDataReduxState } from '../../../reducers/EvaluationDataReducer';
 import { useEvaluationArtifactWriteBack } from './useEvaluationArtifactWriteBack';
 import {
@@ -63,7 +63,7 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
 
       return (
         <div>
-          {isSyncingArtifacts && <div data-testid='is-syncing' />}
+          {isSyncingArtifacts && <div data-testid="is-syncing" />}
           {EvaluationSyncStatusElement}
         </div>
       );
@@ -201,9 +201,7 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
 
     expect(Utils.logErrorAndNotifyUser).toBeCalledWith(
       expect.objectContaining({
-        message: expect.stringMatching(
-          /Cannot find existing prompt engineering artifact for run run_1/,
-        ),
+        message: expect.stringMatching(/Cannot find existing prompt engineering artifact for run run_1/),
       }),
     );
   });

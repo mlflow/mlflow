@@ -8,16 +8,14 @@ import numpy as np
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.digest_utils import compute_numpy_digest
+from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.data.schema import TensorDatasetSchema
-from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.utils import _infer_schema
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
 
-@experimental
 class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
     Represents a NumPy dataset for use with MLflow Tracking.
@@ -53,22 +51,21 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         return compute_numpy_digest(self._features, self._targets)
 
-    def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
-        """
-        Args:
-            base_dict: A string dictionary of base information about the
-                dataset, including: name, digest, source, and source type.
+    def to_dict(self) -> Dict[str, str]:
+        """Create config dictionary for the dataset.
 
-        Returns:
-            A string dictionary containing the following fields: name,
-            digest, source, source type, schema (optional), profile
-            (optional).
+        Returns a string dictionary containing the following fields: name, digest, source, source
+        type, schema, and profile.
         """
-        return {
-            **base_dict,
-            "schema": json.dumps(self.schema.to_dict()) if self.schema else None,
-            "profile": json.dumps(self.profile),
-        }
+        schema = json.dumps(self.schema.to_dict()) if self.schema else None
+        config = super().to_dict()
+        config.update(
+            {
+                "schema": schema,
+                "profile": json.dumps(self.profile),
+            }
+        )
+        return config
 
     @property
     def source(self) -> DatasetSource:
@@ -154,7 +151,6 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         )
 
 
-@experimental
 def from_numpy(
     features: Union[np.ndarray, Dict[str, np.ndarray]],
     source: Union[str, DatasetSource] = None,
@@ -181,7 +177,8 @@ def from_numpy(
         name: The name of the dataset. If unspecified, a name is generated.
         digest: The dataset digest (hash). If unspecified, a digest is computed automatically.
 
-    .. testcode:: python
+    .. code-block:: python
+        :test:
         :caption: Basic Example
 
         import mlflow
@@ -191,7 +188,8 @@ def from_numpy(
         y = np.random.randint(2, size=[2])
         dataset = mlflow.data.from_numpy(x, targets=y)
 
-    .. testcode:: python
+    .. code-block:: python
+        :test:
         :caption: Dict Example
 
         import mlflow

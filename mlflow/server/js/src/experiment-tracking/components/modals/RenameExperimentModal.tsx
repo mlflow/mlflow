@@ -46,15 +46,15 @@ export class RenameExperimentModalImpl extends Component<RenameExperimentModalIm
     const { isOpen, experimentName } = this.props;
     return (
       <GenericInputModal
-        title='Rename Experiment'
-        okText='Save'
+        title="Rename Experiment"
+        okText="Save"
         isOpen={isOpen}
         handleSubmit={this.handleRenameExperiment}
         onClose={this.props.onClose}
       >
         {/* @ts-expect-error TS(2769): No overload matches this call. */}
         <RenameForm
-          type='experiment'
+          type="experiment"
           name={experimentName}
           visible={isOpen}
           validator={this.debouncedExperimentNameValidator}
@@ -66,7 +66,7 @@ export class RenameExperimentModalImpl extends Component<RenameExperimentModalIm
 
 const mapStateToProps = (state: any) => {
   const experiments = getExperiments(state);
-  const experimentNames = experiments.map((e) => (e as any).getName());
+  const experimentNames = experiments.map((e) => e.name);
   return { experimentNames };
 };
 
@@ -75,7 +75,4 @@ const mapDispatchToProps = {
   getExperimentApi,
 };
 
-export const RenameExperimentModal = connect(
-  mapStateToProps,
-  mapDispatchToProps,
-)(RenameExperimentModalImpl);
+export const RenameExperimentModal = connect(mapStateToProps, mapDispatchToProps)(RenameExperimentModalImpl);

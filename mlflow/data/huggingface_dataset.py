@@ -5,14 +5,13 @@ from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.digest_utils import compute_pandas_digest
+from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -22,7 +21,6 @@ if TYPE_CHECKING:
     import datasets
 
 
-@experimental
 class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
     Represents a HuggingFace dataset for use with MLflow Tracking.
@@ -69,25 +67,21 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         )
         return compute_pandas_digest(df)
 
-    def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
-        """
-        Args:
-            base_dict: A string dictionary of base information about the
-                dataset, including: name, digest, source, and source
-                type.
+    def to_dict(self) -> Dict[str, str]:
+        """Create config dictionary for the dataset.
 
-        Returns:
-            A string dictionary containing the following fields: name,
-            digest, source, source type, schema (optional), profile
-            (optional).
+        Returns a string dictionary containing the following fields: name, digest, source, source
+        type, schema, and profile.
         """
-        return {
-            **base_dict,
-            "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()})
-            if self.schema
-            else None,
-            "profile": json.dumps(self.profile),
-        }
+        schema = json.dumps({"mlflow_colspec": self.schema.to_dict()}) if self.schema else None
+        config = super().to_dict()
+        config.update(
+            {
+                "schema": schema,
+                "profile": json.dumps(self.profile),
+            }
+        )
+        return config
 
     @property
     def ds(self) -> "datasets.Dataset":
@@ -178,7 +172,6 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         )
 
 
-@experimental
 def from_huggingface(
     ds,
     path: Optional[str] = None,
@@ -188,6 +181,7 @@ def from_huggingface(
     revision=None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
+    trust_remote_code: Optional[bool] = None,
 ) -> HuggingFaceDataset:
     """
     Create a `mlflow.data.huggingface_dataset.HuggingFaceDataset` from a Hugging Face dataset.
@@ -219,6 +213,7 @@ def from_huggingface(
             generated.
         digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest is
             automatically computed.
+        trust_remote_code: Whether to trust remote code from the dataset repo.
     """
     import datasets
 
@@ -242,6 +237,7 @@ def from_huggingface(
             data_files=data_files,
             split=ds.split,
             revision=revision,
+            trust_remote_code=trust_remote_code,
         )
     else:
         context_tags = registry.resolve_tags()

@@ -1,10 +1,7 @@
 export declare enum AvailableDesignSystemFlags {
     '__DEBUG__' = "__DEBUG__",
     'USE_FLEX_BUTTON' = "USE_FLEX_BUTTON",
-    'USE_NEW_TREE' = "USE_NEW_TREE",
-    'USE_TRANSPARENT_INPUT' = "USE_TRANSPARENT_INPUT",
-    'USE_NEW_CHECKBOX_STYLES' = "USE_NEW_CHECKBOX_STYLES",
-    'USE_UPDATED_TABLE_STYLES' = "USE_UPDATED_TABLE_STYLES"
+    'USE_NEW_CHECKBOX_STYLES' = "USE_NEW_CHECKBOX_STYLES"
 }
 type DesignSystemFlagMetadata = {
     description: string;

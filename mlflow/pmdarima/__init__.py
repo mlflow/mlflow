@@ -102,6 +102,7 @@ _MODEL_BINARY_KEY = "data"
 _MODEL_BINARY_FILE_NAME = "model.pmd"
 _MODEL_TYPE_KEY = "model_type"
 
+
 _logger = logging.getLogger(__name__)
 
 
@@ -147,9 +148,7 @@ def save_model(
             temporal series.
         path: Local path destination for the serialized model (in pickle format) is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
             class that describes the model's inputs and outputs. If not specified but an
@@ -178,10 +177,7 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
+        metadata: {{ metadata }}
 
     .. code-block:: python
         :caption: Example
@@ -218,18 +214,18 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
-    if signature is None and input_example is not None:
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+
+    if signature is None and saved_example is not None:
         wrapped_model = _PmdarimaModelWrapper(pmdarima_model)
-        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is False:
         signature = None
 
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -305,9 +301,7 @@ def log_model(
             temporal series.
         artifact_path: Run-relative artifact path to save the model instance to.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
             future release without warning. If given, create a model
             version under ``registered_model_name``, also creating a
@@ -344,10 +338,7 @@ def log_model(
             Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
+        metadata: {{ metadata }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
 
     Returns:
@@ -415,11 +406,13 @@ def load_model(model_uri, dst_path=None):
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
+
             - ``/Users/me/path/to/local/model``
             - ``relative/path/to/local/model``
             - ``s3://my_bucket/path/to/model``
             - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
             - ``mlflow-artifacts:/path/to/model``
+
             For more information about supported URI schemes, see
             `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
             artifact-locations>`_.
@@ -506,8 +499,7 @@ def _save_model(model, path):
 
 def _load_model(path):
     with open(path, "rb") as pickled_model:
-        model = pickle.load(pickled_model)
-    return model
+        return pickle.load(pickled_model)
 
 
 def _load_pyfunc(path):
@@ -521,16 +513,11 @@ class _PmdarimaModelWrapper:
         self.pmdarima_model = pmdarima_model
         self._pmdarima_version = pmdarima.__version__
 
-    def predict(
-        self, dataframe, params: Optional[Dict[str, Any]] = None
-    ) -> pd.DataFrame:  # pylint: disable=unused-argument
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
         """
         Args:
             dataframe: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             Model predictions.

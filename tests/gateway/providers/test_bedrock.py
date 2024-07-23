@@ -3,8 +3,14 @@ from unittest import mock
 import pytest
 from fastapi.encoders import jsonable_encoder
 
-from mlflow.gateway.config import AWSBaseConfig, AWSBedrockConfig, AWSIdAndKey, AWSRole, RouteConfig
-from mlflow.gateway.providers.bedrock import AWSBedrockModelProvider, AWSBedrockProvider
+from mlflow.gateway.config import (
+    AmazonBedrockConfig,
+    AWSBaseConfig,
+    AWSIdAndKey,
+    AWSRole,
+    RouteConfig,
+)
+from mlflow.gateway.providers.bedrock import AmazonBedrockModelProvider, AmazonBedrockProvider
 from mlflow.gateway.schemas import completions
 
 from tests.gateway.providers.test_anthropic import (
@@ -101,7 +107,7 @@ def ai21_parsed_completion_response(mdl):
 
 bedrock_model_provider_fixtures = [
     {
-        "provider": AWSBedrockModelProvider.ANTHROPIC,
+        "provider": AmazonBedrockModelProvider.ANTHROPIC,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -120,7 +126,7 @@ bedrock_model_provider_fixtures = [
         },
     },
     {
-        "provider": AWSBedrockModelProvider.ANTHROPIC,
+        "provider": AmazonBedrockModelProvider.ANTHROPIC,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -139,7 +145,7 @@ bedrock_model_provider_fixtures = [
         },
     },
     {
-        "provider": AWSBedrockModelProvider.ANTHROPIC,
+        "provider": AmazonBedrockModelProvider.ANTHROPIC,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -158,7 +164,7 @@ bedrock_model_provider_fixtures = [
         },
     },
     {
-        "provider": AWSBedrockModelProvider.AMAZON,
+        "provider": AmazonBedrockModelProvider.AMAZON,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -208,7 +214,7 @@ bedrock_model_provider_fixtures = [
         },
     },
     {
-        "provider": AWSBedrockModelProvider.AI21,
+        "provider": AmazonBedrockModelProvider.AI21,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -225,7 +231,7 @@ bedrock_model_provider_fixtures = [
         "model_request": {"prompt": "This is a test"},
     },
     {
-        "provider": AWSBedrockModelProvider.AI21,
+        "provider": AmazonBedrockModelProvider.AI21,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -245,7 +251,7 @@ bedrock_model_provider_fixtures = [
         },
     },
     {
-        "provider": AWSBedrockModelProvider.COHERE,
+        "provider": AmazonBedrockModelProvider.COHERE,
         "config": {
             "name": "completions",
             "route_type": "llm/v1/completions",
@@ -310,7 +316,9 @@ def _assert_any_call_at_least(mobj, *args, **kwargs):
 
 @pytest.mark.parametrize(("aws_config", "expected"), bedrock_aws_configs)
 def test_bedrock_aws_config(aws_config, expected):
-    assert isinstance(AWSBedrockConfig.parse_obj({"aws_config": aws_config}).aws_config, expected)
+    assert isinstance(
+        AmazonBedrockConfig.parse_obj({"aws_config": aws_config}).aws_config, expected
+    )
 
 
 @pytest.mark.parametrize(
@@ -327,7 +335,7 @@ def test_bedrock_aws_client(provider, config, aws_config):
         mock_session.return_value.client = mock_client
         mock_client.return_value.assume_role = mock_assume_role
 
-        provider = AWSBedrockProvider(
+        provider = AmazonBedrockProvider(
             RouteConfig(**_merge_model_and_aws_config(config, aws_config))
         )
         provider.get_bedrock_client()
@@ -365,8 +373,8 @@ def test_bedrock_aws_client(provider, config, aws_config):
             fix["expected"],
             fix["model_request"],
             marks=[]
-            if fix["provider"] is not AWSBedrockModelProvider.COHERE
-            else pytest.mark.skip("Cohere isn't availabe on AWS Bedrock yet"),
+            if fix["provider"] is not AmazonBedrockModelProvider.COHERE
+            else pytest.mark.skip("Cohere isn't available on Amazon Bedrock yet"),
         )
         for fix in bedrock_model_provider_fixtures
     ],
@@ -375,14 +383,14 @@ async def test_bedrock_request_response(
     provider, config, payload, response, expected, model_request, aws_config
 ):
     with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "mlflow.gateway.providers.bedrock.AWSBedrockProvider._request", return_value=response
+        "mlflow.gateway.providers.bedrock.AmazonBedrockProvider._request", return_value=response
     ) as mock_request:
         if not expected:
             pytest.skip("no expected value")
 
         expected["model"] = config["model"]["name"]
 
-        provider = AWSBedrockProvider(
+        provider = AmazonBedrockProvider(
             RouteConfig(**_merge_model_and_aws_config(config, aws_config))
         )
         response = await provider.completions(completions.RequestPayload(**payload))

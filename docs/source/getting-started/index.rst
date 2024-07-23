@@ -86,13 +86,6 @@ a model training event to an MLflow run.
         </article>
     </section>
 
-If you would like to get started immediately by downloading and running a notebook yourself:
-
-.. raw:: html
-
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/getting-started/intro-quickstart/notebooks/tracking_quickstart.ipynb" class="notebook-download-btn">
-        <i class="fas fa-download"></i>Download the Tracking Quickstart Notebook</a><br/>
-
 .. toctree::
     :maxdepth: 1
     :hidden:
@@ -195,6 +188,38 @@ your MLflow experiments.
 
     tracking-server-overview/index
 
+
+Model Registry Quickstart
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This quickstart tutorial walks through registering a model in the MLflow model registry and how to
+retrieve registered models. 
+
+.. raw:: html
+
+     <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="registering-first-model/index.html" >
+                    <div class="header">
+                        5 Minute Model Registry Overview
+                    </div>
+                </a>
+                <p>
+                    Learn how to log MLflow models to the model registry
+                </p>
+            </div>
+        </article>
+    </section>
+
+
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    registering-first-model/index
+
 Further Learning - What's Next?
 -------------------------------
 
@@ -215,5 +240,3 @@ understanding of MLflow and its APIs.
 
     logging-first-model/index
     
-
-

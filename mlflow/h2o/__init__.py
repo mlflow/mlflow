@@ -47,6 +47,8 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "h2o"
 
+_MODEL_DATA_SUBPATH = "model.h2o"
+
 _logger = logging.getLogger(__name__)
 
 
@@ -89,18 +91,13 @@ def save_model(
         h2o_model: H2O model to be saved.
         path: Local path where the model is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         signature: {{ signature }}
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
+        metadata:  {{ metadata }}
     """
     import h2o
 
@@ -108,23 +105,23 @@ def save_model(
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
-    model_data_subpath = "model.h2o"
+    model_data_subpath = _MODEL_DATA_SUBPATH
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(model_data_path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
-    if signature is None and input_example is not None:
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+
+    if signature is None and saved_example is not None:
         wrapped_model = _H2OModelWrapper(h2o_model)
-        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is False:
         signature = None
 
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -217,9 +214,7 @@ def log_model(
         h2o_model: H2O model to be saved.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
@@ -227,10 +222,7 @@ def log_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
+        metadata:  {{ metadata }}
         kwargs: kwargs to pass to ``h2o.save_model`` method.
 
     Returns:
@@ -281,16 +273,11 @@ class _H2OModelWrapper:
     def __init__(self, h2o_model):
         self.h2o_model = h2o_model
 
-    def predict(
-        self, dataframe, params: Optional[Dict[str, Any]] = None
-    ):  # pylint: disable=unused-argument
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
         """
         Args:
             dataframe: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             Model predictions.

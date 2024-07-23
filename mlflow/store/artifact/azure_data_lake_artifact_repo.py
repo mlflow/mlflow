@@ -19,37 +19,45 @@ from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
     _complete_futures,
     _compute_num_chunks,
+    _retry_with_new_creds,
 )
 
 
 def _parse_abfss_uri(uri):
     """
     Parse an ABFSS URI in the format
-    "abfss://<file_system>@<account_name>.dbfs.core.windows.net/<path>",
-    returning a tuple consisting of the filesystem, account name, and path
+    "abfss://<file_system>@<account_name>.<domain_suffix>/<path>",
+    returning a tuple consisting of the filesystem, account name, domain suffix, and path
 
     See more details about ABFSS URIs at
-    https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-abfs-driver#uri-scheme-to-reference-data
+    https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-abfs-driver#uri-scheme-to-reference-data.
+    Also, see different domain suffixes for:
+    * Azure China: https://learn.microsoft.com/en-us/azure/china/resources-developer-guide
+    * Azure Government: https://learn.microsoft.com/en-us/azure/azure-government/compare-azure-government-global-azure#guidance-for-developers
+    * Azure Private Link: https://learn.microsoft.com/en-us/azure/private-link/private-endpoint-dns#government
+    Args:
+        uri: ABFSS URI to parse
 
-    :param uri: ABFSS URI to parse
-    :return: A tuple containing the name of the filesystem, account name, and path
+    Returns:
+        A tuple containing the name of the filesystem, account name, domain suffix, and path
     """
     parsed = urllib.parse.urlparse(uri)
     if parsed.scheme != "abfss":
         raise MlflowException(f"Not an ABFSS URI: {uri}")
 
-    match = re.match(r"([^@]+)@([^.]+)\.dfs\.core\.windows\.net", parsed.netloc)
+    match = re.match(r"([^@]+)@([^.]+)\.(.*)", parsed.netloc)
 
     if match is None:
         raise MlflowException(
-            "ABFSS URI must be of the form abfss://<filesystem>@<account>.dfs.core.windows.net"
+            "ABFSS URI must be of the form abfss://<filesystem>@<account>.<domain_suffix>"
         )
     filesystem = match.group(1)
     account_name = match.group(2)
+    domain_suffix = match.group(3)
     path = parsed.path
     if path.startswith("/"):
         path = path[1:]
-    return filesystem, account_name, path
+    return filesystem, account_name, domain_suffix, path
 
 
 def _get_data_lake_client(account_url, credential):
@@ -65,26 +73,40 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
     This repository is used with URIs of the form
     ``abfs[s]://file_system@account_name.dfs.core.windows.net/<path>/<path>``.
 
-    :param credential: Azure credential (see options in https://learn.microsoft.com/en-us/python/api/azure-core/azure.core.credentials?view=azure-python)
-                       to use to authenticate to storage
+    Args
+        credential: Azure credential (see options in https://learn.microsoft.com/en-us/python/api/azure-core/azure.core.credentials?view=azure-python)
+            to use to authenticate to storage
     """
 
-    def __init__(self, artifact_uri, credential):
+    def __init__(
+        self,
+        artifact_uri,
+        credential,
+        credential_refresh_def=None,
+    ):
         super().__init__(artifact_uri)
         _DEFAULT_TIMEOUT = 600  # 10 minutes
-        self.credential = credential
         self.write_timeout = MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get() or _DEFAULT_TIMEOUT
+        self._parse_credentials(credential)
+        self._credential_refresh_def = credential_refresh_def
 
-        (filesystem, account_name, path) = _parse_abfss_uri(artifact_uri)
-
-        # TODO: investigate setting the account URL based on whether the abfss URI is associated
-        # with an Azure account in standard Azure, govcloud, mooncake, etc
-        account_url = f"https://{account_name}.dfs.core.windows.net"
+    def _parse_credentials(self, credential):
+        self.credential = credential
+        (filesystem, account_name, domain_suffix, path) = _parse_abfss_uri(self.artifact_uri)
+        account_url = f"https://{account_name}.{domain_suffix}"
         data_lake_client = _get_data_lake_client(account_url=account_url, credential=credential)
         self.fs_client = data_lake_client.get_file_system_client(filesystem)
+        self.domain_suffix = domain_suffix
         self.base_data_lake_directory = path
         self.account_name = account_name
         self.container = filesystem
+
+    def _refresh_credentials(self):
+        if not self._credential_refresh_def:
+            return self.fs_client
+        new_creds = self._credential_refresh_def()
+        self._parse_credentials(new_creds["credential"])
+        return self.fs_client
 
     def log_artifact(self, local_file, artifact_path=None):
         dest_path = self.base_data_lake_directory
@@ -93,13 +115,18 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         local_file_path = os.path.abspath(local_file)
         file_name = os.path.basename(local_file_path)
 
-        dir_client = self.fs_client.get_directory_client(dest_path)
-        file_client = dir_client.get_file_client(file_name)
-        if os.path.getsize(local_file_path) == 0:
-            file_client.create_file()
-        else:
-            with open(local_file_path, "rb") as file:
-                file_client.upload_data(data=file, overwrite=True)
+        def try_func(creds):
+            dir_client = creds.get_directory_client(dest_path)
+            file_client = dir_client.get_file_client(file_name)
+            if os.path.getsize(local_file_path) == 0:
+                file_client.create_file()
+            else:
+                with open(local_file_path, "rb") as file:
+                    file_client.upload_data(data=file, overwrite=True)
+
+        _retry_with_new_creds(
+            try_func=try_func, creds_func=self._refresh_credentials, og_creds=self.fs_client
+        )
 
     def list_artifacts(self, path=None):
         directory_to_list = self.base_data_lake_directory
@@ -130,11 +157,17 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
     def _download_from_cloud(self, remote_file_path, local_path):
         remote_full_path = posixpath.join(self.base_data_lake_directory, remote_file_path)
         base_dir = posixpath.dirname(remote_full_path)
-        dir_client = self.fs_client.get_directory_client(base_dir)
-        filename = posixpath.basename(remote_full_path)
-        file_client = dir_client.get_file_client(filename)
-        with open(local_path, "wb") as file:
-            file_client.download_file().readinto(file)
+
+        def try_func(creds):
+            dir_client = creds.get_directory_client(base_dir)
+            filename = posixpath.basename(remote_full_path)
+            file_client = dir_client.get_file_client(filename)
+            with open(local_path, "wb") as file:
+                file_client.download_file().readinto(file)
+
+        _retry_with_new_creds(
+            try_func=try_func, creds_func=self._refresh_credentials, og_creds=self.fs_client
+        )
 
     def delete_artifacts(self, artifact_path=None):
         raise NotImplementedError("This artifact repository does not support deleting artifacts")
@@ -220,12 +253,15 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         Gets the presigned URL required to upload a file to or download a file from a given Azure
         storage location.
 
-        :param artifact_file_path: Path of the file relative to the artifact repository root.
-        :return: a string presigned URL.
+        Args:
+            artifact_file_path: Path of the file relative to the artifact repository root.
+
+        Returns:
+            a string presigned URL.
         """
         sas_token = self.credential.signature
         return (
-            f"https://{self.account_name}.dfs.core.windows.net/{self.container}/"
+            f"https://{self.account_name}.{self.domain_suffix}/{self.container}/"
             f"{self.base_data_lake_directory}/{artifact_file_path}?{sas_token}"
         )
 

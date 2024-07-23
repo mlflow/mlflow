@@ -18,19 +18,23 @@ in MLflow we provide a set of APIs for:
 5 Minute Quick Start with the MLflow Tensorflow Flavor
 -------------------------------------------------------
 
-To get a quick overview of how to use the MLflow Tensorflow flavor, please read the quickstart guide. It
-will walk you through the basics of tracking Tensorflow experiments.
-
 .. raw:: html
 
-    <a href="quickstart/quickstart_tensorflow.html" class="download-btn">View the Quickstart</a>
+     <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="quickstart/quickstart_tensorflow.html">
+                    <div class="header">
+                        Quickstart with MLflow Tensorflow Flavor
+                    </div>
+                    <p>
+                        Learn how to leverage MLflow for tracking Tensorflow experiments and models.
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
 
-To download the tensorflow tutorial notebooks to run in your environment, click the respective links below:
-
-.. raw:: html
-
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/deep-learning/tensorflow/quickstart/quickstart_tensorflow.ipynb"
-    class="notebook-download-btn">Download the Quickstart of MLflow Tensorflow Integration</a><br>
 
 .. toctree::
     :maxdepth: 1

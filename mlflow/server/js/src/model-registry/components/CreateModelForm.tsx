@@ -30,7 +30,7 @@ class CreateModelFormImpl extends Component<Props> {
     const learnMoreLinkUrl = CreateModelFormImpl.getLearnMoreLinkUrl();
     return (
       // @ts-expect-error TS(2322)
-      <Form ref={this.props.innerRef} layout='vertical' data-testid='create-model-form-modal'>
+      <Form ref={this.props.innerRef} layout="vertical" data-testid="create-model-form-modal">
         <Form.Item
           name={MODEL_NAME_FIELD}
           label={this.props.intl.formatMessage({
@@ -42,8 +42,7 @@ class CreateModelFormImpl extends Component<Props> {
               required: true,
               message: this.props.intl.formatMessage({
                 defaultMessage: 'Please input a name for the new model.',
-                description:
-                  'Error message for having no input for creating models in the model registry',
+                description: 'Error message for having no input for creating models in the model registry',
               }),
             },
             { validator: this.props.validator },
@@ -51,20 +50,20 @@ class CreateModelFormImpl extends Component<Props> {
         >
           <Input autoFocus />
         </Form.Item>
-        <p className='create-modal-explanatory-text'>
+        <p className="create-modal-explanatory-text">
           <FormattedMessage
-            defaultMessage='After creation, you can register logged models as new versions.&nbsp;'
-            description='Text for form description on creating model in the model registry'
+            defaultMessage="After creation, you can register logged models as new versions.&nbsp;"
+            description="Text for form description on creating model in the model registry"
           />
           <FormattedMessage
-            defaultMessage='<link>Learn more</link>'
-            description='Learn more link on the form for creating model in the model registry'
+            defaultMessage="<link>Learn more</link>"
+            description="Learn more link on the form for creating model in the model registry"
             values={{
               link: (
                 chunks: any, // Reported during ESLint upgrade
               ) => (
                 // eslint-disable-next-line react/jsx-no-target-blank
-                <a href={learnMoreLinkUrl} target='_blank'>
+                <a href={learnMoreLinkUrl} target="_blank">
                   {chunks}
                 </a>
               ),

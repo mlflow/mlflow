@@ -28,33 +28,24 @@ export const useRunSortOptions = (
   useMemo(() => {
     let sortOptions = [];
     const ColumnSortByOrder = [COLUMN_SORT_BY_ASC, COLUMN_SORT_BY_DESC];
-    const attributesSortBy = Object.keys(ATTRIBUTE_COLUMN_SORT_LABEL).reduce<any[]>(
-      (options, sortLabelKey) => {
-        const sortLabel = ATTRIBUTE_COLUMN_SORT_LABEL[sortLabelKey as SORT_KEY_TYPE];
+    const attributesSortBy = Object.keys(ATTRIBUTE_COLUMN_SORT_LABEL).reduce<any[]>((options, sortLabelKey) => {
+      const sortLabel = ATTRIBUTE_COLUMN_SORT_LABEL[sortLabelKey as SORT_KEY_TYPE];
 
-        ColumnSortByOrder.forEach((order) => {
-          options.push({
-            label: sortLabel,
-            value:
-              ATTRIBUTE_COLUMN_SORT_KEY[sortLabelKey as SORT_KEY_TYPE] +
-              SORT_DELIMITER_SYMBOL +
-              order,
-            order,
-          });
+      ColumnSortByOrder.forEach((order) => {
+        options.push({
+          label: sortLabel,
+          value: ATTRIBUTE_COLUMN_SORT_KEY[sortLabelKey as SORT_KEY_TYPE] + SORT_DELIMITER_SYMBOL + order,
+          order,
         });
+      });
 
-        return options;
-      },
-      [],
-    );
+      return options;
+    }, []);
     const metricsSortBy = filteredMetricKeys.reduce<any[]>((options, sortLabelKey) => {
       ColumnSortByOrder.forEach((order) => {
         options.push({
           label: sortLabelKey,
-          value: `${makeCanonicalSortKey(
-            COLUMN_TYPES.METRICS,
-            sortLabelKey,
-          )}${SORT_DELIMITER_SYMBOL}${order}`,
+          value: `${makeCanonicalSortKey(COLUMN_TYPES.METRICS, sortLabelKey)}${SORT_DELIMITER_SYMBOL}${order}`,
           order,
         });
       });
@@ -65,10 +56,7 @@ export const useRunSortOptions = (
       ColumnSortByOrder.forEach((order) => {
         options.push({
           label: sortLabelKey,
-          value: `${makeCanonicalSortKey(
-            COLUMN_TYPES.PARAMS,
-            sortLabelKey,
-          )}${SORT_DELIMITER_SYMBOL}${order}`,
+          value: `${makeCanonicalSortKey(COLUMN_TYPES.PARAMS, sortLabelKey)}${SORT_DELIMITER_SYMBOL}${order}`,
           order,
         });
       });

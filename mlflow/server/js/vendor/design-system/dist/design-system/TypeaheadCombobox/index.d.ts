@@ -9,5 +9,6 @@ export { TypeaheadComboboxSelectedItem } from './TypeaheadComboboxSelectedItem';
 export { TypeaheadComboboxSeparator } from './TypeaheadComboboxSeparator';
 export { TypeaheadComboboxToggleButton } from './TypeaheadComboboxToggleButton';
 export { TypeaheadComboboxFooter } from './TypeaheadComboboxFooter';
+export { TypeaheadComboboxAddButton } from './TypeaheadComboboxAddButton';
 export * from './hooks';
 //# sourceMappingURL=index.d.ts.map

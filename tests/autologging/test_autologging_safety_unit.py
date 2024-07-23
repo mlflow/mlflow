@@ -1,5 +1,3 @@
-# pylint: disable=unused-argument
-
 import abc
 import copy
 import inspect
@@ -199,7 +197,7 @@ def test_safe_patch_forwards_expected_arguments_to_class_based_patch(
     bar_val = None
 
     class TestPatch(PatchFunction):
-        def _patch_implementation(self, original, foo, bar=10):  # pylint: disable=arguments-differ
+        def _patch_implementation(self, original, foo, bar=10):
             nonlocal foo_val
             nonlocal bar_val
             foo_val = foo
@@ -248,7 +246,7 @@ def test_safe_patch_provides_expected_original_function_to_class_based_patch(
     patch_destination.fn = original_fn
 
     class TestPatch(PatchFunction):
-        def _patch_implementation(self, original, foo, bar=10):  # pylint: disable=arguments-differ
+        def _patch_implementation(self, original, foo, bar=10):
             return original(foo + 1, bar + 2)
 
         def _on_exception(self, exception):
@@ -634,7 +632,7 @@ def test_safe_patch_makes_expected_event_logging_calls_for_successful_patch_invo
     assert patch_success.exception is original_success.exception is None
 
 
-def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws_and_original_succeeds(  # pylint: disable=line-too-long
+def test_safe_patch_makes_expected_event_logging_calls_when_patch_impl_throws_and_original_succeeds(
     patch_destination,
     test_autologging_integration,
     mock_event_logger,
@@ -674,7 +672,7 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
         assert patch_error.exception == exc_to_raise
 
 
-def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws_and_original_throws(  # pylint: disable=line-too-long
+def test_safe_patch_makes_expected_event_logging_calls_when_patch_impl_throws_and_original_throws(
     patch_destination,
     test_autologging_integration,
     mock_event_logger,
@@ -1781,7 +1779,7 @@ def test_safe_patch_support_property_decorated_method():
     flavor_name = "test_if_delegate_has_method_decorated_method_patch"
 
     @autologging_integration(flavor_name)
-    def autolog(disable=False, exclusive=False, silent=False):  # pylint: disable=unused-argument
+    def autolog(disable=False, exclusive=False, silent=False):
         mlflow.sklearn._patch_estimator_method_if_available(
             flavor_name,
             BaseEstimator,
@@ -1827,7 +1825,6 @@ def test_safe_patch_preserves_original_function_attributes():
             """
             Test doc for Test1.predict
             """
-            pass
 
     def patched_predict(original, self, *args, **kwargs):
         return original(self, *args, **kwargs)
@@ -1835,7 +1832,7 @@ def test_safe_patch_preserves_original_function_attributes():
     flavor_name = "test_safe_patch_preserves_original_function_attributes"
 
     @autologging_integration(flavor_name)
-    def autolog(disable=False, exclusive=False, silent=False):  # pylint: disable=unused-argument
+    def autolog(disable=False, exclusive=False, silent=False):
         safe_patch(flavor_name, Test1, "predict", patched_predict, manage_run=False)
 
     original_predict = Test1.predict

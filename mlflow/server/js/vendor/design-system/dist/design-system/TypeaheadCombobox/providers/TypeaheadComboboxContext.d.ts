@@ -1,10 +1,13 @@
-/// <reference types="react" />
 import type { ExtendedRefs } from '@floating-ui/react';
-export interface TypeaheadComboboxContextType {
+import type { DesignSystemEventProviderAnalyticsEventTypes } from '../../DesignSystemEventProvider/DesignSystemEventProvider';
+import type { AnalyticsEventOptionalProps } from '../../types';
+export interface TypeaheadComboboxContextType extends AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     isInsideTypeaheadCombobox: boolean;
     multiSelect?: boolean;
     floatingUiRefs?: ExtendedRefs<Element>;
     floatingStyles?: React.CSSProperties;
+    inputWidth?: number;
+    setInputWidth?: (width: number) => void;
 }
 export declare const TypeaheadComboboxContext: import("react").Context<TypeaheadComboboxContextType>;
 export declare const TypeaheadComboboxContextProvider: ({ children, value, }: {

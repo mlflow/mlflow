@@ -29,6 +29,7 @@ import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
+import { ErrorCodes } from '../../common/constants';
 
 type ModelPageImplProps = WithRouterNextProps<{ subpage: string }> & {
   modelName: string;
@@ -36,7 +37,6 @@ type ModelPageImplProps = WithRouterNextProps<{ subpage: string }> & {
   modelVersions?: any[];
   emailSubscriptionStatus?: string;
   userLevelEmailSubscriptionStatus?: string;
-  modelMonitors?: any[];
   searchModelVersionsApi: (...args: any[]) => any;
   getRegisteredModelApi: (...args: any[]) => any;
   updateRegisteredModelApi: (...args: any[]) => any;
@@ -44,7 +44,6 @@ type ModelPageImplProps = WithRouterNextProps<{ subpage: string }> & {
   setEmailSubscriptionStatusApi: (...args: any[]) => any;
   getEmailSubscriptionStatusApi: (...args: any[]) => any;
   getUserLevelEmailSubscriptionStatusApi: (...args: any[]) => any;
-  getMonitorsForModelApi: (...args: any[]) => any;
   searchEndpointsByModelNameApi: (...args: any[]) => any;
   intl?: any;
 };
@@ -58,10 +57,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps> {
   updateRegisteredModelApiId = getUUID();
   deleteRegisteredModelApiId = getUUID();
 
-  criticalInitialRequestIds = [
-    this.initSearchModelVersionsApiRequestId,
-    this.initgetRegisteredModelApiRequestId,
-  ];
+  criticalInitialRequestIds = [this.initSearchModelVersionsApiRequestId, this.initgetRegisteredModelApiRequestId];
 
   handleEditDescription = (description: any) => {
     const { model } = this.props;
@@ -149,6 +145,30 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps> {
                   />
                 );
               }
+              const permissionDeniedErrors = requests.filter((request: any) => {
+                return (
+                  this.criticalInitialRequestIds.includes(request.id) &&
+                  request.error?.getErrorCode() === ErrorCodes.PERMISSION_DENIED
+                );
+              });
+              if (permissionDeniedErrors && permissionDeniedErrors[0]) {
+                return (
+                  <ErrorView
+                    statusCode={403}
+                    subMessage={this.props.intl.formatMessage(
+                      {
+                        defaultMessage: 'Permission denied for {modelName}. Error: "{errorMsg}"',
+                        description: 'Permission denied error message on registered model detail page',
+                      },
+                      {
+                        modelName: modelName,
+                        errorMsg: permissionDeniedErrors[0].error?.getMessageField(),
+                      },
+                    )}
+                    fallbackHomePageReactRoute={ModelRegistryRoutes.modelListPageRoute}
+                  />
+                );
+              }
               // TODO(Zangr) Have a more generic boundary to handle all errors, not just 404.
               triggerError(requests);
             } else if (loading) {
@@ -197,7 +217,6 @@ const ModelPageWithRouter = withRouterNext(
   connect(mapStateToProps, mapDispatchToProps)(injectIntl(ModelPageImpl)),
 );
 
-export const ModelPage = withErrorBoundary(
-  ErrorUtils.mlflowServices.MODEL_REGISTRY,
-  ModelPageWithRouter,
-);
+export const ModelPage = withErrorBoundary(ErrorUtils.mlflowServices.MODEL_REGISTRY, ModelPageWithRouter);
+
+export default ModelPage;

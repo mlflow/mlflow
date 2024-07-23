@@ -38,6 +38,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_PARENT_RUN_ID,
 )
+from mlflow.utils.os import is_windows
 from mlflow.utils.rest_utils import (
     MlflowHostCreds,
     augmented_raise_for_status,
@@ -69,7 +70,7 @@ def _read_log_model_allowlist_from_file(allowlist_file):
     url_parsed = urlparse(allowlist_file)
     scheme = url_parsed.scheme
     path = url_parsed.path
-    if os.name == "nt" and not url_parsed.hostname:
+    if is_windows() and not url_parsed.hostname:
         path = scheme + "://" + path
         scheme = ""
     if scheme in ("file", ""):
@@ -97,12 +98,12 @@ def _read_log_model_allowlist():
 
     # New in 3.9: https://docs.python.org/3/library/importlib.resources.html#importlib.resources.files
     if sys.version_info.major > 2 and sys.version_info.minor > 8:
-        from importlib.resources import as_file, files  # pylint: disable=lazy-builtin-import
+        from importlib.resources import as_file, files  # clint: disable=lazy-builtin-import
 
         with as_file(files(__name__).joinpath("log_model_allowlist.txt")) as file:
             builtin_allowlist_file = file.as_posix()
     else:
-        from importlib.resources import path  # pylint: disable=lazy-builtin-import
+        from importlib.resources import path  # clint: disable=lazy-builtin-import
 
         with path(__name__, "log_model_allowlist.txt") as file:
             builtin_allowlist_file = file.as_posix()
@@ -184,8 +185,9 @@ def _should_log_model(spark_model):
 
 def _get_estimator_info_tags(estimator):
     """
-    :return: A dictionary of MLflow run tag keys and values
-             describing the specified estimator.
+    Returns:
+        A dictionary of MLflow run tag keys and values
+        describing the specified estimator.
     """
     return {
         "estimator_name": estimator.__class__.__name__,
@@ -589,12 +591,10 @@ class _AutologgingMetricsManager:
 
     def disable_log_post_training_metrics(self):
         class LogPostTrainingMetricsDisabledScope:
-            def __enter__(inner_self):  # pylint: disable=no-self-argument
-                # pylint: disable=attribute-defined-outside-init
+            def __enter__(inner_self):
                 inner_self.old_status = self._log_post_training_metrics_enabled
                 self._log_post_training_metrics_enabled = False
 
-            # pylint: disable=no-self-argument
             def __exit__(inner_self, exc_type, exc_val, exc_tb):
                 self._log_post_training_metrics_enabled = inner_self.old_status
 
@@ -777,7 +777,7 @@ def autolog(
     log_model_signatures=True,
     log_model_allowlist=None,
     extra_tags=None,
-):  # pylint: disable=unused-argument
+):
     """
     Enables (or disables) and configures autologging for pyspark ml estimators.
     This method is not threadsafe.
@@ -870,55 +870,57 @@ def autolog(
     .. _TrainValidationSplit:
         https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.tuning.TrainValidationSplit.html#pyspark.ml.tuning.TrainValidationSplit
 
-    :param log_models: If ``True``, if trained models are in allowlist, they are logged as MLflow
-                       model artifacts. If ``False``, trained models are not logged.
-                       Note: the built-in allowlist excludes some models (e.g. ALS models) which
-                       can be large. To specify a custom allowlist, create a file containing a
-                       newline-delimited list of fully-qualified estimator classnames, and set
-                       the "spark.mlflow.pysparkml.autolog.logModelAllowlistFile" Spark config
-                       to the path of your allowlist file.
-    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
-                         If ``False``, dataset information is not logged.
-    :param disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
-                    enables the pyspark ML autologging integration.
-    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
-                      If ``False``, autologged content is logged to the active fluent run,
-                      which may be user-created.
-    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
-                      pyspark that have not been tested against this version of the MLflow
-                      client or are incompatible.
-    :param silent: If ``True``, suppress all event logs and warnings from MLflow during pyspark ML
-                   autologging. If ``False``, show all events and warnings during pyspark ML
-                   autologging.
-    :param log_post_training_metrics: If ``True``, post training metrics are logged. Defaults to
-                                      ``True``. See the `post training metrics`_ section for more
-                                      details.
-    :param registered_model_name: If given, each time a model is trained, it is registered as a
-                                  new model version of the registered model with this name.
-                                  The registered model is created if it does not already exist.
-    :param log_input_examples: If ``True``, input examples from training datasets are collected and
-                               logged along with pyspark ml model artifacts during training. If
-                               ``False``, input examples are not logged.
-    :param log_model_signatures: If ``True``,
-                                 :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
-                                 describing model inputs and outputs are collected and logged along
-                                 with spark ml pipeline/estimator artifacts during training.
-                                 If ``False`` signatures are not logged.
+    Args:
+        log_models: If ``True``, if trained models are in allowlist, they are logged as MLflow
+            model artifacts. If ``False``, trained models are not logged.
+            Note: the built-in allowlist excludes some models (e.g. ALS models) which
+            can be large. To specify a custom allowlist, create a file containing a
+            newline-delimited list of fully-qualified estimator classnames, and set
+            the "spark.mlflow.pysparkml.autolog.logModelAllowlistFile" Spark config
+            to the path of your allowlist file.
+        log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+            If ``False``, dataset information is not logged.
+        disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
+            enables the pyspark ML autologging integration.
+        exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+            If ``False``, autologged content is logged to the active fluent run,
+            which may be user-created.
+        disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+            pyspark that have not been tested against this version of the MLflow
+            client or are incompatible.
+        silent: If ``True``, suppress all event logs and warnings from MLflow during pyspark ML
+            autologging. If ``False``, show all events and warnings during pyspark ML
+            autologging.
+        log_post_training_metrics: If ``True``, post training metrics are logged. Defaults to
+            ``True``. See the `post training metrics`_ section for more
+            details.
+        registered_model_name: If given, each time a model is trained, it is registered as a
+            new model version of the registered model with this name.
+            The registered model is created if it does not already exist.
+        log_input_examples: If ``True``, input examples from training datasets are collected and
+            logged along with pyspark ml model artifacts during training. If
+            ``False``, input examples are not logged.
+        log_model_signatures: If ``True``,
+            :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+            describing model inputs and outputs are collected and logged along
+            with spark ml pipeline/estimator artifacts during training.
+            If ``False`` signatures are not logged.
 
-                                 .. warning::
+            .. warning::
 
-                                    Currently, only scalar Spark data types are supported. If
-                                    model inputs/outputs contain non-scalar Spark data types such
-                                    as ``pyspark.ml.linalg.Vector``, signatures are not logged.
-    :param log_model_allowlist: If given, it overrides the default log model allowlist in mlflow.
-                                This takes precedence over the spark configuration of
-                                "spark.mlflow.pysparkml.autolog.logModelAllowlistFile".
+                Currently, only scalar Spark data types are supported. If
+                model inputs/outputs contain non-scalar Spark data types such
+                as ``pyspark.ml.linalg.Vector``, signatures are not logged.
 
-    **The default log model allowlist in mlflow**
-        .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
-           :language: text
+        log_model_allowlist: If given, it overrides the default log model allowlist in mlflow.
+            This takes precedence over the spark configuration of
+            "spark.mlflow.pysparkml.autolog.logModelAllowlistFile".
 
-    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+            **The default log model allowlist in mlflow**
+                .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
+                    :language: text
+
+        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
     from pyspark.ml.base import Estimator, Model
     from pyspark.ml.evaluation import Evaluator

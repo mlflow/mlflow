@@ -11,13 +11,15 @@ from mlflow.gateway import MlflowGatewayClient, get_route, query, set_gateway_ur
 from mlflow.gateway.config import Route
 from mlflow.gateway.providers.ai21labs import AI21LabsProvider
 from mlflow.gateway.providers.anthropic import AnthropicProvider
-from mlflow.gateway.providers.bedrock import AWSBedrockProvider
+from mlflow.gateway.providers.bedrock import AmazonBedrockProvider
 from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServerProvider
+from mlflow.gateway.providers.mistral import MistralProvider
 from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
 from mlflow.gateway.providers.mosaicml import MosaicMLProvider
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.providers.palm import PaLMProvider
+from mlflow.gateway.providers.togetherai import TogetherAIProvider
 from mlflow.utils.request_utils import _cached_get_request_session
 
 from tests.gateway.tools import (
@@ -219,6 +221,61 @@ def basic_config_dict():
                     "config": {"aws_config": {"aws_region": "us-east-1"}},
                 },
             },
+            {
+                "name": "completions-mistral",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "mistral",
+                    "name": "mistral-tiny",
+                    "config": {
+                        "mistral_api_key": "$MISTRAL_API_KEY",
+                    },
+                },
+            },
+            {
+                "name": "embeddings-mistral",
+                "route_type": "llm/v1/embeddings",
+                "model": {
+                    "provider": "mistral",
+                    "name": "mistral-embed",
+                    "config": {
+                        "mistral_api_key": "$MISTRAL_API_KEY",
+                    },
+                },
+            },
+            {
+                "name": "completions-togetherai",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "togetherai",
+                    "name": "mistralai/Mixtral-8x7B-v0.1",
+                    "config": {
+                        "togetherai_api_key": "$TOGETHERAI_API_KEY",
+                    },
+                },
+            },
+            {
+                "name": "chat-togetherai",
+                "route_type": "llm/v1/chat",
+                "model": {
+                    "provider": "togetherai",
+                    "name": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                    "config": {
+                        "togetherai_api_key": "$TOGETHERAI_API_KEY",
+                    },
+                },
+            },
+            {
+                "name": "embeddings-togetherai",
+                "route_type": "llm/v1/embeddings",
+                "model": {
+                    "provider": "togetherai",
+                    "name": "togethercomputer/m2-bert-80M-8k-retrieval",
+                    "config": {
+                        "togetherai_api_key": "$TOGETHERAI_API_KEY",
+                    },
+                },
+            },
         ]
     }
 
@@ -244,6 +301,8 @@ def env_setup(monkeypatch):
     monkeypatch.setenv("AI21LABS_API_KEY", "test_ai21labs_key")
     monkeypatch.setenv("MOSAICML_API_KEY", "test_mosaicml_key")
     monkeypatch.setenv("PALM_API_KEY", "test_palm_key")
+    monkeypatch.setenv("MISTRAL_API_KEY", "test_mistral_key")
+    monkeypatch.setenv("TOGETHERAI_API_KEY", "test_togetherai_key")
 
 
 @pytest.fixture
@@ -267,7 +326,7 @@ def test_create_gateway_client_with_declared_url(gateway):
     assert gateway_client.gateway_uri == gateway.url
     assert isinstance(gateway_client.get_route("chat-openai"), Route)
     routes = gateway_client.search_routes()
-    assert len(routes) == 18
+    assert len(routes) == 23
     assert all(isinstance(route, Route) for route in routes)
 
 
@@ -284,6 +343,7 @@ def test_openai_chat(gateway):
                 "message": {
                     "role": "assistant",
                     "content": "\n\nThis is a test!",
+                    "tool_calls": None,
                 },
                 "finish_reason": "stop",
                 "index": 0,
@@ -475,6 +535,7 @@ def test_mosaicml_chat(gateway):
                 "message": {
                     "role": "assistant",
                     "content": "This is a test",
+                    "tool_calls": None,
                 },
                 "finish_reason": None,
                 "index": 0,
@@ -538,6 +599,7 @@ def test_palm_chat(gateway):
                 "message": {
                     "role": "1",
                     "content": "Hi there! How can I help you today?",
+                    "tool_calls": None,
                 },
                 "finish_reason": None,
                 "index": 0,
@@ -675,8 +737,9 @@ def test_invalid_response_structure_raises(gateway):
         backoff_jitter,
         retry_codes,
         raise_on_status,
+        respect_retry_after_header,
     ):
-        return _cached_get_request_session(1, 1, 0.5, retry_codes, True, os.getpid())
+        return _cached_get_request_session(1, 1, 0.5, retry_codes, True, os.getpid(), True)
 
     with patch(
         "mlflow.utils.request_utils._get_request_session", _mock_request_session
@@ -711,8 +774,9 @@ def test_invalid_response_structure_no_raises(gateway):
         backoff_jitter,
         retry_codes,
         raise_on_status,
+        respect_retry_after_header,
     ):
-        return _cached_get_request_session(0, 1, 0.5, retry_codes, False, os.getpid())
+        return _cached_get_request_session(0, 1, 0.5, retry_codes, False, os.getpid(), True)
 
     with patch(
         "mlflow.utils.request_utils._get_request_session", _mock_request_session
@@ -758,8 +822,9 @@ def test_invalid_query_request_raises(gateway):
         backoff_jitter,
         retry_codes,
         raise_on_status,
+        respect_retry_after_header,
     ):
-        return _cached_get_request_session(2, 1, 0.5, retry_codes, True, os.getpid())
+        return _cached_get_request_session(2, 1, 0.5, retry_codes, True, os.getpid(), True)
 
     with patch(
         "mlflow.utils.request_utils._get_request_session", _mock_request_session
@@ -782,6 +847,7 @@ def test_mlflow_chat(gateway):
                 "message": {
                     "role": "assistant",
                     "content": "It is a test",
+                    "tool_calls": None,
                 },
                 "finish_reason": None,
                 "index": 0,
@@ -956,7 +1022,185 @@ def test_bedrock_completions(gateway):
     async def mock_completions(self, payload):
         return expected_output
 
-    with patch.object(AWSBedrockProvider, "completions", mock_completions):
+    with patch.object(AmazonBedrockProvider, "completions", mock_completions):
         response = query(route=route.name, data=data)
 
+    assert response == expected_output
+
+
+def test_mistral_completions(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("completions-mistral")
+    expected_output = {
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "mistral-tiny",
+        "choices": [
+            {
+                "index": 0,
+                "text": "mock using MagicMock please",
+                "finish_reason": "length",
+            }
+        ],
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
+    }
+
+    data = {"prompt": "mock my test", "max_tokens": 50}
+
+    async def mock_completions(self, payload):
+        return expected_output
+
+    with patch.object(MistralProvider, "completions", mock_completions):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
+def test_mistral_embeddings(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("embeddings-mistral")
+    expected_output = {
+        "object": "list",
+        "data": [
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                "index": 0,
+            }
+        ],
+        "model": "mistral-embed",
+        "usage": {"prompt_tokens": None, "total_tokens": None},
+    }
+
+    data = {"input": "mock me and my test"}
+
+    async def mock_embeddings(self, payload):
+        return expected_output
+
+    with patch.object(MistralProvider, "embeddings", mock_embeddings):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
+def test_togetherai_completions(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("completions-togetherai")
+
+    expected_output = {
+        "id": "8782fbf478f2ee87-ATH",
+        "object": "text_completion",
+        "created": 1713761335,
+        "model": "mistralai/Mixtral-8x7B-v0.1",
+        "choices": [
+            {
+                "index": 0,
+                "text": (
+                    "\n\nGeralt of Rivia"
+                    "\nGeralt of Rivia is the protagonist of The Witcher 3: Wild Hunt.\n\n"
+                    "## Is Geralt a good guy?\n\nGeralt is a good guy, but he’s not a hero."
+                    "He’s a monster hunter, "
+                    "and he’s not afraid to kill."
+                    "He’s also not afraid to get his hands dirty. He’s not a hero, "
+                    "but he’s not a villain either.\n\n"
+                    "## Is Geralt a good person?\n\nGeralt is a good person. "
+                    "He’s a monster hunter, but he’s also "
+                    "a good person. He’s a good person because he’s a monster hunter. "
+                    "He’s a good person because he’s "
+                    "a good person.\n\n"
+                    "## Is Geralt a good person?\n\nGeralt is a good person. "
+                    "He’s a monster hunter, but he"
+                ),
+                "finish_reason": None,
+            }
+        ],
+        "usage": {"prompt_tokens": 15, "completion_tokens": 200, "total_tokens": 215},
+    }
+
+    data = {
+        "prompt": "Who's the protagonist in the Witcher 3 Wild Hunt?",
+        "temperature": 0.1,
+        "max_tokens": 200,
+    }
+
+    async def mock_completions(self, payload):
+        return expected_output
+
+    with patch.object(TogetherAIProvider, "completions", mock_completions):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
+def test_togetherai_chat(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("chat-togetherai")
+    expected_output = {
+        "id": "8782fc033a48eea0-ATH",
+        "object": "chat.completion",
+        "created": 1713761337,
+        "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": (
+                        "I am not Alexander, but I can help you with your request. "
+                        "To tell someone to get out of the sunlight, you could say:\n\n"
+                        '* "Step out of the sun, please."\n'
+                        '* "Can you move to the shade? The sun is quite strong."\n'
+                        '* "The sun is too intense, do you mind finding some shade?"\n\n'
+                        "I hope this helps! If you have any other questions or need further "
+                        "clarification, just let me know."
+                    ),
+                    "tool_calls": None,
+                },
+                "finish_reason": None,
+            }
+        ],
+        "usage": {"prompt_tokens": 19, "completion_tokens": 97, "total_tokens": 116},
+    }
+
+    data = {
+        "messages": [{"role": "user", "content": "Get out of the sunlight's way Alexander!"}],
+    }
+
+    async def mock_chat(self, payload):
+        return expected_output
+
+    with patch.object(TogetherAIProvider, "chat", mock_chat):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
+def test_togetherai_embeddings(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("embeddings-togetherai")
+    expected_output = {
+        "object": "list",
+        "data": [
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                "index": 0,
+            }
+        ],
+        "model": "togethercomputer/m2-bert-80M-8k-retrieval",
+        "usage": {"prompt_tokens": 7, "total_tokens": 20},
+    }
+
+    data = {"input": "Please I need embeddings!", "max_tokens": 50}
+
+    async def mock_embeddings(self, payload):
+        return expected_output
+
+    with patch.object(TogetherAIProvider, "embeddings", mock_embeddings):
+        response = client.query(route=route.name, data=data)
     assert response == expected_output

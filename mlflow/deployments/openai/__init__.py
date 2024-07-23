@@ -30,7 +30,8 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
 
     .. seealso::
 
-        See https://mlflow.org/docs/latest/python_api/openai/index.html for other authentication methods.
+        See https://mlflow.org/docs/latest/python_api/openai/index.html for other authentication
+        methods.
 
     Then, create a deployment client and use it to interact with OpenAI endpoints:
 

@@ -112,7 +112,5 @@ export function getArtifactBytesContent(artifactLocation: any) {
 
 export const getArtifactLocationUrl = (path: string, runUuid: string) => {
   const artifactEndpointPath = 'get-artifact';
-  return `${artifactEndpointPath}?path=${encodeURIComponent(path)}&run_uuid=${encodeURIComponent(
-    runUuid,
-  )}`;
+  return `${artifactEndpointPath}?path=${encodeURIComponent(path)}&run_uuid=${encodeURIComponent(runUuid)}`;
 };

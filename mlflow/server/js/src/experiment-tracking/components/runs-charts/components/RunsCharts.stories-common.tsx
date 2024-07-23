@@ -1,3 +1,4 @@
+import { Dash } from 'plotly.js';
 import { useMemo, useState } from 'react';
 import { IntlProvider } from 'react-intl';
 
@@ -43,7 +44,7 @@ export const getRandomRunName = (randomFn = Math.random) =>
   }-${Math.floor(randomFn() * 1000)}`;
 
 export const ChartStoryWrapper = ({ children, controls }: React.PropsWithChildren<any>) => (
-  <IntlProvider locale='en'>
+  <IntlProvider locale="en">
     <div
       css={{
         width: '100vw',

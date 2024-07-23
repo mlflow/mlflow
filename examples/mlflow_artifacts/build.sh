@@ -2,4 +2,4 @@
 
 rm -rf dist
 pip wheel --no-deps --wheel-dir dist ../..
-DOCKERFILE=Dockerfile.dev docker-compose build
+DOCKERFILE=Dockerfile.dev docker compose build

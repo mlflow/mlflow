@@ -11,23 +11,28 @@ of MLflow, including:
 - Loading a logged model for inference using MLflow's `pyfunc` flavor.
 - Viewing the experiment results in the MLflow UI.
 
+If you are new to MLflow, we recommend starting with this quickstart to familiarize yourself with the most commonly used 
+MLflow APIs before diving into more detailed tutorials.
+
+.. raw:: html
+
+     <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="tracking_quickstart.html" >
+                    <div class="header">
+                        MLflow Tracking Quickstart Guide
+                    </div>
+                    <p>
+                    Learn the basics of MLflow Tracking in a fast-paced guide with a focus on seeing your first model in the MLflow UI
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
+
 .. toctree::
     :maxdepth: 1
     :hidden:
 
     tracking_quickstart.ipynb
-
-You can view the full notebook:
-
-.. raw:: html
-
-    <a href="tracking_quickstart.html" class="download-btn">View the MLflow Tracking Quickstart Notebook</a>
-
-If you prefer to run the quickstart in your own environment, you can download the notebook:
-
-.. raw:: html
-
-   <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/getting-started/intro-quickstart/notebooks/tracking_quickstart.ipynb" class="notebook-download-btn">Download the MLflow Tracking Quickstart Notebook</a>
-
-If you are new to MLflow, we recommend starting with this quickstart to familiarize yourself with the most commonly used 
-MLflow APIs before diving into more detailed tutorials.

@@ -15,19 +15,19 @@ export const ExperimentViewRunsTableStatusBar = ({
   allRunsCount,
 }: ExperimentViewRunsTableStatusBarProps) => (
   <div css={styles.statusBar}>
-    <Typography.Text size='sm' color={isLoading ? 'secondary' : undefined}>
+    <Typography.Text size="sm" color={isLoading ? 'secondary' : undefined}>
       <FormattedMessage
         // eslint-disable-next-line max-len
-        defaultMessage='<strong>{length}</strong> matching {length, plural, =0 {runs} =1 {run} other {runs}}'
+        defaultMessage="<strong>{length}</strong> matching {length, plural, =0 {runs} =1 {run} other {runs}}"
         // eslint-disable-next-line max-len
-        description='Message for displaying how many runs match search criteria on experiment page'
+        description="Message for displaying how many runs match search criteria on experiment page"
         values={{
           strong,
           length: allRunsCount,
         }}
       />
     </Typography.Text>
-    {isLoading && <Spinner size='small' />}
+    {isLoading && <Spinner size="small" />}
   </div>
 );
 

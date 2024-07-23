@@ -31,8 +31,8 @@ import os
 import re
 import shutil
 import sys
-import typing as t
 from collections import defaultdict
+from typing import Any, Dict, List, Optional
 
 import requests
 import yaml
@@ -62,30 +62,33 @@ class Version(OriginalVersion):
 
 class PackageInfo(BaseModel):
     pip_release: str
-    install_dev: t.Optional[str] = None
+    install_dev: Optional[str] = None
 
 
 class TestConfig(BaseModel):
     minimum: Version
     maximum: Version
-    unsupported: t.Optional[t.List[Version]] = None
-    requirements: t.Optional[t.Dict[str, t.List[str]]] = None
+    unsupported: Optional[List[Version]] = None
+    requirements: Optional[Dict[str, List[str]]] = None
+    python: Optional[Dict[str, str]] = None
+    java: Optional[Dict[str, str]] = None
     run: str
-    allow_unreleased_max_version: t.Optional[bool] = None
+    allow_unreleased_max_version: Optional[bool] = None
+    pre_test: Optional[str] = None
 
     class Config:
         arbitrary_types_allowed = True
 
     @validator("minimum", pre=True)
-    def validate_minimum(cls, v):  # pylint: disable=no-self-argument
+    def validate_minimum(cls, v):
         return Version(v)
 
     @validator("maximum", pre=True)
-    def validate_maximum(cls, v):  # pylint: disable=no-self-argument
+    def validate_maximum(cls, v):
         return Version(v)
 
     @validator("unsupported", pre=True)
-    def validate_unsupported(cls, v):  # pylint: disable=no-self-argument
+    def validate_unsupported(cls, v):
         return [Version(v) for v in v] if v else None
 
 
@@ -98,7 +101,11 @@ class MatrixItem(BaseModel):
     run: str
     package: str
     version: Version
+    python: str
+    java: str
     supported: bool
+    free_disk_space: bool
+    pre_test: Optional[str] = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -123,12 +130,8 @@ def read_yaml(location, if_error=None):
         raise
 
 
-@functools.lru_cache
 def get_released_versions(package_name):
-    url = f"https://pypi.org/pypi/{package_name}/json"
-    response = requests.get(url)
-    response.raise_for_status()
-    data = response.json()
+    data = pypi_json(package_name)
     versions = []
     for version, distributions in data["releases"].items():
         if len(distributions) == 0 or any(d.get("yanked", False) for d in distributions):
@@ -228,6 +231,54 @@ def get_matched_requirements(requirements, version=None):
     return sorted(reqs)
 
 
+def get_java_version(java: Optional[Dict[str, str]], version: str) -> str:
+    default = "11"
+    if java is None:
+        return default
+
+    for specifier, java_ver in java.items():
+        specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
+        if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
+            return java_ver
+
+    return default
+
+
+@functools.lru_cache(maxsize=128)
+def pypi_json(package: str) -> Dict[str, Any]:
+    resp = requests.get(f"https://pypi.org/pypi/{package}/json")
+    resp.raise_for_status()
+    return resp.json()
+
+
+def get_requires_python(package: str, version: str) -> str:
+    package_json = pypi_json(package)
+    requires_python = next(
+        (
+            distributions[0].get("requires_python")
+            for ver, distributions in package_json["releases"].items()
+            if ver == version and distributions
+        ),
+        None,
+    )
+    candidates = ("3.8", "3.9")
+    if requires_python is None:
+        return candidates[0]
+
+    spec = SpecifierSet(requires_python)
+    return next((c for c in candidates if spec.contains(c)), None) or candidates[0]
+
+
+def get_python_version(python: Optional[Dict[str, str]], package: str, version: str) -> str:
+    if python:
+        for specifier, py_ver in python.items():
+            specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
+            if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
+                return py_ver
+
+    return get_requires_python(package, version)
+
+
 def remove_comments(s):
     return "\n".join(l for l in s.strip().split("\n") if not l.strip().startswith("#"))
 
@@ -323,6 +374,11 @@ def expand_config(config):
         flavor = get_flavor(name)
         package_info = PackageInfo(**cfgs.pop("package_info"))
         all_versions = get_released_versions(package_info.pip_release)
+        free_disk_space = package_info.pip_release in (
+            "transformers",
+            "sentence-transformers",
+            "torch",
+        )
         for category, cfg in cfgs.items():
             cfg = TestConfig(**cfg)
             versions = filter_versions(
@@ -343,6 +399,8 @@ def expand_config(config):
                 requirements.extend(get_matched_requirements(cfg.requirements or {}, str(ver)))
                 install = make_pip_install_command(requirements)
                 run = remove_comments(cfg.run)
+                python = get_python_version(cfg.python, package_info.pip_release, str(ver))
+                java = get_java_version(cfg.java, str(ver))
 
                 matrix.add(
                     MatrixItem(
@@ -354,7 +412,11 @@ def expand_config(config):
                         run=run,
                         package=package_info.pip_release,
                         version=ver,
+                        python=python,
+                        java=java,
                         supported=ver <= cfg.maximum,
+                        free_disk_space=free_disk_space,
+                        pre_test=cfg.pre_test,
                     )
                 )
 
@@ -365,6 +427,8 @@ def expand_config(config):
                     install = make_pip_install_command(requirements) + "\n" + install_dev
                 else:
                     install = install_dev
+                python = get_python_version(cfg.python, package_info.pip_release, DEV_VERSION)
+                java = get_java_version(cfg.java, DEV_VERSION)
 
                 run = remove_comments(cfg.run)
                 dev_version = Version.create_dev()
@@ -378,7 +442,11 @@ def expand_config(config):
                         run=run,
                         package=package_info.pip_release,
                         version=dev_version,
+                        python=python,
+                        java=java,
                         supported=False,
+                        free_disk_space=free_disk_space,
+                        pre_test=cfg.pre_test,
                     )
                 )
     return matrix
@@ -392,6 +460,11 @@ def apply_changed_files(changed_files, matrix):
         if (__file__ in changed_files)
         else get_changed_flavors(changed_files, all_flavors)
     )
+
+    # Run langchain tests if any tracing files have been changed
+    if any(f.startswith("mlflow/tracing/") for f in changed_files):
+        changed_flavors.add("langchain")
+
     return set(filter(lambda x: x.flavor in changed_flavors, matrix))
 
 
@@ -434,7 +507,7 @@ def generate_matrix(args):
 class CustomEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, MatrixItem):
-            return dict(o)
+            return o.model_dump(exclude_none=True)
         elif isinstance(o, Version):
             return str(o)
         return super().default(o)
@@ -445,21 +518,62 @@ def set_action_output(name, value):
         f.write(f"{name}={value}\n")
 
 
+def split(matrix, n):
+    grouped_by_name = defaultdict(list)
+    for item in matrix:
+        grouped_by_name[item.name].append(item)
+
+    num = len(matrix) // n
+    chunk = []
+    for group in grouped_by_name.values():
+        chunk.extend(group)
+        if len(chunk) >= num:
+            yield chunk
+            chunk = []
+
+    if chunk:
+        yield chunk
+
+
+def validate_action_config(num_jobs: int):
+    with open(".github/workflows/cross-version-tests.yml") as f:
+        s = f.read()
+    s = re.sub(
+        r"needs\.set-matrix\.outputs\.matrix\d",
+        "needs.set-matrix.outputs.matrix",
+        s,
+    )
+    s = re.sub(
+        r"needs\.set-matrix\.outputs\.is_matrix\d_empty",
+        "needs.set-matrix.outputs.is_matrix_empty",
+        s,
+    )
+    jobs = yaml.safe_load(s)["jobs"]
+    jobs = [v for name, v in jobs.items() if name.startswith("test")]
+    assert len(jobs) == num_jobs, f"Expected {num_jobs} jobs, but got {len(jobs)}"
+    assert all(jobs[0] == j for j in jobs[1:]), "All jobs must have the same configuration"
+
+
 def main(args):
+    # https://docs.github.com/en/actions/learn-github-actions/usage-limits-billing-and-administration#usage-limits
+    # > A job matrix can generate a maximum of 256 jobs per workflow run.
+    MAX_ITEMS = 256
+    NUM_JOBS = 2
+    validate_action_config(NUM_JOBS)
+
     print(divider("Parameters"))
     print(json.dumps(args, indent=2))
     matrix = generate_matrix(args)
-    is_matrix_empty = len(matrix) == 0
     matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
     matrix = [x for x in matrix if x.flavor not in ("gluon", "mleap")]
-    matrix = {"include": matrix, "job_name": [x.job_name for x in matrix]}
-
-    print(divider("Matrix"))
-    print(json.dumps(matrix, indent=2, cls=CustomEncoder))
-
-    if "GITHUB_ACTIONS" in os.environ:
-        set_action_output("matrix", json.dumps(matrix, cls=CustomEncoder))
-        set_action_output("is_matrix_empty", "true" if is_matrix_empty else "false")
+    assert len(matrix) <= MAX_ITEMS * 2, f"Too many jobs: {len(matrix)} > {MAX_ITEMS * NUM_JOBS}"
+    for idx, mat in enumerate(split(matrix, NUM_JOBS), start=1):
+        mat = {"include": mat, "job_name": [x.job_name for x in mat]}
+        print(divider(f"Matrix {idx}"))
+        print(json.dumps(mat, indent=2, cls=CustomEncoder))
+        if "GITHUB_ACTIONS" in os.environ:
+            set_action_output(f"matrix{idx}", json.dumps(mat, cls=CustomEncoder))
+            set_action_output(f"is_matrix{idx}_empty", "true" if len(mat) == 0 else "false")
 
 
 if __name__ == "__main__":

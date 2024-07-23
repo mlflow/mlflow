@@ -13,7 +13,7 @@ alembic:
 docker:
   pip_release: docker
   minimum: "4.0.0"
-  max_major_version: 6
+  max_major_version: 7
 
 flask:
   pip_release: Flask
@@ -42,12 +42,12 @@ sqlalchemy:
 
 gunicorn:
   pip_release: gunicorn
-  max_major_version: 21
+  max_major_version: 22
   markers: "platform_system != 'Windows'"
 
 waitress:
   pip_release: waitress
-  max_major_version: 2
+  max_major_version: 3
   markers: "platform_system == 'Windows'"
 
 scikit-learn:
@@ -57,7 +57,7 @@ scikit-learn:
 pyarrow:
   pip_release: pyarrow
   minimum: "4.0.0"
-  max_major_version: 14
+  max_major_version: 15
 
 markdown:
   pip_release: markdown
@@ -80,4 +80,8 @@ Jinja2-windows:
 
 matplotlib:
   pip_release: matplotlib
+  max_major_version: 3
+
+graphene:
+  pip_release: graphene
   max_major_version: 3

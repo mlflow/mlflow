@@ -2,10 +2,8 @@ from abc import abstractmethod
 from typing import Any, Dict
 
 from mlflow.data.dataset_source import DatasetSource
-from mlflow.utils.annotations import experimental
 
 
-@experimental
 class FileSystemDatasetSource(DatasetSource):
     """
     Represents the source of a dataset stored on a filesystem, e.g. a local UNIX filesystem,
@@ -68,7 +66,7 @@ class FileSystemDatasetSource(DatasetSource):
         """
 
     @abstractmethod
-    def _to_dict(self) -> Dict[Any, Any]:
+    def to_dict(self) -> Dict[Any, Any]:
         """
         Returns:
             A JSON-compatible dictionary representation of the FileSystemDatasetSource.
@@ -76,7 +74,7 @@ class FileSystemDatasetSource(DatasetSource):
 
     @classmethod
     @abstractmethod
-    def _from_dict(cls, source_dict: Dict[Any, Any]) -> "FileSystemDatasetSource":
+    def from_dict(cls, source_dict: Dict[Any, Any]) -> "FileSystemDatasetSource":
         """
         Args:
             source_dict: A dictionary representation of the FileSystemDatasetSource.

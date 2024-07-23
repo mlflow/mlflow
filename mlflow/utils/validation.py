@@ -1,16 +1,20 @@
 """
 Utilities for validating user inputs such as metric names and parameter names.
 """
+import logging
 import numbers
 import posixpath
 import re
 from typing import List
 
-from mlflow.entities import Dataset, DatasetInput, InputTag
+from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
+from mlflow.environment_variables import MLFLOW_TRUNCATE_LONG_VALUES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.string_utils import is_string_type
+
+_logger = logging.getLogger(__name__)
 
 # Regex for valid param and metric names: may only contain slashes, alphanumerics,
 # underscores, periods, dashes, and spaces.
@@ -48,6 +52,7 @@ MAX_ENTITIES_PER_BATCH = 1000
 MAX_BATCH_LOG_REQUEST_SIZE = int(1e6)
 MAX_PARAM_VAL_LENGTH = 6000
 MAX_TAG_VAL_LENGTH = 5000
+MAX_EXPERIMENT_NAME_LENGTH = 500
 MAX_EXPERIMENT_TAG_KEY_LENGTH = 250
 MAX_EXPERIMENT_TAG_VAL_LENGTH = 5000
 MAX_ENTITY_KEY_LENGTH = 250
@@ -56,12 +61,17 @@ MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH = 5000
 MAX_EXPERIMENTS_LISTED_PER_PAGE = 50000
 MAX_DATASET_NAME_SIZE = 500
 MAX_DATASET_DIGEST_SIZE = 36
-MAX_DATASET_SCHEMA_SIZE = 65535  # 64KB -1 (the db limit for TEXT column)
+# 1MB -1, the db limit for MEDIUMTEXT column is 16MB, but
+# we restrict to 1MB because user might log lots of datasets
+# to a single run, 16MB increases burden on db
+MAX_DATASET_SCHEMA_SIZE = 1048575
 MAX_DATASET_SOURCE_SIZE = 65535  # 64KB -1 (the db limit for TEXT column)
 MAX_DATASET_PROFILE_SIZE = 16777215  # 16MB -1 (the db limit for MEDIUMTEXT column)
 MAX_INPUT_TAG_KEY_SIZE = 255
 MAX_INPUT_TAG_VALUE_SIZE = 500
 MAX_REGISTERED_MODEL_ALIAS_LENGTH = 255
+MAX_TRACE_TAG_KEY_LENGTH = 250
+MAX_TRACE_TAG_VAL_LENGTH = 8000
 
 _UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ", ".join(DATABASE_ENGINES)
 
@@ -163,6 +173,8 @@ def _validate_metric(key, value, timestamp, step):
             INVALID_PARAMETER_VALUE,
         )
 
+    _validate_length_limit("Metric name", MAX_ENTITY_KEY_LENGTH, key)
+
 
 def _validate_param(key, value):
     """
@@ -170,8 +182,10 @@ def _validate_param(key, value):
     isn't.
     """
     _validate_param_name(key)
-    _validate_length_limit("Param key", MAX_ENTITY_KEY_LENGTH, key)
-    _validate_length_limit("Param value", MAX_PARAM_VAL_LENGTH, value)
+    return Param(
+        _validate_length_limit("Param key", MAX_ENTITY_KEY_LENGTH, key),
+        _validate_length_limit("Param value", MAX_PARAM_VAL_LENGTH, value, truncate=True),
+    )
 
 
 def _validate_tag(key, value):
@@ -179,8 +193,10 @@ def _validate_tag(key, value):
     Check that a tag with the specified key & value is valid and raise an exception if it isn't.
     """
     _validate_tag_name(key)
-    _validate_length_limit("Tag key", MAX_ENTITY_KEY_LENGTH, key)
-    _validate_length_limit("Tag value", MAX_TAG_VAL_LENGTH, value)
+    return RunTag(
+        _validate_length_limit("Tag key", MAX_ENTITY_KEY_LENGTH, key),
+        _validate_length_limit("Tag value", MAX_TAG_VAL_LENGTH, value, truncate=True),
+    )
 
 
 def _validate_experiment_tag(key, value):
@@ -268,13 +284,25 @@ def _validate_tag_name(name):
         )
 
 
-def _validate_length_limit(entity_name, limit, value):
-    if value is not None and len(value) > limit:
-        raise MlflowException(
-            f"{entity_name} '{value[:250]}' had length {len(value)}, "
-            f"which exceeded length limit of {limit}",
-            error_code=INVALID_PARAMETER_VALUE,
+def _validate_length_limit(entity_name, limit, value, *, truncate=False):
+    if value is None:
+        return None
+
+    if len(value) <= limit:
+        return value
+
+    if truncate and MLFLOW_TRUNCATE_LONG_VALUES.get():
+        _logger.warning(
+            f"{entity_name} '{value[:100]}...' ({len(value)} characters) is truncated to "
+            f"{limit} characters to meet the length limit."
         )
+        return value[:limit]
+
+    raise MlflowException(
+        f"{entity_name} '{value[:250]}' had length {len(value)}, "
+        f"which exceeded length limit of {limit}",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
 
 
 def _validate_run_id(run_id):
@@ -315,16 +343,11 @@ def _validate_batch_log_limits(metrics, params, tags):
 def _validate_batch_log_data(metrics, params, tags):
     for metric in metrics:
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
-        # TODO: move _validate_length_limit calls into _validate_metric etc. This would be a
-        # breaking change as _validate_metric is also used in the single-entry log_metric API. Thus
-        # we defer it for now to allow for a release of the batched logging APIs without breaking
-        # changes to other APIs. See related discussion in
-        # https://github.com/mlflow/mlflow/issues/985
-        _validate_length_limit("Metric name", MAX_ENTITY_KEY_LENGTH, metric.key)
-    for param in params:
-        _validate_param(param.key, param.value)
-    for tag in tags:
-        _validate_tag(tag.key, tag.value)
+    return (
+        metrics,
+        [_validate_param(p.key, p.value) for p in params],
+        [_validate_tag(t.key, t.value) for t in tags],
+    )
 
 
 def _validate_batch_log_api_req(json_req):
@@ -347,6 +370,11 @@ def _validate_experiment_name(experiment_name):
         raise MlflowException(
             f"Invalid experiment name: {experiment_name}. Expects a string.",
             error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if len(experiment_name) > MAX_EXPERIMENT_NAME_LENGTH:
+        raise MlflowException.invalid_parameter_value(
+            f"Experiment name exceeds the maximum length of {MAX_EXPERIMENT_NAME_LENGTH} characters"
         )
 
 
@@ -500,3 +528,12 @@ def _validate_input_tag(input_tag: InputTag):
 def _validate_username(username):
     if username is None or username == "":
         raise MlflowException("Username cannot be empty.", INVALID_PARAMETER_VALUE)
+
+
+def _validate_trace_tag(key, value):
+    _validate_tag_name(key)
+    key = _validate_length_limit("Trace tag key", MAX_TRACE_TAG_KEY_LENGTH, key)
+    value = _validate_length_limit(
+        "Trace tag value", MAX_TRACE_TAG_VAL_LENGTH, value, truncate=True
+    )
+    return key, value

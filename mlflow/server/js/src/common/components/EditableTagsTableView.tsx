@@ -55,8 +55,7 @@ export class EditableTagsTableViewImpl extends Component<Props> {
       'name',
     );
 
-  getTagNamesAsSet = () =>
-    new Set(Utils.getVisibleTagValues(this.props.tags).map((values) => values[0]));
+  getTagNamesAsSet = () => new Set(Utils.getVisibleTagValues(this.props.tags).map((values) => values[0]));
 
   tagNameValidator = (rule: any, value: any, callback: any) => {
     const tagNamesSet = this.getTagNamesAsSet();
@@ -76,8 +75,7 @@ export class EditableTagsTableViewImpl extends Component<Props> {
   };
 
   render() {
-    const { isRequestPending, handleSaveEdit, handleDeleteTag, handleAddTag, innerRef } =
-      this.props;
+    const { isRequestPending, handleSaveEdit, handleDeleteTag, handleAddTag, innerRef } = this.props;
 
     return (
       <>
@@ -87,19 +85,18 @@ export class EditableTagsTableViewImpl extends Component<Props> {
           onSaveEdit={handleSaveEdit}
           onDelete={handleDeleteTag}
         />
-        <Spacer size='sm' />
+        <Spacer size="sm" />
         <div>
           {/* @ts-expect-error TS(2322): Type '{ children: Element[]; ref: any; layout: "in... Remove this comment to see the full error message */}
-          <Form ref={innerRef} layout='inline' onFinish={handleAddTag} css={styles.form}>
+          <Form ref={innerRef} layout="inline" onFinish={handleAddTag} css={styles.form}>
             <Form.Item
-              name='name'
+              name="name"
               rules={[
                 {
                   required: true,
                   message: this.props.intl.formatMessage({
                     defaultMessage: 'Name is required.',
-                    description:
-                      'Error message for name requirement in editable tags table view in MLflow',
+                    description: 'Error message for name requirement in editable tags table view in MLflow',
                   }),
                 },
                 {
@@ -108,31 +105,34 @@ export class EditableTagsTableViewImpl extends Component<Props> {
               ]}
             >
               <Input
-                aria-label='tag name'
-                data-testid='tags-form-input-name'
+                aria-label="tag name"
+                data-testid="tags-form-input-name"
                 placeholder={this.props.intl.formatMessage({
                   defaultMessage: 'Name',
-                  description:
-                    'Default text for name placeholder in editable tags table form in MLflow',
+                  description: 'Default text for name placeholder in editable tags table form in MLflow',
                 })}
               />
             </Form.Item>
-            <Form.Item name='value' rules={[]}>
+            <Form.Item name="value" rules={[]}>
               <Input
-                aria-label='tag value'
-                data-testid='tags-form-input-value'
+                aria-label="tag value"
+                data-testid="tags-form-input-value"
                 placeholder={this.props.intl.formatMessage({
                   defaultMessage: 'Value',
-                  description:
-                    'Default text for value placeholder in editable tags table form in MLflow',
+                  description: 'Default text for value placeholder in editable tags table form in MLflow',
                 })}
               />
             </Form.Item>
             <Form.Item>
-              <Button loading={isRequestPending} htmlType='submit' data-testid='add-tag-button'>
+              <Button
+                componentId="codegen_mlflow_app_src_common_components_editabletagstableview.tsx_127"
+                loading={isRequestPending}
+                htmlType="submit"
+                data-testid="add-tag-button"
+              >
                 <FormattedMessage
-                  defaultMessage='Add'
-                  description='Add button text in editable tags table view in MLflow'
+                  defaultMessage="Add"
+                  description="Add button text in editable tags table view in MLflow"
                 />
               </Button>
             </Form.Item>

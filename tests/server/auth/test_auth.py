@@ -17,9 +17,11 @@ from mlflow import MlflowClient
 from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
+    RESOURCE_DOES_NOT_EXIST,
     UNAUTHENTICATED,
     ErrorCode,
 )
+from mlflow.server.auth.routes import GET_REGISTERED_MODEL_PERMISSION
 from mlflow.utils.os import is_windows
 
 from tests.helper_functions import random_str
@@ -287,6 +289,55 @@ def test_search_registered_models(client, monkeypatch):
 
         names = sorted([rm.name for rm in registered_models])
         assert names == [f"rm{i}" for i in readable]
+
+
+def test_create_and_delete_registered_model(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+
+    # create a registered model
+    with User(username1, password1, monkeypatch):
+        rm = client.create_registered_model("test_model")
+
+    # confirm the permission is set correctly
+    with User(username1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + GET_REGISTERED_MODEL_PERMISSION,
+            params={"name": rm.name, "username": username1},
+            auth=(username1, password1),
+        )
+
+    permission = response.json()["registered_model_permission"]
+    assert permission["name"] == rm.name
+    assert permission["permission"] == "MANAGE"
+
+    # trying to create a model with the same name should fail
+    with User(username1, password1, monkeypatch):
+        with pytest.raises(MlflowException, match=r"RESOURCE_ALREADY_EXISTS"):
+            client.create_registered_model("test_model")
+
+    # delete the registered model
+    with User(username1, password1, monkeypatch):
+        client.delete_registered_model(rm.name)
+
+    # confirm the registered model permission is also deleted
+    with User(username1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + GET_REGISTERED_MODEL_PERMISSION,
+            params={"name": rm.name, "username": username1},
+            auth=("admin", "password"),  # Check with admin because the user permission is deleted
+        )
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+    assert (
+        response.json()["message"]
+        == f"Registered model permission with name={rm.name} and username={username1} not found"
+    )
+
+    # now we should be able to create a model with the same name
+    with User(username1, password1, monkeypatch):
+        rm = client.create_registered_model("test_model")
+    assert rm.name == "test_model"
 
 
 def _wait(url: str):

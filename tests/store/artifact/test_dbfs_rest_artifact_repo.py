@@ -116,7 +116,7 @@ def test_log_artifact(dbfs_artifact_repo, test_file, artifact_path, expected_end
         endpoints = []
         data = []
 
-        def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
+        def my_http_request(host_creds, **kwargs):
             endpoints.append(kwargs["endpoint"])
             data.append(kwargs["data"].read())
             return http_request(host_creds, **kwargs)
@@ -135,7 +135,7 @@ def test_log_artifact_empty_file(dbfs_artifact_repo, test_dir):
         "requests.Session.request", return_value=MOCK_SUCCESS_RESPONSE
     ) as mock_base_request:
 
-        def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
+        def my_http_request(host_creds, **kwargs):
             assert kwargs["endpoint"] == "/dbfs/test/empty-file"
             assert kwargs["data"] == ""
             return http_request(host_creds, **kwargs)
@@ -152,7 +152,7 @@ def test_log_artifact_empty_artifact_path(dbfs_artifact_repo, test_file):
         "requests.Session.request", return_value=MOCK_SUCCESS_RESPONSE
     ) as mock_base_request:
 
-        def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
+        def my_http_request(host_creds, **kwargs):
             assert kwargs["endpoint"] == "/dbfs/test/test.txt"
             assert kwargs["data"].read() == TEST_FILE_1_CONTENT
             return http_request(host_creds, **kwargs)
@@ -187,7 +187,7 @@ def test_log_artifacts(dbfs_artifact_repo, test_dir, artifact_path):
         endpoints = []
         data = []
 
-        def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
+        def my_http_request(host_creds, **kwargs):
             endpoints.append(kwargs["endpoint"])
             if kwargs["endpoint"] == "/dbfs/test/empty-file":
                 data.append(kwargs["data"])
@@ -254,7 +254,7 @@ def test_log_artifacts_with_artifact_path(
     ) as mock_base_request:
         endpoints = []
 
-        def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
+        def my_http_request(host_creds, **kwargs):
             endpoints.append(kwargs["endpoint"])
             return http_request(host_creds, **kwargs)
 

@@ -1,9 +1,12 @@
-/// <reference types="react" />
 import type { SerializedStyles } from '@emotion/react';
 import type { PaginationProps as AntdPaginationProps } from 'antd';
 import type { Theme } from '../../theme';
 import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
-export interface PaginationProps extends HTMLDataAttributes, DangerouslySetAntdProps<AntdPaginationProps> {
+interface AntdExtraPaginationProps extends AntdPaginationProps {
+    pageSizeSelectAriaLabel?: string;
+    pageQuickJumperAriaLabel?: string;
+}
+export interface PaginationProps extends HTMLDataAttributes, DangerouslySetAntdProps<AntdExtraPaginationProps> {
     /**
      * The index of the current page. Starts at 1.
      */
@@ -22,6 +25,7 @@ export interface PaginationProps extends HTMLDataAttributes, DangerouslySetAntdP
      */
     onChange: (pageIndex: number, pageSize?: number) => void;
     style?: React.CSSProperties;
+    hideOnSinglePage?: boolean;
 }
 export declare function getPaginationEmotionStyles(clsPrefix: string, theme: Theme): SerializedStyles;
 export declare const Pagination: React.FC<PaginationProps>;
@@ -48,7 +52,10 @@ export interface CursorPaginationProps extends HTMLDataAttributes {
         getOptionText?: (pageSize: number) => string;
         /** onChange handler for page size selector. */
         onChange: (pageSize: number) => void;
+        /** Aria label for the page size selector */
+        ariaLabel?: string;
     };
 }
 export declare const CursorPagination: React.FC<CursorPaginationProps>;
+export {};
 //# sourceMappingURL=index.d.ts.map

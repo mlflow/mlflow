@@ -1,6 +1,69 @@
-import userEvent from '@testing-library/user-event';
-import { queryHelpers, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event-14';
+import { queryHelpers, within, waitFor, screen, fireEvent } from '@testing-library/react';
+import { computeAccessibleName } from 'dom-accessibility-api';
 import { s as selectClasses, c as createMarkdownTable } from '../common-5b60d682.js';
+
+function normalizeText(text) {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Extracts the display label from a combobox — equivalent to the selected
+ * option's label.
+ */
+function getDisplayLabel(combobox) {
+  var _combobox$textContent;
+  return normalizeText((_combobox$textContent = combobox.textContent) !== null && _combobox$textContent !== void 0 ? _combobox$textContent : '');
+}
+
+/**
+ * Finds the associated listbox for a combobox.
+ *
+ * @usage
+ *
+ * ```tsx
+ * const combobox = screen.getByRole('combobox', { name: '…' });
+ * await userEvent.click(combobox);
+ * const listbox = select.getListbox(combobox);
+ * await userEvent.click(within(listbox).getByRole('option', { name: '…' }));
+ * ```
+ */
+function getListbox(combobox) {
+  const id = combobox.getAttribute('aria-controls');
+  if (!id) {
+    throw queryHelpers.getElementError("This doesn't appear to be a combobox. Make sure you're querying the right element: `ByRole('combobox', { name: '…' })`", combobox);
+  }
+  const listbox = combobox.ownerDocument.getElementById(id);
+  if (!listbox) {
+    throw queryHelpers.getElementError("Can't find the listbox. Are you sure the select has been opened? `await userEvent.click(combobox)`", combobox.ownerDocument.body);
+  }
+  return listbox;
+}
+
+/**
+ * Returns all options associated with a combobox (requires the select to have
+ * been opened).
+ */
+function getOptions(combobox) {
+  const listbox = getListbox(combobox);
+  return within(listbox).getAllByRole('option');
+}
+
+/**
+ * Returns the accessible name for each option in a combobox.
+ */
+function getOptionNames(combobox) {
+  const options = getOptions(combobox);
+  return options.map(option => computeAccessibleName(option));
+}
+
+var select = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  getDisplayLabel: getDisplayLabel,
+  getListbox: getListbox,
+  getOptionNames: getOptionNames,
+  getOptions: getOptions
+});
 
 /**
  * Allows the helpers in this module to be used when the select element is
@@ -135,7 +198,7 @@ async function multiSelect(select, options) {
   const optionsList = getOptionsList(select);
   for (let i = 0; i < options.length; i++) {
     const option = options[i];
-    const optionItem = within(optionsList).getByTitle(option);
+    const optionItem = within(optionsList).getByText(option);
     await userEvent.click(optionItem, {
       pointerEventsCheck: 0
     });
@@ -155,7 +218,7 @@ async function singleSelect(select, option) {
   select = getRootElement(select);
   await openMenu(select);
   const optionsList = getOptionsList(select);
-  const optionItem = within(optionsList).getByTitle(option);
+  const optionItem = within(optionsList).getByText(option);
   await userEvent.click(optionItem, {
     pointerEventsCheck: 0
   });
@@ -194,10 +257,25 @@ async function getAllOptions(select) {
   return options;
 }
 
+/**
+ * Creates a new option for a Select with `mode="tags"` by typing it into the input,
+ * clicking on the option in the options list, and then closing the menu.
+ */
+async function createNewOption(select, option) {
+  select = getRootElement(select);
+  const selectInput = within(select).getByRole('combobox');
+  await userEvent.type(selectInput, option);
+  const optionsList = getOptionsList(select);
+  const optionItem = within(optionsList).getByText(option);
+  await userEvent.click(optionItem);
+  await closeMenu(select);
+}
+
 var selectEvent = /*#__PURE__*/Object.freeze({
   __proto__: null,
   clearAll: clearAll,
   closeMenu: closeMenu,
+  createNewOption: createNewOption,
   getAllOptions: getAllOptions,
   getLabelText: getLabelText,
   multiSelect: multiSelect,
@@ -205,6 +283,93 @@ var selectEvent = /*#__PURE__*/Object.freeze({
   removeMultiSelectOption: removeMultiSelectOption,
   singleSelect: singleSelect
 });
+
+/* eslint-disable @databricks/no-restricted-globals-with-module */
+
+// Helpers to get the selected option from the trigger
+const getSelectedOptionLabelFromTrigger = name => {
+  return screen.getByRole('combobox', {
+    name
+  }).textContent;
+};
+const getSelectedOptionValueFromTrigger = name => {
+  return screen.getByRole('combobox', {
+    name
+  }).getAttribute('value');
+};
+const getSelectedOptionFromTrigger = name => {
+  const label = getSelectedOptionLabelFromTrigger(name);
+  const value = getSelectedOptionValueFromTrigger(name);
+  return {
+    label,
+    value
+  };
+};
+const expectSelectedOptionFromTriggerToBe = (label, name) => {
+  expect(getSelectedOptionLabelFromTrigger(name)).toBe(label);
+};
+const toggleSelect = name => {
+  fireEvent.click(screen.getByRole('combobox', {
+    name
+  }));
+};
+const expectSelectToBeOpen = () => {
+  expect(screen.queryAllByRole('option')).not.toHaveLength(0);
+};
+const expectSelectToBeClosed = () => {
+  expect(screen.queryAllByRole('option')).toHaveLength(0);
+};
+
+// Generic helpers for when the select is open
+const getOptionsLength = () => {
+  return screen.getAllByRole('option').length;
+};
+const expectOptionsLengthToBe = length => {
+  expect(getOptionsLength()).toBe(length);
+};
+const getUnselectedOption = label => {
+  return screen.getByRole('option', {
+    name: label,
+    selected: false
+  });
+};
+const getSelectedOption = label => {
+  return screen.getByRole('option', {
+    name: label,
+    selected: false
+  });
+};
+const getOption = label => {
+  return screen.getByRole('option', {
+    name: label
+  });
+};
+const selectOption = label => {
+  fireEvent.click(screen.getByRole('option', {
+    name: label
+  }));
+};
+const expectSelectedOptionToBe = label => {
+  const options = screen.getAllByRole('option');
+  const selectedOption = options.find(option => option.getAttribute('aria-selected') === 'true');
+  expect(selectedOption).toHaveTextContent(label);
+};
+const simpleSelectTestUtils = {
+  getSelectedOptionLabelFromTrigger,
+  getSelectedOptionValueFromTrigger,
+  getSelectedOptionFromTrigger,
+  expectSelectedOptionFromTriggerToBe,
+  toggleSelect,
+  expectSelectToBeOpen,
+  expectSelectToBeClosed,
+  getOptionsLength,
+  expectOptionsLengthToBe,
+  getUnselectedOption,
+  getSelectedOption,
+  getOption,
+  selectOption,
+  expectSelectedOptionToBe
+};
 
 function getColumnHeaderIndex(tableElement, columnHeaderName) {
   var _columnHeader$parentE, _columnHeader$parentE2;
@@ -372,5 +537,5 @@ const openDropdownMenu = async dropdownButton => {
   await userEvent.type(dropdownButton, '{arrowdown}');
 };
 
-export { getTableCellInRow, getTableRowByCellText, getTableRows, openDropdownMenu, selectEvent, toMarkdownTable };
+export { getTableCellInRow, getTableRowByCellText, getTableRows, openDropdownMenu, select, selectEvent, simpleSelectTestUtils, toMarkdownTable };
 //# sourceMappingURL=rtl.js.map

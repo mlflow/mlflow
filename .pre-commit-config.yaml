@@ -1,10 +1,16 @@
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: end-of-file-fixer
+        files: \.(proto|txt|sh|rst)$
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: "v2.7.1"
     hooks:
       - id: prettier
         files: '^(?!CHANGELOG.md|mlflow/pypi_package_index.json|docs/|mlflow/server/js/).+\.(js|md|json|ya?ml)$'
         args: ["--no-config", "--print-width", "100"]
+        require_serial: true
   - repo: local
     hooks:
       - id: ruff
@@ -13,35 +19,39 @@ repos:
         language: system
         types_or: [python, jupyter]
         stages: [commit]
+        require_serial: true
 
-      - id: black
-        name: black
-        entry: python dev/black.py
+      - id: format
+        name: format
+        entry: python dev/format.py
         language: system
         types_or: [python, jupyter]
         stages: [commit]
+        require_serial: true
+
+      - id: taplo
+        name: taplo
+        entry: dev/taplo.sh
+        language: system
+        types: [toml]
+        stages: [commit]
+        require_serial: true
 
       - id: blacken-docs
         name: blacken-docs
         entry: blacken-docs
         language: system
-        types_or: [python, rst, markdown]
+        types_or: [rst, markdown]
         stages: [commit]
+        require_serial: true
 
-      - id: pylint
-        name: pylint
-        entry: pylint
-        language: system
-        types: [python]
-        args: ["--rcfile=pylintrc"]
-        stages: [commit]
-
-      - id: disallow-rule-ids
-        name: disallow-rule-ids
-        entry: python ./dev/disallow_rule_ids.py
+      - id: custom-python-lint
+        name: custom-python-lint
+        entry: clint
         language: system
         types: [python]
         stages: [commit]
+        require_serial: true
 
       - id: rstcheck
         name: rstcheck
@@ -49,15 +59,71 @@ repos:
         language: system
         files: README.rst
         stages: [commit]
+        require_serial: true
 
       - id: must-have-signoff
         name: must-have-signoff
         entry: 'grep "Signed-off-by:"'
         language: system
         stages: [prepare-commit-msg]
+        require_serial: true
 
       - id: mlflow-typo
         name: mlflow-typo
         entry: dev/mlflow-typo.sh
         language: system
         stages: [commit]
+        require_serial: true
+
+      - id: generate-skinny-requirements
+        name: generate-skinny-requirements
+        entry: >
+          python dev/generate_requirements.py
+            --requirements-yaml-location requirements/skinny-requirements.yaml
+            --requirements-txt-output-location requirements/skinny-requirements.txt
+        files: "^requirements/skinny-requirements.yaml$"
+        language: system
+        stages: [commit]
+        require_serial: true
+        pass_filenames: false
+
+      - id: generate-core-requirements
+        name: generate-core-requirements
+        entry: >
+          python dev/generate_requirements.py
+            --requirements-yaml-location requirements/core-requirements.yaml
+            --requirements-txt-output-location requirements/core-requirements.txt
+        files: "^requirements/core-requirements.yaml$"
+        language: system
+        stages: [commit]
+        require_serial: true
+        pass_filenames: false
+
+      - id: generate-gateway-requirements
+        name: generate-gateway-requirements
+        entry: >
+          python dev/generate_requirements.py
+            --requirements-yaml-location requirements/gateway-requirements.yaml
+            --requirements-txt-output-location requirements/gateway-requirements.txt
+        files: "^requirements/gateway-requirements.yaml$"
+        language: system
+        stages: [commit]
+        require_serial: true
+        pass_filenames: false
+
+      - id: pyproject
+        name: pyproject
+        entry: python dev/pyproject.py
+        language: system
+        stages: [commit]
+        require_serial: true
+        pass_filenames: false
+
+      - id: mlver
+        name: ml-package-versions-consistency
+        entry: "python dev/update_ml_package_versions.py --skip-yml"
+        files: '^(mlflow/ml-package-versions\.yml|mlflow/ml_package_versions\.py)$'
+        language: system
+        stages: [commit]
+        require_serial: true
+        pass_filenames: false

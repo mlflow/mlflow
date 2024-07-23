@@ -24,10 +24,7 @@ export const ModelsTableAliasedVersionsCell = ({ model }: ModelsTableAliasedVers
   }
 
   // Sort alias entries by version, descending
-  const aliasesByVersionSorted = sortBy(
-    aliases,
-    ({ version }) => parseInt(version, 10) || 0,
-  ).reverse();
+  const aliasesByVersionSorted = sortBy(aliases, ({ version }) => parseInt(version, 10) || 0).reverse();
 
   const latestVersionAlias = first(aliasesByVersionSorted);
 
@@ -40,28 +37,26 @@ export const ModelsTableAliasedVersionsCell = ({ model }: ModelsTableAliasedVers
 
   return (
     <div>
-      <Link
-        to={ModelRegistryRoutes.getModelVersionPageRoute(model.name, latestVersionAlias.version)}
-      >
-        <ModelVersionAliasTag
-          value={latestVersionAlias.alias}
-          css={{ marginRight: 0, cursor: 'pointer' }}
-        />
+      <Link to={ModelRegistryRoutes.getModelVersionPageRoute(model.name, latestVersionAlias.version)}>
+        <ModelVersionAliasTag value={latestVersionAlias.alias} css={{ marginRight: 0, cursor: 'pointer' }} />
         : <FormattedMessage {...versionLabel} values={{ version: latestVersionAlias.version }} />
       </Link>
       {otherAliases.length > 0 && (
         <DropdownMenu.Root modal={false}>
           <DropdownMenu.Trigger asChild>
-            <Button size='small' css={{ borderRadius: 12, marginLeft: theme.spacing.xs }}>
+            <Button
+              componentId="codegen_mlflow_app_src_model-registry_components_aliases_modelstablealiasedversionscell.tsx_47"
+              size="small"
+              css={{ borderRadius: 12, marginLeft: theme.spacing.xs }}
+            >
               +{aliases.length - 1}
             </Button>
           </DropdownMenu.Trigger>
-          <DropdownMenu.Content align='start'>
+          <DropdownMenu.Content align="start">
             {otherAliases.map(({ alias, version }) => (
               <DropdownMenu.Item key={alias}>
                 <Link to={ModelRegistryRoutes.getModelVersionPageRoute(model.name, version)}>
-                  <ModelVersionAliasTag value={alias} css={{ marginRight: 0, cursor: 'pointer' }} />
-                  :{' '}
+                  <ModelVersionAliasTag value={alias} css={{ marginRight: 0, cursor: 'pointer' }} />:{' '}
                   <span css={{ color: theme.colors.actionTertiaryTextDefault }}>
                     <FormattedMessage {...versionLabel} values={{ version }} />
                   </span>

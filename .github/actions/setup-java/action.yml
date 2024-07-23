@@ -8,13 +8,13 @@ inputs:
 
   distribution:
     description: "distribution"
-    default: adopt
+    default: temurin
     required: false
 
 runs:
   using: "composite"
   steps:
-    - uses: actions/setup-java@v3
+    - uses: actions/setup-java@v4
       with:
         java-version: ${{ inputs.java-version }}
         distribution: ${{ inputs.distribution }}

@@ -3,20 +3,12 @@ import { EmotionJSX, WithConditionalCSSProp } from '@emotion/react/types/jsx-nam
 import React, { PropsWithChildren, ReactNode, useState } from 'react';
 import { IntlProvider } from 'react-intl';
 import { RunInfoEntity } from '../../../types';
-import {
-  chartColors,
-  getRandomRunName,
-  stableNormalRandom,
-} from '../components/RunsCharts.stories-common';
+import { chartColors, getRandomRunName, stableNormalRandom } from '../components/RunsCharts.stories-common';
 import { RunsContourPlot } from '../components/RunsContourPlot';
 import { RunsMetricsBarPlot } from '../components/RunsMetricsBarPlot';
 import { RunsMetricsLinePlot } from '../components/RunsMetricsLinePlot';
 import { RunsScatterPlot } from '../components/RunsScatterPlot';
-import {
-  RunsChartsTooltipBodyProps,
-  RunsChartsTooltipWrapper,
-  useRunsChartsTooltip,
-} from './useRunsChartsTooltip';
+import { RunsChartsTooltipBodyProps, RunsChartsTooltipWrapper, useRunsChartsTooltip } from './useRunsChartsTooltip';
 
 export default {
   title: 'Runs charts/Context menu',
@@ -33,7 +25,7 @@ const ContextMenuComponent = ({
   isHovering,
   closeContextMenu,
 }: RunsChartsTooltipBodyProps<{ runs: ReturnType<typeof createMockData> }>) => {
-  const run = contextData?.runs.find((x: any) => x.runInfo.run_uuid === runUuid);
+  const run = contextData?.runs.find((x: any) => x.runInfo.runUuid === runUuid);
 
   if (!run) {
     return null;
@@ -41,13 +33,17 @@ const ContextMenuComponent = ({
 
   return (
     <div>
-      <div>name: {run.runInfo.run_name}</div>
+      <div>name: {run.runInfo.runName}</div>
       <div>uuid: {runUuid}</div>
       <div>hovered menu id: {hoverData}</div>
       <div>mode: {isHovering ? 'hovering' : 'context menu'}</div>
       {!isHovering && (
         <div css={{ marginTop: 8 }}>
-          <Button onClick={closeContextMenu} icon={<CloseIcon />}>
+          <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_hooks_userunschartstooltip.stories.tsx_42"
+            onClick={closeContextMenu}
+            icon={<CloseIcon />}
+          >
             Close
           </Button>
         </div>
@@ -82,8 +78,8 @@ const createMockData = (numRuns: number, numValues: number, negative = false) =>
 
     return {
       runInfo: {
-        run_uuid: `id-for-run-${runName}`,
-        run_name: runName,
+        runUuid: `id-for-run-${runName}`,
+        runName: runName,
       } as RunInfoEntity,
       metricsHistory: { metric1: metricsHistory },
       metrics: {
@@ -118,7 +114,7 @@ const withChartMenuContext =
 
     return (
       <RunsChartsTooltipWrapper component={ContextMenuComponent} contextData={data}>
-        <IntlProvider locale='en'>
+        <IntlProvider locale="en">
           <div css={{ padding: 16 }}>
             <div css={{ marginBottom: 16, height: 200, overflowY: 'scroll' }}>
               <ul>
@@ -126,25 +122,17 @@ const withChartMenuContext =
                   .slice()
                   .reverse()
                   .map((run) => (
-                    <li key={run.runInfo.run_uuid} style={{ fontWeight: 'bold', color: run.color }}>
-                      {run.runInfo.run_name}
+                    <li key={run.runInfo.runUuid} style={{ fontWeight: 'bold', color: run.color }}>
+                      {run.runInfo.runName}
                     </li>
                   ))}
               </ul>
             </div>
             <div css={{ margin: '8px 0', display: 'flex', gap: 8 }}>
-              <button onClick={() => setData({ runs: createMockData(15, 10) })}>
-                Dataset: default
-              </button>
-              <button onClick={() => setData({ runs: createMockData(15, 10).reverse() })}>
-                Dataset: reverse
-              </button>
-              <button onClick={() => setData({ runs: createMockData(5, 10) })}>
-                Dataset: 5 runs
-              </button>
-              <button onClick={() => setData({ runs: createMockData(30, 10) })}>
-                Dataset: 30 runs
-              </button>
+              <button onClick={() => setData({ runs: createMockData(15, 10) })}>Dataset: default</button>
+              <button onClick={() => setData({ runs: createMockData(15, 10).reverse() })}>Dataset: reverse</button>
+              <button onClick={() => setData({ runs: createMockData(5, 10) })}>Dataset: 5 runs</button>
+              <button onClick={() => setData({ runs: createMockData(30, 10) })}>Dataset: 30 runs</button>
             </div>
             <Component {...props} data={data} />
           </div>
@@ -160,7 +148,7 @@ export const ChartContextMenuStory = withChartMenuContext(({ data }: any) => {
     <div css={styles.chartsGrid}>
       <div css={styles.chartWrapper}>
         <RunsMetricsBarPlot
-          metricKey='metric1'
+          metricKey="metric1"
           runsData={data.runs}
           useDefaultHoverBox={false}
           displayRunNames={false}
@@ -189,7 +177,8 @@ export const ChartContextMenuStory = withChartMenuContext(({ data }: any) => {
       </div>
       <div css={styles.chartWrapper}>
         <RunsMetricsLinePlot
-          metricKey='metric1'
+          metricKey="metric1"
+          selectedXAxisMetricKey=""
           runsData={data.runs}
           useDefaultHoverBox={false}
           onHover={setTooltip}

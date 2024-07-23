@@ -1,8 +1,9 @@
 import type { HTMLAttributes } from 'react';
 import React from 'react';
-import type { SecondaryColorToken, TagColorToken } from '../../theme/colorList';
-import type { HTMLDataAttributes } from '../types';
-export interface TagProps extends HTMLDataAttributes, HTMLAttributes<HTMLSpanElement> {
+import type { SecondaryColorToken, TagColorToken } from '../../theme/colors';
+import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
+import type { AnalyticsEventOptionalProps, HTMLDataAttributes } from '../types';
+export interface TagProps extends HTMLDataAttributes, HTMLAttributes<HTMLSpanElement>, AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     /**
      * The color of the tag.
      */
@@ -22,7 +23,7 @@ export interface TagProps extends HTMLDataAttributes, HTMLAttributes<HTMLSpanEle
     closeButtonProps?: Omit<React.HTMLAttributes<HTMLButtonElement>, 'children' | 'onClick' | 'onMouseDown'>;
 }
 export type TagColors = keyof typeof colorMap;
-declare const colorMap: Record<SecondaryColorToken | 'default', TagColorToken>;
+declare const colorMap: Record<SecondaryColorToken | 'default' | 'charcoal', TagColorToken | 'grey600'>;
 export declare function Tag(props: TagProps): JSX.Element;
 export {};
 //# sourceMappingURL=index.d.ts.map

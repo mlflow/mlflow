@@ -17,6 +17,8 @@ RUN apt-get update && \
 
 ADD ./requirements /app/requirements
 
+ADD ./dev/clint /app/dev/clint
+
 RUN \
     # install required python packages
     pip install -r requirements/test-requirements.txt --no-cache-dir \

@@ -95,7 +95,7 @@ export class GenericInputModal extends Component<Props, State> {
 
     return (
       <Modal
-        data-testid='mlflow-input-modal'
+        data-testid="mlflow-input-modal"
         className={this.props.className}
         title={this.props.title}
         // @ts-expect-error TS(2322): Type '{ children: {}[] | null | undefined; "data-t... Remove this comment to see the full error message

@@ -151,9 +151,7 @@ def test_statsmodels_autolog_failed_metrics_warning():
         # Prevent `OLSResults.summary` from calling `fvalue` and `f_pvalue` that raise an exception
         "statsmodels.regression.linear_model.OLSResults.summary",
         return_value=MockSummary(),
-    ), mock.patch(
-        "mlflow.statsmodels._logger.warning"
-    ) as mock_warning:
+    ), mock.patch("mlflow.statsmodels._logger.warning") as mock_warning:
         ols_model()
         mock_warning.assert_called_once_with("Failed to autolog metrics: f_pvalue, fvalue.")
 

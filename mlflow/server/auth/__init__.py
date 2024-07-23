@@ -261,6 +261,10 @@ def validate_can_update_experiment_artifact_proxy():
     return _get_permission_from_experiment_id_artifact_proxy().can_update
 
 
+def validate_can_delete_experiment_artifact_proxy():
+    return _get_permission_from_experiment_id_artifact_proxy().can_manage
+
+
 def validate_can_read_run():
     return _get_permission_from_run_id().can_read
 
@@ -416,7 +420,7 @@ def _get_proxy_artifact_validator(
     return {
         "GET": validate_can_read_experiment_artifact_proxy,  # Download
         "PUT": validate_can_update_experiment_artifact_proxy,  # Upload
-        "DELETE": validate_can_update_experiment_artifact_proxy,  # Delete
+        "DELETE": validate_can_delete_experiment_artifact_proxy,  # Delete
     }.get(method)
 
 
@@ -428,9 +432,11 @@ def authenticate_request() -> Union[Authorization, Response]:
 
 @functools.lru_cache(maxsize=None)
 def get_auth_func(authorization_function: str) -> Callable[[], Union[Authorization, Response]]:
-    """Import and return the specified authorization function.
+    """
+    Import and return the specified authorization function.
 
-    :param authorization_function: A string of the form "module.submodule:auth_func
+    Args:
+        authorization_function: A string of the form "module.submodule:auth_func"
     """
     mod_name, fn_name = authorization_function.split(":", 1)
     module = importlib.import_module(mod_name)
@@ -494,6 +500,21 @@ def set_can_manage_registered_model_permission(resp: Response):
     name = response_message.registered_model.name
     username = authenticate_request().username
     store.create_registered_model_permission(name, username, MANAGE.name)
+
+
+def delete_can_manage_registered_model_permission(resp: Response):
+    """
+    Delete registered model permission when the model is deleted.
+
+    We need to do this because the primary key of the registered model is the name,
+    unlike the experiment where the primary key is experiment_id (UUID). Therefore,
+    we have to delete the permission record when the model is deleted otherwise it
+    conflicts with the new model registered with the same name.
+    """
+    # Get model name from request context because it's not available in the response
+    name = request.get_json(force=True, silent=True)["name"]
+    username = authenticate_request().username
+    store.delete_registered_model_permission(name, username)
 
 
 def filter_search_experiments(resp: Response):
@@ -604,6 +625,7 @@ def filter_search_registered_models(resp: Response):
 AFTER_REQUEST_PATH_HANDLERS = {
     CreateExperiment: set_can_manage_experiment_permission,
     CreateRegisteredModel: set_can_manage_registered_model_permission,
+    DeleteRegisteredModel: delete_can_manage_registered_model_permission,
     SearchExperiments: filter_search_experiments,
     SearchRegisteredModels: filter_search_registered_models,
 }
@@ -871,8 +893,11 @@ def create_app(app: Flask = app):
     """
     A factory to enable authentication and authorization for the MLflow server.
 
-    :param app: The Flask app to enable authentication and authorization for.
-    :return: The app with authentication and authorization enabled.
+    Args:
+        app: The Flask app to enable authentication and authorization for.
+
+    Returns:
+        The app with authentication and authorization enabled.
     """
     _logger.warning(
         "This feature is still experimental and may change in a future release without warning"

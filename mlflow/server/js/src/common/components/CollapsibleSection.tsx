@@ -34,7 +34,7 @@ export function CollapsibleSection(props: Props) {
 
   return (
     <Collapse
-      className='collapsible-section'
+      className="collapsible-section"
       // @ts-expect-error TS(2322): Type '{ '.collapsible-panel': { position: string; ... Remove this comment to see the full error message
       css={classNames.wrapper}
       bordered={false}
@@ -49,16 +49,14 @@ export function CollapsibleSection(props: Props) {
               ? formatMessage(
                   {
                     defaultMessage: 'collapse {title}',
-                    description:
-                      'Common component > collapsible section > alternative label when expand',
+                    description: 'Common component > collapsible section > alternative label when expand',
                   },
                   { title },
                 )
               : formatMessage(
                   {
                     defaultMessage: 'expand {title}',
-                    description:
-                      'Common component > collapsible section > alternative label when collapsed',
+                    description: 'Common component > collapsible section > alternative label when collapsed',
                   },
                   { title },
                 )
@@ -70,18 +68,16 @@ export function CollapsibleSection(props: Props) {
       onChange={onChange}
     >
       <Collapse.Panel
-        className='collapsible-panel'
+        className="collapsible-panel"
         header={title}
-        key='1'
+        key="1"
         css={{
           '&, .ant-collapse-header, .ant-collapse-content': importantify({
             color: theme.colors.textPrimary,
           }),
         }}
       >
-        <SectionErrorBoundary showServerError={showServerError}>
-          {props.children}
-        </SectionErrorBoundary>
+        <SectionErrorBoundary showServerError={showServerError}>{props.children}</SectionErrorBoundary>
       </Collapse.Panel>
     </Collapse>
   );

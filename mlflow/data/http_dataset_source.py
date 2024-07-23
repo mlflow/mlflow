@@ -120,7 +120,7 @@ class HTTPDatasetSource(DatasetSource):
         """
         return HTTPDatasetSource(raw_source)
 
-    def _to_dict(self) -> Dict[Any, Any]:
+    def to_dict(self) -> Dict[Any, Any]:
         """
         Returns:
             A JSON-compatible dictionary representation of the HTTPDatasetSource.
@@ -130,7 +130,7 @@ class HTTPDatasetSource(DatasetSource):
         }
 
     @classmethod
-    def _from_dict(cls, source_dict: Dict[Any, Any]) -> "HTTPDatasetSource":
+    def from_dict(cls, source_dict: Dict[Any, Any]) -> "HTTPDatasetSource":
         """
         Args:
             source_dict: A dictionary representation of the HTTPDatasetSource.

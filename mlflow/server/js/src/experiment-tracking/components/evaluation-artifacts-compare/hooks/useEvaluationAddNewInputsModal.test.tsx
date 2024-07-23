@@ -1,5 +1,5 @@
 import { useEvaluationAddNewInputsModal } from './useEvaluationAddNewInputsModal';
-import { renderWithIntl, screen } from '../../../../common/utils/TestUtils';
+import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
 import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { createParamFieldName } from '../../experiment-page/utils/experimentPage.column-utils';
 import { useEffect } from 'react';
@@ -7,10 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { MLFLOW_RUN_SOURCE_TYPE_TAG, MLflowRunSourceType } from '../../../constants';
 
 describe('useEvaluationAddNewInputsModal', () => {
-  const renderHookResult = (
-    runs: RunRowType[],
-    onSuccess: (providedParamValues: Record<string, string>) => void,
-  ) => {
+  const renderHookResult = (runs: RunRowType[], onSuccess: (providedParamValues: Record<string, string>) => void) => {
     const Component = () => {
       const { AddNewInputsModal, showAddNewInputsModal } = useEvaluationAddNewInputsModal();
       useEffect(() => {
@@ -62,21 +59,15 @@ describe('useEvaluationAddNewInputsModal', () => {
     renderHookResult([runA, runB], onSuccess);
 
     expect(
-      screen.getByText((_, element) =>
-        Boolean(element?.textContent?.trim().match(/^input_a\s?Used by run A$/)),
-      ),
+      screen.getByText((_, element) => Boolean(element?.textContent?.trim().match(/^input_a\s?Used by run A$/))),
     ).toBeInTheDocument();
 
     expect(
-      screen.getByText((_, element) =>
-        Boolean(element?.textContent?.trim().match(/^input_b\s?Used by run A, run B$/)),
-      ),
+      screen.getByText((_, element) => Boolean(element?.textContent?.trim().match(/^input_b\s?Used by run A, run B$/))),
     ).toBeInTheDocument();
 
     expect(
-      screen.getByText((_, element) =>
-        Boolean(element?.textContent?.trim().match(/^input_c\s?Used by run B$/)),
-      ),
+      screen.getByText((_, element) => Boolean(element?.textContent?.trim().match(/^input_c\s?Used by run B$/))),
     ).toBeInTheDocument();
 
     // Type in data for two inputs, leave input_b empty

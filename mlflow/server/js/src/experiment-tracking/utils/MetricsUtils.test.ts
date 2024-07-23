@@ -22,18 +22,14 @@ describe('MetricsUtils', () => {
     expect(normalizeInfinity((-Number.MAX_VALUE).toString())).toBe(Number.NEGATIVE_INFINITY);
   });
   test('normalizeMetricsHistoryEntry', () => {
-    expect(
-      normalizeMetricsHistoryEntry({ key: 'foobar', value: '123', timestamp: 123, step: 5 }),
-    ).toEqual({
+    expect(normalizeMetricsHistoryEntry({ key: 'foobar', value: '123', timestamp: 123, step: 5 })).toEqual({
       key: 'foobar',
       value: 123,
       timestamp: 123,
       step: 5,
     });
 
-    expect(
-      normalizeMetricsHistoryEntry({ key: 'foobar', value: Number.MAX_VALUE, timestamp: 123 }),
-    ).toEqual({
+    expect(normalizeMetricsHistoryEntry({ key: 'foobar', value: Number.MAX_VALUE, timestamp: 123 })).toEqual({
       key: 'foobar',
       value: Number.POSITIVE_INFINITY,
       timestamp: 123,
@@ -54,10 +50,7 @@ describe('MetricsUtils', () => {
 
     expect(findNumberChunks([NaN, NaN, NaN], NaN)).toEqual([{ startIndex: 0, endIndex: 2 }]);
     expect(
-      findNumberChunks(
-        [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, 1, 2, 3],
-        Number.POSITIVE_INFINITY,
-      ),
+      findNumberChunks([Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, 1, 2, 3], Number.POSITIVE_INFINITY),
     ).toEqual([{ startIndex: 0, endIndex: 1 }]);
 
     expect(
@@ -104,12 +97,8 @@ describe('MetricsUtils', () => {
 
   test('getAveragedPositionOnXAxis', () => {
     expect(getAveragedPositionOnXAxis({ startIndex: 1, endIndex: 1 }, [1, 2, 3, 4, 5])).toEqual(2);
-    expect(getAveragedPositionOnXAxis({ startIndex: 1, endIndex: 2 }, [1, 2, 3, 4, 5])).toEqual(
-      (2 + 3) / 2,
-    );
-    expect(getAveragedPositionOnXAxis({ startIndex: 0, endIndex: 2 }, [1, 2, 3, 4, 5])).toEqual(
-      (2 + 3) / 2,
-    );
+    expect(getAveragedPositionOnXAxis({ startIndex: 1, endIndex: 2 }, [1, 2, 3, 4, 5])).toEqual((2 + 3) / 2);
+    expect(getAveragedPositionOnXAxis({ startIndex: 0, endIndex: 2 }, [1, 2, 3, 4, 5])).toEqual((2 + 3) / 2);
     expect(getAveragedPositionOnXAxis({ startIndex: 1, endIndex: 3 }, [1, 2, 3, 4, 5])).toEqual(3);
     expect(getAveragedPositionOnXAxis({ startIndex: 0, endIndex: 4 }, [1, 2, 3, 4, 5])).toEqual(3);
 
@@ -120,10 +109,7 @@ describe('MetricsUtils', () => {
       '2020-01-04 02:00:00',
       '2020-01-05 02:00:00',
     ]);
-    expect(Utils.formatTimestamp).toBeCalledWith(
-      new Date('2020-01-02 14:00:00').getTime(),
-      'yyyy-mm-dd HH:MM:ss.l',
-    );
+    expect(Utils.formatTimestamp).toBeCalledWith(new Date('2020-01-02 14:00:00').getTime(), 'yyyy-mm-dd HH:MM:ss.l');
   });
 
   describe('generateInfinityAnnotations', () => {

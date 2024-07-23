@@ -136,7 +136,7 @@ def test_mlflow_login(tmp_path, monkeypatch):
 
 
 def test_mlflow_login_noninteractive():
-    # Forces mlflw.utils.credentials._validate_databricks_auth to raise `MlflowException()`
+    # Forces mlflow.utils.credentials._validate_databricks_auth to raise `MlflowException()`
     with patch(
         "mlflow.utils.credentials._validate_databricks_auth",
         side_effect=MlflowException("Failed to validate databricks credentials."),

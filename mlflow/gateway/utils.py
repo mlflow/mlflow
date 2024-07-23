@@ -287,7 +287,7 @@ def _find_boundary(buffer: bytes) -> int:
 
 
 async def handle_incomplete_chunks(
-    stream: AsyncGenerator[bytes, Any]
+    stream: AsyncGenerator[bytes, Any],
 ) -> AsyncGenerator[bytes, Any]:
     """
     Wraps a streaming response and handles incomplete chunks from the server.

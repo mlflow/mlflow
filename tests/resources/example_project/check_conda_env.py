@@ -4,7 +4,7 @@
 import os
 import sys
 
-import psutil  # pylint: disable=import-error
+import psutil
 
 import mlflow
 

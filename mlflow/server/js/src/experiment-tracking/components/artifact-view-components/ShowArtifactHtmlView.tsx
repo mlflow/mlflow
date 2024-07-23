@@ -9,6 +9,7 @@ import React, { Component } from 'react';
 import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactHtmlView.css';
 import Iframe from 'react-iframe';
+import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 
 type ShowArtifactHtmlViewState = {
   loading: boolean;
@@ -52,28 +53,24 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
 
   render() {
     if (this.state.loading || this.state.path !== this.props.path) {
-      return <div className='artifact-html-view-loading'>Loading...</div>;
+      return <ArtifactViewSkeleton className="artifact-html-view-loading" />;
     }
     if (this.state.error) {
       console.error('Unable to load HTML artifact, got error ' + this.state.error);
-      return (
-        <div className='artifact-html-view-error'>
-          Oops we couldn't load your file because of an error.
-        </div>
-      );
+      return <div className="artifact-html-view-error">Oops we couldn't load your file because of an error.</div>;
     } else {
       return (
-        <div className='artifact-html-view'>
+        <div className="artifact-html-view">
           <Iframe
-            url=''
+            url=""
             src={this.getBlobURL(this.state.html, 'text/html')}
-            width='100%'
-            height='100%'
-            id='html'
-            className='html-iframe'
-            display='block'
-            position='relative'
-            sandbox='allow-scripts'
+            width="100%"
+            height="100%"
+            id="html"
+            className="html-iframe"
+            display="block"
+            position="relative"
+            sandbox="allow-scripts"
           />
         </div>
       );

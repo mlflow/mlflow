@@ -7,7 +7,7 @@ import {
   Spacer,
   TableIcon,
   Tag,
-  Tooltip,
+  LegacyTooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -20,15 +20,21 @@ import { Link } from '../../../../../common/utils/RoutingUtils';
 import Routes from '../../../../routes';
 import { FormattedMessage } from 'react-intl';
 import { ExperimentViewDatasetWithContext } from './ExperimentViewDatasetWithContext';
+import { RunColorPill } from '../RunColorPill';
+import { ExperimentViewDatasetSourceType } from './ExperimentViewDatasetSourceType';
+import { ExperimentViewDatasetSourceURL } from './ExperimentViewDatasetSourceURL';
+import { ExperimentViewDatasetDigest } from './ExperimentViewDatasetDigest';
+import { useSelector } from 'react-redux';
+import { ReduxState } from '../../../../../redux-types';
+import { useGetExperimentRunColor } from '../../hooks/useExperimentRunColor';
 
 export type DatasetWithRunType = {
   datasetWithTags: RunDatasetWithTags;
   runData: {
-    experimentId: string;
-    tags: Record<string, { key: string; value: string }>;
+    experimentId?: string;
+    tags?: Record<string, { key: string; value: string }>;
     runUuid: string;
-    runName: string;
-    color?: string;
+    runName?: string;
     datasets: RunDatasetWithTags[];
   };
 };
@@ -59,6 +65,9 @@ export const ExperimentViewDatasetDrawerImpl = ({
       ? datasetWithTags.dataset.profile
       : undefined;
 
+  const getRunColor = useGetExperimentRunColor();
+  const { experimentId = '', tags = {} } = runData;
+
   return (
     <Drawer.Root
       open={isOpen}
@@ -73,24 +82,18 @@ export const ExperimentViewDatasetDrawerImpl = ({
           <div css={{ display: 'flex', alignItems: 'center', height: '100%' }}>
             <Typography.Title level={4} css={{ marginRight: theme.spacing.sm, marginBottom: 0 }}>
               <FormattedMessage
-                defaultMessage='Data details for '
-                description='Text for data details for the experiment run in the dataset drawer'
+                defaultMessage="Data details for "
+                description="Text for data details for the experiment run in the dataset drawer"
               />
             </Typography.Title>
-            <Link
-              to={Routes.getRunPageRoute(runData.experimentId, runData.runUuid)}
-              css={styles.runLink}
-            >
-              <div
-                data-testid='dataset-drawer-run-color'
-                css={{ ...styles.colorPill, backgroundColor: runData.color }}
-              />
+            <Link to={Routes.getRunPageRoute(experimentId, runData.runUuid)} css={styles.runLink}>
+              <RunColorPill color={getRunColor(runData.runUuid)} />
               <span css={styles.runName}>{runData.runName}</span>
             </Link>
           </div>
         }
         width={DRAWER_WITDH}
-        footer={<Spacer size='xs' />}
+        footer={<Spacer size="xs" />}
       >
         <div
           css={{
@@ -111,7 +114,7 @@ export const ExperimentViewDatasetDrawerImpl = ({
             }}
           >
             <Typography.Text
-              color='secondary'
+              color="secondary"
               css={{
                 marginBottom: theme.spacing.sm,
                 marginTop: theme.spacing.sm,
@@ -120,8 +123,8 @@ export const ExperimentViewDatasetDrawerImpl = ({
             >
               {runData.datasets.length}{' '}
               <FormattedMessage
-                defaultMessage='datasets used'
-                description='Text for dataset count in the experiment run dataset drawer'
+                defaultMessage="datasets used"
+                description="Text for dataset count in the experiment run dataset drawer"
               />
             </Typography.Text>
             <div
@@ -152,7 +155,8 @@ export const ExperimentViewDatasetDrawerImpl = ({
                   }}
                 >
                   <Button
-                    type='link'
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewdatasetdrawer.tsx_151"
+                    type="link"
                     css={{
                       textAlign: 'left',
                       overflowX: 'auto',
@@ -163,10 +167,7 @@ export const ExperimentViewDatasetDrawerImpl = ({
                       setIsOpen(true);
                     }}
                   >
-                    <ExperimentViewDatasetWithContext
-                      datasetWithTags={dataset}
-                      displayTextAsLink={false}
-                    />
+                    <ExperimentViewDatasetWithContext datasetWithTags={dataset} displayTextAsLink={false} />
                   </Button>
                 </div>
               ))}
@@ -195,15 +196,11 @@ export const ExperimentViewDatasetDrawerImpl = ({
                   title={
                     <div css={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                       <TableIcon css={{ marginRight: theme.spacing.xs }} />
-                      <Tooltip title={datasetWithTags.dataset.name}>
-                        <Typography.Title
-                          ellipsis
-                          level={3}
-                          css={{ marginBottom: 0, maxWidth: 200 }}
-                        >
+                      <LegacyTooltip title={datasetWithTags.dataset.name}>
+                        <Typography.Title ellipsis level={3} css={{ marginBottom: 0, maxWidth: 200 }}>
                           {datasetWithTags.dataset.name}
                         </Typography.Title>
-                      </Tooltip>
+                      </LegacyTooltip>
                       {contextTag && (
                         <Tag
                           css={{
@@ -220,11 +217,10 @@ export const ExperimentViewDatasetDrawerImpl = ({
                 />
                 <Typography.Title
                   level={4}
-                  color='secondary'
-                  css={{ marginBottom: 0 }}
+                  color="secondary"
+                  css={{ marginBottom: theme.spacing.xs, marginTop: theme.spacing.xs }}
                   title={fullProfile}
                 >
-                  {datasetWithTags.dataset.digest},{' '}
                   {datasetWithTags.dataset.profile && datasetWithTags.dataset.profile !== 'null' ? (
                     datasetWithTags.dataset.profile.length > MAX_PROFILE_LENGTH ? (
                       `${datasetWithTags.dataset.profile.substring(0, MAX_PROFILE_LENGTH)} ...`
@@ -233,16 +229,21 @@ export const ExperimentViewDatasetDrawerImpl = ({
                     )
                   ) : (
                     <FormattedMessage
-                      defaultMessage='No profile available'
-                      description='Text for no profile available in the experiment run dataset drawer'
+                      defaultMessage="No profile available"
+                      description="Text for no profile available in the experiment run dataset drawer"
                     />
                   )}
                 </Typography.Title>
               </div>
-              <ExperimentViewDatasetLink datasetWithTags={datasetWithTags} runTags={runData.tags} />
+              <ExperimentViewDatasetLink datasetWithTags={datasetWithTags} runTags={tags} />
+            </div>
+            <div css={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+              <ExperimentViewDatasetDigest datasetWithTags={datasetWithTags} />
+              <ExperimentViewDatasetSourceType datasetWithTags={datasetWithTags} />
+              <ExperimentViewDatasetSourceURL datasetWithTags={datasetWithTags} />
             </div>
             {/* dataset schema */}
-            <Divider css={{ marginTop: theme.spacing.xs, marginBottom: theme.spacing.xs }} />
+            <Divider css={{ marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs }} />
             <ExperimentViewDatasetSchema datasetWithTags={datasetWithTags} />
           </div>
         </div>
@@ -266,15 +267,5 @@ const styles = {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     fontSize: '13px',
-  },
-  colorPill: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    flexShrink: 0,
-    // Straighten it up on retina-like screens
-    '@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi)': {
-      marginBottom: 1,
-    },
   },
 };

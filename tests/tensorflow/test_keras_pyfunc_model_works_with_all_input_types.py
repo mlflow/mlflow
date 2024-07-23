@@ -28,8 +28,10 @@ from mlflow.types.schema import Schema, TensorSpec
 from tests.helper_functions import (
     _is_available_on_pypi,
     expect_status_code,
+    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
+from tests.utils.test_file_utils import spark_session  # noqa: F401
 
 IS_TENSORFLOW_AVAILABLE = _is_available_on_pypi("tensorflow")
 EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if IS_TENSORFLOW_AVAILABLE else ["--env-manager", "local"]
@@ -49,14 +51,6 @@ def data():
     y = data["target"]
     x = data.drop("target", axis=1)
     return x, y
-
-
-@pytest.fixture(scope="module")
-def spark_session():
-    from pyspark.sql import SparkSession
-
-    with SparkSession.builder.master("local[2]").getOrCreate() as session:
-        yield session
 
 
 @pytest.fixture(scope="module")
@@ -296,6 +290,10 @@ def test_model_multi_multidim_tensor_input(
 
 
 @pytest.mark.parametrize("env_manager", ["local", "virtualenv"])
+@pytest.mark.skipif(
+    Version(tf.__version__) in [Version("2.16.2"), Version("2.17.0")],
+    reason="model concurrent loading fails due to https://github.com/keras-team/keras/issues/19976",
+)
 def test_single_multidim_input_model_spark_udf(
     env_manager, single_multidim_tensor_input_model, spark_session, data
 ):
@@ -323,6 +321,10 @@ def test_single_multidim_input_model_spark_udf(
 
 
 @pytest.mark.parametrize("env_manager", ["local", "virtualenv"])
+@pytest.mark.skipif(
+    Version(tf.__version__) in [Version("2.16.2"), Version("2.17.0")],
+    reason="model loading fails due to https://github.com/keras-team/keras/issues/19976",
+)
 def test_multi_multidim_input_model_spark_udf(
     env_manager, multi_multidim_tensor_input_model, spark_session, data
 ):
@@ -369,21 +371,22 @@ def test_multi_multidim_input_model_spark_udf(
 
 
 def test_scoring_server_successfully_on_single_multidim_input_model(
-    single_multidim_tensor_input_model, model_path, data
+    single_multidim_tensor_input_model, data
 ):
     model, signature = single_multidim_tensor_input_model
-    mlflow.tensorflow.save_model(model, path=model_path, signature=signature)
-
     x, _ = data
-
     test_input = np.repeat(x.values[:, :, np.newaxis], 3, axis=2)
+    with mlflow.start_run():
+        model_info = mlflow.tensorflow.log_model(model, "model", input_example=test_input)
+    assert model_info.signature.inputs == signature.inputs
 
     inp_dict = json.dumps({"instances": test_input.tolist()})
     test_input_df = pd.DataFrame({"x": test_input.reshape((-1, 4 * 3)).tolist()})
+    serving_input_example = get_serving_input_example(model_info.model_uri)
 
-    for input_data in (inp_dict, test_input_df):
+    for input_data in (inp_dict, test_input_df, serving_input_example):
         response_records_content_type = pyfunc_serve_and_score_model(
-            model_uri=os.path.abspath(model_path),
+            model_uri=model_info.model_uri,
             data=input_data,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
             extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
@@ -392,10 +395,9 @@ def test_scoring_server_successfully_on_single_multidim_input_model(
 
 
 def test_scoring_server_successfully_on_multi_multidim_input_model(
-    multi_multidim_tensor_input_model, model_path, data
+    multi_multidim_tensor_input_model, data
 ):
     model, signature = multi_multidim_tensor_input_model
-    mlflow.tensorflow.save_model(model, path=model_path, signature=signature)
 
     x, _ = data
 
@@ -405,15 +407,21 @@ def test_scoring_server_successfully_on_multi_multidim_input_model(
     instances = [{"a": a.tolist(), "b": b.tolist()} for a, b in zip(input_a, input_b)]
 
     inp_dict = json.dumps({"instances": instances})
+    input_example = {"a": input_a, "b": input_b}
     test_input_df = pd.DataFrame(
         {
             "a": input_a.reshape((-1, 2 * 3)).tolist(),
             "b": input_b.reshape((-1, 2 * 5)).tolist(),
         }
     )
-    for input_data in (inp_dict, test_input_df):
+    with mlflow.start_run():
+        model_info = mlflow.tensorflow.log_model(model, "model", input_example=input_example)
+    assert model_info.signature.inputs == signature.inputs
+
+    serving_input_example = get_serving_input_example(model_info.model_uri)
+    for input_data in (inp_dict, test_input_df, serving_input_example):
         response_records_content_type = pyfunc_serve_and_score_model(
-            model_uri=os.path.abspath(model_path),
+            model_uri=model_info.model_uri,
             data=input_data,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
             extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,

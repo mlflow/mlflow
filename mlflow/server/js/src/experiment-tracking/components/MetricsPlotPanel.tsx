@@ -13,12 +13,7 @@ import { getMetricHistoryApi, getRunApi } from '../actions';
 import _ from 'lodash';
 import { MetricsPlotView } from './MetricsPlotView';
 import { getRunInfo } from '../reducers/Reducers';
-import {
-  MetricsPlotControls,
-  X_AXIS_WALL,
-  X_AXIS_RELATIVE,
-  X_AXIS_STEP,
-} from './MetricsPlotControls';
+import { MetricsPlotControls, X_AXIS_WALL, X_AXIS_RELATIVE, X_AXIS_STEP } from './MetricsPlotControls';
 import MetricsSummaryTable from './MetricsSummaryTable';
 import qs from 'qs';
 import { withRouterNext } from '../../common/utils/withRouterNext';
@@ -71,10 +66,7 @@ type MetricsPlotPanelState = any;
 
 type MetricsPlotPanelProps = OwnMetricsPlotPanelProps & typeof MetricsPlotPanel.defaultProps;
 
-export class MetricsPlotPanel extends React.Component<
-  MetricsPlotPanelProps,
-  MetricsPlotPanelState
-> {
+export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, MetricsPlotPanelState> {
   _isMounted = false;
 
   static defaultProps = {
@@ -212,11 +204,7 @@ export class MetricsPlotPanel extends React.Component<
 
   static predictChartType(metrics: any) {
     // Show bar chart when every metric has exactly 1 metric history
-    if (
-      metrics &&
-      metrics.length &&
-      _.every(metrics, (metric) => metric.history && metric.history.length === 1)
-    ) {
+    if (metrics && metrics.length && _.every(metrics, (metric) => metric.history && metric.history.length === 1)) {
       return CHART_TYPE_BAR;
     }
     return CHART_TYPE_LINE;
@@ -270,9 +258,7 @@ export class MetricsPlotPanel extends React.Component<
   };
 
   getNumTotalMetrics = () => {
-    return this.props.metricsWithRunInfoAndHistory
-      .map(({ history }) => history.length)
-      .reduce((a, b) => a + b, 0);
+    return this.props.metricsWithRunInfoAndHistory.map(({ history }) => history.length).reduce((a, b) => a + b, 0);
   };
 
   loadMetricHistory = (runUuids: any, metricKeys: any) => {
@@ -291,9 +277,7 @@ export class MetricsPlotPanel extends React.Component<
         })),
       )
       // Avoid fetching non existing metrics
-      .filter(({ runUuid, metricKey }: any) =>
-        this.props.latestMetricsByRunUuid[runUuid].hasOwnProperty(metricKey),
-      )
+      .filter(({ runUuid, metricKey }: any) => this.props.latestMetricsByRunUuid[runUuid].hasOwnProperty(metricKey))
       .map(async ({ runUuid, metricKey }: any) => {
         const requestIds = [];
         const id = getUUID();
@@ -362,8 +346,7 @@ export class MetricsPlotPanel extends React.Component<
 
     // Sort metric history based on selected x-axis
     metrics.forEach((metric) => {
-      const isStep =
-        selectedXAxis === X_AXIS_STEP && metric.history[0] && _.isNumber(metric.history[0].step);
+      const isStep = selectedXAxis === X_AXIS_STEP && metric.history[0] && _.isNumber(metric.history[0].step);
       // Metric history can be large. Doing an in-place here to save memory
       metric.history.sort(isStep ? Utils.compareByStepAndTimestamp : Utils.compareByTimestamp);
     });
@@ -385,11 +368,7 @@ export class MetricsPlotPanel extends React.Component<
     // now being restored to linear scale, by restoring the old linear-axis range from
     // state.linearYAxisRange. In particular, we assume that if state.linearYAxisRange
     // is non-empty, it contains a linear y axis range with negative values.
-    if (
-      !yAxisLogScale &&
-      (state as any).lastLinearYAxisRange &&
-      (state as any).lastLinearYAxisRange.length > 0
-    ) {
+    if (!yAxisLogScale && (state as any).lastLinearYAxisRange && (state as any).lastLinearYAxisRange.length > 0) {
       newLayout.yaxis = {
         type: 'linear',
         range: (state as any).lastLinearYAxisRange,
@@ -480,9 +459,7 @@ export class MetricsPlotPanel extends React.Component<
 
   getAxisType() {
     const state = this.getUrlState();
-    return state.layout && state.layout.yaxis && state.layout.yaxis.type === 'log'
-      ? 'log'
-      : 'linear';
+    return state.layout && state.layout.yaxis && state.layout.yaxis.type === 'log' ? 'log' : 'linear';
   }
 
   /**
@@ -539,8 +516,7 @@ export class MetricsPlotPanel extends React.Component<
     }
     if (yAxisAutorange) {
       lastLinearYAxisRange = [];
-      const axisType =
-        state.layout && state.layout.yaxis && state.layout.yaxis.type === 'log' ? 'log' : 'linear';
+      const axisType = state.layout && state.layout.yaxis && state.layout.yaxis.type === 'log' ? 'log' : 'linear';
       newYAxis.autorange = true;
       newYAxis.type = axisType;
     }
@@ -691,7 +667,7 @@ export class MetricsPlotPanel extends React.Component<
     const metrics = this.getMetrics();
     const chartType = MetricsPlotPanel.predictChartType(metrics);
     return (
-      <div className='metrics-plot-container'>
+      <div className="metrics-plot-container">
         <MetricsPlotControls
           // @ts-expect-error TS(2322): Type '{ numRuns: number; numCompletedRuns: number;... Remove this comment to see the full error message
           numRuns={this.props.runUuids.length}
@@ -711,7 +687,7 @@ export class MetricsPlotPanel extends React.Component<
           handleDownloadCsv={this.handleDownloadCsv}
           disableSmoothnessControl={this.props.containsInfinities}
         />
-        <div className='metrics-plot-data'>
+        <div className="metrics-plot-data">
           <RequestStateWrapper
             requestIds={historyRequestIds}
             // In this case where there are no history request IDs (e.g. on the
@@ -731,7 +707,7 @@ export class MetricsPlotPanel extends React.Component<
                 handleVisibleChange={(visible) => this.setState({ popoverVisible: visible })}
               />
             )}
-            <Spinner size='large' css={{ visibility: loading ? 'visible' : 'hidden' }} />
+            <Spinner size="large" css={{ visibility: loading ? 'visible' : 'hidden' }} />
             <MetricsPlotView
               // @ts-expect-error TS(2322): Type '{ runUuids: string[]; runDisplayNames: strin... Remove this comment to see the full error message
               runUuids={runUuids}
@@ -764,9 +740,7 @@ export class MetricsPlotPanel extends React.Component<
 
 const mapStateToProps = (state: any, ownProps: any) => {
   const { runUuids } = ownProps;
-  const completedRunUuids = runUuids.filter(
-    (runUuid: any) => getRunInfo(runUuid, state).status !== 'RUNNING',
-  );
+  const completedRunUuids = runUuids.filter((runUuid: any) => getRunInfo(runUuid, state).status !== 'RUNNING');
   const { latestMetricsByRunUuid, metricsByRunUuid } = state.entities;
 
   // All metric keys from all runUuids, non-distinct
@@ -787,14 +761,8 @@ const mapStateToProps = (state: any, ownProps: any) => {
     const metricsHistory = metricsByRunUuid[runUuid];
     return metricsHistory
       ? Object.keys(metricsHistory).map((metricKey) => {
-          const history = metricsHistory[metricKey].map((entry: any) =>
-            normalizeMetricsHistoryEntry(entry),
-          );
-          if (
-            history.some(
-              ({ value }: any) => typeof value === 'number' && !isNaN(value) && !isFinite(value),
-            )
-          ) {
+          const history = metricsHistory[metricKey].map((entry: any) => normalizeMetricsHistoryEntry(entry));
+          if (history.some(({ value }: any) => typeof value === 'number' && !isNaN(value) && !isFinite(value))) {
             containsInfinities = true;
           }
           return { metricKey, history, runUuid, runDisplayName };

@@ -12,6 +12,7 @@ from mlflow.entities.multipart_upload import (
     MultipartUploadCredential,
 )
 from mlflow.environment_variables import (
+    MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE,
     MLFLOW_S3_ENDPOINT_URL,
     MLFLOW_S3_IGNORE_TLS,
     MLFLOW_S3_UPLOAD_EXTRA_ARGS,
@@ -41,7 +42,7 @@ def _cached_get_s3_client(
     secret_access_key=None,
     session_token=None,
     region_name=None,
-):  # pylint: disable=unused-argument
+):
     """Returns a boto3 client, caching to avoid extra boto3 verify calls.
 
     This method is outside of the S3ArtifactRepository as it is
@@ -80,7 +81,7 @@ def _cached_get_s3_client(
 
 
 def _get_s3_client(
-    addressing_style="path",
+    addressing_style=None,
     access_key_id=None,
     secret_access_key=None,
     session_token=None,
@@ -102,6 +103,9 @@ def _get_s3_client(
 
     # Invalidate cache every `_MAX_CACHE_SECONDS`
     timestamp = int(_get_utcnow_timestamp() / _MAX_CACHE_SECONDS)
+
+    if not addressing_style:
+        addressing_style = MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE.get()
 
     return _cached_get_s3_client(
         signature_version,
@@ -185,10 +189,6 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 rel_path = os.path.relpath(root, local_dir)
                 rel_path = relative_path_to_artifact_path(rel_path)
                 upload_path = posixpath.join(dest_path, rel_path)
-
-            if not filenames:
-                # We're in an empty directory. Create a folder to preserve the directory structure.
-                s3_client.put_object(Bucket=bucket, Key=upload_path + "/")
 
             for f in filenames:
                 self._upload_file(

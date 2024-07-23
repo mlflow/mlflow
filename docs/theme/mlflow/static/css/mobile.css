@@ -34,6 +34,12 @@
         padding: 0 10px;
     }
 
+    .tracking-responsive-tab-panel video {
+        max-width: 100%;
+        padding: 0 10px;
+        height: auto;
+    }
+
     /*
     * Make the tab headers stand in one horizontal row (and reduce padding)
     */
@@ -56,5 +62,11 @@
     .tracking-responsive-tab-panel div {
         width: 70%;
         padding: 0 20px;
+    }
+
+    .tracking-responsive-tab-panel video {
+        max-width: 90%;
+        padding: 0 10px;
+        height: auto;
     }
 }

@@ -41,9 +41,7 @@ describe('FetchUtils', () => {
     });
     it('cookies from static service are parsed correctly', () => {
       expect(
-        getDefaultHeadersFromCookies(
-          `a=b; mlflow-request-header-My-CSRF=1; mlflow-request-header-Hello=World; c=d`,
-        ),
+        getDefaultHeadersFromCookies(`a=b; mlflow-request-header-My-CSRF=1; mlflow-request-header-Hello=World; c=d`),
       ).toEqual({ 'My-CSRF': '1', Hello: 'World' });
     });
   });
@@ -84,8 +82,7 @@ describe('FetchUtils', () => {
     });
     it('yamlResponseParser', async () => {
       const mockResponse = {
-        text: () =>
-          Promise.resolve('artifact_path: model_signature\nflavors:\n  keras:\n    data: data\n'),
+        text: () => Promise.resolve('artifact_path: model_signature\nflavors:\n  keras:\n    data: data\n'),
       };
       yamlResponseParser({ resolve: mockResolve, response: mockResponse });
       await new Promise(setImmediate);
@@ -330,8 +327,7 @@ describe('FetchUtils', () => {
         const tooManyRequestsResponse = {
           ok: false,
           status: retryStatus,
-          text: () =>
-            Promise.resolve('{error_code: "TooManyRequests", message: "TooManyRequests"}'),
+          text: () => Promise.resolve('{error_code: "TooManyRequests", message: "TooManyRequests"}'),
         };
         const responses = Array(3).fill(tooManyRequestsResponse);
         global.fetch = jest.fn(() => Promise.resolve(responses.shift()));
@@ -341,20 +337,14 @@ describe('FetchUtils', () => {
             initialDelay: 5,
             retries: 2,
           }),
-        ).rejects.toEqual(
-          new ErrorWrapper(
-            '{error_code: "TooManyRequests", message: "TooManyRequests"}',
-            retryStatus,
-          ),
-        );
+        ).rejects.toEqual(new ErrorWrapper('{error_code: "TooManyRequests", message: "TooManyRequests"}', retryStatus));
       },
     );
     it('fetchEndpoint rejects on non retry status failures', async () => {
       const permissionDeniedResponse = {
         ok: false,
         status: 403,
-        text: () =>
-          Promise.resolve('{error_code: "PermissionDenied", message: "PermissionDenied"}'),
+        text: () => Promise.resolve('{error_code: "PermissionDenied", message: "PermissionDenied"}'),
       };
       // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: boolean; status: number; ... Remove this comment to see the full error message
       global.fetch = jest.fn(() => Promise.resolve(permissionDeniedResponse));
@@ -364,9 +354,7 @@ describe('FetchUtils', () => {
           initialDelay: 5,
           retries: 2,
         }),
-      ).rejects.toEqual(
-        new ErrorWrapper('{error_code: "PermissionDenied", message: "PermissionDenied"}', 403),
-      );
+      ).rejects.toEqual(new ErrorWrapper('{error_code: "PermissionDenied", message: "PermissionDenied"}', 403));
     });
     it('fetchEndpoint rejects on random exceptions', async () => {
       const randomError = new Error('something went wrong...');

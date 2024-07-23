@@ -6,16 +6,20 @@
  */
 
 import React, { useCallback, useRef, useEffect } from 'react';
-import { DesignSystemProvider } from '@databricks/design-system';
-import { SupportsDuBoisThemes } from '@databricks/web-shared/design-system';
+import { DesignSystemProvider, DesignSystemThemeProvider } from '@databricks/design-system';
 import { message, ConfigProvider } from 'antd';
+import { ColorsPaletteDatalist } from './ColorsPaletteDatalist';
 
-const isInsideShadowDOM = (element: any) =>
-  element instanceof window.Node && element.getRootNode() !== document;
+const isInsideShadowDOM = (element: any) => element instanceof window.Node && element.getRootNode() !== document;
 
 type DesignSystemContainerProps = {
   isDarkTheme?: boolean;
   children: React.ReactNode;
+};
+
+const ThemeProvider = ({ children, isDarkTheme }: { children?: React.ReactNode; isDarkTheme?: boolean }) => {
+  // eslint-disable-next-line react/forbid-elements
+  return <DesignSystemThemeProvider isDarkMode={isDarkTheme}>{children}</DesignSystemThemeProvider>;
 };
 
 /**
@@ -44,15 +48,16 @@ export const DesignSystemContainer = (props: DesignSystemContainerProps) => {
   }, []);
 
   return (
-    <SupportsDuBoisThemes isDarkMode={isDarkTheme}>
+    <ThemeProvider isDarkTheme={isDarkTheme}>
       {/* @ts-expect-error TS(2322): Type '() => HTMLElement | undefined' is not assign... Remove this comment to see the full error message */}
       <DesignSystemProvider getPopupContainer={getPopupContainer} isCompact {...props}>
-        <ConfigProvider prefixCls='ant'>
+        <ConfigProvider prefixCls="ant">
           {children}
           {/* @ts-expect-error TS(2322): Type 'MutableRefObject<undefined>' is not assignab... Remove this comment to see the full error message */}
           <div ref={modalContainerElement} />
         </ConfigProvider>
       </DesignSystemProvider>
-    </SupportsDuBoisThemes>
+      <ColorsPaletteDatalist />
+    </ThemeProvider>
   );
 };

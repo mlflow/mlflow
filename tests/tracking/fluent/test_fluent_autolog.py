@@ -4,7 +4,9 @@ from io import StringIO
 from unittest import mock
 
 import fastai
+import keras
 import lightgbm
+import lightning
 import pyspark
 import pyspark.ml
 import pytest
@@ -31,6 +33,7 @@ from tests.autologging.fixtures import (
 
 library_to_mlflow_module_without_spark_datasource = {
     tensorflow: mlflow.tensorflow,
+    keras: mlflow.keras,
     fastai: mlflow.fastai,
     sklearn: mlflow.sklearn,
     xgboost: mlflow.xgboost,
@@ -38,6 +41,7 @@ library_to_mlflow_module_without_spark_datasource = {
     statsmodels: mlflow.statsmodels,
     pyspark.ml: mlflow.pyspark.ml,
     pytorch_lightning: mlflow.pytorch,
+    lightning: mlflow.pytorch,
     transformers: mlflow.transformers,
     setfit: mlflow.transformers,
 }
@@ -86,7 +90,7 @@ def reset_global_states():
 #   and is only imported when we call wrapt.notify_module_loaded in the tests below. Normally,
 #   notify_module_loaded would be called by register_post_import_hook if it sees that the module
 #   is already loaded.
-def only_register(callback_fn, module, overwrite):  # pylint: disable=unused-argument
+def only_register(callback_fn, module, overwrite):
     mlflow.utils.import_hooks._post_import_hooks[module] = [callback_fn]
 
 

@@ -40,6 +40,7 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     assert_array_almost_equal,
     assert_register_model_called_with_local_model_path,
+    get_serving_input_example,
 )
 
 _logger = logging.getLogger(__name__)
@@ -125,14 +126,12 @@ def get_subclassed_model_definition():
     can be invoked within a module to define the class in the module's scope.
     """
 
-    # pylint: disable=abstract-method
     class SubclassedModel(torch.nn.Module):
         def __init__(self):
             super().__init__()
             self.linear = torch.nn.Linear(4, 1)
 
         def forward(self, x):
-            # pylint: disable=arguments-differ
             return self.linear(x)
 
     return SubclassedModel
@@ -150,7 +149,6 @@ def main_scoped_subclassed_model(data):
     return model
 
 
-# pylint: disable=abstract-method
 class ModuleScopedSubclassedModel(get_subclassed_model_definition()):
     """
     A custom PyTorch model class defined in the test module scope. This is a subclass of
@@ -555,17 +553,20 @@ def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model
 
 
 def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_conda_env(
-    module_scoped_subclassed_model, model_path, data
+    module_scoped_subclassed_model, data
 ):
-    mlflow.pytorch.save_model(
-        path=model_path,
-        pytorch_model=module_scoped_subclassed_model,
-        code_paths=[__file__],
-    )
+    with mlflow.start_run():
+        model_info = mlflow.pytorch.log_model(
+            pytorch_model=module_scoped_subclassed_model,
+            artifact_path="pytorch_model",
+            code_paths=[__file__],
+            input_example=data[0],
+        )
 
+    inference_payload = get_serving_input_example(model_info.model_uri)
     scoring_response = pyfunc_serve_and_score_model(
-        model_uri=model_path,
-        data=data[0],
+        model_uri=model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
@@ -582,7 +583,6 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
 def test_save_model_with_wrong_codepaths_fails_correctly(
     module_scoped_subclassed_model, model_path, data
 ):
-    # pylint: disable=unused-argument
     with pytest.raises(TypeError, match="Argument code_paths should be a list, not <class 'str'>"):
         mlflow.pytorch.save_model(
             path=model_path, pytorch_model=module_scoped_subclassed_model, code_paths="some string"
@@ -590,17 +590,20 @@ def test_save_model_with_wrong_codepaths_fails_correctly(
 
 
 def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickle_module(
-    main_scoped_subclassed_model, model_path, data
+    main_scoped_subclassed_model, data
 ):
-    mlflow.pytorch.save_model(
-        path=model_path,
-        pytorch_model=main_scoped_subclassed_model,
-        pickle_module=mlflow_pytorch_pickle_module,
-    )
+    with mlflow.start_run():
+        model_info = mlflow.pytorch.log_model(
+            pytorch_model=main_scoped_subclassed_model,
+            artifact_path="pytorch_model",
+            pickle_module=mlflow_pytorch_pickle_module,
+            input_example=data[0],
+        )
 
+    inference_payload = get_serving_input_example(model_info.model_uri)
     scoring_response = pyfunc_serve_and_score_model(
-        model_uri=model_path,
-        data=data[0],
+        model_uri=model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
@@ -630,7 +633,6 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
     # `mlflow.pytorch.load_model`
     class TorchValidatorModel(pyfunc.PythonModel):
         def load_context(self, context):
-            # pylint: disable=attribute-defined-outside-init
             self.pytorch_model = mlflow.pytorch.load_model(context.artifacts["pytorch_model"])
 
         def predict(self, _, model_input, params=None):
@@ -641,20 +643,22 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
-        pyfunc.log_model(
+        model_info = pyfunc.log_model(
             artifact_path=pyfunc_artifact_path,
             python_model=TorchValidatorModel(),
             artifacts={"pytorch_model": model_path},
-        )
-        pyfunc_model_path = _download_artifact_from_uri(
-            f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
+            input_example=data[0],
+            # save file into code_paths, otherwise after first model loading (happens when
+            # validating input_example) then we can not load the model again
+            code_paths=[__file__],
         )
 
     # Deploy the custom pyfunc model and ensure that it is able to successfully load its
     # constituent PyTorch model via `mlflow.pytorch.load_model`
+    inference_payload = get_serving_input_example(model_info.model_uri)
     scoring_response = pyfunc_serve_and_score_model(
-        model_uri=pyfunc_model_path,
-        data=data[0],
+        model_uri=model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
@@ -841,12 +845,12 @@ def test_pyfunc_serve_and_score(data):
     train_model(model=model, data=data)
 
     with mlflow.start_run():
-        mlflow.pytorch.log_model(model, artifact_path="model")
-        model_uri = mlflow.get_artifact_uri("model")
+        model_info = mlflow.pytorch.log_model(model, artifact_path="model", input_example=data[0])
 
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data[0],
+        model_info.model_uri,
+        inference_payload,
         pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
@@ -858,12 +862,12 @@ def test_pyfunc_serve_and_score(data):
 
 @pytest.mark.skipif(not _is_importable("transformers"), reason="This test requires transformers")
 def test_pyfunc_serve_and_score_transformers():
-    from transformers import BertConfig, BertModel  # pylint: disable=import-error
+    from transformers import BertConfig, BertModel
 
     from mlflow.deployments import PredictionsResponse
 
     class MyBertModel(BertModel):
-        def forward(self, *args, **kwargs):  # pylint: disable=arguments-differ
+        def forward(self, *args, **kwargs):
             return super().forward(*args, **kwargs).last_hidden_state
 
     model = MyBertModel(
@@ -877,15 +881,17 @@ def test_pyfunc_serve_and_score_transformers():
     )
     model.eval()
 
-    with mlflow.start_run():
-        mlflow.pytorch.log_model(model, artifact_path="model")
-        model_uri = mlflow.get_artifact_uri("model")
-
     input_ids = model.dummy_inputs["input_ids"]
-    data = json.dumps({"inputs": input_ids.tolist()})
+
+    with mlflow.start_run():
+        model_info = mlflow.pytorch.log_model(
+            model, artifact_path="model", input_example=np.array(input_ids.tolist())
+        )
+
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data,
+        model_info.model_uri,
+        inference_payload,
         pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
@@ -1224,15 +1230,27 @@ def test_model_log_with_signature_inference(sequential_model, data):
     example_ = data[0].head(3).values.astype(np.float32)
 
     with mlflow.start_run():
-        mlflow.pytorch.log_model(
+        model_info = mlflow.pytorch.log_model(
             sequential_model, artifact_path=artifact_path, input_example=example_
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    model_info = Model.load(model_uri)
     assert model_info.signature == ModelSignature(
         inputs=Schema([TensorSpec(np.dtype("float32"), (-1, 4))]),
         outputs=Schema([TensorSpec(np.dtype("float32"), (-1, 1))]),
+    )
+    inference_payload = get_serving_input_example(model_info.model_uri)
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        inference_payload,
+        pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 200
+    deployed_model_preds = pd.DataFrame(json.loads(response.content)["predictions"])
+    np.testing.assert_array_almost_equal(
+        deployed_model_preds.values[:, 0],
+        _predict(model=sequential_model, data=(data[0].head(3), data[1].head(3))),
+        decimal=4,
     )
 
 

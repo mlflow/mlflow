@@ -75,9 +75,10 @@ specify an experiment in :py:func:`mlflow.start_run`, new runs are launched unde
     must be an absolute path, e.g. ``"/Users/<username>/my-experiment"``.
 
 
-:py:func:`mlflow.start_run` returns the currently active run (if one exists), or starts a new run
-and returns a :py:class:`mlflow.ActiveRun` object usable as a context manager for the
-current run. You do not need to call ``start_run`` explicitly: calling one of the logging functions
+:py:func:`mlflow.start_run` starts a new run and returns a :py:class:`mlflow.ActiveRun` object 
+usable as a context manager for the current run. If an active run is already in progress, you 
+should either end the current run before starting the new run or nest the new run within the current run using ``nested=True``.
+You do not need to call ``start_run`` explicitly: calling one of the logging functions
 with no active run automatically starts a new one.
 
 .. note::
@@ -222,7 +223,7 @@ do this depends on whether you want to run them :ref:`sequentially <sequential-r
 
 .. _sequential-runs:
 
-Sequantial Runs
+Sequential Runs
 ~~~~~~~~~~~~~~~
 Running multiple runs one-by-one is easy to do because the ``ActiveRun`` object returned by :py:func:`mlflow.start_run`
 is a Python `context manager <https://docs.python.org/2.5/whatsnew/pep-343.html>`_. You can "scope" each run to
@@ -253,20 +254,49 @@ MLflow also supports running multiple runs in parallel using `multiprocessing <h
 
 .. code-block:: python
 
-        import mlflow
-        import multiprocessing as mp
+    import mlflow
+    import multiprocessing as mp
 
 
-        def train_model(params):
-            with mlflow.start_run():
-                mlflow.log_param("p", params)
-                ...
+    def train_model(param):
+        with mlflow.start_run():
+            mlflow.log_param("p", param)
+            ...
 
 
-        if __name__ == "__main__":
-            params = [0.01, 0.02, ...]
-            pool = mp.Pool(processes=4)
+    if __name__ == "__main__":
+        mlflow.set_experiment("multi-process")
+        params = [0.01, 0.02, ...]
+        with mp.Pool(processes=4) as pool:
             pool.map(train_model, params)
+
+.. attention::
+
+  The above code will only work if the ``fork`` method is used for creating child processes. If you are using
+  the ``spawn`` method, the child processes will not automatically inherit the global state of the parent process, which includes
+  the active experiment and tracking URI, resulting in the child processes not being able to log to the same experiment. To
+  overcome this limitation, you can set the active experiment and tracking URI explicitly in each child process as shown below.
+  The ``fork`` is the default method on POSIX systems except MacOS, but otherwise ``spawn`` method will be used by default.
+
+  .. code-block:: python
+
+    import mlflow
+    import multiprocessing as mp
+
+
+    def train_model(params):
+        # Set the experiment and tracking URI in each child process
+        mlflow.set_tracking_uri("http://localhost:5000")
+        mlflow.set_experiment("multi-process")
+        with mlflow.start_run():
+            ...
+
+
+    if __name__ == "__main__":
+        params = [0.01, 0.02, ...]
+        pool = mp.get_context("spawn").Pool(processes=4)
+        pool.map(train_model, params)
+
 
 **Multi-threading** is a bit more complicated because MLflow uses a global state to keep track of the currently active run i.e. having multiple active
 runs in the same process may cause data corruption. However, you can avoid this issue and use multi threading by using :ref:`Child Runs <child_runs>`.
@@ -278,10 +308,10 @@ You can start child runs in each thread by passing ``nested=True`` to :py:func:`
         import threading
 
 
-        def train_model(params):
+        def train_model(param):
             # Create a child run by passing nested=True
             with mlflow.start_run(nested=True):
-                mlflow.log_param("p", params)
+                mlflow.log_param("p", param)
                 ...
 
 
@@ -304,7 +334,7 @@ Adding Tags to Runs
 -------------------
 
 You can annotate runs with arbitrary tags to organize them into groups. This allows you to easily filter and search
-Runs in Tracking UI by using :ref:`filter experssion <mlflow_tags>`.
+Runs in Tracking UI by using :ref:`filter expression <mlflow_tags>`.
 
 .. _system_tags:
 
@@ -317,41 +347,39 @@ The following tags are set automatically by MLflow, when appropriate:
 .. note:: 
     ``mlflow.note.content`` is an exceptional case where the tag is **not set automatically** and can be overridden by the user to include additional information about the run.
 
-+-------------------------------+----------------------------------------------------------------------------------------+
-| Key                           | Description                                                                            |
-+===============================+========================================================================================+
-| ``mlflow.note.content``       | A descriptive note about this run. This reserved tag is **not set automatically** and  |
-|                               | can be overridden by the user to include additional information about the run. The     |
-|                               | content is displayed on the run's page under the Notes section.                        |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.parentRunId``        | The ID of the parent run, if this is a nested run.                                     |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.user``               | Identifier of the user who created the run.                                            |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.source.type``        | Source type. Possible values: ``"NOTEBOOK"``, ``"JOB"``, ``"PROJECT"``,                |
-|                               | ``"LOCAL"``, and ``"UNKNOWN"``                                                         |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.source.name``        | Source identifier (e.g., GitHub URL, local Python filename, name of notebook)          |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.source.git.commit``  | Commit hash of the executed code, if in a git repository.                              |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.source.git.branch``  | Name of the branch of the executed code, if in a git repository.                       |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.source.git.repoURL`` | URL that the executed code was cloned from.                                            |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.project.env``        | The runtime context used by the MLflow project.                                        |
-|                               | Possible values: ``"docker"`` and ``"conda"``.                                         |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.project.entryPoint`` | Name of the project entry point associated with the current run, if any.               |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.docker.image.name``  | Name of the Docker image used to execute this run.                                     |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.docker.image.id``    | ID of the Docker image used to execute this run.                                       |
-+-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.log-model.history``  | Model metadata collected by log-model calls. Includes the serialized                   |
-|                               | form of the MLModel model files logged to a run, although the exact format and         |
-|                               | information captured is subject to change.                                             |
-+-------------------------------+----------------------------------------------------------------------------------------+
+.. list-table::
+   :widths: 25 75
+   :header-rows: 1
+
+   * - Key
+     - Description
+   * - ``mlflow.note.content``
+     - A descriptive note about this run. This reserved tag is **not set automatically** and can be overridden by the user to include additional information about the run. The content is displayed on the run's page under the Notes section.
+   * - ``mlflow.parentRunId``
+     - The ID of the parent run, if this is a nested run.
+   * - ``mlflow.user``
+     - Identifier of the user who created the run.
+   * - ``mlflow.source.type``
+     - Source type. Possible values: ``"NOTEBOOK"``, ``"JOB"``, ``"PROJECT"``, ``"LOCAL"``, and ``"UNKNOWN"``
+   * - ``mlflow.source.name``
+     - Source identifier (e.g., GitHub URL, local Python filename, name of notebook)
+   * - ``mlflow.source.git.commit``
+     - Commit hash of the executed code, if in a git repository. This tag is only logged when the code is executed as a Python script like ``python train.py`` or as a project. If the code is executed in a notebook, this tag is not logged.
+   * - ``mlflow.source.git.branch``
+     - Name of the branch of the executed code, if in a git repository. This tag is only logged within the context of `MLflow Projects <../projects.html>`_ and `MLflow Recipe <../recipes.html>`_.
+   * - ``mlflow.source.git.repoURL``
+     - URL that the executed code was cloned from. This tag is only logged within the context of `MLflow Projects <../projects.html>`_ and `MLflow Recipe <../recipes.html>`_.
+   * - ``mlflow.project.env``
+     - The runtime context used by the MLflow project. Possible values: ``"docker"`` and ``"conda"``.
+   * - ``mlflow.project.entryPoint``
+     - Name of the project entry point associated with the current run, if any.
+   * - ``mlflow.docker.image.name``
+     - Name of the Docker image used to execute this run.
+   * - ``mlflow.docker.image.id``
+     - ID of the Docker image used to execute this run.
+   * - ``mlflow.log-model.history``
+     - Model metadata collected by log-model calls. Includes the serialized form of the MLModel model files logged to a run, although the exact format and information captured is subject to change.
+
 
 Custom Tags
 ~~~~~~~~~~~

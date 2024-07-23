@@ -8,11 +8,12 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage } from 'react-intl';
+import { Link } from '../../common/utils/RoutingUtils';
 import { getBasename } from '../../common/utils/FileUtils';
 import { ArtifactNode as ArtifactUtils, ArtifactNode } from '../utils/ArtifactUtils';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'byte... Remove this comment to see the full error message
 import bytes from 'bytes';
-import { RegisterModelButton } from '../../model-registry/components/RegisterModelButton';
+import { RegisterModel } from '../../model-registry/components/RegisterModel';
 import ShowArtifactPage from './artifact-view-components/ShowArtifactPage';
 import {
   ModelVersionStatus,
@@ -25,7 +26,9 @@ import _ from 'lodash';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import {
   DesignSystemHocProps,
-  Tooltip,
+  Empty,
+  LayerIcon,
+  LegacyTooltip,
   Typography,
   WithDesignSystemThemeHoc,
 } from '@databricks/design-system';
@@ -37,6 +40,13 @@ import { listArtifactsApi } from '../actions';
 import { MLMODEL_FILE_NAME } from '../constants';
 import { getArtifactLocationUrl } from '../../common/utils/ArtifactUtils';
 import { ArtifactViewTree } from './ArtifactViewTree';
+import { useDesignSystemTheme } from '@databricks/design-system';
+import { Button } from '@databricks/design-system';
+import { CopyIcon } from '@databricks/design-system';
+import { DownloadIcon } from '@databricks/design-system';
+import { Checkbox } from '@databricks/design-system';
+import { getLoggedTablesFromTags } from '@mlflow/mlflow/src/common/utils/TagUtils';
+import { CopyButton } from '../../shared/building_blocks/CopyButton';
 
 const { Text } = Typography;
 
@@ -68,6 +78,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     activeNodeId: undefined,
     toggledNodeIds: {},
     requestedNodeIds: new Set(),
+    viewAsTable: true,
   };
 
   getExistingModelVersions() {
@@ -81,12 +92,13 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     const { activeNodeId } = this.state;
     const activeNodeRealPath = this.getActiveNodeRealPath();
     return (
-      <RegisterModelButton
-        // @ts-expect-error TS(2322): Type '{ runUuid: string; modelPath: string; disabl... Remove this comment to see the full error message
+      <RegisterModel
         runUuid={runUuid}
         modelPath={activeNodeRealPath}
-        modelRelativePath={activeNodeId}
+        modelRelativePath={String(activeNodeId)}
         disabled={activeNodeId === undefined}
+        showButton
+        buttonType={undefined}
       />
     );
   }
@@ -101,26 +113,26 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     const activeNodeRealPath = this.getActiveNodeRealPath();
 
     return (
-      <div className='artifact-info-left'>
-        <div className='artifact-info-path'>
+      <div className="artifact-info-left">
+        <div className="artifact-info-path">
           <label>
             <FormattedMessage
-              defaultMessage='Full Path:'
+              defaultMessage="Full Path:"
               // eslint-disable-next-line max-len
-              description='Label to display the full path of where the artifact of the experiment runs is located'
+              description="Label to display the full path of where the artifact of the experiment runs is located"
             />
           </label>{' '}
           {/* @ts-expect-error TS(2322): Type '{ children: string; className: string; ellip... Remove this comment to see the full error message */}
-          <Text className='artifact-info-text' ellipsis copyable>
+          <Text className="artifact-info-text" ellipsis copyable>
             {activeNodeRealPath}
           </Text>
         </div>
         {node.fileInfo.is_dir === false ? (
-          <div className='artifact-info-size'>
+          <div className="artifact-info-size">
             <label>
               <FormattedMessage
-                defaultMessage='Size:'
-                description='Label to display the size of the artifact of the experiment'
+                defaultMessage="Size:"
+                description="Label to display the size of the artifact of the experiment"
               />
             </label>{' '}
             {bytes(this.getActiveNodeSize())}
@@ -130,25 +142,113 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     );
   }
 
+  renderSizeInfo() {
+    // We will only be in this function if this.state.activeNodeId is defined
+    const node = ArtifactUtils.findChild(this.props.artifactNode, this.state.activeNodeId);
+    const { theme } = this.props.designSystemThemeApi;
+
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: theme.spacing.sm,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        <Typography.Text bold size="lg" ellipsis title={this.state.activeNodeId}>
+          {this.state.activeNodeId}
+        </Typography.Text>
+        {node.fileInfo.is_dir === false && (
+          <Typography.Text color="secondary">{bytes(this.getActiveNodeSize())}</Typography.Text>
+        )}
+      </div>
+    );
+  }
+
+  renderPathInfo() {
+    const activeNodeRealPath = this.getActiveNodeRealPath();
+    const { theme } = this.props.designSystemThemeApi;
+
+    return (
+      <div
+        css={{
+          display: 'flex',
+          overflow: 'hidden',
+          alignItems: 'center',
+          gap: theme.spacing.sm,
+        }}
+      >
+        <div
+          css={{
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
+            textOverflow: 'ellipsis',
+            flex: '0 auto',
+            color: theme.colors.textSecondary,
+          }}
+          title={activeNodeRealPath}
+        >
+          <FormattedMessage
+            defaultMessage="Path:"
+            description="Label to display the full path of where the artifact of the experiment runs is located"
+          />{' '}
+          {activeNodeRealPath}
+        </div>
+
+        <CopyButton
+          css={{ flex: '0 0 auto' }}
+          showLabel={false}
+          size="small"
+          type="tertiary"
+          copyText={activeNodeRealPath}
+          icon={<CopyIcon />}
+        />
+      </div>
+    );
+  }
+
   onDownloadClick(runUuid: any, artifactPath: any) {
     window.location.href = getArtifactLocationUrl(artifactPath, runUuid);
   }
 
-  renderDownloadLink() {
+  renderControls() {
     const { runUuid } = this.props;
     const { activeNodeId } = this.state;
     return (
-      <div className='artifact-info-link'>
-        {/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
-        <a
-          onClick={() => this.onDownloadClick(runUuid, activeNodeId)}
-          title={this.props.intl.formatMessage({
-            defaultMessage: 'Download artifact',
-            description: 'Link to download the artifact of the experiment',
-          })}
-        >
-          <i className='fas fa-download' />
-        </a>
+      <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center' }}>
+          {this.shouldShowViewAsTableCheckbox && (
+            <Checkbox
+              isChecked={this.state.viewAsTable}
+              onChange={() =>
+                this.setState({
+                  viewAsTable: !this.state.viewAsTable,
+                })
+              }
+            >
+              <FormattedMessage
+                defaultMessage="View as table"
+                description="Experiment tracking > Artifact view > View as table checkbox"
+              />
+            </Checkbox>
+          )}
+          <LegacyTooltip
+            arrowPointAtCenter
+            placement="topLeft"
+            title={this.props.intl.formatMessage({
+              defaultMessage: 'Download artifact',
+              description: 'Link to download the artifact of the experiment',
+            })}
+          >
+            <Button
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_artifactview.tsx_337"
+              icon={<DownloadIcon />}
+              onClick={() => this.onDownloadClick(runUuid, activeNodeId)}
+            />
+          </LegacyTooltip>
+        </div>
       </div>
     );
   }
@@ -165,21 +265,32 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     } else if (this.activeNodeIsDirectory()) {
       toRender = null;
     } else {
-      toRender = this.renderDownloadLink();
+      toRender = this.renderControls();
     }
     const { theme } = this.props.designSystemThemeApi;
     return (
       <div
         css={{
-          height: theme.general.heightBase + theme.spacing.md,
-          backgroundColor: theme.colors.backgroundSecondary,
-          padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-          whiteSpace: 'nowrap',
+          padding: `${theme.spacing.xs}px ${theme.spacing.sm}px ${theme.spacing.sm}px ${theme.spacing.md}px`,
           display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.xs,
         }}
       >
-        {this.renderPathAndSizeInfo()}
-        <div className='artifact-info-right'>{toRender}</div>
+        <div
+          css={{
+            whiteSpace: 'nowrap',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: theme.spacing.md,
+          }}
+        >
+          <div css={{ flex: '1 1', overflow: 'hidden' }}>{this.renderSizeInfo()}</div>
+          <div css={{ flex: '0 1' }}>{toRender}</div>
+        </div>
+
+        {this.renderPathInfo()}
       </div>
     );
   }
@@ -331,27 +442,46 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     this.setState(artifactState);
   }
 
+  get shouldShowViewAsTableCheckbox() {
+    return (
+      this.state.activeNodeId &&
+      this.props.runTags &&
+      getLoggedTablesFromTags(this.props.runTags).includes(this.state.activeNodeId)
+    );
+  }
+
   render() {
     if (ArtifactUtils.isEmpty(this.props.artifactNode)) {
       return <NoArtifactView useAutoHeight={this.props.useAutoHeight} />;
     }
     const { theme } = this.props.designSystemThemeApi;
+
     return (
       <div
-        className='artifact-view'
+        className="artifact-view"
         css={{
-          border: `1px solid ${theme.colors.borderDecorative}`,
           flex: this.props.useAutoHeight ? 1 : 'unset',
           height: this.props.useAutoHeight ? 'auto' : undefined,
+          [theme.responsive.mediaQueries.xs]: {
+            overflowX: 'auto',
+          },
         }}
       >
-        <div className='artifact-left'>
+        <div
+          style={{
+            minWidth: '200px',
+            maxWidth: '400px',
+            flex: 1,
+            whiteSpace: 'nowrap',
+            borderRight: `1px solid ${theme.colors.borderDecorative}`,
+          }}
+        >
           <ArtifactViewTree
             data={this.getTreebeardData(this.props.artifactNode)}
             onToggleTreebeard={this.onToggleTreebeard}
           />
         </div>
-        <div className='artifact-right'>
+        <div className="artifact-right">
           {this.state.activeNodeId ? this.renderArtifactInfo() : null}
           <ShowArtifactPage
             runUuid={this.props.runUuid}
@@ -361,6 +491,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
             runTags={this.props.runTags}
             artifactRootUri={this.props.artifactRootUri}
             modelVersions={this.props.modelVersions}
+            showArtifactLoggedTableView={this.state.viewAsTable && this.shouldShowViewAsTableCheckbox}
           />
         </div>
       </div>
@@ -401,38 +532,33 @@ function ModelVersionInfoSection(props: ModelVersionInfoSectionProps) {
   const { name, version, status, status_message } = modelVersion;
 
   // eslint-disable-next-line prefer-const
-  let mvPageRoute = Utils.getIframeCorrectedRoute(
-    ModelRegistryRoutes.getModelVersionPageRoute(name, version),
-  );
+  let mvPageRoute = ModelRegistryRoutes.getModelVersionPageRoute(name, version);
   const modelVersionLink = (
-    <Tooltip title={`${name} version ${version}`}>
-      <a href={mvPageRoute} className='model-version-link' target='_blank' rel='noreferrer'>
-        <span className='model-name'>{name}</span>
+    <LegacyTooltip title={`${name} version ${version}`}>
+      <Link to={mvPageRoute} className="model-version-link" target="_blank" rel="noreferrer">
+        <span className="model-name">{name}</span>
         <span>,&nbsp;v{version}&nbsp;</span>
-        <i className='fas fa-external-link-o' />
-      </a>
-    </Tooltip>
+        <i className="fas fa-external-link-o" />
+      </Link>
+    </LegacyTooltip>
   );
 
   return (
-    <div className='model-version-info'>
-      <div className='model-version-link-section'>
-        <Tooltip title={status_message || modelVersionStatusIconTooltips[status]}>
+    <div className="model-version-info">
+      <div className="model-version-link-section">
+        <LegacyTooltip title={status_message || modelVersionStatusIconTooltips[status]}>
           <div>{ModelVersionStatusIcons[status]}</div>
-        </Tooltip>
+        </LegacyTooltip>
         {modelVersionLink}
       </div>
-      <div className='model-version-status-text'>
+      <div className="model-version-status-text">
         {status === ModelVersionStatus.READY ? (
           <React.Fragment>
             <FormattedMessage
-              defaultMessage='Registered on {registeredDate}'
-              description='Label to display at what date the model was registered'
+              defaultMessage="Registered on {registeredDate}"
+              description="Label to display at what date the model was registered"
               values={{
-                registeredDate: Utils.formatTimestamp(
-                  modelVersion.creation_timestamp,
-                  'yyyy/mm/dd',
-                ),
+                registeredDate: Utils.formatTimestamp(modelVersion.creation_timestamp, 'yyyy/mm/dd'),
               }}
             />
           </React.Fragment>
@@ -445,32 +571,33 @@ function ModelVersionInfoSection(props: ModelVersionInfoSectionProps) {
 }
 
 function NoArtifactView({ useAutoHeight }: { useAutoHeight?: boolean }) {
+  const { theme } = useDesignSystemTheme();
   return (
     <div
-      className='empty-artifact-outer-container'
       css={{
         flex: useAutoHeight ? 1 : 'unset',
         height: useAutoHeight ? 'auto' : undefined,
+        paddingTop: theme.spacing.md,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
       }}
     >
-      <div className='empty-artifact-container'>
-        <div>{/* TODO: put a nice image here */}</div>
-        <div>
-          <div className='no-artifacts'>
-            <FormattedMessage
-              defaultMessage='No Artifacts Recorded'
-              description='Empty state string when there are no artifacts record for the experiment'
-            />
-          </div>
-          <div className='no-artifacts-info'>
-            <FormattedMessage
-              defaultMessage='Use the log artifact APIs to store file outputs from MLflow runs.'
-              // eslint-disable-next-line max-len
-              description='Information in the empty state explaining how one could log artifacts output files for the experiment runs'
-            />
-          </div>
-        </div>
-      </div>
+      <Empty
+        image={<LayerIcon />}
+        title={
+          <FormattedMessage
+            defaultMessage="No Artifacts Recorded"
+            description="Empty state string when there are no artifacts record for the experiment"
+          />
+        }
+        description={
+          <FormattedMessage
+            defaultMessage="Use the log artifact APIs to store file outputs from MLflow runs."
+            description="Information in the empty state explaining how one could log artifacts output files for the experiment runs"
+          />
+        }
+      />
     </div>
   );
 }

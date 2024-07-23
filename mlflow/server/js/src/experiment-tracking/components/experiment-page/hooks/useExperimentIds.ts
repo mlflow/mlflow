@@ -17,10 +17,7 @@ export const useExperimentIds = (): UseExperimentIdsResult => {
   const params = useParams<{ experimentId?: string }>();
   const location = useLocation();
 
-  const normalizedLocationSearch = useMemo(
-    () => decodeURIComponent(location.search),
-    [location.search],
-  );
+  const normalizedLocationSearch = useMemo(() => decodeURIComponent(location.search), [location.search]);
 
   /**
    * Memoized string containing experiment IDs for comparison ("?experiments=...")
@@ -47,9 +44,7 @@ export const useExperimentIds = (): UseExperimentIdsResult => {
         return JSON.parse(compareExperimentIdsQueryParam);
       } catch {
         // Apparently URL is malformed
-        Utils.logErrorAndNotifyUser(
-          `Could not parse experiment query parameter ${compareExperimentIdsQueryParam}`,
-        );
+        Utils.logErrorAndNotifyUser(`Could not parse experiment query parameter ${compareExperimentIdsQueryParam}`);
         return '';
       }
     }

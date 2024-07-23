@@ -6,14 +6,14 @@
  */
 
 import React, { Component } from 'react';
-import { Alert, Button, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Button, LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { Prompt } from './Prompt';
 import ReactMde, { SvgIcon } from 'react-mde';
-import { forceAnchorTagNewTab, getConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
+import { forceAnchorTagNewTab, getMarkdownConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
 import './EditableNote.css';
-import { FormattedMessage, injectIntl } from 'react-intl';
+import { FormattedMessage, IntlShape, injectIntl } from 'react-intl';
 
-type OwnEditableNoteImplProps = {
+type EditableNoteImplProps = {
   defaultMarkdown?: string;
   defaultSelectedTab?: string;
   onSubmit?: (...args: any[]) => any;
@@ -24,12 +24,10 @@ type OwnEditableNoteImplProps = {
   maxEditorHeight?: number;
   minEditorHeight?: number;
   childProps?: any;
-  intl?: any;
+  intl: IntlShape;
 };
 
 type EditableNoteImplState = any;
-
-type EditableNoteImplProps = OwnEditableNoteImplProps & typeof EditableNoteImpl.defaultProps;
 
 export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableNoteImplState> {
   static defaultProps = {
@@ -37,10 +35,7 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
     defaultSelectedTab: 'write',
     showEditor: false,
     saveText: (
-      <FormattedMessage
-        defaultMessage='Save'
-        description='Default text for save button on editable notes in MLflow'
-      />
+      <FormattedMessage defaultMessage="Save" description="Default text for save button on editable notes in MLflow" />
     ),
     confirmLoading: false,
     toolbarCommands: [
@@ -59,7 +54,7 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
     error: null,
   };
 
-  converter = getConverter();
+  converter = getMarkdownConverter();
 
   handleMdeValueChange = (markdown: any) => {
     this.setState({ markdown });
@@ -86,8 +81,7 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
                 ? e.getMessageField()
                 : this.props.intl.formatMessage({
                     defaultMessage: 'Failed to submit',
-                    description:
-                      'Message text for failing to save changes in editable note in MLflow',
+                    description: 'Message text for failing to save changes in editable note in MLflow',
                   }),
           });
         });
@@ -115,27 +109,29 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
     // @ts-expect-error TS(2339): Property 'confirmLoading' does not exist on type '... Remove this comment to see the full error message
     const { confirmLoading } = this.state;
     return (
-      <div className='editable-note-actions'>
+      <div className="editable-note-actions">
         <div>
           <Button
-            type='primary'
-            className='editable-note-save-button'
+            componentId="codegen_mlflow_app_src_common_components_editablenote.tsx_114"
+            type="primary"
+            className="editable-note-save-button"
             onClick={this.handleSubmitClick}
             disabled={!this.contentHasChanged() || confirmLoading}
             loading={confirmLoading}
-            data-testid='editable-note-save-button'
+            data-testid="editable-note-save-button"
           >
             {this.props.saveText}
           </Button>
           <Button
-            htmlType='button'
-            className='editable-note-cancel-button'
+            componentId="codegen_mlflow_app_src_common_components_editablenote.tsx_124"
+            htmlType="button"
+            className="editable-note-cancel-button"
             onClick={this.handleCancelClick}
             disabled={confirmLoading}
           >
             <FormattedMessage
-              defaultMessage='Cancel'
-              description='Text for the cancel button in an editable note in MLflow'
+              defaultMessage="Cancel"
+              description="Text for the cancel button in an editable note in MLflow"
             />
           </Button>
         </div>
@@ -157,10 +153,10 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
     const { markdown, selectedTab, error } = this.state;
     const htmlContent = this.getSanitizedHtmlContent();
     return (
-      <div className='note-view-outer-container'>
+      <div className="note-view-outer-container">
         {showEditor ? (
           <React.Fragment>
-            <div className='note-view-text-area'>
+            <div className="note-view-text-area">
               <ReactMde
                 value={markdown}
                 minEditorHeight={this.props.minEditorHeight}
@@ -179,7 +175,7 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
             </div>
             {error && (
               <Alert
-                type='error'
+                type="error"
                 message={this.props.intl.formatMessage({
                   defaultMessage: 'There was an error submitting your note.',
                   description: 'Error message text when saving an editable note in MLflow',
@@ -192,11 +188,8 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
             <Prompt
               when={this.contentHasChanged()}
               message={this.props.intl.formatMessage({
-                defaultMessage:
-                  'Are you sure you want to navigate away? Your pending text changes will be lost.',
-                description:
-                  'Prompt text for navigating away before saving changes in editable note in' +
-                  ' MLflow',
+                defaultMessage: 'Are you sure you want to navigate away? Your pending text changes will be lost.',
+                description: 'Prompt text for navigating away before saving changes in editable note in MLflow',
               })}
             />
           </React.Fragment>
@@ -217,12 +210,12 @@ function TooltipIcon(props: TooltipIconProps) {
   const { name } = props;
   return (
     // @ts-expect-error TS(2322): Type '{ children: Element; position: string; title... Remove this comment to see the full error message
-    <Tooltip position='top' title={name}>
+    <LegacyTooltip position="top" title={name}>
       <span css={{ color: theme.colors.textPrimary }}>
         {/* @ts-expect-error TS(2322): Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message */}
         <SvgIcon icon={name} />
       </span>
-    </Tooltip>
+    </LegacyTooltip>
   );
 }
 
@@ -233,12 +226,12 @@ type HTMLNoteContentProps = {
 function HTMLNoteContent(props: HTMLNoteContentProps) {
   const { content } = props;
   return content ? (
-    <div className='note-view-outer-container'>
-      <div className='note-view-text-area'>
-        <div className='note-view-preview note-editor-preview'>
+    <div className="note-view-outer-container">
+      <div className="note-view-text-area">
+        <div className="note-view-preview note-editor-preview">
           <div
-            className='note-editor-preview-content'
-            data-testid='note-editor-preview-content'
+            className="note-editor-preview-content"
+            data-testid="note-editor-preview-content"
             // @ts-expect-error TS(2322): Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
             // eslint-disable-next-line react/no-danger
             dangerouslySetInnerHTML={{ __html: props.content }}
@@ -248,13 +241,9 @@ function HTMLNoteContent(props: HTMLNoteContentProps) {
     </div>
   ) : (
     <div>
-      <FormattedMessage
-        defaultMessage='None'
-        description='Default text for no content in an editable note in MLflow'
-      />
+      <FormattedMessage defaultMessage="None" description="Default text for no content in an editable note in MLflow" />
     </div>
   );
 }
 
-// @ts-expect-error TS(2769): No overload matches this call.
 export const EditableNote = injectIntl(EditableNoteImpl);

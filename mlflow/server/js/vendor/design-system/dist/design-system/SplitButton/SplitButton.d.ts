@@ -1,7 +1,6 @@
-/// <reference types="react" />
 import type { DropdownMenuProps } from '@radix-ui/react-dropdown-menu';
-import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
 import type { DropdownButtonProps } from './Dropdown/DropdownButton';
+import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
 export interface SplitButtonMenuInfo {
     key: React.Key;
     keyPath: React.Key[];

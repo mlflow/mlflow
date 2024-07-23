@@ -52,7 +52,7 @@ def get_titanic():
 
     titanic_data["age"] = titanic_data["age"].fillna(titanic_data["age"].mean())
     titanic_data["fare"] = titanic_data["fare"].fillna(titanic_data["fare"].mean())
-    titanic_data = titanic_data.drop(
+    return titanic_data.drop(
         [
             "name",
             "ticket",
@@ -66,7 +66,6 @@ def get_titanic():
         ],
         axis=1,
     )
-    return titanic_data
 
 
 torch.manual_seed(1)  # Set seed for reproducibility.

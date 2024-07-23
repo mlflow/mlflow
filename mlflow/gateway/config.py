@@ -43,13 +43,24 @@ class Provider(str, Enum):
     HUGGINGFACE_TEXT_GENERATION_INFERENCE = "huggingface-text-generation-inference"
     PALM = "palm"
     BEDROCK = "bedrock"
+    AMAZON_BEDROCK = "amazon-bedrock"  # an alias for bedrock
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     DATABRICKS = "databricks"
+    MISTRAL = "mistral"
+    TOGETHERAI = "togetherai"
 
     @classmethod
     def values(cls):
         return {p.value for p in cls}
+
+
+class TogetherAIConfig(ConfigModel):
+    togetherai_api_key: str
+
+    @validator("togetherai_api_key", pre=True)
+    def validate_togetherai_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 class RouteType(str, Enum):
@@ -61,7 +72,6 @@ class RouteType(str, Enum):
 class CohereConfig(ConfigModel):
     cohere_api_key: str
 
-    # pylint: disable=no-self-argument
     @validator("cohere_api_key", pre=True)
     def validate_cohere_api_key(cls, value):
         return _resolve_api_key_from_input(value)
@@ -70,7 +80,6 @@ class CohereConfig(ConfigModel):
 class AI21LabsConfig(ConfigModel):
     ai21labs_api_key: str
 
-    # pylint: disable=no-self-argument
     @validator("ai21labs_api_key", pre=True)
     def validate_ai21labs_api_key(cls, value):
         return _resolve_api_key_from_input(value)
@@ -80,7 +89,6 @@ class MosaicMLConfig(ConfigModel):
     mosaicml_api_key: str
     mosaicml_api_base: Optional[str] = None
 
-    # pylint: disable=no-self-argument
     @validator("mosaicml_api_key", pre=True)
     def validate_mosaicml_api_key(cls, value):
         return _resolve_api_key_from_input(value)
@@ -111,7 +119,6 @@ class OpenAIConfig(ConfigModel):
     openai_deployment_name: Optional[str] = None
     openai_organization: Optional[str] = None
 
-    # pylint: disable=no-self-argument
     @validator("openai_api_key", pre=True)
     def validate_openai_api_key(cls, value):
         return _resolve_api_key_from_input(value)
@@ -167,8 +174,8 @@ class OpenAIConfig(ConfigModel):
 
 class AnthropicConfig(ConfigModel):
     anthropic_api_key: str
+    anthropic_version: str = "2023-06-01"
 
-    # pylint: disable=no-self-argument
     @validator("anthropic_api_key", pre=True)
     def validate_anthropic_api_key(cls, value):
         return _resolve_api_key_from_input(value)
@@ -177,7 +184,6 @@ class AnthropicConfig(ConfigModel):
 class PaLMConfig(ConfigModel):
     palm_api_key: str
 
-    # pylint: disable=no-self-argument
     @validator("palm_api_key", pre=True)
     def validate_palm_api_key(cls, value):
         return _resolve_api_key_from_input(value)
@@ -210,9 +216,17 @@ class AWSIdAndKey(AWSBaseConfig):
     aws_session_token: Optional[str] = None
 
 
-class AWSBedrockConfig(ConfigModel):
+class AmazonBedrockConfig(ConfigModel):
     # order here is important, at least for pydantic<2
     aws_config: Union[AWSRole, AWSIdAndKey, AWSBaseConfig]
+
+
+class MistralConfig(ConfigModel):
+    mistral_api_key: str
+
+    @validator("mistral_api_key", pre=True)
+    def validate_mistral_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 config_types = {
@@ -221,10 +235,13 @@ config_types = {
     Provider.ANTHROPIC: AnthropicConfig,
     Provider.AI21LABS: AI21LabsConfig,
     Provider.MOSAICML: MosaicMLConfig,
-    Provider.BEDROCK: AWSBedrockConfig,
+    Provider.BEDROCK: AmazonBedrockConfig,
+    Provider.AMAZON_BEDROCK: AmazonBedrockConfig,
     Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
     Provider.PALM: PaLMConfig,
     Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HuggingFaceTextGenerationInferenceConfig,
+    Provider.MISTRAL: MistralConfig,
+    Provider.TOGETHERAI: TogetherAIConfig,
 }
 
 
@@ -269,7 +286,6 @@ def _resolve_api_key_from_input(api_key_input):
     return api_key_input
 
 
-# pylint: disable=no-self-argument
 class Model(ConfigModel):
     name: Optional[str] = None
     provider: Union[str, Provider]
@@ -279,11 +295,13 @@ class Model(ConfigModel):
             OpenAIConfig,
             AI21LabsConfig,
             AnthropicConfig,
-            AWSBedrockConfig,
+            AmazonBedrockConfig,
             MosaicMLConfig,
             MlflowModelServingConfig,
             HuggingFaceTextGenerationInferenceConfig,
             PaLMConfig,
+            MistralConfig,
+            TogetherAIConfig,
         ]
     ] = None
 
@@ -332,11 +350,21 @@ class AliasedConfigModel(ConfigModel):
             allow_population_by_field_name = True
 
 
-# pylint: disable=no-self-argument
+class Limit(LimitModel):
+    calls: int
+    key: Optional[str] = None
+    renewal_period: str
+
+
+class LimitsConfig(ConfigModel):
+    limits: Optional[List[Limit]] = []
+
+
 class RouteConfig(AliasedConfigModel):
     name: str
     route_type: RouteType = Field(alias="endpoint_type")
     model: Model
+    limit: Optional[Limit] = None
 
     @validator("name")
     def validate_endpoint_name(cls, route_name):
@@ -387,6 +415,23 @@ class RouteConfig(AliasedConfigModel):
             return value
         raise MlflowException.invalid_parameter_value(f"The route_type '{value}' is not supported.")
 
+    @validator("limit", pre=True)
+    def validate_limit(cls, value):
+        from limits import parse
+
+        if value:
+            limit = Limit(**value)
+            try:
+                parse(f"{limit.calls}/{limit.renewal_period}")
+            except ValueError:
+                raise MlflowException.invalid_parameter_value(
+                    "Failed to parse the rate limit configuration."
+                    "Please make sure limit.calls is a positive number and"
+                    "limit.renewal_period is a right granularity"
+                )
+
+        return value
+
     def to_route(self) -> "Route":
         return Route(
             name=self.name,
@@ -396,6 +441,7 @@ class RouteConfig(AliasedConfigModel):
                 provider=self.model.provider,
             ),
             route_url=f"{MLFLOW_GATEWAY_ROUTE_BASE}{self.name}{MLFLOW_QUERY_SUFFIX}",
+            limit=self.limit,
         )
 
 
@@ -424,6 +470,7 @@ class Route(ConfigModel):
     route_type: str
     model: RouteModelInfo
     route_url: str
+    limit: Optional[Limit] = None
 
     class Config:
         if IS_PYDANTIC_V2:
@@ -439,21 +486,12 @@ class Route(ConfigModel):
             endpoint_type=self.route_type,
             model=self.model,
             endpoint_url=self.route_url,
+            limit=self.limit,
         )
-
-
-class Limit(LimitModel):
-    calls: int
-    key: Optional[str] = None
-    renewal_period: str
 
 
 class GatewayConfig(AliasedConfigModel):
     routes: List[RouteConfig] = Field(alias="endpoints")
-
-
-class LimitsConfig(ConfigModel):
-    limits: Optional[List[Limit]] = []
 
 
 def _load_route_config(path: Union[str, Path]) -> GatewayConfig:

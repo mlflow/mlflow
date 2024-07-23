@@ -14590,6 +14590,2482 @@ public final class DatabricksArtifacts {
 
   }
 
+  public interface GetCredentialsForTraceDataDownloadOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.GetCredentialsForTraceDataDownload)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the requestId field is set.
+     */
+    boolean hasRequestId();
+    /**
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The requestId.
+     */
+    java.lang.String getRequestId();
+    /**
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for requestId.
+     */
+    com.google.protobuf.ByteString
+        getRequestIdBytes();
+  }
+  /**
+   * Protobuf type {@code mlflow.GetCredentialsForTraceDataDownload}
+   */
+  public static final class GetCredentialsForTraceDataDownload extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.GetCredentialsForTraceDataDownload)
+      GetCredentialsForTraceDataDownloadOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use GetCredentialsForTraceDataDownload.newBuilder() to construct.
+    private GetCredentialsForTraceDataDownload(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private GetCredentialsForTraceDataDownload() {
+      requestId_ = "";
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new GetCredentialsForTraceDataDownload();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private GetCredentialsForTraceDataDownload(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              requestId_ = bs;
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataDownload_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataDownload_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Builder.class);
+    }
+
+    public interface ResponseOrBuilder extends
+        // @@protoc_insertion_point(interface_extends:mlflow.GetCredentialsForTraceDataDownload.Response)
+        com.google.protobuf.MessageOrBuilder {
+
+      /**
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+       * @return Whether the credentialInfo field is set.
+       */
+      boolean hasCredentialInfo();
+      /**
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+       * @return The credentialInfo.
+       */
+      com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo getCredentialInfo();
+      /**
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+       */
+      com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder getCredentialInfoOrBuilder();
+    }
+    /**
+     * Protobuf type {@code mlflow.GetCredentialsForTraceDataDownload.Response}
+     */
+    public static final class Response extends
+        com.google.protobuf.GeneratedMessageV3 implements
+        // @@protoc_insertion_point(message_implements:mlflow.GetCredentialsForTraceDataDownload.Response)
+        ResponseOrBuilder {
+    private static final long serialVersionUID = 0L;
+      // Use Response.newBuilder() to construct.
+      private Response(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        super(builder);
+      }
+      private Response() {
+      }
+
+      @java.lang.Override
+      @SuppressWarnings({"unused"})
+      protected java.lang.Object newInstance(
+          UnusedPrivateParameter unused) {
+        return new Response();
+      }
+
+      @java.lang.Override
+      public final com.google.protobuf.UnknownFieldSet
+      getUnknownFields() {
+        return this.unknownFields;
+      }
+      private Response(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        this();
+        if (extensionRegistry == null) {
+          throw new java.lang.NullPointerException();
+        }
+        int mutable_bitField0_ = 0;
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+            com.google.protobuf.UnknownFieldSet.newBuilder();
+        try {
+          boolean done = false;
+          while (!done) {
+            int tag = input.readTag();
+            switch (tag) {
+              case 0:
+                done = true;
+                break;
+              case 10: {
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder subBuilder = null;
+                if (((bitField0_ & 0x00000001) != 0)) {
+                  subBuilder = credentialInfo_.toBuilder();
+                }
+                credentialInfo_ = input.readMessage(com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.PARSER, extensionRegistry);
+                if (subBuilder != null) {
+                  subBuilder.mergeFrom(credentialInfo_);
+                  credentialInfo_ = subBuilder.buildPartial();
+                }
+                bitField0_ |= 0x00000001;
+                break;
+              }
+              default: {
+                if (!parseUnknownField(
+                    input, unknownFields, extensionRegistry, tag)) {
+                  done = true;
+                }
+                break;
+              }
+            }
+          }
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(this);
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(
+              e).setUnfinishedMessage(this);
+        } finally {
+          this.unknownFields = unknownFields.build();
+          makeExtensionsImmutable();
+        }
+      }
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataDownload_Response_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataDownload_Response_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response.Builder.class);
+      }
+
+      private int bitField0_;
+      public static final int CREDENTIAL_INFO_FIELD_NUMBER = 1;
+      private com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo credentialInfo_;
+      /**
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+       * @return Whether the credentialInfo field is set.
+       */
+      @java.lang.Override
+      public boolean hasCredentialInfo() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+       * @return The credentialInfo.
+       */
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo getCredentialInfo() {
+        return credentialInfo_ == null ? com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.getDefaultInstance() : credentialInfo_;
+      }
+      /**
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+       */
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder getCredentialInfoOrBuilder() {
+        return credentialInfo_ == null ? com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.getDefaultInstance() : credentialInfo_;
+      }
+
+      private byte memoizedIsInitialized = -1;
+      @java.lang.Override
+      public final boolean isInitialized() {
+        byte isInitialized = memoizedIsInitialized;
+        if (isInitialized == 1) return true;
+        if (isInitialized == 0) return false;
+
+        memoizedIsInitialized = 1;
+        return true;
+      }
+
+      @java.lang.Override
+      public void writeTo(com.google.protobuf.CodedOutputStream output)
+                          throws java.io.IOException {
+        if (((bitField0_ & 0x00000001) != 0)) {
+          output.writeMessage(1, getCredentialInfo());
+        }
+        unknownFields.writeTo(output);
+      }
+
+      @java.lang.Override
+      public int getSerializedSize() {
+        int size = memoizedSize;
+        if (size != -1) return size;
+
+        size = 0;
+        if (((bitField0_ & 0x00000001) != 0)) {
+          size += com.google.protobuf.CodedOutputStream
+            .computeMessageSize(1, getCredentialInfo());
+        }
+        size += unknownFields.getSerializedSize();
+        memoizedSize = size;
+        return size;
+      }
+
+      @java.lang.Override
+      public boolean equals(final java.lang.Object obj) {
+        if (obj == this) {
+         return true;
+        }
+        if (!(obj instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response)) {
+          return super.equals(obj);
+        }
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response other = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response) obj;
+
+        if (hasCredentialInfo() != other.hasCredentialInfo()) return false;
+        if (hasCredentialInfo()) {
+          if (!getCredentialInfo()
+              .equals(other.getCredentialInfo())) return false;
+        }
+        if (!unknownFields.equals(other.unknownFields)) return false;
+        return true;
+      }
+
+      @java.lang.Override
+      public int hashCode() {
+        if (memoizedHashCode != 0) {
+          return memoizedHashCode;
+        }
+        int hash = 41;
+        hash = (19 * hash) + getDescriptor().hashCode();
+        if (hasCredentialInfo()) {
+          hash = (37 * hash) + CREDENTIAL_INFO_FIELD_NUMBER;
+          hash = (53 * hash) + getCredentialInfo().hashCode();
+        }
+        hash = (29 * hash) + unknownFields.hashCode();
+        memoizedHashCode = hash;
+        return hash;
+      }
+
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response parseFrom(
+          java.nio.ByteBuffer data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response parseFrom(
+          java.nio.ByteBuffer data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response parseFrom(
+          com.google.protobuf.ByteString data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response parseFrom(
+          com.google.protobuf.ByteString data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response parseFrom(byte[] data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response parseFrom(
+          byte[] data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response parseFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response parseFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response parseDelimitedFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response parseDelimitedFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response parseFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response parseFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+
+      @java.lang.Override
+      public Builder newBuilderForType() { return newBuilder(); }
+      public static Builder newBuilder() {
+        return DEFAULT_INSTANCE.toBuilder();
+      }
+      public static Builder newBuilder(com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response prototype) {
+        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+      }
+      @java.lang.Override
+      public Builder toBuilder() {
+        return this == DEFAULT_INSTANCE
+            ? new Builder() : new Builder().mergeFrom(this);
+      }
+
+      @java.lang.Override
+      protected Builder newBuilderForType(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        Builder builder = new Builder(parent);
+        return builder;
+      }
+      /**
+       * Protobuf type {@code mlflow.GetCredentialsForTraceDataDownload.Response}
+       */
+      public static final class Builder extends
+          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+          // @@protoc_insertion_point(builder_implements:mlflow.GetCredentialsForTraceDataDownload.Response)
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.ResponseOrBuilder {
+        public static final com.google.protobuf.Descriptors.Descriptor
+            getDescriptor() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataDownload_Response_descriptor;
+        }
+
+        @java.lang.Override
+        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+            internalGetFieldAccessorTable() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataDownload_Response_fieldAccessorTable
+              .ensureFieldAccessorsInitialized(
+                  com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response.Builder.class);
+        }
+
+        // Construct using com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response.newBuilder()
+        private Builder() {
+          maybeForceBuilderInitialization();
+        }
+
+        private Builder(
+            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+          super(parent);
+          maybeForceBuilderInitialization();
+        }
+        private void maybeForceBuilderInitialization() {
+          if (com.google.protobuf.GeneratedMessageV3
+                  .alwaysUseFieldBuilders) {
+            getCredentialInfoFieldBuilder();
+          }
+        }
+        @java.lang.Override
+        public Builder clear() {
+          super.clear();
+          if (credentialInfoBuilder_ == null) {
+            credentialInfo_ = null;
+          } else {
+            credentialInfoBuilder_.clear();
+          }
+          bitField0_ = (bitField0_ & ~0x00000001);
+          return this;
+        }
+
+        @java.lang.Override
+        public com.google.protobuf.Descriptors.Descriptor
+            getDescriptorForType() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataDownload_Response_descriptor;
+        }
+
+        @java.lang.Override
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response getDefaultInstanceForType() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response.getDefaultInstance();
+        }
+
+        @java.lang.Override
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response build() {
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response result = buildPartial();
+          if (!result.isInitialized()) {
+            throw newUninitializedMessageException(result);
+          }
+          return result;
+        }
+
+        @java.lang.Override
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response buildPartial() {
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response result = new com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response(this);
+          int from_bitField0_ = bitField0_;
+          int to_bitField0_ = 0;
+          if (((from_bitField0_ & 0x00000001) != 0)) {
+            if (credentialInfoBuilder_ == null) {
+              result.credentialInfo_ = credentialInfo_;
+            } else {
+              result.credentialInfo_ = credentialInfoBuilder_.build();
+            }
+            to_bitField0_ |= 0x00000001;
+          }
+          result.bitField0_ = to_bitField0_;
+          onBuilt();
+          return result;
+        }
+
+        @java.lang.Override
+        public Builder clone() {
+          return super.clone();
+        }
+        @java.lang.Override
+        public Builder setField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.setField(field, value);
+        }
+        @java.lang.Override
+        public Builder clearField(
+            com.google.protobuf.Descriptors.FieldDescriptor field) {
+          return super.clearField(field);
+        }
+        @java.lang.Override
+        public Builder clearOneof(
+            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+          return super.clearOneof(oneof);
+        }
+        @java.lang.Override
+        public Builder setRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            int index, java.lang.Object value) {
+          return super.setRepeatedField(field, index, value);
+        }
+        @java.lang.Override
+        public Builder addRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.addRepeatedField(field, value);
+        }
+        @java.lang.Override
+        public Builder mergeFrom(com.google.protobuf.Message other) {
+          if (other instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response) {
+            return mergeFrom((com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response)other);
+          } else {
+            super.mergeFrom(other);
+            return this;
+          }
+        }
+
+        public Builder mergeFrom(com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response other) {
+          if (other == com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response.getDefaultInstance()) return this;
+          if (other.hasCredentialInfo()) {
+            mergeCredentialInfo(other.getCredentialInfo());
+          }
+          this.mergeUnknownFields(other.unknownFields);
+          onChanged();
+          return this;
+        }
+
+        @java.lang.Override
+        public final boolean isInitialized() {
+          return true;
+        }
+
+        @java.lang.Override
+        public Builder mergeFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws java.io.IOException {
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response parsedMessage = null;
+          try {
+            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            parsedMessage = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response) e.getUnfinishedMessage();
+            throw e.unwrapIOException();
+          } finally {
+            if (parsedMessage != null) {
+              mergeFrom(parsedMessage);
+            }
+          }
+          return this;
+        }
+        private int bitField0_;
+
+        private com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo credentialInfo_;
+        private com.google.protobuf.SingleFieldBuilderV3<
+            com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder> credentialInfoBuilder_;
+        /**
+         * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+         * @return Whether the credentialInfo field is set.
+         */
+        public boolean hasCredentialInfo() {
+          return ((bitField0_ & 0x00000001) != 0);
+        }
+        /**
+         * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+         * @return The credentialInfo.
+         */
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo getCredentialInfo() {
+          if (credentialInfoBuilder_ == null) {
+            return credentialInfo_ == null ? com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.getDefaultInstance() : credentialInfo_;
+          } else {
+            return credentialInfoBuilder_.getMessage();
+          }
+        }
+        /**
+         * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+         */
+        public Builder setCredentialInfo(com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo value) {
+          if (credentialInfoBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            credentialInfo_ = value;
+            onChanged();
+          } else {
+            credentialInfoBuilder_.setMessage(value);
+          }
+          bitField0_ |= 0x00000001;
+          return this;
+        }
+        /**
+         * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+         */
+        public Builder setCredentialInfo(
+            com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder builderForValue) {
+          if (credentialInfoBuilder_ == null) {
+            credentialInfo_ = builderForValue.build();
+            onChanged();
+          } else {
+            credentialInfoBuilder_.setMessage(builderForValue.build());
+          }
+          bitField0_ |= 0x00000001;
+          return this;
+        }
+        /**
+         * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+         */
+        public Builder mergeCredentialInfo(com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo value) {
+          if (credentialInfoBuilder_ == null) {
+            if (((bitField0_ & 0x00000001) != 0) &&
+                credentialInfo_ != null &&
+                credentialInfo_ != com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.getDefaultInstance()) {
+              credentialInfo_ =
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.newBuilder(credentialInfo_).mergeFrom(value).buildPartial();
+            } else {
+              credentialInfo_ = value;
+            }
+            onChanged();
+          } else {
+            credentialInfoBuilder_.mergeFrom(value);
+          }
+          bitField0_ |= 0x00000001;
+          return this;
+        }
+        /**
+         * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+         */
+        public Builder clearCredentialInfo() {
+          if (credentialInfoBuilder_ == null) {
+            credentialInfo_ = null;
+            onChanged();
+          } else {
+            credentialInfoBuilder_.clear();
+          }
+          bitField0_ = (bitField0_ & ~0x00000001);
+          return this;
+        }
+        /**
+         * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+         */
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder getCredentialInfoBuilder() {
+          bitField0_ |= 0x00000001;
+          onChanged();
+          return getCredentialInfoFieldBuilder().getBuilder();
+        }
+        /**
+         * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+         */
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder getCredentialInfoOrBuilder() {
+          if (credentialInfoBuilder_ != null) {
+            return credentialInfoBuilder_.getMessageOrBuilder();
+          } else {
+            return credentialInfo_ == null ?
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.getDefaultInstance() : credentialInfo_;
+          }
+        }
+        /**
+         * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+         */
+        private com.google.protobuf.SingleFieldBuilderV3<
+            com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder> 
+            getCredentialInfoFieldBuilder() {
+          if (credentialInfoBuilder_ == null) {
+            credentialInfoBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder>(
+                    getCredentialInfo(),
+                    getParentForChildren(),
+                    isClean());
+            credentialInfo_ = null;
+          }
+          return credentialInfoBuilder_;
+        }
+        @java.lang.Override
+        public final Builder setUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.setUnknownFields(unknownFields);
+        }
+
+        @java.lang.Override
+        public final Builder mergeUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.mergeUnknownFields(unknownFields);
+        }
+
+
+        // @@protoc_insertion_point(builder_scope:mlflow.GetCredentialsForTraceDataDownload.Response)
+      }
+
+      // @@protoc_insertion_point(class_scope:mlflow.GetCredentialsForTraceDataDownload.Response)
+      private static final com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response DEFAULT_INSTANCE;
+      static {
+        DEFAULT_INSTANCE = new com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response();
+      }
+
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response getDefaultInstance() {
+        return DEFAULT_INSTANCE;
+      }
+
+      @java.lang.Deprecated public static final com.google.protobuf.Parser<Response>
+          PARSER = new com.google.protobuf.AbstractParser<Response>() {
+        @java.lang.Override
+        public Response parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          return new Response(input, extensionRegistry);
+        }
+      };
+
+      public static com.google.protobuf.Parser<Response> parser() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Parser<Response> getParserForType() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Response getDefaultInstanceForType() {
+        return DEFAULT_INSTANCE;
+      }
+
+    }
+
+    private int bitField0_;
+    public static final int REQUEST_ID_FIELD_NUMBER = 1;
+    private volatile java.lang.Object requestId_;
+    /**
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the requestId field is set.
+     */
+    @java.lang.Override
+    public boolean hasRequestId() {
+      return ((bitField0_ & 0x00000001) != 0);
+    }
+    /**
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The requestId.
+     */
+    @java.lang.Override
+    public java.lang.String getRequestId() {
+      java.lang.Object ref = requestId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          requestId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for requestId.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getRequestIdBytes() {
+      java.lang.Object ref = requestId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        requestId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, requestId_);
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, requestId_);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload)) {
+        return super.equals(obj);
+      }
+      com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload other = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload) obj;
+
+      if (hasRequestId() != other.hasRequestId()) return false;
+      if (hasRequestId()) {
+        if (!getRequestId()
+            .equals(other.getRequestId())) return false;
+      }
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasRequestId()) {
+        hash = (37 * hash) + REQUEST_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getRequestId().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code mlflow.GetCredentialsForTraceDataDownload}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.GetCredentialsForTraceDataDownload)
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownloadOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataDownload_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataDownload_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.Builder.class);
+      }
+
+      // Construct using com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        requestId_ = "";
+        bitField0_ = (bitField0_ & ~0x00000001);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataDownload_descriptor;
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload getDefaultInstanceForType() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload build() {
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload buildPartial() {
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload result = new com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.requestId_ = requestId_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload) {
+          return mergeFrom((com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload other) {
+        if (other == com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload.getDefaultInstance()) return this;
+        if (other.hasRequestId()) {
+          bitField0_ |= 0x00000001;
+          requestId_ = other.requestId_;
+          onChanged();
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private java.lang.Object requestId_ = "";
+      /**
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return Whether the requestId field is set.
+       */
+      public boolean hasRequestId() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The requestId.
+       */
+      public java.lang.String getRequestId() {
+        java.lang.Object ref = requestId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            requestId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The bytes for requestId.
+       */
+      public com.google.protobuf.ByteString
+          getRequestIdBytes() {
+        java.lang.Object ref = requestId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          requestId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The requestId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setRequestId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        requestId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearRequestId() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        requestId_ = getDefaultInstance().getRequestId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The bytes for requestId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setRequestIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        requestId_ = value;
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.GetCredentialsForTraceDataDownload)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.GetCredentialsForTraceDataDownload)
+    private static final com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload();
+    }
+
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<GetCredentialsForTraceDataDownload>
+        PARSER = new com.google.protobuf.AbstractParser<GetCredentialsForTraceDataDownload>() {
+      @java.lang.Override
+      public GetCredentialsForTraceDataDownload parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new GetCredentialsForTraceDataDownload(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<GetCredentialsForTraceDataDownload> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<GetCredentialsForTraceDataDownload> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataDownload getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
+  public interface GetCredentialsForTraceDataUploadOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.GetCredentialsForTraceDataUpload)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the requestId field is set.
+     */
+    boolean hasRequestId();
+    /**
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The requestId.
+     */
+    java.lang.String getRequestId();
+    /**
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for requestId.
+     */
+    com.google.protobuf.ByteString
+        getRequestIdBytes();
+  }
+  /**
+   * Protobuf type {@code mlflow.GetCredentialsForTraceDataUpload}
+   */
+  public static final class GetCredentialsForTraceDataUpload extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.GetCredentialsForTraceDataUpload)
+      GetCredentialsForTraceDataUploadOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use GetCredentialsForTraceDataUpload.newBuilder() to construct.
+    private GetCredentialsForTraceDataUpload(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private GetCredentialsForTraceDataUpload() {
+      requestId_ = "";
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new GetCredentialsForTraceDataUpload();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private GetCredentialsForTraceDataUpload(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              requestId_ = bs;
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataUpload_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataUpload_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Builder.class);
+    }
+
+    public interface ResponseOrBuilder extends
+        // @@protoc_insertion_point(interface_extends:mlflow.GetCredentialsForTraceDataUpload.Response)
+        com.google.protobuf.MessageOrBuilder {
+
+      /**
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+       * @return Whether the credentialInfo field is set.
+       */
+      boolean hasCredentialInfo();
+      /**
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+       * @return The credentialInfo.
+       */
+      com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo getCredentialInfo();
+      /**
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+       */
+      com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder getCredentialInfoOrBuilder();
+    }
+    /**
+     * Protobuf type {@code mlflow.GetCredentialsForTraceDataUpload.Response}
+     */
+    public static final class Response extends
+        com.google.protobuf.GeneratedMessageV3 implements
+        // @@protoc_insertion_point(message_implements:mlflow.GetCredentialsForTraceDataUpload.Response)
+        ResponseOrBuilder {
+    private static final long serialVersionUID = 0L;
+      // Use Response.newBuilder() to construct.
+      private Response(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        super(builder);
+      }
+      private Response() {
+      }
+
+      @java.lang.Override
+      @SuppressWarnings({"unused"})
+      protected java.lang.Object newInstance(
+          UnusedPrivateParameter unused) {
+        return new Response();
+      }
+
+      @java.lang.Override
+      public final com.google.protobuf.UnknownFieldSet
+      getUnknownFields() {
+        return this.unknownFields;
+      }
+      private Response(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        this();
+        if (extensionRegistry == null) {
+          throw new java.lang.NullPointerException();
+        }
+        int mutable_bitField0_ = 0;
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+            com.google.protobuf.UnknownFieldSet.newBuilder();
+        try {
+          boolean done = false;
+          while (!done) {
+            int tag = input.readTag();
+            switch (tag) {
+              case 0:
+                done = true;
+                break;
+              case 10: {
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder subBuilder = null;
+                if (((bitField0_ & 0x00000001) != 0)) {
+                  subBuilder = credentialInfo_.toBuilder();
+                }
+                credentialInfo_ = input.readMessage(com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.PARSER, extensionRegistry);
+                if (subBuilder != null) {
+                  subBuilder.mergeFrom(credentialInfo_);
+                  credentialInfo_ = subBuilder.buildPartial();
+                }
+                bitField0_ |= 0x00000001;
+                break;
+              }
+              default: {
+                if (!parseUnknownField(
+                    input, unknownFields, extensionRegistry, tag)) {
+                  done = true;
+                }
+                break;
+              }
+            }
+          }
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(this);
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(
+              e).setUnfinishedMessage(this);
+        } finally {
+          this.unknownFields = unknownFields.build();
+          makeExtensionsImmutable();
+        }
+      }
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataUpload_Response_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataUpload_Response_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response.Builder.class);
+      }
+
+      private int bitField0_;
+      public static final int CREDENTIAL_INFO_FIELD_NUMBER = 1;
+      private com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo credentialInfo_;
+      /**
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+       * @return Whether the credentialInfo field is set.
+       */
+      @java.lang.Override
+      public boolean hasCredentialInfo() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+       * @return The credentialInfo.
+       */
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo getCredentialInfo() {
+        return credentialInfo_ == null ? com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.getDefaultInstance() : credentialInfo_;
+      }
+      /**
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+       */
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder getCredentialInfoOrBuilder() {
+        return credentialInfo_ == null ? com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.getDefaultInstance() : credentialInfo_;
+      }
+
+      private byte memoizedIsInitialized = -1;
+      @java.lang.Override
+      public final boolean isInitialized() {
+        byte isInitialized = memoizedIsInitialized;
+        if (isInitialized == 1) return true;
+        if (isInitialized == 0) return false;
+
+        memoizedIsInitialized = 1;
+        return true;
+      }
+
+      @java.lang.Override
+      public void writeTo(com.google.protobuf.CodedOutputStream output)
+                          throws java.io.IOException {
+        if (((bitField0_ & 0x00000001) != 0)) {
+          output.writeMessage(1, getCredentialInfo());
+        }
+        unknownFields.writeTo(output);
+      }
+
+      @java.lang.Override
+      public int getSerializedSize() {
+        int size = memoizedSize;
+        if (size != -1) return size;
+
+        size = 0;
+        if (((bitField0_ & 0x00000001) != 0)) {
+          size += com.google.protobuf.CodedOutputStream
+            .computeMessageSize(1, getCredentialInfo());
+        }
+        size += unknownFields.getSerializedSize();
+        memoizedSize = size;
+        return size;
+      }
+
+      @java.lang.Override
+      public boolean equals(final java.lang.Object obj) {
+        if (obj == this) {
+         return true;
+        }
+        if (!(obj instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response)) {
+          return super.equals(obj);
+        }
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response other = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response) obj;
+
+        if (hasCredentialInfo() != other.hasCredentialInfo()) return false;
+        if (hasCredentialInfo()) {
+          if (!getCredentialInfo()
+              .equals(other.getCredentialInfo())) return false;
+        }
+        if (!unknownFields.equals(other.unknownFields)) return false;
+        return true;
+      }
+
+      @java.lang.Override
+      public int hashCode() {
+        if (memoizedHashCode != 0) {
+          return memoizedHashCode;
+        }
+        int hash = 41;
+        hash = (19 * hash) + getDescriptor().hashCode();
+        if (hasCredentialInfo()) {
+          hash = (37 * hash) + CREDENTIAL_INFO_FIELD_NUMBER;
+          hash = (53 * hash) + getCredentialInfo().hashCode();
+        }
+        hash = (29 * hash) + unknownFields.hashCode();
+        memoizedHashCode = hash;
+        return hash;
+      }
+
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response parseFrom(
+          java.nio.ByteBuffer data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response parseFrom(
+          java.nio.ByteBuffer data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response parseFrom(
+          com.google.protobuf.ByteString data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response parseFrom(
+          com.google.protobuf.ByteString data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response parseFrom(byte[] data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response parseFrom(
+          byte[] data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response parseFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response parseFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response parseDelimitedFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response parseDelimitedFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response parseFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response parseFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+
+      @java.lang.Override
+      public Builder newBuilderForType() { return newBuilder(); }
+      public static Builder newBuilder() {
+        return DEFAULT_INSTANCE.toBuilder();
+      }
+      public static Builder newBuilder(com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response prototype) {
+        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+      }
+      @java.lang.Override
+      public Builder toBuilder() {
+        return this == DEFAULT_INSTANCE
+            ? new Builder() : new Builder().mergeFrom(this);
+      }
+
+      @java.lang.Override
+      protected Builder newBuilderForType(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        Builder builder = new Builder(parent);
+        return builder;
+      }
+      /**
+       * Protobuf type {@code mlflow.GetCredentialsForTraceDataUpload.Response}
+       */
+      public static final class Builder extends
+          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+          // @@protoc_insertion_point(builder_implements:mlflow.GetCredentialsForTraceDataUpload.Response)
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.ResponseOrBuilder {
+        public static final com.google.protobuf.Descriptors.Descriptor
+            getDescriptor() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataUpload_Response_descriptor;
+        }
+
+        @java.lang.Override
+        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+            internalGetFieldAccessorTable() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataUpload_Response_fieldAccessorTable
+              .ensureFieldAccessorsInitialized(
+                  com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response.Builder.class);
+        }
+
+        // Construct using com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response.newBuilder()
+        private Builder() {
+          maybeForceBuilderInitialization();
+        }
+
+        private Builder(
+            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+          super(parent);
+          maybeForceBuilderInitialization();
+        }
+        private void maybeForceBuilderInitialization() {
+          if (com.google.protobuf.GeneratedMessageV3
+                  .alwaysUseFieldBuilders) {
+            getCredentialInfoFieldBuilder();
+          }
+        }
+        @java.lang.Override
+        public Builder clear() {
+          super.clear();
+          if (credentialInfoBuilder_ == null) {
+            credentialInfo_ = null;
+          } else {
+            credentialInfoBuilder_.clear();
+          }
+          bitField0_ = (bitField0_ & ~0x00000001);
+          return this;
+        }
+
+        @java.lang.Override
+        public com.google.protobuf.Descriptors.Descriptor
+            getDescriptorForType() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataUpload_Response_descriptor;
+        }
+
+        @java.lang.Override
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response getDefaultInstanceForType() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response.getDefaultInstance();
+        }
+
+        @java.lang.Override
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response build() {
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response result = buildPartial();
+          if (!result.isInitialized()) {
+            throw newUninitializedMessageException(result);
+          }
+          return result;
+        }
+
+        @java.lang.Override
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response buildPartial() {
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response result = new com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response(this);
+          int from_bitField0_ = bitField0_;
+          int to_bitField0_ = 0;
+          if (((from_bitField0_ & 0x00000001) != 0)) {
+            if (credentialInfoBuilder_ == null) {
+              result.credentialInfo_ = credentialInfo_;
+            } else {
+              result.credentialInfo_ = credentialInfoBuilder_.build();
+            }
+            to_bitField0_ |= 0x00000001;
+          }
+          result.bitField0_ = to_bitField0_;
+          onBuilt();
+          return result;
+        }
+
+        @java.lang.Override
+        public Builder clone() {
+          return super.clone();
+        }
+        @java.lang.Override
+        public Builder setField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.setField(field, value);
+        }
+        @java.lang.Override
+        public Builder clearField(
+            com.google.protobuf.Descriptors.FieldDescriptor field) {
+          return super.clearField(field);
+        }
+        @java.lang.Override
+        public Builder clearOneof(
+            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+          return super.clearOneof(oneof);
+        }
+        @java.lang.Override
+        public Builder setRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            int index, java.lang.Object value) {
+          return super.setRepeatedField(field, index, value);
+        }
+        @java.lang.Override
+        public Builder addRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.addRepeatedField(field, value);
+        }
+        @java.lang.Override
+        public Builder mergeFrom(com.google.protobuf.Message other) {
+          if (other instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response) {
+            return mergeFrom((com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response)other);
+          } else {
+            super.mergeFrom(other);
+            return this;
+          }
+        }
+
+        public Builder mergeFrom(com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response other) {
+          if (other == com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response.getDefaultInstance()) return this;
+          if (other.hasCredentialInfo()) {
+            mergeCredentialInfo(other.getCredentialInfo());
+          }
+          this.mergeUnknownFields(other.unknownFields);
+          onChanged();
+          return this;
+        }
+
+        @java.lang.Override
+        public final boolean isInitialized() {
+          return true;
+        }
+
+        @java.lang.Override
+        public Builder mergeFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws java.io.IOException {
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response parsedMessage = null;
+          try {
+            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            parsedMessage = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response) e.getUnfinishedMessage();
+            throw e.unwrapIOException();
+          } finally {
+            if (parsedMessage != null) {
+              mergeFrom(parsedMessage);
+            }
+          }
+          return this;
+        }
+        private int bitField0_;
+
+        private com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo credentialInfo_;
+        private com.google.protobuf.SingleFieldBuilderV3<
+            com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder> credentialInfoBuilder_;
+        /**
+         * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+         * @return Whether the credentialInfo field is set.
+         */
+        public boolean hasCredentialInfo() {
+          return ((bitField0_ & 0x00000001) != 0);
+        }
+        /**
+         * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+         * @return The credentialInfo.
+         */
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo getCredentialInfo() {
+          if (credentialInfoBuilder_ == null) {
+            return credentialInfo_ == null ? com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.getDefaultInstance() : credentialInfo_;
+          } else {
+            return credentialInfoBuilder_.getMessage();
+          }
+        }
+        /**
+         * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+         */
+        public Builder setCredentialInfo(com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo value) {
+          if (credentialInfoBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            credentialInfo_ = value;
+            onChanged();
+          } else {
+            credentialInfoBuilder_.setMessage(value);
+          }
+          bitField0_ |= 0x00000001;
+          return this;
+        }
+        /**
+         * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+         */
+        public Builder setCredentialInfo(
+            com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder builderForValue) {
+          if (credentialInfoBuilder_ == null) {
+            credentialInfo_ = builderForValue.build();
+            onChanged();
+          } else {
+            credentialInfoBuilder_.setMessage(builderForValue.build());
+          }
+          bitField0_ |= 0x00000001;
+          return this;
+        }
+        /**
+         * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+         */
+        public Builder mergeCredentialInfo(com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo value) {
+          if (credentialInfoBuilder_ == null) {
+            if (((bitField0_ & 0x00000001) != 0) &&
+                credentialInfo_ != null &&
+                credentialInfo_ != com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.getDefaultInstance()) {
+              credentialInfo_ =
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.newBuilder(credentialInfo_).mergeFrom(value).buildPartial();
+            } else {
+              credentialInfo_ = value;
+            }
+            onChanged();
+          } else {
+            credentialInfoBuilder_.mergeFrom(value);
+          }
+          bitField0_ |= 0x00000001;
+          return this;
+        }
+        /**
+         * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+         */
+        public Builder clearCredentialInfo() {
+          if (credentialInfoBuilder_ == null) {
+            credentialInfo_ = null;
+            onChanged();
+          } else {
+            credentialInfoBuilder_.clear();
+          }
+          bitField0_ = (bitField0_ & ~0x00000001);
+          return this;
+        }
+        /**
+         * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+         */
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder getCredentialInfoBuilder() {
+          bitField0_ |= 0x00000001;
+          onChanged();
+          return getCredentialInfoFieldBuilder().getBuilder();
+        }
+        /**
+         * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+         */
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder getCredentialInfoOrBuilder() {
+          if (credentialInfoBuilder_ != null) {
+            return credentialInfoBuilder_.getMessageOrBuilder();
+          } else {
+            return credentialInfo_ == null ?
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.getDefaultInstance() : credentialInfo_;
+          }
+        }
+        /**
+         * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 1;</code>
+         */
+        private com.google.protobuf.SingleFieldBuilderV3<
+            com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder> 
+            getCredentialInfoFieldBuilder() {
+          if (credentialInfoBuilder_ == null) {
+            credentialInfoBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder>(
+                    getCredentialInfo(),
+                    getParentForChildren(),
+                    isClean());
+            credentialInfo_ = null;
+          }
+          return credentialInfoBuilder_;
+        }
+        @java.lang.Override
+        public final Builder setUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.setUnknownFields(unknownFields);
+        }
+
+        @java.lang.Override
+        public final Builder mergeUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.mergeUnknownFields(unknownFields);
+        }
+
+
+        // @@protoc_insertion_point(builder_scope:mlflow.GetCredentialsForTraceDataUpload.Response)
+      }
+
+      // @@protoc_insertion_point(class_scope:mlflow.GetCredentialsForTraceDataUpload.Response)
+      private static final com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response DEFAULT_INSTANCE;
+      static {
+        DEFAULT_INSTANCE = new com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response();
+      }
+
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response getDefaultInstance() {
+        return DEFAULT_INSTANCE;
+      }
+
+      @java.lang.Deprecated public static final com.google.protobuf.Parser<Response>
+          PARSER = new com.google.protobuf.AbstractParser<Response>() {
+        @java.lang.Override
+        public Response parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          return new Response(input, extensionRegistry);
+        }
+      };
+
+      public static com.google.protobuf.Parser<Response> parser() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Parser<Response> getParserForType() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Response getDefaultInstanceForType() {
+        return DEFAULT_INSTANCE;
+      }
+
+    }
+
+    private int bitField0_;
+    public static final int REQUEST_ID_FIELD_NUMBER = 1;
+    private volatile java.lang.Object requestId_;
+    /**
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the requestId field is set.
+     */
+    @java.lang.Override
+    public boolean hasRequestId() {
+      return ((bitField0_ & 0x00000001) != 0);
+    }
+    /**
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The requestId.
+     */
+    @java.lang.Override
+    public java.lang.String getRequestId() {
+      java.lang.Object ref = requestId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          requestId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for requestId.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getRequestIdBytes() {
+      java.lang.Object ref = requestId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        requestId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, requestId_);
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, requestId_);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload)) {
+        return super.equals(obj);
+      }
+      com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload other = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload) obj;
+
+      if (hasRequestId() != other.hasRequestId()) return false;
+      if (hasRequestId()) {
+        if (!getRequestId()
+            .equals(other.getRequestId())) return false;
+      }
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasRequestId()) {
+        hash = (37 * hash) + REQUEST_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getRequestId().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code mlflow.GetCredentialsForTraceDataUpload}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.GetCredentialsForTraceDataUpload)
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUploadOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataUpload_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataUpload_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.Builder.class);
+      }
+
+      // Construct using com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        requestId_ = "";
+        bitField0_ = (bitField0_ & ~0x00000001);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForTraceDataUpload_descriptor;
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload getDefaultInstanceForType() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload build() {
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload buildPartial() {
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload result = new com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.requestId_ = requestId_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload) {
+          return mergeFrom((com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload other) {
+        if (other == com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload.getDefaultInstance()) return this;
+        if (other.hasRequestId()) {
+          bitField0_ |= 0x00000001;
+          requestId_ = other.requestId_;
+          onChanged();
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private java.lang.Object requestId_ = "";
+      /**
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return Whether the requestId field is set.
+       */
+      public boolean hasRequestId() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The requestId.
+       */
+      public java.lang.String getRequestId() {
+        java.lang.Object ref = requestId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            requestId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The bytes for requestId.
+       */
+      public com.google.protobuf.ByteString
+          getRequestIdBytes() {
+        java.lang.Object ref = requestId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          requestId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The requestId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setRequestId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        requestId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearRequestId() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        requestId_ = getDefaultInstance().getRequestId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string request_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The bytes for requestId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setRequestIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        requestId_ = value;
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.GetCredentialsForTraceDataUpload)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.GetCredentialsForTraceDataUpload)
+    private static final com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload();
+    }
+
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<GetCredentialsForTraceDataUpload>
+        PARSER = new com.google.protobuf.AbstractParser<GetCredentialsForTraceDataUpload>() {
+      @java.lang.Override
+      public GetCredentialsForTraceDataUpload parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new GetCredentialsForTraceDataUpload(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<GetCredentialsForTraceDataUpload> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<GetCredentialsForTraceDataUpload> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForTraceDataUpload getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
   private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_ArtifactCredentialInfo_descriptor;
   private static final 
@@ -14655,6 +17131,26 @@ public final class DatabricksArtifacts {
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_GetPresignedUploadPartUrl_Response_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_GetCredentialsForTraceDataDownload_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_GetCredentialsForTraceDataDownload_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_GetCredentialsForTraceDataDownload_Response_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_GetCredentialsForTraceDataDownload_Response_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_GetCredentialsForTraceDataUpload_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_GetCredentialsForTraceDataUpload_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_GetCredentialsForTraceDataUpload_Response_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_GetCredentialsForTraceDataUpload_Response_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -14708,33 +17204,55 @@ public final class DatabricksArtifacts {
       "al_info\030\001 \001(\0132\036.mlflow.ArtifactCredentia" +
       "lInfo:_\342?(\n&com.databricks.rpc.RPC[$this" +
       ".Response]\342?1\n/com.databricks.mlflow.api" +
-      ".MlflowTrackingMessage*s\n\026ArtifactCreden" +
-      "tialType\022\021\n\rAZURE_SAS_URI\020\001\022\025\n\021AWS_PRESI" +
-      "GNED_URL\020\002\022\022\n\016GCP_SIGNED_URL\020\003\022\033\n\027AZURE_" +
-      "ADLS_GEN2_SAS_URI\020\0042\343\006\n DatabricksMlflow" +
-      "ArtifactsService\022\234\001\n\025getCredentialsForRe" +
-      "ad\022\035.mlflow.GetCredentialsForRead\032&.mlfl" +
-      "ow.GetCredentialsForRead.Response\"<\362\206\0318\n" +
-      "4\n\004POST\022&/mlflow/artifacts/credentials-f" +
-      "or-read\032\004\010\002\020\000\020\003\022\240\001\n\026getCredentialsForWri" +
-      "te\022\036.mlflow.GetCredentialsForWrite\032\'.mlf" +
-      "low.GetCredentialsForWrite.Response\"=\362\206\031" +
-      "9\n5\n\004POST\022\'/mlflow/artifacts/credentials" +
-      "-for-write\032\004\010\002\020\000\020\003\022\237\001\n\025createMultipartUp" +
-      "load\022\035.mlflow.CreateMultipartUpload\032&.ml" +
-      "flow.CreateMultipartUpload.Response\"?\362\206\031" +
-      ";\n7\n\004POST\022)/mlflow/artifacts/create-mult" +
-      "ipart-upload\032\004\010\002\020\000\020\003\022\247\001\n\027completeMultipa" +
-      "rtUpload\022\037.mlflow.CompleteMultipartUploa" +
-      "d\032(.mlflow.CompleteMultipartUpload.Respo" +
-      "nse\"A\362\206\031=\n9\n\004POST\022+/mlflow/artifacts/com" +
-      "plete-multipart-upload\032\004\010\002\020\000\020\003\022\260\001\n\031getPr" +
-      "esignedUploadPartUrl\022!.mlflow.GetPresign" +
-      "edUploadPartUrl\032*.mlflow.GetPresignedUpl" +
-      "oadPartUrl.Response\"D\362\206\031@\n<\n\003GET\022//mlflo" +
-      "w/artifacts/get-presigned-upload-part-ur" +
-      "l\032\004\010\002\020\000\020\003B,\n\037com.databricks.api.proto.ml" +
-      "flow\220\001\001\240\001\001\342?\002\020\001"
+      ".MlflowTrackingMessage\"\344\001\n\"GetCredential" +
+      "sForTraceDataDownload\022\030\n\nrequest_id\030\001 \001(" +
+      "\tB\004\370\206\031\001\032C\n\010Response\0227\n\017credential_info\030\001" +
+      " \001(\0132\036.mlflow.ArtifactCredentialInfo:_\342?" +
+      "(\n&com.databricks.rpc.RPC[$this.Response" +
+      "]\342?1\n/com.databricks.mlflow.api.MlflowTr" +
+      "ackingMessage\"\342\001\n GetCredentialsForTrace" +
+      "DataUpload\022\030\n\nrequest_id\030\001 \001(\tB\004\370\206\031\001\032C\n\010" +
+      "Response\0227\n\017credential_info\030\001 \001(\0132\036.mlfl" +
+      "ow.ArtifactCredentialInfo:_\342?(\n&com.data" +
+      "bricks.rpc.RPC[$this.Response]\342?1\n/com.d" +
+      "atabricks.mlflow.api.MlflowTrackingMessa" +
+      "ge*s\n\026ArtifactCredentialType\022\021\n\rAZURE_SA" +
+      "S_URI\020\001\022\025\n\021AWS_PRESIGNED_URL\020\002\022\022\n\016GCP_SI" +
+      "GNED_URL\020\003\022\033\n\027AZURE_ADLS_GEN2_SAS_URI\020\0042" +
+      "\213\n\n DatabricksMlflowArtifactsService\022\234\001\n" +
+      "\025getCredentialsForRead\022\035.mlflow.GetCrede" +
+      "ntialsForRead\032&.mlflow.GetCredentialsFor" +
+      "Read.Response\"<\362\206\0318\n4\n\004POST\022&/mlflow/art" +
+      "ifacts/credentials-for-read\032\004\010\002\020\000\020\003\022\240\001\n\026" +
+      "getCredentialsForWrite\022\036.mlflow.GetCrede" +
+      "ntialsForWrite\032\'.mlflow.GetCredentialsFo" +
+      "rWrite.Response\"=\362\206\0319\n5\n\004POST\022\'/mlflow/a" +
+      "rtifacts/credentials-for-write\032\004\010\002\020\000\020\003\022\237" +
+      "\001\n\025createMultipartUpload\022\035.mlflow.Create" +
+      "MultipartUpload\032&.mlflow.CreateMultipart" +
+      "Upload.Response\"?\362\206\031;\n7\n\004POST\022)/mlflow/a" +
+      "rtifacts/create-multipart-upload\032\004\010\002\020\000\020\003" +
+      "\022\247\001\n\027completeMultipartUpload\022\037.mlflow.Co" +
+      "mpleteMultipartUpload\032(.mlflow.CompleteM" +
+      "ultipartUpload.Response\"A\362\206\031=\n9\n\004POST\022+/" +
+      "mlflow/artifacts/complete-multipart-uplo" +
+      "ad\032\004\010\002\020\000\020\003\022\260\001\n\031getPresignedUploadPartUrl" +
+      "\022!.mlflow.GetPresignedUploadPartUrl\032*.ml" +
+      "flow.GetPresignedUploadPartUrl.Response\"" +
+      "D\362\206\031@\n<\n\003GET\022//mlflow/artifacts/get-pres" +
+      "igned-upload-part-url\032\004\010\002\020\000\020\003\022\325\001\n\"getCre" +
+      "dentialsForTraceDataDownload\022*.mlflow.Ge" +
+      "tCredentialsForTraceDataDownload\0323.mlflo" +
+      "w.GetCredentialsForTraceDataDownload.Res" +
+      "ponse\"N\362\206\031J\nF\n\003GET\0229/mlflow/traces/{requ" +
+      "est_id}/credentials-for-data-download\032\004\010" +
+      "\002\020\000\020\003\022\315\001\n getCredentialsForTraceDataUplo" +
+      "ad\022(.mlflow.GetCredentialsForTraceDataUp" +
+      "load\0321.mlflow.GetCredentialsForTraceData" +
+      "Upload.Response\"L\362\206\031H\nD\n\003GET\0227/mlflow/tr" +
+      "aces/{request_id}/credentials-for-data-u" +
+      "pload\032\004\010\002\020\000\020\003B,\n\037com.databricks.api.prot" +
+      "o.mlflow\220\001\001\240\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -14820,6 +17338,30 @@ public final class DatabricksArtifacts {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetPresignedUploadPartUrl_Response_descriptor,
         new java.lang.String[] { "UploadCredentialInfo", });
+    internal_static_mlflow_GetCredentialsForTraceDataDownload_descriptor =
+      getDescriptor().getMessageTypes().get(7);
+    internal_static_mlflow_GetCredentialsForTraceDataDownload_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_GetCredentialsForTraceDataDownload_descriptor,
+        new java.lang.String[] { "RequestId", });
+    internal_static_mlflow_GetCredentialsForTraceDataDownload_Response_descriptor =
+      internal_static_mlflow_GetCredentialsForTraceDataDownload_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_GetCredentialsForTraceDataDownload_Response_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_GetCredentialsForTraceDataDownload_Response_descriptor,
+        new java.lang.String[] { "CredentialInfo", });
+    internal_static_mlflow_GetCredentialsForTraceDataUpload_descriptor =
+      getDescriptor().getMessageTypes().get(8);
+    internal_static_mlflow_GetCredentialsForTraceDataUpload_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_GetCredentialsForTraceDataUpload_descriptor,
+        new java.lang.String[] { "RequestId", });
+    internal_static_mlflow_GetCredentialsForTraceDataUpload_Response_descriptor =
+      internal_static_mlflow_GetCredentialsForTraceDataUpload_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_GetCredentialsForTraceDataUpload_Response_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_GetCredentialsForTraceDataUpload_Response_descriptor,
+        new java.lang.String[] { "CredentialInfo", });
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();
     registry.add(com.databricks.api.proto.databricks.Databricks.rpc);

@@ -16,15 +16,24 @@ from packaging.version import Version
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, ModelSignature, infer_signature
-from mlflow.models.utils import _enforce_params_schema, _enforce_schema
+from mlflow.models import (
+    Model,
+    ModelSignature,
+    convert_input_example_to_serving_input,
+    infer_signature,
+)
+from mlflow.models.utils import (
+    _enforce_params_schema,
+    _enforce_schema,
+)
 from mlflow.pyfunc import PyFuncModel
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
-from mlflow.types.schema import Array, Object, Property
+from mlflow.types.schema import Array, Map, Object, Property
 from mlflow.utils.proto_json_utils import dump_input_data
 
-from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.helper_functions import pyfunc_scoring_endpoint, pyfunc_serve_and_score_model
+from tests.tracing.helper import get_traces
 
 
 class TestModel:
@@ -1606,9 +1615,7 @@ def test_enforce_schema_in_python_model_predict(sample_params_basic, param_schem
         params={
             "datetime_param": "2023-06-26 00:00:00",
         },
-    )[
-        "datetime_param"
-    ] == np.datetime64("2023-06-26 00:00:00")
+    )["datetime_param"] == np.datetime64("2023-06-26 00:00:00")
 
 
 def test_schema_enforcement_all_feature_types_pandas():
@@ -1946,90 +1953,90 @@ def test_enforce_schema_with_arrays_in_python_model_serving(sample_params_with_a
             signature=signature,
         )
 
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=dump_input_data(["a", "b"], params=params),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 200
-    prediction = json.loads(response.content.decode("utf-8"))["predictions"]
-    for param, value in params.items():
-        if param == "datetime_array":
-            assert prediction[param] == list(map(np.datetime_as_string, value))
-        else:
-            assert (prediction[param] == value).all()
+    with pyfunc_scoring_endpoint(
+        model_info.model_uri, extra_args=["--env-manager", "local"]
+    ) as endpoint:
+        response = endpoint.invoke(
+            data=dump_input_data(["a", "b"], params=params),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        )
+        assert response.status_code == 200
+        prediction = json.loads(response.content.decode("utf-8"))["predictions"]
+        for param, value in params.items():
+            if param == "datetime_array":
+                assert prediction[param] == list(map(np.datetime_as_string, value))
+            else:
+                assert (prediction[param] == value).all()
 
-    # Test invalid params for model serving
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=dump_input_data(["a", "b"], params={"datetime_array": [1.0, 2.0]}),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 400
-    assert (
-        "Failed to convert value 1.0 from type float to DataType.datetime"
-        in json.loads(response.content.decode("utf-8"))["message"]
-    )
+        # Test invalid params for model serving
+        response = endpoint.invoke(
+            data=dump_input_data(["a", "b"], params={"datetime_array": [1.0, 2.0]}),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        )
+        assert response.status_code == 400
+        assert (
+            "Failed to convert value 1.0 from type float to DataType.datetime"
+            in json.loads(response.content.decode("utf-8"))["message"]
+        )
 
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=dump_input_data(["a", "b"], params={"int_array": np.array([1.0, 2.0])}),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 400
-    assert (
-        "Incompatible types for param 'int_array'"
-        in json.loads(response.content.decode("utf-8"))["message"]
-    )
+        response = endpoint.invoke(
+            data=dump_input_data(["a", "b"], params={"int_array": np.array([1.0, 2.0])}),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        )
+        assert response.status_code == 400
+        assert (
+            "Incompatible types for param 'int_array'"
+            in json.loads(response.content.decode("utf-8"))["message"]
+        )
 
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=dump_input_data(["a", "b"], params={"float_array": [True, False]}),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 400
-    assert (
-        "Incompatible types for param 'float_array'"
-        in json.loads(response.content.decode("utf-8"))["message"]
-    )
+        response = endpoint.invoke(
+            data=dump_input_data(["a", "b"], params={"float_array": [True, False]}),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        )
+        assert response.status_code == 400
+        assert (
+            "Incompatible types for param 'float_array'"
+            in json.loads(response.content.decode("utf-8"))["message"]
+        )
 
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=dump_input_data(["a", "b"], params={"double_array": [1.0, "2.0"]}),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 400
-    assert (
-        "Incompatible types for param 'double_array'"
-        in json.loads(response.content.decode("utf-8"))["message"]
-    )
+        response = endpoint.invoke(
+            data=dump_input_data(["a", "b"], params={"double_array": [1.0, "2.0"]}),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        )
+        assert response.status_code == 400
+        assert (
+            "Incompatible types for param 'double_array'"
+            in json.loads(response.content.decode("utf-8"))["message"]
+        )
 
 
 @pytest.mark.parametrize(
-    ("example", "schema"),
+    ("example", "input_schema", "output_schema"),
     [
-        (["input1", "input2", "input3"], Schema([ColSpec(DataType.string)])),
+        (
+            ["input1", "input2", "input3"],
+            Schema([ColSpec(DataType.string)]),
+            Schema([ColSpec(DataType.string, 0)]),
+        ),
         (
             [{"a": "a", "b": "b"}, {"a": "b"}],
+            Schema([ColSpec(DataType.string, "a"), ColSpec(DataType.string, "b", required=False)]),
             Schema([ColSpec(DataType.string, "a"), ColSpec(DataType.string, "b", required=False)]),
         ),
         (
             {"a": ["a", "b", "c"], "b": "b"},
             Schema([ColSpec(Array(DataType.string), "a"), ColSpec(DataType.string, "b")]),
+            Schema([ColSpec(Array(DataType.string), "a"), ColSpec(DataType.string, "b")]),
         ),
         (
             pd.DataFrame({"a": ["a", "b", "c"], "b": "b"}),
+            Schema([ColSpec(DataType.string, "a"), ColSpec(DataType.string, "b")]),
             Schema([ColSpec(DataType.string, "a"), ColSpec(DataType.string, "b")]),
         ),
     ],
 )
 def test_pyfunc_model_input_example_with_params(
-    sample_params_basic, param_schema_basic, tmp_path, example, schema
+    sample_params_basic, param_schema_basic, tmp_path, example, input_schema, output_schema
 ):
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
@@ -2043,8 +2050,8 @@ def test_pyfunc_model_input_example_with_params(
         )
 
     # Test _infer_signature_from_input_example
-    assert model_info.signature.inputs == schema
-    assert model_info.signature.outputs == schema
+    assert model_info.signature.inputs == input_schema
+    assert model_info.signature.outputs == output_schema
     assert model_info.signature.params == param_schema_basic
 
     # Test predict
@@ -2068,21 +2075,203 @@ def test_pyfunc_model_input_example_with_params(
             expected_example = example
         pd.testing.assert_frame_equal(loaded_example, expected_example)
 
-    # Test model serving
-    if isinstance(example, pd.DataFrame):
-        payload = {"dataframe_split": example.to_dict(orient="split")}
+    for test_example in ["saved_example", "manual_example"]:
+        if test_example == "saved_example":
+            payload = mlflow_model.get_serving_input(local_path)
+        else:
+            if isinstance(example, pd.DataFrame):
+                payload = json.dumps({"dataframe_split": example.to_dict(orient="split")})
+            else:
+                payload = json.dumps({"inputs": example})
+
+        response = pyfunc_serve_and_score_model(
+            model_info.model_uri,
+            data=payload,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+            extra_args=["--env-manager", "local"],
+        )
+        assert response.status_code == 200, response.content
+        result = json.loads(response.content.decode("utf-8"))["predictions"]
+        result = pd.DataFrame(result).values.tolist()[0]
+        np.testing.assert_equal(result, expected_df.values.tolist()[0])
+
+
+def test_invalid_input_example_warn_when_model_logging():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            # List[str] is converted to pandas DataFrame
+            # after schema enforcement, so this is invalid
+            assert isinstance(model_input, list)
+            return "string"
+
+    with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
+        with mlflow.start_run():
+            mlflow.pyfunc.log_model(
+                python_model=MyModel(),
+                artifact_path="test_model",
+                input_example=["some string"],
+            )
+        mock_warning.assert_called_once()
+        assert "Failed to validate serving input example" in mock_warning.call_args[0][0]
+
+
+def assert_equal(a, b):
+    if isinstance(a, pd.DataFrame):
+        pd.testing.assert_frame_equal(a, b)
+    elif isinstance(a, np.ndarray) or isinstance(b, np.ndarray):
+        np.testing.assert_equal(a, b)
+    elif isinstance(a, dict):
+        assert a.keys() == b.keys()
+        for key in a:
+            assert_equal(a[key], b[key])
     else:
-        payload = {"inputs": example}
+        assert a == b
+
+
+@pytest.mark.parametrize(
+    ("example", "signature", "expected_input", "expected_output"),
+    [
+        (
+            pd.DataFrame({"a": ["input1", "input2", "input3"]}),
+            ModelSignature(
+                Schema([ColSpec(DataType.string, "a")]), Schema([ColSpec(DataType.string)])
+            ),
+            pd.DataFrame({"a": ["input1", "input2", "input3"]}),
+            "string output",
+        ),
+        (
+            np.array([1, 2, 3]),
+            ModelSignature(
+                Schema([TensorSpec(np.dtype("int64"), (-1,))]),
+                Schema([TensorSpec(np.dtype("float64"), (-1,))]),
+            ),
+            np.array([1, 2, 3]),
+            np.array([1.0, 2.0, 3.0]),
+        ),
+        (
+            np.array([1, 2, 3, np.nan]),
+            ModelSignature(
+                Schema([TensorSpec(np.dtype("float64"), (-1,))]),
+                Schema([TensorSpec(np.dtype("float64"), (-1,))]),
+            ),
+            np.array([1, 2, 3, np.nan]),
+            np.array([1.0, 2.0, 3.0, np.nan]),
+        ),
+        (
+            {"a": np.array([1, 2, 3])},
+            ModelSignature(
+                Schema([TensorSpec(np.dtype("int64"), (-1,), "a")]),
+                Schema([TensorSpec(np.dtype("float64"), (-1,), "b")]),
+            ),
+            {"a": np.array([1, 2, 3])},
+            {"b": np.array([1.0, 2.0, 3.0])},
+        ),
+        (
+            ["input1", "input2", "input3"],
+            ModelSignature(Schema([ColSpec(DataType.string)]), Schema([ColSpec(DataType.string)])),
+            # This is due to _enforce_schema
+            pd.DataFrame(["input1", "input2", "input3"]),
+            ["input1", "input2", "input3"],
+        ),
+        (
+            [{"a": ["sentence1", "sentence2"], "b": ["answer1", "answer2"]}],
+            ModelSignature(
+                Schema(
+                    [ColSpec(Array(DataType.string), "a"), ColSpec(Array(DataType.string), "b")]
+                ),
+                Schema([ColSpec(DataType.string, "output")]),
+            ),
+            pd.DataFrame([{"a": ["sentence1", "sentence2"], "b": ["answer1", "answer2"]}]),
+            {"output": "some prediction"},
+        ),
+        (
+            {"messages": [{"role": "user", "content": "some question"}]},
+            ModelSignature(
+                Schema(
+                    [
+                        ColSpec(
+                            Array(
+                                Object(
+                                    [
+                                        Property("role", DataType.string),
+                                        Property("content", DataType.string),
+                                    ]
+                                )
+                            ),
+                            "messages",
+                        )
+                    ]
+                ),
+                Schema([ColSpec(DataType.string, "output")]),
+            ),
+            # we assume the field is array so we need another list wrapper
+            pd.DataFrame([{"messages": [{"role": "user", "content": "some question"}]}]),
+            {"output": "some prediction"},
+        ),
+    ],
+)
+def test_input_example_validation_during_logging(
+    tmp_path, example, signature, expected_input, expected_output
+):
+    from mlflow.models import validate_serving_input
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            assert_equal(model_input, expected_input)
+            return expected_output
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            input_example=example,
+        )
+        assert model_info.signature == signature
+
+    mlflow_model = Model.load(model_info.model_uri)
+    local_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
+    serving_input_example = mlflow_model.get_serving_input(local_path)
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
-        data=json.dumps(payload),
+        data=serving_input_example,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 200, response.content
     result = json.loads(response.content.decode("utf-8"))["predictions"]
-    result = pd.DataFrame(result).values.tolist()[0]
-    np.testing.assert_equal(result, expected_df.values.tolist()[0])
+    assert_equal(result, expected_output)
+
+    # make sure validate_serving_input has the same output
+    assert convert_input_example_to_serving_input(example) == serving_input_example
+    result = validate_serving_input(model_info.model_uri, serving_input_example)
+    assert_equal(result, expected_output)
+
+
+def test_pyfunc_schema_inference_not_generate_trace():
+    # Test that the model logging call does not generate a trace.
+    # When input example is provided, we run prediction to infer
+    # the model signature, but it should not generate a trace.
+    class MyModel(mlflow.pyfunc.PythonModel):
+        @mlflow.trace()
+        def predict(self, context, model_input):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            input_example=["input"],
+        )
+
+    # No trace should be generated
+    traces = get_traces()
+    assert len(traces) == 0
+
+    # Normal prediction should emit a trace
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    loaded_model.predict("input")
+    traces = get_traces()
+    assert len(traces) == 1
 
 
 @pytest.mark.parametrize(
@@ -2325,7 +2514,11 @@ def test_pyfunc_model_serving_with_lists_of_dicts(data, schema, format_key):
 )
 def test_pyfunc_model_schema_enforcement_with_objects_and_arrays(data, schema):
     class MyModel(mlflow.pyfunc.PythonModel):
+        def load_context(self, context):
+            self.pipeline = "pipeline"
+
         def predict(self, context, model_input, params=None):
+            assert self.pipeline == "pipeline"
             return model_input
 
     signature = infer_signature(data)
@@ -2559,6 +2752,150 @@ def test_pyfunc_model_schema_enforcement_nested_array(data, schema):
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     prediction = loaded_model.predict(df)
     pd.testing.assert_frame_equal(prediction, df)
+
+
+@pytest.mark.parametrize(
+    ("data", "schema"),
+    [
+        (
+            {
+                "simple_map": [
+                    {"a": 3, "b": 4},
+                    {},
+                    {"c": 5},
+                ]
+            },
+            Schema([ColSpec(Map(value_type=DataType.long), name="simple_map")]),
+        ),
+        (
+            {
+                "simple_map": [
+                    {"a": 3, "b": 4},
+                    {},
+                    {"c": 5},
+                ]
+            },
+            Schema([ColSpec(Map(value_type=DataType.long))]),  # Unnamed column
+        ),
+        (
+            {
+                "nested_map": [
+                    {"a": {"a1": 3, "a2": 4}, "b": {"b1": 5}},
+                    {},
+                    {"c": {}},
+                ]
+            },
+            Schema([ColSpec(Map(value_type=Map(value_type=DataType.long)), name="nested_map")]),
+        ),
+        (
+            {
+                "array_in_map": [
+                    {"a": [1, 2, 3], "b": [4, 5]},
+                    {},
+                    {"c": []},
+                ]
+            },
+            Schema([ColSpec(Map(value_type=Array(dtype=DataType.long)), name="array_in_map")]),
+        ),
+        (
+            {
+                "object_in_map": [
+                    {"a": {"key1": "a1", "key2": 1}, "b": {"key1": "b1"}},
+                    {},
+                    {"c": {"key1": "c1"}},
+                ]
+            },
+            Schema(
+                [
+                    ColSpec(
+                        Map(
+                            value_type=Object(
+                                [
+                                    Property("key1", DataType.string),
+                                    Property("key2", DataType.long, required=False),
+                                ]
+                            )
+                        ),
+                        name="object_in_map",
+                    )
+                ]
+            ),
+        ),
+        (
+            {
+                "map_in_array": [
+                    [{"a": 3, "b": 4}, {"c": 5}],
+                    [],
+                    [{"d": 6}],
+                ]
+            },
+            Schema([ColSpec(Array(dtype=Map(value_type=DataType.long)), name="map_in_array")]),
+        ),
+        (
+            {
+                "map_in_object": [
+                    {"key1": {"a": 3, "b": 4}, "key2": {"c": 5}},
+                    {"key1": {"d": 6}},
+                ]
+            },
+            Schema(
+                [
+                    ColSpec(
+                        Object(
+                            [
+                                Property("key1", Map(value_type=DataType.long)),
+                                Property("key2", Map(value_type=DataType.long), required=False),
+                            ]
+                        ),
+                        name="map_in_object",
+                    )
+                ]
+            ),
+        ),
+    ],
+)
+@pytest.mark.parametrize("format_key", ["dataframe_split", "dataframe_records"])
+def test_pyfunc_model_schema_enforcement_map_type(data, schema, format_key):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    df = pd.DataFrame.from_records(data)
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            signature=ModelSignature(inputs=schema, outputs=schema),
+        )
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    prediction = loaded_model.predict(df)
+    pd.testing.assert_frame_equal(prediction, df)
+
+    if format_key == "dataframe_split":
+        payload = {format_key: df.to_dict(orient="split")}
+    elif format_key == "dataframe_records":
+        payload = {format_key: df.to_dict(orient="records")}
+
+    class CustomJsonEncoder(json.JSONEncoder):
+        def default(self, o):
+            import numpy as np
+
+            if isinstance(o, np.int64):
+                return int(o)
+
+            return super().default(o)
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps(payload, cls=CustomJsonEncoder),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 200, response.content
+    result = json.loads(response.content.decode("utf-8"))["predictions"]
+    expected_result = df.to_dict(orient="records")
+    np.testing.assert_equal(result, expected_result)
 
 
 @pytest.mark.parametrize(

@@ -12,8 +12,6 @@ from mlflow.tracking.request_header.registry import (
     resolve_request_headers,
 )
 
-# pylint: disable=unused-argument
-
 
 @pytest.fixture(autouse=True)
 def reload_registry():

@@ -10,7 +10,7 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.entities.run_tag import RunTag
 from mlflow.utils.file_utils import make_containing_dirs, write_to
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_ARTIFACTS, MLFLOW_RUN_SOURCE_TYPE
-from mlflow.version import VERSION as __version__  # noqa: F401
+from mlflow.version import VERSION as __version__
 
 
 def create_eval_results_json(prompt_parameters, model_input, model_output_parameters, model_output):

@@ -4,14 +4,27 @@ import json
 import requests
 
 from mlflow.environment_variables import (
+    _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT,
+    _MLFLOW_HTTP_REQUEST_MAX_RETRIES_LIMIT,
+    MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT,
+    MLFLOW_ENABLE_DB_SDK,
     MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
     MLFLOW_HTTP_REQUEST_BACKOFF_JITTER,
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
+    MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER,
 )
-from mlflow.exceptions import InvalidUrlException, MlflowException, RestException, get_error_code
+from mlflow.exceptions import (
+    CUSTOMER_UNAUTHORIZED,
+    ERROR_CODE_TO_HTTP_STATUS,
+    INVALID_PARAMETER_VALUE,
+    InvalidUrlException,
+    MlflowException,
+    RestException,
+    get_error_code,
+)
 from mlflow.protos import databricks_pb2
-from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, INVALID_PARAMETER_VALUE, ErrorCode
+from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.request_utils import (
     _TRANSIENT_FAILURE_RESPONSE_CODES,
@@ -21,8 +34,9 @@ from mlflow.utils.request_utils import (
 )
 from mlflow.utils.string_utils import strip_suffix
 
-RESOURCE_DOES_NOT_EXIST = "RESOURCE_DOES_NOT_EXIST"
+RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
+_TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
 
 
 def http_request(
@@ -36,6 +50,7 @@ def http_request(
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=None,
     raise_on_status=True,
+    respect_retry_after_header=None,
     **kwargs,
 ):
     """Makes an HTTP request with the specified method to the specified hostname/endpoint. Transient
@@ -59,26 +74,85 @@ def http_request(
             read request.
         raise_on_status: Whether to raise an exception, or return a response, if status falls
             in retry_codes range and retries have been exhausted.
+        respect_retry_after_header: Whether to respect Retry-After header on status codes defined
+            as Retry.RETRY_AFTER_STATUS_CODES or not.
         kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     Returns:
         requests.Response object.
     """
+    cleaned_hostname = strip_suffix(host_creds.host, "/")
+    url = f"{cleaned_hostname}{endpoint}"
+
+    if host_creds.use_databricks_sdk:
+        from databricks.sdk import WorkspaceClient
+        from databricks.sdk.config import Config
+        from databricks.sdk.errors import DatabricksError
+
+        config = Config(
+            profile=host_creds.databricks_auth_profile,
+            retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
+        )
+        # Note: If we use `config` param, all SDK configurations must be set in `config` object.
+        ws_client = WorkspaceClient(config=config)
+        try:
+            # Databricks SDK `APIClient.do` API is for making request using
+            # HTTP
+            # https://github.com/databricks/databricks-sdk-py/blob/a714146d9c155dd1e3567475be78623f72028ee0/databricks/sdk/core.py#L134
+            raw_response = ws_client.api_client.do(
+                method=method,
+                path=endpoint,
+                headers=extra_headers,
+                raw=True,
+                query=kwargs.get("params"),
+                body=kwargs.get("json"),
+                files=kwargs.get("files"),
+                data=kwargs.get("data"),
+            )
+            return raw_response["contents"]._response
+        except DatabricksError as e:
+            response = requests.Response()
+            response.url = url
+            response.status_code = ERROR_CODE_TO_HTTP_STATUS.get(e.error_code, 500)
+            response.reason = str(e)
+            response.encoding = "UTF-8"
+            response._content = json.dumps(
+                {
+                    "error_code": e.error_code,
+                    "message": str(e),
+                }
+            ).encode("UTF-8")
+
+            return response
+
     max_retries = MLFLOW_HTTP_REQUEST_MAX_RETRIES.get() if max_retries is None else max_retries
     backoff_factor = (
         MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get() if backoff_factor is None else backoff_factor
     )
+    _validate_max_retries(max_retries)
+    _validate_backoff_factor(backoff_factor)
+    respect_retry_after_header = (
+        MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER.get()
+        if respect_retry_after_header is None
+        else respect_retry_after_header
+    )
     backoff_jitter = (
         MLFLOW_HTTP_REQUEST_BACKOFF_JITTER.get() if backoff_jitter is None else backoff_jitter
     )
+
     timeout = MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout
-    hostname = host_creds.host
     auth_str = None
     if host_creds.username and host_creds.password:
         basic_auth_str = f"{host_creds.username}:{host_creds.password}".encode()
         auth_str = "Basic " + base64.standard_b64encode(basic_auth_str).decode("utf-8")
     elif host_creds.token:
         auth_str = f"Bearer {host_creds.token}"
+    elif host_creds.client_secret:
+        raise MlflowException(
+            "To use OAuth authentication, set environmental variable "
+            f"'{MLFLOW_ENABLE_DB_SDK.name}' to true",
+            error_code=CUSTOMER_UNAUTHORIZED,
+        )
 
     from mlflow.tracking.request_header.registry import resolve_request_headers
 
@@ -102,8 +176,6 @@ def http_request(
 
         kwargs["auth"] = fetch_auth(host_creds.auth)
 
-    cleaned_hostname = strip_suffix(hostname, "/")
-    url = f"{cleaned_hostname}{endpoint}"
     try:
         return _get_http_response_with_retries(
             method,
@@ -116,6 +188,7 @@ def http_request(
             headers=headers,
             verify=host_creds.verify,
             timeout=timeout,
+            respect_retry_after_header=respect_retry_after_header,
             **kwargs,
         )
     except requests.exceptions.Timeout as to:
@@ -172,6 +245,55 @@ def verify_rest_response(response, endpoint):
     return response
 
 
+def _validate_max_retries(max_retries):
+    max_retry_limit = _MLFLOW_HTTP_REQUEST_MAX_RETRIES_LIMIT.get()
+
+    if max_retry_limit < 0:
+        raise MlflowException(
+            message=f"The current maximum retry limit is invalid ({max_retry_limit}). "
+            "Cannot be negative.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if max_retries >= max_retry_limit:
+        raise MlflowException(
+            message=f"The configured max_retries value ({max_retries}) is "
+            f"in excess of the maximum allowable retries ({max_retry_limit})",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if max_retries < 0:
+        raise MlflowException(
+            message=f"The max_retries value must be either 0 a positive integer. Got {max_retries}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_backoff_factor(backoff_factor):
+    max_backoff_factor_limit = _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT.get()
+
+    if max_backoff_factor_limit < 0:
+        raise MlflowException(
+            message="The current maximum backoff factor limit is invalid "
+            f"({max_backoff_factor_limit}). Cannot be negative.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if backoff_factor >= max_backoff_factor_limit:
+        raise MlflowException(
+            message=f"The configured backoff_factor value ({backoff_factor}) is in excess "
+            "of the maximum allowable backoff_factor limit "
+            f"({max_backoff_factor_limit})",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if backoff_factor < 0:
+        raise MlflowException(
+            message="The backoff_factor value must be either 0 a positive integer. "
+            f"Got {backoff_factor}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
 def _get_path(path_prefix, endpoint_path):
     return f"{path_prefix}{endpoint_path}"
 
@@ -200,6 +322,18 @@ def extract_all_api_info_for_service(service, path_prefix):
     return res
 
 
+def get_single_trace_endpoint(request_id):
+    return f"{_TRACE_REST_API_PATH_PREFIX}/{request_id}"
+
+
+def get_trace_info_endpoint(request_id):
+    return f"{get_single_trace_endpoint(request_id)}/info"
+
+
+def get_set_trace_tag_endpoint(request_id):
+    return f"{get_single_trace_endpoint(request_id)}/tags"
+
+
 def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
     # Convert json string to json dictionary, to pass to requests
     if json_body:
@@ -217,6 +351,7 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
     else:
         call_kwargs["json"] = json_body
         response = http_request(**call_kwargs)
+
     response = verify_rest_response(response, endpoint)
     js_dict = json.loads(response.text)
     parse_dict(js_dict=js_dict, message=response_proto)
@@ -239,29 +374,37 @@ def call_endpoints(host_creds, endpoints, json_body, response_proto, extra_heade
 class MlflowHostCreds:
     """
     Provides a hostname and optional authentication for talking to an MLflow tracking server.
-    :param host: Hostname (e.g., http://localhost:5000) to MLflow server. Required.
-    :param username: Username to use with Basic authentication when talking to server.
-        If this is specified, password must also be specified.
-    :param password: Password to use with Basic authentication when talking to server.
-        If this is specified, username must also be specified.
-    :param token: Token to use with Bearer authentication when talking to server.
-        If provided, user/password authentication will be ignored.
-    :param aws_sigv4: If true, we will create a signature V4 to be added for any outgoing request.
-        Keys for signing the request can be passed via ENV variables,
-        or will be fetched via boto3 session.
-    :param auth: If set, the auth will be added for any outgoing request.
-        Keys for signing the request can be passed via ENV variables,
-    :param ignore_tls_verification: If true, we will not verify the server's hostname or TLS
-        certificate. This is useful for certain testing situations, but should never be
-        true in production.
-        If this is set to true ``server_cert_path`` must not be set.
-    :param client_cert_path: Path to ssl client cert file (.pem).
-        Sets the cert param of the ``requests.request``
-        function (see https://requests.readthedocs.io/en/master/api/).
-    :param server_cert_path: Path to a CA bundle to use.
-        Sets the verify param of the ``requests.request``
-        function (see https://requests.readthedocs.io/en/master/api/).
-        If this is set ``ignore_tls_verification`` must be false.
+
+    Args:
+        host: Hostname (e.g., http://localhost:5000) to MLflow server. Required.
+        username: Username to use with Basic authentication when talking to server.
+            If this is specified, password must also be specified.
+        password: Password to use with Basic authentication when talking to server.
+            If this is specified, username must also be specified.
+        token: Token to use with Bearer authentication when talking to server.
+            If provided, user/password authentication will be ignored.
+        aws_sigv4: If true, we will create a signature V4 to be added for any outgoing request.
+            Keys for signing the request can be passed via ENV variables,
+            or will be fetched via boto3 session.
+        auth: If set, the auth will be added for any outgoing request.
+            Keys for signing the request can be passed via ENV variables,
+        ignore_tls_verification: If true, we will not verify the server's hostname or TLS
+            certificate. This is useful for certain testing situations, but should never be
+            true in production.
+            If this is set to true ``server_cert_path`` must not be set.
+        client_cert_path: Path to ssl client cert file (.pem).
+            Sets the cert param of the ``requests.request``
+            function (see https://requests.readthedocs.io/en/master/api/).
+        server_cert_path: Path to a CA bundle to use.
+            Sets the verify param of the ``requests.request``
+            function (see https://requests.readthedocs.io/en/master/api/).
+            If this is set ``ignore_tls_verification`` must be false.
+        use_databricks_sdk: A boolean value represent whether using Databricks SDK for
+            authentication.
+        databricks_auth_profile: The name of the profile used by Databricks SDK for
+            authentication.
+        client_id: The client ID used by Databricks OAuth
+        client_secret: The client secret used by Databricks OAuth
     """
 
     def __init__(
@@ -275,6 +418,10 @@ class MlflowHostCreds:
         ignore_tls_verification=False,
         client_cert_path=None,
         server_cert_path=None,
+        use_databricks_sdk=False,
+        databricks_auth_profile=None,
+        client_id=None,
+        client_secret=None,
     ):
         if not host:
             raise MlflowException(
@@ -301,6 +448,10 @@ class MlflowHostCreds:
         self.ignore_tls_verification = ignore_tls_verification
         self.client_cert_path = client_cert_path
         self.server_cert_path = server_cert_path
+        self.use_databricks_sdk = use_databricks_sdk
+        self.databricks_auth_profile = databricks_auth_profile
+        self.client_id = client_id
+        self.client_secret = client_secret
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -309,6 +460,9 @@ class MlflowHostCreds:
 
     @property
     def verify(self):
+        if self.use_databricks_sdk:
+            # Let databricks-sdk set HTTP request `verify` param.
+            return None
         if self.server_cert_path is None:
             return not self.ignore_tls_verification
         else:

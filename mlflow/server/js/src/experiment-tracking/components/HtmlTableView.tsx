@@ -23,12 +23,12 @@ export class HtmlTableView extends Component<Props> {
 
     return (
       <LegacyTable
-        className='html-table-view'
+        className="html-table-view"
         data-test-id={this.props.testId}
         dataSource={this.props.values}
         columns={this.props.columns}
         scroll={this.props.scroll}
-        size='middle'
+        size="middle"
         pagination={false}
         style={styles}
       />

@@ -1,8 +1,8 @@
 import React from 'react';
-import userEvent from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event-14';
 
 import { CollapsibleSection } from './CollapsibleSection';
-import { renderWithIntl } from '../utils/TestUtils';
+import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 describe('CollapsibleSection', () => {
   let wrapper;
@@ -31,11 +31,11 @@ describe('CollapsibleSection', () => {
     expect(wrapper.container).toHaveTextContent('testChild');
   });
 
-  test('should expand when clicked', () => {
+  test('should expand when clicked', async () => {
     wrapper = renderWithIntl(<CollapsibleSection {...minimalProps} defaultCollapsed />);
     expect(wrapper.container).not.toHaveTextContent('testChild');
     expect(wrapper.getByRole('button')).toHaveAttribute('aria-expanded', 'false');
-    userEvent.click(wrapper.getByRole('button'));
+    await userEvent.click(wrapper.getByRole('button'));
     expect(wrapper.container).toHaveTextContent('testChild');
     expect(wrapper.getByRole('button')).toHaveAttribute('aria-expanded', 'true');
   });

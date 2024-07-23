@@ -137,7 +137,7 @@ def test_client_run_creation_and_termination_are_successful():
 def test_client_asynchronous_flush_operates_correctly():
     original_log_batch = MlflowClient().log_batch
 
-    def mock_log_batch(run_id, metrics=(), params=(), tags=()):  # pylint: disable=unused-argument
+    def mock_log_batch(run_id, metrics=(), params=(), tags=()):
         # Sleep to simulate a long-running logging operation
         time.sleep(3)
         return original_log_batch(run_id, metrics, params, tags)
@@ -168,7 +168,7 @@ def test_client_asynchronous_flush_operates_correctly():
 def test_client_synchronous_flush_operates_correctly():
     original_log_batch = MlflowClient().log_batch
 
-    def mock_log_batch(run_id, metrics=(), params=(), tags=()):  # pylint: disable=unused-argument
+    def mock_log_batch(run_id, metrics=(), params=(), tags=()):
         # Sleep to simulate a long-running logging operation
         time.sleep(3)
         return original_log_batch(run_id, metrics, params, tags)
@@ -230,7 +230,7 @@ def test_client_correctly_operates_as_context_manager_for_synchronous_flush():
     assert run_tags_1 == tags_to_log
 
     exc_to_raise = Exception("test exception")
-    with pytest.raises(Exception, match=str(exc_to_raise)) as raised_exc_info:  # noqa: PT012
+    with pytest.raises(Exception, match=str(exc_to_raise)) as raised_exc_info:  # noqa PT012
         with mlflow.start_run(), MlflowAutologgingQueueingClient() as client:
             run_id_2 = mlflow.active_run().info.run_id
             client.log_params(run_id_2, params_to_log)

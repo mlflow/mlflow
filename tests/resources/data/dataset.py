@@ -10,14 +10,14 @@ from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
 from mlflow.utils import insecure_hash
 
-from tests.resources.data.dataset_source import TestDatasetSource
+from tests.resources.data.dataset_source import SampleDatasetSource
 
 
-class TestDataset(Dataset):
+class SampleDataset(Dataset):
     def __init__(
         self,
         data_list: List[int],
-        source: TestDatasetSource,
+        source: SampleDatasetSource,
         name: Optional[str] = None,
         digest: Optional[str] = None,
     ):
@@ -34,27 +34,33 @@ class TestDataset(Dataset):
             hash_md5.update(hash_part)
         return base64.b64encode(hash_md5.digest()).decode("ascii")
 
-    def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
+    def to_dict(self) -> Dict[str, str]:
         """
-        :param base_dict: A string dictionary of base information about the
-                          dataset, including: name, digest, source, and source
-                          type.
-        :return: A string dictionary containing the following fields: name,
-                 digest, source, source type, schema (optional), profile
-                 (optional).
+        Args:
+            base_dict: A string dictionary of base information about the
+                dataset, including: name, digest, source, and source
+                type.
+
+        Returns:
+            A string dictionary containing the following fields: name,
+            digest, source, source type, schema (optional), profile
+            (optional).
         """
-        return {
-            **base_dict,
-            "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()}),
-            "profile": json.dumps(self.profile),
-        }
+        config = super().to_dict()
+        config.update(
+            {
+                "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()}),
+                "profile": json.dumps(self.profile),
+            }
+        )
+        return config
 
     @property
     def data_list(self) -> List[int]:
         return self._data_list
 
     @property
-    def source(self) -> TestDatasetSource:
+    def source(self) -> SampleDatasetSource:
         return self._source
 
     @property

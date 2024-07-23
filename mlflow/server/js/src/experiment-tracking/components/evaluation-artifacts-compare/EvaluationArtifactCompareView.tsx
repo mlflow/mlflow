@@ -13,24 +13,20 @@ import {
   LegacySkeleton,
   Spinner,
   ToggleButton,
-  Tooltip,
+  LegacyTooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { EvaluationDataReduxState } from '../../reducers/EvaluationDataReducer';
-import { SearchExperimentRunsViewState } from '../experiment-page/models/SearchExperimentRunsViewState';
+import { ExperimentPageViewState } from '../experiment-page/models/ExperimentPageViewState';
 import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { EvaluationArtifactCompareTable } from './components/EvaluationArtifactCompareTable';
 import { useEvaluationArtifactColumns } from './hooks/useEvaluationArtifactColumns';
 import { useEvaluationArtifactTableData } from './hooks/useEvaluationArtifactTableData';
 import { useEvaluationArtifactTables } from './hooks/useEvaluationArtifactTables';
-import type {
-  RunDatasetWithTags,
-  UpdateExperimentSearchFacetsFn,
-  UpdateExperimentViewStateFn,
-} from '../../types';
+import type { RunDatasetWithTags, UpdateExperimentViewStateFn } from '../../types';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { PreviewSidebar } from '../../../common/components/PreviewSidebar';
 import { useEvaluationArtifactViewState } from './hooks/useEvaluationArtifactViewState';
@@ -44,49 +40,46 @@ import {
   canEvaluateOnRun,
   extractRequiredInputParamsForRun,
 } from '../prompt-engineering/PromptEngineering.utils';
-import { searchModelGatewayRoutesApi } from '../../actions/ModelGatewayActions';
-import { shouldEnablePromptLab } from 'common/utils/FeatureUtils';
+import { searchAllPromptLabAvailableEndpoints } from '../../actions/PromptEngineeringActions';
+import { shouldEnablePromptLab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import {
   EvaluationArtifactViewEmptyState,
   shouldDisplayEvaluationArtifactEmptyState,
 } from './EvaluationArtifactViewEmptyState';
+import { useUpdateExperimentViewUIState } from '../experiment-page/contexts/ExperimentPageUIStateContext';
+import { useToggleRowVisibilityCallback } from '../experiment-page/hooks/useToggleRowVisibilityCallback';
+import { RUNS_VISIBILITY_MODE } from '../experiment-page/models/ExperimentPageUIState';
+import { FormattedJsonDisplay } from '@mlflow/mlflow/src/common/components/JsonFormatting';
 
 const MAX_RUNS_TO_COMPARE = 10;
 
 interface EvaluationArtifactCompareViewProps {
   comparedRuns: RunRowType[];
-  viewState: SearchExperimentRunsViewState;
+  viewState: ExperimentPageViewState;
   updateViewState: UpdateExperimentViewStateFn;
-  updateSearchFacets: UpdateExperimentSearchFacetsFn;
   onDatasetSelected: (dataset: RunDatasetWithTags, run: RunRowType) => void;
 }
 
 /**
  * Compares the table data contained in experiment run artifacts.
  */
-export const EvaluationArtifactCompareView = ({
+export const EvaluationArtifactCompareViewImpl = ({
   comparedRuns,
-  updateSearchFacets,
   onDatasetSelected,
   viewState,
   updateViewState,
 }: EvaluationArtifactCompareViewProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
+  const updateUIState = useUpdateExperimentViewUIState();
 
   const visibleRuns = useMemo(
     () => comparedRuns.filter(({ hidden }) => !hidden).slice(0, MAX_RUNS_TO_COMPARE),
     [comparedRuns],
   );
 
-  const {
-    selectedTables,
-    groupByCols,
-    outputColumn,
-    setSelectedTables,
-    setGroupByCols,
-    setOutputColumn,
-  } = useEvaluationArtifactViewState(viewState, updateViewState);
+  const { selectedTables, groupByCols, outputColumn, setSelectedTables, setGroupByCols, setOutputColumn } =
+    useEvaluationArtifactViewState(viewState, updateViewState);
 
   const [showSearchSpinner, setShowSearchSpinner] = useState(false);
   const [filter, setFilter] = useState('');
@@ -99,7 +92,7 @@ export const EvaluationArtifactCompareView = ({
 
   useEffect(() => {
     if (shouldEnablePromptLab()) {
-      dispatch(searchModelGatewayRoutesApi()).catch((e) => {
+      dispatch(searchAllPromptLabAvailableEndpoints()).catch((e) => {
         Utils.logErrorAndNotifyUser(e?.message || e);
       });
     }
@@ -131,11 +124,9 @@ export const EvaluationArtifactCompareView = ({
 
   const visibleRunsUuids = useMemo(() => visibleRuns.map(({ runUuid }) => runUuid), [visibleRuns]);
 
-  const {
-    evaluationArtifactsByRunUuid,
-    evaluationPendingDataByRunUuid,
-    evaluationDraftInputValues,
-  } = useSelector(({ evaluationData }: ReduxState) => evaluationData);
+  const { evaluationArtifactsByRunUuid, evaluationPendingDataByRunUuid, evaluationDraftInputValues } = useSelector(
+    ({ evaluationData }: ReduxState) => evaluationData,
+  );
 
   const { tables, tablesByRun, noEvalTablesLogged } = useEvaluationArtifactTables(visibleRuns);
 
@@ -147,21 +138,22 @@ export const EvaluationArtifactCompareView = ({
   }, [tables, setSelectedTables, selectedTables.length]);
 
   const isLoading = useSelector(({ evaluationData, modelGateway }: ReduxState) => {
+    const gatewayRoutesLoading = modelGateway.modelGatewayRoutesLoading.loading;
     return (
-      modelGateway.modelGatewayRoutesLoading ||
+      gatewayRoutesLoading ||
       visibleRunsUuids.some((uuid) =>
-        selectedTables.some(
-          (table) => evaluationData.evaluationArtifactsLoadingByRunUuid[uuid]?.[table],
-        ),
+        selectedTables.some((table) => evaluationData.evaluationArtifactsLoadingByRunUuid[uuid]?.[table]),
       )
     );
   });
 
-  const { columns } = useEvaluationArtifactColumns(
+  const { columns, imageColumns } = useEvaluationArtifactColumns(
     evaluationArtifactsByRunUuid,
     visibleRunsUuids,
     selectedTables,
   );
+
+  const isImageColumn = imageColumns.includes(outputColumn);
 
   const tableRows = useEvaluationArtifactTableData(
     evaluationArtifactsByRunUuid,
@@ -206,9 +198,7 @@ export const EvaluationArtifactCompareView = ({
       if (!run) {
         continue;
       }
-      const tablesToFetch = (tablesByRun[run.runUuid] || []).filter((table) =>
-        selectedTables.includes(table),
-      );
+      const tablesToFetch = (tablesByRun[run.runUuid] || []).filter((table) => selectedTables.includes(table));
       for (const table of tablesToFetch) {
         dispatch(getEvaluationTableArtifact(run.runUuid, table, false)).catch((e) => {
           Utils.logErrorAndNotifyUser(e.message || e);
@@ -232,13 +222,13 @@ export const EvaluationArtifactCompareView = ({
     );
   }, [tableRows, debouncedFilter]);
 
+  const toggleRowVisibility = useToggleRowVisibilityCallback(comparedRuns);
+
   const handleHideRun = useCallback(
-    (runUuid: string) =>
-      updateSearchFacets((existingFacets) => ({
-        ...existingFacets,
-        runsHidden: [...existingFacets.runsHidden, runUuid],
-      })),
-    [updateSearchFacets],
+    (runUuid: string) => {
+      toggleRowVisibility(RUNS_VISIBILITY_MODE.CUSTOM, runUuid);
+    },
+    [toggleRowVisibility],
   );
 
   // Make sure that there's at least one "group by" column selected
@@ -252,8 +242,7 @@ export const EvaluationArtifactCompareView = ({
 
     // If prompt engineering prompt inputs are detected, take them as a candidate for initial "group by" columns.
     // If not, use the first valid column found.
-    const groupByColumnCandidates =
-      promptLabInputVariableNames || (firstColumn ? [firstColumn] : null);
+    const groupByColumnCandidates = promptLabInputVariableNames || (firstColumn ? [firstColumn] : null);
 
     if ((noColumnsSelected || columnNotAvailableAnymore) && groupByColumnCandidates) {
       setGroupByCols(groupByColumnCandidates);
@@ -269,16 +258,13 @@ export const EvaluationArtifactCompareView = ({
   ]);
 
   // Remove MLFLOW_ columns from the list of groupby columns since they are for metadata only
-  const availableGroupByColumns = useMemo(
-    () => columns.filter((col) => !col.startsWith('MLFLOW_')),
-    [columns],
-  );
+  const availableGroupByColumns = useMemo(() => columns.filter((col) => !col.startsWith('MLFLOW_')), [columns]);
 
   // All columns that are not used for grouping can be used as output (compare) column
   // Remove MLFLOW_ columns from the list of output columns
   const availableOutputColumns = useMemo(
-    () => columns.filter((col) => !groupByCols.includes(col) && !col.startsWith('MLFLOW_')),
-    [columns, groupByCols],
+    () => [...columns, ...imageColumns].filter((col) => !groupByCols.includes(col) && !col.startsWith('MLFLOW_')),
+    [columns, imageColumns, groupByCols],
   );
 
   // If the current output column have been selected as "group by", change it to the other available one
@@ -336,6 +322,7 @@ export const EvaluationArtifactCompareView = ({
   return (
     <div
       css={{
+        flex: 1,
         borderTop: `1px solid ${theme.colors.border}`,
         borderLeft: `1px solid ${theme.colors.border}`,
         // Let's cover 1 pixel of the grid's border for the sleek look
@@ -371,8 +358,8 @@ export const EvaluationArtifactCompareView = ({
           <DialogCombobox
             label={
               <FormattedMessage
-                defaultMessage='Table'
-                description='Experiment page > artifact compare view > table select dropdown label'
+                defaultMessage="Table"
+                description="Experiment page > artifact compare view > table select dropdown label"
               />
             }
             multiSelect
@@ -380,7 +367,7 @@ export const EvaluationArtifactCompareView = ({
           >
             <DialogComboboxTrigger
               css={{ maxWidth: 300, backgroundColor: theme.colors.backgroundPrimary }}
-              data-testid='dropdown-tables'
+              data-testid="dropdown-tables"
               onClear={() => setSelectedTables([])}
               disabled={isSyncingArtifacts || !areRunsSelected || noEvalTablesLogged}
             />
@@ -392,7 +379,7 @@ export const EvaluationArtifactCompareView = ({
                     key={artifactPath}
                     onChange={handleTableToggle}
                     checked={selectedTables.includes(artifactPath)}
-                    data-testid='dropdown-tables-option'
+                    data-testid="dropdown-tables-option"
                   >
                     {artifactPath}
                   </DialogComboboxOptionListCheckboxItem>
@@ -400,16 +387,16 @@ export const EvaluationArtifactCompareView = ({
               </DialogComboboxOptionList>
             </DialogComboboxContent>
           </DialogCombobox>
-          <Tooltip
+          <LegacyTooltip
             title={
               <FormattedMessage
-                defaultMessage='Using the list of logged table artifacts, select at least one to start comparing results.'
-                description='Experiment page > artifact compare view > table select dropdown tooltip'
+                defaultMessage="Using the list of logged table artifacts, select at least one to start comparing results."
+                description="Experiment page > artifact compare view > table select dropdown tooltip"
               />
             }
           >
             <InfoIcon />
-          </Tooltip>
+          </LegacyTooltip>
         </div>
         {isLoading ? (
           <LegacySkeleton />
@@ -426,15 +413,14 @@ export const EvaluationArtifactCompareView = ({
             >
               <Input
                 prefix={<SearchIcon />}
-                suffix={showSearchSpinner && <Spinner size='small' />}
+                suffix={showSearchSpinner && <Spinner size="small" />}
                 css={{ width: 300, minWidth: 300 }}
                 onChange={(e) => setFilter(e.target.value)}
                 value={filter}
                 placeholder={intl.formatMessage(
                   {
                     defaultMessage: 'Filter by {columnNames}',
-                    description:
-                      'Experiment page > artifact compare view > search input placeholder',
+                    description: 'Experiment page > artifact compare view > search input placeholder',
                   },
                   {
                     columnNames: groupByCols.join(', '),
@@ -448,7 +434,7 @@ export const EvaluationArtifactCompareView = ({
                 multiSelect
                 label={
                   <FormattedMessage
-                    defaultMessage='Group by'
+                    defaultMessage="Group by"
                     description='Experiment page > artifact compare view > "group by column" select dropdown label'
                   />
                 }
@@ -479,7 +465,7 @@ export const EvaluationArtifactCompareView = ({
                 value={[outputColumn]}
                 label={
                   <FormattedMessage
-                    defaultMessage='Compare'
+                    defaultMessage="Compare"
                     description='Experiment page > artifact compare view > "compare" select dropdown label'
                   />
                 }
@@ -542,12 +528,13 @@ export const EvaluationArtifactCompareView = ({
                     visibleRuns={visibleRuns}
                     groupByColumns={groupByCols}
                     resultList={filteredRows}
-                    onCellClick={handleCellClicked}
+                    onCellClick={isImageColumn ? undefined : handleCellClicked}
                     onHideRun={handleHideRun}
                     onDatasetSelected={onDatasetSelected}
                     highlightedText={debouncedFilter.trim()}
                     isPreviewPaneVisible={viewState.previewPaneVisible}
                     outputColumnName={outputColumn}
+                    isImageColumn={isImageColumn}
                   />
                 </PromptEngineeringContextProvider>
               </div>
@@ -558,16 +545,16 @@ export const EvaluationArtifactCompareView = ({
       </div>
       {viewState.previewPaneVisible && (
         <PreviewSidebar
-          content={sidebarPreviewData?.value}
-          copyText={sidebarPreviewData?.value}
+          content={sidebarPreviewData?.value ? <FormattedJsonDisplay json={sidebarPreviewData.value} /> : null}
+          copyText={sidebarPreviewData?.value || ''}
           headerText={sidebarPreviewData?.header}
           onClose={() => updateViewState({ previewPaneVisible: false })}
           empty={
             <Empty
               description={
                 <FormattedMessage
-                  defaultMessage='Select a cell to display preview'
-                  description='Experiment page > artifact compare view > preview sidebar > nothing selected'
+                  defaultMessage="Select a cell to display preview"
+                  description="Experiment page > artifact compare view > preview sidebar > nothing selected"
                 />
               }
             />
@@ -576,4 +563,44 @@ export const EvaluationArtifactCompareView = ({
       )}
     </div>
   );
+};
+
+export const EvaluationArtifactCompareView = (props: EvaluationArtifactCompareViewProps & { disabled?: boolean }) => {
+  const { theme } = useDesignSystemTheme();
+  if (props.disabled) {
+    return (
+      <div
+        css={{
+          flex: 1,
+          backgroundColor: theme.colors.backgroundSecondary,
+          height: '100%',
+          borderTop: `1px solid ${theme.colors.border}`,
+          borderLeft: `1px solid ${theme.colors.border}`,
+          paddingTop: theme.spacing.lg,
+          marginLeft: -1,
+          zIndex: 1,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        <Empty
+          title={
+            <FormattedMessage
+              defaultMessage="Evaluation not available when grouping is enabled"
+              description="Experiment page > artifact compare view > disabled due to run grouping > title"
+            />
+          }
+          description={
+            <FormattedMessage
+              defaultMessage="Disable run grouping in order to access the evaluation view"
+              description="Experiment page > artifact compare view > disabled due to run grouping > description"
+            />
+          }
+          image={<div />}
+        />
+      </div>
+    );
+  }
+  return <EvaluationArtifactCompareViewImpl {...props} />;
 };

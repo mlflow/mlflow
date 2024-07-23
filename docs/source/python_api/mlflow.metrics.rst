@@ -135,8 +135,8 @@ Alternatively, you can also provide a function through the ``model`` parameter t
 your retrieval model. The function should take a Pandas DataFrame containing input queries and 
 ground-truth relevant doc IDs, and return a DataFrame with a column of retrieved relevant doc IDs.
 
-A "doc ID" is a string that uniquely identifies a document. Each row of the retrieved and 
-ground-truth doc ID columns should consist of a list of doc IDs.
+A "doc ID" is a string or integer that uniquely identifies a document. Each row of the retrieved and
+ground-truth doc ID columns should consist of a list or numpy array of doc IDs.
 
 Parameters:
 
@@ -163,8 +163,6 @@ Parameters:
         # with a static dataset and using `extra_metrics`
         mlflow.evaluate(
             data=data,
-            predictions="retrieved_docs",
-            targets="ground_truth_docs",
             predictions="predictions_param",
             targets="targets_param",
             model_type="retriever",

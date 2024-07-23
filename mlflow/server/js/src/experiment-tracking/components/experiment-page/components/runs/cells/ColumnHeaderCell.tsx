@@ -1,21 +1,24 @@
-import {
-  SortAscendingIcon,
-  SortDescendingIcon,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
-import { useFetchExperimentRuns } from '../../../hooks/useFetchExperimentRuns';
+import { SortAscendingIcon, SortDescendingIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { useUpdateExperimentPageSearchFacets } from '../../../hooks/useExperimentPageSearchFacets';
 
 export interface ColumnHeaderCellProps {
   enableSorting: boolean;
   displayName: string;
   canonicalSortKey: string;
+  context: {
+    orderByKey: string;
+    orderByAsc: boolean;
+  };
 }
 
-export const ColumnHeaderCell = (props: ColumnHeaderCellProps) => {
-  const { updateSearchFacets, searchFacetsState } = useFetchExperimentRuns();
-  const { orderByAsc, orderByKey } = searchFacetsState;
-
-  const { enableSorting, canonicalSortKey, displayName } = props;
+export const ColumnHeaderCell = ({
+  enableSorting,
+  canonicalSortKey,
+  displayName,
+  context: tableContext,
+}: ColumnHeaderCellProps) => {
+  const { orderByKey, orderByAsc } = tableContext || {};
+  const updateSearchFacets = useUpdateExperimentPageSearchFacets();
 
   const handleSortBy = () => {
     let newOrderByAsc = !orderByAsc;
@@ -31,7 +34,7 @@ export const ColumnHeaderCell = (props: ColumnHeaderCellProps) => {
 
   return (
     <div
-      role='columnheader'
+      role="columnheader"
       css={{
         height: '100%',
         width: '100%',
@@ -39,6 +42,7 @@ export const ColumnHeaderCell = (props: ColumnHeaderCellProps) => {
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '0 12px',
+        gap: theme.spacing.sm,
         svg: {
           color: theme.colors.textSecondary,
         },

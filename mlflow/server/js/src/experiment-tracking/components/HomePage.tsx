@@ -1,100 +1,87 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
-import React, { Component } from 'react';
-import { connect } from 'react-redux';
-import type { Dispatch } from 'redux';
-import qs from 'qs';
-import { searchExperimentsApi } from '../actions';
-import RequestStateWrapper from '../../common/components/RequestStateWrapper';
-import './HomePage.css';
-import HomeView from './HomeView';
+/* eslint-disable react-hooks/rules-of-hooks */
+import { useEffect, useRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { ReduxState, type ThunkDispatch } from '../../redux-types';
+import { getExperimentApi, searchExperimentsApi, setCompareExperiments, setExperimentTagApi } from '../actions';
+import { Navigate } from '../../common/utils/RoutingUtils';
 import { getUUID } from '../../common/utils/ActionUtils';
+import RequestStateWrapper from '../../common/components/RequestStateWrapper';
+import ExperimentListView from './ExperimentListView';
+import { useExperimentIds } from './experiment-page/hooks/useExperimentIds';
+import { values } from 'lodash';
+import { Spinner, useDesignSystemTheme } from '@databricks/design-system';
+import { GetExperimentsContextProvider } from './experiment-page/contexts/GetExperimentsContext';
+import { ExperimentView } from './experiment-page/ExperimentView';
+import { NoExperimentView } from './NoExperimentView';
+import Utils from '../../common/utils/Utils';
+import { ExperimentEntity } from '../types';
 import Routes from '../routes';
-import { withRouterNext } from '../../common/utils/withRouterNext';
-import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
+import { ExperimentPage } from './experiment-page/ExperimentPage';
 
-type HomePageImplProps = {
-  dispatchSearchExperimentsApi: (...args: any[]) => any;
-  experimentIds?: string[];
-  compareExperiments?: boolean;
+const getExperimentActions = {
+  setExperimentTagApi,
+  getExperimentApi,
+  setCompareExperiments,
 };
 
-type HomePageImplState = {
-  searchExperimentsRequestId: string;
+const getFirstActiveExperiment = (experiments: ExperimentEntity[]) => {
+  const sorted = [...experiments].sort(Utils.compareExperiments);
+  return sorted.find(({ lifecycleStage }) => lifecycleStage === 'active');
 };
 
-export class HomePageImpl extends Component<HomePageImplProps, HomePageImplState> {
-  static defaultProps = {
-    compareExperiments: false,
-  };
+const HomePage = () => {
+  const dispatch = useDispatch<ThunkDispatch>();
+  const { theme } = useDesignSystemTheme();
+  const searchRequestId = useRef(getUUID());
 
-  state = {
-    searchExperimentsRequestId: getUUID(),
-  };
+  const experimentIds = useExperimentIds();
+  const experiments = useSelector((state: ReduxState) => values(state.entities.experimentsById));
 
-  componentDidMount() {
-    // @ts-expect-error TS(4111): Property 'HIDE_EXPERIMENT_LIST' comes from an inde... Remove this comment to see the full error message
-    if (process.env.HIDE_EXPERIMENT_LIST !== 'true') {
-      this.props.dispatchSearchExperimentsApi(this.state.searchExperimentsRequestId);
+  const hasExperiments = experiments.length > 0;
+
+  useEffect(() => {
+    dispatch(searchExperimentsApi(searchRequestId.current));
+  }, [dispatch]);
+
+  // If no experiments are currently selected, navigate to the first one
+  if (!experimentIds.length) {
+    const firstExp = getFirstActiveExperiment(experiments);
+    if (firstExp) {
+      return <Navigate to={Routes.getExperimentPageRoute(firstExp.experimentId)} replace />;
     }
   }
 
-  render() {
-    const homeView = (
-      <HomeView
-        experimentIds={this.props.experimentIds}
-        compareExperiments={this.props.compareExperiments}
-      />
-    );
-    // @ts-expect-error TS(4111): Property 'HIDE_EXPERIMENT_LIST' comes from an inde... Remove this comment to see the full error message
-    return process.env.HIDE_EXPERIMENT_LIST === 'true' ? (
-      homeView
-    ) : (
-      <RequestStateWrapper
-        requestIds={[this.state.searchExperimentsRequestId]}
-        // eslint-disable-next-line no-trailing-spaces
-      >
-        {homeView}
-      </RequestStateWrapper>
-    );
-  }
-}
+  const loadingState = (
+    <div css={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <Spinner size="large" />
+    </div>
+  );
 
-const mapStateToProps = (
-  state: any,
-  { location, params }: WithRouterNextProps<{ experimentId: string }>,
-) => {
-  if (location.pathname === Routes.rootRoute) {
-    return {};
-  }
+  return (
+    <RequestStateWrapper requestIds={[searchRequestId.current]} customSpinner={loadingState}>
+      <div css={{ display: 'flex', height: 'calc(100% - 60px)' }}>
+        {/* Left sidebar containing experiment list */}
+        <div css={{ height: '100%', paddingTop: 24, display: 'flex' }}>
+          <ExperimentListView activeExperimentIds={experimentIds || []} experiments={experiments} />
+        </div>
 
-  if (location.pathname.startsWith(Routes.experimentsObservatoryRoute)) {
-    return { experimentIds: [params.experimentId], compareExperiments: false };
-  }
-
-  if (location.pathname.startsWith(Routes.compareExperimentsPageRoute)) {
-    const searchValues = qs.parse(location.search, { ignoreQueryPrefix: true });
-    if (searchValues['experiments']) {
-      const experimentIds = JSON.parse(searchValues['experiments'].toString());
-      return { experimentIds, compareExperiments: true };
-    }
-  }
-
-  return {};
+        {/* Main content with the experiment view */}
+        <div
+          css={{
+            height: '100%',
+            flex: 1,
+            padding: theme.spacing.md,
+            paddingTop: theme.spacing.lg,
+            minWidth: 0,
+          }}
+        >
+          <GetExperimentsContextProvider actions={getExperimentActions}>
+            {hasExperiments ? <ExperimentView /> : <NoExperimentView />}
+          </GetExperimentsContextProvider>
+        </div>
+      </div>
+    </RequestStateWrapper>
+  );
 };
 
-const mapDispatchToProps = (dispatch: Dispatch) => {
-  return {
-    dispatchSearchExperimentsApi: (requestId: any) => {
-      return dispatch(searchExperimentsApi(requestId));
-    },
-  };
-};
-
-export const HomePage = withRouterNext(connect(mapStateToProps, mapDispatchToProps)(HomePageImpl));
 export default HomePage;

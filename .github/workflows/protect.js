@@ -96,7 +96,9 @@ module.exports = async ({ github, context }) => {
     }
 
     await logRateLimit();
-    await sleep(3 * MINUTE);
+    const pending = checks.filter(({ status }) => status === STATE.pending);
+    const waitMinutes = pending.length <= 3 ? 1 : 5;
+    await sleep(waitMinutes * MINUTE);
   }
 
   throw new Error("Timeout");

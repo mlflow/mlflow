@@ -46,4 +46,4 @@ def main(new_version: str, remote: str, dry_run: bool = False):
 
 
 if __name__ == "__main__":
-    main()  # pylint: disable=no-value-for-parameter
+    main()

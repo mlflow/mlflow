@@ -4,7 +4,7 @@ import '@ag-grid-community/core/dist/styles/ag-theme-balham.css';
 import { AgGridReact } from '@ag-grid-community/react';
 import React from 'react';
 import { IntlProvider } from 'react-intl';
-import { StaticRouter } from '../../../../../../common/utils/RoutingUtils';
+import { MemoryRouter } from '../../../../../../common/utils/RoutingUtils';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../../fixtures/experiment-runs.fixtures';
 import {
   RunRowDateAndNestInfo,
@@ -24,18 +24,12 @@ export default {
   argTypes: {},
 };
 
-const MOCK_MODEL =
-  EXPERIMENT_RUNS_MOCK_STORE.entities.modelVersionsByRunUuid['experiment123456789_run4'][0];
+const MOCK_MODEL = EXPERIMENT_RUNS_MOCK_STORE.entities.modelVersionsByRunUuid['experiment123456789_run4'][0];
 
-const createAgTable = (
-  component: React.ComponentType<any>,
-  name: string,
-  defs?: any[],
-  rows?: any[],
-) => (
-  <div className='ag-theme-balham' style={{ height: 400 }}>
-    <StaticRouter location='/'>
-      <IntlProvider locale='en'>
+const createAgTable = (component: React.ComponentType<any>, name: string, defs?: any[], rows?: any[]) => (
+  <div className="ag-theme-balham" style={{ height: 400 }}>
+    <MemoryRouter initialEntries={['/']}>
+      <IntlProvider locale="en">
         <AgGridReact
           components={{ [name]: component }}
           suppressMovableColumns
@@ -62,11 +56,11 @@ const createAgTable = (
             ]
           }
           modules={[ClientSideRowModelModule]}
-          rowModelType='clientSide'
-          domLayout='normal'
+          rowModelType="clientSide"
+          domLayout="normal"
         />
       </IntlProvider>
-    </StaticRouter>
+    </MemoryRouter>
   </div>
 );
 
@@ -74,22 +68,21 @@ export const ColumnHeader = () => {
   return createAgTable(ColumnHeaderCell, 'agColumnHeader');
 };
 export const DateRenderer = () => {
-  const rowsWithDateAndNestInfo: { date: RunRowDateAndNestInfo }[] = [10000, 100000, 1000000].map(
-    (timeAgo) => ({
-      date: {
-        childrenIds: [],
-        expanderOpen: false,
-        experimentId: '12345',
-        hasExpander: false,
-        isParent: false,
-        level: 0,
-        referenceTime: new Date(),
-        runStatus: 'FINISHED',
-        runUuid: '123',
-        startTime: Date.now() - timeAgo,
-      },
-    }),
-  );
+  const rowsWithDateAndNestInfo: { date: RunRowDateAndNestInfo }[] = [10000, 100000, 1000000].map((timeAgo) => ({
+    date: {
+      childrenIds: [],
+      expanderOpen: false,
+      experimentId: '12345',
+      hasExpander: false,
+      isParent: false,
+      level: 0,
+      referenceTime: new Date(),
+      runStatus: 'FINISHED',
+      runUuid: '123',
+      startTime: Date.now() - timeAgo,
+      belongsToGroup: false,
+    },
+  }));
 
   return createAgTable(
     DateCellRenderer,

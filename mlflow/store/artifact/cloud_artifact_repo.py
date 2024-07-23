@@ -7,11 +7,10 @@ from collections import namedtuple
 from concurrent.futures import as_completed
 
 from mlflow.environment_variables import (
-    MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
     MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
+    MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
-    MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -29,6 +28,25 @@ _logger = logging.getLogger(__name__)
 _ARTIFACT_UPLOAD_BATCH_SIZE = (
     50  # Max number of artifacts for which to fetch write credentials at once.
 )
+_AWS_MIN_CHUNK_SIZE = 5 * 1024**2  # 5 MB is the minimum chunk size for S3 multipart uploads
+_AWS_MAX_CHUNK_SIZE = 5 * 1024**3  # 5 GB is the maximum chunk size for S3 multipart uploads
+
+
+def _readable_size(size: int) -> str:
+    return f"{size / 1024**2:.2f} MB"
+
+
+def _validate_chunk_size_aws(chunk_size: int) -> None:
+    """
+    Validates the specified chunk size in bytes is in valid range for AWS multipart uploads.
+    """
+    if chunk_size < _AWS_MIN_CHUNK_SIZE or chunk_size > _AWS_MAX_CHUNK_SIZE:
+        raise MlflowException(
+            message=(
+                f"Multipart chunk size {_readable_size(chunk_size)} must be in range: "
+                f"{_readable_size(_AWS_MIN_CHUNK_SIZE)} to {_readable_size(_AWS_MAX_CHUNK_SIZE)}."
+            )
+        )
 
 
 def _compute_num_chunks(local_file: os.PathLike, chunk_size: int) -> int:
@@ -62,6 +80,24 @@ def _complete_futures(futures_dict, file):
                 errors[key] = repr(e)
 
     return results, errors
+
+
+def _retry_with_new_creds(try_func, creds_func, og_creds=None):
+    """
+    Attempt the try_func with the original credentials (og_creds) if provided, or by generating the
+    credentials using creds_func. If the try_func throws, then try again with new credentials
+    provided by creds_func.
+    """
+    try:
+        first_creds = creds_func() if og_creds is None else og_creds
+        return try_func(first_creds)
+    except Exception as e:
+        _logger.info(
+            "Failed to complete request, possibly due to credential expiration."
+            f" Refreshing credentials and trying again... (Error: {e})"
+        )
+        new_creds = creds_func()
+        return try_func(new_creds)
 
 
 StagedArtifactUpload = namedtuple(
@@ -140,11 +176,6 @@ class CloudArtifactRepository(ArtifactRepository):
         with ArtifactProgressBar.files(
             desc="Uploading artifacts", total=len(staged_uploads)
         ) as pbar:
-            if len(staged_uploads) >= 10 and pbar.pbar:
-                _logger.info(
-                    "The progress bar can be disabled by setting the environment "
-                    f"variable {MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR} to false"
-                )
             for src_file_path, upload_future in upload_artifacts_iter():
                 try:
                     upload_future.result()
@@ -165,29 +196,31 @@ class CloudArtifactRepository(ArtifactRepository):
         """
         Retrieve write credentials for a batch of remote file paths, including presigned URLs.
 
-        :param remote_file_paths: List of file paths in the remote artifact repository.
-        :return: List of ArtifactCredentialInfo objects corresponding to each file path.
+        Args:
+            remote_file_paths: List of file paths in the remote artifact repository.
+
+        Returns:
+            List of ArtifactCredentialInfo objects corresponding to each file path.
         """
-        pass
 
     @abstractmethod
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
         """
         Upload a single file to the cloud.
 
-        :param cloud_credential_info: ArtifactCredentialInfo object with presigned URL for the file.
-        :param src_file_path: Local source file path for the upload.
-        :param artifact_file_path: Path in the artifact repository where the artifact will be
-                                   logged.
-        :return:
+        Args:
+            cloud_credential_info: ArtifactCredentialInfo object with presigned URL for the file.
+            src_file_path: Local source file path for the upload.
+            artifact_file_path: Path in the artifact repository where the artifact will be logged.
+
         """
-        pass
 
     # Read APIs
 
     def _extract_headers_from_credentials(self, headers):
         """
-        :return: A python dictionary of http headers converted from the protobuf credentials
+        Returns:
+            A python dictionary of http headers converted from the protobuf credentials.
         """
         return {header.name: header.value for header in headers}
 
@@ -239,7 +272,7 @@ class CloudArtifactRepository(ArtifactRepository):
         if (
             not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
             or not file_size
-            or file_size < MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
+            or file_size < MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE.get()
             or is_fuse_or_uc_volumes_uri(local_path)
         ):
             self._download_from_cloud(remote_file_path, local_path)
@@ -251,18 +284,20 @@ class CloudArtifactRepository(ArtifactRepository):
         """
         Retrieve read credentials for a batch of remote file paths, including presigned URLs.
 
-        :param remote_file_paths: List of file paths in the remote artifact repository.
-        :return: List of ArtifactCredentialInfo objects corresponding to each file path.
+        Args:
+            remote_file_paths: List of file paths in the remote artifact repository.
+
+        Returns:
+            List of ArtifactCredentialInfo objects corresponding to each file path.
         """
-        pass
 
     @abstractmethod
     def _download_from_cloud(self, remote_file_path, local_path):
         """
         Download a file from the input `remote_file_path` and save it to `local_path`.
 
-        :param remote_file_path: Path to file in the remote artifact repository.
-        :param local_path: Local path to download file to.
-        :return:
+        Args:
+            remote_file_path: Path to file in the remote artifact repository.
+            local_path: Local path to download file to.
+
         """
-        pass

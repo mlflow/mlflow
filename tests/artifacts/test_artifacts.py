@@ -26,6 +26,23 @@ def run_with_artifact(tmp_path):
     return (run, artifact_path, artifact_content)
 
 
+@pytest.fixture
+def run_with_artifacts(tmp_path):
+    artifact_path = "test"
+    artifact_content = "content"
+
+    local_dir = tmp_path / "dir"
+    local_dir.mkdir()
+    local_dir.joinpath("file.txt").write_text(artifact_content)
+    local_dir.joinpath("subdir").mkdir()
+    local_dir.joinpath("subdir").joinpath("text.txt").write_text(artifact_content)
+
+    with mlflow.start_run() as run:
+        mlflow.log_artifact(local_dir, artifact_path)
+
+    return (run, artifact_path)
+
+
 def test_download_artifacts_with_uri(run_with_artifact):
     run, artifact_path, artifact_content = run_with_artifact
     run_uri = f"runs:/{run.info.run_id}/{artifact_path}"
@@ -247,3 +264,51 @@ def test_log_artifact_windows_path_with_hostname(text_artifact):
                 rf"{experiment_test_1_artifact_location}\{run.info.run_id}"
                 rf"\artifacts\{text_artifact.artifact_name}" == local_path
             )
+
+
+def test_list_artifacts_with_artifact_uri(run_with_artifacts):
+    run, artifact_path = run_with_artifacts
+    run_uri = f"runs:/{run.info.run_id}/{artifact_path}"
+    actual_uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / artifact_path)
+    for uri in (run_uri, actual_uri):
+        artifacts = mlflow.artifacts.list_artifacts(artifact_uri=uri)
+        assert len(artifacts) == 1
+        assert artifacts[0].path == f"{artifact_path}/dir"
+
+        artifacts = mlflow.artifacts.list_artifacts(artifact_uri=f"{uri}/dir")
+        assert len(artifacts) == 2
+        assert artifacts[0].path == "dir/file.txt"
+        assert artifacts[1].path == "dir/subdir"
+
+        artifacts = mlflow.artifacts.list_artifacts(artifact_uri=f"{uri}/dir/subdir")
+        assert len(artifacts) == 1
+        assert artifacts[0].path == "subdir/text.txt"
+
+        artifacts = mlflow.artifacts.list_artifacts(artifact_uri=f"{uri}/non-exist-path")
+        assert len(artifacts) == 0
+
+
+def test_list_artifacts_with_run_id(run_with_artifacts):
+    run, artifact_path = run_with_artifacts
+    artifacts = mlflow.artifacts.list_artifacts(run_id=run.info.run_id)
+    assert len(artifacts) == 1
+    assert artifacts[0].path == artifact_path
+
+    artifacts = mlflow.artifacts.list_artifacts(run_id=run.info.run_id, artifact_path=artifact_path)
+    assert len(artifacts) == 1
+    assert artifacts[0].path == f"{artifact_path}/dir"
+
+
+def test_list_artifacts_throws_for_invalid_arguments():
+    with pytest.raises(MlflowException, match="Exactly one of"):
+        mlflow.artifacts.list_artifacts(
+            artifact_uri="uri",
+            run_id="run_id",
+            artifact_path="path",
+        )
+
+    with pytest.raises(MlflowException, match="Exactly one of"):
+        mlflow.artifacts.list_artifacts()
+
+    with pytest.raises(MlflowException, match="`artifact_path` cannot be specified"):
+        mlflow.artifacts.list_artifacts(artifact_uri="uri", artifact_path="path")

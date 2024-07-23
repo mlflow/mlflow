@@ -1,11 +1,9 @@
 import importlib
 import json
-from copy import deepcopy
 from unittest import mock
 
 import numpy as np
 import openai
-import openai.error
 import pandas as pd
 import pytest
 import yaml
@@ -16,14 +14,9 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
-from mlflow.utils.openai_utils import (
-    _exclude_params_from_envs,
-    _mock_chat_completion_response,
-    _mock_models_retrieve_response,
-    _mock_request,
-)
 
-from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.helper_functions import get_serving_input_example, pyfunc_serve_and_score_model
+from tests.openai.conftest import is_v1
 
 
 @pytest.fixture(scope="module")
@@ -32,15 +25,31 @@ def spark():
         yield s
 
 
+def chat_completions():
+    return openai.chat.completions if is_v1 else openai.ChatCompletion
+
+
+def completions():
+    return openai.completions if is_v1 else openai.Completion
+
+
+def embeddings():
+    return openai.embeddings if is_v1 else openai.Embedding
+
+
 @pytest.fixture(autouse=True)
-def set_envs(monkeypatch):
+def set_envs(monkeypatch, mock_openai):
     monkeypatch.setenvs(
         {
             "MLFLOW_TESTING": "true",
             "OPENAI_API_KEY": "test",
+            "OPENAI_API_BASE": mock_openai,
         }
     )
-    importlib.reload(openai)
+    if is_v1:
+        openai.base_url = mock_openai
+    else:
+        importlib.reload(openai)
 
 
 def test_log_model():
@@ -58,20 +67,12 @@ def test_log_model():
     assert loaded_model["task"] == "chat.completions"
     assert loaded_model["temperature"] == 0.9
     assert loaded_model["messages"] == [{"role": "system", "content": "You are an MLflow expert."}]
-    with _mock_request(return_value=_mock_chat_completion_response(content="foo")) as mock:
-        completion = openai.ChatCompletion.create(
-            model=loaded_model["model"],
-            messages=loaded_model["messages"],
-            temperature=loaded_model["temperature"],
-        )
-        assert completion.choices[0].message.content == "foo"
-        mock.assert_called_once()
 
 
 def test_chat_single_variable(tmp_path):
     mlflow.openai.save_model(
         model="gpt-3.5-turbo",
-        task=openai.ChatCompletion,
+        task=chat_completions(),
         path=tmp_path,
         messages=[{"role": "user", "content": "{x}"}],
     )
@@ -107,7 +108,7 @@ def test_chat_single_variable(tmp_path):
 def test_completion_single_variable(tmp_path):
     mlflow.openai.save_model(
         model="text-davinci-003",
-        task=openai.Completion,
+        task=completions(),
         path=tmp_path,
         prompt="Say {text}",
     )
@@ -121,26 +122,26 @@ def test_completion_single_variable(tmp_path):
             ]
         }
     )
-    expected_output = [["Say this is a test", "Say this is another test"]]
-    assert list(map(json.loads, model.predict(data))) == expected_output
+    expected_output = ["Say this is a test", "Say this is another test"]
+    assert model.predict(data) == expected_output
 
     data = [
         {"x": "this is a test"},
         {"x": "this is another test"},
     ]
-    assert list(map(json.loads, model.predict(data))) == expected_output
+    assert model.predict(data) == expected_output
 
     data = [
         "this is a test",
         "this is another test",
     ]
-    assert list(map(json.loads, model.predict(data))) == expected_output
+    assert model.predict(data) == expected_output
 
 
 def test_chat_multiple_variables(tmp_path):
     mlflow.openai.save_model(
         model="gpt-3.5-turbo",
-        task=openai.ChatCompletion,
+        task=chat_completions(),
         path=tmp_path,
         messages=[{"role": "user", "content": "{x} {y}"}],
     )
@@ -182,7 +183,7 @@ def test_chat_multiple_variables(tmp_path):
 def test_chat_role_content(tmp_path):
     mlflow.openai.save_model(
         model="gpt-3.5-turbo",
-        task=openai.ChatCompletion,
+        task=chat_completions(),
         path=tmp_path,
         messages=[{"role": "{role}", "content": "{content}"}],
     )
@@ -218,7 +219,7 @@ def test_chat_role_content(tmp_path):
 def test_completion_multiple_variables(tmp_path):
     mlflow.openai.save_model(
         model="text-davinci-003",
-        task=openai.Completion,
+        task=completions(),
         path=tmp_path,
         prompt="Say {x} and {y}",
     )
@@ -244,20 +245,20 @@ def test_completion_multiple_variables(tmp_path):
             ],
         }
     )
-    expected_output = [["Say a and c", "Say b and d"]]
-    assert list(map(json.loads, model.predict(data))) == expected_output
+    expected_output = ["Say a and c", "Say b and d"]
+    assert model.predict(data) == expected_output
 
     data = [
         {"x": "a", "y": "c"},
         {"x": "b", "y": "d"},
     ]
-    assert list(map(json.loads, model.predict(data))) == expected_output
+    assert model.predict(data) == expected_output
 
 
 def test_chat_multiple_messages(tmp_path):
     mlflow.openai.save_model(
         model="gpt-3.5-turbo",
-        task=openai.ChatCompletion,
+        task=chat_completions(),
         path=tmp_path,
         messages=[
             {"role": "user", "content": "{x}"},
@@ -302,7 +303,7 @@ def test_chat_multiple_messages(tmp_path):
 def test_chat_no_variables(tmp_path):
     mlflow.openai.save_model(
         model="gpt-3.5-turbo",
-        task=openai.ChatCompletion,
+        task=chat_completions(),
         path=tmp_path,
         messages=[{"role": "user", "content": "a"}],
     )
@@ -342,7 +343,7 @@ def test_chat_no_variables(tmp_path):
 def test_completion_no_variable(tmp_path):
     mlflow.openai.save_model(
         model="text-davinci-003",
-        task=openai.Completion,
+        task=completions(),
         path=tmp_path,
     )
 
@@ -355,26 +356,26 @@ def test_completion_no_variable(tmp_path):
             ]
         }
     )
-    expected_output = [["this is a test", "this is another test"]]
-    assert list(map(json.loads, model.predict(data))) == expected_output
+    expected_output = ["this is a test", "this is another test"]
+    assert model.predict(data) == expected_output
 
     data = [
         {"x": "this is a test"},
         {"x": "this is another test"},
     ]
-    assert list(map(json.loads, model.predict(data))) == expected_output
+    assert model.predict(data) == expected_output
 
     data = [
         "this is a test",
         "this is another test",
     ]
-    assert list(map(json.loads, model.predict(data))) == expected_output
+    assert model.predict(data) == expected_output
 
 
 def test_chat_no_messages(tmp_path):
     mlflow.openai.save_model(
         model="gpt-3.5-turbo",
-        task=openai.ChatCompletion,
+        task=chat_completions(),
         path=tmp_path,
     )
     model = mlflow.models.Model.load(tmp_path)
@@ -424,23 +425,22 @@ def test_invalid_messages(tmp_path, messages):
     ):
         mlflow.openai.save_model(
             model="gpt-3.5-turbo",
-            task=openai.ChatCompletion,
+            task=chat_completions(),
             path=tmp_path,
             messages=messages,
         )
 
 
 def test_task_argument_accepts_class(tmp_path):
-    mlflow.openai.save_model(model="gpt-3.5-turbo", task=openai.ChatCompletion, path=tmp_path)
+    mlflow.openai.save_model(model="gpt-3.5-turbo", task=chat_completions(), path=tmp_path)
     loaded_model = mlflow.openai.load_model(tmp_path)
     assert loaded_model["task"] == "chat.completions"
 
 
+@pytest.mark.skipif(is_v1, reason="Requires OpenAI SDK v0")
 def test_model_argument_accepts_retrieved_model(tmp_path):
-    with _mock_request(return_value=_mock_models_retrieve_response()) as mock:
-        model = openai.Model.retrieve("gpt-3.5-turbo")
-        mock.assert_called_once()
-    mlflow.openai.save_model(model=model, task=openai.ChatCompletion, path=tmp_path)
+    model = openai.Model.retrieve("gpt-3.5-turbo")
+    mlflow.openai.save_model(model=model, task=chat_completions(), path=tmp_path)
     loaded_model = mlflow.openai.load_model(tmp_path)
     assert loaded_model["model"] == "gpt-3.5-turbo"
 
@@ -494,62 +494,17 @@ def test_spark_udf_chat(tmp_path, spark):
 
 class ChatCompletionModel(mlflow.pyfunc.PythonModel):
     def predict(self, context, model_input, params=None):
-        completion = openai.ChatCompletion.create(
+        completion = chat_completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "What is MLflow?"}],
         )
         return completion.choices[0].message.content
 
 
-@pytest.mark.parametrize(
-    "error",
-    [
-        openai.error.RateLimitError(message="RateLimitError", code=403),
-        openai.error.Timeout(message="Timeout", code=408),
-        openai.error.ServiceUnavailableError(message="ServiceUnavailable", code=503),
-        openai.error.APIConnectionError(message="APIConnectionError", code=500),
-        openai.error.APIError(message="APIError", code=500),
-    ],
-)
-def test_auto_request_retry(tmp_path, error):
-    mlflow.pyfunc.save_model(tmp_path, python_model=ChatCompletionModel())
-    loaded_model = mlflow.pyfunc.load_model(tmp_path)
-    resp = _mock_chat_completion_response(content="test")
-    with _mock_request(side_effect=[error, resp]) as mock_request:
-        text = loaded_model.predict(None)
-        assert text == "test"
-        assert mock_request.call_count == 2
-
-
-def test_auto_request_retry_exceeds_maximum_attempts(tmp_path):
-    mlflow.pyfunc.save_model(tmp_path, python_model=ChatCompletionModel())
-    loaded_model = mlflow.pyfunc.load_model(tmp_path)
-    with pytest.raises(openai.error.RateLimitError, match="RateLimitError"):
-        with _mock_request(
-            side_effect=openai.error.RateLimitError(message="RateLimitError", code=403)
-        ) as mock_request:
-            loaded_model.predict(None)
-
-    assert mock_request.call_count == 5
-
-
-def test_auto_request_retry_is_disabled_when_env_var_is_false(tmp_path, monkeypatch):
-    mlflow.pyfunc.save_model(tmp_path, python_model=ChatCompletionModel())
-    loaded_model = mlflow.pyfunc.load_model(tmp_path)
-    monkeypatch.setenv("MLFLOW_OPENAI_RETRIES_ENABLED", "false")
-    with pytest.raises(openai.error.RateLimitError, match="RateLimitError"):
-        with _mock_request(
-            side_effect=openai.error.RateLimitError(message="RateLimitError", code=403)
-        ) as mock_request:
-            loaded_model.predict(None)
-
-    assert mock_request.call_count == 1
-
-
 def test_embeddings(tmp_path):
     mlflow.openai.save_model(
         model="text-embedding-ada-002",
-        task=openai.Embedding,
+        task=embeddings(),
         path=tmp_path,
     )
 
@@ -562,11 +517,11 @@ def test_embeddings(tmp_path):
     model = mlflow.pyfunc.load_model(tmp_path)
     data = pd.DataFrame({"text": ["a", "b"]})
     preds = model.predict(data)
-    assert preds == [[0.0], [0.0]]
+    assert list(map(len, preds)) == [1536, 1536]
 
     data = pd.DataFrame({"text": ["a"] * 100})
     preds = model.predict(data)
-    assert preds == [[0.0]] * 100
+    assert list(map(len, preds)) == [1536] * 100
 
 
 def test_embeddings_batch_size_azure(tmp_path, monkeypatch):
@@ -574,7 +529,7 @@ def test_embeddings_batch_size_azure(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENAI_ENGINE", "test_engine")
     mlflow.openai.save_model(
         model="text-embedding-ada-002",
-        task=openai.Embedding,
+        task=embeddings(),
         path=tmp_path,
     )
     model = mlflow.pyfunc.load_model(tmp_path)
@@ -582,20 +537,23 @@ def test_embeddings_batch_size_azure(tmp_path, monkeypatch):
     assert model._model_impl.api_config.batch_size == 16
 
 
-def test_embeddings_pyfunc_server_and_score(tmp_path):
-    mlflow.openai.save_model(
-        model="text-embedding-ada-002",
-        task=openai.Embedding,
-        path=tmp_path,
-    )
+def test_embeddings_pyfunc_server_and_score():
     df = pd.DataFrame({"text": ["a", "b"]})
+    with mlflow.start_run():
+        model_info = mlflow.openai.log_model(
+            model="text-embedding-ada-002",
+            task=embeddings(),
+            artifact_path="model",
+            input_example=df,
+        )
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        tmp_path,
-        data=pd.DataFrame(df),
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    expected = mlflow.pyfunc.load_model(tmp_path).predict(df)
+    expected = mlflow.pyfunc.load_model(model_info.model_uri).predict(df)
     actual = pd.DataFrame(data=json.loads(resp.content.decode("utf-8")))
     pd.testing.assert_frame_equal(actual, pd.DataFrame({"predictions": expected}))
 
@@ -603,7 +561,7 @@ def test_embeddings_pyfunc_server_and_score(tmp_path):
 def test_spark_udf_embeddings(tmp_path, spark):
     mlflow.openai.save_model(
         model="text-embedding-ada-002",
-        task=openai.Embedding,
+        task=embeddings(),
         path=tmp_path,
     )
     udf = mlflow.pyfunc.spark_udf(spark, tmp_path, result_type="array<double>")
@@ -615,13 +573,13 @@ def test_spark_udf_embeddings(tmp_path, spark):
         ["x"],
     )
     df = df.withColumn("z", udf("x")).toPandas()
-    assert df["z"].tolist() == [[0.0], [0.0]]
+    assert list(map(len, df["z"])) == [1536, 1536]
 
 
 def test_inference_params(tmp_path):
     mlflow.openai.save_model(
         model="text-embedding-ada-002",
-        task=openai.Embedding,
+        task=embeddings(),
         path=tmp_path,
         signature=ModelSignature(
             inputs=Schema([ColSpec(type="string", name=None)]),
@@ -639,14 +597,14 @@ def test_inference_params(tmp_path):
     model = mlflow.pyfunc.load_model(tmp_path)
     data = pd.DataFrame({"text": ["a", "b"]})
     preds = model.predict(data, params={"batch_size": 5})
-    assert preds == [[0.0], [0.0]]
+    assert list(map(len, preds)) == [1536, 1536]
 
 
 def test_inference_params_overlap(tmp_path):
     with pytest.raises(mlflow.MlflowException, match=r"any of \['prefix'\] as parameters"):
         mlflow.openai.save_model(
             model="text-davinci-003",
-            task=openai.Completion,
+            task=completions(),
             path=tmp_path,
             prefix="Classify the following text's sentiment:",
             signature=ModelSignature(
@@ -661,7 +619,7 @@ def test_engine_and_deployment_id_for_azure_openai(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENAI_API_TYPE", "azure")
     mlflow.openai.save_model(
         model="text-embedding-ada-002",
-        task=openai.Embedding,
+        task=embeddings(),
         path=tmp_path,
     )
     with pytest.raises(
@@ -671,17 +629,31 @@ def test_engine_and_deployment_id_for_azure_openai(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    ("params", "envs"),
+    ("api_type", "auth_headers"),
     [
-        ({"a": None, "b": "b"}, {"a": "a", "c": "c"}),
-        ({"a": "a", "b": "b"}, {"a": "a", "d": "d"}),
-        ({}, {"a": "a", "b": "b"}),
-        ({"a": "a"}, {"b": "b"}),
+        ("azure", {"api-key": "test"}),
+        ("azure_ad", {"Authorization": "Bearer test"}),
+        ("azuread", {"Authorization": "Bearer test"}),
+        ("openai", {"Authorization": "Bearer test"}),
     ],
 )
-def test_exclude_params_from_envs(params, envs):
-    original_envs = deepcopy(envs)
-    result = _exclude_params_from_envs(params, envs)
-    assert envs == original_envs
-    assert not any(key in params for key in result)
-    assert all(key in envs for key in result)
+def test_openai_request_auth_headers(api_type, auth_headers, tmp_path, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_TYPE", api_type)
+    if "azure" in api_type:
+        monkeypatch.setenv("OPENAI_DEPLOYMENT_NAME", "test")
+    mlflow.openai.save_model(
+        model="gpt-4o",
+        task="chat.completions",
+        path=tmp_path,
+    )
+    model = mlflow.pyfunc.load_model(tmp_path)
+    with mock.patch("requests.Session.request") as mock_request:
+        model.predict("What is the meaning of life?")
+        mock_request.assert_called_once_with(
+            method="post",
+            url=mock.ANY,
+            data=mock.ANY,
+            json=mock.ANY,
+            timeout=mock.ANY,
+            headers=auth_headers,
+        )

@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import { type SerializedStyles } from '@emotion/react';
 import type { UseMultipleSelectionGetSelectedItemPropsOptions } from 'downshift';
 import type { Theme } from '../../theme';

@@ -9,7 +9,11 @@ fastai>=2.4.1
 # Required by mlflow.spacy
 spacy>=3.3.0
 # Required by mlflow.tensorflow
-tensorflow-cpu>=2.8.0
+tensorflow>=2.10.0
+# tensorflow-macos>=2.10.0  # Comment out the line above and uncomment this line if setting up dev
+                            # environment on local ARM macOS.
+                            # Only do this for the purpose of setting up the dev environment, do not
+                            # commit this change to the repo.
 # Required by mlflow.pytorch
 torch>=1.11.0
 torchvision>=0.12.0
@@ -61,11 +65,11 @@ accelerate
 openai<1.0
 tiktoken
 tenacity
+# Required by mlflow.llama_index
+llama_index
 # Required by mlflow.langchain
 langchain
 # Required by mlflow.promptflow
 promptflow
 # Required by mlflow.sentence_transformers
 sentence-transformers
-# Required by mlflow.keras_core
-keras-core

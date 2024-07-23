@@ -5,7 +5,7 @@ from typing import List
 import yaml
 
 from mlflow.exceptions import MlflowException
-from mlflow.version import VERSION as __version__  # noqa: F401
+from mlflow.version import VERSION as __version__
 
 
 class _PromptlabModel:

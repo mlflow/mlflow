@@ -1,11 +1,6 @@
 import { useState } from 'react';
 import { RunInfoEntity } from '../../../types';
-import {
-  chartColors,
-  ChartStoryWrapper,
-  getRandomRunName,
-  stableNormalRandom,
-} from './RunsCharts.stories-common';
+import { chartColors, ChartStoryWrapper, getRandomRunName, stableNormalRandom } from './RunsCharts.stories-common';
 import { RunsMetricsBarPlot, RunsMetricsBarPlotProps } from './RunsMetricsBarPlot';
 
 export default {
@@ -17,10 +12,7 @@ export default {
   },
 };
 
-const createMockMetricsData = (
-  numRuns: number,
-  negative = false,
-): RunsMetricsBarPlotProps['runsData'] => {
+const createMockMetricsData = (numRuns: number, negative = false): RunsMetricsBarPlotProps['runsData'] => {
   const random = stableNormalRandom(100);
   return new Array(numRuns).fill(0).map((_, index) => {
     let value = 500 * random() - 250;
@@ -29,9 +21,11 @@ const createMockMetricsData = (
     }
     const runName = getRandomRunName(random);
     return {
+      uuid: `id-for-run-${runName}`,
+      displayName: runName,
       runInfo: {
-        run_uuid: `id-for-run-${runName}`,
-        run_name: runName,
+        runUuid: `id-for-run-${runName}`,
+        runName: runName,
       } as RunInfoEntity,
       metrics: { metric1: { value } as any },
       color: chartColors[index % chartColors.length],
@@ -48,13 +42,10 @@ const MetricsRunWrapper = ({
   width,
   height,
   displayRunNames,
-}: Pick<
-  RunsMetricsBarPlotProps,
-  'runsData' | 'metricKey' | 'width' | 'height' | 'displayRunNames'
->) => {
+}: Pick<RunsMetricsBarPlotProps, 'runsData' | 'metricKey' | 'width' | 'height' | 'displayRunNames'>) => {
   const [hoveredRun, setHoveredRun] = useState('');
   return (
-    <ChartStoryWrapper title='Line chart' controls={<>Hovered run ID: {hoveredRun}</>}>
+    <ChartStoryWrapper title="Line chart" controls={<>Hovered run ID: {hoveredRun}</>}>
       <RunsMetricsBarPlot
         metricKey={metricKey}
         runsData={runsData}
@@ -68,19 +59,15 @@ const MetricsRunWrapper = ({
   );
 };
 
-export const TwoRuns = () => <MetricsRunWrapper metricKey='metric1' runsData={DATA.slice(0, 2)} />;
+export const TwoRuns = () => <MetricsRunWrapper metricKey="metric1" runsData={DATA.slice(0, 2)} />;
 
-export const TenRuns = () => <MetricsRunWrapper metricKey='metric1' runsData={DATA} />;
+export const TenRuns = () => <MetricsRunWrapper metricKey="metric1" runsData={DATA} />;
 export const TenRunsNamesHidden = () => (
-  <MetricsRunWrapper metricKey='metric1' runsData={DATA} displayRunNames={false} />
+  <MetricsRunWrapper metricKey="metric1" runsData={DATA} displayRunNames={false} />
 );
-export const TenRunsStatic = () => (
-  <MetricsRunWrapper metricKey='metric1' runsData={DATA} width={300} height={500} />
-);
+export const TenRunsStatic = () => <MetricsRunWrapper metricKey="metric1" runsData={DATA} width={300} height={500} />;
 
-export const TenRunsNegative = () => (
-  <MetricsRunWrapper metricKey='metric1' runsData={NEGATIVE_DATA} />
-);
+export const TenRunsNegative = () => <MetricsRunWrapper metricKey="metric1" runsData={NEGATIVE_DATA} />;
 
 TwoRuns.storyName = '2 runs (auto-size)';
 TenRuns.storyName = '10 runs (auto-size)';

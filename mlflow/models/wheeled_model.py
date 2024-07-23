@@ -60,12 +60,13 @@ class WheeledModel:
         specified by ``model_uri``. This behavior can be overridden by specifying the
         ``registered_model_name`` argument.
 
-        :param model_uri: A registered model uri in the Model Registry of the form
-                          models:/<model_name>/<model_version/stage/latest>
-        :param registered_model_name: The new model version (model with its libraries) is
-                                      registered under the inputted registered_model_name. If None,
-                                      a new version is logged to the existing model in the Model
-                                      Registry.
+        Args:
+            model_uri: A registered model uri in the Model Registry of the form
+                       models:/<model_name>/<model_version/stage/latest>
+            registered_model_name: The new model version (model with its libraries) is
+                                   registered under the inputted registered_model_name. If None,
+                                   a new version is logged to the existing model in the Model
+                                   Registry.
 
         .. code-block:: python
             :caption: Example
@@ -94,9 +95,11 @@ class WheeledModel:
         `--only-binary=:all:` option. This behavior can be overridden using an environment
         variable `MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS`, which will allows setting
         different options such as `--prefer-binary`, `--no-binary`, etc.
-        :param path: Local path where the model is to be saved.
-        :param mlflow_model: The new :py:mod:`mlflow.models.Model` metadata file to store the
-                             updated model metadata.
+
+        Args:
+            path: Local path where the model is to be saved.
+            mlflow_model: The new :py:mod:`mlflow.models.Model` metadata file to store the
+                updated model metadata.
         """
         from mlflow.pyfunc import ENV, FLAVOR_NAME, _extract_conda_env
 
@@ -160,8 +163,10 @@ class WheeledModel:
                 {"pip": [...]},  <- Overwrite this with list of wheels
             ],
         }
-        :param new_pip_deps: List of pip dependencies as wheels
-        :param conda_env_path: Path to conda.yaml file in the model directory
+
+        Args:
+            new_pip_deps: List of pip dependencies as wheels
+            conda_env_path: Path to conda.yaml file in the model directory
         """
         with open(conda_env_path) as f:
             conda_env = yaml.safe_load(f)
@@ -176,9 +181,11 @@ class WheeledModel:
         Modifies the MLModel file to reflect updated information such as the run_id,
         utc_time_created. Additionally, this also adds `wheels` to the MLModel file to indicate that
         this is a `wheeled` model.
-        :param original_model_file_path: The model metadata stored in the original MLmodel file.
-        :param mlflow_model: :py:mod:`mlflow.models.Model` configuration of the newly created
-                                wheeled model
+
+        Args:
+            original_model_file_path: The model metadata stored in the original MLmodel file.
+            mlflow_model: :py:mod:`mlflow.models.Model` configuration of the newly created
+                          wheeled model
         """
 
         run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
@@ -204,8 +211,10 @@ class WheeledModel:
         the `--only-binary=:all:` option. This behavior can be overridden using an
         environment variable `MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS`, which will allows
         setting different options such as `--prefer-binary`, `--no-binary`, etc.
-        :param pip_requirements_path: Path to requirements.txt in the model directory
-        :param dst_path: Path to the directory where the wheels are to be downloaded
+
+        Args:
+            pip_requirements_path: Path to requirements.txt in the model directory
+            dst_path: Path to the directory where the wheels are to be downloaded
         """
         if not os.path.exists(dst_path):
             os.makedirs(dst_path)
@@ -237,8 +246,10 @@ class WheeledModel:
     def _overwrite_pip_requirements_with_wheels(self, pip_requirements_path, wheels_dir):
         """
         Overwrites the requirements.txt with the wheels of the required dependencies.
-        :param pip_requirements_path: Path to requirements.txt in the model directory
-        :param wheels_dir: Path to directory where wheels are stored
+
+        Args:
+            pip_requirements_path: Path to requirements.txt in the model directory.
+            wheels_dir: Path to directory where wheels are stored.
         """
         wheels = []
         with open(pip_requirements_path, "w") as wheels_requirements:
@@ -252,10 +263,12 @@ class WheeledModel:
     def _create_pip_requirement(self, conda_env_path, pip_requirements_path):
         """
         This method creates a requirements.txt file for the model dependencies if the file does not
-        already exist. If uses the pip dependencies found in the conda.yaml env file.
-        :param conda_env_path: Path to conda.yaml env file which contains the required pip
-                                dependencies
-        :param pip_requirements_path: Path where the new requirements.txt will be created.
+        already exist. It uses the pip dependencies found in the conda.yaml env file.
+
+        Args:
+            conda_env_path: Path to conda.yaml env file which contains the required pip
+                dependencies
+            pip_requirements_path: Path where the new requirements.txt will be created.
         """
         with open(conda_env_path) as f:
             conda_env = yaml.safe_load(f)

@@ -49,7 +49,8 @@ thresholds = {
     ),
     # Specify threshold for custom metric
     "double_positive": MetricThreshold(
-        threshold=1e5, greater_is_better=False  # double_positive should be <=1e5
+        threshold=1e5,
+        greater_is_better=False,  # double_positive should be <=1e5
     ),
 }
 

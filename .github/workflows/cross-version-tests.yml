@@ -1,4 +1,5 @@
 name: Cross version tests
+run-name: ${{ inputs.uuid }}
 
 on:
   pull_request:
@@ -30,6 +31,10 @@ on:
         description: "[Optional] Comma-separated string specifying which versions to test (e.g. '1.2.3, 4.5.6'). If unspecified, all versions are tested."
         required: false
         default: ""
+      uuid:
+        description: "[Optional] A unique identifier for this run."
+        required: false
+        default: ""
   schedule:
     # Run this workflow daily at 13:00 UTC
     - cron: "0 13 * * *"
@@ -57,10 +62,12 @@ jobs:
     permissions:
       issues: read # listLabelsOnIssue
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-      is_matrix_empty: ${{ steps.set-matrix.outputs.is_matrix_empty }}
+      matrix1: ${{ steps.set-matrix.outputs.matrix1 }}
+      matrix2: ${{ steps.set-matrix.outputs.matrix2 }}
+      is_matrix1_empty: ${{ steps.set-matrix.outputs.is_matrix1_empty }}
+      is_matrix2_empty: ${{ steps.set-matrix.outputs.is_matrix2_empty }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
@@ -72,7 +79,7 @@ jobs:
           pip install -r dev/requirements.txt
           pip install pytest pytest-cov
       - name: Check labels
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         id: check-labels
         with:
           script: |
@@ -94,7 +101,7 @@ jobs:
             };
       - name: Test set_matrix.py
         run: |
-          python -m pytest --noconftest tests/dev/test_set_matrix.py
+          python -m pytest --noconftest dev/tests
       - id: set-matrix
         name: Set matrix
         env:
@@ -117,98 +124,94 @@ jobs:
           else
             python dev/set_matrix.py
           fi
-  test:
+
+  test1:
     needs: set-matrix
-    if: ${{ needs.set-matrix.outputs.is_matrix_empty == 'false' }}
+    if: ${{ needs.set-matrix.outputs.is_matrix1_empty == 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.set-matrix.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.set-matrix.outputs.matrix1) }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/free-disk-space
-        if: matrix.package == 'transformers' || matrix.package == 'sentence-transformers' || (matrix.package == 'torch' && startsWith(matrix.version, '2.'))
-      - name: Get python version
-        id: get-python-version
-        run: |
-          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
-          echo "version=$python_version" >> $GITHUB_OUTPUT
+        if: matrix.free_disk_space
       - uses: ./.github/actions/setup-python
         with:
-          python-version: ${{ steps.get-python-version.outputs.version }}
+          python-version: ${{ matrix.python }}
       - uses: ./.github/actions/setup-pyenv
-      - name: Get Java version
-        id: get-java-version
-        run: |
-          if [ "${{ matrix.package }}" = "mleap" ]
-          then
-            pip install packaging
-            supports_java11=$(python -c "from packaging.version import parse; print(parse('${{ matrix.version }}') >= parse('0.21.0'))")
-            if [ "$supports_java11" = "True" ]
-            then
-              java_version=11
-            else
-              java_version=8
-            fi
-          elif [ "${{ matrix.package }}" = "pyspark" ]; then
-            pip install packaging
-            use_java17=$(python -c "from packaging.version import parse; print('${{ matrix.version }}' == 'dev' or parse('${{ matrix.version }}') > parse('3.4.1'))")
-            if [ "$use_java17" = "True" ]; then
-              java_version=17
-            else
-              java_version=11
-            fi
-          else
-            java_version=11
-          fi
-          echo "version=$java_version" >> $GITHUB_OUTPUT
       - uses: ./.github/actions/setup-java
         with:
-          java-version: ${{ steps.get-java-version.outputs.version }}
-          distribution: "adopt"
+          java-version: ${{ matrix.java }}
       - name: Install mlflow & test dependencies
         run: |
-          python --version
-          # prophet==1.0.1 can only be installed `setup.py install` fallback but this was removed
-          # in pip 23.1. See https://github.com/pypa/pip/issues/8368 more details.
-          if [ "${{ matrix.package }}==${{ matrix.version }}" = "prophet==1.0.1" ]
-          then
-            PIP_SPEC="<23.1"
-          else
-            PIP_SPEC=""
-          fi
-          pip install -U "pip$PIP_SPEC" wheel
-          pip install -e .[extras]
+          pip install wheel
+          pip install .[extras]
           pip install -r requirements/test-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
-      - name: Install pydantic no-binary for langchain
-        if: matrix.package == 'langchain' && ( matrix.version == 'dev' || matrix.version >= '0.0.267')
-        run: |
-          pip uninstall pydantic -y
-          # 0.0.267 is the minimum version that supports Pydantic v2
-          # We need to install from source because cythonized pydantic 
-          # objects can't be serialized https://github.com/cloudpipe/cloudpickle/issues/408
-          pip install pydantic --no-binary :all:
-      - name: Check package versions
-        run: |
-          python dev/show_package_release_dates.py
-      - name: Prefetch Transformer models
-        if: matrix.package == 'transformers' && matrix.category == 'models'
-        run: |
-          python tests/transformers/helper.py
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
+      - name: Pre-test
+        if: matrix.pre_test
+        run: |
+          ${{ matrix.pre_test }}
       - name: Run tests
         env:
           MLFLOW_CONDA_HOME: /usr/share/miniconda
           SPARK_LOCAL_IP: localhost
-          PACKAGE_VERSION: ${{ matrix.version }}
+          JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
+          HF_HUB_ENABLE_HF_TRANSFER: 1
+        run: |
+          ${{ matrix.run }}
+
+  test2:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.is_matrix2_empty == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.matrix2) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/free-disk-space
+        if: matrix.free_disk_space
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ matrix.java }}
+      - name: Install mlflow & test dependencies
+        run: |
+          pip install wheel
+          pip install .[extras]
+          pip install -r requirements/test-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/pipdeptree
+      - name: Pre-test
+        if: matrix.pre_test
+        run: |
+          ${{ matrix.pre_test }}
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          SPARK_LOCAL_IP: localhost
           JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
           HF_HUB_ENABLE_HF_TRANSFER: 1
         run: |

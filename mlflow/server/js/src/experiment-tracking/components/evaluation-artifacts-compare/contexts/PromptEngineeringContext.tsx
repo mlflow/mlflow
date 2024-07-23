@@ -14,8 +14,10 @@ import {
 } from '../../prompt-engineering/PromptEngineering.utils';
 import Utils from '../../../../common/utils/Utils';
 import { useEvaluateAllRows } from '../hooks/useEvaluateAllRows';
-import { GatewayErrorWrapper } from '../../../sdk/ModelGatewayService';
 import { useIntl } from 'react-intl';
+import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
+import { getPromptEngineeringErrorMessage } from '../utils/PromptEngineeringErrorUtils';
+import { GatewayErrorWrapper } from '../../../utils/LLMGatewayUtils';
 
 export interface PromptEngineeringContextType {
   getMissingParams: (run: RunRowType, rowKey: string) => string[] | null;
@@ -72,9 +74,7 @@ export const PromptEngineeringContextProvider = ({
 
       const requiredInputs = extractPromptInputVariables(promptTemplate);
 
-      const missingInputParams = requiredInputs.filter(
-        (requiredInput) => !row.groupByCellValues[requiredInput],
-      );
+      const missingInputParams = requiredInputs.filter((requiredInput) => !row.groupByCellValues[requiredInput]);
 
       return missingInputParams;
     },
@@ -82,8 +82,10 @@ export const PromptEngineeringContextProvider = ({
   );
 
   const dispatch = useDispatch<ThunkDispatch>();
-  const { startEvaluatingRunColumn, stopEvaluatingRunColumn, runColumnsBeingEvaluated } =
-    useEvaluateAllRows(tableData, outputColumn);
+  const { startEvaluatingRunColumn, stopEvaluatingRunColumn, runColumnsBeingEvaluated } = useEvaluateAllRows(
+    tableData,
+    outputColumn,
+  );
 
   const pendingDataLoading = useSelector(
     ({ evaluationData }: ReduxState) => evaluationData.evaluationPendingDataLoadingByRunUuid,
@@ -128,7 +130,7 @@ export const PromptEngineeringContextProvider = ({
       }
       const inputValues = row.groupByCellValues;
 
-      const { parameters, promptTemplate, routeName } = extractEvaluationPrerequisitesForRun(run);
+      const { parameters, promptTemplate, routeName, routeType } = extractEvaluationPrerequisitesForRun(run);
 
       if (!promptTemplate) {
         return;
@@ -137,22 +139,26 @@ export const PromptEngineeringContextProvider = ({
       const compiledPrompt = compilePromptInputText(promptTemplate, inputValues);
 
       if (routeName) {
-        dispatch(
-          evaluatePromptTableValue({
+        const getAction = () => {
+          return evaluatePromptTableValue({
             routeName,
+            routeType,
             compiledPrompt,
             inputValues,
             outputColumn,
             rowKey,
             parameters,
             run,
-          }),
-        ).catch((e: GatewayErrorWrapper) => {
-          const errorMessage = e.getGatewayErrorMessage() || e.getUserVisibleError();
+          });
+        };
+
+        dispatch(getAction()).catch((e: Error | ErrorWrapper | GatewayErrorWrapper) => {
+          const errorMessage = getPromptEngineeringErrorMessage(e);
+
           const wrappedMessage = intl.formatMessage(
             {
               defaultMessage: 'MLflow deployment returned the following error: "{errorMessage}"',
-              description: 'Experiment page > new run modal > MLflow deployment error message',
+              description: 'Experiment page > MLflow deployment error message',
             },
             {
               errorMessage,
@@ -188,11 +194,7 @@ export const PromptEngineeringContextProvider = ({
       toggleExpandedHeader,
     ],
   );
-  return (
-    <PromptEngineeringContext.Provider value={contextValue}>
-      {children}
-    </PromptEngineeringContext.Provider>
-  );
+  return <PromptEngineeringContext.Provider value={contextValue}>{children}</PromptEngineeringContext.Provider>;
 };
 
 export const usePromptEngineeringContext = () => useContext(PromptEngineeringContext);

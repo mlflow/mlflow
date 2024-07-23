@@ -231,7 +231,7 @@ class Patch:
         is_equal = self.__eq__(other)
         return is_equal if is_equal is NotImplemented else not is_equal
 
-    def __hash__(self):  # pylint: disable=useless-super-delegation
+    def __hash__(self):
         return super().__hash__()
 
     def _update(self, **kwargs):
@@ -335,6 +335,7 @@ def revert(patch):
     ----------
     patch : gorilla.Patch
         Patch.
+
     Note
     ----
     This is only possible if the attribute :attr:`Settings.store_hit` was set
@@ -492,7 +493,7 @@ def settings(**kwargs):
     return decorator
 
 
-def filter(value):  # pylint: disable=redefined-builtin
+def filter(value):
     """Modifier decorator to force the inclusion or exclusion of an attribute.
 
     This only modifies the behaviour of the :func:`create_patches` function
@@ -795,6 +796,6 @@ def _module_iterator(root, recursive=True):
                     yield module
 
 
-def _true(*args, **kwargs):  # pylint: disable=unused-argument
+def _true(*args, **kwargs):
     """Return ``True``."""
     return True

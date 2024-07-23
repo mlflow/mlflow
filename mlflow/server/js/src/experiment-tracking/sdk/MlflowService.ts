@@ -13,8 +13,15 @@
  *   Aug 1, 2018 3:42:41 PM. We will update the generation pipeline to actually
  *   place these generated objects in the correct location shortly.
  */
-import { getBigIntJson, getJson, postJson } from '../../common/utils/FetchUtils';
+import { ModelTraceInfo, ModelTraceData } from '@databricks/web-shared/model-trace-explorer';
+import { deleteJson, getBigIntJson, getJson, patchJson, postJson } from '../../common/utils/FetchUtils';
 import { RunInfoEntity } from '../types';
+import {
+  transformGetExperimentResponse,
+  transformGetRunResponse,
+  transformSearchExperimentsResponse,
+  transformSearchRunsResponse,
+} from './FieldNameTransformers';
 
 type CreateRunApiRequest = {
   experiment_id: string;
@@ -27,38 +34,39 @@ export class MlflowService {
   /**
    * Create a mlflow experiment
    */
-  static createExperiment = (data: any) =>
-    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/create', data });
+  static createExperiment = (data: any) => postJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/create', data });
 
   /**
    * Delete a mlflow experiment
    */
-  static deleteExperiment = (data: any) =>
-    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/delete', data });
+  static deleteExperiment = (data: any) => postJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/delete', data });
 
   /**
    * Update a mlflow experiment
    */
-  static updateExperiment = (data: any) =>
-    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/update', data });
+  static updateExperiment = (data: any) => postJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/update', data });
 
   /**
    * Search mlflow experiments
    */
   static searchExperiments = (data: any) =>
-    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/search', data });
+    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/search', data }).then(
+      transformSearchExperimentsResponse,
+    );
 
   /**
    * Get mlflow experiment
    */
   static getExperiment = (data: any) =>
-    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/get', data });
+    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/get', data }).then(transformGetExperimentResponse);
 
   /**
    * Get mlflow experiment by name
    */
   static getExperimentByName = (data: any) =>
-    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/get-by-name', data });
+    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/get-by-name', data }).then(
+      transformGetExperimentResponse,
+    );
 
   /**
    * Create a mlflow experiment run
@@ -71,8 +79,7 @@ export class MlflowService {
   /**
    * Delete a mlflow experiment run
    */
-  static deleteRun = (data: any) =>
-    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/delete', data });
+  static deleteRun = (data: any) => postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/delete', data });
 
   /**
    * Search datasets used in experiments
@@ -83,44 +90,39 @@ export class MlflowService {
   /**
    * Restore a mlflow experiment run
    */
-  static restoreRun = (data: any) =>
-    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/restore', data });
+  static restoreRun = (data: any) => postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/restore', data });
 
   /**
    * Update a mlflow experiment run
    */
-  static updateRun = (data: any) =>
-    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/update', data });
+  static updateRun = (data: any) => postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/update', data });
 
   /**
    * Log mlflow experiment run metric
    */
-  static logMetric = (data: any) =>
-    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/log-metric', data });
+  static logMetric = (data: any) => postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/log-metric', data });
 
   /**
    * Log mlflow experiment run parameter
    */
-  static logParam = (data: any) =>
-    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/log-parameter', data });
+  static logParam = (data: any) => postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/log-parameter', data });
 
   /**
    * Get mlflow experiment run
    */
   static getRun = (data: any) =>
-    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/get', data });
+    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/get', data }).then(transformGetRunResponse);
 
   /**
    * Search mlflow experiment runs
    */
   static searchRuns = (data: any) =>
-    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/search', data });
+    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/search', data }).then(transformSearchRunsResponse);
 
   /**
    * List model artifacts
    */
-  static listArtifacts = (data: any) =>
-    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/artifacts/list', data });
+  static listArtifacts = (data: any) => getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/artifacts/list', data });
 
   /**
    * Get metric history
@@ -131,14 +133,12 @@ export class MlflowService {
   /**
    * Set mlflow experiment run tag
    */
-  static setTag = (data: any) =>
-    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/set-tag', data });
+  static setTag = (data: any) => postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/set-tag', data });
 
   /**
    * Delete mlflow experiment run tag
    */
-  static deleteTag = (data: any) =>
-    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/delete-tag', data });
+  static deleteTag = (data: any) => postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/delete-tag', data });
 
   /**
    * Set mlflow experiment tag
@@ -163,7 +163,7 @@ export class MlflowService {
   /**
    * Proxy post request to gateway server
    */
-  static gatewayProxyPost = (data: { gateway_path: string; json_data: any }, error: any = null) =>
+  static gatewayProxyPost = (data: { gateway_path: string; json_data: any }, error?: any) =>
     postJson({ relativeUrl: 'ajax-api/2.0/mlflow/gateway-proxy', data, error });
 
   /**
@@ -171,4 +171,78 @@ export class MlflowService {
    */
   static gatewayProxyGet = (data: { gateway_path: string; json_data?: any }) =>
     getJson({ relativeUrl: 'ajax-api/2.0/mlflow/gateway-proxy', data });
+  /**
+   * Traces API: get traces list
+   */
+  static getExperimentTraces = (experimentIds: string[], orderBy: string, pageToken?: string, filterString = '') => {
+    type GetExperimentTracesResponse = {
+      traces?: ModelTraceInfo[];
+      next_page_token?: string;
+      prev_page_token?: string;
+    };
+
+    return getJson({
+      relativeUrl: `ajax-api/2.0/mlflow/traces`,
+      data: {
+        experiment_ids: experimentIds.join(','),
+        order_by: orderBy,
+        page_token: pageToken,
+        filter: filterString,
+      },
+    }) as Promise<GetExperimentTracesResponse>;
+  };
+
+  static getExperimentTraceInfo = (requestId: string) => {
+    type GetExperimentTraceInfoResponse = {
+      trace_info?: ModelTraceInfo;
+    };
+
+    return getJson({
+      relativeUrl: `ajax-api/2.0/mlflow/traces/${requestId}/info`,
+    }) as Promise<GetExperimentTraceInfoResponse>;
+  };
+
+  /**
+   * Traces API: get credentials for data download
+   */
+  static getExperimentTraceData = <T = ModelTraceData>(traceRequestId: string) => {
+    return getJson({
+      relativeUrl: `ajax-api/2.0/mlflow/get-trace-artifact`,
+      data: {
+        request_id: traceRequestId,
+      },
+    }) as Promise<T>;
+  };
+
+  /**
+   * Traces API: set trace tag
+   */
+  static setExperimentTraceTag = (traceRequestId: string, key: string, value: string) =>
+    patchJson({
+      relativeUrl: `ajax-api/2.0/mlflow/traces/${traceRequestId}/tags`,
+      data: {
+        key,
+        value,
+      },
+    });
+
+  /**
+   * Traces API: delete trace tag
+   */
+  static deleteExperimentTraceTag = (traceRequestId: string, key: string) =>
+    deleteJson({
+      relativeUrl: `ajax-api/2.0/mlflow/traces/${traceRequestId}/tags`,
+      data: {
+        key,
+      },
+    });
+
+  static deleteTraces = (experimentId: string, traceRequestIds: string[]) =>
+    postJson({
+      relativeUrl: `ajax-api/2.0/mlflow/traces/delete-traces`,
+      data: {
+        experiment_id: experimentId,
+        request_ids: traceRequestIds,
+      },
+    }) as Promise<{ traces_deleted: number }>;
 }

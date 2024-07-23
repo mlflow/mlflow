@@ -26,18 +26,25 @@ export const KeyValueTagsEditorCell = ({ tags = [], onAddEdit }: KeyValueTagsEdi
       }}
     >
       {tags.length < 1 ? (
-        <Button size='small' type='link' onClick={onAddEdit}>
-          <FormattedMessage
-            defaultMessage='Add'
-            description="Key-value tag table cell > 'add' button label"
-          />
+        <Button
+          componentId="codegen_mlflow_app_src_common_components_keyvaluetagseditorcell.tsx_29"
+          size="small"
+          type="link"
+          onClick={onAddEdit}
+        >
+          <FormattedMessage defaultMessage="Add" description="Key-value tag table cell > 'add' button label" />
         </Button>
       ) : (
         <>
           {tags.map((tag) => (
             <KeyValueTag tag={tag} key={`${tag.key}-${tag.value}`} />
           ))}
-          <Button size='small' icon={<PencilIcon />} onClick={onAddEdit} />
+          <Button
+            componentId="codegen_mlflow_app_src_common_components_keyvaluetagseditorcell.tsx_37"
+            size="small"
+            icon={<PencilIcon />}
+            onClick={onAddEdit}
+          />
         </>
       )}
     </div>

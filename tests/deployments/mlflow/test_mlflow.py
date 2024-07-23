@@ -37,6 +37,7 @@ def test_get_endpoint():
         "name": "completions",
         "endpoint_type": "llm/v1/completions",
         "endpoint_url": "http://localhost:5000/endpoints/chat/invocations",
+        "limit": None,
     }
     mock_resp.status_code = 200
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
@@ -47,6 +48,7 @@ def test_get_endpoint():
             "endpoint_type": "llm/v1/completions",
             "model": {"name": "gpt-4", "provider": "openai"},
             "endpoint_url": "http://localhost:5000/endpoints/chat/invocations",
+            "limit": None,
         }
         ((_, url), _) = mock_request.call_args
         assert url == "http://localhost:5000/api/2.0/endpoints/test"
@@ -62,6 +64,7 @@ def test_list_endpoints():
                 "name": "completions",
                 "endpoint_type": "llm/v1/completions",
                 "endpoint_url": "http://localhost:5000/endpoints/chat/invocations",
+                "limit": None,
             }
         ]
     }
@@ -75,6 +78,7 @@ def test_list_endpoints():
                 "name": "completions",
                 "endpoint_type": "llm/v1/completions",
                 "endpoint_url": "http://localhost:5000/endpoints/chat/invocations",
+                "limit": None,
             }
         ]
         ((_, url), _) = mock_request.call_args
@@ -92,6 +96,7 @@ def test_list_endpoints_paginated():
                     "name": "chat",
                     "endpoint_type": "llm/v1/chat",
                     "endpoint_url": "http://localhost:5000/endpoints/chat/invocations",
+                    "limit": None,
                 }
             ],
             "next_page_token": "token",
@@ -103,6 +108,7 @@ def test_list_endpoints_paginated():
                     "name": "completions",
                     "endpoint_type": "llm/v1/completions",
                     "endpoint_url": "http://localhost:5000/endpoints/chat/invocations",
+                    "limit": None,
                 }
             ]
         },
@@ -117,12 +123,14 @@ def test_list_endpoints_paginated():
                 "name": "chat",
                 "endpoint_type": "llm/v1/chat",
                 "endpoint_url": "http://localhost:5000/endpoints/chat/invocations",
+                "limit": None,
             },
             {
                 "model": {"name": "gpt-4", "provider": "openai"},
                 "name": "completions",
                 "endpoint_type": "llm/v1/completions",
                 "endpoint_url": "http://localhost:5000/endpoints/chat/invocations",
+                "limit": None,
             },
         ]
 

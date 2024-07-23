@@ -1,44 +1,37 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { connect } from 'react-redux';
-import { LegacySkeleton, useLegacyNotification } from '@databricks/design-system';
+import { useDispatch, useSelector } from 'react-redux';
+import { useLegacyNotification } from '@databricks/design-system';
 import {
   DatasetSummary,
   ExperimentEntity,
-  ExperimentStoreEntities,
   LIFECYCLE_FILTER,
   MODEL_VERSION_FILTER,
   RunDatasetWithTags,
   UpdateExperimentViewStateFn,
 } from '../../../../types';
-import {
-  experimentRunsSelector,
-  ExperimentRunsSelectorParams,
-  ExperimentRunsSelectorResult,
-} from '../../utils/experimentRuns.selector';
+import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ExperimentViewRunsControls } from './ExperimentViewRunsControls';
 import { ExperimentViewRunsTable } from './ExperimentViewRunsTable';
-
-import { searchModelVersionsApi } from '../../../../../model-registry/actions';
-import { loadMoreRunsApi, searchRunsApi, searchRunsPayload } from '../../../../actions';
-import { GetExperimentRunsContextProvider } from '../../contexts/GetExperimentRunsContext';
-import { useFetchExperimentRuns } from '../../hooks/useFetchExperimentRuns';
-import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
+import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import Utils from '../../../../../common/utils/Utils';
-import {
-  ATTRIBUTE_COLUMN_SORT_KEY,
-  MLFLOW_RUN_TYPE_TAG,
-  MLFLOW_RUN_TYPE_VALUE_EVALUATION,
-} from '../../../../constants';
+import { ATTRIBUTE_COLUMN_SORT_KEY, MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH } from '../../../../constants';
 import { RunRowType } from '../../utils/experimentPage.row-types';
-import { prepareRunsGridData } from '../../utils/experimentPage.row-utils';
-import { RunsCompare } from '../../../runs-compare/RunsCompare';
+import { useExperimentRunRows } from '../../utils/experimentPage.row-utils';
 import { useFetchedRunsNotification } from '../../hooks/useFetchedRunsNotification';
 import { DatasetWithRunType, ExperimentViewDatasetDrawer } from './ExperimentViewDatasetDrawer';
 import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
-import { useAutoExpandRunRows } from '../../hooks/useAutoExpandRunRows';
 import { EvaluationArtifactCompareView } from '../../../evaluation-artifacts-compare/EvaluationArtifactCompareView';
-import { shouldEnableArtifactBasedEvaluation } from '../../../../../common/utils/FeatureUtils';
+import { shouldEnableExperimentPageAutoRefresh } from '../../../../../common/utils/FeatureUtils';
 import { CreateNewRunContextProvider } from '../../hooks/useCreateNewRun';
+import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
+import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
+import { RunsCompare } from '../../../runs-compare/RunsCompare';
+import { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
+import { ReduxState, ThunkDispatch } from '../../../../../redux-types';
+import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import { useIsTabActive } from '../../../../../common/hooks/useIsTabActive';
+import { ExperimentViewRunsTableResizer } from './ExperimentViewRunsTableResizer';
+import { RunsChartsSetHighlightContextProvider } from '../../../runs-charts/hooks/useRunsChartTraceHighlight';
 
 export interface ExperimentViewRunsOwnProps {
   isLoading: boolean;
@@ -47,10 +40,18 @@ export interface ExperimentViewRunsOwnProps {
   lifecycleFilter?: LIFECYCLE_FILTER;
   datasetsFilter?: DatasetSummary[];
   onMaximizedChange?: (newIsMaximized: boolean) => void;
+
+  searchFacetsState: ExperimentPageSearchFacetsState;
+  uiState: ExperimentPageUIState;
 }
 
 export interface ExperimentViewRunsProps extends ExperimentViewRunsOwnProps {
   runsData: ExperimentRunsSelectorResult;
+  isLoadingRuns: boolean;
+  loadMoreRuns: () => Promise<any>;
+  moreRunsAvailable: boolean;
+  requestError: ErrorWrapper | null;
+  refreshRuns: () => void;
 }
 
 /**
@@ -63,30 +64,28 @@ const createCurrentTime = () => {
   return mountTime;
 };
 
-export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps) => {
-  const { experiments, runsData, onMaximizedChange } = props;
+export const INITIAL_RUN_COLUMN_SIZE = 295;
 
-  // Persistable sort/filter model state is taken from the context
+export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) => {
+  const [compareRunsMode] = useExperimentPageViewMode();
   const {
+    experiments,
+    runsData,
+    uiState,
     searchFacetsState,
-    updateSearchFacets,
     isLoadingRuns,
     loadMoreRuns,
     moreRunsAvailable,
-    isPristine,
     requestError,
-  } = useFetchExperimentRuns();
-
-  const [visibleRuns, setVisibleRuns] = useState<RunRowType[]>([]);
+    refreshRuns,
+  } = props;
 
   // Non-persistable view model state is being created locally
-  const [viewState, setViewState] = useState(new SearchExperimentRunsViewState());
+  const [viewState, setViewState] = useState(new ExperimentPageViewState());
 
-  const { experiment_id } = experiments[0];
-  const expandRowsStore = useExperimentViewLocalStore(experiment_id);
-  const [expandRows, updateExpandRows] = useState<boolean>(
-    expandRowsStore.getItem('expandRows') === 'true' ?? false,
-  );
+  const { experimentId } = experiments[0];
+  const expandRowsStore = useExperimentViewLocalStore(experimentId);
+  const [expandRows, updateExpandRows] = useState<boolean>(expandRowsStore.getItem('expandRows') === 'true');
 
   useEffect(() => {
     expandRowsStore.setItem('expandRows', expandRows);
@@ -96,13 +95,14 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     paramKeyList,
     metricKeyList,
     tagsList,
-    modelVersionsByRunUuid,
     paramsList,
     metricsList,
     runInfos,
     runUuidsMatchingFilter,
     datasetsList,
   } = runsData;
+
+  const modelVersionsByRunUuid = useSelector(({ entities }: ReduxState) => entities.modelVersionsByRunUuid);
 
   /**
    * Create a list of run infos with assigned metrics, params and tags
@@ -119,24 +119,14 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     [datasetsList, metricsList, paramsList, runInfos, tagsList],
   );
 
-  const {
-    orderByKey,
-    searchFilter,
-    runsExpanded,
-    runsPinned,
-    compareRunsMode,
-    runsHidden,
-    datasetsFilter,
-  } = searchFacetsState;
+  const { orderByKey, searchFilter } = searchFacetsState;
+  // In new view state model, runs state is in the uiState instead of the searchFacetsState.
+  const { runsPinned, runsExpanded, runsHidden, runListHidden } = uiState;
 
-  const isComparingRuns = compareRunsMode !== undefined;
-
-  // Automatically expand parent runs if necessary
-  useAutoExpandRunRows(runData, visibleRuns, isPristine, updateSearchFacets, runsExpanded);
+  const isComparingRuns = compareRunsMode !== 'TABLE';
 
   const updateViewState = useCallback<UpdateExperimentViewStateFn>(
-    (newPartialViewState) =>
-      setViewState((currentViewState) => ({ ...currentViewState, ...newPartialViewState })),
+    (newPartialViewState) => setViewState((currentViewState) => ({ ...currentViewState, ...newPartialViewState })),
     [],
   );
 
@@ -162,45 +152,31 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [selectedDatasetWithRun, setSelectedDatasetWithRun] = useState<DatasetWithRunType>();
 
-  useEffect(() => {
-    if (isLoadingRuns) {
-      return;
-    }
-    const runs = prepareRunsGridData({
-      experiments,
-      paramKeyList,
-      metricKeyList,
-      modelVersionsByRunUuid,
-      runsExpanded,
-      tagKeyList: filteredTagKeys,
-      nestChildren: shouldNestChildrenAndFetchParents,
-      referenceTime,
-      runData,
-      runUuidsMatchingFilter,
-      runsPinned,
-      runsHidden,
-    });
-
-    setVisibleRuns(runs);
-  }, [
-    runData,
-    isLoadingRuns,
+  // Use new, memoized version of the row creation function.
+  // Internally disabled if the flag is not set.
+  const visibleRuns = useExperimentRunRows({
     experiments,
+    paramKeyList,
     metricKeyList,
     modelVersionsByRunUuid,
-    paramKeyList,
     runsExpanded,
-    filteredTagKeys,
-    shouldNestChildrenAndFetchParents,
+    tagKeyList: filteredTagKeys,
+    nestChildren: shouldNestChildrenAndFetchParents,
     referenceTime,
+    runData,
+    runUuidsMatchingFilter,
     runsPinned,
     runsHidden,
-    runUuidsMatchingFilter,
-    requestError,
-  ]);
+    groupBy: uiState.groupBy,
+    groupsExpanded: uiState.groupsExpanded,
+    runsHiddenMode: uiState.runsHiddenMode,
+    useGroupedValuesInCharts: uiState.useGroupedValuesInCharts,
+  });
 
   const [notificationsFn, notificationContainer] = useLegacyNotification();
   const showFetchedRunsNotifications = useFetchedRunsNotification(notificationsFn);
+
+  const [tableAreaWidth, setTableAreaWidth] = useState(INITIAL_RUN_COLUMN_SIZE);
 
   const loadMoreRunsCallback = useCallback(() => {
     if (moreRunsAvailable && !isLoadingRuns) {
@@ -214,165 +190,103 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     }
   }, [moreRunsAvailable, isLoadingRuns, loadMoreRuns, runInfos, showFetchedRunsNotifications]);
 
-  useEffect(() => {
-    onMaximizedChange?.(viewState.viewMaximized);
-  }, [viewState.viewMaximized, onMaximizedChange]);
-
   const datasetSelected = useCallback((dataset: RunDatasetWithTags, run: RunRowType) => {
     setSelectedDatasetWithRun({ datasetWithTags: dataset, runData: run });
     setIsDrawerOpen(true);
   }, []);
 
+  const isTabActive = useIsTabActive();
+  const autoRefreshEnabled = uiState.autoRefreshEnabled && shouldEnableExperimentPageAutoRefresh() && isTabActive;
+  const usingGroupedValuesInCharts = uiState.useGroupedValuesInCharts ?? true;
+
+  const tableElement = (
+    <ExperimentViewRunsTable
+      experiments={experiments}
+      runsData={runsData}
+      searchFacetsState={searchFacetsState}
+      viewState={viewState}
+      isLoading={isLoadingRuns}
+      updateViewState={updateViewState}
+      onAddColumnClicked={addColumnClicked}
+      rowsData={visibleRuns}
+      loadMoreRunsFunc={loadMoreRunsCallback}
+      moreRunsAvailable={moreRunsAvailable}
+      onDatasetSelected={datasetSelected}
+      expandRows={expandRows}
+      uiState={uiState}
+      compareRunsMode={compareRunsMode}
+    />
+  );
+
   return (
-    <CreateNewRunContextProvider visibleRuns={visibleRuns}>
-      <ExperimentViewRunsControls
-        viewState={viewState}
-        updateViewState={updateViewState}
-        runsData={runsData}
-        searchFacetsState={searchFacetsState}
-        updateSearchFacets={updateSearchFacets}
-        experimentId={experiment_id}
-        requestError={requestError}
-        expandRows={expandRows}
-        updateExpandRows={updateExpandRows}
-      />
-      <div
-        css={{
-          minHeight: 225, // This is the exact height for displaying a minimum five rows and table header
-          height: '100%',
-          display: 'grid',
-          position: 'relative' as const,
-          gridTemplateColumns: isComparingRuns
-            ? viewState.runListHidden
-              ? '10px 1fr'
-              : '310px 1fr'
-            : '1fr',
-        }}
-      >
-        <ExperimentViewRunsTable
-          experiments={experiments}
+    <CreateNewRunContextProvider visibleRuns={visibleRuns} refreshRuns={refreshRuns}>
+      <RunsChartsSetHighlightContextProvider>
+        <ExperimentViewRunsControls
+          viewState={viewState}
+          updateViewState={updateViewState}
           runsData={runsData}
           searchFacetsState={searchFacetsState}
-          viewState={viewState}
-          isLoading={isLoadingRuns}
-          updateSearchFacets={updateSearchFacets}
-          updateViewState={updateViewState}
-          onAddColumnClicked={addColumnClicked}
-          rowsData={visibleRuns}
-          loadMoreRunsFunc={loadMoreRunsCallback}
-          moreRunsAvailable={moreRunsAvailable}
-          onDatasetSelected={datasetSelected}
+          experimentId={experimentId}
+          requestError={requestError}
           expandRows={expandRows}
+          updateExpandRows={updateExpandRows}
+          refreshRuns={refreshRuns}
+          uiState={uiState}
+          isLoading={isLoadingRuns}
         />
-        {compareRunsMode === 'CHART' && (
-          <RunsCompare
-            isLoading={isLoadingRuns}
-            comparedRuns={visibleRuns}
-            metricKeyList={runsData.metricKeyList}
-            paramKeyList={runsData.paramKeyList}
-            experimentTags={runsData.experimentTags}
-            searchFacetsState={searchFacetsState}
-            updateSearchFacets={updateSearchFacets}
-          />
-        )}
-        {compareRunsMode === 'ARTIFACT' && shouldEnableArtifactBasedEvaluation() && (
-          <EvaluationArtifactCompareView
-            comparedRuns={visibleRuns}
-            viewState={viewState}
-            updateViewState={updateViewState}
-            updateSearchFacets={updateSearchFacets}
-            onDatasetSelected={datasetSelected}
-          />
-        )}
-        {notificationContainer}
-        {selectedDatasetWithRun && (
-          <ExperimentViewDatasetDrawer
-            isOpen={isDrawerOpen}
-            setIsOpen={setIsDrawerOpen}
-            selectedDatasetWithRun={selectedDatasetWithRun}
-            setSelectedDatasetWithRun={setSelectedDatasetWithRun}
-          />
-        )}
-      </div>
+        <div
+          css={{
+            minHeight: 225, // This is the exact height for displaying a minimum five rows and table header
+            height: '100%',
+            position: 'relative',
+            display: 'flex',
+          }}
+        >
+          {isComparingRuns ? (
+            <ExperimentViewRunsTableResizer
+              onResize={setTableAreaWidth}
+              runListHidden={runListHidden}
+              width={tableAreaWidth}
+            >
+              {tableElement}
+            </ExperimentViewRunsTableResizer>
+          ) : (
+            tableElement
+          )}
+          {compareRunsMode === 'CHART' && (
+            <RunsCompare
+              isLoading={isLoadingRuns}
+              comparedRuns={visibleRuns}
+              metricKeyList={runsData.metricKeyList}
+              paramKeyList={runsData.paramKeyList}
+              experimentTags={runsData.experimentTags}
+              compareRunCharts={uiState.compareRunCharts}
+              compareRunSections={uiState.compareRunSections}
+              groupBy={usingGroupedValuesInCharts ? uiState.groupBy : null}
+              autoRefreshEnabled={autoRefreshEnabled}
+              hideEmptyCharts={uiState.hideEmptyCharts}
+            />
+          )}
+          {compareRunsMode === 'ARTIFACT' && (
+            <EvaluationArtifactCompareView
+              comparedRuns={visibleRuns}
+              viewState={viewState}
+              updateViewState={updateViewState}
+              onDatasetSelected={datasetSelected}
+              disabled={Boolean(uiState.groupBy)}
+            />
+          )}
+          {notificationContainer}
+          {selectedDatasetWithRun && (
+            <ExperimentViewDatasetDrawer
+              isOpen={isDrawerOpen}
+              setIsOpen={setIsDrawerOpen}
+              selectedDatasetWithRun={selectedDatasetWithRun}
+              setSelectedDatasetWithRun={setSelectedDatasetWithRun}
+            />
+          )}
+        </div>
+      </RunsChartsSetHighlightContextProvider>
     </CreateNewRunContextProvider>
   );
 });
-
-/**
- * Concrete actions for GetExperimentRuns context provider
- */
-const getExperimentRunsActions = {
-  searchRunsApi,
-  loadMoreRunsApi,
-  searchRunsPayload,
-  searchModelVersionsApi,
-};
-
-/**
- * Function mapping redux state used in connect()
- */
-const mapStateToProps = (
-  state: { entities: ExperimentStoreEntities },
-  params: ExperimentRunsSelectorParams,
-) => {
-  return { runsData: experimentRunsSelector(state, params) };
-};
-
-/**
- * Component responsible for displaying runs table with its set of
- * respective sort and filter controls on the experiment page.
- */
-export const ExperimentViewRunsConnect: React.ComponentType<ExperimentViewRunsOwnProps> = connect(
-  // mapStateToProps function:
-  mapStateToProps,
-  // mapDispatchToProps function (not provided):
-  undefined,
-  // mergeProps function (not provided):
-  undefined,
-  {
-    // We're interested only in certain entities sub-tree so we won't
-    // re-render on other state changes (e.g. API request IDs or metric history)
-    areStatesEqual: (nextState, prevState) =>
-      nextState.entities.experimentTagsByExperimentId ===
-        prevState.entities.experimentTagsByExperimentId &&
-      nextState.entities.latestMetricsByRunUuid === prevState.entities.latestMetricsByRunUuid &&
-      nextState.entities.modelVersionsByRunUuid === prevState.entities.modelVersionsByRunUuid &&
-      nextState.entities.paramsByRunUuid === prevState.entities.paramsByRunUuid &&
-      nextState.entities.runInfosByUuid === prevState.entities.runInfosByUuid &&
-      nextState.entities.runUuidsMatchingFilter === prevState.entities.runUuidsMatchingFilter &&
-      nextState.entities.tagsByRunUuid === prevState.entities.tagsByRunUuid,
-  },
-)(ExperimentViewRunsImpl);
-
-/**
- * This component serves as a layer for injecting props necessary for connect() to work
- */
-export const ExperimentViewRunsInjectFilters = (props: ExperimentViewRunsOwnProps) => {
-  const { searchFacetsState } = useFetchExperimentRuns();
-  if (props.isLoading) {
-    return <LegacySkeleton active />;
-  }
-  return (
-    <ExperimentViewRunsConnect
-      {...props}
-      modelVersionFilter={searchFacetsState.modelVersionFilter as MODEL_VERSION_FILTER}
-      lifecycleFilter={searchFacetsState.lifecycleFilter as LIFECYCLE_FILTER}
-      datasetsFilter={searchFacetsState.datasetsFilter as DatasetSummary[]}
-    />
-  );
-};
-
-/**
- * This component serves as a layer for creating context for searching runs
- * and provides implementations of necessary redux actions.
- */
-export const ExperimentViewRunsInjectContext = (props: ExperimentViewRunsOwnProps) => (
-  <GetExperimentRunsContextProvider actions={getExperimentRunsActions}>
-    <ExperimentViewRunsInjectFilters {...props} />
-  </GetExperimentRunsContextProvider>
-);
-
-/**
- * Export context injection layer as a main entry point
- */
-export const ExperimentViewRuns = React.memo(ExperimentViewRunsInjectContext);

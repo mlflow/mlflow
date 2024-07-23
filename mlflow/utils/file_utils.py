@@ -48,18 +48,17 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.utils import download_cloud_file_chunk, merge_dicts
-from mlflow.utils.databricks_utils import _get_dbutils
+from mlflow.utils.databricks_utils import (
+    get_databricks_local_temp_dir,
+    get_databricks_nfs_temp_dir,
+)
 from mlflow.utils.os import is_windows
 from mlflow.utils.process import cache_return_value_per_process
 from mlflow.utils.request_utils import cloud_storage_http_request, download_chunk
 from mlflow.utils.rest_utils import augmented_raise_for_status
 
 ENCODING = "utf-8"
-MAX_PARALLEL_DOWNLOAD_WORKERS = os.cpu_count() * 2
 _PROGRESS_BAR_DISPLAY_THRESHOLD = 500_000_000  # 500 MB
-
-_logger = logging.getLogger(__name__)
-
 
 _logger = logging.getLogger(__name__)
 
@@ -206,7 +205,7 @@ def mkdir(root, name=None):
     """
     target = os.path.join(root, name) if name is not None else root
     try:
-        os.makedirs(target)
+        os.makedirs(target, exist_ok=True)
     except OSError as e:
         if e.errno != errno.EEXIST or not os.path.isdir(target):
             raise e
@@ -244,18 +243,15 @@ def write_yaml(root, file_name, data, overwrite=False, sort_keys=True, ensure_ya
     if exists(yaml_file_name) and not overwrite:
         raise Exception(f"Yaml file '{file_path}' exists as '{yaml_file_name}")
 
-    try:
-        with codecs.open(yaml_file_name, mode="w", encoding=ENCODING) as yaml_file:
-            yaml.dump(
-                data,
-                yaml_file,
-                default_flow_style=False,
-                allow_unicode=True,
-                sort_keys=sort_keys,
-                Dumper=YamlSafeDumper,
-            )
-    except Exception as e:
-        raise e
+    with codecs.open(yaml_file_name, mode="w", encoding=ENCODING) as yaml_file:
+        yaml.dump(
+            data,
+            yaml_file,
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=sort_keys,
+            Dumper=YamlSafeDumper,
+        )
 
 
 def overwrite_yaml(root, file_name, data, ensure_yaml_extension=True):
@@ -311,11 +307,8 @@ def read_yaml(root, file_name):
     file_path = os.path.join(root, file_name)
     if not exists(file_path):
         raise MissingConfigException(f"Yaml file '{file_path}' does not exist.")
-    try:
-        with codecs.open(file_path, mode="r", encoding=ENCODING) as yaml_file:
-            return yaml.load(yaml_file, Loader=YamlSafeLoader)
-    except Exception as e:
-        raise e
+    with codecs.open(file_path, mode="r", encoding=ENCODING) as yaml_file:
+        return yaml.load(yaml_file, Loader=YamlSafeLoader)
 
 
 class UniqueKeyLoader(YamlSafeLoader):
@@ -562,8 +555,8 @@ def _copy_project(src_path, dst_path=""):
 
     mlflow_dir = "mlflow-project"
     # check if we have project root
-    assert os.path.isfile(os.path.join(src_path, "setup.py")), "file not found " + str(
-        os.path.abspath(os.path.join(src_path, "setup.py"))
+    assert os.path.isfile(os.path.join(src_path, "pyproject.toml")), "file not found " + str(
+        os.path.abspath(os.path.join(src_path, "pyproject.toml"))
     )
     shutil.copytree(src_path, os.path.join(dst_path, mlflow_dir), ignore=_docker_ignore(src_path))
     return mlflow_dir
@@ -849,7 +842,7 @@ def _handle_readonly_on_windows(func, path, exc_info):
     """
     exc_type, exc_value = exc_info[:2]
     should_reattempt = (
-        os.name == "nt"
+        is_windows()
         and func in (os.unlink, os.rmdir)
         and issubclass(exc_type, PermissionError)
         and exc_value.winerror == 5
@@ -865,7 +858,7 @@ def _get_tmp_dir():
 
     if is_in_databricks_runtime():
         try:
-            return _get_dbutils().entry_point.getReplLocalTempDir()
+            return get_databricks_local_temp_dir()
         except Exception:
             pass
 
@@ -892,12 +885,12 @@ def get_or_create_tmp_dir():
 
     if is_in_databricks_runtime() and get_repl_id() is not None:
         # Note: For python process attached to databricks notebook, atexit does not work.
-        # The directory returned by `dbutils.entry_point.getReplLocalTempDir()`
+        # The directory returned by `get_databricks_local_tmp_dir`
         # will be removed once databricks notebook detaches.
         # The temp directory is designed to be used by all kinds of applications,
         # so create a child directory "mlflow" for storing mlflow temp data.
         try:
-            repl_local_tmp_dir = _get_dbutils().entry_point.getReplLocalTempDir()
+            repl_local_tmp_dir = get_databricks_local_temp_dir()
         except Exception:
             repl_local_tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id())
 
@@ -925,12 +918,12 @@ def get_or_create_nfs_tmp_dir():
 
     if is_in_databricks_runtime() and get_repl_id() is not None:
         # Note: In databricks, atexit hook does not work.
-        # The directory returned by `dbutils.entry_point.getReplNFSTempDir()`
+        # The directory returned by `get_databricks_nfs_tmp_dir`
         # will be removed once databricks notebook detaches.
         # The temp directory is designed to be used by all kinds of applications,
         # so create a child directory "mlflow" for storing mlflow temp data.
         try:
-            repl_nfs_tmp_dir = _get_dbutils().entry_point.getReplNFSTempDir()
+            repl_nfs_tmp_dir = get_databricks_nfs_temp_dir()
         except Exception:
             repl_nfs_tmp_dir = os.path.join(nfs_root_dir, "repl_tmp_data", get_repl_id())
 
@@ -990,6 +983,13 @@ def contains_path_separator(path):
     Returns True if a path contains a path separator, False otherwise.
     """
     return any((sep in path) for sep in (os.path.sep, os.path.altsep) if sep is not None)
+
+
+def contains_percent(path):
+    """
+    Returns True if a path contains a percent character, False otherwise.
+    """
+    return "%" in path
 
 
 def read_chunk(path: os.PathLike, size: int, start_byte: int = 0) -> bytes:

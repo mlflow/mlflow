@@ -23,6 +23,10 @@ predictions_col_specifier = (
 def _validate_text_data(data, metric_name, col_specifier):
     """Validates that the data is a list of strs and is non-empty"""
     if data is None or len(data) == 0:
+        _logger.warning(
+            f"Cannot calculate {metric_name} for empty inputs: "
+            f"{col_specifier} is empty or the parameter is not specified. Skipping metric logging."
+        )
         return False
 
     for row, line in enumerate(data):
@@ -36,17 +40,23 @@ def _validate_text_data(data, metric_name, col_specifier):
     return True
 
 
-def _validate_list_str_data(data, metric_name, col_specifier):
-    """Validates that the data is a list of lists of strings and is non-empty"""
+def _validate_array_like_id_data(data, metric_name, col_specifier):
+    """Validates that the data is a list of lists/np.ndarrays of strings/ints and is non-empty"""
     if data is None or len(data) == 0:
         return False
 
     for index, value in data.items():
-        if not isinstance(value, list) or not all(isinstance(val, str) for val in value):
+        if not (
+            (isinstance(value, list) and all(isinstance(val, (str, int)) for val in value))
+            or (
+                isinstance(value, np.ndarray)
+                and (np.issubdtype(value.dtype, str) or np.issubdtype(value.dtype, int))
+            )
+        ):
             _logger.warning(
-                f"Cannot calculate metric '{metric_name}' for non-list of string inputs. "
-                f"Non-list of strings found for {col_specifier} on row {index}. Skipping metric "
-                f"logging."
+                f"Cannot calculate metric '{metric_name}' for non-arraylike of string or int "
+                f"inputs. Non-arraylike of strings/ints found for {col_specifier} on row "
+                f"{index}, value {value}. Skipping metric logging."
             )
             return False
 
@@ -111,7 +121,10 @@ def _flesch_kincaid_eval_fn(predictions, targets=None, metrics=None):
     try:
         import textstat
     except ImportError:
-        _logger.warning("Failed to load flesch kincaid metric, skipping metric logging.")
+        _logger.warning(
+            "Failed to import textstat for flesch kincaid metric, skipping metric logging. "
+            "Please install textstat using 'pip install textstat'."
+        )
         return
 
     scores = [textstat.flesch_kincaid_grade(prediction) for prediction in predictions]
@@ -129,7 +142,9 @@ def _ari_eval_fn(predictions, targets=None, metrics=None):
         import textstat
     except ImportError:
         _logger.warning(
-            "Failed to load automated readability index metric, skipping metric logging."
+            "Failed to import textstat for automated readability index metric, "
+            "skipping metric logging. "
+            "Please install textstat using 'pip install textstat'."
         )
         return
 
@@ -345,9 +360,9 @@ def _precision_at_k_eval_fn(k):
         return noop
 
     def _fn(predictions, targets):
-        if not _validate_list_str_data(
+        if not _validate_array_like_id_data(
             predictions, "precision_at_k", predictions_col_specifier
-        ) or not _validate_list_str_data(targets, "precision_at_k", targets_col_specifier):
+        ) or not _validate_array_like_id_data(targets, "precision_at_k", targets_col_specifier):
             return
 
         scores = []
@@ -380,7 +395,8 @@ def _expand_duplicate_retrieved_docs(predictions, targets):
                 f"{doc_id}_bc574ae_{counter[doc_id]}"  # adding a random string to avoid collisions
             )
             expanded_predictions.append(new_doc_id)
-            expanded_targets.add(new_doc_id)
+            if doc_id in expanded_targets:
+                expanded_targets.add(new_doc_id)
     return expanded_predictions, expanded_targets
 
 
@@ -430,9 +446,9 @@ def _ndcg_at_k_eval_fn(k):
     def _fn(predictions, targets):
         from sklearn.metrics import ndcg_score
 
-        if not _validate_list_str_data(
+        if not _validate_array_like_id_data(
             predictions, "ndcg_at_k", predictions_col_specifier
-        ) or not _validate_list_str_data(targets, "ndcg_at_k", targets_col_specifier):
+        ) or not _validate_array_like_id_data(targets, "ndcg_at_k", targets_col_specifier):
             return
 
         scores = []
@@ -463,15 +479,15 @@ def _ndcg_at_k_eval_fn(k):
 def _recall_at_k_eval_fn(k):
     if not (isinstance(k, int) and k > 0):
         _logger.warning(
-            f"Cannot calculate 'precision_at_k' for invalid parameter 'k'. "
+            f"Cannot calculate 'recall_at_k' for invalid parameter 'k'. "
             f"'k' should be a positive integer; found: {k}. Skipping metric logging."
         )
         return noop
 
     def _fn(predictions, targets):
-        if not _validate_list_str_data(
-            predictions, "precision_at_k", predictions_col_specifier
-        ) or not _validate_list_str_data(targets, "precision_at_k", targets_col_specifier):
+        if not _validate_array_like_id_data(
+            predictions, "recall_at_k", predictions_col_specifier
+        ) or not _validate_array_like_id_data(targets, "recall_at_k", targets_col_specifier):
             return
 
         scores = []

@@ -6,7 +6,6 @@ def commands():
     """
     Commands for managing an MLflow tracking database.
     """
-    pass
 
 
 @commands.command()

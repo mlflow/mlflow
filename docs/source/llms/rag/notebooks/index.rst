@@ -21,20 +21,26 @@ End-to-End LLM RAG Evaluation Tutorial
 This notebook, intended for use with the Databricks platform, showcases a full end-to-end example of how to configure, create, and interface with 
 a full RAG system. The example used in this tutorial uses the documentation of MLflow as the corpus of embedded documents that the RAG application will 
 use to answer questions. Using ChromaDB to store the document embeddings and LangChain to orchestrate the RAG application, we'll use MLflow's `evaluate` 
-functionality to evaluate the retrieved documents from our corpus based on a series of questions.
+functionality to evaluate the retrieved documents from our corpus based on a series of questions. You can click "Download this Notebook" button to 
+download the ``.ipynb`` file locally and import it directly in the Databricks Workspace.
 
-If you would like to try this notebook out on Databricks, you can import it directly from the Databricks Workspace. If you would like a local copy to 
-manually import into your Workspace, you can download it here:
-
-.. raw:: html
-
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/rag/notebooks/mlflow-e2e-evaluation.ipynb" class="notebook-download-btn">Download the notebook</a><br/>
-
-To follow along and see the sections of the notebook guide, click below:
 
 .. raw:: html
 
-    <a href="mlflow-e2e-evaluation.html" class="download-btn">View the Notebook</a><br/>
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="mlflow-e2e-evaluation.html">
+                    <div class="header">
+                        End-to-End RAG Evaluation with MLflow
+                    </div>
+                    <p>
+                        Comprehensive tutorial on evaluating Retrieval-Augmented Generation (RAG) systems using MLflow
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
 
 
 Question Generation for RAG Tutorial
@@ -47,18 +53,22 @@ question dataset. The question dataset can then be used for the subsequent task 
 retriever model, which is a part of RAG that collects and ranks relevant document chunks based on
 the user's question.
 
-If you would like a copy of this notebook to execute in your environment, download the notebook here:
-
 .. raw:: html
 
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/rag/notebooks/question-generation-retrieval-evaluation.ipynb" class="notebook-download-btn">Download the notebook</a><br/>
-
-To follow along and see the sections of the notebook guide, click below:
-
-.. raw:: html
-
-    <a href="question-generation-retrieval-evaluation.html" class="download-btn">View the Notebook</a><br/>
-
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="question-generation-retrieval-evaluation.html">
+                    <div class="header">
+                        Question Generation for RAG Evaluation
+                    </div>
+                    <p>
+                        Step-by-step demonstration for how to automatically generate a question-answering dataset for RAG evaluation
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
 
 Retriever Evaluation Tutorial
 -----------------------------
@@ -76,10 +86,18 @@ If you would like a copy of this notebook to execute in your environment, downlo
 
 .. raw:: html
 
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/rag/notebooks/retriever-evaluation-tutorial.ipynb" class="notebook-download-btn">Download the notebook</a><br/>
-
-To follow along and see the sections of the notebook guide, click below:
-
-.. raw:: html
-
-    <a href="retriever-evaluation-tutorial.html" class="download-btn">View the Notebook</a><br/>
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="retriever-evaluation-tutorial.ipynb">
+                    <div class="header">
+                        Retriever Evaluation with MLflow
+                    </div>
+                    <p>
+                        Learn how to leverage MLflow to evaluate the performance of a retriever in a RAG application,
+                        leveraging built-in retriever metrics <code>precision_at_k</code> and <code>recall_at_k</code>.
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>

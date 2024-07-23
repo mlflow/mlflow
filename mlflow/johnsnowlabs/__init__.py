@@ -239,6 +239,7 @@ def log_model(
                         'johnsnowlabs'
                     ]
                 }
+        code_paths: {{ code_paths }}
         dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
             filesystem if running in local mode. The model is written in this
             destination and then copied into the model's artifact directory. This is
@@ -272,10 +273,7 @@ def log_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
+        metadata:  {{ metadata }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -390,8 +388,8 @@ def _save_model_metadata(
     input_example=None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    remote_model_path=None,  # pylint: disable=unused-argument
-    store_license=False,  # pylint: disable=unused-argument
+    remote_model_path=None,
+    store_license=False,
 ):
     """
     Saves model metadata into the passed-in directory.
@@ -534,6 +532,7 @@ def save_model(
                         'johnsnowlabs'
                     ]
                 }
+        code_paths: {{ code_paths }}
         dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
             filesystem if running in local mode. The model is be written in this
             destination and then copied to the requested local path. This is necessary
@@ -560,10 +559,7 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
+        metadata: {{ metadata }}
 
     .. code-block:: python
         :caption: Example
@@ -668,9 +664,7 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     return nlp.load(path=local_model_path)
 
 
-def load_model(
-    model_uri, dfs_tmpdir=None, dst_path=None, **kwargs
-):  # pylint: disable=unused-argument
+def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):
     """
     Load the Johnsnowlabs MLflow model from the path.
 
@@ -880,9 +874,6 @@ class _PyFuncModelWrapper:
         Args:
             text: pandas DataFrame containing input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             List with model predictions.

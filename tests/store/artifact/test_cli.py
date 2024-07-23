@@ -41,7 +41,7 @@ def test_download_from_uri():
         def __init__(self, scheme):
             self.scheme = scheme
 
-        def download_artifacts(self, artifact_path, **kwargs):  # pylint: disable=unused-argument
+        def download_artifacts(self, artifact_path, **kwargs):
             return (self.scheme, artifact_path)
 
     def test_get_artifact_repository(artifact_uri):
@@ -84,8 +84,11 @@ def test_download_from_uri():
 
 def _run_download_artifact_command(args) -> pathlib.Path:
     """
-    :param command: An `mlflow artifacts` command list.
-    :return: Path to the downloaded artifact.
+    Args:
+        command: An `mlflow artifacts` command list.
+
+    Returns:
+        Path to the downloaded artifact.
     """
     runner = CliRunner()
     resp = runner.invoke(download_artifacts, args=args, catch_exceptions=False)

@@ -25,6 +25,23 @@ The integration includes:
 - **Conversational AI**: Exploring the capabilities of the Chat Completions API for interactive, context-aware applications.
 - **Embeddings Generation**: Corpus and text embeddings generation capabilities for advanced document retrieval use cases.
 
+Autologging Support for the OpenAI integration
+----------------------------------------------
+
+.. toctree::
+    :maxdepth: 2
+    :hidden:
+
+    ./autologging
+
+If you'd like to learn more about autologging support for OpenAI within MLflow, please visit the `OpenAI Autologging <autologging.html>`_ page.
+
+Tracing with the OpenAI flavor
+------------------------------
+
+MLflow's OpenAI flavor includes an integrated automated tracing feature with the use of the :py:func:`mlflow.openai.autolog` API. To learn more about 
+how to log your development usage of the OpenAI SDK, please visit the `guide to autologging tracing <../tracing/index.html#automatic-tracing>`_ for this flavor.
+
 What makes this Integration so Special?
 ---------------------------------------
 The combination of MLflow's experiment tracking and model management with OpenAI's cutting-edge NLP models unlocks new potential for AI applications. 
@@ -119,6 +136,16 @@ The diagram below shows the basic scope of the level of complexity that the tuto
 
    The range of content within the tutorials for the OpenAI flavor
 
+
+.. toctree::
+    :maxdepth: 2
+    :hidden:
+
+    notebooks/openai-quickstart.ipynb
+    notebooks/openai-chat-completions.ipynb
+    notebooks/openai-code-helper.ipynb
+    notebooks/openai-embeddings-generation.ipynb
+
 Introductory Tutorial
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -139,10 +166,6 @@ Introductory Tutorial
             </div>
         </article>
     </section>
-
-.. raw:: html
-
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/openai/notebooks/openai-quickstart.ipynb" class="notebook-download-btn">Download the Introductory Notebook</a><br>
 
 
 Advanced Tutorials
@@ -189,27 +212,6 @@ to understand in order to get the notebooks in this section to work.
             </div>
         </article>
     </section>
-
-
-Download the Advanced Tutorial Notebooks
-----------------------------------------
-
-To download the advanced OpenAI tutorial notebooks to run in your environment, click the respective links below:
-
-.. raw:: html
-
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/openai/notebooks/openai-chat-completions.ipynb" class="notebook-download-btn">Download the ChatCompletions Notebook</a><br>
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/openai/notebooks/openai-code-helper.ipynb" class="notebook-download-btn">Download the Code Helper Notebook</a><br>
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/openai/notebooks/openai-embeddings-generation.ipynb" class="notebook-download-btn">Download the Embeddings Notebook</a><br>
-
-.. toctree::
-    :maxdepth: 2
-    :hidden:
-
-    notebooks/openai-quickstart.ipynb
-    notebooks/openai-chat-completions.ipynb
-    notebooks/openai-code-helper.ipynb
-    notebooks/openai-embeddings-generation.ipynb
 
 `Detailed Documentation <guide/index.html>`_
 --------------------------------------------

@@ -34,18 +34,11 @@ function ErrorImage(props: ErrorImageProps) {
 
   switch (props.statusCode) {
     case 404:
-      return (
-        <img
-          className='center'
-          alt={alt}
-          style={{ height: '300px', marginTop: '80px' }}
-          src={error404Img}
-        />
-      );
+      return <img className="center" alt={alt} style={{ height: '300px', marginTop: '80px' }} src={error404Img} />;
     default:
       return (
         <img
-          className='center'
+          className="center"
           alt={alt}
           src={errorDefaultImg}
           style={{
@@ -75,14 +68,11 @@ export class ErrorViewImpl extends Component<ErrorViewImplProps> {
     if (subMessage) {
       return (
         <FormattedMessage
-          defaultMessage='{subMessage}, go back to <link>the home page.</link>'
-          description='Default error message for error views in MLflow'
+          defaultMessage="{subMessage}, go back to <link>the home page.</link>"
+          description="Default error message for error views in MLflow"
           values={{
             link: (chunks: any) => (
-              <Link
-                data-test-id='error-view-link'
-                to={fallbackHomePageReactRoute || Routes.rootRoute}
-              >
+              <Link data-test-id="error-view-link" to={fallbackHomePageReactRoute || Routes.rootRoute}>
                 {chunks}
               </Link>
             ),
@@ -93,14 +83,11 @@ export class ErrorViewImpl extends Component<ErrorViewImplProps> {
     } else {
       return (
         <FormattedMessage
-          defaultMessage='Go back to <link>the home page.</link>'
-          description='Default error message for error views in MLflow'
+          defaultMessage="Go back to <link>the home page.</link>"
+          description="Default error message for error views in MLflow"
           values={{
             link: (chunks: any) => (
-              <Link
-                data-test-id='error-view-link'
-                to={fallbackHomePageReactRoute || Routes.rootRoute}
-              >
+              <Link data-test-id="error-view-link" to={fallbackHomePageReactRoute || Routes.rootRoute}>
                 {chunks}
               </Link>
             ),
@@ -117,7 +104,7 @@ export class ErrorViewImpl extends Component<ErrorViewImplProps> {
     const centerMessage = ErrorViewImpl.centerMessages[statusCode] || 'HTTP Request Error';
 
     return (
-      <div className='center'>
+      <div className="center">
         <ErrorImage statusCode={statusCode} />
         <h1 style={{ paddingTop: '10px' }}>{centerMessage}</h1>
         <h2 style={{ color: theme.colors.textSecondary }}>

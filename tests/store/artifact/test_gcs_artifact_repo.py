@@ -1,4 +1,3 @@
-# pylint: disable=redefined-outer-name
 import os
 import posixpath
 from unittest import mock
@@ -196,7 +195,6 @@ def test_download_artifacts_calls_expected_gcs_client_methods(mock_client, tmp_p
     repo = GCSArtifactRepository("gs://test_bucket/some/path", mock_client)
 
     def mkfile(fname, **kwargs):
-        # pylint: disable=unused-argument
         fname = os.path.basename(fname)
         f = tmp_path.joinpath(fname)
         f.write_text("hello world!")
@@ -258,7 +256,7 @@ def test_download_artifacts_downloads_expected_content(mock_client, tmp_path):
         without recursively listing the same artifacts at every level of the
         directory traversal.
         """
-        # pylint: disable=unused-argument
+
         prefix = os.path.join("/", prefix)
         if os.path.abspath(prefix) == os.path.abspath(artifact_root_path):
             return mock_populated_results
@@ -266,7 +264,6 @@ def test_download_artifacts_downloads_expected_content(mock_client, tmp_path):
             return mock_empty_results
 
     def mkfile(fname, **kwargs):
-        # pylint: disable=unused-argument
         fname = os.path.basename(fname)
         f = tmp_path.joinpath(fname)
         f.write_text("hello world!")
@@ -321,7 +318,6 @@ def test_delete_artifacts(mock_client):
         directory traversal.
         """
 
-        # pylint: disable=unused-argument
         if hasattr(obj_mock, "name") and hasattr(obj_mock, "size"):
             mock_results = mock.MagicMock()
             mock_results.__iter__.return_value = [obj_mock]

@@ -1,7 +1,7 @@
 import React from 'react';
 import { mockModelVersionDetailed } from '../test-utils';
 import { ModelVersionStatus, Stages } from '../constants';
-import { renderWithIntl, screen } from '../../common/utils/TestUtils';
+import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
@@ -12,7 +12,7 @@ import { ModelVersionTable } from './ModelVersionTable';
 jest.mock('../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual('../../common/utils/FeatureUtils'),
   // Force-enable toggling new models UI for test purposes
-  shouldUseToggleModelsNextUI: () => true,
+  shouldShowModelsNextUI: () => true,
 }));
 
 describe('ModelVersionTable', () => {
@@ -22,6 +22,7 @@ describe('ModelVersionTable', () => {
     onChange: jest.fn(),
     onMetadataUpdated: jest.fn(),
     usingNextModelsUI: false,
+    aliases: [],
   };
 
   const mockStoreFactory = configureStore([thunk, promiseMiddleware()]);
@@ -67,14 +68,20 @@ describe('ModelVersionTable', () => {
     expect(screen.queryByRole('columnheader', { name: 'Aliases' })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Tags' })).not.toBeInTheDocument();
   });
+
   test('should display aliases and tags column instead of stage when new models UI is used', () => {
+    const modelName = 'Random Forest Model';
     const props = {
       ...minimalProps,
+      modelName: modelName,
       usingNextModelsUI: true,
+      modelVersions: [mockModelVersionDetailed(modelName, 1, Stages.NONE, ModelVersionStatus.READY)],
+      aliases: [{ alias: 'champion', version: '1' }],
     };
     renderWithProviders(<ModelVersionTable {...props} />);
     expect(screen.queryByRole('columnheader', { name: 'Stage' })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Aliases' })).toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Tags' })).toBeInTheDocument();
+    expect(screen.queryByText(/champion/)).toBeInTheDocument();
   });
 });

@@ -20,15 +20,10 @@ import { setRegisteredModelTagApi, deleteRegisteredModelTagApi } from '../action
 import { connect } from 'react-redux';
 import { OverflowMenu, PageHeader } from '../../shared/building_blocks/PageHeader';
 import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
-import {
-  Button,
-  SegmentedControlGroup,
-  SegmentedControlButton,
-  DangerModal,
-} from '@databricks/design-system';
+import { Button, SegmentedControlGroup, SegmentedControlButton, DangerModal } from '@databricks/design-system';
 import { Descriptions } from '../../common/components/Descriptions';
 import { ModelVersionInfoEntity, type ModelEntity } from '../../experiment-tracking/types';
-import { shouldUseToggleModelsNextUI } from '../../common/utils/FeatureUtils';
+import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
 import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
 import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
 
@@ -48,7 +43,6 @@ type ModelViewImplProps = {
   emailSubscriptionStatus?: string;
   userLevelEmailSubscriptionStatus?: string;
   handleEmailNotificationPreferenceChange?: (...args: any[]) => any;
-  modelMonitors?: any[];
   tags: any;
   setRegisteredModelTagApi: (...args: any[]) => any;
   deleteRegisteredModelTagApi: (...args: any[]) => any;
@@ -89,9 +83,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
 
   getActiveVersionsCount() {
     const { modelVersions } = this.props;
-    return modelVersions
-      ? modelVersions.filter((v) => ACTIVE_STAGES.includes(v.current_stage)).length
-      : 0;
+    return modelVersions ? modelVersions.filter((v) => ACTIVE_STAGES.includes(v.current_stage)).length : 0;
   }
 
   handleCancelEditDescription = () => {
@@ -115,9 +107,9 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
         id: 'delete',
         itemName: (
           <FormattedMessage
-            defaultMessage='Delete'
+            defaultMessage="Delete"
             // eslint-disable-next-line max-len
-            description='Text for disabled delete button due to active versions on model view page header'
+            description="Text for disabled delete button due to active versions on model view page header"
           />
         ),
         onClick: this.showDeleteModal,
@@ -214,25 +206,23 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
       return;
     }
     this.props.navigate(
-      ModelRegistryRoutes.getCompareModelVersionsPageRoute(
-        this.props.model.name,
-        this.state.runsSelected,
-      ),
+      ModelRegistryRoutes.getCompareModelVersionsPageRoute(this.props.model.name, this.state.runsSelected),
     );
   }
 
   renderDescriptionEditIcon() {
     return (
       <Button
-        data-test-id='descriptionEditButton'
-        type='link'
+        componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_467"
+        data-test-id="descriptionEditButton"
+        type="link"
         css={styles.editButton}
         onClick={this.startEditingDescription}
       >
         <FormattedMessage
-          defaultMessage='Edit'
-          description='Text for the edit button next to the description section title on
-             the model view page'
+          defaultMessage="Edit"
+          description="Text for the edit button next to the description section title on
+             the model view page"
         />
       </Button>
     );
@@ -253,24 +243,22 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     return (
       <div css={styles.wrapper}>
         {/* Metadata List */}
-        <Descriptions columns={3} data-testid='model-view-metadata'>
+        <Descriptions columns={3} data-testid="model-view-metadata">
           <Descriptions.Item
-            data-testid='model-view-metadata-item'
+            data-testid="model-view-metadata-item"
             label={this.props.intl.formatMessage({
               defaultMessage: 'Created Time',
-              description:
-                'Label name for the created time under details tab on the model view page',
+              description: 'Label name for the created time under details tab on the model view page',
             })}
           >
             {/* @ts-expect-error TS(2532): Object is possibly 'undefined'. */}
             {Utils.formatTimestamp(model.creation_timestamp)}
           </Descriptions.Item>
           <Descriptions.Item
-            data-testid='model-view-metadata-item'
+            data-testid="model-view-metadata-item"
             label={this.props.intl.formatMessage({
               defaultMessage: 'Last Modified',
-              description:
-                'Label name for the last modified time under details tab on the model view page',
+              description: 'Label name for the last modified time under details tab on the model view page',
             })}
           >
             {/* @ts-expect-error TS(2532): Object is possibly 'undefined'. */}
@@ -280,7 +268,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
           {/* eslint-disable-next-line react/prop-types */}
           {(model as any).user_id && (
             <Descriptions.Item
-              data-testid='model-view-metadata-item'
+              data-testid="model-view-metadata-item"
               label={this.props.intl.formatMessage({
                 defaultMessage: 'Creator',
                 description: 'Lable name for the creator under details tab on the model view page',
@@ -299,9 +287,9 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
           title={
             <span>
               <FormattedMessage
-                defaultMessage='Description'
-                description='Title text for the description section under details tab on the model
-                   view page'
+                defaultMessage="Description"
+                description="Title text for the description section under details tab on the model
+                   view page"
               />{' '}
               {!showDescriptionEditor ? this.renderDescriptionEditIcon() : null}
             </span>
@@ -310,29 +298,26 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
           // Reported during ESLint upgrade
           // eslint-disable-next-line react/prop-types
           defaultCollapsed={!(model as any).description}
-          data-test-id='model-description-section'
+          data-test-id="model-description-section"
         >
           <EditableNote
-            // Reported during ESLint upgrade
-            // @ts-expect-error TS(2322): Type '{ defaultMarkdown: any; onSubmit: (descripti... Remove this comment to see the full error message
-            // eslint-disable-next-line react/prop-types
             defaultMarkdown={(model as any).description}
             onSubmit={this.handleSubmitEditDescription}
             onCancel={this.handleCancelEditDescription}
             showEditor={showDescriptionEditor}
           />
         </CollapsibleSection>
-        <div data-test-id='tags-section'>
+        <div data-test-id="tags-section">
           <CollapsibleSection
             title={
               <FormattedMessage
-                defaultMessage='Tags'
-                description='Title text for the tags section under details tab on the model view
-                   page'
+                defaultMessage="Tags"
+                description="Title text for the tags section under details tab on the model view
+                   page"
               />
             }
             defaultCollapsed={Utils.getVisibleTagValues(tags).length === 0}
-            data-test-id='model-tags-section'
+            data-test-id="model-tags-section"
           >
             <EditableTagsTableView
               // @ts-expect-error TS(2322): Type '{ innerRef: RefObject<unknown>; handleAddTag... Remove this comment to see the full error message
@@ -351,52 +336,51 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
               <div css={styles.versionsTabButtons}>
                 <span>
                   <FormattedMessage
-                    defaultMessage='Versions'
-                    description='Title text for the versions section under details tab on the
-                       model view page'
+                    defaultMessage="Versions"
+                    description="Title text for the versions section under details tab on the
+                       model view page"
                   />
                 </span>
                 {!this.props.usingNextModelsUI && (
                   <SegmentedControlGroup
+                    name="stage-filter"
                     value={this.state.stageFilter}
                     onChange={(e) => this.handleStageFilterChange(e)}
                   >
                     <SegmentedControlButton value={StageFilters.ALL}>
                       <FormattedMessage
-                        defaultMessage='All'
-                        description={
-                          'Tab text to view all versions under details tab on' +
-                          ' the model view page'
-                        }
+                        defaultMessage="All"
+                        description="Tab text to view all versions under details tab on the model view page"
                       />
                     </SegmentedControlButton>
                     <SegmentedControlButton value={StageFilters.ACTIVE}>
                       <FormattedMessage
-                        defaultMessage='Active'
-                        description='Tab text to view active versions under details tab
-                                on the model view page'
+                        defaultMessage="Active"
+                        description="Tab text to view active versions under details tab
+                                on the model view page"
                       />{' '}
                       {this.getActiveVersionsCount()}
                     </SegmentedControlButton>
                   </SegmentedControlGroup>
                 )}
                 <Button
-                  data-test-id='compareButton'
+                  componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_619"
+                  data-test-id="compareButton"
                   disabled={compareDisabled}
                   onClick={this.onCompare}
                 >
                   <FormattedMessage
-                    defaultMessage='Compare'
-                    description='Text for compare button to compare versions under details tab
-                       on the model view page'
+                    defaultMessage="Compare"
+                    description="Text for compare button to compare versions under details tab
+                       on the model view page"
                   />
                 </Button>
               </div>
             </>
           }
-          data-test-id='model-versions-section'
+          data-test-id="model-versions-section"
         >
-          {shouldUseToggleModelsNextUI() && (
+          {shouldShowModelsNextUI() && (
             <div
               css={{
                 marginBottom: 8,
@@ -415,12 +399,13 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             onChange={this.onChange}
             onMetadataUpdated={this.props.onMetadataUpdated}
             usingNextModelsUI={this.props.usingNextModelsUI}
+            aliases={model?.aliases}
           />
         </CollapsibleSection>
 
         {/* Delete Model Dialog */}
         <DangerModal
-          data-testid='mlflow-input-modal'
+          data-testid="mlflow-input-modal"
           title={this.props.intl.formatMessage({
             defaultMessage: 'Delete Model',
             description: 'Title text for delete model modal on model view page',
@@ -440,8 +425,8 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
         >
           <span>
             <FormattedMessage
-              defaultMessage='Are you sure you want to delete {modelName}? This cannot be undone.'
-              description='Confirmation message for delete model modal on model view page'
+              defaultMessage="Are you sure you want to delete {modelName}? This cannot be undone."
+              description="Confirmation message for delete model modal on model view page"
               values={{ modelName: modelName }}
             />
           </span>
@@ -462,8 +447,8 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     const breadcrumbs = [
       <Link to={ModelRegistryRoutes.modelListPageRoute}>
         <FormattedMessage
-          defaultMessage='Registered Models'
-          description='Text for link back to model page under the header on the model view page'
+          defaultMessage="Registered Models"
+          description="Text for link back to model page under the header on the model view page"
         />
       </Link>,
     ];

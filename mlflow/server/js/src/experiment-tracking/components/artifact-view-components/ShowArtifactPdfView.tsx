@@ -9,13 +9,12 @@ import React, { Component } from 'react';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'reac... Remove this comment to see the full error message
 import { Document, Page, pdfjs } from 'react-pdf';
 import { Pagination, Spinner } from '@databricks/design-system';
-import {
-  getArtifactBytesContent,
-  getArtifactLocationUrl,
-} from '../../../common/utils/ArtifactUtils';
+import { getArtifactBytesContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactPdfView.css';
 import Utils from '../../../common/utils/Utils';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
+import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
+import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 
 // See: https://github.com/wojtekmaj/react-pdf/blob/master/README.md#enable-pdfjs-worker for how
 // workerSrc is supposed to be specified.
@@ -82,8 +81,8 @@ class ShowArtifactPdfView extends Component<Props, State> {
   renderPdf = () => {
     return (
       <React.Fragment>
-        <div className='pdf-viewer'>
-          <div className='paginator'>
+        <div className="pdf-viewer">
+          <div className="paginator">
             <Pagination
               // @ts-expect-error TS(2322): Type '{ simple: true; currentPageIndex: number; nu... Remove this comment to see the full error message
               simple
@@ -98,7 +97,7 @@ class ShowArtifactPdfView extends Component<Props, State> {
               dangerouslySetAntdProps={{ simple: true }}
             />
           </div>
-          <div className='document'>
+          <div className="document">
             <Document
               file={this.state.pdfData}
               onLoadSuccess={this.onDocumentLoadSuccess}
@@ -115,16 +114,12 @@ class ShowArtifactPdfView extends Component<Props, State> {
 
   render() {
     if (this.state.loading) {
-      return <div className='artifact-pdf-view-loading'>Loading...</div>;
+      return <ArtifactViewSkeleton className="artifact-pdf-view-loading" />;
     }
     if (this.state.error) {
-      return (
-        <div className='artifact-pdf-view-error'>
-          Oops we couldn't load your file because of an error. Please reload the page to try again.
-        </div>
-      );
+      return <ArtifactViewErrorState className="artifact-pdf-view-error" />;
     } else {
-      return <div className='pdf-outer-container'>{this.renderPdf()}</div>;
+      return <div className="pdf-outer-container">{this.renderPdf()}</div>;
     }
   }
 }

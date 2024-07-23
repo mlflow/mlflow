@@ -4,10 +4,11 @@ import {
   AutoComplete,
   Input,
   SearchIcon,
-  Tooltip,
+  LegacyTooltip,
   InfoIcon,
   Button,
   CloseIcon,
+  useDesignSystemTheme,
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
@@ -42,6 +43,7 @@ export type RunsSearchAutoCompleteProps = {
  */
 export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
   const { runsData, searchFilter, requestError, onSearchFilterChange, onClear } = props;
+  const { theme } = useDesignSystemTheme();
 
   const [text, setText] = useState<string>('');
   const [autocompleteEnabled, setAutocompleteEnabled] = useState<boolean | undefined>(undefined);
@@ -91,16 +93,10 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
     }
     const currentEntitiesNames = newEntities.map((e) => e.name);
     const previousEntitiesNames = previousEntities.map((e) => e.name);
-    if (
-      !isEqual(currentEntitiesNames, previousEntitiesNames) &&
-      newEntities.length >= previousEntities.length
-    ) {
+    if (!isEqual(currentEntitiesNames, previousEntitiesNames) && newEntities.length >= previousEntities.length) {
       let i = 0;
       while (i < newEntities.length) {
-        if (
-          i >= previousEntities.length ||
-          newEntities[i].name.trim() !== previousEntities[i].name.trim()
-        ) {
+        if (i >= previousEntities.length || newEntities[i].name.trim() !== previousEntities[i].name.trim()) {
           setAutocompleteEnabled(true);
           setEntityBeingEdited(newEntities[i]);
           return;
@@ -159,7 +155,7 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
     // Show tooltip again if it was last shown 1 week ago or older
     return !storedItem || parseInt(storedItem, 10) < currentTimeSecs - WEEK_IN_SECONDS;
   });
-  const tooltipIcon = React.useRef<HTMLDivElement>(null);
+  const tooltipIcon = React.useRef<HTMLButtonElement>(null);
 
   // If requestError has changed and there is an error, pop up the tooltip
   useEffect(() => {
@@ -198,65 +194,97 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
   );
 
   return (
-    <div css={styles.searchBox}>
+    <div
+      css={{
+        display: 'flex',
+        gap: theme.spacing.sm,
+        width: 430,
+        [theme.responsive.mediaQueries.xs]: {
+          width: 'auto',
+        },
+      }}
+    >
       <AutoComplete
         dropdownMatchSelectWidth={560}
-        css={{ width: 560 }}
+        css={{
+          width: 560,
+          [theme.responsive.mediaQueries.xs]: {
+            width: 'auto',
+          },
+        }}
         defaultOpen={false}
         defaultActiveFirstOption
         open={open}
         options={filteredOptions}
         onSelect={onSelect}
         value={text}
-        data-test-id='runs-search-autocomplete'
-        dropdownRender={(menu) => <div css={styles.dropdownOverride}>{menu}</div>}
+        data-test-id="runs-search-autocomplete"
+        dropdownRender={(menu) => (
+          <div
+            css={{
+              '.du-bois-light-select-item-option-active:not(.du-bois-light-select-item-option-disabled)': {
+                // TODO: ask the design team about the color existing in the palette
+                backgroundColor: '#e6f1f5',
+              },
+            }}
+          >
+            {menu}
+          </div>
+        )}
       >
         <Input
           value={text}
-          prefix={<SearchIcon css={styles.searchBarIcon} />}
+          prefix={
+            <SearchIcon
+              css={{
+                svg: { width: 16, height: 16, color: theme.colors.textSecondary },
+              }}
+            />
+          }
           onKeyDown={triggerSearch}
           onClick={onFocus}
           onBlur={onBlur}
           onChange={(e) => setText(e.target.value)}
           placeholder={SEARCH_BOX_PLACEHOLDER}
-          data-test-id='search-box'
+          data-test-id="search-box"
           suffix={
-            <div css={styles.searchInputSuffix}>
+            <div css={{ display: 'flex', gap: 4, alignItems: 'center' }}>
               {text && (
-                <Button onClick={onClear} type='link' data-test-id='clear-button'>
+                <Button
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_runssearchautocomplete.tsx_212"
+                  onClick={onClear}
+                  type="link"
+                  data-test-id="clear-button"
+                >
                   <CloseIcon />
                 </Button>
               )}
-              <Tooltip
+              <LegacyTooltip
                 title={<RunsSearchTooltipContent />}
-                placement='right'
+                placement="right"
                 dangerouslySetAntdProps={{
                   overlayInnerStyle: { width: '150%' },
-                  trigger: 'click',
+                  trigger: ['focus', 'click'],
                 }}
               >
-                <div ref={tooltipIcon}>
-                  <InfoIcon css={styles.searchBarIcon} />
-                </div>
-              </Tooltip>
+                <Button
+                  size="small"
+                  ref={tooltipIcon}
+                  componentId="mlflow.experiment_page.search_filter.tooltip"
+                  type="link"
+                  icon={
+                    <InfoIcon
+                      css={{
+                        svg: { width: 16, height: 16, color: theme.colors.textSecondary },
+                      }}
+                    />
+                  }
+                />
+              </LegacyTooltip>
             </div>
           }
         />
       </AutoComplete>
     </div>
   );
-};
-
-const styles = {
-  searchBox: (theme: Theme) => ({ display: 'flex', gap: theme.spacing.sm, width: 430 }),
-  searchBarIcon: (theme: Theme) => ({
-    svg: { width: 16, height: 16, color: theme.colors.textSecondary },
-  }),
-  searchInputSuffix: { display: 'flex', gap: 4, alignItems: 'center' },
-  dropdownOverride: {
-    '.du-bois-light-select-item-option-active:not(.du-bois-light-select-item-option-disabled)': {
-      // TODO: ask the design team about the color existing in the palette
-      backgroundColor: '#e6f1f5',
-    },
-  },
 };

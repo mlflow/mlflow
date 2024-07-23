@@ -97,7 +97,7 @@ For details about the configuration file's parameters (including parameters for 
         route_type: llm/v1/completions
         model:
           provider: openai
-          name: gpt-3.5-turbo
+          name: gpt-4o-mini
           config:
             openai_api_key: $OPENAI_API_KEY
 
@@ -105,7 +105,7 @@ For details about the configuration file's parameters (including parameters for 
         route_type: llm/v1/chat
         model:
           provider: openai
-          name: gpt-3.5-turbo
+          name: gpt-4o-mini
           config:
             openai_api_key: $OPENAI_API_KEY
 
@@ -216,7 +216,7 @@ Firstly, update the :ref:`MLflow AI Gateway config <gateway_configuration>` YAML
         route_type: llm/v1/completions
         model:
           provider: openai
-          name: gpt-3.5-turbo
+          name: gpt-4o-mini
           config:
             openai_api_key: $OPENAI_API_KEY
       - name: completions-gpt4
@@ -228,7 +228,7 @@ Firstly, update the :ref:`MLflow AI Gateway config <gateway_configuration>` YAML
             openai_api_key: $OPENAI_API_KEY
 
 This updated configuration adds a new completions route ``completions-gpt4`` while still preserving the original ``completions``
-route that was configured with the ``gpt-3.5-turbo``  model.
+route that was configured with the ``gpt-4o-mini``  model.
 
 Once the configuration file is updated, simply save your changes. The Gateway will automatically create the new route with zero downtime.
 
@@ -299,10 +299,15 @@ below can be used as a helpful guide when configuring a given route for any newl
 |                          | - j2-mid                 |                          |                          |
 |                          | - j2-light               |                          |                          |
 +--------------------------+--------------------------+--------------------------+--------------------------+
-| AWS Bedrock              | - Amazon Titan           | N/A                      | N/A                      |
+| Amazon Bedrock           | - Amazon Titan           | N/A                      | N/A                      |
 |                          | - Third-party providers  |                          |                          |
 +--------------------------+--------------------------+--------------------------+--------------------------+
-
+| Mistral                  | - mistral-tiny           | N/A                      |  - mistral-embed         |
+|                          | - mistral-small          |                          |                          |
++--------------------------+--------------------------+--------------------------+--------------------------+
+| TogetherAI               | - google/gemma-2b        | - dbrx-instruct          |  - BAAI/bge-large-en-v1.5|
+|                          | - microsoft/phi-2        |                          |                          |
++--------------------------+--------------------------+--------------------------+--------------------------+
 
 † Llama 2 is licensed under the `LLAMA 2 Community License <https://ai.meta.com/llama/license/>`_, Copyright © Meta Platforms, Inc. All Rights Reserved.
 
@@ -342,7 +347,9 @@ As of now, the MLflow AI Gateway supports the following providers:
 * **palm**: This is used for models offered by `PaLM <https://developers.generativeai.google/api/rest/generativelanguage/models/>`_.
 * **huggingface text generation inference**: This is used for models deployed using `Huggingface Text Generation Inference <https://huggingface.co/docs/text-generation-inference/index>`_.
 * **ai21labs**: This is used for models offered by `AI21 Labs <https://studio.ai21.com/foundation-models>`_.
-* **bedrock**: This is used for models offered by `AWS Bedrock <https://aws.amazon.com/bedrock/>`_.
+* **bedrock**: This is used for models offered by `Amazon Bedrock <https://aws.amazon.com/bedrock/>`_.
+* **mistral**: This is used for models offered by `Mistral <https://docs.mistral.ai/>`_.
+* **togetherai**: This is used for models offered by `TogetherAI <https://docs.together.ai/docs/>`_.
 
 More providers are being added continually. Check the latest version of the MLflow AI Gateway Docs for the
 most up-to-date list of supported providers.
@@ -379,12 +386,12 @@ Here's an example of a route configuration:
         type: chat/completions
         model:
           provider: openai
-          name: gpt-3.5-turbo
+          name: gpt-4o-mini
           config:
             openai_api_key: $OPENAI_API_KEY
 
 In the example above, a request sent to the completions route would be forwarded to the
-``gpt-3.5-turbo`` model provided by ``openai``.
+``gpt-4o-mini`` model provided by ``openai``.
 
 The routes in the configuration file can be updated at any time, and the MLflow AI Gateway will
 automatically update its available routes without requiring a restart. This feature provides you
@@ -466,13 +473,13 @@ Here is an example of a single-route configuration:
         route_type: llm/v1/chat
         model:
           provider: openai
-          name: gpt-3.5-turbo
+          name: gpt-4o-mini
           config:
             openai_api_key: $OPENAI_API_KEY
 
 
 In this example, we define a route named ``chat`` that corresponds to the ``llm/v1/chat`` type, which
-will use the ``gpt-3.5-turbo`` model from OpenAI to return query responses from the OpenAI service.
+will use the ``gpt-4o-mini`` model from OpenAI to return query responses from the OpenAI service.
 
 The Gateway configuration is very easy to update.
 Simply edit the configuration file and save your changes, and the MLflow AI Gateway service will automatically
@@ -540,6 +547,8 @@ Each route has the following configuration parameters:
     - "huggingface-text-generation-inference"
     - "ai21labs"
     - "bedrock"
+    - "mistral"
+    - "togetherai"
 
   - **name**: This is an optional field to specify the name of the model.
   - **config**: This contains provider-specific configuration details.
@@ -626,10 +635,10 @@ Anthropic
 | **anthropic_api_key**   | Yes      | N/A                      | This is the API key for the Anthropic service.        |
 +-------------------------+----------+--------------------------+-------------------------------------------------------+
 
-AWS Bedrock
-+++++++++++
+Amazon Bedrock
+++++++++++++++
 
-Top-level model configuration for AWS Bedrock routes must be one of the following two supported authentication modes: `key-based` or `role-based`.
+Top-level model configuration for Amazon Bedrock routes must be one of the following two supported authentication modes: `key-based` or `role-based`.
 
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 | Configuration Parameter  | Required | Default                      | Description                                           |
@@ -639,7 +648,27 @@ Top-level model configuration for AWS Bedrock routes must be one of the followin
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 
 
-To use key-based authentication, define an AWS Bedrock route with the required fields below.
+Mistral
++++++++
+
++--------------------------+----------+--------------------------+-------------------------------------------------------+
+| Configuration Parameter  | Required | Default                  | Description                                           |
++==========================+==========+==========================+=======================================================+
+| **mistral_api_key**       | Yes      | N/A                      | This is the API key for the Mistral service.         |
++--------------------------+----------+--------------------------+-------------------------------------------------------+
+
+
+TogetherAI
+++++++++++
+
++---------------------------------------------------------------------------------------------------+
+| Configuration Parameter  | Required | Default  | Description                                      |
++--------------------------+----------+----------+--------------------------------------------------+
+| **togetherai_api_key**   | Yes      | N/A      | This is the API key for the TogetherAI service.  |
++--------------------------+----------+----------+--------------------------------------------------+
+
+
+To use key-based authentication, define an Amazon Bedrock route with the required fields below.
 .. note::
 
   If using a configured route purely for development or testing, utilizing an IAM User role or a temporary short-lived standard IAM role are recommended; while for production deployments, a standard long-expiry IAM role is recommended to ensure that the route is capable of handling authentication for a long period. If the authentication expires and a new set of keys need to be supplied, the route must be recreated in order to persist the new keys.
@@ -659,7 +688,7 @@ To use key-based authentication, define an AWS Bedrock route with the required f
 | **aws_session_token**    | No       | None                         | Optional session token, if required                   |
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 
-Alternatively, for role-based authentication, an AWS Bedrock route can be defined and initialized with an a IAM Role  ARN that is authorized to access Bedrock.  The MLflow AI Gateway will attempt to assume this role with using the standard credential provider chain and will renew the role credentials if they have expired.
+Alternatively, for role-based authentication, an Amazon Bedrock route can be defined and initialized with an a IAM Role  ARN that is authorized to access Bedrock.  The MLflow AI Gateway will attempt to assume this role with using the standard credential provider chain and will renew the role credentials if they have expired.
 
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 | Configuration Parameter  | Required | Default                      | Description                                           |

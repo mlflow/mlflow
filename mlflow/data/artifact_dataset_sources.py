@@ -8,7 +8,6 @@ from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_registered_artifact_repositories
-from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_local_uri
 
 
@@ -83,7 +82,6 @@ def _create_dataset_source_for_artifact_repo(scheme: str, dataset_source_name: s
 
     DatasetForArtifactRepoSourceType = TypeVar(dataset_source_name)
 
-    @experimental
     class ArtifactRepoSource(FileSystemDatasetSource):
         def __init__(self, uri: str):
             self._uri = uri
@@ -142,7 +140,7 @@ def _create_dataset_source_for_artifact_repo(scheme: str, dataset_source_name: s
         def _resolve(cls, raw_source: Any) -> DatasetForArtifactRepoSourceType:
             return cls(str(raw_source))
 
-        def _to_dict(self) -> Dict[Any, Any]:
+        def to_dict(self) -> Dict[Any, Any]:
             """
             Returns:
                 A JSON-compatible dictionary representation of the {dataset_source_name}.
@@ -152,7 +150,7 @@ def _create_dataset_source_for_artifact_repo(scheme: str, dataset_source_name: s
             }
 
         @classmethod
-        def _from_dict(cls, source_dict: Dict[Any, Any]) -> DatasetForArtifactRepoSourceType:
+        def from_dict(cls, source_dict: Dict[Any, Any]) -> DatasetForArtifactRepoSourceType:
             uri = source_dict.get("uri")
             if uri is None:
                 raise MlflowException(
@@ -165,7 +163,7 @@ def _create_dataset_source_for_artifact_repo(scheme: str, dataset_source_name: s
     ArtifactRepoSource.__name__ = dataset_source_name
     ArtifactRepoSource.__qualname__ = dataset_source_name
     ArtifactRepoSource.__doc__ = class_docstring
-    ArtifactRepoSource._to_dict.__doc__ = ArtifactRepoSource._to_dict.__doc__.format(
+    ArtifactRepoSource.to_dict.__doc__ = ArtifactRepoSource.to_dict.__doc__.format(
         dataset_source_name=dataset_source_name
     )
     ArtifactRepoSource.uri.__doc__ = ArtifactRepoSource.uri.__doc__.format(scheme=scheme)

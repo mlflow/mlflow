@@ -6,6 +6,6 @@ mlflow.tensorflow
     :undoc-members:
     :show-inheritance:
 
-.. autoclass:: mlflow.tensorflow.MLflowCallback
+.. autoclass:: mlflow.tensorflow.MlflowCallback
     :members:
     :undoc-members:

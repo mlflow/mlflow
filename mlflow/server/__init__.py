@@ -18,11 +18,13 @@ from mlflow.server.handlers import (
     gateway_proxy_handler,
     get_artifact_handler,
     get_metric_history_bulk_handler,
+    get_metric_history_bulk_interval_handler,
     get_model_version_artifact_handler,
+    get_trace_artifact_handler,
     search_datasets_handler,
     upload_artifact_handler,
 )
-from mlflow.utils.os import is_windows
+from mlflow.utils.os import get_entry_points, is_windows
 from mlflow.utils.process import _exec_cmd
 from mlflow.version import VERSION
 
@@ -84,6 +86,12 @@ def serve_get_metric_history_bulk():
     return get_metric_history_bulk_handler()
 
 
+# Serve the "metrics/get-history-bulk-interval" route.
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/metrics/get-history-bulk-interval"))
+def serve_get_metric_history_bulk_interval():
+    return get_metric_history_bulk_interval_handler()
+
+
 # Serve the "experiments/search-datasets" route.
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"), methods=["POST"])
 def serve_search_datasets():
@@ -104,6 +112,14 @@ def serve_gateway_proxy():
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/upload-artifact"), methods=["POST"])
 def serve_upload_artifact():
     return upload_artifact_handler()
+
+
+# Serve the "/get-trace-artifact" route to allow frontend to fetch trace artifacts
+# and render them in the Trace UI. The request body should contain the request_id
+# of the trace.
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/get-trace-artifact"), methods=["GET"])
+def serve_get_trace_artifact():
+    return get_trace_artifact_handler()
 
 
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for
@@ -142,7 +158,7 @@ def serve():
 
 
 def _find_app(app_name: str) -> str:
-    apps = importlib.metadata.entry_points().get("mlflow.app", [])
+    apps = get_entry_points("mlflow.app")
     for app in apps:
         if app.name == app_name:
             return app.value
@@ -156,7 +172,8 @@ def _is_factory(app: str) -> bool:
     """
     Returns True if the given app is a factory function, False otherwise.
 
-    :param app: The app to check, e.g. "mlflow.server.app:app"
+    Args:
+        app: The app to check, e.g. "mlflow.server.app:app
     """
     module, obj_name = app.rsplit(":", 1)
     mod = importlib.import_module(module)
@@ -168,12 +185,15 @@ def get_app_client(app_name: str, *args, **kwargs):
     """
     Instantiate a client provided by an app.
 
-    :param app_name: The app name defined in `setup.py`, e.g., "basic-auth".
-    :param args: Additional arguments passed to the app client constructor.
-    :param kwargs: Additional keyword arguments passed to the app client constructor.
-    :return: An app client instance.
+    Args:
+        app_name: The app name defined in `setup.py`, e.g., "basic-auth".
+        args: Additional arguments passed to the app client constructor.
+        kwargs: Additional keyword arguments passed to the app client constructor.
+
+    Returns:
+        An app client instance.
     """
-    clients = importlib.metadata.entry_points().get("mlflow.app.client", [])
+    clients = get_entry_points("mlflow.app.client")
     for client in clients:
         if client.name == app_name:
             cls = client.load()
@@ -233,9 +253,13 @@ def _run_server(
 ):
     """
     Run the MLflow server, wrapping it in gunicorn or waitress on windows
-    :param static_prefix: If set, the index.html asset will be served from the path static_prefix.
-                          If left None, the index.html asset will be served from the root path.
-    :return: None
+
+    Args:
+        static_prefix: If set, the index.html asset will be served from the path static_prefix.
+                       If left None, the index.html asset will be served from the root path.
+
+    Returns:
+        None
     """
     env_map = {}
     if file_store_path:

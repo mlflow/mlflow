@@ -1,5 +1,3 @@
-# pylint: disable=unused-argument
-
 import inspect
 import sys
 import time
@@ -91,7 +89,7 @@ def start_run():
     mlflow.end_run()
 
 
-def dummy_fn(arg1, arg2="value2", arg3="value3"):  # pylint: disable=unused-argument
+def dummy_fn(arg1, arg2="value2", arg3="value3"):
     pass
 
 
@@ -110,9 +108,7 @@ log_test_args = [
 
 
 @pytest.mark.parametrize(("args", "kwargs", "expected"), log_test_args)
-def test_log_fn_args_as_params(
-    args, kwargs, expected, start_run
-):  # pylint: disable=unused-argument
+def test_log_fn_args_as_params(args, kwargs, expected, start_run):
     log_fn_args_as_params(dummy_fn, args, kwargs)
     client = MlflowClient()
     params = client.get_run(mlflow.active_run().info.run_id).data.params
@@ -123,7 +119,7 @@ def test_log_fn_args_as_params(
 
 def test_log_fn_args_as_params_ignores_unwanted_parameters(
     start_run,
-):  # pylint: disable=unused-argument
+):
     args, kwargs, unlogged = ("arg1", {"arg2": "value"}, ["arg1", "arg2", "arg3"])
     log_fn_args_as_params(dummy_fn, args, kwargs, unlogged)
     client = MlflowClient()
@@ -576,8 +572,6 @@ def test_autologging_disable_restores_behavior():
     from sklearn.datasets import load_diabetes
     from sklearn.linear_model import LinearRegression
 
-    mlflow.sklearn.autolog()
-
     X, y = load_diabetes(return_X_y=True, as_frame=True)
     X = X.iloc[:50, :4]
     y = y.iloc[:50]
@@ -585,27 +579,32 @@ def test_autologging_disable_restores_behavior():
     # train a model
     model = LinearRegression()
 
-    run = mlflow.start_run()
-    model.fit(X, y)
-    mlflow.end_run()
-    run = MlflowClient().get_run(run.info.run_id)
-    assert run.data.metrics
-    assert run.data.params
-
-    run = mlflow.start_run()
-    with mlflow.utils.autologging_utils.disable_autologging():
+    def is_autolog_on():
+        run = mlflow.start_run()
         model.fit(X, y)
-    mlflow.end_run()
-    run = MlflowClient().get_run(run.info.run_id)
-    assert not run.data.metrics
-    assert not run.data.params
+        mlflow.end_run()
+        run = MlflowClient().get_run(run.info.run_id)
+        return run.data.metrics and run.data.params
 
-    run = mlflow.start_run()
-    model.fit(X, y)
-    mlflow.end_run()
-    run = MlflowClient().get_run(run.info.run_id)
-    assert run.data.metrics
-    assert run.data.params
+    # Turn on autologging
+    mlflow.sklearn.autolog()
+    assert is_autolog_on()
+
+    # Turn off autologging within a context manager
+    with mlflow.utils.autologging_utils.disable_autologging():
+        assert not is_autolog_on()
+
+    # Autologging should be turned back on
+    assert is_autolog_on()
+
+    # The context manager should exit correctly even if an exception is raised
+    with pytest.raises(Exception, match="test"):  # noqa PT012
+        with mlflow.utils.autologging_utils.disable_autologging():
+            assert not is_autolog_on()
+            raise Exception("test")
+
+    # Autologging should be turned back on after the exception
+    assert is_autolog_on()
 
 
 def test_autologging_event_logger_default_implementation_does_not_throw_for_valid_inputs():
@@ -801,8 +800,8 @@ def test_is_autologging_integration_supported(flavor, module_version, expected_r
         ("pyspark.ml", "3.3.0.dev0", True),
         ("pyspark.ml", "3.2.1.dev0", True),
         ("pyspark.ml", "3.1.2.dev0", True),
-        ("pyspark.ml", "3.0.1.dev0", True),
-        ("pyspark.ml", "3.0.0.dev0", True),
+        ("pyspark.ml", "3.0.1.dev0", False),
+        ("pyspark.ml", "3.0.0.dev0", False),
         ("pyspark.ml", "2.4.8.dev0", False),
     ],
 )

@@ -18,7 +18,8 @@ from mlflow.store.artifact.r2_artifact_repo import R2ArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.sftp_artifact_repo import SFTPArtifactRepository
-from mlflow.utils.uri import get_uri_scheme
+from mlflow.store.artifact.uc_volume_artifact_repo import uc_volume_artifact_repo_factory
+from mlflow.utils.uri import get_uri_scheme, is_uc_volumes_uri
 
 
 class ArtifactRepositoryRegistry:
@@ -55,14 +56,17 @@ class ArtifactRepositoryRegistry:
                 )
 
     def get_artifact_repository(self, artifact_uri):
-        """Get an artifact repository from the registry based on the scheme of artifact_uri
+        """
+        Get an artifact repository from the registry based on the scheme of artifact_uri
 
-        :param artifact_uri: The artifact store URI. This URI is used to select which artifact
-                             repository implementation to instantiate and is passed to the
-                             constructor of the implementation.
+        Args:
+            artifact_uri: The artifact store URI. This URI is used to select which artifact
+                repository implementation to instantiate and is passed to the constructor of the
+                implementation.
 
-        :return: An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
-                 requirements.
+        Returns:
+            An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
+            requirements.
         """
         scheme = get_uri_scheme(artifact_uri)
         repository = self._registry.get(scheme)
@@ -77,9 +81,18 @@ class ArtifactRepositoryRegistry:
         """
         Get all registered artifact repositories.
 
-        :return: A dictionary mapping string artifact URI schemes to artifact repositories.
+        Returns:
+            A dictionary mapping string artifact URI schemes to artifact repositories.
         """
         return self._registry
+
+
+def _dbfs_artifact_repo_factory(artifact_uri: str) -> ArtifactRepository:
+    return (
+        uc_volume_artifact_repo_factory(artifact_uri)
+        if is_uc_volumes_uri(artifact_uri)
+        else dbfs_artifact_repo_factory(artifact_uri)
+    )
 
 
 _artifact_repository_registry = ArtifactRepositoryRegistry()
@@ -92,7 +105,7 @@ _artifact_repository_registry.register("gs", GCSArtifactRepository)
 _artifact_repository_registry.register("wasbs", AzureBlobArtifactRepository)
 _artifact_repository_registry.register("ftp", FTPArtifactRepository)
 _artifact_repository_registry.register("sftp", SFTPArtifactRepository)
-_artifact_repository_registry.register("dbfs", dbfs_artifact_repo_factory)
+_artifact_repository_registry.register("dbfs", _dbfs_artifact_repo_factory)
 _artifact_repository_registry.register("hdfs", HdfsArtifactRepository)
 _artifact_repository_registry.register("viewfs", HdfsArtifactRepository)
 _artifact_repository_registry.register("runs", RunsArtifactRepository)
@@ -105,14 +118,17 @@ _artifact_repository_registry.register_entrypoints()
 
 
 def get_artifact_repository(artifact_uri: str) -> ArtifactRepository:
-    """Get an artifact repository from the registry based on the scheme of artifact_uri
+    """
+    Get an artifact repository from the registry based on the scheme of artifact_uri
 
-    :param artifact_uri: The artifact store URI. This URI is used to select which artifact
-                         repository implementation to instantiate and is passed to the
-                         constructor of the implementation.
+    Args:
+        artifact_uri: The artifact store URI. This URI is used to select which artifact
+            repository implementation to instantiate and is passed to the constructor of the
+            implementation.
 
-    :return: An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
-             requirements.
+    Returns:
+        An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
+        requirements.
     """
     return _artifact_repository_registry.get_artifact_repository(artifact_uri)
 
@@ -121,6 +137,7 @@ def get_registered_artifact_repositories() -> Dict[str, ArtifactRepository]:
     """
     Get all registered artifact repositories.
 
-    :return: A dictionary mapping string artifact URI schemes to artifact repositories.
+    Returns:
+        A dictionary mapping string artifact URI schemes to artifact repositories.
     """
     return _artifact_repository_registry.get_registered_artifact_repositories()

@@ -6,9 +6,7 @@ import { useEffect, useRef } from 'react';
  * so in order to achieve updated behavior we need to wrap each onHover callback with an
  * immutable callback that will call mutable implementation.
  */
-export const useMutableChartHoverCallback = <T extends (event: Readonly<PlotMouseEvent>) => void>(
-  callback: T,
-) => {
+export const useMutableChartHoverCallback = <T extends (event: Readonly<PlotMouseEvent>) => void>(callback: T) => {
   const mutableRef = useRef<T>(callback);
 
   useEffect(() => {

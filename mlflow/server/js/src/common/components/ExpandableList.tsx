@@ -39,42 +39,38 @@ class ExpandableList extends Component<Props, State> {
       return (
         <div css={expandableListClassName}>
           {(this.props.children as any).map((item: any, index: any) => (
-            <div className='expandable-list-item' key={index}>
+            <div className="expandable-list-item" key={index}>
               {item}
             </div>
           ))}
         </div>
       );
     } else {
-      const expandedElems = (this.props.children as any)
-        .slice(this.props.showLines)
-        .map((item: any, index: any) => (
-          <div className='expandable-list-item' key={index}>
-            {item}
-          </div>
-        ));
+      const expandedElems = (this.props.children as any).slice(this.props.showLines).map((item: any, index: any) => (
+        <div className="expandable-list-item" key={index}>
+          {item}
+        </div>
+      ));
       const expandedContent = (
-        <div className='expanded-list-elems'>
+        <div className="expanded-list-elems">
           {expandedElems}
-          <div onClick={this.handleToggle} className='expander-text'>
+          <div onClick={this.handleToggle} className="expander-text">
             Less
           </div>
         </div>
       );
       const showMore = (
-        <div onClick={this.handleToggle} className='expander-text'>
+        <div onClick={this.handleToggle} className="expander-text">
           +{(this.props.children as any).length - this.props.showLines} more
         </div>
       );
       return (
         <div css={expandableListClassName}>
-          {(this.props.children as any)
-            .slice(0, this.props.showLines)
-            .map((item: any, index: any) => (
-              <div className='expandable-list-item' key={index}>
-                {item}
-              </div>
-            ))}
+          {(this.props.children as any).slice(0, this.props.showLines).map((item: any, index: any) => (
+            <div className="expandable-list-item" key={index}>
+              {item}
+            </div>
+          ))}
           {this.state.toggled ? expandedContent : showMore}
         </div>
       );

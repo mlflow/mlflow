@@ -264,11 +264,12 @@ class EvaluateStep(BaseStep):
         Constructs data profiles of predictions and errors and a step card instance corresponding
         to the current evaluate step state.
 
-        :param run_id: The ID of the MLflow Run to which to log model evaluation results.
-        :param model_uri: The URI of the model being evaluated.
-        :param eval_metrics: the evaluation result keyed by dataset name from `mlflow.evaluate`.
-        :param validation_results: a list of `MetricValidationResult` instances
-        :param output_directory: output directory used by the evaluate step.
+        Args:
+            run_id: The ID of the MLflow Run to which to log model evaluation results.
+            model_uri: The URI of the model being evaluated.
+            eval_metrics: The evaluation result keyed by dataset name from `mlflow.evaluate`.
+            validation_results: A list of `MetricValidationResult` instances.
+            output_directory: Output directory used by the evaluate step.
         """
         import pandas as pd
 

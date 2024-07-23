@@ -6,12 +6,17 @@ from mlflow.protos.facet_feature_statistics_pb2 import Histogram
 
 
 def generate_equal_height_histogram(quantiles, num_buckets: int) -> Histogram:
-    """Generates the equal height histogram from the input quantiles. The quantiles are assumed to
+    """
+    Generates the equal height histogram from the input quantiles. The quantiles are assumed to
     be ordered and corresponding to equal distant percentiles.
 
-    :param quantiles: The quantiles that capture the frequency distribution.
-    :param num_buckets: The number of buckets in the generated equal height histogram.
-    :return: An equal height histogram or None if inputs are invalid.
+    Args:
+        quantiles: The quantiles that capture the frequency distribution.
+        num_buckets: The number of buckets in the generated equal height histogram.
+
+    Returns:
+        An equal height histogram or None if inputs are invalid.
+
     """
     if (len(quantiles) < 3) or ((len(quantiles) - 1) % num_buckets != 0):
         return None
@@ -29,13 +34,17 @@ def generate_equal_height_histogram(quantiles, num_buckets: int) -> Histogram:
 
 
 def generate_equal_width_histogram(quantiles, num_buckets: int, total_freq: float) -> Histogram:
-    """Generates the equal width histogram from the input quantiles and total frequency. The
+    """
+    Generates the equal width histogram from the input quantiles and total frequency. The
     quantiles are assumed to be ordered and corresponding to equal distant percentiles.
 
-    :param quantiles: the quantiles that capture the frequency distribution.
-    :param num_buckets: the number of buckets in the generated histogram.
-    :param total_freq: the total frequency (=count of rows).
-    :return: equal width histogram or None if inputs are invalid.
+    Args:
+        quantiles: The quantiles that capture the frequency distribution.
+        num_buckets: The number of buckets in the generated histogram.
+        total_freq: The total frequency (=count of rows).
+
+    Returns:
+        Equal width histogram or None if inputs are invalid.
     """
     if len(quantiles) < 2 or num_buckets <= 0 or total_freq <= 0:
         return None
@@ -87,13 +96,17 @@ def _generate_equal_width_histogram_internal(
     quantiles,
     total_freq: float,
 ) -> Histogram.Bucket:
-    """Generates a histogram bucket given the bucket range, the quantiles and the total frequency.
+    """
+    Generates a histogram bucket given the bucket range, the quantiles and the total frequency.
 
-    :param bucket_left: bucket left boundary.
-    :param bucket_right: bucket right boundary.
-    :param quantiles: the quantiles that capture the frequency distribution.
-    :param total_freq: the total frequency (=count of rows).
-    :return: the histogram bucket corresponding to the inputs.
+    Args:
+        bucket_left: Bucket left boundary.
+        bucket_right: Bucket right boundary.
+        quantiles: The quantiles that capture the frequency distribution.
+        total_freq: The total frequency (=count of rows).
+
+    Returns:
+        The histogram bucket corresponding to the inputs.
     """
     max_val = quantiles[-1]
     bucket_freq = 0.0

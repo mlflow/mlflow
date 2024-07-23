@@ -20,12 +20,9 @@ export interface DatasetsCellRendererProps {
   datasetWithTags: RunDatasetWithTags;
 }
 
-export const ExperimentViewDatasetSchema = ({
-  datasetWithTags,
-}: DatasetsCellRendererProps): JSX.Element => {
+export const ExperimentViewDatasetSchema = ({ datasetWithTags }: DatasetsCellRendererProps): JSX.Element => {
   const { theme } = useDesignSystemTheme();
-  const { dataset, tags } = datasetWithTags;
-  const [value, setValue] = useState('');
+  const { dataset } = datasetWithTags;
   const [filter, setFilter] = useState('');
 
   if (dataset.schema === null || dataset.schema === '') {
@@ -71,17 +68,14 @@ export const ExperimentViewDatasetSchema = ({
             }}
           >
             <TableFilterInput
-              showSearchButton
-              value={value}
-              placeholder='Search fields'
-              onChange={(e) => setValue(e.target.value)}
+              value={filter}
+              placeholder="Search fields"
+              onChange={(e) => setFilter(e.target.value)}
               onClear={() => {
-                setValue('');
-              }}
-              onSubmit={() => {
-                setFilter(value);
+                setFilter('');
               }}
               css={{ width: '100%' }}
+              containerProps={{ style: { width: 'auto' } }}
             />
           </div>
           <div
@@ -111,8 +105,8 @@ export const ExperimentViewDatasetSchema = ({
             <Header title={<div css={{ color: theme.colors.grey600 }}>Array Datasource</div>} />
             <Typography.Text color={theme.colors.grey600} css={{ textAlign: 'center' }}>
               <FormattedMessage
-                defaultMessage='The dataset is an array. To see a preview of the dataset, view the dataset in the training notebook.'
-                description='Notification when the dataset is an array data source in the experiment run dataset schema'
+                defaultMessage="The dataset is an array. To see a preview of the dataset, view the dataset in the training notebook."
+                description="Notification when the dataset is an array data source in the experiment run dataset schema"
               />
             </Typography.Text>
           </div>
@@ -123,13 +117,11 @@ export const ExperimentViewDatasetSchema = ({
       return (
         <div css={{ marginLeft: theme.spacing.lg, marginTop: theme.spacing.md, width: '100%' }}>
           <div css={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
-            <Header
-              title={<div css={{ color: theme.colors.grey600 }}>Unrecognized Schema Format</div>}
-            />
+            <Header title={<div css={{ color: theme.colors.grey600 }}>Unrecognized Schema Format</div>} />
             <Typography.Text color={theme.colors.grey600}>
               <FormattedMessage
-                defaultMessage='Raw Schema JSON: '
-                description='Label for the raw schema JSON in the experiment run dataset schema'
+                defaultMessage="Raw Schema JSON: "
+                description="Label for the raw schema JSON in the experiment run dataset schema"
               />
               {JSON.stringify(schema)}
             </Typography.Text>

@@ -1,133 +1,28 @@
-declare const lightColors: {
-    brown: string;
-    coral: string;
-    charcoal: string;
-    indigo: string;
-    lemon: string;
-    lime: string;
-    pink: string;
-    purple: string;
-    teal: string;
-    turquoise: string;
-    blue100: string;
-    blue200: string;
-    blue300: string;
-    blue400: string;
-    blue500: string;
-    blue600: string;
-    blue700: string;
-    blue800: string;
-    green100: string;
-    green200: string;
-    green300: string;
-    green400: string;
-    green500: string;
-    green600: string;
-    green700: string;
-    green800: string;
-    grey100: string;
-    grey200: string;
-    grey300: string;
-    grey400: string;
-    grey500: string;
-    grey600: string;
-    grey700: string;
-    grey800: string;
-    red100: string;
-    red200: string;
-    red300: string;
-    red400: string;
-    red500: string;
-    red600: string;
-    red700: string;
-    red800: string;
-    yellow100: string;
-    yellow200: string;
-    yellow300: string;
-    yellow400: string;
-    yellow500: string;
-    yellow600: string;
-    yellow700: string;
-    yellow800: string;
-    primary: string;
-    white: string;
-    backgroundPrimary: string;
-    actionDangerPrimaryBackgroundDefault: string;
-    actionDangerPrimaryBackgroundHover: string;
-    actionDangerPrimaryBackgroundPress: string;
-    actionDangerDefaultBackgroundDefault: string;
-    actionDangerDefaultBackgroundHover: string;
-    actionDangerDefaultBackgroundPress: string;
-    actionDangerDefaultBorderDefault: string;
-    actionDangerDefaultBorderHover: string;
-    actionDangerDefaultBorderPress: string;
-    actionDangerDefaultTextDefault: string;
-    actionDangerDefaultTextHover: string;
-    actionDangerDefaultTextPress: string;
-    actionDefaultBackgroundDefault: string;
-    actionDefaultBackgroundHover: string;
-    actionDefaultBackgroundPress: string;
-    actionDefaultBorderDefault: string;
-    actionDefaultBorderFocus: string;
-    actionDefaultBorderHover: string;
-    actionDefaultBorderPress: string;
-    actionDefaultTextDefault: string;
-    actionDefaultTextHover: string;
-    actionDefaultTextPress: string;
-    actionDisabledBackground: string;
-    actionDisabledText: string;
-    actionPrimaryBackgroundDefault: string;
-    actionPrimaryBackgroundHover: string;
-    actionPrimaryBackgroundPress: string;
-    actionPrimaryTextDefault: string;
-    actionPrimaryTextHover: string;
-    actionPrimaryTextPress: string;
-    actionTertiaryBackgroundDefault: string;
-    actionTertiaryBackgroundHover: string;
-    actionTertiaryBackgroundPress: string;
-    actionTertiaryTextDefault: string;
-    actionTertiaryTextHover: string;
-    actionTertiaryTextPress: string;
-    backgroundDanger: string;
-    backgroundSecondary: string;
-    backgroundWarning: string;
-    backgroundValidationDanger: string;
-    backgroundValidationSuccess: string;
-    backgroundValidationWarning: string;
-    border: string;
-    borderDecorative: string;
-    borderValidationDanger: string;
-    borderValidationWarning: string;
-    textPrimary: string;
-    textSecondary: string;
-    textPlaceholder: string;
-    textValidationDanger: string;
-    textValidationSuccess: string;
-    textValidationWarning: string;
-    textValidationInfo: string;
-    overlayOverlay: string;
-    tagDefault: string;
-    tagBrown: string;
-    tagCoral: string;
-    tagCharcoal: string;
-    tagIndigo: string;
-    tagLemon: string;
-    tagLime: string;
-    tagPink: string;
-    tagPurple: string;
-    tagTeal: string;
-    tagTurquoise: string;
-    tagText: string;
-    tagHover: string;
-    tagPress: string;
-    tagIconHover: string;
-    tagIconPress: string;
-    typographyCodeBg: string;
-    tableRowHover: string;
-    tooltipBackgroundTooltip: string;
+import { primitiveColors } from './_generated/PrimitiveColors';
+import { lightColorList } from './_generated/SemanticColors-Light';
+declare const branded: {
+    ai: {
+        /** For AI components, the top-left-oriented start color of gradient treatments. */
+        gradientStart: string;
+        /** For AI components, the mid color of gradient treatments. */
+        gradientMid: string;
+        /** For AI components, the bottom-right-oriented end color of gradient treatments. */
+        gradientEnd: string;
+    };
 };
-type DesignSystemColors = typeof lightColors;
-export interface AntdColors {
+type DesignSystemColors = typeof lightColorList & typeof primitiveColors & {
+    /** These colors represent specific brand interactions and experiences,
+     * and should be only be used in specific contexts.
+     */
+    branded: typeof branded;
+};
+export declare function getAntdColors(isDarkMode: boolean): {
+    alertTextColor: string;
+    alertMessageColor: string;
+    spinDotDefault: string;
+    alertErrorBgColor: string;
+    alertInfoBgColor: string;
+    alertWarningBgColor: string;
     bodyBackground: string;
     textColor: string;
     textColorSecondary: string;
@@ -138,32 +33,62 @@ export interface AntdColors {
     warningColor: string;
     borderColorBase: string;
     alertErrorTextColor: string;
-    alertErrorBgColor: string;
-    alertErrorIconColor: string;
     alertErrorBorderColor: string;
-    alertInfoBgColor: string;
-    alertInfoIconColor: string;
+    alertErrorIconColor: string;
     alertInfoTextColor: string;
     alertInfoBorderColor: string;
+    alertInfoIconColor: string;
     alertWarningTextColor: string;
     alertWarningBorderColor: string;
-    alertWarningBgColor: string;
     alertWarningIconColor: string;
-    alertTextColor: string;
-    alertMessageColor: string;
-    spinDotDefault: string;
-}
-export declare function getAntdColors(isDarkMode: boolean): AntdColors;
-declare const deprecatedColors: {
+};
+declare const deprecatedPrimitiveColors: {
+    /** @deprecated This was an alias to `primitiveColors.blue600`, please use that instead.
+     * If possible, please use an appropriate semantic color, such as `actionPrimaryBackgroundDefault`. */
+    primary: string;
+    /** @deprecated This was an alias to `primitiveColors.grey600`, please use that instead.
+     * If possible, please use an appropriate semantic color, such as `actionPrimaryBackgroundHover`. */
+    charcoal: string;
+    /** @deprecated This color supports legacy radio styles and will be removed in an upcoming release (FEINF-1674). */
     radioInteractiveAvailable: string;
+    /** @deprecated This color supports legacy radio styles and will be removed in an upcoming release (FEINF-1674). */
     radioInteractiveHover: string;
+    /** @deprecated This color supports legacy radio styles and will be removed in an upcoming release (FEINF-1674). */
     radioInteractivePress: string;
+    /** @deprecated This color supports legacy radio styles and will be removed in an upcoming release (FEINF-1674). */
     radioDisabled: string;
+    /** @deprecated This color supports legacy radio styles and will be removed in an upcoming release (FEINF-1674). */
     radioDefaultBorder: string;
+    /** @deprecated This color supports legacy radio styles and will be removed in an upcoming release (FEINF-1674). */
     radioDefaultBackground: string;
+    /** @deprecated This color supports legacy radio styles and will be removed in an upcoming release (FEINF-1674). */
     radioInteractiveHoverSecondary: string;
+    /** @deprecated This color supports legacy radio styles and will be removed in an upcoming release (FEINF-1674). */
     radioInteractivePressSecondary: string;
 };
-export declare function getColors(isDarkMode: boolean): typeof deprecatedColors & DesignSystemColors;
+export declare const deprecatedSemanticColorsLight: {
+    /** @deprecated Use `backgroundDanger` (FEINF-xxxx) */
+    backgroundValidationDanger: string;
+    /** @deprecated Use `backgroundSuccess` (FEINF-xxxx) */
+    backgroundValidationSuccess: string;
+    /** @deprecated Use `backgroundWarning` (FEINF-xxxx) */
+    backgroundValidationWarning: string;
+    /** @deprecated Use `border` (FEINF-xxxx) */
+    borderDecorative: string;
+    /** @deprecated Use `borderDanger` (FEINF-xxxx) */
+    borderValidationDanger: string;
+    /** @deprecated Use `borderWarning` (FEINF-xxxx) */
+    borderValidationWarning: string;
+    /** @deprecated Use `tableBackgroundUnselectedHover` (FEINF-xxxx) */
+    tableRowHover: string;
+    /** @deprecated Use `textSecondary` (FEINF-xxxx) */
+    textValidationInfo: string;
+    /** @deprecated Use `codeBackground` (FEINF-xxxx) */
+    typographyCodeBg: string;
+};
+export declare const deprecatedSemanticColorsDark: typeof deprecatedSemanticColorsLight;
+export type SecondaryColorToken = 'brown' | 'coral' | 'indigo' | 'lemon' | 'lime' | 'pink' | 'purple' | 'teal' | 'turquoise';
+export type TagColorToken = `tag${Capitalize<SecondaryColorToken>}` | 'tagDefault';
+export declare function getColors(isDarkMode: boolean): typeof deprecatedPrimitiveColors & typeof deprecatedSemanticColorsLight & DesignSystemColors;
 export {};
 //# sourceMappingURL=colors.d.ts.map

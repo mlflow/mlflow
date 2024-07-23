@@ -1,4 +1,4 @@
-# pylint: disable=line-too-long
+# ruff: noqa: E501
 
 
 def format_help_string(help_string):
@@ -6,8 +6,12 @@ def format_help_string(help_string):
     Formats the specified ``help_string`` to obtain a Mermaid-compatible help string. For example,
     this method replaces quotation marks with their HTML representation.
 
-    :param help_string: The raw help string.
-    :return: A Mermaid-compatible help string.
+    Args:
+        help_string: The raw help string.
+
+    Returns:
+        A Mermaid-compatible help string.
+
     """
     return help_string.replace('"', "&bsol;#quot;").replace("'", "&bsol;&#39;")
 

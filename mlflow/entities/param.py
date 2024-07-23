@@ -1,10 +1,10 @@
 import sys
 
-from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import Param as ProtoParam
 
 
-class Param(_MLflowObject):
+class Param(_MlflowObject):
     """
     Parameter object.
     """

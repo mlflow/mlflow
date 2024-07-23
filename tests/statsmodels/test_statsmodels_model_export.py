@@ -27,6 +27,7 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 from tests.statsmodels.model_fixtures import (
@@ -399,12 +400,14 @@ def test_pyfunc_serve_and_score():
     model, _, inference_dataframe = ols_model()
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.statsmodels.log_model(model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.statsmodels.log_model(
+            model, artifact_path, input_example=inference_dataframe
+        )
 
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=pd.DataFrame(inference_dataframe),
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )

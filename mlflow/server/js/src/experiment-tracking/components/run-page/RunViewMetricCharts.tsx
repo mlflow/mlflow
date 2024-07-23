@@ -1,113 +1,111 @@
 import {
+  Button,
   Empty,
   Input,
+  RefreshIcon,
   SearchIcon,
   Spacer,
-  Typography,
+  Spinner,
   useDesignSystemTheme,
 } from '@databricks/design-system';
+import { compact, mapValues, values } from 'lodash';
 import { useMemo, useState } from 'react';
-import { MetricHistoryByName, RunInfoEntity } from '../../types';
-import { RunViewMetricChart } from './RunViewMetricChart';
-import { useSelector } from 'react-redux';
-import { ReduxState } from '../../../redux-types';
-import { useFetchCompareRunsMetricHistory } from '../runs-compare/hooks/useFetchCompareRunsMetricHistory';
-import { CollapsibleSection } from '../../../common/components/CollapsibleSection';
 import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
+import { useSelector } from 'react-redux';
+import { getGridColumnSetup } from '../../../common/utils/CssGrid.utils';
+import { ReduxState } from '../../../redux-types';
+import { RunInfoEntity } from '../../types';
+import { normalizeChartMetricKey } from '../../utils/MetricsUtils';
+import { useChartMoveUpDownFunctions, useOrderedCharts } from '../runs-charts/hooks/useOrderedCharts';
 import { RunsChartsTooltipWrapper } from '../runs-charts/hooks/useRunsChartsTooltip';
 import { RunViewChartTooltipBody } from './RunViewChartTooltipBody';
-import { isSystemMetricKey, normalizeChartMetricKey } from '../../utils/MetricsUtils';
+import { RunViewMetricChart } from './RunViewMetricChart';
+import { ChartRefreshManager, useChartRefreshManager } from './useChartRefreshManager';
+import { DragAndDropProvider } from '../../../common/hooks/useDragAndDropElement';
+import type { UseGetRunQueryResponseRunInfo } from './hooks/useGetRunQuery';
 
-const { systemMetricChartsLabel, modelMetricChartsLabel } = defineMessages({
-  systemMetricChartsLabel: {
-    defaultMessage: 'System metrics',
-    description: 'Run page > Charts tab > System charts section > title',
+const { systemMetricChartsEmpty, modelMetricChartsEmpty } = defineMessages({
+  systemMetricChartsEmpty: {
+    defaultMessage: 'No system metrics recorded',
+    description: 'Run page > Charts tab > System charts section > empty label',
   },
-  modelMetricChartsLabel: {
-    defaultMessage: 'Model metrics',
-    description: 'Run page > Charts tab > Model charts section > title',
+  modelMetricChartsEmpty: {
+    defaultMessage: 'No model metrics recorded',
+    description: 'Run page > Charts tab > Model charts section > empty label',
   },
 });
 
 const EmptyMetricsFiltered = () => (
   <Empty
-    title='No matching metric keys'
-    description='All metrics in this section are filtered. Clear the search filter to see hidden metrics.'
+    title="No matching metric keys"
+    description="All metrics in this section are filtered. Clear the search filter to see hidden metrics."
   />
 );
 
-const EmptyMetricsNotRecorded = () => (
-  <Empty title='No metrics recorded' description='No metrics recorded' />
-);
+const EmptyMetricsNotRecorded = ({ label }: { label: React.ReactNode }) => <Empty title={label} description={null} />;
 
 const metricKeyMatchesFilter = (filter: string, metricKey: string) =>
-  metricKey.toLowerCase().includes(filter.toLowerCase());
+  metricKey.toLowerCase().startsWith(filter.toLowerCase()) ||
+  normalizeChartMetricKey(metricKey).toLowerCase().startsWith(filter.toLowerCase());
 
 /**
  * Internal component that displays a single collapsible section with charts
  */
 const RunViewMetricChartsSection = ({
   metricKeys,
-  title,
   search,
-  metrics,
   runInfo,
-  isLoading,
+  chartRefreshManager,
+  onReorderChart,
 }: {
   metricKeys: string[];
-  title: string;
   search: string;
-  metrics: MetricHistoryByName;
-  runInfo: RunInfoEntity;
-  isLoading: boolean;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
+  onReorderChart: (sourceChartKey: string, targetChartKey: string) => void;
+  chartRefreshManager: ChartRefreshManager;
 }) => {
   const { theme } = useDesignSystemTheme();
 
-  const filteredMetricKeys = metricKeys.filter((metricKey) =>
-    metricKeyMatchesFilter(search, metricKey),
+  const filteredMetricKeys = metricKeys.filter((metricKey) => metricKeyMatchesFilter(search, metricKey));
+
+  const { canMoveDown, canMoveUp, moveChartDown, moveChartUp } = useChartMoveUpDownFunctions(
+    filteredMetricKeys,
+    onReorderChart,
   );
 
-  const charts = filteredMetricKeys.length ? (
-    <div css={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, overflow: 'hidden' }}>
-      {metricKeys.map((metricKey) => (
-        <div
-          key={metricKey}
-          css={{
-            border: `1px solid ${theme.colors.borderDecorative}`,
-            padding: 16,
-            overflow: 'hidden',
-            display: metricKeyMatchesFilter(search, metricKey) ? 'block' : 'none',
-          }}
-          aria-hidden={!metricKeyMatchesFilter(search, metricKey)}
-        >
-          <Typography.Title level={4}>{normalizeChartMetricKey(metricKey)}</Typography.Title>
-          {
-            <RunViewMetricChart
-              isLoading={isLoading}
-              metricKey={metricKey}
-              metricsHistory={metrics}
-              runInfo={runInfo}
-            />
-          }
-        </div>
+  const gridSetup = useMemo(
+    () => ({
+      ...getGridColumnSetup({
+        maxColumns: 3,
+        gap: theme.spacing.lg,
+        additionalBreakpoints: [{ breakpointWidth: 3 * 720, minColumnWidthForBreakpoint: 720 }],
+      }),
+      overflow: 'hidden',
+    }),
+    [theme],
+  );
+
+  return filteredMetricKeys.length ? (
+    <div css={gridSetup}>
+      {filteredMetricKeys.map((metricKey, index) => (
+        <RunViewMetricChart
+          // Use both metric name and index as a key,
+          // charts needs to be rerendered when order is changed
+          key={`${metricKey}-${index}`}
+          dragGroupKey="metricCharts"
+          metricKey={metricKey}
+          runInfo={runInfo}
+          onReorderWith={onReorderChart}
+          canMoveUp={canMoveUp(metricKey)}
+          canMoveDown={canMoveDown(metricKey)}
+          onMoveDown={() => moveChartDown(metricKey)}
+          onMoveUp={() => moveChartUp(metricKey)}
+          chartRefreshManager={chartRefreshManager}
+        />
       ))}
     </div>
   ) : (
     <EmptyMetricsFiltered />
-  );
-
-  if (!title) return charts;
-
-  return (
-    <CollapsibleSection
-      title={
-        <Typography.Title level={3} css={{ marginBottom: 0 }}>
-          {title} ({filteredMetricKeys.length})
-        </Typography.Title>
-      }
-    >
-      {charts}
-    </CollapsibleSection>
   );
 };
 
@@ -117,81 +115,105 @@ const RunViewMetricChartsSection = ({
 export const RunViewMetricCharts = ({
   runInfo,
   metricKeys,
+  mode,
 }: {
   metricKeys: string[];
-  runInfo: RunInfoEntity;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
+  /**
+   * Whether to display model or system metrics. This affects labels and tooltips.
+   */
+  mode: 'model' | 'system';
 }) => {
-  const { metricsForRun } = useSelector(({ entities }: ReduxState) => ({
-    metricsForRun: entities.metricsByRunUuid[runInfo.run_uuid],
-  }));
+  const chartRefreshManager = useChartRefreshManager();
+
+  const metricsForRun = useSelector(({ entities }: ReduxState) => {
+    return mapValues(entities.sampledMetricsByRunUuid[runInfo.runUuid ?? ''], (metricsByRange) => {
+      return compact(
+        values(metricsByRange)
+          .map(({ metricsHistory }) => metricsHistory)
+          .flat(),
+      );
+    });
+  });
 
   const [search, setSearch] = useState('');
   const { formatMessage } = useIntl();
 
-  const { isLoading } = useFetchCompareRunsMetricHistory(metricKeys, [{ runInfo }]);
-
-  // Let's split charts into segments - system and model.
-  // If there is no distinction detected, return only one generic section.
-  const chartSegments = useMemo(() => {
-    const systemMetricKeys = metricKeys.filter(isSystemMetricKey);
-    const modelMetricKeys = metricKeys.filter((key) => !isSystemMetricKey(key));
-
-    const isSegmented = systemMetricKeys.length > 0 && modelMetricKeys.length > 0;
-    const segments: [string, string[]][] = isSegmented
-      ? [
-          [formatMessage(systemMetricChartsLabel), systemMetricKeys],
-          [formatMessage(modelMetricChartsLabel), modelMetricKeys],
-        ]
-      : [['', metricKeys]];
-
-    return segments;
-  }, [metricKeys, formatMessage]);
+  const { orderedMetricKeys, onReorderChart } = useOrderedCharts(metricKeys, 'RunView' + mode, runInfo.runUuid ?? '');
 
   const noMetricsRecorded = !metricKeys.length;
   const allMetricsFilteredOut =
-    !noMetricsRecorded &&
-    !metricKeys.some((metricKey) => metricKeyMatchesFilter(search, metricKey));
-  const showFilterInput = !noMetricsRecorded;
+    !noMetricsRecorded && !metricKeys.some((metricKey) => metricKeyMatchesFilter(search, metricKey));
+  const showConfigArea = !noMetricsRecorded;
+  const { theme } = useDesignSystemTheme();
   const showCharts = !noMetricsRecorded && !allMetricsFilteredOut;
 
   const tooltipContext = useMemo(() => ({ runInfo, metricsForRun }), [runInfo, metricsForRun]);
 
+  const anyRunRefreshing = useSelector((store: ReduxState) => {
+    return values(store.entities.sampledMetricsByRunUuid[runInfo.runUuid ?? '']).some((metricsByRange) =>
+      values(metricsByRange).some(({ refreshing }) => refreshing),
+    );
+  });
+
   return (
-    <RunsChartsTooltipWrapper contextData={tooltipContext} component={RunViewChartTooltipBody}>
-      <Typography.Title level={3}>
-        <FormattedMessage
-          defaultMessage='Metric charts'
-          description='Run page > Charts tab > title'
-        />
-      </Typography.Title>
-      {showFilterInput && (
-        <Input
-          role='searchbox'
-          prefix={<SearchIcon />}
-          value={search}
-          allowClear
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={formatMessage({
-            defaultMessage: 'Search metric charts',
-            description: 'Run page > Charts tab > Filter metric charts input > placeholder',
-          })}
-        />
-      )}
-      <Spacer />
-      {noMetricsRecorded && <EmptyMetricsNotRecorded />}
-      {allMetricsFilteredOut && <EmptyMetricsFiltered />}
-      {showCharts &&
-        chartSegments.map(([title, segmentMetricKeys]) => (
-          <RunViewMetricChartsSection
-            key={title}
-            isLoading={isLoading}
-            metricKeys={segmentMetricKeys}
-            title={title}
-            metrics={metricsForRun}
-            runInfo={runInfo}
-            search={search}
+    <DragAndDropProvider>
+      <div css={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div css={{ flexShrink: 0 }}>
+          {showConfigArea && (
+            <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+              <Input
+                role="searchbox"
+                prefix={<SearchIcon />}
+                value={search}
+                allowClear
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={formatMessage({
+                  defaultMessage: 'Search metric charts',
+                  description: 'Run page > Charts tab > Filter metric charts input > placeholder',
+                })}
+              />
+              <Button
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_runviewmetriccharts.tsx_176"
+                icon={
+                  anyRunRefreshing ? <Spinner size="small" css={{ marginRight: theme.spacing.sm }} /> : <RefreshIcon />
+                }
+                onClick={() => {
+                  if (!anyRunRefreshing) {
+                    chartRefreshManager.refreshAllCharts();
+                  }
+                }}
+              >
+                <FormattedMessage
+                  defaultMessage="Refresh"
+                  description="Run page > Charts tab > Refresh all charts button label"
+                />
+              </Button>
+            </div>
+          )}
+          <Spacer />
+        </div>
+        {noMetricsRecorded && (
+          <EmptyMetricsNotRecorded
+            label={<FormattedMessage {...(mode === 'model' ? modelMetricChartsEmpty : systemMetricChartsEmpty)} />}
           />
-        ))}
-    </RunsChartsTooltipWrapper>
+        )}
+        {allMetricsFilteredOut && <EmptyMetricsFiltered />}
+        {/* Scroll charts independently from filter box */}
+        <div css={{ flex: 1, overflow: 'auto' }}>
+          <RunsChartsTooltipWrapper contextData={tooltipContext} component={RunViewChartTooltipBody} hoverOnly>
+            {showCharts && (
+              <RunViewMetricChartsSection
+                metricKeys={orderedMetricKeys}
+                runInfo={runInfo}
+                search={search}
+                onReorderChart={onReorderChart}
+                chartRefreshManager={chartRefreshManager}
+              />
+            )}
+          </RunsChartsTooltipWrapper>
+        </div>{' '}
+      </div>
+    </DragAndDropProvider>
   );
 };

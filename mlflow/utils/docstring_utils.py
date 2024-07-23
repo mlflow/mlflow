@@ -84,11 +84,12 @@ class ParamDocs(dict):
         Returns:
             A new `ParamDocs` instance with the formatted param docs.
 
-        Examples
-        --------
-        >>> pd = ParamDocs(p1="{{ doc1 }}", p2="{{ doc2 }}")
-        >>> pd.format(doc1="foo", doc2="bar")
-        ParamDocs({'p1': 'foo', 'p2': 'bar'})
+        .. code-block:: text
+            :caption: Example
+
+            >>> pd = ParamDocs(p1="{{ doc1 }}", p2="{{ doc2 }}")
+            >>> pd.format(doc1="foo", doc2="bar")
+            ParamDocs({'p1': 'foo', 'p2': 'bar'})
         """
         replacements = _replace_keys_with_placeholders(kwargs)
         return ParamDocs({k: _replace_all(v, replacements) for k, v in self.items()})
@@ -97,23 +98,21 @@ class ParamDocs(dict):
         """
         Formats placeholders in `docstring`.
 
-        Examples
-        --------
-        >>> pd = ParamDocs(p1="doc1", p2="doc2
-        doc2 second line")
-        >>> docstring = '''
-        ... :param p1: {{ p1 }}
-        ... :param p2: {{ p2 }}
-        ... '''.strip()
-        >>> print(pd.format_docstring(docstring))
-        :param p1: doc1
-        :param p2: doc2
-                   doc2 second line
-
         Args:
             p1: {{ p1 }}
             p2: {{ p2 }}
 
+        .. code-block:: text
+            :caption: Example
+
+            >>> pd = ParamDocs(p1="doc1", p2="doc2
+            doc2 second line")
+            >>> docstring = '''
+            ... Args:
+            ...     p1: {{ p1 }}
+            ...     p2: {{ p2 }}
+            ... '''.strip()
+            >>> print(pd.format_docstring(docstring))
         """
         if docstring is None:
             return None
@@ -127,7 +126,8 @@ class ParamDocs(dict):
 
 
 def format_docstring(param_docs):
-    """Returns a decorator that replaces param doc placeholders (e.g. '{{ param_name }}') in the
+    """
+    Returns a decorator that replaces param doc placeholders (e.g. '{{ param_name }}') in the
     docstring of the decorated function.
 
     Args:
@@ -136,21 +136,25 @@ def format_docstring(param_docs):
     Returns:
         A decorator to apply the formatting.
 
-    Examples:
+    .. code-block:: text
+        :caption: Example
+
         >>> param_docs = {"p1": "doc1", "p2": "doc2
         doc2 second line"}
         >>> @format_docstring(param_docs)
         ... def func(p1, p2):
         ...     '''
-        ...     :param p1: {{ p1 }}
-        ...     :param p2: {{ p2 }}
+        ...     Args:
+        ...         p1: {{ p1 }}
+        ...         p2: {{ p2 }}
         ...     '''
         >>> import textwrap
         >>> print(textwrap.dedent(func.__doc__).strip())
-        :param p1: doc1
-        :param p2: doc2
-                   doc2 second line
 
+        Args:
+            p1: doc1
+            p2: doc2
+                doc2 second line
     """
     param_docs = ParamDocs(param_docs)
 
@@ -218,7 +222,7 @@ section of the model's conda environment (``conda.yaml``) file.
     - ``extra_pip_requirements``
 
 `This example <https://github.com/mlflow/mlflow/blob/master/examples/pip_requirements/pip_requirements.py>`_ demonstrates how to specify pip requirements using
-``pip_requirements`` and ``extra_pip_requirements``."""
+``pip_requirements`` and ``extra_pip_requirements``."""  # noqa: E501
         ),
         "signature": (
             """an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -240,6 +244,9 @@ dataset, for example:
     predictions = ...  # compute model predictions
     signature = infer_signature(train, predictions)
 """
+        ),
+        "metadata": (
+            "Custom metadata dictionary passed to the model and stored in the MLmodel file."
         ),
         "input_example": (
             """one or several instances of valid model input. The input example is used
@@ -271,6 +278,79 @@ Currently, only the following pipeline types are supported:
 - `text-generation <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.TextGenerationPipeline>`_
 """
         ),
+        "code_paths": (
+            """A list of local filesystem paths to Python file dependencies (or directories
+containing file dependencies). These files are *prepended* to the system path when the model
+is loaded. Files declared as dependencies for a given model should have relative
+imports declared from a common root path if multiple files are defined with import dependencies
+between them to avoid import errors when loading the model.
+
+You can leave ``code_paths`` argument unset but set ``infer_code_paths`` to ``True`` to let MLflow
+infer the model code paths. See ``infer_code_paths`` argument doc for details.
+
+For a detailed explanation of ``code_paths`` functionality, recommended usage patterns and
+limitations, see the
+`code_paths usage guide <https://mlflow.org/docs/latest/model/dependencies.html?highlight=code_paths#saving-extra-code-with-an-mlflow-model>`_.
+"""
+        ),
+        "infer_code_paths": (
+            """If set to ``True``, MLflow automatically infers model code paths. The inferred
+            code path files only include necessary python module files. Only python code files
+            under current working directory are automatically inferrable. Default value is
+            ``False``.
+
+.. warning::
+    Please ensure that the custom python module code does not contain sensitive data such as
+    credential token strings, otherwise they might be included in the automatic inferred code
+    path files and be logged to MLflow artifact repository.
+
+    If your custom python module depends on non-python files (e.g. a JSON file) with a relative
+    path to the module code file path, the non-python files can't be automatically inferred as the
+    code path file. To address this issue, you should put all used non-python files outside
+    your custom code directory.
+
+    If a python code file is loaded as the python ``__main__`` module, then this code file can't be
+    inferred as the code path file. If your model depends on classes / functions defined in
+    ``__main__`` module, you should use `cloudpickle` to dump your model instance in order to pickle
+    classes / functions in ``__main__``.
+
+.. Note:: Experimental: This parameter may change or be removed in a future release without warning.
+"""
+        ),
+        "save_pretrained": (
+            """If set to ``False``, MLflow will not save the Transformer model weight files,
+instead only saving the reference to the HuggingFace Hub model repository and its commit hash.
+This is useful when you load the pretrained model from HuggingFace Hub and want to log or save
+it to MLflow without modifying the model weights. In such case, specifying this flag to
+``False`` will save the storage space and reduce time to save the model. Please refer to the
+:ref:`Storage-Efficient Model Logging <transformers-save-pretrained-guide>` for more detailed usage.
+
+
+.. warning::
+
+    If the model is saved with ``save_pretrained`` set to ``False``, the model cannot be
+    registered to the MLflow Model Registry. In order to convert the model to the one that
+    can be registered, you can use :py:func:`mlflow.transformers.persist_pretrained_model()`
+    to download the model weights from the HuggingFace Hub and save it in the existing model
+    artifacts. Please refer to :ref:`Transformers flavor documentation <persist-pretrained-guide>`
+    for more detailed usage.
+
+    .. code-block:: python
+
+        import mlflow.transformers
+
+        model_uri = "YOUR_MODEL_URI_LOGGED_WITH_SAVE_PRETRAINED_FALSE"
+        model = mlflow.transformers.persist_pretrained_model(model_uri)
+        mlflow.register_model(model_uri, "model_name")
+
+.. important::
+
+    When you save the `PEFT <https://huggingface.co/docs/peft/en/index>`_ model, MLflow will
+    override the `save_pretrained` flag to `False` and only store the PEFT adapter weights. The
+    base model weights are not saved but the reference to the HuggingFace repository and
+    its commit hash are logged instead.
+"""
+        ),
     }
 )
 
@@ -292,6 +372,13 @@ def get_module_min_and_max_supported_ranges(module_name):
     min_version = versions["minimum"]
     max_version = versions["maximum"]
     return min_version, max_version
+
+
+def _do_version_compatibility_warning(msg: str):
+    """
+    Isolate the warn call to show the warning only once.
+    """
+    warnings.warn(msg, category=UserWarning, stacklevel=2)
 
 
 def docstring_version_compatibility_warning(integration_name):
@@ -325,7 +412,7 @@ def docstring_version_compatibility_warning(integration_name):
         def version_func(*args, **kwargs):
             installed_version = Version(importlib_metadata.version(module_key))
             if installed_version < Version(min_ver) or installed_version > Version(max_ver):
-                warnings.warn(notice, category=FutureWarning, stacklevel=2)
+                _do_version_compatibility_warning(notice)
             return func(*args, **kwargs)
 
         version_func.__doc__ = (

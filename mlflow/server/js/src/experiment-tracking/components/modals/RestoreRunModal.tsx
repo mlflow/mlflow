@@ -17,6 +17,7 @@ type Props = {
   selectedRunIds: string[];
   openErrorModal: (...args: any[]) => any;
   restoreRunApi: (...args: any[]) => any;
+  onSuccess?: () => void;
 };
 
 export class RestoreRunModalImpl extends Component<Props> {
@@ -30,13 +31,17 @@ export class RestoreRunModalImpl extends Component<Props> {
     this.props.selectedRunIds.forEach((runId) => {
       restorePromises.push(this.props.restoreRunApi(runId));
     });
-    return Promise.all(restorePromises).catch((e) => {
-      let errorMessage = 'While restoring an experiment run, an error occurred.';
-      if (e.textJson && e.textJson.error_code === 'RESOURCE_LIMIT_EXCEEDED') {
-        errorMessage = errorMessage + ' ' + e.textJson.message;
-      }
-      this.props.openErrorModal(errorMessage);
-    });
+    return Promise.all(restorePromises)
+      .catch((e) => {
+        let errorMessage = 'While restoring an experiment run, an error occurred.';
+        if (e.textJson && e.textJson.error_code === 'RESOURCE_LIMIT_EXCEEDED') {
+          errorMessage = errorMessage + ' ' + e.textJson.message;
+        }
+        this.props.openErrorModal(errorMessage);
+      })
+      .then(() => {
+        this.props.onSuccess?.();
+      });
   }
 
   render() {
@@ -48,7 +53,7 @@ export class RestoreRunModalImpl extends Component<Props> {
         handleSubmit={this.handleSubmit}
         title={`Restore Experiment ${Utils.pluralize('Run', number)}`}
         helpText={`${number} experiment ${Utils.pluralize('run', number)} will be restored.`}
-        confirmButtonText={'Restore'}
+        confirmButtonText="Restore"
       />
     );
   }

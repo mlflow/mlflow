@@ -7,13 +7,11 @@ TensorFlow (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
-import atexit
 import importlib
 import logging
 import os
 import shutil
 import tempfile
-import warnings
 from typing import Any, Dict, NamedTuple, Optional
 
 import numpy as np
@@ -31,25 +29,25 @@ from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signat
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
-from mlflow.tensorflow.callback import MLflowCallback  # noqa: F401
+from mlflow.tensorflow.callback import MlflowCallback, MlflowModelCheckpointCallback  # noqa: F401
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
+from mlflow.tracking.fluent import _shut_down_async_logging
 from mlflow.types.schema import TensorSpec
 from mlflow.utils import is_iterator
 from mlflow.utils.autologging_utils import (
     PatchFunction,
     autologging_integration,
-    batch_metrics_logger,
     get_autologging_config,
     log_fn_args_as_params,
     picklable_exception_safe_function,
     resolve_input_example_and_signature,
     safe_patch,
 )
-from mlflow.utils.autologging_utils.metrics_queue import (
-    add_to_metrics_queue,
-    flush_metrics_queue,
+from mlflow.utils.checkpoint_utils import (
+    _WEIGHT_ONLY_CHECKPOINT_SUFFIX,
+    download_checkpoint_artifact,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -63,7 +61,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import get_total_file_size, write_to
+from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
@@ -71,13 +69,10 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.time import get_current_time_millis
 
 FLAVOR_NAME = "tensorflow"
 
 _logger = logging.getLogger(__name__)
-
-_LOG_EVERY_N_STEPS = 1
 
 # For tracking if the run was started by autologging.
 _AUTOLOG_RUN_ID = None
@@ -96,6 +91,13 @@ _MODEL_SAVE_PATH = "model"
 _MODEL_TYPE_KERAS = "keras"
 _MODEL_TYPE_TF1_ESTIMATOR = "tf1-estimator"
 _MODEL_TYPE_TF2_MODULE = "tf2-module"
+
+
+_KERAS_MODEL_DATA_PATH = "data"
+_TF2MODEL_SUBPATH = "tf2model"
+
+
+MLflowCallback = MlflowCallback  # for backwards compatibility
 
 
 def get_default_pip_requirements(include_cloudpickle=False):
@@ -127,9 +129,9 @@ def get_global_custom_objects():
         A live reference to the global dictionary of custom objects.
     """
     try:
-        from tensorflow import keras
+        from tensorflow.keras.saving import get_custom_objects
 
-        return keras.saving.get_custom_objects()
+        return get_custom_objects()
     except Exception:
         pass
 
@@ -191,9 +193,7 @@ def log_model(
             when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
             :py:func:`mlflow.pyfunc.load_model`.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
@@ -206,10 +206,7 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
         keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                        .. Note:: Experimental: This parameter may change or be removed in a future
-                                                release without warning.
+        metadata: {{ metadata }}
 
     Returns
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -314,9 +311,7 @@ def save_model(
         model: The Keras model or Tensorflow module to be saved.
         path: Local path where the MLflow model is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-            containing file dependencies). These files are *prepended* to the system
-            path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: MLflow model configuration to which to add the ``tensorflow`` flavor.
         custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
             custom classes or functions associated with the Keras model. MLflow saves
@@ -331,22 +326,29 @@ def save_model(
             if the model to be saved is a Tensorflow module.
         keras_model_kwargs: a dict of kwargs to pass to ``model.save`` method if the model
             to be saved is a keras model.
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
     """
     import tensorflow as tf
     from tensorflow.keras.models import Model as KerasModel
 
-    if signature is None and input_example is not None:
+    # check if path exists
+    path = os.path.abspath(path)
+    _validate_and_prepare_target_save_path(path)
+
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+
+    if signature is None and saved_example is not None:
         wrapped_model = None
         if isinstance(model, KerasModel):
             wrapped_model = _KerasModelWrapper(model, signature)
         elif isinstance(model, tf.Module):
             wrapped_model = _TF2ModuleWrapper(model, signature)
         if wrapped_model is not None:
-            signature = _infer_signature_from_input_example(input_example, wrapped_model)
+            signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is False:
         signature = None
 
@@ -374,25 +376,15 @@ def save_model(
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
-    # check if path exists
-    path = os.path.abspath(path)
-    _validate_and_prepare_target_save_path(path)
-
-    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
-
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
     if isinstance(model, KerasModel):
         keras_model_kwargs = keras_model_kwargs or {}
 
-        data_subpath = "data"
+        data_subpath = _KERAS_MODEL_DATA_PATH
         # construct new data folder in existing path
         data_path = os.path.join(path, data_subpath)
         os.makedirs(data_path)
@@ -454,7 +446,7 @@ def save_model(
         }
     elif isinstance(model, tf.Module):
         saved_model_kwargs = saved_model_kwargs or {}
-        model_dir_subpath = "tf2model"
+        model_dir_subpath = _TF2MODEL_SUBPATH
         model_path = os.path.join(path, model_dir_subpath)
         tf.saved_model.save(model, model_path, **saved_model_kwargs)
         pyfunc_options = {}
@@ -680,9 +672,7 @@ def _load_tf1_estimator_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_s
     """
     import tensorflow as tf
 
-    loaded = tf.saved_model.load(  # pylint: disable=no-value-for-parameter
-        tags=tf_meta_graph_tags, export_dir=tf_saved_model_dir
-    )
+    loaded = tf.saved_model.load(tags=tf_meta_graph_tags, export_dir=tf_saved_model_dir)
     loaded_sig = loaded.signatures
     if tf_signature_def_key not in loaded_sig:
         raise MlflowException(
@@ -743,9 +733,7 @@ def _load_pyfunc(path):
         tf_meta_graph_tags = flavor_conf["meta_graph_tags"]
         tf_signature_def_key = flavor_conf["signature_def_key"]
 
-        loaded_model = tf.saved_model.load(  # pylint: disable=no-value-for-parameter
-            export_dir=tf_saved_model_dir, tags=tf_meta_graph_tags
-        )
+        loaded_model = tf.saved_model.load(export_dir=tf_saved_model_dir, tags=tf_meta_graph_tags)
         return _TF2Wrapper(model=loaded_model, infer=loaded_model.signatures[tf_signature_def_key])
     if model_type == _MODEL_TYPE_TF2_MODULE:
         flavor_conf = _get_flavor_configuration(path, FLAVOR_NAME)
@@ -776,15 +764,14 @@ class _TF2Wrapper:
         self.infer = infer
 
     def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        data,
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
 
         Returns:
             Model predictions.
@@ -830,15 +817,14 @@ class _TF2ModuleWrapper:
         self.signature = signature
 
     def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        data,
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
 
         Returns:
             Model predictions.
@@ -864,15 +850,14 @@ class _KerasModelWrapper:
         self.signature = signature
 
     def predict(
-        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        data,
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
 
         Returns
             Model predictions.
@@ -908,28 +893,6 @@ def _assoc_list_to_map(lst):
     return d
 
 
-def _log_event(event):
-    """
-    Extracts metric information from the event protobuf
-    """
-    if event.WhichOneof("what") == "summary":
-        summary = event.summary
-        for v in summary.value:
-            if v.HasField("simple_value"):
-                # NB: Most TensorFlow APIs use one-indexing for epochs, while tf.Keras
-                # uses zero-indexing. Accordingly, the modular arithmetic used here is slightly
-                # different from the arithmetic used in `__MLflowTfKeras2Callback.on_epoch_end`,
-                # which provides metric logging hooks for tf.Keras
-                if (event.step - 1) % _LOG_EVERY_N_STEPS == 0:
-                    add_to_metrics_queue(
-                        key=v.tag,
-                        value=v.simple_value,
-                        step=event.step,
-                        time=get_current_time_millis(),
-                        run_id=mlflow.active_run().info.run_id,
-                    )
-
-
 @picklable_exception_safe_function
 def _get_tensorboard_callback(lst):
     import tensorflow as tf
@@ -949,29 +912,65 @@ class _TensorBoardLogDir(NamedTuple):
     is_temp: bool
 
 
-def _setup_callbacks(callbacks, metrics_logger):
+def _setup_callbacks(callbacks, log_every_epoch, log_every_n_steps):
     """
     Adds TensorBoard and MlfLowTfKeras callbacks to the
     input list, and returns the new list and appropriate log directory.
     """
-    # pylint: disable=no-name-in-module
-    from mlflow.tensorflow._autolog import __MLflowTfKeras2Callback, _TensorBoard
+    from mlflow.tensorflow.autologging import _TensorBoard
+    from mlflow.tensorflow.callback import MlflowCallback, MlflowModelCheckpointCallback
 
     tb = _get_tensorboard_callback(callbacks)
     for callback in callbacks:
-        if isinstance(callback, MLflowCallback):
+        if isinstance(callback, MlflowCallback):
             raise MlflowException(
-                "MLflow autologging must be turned off if an `MLflowCallback` is explicitly added "
-                "to the callback list. You are creating an `MLflowCallback` while having "
+                "MLflow autologging must be turned off if an `MlflowCallback` is explicitly added "
+                "to the callback list. You are creating an `MlflowCallback` while having "
                 "autologging enabled. Please either call `mlflow.tensorflow.autolog(disable=True)` "
-                "to disable autologging or remove `MLflowCallback` from the callback list. "
+                "to disable autologging or remove `MlflowCallback` from the callback list. "
             )
     if tb is None:
         log_dir = _TensorBoardLogDir(location=tempfile.mkdtemp(), is_temp=True)
         callbacks.append(_TensorBoard(log_dir.location))
     else:
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
-    callbacks.append(__MLflowTfKeras2Callback(metrics_logger, _LOG_EVERY_N_STEPS))
+
+    callbacks.append(
+        MlflowCallback(
+            log_every_epoch=log_every_epoch,
+            log_every_n_steps=log_every_n_steps,
+        )
+    )
+
+    model_checkpoint = get_autologging_config(mlflow.tensorflow.FLAVOR_NAME, "checkpoint", True)
+    if model_checkpoint:
+        checkpoint_monitor = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "checkpoint_monitor", "val_loss"
+        )
+        checkpoint_mode = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "checkpoint_mode", "min"
+        )
+        checkpoint_save_best_only = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "checkpoint_save_best_only", True
+        )
+        checkpoint_save_weights_only = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "checkpoint_save_weights_only", False
+        )
+        checkpoint_save_freq = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "checkpoint_save_freq", "epoch"
+        )
+
+        if not any(isinstance(callback, MlflowModelCheckpointCallback) for callback in callbacks):
+            callbacks.append(
+                MlflowModelCheckpointCallback(
+                    monitor=checkpoint_monitor,
+                    mode=checkpoint_mode,
+                    save_best_only=checkpoint_save_best_only,
+                    save_weights_only=checkpoint_save_weights_only,
+                    save_freq=checkpoint_save_freq,
+                )
+            )
+
     return callbacks, log_dir
 
 
@@ -990,8 +989,15 @@ def autolog(
     saved_model_kwargs=None,
     keras_model_kwargs=None,
     extra_tags=None,
-):  # pylint: disable=unused-argument
-    # pylint: disable=no-name-in-module
+    log_every_epoch=True,
+    log_every_n_steps=None,
+    checkpoint=True,
+    checkpoint_monitor="val_loss",
+    checkpoint_mode="min",
+    checkpoint_save_best_only=True,
+    checkpoint_save_weights_only=False,
+    checkpoint_save_freq="epoch",
+):
     """
     Enables autologging for ``tf.keras``.
     Note that only ``tensorflow>=2.3`` are supported.
@@ -1027,13 +1033,13 @@ def autolog(
     <https://www.mlflow.org/docs/latest/tracking.html#tensorflow-and-keras-experimental>`_.
 
     Note that autologging cannot be used together with explicit MLflow callback, i.e.,
-    `mlflow.tensorflow.MLflowCallback`, because it will cause the same metrics to be logged twice.
-    If you want to include `mlflow.tensorflow.MLflowCallback` in the callback list, please turn off
+    `mlflow.tensorflow.MlflowCallback`, because it will cause the same metrics to be logged twice.
+    If you want to include `mlflow.tensorflow.MlflowCallback` in the callback list, please turn off
     autologging by calling `mlflow.tensorflow.autolog(disable=True)`.
 
     Args:
-        every_n_iter: The frequency with which metrics should be logged. For example, a value of
-            100 will log metrics at step 0, 100, 200, etc.
+        every_n_iter: deprecated, please use ``log_every_epoch`` instead. Per ``every_n_iter``
+            steps, metrics will be logged.
         log_models: If ``True``, trained models are logged as MLflow model artifacts.
             If ``False``, trained models are not logged.
         log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
@@ -1069,16 +1075,43 @@ def autolog(
         saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
         keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+        log_every_epoch: If True, training metrics will be logged at the end of each epoch.
+        log_every_n_steps: If set, training metrics will be logged every `n` training steps.
+            `log_every_n_steps` must be `None` when `log_every_epoch=True`.
+        checkpoint: Enable automatic model checkpointing.
+        checkpoint_monitor: In automatic model checkpointing, the metric name to monitor if
+            you set `model_checkpoint_save_best_only` to True.
+        checkpoint_save_best_only: If True, automatic model checkpointing only saves when
+            the model is considered the "best" model according to the quantity
+            monitored and previous checkpoint model is overwritten.
+        checkpoint_mode: one of {"min", "max"}. In automatic model checkpointing,
+            if save_best_only=True, the decision to overwrite the current save file is made based on
+            either the maximization or the minimization of the monitored quantity.
+        checkpoint_save_weights_only: In automatic model checkpointing, if True, then
+            only the model’s weights will be saved. Otherwise, the optimizer states,
+            lr-scheduler states, etc are added in the checkpoint too.
+        checkpoint_save_freq: `"epoch"` or integer. When using `"epoch"`, the callback
+            saves the model after each epoch. When using integer, the callback
+            saves the model at end of this many batches. Note that if the saving isn't aligned to
+            epochs, the monitored metric may potentially be less reliable (it
+            could reflect as little as 1 batch, since the metrics get reset
+            every epoch). Defaults to `"epoch"`.
     """
     import tensorflow as tf
 
-    global _LOG_EVERY_N_STEPS
-    _LOG_EVERY_N_STEPS = every_n_iter
-
-    atexit.register(flush_metrics_queue)
+    if every_n_iter != 1:
+        _logger.warning(
+            "The `every_n_iter` parameter is deprecated, please use `log_every_epoch` and "
+            "`log_every_n_steps` instead. Automatically set `log_every_n_steps` to `every_n_iter`."
+        )
+        log_every_epoch = False
+        log_every_n_steps = every_n_iter
 
     if Version(tf.__version__) < Version("2.3"):
-        warnings.warn("Could not log to MLflow. TensorFlow versions below 2.3 are not supported.")
+        _logger.error(
+            "Could not log to MLflow because your Tensorflow version is below 2.3, detected "
+            f"version: {tf.__version__}."
+        )
         return
 
     @picklable_exception_safe_function
@@ -1108,7 +1141,9 @@ def autolog(
         except Exception:
             return None
 
-    def _log_early_stop_callback_metrics(callback, history, metrics_logger):
+    def _log_early_stop_callback_metrics(callback, history):
+        from mlflow import log_metrics
+
         if callback is None or not callback.model.stop_training:
             return
 
@@ -1117,7 +1152,7 @@ def autolog(
             return
 
         stopped_epoch, restore_best_weights, _ = callback_attrs
-        metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
+        log_metrics({"stopped_epoch": stopped_epoch}, synchronous=False)
 
         if not restore_best_weights or callback.best_weights is None:
             return
@@ -1132,7 +1167,7 @@ def autolog(
         # the best epoch. In keras > 2.6.0, the best epoch can be obtained via the `best_epoch`
         # attribute of an `EarlyStopping` instance: https://github.com/keras-team/keras/pull/15197
         restored_epoch = initial_epoch + monitored_metric.index(callback.best)
-        metrics_logger.record_metrics({"restored_epoch": restored_epoch})
+        log_metrics({"restored_epoch": restored_epoch}, synchronous=False)
         restored_index = history.epoch.index(restored_epoch)
         restored_metrics = {
             key: metrics[restored_index] for key, metrics in history.history.items()
@@ -1140,7 +1175,7 @@ def autolog(
         # Checking that a metric history exists
         metric_key = next(iter(history.history), None)
         if metric_key is not None:
-            metrics_logger.record_metrics(restored_metrics, stopped_epoch + 1)
+            log_metrics(restored_metrics, stopped_epoch + 1, synchronous=False)
 
     def _log_keras_model(history, args):
         def _infer_model_signature(input_data_slice):
@@ -1151,7 +1186,7 @@ def autolog(
             history.model.stop_training = original_stop_training
             return infer_signature(input_data_slice, model_output)
 
-        from mlflow.tensorflow._autolog import extract_tf_keras_input_example
+        from mlflow.tensorflow.autologging import extract_tf_keras_input_example
 
         def _get_tf_keras_input_example_slice():
             input_training_data = args[0]
@@ -1192,9 +1227,7 @@ def autolog(
         def __init__(self):
             self.log_dir = None
 
-        def _patch_implementation(
-            self, original, inst, *args, **kwargs
-        ):  # pylint: disable=arguments-differ
+        def _patch_implementation(self, original, inst, *args, **kwargs):
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
             batch_size = None
@@ -1237,77 +1270,85 @@ def autolog(
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
-            run_id = mlflow.active_run().info.run_id
-            with batch_metrics_logger(run_id) as metrics_logger:
-                # Check if the 'callback' argument of fit() is set positionally
-                if len(args) >= 6:
-                    # Convert the positional training function arguments to a list in order to
-                    # mutate the contents
-                    args = list(args)
-                    # Make a shallow copy of the preexisting callbacks to avoid permanently
-                    # modifying their contents for future training invocations. Introduce
-                    # TensorBoard & tf.keras callbacks if necessary
-                    callbacks = list(args[5])
-                    callbacks, self.log_dir = _setup_callbacks(callbacks, metrics_logger)
-                    # Replace the callbacks positional entry in the copied arguments and convert
-                    # the arguments back to tuple form for usage in the training function
-                    args[5] = callbacks
-                    args = tuple(args)
-                else:
-                    # Make a shallow copy of the preexisting callbacks and introduce TensorBoard
-                    # & tf.keras callbacks if necessary
-                    callbacks = list(kwargs.get("callbacks") or [])
-                    kwargs["callbacks"], self.log_dir = _setup_callbacks(callbacks, metrics_logger)
-
-                early_stop_callback = _get_early_stop_callback(callbacks)
-                _log_early_stop_callback_params(early_stop_callback)
-
-                if log_datasets:
-                    try:
-                        context_tags = context_registry.resolve_tags()
-                        source = CodeDatasetSource(tags=context_tags)
-
-                        x = kwargs["x"] if "x" in kwargs else args[0]
-                        if "y" in kwargs:
-                            y = kwargs["y"]
-                        elif len(args) >= 2:
-                            y = args[1]
-                        else:
-                            y = None
-
-                        if "validation_data" in kwargs:
-                            validation_data = kwargs["validation_data"]
-                        elif len(args) >= 8:
-                            validation_data = args[7]
-                        else:
-                            validation_data = None
-                        _log_tensorflow_dataset(x, source, "train", targets=y)
-                        if validation_data is not None:
-                            _log_tensorflow_dataset(validation_data, source, "eval")
-
-                    except Exception as e:
-                        _logger.warning(
-                            "Failed to log training dataset information to "
-                            "MLflow Tracking. Reason: %s",
-                            e,
-                        )
-
-                history = original(inst, *args, **kwargs)
-
-                if log_models:
-                    _log_keras_model(history, args)
-
-                _log_early_stop_callback_metrics(
-                    callback=early_stop_callback,
-                    history=history,
-                    metrics_logger=metrics_logger,
+            # Check if the 'callback' argument of fit() is set positionally
+            if len(args) >= 6:
+                # Convert the positional training function arguments to a list in order to
+                # mutate the contents
+                args = list(args)
+                # Make a shallow copy of the preexisting callbacks to avoid permanently
+                # modifying their contents for future training invocations. Introduce
+                # TensorBoard & tf.keras callbacks if necessary
+                callbacks = list(args[5])
+                callbacks, self.log_dir = _setup_callbacks(
+                    callbacks,
+                    log_every_epoch=log_every_epoch,
+                    log_every_n_steps=log_every_n_steps,
+                )
+                # Replace the callbacks positional entry in the copied arguments and convert
+                # the arguments back to tuple form for usage in the training function
+                args[5] = callbacks
+                args = tuple(args)
+            else:
+                # Make a shallow copy of the preexisting callbacks and introduce TensorBoard
+                # & tf.keras callbacks if necessary
+                callbacks = list(kwargs.get("callbacks") or [])
+                kwargs["callbacks"], self.log_dir = _setup_callbacks(
+                    callbacks,
+                    log_every_epoch=log_every_epoch,
+                    log_every_n_steps=log_every_n_steps,
                 )
 
-                flush_metrics_queue()
-                mlflow.log_artifacts(
-                    local_dir=self.log_dir.location,
-                    artifact_path="tensorboard_logs",
-                )
+            early_stop_callback = _get_early_stop_callback(callbacks)
+            _log_early_stop_callback_params(early_stop_callback)
+
+            if log_datasets:
+                try:
+                    context_tags = context_registry.resolve_tags()
+                    source = CodeDatasetSource(tags=context_tags)
+
+                    x = kwargs["x"] if "x" in kwargs else args[0]
+                    if "y" in kwargs:
+                        y = kwargs["y"]
+                    elif len(args) >= 2:
+                        y = args[1]
+                    else:
+                        y = None
+
+                    if "validation_data" in kwargs:
+                        validation_data = kwargs["validation_data"]
+                    elif len(args) >= 8:
+                        validation_data = args[7]
+                    else:
+                        validation_data = None
+                    _log_tensorflow_dataset(x, source, "train", targets=y)
+                    if validation_data is not None:
+                        _log_tensorflow_dataset(validation_data, source, "eval")
+
+                except Exception as e:
+                    _logger.warning(
+                        "Failed to log training dataset information to "
+                        "MLflow Tracking. Reason: %s",
+                        e,
+                    )
+
+            history = original(inst, *args, **kwargs)
+
+            if log_models:
+                _log_keras_model(history, args)
+
+            _log_early_stop_callback_metrics(
+                callback=early_stop_callback,
+                history=history,
+            )
+            # Ensure all data are logged.
+            # Shut down the async logging (instead of flushing)
+            # to avoid leaving zombie threads between patchings.
+            _shut_down_async_logging()
+
+            mlflow.log_artifacts(
+                local_dir=self.log_dir.location,
+                artifact_path="tensorboard_logs",
+            )
             if self.log_dir.is_temp:
                 shutil.rmtree(self.log_dir.location)
             return history
@@ -1355,3 +1396,68 @@ def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None, targ
         return
 
     mlflow.log_input(dataset, context)
+
+
+def load_checkpoint(model=None, run_id=None, epoch=None, global_step=None):
+    """
+    If you enable "checkpoint" in autologging, during Keras model
+    training execution, checkpointed models are logged as MLflow artifacts.
+    Using this API, you can load the checkpointed model.
+
+    If you want to load the latest checkpoint, set both `epoch` and `global_step` to None.
+    If "checkpoint_save_freq" is set to "epoch" in autologging,
+    you can set `epoch` param to the epoch of the checkpoint to load specific epoch checkpoint.
+    If "checkpoint_save_freq" is set to an integer in autologging,
+    you can set `global_step` param to the global step of the checkpoint to load specific
+    global step checkpoint.
+    `epoch` param and `global_step` can't be set together.
+
+    Args:
+        model: A Keras model, this argument is required
+            only when the saved checkpoint is "weight-only".
+        run_id: The id of the run which model is logged to. If not provided,
+            current active run is used.
+        epoch: The epoch of the checkpoint to be loaded, if you set
+            "checkpoint_save_freq" to "epoch".
+        global_step: The global step of the checkpoint to be loaded, if
+            you set "checkpoint_save_freq" to an integer.
+
+    Returns:
+        The instance of a Keras model restored from the specified checkpoint.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        mlflow.tensorflow.autolog(checkpoint=True, checkpoint_save_best_only=False)
+
+        model = create_tf_keras_model()  # Create a Keras model
+        with mlflow.start_run() as run:
+            model.fit(data, label, epoch=10)
+
+        run_id = run.info.run_id
+
+        # load latest checkpoint model
+        latest_checkpoint_model = mlflow.tensorflow.load_checkpoint(run_id=run_id)
+
+        # load history checkpoint model logged in second epoch
+        checkpoint_model = mlflow.tensorflow.load_checkpoint(run_id=run_id, epoch=2)
+    """
+    import tensorflow as tf
+
+    with TempDir() as tmp_dir:
+        downloaded_checkpoint_filepath = download_checkpoint_artifact(
+            run_id=run_id, epoch=epoch, global_step=global_step, dst_path=tmp_dir.path()
+        )
+
+        fname = os.path.splitext(downloaded_checkpoint_filepath)[0]
+        if fname.endswith(_WEIGHT_ONLY_CHECKPOINT_SUFFIX):
+            # the model is saved as weights only
+            if model is None:
+                raise MlflowException(
+                    "The latest checkpoint is weights-only, 'model' argument must be provided"
+                )
+            model.load_weights(downloaded_checkpoint_filepath)
+            return model
+        return tf.keras.models.load_model(downloaded_checkpoint_filepath)

@@ -7,19 +7,12 @@
 
 import React from 'react';
 import _ from 'lodash';
-import {
-  Button,
-  Select,
-  Switch,
-  Tooltip,
-  Radio,
-  QuestionMarkIcon,
-} from '@databricks/design-system';
+import { Button, LegacySelect, Switch, LegacyTooltip, Radio, QuestionMarkIcon } from '@databricks/design-system';
 import { Progress } from '../../common/components/Progress';
 import { CHART_TYPE_LINE, METRICS_PLOT_POLLING_INTERVAL_MS } from './MetricsPlotPanel';
-import { LineSmoothSlider } from './LineSmoothSlider';
 
 import { FormattedMessage, injectIntl } from 'react-intl';
+import { LineSmoothSlider } from './LineSmoothSlider';
 
 const RadioGroup = Radio.Group;
 export const X_AXIS_WALL = 'wall';
@@ -83,123 +76,121 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
       <FormattedMessage
         // eslint-disable-next-line max-len
         defaultMessage='Make the line between points "smoother" based on Exponential Moving Average. Smoothing can be useful for displaying the overall trend when the logging frequency is high.'
-        description='Helpful tooltip message to help with line smoothness for the metrics plot'
+        description="Helpful tooltip message to help with line smoothness for the metrics plot"
       />
     );
     const completedRunsTooltipText = (
       <FormattedMessage
         // eslint-disable-next-line max-len
-        defaultMessage='MLflow UI automatically fetches metric histories for active runs and updates the metrics plot with a {interval} second interval.'
-        description='Helpful tooltip message to explain the automatic metrics plot update'
+        defaultMessage="MLflow UI automatically fetches metric histories for active runs and updates the metrics plot with a {interval} second interval."
+        description="Helpful tooltip message to explain the automatic metrics plot update"
         values={{ interval: Math.round(METRICS_PLOT_POLLING_INTERVAL_MS / 1000) }}
       />
     );
     return (
       <div
-        className='plot-controls'
-        css={[
-          styles.controlsWrapper,
-          chartType === CHART_TYPE_LINE && styles.centeredControlsWrapper,
-        ]}
+        className="plot-controls"
+        css={[styles.controlsWrapper, chartType === CHART_TYPE_LINE && styles.centeredControlsWrapper]}
       >
         {chartType === CHART_TYPE_LINE ? (
           <div>
-            <div className='inline-control'>
-              <div className='control-label'>
+            <div className="inline-control">
+              <div className="control-label">
                 <FormattedMessage
-                  defaultMessage='Completed Runs'
-                  description='Label for the progress bar to show the number of completed runs'
+                  defaultMessage="Completed Runs"
+                  description="Label for the progress bar to show the number of completed runs"
                 />{' '}
-                <Tooltip title={completedRunsTooltipText}>
+                <LegacyTooltip title={completedRunsTooltipText}>
                   <QuestionMarkIcon />
-                </Tooltip>
+                </LegacyTooltip>
                 <Progress
                   percent={Math.round((100 * numCompletedRuns) / numRuns)}
                   format={() => `${numCompletedRuns}/${numRuns}`}
                 />
               </div>
             </div>
-            <div className='inline-control'>
-              <div className='control-label'>
+            <div className="inline-control">
+              <div className="control-label">
                 <FormattedMessage
-                  defaultMessage='Points:'
+                  defaultMessage="Points:"
                   // eslint-disable-next-line max-len
-                  description='Label for the toggle button to toggle to show points or not for the metric experiment run'
+                  description="Label for the toggle button to toggle to show points or not for the metric experiment run"
                 />
               </div>
               <Switch
-                data-testid='show-point-toggle'
+                data-testid="show-point-toggle"
                 defaultChecked={showPoint}
                 onChange={this.props.handleShowPointChange}
               />
             </div>
             {!disableSmoothnessControl && (
-              <div className='block-control'>
-                <div className='control-label'>
+              <div className="block-control">
+                <div className="control-label">
                   <FormattedMessage
-                    defaultMessage='Line Smoothness'
-                    description='Label for the smoothness slider for the graph plot for metrics'
+                    defaultMessage="Line Smoothness"
+                    description="Label for the smoothness slider for the graph plot for metrics"
                   />{' '}
-                  <Tooltip title={lineSmoothnessTooltipText}>
+                  <LegacyTooltip title={lineSmoothnessTooltipText}>
                     <QuestionMarkIcon />
-                  </Tooltip>
+                  </LegacyTooltip>
                 </div>
                 <LineSmoothSlider
-                  data-testid='smoothness-toggle'
+                  data-testid="smoothness-toggle"
                   min={1}
                   max={MAX_LINE_SMOOTHNESS}
-                  handleLineSmoothChange={_.debounce(this.props.handleLineSmoothChange, 100)}
+                  onChange={_.debounce(this.props.handleLineSmoothChange, 100)}
                   defaultValue={initialLineSmoothness}
                 />
               </div>
             )}
-            <div className='block-control'>
-              <div className='control-label'>
+            <div className="block-control">
+              <div className="control-label">
                 <FormattedMessage
-                  defaultMessage='X-axis:'
+                  defaultMessage="X-axis:"
                   // eslint-disable-next-line max-len
-                  description='Label for the radio button to toggle the control on the X-axis of the metric graph for the experiment'
+                  description="Label for the radio button to toggle the control on the X-axis of the metric graph for the experiment"
                 />
               </div>
               <RadioGroup
+                name="metrics-plot-x-axis-radio-group"
                 css={styles.xAxisControls}
                 onChange={this.props.handleXAxisChange}
                 value={this.props.selectedXAxis}
               >
-                <Radio value={X_AXIS_STEP} data-testid='x-axis-radio'>
+                <Radio value={X_AXIS_STEP} data-testid="x-axis-radio">
                   <FormattedMessage
-                    defaultMessage='Step'
+                    defaultMessage="Step"
                     // eslint-disable-next-line max-len
-                    description='Radio button option to choose the step control option for the X-axis for metric graph on the experiment runs'
+                    description="Radio button option to choose the step control option for the X-axis for metric graph on the experiment runs"
                   />
                 </Radio>
-                <Radio value={X_AXIS_WALL} data-testid='x-axis-radio'>
+                <Radio value={X_AXIS_WALL} data-testid="x-axis-radio">
                   <FormattedMessage
-                    defaultMessage='Time (Wall)'
+                    defaultMessage="Time (Wall)"
                     // eslint-disable-next-line max-len
-                    description='Radio button option to choose the time wall control option for the X-axis for metric graph on the experiment runs'
+                    description="Radio button option to choose the time wall control option for the X-axis for metric graph on the experiment runs"
                   />
                 </Radio>
-                <Radio value={X_AXIS_RELATIVE} data-testid='x-axis-radio'>
+                <Radio value={X_AXIS_RELATIVE} data-testid="x-axis-radio">
                   <FormattedMessage
-                    defaultMessage='Time (Relative)'
+                    defaultMessage="Time (Relative)"
                     // eslint-disable-next-line max-len
-                    description='Radio button option to choose the time relative control option for the X-axis for metric graph on the experiment runs'
+                    description="Radio button option to choose the time relative control option for the X-axis for metric graph on the experiment runs"
                   />
                 </Radio>
               </RadioGroup>
             </div>
           </div>
         ) : null}
-        <div className='block-control'>
-          <div className='control-label'>
+        <div className="block-control">
+          <div className="control-label">
             <FormattedMessage
-              defaultMessage='Y-axis:'
+              defaultMessage="Y-axis:"
               // eslint-disable-next-line max-len
-              description='Label where the users can choose the metric of the experiment run to be plotted on the Y-axis'
+              description="Label where the users can choose the metric of the experiment run to be plotted on the Y-axis"
             />
           </div>
-          <Select
+          <LegacySelect
             placeholder={this.props.intl.formatMessage({
               defaultMessage: 'Please select metric',
               description:
@@ -208,28 +199,29 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
             })}
             value={this.props.selectedMetricKeys}
             onChange={this.props.handleMetricsSelectChange}
-            mode='multiple'
+            mode="multiple"
             css={styles.axisSelector}
           >
             {this.getAllMetricKeys().map((key) => (
-              <Select.Option value={key.value} key={key.key}>
+              <LegacySelect.Option value={key.value} key={key.key}>
                 {key.title}
-              </Select.Option>
+              </LegacySelect.Option>
             ))}
-          </Select>
+          </LegacySelect>
         </div>
-        <div className='inline-control'>
-          <div className='control-label'>
+        <div className="inline-control">
+          <div className="control-label">
             <FormattedMessage
-              defaultMessage='Y-axis Log Scale:'
+              defaultMessage="Y-axis Log Scale:"
               // eslint-disable-next-line max-len
-              description='Label for the radio button to toggle the Log scale on the Y-axis of the metric graph for the experiment'
+              description="Label for the radio button to toggle the Log scale on the Y-axis of the metric graph for the experiment"
             />
           </div>
           <Switch defaultChecked={yAxisLogScale} onChange={this.props.handleYAxisLogScaleChange} />
         </div>
-        <div className='inline-control'>
+        <div className="inline-control">
           <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_metricsplotcontrols.tsx_222"
             css={{
               textAlign: 'justify',
               textAlignLast: 'left',
@@ -237,11 +229,11 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
             onClick={this.props.handleDownloadCsv}
           >
             <FormattedMessage
-              defaultMessage='Download CSV'
+              defaultMessage="Download data"
               // eslint-disable-next-line max-len
-              description='String for the download csv button to download metrics from this run offline in a CSV format'
+              description="String for the download csv button to download metrics from this run offline in a CSV format"
             />
-            <i className='fas fa-download' />
+            <i className="fas fa-download" />
           </Button>
         </div>
       </div>

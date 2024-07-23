@@ -27,53 +27,40 @@ jobs:
   build:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     permissions:
       actions: write # deleteArtifact
     strategy:
       matrix:
         type: ["full", "skinny"]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
-      - name: Set environment variable for skinny client build
-        if: ${{ matrix.type == 'skinny' }}
-        run: |
-          echo "MLFLOW_SKINNY=true" >> $GITHUB_ENV
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "20"
 
-      - name: Create dummy MLflow UI
+      - name: Build UI
+        working-directory: mlflow/server/js
         run: |
-          mkdir -p mlflow/server/js/build
-          echo '
-          <!DOCTYPE html>
-          <html lang="en">
-            <head>
-              <meta charset="utf-8">
-              <title>MLflow</title>
-            </head>
-          <body>
-            MLflow
-          </body>
-          </html>
-          ' > mlflow/server/js/build/index.html
-
-      - name: Check dependencies consistency
-        run: |
-          pip install pyyaml
-          ./dev/validate-requirements-consistency.sh
+          yarn
+          yarn build
 
       - name: Install dependencies
         run: |
-          pip install wheel twine
+          pip install build twine
 
       - name: Build distribution files
         id: build-dist
         run: |
-          # Build distribution files
-          python setup.py sdist bdist_wheel
+          if [ "${{ matrix.type }}" == "skinny" ]; then
+            python dev/build.py --package-type skinny
+          else
+            python dev/build.py
+          fi
 
           # List distribution files and check their file sizes
           ls -lh dist
@@ -87,6 +74,20 @@ jobs:
           echo "wheel-path=${wheel_path}" >> $GITHUB_OUTPUT
           echo "wheel-name=${wheel_name}" >> $GITHUB_OUTPUT
           echo "wheel-size=${wheel_size}" >> $GITHUB_OUTPUT
+
+      - name: List files in source distribution
+        run: |
+          tar -tf ${{ steps.build-dist.outputs.sdist-path }}
+
+      - name: List files in binary distribution
+        run: |
+          unzip -l ${{ steps.build-dist.outputs.wheel-path }}
+
+      - name: Compare files in source and binary distributions
+        run: |
+          tar -tzf ${{ steps.build-dist.outputs.sdist-path }} | grep -v '/$' | cut -d'/' -f2- | sort > /tmp/source.txt
+          zipinfo -1 ${{ steps.build-dist.outputs.wheel-path }} | sort > /tmp/wheel.txt
+          diff /tmp/source.txt /tmp/wheel.txt || true
 
       - name: Run twine check
         run: |
@@ -104,19 +105,18 @@ jobs:
 
       # Anyone with read access can download the uploaded wheel on GitHub.
       - name: Store wheel
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: github.event_name == 'push'
         with:
           name: ${{ steps.build-dist.outputs.wheel-name }}
           path: ${{ steps.build-dist.outputs.wheel-path }}
 
       - name: Remove old wheels
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         if: github.event_name == 'push'
         env:
           WHEEL_SIZE: ${{ steps.build-dist.outputs.wheel-size }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
 

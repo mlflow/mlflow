@@ -10,7 +10,7 @@ from mlflow.exceptions import ExecutionException
 from mlflow.projects import kubernetes as kb
 
 
-def test_run_command_creation():  # pylint: disable=unused-argument
+def test_run_command_creation():
     """
     Tests command creation.
     """
@@ -34,7 +34,7 @@ def test_run_command_creation():  # pylint: disable=unused-argument
     ]
 
 
-def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
+def test_valid_kubernetes_job_spec():
     """
     Tests job specification for Kubernetes.
     """

@@ -1,8 +1,3 @@
-# pylint: disable=arguments-differ
-# pylint: disable=abstract-method
-# pylint: disable=attribute-defined-outside-init
-
-
 import pytorch_lightning as pl
 import torch
 from sklearn.datasets import load_iris

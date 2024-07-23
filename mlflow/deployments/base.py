@@ -15,7 +15,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import developer_stable
 
 
-def run_local(target, name, model_uri, flavor=None, config=None):  # pylint: disable=unused-argument
+def run_local(target, name, model_uri, flavor=None, config=None):
     """Deploys the specified model locally, for testing. This function should be defined
     within the plugin module. Also note that this function has a signature which is very
     similar to :py:meth:`BaseDeploymentClient.create_deployment` since both does logically
@@ -96,7 +96,8 @@ class BaseDeploymentClient(abc.ABC):
         deployment completes (i.e. until it's possible to perform inference with the deployment).
         In the case of conflicts (e.g. if it's not possible to create the specified deployment
         without due to conflict with an existing deployment), raises a
-        :py:class:`mlflow.exceptions.MlflowException`. See target-specific plugin documentation
+        :py:class:`mlflow.exceptions.MlflowException` or an `HTTPError` for remote
+        deployments. See target-specific plugin documentation
         for additional detail on support for asynchronous deployment and other configuration.
 
         Args:
@@ -114,7 +115,6 @@ class BaseDeploymentClient(abc.ABC):
             Dict corresponding to created deployment, which must contain the 'name' key.
 
         """
-        pass
 
     @abc.abstractmethod
     def update_deployment(self, name, model_uri=None, flavor=None, config=None, endpoint=None):
@@ -142,7 +142,6 @@ class BaseDeploymentClient(abc.ABC):
             None
 
         """
-        pass
 
     @abc.abstractmethod
     def delete_deployment(self, name, config=None, endpoint=None):
@@ -161,7 +160,6 @@ class BaseDeploymentClient(abc.ABC):
         Returns:
             None
         """
-        pass
 
     @abc.abstractmethod
     def list_deployments(self, endpoint=None):
@@ -182,14 +180,13 @@ class BaseDeploymentClient(abc.ABC):
             contain a 'name' key containing the deployment name. The other fields of
             the returned dictionary and their types may vary across deployment targets.
         """
-        pass
 
     @abc.abstractmethod
     def get_deployment(self, name, endpoint=None):
         """
-        Returns a dictionary describing the specified deployment, throwing a
-        :py:class:`mlflow.exceptions.MlflowException` if no deployment exists with the provided
-        ID.
+        Returns a dictionary describing the specified deployment, throwing either a
+        :py:class:`mlflow.exceptions.MlflowException` or an `HTTPError` for remote
+        deployments if no deployment exists with the provided ID.
         The dict is guaranteed to contain an 'name' key containing the deployment name.
         The other fields of the returned dictionary and their types may vary across
         deployment targets.
@@ -204,7 +201,6 @@ class BaseDeploymentClient(abc.ABC):
             contain a 'name' key corresponding to the deployment name. The other fields of
             the returned dictionary and their types may vary across targets.
         """
-        pass
 
     @abc.abstractmethod
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
@@ -223,11 +219,22 @@ class BaseDeploymentClient(abc.ABC):
             predictions and associated Model Server response metadata.
 
         """
-        pass
 
-    def explain(
-        self, deployment_name=None, df=None, endpoint=None
-    ):  # pylint: disable=unused-argument
+    def predict_stream(self, deployment_name=None, inputs=None, endpoint=None):
+        """
+        Submit a query to a configured provider endpoint, and get streaming response
+
+        Args:
+            deployment_name: Name of deployment to predict against.
+            inputs: The inputs to the query, as a dictionary.
+            endpoint: The name of the endpoint to query.
+
+        Returns:
+            An iterator of dictionary containing the response from the endpoint.
+        """
+        raise NotImplementedError()
+
+    def explain(self, deployment_name=None, df=None, endpoint=None):
         """
         Generate explanations of model predictions on the specified input pandas Dataframe
         ``df`` for the deployed model. Explanation output formats vary by deployment target,
@@ -252,7 +259,8 @@ class BaseDeploymentClient(abc.ABC):
         creation completes (i.e. until it's possible to create a deployment within the endpoint).
         In the case of conflicts (e.g. if it's not possible to create the specified endpoint
         due to conflict with an existing endpoint), raises a
-        :py:class:`mlflow.exceptions.MlflowException`. See target-specific plugin documentation
+        :py:class:`mlflow.exceptions.MlflowException` or an `HTTPError` for remote
+        deployments. See target-specific plugin documentation
         for additional detail on support for asynchronous creation and other configuration.
 
         Args:
@@ -330,7 +338,8 @@ class BaseDeploymentClient(abc.ABC):
     def get_endpoint(self, endpoint):
         """
         Returns a dictionary describing the specified endpoint, throwing a
-        py:class:`mlflow.exception.MlflowException` if no endpoint exists with the provided
+        py:class:`mlflow.exception.MlflowException` or an `HTTPError` for remote
+        deployments if no endpoint exists with the provided
         name.
         The dict is guaranteed to contain an 'name' key containing the endpoint name.
         The other fields of the returned dictionary and their types may vary across targets.

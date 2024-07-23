@@ -14,7 +14,7 @@ from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking._tracking_service import utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import relative_path_to_artifact_path
-from mlflow.utils.rest_utils import RESOURCE_DOES_NOT_EXIST, http_request, http_request_safe
+from mlflow.utils.rest_utils import RESOURCE_NON_EXISTENT, http_request, http_request_safe
 from mlflow.utils.string_utils import strip_prefix
 from mlflow.utils.uri import (
     get_databricks_profile_uri_from_artifact_uri,
@@ -22,6 +22,7 @@ from mlflow.utils.uri import (
     is_databricks_model_registry_artifacts_uri,
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
+    strip_scheme,
 )
 
 # The following constants are defined as @developer_stable
@@ -92,8 +93,8 @@ class DbfsRestArtifactRepository(ArtifactRepository):
 
     def _get_dbfs_path(self, artifact_path):
         return "/{}/{}".format(
-            strip_prefix(self.artifact_uri, "dbfs:/"),
-            strip_prefix(artifact_path, "/"),
+            strip_scheme(self.artifact_uri).lstrip("/"),
+            artifact_path.lstrip("/"),
         )
 
     def _get_dbfs_endpoint(self, artifact_path):
@@ -144,7 +145,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         # /api/2.0/dbfs/list will not have the 'files' key in the response for empty directories.
         infos = []
         artifact_prefix = strip_prefix(self.artifact_uri, "dbfs:")
-        if json_response.get("error_code", None) == RESOURCE_DOES_NOT_EXIST:
+        if json_response.get("error_code", None) == RESOURCE_NON_EXISTENT:
             return []
         dbfs_files = json_response.get("files", [])
         for dbfs_file in dbfs_files:
@@ -191,8 +192,11 @@ def dbfs_artifact_repo_factory(artifact_uri):
     a DatabricksArtifactRepository is returned. This is capable of storing access controlled
     artifacts.
 
-    :param artifact_uri: DBFS root artifact URI (string).
-    :return: Subclass of ArtifactRepository capable of storing artifacts on DBFS.
+    Args:
+        artifact_uri: DBFS root artifact URI.
+
+    Returns:
+        Subclass of ArtifactRepository capable of storing artifacts on DBFS.
     """
     if not is_valid_dbfs_uri(artifact_uri):
         raise MlflowException(

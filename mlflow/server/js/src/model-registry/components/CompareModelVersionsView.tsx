@@ -14,7 +14,6 @@ import { Switch, Tabs, useDesignSystemTheme } from '@databricks/design-system';
 
 import { getParams, getRunInfo } from '../../experiment-tracking/reducers/Reducers';
 import '../../experiment-tracking/components/CompareRunView.css';
-import { RunInfo } from '../../experiment-tracking/sdk/MlflowMessages';
 import { CompareRunScatter } from '../../experiment-tracking/components/CompareRunScatter';
 import { CompareRunBox } from '../../experiment-tracking/components/CompareRunBox';
 import CompareRunContour from '../../experiment-tracking/components/CompareRunContour';
@@ -26,6 +25,7 @@ import ParallelCoordinatesPlotPanel from '../../experiment-tracking/components/P
 import { ModelRegistryRoutes } from '../routes';
 import { getModelVersionSchemas } from '../reducers';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
+import type { RunInfoEntity } from '../../experiment-tracking/types';
 
 const { TabPane } = Tabs;
 
@@ -46,7 +46,7 @@ function CompareTable(props: any) {
   const { theme } = useDesignSystemTheme();
   return (
     <table
-      className='compare-table table'
+      className="compare-table table"
       css={{
         'th.main-table-header': {
           backgroundColor: theme.colors.white,
@@ -80,7 +80,7 @@ function CollapseButton(props: any) {
 }
 
 type CompareModelVersionsViewImplProps = {
-  runInfos: any[]; // TODO: PropTypes.instanceOf(RunInfo)
+  runInfos: RunInfoEntity[];
   runInfosValid: boolean[];
   runUuids: string[];
   metricLists: any[][];
@@ -118,11 +118,11 @@ export class CompareModelVersionsViewImpl extends Component<
   };
 
   icons = {
-    plusIcon: <i className='far fa-plus-square-o' />,
-    minusIcon: <i className='far fa-minus-square-o' />,
-    downIcon: <i className='fas fa-caret-down' />,
-    rightIcon: <i className='fas fa-caret-right' />,
-    chartIcon: <i className='fas fa-line-chart padding-left-text' />,
+    plusIcon: <i className="far fa-plus-square-o" />,
+    minusIcon: <i className="far fa-minus-square-o" />,
+    downIcon: <i className="fas fa-caret-down" />,
+    rightIcon: <i className="fas fa-caret-right" />,
+    chartIcon: <i className="fas fa-line-chart padding-left-text" />,
   };
 
   onToggleClick = (active: any) => {
@@ -146,16 +146,16 @@ export class CompareModelVersionsViewImpl extends Component<
     } = this.props;
     const title = (
       <FormattedMessage
-        defaultMessage='Comparing {numVersions} Versions'
-        description='Text for main title for the model comparison page'
+        defaultMessage="Comparing {numVersions} Versions"
+        description="Text for main title for the model comparison page"
         values={{ numVersions: this.props.runInfos.length }}
       />
     );
     const breadcrumbs = [
       <Link to={ModelRegistryRoutes.modelListPageRoute}>
         <FormattedMessage
-          defaultMessage='Registered Models'
-          description='Text for registered model link in the title for model comparison page'
+          defaultMessage="Registered Models"
+          description="Text for registered model link in the title for model comparison page"
         />
       </Link>,
       <Link to={ModelRegistryRoutes.getModelPageRoute(modelName)}>{modelName}</Link>,
@@ -163,7 +163,7 @@ export class CompareModelVersionsViewImpl extends Component<
 
     return (
       <div
-        className='CompareModelVersionsView'
+        className="CompareModelVersionsView"
         // @ts-expect-error TS(2322): Type '{ '.compare-table': { minWidth: number; }; '... Remove this comment to see the full error message
         css={{
           ...styles.compareModelVersionsView,
@@ -171,7 +171,7 @@ export class CompareModelVersionsViewImpl extends Component<
         }}
       >
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
-        <div className='responsive-table-container'>
+        <div className="responsive-table-container">
           <CompareTable>
             {this.renderTableHeader()}
             {this.renderModelVersionInfo()}
@@ -179,8 +179,8 @@ export class CompareModelVersionsViewImpl extends Component<
               'paramsActive',
               'paramsToggle',
               <FormattedMessage
-                defaultMessage='Parameters'
-                description='Table title text for parameters table in the model comparison page'
+                defaultMessage="Parameters"
+                description="Table title text for parameters table in the model comparison page"
               />,
             )}
             {this.renderParams()}
@@ -188,23 +188,23 @@ export class CompareModelVersionsViewImpl extends Component<
               'schemaActive',
               'schemaToggle',
               <FormattedMessage
-                defaultMessage='Schema'
-                description='Table title text for schema table in the model comparison page'
+                defaultMessage="Schema"
+                description="Table title text for schema table in the model comparison page"
               />,
               false,
               // @ts-expect-error TS(2345): Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
               <Switch
-                className='toggle-switch'
+                className="toggle-switch"
                 // @ts-expect-error TS(2322): Type '{ className: string; style: { marginLeft: st... Remove this comment to see the full error message
                 style={{ marginLeft: 'auto' }}
                 onChange={() => this.onToggleClick('compareByColumnNameToggle')}
               />,
-              <div className='padding-left-text padding-right-text'>
+              <div className="padding-left-text padding-right-text">
                 <span>
                   <FormattedMessage
-                    defaultMessage='Ignore column ordering'
-                    description='Toggle text that determines whether to ignore column order in the
-                      model comparison page'
+                    defaultMessage="Ignore column ordering"
+                    description="Toggle text that determines whether to ignore column order in the
+                      model comparison page"
                   />
                 </span>
               </div>,
@@ -212,15 +212,15 @@ export class CompareModelVersionsViewImpl extends Component<
             {this.renderSchemaSectionHeader(
               'inputActive',
               <FormattedMessage
-                defaultMessage='Inputs'
-                description='Table subtitle for schema inputs in the model comparison page'
+                defaultMessage="Inputs"
+                description="Table subtitle for schema inputs in the model comparison page"
               />,
             )}
             {this.renderSchema(
               'inputActive',
               <FormattedMessage
-                defaultMessage='Inputs'
-                description='Table section name for schema inputs in the model comparison page'
+                defaultMessage="Inputs"
+                description="Table section name for schema inputs in the model comparison page"
               />,
               inputsListByIndex,
               inputsListByName,
@@ -228,15 +228,15 @@ export class CompareModelVersionsViewImpl extends Component<
             {this.renderSchemaSectionHeader(
               'outputActive',
               <FormattedMessage
-                defaultMessage='Outputs'
-                description='Table subtitle for schema outputs in the model comparison page'
+                defaultMessage="Outputs"
+                description="Table subtitle for schema outputs in the model comparison page"
               />,
             )}
             {this.renderSchema(
               'outputActive',
               <FormattedMessage
-                defaultMessage='Outputs'
-                description='Table section name for schema outputs in the model comparison page'
+                defaultMessage="Outputs"
+                description="Table section name for schema outputs in the model comparison page"
               />,
               outputsListByIndex,
               outputsListByName,
@@ -245,8 +245,8 @@ export class CompareModelVersionsViewImpl extends Component<
               'metricActive',
               'metricToggle',
               <FormattedMessage
-                defaultMessage='Metrics'
-                description='Table title text for metrics table in the model comparison page'
+                defaultMessage="Metrics"
+                description="Table title text for metrics table in the model comparison page"
               />,
             )}
             {this.renderMetrics()}
@@ -256,49 +256,44 @@ export class CompareModelVersionsViewImpl extends Component<
           <TabPane
             tab={
               <FormattedMessage
-                defaultMessage='Parallel Coordinates Plot'
-                description='Tab text for parallel coordinates plot on the model comparison page'
+                defaultMessage="Parallel Coordinates Plot"
+                description="Tab text for parallel coordinates plot on the model comparison page"
               />
             }
-            key='parallel-coordinates-plot'
+            key="parallel-coordinates-plot"
           >
             <ParallelCoordinatesPlotPanel runUuids={runUuids} />
           </TabPane>
           <TabPane
             tab={
               <FormattedMessage
-                defaultMessage='Scatter Plot'
-                description='Tab text for scatter plot on the model comparison page'
+                defaultMessage="Scatter Plot"
+                description="Tab text for scatter plot on the model comparison page"
               />
             }
-            key='scatter-plot'
+            key="scatter-plot"
           >
             <CompareRunScatter runUuids={runUuids} runDisplayNames={runDisplayNames} />
           </TabPane>
           <TabPane
             tab={
               <FormattedMessage
-                defaultMessage='Box Plot'
-                description='Tab pane title for box plot on the compare runs page'
+                defaultMessage="Box Plot"
+                description="Tab pane title for box plot on the compare runs page"
               />
             }
-            key='box-plot'
+            key="box-plot"
           >
-            <CompareRunBox
-              runUuids={runUuids}
-              runInfos={runInfos}
-              paramLists={paramLists}
-              metricLists={metricLists}
-            />
+            <CompareRunBox runUuids={runUuids} runInfos={runInfos} paramLists={paramLists} metricLists={metricLists} />
           </TabPane>
           <TabPane
             tab={
               <FormattedMessage
-                defaultMessage='Contour Plot'
-                description='Tab text for contour plot on the model comparison page'
+                defaultMessage="Contour Plot"
+                description="Tab text for contour plot on the model comparison page"
               />
             }
-            key='contour-plot'
+            key="contour-plot"
           >
             <CompareRunContour runUuids={runUuids} runDisplayNames={runDisplayNames} />
           </TabPane>
@@ -311,22 +306,20 @@ export class CompareModelVersionsViewImpl extends Component<
     const { runInfos, runInfosValid } = this.props;
     return (
       <thead>
-        <tr className='table-row'>
-          <th scope='row' className='row-header block-content'>
+        <tr className="table-row">
+          <th scope="row" className="row-header block-content">
             <FormattedMessage
-              defaultMessage='Run ID:'
-              description='Text for run ID header in the main table in the model comparison page'
+              defaultMessage="Run ID:"
+              description="Text for run ID header in the main table in the model comparison page"
             />
           </th>
           {runInfos.map((r, idx) => (
-            <th scope='column' className='data-value block-content' key={r.getRunUuid()}>
+            <th scope="column" className="data-value block-content" key={r.runUuid}>
               {/* Do not show links for invalid run IDs */}
               {runInfosValid[idx] ? (
-                <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunUuid())}>
-                  {r.getRunUuid()}
-                </Link>
+                <Link to={Routes.getRunPageRoute(r.experimentId ?? '0', r.runUuid ?? '')}>{r.runUuid}</Link>
               ) : (
-                r.getRunUuid()
+                r.runUuid
               )}
             </th>
           ))}
@@ -338,58 +331,53 @@ export class CompareModelVersionsViewImpl extends Component<
   renderModelVersionInfo() {
     const { runInfos, runInfosValid, versionsToRuns, runNames, modelName } = this.props;
     return (
-      <tbody className='scrollable-table'>
-        <tr className='table-row'>
-          <th scope='row' className='data-value block-content'>
+      <tbody className="scrollable-table">
+        <tr className="table-row">
+          <th scope="row" className="data-value block-content">
             <FormattedMessage
-              defaultMessage='Model Version:'
-              description='Text for model version row header in the main table in the model
-                comparison page'
+              defaultMessage="Model Version:"
+              description="Text for model version row header in the main table in the model
+                comparison page"
             />
           </th>
           {Object.keys(versionsToRuns).map((modelVersion) => {
             const run = versionsToRuns[modelVersion];
             return (
-              <td className='meta-info block-content' key={run}>
-                <Link to={ModelRegistryRoutes.getModelVersionPageRoute(modelName, modelVersion)}>
-                  {modelVersion}
-                </Link>
+              <td className="meta-info block-content" key={run}>
+                <Link to={ModelRegistryRoutes.getModelVersionPageRoute(modelName, modelVersion)}>{modelVersion}</Link>
               </td>
             );
           })}
         </tr>
-        <tr className='table-row'>
-          <th scope='row' className='data-value block-content'>
+        <tr className="table-row">
+          <th scope="row" className="data-value block-content">
             <FormattedMessage
-              defaultMessage='Run Name:'
-              description='Text for run name row header in the main table in the model comparison
-                page'
+              defaultMessage="Run Name:"
+              description="Text for run name row header in the main table in the model comparison
+                page"
             />
           </th>
           {runNames.map((runName, i) => {
             return (
-              <td className='meta-info block-content' key={runInfos[i].getRunUuid()}>
-                <div className='truncate-text single-line cell-content'>{runName}</div>
+              <td className="meta-info block-content" key={runInfos[i].runUuid}>
+                <div className="truncate-text single-line cell-content">{runName}</div>
               </td>
             );
           })}
         </tr>
-        <tr className='table-row'>
-          <th scope='row' className='data-value block-content'>
+        <tr className="table-row">
+          <th scope="row" className="data-value block-content">
             <FormattedMessage
-              defaultMessage='Start Time:'
-              description='Text for start time row header in the main table in the model comparison
-                page'
+              defaultMessage="Start Time:"
+              description="Text for start time row header in the main table in the model comparison
+                page"
             />
           </th>
           {runInfos.map((run, idx) => {
             /* Do not attempt to get timestamps for invalid run IDs */
-            const startTime =
-              run.getStartTime() && runInfosValid[idx]
-                ? Utils.formatTimestamp(run.getStartTime())
-                : '(unknown)';
+            const startTime = run.startTime && runInfosValid[idx] ? Utils.formatTimestamp(run.startTime) : '(unknown)';
             return (
-              <td className='meta-info block-content' key={run.getRunUuid()}>
+              <td className="meta-info block-content" key={run.runUuid}>
                 {startTime}
               </td>
             );
@@ -417,31 +405,27 @@ export class CompareModelVersionsViewImpl extends Component<
     return (
       <tbody>
         <tr>
-          <th
-            scope='rowgroup'
-            className='block-content main-table-header'
-            colSpan={runInfos.length + 1}
-          >
-            <div className='switch-button-container'>
+          <th scope="rowgroup" className="block-content main-table-header" colSpan={runInfos.length + 1}>
+            <div className="switch-button-container">
               <CollapseButton onClick={() => this.onToggleClick(activeSection)}>
                 {isActive ? downIcon : rightIcon}
-                <span className='header'>{sectionName}</span>
+                <span className="header">{sectionName}</span>
               </CollapseButton>
               {additionalSwitch}
               {additionalSwitchText}
               <Switch
                 defaultChecked
-                className='toggle-switch'
+                className="toggle-switch"
                 // @ts-expect-error TS(2322): Type '{ defaultChecked: true; className: string; s... Remove this comment to see the full error message
                 style={leftToggle ? { marginLeft: 'auto' } : {}}
                 onChange={() => this.onToggleClick(toggleSection)}
               />
-              <div className='padding-left-text'>
+              <div className="padding-left-text">
                 <span>
                   <FormattedMessage
-                    defaultMessage='Show diff only'
-                    description='Toggle text that determines whether to show diff only in the model
-                      comparison page'
+                    defaultMessage="Show diff only"
+                    description="Toggle text that determines whether to show diff only in the model
+                      comparison page"
                   />
                 </span>
               </div>
@@ -454,12 +438,12 @@ export class CompareModelVersionsViewImpl extends Component<
 
   renderParams() {
     return (
-      <tbody className='scrollable-table'>
+      <tbody className="scrollable-table">
         {this.renderDataRows(
           this.props.paramLists,
           <FormattedMessage
-            defaultMessage='Parameters'
-            description='Field name text for parameters table in the model comparison page'
+            defaultMessage="Parameters"
+            description="Field name text for parameters table in the model comparison page"
           />,
           this.state.paramsActive,
           this.state.paramsToggle,
@@ -476,23 +460,14 @@ export class CompareModelVersionsViewImpl extends Component<
     const { minusIcon, plusIcon } = this.icons;
     return (
       <tbody>
-        {
-          <tr className={`${schemaActive ? '' : 'hidden-row'}`}>
-            <th
-              scope='rowgroup'
-              className='schema-table-header block-content'
-              colSpan={runInfos.length + 1}
-            >
-              <button
-                className='schema-collapse-button'
-                onClick={() => this.onToggleClick(activeSection)}
-              >
-                {isActive ? minusIcon : plusIcon}
-                <strong style={{ paddingLeft: 4 }}>{sectionName}</strong>
-              </button>
-            </th>
-          </tr>
-        }
+        <tr className={`${schemaActive ? '' : 'hidden-row'}`}>
+          <th scope="rowgroup" className="schema-table-header block-content" colSpan={runInfos.length + 1}>
+            <button className="schema-collapse-button" onClick={() => this.onToggleClick(activeSection)}>
+              {isActive ? minusIcon : plusIcon}
+              <strong style={{ paddingLeft: 4 }}>{sectionName}</strong>
+            </button>
+          </th>
+        </tr>
       </tbody>
     );
   }
@@ -513,13 +488,13 @@ export class CompareModelVersionsViewImpl extends Component<
     const schemaFormatter = (value: any) => value;
     const schemaFieldName = (
       <FormattedMessage
-        defaultMessage='Schema {sectionName}'
-        description='Field name text for schema table in the model comparison page'
+        defaultMessage="Schema {sectionName}"
+        description="Field name text for schema table in the model comparison page"
         values={{ sectionName: sectionName }}
       />
     );
     return (
-      <tbody className='scrollable-table schema-scrollable-table'>
+      <tbody className="scrollable-table schema-scrollable-table">
         {this.renderDataRows(
           listByIndex,
           schemaFieldName,
@@ -548,14 +523,14 @@ export class CompareModelVersionsViewImpl extends Component<
       return (
         <Link
           to={Routes.getMetricPageRoute(
-            runInfos.map((info) => info.run_uuid).filter((uuid, idx) => data[idx] !== undefined),
+            runInfos.map((info) => info.runUuid).filter((uuid, idx) => data[idx] !== undefined),
             key,
             // TODO: Refactor so that the breadcrumb
             // on the linked page is for model registry
-            [runInfos[0].experiment_id],
+            [runInfos[0].experimentId],
           )}
-          target='_blank'
-          title='Plot chart'
+          target="_blank"
+          title="Plot chart"
         >
           {key}
           {chartIcon}
@@ -563,12 +538,12 @@ export class CompareModelVersionsViewImpl extends Component<
       );
     };
     return (
-      <tbody className='scrollable-table'>
+      <tbody className="scrollable-table">
         {this.renderDataRows(
           metricLists,
           <FormattedMessage
-            defaultMessage='Metrics'
-            description='Field name text for metrics table in the model comparison page'
+            defaultMessage="Metrics"
+            description="Field name text for metrics table in the model comparison page"
           />,
           metricActive,
           metricToggle,
@@ -602,12 +577,12 @@ export class CompareModelVersionsViewImpl extends Component<
     if (_.isEmpty(keys) || _.isEmpty(list)) {
       return (
         <tr className={`table-row ${show ? '' : 'hidden-row'}`}>
-          <th scope='row' className='rowHeader block-content'>
+          <th scope="row" className="rowHeader block-content">
             <CenteredText>
               <FormattedMessage
-                defaultMessage='{fieldName} are empty'
-                description='Default text in data table where items are empty in the model
-                  comparison page'
+                defaultMessage="{fieldName} are empty"
+                description="Default text in data table where items are empty in the model
+                  comparison page"
                 values={{ fieldName: fieldName }}
               />
             </CenteredText>
@@ -628,11 +603,8 @@ export class CompareModelVersionsViewImpl extends Component<
       const isDifferent = data[k].length > 1 && _.uniq(data[k]).length > 1;
       identical = !isDifferent && identical;
       return (
-        <tr
-          key={k}
-          className={`table-row ${(toggle && !isDifferent) || !show ? 'hidden-row' : ''}`}
-        >
-          <th scope='row' className='rowHeader block-content'>
+        <tr key={k} className={`table-row ${(toggle && !isDifferent) || !show ? 'hidden-row' : ''}`}>
+          <th scope="row" className="rowHeader block-content">
             {/* @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message */}
             {headerMap(k, data[k])}
           </th>
@@ -640,9 +612,9 @@ export class CompareModelVersionsViewImpl extends Component<
           {data[k].map((value: any, i: any) => (
             <td
               className={`data-value block-content ${isDifferent ? 'highlight-data' : ''}`}
-              key={this.props.runInfos[i].getRunUuid()}
+              key={this.props.runInfos[i].runUuid}
             >
-              <span className='truncate-text single-line cell-content'>
+              <span className="truncate-text single-line cell-content">
                 {value === undefined ? '-' : formatter(value)}
               </span>
             </td>
@@ -653,12 +625,12 @@ export class CompareModelVersionsViewImpl extends Component<
     if (identical && toggle) {
       return (
         <tr className={`table-row ${show ? '' : 'hidden-row'}`}>
-          <th scope='row' className='rowHeader block-content'>
+          <th scope="row" className="rowHeader block-content">
             <CenteredText>
               <FormattedMessage
-                defaultMessage='{fieldName} are identical'
+                defaultMessage="{fieldName} are identical"
                 // eslint-disable-next-line max-len
-                description='Default text in data table where items are identical in the model comparison page'
+                description="Default text in data table where items are identical in the model comparison page"
                 values={{ fieldName: fieldName }}
               />
             </CenteredText>
@@ -726,9 +698,9 @@ const mapStateToProps = (state: any, ownProps: any) => {
         runUuids.push(runUuid);
       } else {
         if (runUuid) {
-          runInfos.push((RunInfo as any).fromJs({ run_uuid: runUuid }));
+          runInfos.push({ runUuid });
         } else {
-          runInfos.push((RunInfo as any).fromJs({ run_uuid: 'None' }));
+          runInfos.push({ runUuid: 'None' });
         }
         runInfosValid.push(false);
         metricLists.push([]);
@@ -736,18 +708,10 @@ const mapStateToProps = (state: any, ownProps: any) => {
         runNames.push('Invalid Run');
       }
       const schema = getModelVersionSchemas(state, modelName, modelVersion);
-      inputsListByIndex.push(
-        Object.values(getModelVersionSchemaColumnsByIndex((schema as any).inputs)),
-      );
-      inputsListByName.push(
-        Object.values(getModelVersionSchemaColumnsByName((schema as any).inputs)),
-      );
-      outputsListByIndex.push(
-        Object.values(getModelVersionSchemaColumnsByIndex((schema as any).outputs)),
-      );
-      outputsListByName.push(
-        Object.values(getModelVersionSchemaColumnsByName((schema as any).outputs)),
-      );
+      inputsListByIndex.push(Object.values(getModelVersionSchemaColumnsByIndex((schema as any).inputs)));
+      inputsListByName.push(Object.values(getModelVersionSchemaColumnsByName((schema as any).inputs)));
+      outputsListByIndex.push(Object.values(getModelVersionSchemaColumnsByIndex((schema as any).outputs)));
+      outputsListByName.push(Object.values(getModelVersionSchemaColumnsByName((schema as any).outputs)));
     }
   }
 

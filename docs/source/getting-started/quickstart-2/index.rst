@@ -91,10 +91,12 @@ parameters, results, and model itself of each trial as a child run.
 
     def train_model(params, epochs, train_x, train_y, valid_x, valid_y, test_x, test_y):
         # Define model architecture
+        mean = np.mean(train_x, axis=0)
+        var = np.var(train_x, axis=0)
         model = keras.Sequential(
             [
                 keras.Input([train_x.shape[1]]),
-                keras.layers.Normalization(mean=np.mean(train_x), variance=np.var(train_x)),
+                keras.layers.Normalization(mean=mean, variance=var),
                 keras.layers.Dense(64, activation="relu"),
                 keras.layers.Dense(1),
             ]
@@ -129,7 +131,7 @@ parameters, results, and model itself of each trial as a child run.
             # Log model
             mlflow.tensorflow.log_model(model, "model", signature=signature)
 
-            return {"eval_rmse": eval_rmse, "status": STATUS_OK, "model": model}
+            return {"loss": eval_rmse, "status": STATUS_OK, "model": model}
 
 
 The ``objective`` function takes in the hyperparameters and returns the results of the ``train_model`` 
@@ -184,7 +186,7 @@ store the best parameters, model, and evaluation metrics in MLflow.
         )
 
         # Fetch the details of the best run
-        best_run = sorted(trials.results, key=lambda x: x["eval_rmse"])[0]
+        best_run = sorted(trials.results, key=lambda x: x["loss"])[0]
 
         # Log the best parameters, loss, and model
         mlflow.log_params(best)
@@ -193,15 +195,15 @@ store the best parameters, model, and evaluation metrics in MLflow.
 
         # Print out the best parameters and corresponding loss
         print(f"Best parameters: {best}")
-        print(f"Best eval rmse: {best_run['eval_rmse']}")
+        print(f"Best eval rmse: {best_run['loss']}")
 
 
 Compare the results
 -------------------
 
 Open the MLflow UI in your browser at the `MLFLOW_TRACKING_URI`. You should see a nested list of runs. In the
-default **Table view**, choose the **Columns** button and add the **Metrics | test_rmse** column and
-the **Parameters | lr** and **Parameters | momentum** column. To sort by RMSE ascending, click the **test_rmse**
+default **Table view**, choose the **Columns** button and add the **Metrics | eval_rmse** column and
+the **Parameters | lr** and **Parameters | momentum** column. To sort by RMSE ascending, click the **eval_rmse**
 column header. The best run typically has an RMSE on the **test** dataset of ~0.70. You can see the parameters
 of the best run in the **Parameters** column.
 
@@ -212,7 +214,7 @@ of the best run in the **Parameters** column.
 
 
 Choose **Chart view**. Choose the **Parallel coordinates** graph and configure it to show the **lr** and
-**momentum** coordinates and the **test_rmse** metric. Each line in this graph represents a run and associates
+**momentum** coordinates and the **eval_rmse** metric. Each line in this graph represents a run and associates
 each hyperparameter evaluation run's parameters to the evaluated error metric for the run.
 
 .. raw:: html
@@ -339,4 +341,3 @@ In addition, some cloud providers have built-in support for MLflow. For instance
 all support MLflow. Cloud platforms generally support multiple workflows for deployment: command-line,
 SDK-based, and Web-based. You can use MLflow in any of these workflows, although the details will vary between
 platforms and versions. Again, you will need to consult your cloud provider's documentation for details.
-

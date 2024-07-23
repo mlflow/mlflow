@@ -53,6 +53,11 @@ An experiment groups together runs for a specific task. You can create an experi
 The MLflow API and UI also let you create and search for experiments. See :ref:`Organizing Runs into Experiments <organizing_runs_in_experiments>`
 for more details on how to organize your runs into experiments.
 
+Tracing
+-------
+MLflow Tracing is an integrated part of the MLflow Tracking API that allows you to instrument your GenAI applications. Whether you're using the ``LangChain``
+integration with MLflow Tracing, the Fluent APIs for tracing, or the lower-level Client APIs, MLflow tracking will record your trace data for future review, 
+debugging, or analysis. See the `MLflow Tracing Guide <llms/tracing/index.html>`_ for more details.
 
 .. _start-logging:
 
@@ -95,6 +100,18 @@ See :ref:`Automatic Logging Documentation <automatic-logging>` for supported lib
 .. note::
     By default, without any particular server/database configuration, MLflow Tracking logs data to the local `mlruns` directory. If you want to log your runs to a different location,
     such as a remote database and cloud storage, to share your results with your team, follow the instructions in the :ref:`Set up MLflow Tracking Environment <tracking-setup>` section.
+
+Tracking Datasets
+=================
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    tracking/data-api
+
+MLflow offers the ability to track datasets that are associated with model training events. These metadata associated with the Dataset can be stored through the use of the :py:func:`mlflow.log_input` API. 
+To learn more, please visit the `MLflow data documentation <tracking/data-api.html>`_ to see the features available in this API.
 
 
 Explore Runs and Results
@@ -182,7 +199,7 @@ MLflow supports two types of storage for the backend: **file-system-based** like
 
     tracking/artifacts-stores
 
-Artifact store persists (typicaly large) arifacts for each run, such as model weights (e.g. a pickled scikit-learn model),
+Artifact store persists (typicaly large) artifacts for each run, such as model weights (e.g. a pickled scikit-learn model),
 images (e.g. PNGs), model and data files (e.g. `Parquet <https://parquet.apache.org/>`_ file). MLflow stores artifacts ina a
 local file (`mlruns`) by default, but also supports different storage options such as Amazon S3 and Azure Blob Storage.
 

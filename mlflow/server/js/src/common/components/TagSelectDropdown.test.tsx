@@ -4,15 +4,14 @@ import userEvent from '@testing-library/user-event';
 import { Control, useForm } from 'react-hook-form';
 
 import { KeyValueEntity } from '../../experiment-tracking/types';
-import { renderWithIntl, screen, selectAntdOption, waitFor, act } from '../utils/TestUtils';
+import { screen, waitFor, act, selectAntdOption } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
+import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
 
 import { TagKeySelectDropdown } from './TagSelectDropdown';
 
 describe('TagKeySelectDropdown', () => {
   function renderTestComponent(allAvailableTags: string[], control: Control<KeyValueEntity>) {
-    return renderWithIntl(
-      <TagKeySelectDropdown allAvailableTags={allAvailableTags} control={control} />,
-    );
+    return renderWithIntl(<TagKeySelectDropdown allAvailableTags={allAvailableTags} control={control} />);
   }
 
   test('it should render list of tags', async () => {

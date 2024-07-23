@@ -11,6 +11,33 @@ capabilities into their applications.
 
 **MLflow's Support for LLMs** aims to alleviate these challenges by introducing a suite of features and tools designed with the end-user in mind:
 
+`MLflow Tracing <tracing/index.html>`_
+--------------------------------------
+
+.. note::
+    MLflow Tracing is currently in **Experimental Status** and is subject to change without deprecation warning or notification. 
+
+MLflow offers comprehensive tracing capabilities to monitor and analyze the execution of GenAI applications. This includes automated tracing GenAI frameworks such as
+LangChain, OpenAI, and LlamaIndex, manual trace instrumentation using high-level fluent APIs, and low-level client APIs for fine-grained control. This functionality 
+allows you to capture detailed trace data, enabling better debugging, performance monitoring, and insights into complex workflows. 
+Whether through decorators, context managers, or explicit API calls, MLflow provides the flexibility needed to trace and optimize the operations 
+of your GenAI models and retain your traced data within the tracking server for further analysis.
+
+- `Automated tracing with GenAI libraries <tracing/index.html#automatic-tracing>`_: Seamless integration with libraries such as LangChain, OpenAI, and LlamaIndex, for automatic trace data collection.
+- `Manual trace instrumentation with high-level fluent APIs <tracing/index.html#tracing-fluent-apis>`_: Easy-to-use decorators and context managers for adding tracing with minimal code changes.
+- `Low-level client APIs for tracing <tracing/index.html#tracing-client-apis>`_: Thread-safe methods for detailed and explicit control over trace data management.
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    tracing/index
+    tracing/overview
+    tracing/tracing-schema
+
+To learn more about what tracing is, see our `Tracing Concepts Overview <tracing/overview.html>`_ guide. For an in-depth exploration into the structure of 
+MLflow traces and their schema, see the `Tracing Schema <tracing/tracing-schema.html>`_ guide.
+
 `MLflow Deployments Server for LLMs <deployments/index.html>`_
 --------------------------------------------------------------
 
@@ -110,7 +137,7 @@ with your favorite provider!
             </a>
             <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/azure_openai/README.md">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/ai21labs-logo.svg" alt="Azure OpenAI Logo"/>
+                    <img src="../_static/images/logos/azure-ml-logo.png" alt="Azure OpenAI Logo"/>
                 </div>
             </a>
             <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/huggingface/README.md">
@@ -125,6 +152,7 @@ with your favorite provider!
     The **MLflow** and **Hugging Face TGI** providers are for self-hosted LLM serving of either foundation open-source LLM models, fine-tuned open-source 
     LLM models, or your own custom LLM. The example documentation for these providers will show you how to get started with these, using free-to-use open-source 
     models from the `Hugging Face Hub <https://huggingface.co/docs/hub/index>`_.
+
 
 `LLM Evaluation <llm-evaluate/index.html>`_
 -------------------------------------------
@@ -213,6 +241,16 @@ Harnessing the power of LLMs becomes effortless with flavors designed specifical
   - All essential tools and functionalities consolidated under MLflow.
   - Focus on deriving value from LLMs without getting bogged down by interfacing and optimization intricacies.
 
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    transformers/index
+    openai/index
+    sentence-transformers/index
+    langchain/index
+    llama-index/index
+
 Explore the Native LLM Flavors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -266,17 +304,20 @@ Select the integration below to read the documentation on how to leverage MLflow
                     </p>
                 </a>
             </div>
+            <div class="simple-card">
+                <a href="llama-index/index.html">
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/llamaindex-logo.svg" alt="LlamaIndex Logo" style="width: 90%"/>
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with LlamaIndex and see example notebooks that leverage 
+                        MLflow and LlamaIndex to build advanced QA systems, chatbots, and other AI-driven applications.
+                    </p>
+                </a>
+            </div>
         </article>
     </section>
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-
-    transformers/index
-    openai/index
-    sentence-transformers/index
-    langchain/index
 
 `LLM Tracking in MLflow <llm-tracking/index.html>`_
 ---------------------------------------------------
@@ -339,7 +380,7 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
                         Evaluating LLMs
                     </div>
                     <p>
-                        Learn how to evaluate LLMs with MLflow.
+                        Learn how to evaluate LLMs with various metrics including LLM-as-a-Judge using <code>mlflow.evaluate()</code> API.
                     </p>
                 </a>
             </div>
@@ -354,7 +395,7 @@ Note that there are additional tutorials within the `"Explore the Native LLM Fla
                 </a>
             </div>
             <div class="simple-card">
-                <a href="rag/index.html" >
+                <a href="rag/notebooks/index.html" >
                     <div class="header">
                         Evaluation for RAG
                     </div>

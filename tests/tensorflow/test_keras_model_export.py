@@ -1,4 +1,3 @@
-import json
 import os
 import pickle
 import random
@@ -12,8 +11,6 @@ import pytest
 import tensorflow as tf
 import yaml
 from packaging.version import Version
-
-# pylint: disable=no-name-in-module
 from sklearn import datasets
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Dense, Layer
@@ -44,6 +41,7 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     assert_array_almost_equal,
     assert_register_model_called_with_local_model_path,
+    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 from tests.pyfunc.test_spark import score_model_as_udf
@@ -86,9 +84,7 @@ def get_model(data):
     kwargs = (
         # `lr` was renamed to `learning_rate` in keras 2.3.0:
         # https://github.com/keras-team/keras/releases/tag/2.3.0
-        {"lr": lr}
-        if Version(tf.__version__) < Version("2.3.0")
-        else {"learning_rate": lr}
+        {"lr": lr} if Version(tf.__version__) < Version("2.3.0") else {"learning_rate": lr}
     )
     model.compile(loss="mean_squared_error", optimizer=SGD(**kwargs))
     model.fit(x, y)
@@ -137,7 +133,6 @@ def custom_layer():
             super().__init__(**kwargs)
 
         def build(self, input_shape):
-            # pylint: disable=attribute-defined-outside-init
             self.kernel = self.add_weight(
                 name="kernel",
                 shape=(input_shape[1], self.output_dim),
@@ -146,7 +141,7 @@ def custom_layer():
             )
             super().build(input_shape)
 
-        def call(self, inputs):  # pylint: disable=arguments-differ
+        def call(self, inputs):
             return K.dot(inputs, self.kernel)
 
         def compute_output_shape(self, input_shape):
@@ -223,11 +218,12 @@ def test_pyfunc_serve_and_score(data):
     x, _ = data
     model = get_model(data)
     with mlflow.start_run():
-        model_info = mlflow.tensorflow.log_model(model, artifact_path="model")
+        model_info = mlflow.tensorflow.log_model(model, artifact_path="model", input_example=x)
     expected = model.predict(x)
+    inference_payload = get_serving_input_example(model_info.model_uri)
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_info.model_uri,
-        data=pd.DataFrame(x),
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
@@ -634,15 +630,14 @@ def test_load_without_save_format(tf_keras_model, model_path, data):
 @pytest.mark.skipif(
     not (
         _is_importable("transformers")
-        and Version(tf.__version__) >= Version("2.6.0")
-        and not Version(tf.__version__).is_devrelease
+        and Version("2.6.0") <= Version(tf.__version__) < Version("2.16")
     ),
     reason="This test requires transformers, which is no longer compatible with Keras < 2.6.0, "
-    "and transformers is not compatible with Tensorflow dev version, see "
+    "and transformers is not compatible with Tensorflow >= 2.16, see "
     "https://github.com/huggingface/transformers/issues/22421",
 )
 def test_pyfunc_serve_and_score_transformers():
-    from transformers import BertConfig, TFBertModel  # pylint: disable=import-error
+    from transformers import BertConfig, TFBertModel
 
     bert_model = TFBertModel(
         BertConfig(
@@ -661,17 +656,17 @@ def test_pyfunc_serve_and_score_transformers():
     model.compile()
 
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(
+        model_info = mlflow.tensorflow.log_model(
             model,
             artifact_path="model",
             extra_pip_requirements=extra_pip_requirements,
+            input_example=dummy_inputs,
         )
-        model_uri = mlflow.get_artifact_uri("model")
 
-    data = json.dumps({"inputs": dummy_inputs.tolist()})
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data,
+        model_info.model_uri,
+        inference_payload,
         pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )

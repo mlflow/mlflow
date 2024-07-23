@@ -3,13 +3,26 @@ version: 2.1
 orbs:
   win: circleci/windows@5.0.0
 
+commands:
+  fetch_merge_ref:
+    description: "Fetch the merge ref for a pull request"
+    steps:
+      - run:
+          name: Fetch merge ref
+          command: |
+            if [ -n "$CIRCLE_PR_NUMBER" ]; then
+              git fetch origin refs/pull/$CIRCLE_PR_NUMBER/merge
+              git checkout FETCH_HEAD
+            fi
+
 jobs:
   build_doc_r:
     machine:
-      image: ubuntu-2004:202111-01
+      image: default
 
     steps:
       - checkout
+      - fetch_merge_ref
       - run:
           name: Build documentation
           working_directory: docs
@@ -26,6 +39,7 @@ jobs:
 
     steps:
       - checkout
+      - fetch_merge_ref
       - run:
           name: Install Java
           command: |
@@ -52,6 +66,7 @@ jobs:
           command: |
             make rsthtml
             make javadocs
+            python changed_pages.py
       - run:
           name: Check for broken links
           working_directory: docs
@@ -71,6 +86,7 @@ jobs:
 
     steps:
       - checkout
+      - fetch_merge_ref
       - run:
           name: Pull submodule
           command: |
@@ -78,7 +94,7 @@ jobs:
       - run:
           name: Install dependencies
           command: |
-            pip install -e .
+            pip install .
             pip install nbconvert ipykernel
       - run:
           name: Run CLI

@@ -47,7 +47,7 @@ export class ConfirmModal extends Component<Props, State> {
   render() {
     return (
       <Modal
-        data-testid='confirm-modal'
+        data-testid="confirm-modal"
         title={this.props.title}
         visible={this.props.isOpen}
         onOk={this.handleSubmitWrapper}
@@ -57,7 +57,7 @@ export class ConfirmModal extends Component<Props, State> {
         // @ts-expect-error TS(2322): Type '{ children: Element; "data-testid": string; ... Remove this comment to see the full error message
         centered
       >
-        <div className='modal-explanatory-text'>{this.props.helpText}</div>
+        <div className="modal-explanatory-text">{this.props.helpText}</div>
       </Modal>
     );
   }

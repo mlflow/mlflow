@@ -2,7 +2,7 @@ endpoints:
   - name: completions
     endpoint_type: llm/v1/completions
     model:
-      provider: bedrock
+      provider: amazon-bedrock
       name: amazon.titan-tg1-large
       config:
         aws_config:

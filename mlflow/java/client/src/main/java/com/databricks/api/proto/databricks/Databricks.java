@@ -14,6 +14,7 @@ public final class Databricks {
     registry.add(com.databricks.api.proto.databricks.Databricks.fieldDoc);
     registry.add(com.databricks.api.proto.databricks.Databricks.rpc);
     registry.add(com.databricks.api.proto.databricks.Databricks.methodDoc);
+    registry.add(com.databricks.api.proto.databricks.Databricks.graphql);
     registry.add(com.databricks.api.proto.databricks.Databricks.messageDoc);
     registry.add(com.databricks.api.proto.databricks.Databricks.serviceDoc);
     registry.add(com.databricks.api.proto.databricks.Databricks.enumDoc);
@@ -3139,6 +3140,436 @@ public final class Databricks {
 
     @java.lang.Override
     public com.databricks.api.proto.databricks.Databricks.DatabricksRpcOptions getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
+  public interface DatabricksGraphqlOptionsOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.DatabricksGraphqlOptions)
+      com.google.protobuf.MessageOrBuilder {
+  }
+  /**
+   * <pre>
+   * Defines the set of options needed for autogenerating graphql modules.
+   * Will add more fields (batch loader, renaming) later.
+   * Empty for now. The rpc will be visible for graphql module autogeneration if this field is set.
+   * </pre>
+   *
+   * Protobuf type {@code mlflow.DatabricksGraphqlOptions}
+   */
+  public static final class DatabricksGraphqlOptions extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.DatabricksGraphqlOptions)
+      DatabricksGraphqlOptionsOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use DatabricksGraphqlOptions.newBuilder() to construct.
+    private DatabricksGraphqlOptions(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private DatabricksGraphqlOptions() {
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new DatabricksGraphqlOptions();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private DatabricksGraphqlOptions(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksGraphqlOptions_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksGraphqlOptions_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions.class, com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions.Builder.class);
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions)) {
+        return super.equals(obj);
+      }
+      com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions other = (com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions) obj;
+
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * <pre>
+     * Defines the set of options needed for autogenerating graphql modules.
+     * Will add more fields (batch loader, renaming) later.
+     * Empty for now. The rpc will be visible for graphql module autogeneration if this field is set.
+     * </pre>
+     *
+     * Protobuf type {@code mlflow.DatabricksGraphqlOptions}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.DatabricksGraphqlOptions)
+        com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptionsOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksGraphqlOptions_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksGraphqlOptions_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions.class, com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions.Builder.class);
+      }
+
+      // Construct using com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksGraphqlOptions_descriptor;
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions getDefaultInstanceForType() {
+        return com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions build() {
+        com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions buildPartial() {
+        com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions result = new com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions(this);
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions) {
+          return mergeFrom((com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions other) {
+        if (other == com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions.getDefaultInstance()) return this;
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.DatabricksGraphqlOptions)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.DatabricksGraphqlOptions)
+    private static final com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions();
+    }
+
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<DatabricksGraphqlOptions>
+        PARSER = new com.google.protobuf.AbstractParser<DatabricksGraphqlOptions>() {
+      @java.lang.Override
+      public DatabricksGraphqlOptions parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new DatabricksGraphqlOptions(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<DatabricksGraphqlOptions> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<DatabricksGraphqlOptions> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
 
@@ -7326,6 +7757,21 @@ public final class Databricks {
           .newFileScopedGeneratedExtension(
         com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.class,
         com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.getDefaultInstance());
+  public static final int GRAPHQL_FIELD_NUMBER = 51399;
+  /**
+   * <pre>
+   * If this is set, this rpc will be visible for graphql module autogeneration.
+   * </pre>
+   *
+   * <code>extend .google.protobuf.MethodOptions { ... }</code>
+   */
+  public static final
+    com.google.protobuf.GeneratedMessage.GeneratedExtension<
+      com.google.protobuf.DescriptorProtos.MethodOptions,
+      com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions> graphql = com.google.protobuf.GeneratedMessage
+          .newFileScopedGeneratedExtension(
+        com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions.class,
+        com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions.getDefaultInstance());
   public static final int MESSAGE_DOC_FIELD_NUMBER = 51314;
   /**
    * <pre>
@@ -7416,6 +7862,11 @@ public final class Databricks {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_DatabricksRpcOptions_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_DatabricksGraphqlOptions_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_DatabricksGraphqlOptions_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_HttpEndpoint_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -7451,96 +7902,98 @@ public final class Databricks {
       "ity\030\002 \001(\0162\022.mlflow.Visibility\022&\n\013error_c" +
       "odes\030\003 \003(\0162\021.mlflow.ErrorCode\022%\n\nrate_li" +
       "mit\030\004 \001(\0132\021.mlflow.RateLimit\022\025\n\rrpc_doc_" +
-      "title\030\005 \001(\t\"U\n\014HttpEndpoint\022\024\n\006method\030\001 " +
-      "\001(\t:\004POST\022\014\n\004path\030\002 \001(\t\022!\n\005since\030\003 \001(\0132\022" +
-      ".mlflow.ApiVersion\"*\n\nApiVersion\022\r\n\005majo" +
-      "r\030\001 \001(\005\022\r\n\005minor\030\002 \001(\005\"@\n\tRateLimit\022\021\n\tm" +
-      "ax_burst\030\001 \001(\003\022 \n\030max_sustained_per_seco" +
-      "nd\030\002 \001(\003\"\223\001\n\025DocumentationMetadata\022\021\n\tdo" +
-      "cstring\030\001 \001(\t\022\020\n\010lead_doc\030\002 \001(\t\022&\n\nvisib" +
-      "ility\030\003 \001(\0162\022.mlflow.Visibility\022\033\n\023origi" +
-      "nal_proto_path\030\004 \003(\t\022\020\n\010position\030\005 \001(\005*?" +
-      "\n\nVisibility\022\n\n\006PUBLIC\020\001\022\014\n\010INTERNAL\020\002\022\027" +
-      "\n\023PUBLIC_UNDOCUMENTED\020\003*\375\020\n\tErrorCode\022\022\n" +
-      "\016INTERNAL_ERROR\020\001\022\033\n\027TEMPORARILY_UNAVAIL" +
-      "ABLE\020\002\022\014\n\010IO_ERROR\020\003\022\017\n\013BAD_REQUEST\020\004\022\035\n" +
-      "\031SERVICE_UNDER_MAINTENANCE\020\005\022%\n!WORKSPAC" +
-      "E_TEMPORARILY_UNAVAILABLE\020\006\022\025\n\021DEADLINE_" +
-      "EXCEEDED\020\007\022\r\n\tCANCELLED\020\010\022\026\n\022RESOURCE_EX" +
-      "HAUSTED\020\t\022\013\n\007ABORTED\020\n\022\r\n\tNOT_FOUND\020\013\022\022\n" +
-      "\016ALREADY_EXISTS\020\014\022\023\n\017UNAUTHENTICATED\020\r\022\034" +
-      "\n\027INVALID_PARAMETER_VALUE\020\350\007\022\027\n\022ENDPOINT" +
-      "_NOT_FOUND\020\351\007\022\026\n\021MALFORMED_REQUEST\020\352\007\022\022\n" +
-      "\rINVALID_STATE\020\353\007\022\026\n\021PERMISSION_DENIED\020\354" +
-      "\007\022\025\n\020FEATURE_DISABLED\020\355\007\022\032\n\025CUSTOMER_UNA" +
-      "UTHORIZED\020\356\007\022\033\n\026REQUEST_LIMIT_EXCEEDED\020\357" +
-      "\007\022\026\n\021RESOURCE_CONFLICT\020\360\007\022\033\n\026UNPARSEABLE" +
-      "_HTTP_ERROR\020\361\007\022\024\n\017NOT_IMPLEMENTED\020\362\007\022\016\n\t" +
-      "DATA_LOSS\020\363\007\022\035\n\030INVALID_STATE_TRANSITION" +
-      "\020\321\017\022\033\n\026COULD_NOT_ACQUIRE_LOCK\020\322\017\022\034\n\027RESO" +
-      "URCE_ALREADY_EXISTS\020\271\027\022\034\n\027RESOURCE_DOES_" +
-      "NOT_EXIST\020\272\027\022\023\n\016QUOTA_EXCEEDED\020\241\037\022\034\n\027MAX" +
-      "_BLOCK_SIZE_EXCEEDED\020\242\037\022\033\n\026MAX_READ_SIZE" +
-      "_EXCEEDED\020\243\037\022\023\n\016PARTIAL_DELETE\020\244\037\022\033\n\026MAX" +
-      "_LIST_SIZE_EXCEEDED\020\245\037\022\023\n\016DRY_RUN_FAILED" +
-      "\020\211\'\022\034\n\027RESOURCE_LIMIT_EXCEEDED\020\212\'\022\030\n\023DIR" +
-      "ECTORY_NOT_EMPTY\020\361.\022\030\n\023DIRECTORY_PROTECT" +
-      "ED\020\362.\022\037\n\032MAX_NOTEBOOK_SIZE_EXCEEDED\020\363.\022!" +
-      "\n\034MAX_CHILD_NODE_SIZE_EXCEEDED\020\364.\022\032\n\025SEA" +
-      "RCH_QUERY_TOO_LONG\020\324/\022\033\n\026SEARCH_QUERY_TO" +
-      "O_SHORT\020\325/\022*\n%MANAGED_RESOURCE_GROUP_DOE" +
-      "S_NOT_EXIST\020\3316\022\036\n\031PERMISSION_NOT_PROPAGA" +
-      "TED\020\3326\022\027\n\022DEPLOYMENT_TIMEOUT\020\3336\022\021\n\014GIT_C" +
-      "ONFLICT\020\301>\022\024\n\017GIT_UNKNOWN_REF\020\302>\022!\n\034GIT_" +
-      "SENSITIVE_TOKEN_DETECTED\020\303>\022\036\n\031GIT_URL_N" +
-      "OT_ON_ALLOW_LIST\020\304>\022\025\n\020GIT_REMOTE_ERROR\020" +
-      "\305>\022\037\n\032PROJECTS_OPERATION_TIMEOUT\020\306>\022\027\n\022I" +
-      "PYNB_FILE_IN_REPO\020\307>\022\036\n\031INSECURE_PARTNER" +
-      "_RESPONSE\020\244?\022\037\n\032MALFORMED_PARTNER_RESPON" +
-      "SE\020\245?\022\035\n\030METASTORE_DOES_NOT_EXIST\020\250F\022\027\n\022" +
-      "DAC_DOES_NOT_EXIST\020\251F\022\033\n\026CATALOG_DOES_NO" +
-      "T_EXIST\020\252F\022\032\n\025SCHEMA_DOES_NOT_EXIST\020\253F\022\031" +
-      "\n\024TABLE_DOES_NOT_EXIST\020\254F\022\031\n\024SHARE_DOES_" +
-      "NOT_EXIST\020\255F\022\035\n\030RECIPIENT_DOES_NOT_EXIST" +
-      "\020\256F\022&\n!STORAGE_CREDENTIAL_DOES_NOT_EXIST" +
-      "\020\257F\022%\n EXTERNAL_LOCATION_DOES_NOT_EXIST\020" +
-      "\260F\022\035\n\030PRINCIPAL_DOES_NOT_EXIST\020\261F\022\034\n\027PRO" +
-      "VIDER_DOES_NOT_EXIST\020\262F\022\035\n\030METASTORE_ALR" +
-      "EADY_EXISTS\020\274F\022\027\n\022DAC_ALREADY_EXISTS\020\275F\022" +
-      "\033\n\026CATALOG_ALREADY_EXISTS\020\276F\022\032\n\025SCHEMA_A" +
-      "LREADY_EXISTS\020\277F\022\031\n\024TABLE_ALREADY_EXISTS" +
-      "\020\300F\022\031\n\024SHARE_ALREADY_EXISTS\020\301F\022\035\n\030RECIPI" +
-      "ENT_ALREADY_EXISTS\020\302F\022&\n!STORAGE_CREDENT" +
-      "IAL_ALREADY_EXISTS\020\303F\022%\n EXTERNAL_LOCATI" +
-      "ON_ALREADY_EXISTS\020\304F\022\034\n\027PROVIDER_ALREADY" +
-      "_EXISTS\020\305F\022\026\n\021CATALOG_NOT_EMPTY\020\320F\022\025\n\020SC" +
-      "HEMA_NOT_EMPTY\020\321F\022\030\n\023METASTORE_NOT_EMPTY" +
-      "\020\322F\022\"\n\035PROVIDER_SHARE_NOT_ACCESSIBLE\020\344F:" +
-      "G\n\nvisibility\022\035.google.protobuf.FieldOpt" +
-      "ions\030\356\220\003 \001(\0162\022.mlflow.Visibility::\n\021vali" +
-      "date_required\022\035.google.protobuf.FieldOpt" +
-      "ions\030\357\220\003 \001(\010:4\n\013json_inline\022\035.google.pro" +
-      "tobuf.FieldOptions\030\360\220\003 \001(\010:1\n\010json_map\022\035" +
-      ".google.protobuf.FieldOptions\030\361\220\003 \001(\010:Q\n" +
-      "\tfield_doc\022\035.google.protobuf.FieldOption" +
-      "s\030\362\220\003 \003(\0132\035.mlflow.DocumentationMetadata" +
-      ":K\n\003rpc\022\036.google.protobuf.MethodOptions\030" +
-      "\356\220\003 \001(\0132\034.mlflow.DatabricksRpcOptions:S\n" +
-      "\nmethod_doc\022\036.google.protobuf.MethodOpti" +
+      "title\030\005 \001(\t\"\032\n\030DatabricksGraphqlOptions\"" +
+      "U\n\014HttpEndpoint\022\024\n\006method\030\001 \001(\t:\004POST\022\014\n" +
+      "\004path\030\002 \001(\t\022!\n\005since\030\003 \001(\0132\022.mlflow.ApiV" +
+      "ersion\"*\n\nApiVersion\022\r\n\005major\030\001 \001(\005\022\r\n\005m" +
+      "inor\030\002 \001(\005\"@\n\tRateLimit\022\021\n\tmax_burst\030\001 \001" +
+      "(\003\022 \n\030max_sustained_per_second\030\002 \001(\003\"\223\001\n" +
+      "\025DocumentationMetadata\022\021\n\tdocstring\030\001 \001(" +
+      "\t\022\020\n\010lead_doc\030\002 \001(\t\022&\n\nvisibility\030\003 \001(\0162" +
+      "\022.mlflow.Visibility\022\033\n\023original_proto_pa" +
+      "th\030\004 \003(\t\022\020\n\010position\030\005 \001(\005*?\n\nVisibility" +
+      "\022\n\n\006PUBLIC\020\001\022\014\n\010INTERNAL\020\002\022\027\n\023PUBLIC_UND" +
+      "OCUMENTED\020\003*\375\020\n\tErrorCode\022\022\n\016INTERNAL_ER" +
+      "ROR\020\001\022\033\n\027TEMPORARILY_UNAVAILABLE\020\002\022\014\n\010IO" +
+      "_ERROR\020\003\022\017\n\013BAD_REQUEST\020\004\022\035\n\031SERVICE_UND" +
+      "ER_MAINTENANCE\020\005\022%\n!WORKSPACE_TEMPORARIL" +
+      "Y_UNAVAILABLE\020\006\022\025\n\021DEADLINE_EXCEEDED\020\007\022\r" +
+      "\n\tCANCELLED\020\010\022\026\n\022RESOURCE_EXHAUSTED\020\t\022\013\n" +
+      "\007ABORTED\020\n\022\r\n\tNOT_FOUND\020\013\022\022\n\016ALREADY_EXI" +
+      "STS\020\014\022\023\n\017UNAUTHENTICATED\020\r\022\034\n\027INVALID_PA" +
+      "RAMETER_VALUE\020\350\007\022\027\n\022ENDPOINT_NOT_FOUND\020\351" +
+      "\007\022\026\n\021MALFORMED_REQUEST\020\352\007\022\022\n\rINVALID_STA" +
+      "TE\020\353\007\022\026\n\021PERMISSION_DENIED\020\354\007\022\025\n\020FEATURE" +
+      "_DISABLED\020\355\007\022\032\n\025CUSTOMER_UNAUTHORIZED\020\356\007" +
+      "\022\033\n\026REQUEST_LIMIT_EXCEEDED\020\357\007\022\026\n\021RESOURC" +
+      "E_CONFLICT\020\360\007\022\033\n\026UNPARSEABLE_HTTP_ERROR\020" +
+      "\361\007\022\024\n\017NOT_IMPLEMENTED\020\362\007\022\016\n\tDATA_LOSS\020\363\007" +
+      "\022\035\n\030INVALID_STATE_TRANSITION\020\321\017\022\033\n\026COULD" +
+      "_NOT_ACQUIRE_LOCK\020\322\017\022\034\n\027RESOURCE_ALREADY" +
+      "_EXISTS\020\271\027\022\034\n\027RESOURCE_DOES_NOT_EXIST\020\272\027" +
+      "\022\023\n\016QUOTA_EXCEEDED\020\241\037\022\034\n\027MAX_BLOCK_SIZE_" +
+      "EXCEEDED\020\242\037\022\033\n\026MAX_READ_SIZE_EXCEEDED\020\243\037" +
+      "\022\023\n\016PARTIAL_DELETE\020\244\037\022\033\n\026MAX_LIST_SIZE_E" +
+      "XCEEDED\020\245\037\022\023\n\016DRY_RUN_FAILED\020\211\'\022\034\n\027RESOU" +
+      "RCE_LIMIT_EXCEEDED\020\212\'\022\030\n\023DIRECTORY_NOT_E" +
+      "MPTY\020\361.\022\030\n\023DIRECTORY_PROTECTED\020\362.\022\037\n\032MAX" +
+      "_NOTEBOOK_SIZE_EXCEEDED\020\363.\022!\n\034MAX_CHILD_" +
+      "NODE_SIZE_EXCEEDED\020\364.\022\032\n\025SEARCH_QUERY_TO" +
+      "O_LONG\020\324/\022\033\n\026SEARCH_QUERY_TOO_SHORT\020\325/\022*" +
+      "\n%MANAGED_RESOURCE_GROUP_DOES_NOT_EXIST\020" +
+      "\3316\022\036\n\031PERMISSION_NOT_PROPAGATED\020\3326\022\027\n\022DE" +
+      "PLOYMENT_TIMEOUT\020\3336\022\021\n\014GIT_CONFLICT\020\301>\022\024" +
+      "\n\017GIT_UNKNOWN_REF\020\302>\022!\n\034GIT_SENSITIVE_TO" +
+      "KEN_DETECTED\020\303>\022\036\n\031GIT_URL_NOT_ON_ALLOW_" +
+      "LIST\020\304>\022\025\n\020GIT_REMOTE_ERROR\020\305>\022\037\n\032PROJEC" +
+      "TS_OPERATION_TIMEOUT\020\306>\022\027\n\022IPYNB_FILE_IN" +
+      "_REPO\020\307>\022\036\n\031INSECURE_PARTNER_RESPONSE\020\244?" +
+      "\022\037\n\032MALFORMED_PARTNER_RESPONSE\020\245?\022\035\n\030MET" +
+      "ASTORE_DOES_NOT_EXIST\020\250F\022\027\n\022DAC_DOES_NOT" +
+      "_EXIST\020\251F\022\033\n\026CATALOG_DOES_NOT_EXIST\020\252F\022\032" +
+      "\n\025SCHEMA_DOES_NOT_EXIST\020\253F\022\031\n\024TABLE_DOES" +
+      "_NOT_EXIST\020\254F\022\031\n\024SHARE_DOES_NOT_EXIST\020\255F" +
+      "\022\035\n\030RECIPIENT_DOES_NOT_EXIST\020\256F\022&\n!STORA" +
+      "GE_CREDENTIAL_DOES_NOT_EXIST\020\257F\022%\n EXTER" +
+      "NAL_LOCATION_DOES_NOT_EXIST\020\260F\022\035\n\030PRINCI" +
+      "PAL_DOES_NOT_EXIST\020\261F\022\034\n\027PROVIDER_DOES_N" +
+      "OT_EXIST\020\262F\022\035\n\030METASTORE_ALREADY_EXISTS\020" +
+      "\274F\022\027\n\022DAC_ALREADY_EXISTS\020\275F\022\033\n\026CATALOG_A" +
+      "LREADY_EXISTS\020\276F\022\032\n\025SCHEMA_ALREADY_EXIST" +
+      "S\020\277F\022\031\n\024TABLE_ALREADY_EXISTS\020\300F\022\031\n\024SHARE" +
+      "_ALREADY_EXISTS\020\301F\022\035\n\030RECIPIENT_ALREADY_" +
+      "EXISTS\020\302F\022&\n!STORAGE_CREDENTIAL_ALREADY_" +
+      "EXISTS\020\303F\022%\n EXTERNAL_LOCATION_ALREADY_E" +
+      "XISTS\020\304F\022\034\n\027PROVIDER_ALREADY_EXISTS\020\305F\022\026" +
+      "\n\021CATALOG_NOT_EMPTY\020\320F\022\025\n\020SCHEMA_NOT_EMP" +
+      "TY\020\321F\022\030\n\023METASTORE_NOT_EMPTY\020\322F\022\"\n\035PROVI" +
+      "DER_SHARE_NOT_ACCESSIBLE\020\344F:G\n\nvisibilit" +
+      "y\022\035.google.protobuf.FieldOptions\030\356\220\003 \001(\016" +
+      "2\022.mlflow.Visibility::\n\021validate_require" +
+      "d\022\035.google.protobuf.FieldOptions\030\357\220\003 \001(\010" +
+      ":4\n\013json_inline\022\035.google.protobuf.FieldO" +
+      "ptions\030\360\220\003 \001(\010:1\n\010json_map\022\035.google.prot" +
+      "obuf.FieldOptions\030\361\220\003 \001(\010:Q\n\tfield_doc\022\035" +
+      ".google.protobuf.FieldOptions\030\362\220\003 \003(\0132\035." +
+      "mlflow.DocumentationMetadata:K\n\003rpc\022\036.go" +
+      "ogle.protobuf.MethodOptions\030\356\220\003 \001(\0132\034.ml" +
+      "flow.DatabricksRpcOptions:S\n\nmethod_doc\022" +
+      "\036.google.protobuf.MethodOptions\030\362\220\003 \003(\0132" +
+      "\035.mlflow.DocumentationMetadata:S\n\007graphq" +
+      "l\022\036.google.protobuf.MethodOptions\030\307\221\003 \001(" +
+      "\0132 .mlflow.DatabricksGraphqlOptions:U\n\013m" +
+      "essage_doc\022\037.google.protobuf.MessageOpti" +
       "ons\030\362\220\003 \003(\0132\035.mlflow.DocumentationMetada" +
-      "ta:U\n\013message_doc\022\037.google.protobuf.Mess" +
-      "ageOptions\030\362\220\003 \003(\0132\035.mlflow.Documentatio" +
-      "nMetadata:U\n\013service_doc\022\037.google.protob" +
-      "uf.ServiceOptions\030\362\220\003 \003(\0132\035.mlflow.Docum" +
-      "entationMetadata:O\n\010enum_doc\022\034.google.pr" +
-      "otobuf.EnumOptions\030\362\220\003 \003(\0132\035.mlflow.Docu" +
-      "mentationMetadata:V\n\025enum_value_visibili" +
-      "ty\022!.google.protobuf.EnumValueOptions\030\356\220" +
-      "\003 \001(\0162\022.mlflow.Visibility:Z\n\016enum_value_" +
-      "doc\022!.google.protobuf.EnumValueOptions\030\362" +
-      "\220\003 \003(\0132\035.mlflow.DocumentationMetadataB*\n" +
-      "#com.databricks.api.proto.databricks\342?\002\020" +
-      "\001"
+      "ta:U\n\013service_doc\022\037.google.protobuf.Serv" +
+      "iceOptions\030\362\220\003 \003(\0132\035.mlflow.Documentatio" +
+      "nMetadata:O\n\010enum_doc\022\034.google.protobuf." +
+      "EnumOptions\030\362\220\003 \003(\0132\035.mlflow.Documentati" +
+      "onMetadata:V\n\025enum_value_visibility\022!.go" +
+      "ogle.protobuf.EnumValueOptions\030\356\220\003 \001(\0162\022" +
+      ".mlflow.Visibility:Z\n\016enum_value_doc\022!.g" +
+      "oogle.protobuf.EnumValueOptions\030\362\220\003 \003(\0132" +
+      "\035.mlflow.DocumentationMetadataB*\n#com.da" +
+      "tabricks.api.proto.databricks\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -7554,26 +8007,32 @@ public final class Databricks {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_DatabricksRpcOptions_descriptor,
         new java.lang.String[] { "Endpoints", "Visibility", "ErrorCodes", "RateLimit", "RpcDocTitle", });
-    internal_static_mlflow_HttpEndpoint_descriptor =
+    internal_static_mlflow_DatabricksGraphqlOptions_descriptor =
       getDescriptor().getMessageTypes().get(1);
+    internal_static_mlflow_DatabricksGraphqlOptions_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_DatabricksGraphqlOptions_descriptor,
+        new java.lang.String[] { });
+    internal_static_mlflow_HttpEndpoint_descriptor =
+      getDescriptor().getMessageTypes().get(2);
     internal_static_mlflow_HttpEndpoint_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_HttpEndpoint_descriptor,
         new java.lang.String[] { "Method", "Path", "Since", });
     internal_static_mlflow_ApiVersion_descriptor =
-      getDescriptor().getMessageTypes().get(2);
+      getDescriptor().getMessageTypes().get(3);
     internal_static_mlflow_ApiVersion_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ApiVersion_descriptor,
         new java.lang.String[] { "Major", "Minor", });
     internal_static_mlflow_RateLimit_descriptor =
-      getDescriptor().getMessageTypes().get(3);
+      getDescriptor().getMessageTypes().get(4);
     internal_static_mlflow_RateLimit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_RateLimit_descriptor,
         new java.lang.String[] { "MaxBurst", "MaxSustainedPerSecond", });
     internal_static_mlflow_DocumentationMetadata_descriptor =
-      getDescriptor().getMessageTypes().get(4);
+      getDescriptor().getMessageTypes().get(5);
     internal_static_mlflow_DocumentationMetadata_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_DocumentationMetadata_descriptor,
@@ -7585,11 +8044,12 @@ public final class Databricks {
     fieldDoc.internalInit(descriptor.getExtensions().get(4));
     rpc.internalInit(descriptor.getExtensions().get(5));
     methodDoc.internalInit(descriptor.getExtensions().get(6));
-    messageDoc.internalInit(descriptor.getExtensions().get(7));
-    serviceDoc.internalInit(descriptor.getExtensions().get(8));
-    enumDoc.internalInit(descriptor.getExtensions().get(9));
-    enumValueVisibility.internalInit(descriptor.getExtensions().get(10));
-    enumValueDoc.internalInit(descriptor.getExtensions().get(11));
+    graphql.internalInit(descriptor.getExtensions().get(7));
+    messageDoc.internalInit(descriptor.getExtensions().get(8));
+    serviceDoc.internalInit(descriptor.getExtensions().get(9));
+    enumDoc.internalInit(descriptor.getExtensions().get(10));
+    enumValueVisibility.internalInit(descriptor.getExtensions().get(11));
+    enumValueDoc.internalInit(descriptor.getExtensions().get(12));
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();
     registry.add(org.mlflow.scalapb_interface.Scalapb.options);

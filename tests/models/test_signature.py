@@ -8,7 +8,7 @@ from sklearn.ensemble import RandomForestRegressor
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, ModelSignature, infer_signature, set_signature
+from mlflow.models import Model, ModelSignature, infer_signature, rag_signatures, set_signature
 from mlflow.models.model import get_model_info
 from mlflow.types import DataType
 from mlflow.types.schema import (
@@ -278,7 +278,8 @@ def test_signature_construction():
 
 def test_signature_with_errors():
     with pytest.raises(
-        TypeError, match=r"inputs must be either None or mlflow.models.signature.Schema"
+        TypeError,
+        match=r"inputs must be either None, mlflow.models.signature.Schema, or a dataclass",
     ):
         ModelSignature(inputs=1)
 
@@ -286,3 +287,29 @@ def test_signature_with_errors():
         ValueError, match=r"At least one of inputs, outputs or params must be provided"
     ):
         ModelSignature()
+
+
+def test_signature_for_rag():
+    signature = ModelSignature(
+        inputs=rag_signatures.ChatCompletionRequest(),
+        outputs=rag_signatures.ChatCompletionResponse(),
+    )
+    signature_dict = signature.to_dict()
+    assert signature_dict == {
+        "inputs": (
+            '[{"type": "array", "items": {"type": "object", "properties": '
+            '{"content": {"type": "string", "required": true}, '
+            '"role": {"type": "string", "required": true}}}, '
+            '"name": "messages", "required": true}]'
+        ),
+        "outputs": (
+            '[{"type": "array", "items": {"type": "object", "properties": '
+            '{"finish_reason": {"type": "string", "required": true}, '
+            '"index": {"type": "integer", "required": true}, '
+            '"message": {"type": "object", "properties": '
+            '{"content": {"type": "string", "required": true}, '
+            '"role": {"type": "string", "required": true}}, '
+            '"required": true}}}, "name": "choices", "required": true}]'
+        ),
+        "params": None,
+    }

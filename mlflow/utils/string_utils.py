@@ -1,7 +1,8 @@
-import os
 import re
 import shlex
 from typing import List
+
+from mlflow.utils.os import is_windows
 
 
 def strip_prefix(original, prefix):
@@ -128,4 +129,4 @@ def mslex_quote(s, for_cmd=True):
 
 
 def quote(s):
-    return mslex_quote(s) if os.name == "nt" else shlex.quote(s)
+    return mslex_quote(s) if is_windows() else shlex.quote(s)

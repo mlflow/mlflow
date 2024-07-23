@@ -8,7 +8,6 @@ from unittest import mock
 import git
 import pytest
 import yaml
-from databricks_cli.configure.provider import DatabricksConfig
 
 import mlflow
 from mlflow import MlflowClient
@@ -106,7 +105,15 @@ def test_expected_tags_logged_when_using_conda():
 @pytest.mark.usefixtures("patch_user")
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
 @pytest.mark.parametrize("version", [None, "master", "git-commit"])
-def test_run_local_git_repo(local_git_repo, local_git_repo_uri, use_start_run, version):
+def test_run_local_git_repo(
+    local_git_repo, local_git_repo_uri, use_start_run, version, monkeypatch
+):
+    monkeypatch.setenvs(
+        {
+            "DATABRICKS_HOST": "my-host",
+            "DATABRICKS_TOKEN": "my-token",
+        }
+    )
     if version is not None:
         uri = local_git_repo_uri + "#" + TEST_PROJECT_NAME
     else:
@@ -336,7 +343,7 @@ def test_create_env_with_mamba(monkeypatch):
     installed in the test environment anyway)
     """
 
-    def exec_cmd_mock(cmd, *args, **kwargs):  # pylint: disable=unused-argument
+    def exec_cmd_mock(cmd, *args, **kwargs):
         if cmd[-1] == "--json":
             # We are supposed to list environments in JSON format
             return subprocess.CompletedProcess(
@@ -347,7 +354,7 @@ def test_create_env_with_mamba(monkeypatch):
             # anything
             return subprocess.CompletedProcess(cmd, 0)
 
-    def exec_cmd_mock_raise(cmd, *args, **kwargs):  # pylint: disable=unused-argument
+    def exec_cmd_mock_raise(cmd, *args, **kwargs):
         if os.path.basename(cmd[0]) == "mamba":
             raise OSError()
 
@@ -500,8 +507,7 @@ def test_parse_kubernetes_config_invalid_template_job_file():
 
 
 @pytest.mark.parametrize("synchronous", [True, False])
-@mock.patch("databricks_cli.configure.provider.get_config")
-def test_credential_propagation(get_config, synchronous):
+def test_credential_propagation(synchronous, monkeypatch):
     class DummyProcess:
         def wait(self):
             return 0
@@ -512,7 +518,12 @@ def test_credential_propagation(get_config, synchronous):
         def communicate(self, _):
             return "", ""
 
-    get_config.return_value = DatabricksConfig.from_token("host", "mytoken", insecure=False)
+    monkeypatch.setenvs(
+        {
+            "DATABRICKS_HOST": "host",
+            "DATABRICKS_TOKEN": "mytoken",
+        }
+    )
     with mock.patch("subprocess.Popen", return_value=DummyProcess()) as popen_mock, mock.patch(
         "mlflow.utils.uri.is_databricks_uri", return_value=True
     ):

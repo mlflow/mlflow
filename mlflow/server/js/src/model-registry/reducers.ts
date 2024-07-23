@@ -176,9 +176,7 @@ export const getModelVersionSchemas = (state: any, modelName: any, version: any)
       if (artifact.signature.outputs) {
         try {
           // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-          schemaMap['outputs'] = JSON.parse(
-            artifact.signature.outputs.replace(/(\r\n|\n|\r)/gm, ''),
-          );
+          schemaMap['outputs'] = JSON.parse(artifact.signature.outputs.replace(/(\r\n|\n|\r)/gm, ''));
         } catch (error) {
           console.error(error);
         }
@@ -239,7 +237,7 @@ const tagsByRegisteredModel = (state = {}, action: any) => {
         ...newState,
         [modelName]: {
           ...oldTags,
-          [tag.getKey()]: tag,
+          [tag.key]: tag,
         },
       };
       return newState;
@@ -302,7 +300,7 @@ const tagsByModelVersion = (state = {}, action: any) => {
         [modelName]: {
           [version]: {
             ...oldTags,
-            [tag.getKey()]: tag,
+            [tag.key]: tag,
           },
         },
       };

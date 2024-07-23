@@ -56,7 +56,7 @@ class RenameFormComponent extends Component<Props> {
   render() {
     return (
       // @ts-expect-error TS(2322): Type '{ children: Element; ref: any; layout: "vert... Remove this comment to see the full error message
-      <Form ref={this.props.innerRef} layout='vertical'>
+      <Form ref={this.props.innerRef} layout="vertical">
         <Form.Item
           name={NEW_NAME_FIELD}
           initialValue={this.props.name}
@@ -69,7 +69,7 @@ class RenameFormComponent extends Component<Props> {
           <Input
             placeholder={`Input a ${this.props.type} name`}
             ref={this.autoFocusInputRef}
-            data-testid='rename-modal-input'
+            data-testid="rename-modal-input"
           />
         </Form.Item>
       </Form>

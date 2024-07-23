@@ -32,8 +32,8 @@ class DatasetSourceRegistry:
                 self.register(entrypoint.load())
             except (AttributeError, ImportError) as exc:
                 warnings.warn(
-                    f"Failure attempting to register dataset source with source type"
-                    f' "{entrypoint.source_type}": {exc}',
+                    "Failure attempting to register dataset constructor"
+                    + f' "{entrypoint}": {exc}',
                     stacklevel=2,
                 )
 
@@ -210,5 +210,11 @@ try:
     from mlflow.data.code_dataset_source import CodeDatasetSource
 
     _dataset_source_registry.register(CodeDatasetSource)
+except ImportError:
+    pass
+try:
+    from mlflow.data.uc_volume_dataset_source import UCVolumeDatasetSource
+
+    _dataset_source_registry.register(UCVolumeDatasetSource)
 except ImportError:
     pass

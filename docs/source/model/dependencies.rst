@@ -12,6 +12,12 @@ worry about managing dependencies in MLflow Model.
 However, in some cases, you may need to add or modify some dependencies. This page provides a high-level description of how MLflow manages
 dependencies and guidance for how to customize dependencies for your use case.
 
+.. tip::
+
+    One tip for improving MLflow's dependency inference accuracy is to add an ``input_example`` when saving your model. This enables MLflow to 
+    perform a model prediction before saving the model, thereby capturing the dependencies used during the prediction.
+    Please refer to :ref:`Model Input Example <input-example>` for additional, detailed usage of this parameter.
+
 .. contents:: Table of Contents
   :local:
   :depth: 1
@@ -109,6 +115,7 @@ when logging the model. For example,
             python_model=CustomModel(),
             artifact_path="model",
             extra_pip_requirements=["pandas==2.0.3"],
+            input_example=input_data,
         )
 
 The extra dependencies will be added to ``requirements.txt`` as follows (and similarly to ``conda.yaml``):
@@ -125,7 +132,7 @@ In this case, MLflow will install Pandas 2.0.3 in addition to the inferred depen
 .. note::
 
     Once you log the model with dependencies, it is advisable to test it in a sandbox environment to avoid any dependency
-    issues when deploying the model to production. Since MLflow 2.10.0, you can use the ``mlflow.models.predict`` API to quickly test
+    issues when deploying the model to production. Since MLflow 2.10.0, you can use the :py:func:`mlflow.models.predict()` API to quickly test
     your model in a virtual environment. Please refer to :ref:`Validating Environment for Prediction <validating-environment-for-prediction>` for more details.
 
 Defining All Dependencies by Yourself
@@ -166,15 +173,115 @@ The manually defined dependencies will override the default ones MLflow detects 
 .. note::
 
     Once you log the model with dependencies, it is advisable to test it in a sandbox environment to avoid any dependency
-    issues when deploying the model to production. Since MLflow 2.10.0, you can use the ``mlflow.models.predict`` API to quickly
+    issues when deploying the model to production. Since MLflow 2.10.0, you can use the :py:func:`mlflow.models.predict()` API to quickly
     test your model in a virtual environment. Please refer to :ref:`Validating Environment for Prediction <validating-environment-for-prediction>` for more details.
 
 
-Saving Extra Code with an MLflow Model
---------------------------------------
+Saving Extra Code dependencies with an MLflow Model - Automatic inference
+-------------------------------------------------------------------------
+
+.. note::
+    Automatic code dependency inference is a feature that was introduced in MLflow 2.13.0 and is marked as Experimental. The base implementation may be 
+    modified, improved, and adjusted with no prior notice in order to address potential issues and edge cases. 
+
+.. note::
+    Automatic code dependency inference is currently supported for Python Function Models only. Support for additional named model flavors will be coming in 
+    future releases of MLflow.
+
+In the MLflow 2.13.0 release, a new method of including custom dependent code was introduced that expands on the existing feature of declaring ``code_paths`` when 
+saving or logging a model. This new feature utilizes import dependency analysis to automatically infer the code dependencies required by the model by checking which 
+modules are imported within the references of a Python Model's definition. 
+
+In order to use this new feature, you can simply set the argument ``infer_code_paths`` (Default ``False``) to ``True`` when logging. You do not have to define 
+file locations explicitly via declaring ``code_paths`` directory locations when utilizing this method of dependency inference, as you would have had to 
+prior to MLflow 2.13.0. 
+
+An example of using this feature is shown below, where we are logging a model that contains an external dependency. 
+In the first section, we are defining an external module named ``custom_code`` that exists in a different than our model definition. 
+
+.. code-block:: python
+    :caption: custom_code.py
+
+    from typing import List
+
+    iris_types = ["setosa", "versicolor", "viginica"]
+
+
+    def map_iris_types(predictions: int) -> List[str]:
+        return [iris_types[pred] for pred in predictions]
+
+With this ``custom_code.py`` module defined, it is ready for use in our Python Model:
+
+.. code-block:: python
+    :caption: model.py
+
+    from typing import Any, Dict, List, Optional
+
+    from custom_code import map_iris_types  # import the external reference
+
+    import mlflow
+
+
+    class FlowerMapping(mlflow.pyfunc.PythonModel):
+        """Custom model with an external dependency"""
+
+        def predict(
+            self, context, model_input, params: Optional[Dict[str, Any]] = None
+        ) -> List[str]:
+            predictions = [pred % 3 for pred in model_input]
+
+            # Call the external function
+            return map_iris_types(predictions)
+
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="flowers",
+            python_model=FlowerMapping(),
+            infer_code_paths=True,  # Enabling automatic code dependency inference
+        )
+
+With ``infer_code_paths`` set to ``True``, the dependency of ``map_iris_types`` will be analyzed, its source declaration detected as originating in 
+the ``custom_code.py`` module, and the code reference within ``custom_code.py`` will be stored along with the model artifact. Note that defining the 
+external code dependency by using the ``code_paths`` argument (discussed in the next section) is not needed.
+
+.. tip::
+    Only modules that are within the current working directory are accessible. Dependency inference will not work across module boundaries or if your 
+    custom code is defined in an entirely different library. If your code base is structured in such a way that common modules are entirely external to 
+    the path that your model logging code is executing within, the original ``code_paths`` option is required in order to log these dependencies, as 
+    ``infer_code_paths`` dependency inference will not capture those requirements. 
+
+Restrictions with ``infer_code_paths``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. warning::
+    Before using dependency inference via ``infer_code_paths``, ensure that your dependent code modules do not have sensitive data hard-coded within the modules (e.g., passwords, 
+    access tokens, or secrets). Code inference does not obfuscate sensitive information and will capture and log (save) the module, regardless of what it contains.
+
+An important aspect to note about code structure when using ``infer_code_paths`` is to avoid defining dependencies within a main entry point to your code. 
+When a Python code file is loaded as the ``__main__`` module, it cannot be inferred as a code path file. This means that if you run your script directly 
+(e.g., using ``python script.py``), the functions and classes defined in that script will be part of the ``__main__`` module and not easily accessible by
+other modules.
+
+If your model depends on these classes or functions, this can pose a problem because they are not part of the standard module namespace and thus not
+straightforward to serialize. To handle this situation, you should use ``cloudpickle`` to serialize your model instance. ``cloudpickle`` is an
+extended version of Python's ``pickle`` module that can serialize a wider range of Python objects, including functions and classes defined in
+the ``__main__`` module.
+
+**Why This Matters**:
+    - **Code Path Inference**: MLflow uses the code path to understand and log the code associated with your model. When the script is executed as ``__main__``, the code path cannot be inferred, which complicates the tracking and reproducibility of your MLflow experiments.
+    - **Serialization**: Standard serialization methods like ``pickle`` may not work with ``__main__`` module objects, leading to issues when trying to save and load models. ``cloudpickle`` provides a workaround by enabling the serialization of these objects, ensuring that your model can be correctly saved and restored.
+
+**Best Practices**:
+    - Avoid defining critical functions and classes in the ``__main__`` module. Instead, place them in separate module files that can be imported as needed.
+    - If you must define functions and classes in the ``__main__`` module, use ``cloudpickle`` to serialize your model to ensure that all dependencies are correctly handled.
+
+
+Saving Extra Code with an MLflow Model - Manual Declaration
+-----------------------------------------------------------
 MLflow also supports saving your custom Python code as dependencies to the model. This is particularly useful
 when you want to deploy your custom modules that are required for prediction with the model.
-To do so, specify **code_path** when logging the model. For example, if you have the following file structure in your project:
+To do so, specify **code_paths** when logging the model. For example, if you have the following file structure in your project:
 
 ::
 
@@ -202,6 +309,7 @@ To do so, specify **code_path** when logging the model. For example, if you have
         mlflow.pyfunc.log_model(
             python_model=MyModel(),
             artifact_path="model",
+            input_example=input_data,
             code_paths=["utils.py"],
         )
 
@@ -216,12 +324,12 @@ Then MLflow will save ``utils.py`` under ``code/`` directory in the model direct
         └── utils.py
 
 When MLflow loads the model for serving, the ``code`` directory will be added to the system path so that you can use the module in your model
-code like ``from utils import my_func``. You can also specify a directory path as ``code_path`` to save multiple files under the directory:
+code like ``from utils import my_func``. You can also specify a directory path as ``code_paths`` to save multiple files under the directory:
 
-Caveats of ``code_path`` Option
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Caveats of ``code_paths`` Option
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When using the ``code_path`` option, please be aware of the limitation that the specified file or directory **must be in the same directory as your model script**.
+When using the ``code_paths`` option, please be aware of the limitation that the specified file or directory **must be in the same directory as your model script**.
 If the specified file or directory is in a parent or child directory like ``my_project/src/utils.py``, model serving will fail with ``ModuleNotFoundError``.
 For example, let's say that you have the following file structure in your project
 
@@ -248,6 +356,7 @@ Then the following model code does **not** work:
         mlflow.pyfunc.log_model(
             python_model=MyModel(),
             artifact_path="model",
+            input_example=input_data,
             code_paths=[
                 "src/utils.py"
             ],  # the file will be saved at code/utils.py not code/src/utils.py
@@ -260,7 +369,7 @@ it does **not** preserve the relative paths that they were originally residing w
 ``code/src/utils.py``. As a result, it has to be imported as ``from utils import my_func``, instead of ``from src.utils import my_func``.
 However, this may not be pleasant, as the import path is different from the original training script.
 
-To workaround this issue, the ``code_path`` should specify the parent directory, which is ``code_path=["src"]`` in this example.
+To workaround this issue, the ``code_paths`` should specify the parent directory, which is ``code_paths=["src"]`` in this example.
 This way, MLflow will copy the entire ``src/`` directory under ``code/`` and your model code will be able to import ``src.utils``.
 
 .. code-block:: python
@@ -277,18 +386,109 @@ This way, MLflow will copy the entire ``src/`` directory under ``code/`` and you
         mlflow.pyfunc.log_model(
             python_model=model,
             artifact_path="model",
+            input_example=input_data,
             code_paths=["src"],  # the whole /src directory will be saved at code/src
         )
 
-    # => This will work
-
 .. warning::
 
-    By the same reason, ``code_path`` option doesn't handle the relative import like ``code_path=["../src"]``.
+    By the same reason, the ``code_paths`` option doesn't handle the relative import of ``code_paths=["../src"]``.
+
+Limitation of ``code_paths`` in loading multiple models with the same module name but different implementations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The current implementation of the ``code_paths`` option has a limitation that it doesn't support loading multiple models that depend on modules with the same name but different implementations within the same Python process, as illustrated in the following example:
+
+.. code-block:: python
+
+    import importlib
+    import sys
+    import tempfile
+    from pathlib import Path
+
+    import mlflow
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        my_model_path = tmpdir / "my_model.py"
+        code_template = """
+    import mlflow
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return [{n}] * len(model_input)
+    """
+
+        my_model_path.write_text(code_template.format(n=1))
+
+        sys.path.insert(0, str(tmpdir))
+        import my_model
+
+        # model 1
+        model1 = my_model.MyModel()
+        assert model1.predict(context=None, model_input=[0]) == [1]
+
+        with mlflow.start_run():
+            info1 = mlflow.pyfunc.log_model(
+                artifact_path="model",
+                python_model=model1,
+                code_paths=[my_model_path],
+            )
+
+        # model 2
+        my_model_path.write_text(code_template.format(n=2))
+        importlib.reload(my_model)
+        model2 = my_model.MyModel()
+        assert model2.predict(context=None, model_input=[0]) == [2]
+
+        with mlflow.start_run():
+            info2 = mlflow.pyfunc.log_model(
+                artifact_path="model",
+                python_model=model2,
+                code_paths=[my_model_path],
+            )
+
+    # To simulate a fresh Python process, remove the `my_model` module from the cache
+    sys.modules.pop("my_model")
+
+    # Now we have two models that depend on modules with the same name but different implementations.
+    # Let's load them and check the prediction results.
+    pred = mlflow.pyfunc.load_model(info1.model_uri).predict([0])
+    assert pred == [1], pred  # passes
+
+    # As the `my_model` module was loaded and cached in the previous `load_model` call,
+    # the next `load_model` call will reuse it and return the wrong prediction result.
+    assert "my_model" in sys.modules
+    pred = mlflow.pyfunc.load_model(info2.model_uri).predict([0])
+    assert pred == [2], pred  # doesn't pass, `pred` is [1]
+
+To work around this limitation, you can remove the module from the cache before loading the model. For example:
+
+.. code-block:: python
+
+    model1 = mlflow.pyfunc.load_model(info1.model_uri)
+    sys.modules.pop("my_model")
+    model2 = mlflow.pyfunc.load_model(info2.model_uri)
+
+Another workaround is to use different module names for different implementations. For example:
+
+.. code-block:: python
+
+    mlflow.pyfunc.log_model(
+        artifact_path="model1",
+        python_model=model1,
+        code_paths=["my_model1.py"],
+    )
+
+    mlflow.pyfunc.log_model(
+        artifact_path="model",
+        python_model=model2,
+        code_paths=["my_model2.py"],
+    )
 
 Recommended Project Structure
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-With this limitation for ``code_path`` in mind, the recommended project structure looks like the following:
+With this limitation for ``code_paths`` in mind, the recommended project structure looks like the following:
 
 ::
 
@@ -302,7 +502,7 @@ With this limitation for ``code_path`` in mind, the recommended project structur
         |── evaluation.py
         └── ...
 
-Then you can log the model with ``code_paths=["core"]`` to include the required modules for prediction, while excluding the helper modules
+This way you can log the model with ``code_paths=["core"]`` to include the required modules for prediction, while excluding the helper modules
 that are only used for development.
 
 .. _validating-environment-for-prediction:
@@ -319,7 +519,7 @@ Testing offline prediction with a virtual environment
 You can use MLflow Models **predict** API via Python or CLI to make test predictions with your model.
 This will load your model from the model URI, create a virtual environment with the model dependencies (defined in MLflow Model),
 and run offline predictions with the model.
-Please refer to :py:func:`mlflow.models.predict` or the `CLI reference <../cli.html#mlflow-models>`_ for more detailed usage for the predict API.
+Please refer to :py:func:`mlflow.models.predict()` or the `CLI reference <../cli.html#mlflow-models>`_ for more detailed usage for the predict API.
 
 .. note::
 
@@ -340,8 +540,17 @@ Please refer to :py:func:`mlflow.models.predict` or the `CLI reference <../cli.h
 
         mlflow models predict -m runs:/<run_id>/model-i <input_path>
 
-Using the ``mlflow.models.predict`` API is convenient for testing your model and inference environment quickly.
-However, it may not be a perfect simulation of the serving because it does not start the online inference server.
+Using the :py:func:`mlflow.models.predict()` API is convenient for testing your model and inference environment quickly.
+However, it may not be a perfect simulation of the serving because it does not start the online inference server. That
+said, it's a great way to test whether your prediction inputs are correctly formatted. 
+
+Formatting is subject to the types supported by the ``predict()`` method of your logged model. If the model was logged with a
+signature, the input data should be viewable from the MLflow UI or via :py:func:`mlflow.models.get_model_info()`, 
+which has the field ``signature``.
+
+More generally, MLflow has the ability to support a variety of flavor-specfic input types, such as a tensorflow tensor.  
+MLflow also supports types that are not specific to a given flavor, such as a pandas DataFrame, numpy ndarray, python Dict, 
+python List, scipy.sparse matrix, and spark data frame.
 
 Testing online inference endpoint with a virtual environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -390,12 +599,19 @@ Troubleshooting
 
 .. _how-to-fix-dependency-errors-in-model:
 
-How to fix dependency errors when serving my model?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+How to Fix Dependency Errors when Serving my Model
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 One of the most common issues experienced during model deployment centers around dependency issues. When logging or saving your model, MLflow tries to infer the
 model dependencies and save them as part of the MLflow Model metadata. However, this might not always be complete and miss some dependencies e.g. [extras] dependencies
 for certain libraries. This can cause errors when serving your model, such as "ModuleNotFoundError" or "ImportError". Below are some steps that can help to diagnose
 and fix missing dependency errors.
+
+.. hint::
+
+    To reduce the possibility of dependency errors, you can add ``input_example`` when saving your model. This enables MLflow to 
+    perform a model prediction before saving the model, thereby capturing the dependencies used during the prediction.
+    Please refer to :ref:`Model Input Example <input-example>` for additional, detailed usage of this parameter.
+
 
 1. Check the missing dependencies
 *********************************
@@ -409,7 +625,7 @@ The missing dependencies are listed in the error message. For example, if you se
 ********************************************************
 Now that you know the missing dependencies, you can create a new model version with the correct dependencies.
 However, creating a new model for trying new dependencies might be a bit tedious, particularly because you may need to
-iterate multiple times to find the correct solution. Instead, you can use the ``mlflow.models.predict`` API to test your change without
+iterate multiple times to find the correct solution. Instead, you can use the :py:func:`mlflow.models.predict()` API to test your change without
 actually needing to re-log the model repeatedly while troubleshooting the installation errors.
 
 To do so, use the **pip-requirements-override** option to specify pip dependencies like ``opencv-python==4.8.0``.
@@ -420,27 +636,34 @@ To do so, use the **pip-requirements-override** option to specify pip dependenci
 
         import mlflow
 
-        mlflow.model.predict(
-            model_uri="runs:/<run_id>/model",
+        mlflow.models.predict(
+            model_uri="runs:/<run_id>/<model_path>",
             input_data=<input_data>,
-            pip_requirements="opencv-python==4.8.0",
+            pip_requirements_override=["opencv-python==4.8.0"],
         )
 
     .. code-tab:: bash
 
         mlflow models predict \
-            -m runs:/<run_id>/model \
-            -i <input_path> \
+            -m runs:/<run_id>/<model_path> \
+            -I <input_path> \
             --pip-requirements-override opencv-python==4.8.0
 
 The specified dependencies will be installed to the virtual environment in addition to (or instead of) the dependencies
 defined in the model metadata. Since this doesn't mutate the model, you can iterate quickly and safely to find the correct dependencies.
 
+Note that for ``input_data`` parameter in the python implementation, the function takes a Python object that is supported by your
+model's ``predict()`` function. Some examples may include flavor-specific input types, such as a 
+tensorflow tensor, or more generic types such as a pandas DataFrame, numpy ndarray, python Dict, or
+python List. When working with the CLI, we cannot pass python objects and instead look to pass the path 
+to a CSV or JSON file containing the input payload.
+
+
 .. note::
 
     The ``pip-requirements-override`` option is available since MLflow 2.10.0.
 
-1. Update the model metadata
+3. Update the model metadata
 ****************************
 Once you find the correct dependencies, you can create a new model with the correct dependencies.
 To do so, specify the ``extra_pip_requirements`` option when logging the model.
@@ -453,10 +676,17 @@ To do so, specify the ``extra_pip_requirements`` option when logging the model.
         artifact_path="model",
         python_model=python_model,
         extra_pip_requirements=["opencv-python==4.8.0"],
+        input_example=input_data,
     )
 
+Note that you can also leverage the CLI to update model dependencies in-place and thereby avoid
+re-logging the model. 
 
-How to migrate Anaconda Dependency for License Change
+.. code:: bash
+
+    mlflow models update-pip-requirements -m runs:/<run_id>/<model_path> add "opencv-python==4.8.0" 
+
+How to Migrate Anaconda Dependency for License Change
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Anaconda Inc. updated their `terms of service <https://www.anaconda.com/terms-of-service>`_ for anaconda.org channels. Based on the new terms of service you may require a commercial license if you rely on Anaconda’s packaging and distribution. See `Anaconda Commercial Edition FAQ <https://www.anaconda.com/blog/anaconda-commercial-edition-faq>`_ for more information. Your use of any Anaconda channels is governed by their terms of service.

@@ -82,6 +82,7 @@ def test_search_routes(client: TestClient):
                 "name": "gpt-4",
                 "provider": "openai",
             },
+            "limit": None,
         },
         {
             "name": "chat-gpt4",
@@ -91,6 +92,7 @@ def test_search_routes(client: TestClient):
                 "name": "gpt-4",
                 "provider": "openai",
             },
+            "limit": None,
         },
     ]
 
@@ -106,6 +108,7 @@ def test_get_route(client: TestClient):
             "name": "gpt-4",
             "provider": "openai",
         },
+        "limit": None,
     }
 
 
@@ -124,6 +127,7 @@ def test_dynamic_route():
                             "openai_api_base": "https://api.openai.com/v1",
                         },
                     },
+                    "limit": None,
                 }
             ]
         }
@@ -177,6 +181,7 @@ def test_dynamic_route():
                     "message": {
                         "role": "assistant",
                         "content": "\n\nThis is a test!",
+                        "tool_calls": None,
                     },
                     "finish_reason": "stop",
                     "index": 0,

@@ -644,7 +644,7 @@ def test_log_model_calls_register_model(tmp_path, jsl_model):
 # def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
 #     monkeypatch, jsl_model, dummy_read_shows_mlflowdbfs_available
 # ):
-#     def mock_spark_session_load(path):  # pylint: disable=unused-argument
+#     def mock_spark_session_load(path):
 #         if dummy_read_shows_mlflowdbfs_available:
 #             raise Exception("MlflowdbfsClient operation failed!")
 #         else:

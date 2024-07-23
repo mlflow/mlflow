@@ -3,7 +3,7 @@ import { Link, Location, matchPath, useLocation } from '../utils/RoutingUtils';
 import logo from '../../common/static/home-logo.png';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import { HomePageDocsUrl, Version } from '../constants';
-import { DarkThemeSwitch } from 'common/components/DarkThemeSwitch';
+import { DarkThemeSwitch } from '@mlflow/mlflow/src/common/components/DarkThemeSwitch';
 
 const colors = {
   headerBg: '#0b3574',
@@ -53,7 +53,7 @@ export const MlflowHeader = ({
               marginTop: 10,
               marginBottom: 10,
             }}
-            alt='MLflow'
+            alt="MLflow"
             src={logo}
           />
         </Link>
@@ -91,7 +91,7 @@ export const MlflowHeader = ({
       <div css={{ flex: 1 }} />
       <div css={{ display: 'flex', gap: 24, paddingTop: 20, fontSize: 16, marginRight: 24 }}>
         <DarkThemeSwitch isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
-        <a href={'https://github.com/mlflow/mlflow'}>GitHub</a>
+        <a href="https://github.com/mlflow/mlflow">GitHub</a>
         <a href={HomePageDocsUrl}>Docs</a>
       </div>
     </header>

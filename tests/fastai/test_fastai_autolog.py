@@ -114,7 +114,6 @@ def test_fastai_autolog_persists_manually_created_run(iris_data, fit_variant):
 
 @pytest.fixture
 def fastai_random_tabular_data_run(iris_data, fit_variant):
-    # pylint: disable=unused-argument
     mlflow.fastai.autolog()
 
     model = fastai_tabular_model(iris_data)
@@ -132,7 +131,6 @@ def fastai_random_tabular_data_run(iris_data, fit_variant):
 
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle", "fine_tune"])
 def test_fastai_autolog_logs_expected_data(fastai_random_tabular_data_run, fit_variant):
-    # pylint: disable=unused-argument
     model, run = fastai_random_tabular_data_run
     data = run.data
 
@@ -188,7 +186,6 @@ def test_fastai_autolog_logs_expected_data(fastai_random_tabular_data_run, fit_v
 
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle", "fine_tune"])
 def test_fastai_autolog_opt_func_expected_data(iris_data, fit_variant):
-    # pylint: disable=unused-argument
     mlflow.fastai.autolog()
     model = fastai_tabular_model(iris_data, opt_func=partial(OptimWrapper, opt=optim.Adam))
 
@@ -226,7 +223,6 @@ def test_fastai_autolog_log_models_configuration(log_models, iris_data):
 
 @pytest.mark.parametrize("fit_variant", ["fit_one_cycle", "fine_tune"])
 def test_fastai_autolog_logs_default_params(fastai_random_tabular_data_run, fit_variant):
-    # pylint: disable=unused-argument
     client = MlflowClient()
     run_id = client.search_runs(["0"])[0].info.run_id
     artifacts = client.list_artifacts(run_id)
@@ -254,7 +250,6 @@ def test_fastai_autolog_model_can_load_from_artifact(fastai_random_tabular_data_
 
 
 def get_fastai_random_data_run_with_callback(iris_data, fit_variant, callback, patience, tmp_path):
-    # pylint: disable=unused-argument
     mlflow.fastai.autolog()
 
     model = fastai_tabular_model(iris_data, model_dir=tmp_path)

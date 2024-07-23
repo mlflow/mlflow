@@ -1,17 +1,15 @@
+import { compact, uniq } from 'lodash';
 import Utils from '../../common/utils/Utils';
-import { KeyValueEntity, RunInfoEntity } from '../types';
+import type { RunsChartsRunData } from '../components/runs-charts/components/RunsCharts.common';
+import type { KeyValueEntity, MetricEntity, RunInfoEntity } from '../types';
 
-const { formatTimestamp, getDuration, getRunNameFromTags, getSourceType, getSourceName, getUser } =
-  Utils;
+const { formatTimestamp, getDuration, getRunNameFromTags, getSourceType, getSourceName, getUser } = Utils;
 
 /**
  * Turn a list of params/metrics to a map of metric key to metric.
  */
-const toMap = (params: KeyValueEntity[]) =>
-  params.reduce(
-    (result, entity) => ({ ...result, [entity.key]: entity }),
-    {} as Record<string, KeyValueEntity>,
-  );
+const toMap = <T extends MetricEntity | KeyValueEntity>(params: T[]) =>
+  params.reduce((result, entity) => ({ ...result, [entity.key]: entity }), {} as Record<string, T>);
 
 /**
  * Format a string for insertion into a CSV file.
@@ -67,11 +65,10 @@ export const runInfosToCsv = (params: {
   metricKeyList: string[];
   tagKeyList: string[];
   paramsList: KeyValueEntity[][];
-  metricsList: KeyValueEntity[][];
+  metricsList: MetricEntity[][];
   tagsList: Record<string, KeyValueEntity>[];
 }) => {
-  const { runInfos, paramKeyList, metricKeyList, tagKeyList, paramsList, metricsList, tagsList } =
-    params;
+  const { runInfos, paramKeyList, metricKeyList, tagKeyList, paramsList, metricsList, tagsList } = params;
 
   const columns = [
     'Start Time',
@@ -89,10 +86,10 @@ export const runInfosToCsv = (params: {
 
   const data = runInfos.map((runInfo, index) => {
     const row = [
-      formatTimestamp(runInfo.start_time),
-      getDuration(runInfo.start_time, runInfo.end_time) || '',
-      runInfo.run_uuid,
-      runInfo.run_name || getRunNameFromTags(tagsList[index]), // add run name to csv export row
+      formatTimestamp(runInfo.startTime),
+      getDuration(runInfo.startTime, runInfo.endTime) || '',
+      runInfo.runUuid,
+      runInfo.runName || getRunNameFromTags(tagsList[index]), // add run name to csv export row
       getSourceType(tagsList[index]),
       getSourceName(tagsList[index]),
       getUser(runInfo, tagsList[index]),
@@ -123,6 +120,57 @@ export const runInfosToCsv = (params: {
         row.push('');
       }
     });
+    return row;
+  });
+
+  return tableToCsv(columns, data);
+};
+
+export const chartMetricHistoryToCsv = (traces: RunsChartsRunData[], metricKeys: string[]) => {
+  const isGrouped = traces.some((trace) => trace.groupParentInfo);
+
+  const headerColumn = isGrouped ? 'Group' : 'Run';
+
+  const columns = [headerColumn, 'Run ID', 'metric', 'step', 'timestamp', 'value'];
+
+  const data = metricKeys.flatMap((metricKey) => {
+    const perDataTrace = traces.flatMap((trace) => {
+      const perMetricEntry = trace.metricsHistory?.[metricKey]?.map((value) => [
+        trace.displayName,
+        trace.runInfo?.runUuid || '',
+        value.key,
+        value.step.toString(),
+        value.timestamp.toString(),
+        value.value.toString(),
+      ]);
+      return perMetricEntry || [];
+    });
+    return perDataTrace;
+  });
+
+  return tableToCsv(columns, data);
+};
+
+export const chartDataToCsv = (traces: RunsChartsRunData[], metricKeys: string[], paramKeys: string[]) => {
+  const isGrouped = traces.some((trace) => trace.groupParentInfo);
+
+  const headerColumn = isGrouped ? 'Group' : 'Run';
+
+  const columns = [headerColumn, 'Run ID', ...metricKeys, ...paramKeys];
+
+  const data = traces.map((trace) => {
+    const row = [trace.displayName, trace.runInfo?.runUuid || ''];
+
+    metricKeys.forEach((metricKey) => {
+      const metricValue = trace.metrics?.[metricKey];
+      row.push(metricValue?.value.toString() || '');
+    });
+
+    paramKeys.forEach((paramKey) => {
+      const paramValue = trace.params?.[paramKey];
+      row.push(paramValue?.value.toString() || '');
+    });
+
     return row;
   });
 

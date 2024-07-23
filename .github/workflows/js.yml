@@ -32,6 +32,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        option: [--testPathPattern, --testPathIgnorePatterns]
         include:
           - os: ubuntu-latest
             shell: bash
@@ -43,12 +44,12 @@ jobs:
         shell: ${{ matrix.shell }}
         working-directory: mlflow/server/js
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: actions/setup-node@v3
         with:
-          node-version: "16"
+          node-version: "20"
       - name: Disable problem matcher
         if: runner.os == 'Windows'
         run: |
@@ -68,12 +69,15 @@ jobs:
       - name: Run lint
         run: |
           yarn lint
+      - name: Run prettier
+        run: |
+          yarn prettier:check
       - name: Run extract-i18n lint
         run: |
           yarn i18n:check
       - name: Run tests
         run: |
-          yarn test
+          yarn test --silent ${{ matrix.option }} src/experiment-tracking/components
       - name: Run build
         if: runner.os == 'Linux'
         env:

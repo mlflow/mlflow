@@ -21,6 +21,7 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
@@ -45,6 +46,8 @@ from mlflow.utils.model_utils import (
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "spacy"
+
+_MODEL_DATA_SUBPATH = "model.spacy"
 
 _logger = logging.getLogger(__name__)
 
@@ -87,9 +90,7 @@ def save_model(
         spacy_model: spaCy model to be saved.
         path: Local path where the model is to be saved.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                    containing file dependencies). These files are *prepended* to the system
-                    path when the model is loaded.
+        code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
 
         signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -109,10 +110,7 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+        metadata: {{ metadata }}
     """
     import spacy
 
@@ -121,17 +119,20 @@ def save_model(
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
 
-    model_data_subpath = "model.spacy"
+    model_data_subpath = _MODEL_DATA_SUBPATH
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(model_data_path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
         mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+    if signature is None and saved_example is not None:
+        wrapped_model = _SpacyModelWrapper(spacy_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
+
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -220,9 +221,7 @@ def log_model(
         spacy_model: spaCy model to be saved.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
-        code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                    containing file dependencies). These files are *prepended* to the system
-                    path when the model is loaded.
+        code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
                                ``registered_model_name``, also creating a registered model if one
                                with the given name does not exist.
@@ -244,10 +243,7 @@ def log_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+        metadata: {{ metadata }}
         kwargs: kwargs to pass to ``spacy.save_model`` method.
 
     Returns:
@@ -282,7 +278,9 @@ class _SpacyModelWrapper:
         self.spacy_model = spacy_model
 
     def predict(
-        self, dataframe, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+        self,
+        dataframe,
+        params: Optional[Dict[str, Any]] = None,
     ):
         """Only works for predicting using text categorizer.
         Not suitable for other pipeline components (e.g: parser)
@@ -291,9 +289,6 @@ class _SpacyModelWrapper:
             dataframe: pandas dataframe containing texts to be categorized
                        expected shape is (n_rows,1 column)
             params: Additional parameters to pass to the model for inference.
-
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
 
         Returns:
             dataframe with predictions

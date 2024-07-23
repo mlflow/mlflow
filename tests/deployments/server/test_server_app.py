@@ -43,12 +43,60 @@ def client() -> TestClient:
                             "openai_api_key": "MY_API_KEY",
                         },
                     },
+                    "limit": {"calls": 10, "key": None, "renewal_period": "minute"},
                 },
             ]
         }
     )
     app = create_app_from_config(config)
     return TestClient(app)
+
+
+model_response = {
+    "id": "chatcmpl-abc123",
+    "object": "chat.completion",
+    "created": 1677858242,
+    "model": "gpt-3.5-turbo-0301",
+    "usage": {
+        "prompt_tokens": 13,
+        "completion_tokens": 7,
+        "total_tokens": 20,
+    },
+    "choices": [
+        {
+            "message": {
+                "role": "assistant",
+                "content": "\n\nThis is a test!",
+            },
+            "finish_reason": "stop",
+            "index": 0,
+        }
+    ],
+    "headers": {"Content-Type": "application/json"},
+}
+
+test_response = {
+    "id": "chatcmpl-abc123",
+    "object": "chat.completion",
+    "created": 1677858242,
+    "model": "gpt-3.5-turbo-0301",
+    "usage": {
+        "prompt_tokens": 13,
+        "completion_tokens": 7,
+        "total_tokens": 20,
+    },
+    "choices": [
+        {
+            "message": {
+                "role": "assistant",
+                "content": "\n\nThis is a test!",
+                "tool_calls": None,
+            },
+            "finish_reason": "stop",
+            "index": 0,
+        }
+    ],
+}
 
 
 def test_index(client: TestClient):
@@ -85,6 +133,7 @@ def test_list_endpoints(client: TestClient):
                 "name": "gpt-4",
                 "provider": "openai",
             },
+            "limit": None,
         },
         {
             "name": "chat-gpt4",
@@ -94,6 +143,7 @@ def test_list_endpoints(client: TestClient):
                 "name": "gpt-4",
                 "provider": "openai",
             },
+            "limit": {"calls": 10, "key": None, "renewal_period": "minute"},
         },
     ]
 
@@ -109,6 +159,7 @@ def test_get_endpoint(client: TestClient):
             "name": "gpt-4",
             "provider": "openai",
         },
+        "limit": {"calls": 10, "key": None, "renewal_period": "minute"},
     }
 
 
@@ -127,6 +178,7 @@ def test_dynamic_endpoint():
                             "openai_api_base": "https://api.openai.com/v1",
                         },
                     },
+                    "limit": {"calls": 10, "key": None, "renewal_period": "minute"},
                 }
             ]
         }
@@ -134,30 +186,8 @@ def test_dynamic_endpoint():
     app = create_app_from_config(config)
     client = TestClient(app)
 
-    resp = {
-        "id": "chatcmpl-abc123",
-        "object": "chat.completion",
-        "created": 1677858242,
-        "model": "gpt-3.5-turbo-0301",
-        "usage": {
-            "prompt_tokens": 13,
-            "completion_tokens": 7,
-            "total_tokens": 20,
-        },
-        "choices": [
-            {
-                "message": {
-                    "role": "assistant",
-                    "content": "\n\nThis is a test!",
-                },
-                "finish_reason": "stop",
-                "index": 0,
-            }
-        ],
-        "headers": {"Content-Type": "application/json"},
-    }
     with mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(model_response)
     ) as mock_post:
         resp = client.post(
             f"{MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE}chat/invocations",
@@ -165,27 +195,48 @@ def test_dynamic_endpoint():
         )
         mock_post.assert_called_once()
         assert resp.status_code == 200
-        assert resp.json() == {
-            "id": "chatcmpl-abc123",
-            "object": "chat.completion",
-            "created": 1677858242,
-            "model": "gpt-3.5-turbo-0301",
-            "usage": {
-                "prompt_tokens": 13,
-                "completion_tokens": 7,
-                "total_tokens": 20,
-            },
-            "choices": [
+        assert resp.json() == test_response
+
+
+def test_rate_limit():
+    config = GatewayConfig(
+        **{
+            "endpoints": [
                 {
-                    "message": {
-                        "role": "assistant",
-                        "content": "\n\nThis is a test!",
+                    "name": "chat",
+                    "endpoint_type": "llm/v1/chat",
+                    "model": {
+                        "name": "gpt-4",
+                        "provider": "openai",
+                        "config": {
+                            "openai_api_key": "mykey",
+                            "openai_api_base": "https://api.openai.com/v1",
+                        },
                     },
-                    "finish_reason": "stop",
-                    "index": 0,
+                    "limit": {"calls": 1, "key": None, "renewal_period": "minute"},
                 }
-            ],
+            ]
         }
+    )
+    app = create_app_from_config(config)
+    client = TestClient(app)
+
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(model_response)
+    ) as mock_post:
+        resp = client.post(
+            f"{MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE}chat/invocations",
+            json={"messages": [{"role": "user", "content": "Tell me a joke"}]},
+        )
+        mock_post.assert_called_once()
+        assert resp.status_code == 200
+        assert resp.json() == test_response
+        # second call
+        resp = client.post(
+            f"{MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE}chat/invocations",
+            json={"messages": [{"role": "user", "content": "Tell me a joke again"}]},
+        )
+        assert resp.status_code == 429
 
 
 def test_create_app_from_env_fails_if_MLFLOW_DEPLOYMENTS_CONFIG_is_not_set(monkeypatch):

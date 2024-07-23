@@ -9,7 +9,7 @@ import {
 } from '@databricks/design-system';
 import { Divider } from 'antd';
 import { FormattedMessage } from 'react-intl';
-import { PROMPT_TEMPLATE_EXAMPLES } from 'experiment-tracking/components/evaluation-artifacts-compare/utils/PromptExamples';
+import { PROMPT_TEMPLATE_EXAMPLES } from '@mlflow/mlflow/src/experiment-tracking/components/evaluation-artifacts-compare/utils/PromptExamples';
 
 const { TextArea } = Input;
 type Props = {
@@ -29,10 +29,7 @@ export const EvaluationCreatePromptRunModalExamples = ({
 }: Props): JSX.Element => {
   const { theme } = useDesignSystemTheme();
 
-  const tryPromptTemplate = (promptTemplate: {
-    prompt: string[];
-    variables: { name: string; value: string }[];
-  }) => {
+  const tryPromptTemplate = (promptTemplate: { prompt: string[]; variables: { name: string; value: string }[] }) => {
     updatePromptTemplate(promptTemplate.prompt.join('\n'));
     promptTemplate.variables.forEach(({ name, value }) => {
       updateInputVariableValue(name, value);
@@ -42,23 +39,21 @@ export const EvaluationCreatePromptRunModalExamples = ({
 
   return (
     <Modal
-      verticalSizing='maxed_out'
+      verticalSizing="maxed_out"
       visible={isOpen}
       onCancel={closeModal}
       title={
         <div>
-          <Typography.Title
-            level={2}
-            css={{ marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs }}
-          >
+          <Typography.Title level={2} css={{ marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs }}>
             <Button
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodalexamples.tsx_48"
               css={{ marginRight: theme.spacing.sm, marginBottom: theme.spacing.sm }}
               icon={<ArrowLeftIcon />}
               onClick={closeExamples}
             />
             <FormattedMessage
-              defaultMessage='Prompt template examples'
-              description='Experiment page > new run modal > prompt examples > modal title'
+              defaultMessage="Prompt template examples"
+              description="Experiment page > new run modal > prompt examples > modal title"
             />
           </Typography.Title>
         </div>
@@ -90,18 +85,19 @@ export const EvaluationCreatePromptRunModalExamples = ({
           >
             <Typography.Title level={4}>
               <FormattedMessage
-                defaultMessage='Prompt Template'
-                description='Experiment page > new run modal > prompt examples > prompt template title'
+                defaultMessage="Prompt Template"
+                description="Experiment page > new run modal > prompt examples > prompt template title"
               />
               <Button
-                type='tertiary'
-                size='small'
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodalexamples.tsx_90"
+                type="tertiary"
+                size="small"
                 style={{ float: 'right' }}
                 onClick={() => tryPromptTemplate(promptTemplate)}
               >
                 <FormattedMessage
-                  defaultMessage='Try this template'
-                  description='Experiment page > new run modal > prompt examples > try template button'
+                  defaultMessage="Try this template"
+                  description="Experiment page > new run modal > prompt examples > try template button"
                 />
               </Button>
             </Typography.Title>

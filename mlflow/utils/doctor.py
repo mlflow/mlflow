@@ -7,7 +7,7 @@ import yaml
 from packaging.requirements import Requirement
 
 import mlflow
-from mlflow.utils.databricks_utils import get_databricks_runtime
+from mlflow.utils.databricks_utils import get_databricks_runtime_version
 
 
 def doctor(mask_envs=False):
@@ -80,7 +80,7 @@ def doctor(mask_envs=False):
         ("Registry URI", mlflow.get_registry_uri()),
     ]
 
-    if (runtime := get_databricks_runtime()) is not None:
+    if (runtime := get_databricks_runtime_version()) is not None:
         items.append(("Databricks runtime version", runtime))
 
     active_run = mlflow.active_run()

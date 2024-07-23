@@ -1,55 +1,98 @@
 import { ICellRendererParams } from '@ag-grid-community/core';
-import { Button, MinusBoxIcon, PlusSquareIcon } from '@databricks/design-system';
+import { Button, MinusBoxIcon, PlusSquareIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link } from '../../../../../../common/utils/RoutingUtils';
 import Routes from '../../../../../routes';
 import { RunRowType } from '../../../utils/experimentPage.row-types';
+import { GroupParentCellRenderer } from './GroupParentCellRenderer';
+import invariant from 'invariant';
+import { RunColorPill } from '../../RunColorPill';
+import {
+  shouldEnableToggleIndividualRunsInGroups,
+  shouldUseNewRunRowsVisibilityModel,
+} from '../../../../../../common/utils/FeatureUtils';
+import { useGetExperimentRunColor, useSaveExperimentRunColor } from '../../../hooks/useExperimentRunColor';
+import { useExperimentViewRunsTableHeaderContext } from '../ExperimentViewRunsTableHeaderContext';
 
 export interface RunNameCellRendererProps extends ICellRendererParams {
   data: RunRowType;
+  isComparingRuns?: boolean;
   onExpand: (runUuid: string, childrenIds?: string[]) => void;
 }
 
-export const RunNameCellRenderer = React.memo(
-  ({
-    onExpand,
-    data: { runName, experimentId, runUuid, runDateAndNestInfo, color },
-  }: RunNameCellRendererProps) => {
-    const { hasExpander, expanderOpen, childrenIds, level } = runDateAndNestInfo || {};
+export const RunNameCellRenderer = React.memo((props: RunNameCellRendererProps) => {
+  const { theme } = useDesignSystemTheme();
 
-    const renderingAsParent = !isNaN(level) && hasExpander;
+  const saveRunColor = useSaveExperimentRunColor();
+  const getRunColor = useGetExperimentRunColor();
+  const { useGroupedValuesInCharts } = useExperimentViewRunsTableHeaderContext();
 
-    return (
-      <div css={styles.cellWrapper}>
-        <div css={styles.expanderWrapper}>
-          <div css={styles.nestLevel(level)}>
-            {renderingAsParent && (
-              <Button
-                css={styles.expanderButton}
-                size='small'
-                onClick={() => {
-                  onExpand(runUuid, childrenIds);
-                }}
-                key={'Expander-' + runUuid}
-                type='link'
-                icon={expanderOpen ? <MinusBoxIcon /> : <PlusSquareIcon />}
-              />
-            )}
-          </div>
+  // If we're rendering a group row, use relevant component
+  if (props.data.groupParentInfo) {
+    return <GroupParentCellRenderer {...props} />;
+  }
+  const { onExpand, data } = props;
+  const { runName, experimentId, runUuid, runDateAndNestInfo, hidden } = data;
+
+  // If we are not rendering a group, assert existence of necessary fields
+  invariant(experimentId, 'experimentId should be set for run rows');
+  invariant(runUuid, 'runUuid should be set for run rows');
+  invariant(runDateAndNestInfo, 'runDateAndNestInfo should be set for run rows');
+
+  const { hasExpander, expanderOpen, childrenIds, level, belongsToGroup } = runDateAndNestInfo;
+
+  const renderingAsParent = !isNaN(level) && hasExpander;
+  const hideRunColorControl = (() => {
+    if (shouldEnableToggleIndividualRunsInGroups()) {
+      return belongsToGroup && useGroupedValuesInCharts;
+    }
+    return belongsToGroup;
+  })();
+
+  return (
+    <div css={styles.cellWrapper}>
+      <div css={styles.expanderWrapper}>
+        <div
+          css={styles.nestLevel(theme)}
+          style={{
+            width: (level + 1) * theme.spacing.lg,
+          }}
+        >
+          {renderingAsParent && (
+            <Button
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_runnamecellrenderer.tsx_46"
+              css={styles.expanderButton}
+              size="small"
+              onClick={() => {
+                onExpand(runUuid, childrenIds);
+              }}
+              key={'Expander-' + runUuid}
+              type="link"
+              icon={expanderOpen ? <MinusBoxIcon /> : <PlusSquareIcon />}
+            />
+          )}
         </div>
-        <Link to={Routes.getRunPageRoute(experimentId, runUuid)} css={styles.runLink}>
-          <div
-            css={styles.colorPill}
-            data-testid='experiment-view-table-run-color'
-            style={{ backgroundColor: color }}
+      </div>
+      <div css={styles.runLink}>
+        {hideRunColorControl ? (
+          // Render empty color pills for grouped runs
+          <div css={{ width: 12, height: 12, flexShrink: 0 }} />
+        ) : (
+          <RunColorPill
+            color={getRunColor(runUuid)}
+            hidden={shouldUseNewRunRowsVisibilityModel() && props.isComparingRuns && hidden}
+            data-testid="experiment-view-table-run-color"
+            onChangeColor={(colorValue) => saveRunColor({ runUuid, colorValue })}
           />
+        )}
+        <Link to={Routes.getRunPageRoute(experimentId, runUuid)} css={styles.runLink} tabIndex={0}>
           <span css={styles.runName}>{runName}</span>
         </Link>
       </div>
-    );
-  },
-);
+    </div>
+  );
+});
 
 const styles = {
   link: (theme: Theme) => ({
@@ -71,6 +114,9 @@ const styles = {
     display: 'flex',
     gap: 8,
     alignItems: 'center',
+    '&:focus-visible': {
+      textDecoration: 'underline',
+    },
   },
   runName: {
     overflow: 'hidden',
@@ -82,20 +128,9 @@ const styles = {
       display: 'block',
     },
   },
-  colorPill: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    flexShrink: 0,
-    // Straighten it up on retina-like screens
-    '@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi)': {
-      marginBottom: 1,
-    },
-  },
-  nestLevel: (level: number) => (theme: Theme) => ({
+  nestLevel: (theme: Theme) => ({
     display: 'flex',
     justifyContent: 'flex-end',
-    width: (level + 1) * theme.spacing.lg,
     height: theme.spacing.lg,
   }),
 };

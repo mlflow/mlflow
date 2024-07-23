@@ -62,6 +62,7 @@ def test_predict(input_data, expected_data, content_type):
         mlflow.pyfunc.log_model(
             artifact_path="model",
             python_model=TestModel(),
+            extra_pip_requirements=["pytest"],
         )
         run_id = run.info.run_id
 
@@ -97,7 +98,7 @@ def test_predict_with_pip_requirements_override(env_manager):
         mlflow.pyfunc.log_model(
             artifact_path="model",
             python_model=TestModel(),
-            extra_pip_requirements=["scikit-learn==1.3.2"],
+            extra_pip_requirements=["scikit-learn==1.3.2", "pytest"],
         )
         run_id = run.info.run_id
 

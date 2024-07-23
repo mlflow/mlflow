@@ -34,7 +34,7 @@ export const ExperimentViewDatasetWithContext = ({
           {dataset.name} ({dataset.digest})
         </div>
       ) : (
-        <Typography.Text size='md' css={{ marginBottom: 0 }}>
+        <Typography.Text size="md" css={{ marginBottom: 0 }}>
           {dataset.name} ({dataset.digest})
         </Typography.Text>
       )}

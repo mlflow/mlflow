@@ -11,6 +11,7 @@ import pytest
 import requests
 
 from mlflow.entities.multipart_upload import MultipartUploadPart
+from mlflow.exceptions import MlflowTraceDataCorrupted
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import (
@@ -77,7 +78,6 @@ def test_file_artifact_is_logged_with_content_metadata(
 
 
 def test_get_s3_client_hits_cache(s3_artifact_root, monkeypatch):
-    # pylint: disable=no-value-for-parameter
     repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
     repo._get_s3_client()
     cache_info = _cached_get_s3_client.cache_info()
@@ -134,7 +134,7 @@ def test_get_s3_client_verify_param_set_correctly(
 def test_s3_client_config_set_correctly(s3_artifact_root):
     repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
     s3_client = repo._get_s3_client()
-    assert s3_client.meta.config.s3.get("addressing_style") == "path"
+    assert s3_client.meta.config.s3.get("addressing_style") == "auto"
 
 
 def test_s3_creds_passed_to_client(s3_artifact_root):
@@ -424,3 +424,17 @@ def test_abort_multipart_upload(s3_artifact_root):
     s3_client = repo._get_s3_client()
     response = s3_client.list_multipart_uploads(Bucket=bucket)
     assert response.get("Uploads") is None
+
+
+def test_trace_data(s3_artifact_root):
+    repo = get_artifact_repository(s3_artifact_root)
+    # s3 download_file raises exception directly if the file doesn't exist
+    with pytest.raises(Exception, match=r"Trace data not found"):
+        repo.download_trace_data()
+    repo.upload_trace_data("invalid data")
+    with pytest.raises(MlflowTraceDataCorrupted, match=r"Trace data is corrupted for path="):
+        repo.download_trace_data()
+
+    mock_trace_data = {"spans": [], "request": {"test": 1}, "response": {"test": 2}}
+    repo.upload_trace_data(json.dumps(mock_trace_data))
+    assert repo.download_trace_data() == mock_trace_data

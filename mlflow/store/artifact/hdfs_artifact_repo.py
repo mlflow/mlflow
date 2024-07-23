@@ -31,9 +31,11 @@ class HdfsArtifactRepository(ArtifactRepository):
 
     def log_artifact(self, local_file, artifact_path=None):
         """
-            Log artifact in hdfs.
-        :param local_file: source file path
-        :param artifact_path: when specified will attempt to write under artifact_uri/artifact_path
+        Log artifact in hdfs.
+
+        Args:
+            local_file: Source file path.
+            artifact_path: When specified will attempt to write under artifact_uri/artifact_path.
         """
         hdfs_base_path = _resolve_base_path(self.path, artifact_path)
 
@@ -45,10 +47,12 @@ class HdfsArtifactRepository(ArtifactRepository):
 
     def log_artifacts(self, local_dir, artifact_path=None):
         """
-            Log artifacts in hdfs.
-            Missing remote sub-directories will be created if needed.
-        :param local_dir: source dir path
-        :param artifact_path: when specified will attempt to write under artifact_uri/artifact_path
+        Log artifacts in hdfs.
+        Missing remote sub-directories will be created if needed.
+
+        Args:
+            local_dir: Source dir path.
+            artifact_path: When specified will attempt to write under artifact_uri/artifact_path.
         """
         hdfs_base_path = _resolve_base_path(self.path, artifact_path)
 
@@ -79,9 +83,12 @@ class HdfsArtifactRepository(ArtifactRepository):
         Lists files and directories under artifacts directory for the current run_id.
         (self.path contains the base path - hdfs:/some/path/run_id/artifacts)
 
-        :param path: Relative source path. Possible subdirectory existing under
-                     hdfs:/some/path/run_id/artifacts
-        :return: List of FileInfos under given path
+        Args:
+            path: Relative source path. Possible subdirectory existing under
+                hdfs:/some/path/run_id/artifacts
+
+        Returns:
+            List of FileInfos under given path
         """
         hdfs_base_path = _resolve_base_path(self.path, path)
 
@@ -123,15 +130,16 @@ class HdfsArtifactRepository(ArtifactRepository):
 
         (self.path contains the base path - hdfs:/some/path/run_id/artifacts)
 
-        :param artifact_path: Relative source path to the desired artifacts file or directory.
-        :param dst_path: Absolute path of the local filesystem destination directory to which
-                         to download the specified artifacts. This directory must already
-                         exist. If unspecified, the artifacts will be downloaded to a new,
-                         uniquely-named
-                         directory on the local filesystem.
+        Args:
+            artifact_path: Relative source path to the desired artifacts file or directory.
+            dst_path: Absolute path of the local filesystem destination directory to which
+                to download the specified artifacts. This directory must already exist. If
+                unspecified, the artifacts will be downloaded to a new, uniquely-named
+                directory on the local filesystem.
 
-        :return: Absolute path of the local filesystem location containing the downloaded
-        artifacts - file/directory.
+        Returns:
+            Absolute path of the local filesystem location containing the downloaded
+            artifacts - file/directory.
         """
 
         hdfs_base_path = _resolve_base_path(self.path, artifact_path)
@@ -168,12 +176,13 @@ class HdfsArtifactRepository(ArtifactRepository):
 @contextmanager
 def hdfs_system(scheme, host, port):
     """
-        hdfs system context - Attempt to establish the connection to hdfs
-        and yields HadoopFileSystem
+    hdfs system context - Attempt to establish the connection to hdfs
+    and yields HadoopFileSystem
 
-    :param scheme: scheme or use hdfs:// as default
-    :param host: hostname or when relaying on the core-site.xml config use 'default'
-    :param port: port or when relaying on the core-site.xml config use 0
+    Args:
+        scheme: scheme or use hdfs:// as default
+        host: hostname or when relaying on the core-site.xml config use 'default'
+        port: port or when relaying on the core-site.xml config use 0
     """
     import pyarrow
 

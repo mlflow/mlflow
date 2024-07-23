@@ -31,6 +31,7 @@ env:
   # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
+  PYTHONUTF8: "1"
 
 jobs:
   recipes:
@@ -38,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -47,7 +48,8 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark
+          # FLAML is incompatible with xgboost 2.1.0: https://github.com/microsoft/FLAML/issues/1314
+          pip install pyspark 'xgboost<2.1.0'
       - name: Run tests
         run: |
           pytest tests/recipes
@@ -62,7 +64,7 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -72,8 +74,9 @@ jobs:
         run: |
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
-          pip install -e .
-          pip install pyspark
+          pip install .
+          # FLAML is incompatible with xgboost 2.1.0: https://github.com/microsoft/FLAML/issues/1314
+          pip install pyspark 'xgboost<2.1.0'
           # TODO: Importing datasets in a pandas UDF (created by mlflow.pyfunc.spark_udf) crashes
           # the Python worker. To avoid this, uninstall `datasets`. This is a temporary workaround.
           pip uninstall -y datasets

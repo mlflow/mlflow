@@ -48,8 +48,8 @@ with mlflow.start_run() as run:
         "Generate code that is less than 50 characters. Return only python code and nothing else."
     )
     logged_model = mlflow.openai.log_model(
-        model="gpt-3.5-turbo",
-        task=openai.ChatCompletion,
+        model="gpt-4o-mini",
+        task=openai.chat.completions,
         artifact_path="model",
         messages=[
             {"role": "system", "content": system_prompt},

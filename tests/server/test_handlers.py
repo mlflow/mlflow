@@ -12,6 +12,7 @@ from mlflow.entities.model_registry import (
     RegisteredModel,
     RegisteredModelTag,
 )
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.protos.model_registry_pb2 import (
@@ -38,8 +39,14 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateRegisteredModel,
 )
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
-from mlflow.server import BACKEND_STORE_URI_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR, app
+from mlflow.server import (
+    ARTIFACTS_DESTINATION_ENV_VAR,
+    BACKEND_STORE_URI_ENV_VAR,
+    SERVE_ARTIFACTS_ENV_VAR,
+    app,
+)
 from mlflow.server.handlers import (
+    _convert_path_parameter_to_flask_format,
     _create_experiment,
     _create_model_version,
     _create_registered_model,
@@ -55,6 +62,7 @@ from mlflow.server.handlers import (
     _get_model_version_download_uri,
     _get_registered_model,
     _get_request_message,
+    _get_trace_artifact_repo,
     _log_batch,
     _rename_registered_model,
     _search_model_versions,
@@ -66,14 +74,19 @@ from mlflow.server.handlers import (
     _transition_stage,
     _update_model_version,
     _update_registered_model,
+    _validate_source,
     catch_mlflow_exception,
     get_endpoints,
 )
+from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
+from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 
@@ -129,6 +142,17 @@ def test_get_endpoints():
     endpoints = get_endpoints()
     create_experiment_endpoint = [e for e in endpoints if e[1] == _create_experiment]
     assert len(create_experiment_endpoint) == 2
+
+
+def test_convert_path_parameter_to_flask_format():
+    converted = _convert_path_parameter_to_flask_format("/mlflow/trace")
+    assert "/mlflow/trace" == converted
+
+    converted = _convert_path_parameter_to_flask_format("/mlflow/trace/{request_id}")
+    assert "/mlflow/trace/<request_id>" == converted
+
+    converted = _convert_path_parameter_to_flask_format("/mlflow/{foo}/{bar}/{baz}")
+    assert "/mlflow/<foo>/<bar>/<baz>" == converted
 
 
 def test_all_model_registry_endpoints_available():
@@ -257,7 +281,6 @@ def test_catch_mlflow_exception():
     def test_handler():
         raise MlflowException("test error", error_code=INTERNAL_ERROR)
 
-    # pylint: disable=assignment-from-no-return
     response = test_handler()
     json_response = json.loads(response.get_data())
     assert response.status_code == 500
@@ -802,3 +825,74 @@ def test_delete_artifact_mlflow_artifacts_throws_for_malicious_path(enable_serve
     json_response = json.loads(response.get_data())
     assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     assert json_response["message"] == "Invalid path"
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "http://host#/abc/etc/",
+        "http://host/;..%2F..%2Fetc",
+    ],
+)
+def test_local_file_read_write_by_pass_vulnerability(uri):
+    request = mock.MagicMock()
+    request.method = "POST"
+    request.content_type = "application/json; charset=utf-8"
+    request.get_json = mock.MagicMock()
+    request.get_json.return_value = {
+        "name": "hello",
+        "artifact_location": uri,
+    }
+    msg = _get_request_message(CreateExperiment(), flask_request=request)
+    with mock.patch("mlflow.server.handlers._get_request_message", return_value=msg):
+        response = _create_experiment()
+        json_response = json.loads(response.get_data())
+        assert (
+            json_response["message"] == "'artifact_location' URL can't include fragments or params."
+        )
+
+    # Test if source is a local filesystem path, `_validate_source` validates that the run
+    # artifact_uri is also a local filesystem path.
+    run_id = uuid.uuid4().hex
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as mock_get_tracking_store:
+        mock_get_tracking_store().get_run(
+            run_id
+        ).info.artifact_uri = f"http://host/{run_id}/artifacts/abc"
+
+        with pytest.raises(
+            MlflowException,
+            match=(
+                "the run_id request parameter has to be specified and the local "
+                "path has to be contained within the artifact directory of the "
+                "run specified by the run_id"
+            ),
+        ):
+            _validate_source("/local/path/xyz", run_id)
+
+
+@pytest.mark.parametrize(
+    ("location", "expected_class", "expected_uri"),
+    [
+        ("file:///0/traces/123", LocalArtifactRepository, "file:///0/traces/123"),
+        ("s3://bucket/0/traces/123", S3ArtifactRepository, "s3://bucket/0/traces/123"),
+        (
+            "wasbs://container@account.blob.core.windows.net/bucket/1/traces/123",
+            AzureBlobArtifactRepository,
+            "wasbs://container@account.blob.core.windows.net/bucket/1/traces/123",
+        ),
+        # Proxy URI must be resolved to the actual storage URI
+        (
+            "https://127.0.0.1/api/2.0/mlflow-artifacts/artifacts/2/traces/123",
+            S3ArtifactRepository,
+            "s3://bucket/2/traces/123",
+        ),
+        ("mlflow-artifacts:/1/traces/123", S3ArtifactRepository, "s3://bucket/1/traces/123"),
+    ],
+)
+def test_get_trace_artifact_repo(location, expected_class, expected_uri, monkeypatch):
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+    trace_info = TraceInfo("123", "0", 0, 1, "OK", tags={MLFLOW_ARTIFACT_LOCATION: location})
+    repo = _get_trace_artifact_repo(trace_info)
+    assert isinstance(repo, expected_class)
+    assert repo.artifact_uri == expected_uri

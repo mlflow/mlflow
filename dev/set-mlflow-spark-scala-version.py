@@ -5,9 +5,13 @@ import re
 def create_pom_with_pinned_scala_version(pom_file_path: str, scala_version: str) -> str:
     """
     Creates a new pom.xml file with the given scala version.
-    :param pom_file_path: Path to the original pom.xml file
-    :param scala_version: Scala version to pin to
-    :return: Path to the new pom.xml file
+
+    Args:
+        pom_file_path: Path to the original pom.xml file.
+        scala_version: Scala version to pin to.
+
+    Returns:
+        Path to the new pom.xml file.
     """
     assert re.match(r"^\d+\.\d+\.\d+$", scala_version), f"Invalid scala version: {scala_version}"
 

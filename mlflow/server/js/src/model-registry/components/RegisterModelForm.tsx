@@ -6,12 +6,12 @@
  */
 
 import React from 'react';
-import { Form, Input, Select } from '@databricks/design-system';
+import { Form, Input, LegacySelect } from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
 
 import './RegisterModelForm.css';
 
-const { Option, OptGroup } = Select;
-const { TextArea } = Input;
+const { Option, OptGroup } = LegacySelect;
 
 const CREATE_NEW_MODEL_LABEL = 'Create New Model';
 // Include 'CREATE_NEW_MODEL_LABEL' as part of the value for filtering to work properly. Also added
@@ -21,11 +21,9 @@ export const SELECTED_MODEL_FIELD = 'selectedModel';
 export const MODEL_NAME_FIELD = 'modelName';
 export const DESCRIPTION_FIELD = 'description';
 
-// This can be enabled after we support description in CreatModel & CreateModelVersion
-const ENABLE_DESCRIPTION = false;
-
 type Props = {
   modelByName?: any;
+  isCopy?: boolean;
   onSearchRegisteredModels: (...args: any[]) => any;
   innerRef: any;
 };
@@ -51,6 +49,32 @@ export class RegisterModelForm extends React.Component<Props, State> {
     return value.toLowerCase().indexOf(input.toLowerCase()) !== -1;
   };
 
+  renderExplanatoryText() {
+    const { isCopy } = this.props;
+    const { selectedModel } = this.state;
+    const creatingNewModel = selectedModel === CREATE_NEW_MODEL_OPTION_VALUE;
+
+    if (!selectedModel || creatingNewModel) {
+      return null;
+    }
+
+    const explanation = isCopy ? (
+      <FormattedMessage
+        defaultMessage="The model version will be copied to {selectedModel} as a new version."
+        description="Model registry > OSS Promote model modal > copy explanatory text"
+        values={{ selectedModel: selectedModel }}
+      />
+    ) : (
+      <FormattedMessage
+        defaultMessage="The model will be registered as a new version of {selectedModel}."
+        description="Explantory text for registering a model"
+        values={{ selectedModel: selectedModel }}
+      />
+    );
+
+    return <p className="modal-explanatory-text">{explanation}</p>;
+  }
+
   renderModel(model: any) {
     return (
       <Option value={model.name} key={model.name}>
@@ -59,66 +83,50 @@ export class RegisterModelForm extends React.Component<Props, State> {
     );
   }
   render() {
-    const { modelByName, innerRef } = this.props;
+    const { modelByName, innerRef, isCopy } = this.props;
     const { selectedModel } = this.state;
     const creatingNewModel = selectedModel === CREATE_NEW_MODEL_OPTION_VALUE;
     return (
       // @ts-expect-error TS(2322): Type '{ children: (Element | null)[]; ref: any; la... Remove this comment to see the full error message
-      <Form ref={innerRef} layout='vertical' className='register-model-form'>
+      <Form ref={innerRef} layout="vertical" className="register-model-form">
         {/* "+ Create new model" OR "Select existing model" */}
         <Form.Item
-          label='Model'
+          label={isCopy ? <b>Copy to model</b> : 'Model'}
           name={SELECTED_MODEL_FIELD}
           rules={[{ required: true, message: 'Please select a model or create a new one.' }]}
         >
-          <Select
-            dropdownClassName='model-select-dropdown'
+          <LegacySelect
+            dropdownClassName="model-select-dropdown"
             onChange={this.handleModelSelectChange}
-            placeholder='Select a model'
+            placeholder="Select a model"
             filterOption={this.handleFilterOption}
             onSearch={this.props.onSearchRegisteredModels}
             // @ts-expect-error TS(2769): No overload matches this call.
             showSearch
           >
-            <Option value={CREATE_NEW_MODEL_OPTION_VALUE} className='create-new-model-option'>
-              <i className='fa fa-plus fa-fw' style={{ fontSize: 13 }} /> {CREATE_NEW_MODEL_LABEL}
+            <Option value={CREATE_NEW_MODEL_OPTION_VALUE} className="create-new-model-option">
+              <i className="fa fa-plus fa-fw" style={{ fontSize: 13 }} /> {CREATE_NEW_MODEL_LABEL}
             </Option>
-            <OptGroup label='Models'>
-              {Object.values(modelByName).map((model) => this.renderModel(model))}
-            </OptGroup>
-          </Select>
+            <OptGroup label="Models">{Object.values(modelByName).map((model) => this.renderModel(model))}</OptGroup>
+          </LegacySelect>
         </Form.Item>
 
         {/* Name the new model when "+ Create new model" is selected */}
         {creatingNewModel ? (
           <Form.Item
-            label='Model Name'
+            label="Model Name"
             name={MODEL_NAME_FIELD}
             rules={[
               { required: true, message: 'Please input a name for the new model.' },
               { validator: this.modelNameValidator },
             ]}
           >
-            <Input placeholder='Input a model name' />
-          </Form.Item>
-        ) : null}
-
-        {/* Model/Model Version Description */}
-        {ENABLE_DESCRIPTION && selectedModel ? (
-          <Form.Item label='Description' name={DESCRIPTION_FIELD}>
-            <TextArea
-              rows={3}
-              placeholder={`Description for the new ${creatingNewModel ? 'model' : 'version'}`}
-            />
+            <Input placeholder="Input a model name" />
           </Form.Item>
         ) : null}
 
         {/* Explanatory text shown when existing model is selected */}
-        {selectedModel && !creatingNewModel ? (
-          <p className='modal-explanatory-text'>
-            The model will be registered as a new version of {selectedModel}.
-          </p>
-        ) : null}
+        {this.renderExplanatoryText()}
       </Form>
     );
   }

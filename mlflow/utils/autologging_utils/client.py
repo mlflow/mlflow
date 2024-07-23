@@ -83,7 +83,10 @@ class RunOperations:
 # of CPU cores available on the system (whichever is smaller)
 num_cpus = os.cpu_count() or 4
 num_logging_workers = min(num_cpus * 2, 8)
-_AUTOLOGGING_QUEUEING_CLIENT_THREAD_POOL = ThreadPoolExecutor(max_workers=num_logging_workers)
+_AUTOLOGGING_QUEUEING_CLIENT_THREAD_POOL = ThreadPoolExecutor(
+    max_workers=num_logging_workers,
+    thread_name_prefix="MlflowAutologgingQueueingClient",
+)
 
 
 class MlflowAutologgingQueueingClient:
@@ -113,7 +116,7 @@ class MlflowAutologgingQueueingClient:
         """
         return self
 
-    def __exit__(self, exc_type, exc, traceback):  # pylint: disable=unused-argument
+    def __exit__(self, exc_type, exc, traceback):
         """
         Enables `MlflowAutologgingQueueingClient` to be used as a context manager with
         synchronous flushing upon exit, removing the need to call `flush()` for use cases

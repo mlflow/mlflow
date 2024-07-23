@@ -1,5 +1,5 @@
 import {
-  Tooltip,
+  LegacyTooltip,
   TableFilterLayout,
   Button,
   TableFilterInput,
@@ -36,15 +36,12 @@ const ModelSearchInputHelpTooltip = () => {
       >
         <InfoIcon />
       </Popover.Trigger>
-      <Popover.Content align='start'>
+      <Popover.Content align="start">
         <div>
+          <FormattedMessage {...tooltipIntroMessage} values={{ newline: <br />, whereBold: <b>WHERE</b> }} />{' '}
           <FormattedMessage
-            {...tooltipIntroMessage}
-            values={{ newline: <br />, whereBold: <b>WHERE</b> }}
-          />{' '}
-          <FormattedMessage
-            defaultMessage='<link>Learn more</link>'
-            description='Learn more tooltip link to learn more on how to search models'
+            defaultMessage="<link>Learn more</link>"
+            description="Learn more tooltip link to learn more on how to search models"
             values={{
               link: (chunks) => (
                 <Typography.Link href={ExperimentSearchSyntaxDocUrl + '#syntax'} openInNewTab>
@@ -55,14 +52,10 @@ const ModelSearchInputHelpTooltip = () => {
           />
           <br />
           <br />
-          <FormattedMessage
-            defaultMessage='Examples:'
-            description='Text header for examples of mlflow search syntax'
-          />
+          <FormattedMessage defaultMessage="Examples:" description="Text header for examples of mlflow search syntax" />
           <br />
-          {'• tags.my_key = "my_value"'}
-          <br />
-          {'• name ilike "%my_model_name%" and tags.my_key = "my_value"'}
+          • tags.my_key = "my_value"
+          <br />• name ilike "%my_model_name%" and tags.my_key = "my_value"
         </div>
         <Popover.Arrow />
       </Popover.Content>
@@ -104,17 +97,19 @@ export const ModelListFilters = ({
           onSearchFilterChange('');
         }}
         onChange={(e) => setInternalSearchFilter(e.target.value)}
-        data-testid='model-search-input'
+        data-testid="model-search-input"
         suffix={<ModelSearchInputHelpTooltip />}
         value={internalSearchFilter}
         showSearchButton
       />
       {isFiltered && (
-        <Button type='tertiary' onClick={reset} data-testid='models-list-filters-reset'>
-          <FormattedMessage
-            defaultMessage='Reset filters'
-            description='Reset filters button in list'
-          />
+        <Button
+          componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellistfilters.tsx_152"
+          type="tertiary"
+          onClick={reset}
+          data-testid="models-list-filters-reset"
+        >
+          <FormattedMessage defaultMessage="Reset filters" description="Reset filters button in list" />
         </Button>
       )}
     </TableFilterLayout>

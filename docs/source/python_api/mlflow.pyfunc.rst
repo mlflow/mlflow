@@ -18,8 +18,14 @@ mlflow.pyfunc
     :members:
     :undoc-members:
 
-.. Include ``PythonModelContext``, which is imported from `mlflow.pyfunc.model`, in the
+.. Include ``PythonModel``, which is imported from `mlflow.pyfunc.model`, in the
    `mlflow.pyfunc` namespace
 .. autoclass:: mlflow.pyfunc.PythonModel
+    :members:
+    :undoc-members:
+
+.. Include ``ChatModel``, which is imported from `mlflow.pyfunc.model`, in the
+   `mlflow.pyfunc` namespace
+.. autoclass:: mlflow.pyfunc.ChatModel
     :members:
     :undoc-members:

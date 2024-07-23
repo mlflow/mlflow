@@ -12,7 +12,7 @@ class LinearRegression(paddle.nn.Layer):
         super().__init__()
         self.fc = paddle.nn.Linear(13, 1)
 
-    def forward(self, feature):  # pylint: disable=arguments-differ
+    def forward(self, feature):
         return self.fc(feature)
 
 

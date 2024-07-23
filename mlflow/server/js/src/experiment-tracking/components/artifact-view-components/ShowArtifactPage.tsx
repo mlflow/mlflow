@@ -15,7 +15,7 @@ import {
   PDF_EXTENSIONS,
   DATA_EXTENSIONS,
 } from '../../../common/utils/FileUtils';
-import { getLoggedModelPathsFromTags } from '../../../common/utils/TagUtils';
+import { getLoggedModelPathsFromTags, getLoggedTablesFromTags } from '../../../common/utils/TagUtils';
 import { ONE_MB } from '../../constants';
 import ShowArtifactImageView from './ShowArtifactImageView';
 import ShowArtifactTextView from './ShowArtifactTextView';
@@ -26,11 +26,11 @@ import { LazyShowArtifactTableView } from './LazyShowArtifactTableView';
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
 import previewIcon from '../../../common/static/preview-icon.png';
 import warningSvg from '../../../common/static/warning.svg';
-import './ShowArtifactPage.css';
 import { ModelRegistryRoutes } from '../../../model-registry/routes';
 import Utils from '../../../common/utils/Utils';
-
 import { FormattedMessage } from 'react-intl';
+import { ShowArtifactLoggedTableView } from './ShowArtifactLoggedTableView';
+import { Empty, Spacer, useDesignSystemTheme } from '@databricks/design-system';
 
 const MAX_PREVIEW_ARTIFACT_SIZE_MB = 50;
 
@@ -42,6 +42,7 @@ type ShowArtifactPageProps = {
   size?: number;
   runTags?: any;
   modelVersions?: any[];
+  showArtifactLoggedTableView?: boolean;
 };
 
 class ShowArtifactPage extends Component<ShowArtifactPageProps> {
@@ -56,19 +57,14 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
         );
         if (registeredModel) {
           const { name: registeredModelName, version } = registeredModel;
-          registeredModelLink = Utils.getIframeCorrectedRoute(
-            ModelRegistryRoutes.getModelVersionPageRoute(registeredModelName, version),
-          );
+          registeredModelLink = ModelRegistryRoutes.getModelVersionPageRoute(registeredModelName, version);
         }
       }
       // @ts-expect-error TS(2532): Object is possibly 'undefined'.
       if (this.props.size > MAX_PREVIEW_ARTIFACT_SIZE_MB * ONE_MB) {
         return getFileTooLargeView();
       } else if (this.props.isDirectory) {
-        if (
-          this.props.runTags &&
-          getLoggedModelPathsFromTags(this.props.runTags).includes(this.props.path)
-        ) {
+        if (this.props.runTags && getLoggedModelPathsFromTags(this.props.runTags).includes(this.props.path)) {
           return (
             <ShowArtifactLoggedModelView
               runUuid={this.props.runUuid}
@@ -78,19 +74,15 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
             />
           );
         }
+      } else if (this.props.showArtifactLoggedTableView) {
+        return <ShowArtifactLoggedTableView runUuid={this.props.runUuid} path={this.props.path} />;
       } else if (normalizedExtension) {
         if (IMAGE_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <ShowArtifactImageView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (DATA_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactTableView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (TEXT_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
-          return (
-            <ShowArtifactTextView
-              runUuid={this.props.runUuid}
-              path={this.props.path}
-              size={this.props.size}
-            />
-          );
+          return <ShowArtifactTextView runUuid={this.props.runUuid} path={this.props.path} size={this.props.size} />;
         } else if (MAP_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactMapView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (HTML_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
@@ -106,54 +98,54 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
 
 const getSelectFileView = () => {
   return (
-    <div className='preview-outer-container'>
-      <div className='preview-container'>
-        <div className='preview-image-container'>
-          <img className='preview-image' alt='Preview icon.' src={previewIcon} />
-        </div>
-        <div className='preview-text'>
-          <span className='preview-header'>
-            <FormattedMessage
-              defaultMessage='Select a file to preview'
-              description='Label to suggests users to select a file to preview the output'
-            />
-          </span>
-          <span className='preview-supported-formats'>
-            <FormattedMessage
-              defaultMessage='Supported formats: image, text, html, pdf, geojson files'
-              // eslint-disable-next-line max-len
-              description='Text to explain users which formats are supported to display the artifacts'
-            />
-          </span>
-        </div>
-      </div>
+    <div css={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <Empty
+        image={
+          <>
+            <img alt="Preview icon." src={previewIcon} css={{ width: 64, height: 64 }} />
+            <Spacer size="sm" />
+          </>
+        }
+        title={
+          <FormattedMessage
+            defaultMessage="Select a file to preview"
+            description="Label to suggests users to select a file to preview the output"
+          />
+        }
+        description={
+          <FormattedMessage
+            defaultMessage="Supported formats: image, text, html, pdf, geojson files"
+            description="Text to explain users which formats are supported to display the artifacts"
+          />
+        }
+      />
     </div>
   );
 };
 
 const getFileTooLargeView = () => {
   return (
-    <div className='preview-outer-container'>
-      <div className='preview-container'>
-        <div className='preview-image-container'>
-          <img className='preview-image' alt='Preview icon.' src={warningSvg} />
-        </div>
-        <div className='preview-text'>
-          <span className='preview-header'>
-            <FormattedMessage
-              defaultMessage='File is too large to preview'
-              description='Label to indicate that the file is too large to preview'
-            />
-          </span>
-          <span className='preview-max-size'>
-            <FormattedMessage
-              defaultMessage={`Maximum file size for preview: ${MAX_PREVIEW_ARTIFACT_SIZE_MB}MB`}
-              // eslint-disable-next-line max-len
-              description='Text to notify users of the maximum file size for which artifact previews are displayed'
-            />
-          </span>
-        </div>
-      </div>
+    <div css={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <Empty
+        image={
+          <>
+            <img alt="Preview icon." src={warningSvg} css={{ width: 64, height: 64 }} />
+            <Spacer size="sm" />
+          </>
+        }
+        title={
+          <FormattedMessage
+            defaultMessage="File is too large to preview"
+            description="Label to indicate that the file is too large to preview"
+          />
+        }
+        description={
+          <FormattedMessage
+            defaultMessage={`Maximum file size for preview: ${MAX_PREVIEW_ARTIFACT_SIZE_MB}MB`}
+            description="Text to notify users of the maximum file size for which artifact previews are displayed"
+          />
+        }
+      />
     </div>
   );
 };

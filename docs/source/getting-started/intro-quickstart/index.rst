@@ -26,7 +26,20 @@ If you would like to see this quickstart in a purely notebook format, we have a 
 
 .. raw:: html
 
-    <a href="notebooks/index.html" class="download-btn">View the Notebook</a>
+     <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="notebooks/tracking_quickstart.html" >
+                    <div class="header">
+                        MLflow Tracking Quickstart Guide
+                    </div>
+                    <p>
+                    Learn the basics of MLflow Tracking in a fast-paced guide with a focus on seeing your first model in the MLflow UI
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
 
 .. toctree::
     :maxdepth: 1
@@ -38,7 +51,12 @@ If you would like to see this quickstart in a purely notebook format, we have a 
 Step 1 - Get MLflow
 -------------------
 
-MLflow is available on PyPI. If you don't already have it installed on your system, you can install it with:
+MLflow is available on PyPI.
+
+Installing Stable Release
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you don't already have it installed on your system, you can install it with:
 
 .. code-section::
 
@@ -46,6 +64,29 @@ MLflow is available on PyPI. If you don't already have it installed on your syst
         :name: download-mlflow
 
         pip install mlflow
+
+Installing a Release Candidate (RC)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you are eager to test out new features and validate that an upcoming release of MLflow will work well in your infrastructure, installing the latest 
+release candidate may be of interest to you. 
+
+.. note:: 
+
+    Release Candidate builds are not recommended for actual use, rather they are intended only for testing validation. 
+
+To install the latest version of MLflow's release candidates for a given version, see the example below that uses MLflow 2.14.0 as an example:
+
+.. code-section::
+
+    .. code-block:: bash
+        :name: download-mlflow-rc
+
+        # install the latest release candidate
+        pip install --pre mlflow
+
+        # or install a specific rc version
+        pip install mlflow==2.14.0rc0
 
 Step 2 - Start a Tracking Server
 --------------------------------

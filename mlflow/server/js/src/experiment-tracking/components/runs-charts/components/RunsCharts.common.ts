@@ -1,14 +1,23 @@
-import { throttle } from 'lodash';
-import { Layout, Margin } from 'plotly.js';
+import { compact, throttle } from 'lodash';
+import { Dash, Layout, Margin } from 'plotly.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PlotParams } from 'react-plotly.js';
 import {
+  ImageEntity,
   KeyValueEntity,
   MetricEntitiesByName,
+  MetricEntity,
   MetricHistoryByName,
   RunInfoEntity,
 } from '../../../types';
 import { Theme } from '@emotion/react';
+import { LegendLabelData } from './RunsMetricsLegend';
+import { RunGroupParentInfo, RunGroupingAggregateFunction } from '../../experiment-page/utils/experimentPage.row-types';
+import { RunsChartsChartMouseEvent } from '../hooks/useRunsChartsTooltip';
+import { defineMessages } from 'react-intl';
+import type { ExperimentChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
+import { quantile } from 'd3-array';
+import type { UseGetRunQueryResponseRunInfo } from '../../run-page/hooks/useGetRunQuery';
 
 /**
  * Common props for all charts used in experiment runs
@@ -32,7 +41,7 @@ export interface RunsPlotsCommonProps {
   /**
    * Callback fired when a run is hovered
    */
-  onHover?: (runUuid: string, event?: MouseEvent, additionalAxisData?: any) => void;
+  onHover?: (runUuidOrParams: string, event?: RunsChartsChartMouseEvent, additionalAxisData?: any) => void;
 
   /**
    * Callback fired when no run is hovered anymore
@@ -63,6 +72,16 @@ export interface RunsPlotsCommonProps {
    * Indicates which run is currently selected in the global context and should be highlighted
    */
   selectedRunUuid?: string | null;
+
+  /**
+   * If set to true, the chart will be displayed in full screen mode
+   */
+  fullScreen?: boolean;
+
+  /**
+   * Updates the download handler for the chart. See `ExperimentChartImageDownloadHandler` for the callback signature.
+   */
+  onSetDownloadHandler?: (downloadHandler: ExperimentChartImageDownloadHandler) => void;
 }
 
 /**
@@ -75,22 +94,57 @@ export interface RunsChartAxisDef {
 
 export interface RunsChartsRunData {
   /**
-   * Run's RunInfo object containing the metadata
+   * UUID of a chart data trace
    */
-  runInfo: RunInfoEntity;
+  uuid: string;
+  /**
+   * Run or group name displayed in the legend and hover box
+   */
+  displayName: string;
+  /**
+   * Run's RunInfo object containing the metadata.
+   * Unset for run groups.
+   */
+  runInfo?: RunInfoEntity | UseGetRunQueryResponseRunInfo;
+  /**
+   * Run's parent group info. Set only for run groups.
+   */
+  groupParentInfo?: RunGroupParentInfo;
+  /**
+   * Set to "false" if run grouping is enabled, but run is not a part of any group.
+   * Undefined if run grouping is disabled.
+   */
+  belongsToGroup?: boolean;
   /**
    * Object containing latest run's metrics by key
    */
   metrics: MetricEntitiesByName;
   /**
-   * Dictionary with the metrics by name. This field is optional
-   * as it's used only by certain chart types.
+   * Dictionary with the metrics by name. This field
+   * - is optional as it's used only by certain chart types
+   * - might be initially empty since it's populated lazily
    */
   metricsHistory?: MetricHistoryByName;
   /**
+   * Set for run groups, contains aggregated metrics history for each run group.
+   * It's keyed by a metric name, then by an aggregate function (min, max, average).
+   */
+  aggregatedMetricsHistory?: Record<string, Record<RunGroupingAggregateFunction, MetricEntity[]>>;
+  /**
    * Object containing run's params by key
    */
-  params: Record<string, KeyValueEntity>;
+  params: Record<string, { key: string; value: string | number }>;
+  /**
+   * Object containing run's tags by key
+   */
+  tags: Record<string, KeyValueEntity>;
+  /**
+   * Object containing run's images by key. The first key is the imageKey,
+   * the second key is the filename without extension for metadata file and image.
+   * E.g. if metadata file is dog_step_1_WHDA.json and image file is
+   * dog_step_1_WHDA.png, then truncated name is dog_step_1_WHDA.
+   */
+  images: Record<string, Record<string, ImageEntity>>;
   /**
    * Color corresponding to the run
    */
@@ -103,6 +157,10 @@ export interface RunsChartsRunData {
    * Set to "true" if the run is pinnable (e.g. not a child run)
    */
   pinnable?: boolean;
+  /**
+   * Is the row hidden by user
+   */
+  hidden?: boolean;
 }
 
 /**
@@ -142,10 +200,7 @@ export const useDynamicPlotSize = (throttleMs = 100) => {
         return;
       }
 
-      setDimensionsThrottled(
-        Math.round(observerEntry.contentRect.width),
-        Math.round(observerEntry.contentRect.height),
-      );
+      setDimensionsThrottled(Math.round(observerEntry.contentRect.width), Math.round(observerEntry.contentRect.height));
     });
 
     observer.observe(containerDiv);
@@ -209,6 +264,7 @@ export const commonRunsChartStyles = {
     // Variable used by chart trace highlighting
     '--trace-transition': 'opacity .16s',
     '--trace-opacity-highlighted': '1',
+    '--trace-opacity-dimmed': '0',
     '--trace-opacity-dimmed-low': '0.45',
     '--trace-opacity-dimmed-high': '0.55',
     '--trace-stroke-color': 'black',
@@ -260,7 +316,7 @@ export const runsChartHoverlabel = {
  * Function that makes sure that extreme values e.g. infinities masked as 1.79E+308
  * are normalized to be displayed properly in charts.
  */
-export const normalizeChartValue = (value?: number | string) => {
+export const normalizeChartValue = (value?: number) => {
   const parsedValue = typeof value === 'string' ? parseFloat(value) : value;
 
   // Return all falsy values as-is
@@ -291,3 +347,110 @@ export const createThemedPlotlyLayout = (theme: Theme): Partial<Layout> => ({
     gridcolor: theme.colors.borderDecorative,
   },
 });
+
+/**
+ * Creates a key for sampled chart data range, e.g. [-4,4] becomes "-4,4".
+ * "DEFAULT" is used for automatic chart range.
+ */
+export const createChartAxisRangeKey = (range?: [number | string, number | string]) =>
+  range ? range.join(',') : 'DEFAULT';
+
+export const getLegendDataFromRuns = (
+  runsData: Pick<RunsChartsRunData, 'displayName' | 'color' | 'uuid'>[],
+): LegendLabelData[] =>
+  runsData.map(
+    (run): LegendLabelData => ({
+      label: run.displayName,
+      color: run.color ?? '',
+    }),
+  );
+
+export const getLineChartLegendData = (
+  runsData: Pick<RunsChartsRunData, 'runInfo' | 'color' | 'metricsHistory' | 'displayName' | 'uuid'>[],
+  selectedMetricKeys: string[] | undefined,
+  metricKey: string,
+): LegendLabelData[] =>
+  runsData.flatMap((runEntry): LegendLabelData[] => {
+    if (!runEntry.metricsHistory) {
+      return [];
+    }
+
+    const metricKeys = selectedMetricKeys ?? [metricKey];
+    return metricKeys.map((metricKey, idx) => ({
+      label: `${runEntry.displayName} (${metricKey})`,
+      color: runEntry.color ?? '',
+      dashStyle: lineDashStyles[idx % lineDashStyles.length],
+      metricKey,
+      uuid: runEntry.uuid,
+    }));
+  });
+
+/**
+ * Returns true if the sorted array contains duplicate values.
+ * Uses simple O(n) algorithm and for loop to avoid creating a set.
+ */
+export const containsDuplicateXValues = (xValues: (number | undefined)[]) => {
+  for (let i = 1; i < xValues.length; i++) {
+    if (xValues[i] === xValues[i - 1]) {
+      return true;
+    }
+  }
+  return false;
+};
+
+export const lineDashStyles: Dash[] = ['solid', 'dash', 'dot', 'longdash', 'dashdot', 'longdashdot'];
+
+/**
+ * Calculates a semi-translucent hex color value based on the provided hex color and alpha value.
+ */
+export const createFadedTraceColor = (hexColor?: string, alpha = 0.1) => {
+  if (!hexColor) {
+    return hexColor;
+  }
+  const fadedColor = Math.round(Math.min(Math.max(alpha || 1, 0), 1) * 255);
+  return hexColor + fadedColor.toString(16).toUpperCase();
+};
+
+/**
+ * Enum for X axis types for line charts. Defined here to
+ * avoid circular imports from runs-charts.types.ts
+ */
+export enum RunsChartsLineChartXAxisType {
+  STEP = 'step',
+  TIME = 'time',
+  TIME_RELATIVE = 'time-relative',
+  TIME_RELATIVE_HOURS = 'time-relative-hours',
+  METRIC = 'metric',
+}
+
+const axisKeyToLabel = defineMessages<Exclude<RunsChartsLineChartXAxisType, RunsChartsLineChartXAxisType.METRIC>>({
+  [RunsChartsLineChartXAxisType.TIME]: {
+    defaultMessage: 'Time',
+    description: 'Label for the time axis on the runs compare chart',
+  },
+  [RunsChartsLineChartXAxisType.TIME_RELATIVE]: {
+    defaultMessage: 'Relative Time',
+    description: 'Label for the relative axis on the runs compare chart',
+  },
+  [RunsChartsLineChartXAxisType.TIME_RELATIVE_HOURS]: {
+    defaultMessage: 'Relative Time (hours)',
+    description: 'Label for the relative axis on the runs compare chart in hours',
+  },
+  [RunsChartsLineChartXAxisType.STEP]: {
+    defaultMessage: 'Step',
+    description: 'Label for the step axis on the runs compare chart',
+  },
+});
+
+export const getChartAxisLabelDescriptor = (
+  axisKey: Exclude<RunsChartsLineChartXAxisType, RunsChartsLineChartXAxisType.METRIC>,
+) => {
+  return axisKeyToLabel[axisKey];
+};
+
+export const removeOutliersFromMetricHistory = (metricHistory: MetricEntity[]): MetricEntity[] => {
+  const values = metricHistory.map((metric) => metric.value);
+  const lowerBound = quantile(values, 0.05) ?? -Infinity;
+  const upperBound = quantile(values, 0.95) ?? Infinity;
+  return metricHistory.filter((metric) => metric.value >= lowerBound && metric.value <= upperBound);
+};

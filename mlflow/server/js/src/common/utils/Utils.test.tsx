@@ -7,11 +7,7 @@
 
 import Utils from './Utils';
 import React from 'react';
-import {
-  X_AXIS_RELATIVE,
-  X_AXIS_STEP,
-  X_AXIS_WALL,
-} from '../../experiment-tracking/components/MetricsPlotControls';
+import { X_AXIS_RELATIVE, X_AXIS_STEP, X_AXIS_WALL } from '../../experiment-tracking/components/MetricsPlotControls';
 import { RunTag } from '../../experiment-tracking/sdk/MlflowMessages';
 
 test('formatMetric', () => {
@@ -106,30 +102,22 @@ test('renderNotebookSource', () => {
   const nameOverride = 'some feature';
   const queryParams = '?o=123456789';
 
-  expect(Utils.renderNotebookSource(null, null, null, null, sourceName, null)).toEqual(
-    'iris_feature',
-  );
+  expect(Utils.renderNotebookSource(null, null, null, null, sourceName, null)).toEqual('iris_feature');
   expect(Utils.renderNotebookSource(null, notebookId, null, null, sourceName, null)).toEqual(
-    <a title={sourceName} href={`http://localhost/#notebook/${notebookId}`} target='_top'>
+    <a title={sourceName} href={`http://localhost/#notebook/${notebookId}`} target="_top">
       iris_feature
     </a>,
   );
   expect(Utils.renderNotebookSource(null, notebookId, revisionId, null, sourceName, null)).toEqual(
-    <a
-      title={sourceName}
-      href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}`}
-      target='_top'
-    >
+    <a title={sourceName} href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}`} target="_top">
       iris_feature
     </a>,
   );
-  expect(
-    Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, sourceName, null),
-  ).toEqual(
+  expect(Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, sourceName, null)).toEqual(
     <a
       title={sourceName}
       href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
-      target='_top'
+      target="_top"
     >
       iris_feature
     </a>,
@@ -138,7 +126,7 @@ test('renderNotebookSource', () => {
     <a
       title={Utils.getDefaultNotebookRevisionName(notebookId, revisionId)}
       href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
-      target='_top'
+      target="_top"
     >
       {Utils.getDefaultNotebookRevisionName(notebookId, revisionId)}
     </a>,
@@ -158,18 +146,16 @@ test('renderNotebookSource', () => {
     <a
       title={sourceName}
       href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
-      target='_top'
+      target="_top"
     >
       {nameOverride}
     </a>,
   );
-  expect(
-    Utils.renderNotebookSource(queryParams, notebookId, revisionId, runUuid, sourceName, null),
-  ).toEqual(
+  expect(Utils.renderNotebookSource(queryParams, notebookId, revisionId, runUuid, sourceName, null)).toEqual(
     <a
       title={sourceName}
       href={`http://localhost/${queryParams}#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
-      target='_top'
+      target="_top"
     >
       iris_feature
     </a>,
@@ -189,7 +175,7 @@ test('renderNotebookSource', () => {
     <a
       title={sourceName}
       href={`http://databricks/${queryParams}#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
-      target='_top'
+      target="_top"
     >
       iris_feature
     </a>,
@@ -205,17 +191,17 @@ test('renderJobSource', () => {
 
   expect(Utils.renderJobSource(null, null, null, jobName, null)).toEqual(jobName);
   expect(Utils.renderJobSource(null, jobId, null, jobName, null)).toEqual(
-    <a title={jobName} href={`http://localhost/#job/${jobId}`} target='_top'>
+    <a title={jobName} href={`http://localhost/#job/${jobId}`} target="_top">
       {jobName}
     </a>,
   );
   expect(Utils.renderJobSource(null, jobId, null, null, null)).toEqual(
-    <a title={`job ${jobId}`} href={`http://localhost/#job/${jobId}`} target='_top'>
+    <a title={`job ${jobId}`} href={`http://localhost/#job/${jobId}`} target="_top">
       {`job ${jobId}`}
     </a>,
   );
   expect(Utils.renderJobSource(null, jobId, jobRunId, jobName, null)).toEqual(
-    <a title={jobName} href={`http://localhost/#job/${jobId}/run/${jobRunId}`} target='_top'>
+    <a title={jobName} href={`http://localhost/#job/${jobId}/run/${jobRunId}`} target="_top">
       {jobName}
     </a>,
   );
@@ -223,23 +209,19 @@ test('renderJobSource', () => {
     <a
       title={Utils.getDefaultJobRunName(jobId, jobRunId)}
       href={`http://localhost/#job/${jobId}/run/${jobRunId}`}
-      target='_top'
+      target="_top"
     >
       {Utils.getDefaultJobRunName(jobId, jobRunId)}
     </a>,
   );
   // @ts-expect-error TS(2345): Argument of type '"random text"' is not assignable... Remove this comment to see the full error message
   expect(Utils.renderJobSource(null, jobId, jobRunId, jobName, null, nameOverride)).toEqual(
-    <a title={jobName} href={`http://localhost/#job/${jobId}/run/${jobRunId}`} target='_top'>
+    <a title={jobName} href={`http://localhost/#job/${jobId}/run/${jobRunId}`} target="_top">
       {nameOverride}
     </a>,
   );
   expect(Utils.renderJobSource(queryParams, jobId, jobRunId, jobName, null)).toEqual(
-    <a
-      title={jobName}
-      href={`http://localhost/${queryParams}#job/${jobId}/run/${jobRunId}`}
-      target='_top'
-    >
+    <a title={jobName} href={`http://localhost/${queryParams}#job/${jobId}/run/${jobRunId}`} target="_top">
       {jobName}
     </a>,
   );
@@ -247,11 +229,7 @@ test('renderJobSource', () => {
     // @ts-expect-error TS(2345): Argument of type '"https://databricks"' is not ass... Remove this comment to see the full error message
     Utils.renderJobSource(queryParams, jobId, jobRunId, jobName, 'https://databricks', null),
   ).toEqual(
-    <a
-      title={jobName}
-      href={`https://databricks/${queryParams}#job/${jobId}/run/${jobRunId}`}
-      target='_top'
-    >
+    <a title={jobName} href={`https://databricks/${queryParams}#job/${jobId}/run/${jobRunId}`} target="_top">
       {jobName}
     </a>,
   );
@@ -302,7 +280,7 @@ test('formatSource & renderSource', () => {
   expect(Utils.formatSource(github_url)).toEqual('mlflow-apps:entry');
   // @ts-expect-error TS(2554): Expected 3 arguments, but got 1.
   expect(Utils.renderSource(github_url)).toEqual(
-    <a href='https://github.com/mlflow/mlflow-apps' target='_top'>
+    <a href="https://github.com/mlflow/mlflow-apps" target="_top">
       mlflow-apps:entry
     </a>,
   );
@@ -315,7 +293,7 @@ test('formatSource & renderSource', () => {
   expect(Utils.formatSource(gitlab_url)).toEqual('mlflow-apps:entry');
   // @ts-expect-error TS(2554): Expected 3 arguments, but got 1.
   expect(Utils.renderSource(gitlab_url)).toEqual(
-    <a href='https://gitlab.com/mlflow/mlflow-apps' target='_top'>
+    <a href="https://gitlab.com/mlflow/mlflow-apps" target="_top">
       mlflow-apps:entry
     </a>,
   );
@@ -328,7 +306,7 @@ test('formatSource & renderSource', () => {
   expect(Utils.formatSource(gitlab_long_url)).toEqual('mlflow-apps:entry');
   // @ts-expect-error TS(2554): Expected 3 arguments, but got 1.
   expect(Utils.renderSource(gitlab_long_url)).toEqual(
-    <a href='https://gitlab.com/mlflow/mlflow-apps/-/tree/master/tmp' target='_top'>
+    <a href="https://gitlab.com/mlflow/mlflow-apps/-/tree/master/tmp" target="_top">
       mlflow-apps:entry
     </a>,
   );
@@ -341,19 +319,15 @@ test('formatSource & renderSource', () => {
   expect(Utils.formatSource(bitbucket_url)).toEqual('mlflow-apps:entry');
   // @ts-expect-error TS(2554): Expected 3 arguments, but got 1.
   expect(Utils.renderSource(bitbucket_url)).toEqual(
-    <a href='https://bitbucket.org/mlflow/mlflow-apps' target='_top'>
+    <a href="https://bitbucket.org/mlflow/mlflow-apps" target="_top">
       mlflow-apps:entry
     </a>,
   );
 });
 
 test('setQueryParams', () => {
-  expect(Utils.setQueryParams('http://localhost/foo', '?o=123')).toEqual(
-    'http://localhost/foo?o=123',
-  );
-  expect(Utils.setQueryParams('http://localhost/foo?param=val', '?o=123')).toEqual(
-    'http://localhost/foo?o=123',
-  );
+  expect(Utils.setQueryParams('http://localhost/foo', '?o=123')).toEqual('http://localhost/foo?o=123');
+  expect(Utils.setQueryParams('http://localhost/foo?param=val', '?o=123')).toEqual('http://localhost/foo?o=123');
   expect(Utils.setQueryParams('http://localhost/foo?param=val', '?param=newval')).toEqual(
     'http://localhost/foo?param=newval',
   );
@@ -366,39 +340,21 @@ test('setQueryParams', () => {
 });
 
 test('ensureUrlScheme', () => {
-  expect(Utils.ensureUrlScheme('http://localhost/xyz/abc?o=123')).toEqual(
-    'http://localhost/xyz/abc?o=123',
-  );
-  expect(Utils.ensureUrlScheme('https://localhost/xyz/abc?o=123')).toEqual(
-    'https://localhost/xyz/abc?o=123',
-  );
-  expect(Utils.ensureUrlScheme('HTTPS://localhost/xyz/abc?o=123')).toEqual(
-    'HTTPS://localhost/xyz/abc?o=123',
-  );
-  expect(Utils.ensureUrlScheme('localhost/xyz/abc?o=123')).toEqual(
-    'https://localhost/xyz/abc?o=123',
-  );
-  expect(Utils.ensureUrlScheme('localhost/xyz/abc?o=123', 'http')).toEqual(
-    'http://localhost/xyz/abc?o=123',
-  );
+  expect(Utils.ensureUrlScheme('http://localhost/xyz/abc?o=123')).toEqual('http://localhost/xyz/abc?o=123');
+  expect(Utils.ensureUrlScheme('https://localhost/xyz/abc?o=123')).toEqual('https://localhost/xyz/abc?o=123');
+  expect(Utils.ensureUrlScheme('HTTPS://localhost/xyz/abc?o=123')).toEqual('HTTPS://localhost/xyz/abc?o=123');
+  expect(Utils.ensureUrlScheme('localhost/xyz/abc?o=123')).toEqual('https://localhost/xyz/abc?o=123');
+  expect(Utils.ensureUrlScheme('localhost/xyz/abc?o=123', 'http')).toEqual('http://localhost/xyz/abc?o=123');
   expect(Utils.ensureUrlScheme('user:pass@localhost/xyz/abc?o=123')).toEqual(
     'https://user:pass@localhost/xyz/abc?o=123',
   );
   expect(Utils.ensureUrlScheme('https://user:pass@localhost/xyz/abc?o=123')).toEqual(
     'https://user:pass@localhost/xyz/abc?o=123',
   );
-  expect(Utils.ensureUrlScheme('https://localhost/xyz/abc?o=123', 'http')).toEqual(
-    'https://localhost/xyz/abc?o=123',
-  );
-  expect(Utils.ensureUrlScheme('://localhost/xyz/abc?o=123', 'https')).toEqual(
-    'https://localhost/xyz/abc?o=123',
-  );
-  expect(Utils.ensureUrlScheme('://localhost/xyz/abc?o=123', 'ws')).toEqual(
-    'ws://localhost/xyz/abc?o=123',
-  );
-  expect(Utils.ensureUrlScheme('wss://localhost/xyz/abc?o=123')).toEqual(
-    'wss://localhost/xyz/abc?o=123',
-  );
+  expect(Utils.ensureUrlScheme('https://localhost/xyz/abc?o=123', 'http')).toEqual('https://localhost/xyz/abc?o=123');
+  expect(Utils.ensureUrlScheme('://localhost/xyz/abc?o=123', 'https')).toEqual('https://localhost/xyz/abc?o=123');
+  expect(Utils.ensureUrlScheme('://localhost/xyz/abc?o=123', 'ws')).toEqual('ws://localhost/xyz/abc?o=123');
+  expect(Utils.ensureUrlScheme('wss://localhost/xyz/abc?o=123')).toEqual('wss://localhost/xyz/abc?o=123');
   expect(Utils.ensureUrlScheme('scheme-with+symbols.123x://localhost/xyz/abc?o=123')).toEqual(
     'scheme-with+symbols.123x://localhost/xyz/abc?o=123',
   );
@@ -429,9 +385,7 @@ test('getDefaultNotebookRevisionName', () => {
   expect(Utils.getDefaultNotebookRevisionName(123, null)).toEqual('notebook 123');
   expect(Utils.getDefaultNotebookRevisionName(123, 456)).toEqual('revision 456 of notebook 123');
   // @ts-expect-error TS(2345): Argument of type '7890' is not assignable to param... Remove this comment to see the full error message
-  expect(Utils.getDefaultNotebookRevisionName(123, 456, 7890)).toEqual(
-    'workspace 7890: revision 456 of notebook 123',
-  );
+  expect(Utils.getDefaultNotebookRevisionName(123, 456, 7890)).toEqual('workspace 7890: revision 456 of notebook 123');
 });
 
 test('dropExtension', () => {
@@ -449,22 +403,10 @@ test('dropExtension', () => {
 test('getGitHubRegex', () => {
   const gitHubRegex = Utils.getGitHubRegex();
   const urlAndExpected = [
-    [
-      'http://github.com/mlflow/mlflow-apps',
-      ['/github.com/mlflow/mlflow-apps', 'mlflow', 'mlflow-apps', ''],
-    ],
-    [
-      'https://github.com/mlflow/mlflow-apps',
-      ['/github.com/mlflow/mlflow-apps', 'mlflow', 'mlflow-apps', ''],
-    ],
-    [
-      'http://github.com/mlflow/mlflow-apps.git',
-      ['/github.com/mlflow/mlflow-apps.git', 'mlflow', 'mlflow-apps', ''],
-    ],
-    [
-      'https://github.com/mlflow/mlflow-apps.git',
-      ['/github.com/mlflow/mlflow-apps.git', 'mlflow', 'mlflow-apps', ''],
-    ],
+    ['http://github.com/mlflow/mlflow-apps', ['/github.com/mlflow/mlflow-apps', 'mlflow', 'mlflow-apps', '']],
+    ['https://github.com/mlflow/mlflow-apps', ['/github.com/mlflow/mlflow-apps', 'mlflow', 'mlflow-apps', '']],
+    ['http://github.com/mlflow/mlflow-apps.git', ['/github.com/mlflow/mlflow-apps.git', 'mlflow', 'mlflow-apps', '']],
+    ['https://github.com/mlflow/mlflow-apps.git', ['/github.com/mlflow/mlflow-apps.git', 'mlflow', 'mlflow-apps', '']],
     [
       'https://github.com/mlflow/mlflow#example/tutorial',
       ['/github.com/mlflow/mlflow#example/tutorial', 'mlflow', 'mlflow', 'example/tutorial'],
@@ -473,10 +415,7 @@ test('getGitHubRegex', () => {
       'https://github.com/username/repo.name#mlproject',
       ['/github.com/username/repo.name#mlproject', 'username', 'repo.name', 'mlproject'],
     ],
-    [
-      'git@github.com:mlflow/mlflow-apps.git',
-      ['@github.com:mlflow/mlflow-apps.git', 'mlflow', 'mlflow-apps', ''],
-    ],
+    ['git@github.com:mlflow/mlflow-apps.git', ['@github.com:mlflow/mlflow-apps.git', 'mlflow', 'mlflow-apps', '']],
     ['https://some-other-site.com?q=github.com/mlflow/mlflow-apps.git', [null]],
     ['ssh@some-server:mlflow/mlflow-apps.git', [null]],
   ];
@@ -493,22 +432,10 @@ test('getGitHubRegex', () => {
 test('getGitLabRegex', () => {
   const gitLabRegex = Utils.getGitLabRegex();
   const urlAndExpected = [
-    [
-      'http://gitlab.com/mlflow/mlflow-apps',
-      ['/gitlab.com/mlflow/mlflow-apps', 'mlflow', 'mlflow-apps', ''],
-    ],
-    [
-      'https://gitlab.com/mlflow/mlflow-apps',
-      ['/gitlab.com/mlflow/mlflow-apps', 'mlflow', 'mlflow-apps', ''],
-    ],
-    [
-      'http://gitlab.com/mlflow/mlflow-apps.git',
-      ['/gitlab.com/mlflow/mlflow-apps.git', 'mlflow', 'mlflow-apps', ''],
-    ],
-    [
-      'https://gitlab.com/mlflow/mlflow-apps.git',
-      ['/gitlab.com/mlflow/mlflow-apps.git', 'mlflow', 'mlflow-apps', ''],
-    ],
+    ['http://gitlab.com/mlflow/mlflow-apps', ['/gitlab.com/mlflow/mlflow-apps', 'mlflow', 'mlflow-apps', '']],
+    ['https://gitlab.com/mlflow/mlflow-apps', ['/gitlab.com/mlflow/mlflow-apps', 'mlflow', 'mlflow-apps', '']],
+    ['http://gitlab.com/mlflow/mlflow-apps.git', ['/gitlab.com/mlflow/mlflow-apps.git', 'mlflow', 'mlflow-apps', '']],
+    ['https://gitlab.com/mlflow/mlflow-apps.git', ['/gitlab.com/mlflow/mlflow-apps.git', 'mlflow', 'mlflow-apps', '']],
     [
       'https://gitlab.com/mlflow/mlflow#example/tutorial',
       ['/gitlab.com/mlflow/mlflow#example/tutorial', 'mlflow', 'mlflow', 'example/tutorial'],
@@ -517,10 +444,7 @@ test('getGitLabRegex', () => {
       'https://gitlab.com/username/repo.name#mlproject',
       ['/gitlab.com/username/repo.name#mlproject', 'username', 'repo.name', 'mlproject'],
     ],
-    [
-      'git@gitlab.com:mlflow/mlflow-apps.git',
-      ['@gitlab.com:mlflow/mlflow-apps.git', 'mlflow', 'mlflow-apps', ''],
-    ],
+    ['git@gitlab.com:mlflow/mlflow-apps.git', ['@gitlab.com:mlflow/mlflow-apps.git', 'mlflow', 'mlflow-apps', '']],
     ['https://some-other-site.com?q=gitlab.com/mlflow/mlflow-apps.git', [null]],
     ['ssh@some-server:mlflow/mlflow-apps.git', [null]],
   ];
@@ -566,6 +490,8 @@ test('getMetricPlotStateFromUrl', () => {
   const url1 =
     '?runs=["runUuid1","runUuid2"]&plot_metric_keys=["metric_1"]&plot_layout={}&x_axis=wall&y_axis_scale=log&show_point=false';
   const url2 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=["metric_1","metric_2"]';
+  const url3 =
+    '?runs=["runUuid1","runUuid2"]&plot_metric_keys=%5B%22some%20%23%40!%20unusual%20metric%20name%22%2C%22metric_key_2%22%5D';
   // Test extracting plot keys, point info, y axis log scale, line smoothness, layout info
   expect(Utils.getMetricPlotStateFromUrl(url0)).toEqual({
     selectedXAxis: X_AXIS_STEP,
@@ -592,6 +518,16 @@ test('getMetricPlotStateFromUrl', () => {
   expect(Utils.getMetricPlotStateFromUrl(url2)).toEqual({
     selectedXAxis: X_AXIS_RELATIVE,
     selectedMetricKeys: ['metric_1', 'metric_2'],
+    showPoint: false,
+    yAxisLogScale: false,
+    lineSmoothness: 0,
+    layout: { autosize: true },
+    deselectedCurves: [],
+    lastLinearYAxisRange: [],
+  });
+  expect(Utils.getMetricPlotStateFromUrl(url3)).toEqual({
+    selectedXAxis: X_AXIS_RELATIVE,
+    selectedMetricKeys: ['some #@! unusual metric name', 'metric_key_2'],
     showPoint: false,
     yAxisLogScale: false,
     lineSmoothness: 0,
@@ -652,9 +588,7 @@ test('getSearchUrlFromState', () => {
   expect(Utils.getSearchUrlFromState(st0)).toEqual('');
   expect(Utils.getSearchUrlFromState(st1)).toEqual('a=example');
   expect(Utils.getSearchUrlFromState(st2)).toEqual('b=bbbbbb');
-  expect(Utils.getSearchUrlFromState(st3)).toEqual(
-    'param=params&metrics=&searchInput=someExpression',
-  );
+  expect(Utils.getSearchUrlFromState(st3)).toEqual('param=params&metrics=&searchInput=someExpression');
   expect(Utils.getSearchUrlFromState(st4)).toEqual('categorizedUncheckedKeys[metrics]=1,2');
   expect(Utils.getSearchUrlFromState(st5)).toEqual('a[]=');
   expect(Utils.getSearchUrlFromState(st6)).toEqual('a[]=b');
@@ -662,10 +596,10 @@ test('getSearchUrlFromState', () => {
 });
 
 test('compareExperiments', () => {
-  const exp0 = { experiment_id: '0' };
-  const exp1 = { experiment_id: '1' };
-  const expA = { experiment_id: 'A' };
-  const expB = { experiment_id: 'B' };
+  const exp0 = { experimentId: '0' };
+  const exp1 = { experimentId: '1' };
+  const expA = { experimentId: 'A' };
+  const expB = { experimentId: 'B' };
 
   expect(Utils.compareExperiments(exp0, exp1)).toEqual(-1);
   expect(Utils.compareExperiments(exp1, exp0)).toEqual(1);
@@ -747,6 +681,40 @@ test('getLoggedModelsFromTags should correctly dedup and sort logged models', ()
       utcTimeCreated: 1604016000,
     },
   ]);
+});
+
+test('getLoggedModelsFromTags should not crash on invalid JSON', () => {
+  const tagValue = JSON.stringify([
+    {
+      run_id: 'run-uuid',
+      artifact_path: 'somePath',
+      utc_time_created: '2020-10-29',
+      flavors: { keras: {}, python_function: {} },
+    },
+    {
+      run_id: 'run-uuid',
+      artifact_path: 'somePath',
+      utc_time_created: '2020-10-30',
+      flavors: { sklearn: {}, python_function: {} },
+    },
+    {
+      run_id: 'run-uuid',
+      artifact_path: 'someOtherPath',
+      utc_time_created: '2020-10-31',
+      flavors: { python_function: {} },
+    },
+  ]);
+
+  const tags = {
+    'mlflow.log-model.history': {
+      key: 'mlflow.log-model.history',
+      value: tagValue.slice(10), // truncate the JSON string to make it invalid
+    },
+  };
+
+  // it should just return an empty array
+  const models = Utils.getLoggedModelsFromTags(tags);
+  expect(models.length).toEqual(0);
 });
 
 test('mergeLoggedAndRegisteredModels should merge logged and registered model', () => {

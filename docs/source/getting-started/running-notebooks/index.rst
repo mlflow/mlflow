@@ -120,5 +120,3 @@ Local Tracking Server
 
 - Learn how to run an MLflow Tracking Server locally by following the `quickstart tutorial here <../tracking-server-overview/index.html#method-1-start-your-own-mlflow-server>`_.
 - Learn more about the MLflow Tracking Server by reading the `Tracking Server Overview <../tracking-server-overview/index.html>`_ and `how to deploy a tracking server <../../tracking/server.html>`_ guides.
-
-

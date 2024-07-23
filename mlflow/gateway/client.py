@@ -22,7 +22,7 @@ from mlflow.gateway.utils import (
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.tracking._tracking_service.utils import _get_default_host_creds
+from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 from mlflow.utils.uri import get_uri_scheme
@@ -35,9 +35,10 @@ class MlflowGatewayClient:
     """
     Client for interacting with the MLflow Gateway API.
 
-    :param gateway_uri: Optional URI of the gateway. If not provided, attempts to resolve from
-        first the stored result of `set_gateway_uri()`, then the  environment variable
-        `MLFLOW_GATEWAY_URI`.
+    Args:
+        gateway_uri: Optional URI of the gateway. If not provided, attempts to resolve from
+            first the stored result of `set_gateway_uri()`, then the  environment variable
+            `MLFLOW_GATEWAY_URI`.
     """
 
     def __init__(self, gateway_uri: Optional[str] = None):
@@ -60,7 +61,7 @@ class MlflowGatewayClient:
         if self._is_databricks_host():
             return get_databricks_host_creds(self._gateway_uri)
         else:
-            return _get_default_host_creds(self._gateway_uri)
+            return get_default_host_creds(self._gateway_uri)
 
     @property
     def gateway_uri(self):
@@ -387,9 +388,14 @@ class MlflowGatewayClient:
             limits: Limits (Array of dictionary) to set on the route. Each limit is defined by a
                 dictionary representing the limit details to be associated with the route. This
                 dictionary should define:
-                - renewal_period: a string representing the length of the window to enforce limit on (only supports "minute" for now). # pylint: disable=line-too-long
-                - calls: a non-negative integer representing the number of calls allowed per  renewal_period (e.g., 10, 0, 55). # pylint: disable=line-too-long
-                - key: an optional string represents per route limit or per user limit ("user" for per user limit, "route" for per route limit, if not supplied, default to per route limit). # pylint: disable=line-too-long
+
+                - renewal_period: a string representing the length of the window to enforce limit
+                  on (only supports "minute" for now).
+                - calls: a non-negative integer representing the number of calls allowed per
+                  renewal_period (e.g., 10, 0, 55).
+                - key: an optional string represents per route limit or per user limit ("user" for
+                  per user limit, "route" for per route limit, if not supplied, default to per
+                  route limit).
 
         Returns:
             The returned data structure is a serialized representation of the `Limit`

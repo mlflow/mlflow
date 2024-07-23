@@ -174,7 +174,7 @@ class UvicornGateway:
     # this module which executes the uvicorn server through gunicorn as a process manager.
     def __init__(self, config_path: Union[str, Path], *args, **kwargs):
         self.port = get_safe_port()
-        self.host = "localhost"
+        self.host = "127.0.0.1"
         self.url = f"http://{self.host}:{self.port}"
         self.config_path = config_path
         self.server = None
@@ -248,8 +248,7 @@ def log_sentence_transformers_model():
             model,
             artifact_path=artifact_path,
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-    return model_uri
+        return mlflow.get_artifact_uri(artifact_path)
 
 
 def log_completions_transformers_model():
@@ -275,8 +274,7 @@ def log_completions_transformers_model():
             signature=signature,
             artifact_path=artifact_path,
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-    return model_uri
+        return mlflow.get_artifact_uri(artifact_path)
 
 
 def start_mlflow_server(port, model_uri):

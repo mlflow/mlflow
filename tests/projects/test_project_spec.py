@@ -51,11 +51,13 @@ def test_project_get_unspecified_entry_point():
 def test_load_project(tmp_path, mlproject, conda_env_path, conda_env_contents, mlproject_path):
     """
     Test that we can load a project with various combinations of an MLproject / conda.yaml file
-    :param mlproject: Contents of MLproject file. If None, no MLproject file will be written
-    :param conda_env_path: Path to conda environment file. If None, no conda environment file will
-                           be written.
-    :param conda_env_contents: Contents of conda environment file (written if conda_env_path is
-                               not None)
+
+    Args:
+        mlproject: Contents of MLproject file. If None, no MLproject file will be written.
+        conda_env_path: Path to conda environment file. If None, no conda environment file will
+            be written.
+        conda_env_contents: Contents of conda environment file (written if conda_env_path is
+            not None).
     """
     if mlproject:
         tmp_path.joinpath(mlproject_path).write_text(mlproject)

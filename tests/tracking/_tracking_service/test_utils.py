@@ -32,7 +32,7 @@ from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.os import is_windows
 
-# pylint: disable=unused-argument
+from tests.tracing.helper import get_tracer_tracking_uri
 
 # Disable mocking tracking URI here, as we want to test setting the tracking URI via
 # environment variable. See
@@ -166,9 +166,9 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
     with mock.patch(
         "sqlalchemy.create_engine",
-    ) as mock_create_engine, mock.patch(
-        "mlflow.store.db.utils._verify_schema"
-    ), mock.patch("mlflow.store.db.utils._initialize_tables"), mock.patch(
+    ) as mock_create_engine, mock.patch("mlflow.store.db.utils._verify_schema"), mock.patch(
+        "mlflow.store.db.utils._initialize_tables"
+    ), mock.patch(
         "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
         return_value=[],
     ):
@@ -194,8 +194,7 @@ def test_get_store_databricks(monkeypatch):
         monkeypatch.setenv(k, v)
     store = _get_store()
     assert isinstance(store, RestStore)
-    assert store.get_host_creds().host == "https://my-tracking-server"
-    assert store.get_host_creds().token == "abcdef"
+    assert store.get_host_creds().use_databricks_sdk
 
 
 def test_get_store_databricks_profile(monkeypatch):
@@ -371,6 +370,21 @@ def test_set_tracking_uri_with_path(tmp_path, monkeypatch, absolute):
     with mock.patch("mlflow.tracking._tracking_service.utils._tracking_uri", None):
         set_tracking_uri(path)
         assert get_tracking_uri() == path.absolute().resolve().as_uri()
+
+
+def test_set_tracking_uri_update_trace_provider():
+    default_uri = mlflow.get_tracking_uri()
+    try:
+        assert get_tracer_tracking_uri() != "file:///tmp"
+
+        set_tracking_uri("file:///tmp")
+        assert get_tracer_tracking_uri() == "file:///tmp"
+
+        set_tracking_uri("https://foo")
+        assert get_tracer_tracking_uri() == "https://foo"
+    finally:
+        # clean up
+        set_tracking_uri(default_uri)
 
 
 @pytest.mark.parametrize("store_uri", ["databricks-uc", "databricks-uc://profile"])

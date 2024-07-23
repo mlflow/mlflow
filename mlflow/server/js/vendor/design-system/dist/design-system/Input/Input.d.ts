@@ -1,11 +1,19 @@
-import type { SerializedStyles } from '@emotion/react';
+import type { CSSObject, SerializedStyles } from '@emotion/react';
 import { Input as AntDInput } from 'antd';
 import React from 'react';
+import type { InputProps } from './common';
 import type { Theme } from '../../theme';
 import type { ValidationState } from '../types';
-import type { InputProps } from './common';
+interface InputStylesOptions {
+    useTransparent?: boolean;
+    useFocusWithin?: boolean;
+}
+export declare const getInputStyles: (clsPrefix: string, theme: Theme, { validationState }: {
+    validationState?: ValidationState;
+}, { useTransparent, useFocusWithin }: InputStylesOptions) => CSSObject;
 export declare const getInputEmotionStyles: (clsPrefix: string, theme: Theme, { validationState }: {
-    validationState?: ValidationState | undefined;
+    validationState?: ValidationState;
 }, useTransparent?: boolean) => SerializedStyles;
 export declare const Input: React.ForwardRefExoticComponent<InputProps & React.RefAttributes<AntDInput>>;
+export {};
 //# sourceMappingURL=Input.d.ts.map

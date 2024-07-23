@@ -79,6 +79,28 @@ service DatabricksMlflowArtifactsService {
       visibility: PUBLIC_UNDOCUMENTED,
     };
   }
+
+  rpc getCredentialsForTraceDataDownload (GetCredentialsForTraceDataDownload) returns (GetCredentialsForTraceDataDownload.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/{request_id}/credentials-for-data-download"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  rpc getCredentialsForTraceDataUpload (GetCredentialsForTraceDataUpload) returns (GetCredentialsForTraceDataUpload.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/{request_id}/credentials-for-data-upload"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
 }
 
 // The type of a given artifact access credential
@@ -266,5 +288,27 @@ message GetPresignedUploadPartUrl {
   message Response {
     // Credential for uploading the part
     optional ArtifactCredentialInfo upload_credential_info = 1;
+  }
+}
+
+message GetCredentialsForTraceDataDownload {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  optional string request_id = 1 [(validate_required) = true];
+
+  message Response {
+    optional ArtifactCredentialInfo credential_info = 1;
+  }
+}
+
+message GetCredentialsForTraceDataUpload {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  optional string request_id = 1 [(validate_required) = true];
+
+  message Response {
+    optional ArtifactCredentialInfo credential_info = 1;
   }
 }

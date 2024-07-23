@@ -3,18 +3,19 @@ import logging
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
+from packaging.version import Version
+
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
-from mlflow.data.digest_utils import compute_spark_df_digest
+from mlflow.data.digest_utils import get_normalized_md5_digest
+from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
-from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import pyspark
@@ -22,7 +23,6 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
-@experimental
 class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
     Represents a Spark dataset (e.g. data derived from a Spark Table / file directory or Delta
@@ -36,6 +36,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         targets: Optional[str] = None,
         name: Optional[str] = None,
         digest: Optional[str] = None,
+        predictions: Optional[str] = None,
     ):
         if targets is not None and targets not in df.columns:
             raise MlflowException(
@@ -43,9 +44,16 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
                 f" '{targets}'.",
                 INVALID_PARAMETER_VALUE,
             )
+        if predictions is not None and predictions not in df.columns:
+            raise MlflowException(
+                f"The specified Spark dataset does not contain the specified predictions column"
+                f" '{predictions}'.",
+                INVALID_PARAMETER_VALUE,
+            )
 
         self._df = df
         self._targets = targets
+        self._predictions = predictions
         super().__init__(source=source, name=name, digest=digest)
 
     def _compute_digest(self) -> str:
@@ -55,26 +63,31 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         # Retrieve a semantic hash of the DataFrame's logical plan, which is much more efficient
         # and deterministic than hashing DataFrame records
-        return compute_spark_df_digest(self._df)
+        import numpy as np
+        import pyspark
 
-    def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
-        """
-        Args:
-            base_dict: A string dictionary of base information about the
-                dataset, including: name, digest, source, and source type.
+        # Spark 3.1.0+ has a semanticHash() method on DataFrame
+        if Version(pyspark.__version__) >= Version("3.1.0"):
+            semantic_hash = self._df.semanticHash()
+        else:
+            semantic_hash = self._df._jdf.queryExecution().analyzed().semanticHash()
+        return get_normalized_md5_digest([np.int64(semantic_hash)])
 
-        Returns:
-            A string dictionary containing the following fields: name,
-            digest, source, source type, schema (optional), profile
-            (optional).
+    def to_dict(self) -> Dict[str, str]:
+        """Create config dictionary for the dataset.
+
+        Returns a string dictionary containing the following fields: name, digest, source, source
+        type, schema, and profile.
         """
-        return {
-            **base_dict,
-            "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()})
-            if self.schema
-            else None,
-            "profile": json.dumps(self.profile),
-        }
+        schema = json.dumps({"mlflow_colspec": self.schema.to_dict()}) if self.schema else None
+        config = super().to_dict()
+        config.update(
+            {
+                "schema": schema,
+                "profile": json.dumps(self.profile),
+            }
+        )
+        return config
 
     @property
     def df(self):
@@ -95,6 +108,14 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
             The string name of the Spark DataFrame column containing targets.
         """
         return self._targets
+
+    @property
+    def predictions(self) -> Optional[str]:
+        """
+        The name of the predictions column. May be ``None`` if no predictions column
+        was specified when the dataset was created.
+        """
+        return self._predictions
 
     @property
     def source(self) -> Union[SparkDatasetSource, DeltaDatasetSource]:
@@ -198,10 +219,10 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
             targets=self._targets,
             path=path,
             feature_names=feature_names,
+            predictions=self._predictions,
         )
 
 
-@experimental
 def load_delta(
     path: Optional[str] = None,
     table_name: Optional[str] = None,
@@ -261,7 +282,6 @@ def load_delta(
     )
 
 
-@experimental
 def from_spark(
     df: "pyspark.sql.DataFrame",
     path: Optional[str] = None,
@@ -271,6 +291,7 @@ def from_spark(
     targets: Optional[str] = None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
+    predictions: Optional[str] = None,
 ) -> SparkDataset:
     """
     Given a Spark DataFrame, constructs a
@@ -311,6 +332,9 @@ def from_spark(
             generated.
         digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest is
             automatically computed.
+        predictions: Optional. The name of the column containing model predictions,
+            if the dataset contains model predictions. If specified, this column
+            must be present in the dataframe (``df``).
 
     Returns:
         An instance of :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>`.
@@ -376,4 +400,5 @@ def from_spark(
         targets=targets,
         name=name,
         digest=digest,
+        predictions=predictions,
     )

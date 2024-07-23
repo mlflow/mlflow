@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 import sys
+import uuid
 from pathlib import Path
 
 import pytest
@@ -11,7 +12,7 @@ from mlflow import cli
 from mlflow.utils import process
 from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
 
-from tests.helper_functions import clear_hub_cache
+from tests.helper_functions import clear_hub_cache, flaky
 from tests.integration.utils import invoke_cli_runner
 
 EXAMPLES_DIR = "examples"
@@ -38,6 +39,7 @@ def clean_up_mlflow_virtual_environments():
 
 
 @pytest.mark.notrackingurimock
+@flaky()
 @pytest.mark.parametrize(
     ("directory", "params"),
     [
@@ -82,9 +84,13 @@ def clean_up_mlflow_virtual_environments():
     ],
 )
 def test_mlflow_run_example(directory, params, tmp_path):
-    mlflow.set_tracking_uri(tmp_path.joinpath("mlruns").as_uri())
+    # Use tmp_path+uuid as tmp directory to avoid the same
+    # directory being reused when re-trying the test since
+    # tmp_path is named as the test name
+    random_tmp_path = tmp_path / str(uuid.uuid4())
+    mlflow.set_tracking_uri(random_tmp_path.joinpath("mlruns").as_uri())
     example_dir = Path(EXAMPLES_DIR, directory)
-    tmp_example_dir = tmp_path.joinpath(example_dir)
+    tmp_example_dir = random_tmp_path.joinpath(example_dir)
     shutil.copytree(example_dir, tmp_example_dir)
     python_env_path = find_python_env_yaml(tmp_example_dir)
     replace_mlflow_with_dev_version(python_env_path)
@@ -161,6 +167,9 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("transformers", [sys.executable, "sentence_transformer.py"]),
         ("transformers", [sys.executable, "whisper.py"]),
         ("sentence_transformers", [sys.executable, "simple.py"]),
+        ("tracing", [sys.executable, "fluent.py"]),
+        ("tracing", [sys.executable, "client.py"]),
+        ("tracing", [sys.executable, "multithreading.py"]),
     ],
 )
 def test_command_example(directory, command):

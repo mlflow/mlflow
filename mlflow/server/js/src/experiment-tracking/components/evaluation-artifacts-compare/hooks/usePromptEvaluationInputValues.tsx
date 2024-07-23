@@ -7,17 +7,14 @@ import {
 } from '../../prompt-engineering/PromptEngineering.utils';
 
 export const usePromptEvaluationInputValues = () => {
-  const [inputVariables, updateInputVariablesDirect] = useState<string[]>(
-    extractPromptInputVariables(''),
-  );
+  const [inputVariables, updateInputVariablesDirect] = useState<string[]>(extractPromptInputVariables(''));
 
   const [inputVariableNameViolations, setInputVariableNameViolations] = useState<
     ReturnType<typeof getPromptInputVariableNameViolations>
   >({ namesWithSpaces: [] });
 
-  const [inputVariableValues, updateInputVariableValues] = useState<Record<string, string>>(
-    DEFAULT_PROMPTLAB_INPUT_VALUES,
-  );
+  const [inputVariableValues, updateInputVariableValues] =
+    useState<Record<string, string>>(DEFAULT_PROMPTLAB_INPUT_VALUES);
 
   const clearInputVariableValues = useCallback(() => updateInputVariableValues({}), []);
 
@@ -45,10 +42,7 @@ export const usePromptEvaluationInputValues = () => {
   // Sanitize the variable dictionary so only actually used variables
   // will be returned (discard leftovers from previous prompt templates)
   const sanitizedInputVariableValues = useMemo(
-    () =>
-      fromPairs(
-        Object.entries(inputVariableValues).filter(([key]) => inputVariables.includes(key)),
-      ),
+    () => fromPairs(Object.entries(inputVariableValues).filter(([key]) => inputVariables.includes(key))),
     [inputVariableValues, inputVariables],
   );
 

@@ -1,41 +1,19 @@
 import inspect
 import logging
 import sys
-import time
-from functools import wraps
 
 import transformers
 from packaging.version import Version
+
+from mlflow.transformers import _PEFT_PIPELINE_ERROR_MSG, _try_import_conversational_pipeline
+from mlflow.utils.logging_utils import suppress_logs
+
+from tests.helper_functions import flaky
 
 _logger = logging.getLogger(__name__)
 
 transformers_version = Version(transformers.__version__)
 IS_NEW_FEATURE_EXTRACTION_API = transformers_version >= Version("4.27.0")
-
-
-def flaky(max_tries=3):
-    """
-    Annotation decorator for retrying flaky functions up to max_tries times, and raise the Exception
-    if it fails after max_tries attempts.
-    :param max_tries: Maximum number of times to retry the function.
-    :return: Decorated function.
-    """
-
-    def flaky_test_func(test_func):
-        @wraps(test_func)
-        def decorated_func(*args, **kwargs):
-            for i in range(max_tries):
-                try:
-                    return test_func(*args, **kwargs)
-                except Exception as e:
-                    _logger.warning(f"Attempt {i+1} failed with error: {e}")
-                    if i == max_tries - 1:
-                        raise
-                    time.sleep(3)
-
-        return decorated_func
-
-    return flaky_test_func
 
 
 def prefetch(func):
@@ -111,13 +89,14 @@ def load_component_multi_modal():
 @prefetch
 @flaky()
 def load_small_conversational_model():
-    tokenizer = transformers.AutoTokenizer.from_pretrained(
-        "microsoft/DialoGPT-small", low_cpu_mem_usage=True
-    )
-    model = transformers.AutoModelWithLMHead.from_pretrained(
-        "satvikag/chatbot", low_cpu_mem_usage=True
-    )
-    return transformers.pipeline(task="conversational", model=model, tokenizer=tokenizer)
+    if _try_import_conversational_pipeline():
+        tokenizer = transformers.AutoTokenizer.from_pretrained(
+            "microsoft/DialoGPT-small", low_cpu_mem_usage=True
+        )
+        model = transformers.AutoModelWithLMHead.from_pretrained(
+            "satvikag/chatbot", low_cpu_mem_usage=True
+        )
+        return transformers.pipeline(task="conversational", model=model, tokenizer=tokenizer)
 
 
 @prefetch
@@ -196,8 +175,17 @@ def load_zero_shot_pipeline():
 @prefetch
 @flaky()
 def load_table_question_answering_pipeline():
+    # transformers>4.42.2 includes a change that causes this
+    # model to fail saving without the low_cpu_mem_usage flag.
+    # see https://github.com/huggingface/transformers/issues/32128
+    low_cpu_mem_usage = Version(transformers.__version__) > Version("4.42.2")
+
+    model = transformers.TapasForQuestionAnswering.from_pretrained(
+        "google/tapas-tiny-finetuned-wtq",
+        low_cpu_mem_usage=low_cpu_mem_usage,
+    )
     return transformers.pipeline(
-        task="table-question-answering", model="google/tapas-tiny-finetuned-wtq"
+        task="table-question-answering", model=model, tokenizer="google/tapas-tiny-finetuned-wtq"
     )
 
 
@@ -222,7 +210,10 @@ def load_ner_pipeline_aggregation():
 @prefetch
 @flaky()
 def load_conversational_pipeline():
-    return transformers.pipeline(model="AVeryRealHuman/DialoGPT-small-TonyStark")
+    if _try_import_conversational_pipeline():
+        return transformers.pipeline(
+            model="AVeryRealHuman/DialoGPT-small-TonyStark", task="conversational"
+        )
 
 
 @prefetch
@@ -253,6 +244,64 @@ def load_feature_extraction_pipeline():
     model = transformers.AutoModel.from_pretrained(st_arch)
     tokenizer = transformers.AutoTokenizer.from_pretrained(st_arch)
     return transformers.pipeline(model=model, tokenizer=tokenizer, task="feature-extraction")
+
+
+@prefetch
+@flaky()
+def load_peft_pipeline():
+    try:
+        from peft import LoraConfig, TaskType, get_peft_model
+    except ImportError:
+        # Do nothing if PEFT is not installed
+        return
+
+    base_model_id = "Elron/bleurt-tiny-512"
+    base_model = transformers.AutoModelForSequenceClassification.from_pretrained(base_model_id)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(base_model_id)
+
+    peft_config = LoraConfig(
+        task_type=TaskType.SEQ_CLS, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1
+    )
+    peft_model = get_peft_model(base_model, peft_config)
+    with suppress_logs("transformers.pipelines.base", filter_regex=_PEFT_PIPELINE_ERROR_MSG):
+        return transformers.pipeline(
+            task="text-classification", model=peft_model, tokenizer=tokenizer
+        )
+
+
+@prefetch
+@flaky()
+def load_custom_code_pipeline():
+    model = transformers.AutoModel.from_pretrained(
+        "hf-internal-testing/test_dynamic_model_with_util", trust_remote_code=True
+    )
+    tokenizer = transformers.AutoTokenizer.from_pretrained("google-bert/bert-base-uncased")
+    return transformers.pipeline(
+        task="feature-extraction",
+        model=model,
+        tokenizer=tokenizer,
+    )
+
+
+@prefetch
+@flaky()
+def load_custom_components_pipeline():
+    model = transformers.AutoModel.from_pretrained(
+        "hf-internal-testing/test_dynamic_model_with_tokenizer", trust_remote_code=True
+    )
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        "hf-internal-testing/test_dynamic_processor", trust_remote_code=True
+    )
+    feature_extractor = transformers.AutoFeatureExtractor.from_pretrained(
+        "hf-internal-testing/test_dynamic_processor",
+        trust_remote_code=True,
+    )
+    return transformers.pipeline(
+        task="feature-extraction",
+        model=model,
+        tokenizer=tokenizer,
+        feature_extractor=feature_extractor,
+    )
 
 
 def prefetch_models():

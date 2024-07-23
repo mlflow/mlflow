@@ -92,9 +92,11 @@ class KubernetesSubmittedRun(SubmittedRun):
     """
     Instance of SubmittedRun corresponding to a Kubernetes Job run launched to run an MLflow
     project.
-    :param mlflow_run_id: ID of the MLflow project run.
-    :param job_name: Kubernetes job name.
-    :param job_namespace: Kubernetes job namespace.
+
+    Args:
+        mlflow_run_id: ID of the MLflow project run.
+        job_name: Kubernetes job name.
+        job_namespace: Kubernetes job namespace.
     """
 
     # How often to poll run status when waiting on a run

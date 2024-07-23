@@ -15,13 +15,14 @@ jobs:
       pull-requests: write # preview_docs.py comments on PRs
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install dependencies
         run: |
           pip install requests
       - name: Create preview link
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CIRCLE_TOKEN: ${{ secrets.CIRCLE_TOKEN }}
         run: |
           python dev/preview_docs.py \
             --commit-sha ${{ github.event.pull_request.head.sha }} \

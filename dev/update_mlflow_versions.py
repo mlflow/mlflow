@@ -1,9 +1,35 @@
 import re
 from pathlib import Path
-from typing import List
+from typing import List, Union
 
 import click
 from packaging.version import Version
+
+_PYTHON_VERSION_FILES = [
+    Path("mlflow", "version.py"),
+]
+
+_PYPROJECT_TOML_FILES = [
+    Path("pyproject.toml"),
+    Path("pyproject.skinny.toml"),
+]
+
+_JAVA_VERSION_FILES = Path("mlflow", "java").rglob("*.java")
+
+_JAVA_POM_XML_FILES = Path("mlflow", "java").rglob("*.xml")
+
+_JS_VERSION_FILES = [
+    Path(
+        "mlflow",
+        "server",
+        "js",
+        "src",
+        "common",
+        "constants.tsx",
+    )
+]
+
+_R_VERSION_FILES = [Path("mlflow", "R", "mlflow", "DESCRIPTION")]
 
 
 def get_current_py_version() -> str:
@@ -11,12 +37,24 @@ def get_current_py_version() -> str:
     return re.search(r'VERSION = "(.+)"', text).group(1)
 
 
-def replace_dev_suffix_with(version, repl):
-    return re.sub(r"\.dev0$", repl, version)
+def get_java_py_version_pattern(version: str) -> str:
+    version_without_suffix = replace_dev_or_rc_suffix_with(version, "")
+    return rf"{re.escape(version_without_suffix)}(-SNAPSHOT)?"
 
 
-def replace_occurrences(files: List[Path], pattern: str, repl: str) -> None:
-    pattern = re.compile(pattern)
+def get_java_new_py_version(new_py_version: str) -> str:
+    return replace_dev_or_rc_suffix_with(new_py_version, "-SNAPSHOT")
+
+
+def replace_dev_or_rc_suffix_with(version, repl):
+    parsed = Version(version)
+    base_version = parsed.base_version
+    return base_version + repl if parsed.is_prerelease else version
+
+
+def replace_occurrences(files: List[Path], pattern: Union[str, re.Pattern], repl: str) -> None:
+    if not isinstance(pattern, re.Pattern):
+        pattern = re.compile(pattern)
     for f in files:
         old_text = f.read_text()
         if not pattern.search(old_text):
@@ -25,54 +63,105 @@ def replace_occurrences(files: List[Path], pattern: str, repl: str) -> None:
         f.write_text(new_text)
 
 
+def replace_python(old_version: str, new_py_version: str, paths: List[Path]) -> None:
+    replace_occurrences(
+        files=paths,
+        pattern=re.escape(old_version),
+        repl=new_py_version,
+    )
+
+
+def replace_pyproject_toml(new_py_version: str, paths: List[Path]) -> None:
+    replace_occurrences(
+        files=paths,
+        pattern=re.compile(r'^version\s+=\s+".+"$', re.MULTILINE),
+        repl=f'version = "{new_py_version}"',
+    )
+
+
+def replace_js(old_version: str, new_py_version: str, paths: List[Path]) -> None:
+    replace_occurrences(
+        files=paths,
+        pattern=re.escape(old_version),
+        repl=new_py_version,
+    )
+
+
+def replace_java(old_version: str, new_py_version: str, paths: List[Path]) -> None:
+    old_py_version_pattern = get_java_py_version_pattern(old_version)
+    dev_suffix_replaced = get_java_new_py_version(new_py_version)
+
+    replace_occurrences(
+        files=paths,
+        pattern=old_py_version_pattern,
+        repl=dev_suffix_replaced,
+    )
+
+
+# Note: the pom.xml files define versions of dependencies as
+# well. this causes issues when the mlflow version matches the
+# version of a dependency. to work around, we make sure to
+# match only the correct keys
+def replace_java_pom_xml(old_version: str, new_py_version: str, paths: List[Path]) -> None:
+    old_py_version_pattern = get_java_py_version_pattern(old_version)
+    dev_suffix_replaced = get_java_new_py_version(new_py_version)
+
+    mlflow_version_tag_pattern = r"<mlflow.version>"
+    mlflow_spark_pattern = (
+        r"<artifactId>mlflow-spark_\${scala\.compat\.version}</artifactId>\s+<version>"
+    )
+    mlflow_parent_pattern = r"<artifactId>mlflow-parent</artifactId>\s+<version>"
+
+    # combine the three tags together to form the regex
+    mlflow_replace_pattern = (
+        rf"({mlflow_version_tag_pattern}|{mlflow_spark_pattern}|{mlflow_parent_pattern})"
+        + f"{old_py_version_pattern}"
+        + r"(</mlflow.version>|</version>)"
+    )
+
+    # group 1: everything before the version
+    # group 2: optional -SNAPSHOT
+    # group 3: everything after the version
+    replace_str = f"\\g<1>{dev_suffix_replaced}\\g<3>"
+
+    replace_occurrences(
+        files=paths,
+        pattern=mlflow_replace_pattern,
+        repl=replace_str,
+    )
+
+
+def replace_r(old_py_version: str, new_py_version: str, paths: List[Path]) -> None:
+    current_py_version_without_suffix = replace_dev_or_rc_suffix_with(old_py_version, "")
+
+    replace_occurrences(
+        files=paths,
+        pattern=f"Version: {re.escape(current_py_version_without_suffix)}",
+        repl=f"Version: {replace_dev_or_rc_suffix_with(new_py_version, '')}",
+    )
+
+
 def update_versions(new_py_version: str) -> None:
     """
-    `new_py_version` is either a release version (e.g. "2.1.0") or a dev version
-    (e.g. "2.1.0.dev0").
+    `new_py_version` is either:
+      - a release version (e.g. "2.1.0")
+      - a RC version (e.g. "2.1.0rc0")
+      - a dev version (e.g. "2.1.0.dev0")
     """
-    current_py_version = get_current_py_version()
-    current_py_version_without_suffix = replace_dev_suffix_with(current_py_version, "")
+    old_py_version = get_current_py_version()
 
-    # Python
-    replace_occurrences(
-        files=[Path("mlflow", "version.py")],
-        pattern=re.escape(current_py_version),
-        repl=new_py_version,
-    )
-    # JS
-    replace_occurrences(
-        files=[
-            Path(
-                "mlflow",
-                "server",
-                "js",
-                "src",
-                "common",
-                "constants.tsx",
-            )
-        ],
-        pattern=re.escape(current_py_version),
-        repl=new_py_version,
-    )
-
-    # Java
-    for java_extension in ["xml", "java"]:
-        replace_occurrences(
-            files=Path("mlflow", "java").rglob(f"*.{java_extension}"),
-            pattern=rf"{re.escape(current_py_version_without_suffix)}(-SNAPSHOT)?",
-            repl=replace_dev_suffix_with(new_py_version, "-SNAPSHOT"),
-        )
-
-    # R
-    replace_occurrences(
-        files=[Path("mlflow", "R", "mlflow", "DESCRIPTION")],
-        pattern=f"Version: {re.escape(current_py_version_without_suffix)}",
-        repl=f"Version: {replace_dev_suffix_with(new_py_version, '')}",
-    )
+    replace_python(old_py_version, new_py_version, _PYTHON_VERSION_FILES)
+    replace_pyproject_toml(new_py_version, _PYPROJECT_TOML_FILES)
+    replace_js(old_py_version, new_py_version, _JS_VERSION_FILES)
+    replace_java(old_py_version, new_py_version, _JAVA_VERSION_FILES)
+    replace_java_pom_xml(old_py_version, new_py_version, _JAVA_POM_XML_FILES)
+    replace_r(old_py_version, new_py_version, _R_VERSION_FILES)
 
 
 def validate_new_version(
-    ctx: click.Context, param: click.Parameter, value: str  # pylint: disable=unused-argument
+    ctx: click.Context,
+    param: click.Parameter,
+    value: str,
 ) -> str:
     new = Version(value)
     current = Version(get_current_py_version())

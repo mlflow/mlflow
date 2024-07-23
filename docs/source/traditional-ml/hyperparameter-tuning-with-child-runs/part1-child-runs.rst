@@ -310,7 +310,7 @@ with different conditions of hyperparameter selection criteria.
 Once we execute these three tuning run tests, we can view the results in the UI:
 
 .. figure:: ../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/child-runs.gif
-   :width: 860px
+   :width: 1024px
    :align: center
    :alt: Using child runs
 
@@ -342,7 +342,7 @@ recommended to develop your own implementation that fulfills the following requi
 The results in the UI for this challenge are shown below.
 
 .. figure:: ../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/parent-child-challenge.gif
-   :width: 860px
+   :width: 1024px
    :align: center
    :alt: Challenge
 

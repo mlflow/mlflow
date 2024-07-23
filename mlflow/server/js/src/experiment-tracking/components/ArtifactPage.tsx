@@ -19,13 +19,15 @@ import { MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } from '../../model
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import Utils from '../../common/utils/Utils';
 import { getUUID } from '../../common/utils/ActionUtils';
-import './ArtifactPage.css';
 import { getLoggedModelPathsFromTags } from '../../common/utils/TagUtils';
+import { ArtifactViewBrowserSkeleton } from './artifact-view-components/ArtifactViewSkeleton';
+import { DangerIcon, Empty } from '@databricks/design-system';
+import { ArtifactViewErrorState } from './artifact-view-components/ArtifactViewErrorState';
 
 type ArtifactPageImplProps = {
   runUuid: string;
   initialSelectedArtifactPath?: string;
-  artifactRootUri: string;
+  artifactRootUri?: string;
   apis: any;
   listArtifactsApi: (...args: any[]) => any;
   searchModelVersionsApi: (...args: any[]) => any;
@@ -49,7 +51,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
           // eslint-disable-next-line max-len
           defaultMessage="Unable to list artifacts stored under {artifactUri} for the current run. Please contact your tracking server administrator to notify them of this error, which can happen when the tracking server lacks permission to list artifacts under the current run's root artifact directory."
           // eslint-disable-next-line max-len
-          description='Error message when the artifact is unable to load. This message is displayed in the open source ML flow only'
+          description="Error message when the artifact is unable to load. This message is displayed in the open source ML flow only"
           values={{ artifactUri: this.props.artifactRootUri }}
         />
       </span>
@@ -139,7 +141,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
 
   renderArtifactView = (isLoading: any, shouldRenderError: any, requests: any) => {
     if (isLoading) {
-      return <Spinner />;
+      return <ArtifactViewBrowserSkeleton />;
     }
     if (this.renderErrorCondition(shouldRenderError)) {
       const failedReq = requests[0];
@@ -147,25 +149,11 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
         console.error(failedReq.error);
       }
       return (
-        <div className='mlflow-artifact-error'>
-          <div className='artifact-load-error-outer-container'>
-            <div className='artifact-load-error-container'>
-              <div>
-                <div className='artifact-load-error-header'>
-                  <FormattedMessage
-                    defaultMessage='Loading Artifacts Failed'
-                    // eslint-disable-next-line max-len
-                    description='Error message rendered when loading the artifacts for the experiment fails'
-                  />
-                </div>
-                <div className='artifact-load-error-info'>
-                  <i className='far fa-times-circle artifact-load-error-icon' aria-hidden='true' />
-                  {this.getFailedtoListArtifactsMsg()}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ArtifactViewErrorState
+          css={{ flex: this.props.useAutoHeight ? 1 : 'unset', height: this.props.useAutoHeight ? 'auto' : undefined }}
+          data-testid="artifact-view-error"
+          description={this.getFailedtoListArtifactsMsg()}
+        />
       );
     }
     return (
@@ -192,19 +180,17 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
 type ArtifactPageOwnProps = Omit<
   ArtifactPageImplProps,
   | 'apis'
-  | 'artifactRootUri'
   | 'initialSelectedArtifactPath'
   | 'listArtifactsApi'
   | 'searchModelVersionsApi'
+  /* prettier-ignore */
 >;
 
 const mapStateToProps = (state: any, ownProps: ArtifactPageOwnProps & WithRouterNextProps) => {
   const { runUuid, location } = ownProps;
   const currentPathname = location?.pathname || '';
 
-  const initialSelectedArtifactPathMatch = currentPathname.match(
-    /\/(?:artifactPath|artifacts)\/(.+)/,
-  );
+  const initialSelectedArtifactPathMatch = currentPathname.match(/\/(?:artifactPath|artifacts)\/(.+)/);
   // The dot ("*") parameter behavior is not stable between implementations
   // so we'll extract the catch-all after /artifactPath, e.g.
   // `/experiments/123/runs/321/artifactPath/models/requirements.txt`
@@ -213,7 +199,7 @@ const mapStateToProps = (state: any, ownProps: ArtifactPageOwnProps & WithRouter
   const initialSelectedArtifactPath = initialSelectedArtifactPathMatch?.[1] || undefined;
 
   const { apis } = state;
-  const artifactRootUri = getArtifactRootUri(runUuid, state);
+  const artifactRootUri = ownProps.artifactRootUri ?? getArtifactRootUri(runUuid, state);
 
   // Autoselect most recently created logged model
   let selectedPath = initialSelectedArtifactPath;

@@ -104,8 +104,5 @@ const mapStateToProps = (state: any, ownProps: WithRouterNextProps<{ metricKey: 
 
 const MetricPageWithRouter = withRouterNext(connect(mapStateToProps)(MetricPageImpl));
 
-export const MetricPage = withErrorBoundary(
-  ErrorUtils.mlflowServices.EXPERIMENTS,
-  MetricPageWithRouter,
-);
+export const MetricPage = withErrorBoundary(ErrorUtils.mlflowServices.EXPERIMENTS, MetricPageWithRouter);
 export default MetricPage;

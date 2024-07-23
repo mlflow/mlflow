@@ -1,14 +1,57 @@
-import {
-  FormUI,
-  InfoIcon,
-  Input,
-  Tooltip,
-  Select,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { FormUI, InfoIcon, Input, LegacyTooltip, useDesignSystemTheme, Tag } from '@databricks/design-system';
 import { usePromptEvaluationParameters } from './hooks/usePromptEvaluationParameters';
 import { FormattedMessage } from 'react-intl';
 import { LineSmoothSlider } from '../LineSmoothSlider';
+import { isArray, uniq } from 'lodash';
+import { useState } from 'react';
+
+const EvaluationCreateParameterListControl = ({
+  parameterValue,
+  updateParameter,
+  disabled,
+}: {
+  parameterValue: number | string[] | undefined;
+  updateParameter: (value: number | string[]) => void;
+  disabled?: boolean;
+}) => {
+  const [draftValue, setDraftValue] = useState<string>('');
+  const { theme } = useDesignSystemTheme();
+
+  if (!isArray(parameterValue)) {
+    return null;
+  }
+
+  return (
+    <>
+      <div css={{ marginTop: theme.spacing.xs, marginBottom: theme.spacing.sm }}>
+        {parameterValue.map((stop, index) => (
+          <Tag
+            key={index}
+            closable
+            onClose={() => {
+              updateParameter(parameterValue.filter((s) => s !== stop));
+            }}
+          >
+            {stop}
+          </Tag>
+        ))}
+      </div>
+      <Input
+        allowClear
+        css={{ width: '100%' }}
+        disabled={disabled}
+        onChange={(e) => setDraftValue(e.target.value)}
+        value={draftValue}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && draftValue.trim()) {
+            updateParameter(uniq([...parameterValue, draftValue]));
+            setDraftValue('');
+          }
+        }}
+      />
+    </>
+  );
+};
 
 export const EvaluationCreatePromptParameters = ({
   disabled = false,
@@ -29,8 +72,8 @@ export const EvaluationCreatePromptParameters = ({
     <div css={{ marginBottom: theme.spacing.lg }}>
       <FormUI.Label css={{ marginBottom: theme.spacing.md }}>
         <FormattedMessage
-          defaultMessage='Model parameters'
-          description='Experiment page > new run modal > AI gateway model parameters label'
+          defaultMessage="Model parameters"
+          description="Experiment page > new run modal > served LLM model parameters label"
         />
       </FormUI.Label>
       {parameterDefinitions.map((parameterDef) => (
@@ -38,7 +81,7 @@ export const EvaluationCreatePromptParameters = ({
           <>
             <FormUI.Label htmlFor={parameterDef.name} css={{ span: { fontWeight: 'normal' } }}>
               <FormattedMessage {...parameterDef.string} />
-              <Tooltip title={<FormattedMessage {...parameterDef.helpString} />} placement='right'>
+              <LegacyTooltip title={<FormattedMessage {...parameterDef.helpString} />} placement="right">
                 <InfoIcon
                   css={{
                     marginLeft: theme.spacing.sm,
@@ -46,7 +89,7 @@ export const EvaluationCreatePromptParameters = ({
                     color: theme.colors.textSecondary,
                   }}
                 />
-              </Tooltip>
+              </LegacyTooltip>
             </FormUI.Label>
             <FormUI.Hint></FormUI.Hint>
             {parameterDef.name === 'temperature' && (
@@ -57,13 +100,13 @@ export const EvaluationCreatePromptParameters = ({
                 min={parameterDef.min}
                 step={parameterDef.step}
                 defaultValue={parameters[parameterDef.name] || 0}
-                handleLineSmoothChange={(value) => updateParameter(parameterDef.name, value)}
+                onChange={(value) => updateParameter(parameterDef.name, value)}
               />
             )}
             {parameterDef.type === 'input' && (
               <Input
                 data-testid={parameterDef.name}
-                type='number'
+                type="number"
                 disabled={disabled}
                 max={parameterDef.max}
                 min={parameterDef.min}
@@ -73,15 +116,10 @@ export const EvaluationCreatePromptParameters = ({
               />
             )}
             {parameterDef.type === 'list' && (
-              <Select
-                allowClear
-                mode='tags'
-                style={{ width: '100%' }}
-                open={false}
+              <EvaluationCreateParameterListControl
+                parameterValue={parameters[parameterDef.name] ?? []}
                 disabled={disabled}
-                onChange={(e) => updateParameter(parameterDef.name, e)}
-                value={parameters[parameterDef.name] || []}
-                dangerouslySetAntdProps={{ suffixIcon: null }}
+                updateParameter={(value) => updateParameter(parameterDef.name, value)}
               />
             )}
           </>

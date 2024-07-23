@@ -31,6 +31,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _compare_logged_code_paths,
     _mlflow_major_version_string,
+    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 
@@ -48,7 +49,7 @@ def h2o_iris_model():
             "target": ([f"Flower {i}" for i in iris.target]),
         }
     )
-    train, test = data.split_frame(ratios=[0.7])  # pylint: disable=unbalanced-tuple-unpacking
+    train, test = data.split_frame(ratios=[0.7])
 
     h2o_gbm = H2OGradientBoostingEstimator(ntrees=10, max_depth=6)
     h2o_gbm.train(["feature1", "feature2"], "target", training_frame=train)
@@ -335,12 +336,14 @@ def test_pyfunc_serve_and_score(h2o_iris_model):
     model, inference_dataframe = h2o_iris_model
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.h2o.log_model(model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.h2o.log_model(
+            model, artifact_path, input_example=inference_dataframe.as_data_frame()
+        )
 
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_dataframe.as_data_frame(),
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
     decoded_json = json.loads(resp.content.decode("utf-8"))

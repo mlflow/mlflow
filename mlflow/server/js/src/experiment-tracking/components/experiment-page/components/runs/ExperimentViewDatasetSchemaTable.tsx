@@ -10,11 +10,11 @@ export const ExperimentViewDatasetSchemaTable = ({
   schema,
   filter,
 }: ExperimentViewDatasetSchemaTableProps): JSX.Element => {
-  const hasFilter = (name: string, type: string) => {
+  const hasFilter = (name?: string, type?: string) => {
     return (
       filter === '' ||
-      name.toLowerCase().includes(filter.toLowerCase()) ||
-      type.toLowerCase().includes(filter.toLowerCase())
+      name?.toLowerCase().includes(filter.toLowerCase()) ||
+      type?.toLowerCase().includes(filter.toLowerCase())
     );
   };
 
@@ -25,19 +25,14 @@ export const ExperimentViewDatasetSchemaTable = ({
   const getNameHeader = () => {
     return (
       <FormattedMessage
-        defaultMessage='Name'
+        defaultMessage="Name"
         description={'Header for "name" column in the experiment run dataset schema'}
       />
     );
   };
 
   const getTypeHeader = () => {
-    return (
-      <FormattedMessage
-        defaultMessage='Type'
-        description={'Header for "type" column in the UC table schema'}
-      />
-    );
+    return <FormattedMessage defaultMessage="Type" description={'Header for "type" column in the UC table schema'} />;
   };
 
   return (
@@ -51,8 +46,8 @@ export const ExperimentViewDatasetSchemaTable = ({
           <TableRow>
             <TableCell>
               <FormattedMessage
-                defaultMessage='No results match this search.'
-                description={'No results message in datasets drawer table'}
+                defaultMessage="No results match this search."
+                description="No results message in datasets drawer table"
               />
             </TableCell>
           </TableRow>

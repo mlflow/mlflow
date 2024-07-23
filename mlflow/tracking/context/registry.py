@@ -71,9 +71,12 @@ def resolve_tags(tags=None):
     providers can be registered as described in
     :py:class:`mlflow.tracking.context.RunContextProvider`.
 
-    :param tags: A dictionary of tags to override. If specified, tags passed in this argument will
-                 override those inferred from the context.
-    :return: A dictionary of resolved tags.
+    Args:
+        tags: A dictionary of tags to override. If specified, tags passed in this argument will
+            override those inferred from the context.
+
+    Returns:
+        A dictionary of resolved tags.
     """
 
     all_tags = {}

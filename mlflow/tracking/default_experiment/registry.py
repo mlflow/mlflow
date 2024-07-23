@@ -55,12 +55,13 @@ _default_experiment_provider_registry.register_entrypoints()
 
 
 def get_experiment_id():
-    """Get an experiment ID for the current context. The experiment ID is fetched by querying
-    providers, in the order that they were registered.
+    """Get an experiment ID for the current context.
 
+    The experiment ID is fetched by querying providers, in the order that they were registered.
     This function iterates through all default experiment context providers in the registry.
 
-    :return: An experiment_id.
+    Returns:
+        An experiment_id.
     """
 
     experiment_id = DEFAULT_EXPERIMENT_ID

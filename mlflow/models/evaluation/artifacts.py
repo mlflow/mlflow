@@ -124,11 +124,15 @@ _InferredArtifactProperties = namedtuple(
 def _infer_artifact_type_and_ext(artifact_name, raw_artifact, custom_metric_tuple):
     """
     This function performs type and file extension inference on the provided artifact
-    :param artifact_name: The name of the provided artifact
-    :param raw_artifact: The artifact object
-    :param custom_metric_tuple: Containing a user provided function and its index in the
-                                ``custom_metrics`` parameter of ``mlflow.evaluate``
-    :return: InferredArtifactProperties namedtuple
+
+    Args:
+        artifact_name: The name of the provided artifact
+        raw_artifact: The artifact object
+        custom_metric_tuple: Containing a user provided function and its index in the
+            ``custom_metrics`` parameter of ``mlflow.evaluate``
+
+    Returns:
+        InferredArtifactProperties namedtuple
     """
 
     exception_header = (

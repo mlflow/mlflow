@@ -24,6 +24,7 @@ import mlflow.utils.file_utils
 from mlflow import pyfunc
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.environment_variables import MLFLOW_DFS_TMP
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example
 from mlflow.spark import _add_code_from_conf_to_system_path
@@ -271,6 +272,13 @@ def test_model_export_with_signature_and_examples(spark_model_iris, iris_signatu
                     assert all((_read_example(mlflow_model, path) == example).all())
 
 
+def test_model_export_raise_when_example_is_spark_dataframe(spark, spark_model_iris, model_path):
+    features_df = spark_model_iris.pandas_df.drop("label", axis=1)
+    example = spark.createDataFrame(features_df.head(3))
+    with pytest.raises(MlflowException, match="Examples can not be provided as Spark Dataframe."):
+        mlflow.spark.save_model(spark_model_iris.model, path=model_path, input_example=example)
+
+
 def test_log_model_with_signature_and_examples(spark_model_iris, iris_signature):
     features_df = spark_model_iris.pandas_df.drop("label", axis=1)
     example_ = features_df.head(3)
@@ -431,15 +439,20 @@ def test_load_spark_model_from_models_uri(
         mlflow.spark.load_model(f"models:/{model_name}/1")
         # Assert that we downloaded both the MLmodel file and the whole model itself using
         # the models:/ URI
+        kwargs = (
+            {"lineage_header_info": None}
+            if artifact_repo_class is UnityCatalogModelsArtifactRepository
+            else {}
+        )
         assert mock_download_artifacts.mock_calls == [
-            mock.call("MLmodel", None),
-            mock.call("", None),
+            mock.call("MLmodel", None, **kwargs),
+            mock.call("", None, **kwargs),
         ]
         mock_download_artifacts.reset_mock()
         mlflow.spark.load_model(f"models:/{model_name}@Champion")
         assert mock_download_artifacts.mock_calls == [
-            mock.call("MLmodel", None),
-            mock.call("", None),
+            mock.call("MLmodel", None, **kwargs),
+            mock.call("", None, **kwargs),
         ]
         assert get_model_version_by_alias_mock.called_with(model_name, "Champion")
 
@@ -825,9 +838,7 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
         "mlflow.utils.databricks_utils.MlflowCredentialContext", autospec=True
     ), mock.patch(
         "mlflow.utils.databricks_utils._get_dbutils", mock_get_dbutils
-    ), mock.patch.object(
-        spark_model_iris.model, "save"
-    ) as mock_save, mock.patch(
+    ), mock.patch.object(spark_model_iris.model, "save") as mock_save, mock.patch(
         "mlflow.models.infer_pip_requirements", return_value=[]
     ) as mock_infer:
         with mlflow.start_run():
@@ -850,7 +861,7 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
 def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
     monkeypatch, spark_model_iris, dummy_read_shows_mlflowdbfs_available
 ):
-    def mock_spark_session_load(path):  # pylint: disable=unused-argument
+    def mock_spark_session_load(path):
         if dummy_read_shows_mlflowdbfs_available:
             raise Exception("MlflowdbfsClient operation failed!")
         else:
@@ -886,9 +897,7 @@ def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
     ), mock.patch(
         "mlflow.utils.databricks_utils._get_dbutils",
         mock_get_dbutils,
-    ), mock.patch.object(
-        spark_model_iris.model, "save"
-    ) as mock_save:
+    ), mock.patch.object(spark_model_iris.model, "save") as mock_save:
         with mlflow.start_run():
             monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.0")
             mlflow.spark.log_model(spark_model=spark_model_iris.model, artifact_path="model")

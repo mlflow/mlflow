@@ -1,4 +1,5 @@
 import base64
+import json
 import os
 import posixpath
 from unittest import mock
@@ -7,7 +8,8 @@ import pytest
 from azure.storage.blob import BlobPrefix, BlobProperties, BlobServiceClient
 
 from mlflow.entities.multipart_upload import MultipartUploadPart
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted
+from mlflow.store.artifact.artifact_repo import try_read_trace_data
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 
@@ -44,7 +46,6 @@ def mock_client():
 
 
 def test_artifact_uri_factory(mock_client):
-    # pylint: disable=unused-argument
     # We pass in the mock_client here to clear Azure environment variables, but we don't use it;
     # We do need to set up a fake access key for the code to run though
     os.environ["AZURE_STORAGE_ACCESS_KEY"] = ""
@@ -55,7 +56,6 @@ def test_artifact_uri_factory(mock_client):
 
 @mock.patch("azure.identity.DefaultAzureCredential")
 def test_default_az_cred_if_no_env_vars(mock_default_azure_credential, mock_client):
-    # pylint: disable=unused-argument
     # We pass in the mock_client here to clear Azure environment variables, but we don't use it
     AzureBlobArtifactRepository(TEST_URI)
     assert mock_default_azure_credential.call_count == 1
@@ -264,7 +264,7 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_not_blob_con
         without recursively listing the same artifacts at every level of the
         directory traversal.
         """
-        # pylint: disable=unused-argument
+
         if posixpath.abspath(kwargs["name_starts_with"]) == posixpath.abspath(TEST_ROOT_PATH):
             return MockBlobList([blob_props_1, blob_props_2])
         else:
@@ -313,7 +313,7 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_blob_contain
         `_download_artifacts_into` subroutine without recursively listing the same artifacts at
         every level of the directory traversal.
         """
-        # pylint: disable=unused-argument
+
         if posixpath.abspath(kwargs["name_starts_with"]) == "/":
             return MockBlobList([dir_prefix])
         if posixpath.abspath(kwargs["name_starts_with"]) == posixpath.abspath(subdir_path):
@@ -355,7 +355,7 @@ def test_download_artifact_throws_value_error_when_listed_blobs_do_not_contain_a
         without recursively listing the same artifacts at every level of the
         directory traversal.
         """
-        # pylint: disable=unused-argument
+
         if posixpath.abspath(kwargs["name_starts_with"]) == posixpath.abspath(TEST_ROOT_PATH):
             # Return a blob that is not prefixed by the root path of the artifact store. This
             # should result in an exception being raised
@@ -396,3 +396,24 @@ def test_complete_multipart_upload(mock_client, tmp_path):
     repo.complete_multipart_upload("local_file", "", parts)
     mock_client.get_blob_client.assert_called_with("container", f"{TEST_ROOT_PATH}/local_file")
     mock_client.get_blob_client().commit_block_list.assert_called_with(["a", "b"])
+
+
+def test_trace_data(mock_client, tmp_path):
+    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+    with pytest.raises(MlflowException, match=r"Trace data not found for path="):
+        repo.download_trace_data()
+    trace_data_path = tmp_path.joinpath("traces.json")
+    trace_data_path.write_text("invalid data")
+    with mock.patch(
+        "mlflow.store.artifact.artifact_repo.try_read_trace_data",
+        side_effect=lambda x: try_read_trace_data(trace_data_path),
+    ), pytest.raises(MlflowTraceDataCorrupted, match=r"Trace data is corrupted for path="):
+        repo.download_trace_data()
+
+    mock_trace_data = {"spans": [], "request": {"test": 1}, "response": {"test": 2}}
+    trace_data_path.write_text(json.dumps(mock_trace_data))
+    with mock.patch(
+        "mlflow.store.artifact.artifact_repo.try_read_trace_data",
+        side_effect=lambda x: try_read_trace_data(trace_data_path),
+    ):
+        assert repo.download_trace_data() == mock_trace_data

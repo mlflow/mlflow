@@ -10,10 +10,11 @@ import pandas as pd
 from mlflow.exceptions import BAD_REQUEST, INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.recipes.cards import pandas_renderer
 from mlflow.utils.databricks_utils import (
-    get_databricks_runtime,
+    get_databricks_runtime_version,
     is_in_databricks_runtime,
     is_running_in_ipython_environment,
 )
+from mlflow.utils.os import is_windows
 
 _logger = logging.getLogger(__name__)
 
@@ -25,15 +26,19 @@ _MAX_PROFILE_COL_SIZE = 10000  # 10k Cols
 def get_merged_eval_metrics(
     eval_metrics: Dict[str, Dict], ordered_metric_names: Optional[List[str]] = None
 ):
-    """Returns a merged Pandas DataFrame from a map of dataset to evaluation metrics.
+    """
+    Returns a merged Pandas DataFrame from a map of dataset to evaluation metrics.
     Optionally, the rows in the DataFrame are ordered by input ordered metric names.
 
-    :param eval_metrics: Dict maps from dataset name to a Dict of evaluation metrics, which itself
-                         is a map from metric name to metric value.
-    :param ordered_metric_names: List containing metric names. The ordering of the output is
-                                 determined by this list, if provided.
-    :return: Pandas DataFrame containing evaluation metrics. The DataFrame is indexed by metric
-             name. Columns are dataset names.
+    Args:
+        eval_metrics: Dict maps from dataset name to a Dict of evaluation metrics, which itself
+            is a map from metric name to metric value.
+        ordered_metric_names: List containing metric names. The ordering of the output is
+            determined by this list, if provided.
+
+    Returns:
+        Pandas DataFrame containing evaluation metrics. The DataFrame is indexed by metric
+        name. Columns are dataset names.
     """
     from pandas import DataFrame
 
@@ -75,8 +80,7 @@ def display_html(html_data: Optional[str] = None, html_file_path: Optional[str] 
         html_file_path = html_file_path if html_data is None else None
 
         if is_in_databricks_runtime():
-            dbr_version_image_key = get_databricks_runtime()
-            dbr_version = dbr_version_image_key.split("-")[0]
+            dbr_version = get_databricks_runtime_version()
             if int(dbr_version.split(".")[0]) < 11:
                 raise MlflowException(
                     f"Use Databricks Runtime 11 or newer with MLflow Recipes. "
@@ -123,28 +127,35 @@ def display_html(html_data: Optional[str] = None, html_file_path: Optional[str] 
 # multiprocessing and pytest don't play well together on Windows.
 # Relevant code: https://github.com/ydataai/pandas-profiling/blob/f8bad5dde27e3f87f11ac74fb8966c034bc22db8/src/pandas_profiling/model/pandas/summary_pandas.py#L76-L97
 def _get_pool_size():
-    return 1 if "PYTEST_CURRENT_TEST" in os.environ and os.name == "nt" else 0
+    return 1 if "PYTEST_CURRENT_TEST" in os.environ and is_windows() else 0
 
 
 def get_pandas_data_profiles(inputs: Iterable[Tuple[str, pd.DataFrame]]) -> str:
     """
     Returns a data profiling string over input data frame.
 
-    :param inputs: Either a single "glimpse" DataFrame that contains the statistics, or a
-    collection of (title, DataFrame) pairs where each pair names a separate "glimpse"
-    and they are all visualized in comparison mode.
-    :return: a data profiling string such as Pandas profiling ProfileReport.
+    Args:
+        inputs: Either a single "glimpse" DataFrame that contains the statistics, or a
+            collection of (title, DataFrame) pairs where each pair names a separate "glimpse"
+            and they are all visualized in comparison mode.
+
+    Returns:
+        a data profiling string such as Pandas profiling ProfileReport.
     """
     truncated_input = [truncate_pandas_data_profile(*input) for input in inputs]
     return pandas_renderer.get_html(truncated_input)
 
 
 def truncate_pandas_data_profile(title: str, data_frame) -> str:
-    """Returns a data profiling string over input data frame.
+    """
+    Returns a data profiling string over input data frame.
 
-    :param title: String, the title of the data profile.
-    :param data_frame: DataFrame, contains data to be profiled.
-    :return: a data profiling string such as Pandas profiling ProfileReport.
+    Args:
+        title: The title of the data profile.
+        data_frame: Contains data to be profiled.
+
+    Returns:
+        A data profiling string such as Pandas profiling ProfileReport.
     """
     if len(data_frame) == 0:
         return (title, data_frame)
@@ -174,11 +185,11 @@ def validate_classification_config(
     task: str, positive_class: str, input_df: pd.DataFrame, target_col: str
 ):
     """
-
-    :param task:
-    :param positive_class:
-    :param input_df:
-    :param target_col:
+    Args:
+        task:
+        positive_class:
+        input_df:
+        target_col:
     """
     if task == "classification":
         classes = np.unique(input_df[target_col])

@@ -34,3 +34,8 @@ boto3:
 tiktoken:
   pip_release: tiktoken
   max_major_version: 0
+
+slowapi:
+  pip_release: slowapi
+  max_major_version: 0
+  minimum: "0.1.9"

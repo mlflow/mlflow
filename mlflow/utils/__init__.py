@@ -1,9 +1,7 @@
-import base64
 import inspect
 import logging
 import socket
 import subprocess
-import uuid
 from contextlib import closing
 from itertools import islice
 from sys import version_info
@@ -19,37 +17,6 @@ _logger = logging.getLogger(__name__)
 
 def get_major_minor_py_version(py_version):
     return ".".join(py_version.split(".")[:2])
-
-
-def get_unique_resource_id(max_length=None):
-    """
-    Obtains a unique id that can be included in a resource name. This unique id is a valid
-    DNS subname.
-
-    Args:
-        max_length: The maximum length of the identifier.
-
-    Returns:
-        A unique identifier that can be appended to a user-readable resource name to avoid
-        naming collisions.
-    """
-    if max_length is not None and max_length <= 0:
-        raise ValueError(
-            "The specified maximum length for the unique resource id must be positive!"
-        )
-
-    uuid_bytes = uuid.uuid4().bytes
-    # Use base64 encoding to shorten the UUID length. Note that the replacement of the
-    # unsupported '+' symbol maintains uniqueness because the UUID byte string is of a fixed,
-    # 16-byte length
-    uuid_b64 = base64.b64encode(uuid_bytes)
-    # In Python3, `uuid_b64` is a `bytes` object. It needs to be
-    # converted to a string
-    uuid_b64 = uuid_b64.decode("ascii")
-    unique_id = uuid_b64.rstrip("=\n").replace("/", "-").replace("+", "AB").lower()
-    if max_length is not None:
-        unique_id = unique_id[: int(max_length)]
-    return unique_id
 
 
 def reraise(tp, value, tb=None):
@@ -164,7 +131,7 @@ def _inspect_original_var_name(var, fallback_name):
 
         frame = inspect.currentframe().f_back
         while frame is not None:
-            arg_info = inspect.getargvalues(frame)  # pylint: disable=deprecated-method
+            arg_info = inspect.getargvalues(frame)
 
             fixed_args = [arg_info.locals[arg_name] for arg_name in arg_info.args]
             varlen_args = list(arg_info.locals[arg_info.varargs]) if arg_info.varargs else []
@@ -283,16 +250,23 @@ class AttrDict(dict):
 
     Examples
     --------
-    >>> d = AttrDict({'a': 1, 'b': 2})
+    >>> d = AttrDict({"a": 1, "b": 2})
     >>> d.a
     1
-    >>> d = AttrDict({'a': 1, 'b': {'c': 3, 'd': 4}})
+    >>> d = AttrDict({"a": 1, "b": {"c": 3, "d": 4}})
     >>> d.b.c
     3
     """
 
     def __getattr__(self, attr):
-        value = self[attr]
+        try:
+            value = self[attr]
+        except KeyError:
+            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
         if isinstance(value, dict):
             return AttrDict(value)
         return value
+
+
+def get_parent_module(module):
+    return module[0 : module.rindex(".")]

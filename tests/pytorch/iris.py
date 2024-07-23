@@ -1,7 +1,3 @@
-# pylint: disable=arguments-differ
-# pylint: disable=unused-argument
-# pylint: disable=abstract-method
-
 import tempfile
 
 import pytorch_lightning as pl
@@ -26,7 +22,7 @@ def create_multiclass_accuracy():
         if Version(torchmetrics.__version__) >= Version("0.11"):
             return Accuracy(task="multiclass", num_classes=3)
         else:
-            return Accuracy()  # pylint: disable=no-value-for-parameter
+            return Accuracy()
     except ImportError:
         from pytorch_lightning.metrics import Accuracy
 

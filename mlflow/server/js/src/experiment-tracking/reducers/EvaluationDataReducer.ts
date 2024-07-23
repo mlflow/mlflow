@@ -1,28 +1,15 @@
-import { Action, combineReducers } from 'redux';
+import { combineReducers } from 'redux';
 import { fulfilled, pending, rejected } from '../../common/utils/ActionUtils';
 import { EvaluationArtifactTable, PendingEvaluationArtifactTableEntry } from '../types';
 
-import {
-  AsyncAction,
-  AsyncFulfilledAction,
-  AsyncPendingAction,
-  AsyncRejectedAction,
-} from '../../redux-types';
-import { ModelGatewayService } from '../sdk/ModelGatewayService';
-import {
+import { AsyncAction, AsyncFulfilledAction, AsyncPendingAction, AsyncRejectedAction } from '../../redux-types';
+import type {
   DiscardPendingEvaluationDataAction,
-  EVALUATE_PROMPT_TABLE_VALUE,
   EvaluateAddInputValues,
   EvaluatePromptTableValueAction,
-  WRITE_BACK_EVALUATION_ARTIFACTS,
   WriteBackEvaluationArtifactsAction,
 } from '../actions/PromptEngineeringActions';
-import {
-  GET_EVALUATION_TABLE_ARTIFACT,
-  GetEvaluationTableArtifactAction,
-  UPLOAD_ARTIFACT_API,
-  UploadArtifactApiAction,
-} from '../actions';
+import type { GetEvaluationTableArtifactAction, UploadArtifactApiAction } from '../actions';
 import {
   DEFAULT_PROMPTLAB_OUTPUT_COLUMN,
   DEFAULT_PROMPTLAB_PROMPT_COLUMN,
@@ -72,7 +59,7 @@ const evaluationArtifactsBeingUploaded = (
     | AsyncFulfilledAction<UploadArtifactApiAction>
     | AsyncRejectedAction<UploadArtifactApiAction>,
 ) => {
-  if (action.type === pending(WRITE_BACK_EVALUATION_ARTIFACTS) && action.meta) {
+  if (action.type === pending('WRITE_BACK_EVALUATION_ARTIFACTS') && action.meta) {
     const { runUuidsToUpdate, artifactPath } = action.meta;
     return runUuidsToUpdate.reduce<{
       [runUuid: string]: { [artifactPath: string]: boolean };
@@ -85,8 +72,7 @@ const evaluationArtifactsBeingUploaded = (
     );
   }
   if (
-    (action.type === fulfilled(UPLOAD_ARTIFACT_API) ||
-      action.type === rejected(UPLOAD_ARTIFACT_API)) &&
+    (action.type === fulfilled('UPLOAD_ARTIFACT_API') || action.type === rejected('UPLOAD_ARTIFACT_API')) &&
     action.meta
   ) {
     const { filePath, runUuid } = action.meta;
@@ -108,7 +94,7 @@ const evaluationDraftInputValues = (
   if (action.type === 'EVALUATE_ADD_INPUT_VALUES') {
     return [...state, action.payload];
   }
-  if (action.type === fulfilled(WRITE_BACK_EVALUATION_ARTIFACTS)) {
+  if (action.type === fulfilled('WRITE_BACK_EVALUATION_ARTIFACTS')) {
     return [];
   }
   return state;
@@ -120,7 +106,7 @@ const evaluationArtifactsByRunUuid = (
     | AsyncFulfilledAction<GetEvaluationTableArtifactAction>
     | AsyncFulfilledAction<WriteBackEvaluationArtifactsAction>,
 ) => {
-  if (action.type === fulfilled(WRITE_BACK_EVALUATION_ARTIFACTS) && action.meta) {
+  if (action.type === fulfilled('WRITE_BACK_EVALUATION_ARTIFACTS') && action.meta) {
     const { artifactPath } = action.meta;
     const updatedRunTables = action.payload;
 
@@ -132,7 +118,7 @@ const evaluationArtifactsByRunUuid = (
 
     return newState;
   }
-  if (action.type === fulfilled(GET_EVALUATION_TABLE_ARTIFACT) && action.meta) {
+  if (action.type === fulfilled('GET_EVALUATION_TABLE_ARTIFACT') && action.meta) {
     const { runUuid, artifactPath } = action.meta;
     return { ...state, [runUuid]: { ...state[runUuid], [artifactPath]: action.payload } };
   }
@@ -145,7 +131,7 @@ const evaluationPendingDataLoadingByRunUuid = (
   } = {},
   action: AsyncAction,
 ) => {
-  if (action.meta && action.type === pending(EVALUATE_PROMPT_TABLE_VALUE)) {
+  if (action.meta && action.type === pending('EVALUATE_PROMPT_TABLE_VALUE')) {
     const { rowKey, run } = action.meta;
     const runEntries = state[run.runUuid] || {};
     runEntries[rowKey] = true;
@@ -153,8 +139,8 @@ const evaluationPendingDataLoadingByRunUuid = (
   }
   if (
     action.meta &&
-    (action.type === fulfilled(EVALUATE_PROMPT_TABLE_VALUE) ||
-      action.type === rejected(EVALUATE_PROMPT_TABLE_VALUE))
+    (action.type === fulfilled('EVALUATE_PROMPT_TABLE_VALUE') ||
+      action.type === rejected('EVALUATE_PROMPT_TABLE_VALUE'))
   ) {
     const { rowKey, run } = action.meta;
     const runEntries = state[run.runUuid] || {};
@@ -175,19 +161,19 @@ const evaluationPendingDataByRunUuid = (
   if (action.type === 'DISCARD_PENDING_EVALUATION_DATA') {
     return {};
   }
-  if (action.type === fulfilled(WRITE_BACK_EVALUATION_ARTIFACTS)) {
+  if (action.type === fulfilled('WRITE_BACK_EVALUATION_ARTIFACTS')) {
     const newState = { ...state };
     for (const runUuid of action.meta?.runUuidsToUpdate || []) {
       delete newState[runUuid];
     }
     return newState;
   }
-  if (action.type === fulfilled(EVALUATE_PROMPT_TABLE_VALUE) && action.meta) {
-    const { run, inputValues, startTime, compiledPrompt } = action.meta;
+  if (action.type === fulfilled('EVALUATE_PROMPT_TABLE_VALUE') && action.meta) {
+    const { run, inputValues, startTime, compiledPrompt, gatewayRoute } = action.meta;
 
     const evaluationTime = !startTime ? 0 : performance.now() - startTime;
 
-    const { usage, text } = ModelGatewayService.parseEvaluationResponse(action.payload);
+    const { metadata, text } = action.payload;
 
     const newEntry: PendingEvaluationArtifactTableEntry = {
       entryData: {
@@ -196,7 +182,7 @@ const evaluationPendingDataByRunUuid = (
         [DEFAULT_PROMPTLAB_PROMPT_COLUMN]: compiledPrompt,
       },
       evaluationTime,
-      totalTokens: usage.total_tokens,
+      totalTokens: metadata.total_tokens,
       isPending: true,
     };
 
@@ -204,9 +190,7 @@ const evaluationPendingDataByRunUuid = (
     const existingEntry = runEntries.find(({ entryData: entry }) =>
       Object.entries(inputValues).every(([key, value]) => entry[key] === value),
     );
-    const runEntriesWithoutDuplicate = existingEntry
-      ? runEntries.filter((e) => e !== existingEntry)
-      : runEntries;
+    const runEntriesWithoutDuplicate = existingEntry ? runEntries.filter((e) => e !== existingEntry) : runEntries;
 
     runEntriesWithoutDuplicate.push(newEntry);
     return { ...state, [run.runUuid]: runEntriesWithoutDuplicate };
@@ -223,13 +207,13 @@ const evaluationArtifactsLoadingByRunUuid = (
     | AsyncRejectedAction<GetEvaluationTableArtifactAction>
     | AsyncFulfilledAction<GetEvaluationTableArtifactAction>,
 ) => {
-  if (action.type === pending(GET_EVALUATION_TABLE_ARTIFACT) && action.meta) {
+  if (action.type === pending('GET_EVALUATION_TABLE_ARTIFACT') && action.meta) {
     const { runUuid, artifactPath } = action.meta;
     return { ...state, [runUuid]: { ...state[runUuid], [artifactPath]: true } };
   }
   if (
-    action.type === rejected(GET_EVALUATION_TABLE_ARTIFACT) ||
-    action.type === fulfilled(GET_EVALUATION_TABLE_ARTIFACT)
+    action.type === rejected('GET_EVALUATION_TABLE_ARTIFACT') ||
+    action.type === fulfilled('GET_EVALUATION_TABLE_ARTIFACT')
   ) {
     if (!action.meta) {
       return state;
@@ -246,7 +230,7 @@ const evaluationArtifactsErrorByRunUuid = (
   } = {},
   action: AsyncRejectedAction<GetEvaluationTableArtifactAction>,
 ) => {
-  if (action.type === rejected(GET_EVALUATION_TABLE_ARTIFACT) && action.meta) {
+  if (action.type === rejected('GET_EVALUATION_TABLE_ARTIFACT') && action.meta) {
     const { runUuid, artifactPath } = action.meta;
     const error = action.payload;
     return { ...state, [runUuid]: { ...state[runUuid], [artifactPath]: error?.toString() } };

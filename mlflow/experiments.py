@@ -17,7 +17,6 @@ def commands():
     Manage experiments. To manage experiments associated with a tracking server, set the
     MLFLOW_TRACKING_URI environment variable to the URL of the desired server.
     """
-    pass
 
 
 @commands.command()

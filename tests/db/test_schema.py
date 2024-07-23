@@ -122,7 +122,7 @@ def initialize_database():
 def get_schema_update_command(dialect):
     this_script = Path(__file__).relative_to(Path.cwd())
     docker_compose_yml = this_script.parent / "compose.yml"
-    return f"docker-compose -f {docker_compose_yml} run --rm mlflow-{dialect} python {this_script}"
+    return f"docker compose -f {docker_compose_yml} run --rm mlflow-{dialect} python {this_script}"
 
 
 @pytest.mark.skipif(

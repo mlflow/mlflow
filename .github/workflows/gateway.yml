@@ -32,14 +32,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
           pip install .[gateway] \
             pytest pytest-timeout pytest-asyncio \
-            httpx psutil sentence-transformers transformers
+            httpx psutil sentence-transformers transformers torchvision openai databricks-sdk
           # Ensure pydantic v2 is installed
           pip freeze | tail -n +1 | grep -q '^pydantic==2\.'
       - name: Run tests with pydantic v2

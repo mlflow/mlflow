@@ -8,42 +8,40 @@ Not all flavors have a flavor backend.
 """
 import logging
 
-from mlflow.models.model import MLMODEL_FILE_NAME, Model
-from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.models.model import Model
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.tracking.artifact_utils import (
+    _get_root_uri_and_artifact_path,
+)
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.uri import append_to_uri_path
 
 _logger = logging.getLogger(__name__)
 
 
 def _get_flavor_backend_for_local_model(model=None, build_docker=True, **kwargs):
-    from mlflow import pyfunc
+    from mlflow import pyfunc, rfunc
     from mlflow.pyfunc.backend import PyFuncBackend
     from mlflow.rfunc.backend import RFuncBackend
 
     if not model:
         return pyfunc.FLAVOR_NAME, PyFuncBackend({}, **kwargs)
 
-    _flavor_backends = {pyfunc.FLAVOR_NAME: PyFuncBackend, "crate": RFuncBackend}
-    for flavor_name, flavor_config in model.flavors.items():
-        if flavor_name in _flavor_backends:
-            backend = _flavor_backends[flavor_name](flavor_config, **kwargs)
-            if build_docker and backend.can_build_image() or backend.can_score_model():
-                return flavor_name, backend
+    backends = {pyfunc.FLAVOR_NAME: PyFuncBackend, rfunc.FLAVOR_NAME: RFuncBackend}
+    for flavor, Backend in backends.items():
+        if flavor in model.flavors:
+            backend = Backend(model.flavors[flavor], **kwargs)
+            if (build_docker and backend.can_build_image()) or backend.can_score_model():
+                return flavor, backend
+
     return None, None
 
 
 def get_flavor_backend(model_uri, **kwargs):
     if model_uri:
         with TempDir() as tmp:
-            if ModelsArtifactRepository.is_models_uri(model_uri):
-                underlying_model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
-            else:
-                underlying_model_uri = model_uri
-            local_path = _download_artifact_from_uri(
-                append_to_uri_path(underlying_model_uri, MLMODEL_FILE_NAME), output_path=tmp.path()
-            )
+            root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
+            artifact_repo = get_artifact_repository(root_uri)
+            local_path = artifact_repo.download_artifacts(artifact_path, dst_path=tmp.path())
             model = Model.load(local_path)
     else:
         model = None

@@ -1,12 +1,12 @@
 import { Dispatch, useCallback, useState } from 'react';
 
-import { Select, useDesignSystemTheme } from '@databricks/design-system';
+import { LegacySelect, useDesignSystemTheme } from '@databricks/design-system';
 
 import { ModelVersionAliasTag } from './ModelVersionAliasTag';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 /**
- * A specialized <Select> component used for adding and removing aliases from model versions
+ * A specialized <LegacySelect> component used for adding and removing aliases from model versions
  */
 export const ModelVersionAliasSelect = ({
   renderKey,
@@ -41,12 +41,7 @@ export const ModelVersionAliasSelect = ({
     (aliases: string[]) => {
       const sanitizedAliases = aliases
         // Remove all characters that are not alphanumeric, underscores or hyphens
-        .map((alias) =>
-          alias
-            .replace(/[^\w-]/g, '')
-            .toLowerCase()
-            .substring(0, 255),
-        )
+        .map((alias) => alias.replace(/[^\w-]/g, '').substring(0, 255))
         // After sanitization, filter out invalid aliases
         // so we won't get empty values
         .filter((alias) => alias.length > 0);
@@ -60,9 +55,9 @@ export const ModelVersionAliasSelect = ({
   );
 
   return (
-    // For the time being, we will use <Select /> under the hood,
+    // For the time being, we will use <LegacySelect /> under the hood,
     // while <TypeaheadCombobox /> is still in the design phase.
-    <Select
+    <LegacySelect
       disabled={disabled}
       filterOption={(val, opt) => opt?.value.toLowerCase().startsWith(val.toLowerCase())}
       placeholder={intl.formatMessage({
@@ -71,8 +66,8 @@ export const ModelVersionAliasSelect = ({
       })}
       allowClear
       css={{ width: '100%' }}
-      mode='tags'
-      // There's a bug with current <Select /> implementation that causes the dropdown
+      mode="tags"
+      // There's a bug with current <LegacySelect /> implementation that causes the dropdown
       // to detach from input vertically when its position on screen changes (in this case, it's
       // caused by the conflict alerts). A small key={} hack ensures that the component is recreated
       // and the dropdown is repositioned each time the alerts below are changed.
@@ -95,34 +90,34 @@ export const ModelVersionAliasSelect = ({
       value={draftAliases || []}
     >
       {existingAliases.map((alias) => (
-        <Select.Option key={alias} value={alias} data-testid='model-alias-option'>
+        <LegacySelect.Option key={alias} value={alias} data-testid="model-alias-option">
           <div key={alias} css={{ display: 'flex', marginRight: theme.spacing.xs }}>
             <div css={{ flex: 1 }}>{alias}</div>
             <div>
               <FormattedMessage
-                defaultMessage='This version'
-                description='Model registry > model version alias select > Indicator for alias of selected version'
+                defaultMessage="This version"
+                description="Model registry > model version alias select > Indicator for alias of selected version"
               />
             </div>
           </div>
-        </Select.Option>
+        </LegacySelect.Option>
       ))}
       {Object.entries(aliasToVersionMap)
         .filter(([, otherVersion]) => otherVersion !== version)
         .map(([alias, aliasedVersion]) => (
-          <Select.Option key={alias} value={alias} data-testid='model-alias-option'>
+          <LegacySelect.Option key={alias} value={alias} data-testid="model-alias-option">
             <div key={alias} css={{ display: 'flex', marginRight: theme.spacing.xs }}>
               <div css={{ flex: 1 }}>{alias}</div>
               <div>
                 <FormattedMessage
-                  defaultMessage='Version {version}'
-                  description='Model registry > model version alias select > Indicator for alias of a particular version'
+                  defaultMessage="Version {version}"
+                  description="Model registry > model version alias select > Indicator for alias of a particular version"
                   values={{ version: aliasedVersion }}
                 />
               </div>
             </div>
-          </Select.Option>
+          </LegacySelect.Option>
         ))}
-    </Select>
+    </LegacySelect>
   );
 };

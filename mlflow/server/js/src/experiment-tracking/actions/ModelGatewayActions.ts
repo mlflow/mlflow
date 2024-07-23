@@ -1,65 +1,33 @@
-import { MlflowService } from 'experiment-tracking/sdk/MlflowService';
+import { MlflowService } from '@mlflow/mlflow/src/experiment-tracking/sdk/MlflowService';
 import { getUUID } from '../../common/utils/ActionUtils';
 import type { AsyncAction } from '../../redux-types';
 import {
   ModelGatewayQueryPayload,
   ModelGatewayRoute,
+  ModelGatewayRouteLegacy,
   ModelGatewayService,
-  SearchModelGatewayRouteResponse,
-  ModelGatewayResponseType,
-  gatewayErrorHandler,
+  SearchMlflowDeploymentsModelRoutesResponse,
 } from '../sdk/ModelGatewayService';
 
-export const SEARCH_MODEL_GATEWAY_ROUTES_API = 'SEARCH_MODEL_GATEWAY_ROUTES_API';
-export interface SearchModelGatewayRoutesAction
-  extends AsyncAction<SearchModelGatewayRouteResponse> {
-  type: 'SEARCH_MODEL_GATEWAY_ROUTES_API';
+export const SEARCH_MLFLOW_DEPLOYMENTS_MODEL_ROUTES = 'SEARCH_MLFLOW_DEPLOYMENTS_MODEL_ROUTES';
+
+export interface SearchMlflowDeploymentsModelRoutesAction
+  extends AsyncAction<SearchMlflowDeploymentsModelRoutesResponse> {
+  type: 'SEARCH_MLFLOW_DEPLOYMENTS_MODEL_ROUTES';
 }
 
-// prettier-ignore
-export const searchModelGatewayRoutesApi = (filter?: string): SearchModelGatewayRoutesAction => ({
-  type: SEARCH_MODEL_GATEWAY_ROUTES_API,
+export const searchMlflowDeploymentsRoutesApi = (filter?: string): SearchMlflowDeploymentsModelRoutesAction => ({
+  type: SEARCH_MLFLOW_DEPLOYMENTS_MODEL_ROUTES,
   payload: MlflowService.gatewayProxyGet({
     gateway_path: 'api/2.0/endpoints/',
-  }) as Promise<SearchModelGatewayRouteResponse>,
+  }) as Promise<SearchMlflowDeploymentsModelRoutesResponse>,
   meta: { id: getUUID() },
 });
-
-export const GET_MODEL_GATEWAY_ROUTE_API = 'GET_MODEL_GATEWAY_ROUTE_API';
-export interface GetModelGatewayRouteAction extends AsyncAction<ModelGatewayRoute> {
-  type: 'GET_MODEL_GATEWAY_ROUTE_API';
-}
-
-export const getModelGatewayRouteApi = (routeName: string): GetModelGatewayRouteAction => ({
-  type: GET_MODEL_GATEWAY_ROUTE_API,
-  payload: MlflowService.gatewayProxyGet({
-    gateway_path: `api/2.0/endpoints/${routeName}`,
-  }) as Promise<ModelGatewayRoute>,
-  meta: { id: getUUID() },
-});
-
-export const QUERY_MODEL_GATEWAY_ROUTE_API = 'QUERY_MODEL_GATEWAY_ROUTE_API';
-
-export const queryModelGatewayRouteApi = (
-  route: ModelGatewayRoute,
-  data: ModelGatewayQueryPayload,
-) => {
-  const { inputText } = data;
-  const textPayload = ModelGatewayService.createEvaluationTextPayload(inputText, route);
-  const processed_data = {
-    ...textPayload,
-    ...data.parameters,
-  };
-
+export const QUERY_MLFLOW_DEPLOYMENTS_ROUTE_API = 'QUERY_MLFLOW_DEPLOYMENTS_ROUTE_API';
+export const queryMlflowDeploymentsRouteApi = (route: ModelGatewayRoute, data: ModelGatewayQueryPayload) => {
   return {
-    type: QUERY_MODEL_GATEWAY_ROUTE_API,
-    payload: MlflowService.gatewayProxyPost(
-      {
-        gateway_path: route.endpoint_url.substring(1),
-        json_data: processed_data,
-      },
-      gatewayErrorHandler,
-    ) as Promise<ModelGatewayResponseType>,
+    type: QUERY_MLFLOW_DEPLOYMENTS_ROUTE_API,
+    payload: ModelGatewayService.queryMLflowDeploymentEndpointRoute(route, data),
     meta: { id: getUUID(), startTime: performance.now() },
   };
 };

@@ -1,8 +1,8 @@
-/// <reference types="react" />
 import type { ModalProps as AntDModalProps } from 'antd';
 import type { ButtonProps } from '../Button';
-import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
-export interface ModalProps extends HTMLDataAttributes, DangerouslySetAntdProps<AntDModalProps> {
+import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
+import type { AnalyticsEventOptionalPropsWithStartInteraction, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
+export interface ModalProps extends HTMLDataAttributes, DangerouslySetAntdProps<AntDModalProps>, AnalyticsEventOptionalPropsWithStartInteraction<DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     /** Whether or not the modal is currently open. Use together with onOk and onCancel to control the modal state. */
     visible?: AntDModalProps['visible'];
     /** Function called when the primary button is clicked */
@@ -13,7 +13,7 @@ export interface ModalProps extends HTMLDataAttributes, DangerouslySetAntdProps<
     title?: AntDModalProps['title'];
     /** Contents displayed in the body of the modal */
     children?: React.ReactNode;
-    /** A custom JSX element to render in place of the default footer */
+    /** A custom JSX element to render in place of the default footer. If `footer` is not provided or is set to `undefined`, the default footer will be rendered. `footer` must be explicitly set to `null` to hide the footer. */
     footer?: AntDModalProps['footer'];
     /** Sets the horizontal size according to the size presets */
     size?: 'normal' | 'wide';
@@ -43,9 +43,9 @@ export interface ModalProps extends HTMLDataAttributes, DangerouslySetAntdProps<
      */
     zIndex?: AntDModalProps['zIndex'];
     /** The OK button props */
-    okButtonProps?: ButtonProps;
+    okButtonProps?: Omit<ButtonProps, 'componentId' | 'analyticsEvents'>;
     /** The cancel button props */
-    cancelButtonProps?: ButtonProps;
+    cancelButtonProps?: Omit<ButtonProps, 'componentId' | 'analyticsEvents'>;
     /** Custom modal content render function. While custom rendering is discouraged in general, this prop can be used to wrap the modal contents in a React context. */
     modalRender?: (node: React.ReactNode) => React.ReactNode;
     /** Specify which button to autofocus, only works with default footer */
@@ -53,6 +53,10 @@ export interface ModalProps extends HTMLDataAttributes, DangerouslySetAntdProps<
     /** Specify whether to truncate the Modal title when it is too long */
     truncateTitle?: boolean;
 }
-export declare function Modal({ okButtonProps, cancelButtonProps, dangerouslySetAntdProps, children, title, footer, size, verticalSizing, autoFocusButton, truncateTitle, ...props }: ModalProps): JSX.Element;
+export interface ModalContextProps {
+    isInsideModal: boolean;
+}
+export declare const useModalContext: () => ModalContextProps;
+export declare function Modal(props: ModalProps): JSX.Element;
 export declare function DangerModal(props: Omit<ModalProps, 'footer'>): JSX.Element;
 //# sourceMappingURL=Modal.d.ts.map

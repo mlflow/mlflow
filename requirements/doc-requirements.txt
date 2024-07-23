@@ -1,12 +1,16 @@
 -r doc-min-requirements.txt
 tensorflow-cpu<=2.12.0
+# tensorflow-macos<=2.12.0  # Comment out the line above and uncomment this line if setting up dev
+                            # environment on local ARM macOS.
+                            # Only do this for the purpose of setting up the dev environment, do not
+                            # commit this change to the repo.
 pyspark
 datasets
 # nbsphinx and ipython are required for jupyter notebook rendering
 nbsphinx==0.8.8
 # ipython 8.7.0 is an incompatible release
 ipython!=8.7.0
-keras-core
+keras
 torch>=1.11.0
 torchvision>=0.12.0
 lightning>=1.8.1

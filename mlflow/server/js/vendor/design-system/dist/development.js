@@ -1,530 +1,1124 @@
 import { css } from '@emotion/react';
-import React__default, { useState, useEffect, forwardRef } from 'react';
-import { u as useDesignSystemTheme, h as Input, B as Button, P as CursorIcon, T as Typography, V as FaceSmileIcon, U as FaceNeutralIcon, Q as FaceFrownIcon, C as CloseIcon, j as CheckIcon, p as ChevronLeftIcon, b as ChevronRightIcon, $ as dropdownItemStyles, d as useDesignSystemContext, m as dropdownContentStyles, a0 as dropdownSeparatorStyles } from './DropdownMenu-d888110a.js';
-import { jsxs, jsx } from '@emotion/react/jsx-runtime';
+import React__default, { forwardRef, useState, useRef, useEffect, useCallback, useImperativeHandle, useMemo, createContext } from 'react';
+import { W as WarningIcon, x as DangerIcon, a as useDesignSystemTheme, c as useDesignSystemEventComponentCallbacks, d as DesignSystemEventProviderComponentTypes, e as DesignSystemEventProviderAnalyticsEventTypes, f as useNotifyOnFirstView, B as Button$1, C as CloseIcon, h as addDebugOutlineIfEnabled, o as Typography, a4 as primitiveColors, k as Root$5, T as Trigger$1, l as Content$1, A as Arrow, r as getValidationStateColor, p as importantify, w as getShadowScrollStyles } from './Typography-c0049677.js';
+import { jsx, Fragment, jsxs } from '@emotion/react/jsx-runtime';
+import { M as MegaphoneIcon, I as Input, C as CalendarEventIcon, A as ArrowRightIcon, P as PlusIcon, a as CloseSmallIcon } from './index-a2e493c0.js';
+import { format, isValid } from 'date-fns';
+import { DayPicker, useDayRender, Button as Button$2 } from 'react-day-picker';
+import { RadioGroup, RadioGroupItem } from '@radix-ui/react-radio-group';
+import * as Progress$1 from '@radix-ui/react-progress';
 import * as RadixSlider from '@radix-ui/react-slider';
-import { ContextMenu as ContextMenu$1, ContextMenuTrigger, ContextMenuItemIndicator, ContextMenuGroup, ContextMenuRadioGroup, ContextMenuArrow, ContextMenuSub, ContextMenuSubTrigger, ContextMenuPortal, ContextMenuContent, ContextMenuSubContent, ContextMenuItem, ContextMenuCheckboxItem, ContextMenuRadioItem, ContextMenuLabel, ContextMenuSeparator } from '@radix-ui/react-context-menu';
+export { S as Stepper } from './Stepper-431a4a97.js';
+import { useMergeRefs } from '@floating-ui/react';
+import * as ScrollArea from '@radix-ui/react-scroll-area';
+import * as RadixTabs from '@radix-ui/react-tabs';
+import * as RadixToolbar from '@radix-ui/react-toolbar';
 import 'antd';
-import '@radix-ui/react-dropdown-menu';
-import 'chroma-js';
+import '@radix-ui/react-popover';
+import '@radix-ui/react-tooltip';
+import '@ant-design/icons';
 import 'lodash/isNil';
 import 'lodash/endsWith';
 import 'lodash/isBoolean';
 import 'lodash/isNumber';
 import 'lodash/isString';
 import 'lodash/mapValues';
+import 'lodash/memoize';
 import '@emotion/unitless';
-import '@ant-design/icons';
-import 'lodash/uniqueId';
-
-function _EMOTION_STRINGIFIED_CSS_ERROR__$6() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-const chatInputStyles = {
-  container: process.env.NODE_ENV === "production" ? {
-    name: "ets5eq",
-    styles: "background-color:var(--background-primary);padding:var(--spacing-sm);position:relative"
-  } : {
-    name: "t01lrg-container",
-    styles: "background-color:var(--background-primary);padding:var(--spacing-sm);position:relative;label:container;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
-  },
-  suggestionButtons: process.env.NODE_ENV === "production" ? {
-    name: "zsd1o9",
-    styles: "display:flex;gap:var(--spacing-sm);margin-bottom:var(--spacing-sm)"
-  } : {
-    name: "3tz5r6-suggestionButtons",
-    styles: "display:flex;gap:var(--spacing-sm);margin-bottom:var(--spacing-sm);label:suggestionButtons;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
-  },
-  textArea: process.env.NODE_ENV === "production" ? {
-    name: "ge1ym1",
-    styles: "min-width:100%;max-height:150px !important"
-  } : {
-    name: "hcagyb-textArea",
-    styles: "min-width:100%;max-height:150px !important;label:textArea;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
-  },
-  button: process.env.NODE_ENV === "production" ? {
-    name: "1c60og2",
-    styles: "position:absolute;bottom:calc(var(--spacing-sm) + 4px);right:calc(var(--spacing-sm) + 4px);transform:scaleX(-1)"
-  } : {
-    name: "1h7quuz-button",
-    styles: "position:absolute;bottom:calc(var(--spacing-sm) + 4px);right:calc(var(--spacing-sm) + 4px);transform:scaleX(-1);label:button;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
-  }
-};
-const ChatInput = _ref => {
-  let {
-    className,
-    onSubmit,
-    textAreaProps,
-    suggestionButtons
-  } = _ref;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  const [value, setValue] = React__default.useState('');
-  const handleSubmit = () => {
-    if (!value) {
-      return;
-    }
-    onSubmit === null || onSubmit === void 0 || onSubmit(value);
-    setValue('');
-  };
-  return jsxs("div", {
-    css: chatInputStyles.container,
-    style: {
-      ['--spacing-sm']: `${theme.spacing.sm}px`,
-      ['--background-primary']: theme.colors.backgroundPrimary,
-      ['--border-decorative']: theme.colors.borderDecorative
-    },
-    className: className,
-    children: [suggestionButtons && jsx("div", {
-      css: chatInputStyles.suggestionButtons,
-      children: suggestionButtons
-    }), jsx(Input.TextArea, {
-      autoSize: true,
-      value: value,
-      onChange: e => setValue(e.target.value),
-      placeholder: "Send a message",
-      css: chatInputStyles.textArea,
-      onKeyDown: e => {
-        if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
-          e.preventDefault();
-          handleSubmit();
-        }
-      },
-      ...textAreaProps
-    }), jsx(Button, {
-      size: "small",
-      css: chatInputStyles.button,
-      icon: jsx(CursorIcon, {}),
-      onClick: handleSubmit
-    })]
-  });
-};
-var ChatInput$1 = ChatInput;
-
-function _EMOTION_STRINGIFIED_CSS_ERROR__$5() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-const snippetStyles = {
-  container: process.env.NODE_ENV === "production" ? {
-    name: "emyse7",
-    styles: "margin:var(--spacing-md) 0"
-  } : {
-    name: "15luuk2-container",
-    styles: "margin:var(--spacing-md) 0;label:container;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
-  },
-  header: process.env.NODE_ENV === "production" ? {
-    name: "dtwnbh",
-    styles: "background-color:var(--color-grey700);color:var(--color-grey300);border-radius:var(--border-radius) var(--border-radius) 0 0;padding:var(--spacing-sm) var(--spacing-sm) var(--spacing-sm) var(--spacing-md);display:flex;justify-content:space-between;align-items:center"
-  } : {
-    name: "1o07vd-header",
-    styles: "background-color:var(--color-grey700);color:var(--color-grey300);border-radius:var(--border-radius) var(--border-radius) 0 0;padding:var(--spacing-sm) var(--spacing-sm) var(--spacing-sm) var(--spacing-md);display:flex;justify-content:space-between;align-items:center;label:header;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
-  },
-  buttonSvg: process.env.NODE_ENV === "production" ? {
-    name: "s8x62f",
-    styles: "svg{color:var(--color-grey300);}"
-  } : {
-    name: "g0ytlm-buttonSvg",
-    styles: "svg{color:var(--color-grey300);};label:buttonSvg;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
-  },
-  code: process.env.NODE_ENV === "production" ? {
-    name: "u1l3ou",
-    styles: "padding:var(--spacing-sm) var(--spacing-md);margin:0;border-radius:0 0 var(--border-radius) var(--border-radius);background-color:var(--color-grey800);color:var(--color-grey300)"
-  } : {
-    name: "gdk9wh-code",
-    styles: "padding:var(--spacing-sm) var(--spacing-md);margin:0;border-radius:0 0 var(--border-radius) var(--border-radius);background-color:var(--color-grey800);color:var(--color-grey300);label:code;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
-  }
-};
-const CodeSnippet = _ref => {
-  let {
-    language,
-    buttons,
-    children
-  } = _ref;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsxs("div", {
-    css: snippetStyles.container,
-    style: {
-      ['--spacing-sm']: `${theme.spacing.sm}px`,
-      ['--spacing-md']: `${theme.spacing.md}px`,
-      ['--border-radius']: `${theme.general.borderRadiusBase}px`,
-      ['--color-grey700']: theme.colors.grey700,
-      ['--color-grey300']: theme.colors.grey300,
-      ['--color-grey800']: theme.colors.grey800
-    },
-    children: [jsxs("div", {
-      css: snippetStyles.header,
-      children: [jsx("span", {
-        children: language
-      }), jsx("div", {
-        css: snippetStyles.buttonSvg,
-        children: buttons
-      })]
-    }), jsx("pre", {
-      css: snippetStyles.code,
-      children: children
-    })]
-  });
-};
-var CodeSnippet$1 = CodeSnippet;
-
-function _EMOTION_STRINGIFIED_CSS_ERROR__$4() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-const feedbackStyles = {
-  container: process.env.NODE_ENV === "production" ? {
-    name: "1laz9o6",
-    styles: "display:flex;justify-content:space-between;align-items:flex-end"
-  } : {
-    name: "1dbf7uj-container",
-    styles: "display:flex;justify-content:space-between;align-items:flex-end;label:container;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
-  },
-  feedbackPrompt: process.env.NODE_ENV === "production" ? {
-    name: "1hsyf68",
-    styles: "display:flex;flex-direction:column;gap:var(--spacing-sm)"
-  } : {
-    name: "1yi757f-feedbackPrompt",
-    styles: "display:flex;flex-direction:column;gap:var(--spacing-sm);label:feedbackPrompt;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
-  },
-  feedbackOptions: process.env.NODE_ENV === "production" ? {
-    name: "1s3radb",
-    styles: "display:flex;gap:var(--spacing-sm)"
-  } : {
-    name: "125q18r-feedbackOptions",
-    styles: "display:flex;gap:var(--spacing-sm);label:feedbackOptions;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
-  }
-};
-const Feedback = _ref => {
-  let {
-    onFeedback
-  } = _ref;
-  const [isVisible, setIsVisible] = useState(true);
-  const {
-    theme
-  } = useDesignSystemTheme();
-  if (!isVisible) {
-    return null;
-  }
-  return jsxs("div", {
-    css: feedbackStyles.container,
-    style: {
-      ['--spacing-sm']: `${theme.spacing.sm}px`,
-      ['--text-secondary']: theme.colors.textSecondary
-    },
-    children: [jsxs("div", {
-      css: feedbackStyles.feedbackPrompt,
-      children: [jsx(Typography.Text, {
-        style: {
-          color: theme.colors.textSecondary
-        },
-        children: "Was this response:"
-      }), jsxs("div", {
-        css: feedbackStyles.feedbackOptions,
-        children: [jsx(Button, {
-          icon: jsx(FaceSmileIcon, {}),
-          onClick: () => {
-            onFeedback('Better');
-            setIsVisible(false);
-          },
-          children: "Better"
-        }), jsx(Button, {
-          icon: jsx(FaceNeutralIcon, {}),
-          onClick: () => {
-            onFeedback('Same');
-            setIsVisible(false);
-          },
-          children: "Same"
-        }), jsx(Button, {
-          icon: jsx(FaceFrownIcon, {}),
-          onClick: () => {
-            onFeedback('Worse');
-            setIsVisible(false);
-          },
-          children: "Worse"
-        })]
-      })]
-    }), jsx(Button, {
-      icon: jsx(CloseIcon, {}),
-      onClick: () => setIsVisible(false)
-    })]
-  });
-};
-var Feedback$1 = Feedback;
-
-const messageStyles = {
-  container: /*#__PURE__*/css({
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 'var(--spacing-sm)',
-    paddingTop: 'var(--spacing-md)',
-    paddingRight: 'var(--spacing-sm)',
-    paddingBottom: 'var(--spacing-md)',
-    paddingLeft: 'calc(var(--spacing-md) * 2)',
-    backgroundColor: 'var(--background)',
-    borderBottom: `1px solid var(--border-decorative)`
-  }, process.env.NODE_ENV === "production" ? "" : ";label:container;")
-};
-const Message = _ref => {
-  let {
-    isActiveUser,
-    children
-  } = _ref;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx("div", {
-    css: messageStyles.container,
-    style: {
-      ['--spacing-sm']: `${theme.spacing.sm}px`,
-      ['--spacing-md']: `${theme.spacing.md}px`,
-      ['--background']: isActiveUser ? theme.colors.backgroundPrimary : theme.colors.backgroundSecondary,
-      ['--border-decorative']: theme.colors.borderDecorative
-    },
-    children: children
-  });
-};
-var Message$1 = Message;
+import 'lodash/isUndefined';
 
 function _EMOTION_STRINGIFIED_CSS_ERROR__$3() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-const buttonStyles = {
-  container: process.env.NODE_ENV === "production" ? {
-    name: "f9548c",
-    styles: "position:relative;display:inline-block;width:max-content"
-  } : {
-    name: "12rixe4-container",
-    styles: "position:relative;display:inline-block;width:max-content;label:container;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$3
-  },
-  checkIcon: process.env.NODE_ENV === "production" ? {
-    name: "441ysl",
-    styles: "position:absolute;top:50%;left:50%;transform:translate(-50%, -50%);pointer-events:none;svg{color:var(--checkmark-color);}"
-  } : {
-    name: "hmgfz4-checkIcon",
-    styles: "position:absolute;top:50%;left:50%;transform:translate(-50%, -50%);pointer-events:none;svg{color:var(--checkmark-color);};label:checkIcon;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$3
-  }
+const {
+  Text,
+  Paragraph
+} = Typography;
+const BANNER_MIN_HEIGHT = 68;
+// Max height will allow 2 lines of description (3 lines total)
+const BANNER_MAX_HEIGHT = 82;
+var _ref$2 = process.env.NODE_ENV === "production" ? {
+  name: "1te1whx",
+  styles: "margin-left:auto;display:flex;align-items:center"
+} : {
+  name: "13c4h59-rightContainer",
+  styles: "margin-left:auto;display:flex;align-items:center;label:rightContainer;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$3
 };
-const MessageActionButton = props => {
-  const [showCheck, setShowCheck] = useState(false);
+const useStyles = (props, theme) => {
+  const bannerLevelToBannerColors = {
+    info_light_purple: {
+      backgroundDefaultColor: theme.isDarkMode ? '#6E2EC729' : '#ECE1FC',
+      actionButtonBackgroundHoverColor: theme.colors.actionDefaultBackgroundHover,
+      actionButtonBackgroundPressColor: theme.colors.actionDefaultBackgroundPress,
+      textColor: theme.colors.actionDefaultTextDefault,
+      textHoverColor: '#92A4B38F',
+      textPressColor: theme.colors.actionDefaultTextDefault,
+      borderDefaultColor: theme.isDarkMode ? '#955CE5' : '#E2D0FB',
+      actionBorderColor: '#92A4B38F',
+      closeIconColor: theme.isDarkMode ? '#92A4B3' : '#5F7281',
+      iconColor: theme.colors.purple,
+      actionButtonBorderHoverColor: theme.colors.actionDefaultBorderHover,
+      actionButtonBorderPressColor: theme.colors.actionDefaultBorderPress,
+      closeIconBackgroundHoverColor: theme.colors.actionTertiaryBackgroundHover,
+      closeIconTextHoverColor: theme.colors.actionTertiaryTextHover,
+      closeIconBackgroundPressColor: theme.colors.actionDefaultBackgroundPress,
+      closeIconTextPressColor: theme.colors.actionTertiaryTextPress
+    },
+    info_dark_purple: {
+      backgroundDefaultColor: theme.isDarkMode ? '#BC92F7DB' : theme.colors.purple,
+      actionButtonBackgroundHoverColor: theme.isDarkMode ? '#BC92F7DB' : theme.colors.purple,
+      actionButtonBackgroundPressColor: theme.isDarkMode ? '#BC92F7DB' : theme.colors.purple,
+      textColor: theme.colors.actionPrimaryTextDefault,
+      textHoverColor: theme.colors.actionPrimaryTextHover,
+      textPressColor: theme.colors.actionPrimaryTextPress,
+      borderDefaultColor: theme.isDarkMode ? '#BC92F7DB' : theme.colors.purple
+    },
+    info: {
+      backgroundDefaultColor: theme.colors.actionPrimaryBackgroundDefault,
+      actionButtonBackgroundHoverColor: theme.colors.actionPrimaryBackgroundHover,
+      actionButtonBackgroundPressColor: theme.colors.actionPrimaryBackgroundPress,
+      textColor: theme.colors.actionPrimaryTextDefault,
+      textHoverColor: theme.colors.actionPrimaryTextHover,
+      textPressColor: theme.colors.actionPrimaryTextPress,
+      borderDefaultColor: theme.colors.actionPrimaryBackgroundDefault
+    },
+    // TODO (PLAT-80558, zack.brody) Update hover and press states once we have colors for these
+    warning: {
+      backgroundDefaultColor: theme.colors.tagLemon,
+      actionButtonBackgroundHoverColor: theme.colors.tagLemon,
+      actionButtonBackgroundPressColor: theme.colors.tagLemon,
+      textColor: primitiveColors.grey800,
+      textHoverColor: primitiveColors.grey800,
+      textPressColor: primitiveColors.grey800,
+      borderDefaultColor: theme.colors.tagLemon
+    },
+    error: {
+      backgroundDefaultColor: theme.colors.actionDangerPrimaryBackgroundDefault,
+      actionButtonBackgroundHoverColor: theme.colors.actionDangerPrimaryBackgroundHover,
+      actionButtonBackgroundPressColor: theme.colors.actionDangerPrimaryBackgroundPress,
+      textColor: theme.colors.actionPrimaryTextDefault,
+      textHoverColor: theme.colors.actionPrimaryTextHover,
+      textPressColor: theme.colors.actionPrimaryTextPress,
+      borderDefaultColor: theme.colors.actionDangerPrimaryBackgroundDefault
+    }
+  };
+  const colorScheme = bannerLevelToBannerColors[props.level];
+  return {
+    banner: /*#__PURE__*/css("max-height:", BANNER_MAX_HEIGHT, "px;display:flex;align-items:center;width:100%;padding:8px;box-sizing:border-box;background-color:", colorScheme.backgroundDefaultColor, ";border:1px solid ", colorScheme.borderDefaultColor, ";" + (process.env.NODE_ENV === "production" ? "" : ";label:banner;")),
+    iconContainer: /*#__PURE__*/css("display:flex;color:", colorScheme.iconColor ? colorScheme.iconColor : colorScheme.textColor, ";align-self:", props.description ? 'flex-start' : 'center', ";box-sizing:border-box;max-width:60px;padding-top:4px;padding-bottom:4px;padding-right:", theme.spacing.xs, "px;" + (process.env.NODE_ENV === "production" ? "" : ";label:iconContainer;")),
+    mainContent: /*#__PURE__*/css("flex-direction:column;align-self:", props.description ? 'flex-start' : 'center', ";display:flex;box-sizing:border-box;padding-right:", theme.spacing.sm, "px;padding-top:2px;padding-bottom:2px;min-width:", theme.spacing.lg, "px;width:100%;" + (process.env.NODE_ENV === "production" ? "" : ";label:mainContent;")),
+    messageTextBlock: /*#__PURE__*/css("display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;&&{color:", colorScheme.textColor, ";}" + (process.env.NODE_ENV === "production" ? "" : ";label:messageTextBlock;")),
+    descriptionBlock: /*#__PURE__*/css("display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;&&{color:", colorScheme.textColor, ";}" + (process.env.NODE_ENV === "production" ? "" : ";label:descriptionBlock;")),
+    rightContainer: _ref$2,
+    closeIconContainer: /*#__PURE__*/css("display:flex;margin-left:", theme.spacing.xs, "px;box-sizing:border-box;line-height:0;" + (process.env.NODE_ENV === "production" ? "" : ";label:closeIconContainer;")),
+    closeButton: /*#__PURE__*/css("cursor:pointer;background:none;border:none;margin:0;&&{height:24px!important;width:24px!important;padding:", theme.spacing.xs, "px!important;}&&:hover{background-color:transparent!important;border-color:", colorScheme.textHoverColor, "!important;color:", colorScheme.closeIconTextHoverColor ? colorScheme.closeIconTextHoverColor : colorScheme.textColor, "!important;background-color:", colorScheme.closeIconBackgroundHoverColor ? colorScheme.closeIconBackgroundHoverColor : colorScheme.backgroundDefaultColor, "!important;}&&:active{border-color:", colorScheme.actionBorderColor, "!important;color:", colorScheme.closeIconTextPressColor ? colorScheme.closeIconTextPressColor : colorScheme.textColor, "!important;background-color:", colorScheme.closeIconBackgroundPressColor ? colorScheme.closeIconBackgroundPressColor : colorScheme.backgroundDefaultColor, "!important;}" + (process.env.NODE_ENV === "production" ? "" : ";label:closeButton;")),
+    closeIcon: /*#__PURE__*/css("color:", colorScheme.closeIconColor ? colorScheme.closeIconColor : colorScheme.textColor, "!important;" + (process.env.NODE_ENV === "production" ? "" : ";label:closeIcon;")),
+    actionButtonContainer: /*#__PURE__*/css("margin-right:", theme.spacing.xs, "px;" + (process.env.NODE_ENV === "production" ? "" : ";label:actionButtonContainer;")),
+    // Override design system colors to show the use the action text color for text and border.
+    // Also overrides text for links.
+    actionButton: /*#__PURE__*/css("color:", colorScheme.textColor, "!important;border-color:", colorScheme.actionBorderColor ? colorScheme.actionBorderColor : colorScheme.textColor, "!important;&:focus,&:hover{border-color:", colorScheme.actionButtonBorderHoverColor ? colorScheme.actionButtonBorderHoverColor : colorScheme.textHoverColor, "!important;color:", colorScheme.textColor, "!important;background-color:", colorScheme.actionButtonBackgroundHoverColor, "!important;}&:active{border-color:", colorScheme.actionButtonBorderPressColor ? colorScheme.actionButtonBorderPressColor : colorScheme.actionBorderColor, "!important;color:", colorScheme.textPressColor, "!important;background-color:", colorScheme.actionButtonBackgroundPressColor, "!important;}a{color:", theme.colors.actionPrimaryTextDefault, ";}a:focus,a:hover{color:", colorScheme.textHoverColor, ";text-decoration:none;}a:active{color:", colorScheme.textPressColor, " text-decoration:none;}" + (process.env.NODE_ENV === "production" ? "" : ";label:actionButton;"))
+  };
+};
+const levelToIconMap = {
+  info: jsx(MegaphoneIcon, {
+    "data-testid": "level-info-icon"
+  }),
+  info_light_purple: jsx(MegaphoneIcon, {
+    "data-testid": "level-info-light-purple-icon"
+  }),
+  info_dark_purple: jsx(MegaphoneIcon, {
+    "data-testid": "level-info-dark-purple-icon"
+  }),
+  warning: jsx(WarningIcon, {
+    "data-testid": "level-warning-icon"
+  }),
+  error: jsx(DangerIcon, {
+    "data-testid": "level-error-icon"
+  })
+};
+const Banner = props => {
+  const {
+    level,
+    message,
+    description,
+    ctaText,
+    onAccept,
+    closable,
+    onClose,
+    closeButtonAriaLabel,
+    componentId,
+    analyticsEvents
+  } = props;
+  const [closed, setClosed] = React__default.useState(false);
   const {
     theme
   } = useDesignSystemTheme();
-  const handleClick = e => {
-    var _props$onClick;
-    setShowCheck(true);
-    (_props$onClick = props.onClick) === null || _props$onClick === void 0 || _props$onClick.call(props, e);
-  };
-  if (props.children) {
-    throw new Error('MessageActionButton: Children not supported; use as icon-only button.');
-  }
-  useEffect(() => {
-    let timeoutId;
-    if (showCheck) {
-      timeoutId = setTimeout(() => {
-        setShowCheck(false);
-      }, 750);
-    }
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [showCheck]);
-  return jsxs("span", {
-    css: buttonStyles.container,
-    style: {
-      ['--checkmark-color']: theme.colors.green500
-    },
-    children: [jsx(Button, {
+  const styles = useStyles(props, theme);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Banner,
+    componentId,
+    analyticsEvents: analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : [DesignSystemEventProviderAnalyticsEventTypes.OnView]
+  });
+  const {
+    elementRef
+  } = useNotifyOnFirstView({
+    onView: eventContext.onView
+  });
+  const actionButton = onAccept && ctaText ? jsx("div", {
+    css: styles.actionButtonContainer,
+    children: jsx(Button$1, {
+      componentId: `${componentId}.accept`,
+      onClick: onAccept,
+      css: styles.actionButton,
       size: "small",
-      ...props,
-      onClick: handleClick,
-      css: /*#__PURE__*/css({
-        svg: {
-          transition: showCheck ? 'none' : 'opacity 350ms',
-          opacity: showCheck ? '0' : '1'
+      children: ctaText
+    })
+  }) : null;
+  const close = closable !== false ? jsx("div", {
+    css: styles.closeIconContainer,
+    children: jsx(Button$1, {
+      componentId: `${componentId}.close`,
+      css: styles.closeButton,
+      onClick: () => {
+        if (onClose) {
+          onClose();
         }
-      }, process.env.NODE_ENV === "production" ? "" : ";label:MessageActionButton;")
-    }), jsx(CheckIcon, {
-      css: buttonStyles.checkIcon,
-      style: {
-        transition: showCheck ? 'none' : 'opacity 350ms',
-        opacity: showCheck ? '1' : '0'
+        setClosed(true);
+      },
+      "aria-label": closeButtonAriaLabel !== null && closeButtonAriaLabel !== void 0 ? closeButtonAriaLabel : 'Close',
+      "data-testid": "banner-dismiss",
+      children: jsx(CloseIcon, {
+        css: styles.closeIcon
+      })
+    })
+  }) : null;
+  return jsx(Fragment, {
+    children: !closed && jsxs("div", {
+      ref: elementRef,
+      ...addDebugOutlineIfEnabled(),
+      css: styles.banner,
+      className: "banner",
+      "data-testid": props['data-testid'],
+      children: [jsx("div", {
+        css: styles.iconContainer,
+        children: levelToIconMap[level]
+      }), jsxs("div", {
+        css: styles.mainContent,
+        children: [jsx(Text, {
+          size: "md",
+          bold: true,
+          css: styles.messageTextBlock,
+          title: message,
+          children: message
+        }), description && jsx(Paragraph, {
+          withoutMargins: true,
+          css: styles.descriptionBlock,
+          title: description,
+          children: description
+        })]
+      }), jsxs("div", {
+        css: styles.rightContainer,
+        children: [actionButton, close]
+      })]
+    })
+  });
+};
+
+function _EMOTION_STRINGIFIED_CSS_ERROR__$2() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+const dayPickerStyles = process.env.NODE_ENV === "production" ? {
+  name: "rfehes",
+  styles: ".rdp{--rdp-cell-size:40px;--rdp-caption-font-size:18px;--rdp-accent-color:#0000ff;--rdp-background-color:#e7edff;--rdp-accent-color-dark:#3003e1;--rdp-background-color-dark:#180270;--rdp-outline:2px solid var(--rdp-accent-color);--rdp-outline-selected:3px solid var(--rdp-accent-color);--rdp-selected-color:#fff;margin:1em;}.rdp-vhidden{box-sizing:border-box;padding:0;margin:0;background:transparent;border:0;-moz-appearance:none;-webkit-appearance:none;appearance:none;position:absolute!important;top:0;width:1px!important;height:1px!important;padding:0!important;overflow:hidden!important;clip:rect(1px, 1px, 1px, 1px)!important;border:0!important;}.rdp-button_reset{appearance:none;position:relative;margin:0;padding:0;cursor:default;color:inherit;background:none;font:inherit;-moz-appearance:none;-webkit-appearance:none;}.rdp-button_reset:focus-visible{outline:none;}.rdp-button{border:2px solid transparent;}.rdp-button[disabled]:not(.rdp-day_selected){opacity:0.25;}.rdp-button:not([disabled]){cursor:pointer;}.rdp-button:focus-visible:not([disabled]){color:inherit;background-color:var(--rdp-background-color);border:var(--rdp-outline);}.rdp-button:hover:not([disabled]):not(.rdp-day_selected){background-color:var(--rdp-background-color);}.rdp-months{display:flex;}.rdp-month{margin:0 1em;}.rdp-month:first-child{margin-left:0;}.rdp-month:last-child{margin-right:0;}.rdp-table{margin:0;max-width:calc(var(--rdp-cell-size) * 7);border-collapse:collapse;}.rdp-with_weeknumber .rdp-table{max-width:calc(var(--rdp-cell-size) * 8);border-collapse:collapse;}.rdp-caption{display:flex;align-items:center;justify-content:space-between;padding:0;text-align:left;}.rdp-multiple_months .rdp-caption{position:relative;display:block;text-align:center;}.rdp-caption_dropdowns{position:relative;display:inline-flex;}.rdp-caption_label{position:relative;z-index:1;display:inline-flex;align-items:center;margin:0;padding:0 0.25em;white-space:nowrap;color:currentColor;border:0;border:2px solid transparent;font-family:inherit;font-size:var(--rdp-caption-font-size);font-weight:bold;}.rdp-nav{white-space:nowrap;}.rdp-multiple_months .rdp-caption_start .rdp-nav{position:absolute;top:50%;left:0;transform:translateY(-50%);}.rdp-multiple_months .rdp-caption_end .rdp-nav{position:absolute;top:50%;right:0;transform:translateY(-50%);}.rdp-nav_button{display:inline-flex;align-items:center;justify-content:center;width:var(--rdp-cell-size);height:var(--rdp-cell-size);padding:0.25em;border-radius:100%;}.rdp-dropdown_year,.rdp-dropdown_month{position:relative;display:inline-flex;align-items:center;}.rdp-dropdown{appearance:none;position:absolute;z-index:2;top:0;bottom:0;left:0;width:100%;margin:0;padding:0;cursor:inherit;opacity:0;border:none;background-color:transparent;font-family:inherit;font-size:inherit;line-height:inherit;}.rdp-dropdown[disabled]{opacity:unset;color:unset;}.rdp-dropdown:focus-visible:not([disabled])+.rdp-caption_label{background-color:var(--rdp-background-color);border:var(--rdp-outline);border-radius:6px;}.rdp-dropdown_icon{margin:0 0 0 5px;}.rdp-head{border:0;}.rdp-head_row,.rdp-row{height:100%;}.rdp-head_cell{vertical-align:middle;font-size:0.75em;font-weight:700;text-align:center;height:100%;height:var(--rdp-cell-size);padding:0;text-transform:uppercase;}.rdp-tbody{border:0;}.rdp-tfoot{margin:0.5em;}.rdp-cell{width:var(--rdp-cell-size);height:100%;height:var(--rdp-cell-size);padding:0;text-align:center;}.rdp-weeknumber{font-size:0.75em;}.rdp-weeknumber,.rdp-day{display:flex;overflow:hidden;align-items:center;justify-content:center;box-sizing:border-box;width:var(--rdp-cell-size);max-width:var(--rdp-cell-size);height:var(--rdp-cell-size);margin:0;border:2px solid transparent;border-radius:100%;}.rdp-day_today:not(.rdp-day_outside){font-weight:bold;}.rdp-day_selected,.rdp-day_selected:focus-visible,.rdp-day_selected:hover{color:var(--rdp-selected-color);opacity:1;background-color:var(--rdp-accent-color);}.rdp-day_outside{opacity:0.5;}.rdp-day_selected:focus-visible{outline:var(--rdp-outline);outline-offset:2px;z-index:1;}.rdp:not([dir='rtl']) .rdp-day_range_start:not(.rdp-day_range_end){border-top-right-radius:0;border-bottom-right-radius:0;}.rdp:not([dir='rtl']) .rdp-day_range_end:not(.rdp-day_range_start){border-top-left-radius:0;border-bottom-left-radius:0;}.rdp[dir='rtl'] .rdp-day_range_start:not(.rdp-day_range_end){border-top-left-radius:0;border-bottom-left-radius:0;}.rdp[dir='rtl'] .rdp-day_range_end:not(.rdp-day_range_start){border-top-right-radius:0;border-bottom-right-radius:0;}.rdp-day_range_end.rdp-day_range_start{border-radius:100%;}.rdp-day_range_middle{border-radius:0;}"
+} : {
+  name: "11liau0-dayPickerStyles",
+  styles: ".rdp{--rdp-cell-size:40px;--rdp-caption-font-size:18px;--rdp-accent-color:#0000ff;--rdp-background-color:#e7edff;--rdp-accent-color-dark:#3003e1;--rdp-background-color-dark:#180270;--rdp-outline:2px solid var(--rdp-accent-color);--rdp-outline-selected:3px solid var(--rdp-accent-color);--rdp-selected-color:#fff;margin:1em;}.rdp-vhidden{box-sizing:border-box;padding:0;margin:0;background:transparent;border:0;-moz-appearance:none;-webkit-appearance:none;appearance:none;position:absolute!important;top:0;width:1px!important;height:1px!important;padding:0!important;overflow:hidden!important;clip:rect(1px, 1px, 1px, 1px)!important;border:0!important;}.rdp-button_reset{appearance:none;position:relative;margin:0;padding:0;cursor:default;color:inherit;background:none;font:inherit;-moz-appearance:none;-webkit-appearance:none;}.rdp-button_reset:focus-visible{outline:none;}.rdp-button{border:2px solid transparent;}.rdp-button[disabled]:not(.rdp-day_selected){opacity:0.25;}.rdp-button:not([disabled]){cursor:pointer;}.rdp-button:focus-visible:not([disabled]){color:inherit;background-color:var(--rdp-background-color);border:var(--rdp-outline);}.rdp-button:hover:not([disabled]):not(.rdp-day_selected){background-color:var(--rdp-background-color);}.rdp-months{display:flex;}.rdp-month{margin:0 1em;}.rdp-month:first-child{margin-left:0;}.rdp-month:last-child{margin-right:0;}.rdp-table{margin:0;max-width:calc(var(--rdp-cell-size) * 7);border-collapse:collapse;}.rdp-with_weeknumber .rdp-table{max-width:calc(var(--rdp-cell-size) * 8);border-collapse:collapse;}.rdp-caption{display:flex;align-items:center;justify-content:space-between;padding:0;text-align:left;}.rdp-multiple_months .rdp-caption{position:relative;display:block;text-align:center;}.rdp-caption_dropdowns{position:relative;display:inline-flex;}.rdp-caption_label{position:relative;z-index:1;display:inline-flex;align-items:center;margin:0;padding:0 0.25em;white-space:nowrap;color:currentColor;border:0;border:2px solid transparent;font-family:inherit;font-size:var(--rdp-caption-font-size);font-weight:bold;}.rdp-nav{white-space:nowrap;}.rdp-multiple_months .rdp-caption_start .rdp-nav{position:absolute;top:50%;left:0;transform:translateY(-50%);}.rdp-multiple_months .rdp-caption_end .rdp-nav{position:absolute;top:50%;right:0;transform:translateY(-50%);}.rdp-nav_button{display:inline-flex;align-items:center;justify-content:center;width:var(--rdp-cell-size);height:var(--rdp-cell-size);padding:0.25em;border-radius:100%;}.rdp-dropdown_year,.rdp-dropdown_month{position:relative;display:inline-flex;align-items:center;}.rdp-dropdown{appearance:none;position:absolute;z-index:2;top:0;bottom:0;left:0;width:100%;margin:0;padding:0;cursor:inherit;opacity:0;border:none;background-color:transparent;font-family:inherit;font-size:inherit;line-height:inherit;}.rdp-dropdown[disabled]{opacity:unset;color:unset;}.rdp-dropdown:focus-visible:not([disabled])+.rdp-caption_label{background-color:var(--rdp-background-color);border:var(--rdp-outline);border-radius:6px;}.rdp-dropdown_icon{margin:0 0 0 5px;}.rdp-head{border:0;}.rdp-head_row,.rdp-row{height:100%;}.rdp-head_cell{vertical-align:middle;font-size:0.75em;font-weight:700;text-align:center;height:100%;height:var(--rdp-cell-size);padding:0;text-transform:uppercase;}.rdp-tbody{border:0;}.rdp-tfoot{margin:0.5em;}.rdp-cell{width:var(--rdp-cell-size);height:100%;height:var(--rdp-cell-size);padding:0;text-align:center;}.rdp-weeknumber{font-size:0.75em;}.rdp-weeknumber,.rdp-day{display:flex;overflow:hidden;align-items:center;justify-content:center;box-sizing:border-box;width:var(--rdp-cell-size);max-width:var(--rdp-cell-size);height:var(--rdp-cell-size);margin:0;border:2px solid transparent;border-radius:100%;}.rdp-day_today:not(.rdp-day_outside){font-weight:bold;}.rdp-day_selected,.rdp-day_selected:focus-visible,.rdp-day_selected:hover{color:var(--rdp-selected-color);opacity:1;background-color:var(--rdp-accent-color);}.rdp-day_outside{opacity:0.5;}.rdp-day_selected:focus-visible{outline:var(--rdp-outline);outline-offset:2px;z-index:1;}.rdp:not([dir='rtl']) .rdp-day_range_start:not(.rdp-day_range_end){border-top-right-radius:0;border-bottom-right-radius:0;}.rdp:not([dir='rtl']) .rdp-day_range_end:not(.rdp-day_range_start){border-top-left-radius:0;border-bottom-left-radius:0;}.rdp[dir='rtl'] .rdp-day_range_start:not(.rdp-day_range_end){border-top-left-radius:0;border-bottom-left-radius:0;}.rdp[dir='rtl'] .rdp-day_range_end:not(.rdp-day_range_start){border-top-right-radius:0;border-bottom-right-radius:0;}.rdp-day_range_end.rdp-day_range_start{border-radius:100%;}.rdp-day_range_middle{border-radius:0;};label:dayPickerStyles;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$2
+};
+
+function _EMOTION_STRINGIFIED_CSS_ERROR__$1() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+const handleInputKeyDown = (event, setIsVisible) => {
+  if (event.key === ' ' || event.key === 'Enter' || event.key === 'Space') {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsVisible(true);
+  }
+};
+function Day(props) {
+  const buttonRef = useRef(null);
+  const dayRender = useDayRender(props.date, props.displayMonth, buttonRef);
+  if (dayRender.isHidden) {
+    return jsx("div", {
+      role: "cell"
+    });
+  }
+  if (!dayRender.isButton) {
+    return jsx("div", {
+      ...dayRender.divProps
+    });
+  }
+  return jsx(Button$2, {
+    name: "day",
+    ref: buttonRef,
+    ...dayRender.buttonProps,
+    role: "button"
+  });
+}
+var _ref$1 = process.env.NODE_ENV === "production" ? {
+  name: "1xsrjyo",
+  styles: "*::-webkit-calendar-picker-indicator{display:none;}"
+} : {
+  name: "wudvyp-DatePicker",
+  styles: "*::-webkit-calendar-picker-indicator{display:none;};label:DatePicker;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$1
+};
+const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    classNamePrefix
+  } = useDesignSystemTheme();
+  const {
+    id,
+    name,
+    value,
+    validationState,
+    onChange,
+    allowClear,
+    onClear,
+    includeTime,
+    defaultTime,
+    onOpenChange,
+    open,
+    datePickerProps,
+    timeInputProps,
+    mode = 'single',
+    selected,
+    wrapperDivProps,
+    width,
+    maxWidth,
+    minWidth,
+    ...restProps
+  } = props;
+  const format$1 = includeTime ? 'yyyy-MM-dd HH:mm' : 'yyyy-MM-dd';
+  const [date, setDate] = useState(value);
+  const [triggerValue, setTriggerValue] = useState(value ? format(value, format$1) : undefined);
+  const [isVisible, setIsVisible] = useState(Boolean(open));
+  const inputRef = useRef(null);
+  const visibleRef = useRef(isVisible);
+  // Needed to avoid the clear icon click also reopening the datepicker
+  const fromClearRef = useRef(null);
+  useEffect(() => {
+    if (!isVisible && visibleRef.current) {
+      var _inputRef$current;
+      (_inputRef$current = inputRef.current) === null || _inputRef$current === void 0 || _inputRef$current.focus();
+    }
+    visibleRef.current = isVisible;
+    onOpenChange === null || onOpenChange === void 0 || onOpenChange(isVisible);
+  }, [isVisible, onOpenChange]);
+  useEffect(() => {
+    setIsVisible(Boolean(open));
+  }, [open]);
+  const handleChange = useCallback(date => {
+    if (onChange) {
+      onChange({
+        target: {
+          name,
+          value: date
+        },
+        type: 'change'
+      });
+    }
+  }, [onChange, name]);
+  const handleDatePickerUpdate = date => {
+    setDate(prevDate => {
+      // Set default time if date is set the first time
+      if (!prevDate && date && includeTime && defaultTime) {
+        const timeSplit = defaultTime.split(':');
+        date === null || date === void 0 || date.setHours(+timeSplit[0]);
+        date === null || date === void 0 || date.setMinutes(+timeSplit[1]);
+      } else if (prevDate && date && includeTime) {
+        date.setHours(prevDate.getHours());
+        date.setMinutes(prevDate.getMinutes());
+      }
+      handleChange === null || handleChange === void 0 || handleChange(date);
+      return date;
+    });
+    setTriggerValue(format(date, format$1));
+    if (!includeTime) {
+      setIsVisible(false);
+    }
+  };
+  const handleTriggerUpdate = e => {
+    var _e$nativeEvent;
+    const value = (_e$nativeEvent = e.nativeEvent) === null || _e$nativeEvent === void 0 || (_e$nativeEvent = _e$nativeEvent.target) === null || _e$nativeEvent === void 0 ? void 0 : _e$nativeEvent.value;
+    setTriggerValue(value);
+    if (value) {
+      const parsedDate = new Date(value);
+      if (isValid(parsedDate)) {
+        setDate(parsedDate);
+        handleChange === null || handleChange === void 0 || handleChange(parsedDate);
+      }
+    }
+  };
+  const handleClear = useCallback(() => {
+    setDate(undefined);
+    setTriggerValue(undefined);
+    onClear === null || onClear === void 0 || onClear();
+    handleChange === null || handleChange === void 0 || handleChange(undefined);
+  }, [onClear, handleChange]);
+  const handleTimeUpdate = e => {
+    var _e$nativeEvent2;
+    const newTime = (_e$nativeEvent2 = e.nativeEvent) === null || _e$nativeEvent2 === void 0 || (_e$nativeEvent2 = _e$nativeEvent2.target) === null || _e$nativeEvent2 === void 0 ? void 0 : _e$nativeEvent2.value;
+    const time = date ? format(date, 'HH:mm') : undefined;
+    if (newTime && newTime !== time) {
+      if (date) {
+        const updatedDate = date;
+        const timeSplit = newTime.split(':');
+        updatedDate.setHours(+timeSplit[0]);
+        updatedDate.setMinutes(+timeSplit[1]);
+        handleDatePickerUpdate(date);
+      }
+    }
+  };
+
+  // Manually add the clear icon click event listener to avoid reopening the datepicker when clearing the input
+  useEffect(() => {
+    if (allowClear && inputRef.current) {
+      var _input;
+      const clearIcon = (_input = inputRef.current.input) === null || _input === void 0 || (_input = _input.closest('[type="button"]')) === null || _input === void 0 ? void 0 : _input.querySelector(`.${classNamePrefix}-input-clear-icon`);
+      if (clearIcon !== fromClearRef.current) {
+        fromClearRef.current = clearIcon;
+        const clientEventListener = e => {
+          e.stopPropagation();
+          e.preventDefault();
+          handleClear();
+        };
+        clearIcon.addEventListener('click', clientEventListener);
+      }
+    }
+  }, [classNamePrefix, defaultTime, handleClear, allowClear]);
+  return jsx("div", {
+    css: /*#__PURE__*/css({
+      width,
+      minWidth,
+      maxWidth,
+      pointerEvents: restProps !== null && restProps !== void 0 && restProps.disabled ? 'none' : 'auto'
+    }, process.env.NODE_ENV === "production" ? "" : ";label:DatePicker;"),
+    ...wrapperDivProps,
+    children: jsxs(Root$5, {
+      open: isVisible,
+      onOpenChange: setIsVisible,
+      children: [jsx(Trigger$1, {
+        asChild: true,
+        disabled: restProps === null || restProps === void 0 ? void 0 : restProps.disabled,
+        children: jsxs("div", {
+          children: [jsx(Input, {
+            id: id,
+            ref: inputRef,
+            name: name,
+            validationState: validationState,
+            allowClear: allowClear,
+            placeholder: "Select Date",
+            "aria-label": includeTime ? 'Select Date and Time' : 'Select Date',
+            suffix: jsx(CalendarEventIcon, {}),
+            role: "textbox",
+            ...restProps,
+            css: _ref$1,
+            type: includeTime ? 'datetime-local' : 'date',
+            onKeyDown: event => handleInputKeyDown(event, setIsVisible),
+            onChange: handleTriggerUpdate,
+            value: triggerValue
+          }), jsx("input", {
+            type: "hidden",
+            ref: ref,
+            value: date
+          })]
+        })
+      }), jsxs(Content$1, {
+        align: "start",
+        css: dayPickerStyles,
+        children: [jsx(DayPicker, {
+          ...datePickerProps,
+          mode: mode,
+          selected: mode === 'range' ? selected : date,
+          onDayClick: handleDatePickerUpdate,
+          components: {
+            Day
+          }
+        }), includeTime && jsx(Input, {
+          type: "time",
+          "aria-label": "Time",
+          role: "textbox",
+          ...timeInputProps,
+          value: date ? format(date, 'HH:mm') : defaultTime,
+          onChange: handleTimeUpdate,
+          disabled: !date || (timeInputProps === null || timeInputProps === void 0 ? void 0 : timeInputProps.disabled)
+        }), jsx(Arrow, {})]
+      })]
+    })
+  });
+});
+const getRangePickerStyles = (clsPrefix, theme, _ref2) => {
+  let {
+    validationState,
+    disabled,
+    useTransparent = false
+  } = _ref2;
+  const inputClass = `.${clsPrefix}-input`;
+  const affixClass = `.${clsPrefix}-input-affix-wrapper`;
+  const validationColor = getValidationStateColor(theme, validationState);
+  return {
+    '&&': {
+      ...(disabled && {
+        pointerEvents: 'none'
+      }),
+      lineHeight: theme.typography.lineHeightBase,
+      minHeight: theme.general.heightSm,
+      ...(validationState && {
+        borderColor: validationColor
+      }),
+      '&[data-focused="true"], &[data-focused="true"]:hover': {
+        [`${affixClass}:focus-within, ${affixClass}`]: {
+          outlineWidth: '0px !important',
+          boxShadow: 'none',
+          border: 'none'
+        },
+        outlineColor: validationState ? validationColor : theme.colors.actionPrimaryBackgroundDefault,
+        outlineWidth: 2,
+        borderRadius: 4,
+        outlineStyle: 'solid',
+        boxShadow: 'none',
+        borderColor: 'transparent'
+      },
+      [`&:hover ${affixClass}`]: {
+        borderColor: validationState ? validationColor : theme.colors.actionPrimaryBackgroundHover
+      }
+    },
+    [`&${inputClass}, ${inputClass}`]: {
+      ...(useTransparent && {
+        backgroundColor: 'transparent'
+      }),
+      '&:disabled': {
+        backgroundColor: theme.colors.actionDisabledBackground,
+        color: theme.colors.actionDisabledText,
+        borderColor: theme.colors.actionDisabledBorder
+      },
+      '&::placeholder': {
+        color: theme.colors.textPlaceholder
+      }
+    }
+  };
+};
+var _ref3 = process.env.NODE_ENV === "production" ? {
+  name: "1tbporb",
+  styles: "border-right:none;border-top-right-radius:0;border-bottom-right-radius:0;*::-webkit-calendar-picker-indicator{display:none;}"
+} : {
+  name: "lvtbb2-RangePicker",
+  styles: "border-right:none;border-top-right-radius:0;border-bottom-right-radius:0;*::-webkit-calendar-picker-indicator{display:none;};label:RangePicker;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$1
+};
+var _ref4 = process.env.NODE_ENV === "production" ? {
+  name: "1rv6kv8",
+  styles: "border-left:none;border-top-left-radius:0;border-bottom-left-radius:0"
+} : {
+  name: "1vhmfrm-RangePicker",
+  styles: "border-left:none;border-top-left-radius:0;border-bottom-left-radius:0;label:RangePicker;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$1
+};
+const RangePicker = props => {
+  var _startDatePickerProps6, _endDatePickerProps$d5;
+  const {
+    classNamePrefix,
+    theme
+  } = useDesignSystemTheme();
+  const {
+    id,
+    onChange,
+    startDatePickerProps,
+    endDatePickerProps,
+    includeTime,
+    allowClear,
+    minWidth,
+    maxWidth,
+    width,
+    disabled
+  } = props;
+  const [range, setRange] = useState({
+    from: startDatePickerProps === null || startDatePickerProps === void 0 ? void 0 : startDatePickerProps.value,
+    to: endDatePickerProps === null || endDatePickerProps === void 0 ? void 0 : endDatePickerProps.value
+  });
+
+  // Focus is lost when the popover is closed, we need to set the focus back to the input that opened the popover manually.
+  const [isFromVisible, setIsFromVisible] = useState(false);
+  const [isToVisible, setIsToVisible] = useState(false);
+  const [isRangeInputFocused, setIsRangeInputFocused] = useState(false);
+  const fromInputRef = useRef(null);
+  const toInputRef = useRef(null);
+  useImperativeHandle(startDatePickerProps === null || startDatePickerProps === void 0 ? void 0 : startDatePickerProps.ref, () => fromInputRef.current);
+  useImperativeHandle(endDatePickerProps === null || endDatePickerProps === void 0 ? void 0 : endDatePickerProps.ref, () => toInputRef.current);
+  const fromInputRefVisible = useRef(isFromVisible);
+  const toInputRefVisible = useRef(isToVisible);
+  useEffect(() => {
+    if (!isFromVisible && fromInputRefVisible.current) {
+      var _fromInputRef$current;
+      (_fromInputRef$current = fromInputRef.current) === null || _fromInputRef$current === void 0 || _fromInputRef$current.focus();
+    }
+    fromInputRefVisible.current = isFromVisible;
+  }, [isFromVisible]);
+  useEffect(() => {
+    if (!isToVisible && toInputRefVisible.current) {
+      var _toInputRef$current;
+      (_toInputRef$current = toInputRef.current) === null || _toInputRef$current === void 0 || _toInputRef$current.focus();
+    }
+    toInputRefVisible.current = isToVisible;
+  }, [isToVisible]);
+  const handleUpdateDate = useCallback(function (e, isStart) {
+    let shouldFocusNextInput = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
+    setRange(prevRange => {
+      const date = e.target.value;
+      const newRange = isStart ? {
+        from: date,
+        to: prevRange === null || prevRange === void 0 ? void 0 : prevRange.to
+      } : {
+        from: prevRange === null || prevRange === void 0 ? void 0 : prevRange.from,
+        to: date
+      };
+      if (!includeTime) {
+        if (isStart) {
+          setIsFromVisible(false);
+          if (shouldFocusNextInput) {
+            setIsToVisible(true);
+          }
+        } else {
+          setIsToVisible(false);
+        }
+      }
+      if (isStart) {
+        var _startDatePickerProps;
+        startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps = startDatePickerProps.onChange) === null || _startDatePickerProps === void 0 || _startDatePickerProps.call(startDatePickerProps, e);
+      } else {
+        var _endDatePickerProps$o;
+        endDatePickerProps === null || endDatePickerProps === void 0 || (_endDatePickerProps$o = endDatePickerProps.onChange) === null || _endDatePickerProps$o === void 0 || _endDatePickerProps$o.call(endDatePickerProps, e);
+      }
+      onChange === null || onChange === void 0 || onChange(newRange);
+      return newRange;
+    });
+  }, [onChange, includeTime, startDatePickerProps, endDatePickerProps]);
+
+  // Use useMemo to calculate disabled dates
+  const disabledDates = useMemo(() => {
+    var _startDatePickerProps2, _endDatePickerProps$d;
+    let startDisabledFromProps, endDisabledFromProps;
+    if (startDatePickerProps !== null && startDatePickerProps !== void 0 && (_startDatePickerProps2 = startDatePickerProps.datePickerProps) !== null && _startDatePickerProps2 !== void 0 && _startDatePickerProps2.disabled) {
+      var _startDatePickerProps3, _startDatePickerProps4, _startDatePickerProps5;
+      startDisabledFromProps = Array.isArray(startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps3 = startDatePickerProps.datePickerProps) === null || _startDatePickerProps3 === void 0 ? void 0 : _startDatePickerProps3.disabled) ? startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps4 = startDatePickerProps.datePickerProps) === null || _startDatePickerProps4 === void 0 ? void 0 : _startDatePickerProps4.disabled : [startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps5 = startDatePickerProps.datePickerProps) === null || _startDatePickerProps5 === void 0 ? void 0 : _startDatePickerProps5.disabled];
+    }
+    const startDisabled = [{
+      after: range === null || range === void 0 ? void 0 : range.to
+    }, ...(startDisabledFromProps ? startDisabledFromProps : [])].filter(Boolean);
+    if (endDatePickerProps !== null && endDatePickerProps !== void 0 && (_endDatePickerProps$d = endDatePickerProps.datePickerProps) !== null && _endDatePickerProps$d !== void 0 && _endDatePickerProps$d.disabled) {
+      var _endDatePickerProps$d2, _endDatePickerProps$d3, _endDatePickerProps$d4;
+      endDisabledFromProps = Array.isArray(endDatePickerProps === null || endDatePickerProps === void 0 || (_endDatePickerProps$d2 = endDatePickerProps.datePickerProps) === null || _endDatePickerProps$d2 === void 0 ? void 0 : _endDatePickerProps$d2.disabled) ? endDatePickerProps === null || endDatePickerProps === void 0 || (_endDatePickerProps$d3 = endDatePickerProps.datePickerProps) === null || _endDatePickerProps$d3 === void 0 ? void 0 : _endDatePickerProps$d3.disabled : [endDatePickerProps === null || endDatePickerProps === void 0 || (_endDatePickerProps$d4 = endDatePickerProps.datePickerProps) === null || _endDatePickerProps$d4 === void 0 ? void 0 : _endDatePickerProps$d4.disabled];
+    }
+    const endDisabled = [{
+      before: range === null || range === void 0 ? void 0 : range.from
+    }, ...(endDisabledFromProps ? endDisabledFromProps : [])].filter(Boolean);
+    return {
+      startDisabled,
+      endDisabled
+    };
+  }, [range === null || range === void 0 ? void 0 : range.from, range === null || range === void 0 ? void 0 : range.to, startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps6 = startDatePickerProps.datePickerProps) === null || _startDatePickerProps6 === void 0 ? void 0 : _startDatePickerProps6.disabled, endDatePickerProps === null || endDatePickerProps === void 0 || (_endDatePickerProps$d5 = endDatePickerProps.datePickerProps) === null || _endDatePickerProps$d5 === void 0 ? void 0 : _endDatePickerProps$d5.disabled]);
+  return jsxs("div", {
+    "data-focused": isRangeInputFocused,
+    css: [{
+      display: 'flex',
+      alignItems: 'center',
+      minWidth,
+      maxWidth,
+      width
+    }, getRangePickerStyles(classNamePrefix, theme, {
+      validationState: (startDatePickerProps === null || startDatePickerProps === void 0 ? void 0 : startDatePickerProps.validationState) || (endDatePickerProps === null || endDatePickerProps === void 0 ? void 0 : endDatePickerProps.validationState),
+      disabled
+    }), process.env.NODE_ENV === "production" ? "" : ";label:RangePicker;"],
+    children: [jsx(DatePicker, {
+      ...startDatePickerProps,
+      id: id,
+      ref: fromInputRef,
+      disabled: disabled,
+      onChange: e => handleUpdateDate(e, true),
+      includeTime: includeTime,
+      open: isFromVisible,
+      onOpenChange: setIsFromVisible,
+      allowClear: allowClear,
+      datePickerProps: {
+        ...(startDatePickerProps === null || startDatePickerProps === void 0 ? void 0 : startDatePickerProps.datePickerProps),
+        disabled: disabledDates.startDisabled
+      }
+      // @ts-expect-error - DatePickerProps does not have a mode property in the public API but is needed for this use case
+      ,
+      mode: "range",
+      selected: range,
+      value: range === null || range === void 0 ? void 0 : range.from,
+      onFocus: e => {
+        var _startDatePickerProps7;
+        setIsRangeInputFocused(true);
+        startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps7 = startDatePickerProps.onFocus) === null || _startDatePickerProps7 === void 0 || _startDatePickerProps7.call(startDatePickerProps, e);
+      },
+      onBlur: e => {
+        var _startDatePickerProps8;
+        setIsRangeInputFocused(false);
+        startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps8 = startDatePickerProps.onBlur) === null || _startDatePickerProps8 === void 0 || _startDatePickerProps8.call(startDatePickerProps, e);
+      },
+      css: _ref3,
+      wrapperDivProps: {
+        style: {
+          width: '50%'
+        }
+      },
+      suffix: jsx(ArrowRightIcon, {})
+    }), jsx(DatePicker, {
+      ...endDatePickerProps,
+      ref: toInputRef,
+      disabled: disabled,
+      onChange: e => handleUpdateDate(e, false),
+      includeTime: includeTime,
+      open: isToVisible,
+      onOpenChange: setIsToVisible,
+      allowClear: allowClear,
+      datePickerProps: {
+        ...(endDatePickerProps === null || endDatePickerProps === void 0 ? void 0 : endDatePickerProps.datePickerProps),
+        disabled: disabledDates.endDisabled
+      }
+      // @ts-expect-error - DatePickerProps does not have a mode property in the public API but is needed for this use case
+      ,
+      mode: "range",
+      selected: range,
+      value: range === null || range === void 0 ? void 0 : range.to,
+      onFocus: e => {
+        var _startDatePickerProps9;
+        setIsRangeInputFocused(true);
+        startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps9 = startDatePickerProps.onFocus) === null || _startDatePickerProps9 === void 0 || _startDatePickerProps9.call(startDatePickerProps, e);
+      },
+      onBlur: e => {
+        var _startDatePickerProps10;
+        setIsRangeInputFocused(false);
+        startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps10 = startDatePickerProps.onBlur) === null || _startDatePickerProps10 === void 0 || _startDatePickerProps10.call(startDatePickerProps, e);
+      },
+      css: _ref4,
+      wrapperDivProps: {
+        style: {
+          width: '50%'
+        }
       }
     })]
   });
 };
-var MessageActionButton$1 = MessageActionButton;
 
-const MessageBody = _ref => {
+const RadioGroupContext = /*#__PURE__*/React__default.createContext('medium');
+const Root$4 = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
   let {
-    children
+    size,
+    componentId,
+    analyticsEvents,
+    valueHasNoPii,
+    onValueChange,
+    ...props
   } = _ref;
   const {
-    getPrefixedClassName
+    theme
   } = useDesignSystemTheme();
-  const typographyClassname = getPrefixedClassName('typography');
-  return jsx("div", {
-    css: /*#__PURE__*/css({
-      [`& .${typographyClassname}:last-of-type`]: {
-        marginBottom: 0
+  const contextValue = React__default.useMemo(() => size !== null && size !== void 0 ? size : 'medium', [size]);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.PillControl,
+    componentId,
+    analyticsEvents: analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    valueHasNoPii
+  });
+  const onValueChangeWrapper = useCallback(value => {
+    var _eventContext$onValue;
+    (_eventContext$onValue = eventContext.onValueChange) === null || _eventContext$onValue === void 0 || _eventContext$onValue.call(eventContext, value);
+    onValueChange === null || onValueChange === void 0 || onValueChange(value);
+  }, [eventContext, onValueChange]);
+  return jsx(RadioGroupContext.Provider, {
+    value: contextValue,
+    children: jsx(RadioGroup, {
+      css: /*#__PURE__*/css({
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: theme.spacing.sm
+      }, process.env.NODE_ENV === "production" ? "" : ";label:Root;"),
+      onValueChange: onValueChangeWrapper,
+      ...props,
+      ref: forwardedRef
+    })
+  });
+});
+const Item = /*#__PURE__*/React__default.forwardRef((_ref2, forwardedRef) => {
+  let {
+    children,
+    icon,
+    ...props
+  } = _ref2;
+  const size = React__default.useContext(RadioGroupContext);
+  const {
+    theme
+  } = useDesignSystemTheme();
+  const iconClass = 'pill-control-icon';
+  const css$1 = useRadioGroupItemStyles(size, iconClass);
+  return jsxs(RadioGroupItem, {
+    css: css$1,
+    ...props,
+    children: [icon && jsx("span", {
+      className: iconClass,
+      css: /*#__PURE__*/css({
+        marginRight: size === 'large' ? theme.spacing.sm : theme.spacing.xs,
+        [`& > .anticon`]: {
+          verticalAlign: `-3px`
+        }
+      }, process.env.NODE_ENV === "production" ? "" : ";label:Item;"),
+      children: icon
+    }), children]
+  });
+});
+const useRadioGroupItemStyles = (size, iconClass) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return {
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    appearance: 'none',
+    textDecoration: 'none',
+    background: 'none',
+    border: '1px solid',
+    cursor: 'pointer',
+    backgroundColor: theme.colors.actionDefaultBackgroundDefault,
+    borderColor: theme.colors.border,
+    color: theme.colors.textPrimary,
+    lineHeight: theme.typography.lineHeightBase,
+    height: 32,
+    paddingInline: '12px',
+    fontWeight: theme.typography.typographyRegularFontWeight,
+    fontSize: theme.typography.fontSizeBase,
+    borderRadius: theme.spacing.md,
+    transition: 'background-color 0.2s ease-in-out, border-color 0.2s ease-in-out',
+    [`& > .${iconClass}`]: {
+      color: theme.colors.textSecondary,
+      ...(size === 'large' ? {
+        backgroundColor: theme.colors.tagDefault,
+        padding: theme.spacing.sm,
+        borderRadius: theme.spacing.md
+      } : {})
+    },
+    '&[data-state="checked"]': {
+      backgroundColor: theme.colors.actionDefaultBackgroundPress,
+      borderColor: 'transparent',
+      color: theme.colors.textPrimary,
+      // outline
+      outlineStyle: 'solid',
+      outlineWidth: '2px',
+      outlineOffset: '0px',
+      outlineColor: theme.isDarkMode ? theme.colors.actionLinkDefault : theme.colors.actionLinkDefault,
+      '&:hover': {
+        backgroundColor: theme.colors.actionDefaultBackgroundPress,
+        borderColor: theme.colors.actionLinkPress,
+        color: 'inherit'
+      },
+      [`& > .${iconClass}, &:hover > .${iconClass}`]: {
+        color: theme.colors.actionDefaultTextPress,
+        ...(size === 'large' ? {
+          backgroundColor: theme.colors.actionIconBackgroundPress
+        } : {})
       }
-    }, process.env.NODE_ENV === "production" ? "" : ";label:MessageBody;"),
+    },
+    '&:focus-visible': {
+      outlineStyle: 'solid',
+      outlineWidth: '2px',
+      outlineOffset: '0px',
+      outlineColor: theme.colors.actionDefaultBorderFocus
+    },
+    '&:hover': {
+      backgroundColor: theme.colors.actionDefaultBackgroundHover,
+      borderColor: theme.colors.actionLinkHover,
+      color: theme.colors.actionDefaultTextHover,
+      [`& > .${iconClass}`]: {
+        color: 'inherit',
+        ...(size === 'large' ? {
+          backgroundColor: theme.colors.actionIconBackgroundHover
+        } : {})
+      }
+    },
+    '&:active': {
+      backgroundColor: theme.colors.actionDefaultBackgroundPress,
+      borderColor: theme.colors.actionLinkPress,
+      color: theme.colors.actionDefaultTextPress,
+      [`& > .${iconClass}`]: {
+        color: 'inherit',
+        ...(size === 'large' ? {
+          backgroundColor: theme.colors.actionIconBackgroundPress
+        } : {})
+      }
+    },
+    '&:disabled': {
+      backgroundColor: theme.colors.actionDisabledBackground,
+      borderColor: theme.colors.actionDisabledBorder,
+      color: theme.colors.actionDisabledText,
+      cursor: 'not-allowed',
+      [`& > .${iconClass}`]: {
+        color: 'inherit'
+      }
+    },
+    ...(size === 'small' ? {
+      height: 24,
+      lineHeight: theme.typography.lineHeightSm,
+      paddingInline: theme.spacing.sm
+    } : {}),
+    ...(size === 'large' ? {
+      height: 44,
+      lineHeight: theme.typography.lineHeightXl,
+      paddingInline: theme.spacing.md,
+      paddingInlineStart: '6px',
+      borderRadius: theme.spacing.lg
+    } : {})
+  };
+};
+
+var PillControl = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  Item: Item,
+  Root: Root$4
+});
+
+const PreviewCard = _ref => {
+  let {
+    icon,
+    title,
+    subtitle,
+    titleActions,
+    children,
+    startActions,
+    endActions,
+    image,
+    onClick,
+    size = 'default',
+    dangerouslyAppendEmotionCSS,
+    ...props
+  } = _ref;
+  const styles = usePreviewCardStyles({
+    onClick,
+    size
+  });
+  const tabIndex = onClick ? 0 : undefined;
+  const role = onClick ? 'button' : undefined;
+  const showFooter = startActions || endActions;
+  return jsxs("div", {
+    ...addDebugOutlineIfEnabled(),
+    css: [styles['container'], dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:PreviewCard;"],
+    tabIndex: tabIndex,
+    onClick: onClick,
+    role: role,
+    ...props,
+    children: [image && jsx("div", {
+      children: image
+    }), jsxs("div", {
+      css: styles['header'],
+      children: [icon && jsx("div", {
+        children: icon
+      }), jsxs("div", {
+        css: styles['titleWrapper'],
+        children: [title && jsx("div", {
+          css: styles['title'],
+          children: title
+        }), subtitle && jsx("div", {
+          css: styles['subTitle'],
+          children: subtitle
+        })]
+      }), titleActions && jsx("div", {
+        children: titleActions
+      })]
+    }), children && jsx("div", {
+      css: styles['childrenWrapper'],
+      children: children
+    }), showFooter && jsxs("div", {
+      css: styles['footer'],
+      children: [jsx("div", {
+        css: styles['action'],
+        children: startActions
+      }), jsx("div", {
+        css: styles['action'],
+        children: endActions
+      })]
+    })]
+  });
+};
+const usePreviewCardStyles = _ref2 => {
+  let {
+    onClick,
+    size
+  } = _ref2;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  const isInteractive = onClick !== undefined;
+  return {
+    container: {
+      borderRadius: theme.borders.borderRadiusLg,
+      border: `1px solid ${theme.colors.border}`,
+      padding: size === 'large' ? theme.spacing.lg : theme.spacing.md,
+      color: theme.colors.textSecondary,
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      gap: size === 'large' ? theme.spacing.md : theme.spacing.sm,
+      cursor: isInteractive ? 'pointer' : 'default',
+      ...(isInteractive && {
+        '&:hover, &:focus-within': {
+          boxShadow: theme.general.shadowLow
+        },
+        '&:active': {
+          background: theme.colors.actionTertiaryBackgroundPress,
+          borderColor: theme.colors.actionDefaultBorderHover,
+          boxShadow: theme.general.shadowLow
+        },
+        '&:focus': {
+          outlineColor: theme.colors.actionPrimaryBackgroundDefault,
+          outlineWidth: 2,
+          outlineOffset: -2,
+          outlineStyle: 'solid',
+          boxShadow: theme.general.shadowLow,
+          borderColor: theme.colors.actionDefaultBorderHover
+        },
+        '&:active:not(:focus):not(:focus-within)': {
+          background: 'transparent',
+          borderColor: theme.colors.border
+        }
+      })
+    },
+    header: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: theme.spacing.sm
+    },
+    title: {
+      fontWeight: theme.typography.typographyBoldFontWeight,
+      color: theme.colors.textPrimary,
+      lineHeight: theme.typography.lineHeightSm
+    },
+    subTitle: {
+      lineHeight: theme.typography.lineHeightSm
+    },
+    titleWrapper: {
+      flexGrow: 1,
+      overflow: 'hidden'
+    },
+    childrenWrapper: {
+      flexGrow: 1
+    },
+    footer: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      flexWrap: 'wrap'
+    },
+    action: {
+      overflow: 'hidden'
+    }
+  };
+};
+
+const progressContextDefaults = {
+  progress: 0
+};
+const ProgressContext = /*#__PURE__*/createContext(progressContextDefaults);
+const ProgressContextProvider = _ref => {
+  let {
+    children,
+    value
+  } = _ref;
+  return jsx(ProgressContext.Provider, {
+    value: value,
     children: children
   });
 };
-var MessageBody$1 = MessageBody;
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$2() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-const headerStyles = {
-  container: process.env.NODE_ENV === "production" ? {
-    name: "30lgt6",
-    styles: "display:flex;justify-content:space-between;align-items:center;position:relative"
-  } : {
-    name: "10tss9b-container",
-    styles: "display:flex;justify-content:space-between;align-items:center;position:relative;label:container;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$2
-  },
-  leftContent: process.env.NODE_ENV === "production" ? {
-    name: "sz7nmf",
-    styles: "display:flex;align-items:center;gap:var(--spacing-sm)"
-  } : {
-    name: "11wiry4-leftContent",
-    styles: "display:flex;align-items:center;gap:var(--spacing-sm);label:leftContent;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$2
-  },
-  rightContent: process.env.NODE_ENV === "production" ? {
-    name: "s5xdrg",
-    styles: "display:flex;align-items:center"
-  } : {
-    name: "6oh64j-rightContent",
-    styles: "display:flex;align-items:center;label:rightContent;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$2
-  },
-  avatar: /*#__PURE__*/css({
-    position: 'absolute',
-    left: -22,
-    top: 2,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    width: 'var(--spacing-md)',
-    height: 'var(--spacing-md)',
-    borderRadius: '50%'
-  }, process.env.NODE_ENV === "production" ? "" : ";label:avatar;")
-};
-const avatarDefaultBackgroundImage = 'linear-gradient(180deg, #FFD983 0%, #FFB800 100%)';
-const MessageHeader = _ref => {
+const getProgressRootStyles = (theme, _ref) => {
   let {
-    userName,
-    customHeaderIcon,
-    avatarURL,
-    leftContent,
-    rightContent
+    minWidth,
+    maxWidth
   } = _ref;
+  const styles = {
+    position: 'relative',
+    overflow: 'hidden',
+    backgroundColor: theme.colors.progressTrack,
+    height: theme.spacing.sm,
+    width: '100%',
+    borderRadius: theme.spacing.xs,
+    ...(minWidth && {
+      minWidth
+    }),
+    ...(maxWidth && {
+      maxWidth
+    }),
+    /* Fix overflow clipping in Safari */
+    /* https://gist.github.com/domske/b66047671c780a238b51c51ffde8d3a0 */
+    transform: 'translateZ(0)'
+  };
+  return /*#__PURE__*/css(importantify(styles), process.env.NODE_ENV === "production" ? "" : ";label:getProgressRootStyles;");
+};
+const Root$3 = props => {
+  const {
+    children,
+    value,
+    minWidth,
+    maxWidth,
+    ...restProps
+  } = props;
   const {
     theme
   } = useDesignSystemTheme();
-  return jsxs("div", {
-    css: headerStyles.container,
-    style: {
-      ['--spacing-sm']: `${theme.spacing.sm}px`,
-      ['--spacing-md']: `${theme.spacing.md}px`
+  return jsx(ProgressContextProvider, {
+    value: {
+      progress: value
     },
-    children: [jsxs("div", {
-      css: headerStyles.leftContent,
-      children: [customHeaderIcon ? customHeaderIcon : jsx("div", {
-        css: headerStyles.avatar,
-        style: {
-          backgroundImage: avatarURL ? `url(${avatarURL}), ${avatarDefaultBackgroundImage}` : avatarDefaultBackgroundImage
-        }
-      }), jsx(Typography.Text, {
-        bold: true,
-        children: userName
-      }), leftContent]
-    }), jsx("div", {
-      css: headerStyles.rightContent,
-      children: rightContent
-    })]
+    children: jsx(Progress$1.Root, {
+      value: value,
+      ...restProps,
+      css: getProgressRootStyles(theme, {
+        minWidth,
+        maxWidth
+      }),
+      children: children
+    })
   });
 };
-var MessageHeader$1 = MessageHeader;
-
-function _EMOTION_STRINGIFIED_CSS_ERROR__$1() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-const paginationStyles = {
-  container: process.env.NODE_ENV === "production" ? {
-    name: "1lyitb8",
-    styles: "display:flex;align-items:center;justify-items:center;gap:var(--spacing-sm)"
-  } : {
-    name: "tx606a-container",
-    styles: "display:flex;align-items:center;justify-items:center;gap:var(--spacing-sm);label:container;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$1
-  },
-  button: process.env.NODE_ENV === "production" ? {
-    name: "waw0s4",
-    styles: "border:none;background-color:transparent;padding:0;display:flex;height:var(--spacing-md);align-items:center"
-  } : {
-    name: "18u25xw-button",
-    styles: "border:none;background-color:transparent;padding:0;display:flex;height:var(--spacing-md);align-items:center;label:button;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$1
-  }
+const getProgressIndicatorStyles = theme => {
+  const styles = {
+    backgroundColor: theme.colors.progressFill,
+    height: '100%',
+    width: '100%',
+    transition: 'transform 300ms linear',
+    borderRadius: theme.spacing.xs
+  };
+  return /*#__PURE__*/css(importantify(styles), process.env.NODE_ENV === "production" ? "" : ";label:getProgressIndicatorStyles;");
 };
-const MessagePagination = _ref => {
-  let {
-    onPrevious,
-    onNext,
-    current,
-    total
-  } = _ref;
+const Indicator = props => {
+  const {
+    progress
+  } = React__default.useContext(ProgressContext);
   const {
     theme
   } = useDesignSystemTheme();
-  return jsxs("div", {
-    css: paginationStyles.container,
+  return jsx(Progress$1.Indicator, {
+    css: getProgressIndicatorStyles(theme),
     style: {
-      ['--spacing-sm']: `${theme.spacing.sm}px`,
-      ['--spacing-md']: `${theme.spacing.md}px`
+      transform: `translateX(-${100 - (progress !== null && progress !== void 0 ? progress : 100)}%)`
     },
-    children: [jsx("button", {
-      css: paginationStyles.button,
-      onClick: onPrevious,
-      style: {
-        color: current === 1 ? theme.colors.actionDisabledText : theme.colors.textSecondary,
-        cursor: current === 1 ? 'arrow' : 'pointer'
-      },
-      children: jsx(ChevronLeftIcon, {})
-    }), jsx(Typography.Text, {
-      style: {
-        color: theme.colors.textSecondary
-      },
-      children: `${current}/${total}`
-    }), jsx("button", {
-      css: paginationStyles.button,
-      onClick: onNext,
-      style: {
-        color: current === total ? theme.colors.actionDisabledText : theme.colors.textSecondary,
-        cursor: current === total ? 'arrow' : 'pointer'
-      },
-      children: jsx(ChevronRightIcon, {})
-    })]
+    ...props
   });
 };
-var MessagePagination$1 = MessagePagination;
 
-const ChatUI = {
-  MessageActionButton: MessageActionButton$1,
-  MessageHeader: MessageHeader$1,
-  MessageBody: MessageBody$1,
-  MessagePagination: MessagePagination$1,
-  Message: Message$1,
-  Feedback: Feedback$1,
-  CodeSnippet: CodeSnippet$1,
-  ChatInput: ChatInput$1
-};
+var Progress = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  Indicator: Indicator,
+  Root: Root$3
+});
 
 function _EMOTION_STRINGIFIED_CSS_ERROR__() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 var _ref = process.env.NODE_ENV === "production" ? {
@@ -535,12 +1129,13 @@ var _ref = process.env.NODE_ENV === "production" ? {
   styles: "position:relative;display:flex;align-items:center;&[data-orientation=\"vertical\"]{flex-direction:column;width:20px;height:100px;}&[data-orientation=\"horizontal\"]{height:20px;width:200px;};label:getRootStyles;",
   toString: _EMOTION_STRINGIFIED_CSS_ERROR__
 };
-const getRootStyles = () => {
+const getRootStyles$1 = () => {
   return _ref;
 };
-const Root$1 = /*#__PURE__*/forwardRef((props, ref) => {
+const Root$2 = /*#__PURE__*/forwardRef((props, ref) => {
   return jsx(RadixSlider.Root, {
-    css: getRootStyles(),
+    ...addDebugOutlineIfEnabled(),
+    css: getRootStyles$1(),
     ...props,
     ref: ref
   });
@@ -625,196 +1220,424 @@ const Thumb = /*#__PURE__*/forwardRef((props, ref) => {
 var Slider = /*#__PURE__*/Object.freeze({
   __proto__: null,
   Range: Range,
-  Root: Root$1,
+  Root: Root$2,
   Thumb: Thumb,
   Track: Track
 });
 
-const Root = ContextMenu$1;
-const Trigger = ContextMenuTrigger;
-const ItemIndicator = ContextMenuItemIndicator;
-const Group = ContextMenuGroup;
-const RadioGroup = ContextMenuRadioGroup;
-const Arrow = ContextMenuArrow;
-const Sub = ContextMenuSub;
-const SubTrigger = _ref => {
+const TabsV2RootContext = /*#__PURE__*/React__default.createContext({
+  activeValue: undefined,
+  componentId: 'design_system.tabsv2.default_component_id'
+});
+const TabsV2ListContext = /*#__PURE__*/React__default.createContext({
+  viewportRef: {
+    current: null
+  }
+});
+const Root$1 = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
   let {
-    children,
+    value,
+    defaultValue,
+    onValueChange,
+    componentId,
+    analyticsEvents,
+    valueHasNoPii,
     ...props
   } = _ref;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(ContextMenuSubTrigger, {
-    ...props,
-    css: dropdownItemStyles(theme),
-    children: children
+  const isControlled = value !== undefined;
+  const [uncontrolledActiveValue, setUncontrolledActiveValue] = React__default.useState(defaultValue);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.TabsV2,
+    componentId,
+    analyticsEvents: analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    valueHasNoPii,
+    shouldStartInteraction: true
   });
-};
-const Content = _ref2 => {
+  const onValueChangeWrapper = value => {
+    eventContext.onValueChange(value);
+    if (onValueChange) {
+      onValueChange(value);
+    }
+    if (!isControlled) {
+      setUncontrolledActiveValue(value);
+    }
+  };
+  return jsx(TabsV2RootContext.Provider, {
+    value: {
+      activeValue: isControlled ? value : uncontrolledActiveValue,
+      componentId
+    },
+    children: jsx(RadixTabs.Root, {
+      value: value,
+      defaultValue: defaultValue,
+      onValueChange: onValueChangeWrapper,
+      ...props,
+      ref: forwardedRef
+    })
+  });
+});
+const List = /*#__PURE__*/React__default.forwardRef((_ref2, forwardedRef) => {
   let {
+    addButtonProps,
+    scrollAreaViewportCss,
     children,
-    minWidth,
-    ...childrenProps
+    dangerouslyAppendEmotionCSS,
+    ...props
   } = _ref2;
+  const viewportRef = React__default.useRef(null);
   const {
-    getPopupContainer
-  } = useDesignSystemContext();
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(ContextMenuPortal, {
-    container: getPopupContainer && getPopupContainer(),
-    children: jsx(ContextMenuContent, {
-      ...childrenProps,
-      css: [dropdownContentStyles(theme), {
-        minWidth
-      }, process.env.NODE_ENV === "production" ? "" : ";label:Content;"],
-      children: children
+    componentId
+  } = React__default.useContext(TabsV2RootContext);
+  const css = useListStyles();
+  return jsx(TabsV2ListContext.Provider, {
+    value: {
+      viewportRef
+    },
+    children: jsxs("div", {
+      css: [css['container'], dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:List;"],
+      children: [jsxs(ScrollArea.Root, {
+        type: "hover",
+        css: [css['root'], process.env.NODE_ENV === "production" ? "" : ";label:List;"],
+        children: [jsx(ScrollArea.Viewport, {
+          css: [css['viewport'], scrollAreaViewportCss, process.env.NODE_ENV === "production" ? "" : ";label:List;"],
+          ref: viewportRef,
+          children: jsx(RadixTabs.List, {
+            css: css['list'],
+            ...props,
+            ref: forwardedRef,
+            children: children
+          })
+        }), jsx(ScrollArea.Scrollbar, {
+          orientation: "horizontal",
+          css: css['scrollbar'],
+          children: jsx(ScrollArea.Thumb, {
+            css: css['thumb']
+          })
+        })]
+      }), addButtonProps && jsx("div", {
+        css: [css['addButtonContainer'], addButtonProps.dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:List;"],
+        children: jsx(Button$1, {
+          icon: jsx(PlusIcon, {}),
+          size: "small",
+          "aria-label": "Add tab",
+          css: css['addButton'],
+          onClick: addButtonProps.onClick,
+          componentId: `${componentId}.add_tab`,
+          className: addButtonProps.className
+        })
+      })]
     })
   });
-};
-const SubContent = _ref3 => {
+});
+const Trigger = /*#__PURE__*/React__default.forwardRef((_ref3, forwardedRef) => {
   let {
+    onClose,
+    value,
+    disabled,
     children,
-    minWidth,
-    ...childrenProps
+    ...props
   } = _ref3;
+  const triggerRef = React__default.useRef(null);
+  const mergedRef = useMergeRefs([forwardedRef, triggerRef]);
   const {
-    getPopupContainer
-  } = useDesignSystemContext();
+    activeValue,
+    componentId
+  } = React__default.useContext(TabsV2RootContext);
   const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(ContextMenuPortal, {
-    container: getPopupContainer && getPopupContainer(),
-    children: jsx(ContextMenuSubContent, {
-      ...childrenProps,
-      css: [dropdownContentStyles(theme), {
-        minWidth
-      }, process.env.NODE_ENV === "production" ? "" : ";label:SubContent;"],
-      children: children
-    })
+    viewportRef
+  } = React__default.useContext(TabsV2ListContext);
+  const isClosable = onClose !== undefined && !disabled;
+  const css = useTriggerStyles();
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Button,
+    componentId: `${componentId}.close_tab`,
+    analyticsEvents: [DesignSystemEventProviderAnalyticsEventTypes.OnClick]
   });
-};
-const Item = _ref4 => {
+  React__default.useEffect(() => {
+    if (triggerRef.current && viewportRef.current && activeValue === value) {
+      const viewportPosition = viewportRef.current.getBoundingClientRect();
+      const triggerPosition = triggerRef.current.getBoundingClientRect();
+      if (triggerPosition.left < viewportPosition.left) {
+        viewportRef.current.scrollLeft -= viewportPosition.left - triggerPosition.left;
+      } else if (triggerPosition.right > viewportPosition.right) {
+        viewportRef.current.scrollLeft += triggerPosition.right - viewportPosition.right;
+      }
+    }
+  }, [viewportRef, triggerRef, activeValue, value]);
+  return jsxs(RadixTabs.Trigger, {
+    css: css['trigger'],
+    value: value,
+    disabled: disabled
+    // The close icon cannot be focused within the trigger button
+    // Instead, we close the tab when the Delete key is pressed
+    ,
+    onKeyDown: e => {
+      if (isClosable && e.key === 'Delete') {
+        eventContext.onClick();
+        e.stopPropagation();
+        e.preventDefault();
+        onClose(value);
+      }
+    },
+    ...props,
+    ref: mergedRef,
+    children: [children, isClosable &&
+    // An icon is used instead of a button to prevent nesting a button within a button
+    jsx(CloseSmallIcon, {
+      onMouseDown: e => {
+        // The Radix Tabs implementation only allows the trigger to be selected when the left mouse
+        // button is clicked and not when the control key is pressed (to avoid MacOS right click).
+        // Reimplementing the same behavior for the close icon in the trigger
+        if (!disabled && e.button === 0 && e.ctrlKey === false) {
+          eventContext.onClick();
+          // Clicking the close icon should not select the tab
+          e.stopPropagation();
+          e.preventDefault();
+          onClose(value);
+        }
+      },
+      css: css['closeSmallIcon'],
+      "aria-hidden": "false",
+      "aria-label": "Press delete to close the tab"
+    })]
+  });
+});
+const Content = /*#__PURE__*/React__default.forwardRef((_ref4, forwardedRef) => {
   let {
-    children,
     ...props
   } = _ref4;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(ContextMenuItem, {
+  const css = useContentStyles();
+  return jsx(RadixTabs.Content, {
+    css: css,
     ...props,
-    css: dropdownItemStyles(theme),
-    children: children
+    ref: forwardedRef
   });
-};
-const CheckboxItem = _ref5 => {
-  let {
-    children,
-    ...props
-  } = _ref5;
+});
+const useListStyles = () => {
   const {
     theme
   } = useDesignSystemTheme();
-  return jsxs(ContextMenuCheckboxItem, {
-    ...props,
-    css: dropdownItemStyles(theme),
-    children: [jsx(ContextMenuItemIndicator, {
-      css: itemIndicatorStyles(theme),
-      children: jsx(CheckIcon, {})
-    }), !props.checked && jsx("div", {
-      style: {
-        width: theme.general.iconFontSize + theme.spacing.xs
-      }
-    }), children]
-  });
+  return {
+    container: {
+      display: 'flex',
+      borderBottom: `1px solid ${theme.colors.border}`,
+      marginBottom: theme.spacing.md,
+      height: theme.general.heightSm,
+      boxSizing: 'border-box'
+    },
+    root: {
+      overflow: 'hidden'
+    },
+    viewport: {
+      ...getShadowScrollStyles(theme, {
+        orientation: 'horizontal'
+      })
+    },
+    list: {
+      display: 'flex',
+      alignItems: 'center'
+    },
+    scrollbar: {
+      display: 'flex',
+      flexDirection: 'column',
+      userSelect: 'none',
+      /* Disable browser handling of all panning and zooming gestures on touch devices */
+      touchAction: 'none',
+      height: 3
+    },
+    thumb: {
+      flex: 1,
+      background: theme.isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(17, 23, 28, 0.2)',
+      '&:hover': {
+        background: theme.isDarkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(17, 23, 28, 0.3)'
+      },
+      borderRadius: theme.borders.borderRadiusMd,
+      position: 'relative'
+    },
+    addButtonContainer: {
+      flex: 1
+    },
+    addButton: {
+      margin: '2px 0 6px 0'
+    }
+  };
 };
-const RadioItem = _ref6 => {
-  let {
-    children,
-    ...props
-  } = _ref6;
+const useTriggerStyles = () => {
   const {
     theme
   } = useDesignSystemTheme();
-  return jsxs(ContextMenuRadioItem, {
-    ...props,
-    css: [dropdownItemStyles(theme), {
-      '&[data-state="unchecked"]': {
-        paddingLeft: theme.general.iconFontSize + theme.spacing.xs + theme.spacing.sm
-      }
-    }, process.env.NODE_ENV === "production" ? "" : ";label:RadioItem;"],
-    children: [jsx(ContextMenuItemIndicator, {
-      css: itemIndicatorStyles(theme),
-      children: jsx(CheckIcon, {})
-    }), children]
-  });
-};
-const Label = _ref7 => {
-  let {
-    children,
-    ...props
-  } = _ref7;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(ContextMenuLabel, {
-    ...props,
-    css: /*#__PURE__*/css({
+  return {
+    trigger: {
+      display: 'flex',
+      alignItems: 'center',
       color: theme.colors.textSecondary,
-      padding: `${theme.spacing.sm - 2}px ${theme.spacing.sm}px`
-    }, process.env.NODE_ENV === "production" ? "" : ";label:Label;"),
-    children: children
-  });
+      fontWeight: theme.typography.typographyBoldFontWeight,
+      fontSize: theme.typography.fontSizeMd,
+      lineHeight: theme.typography.lineHeightBase,
+      backgroundColor: 'transparent',
+      whiteSpace: 'nowrap',
+      border: 'none',
+      padding: `${theme.spacing.xs}px 0 ${theme.spacing.sm}px 0`,
+      marginRight: theme.spacing.md,
+      // The close icon is hidden on inactive tabs until the tab is hovered
+      // Checking for the last icon to handle cases where the tab name includes an icon
+      [`& > .anticon:last-of-type`]: {
+        visibility: 'hidden'
+      },
+      '&:hover': {
+        cursor: 'pointer',
+        color: theme.colors.actionDefaultTextHover,
+        [`& > .anticon:last-of-type`]: {
+          visibility: 'visible'
+        }
+      },
+      '&:active': {
+        color: theme.colors.actionDefaultTextPress
+      },
+      outlineStyle: 'none',
+      outlineColor: theme.colors.actionDefaultBorderFocus,
+      '&:focus-visible': {
+        outlineStyle: 'auto'
+      },
+      '&[data-state="active"]': {
+        color: theme.colors.textPrimary,
+        // Use box-shadow instead of border to prevent it from affecting the size of the element, which results in visual
+        // jumping when switching tabs.
+        boxShadow: `inset 0 -4px 0 ${theme.colors.actionPrimaryBackgroundDefault}`,
+        // The close icon is always visible on active tabs
+        [`& > .anticon:last-of-type`]: {
+          visibility: 'visible'
+        }
+      },
+      '&[data-disabled]': {
+        color: theme.colors.actionDisabledText,
+        '&:hover': {
+          cursor: 'not-allowed'
+        }
+      }
+    },
+    closeSmallIcon: {
+      marginLeft: theme.spacing.xs,
+      color: theme.colors.textSecondary,
+      '&:hover': {
+        color: theme.colors.actionDefaultTextHover
+      },
+      '&:active': {
+        color: theme.colors.actionDefaultTextPress
+      }
+    }
+  };
 };
-const Hint = _ref8 => {
-  let {
-    children
-  } = _ref8;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx("span", {
-    css: /*#__PURE__*/css({
-      display: 'inline-flex',
-      marginLeft: 'auto',
-      paddingLeft: theme.spacing.sm
-    }, process.env.NODE_ENV === "production" ? "" : ";label:Hint;"),
-    children: children
-  });
-};
-const Separator = () => {
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(ContextMenuSeparator, {
-    css: dropdownSeparatorStyles(theme)
-  });
-};
-const itemIndicatorStyles = theme => /*#__PURE__*/css({
-  display: 'inline-flex',
-  paddingRight: theme.spacing.xs
-}, process.env.NODE_ENV === "production" ? "" : ";label:itemIndicatorStyles;");
-const ContextMenu = {
-  Root,
-  Trigger,
-  Label,
-  Item,
-  Group,
-  RadioGroup,
-  CheckboxItem,
-  RadioItem,
-  Arrow,
-  Separator,
-  Sub,
-  SubTrigger,
-  SubContent,
-  Content,
-  Hint
+const useContentStyles = () => {
+  // This is needed so force mounted content is not displayed when the tab is inactive
+  return {
+    '&[data-state="inactive"]': {
+      display: 'none'
+    }
+  };
 };
 
-export { Arrow, ChatUI, CheckboxItem, Content, ContextMenu, Group, Hint, Item, ItemIndicator, Label, RadioGroup, RadioItem, Root, Separator, Slider, Sub, SubContent, SubTrigger, Trigger, itemIndicatorStyles };
+var TabsV2 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  Content: Content,
+  List: List,
+  Root: Root$1,
+  Trigger: Trigger
+});
+
+const getRootStyles = theme => {
+  return /*#__PURE__*/css({
+    alignItems: 'center',
+    backgroundColor: theme.colors.backgroundSecondary,
+    border: `1px solid ${theme.colors.borderDecorative}`,
+    borderRadius: theme.borders.borderRadiusMd,
+    boxShadow: theme.general.shadowLow,
+    display: 'flex',
+    gap: theme.spacing.md,
+    width: 'max-content',
+    padding: theme.spacing.sm
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getRootStyles;");
+};
+const Root = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(RadixToolbar.Root, {
+    ...addDebugOutlineIfEnabled(),
+    css: getRootStyles(theme),
+    ...props,
+    ref: ref
+  });
+});
+const Button = /*#__PURE__*/forwardRef((props, ref) => {
+  return jsx(RadixToolbar.Button, {
+    ...props,
+    ref: ref
+  });
+});
+const getSeparatorStyles = theme => {
+  return /*#__PURE__*/css({
+    alignSelf: 'stretch',
+    backgroundColor: theme.colors.borderDecorative,
+    width: 1
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getSeparatorStyles;");
+};
+const Separator = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(RadixToolbar.Separator, {
+    css: getSeparatorStyles(theme),
+    ...props,
+    ref: ref
+  });
+});
+const Link = /*#__PURE__*/forwardRef((props, ref) => {
+  return jsx(RadixToolbar.Link, {
+    ...props,
+    ref: ref
+  });
+});
+const ToggleGroup = /*#__PURE__*/forwardRef((props, ref) => {
+  return jsx(RadixToolbar.ToggleGroup, {
+    ...props,
+    ref: ref
+  });
+});
+const getToggleItemStyles = theme => {
+  return /*#__PURE__*/css({
+    background: 'none',
+    color: theme.colors.textPrimary,
+    border: 'none',
+    cursor: 'pointer',
+    '&:hover': {
+      color: theme.colors.actionDefaultTextHover
+    },
+    '&[data-state="on"]': {
+      color: theme.colors.actionDefaultTextPress
+    }
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getToggleItemStyles;");
+};
+const ToggleItem = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(RadixToolbar.ToggleItem, {
+    css: getToggleItemStyles(theme),
+    ...props,
+    ref: ref
+  });
+});
+
+var Toolbar = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  Button: Button,
+  Link: Link,
+  Root: Root,
+  Separator: Separator,
+  ToggleGroup: ToggleGroup,
+  ToggleItem: ToggleItem
+});
+
+export { BANNER_MAX_HEIGHT, BANNER_MIN_HEIGHT, Banner, DatePicker, PillControl, PreviewCard, Progress, RangePicker, Slider, TabsV2, Toolbar };
 //# sourceMappingURL=development.js.map

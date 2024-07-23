@@ -5,22 +5,18 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { escape } from 'lodash';
 import React, { Component } from 'react';
-// @ts-expect-error TS(7016): Could not find a declaration file for module 'html... Remove this comment to see the full error message
-import { AllHtmlEntities } from 'html-entities';
 import { getParams, getRunInfo } from '../reducers/Reducers';
 import { connect } from 'react-redux';
-import { Select, Spacer } from '@databricks/design-system';
+import { FormUI, SimpleSelect, SimpleSelectOption, SimpleSelectOptionGroup, Spacer } from '@databricks/design-system';
 import './CompareRunView.css';
-import { RunInfo } from '../sdk/MlflowMessages';
 import Utils from '../../common/utils/Utils';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import CompareRunUtil from './CompareRunUtil';
 import { FormattedMessage } from 'react-intl';
 import { LazyPlot } from './LazyPlot';
 import { CompareRunPlotContainer } from './CompareRunPlotContainer';
-
-const { Option, OptGroup } = Select;
 
 type CompareRunScatterImplProps = {
   runUuids: string[];
@@ -32,22 +28,16 @@ type CompareRunScatterImplProps = {
 
 type CompareRunScatterImplState = any;
 
-export class CompareRunScatterImpl extends Component<
-  CompareRunScatterImplProps,
-  CompareRunScatterImplState
-> {
+export class CompareRunScatterImpl extends Component<CompareRunScatterImplProps, CompareRunScatterImplState> {
   // Size limits for displaying keys and values in our plot axes and tooltips
   static MAX_PLOT_KEY_LENGTH = 40;
   static MAX_PLOT_VALUE_LENGTH = 60;
 
-  entities: any;
   metricKeys: any;
   paramKeys: any;
 
   constructor(props: CompareRunScatterImplProps) {
     super(props);
-
-    this.entities = new AllHtmlEntities();
 
     this.metricKeys = CompareRunUtil.getKeys(this.props.metricLists, false);
     this.paramKeys = CompareRunUtil.getKeys(this.props.paramLists, false);
@@ -85,18 +75,8 @@ export class CompareRunScatterImpl extends Component<
    * Get the value of the metric/param described by {key, isMetric}, in run i
    */
   getValue(i: any, { key, isMetric }: any) {
-    const value = CompareRunUtil.findInList(
-      (isMetric ? this.props.metricLists : this.props.paramLists)[i],
-      key,
-    );
+    const value = CompareRunUtil.findInList((isMetric ? this.props.metricLists : this.props.paramLists)[i], key);
     return value === undefined ? value : (value as any).value;
-  }
-
-  /**
-   * Encode HTML entities in a string (since Plotly's tooltips take HTML)
-   */
-  encodeHtml(str: any) {
-    return this.entities.encode(str);
   }
 
   render() {
@@ -129,23 +109,22 @@ export class CompareRunScatterImpl extends Component<
         controls={
           <>
             <div>
-              <label htmlFor='x-axis-selector'>
+              <FormUI.Label htmlFor="x-axis-selector">
                 <FormattedMessage
-                  defaultMessage='X-axis:'
-                  description='Label text for x-axis in scatter plot comparison in MLflow'
+                  defaultMessage="X-axis:"
+                  description="Label text for x-axis in scatter plot comparison in MLflow"
                 />
-              </label>
+              </FormUI.Label>
               {this.renderSelect('x')}
             </div>
             <Spacer />
             <div>
-              {' '}
-              <label htmlFor='y-axis-selector'>
+              <FormUI.Label htmlFor="y-axis-selector">
                 <FormattedMessage
-                  defaultMessage='Y-axis:'
-                  description='Label text for y-axis in scatter plot comparison in MLflow'
+                  defaultMessage="Y-axis:"
+                  description="Label text for y-axis in scatter plot comparison in MLflow"
                 />
-              </label>
+              </FormUI.Label>
               {this.renderSelect('y')}
             </div>
           </>
@@ -172,10 +151,10 @@ export class CompareRunScatterImpl extends Component<
             },
             hovermode: 'closest',
             xaxis: {
-              title: this.encodeHtml(Utils.truncateString(this.state['x'].key, keyLength)),
+              title: escape(Utils.truncateString(this.state['x'].key, keyLength)),
             },
             yaxis: {
-              title: this.encodeHtml(Utils.truncateString(this.state['y'].key, keyLength)),
+              title: escape(Utils.truncateString(this.state['y'].key, keyLength)),
             },
           }}
           css={styles.plot}
@@ -200,35 +179,33 @@ export class CompareRunScatterImpl extends Component<
 
   renderSelect(axis: any) {
     return (
-      <div>
-        <Select
-          css={styles.select}
-          id={axis + '-axis-selector'}
-          aria-label={`${axis} axis`}
-          onChange={(value) => {
-            const [prefix, ...keyParts] = value.split('-');
-            const key = keyParts.join('-');
-            const isMetric = prefix === 'metric';
-            this.setState({ [axis]: { isMetric, key } });
-          }}
-          value={(this.state[axis].isMetric ? 'metric-' : 'param-') + this.state[axis].key}
-        >
-          <OptGroup label='Parameter'>
-            {this.paramKeys.map((p: any) => (
-              <Option key={'param-' + p} value={'param-' + p}>
-                {p}
-              </Option>
-            ))}
-          </OptGroup>
-          <OptGroup label='Metric'>
-            {this.metricKeys.map((m: any) => (
-              <Option key={'metric-' + m} value={'metric-' + m}>
-                {m}
-              </Option>
-            ))}
-          </OptGroup>
-        </Select>
-      </div>
+      <SimpleSelect
+        css={styles.select}
+        id={axis + '-axis-selector'}
+        onChange={({ target }) => {
+          const { value } = target;
+          const [prefix, ...keyParts] = value.split('-');
+          const key = keyParts.join('-');
+          const isMetric = prefix === 'metric';
+          this.setState({ [axis]: { isMetric, key } });
+        }}
+        value={(this.state[axis].isMetric ? 'metric-' : 'param-') + this.state[axis].key}
+      >
+        <SimpleSelectOptionGroup label="Parameter">
+          {this.paramKeys.map((p: any) => (
+            <SimpleSelectOption key={'param-' + p} value={'param-' + p}>
+              {p}
+            </SimpleSelectOption>
+          ))}
+        </SimpleSelectOptionGroup>
+        <SimpleSelectOptionGroup label="Metric">
+          {this.metricKeys.map((m: any) => (
+            <SimpleSelectOption key={'metric-' + m} value={'metric-' + m}>
+              {m}
+            </SimpleSelectOption>
+          ))}
+        </SimpleSelectOptionGroup>
+      </SimpleSelect>
     );
   }
 
@@ -236,24 +213,20 @@ export class CompareRunScatterImpl extends Component<
     const keyLength = CompareRunScatterImpl.MAX_PLOT_KEY_LENGTH;
     const valueLength = CompareRunScatterImpl.MAX_PLOT_VALUE_LENGTH;
     const runName = this.props.runDisplayNames[index];
-    let result = `<b>${this.encodeHtml(runName)}</b><br>`;
+    let result = `<b>${escape(runName)}</b><br>`;
     const paramList = this.props.paramLists[index];
     paramList.forEach((p) => {
       result +=
-        this.encodeHtml(Utils.truncateString(p.key, keyLength)) +
+        escape(Utils.truncateString(p.key, keyLength)) +
         ': ' +
-        this.encodeHtml(Utils.truncateString(p.value, valueLength)) +
+        escape(Utils.truncateString(p.value, valueLength)) +
         '<br>';
     });
     const metricList = this.props.metricLists[index];
     if (metricList.length > 0) {
       result += paramList.length > 0 ? '<br>' : '';
       metricList.forEach((m) => {
-        result +=
-          this.encodeHtml(Utils.truncateString(m.key, keyLength)) +
-          ': ' +
-          Utils.formatMetric(m.value) +
-          '<br>';
+        result += escape(Utils.truncateString(m.key, keyLength)) + ': ' + Utils.formatMetric(m.value) + '<br>';
       });
     }
     return result;

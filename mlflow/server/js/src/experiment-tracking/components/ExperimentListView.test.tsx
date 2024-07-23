@@ -7,7 +7,7 @@
 
 import React from 'react';
 import userEvent from '@testing-library/user-event';
-import { screen, fireEvent } from '../../common/utils/TestUtils';
+import { screen, fireEvent, renderWithIntl } from '../../common/utils/TestUtils.react18';
 import { BrowserRouter } from '../../common/utils/RoutingUtils';
 import { Provider } from 'react-redux';
 import thunk from 'redux-thunk';
@@ -18,7 +18,6 @@ import Fixtures from '../utils/test-utils/Fixtures';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
-import { mountWithIntl, renderWithIntl } from '../../common/utils/TestUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 
 // Make the autosizer render items.
@@ -63,8 +62,7 @@ const mountComponent = (props: any) => {
         })}
       >
         <BrowserRouter>
-          <ExperimentListView {...props} history={[]} designSystemThemeApi={designSystemThemeApi} />
-          ,
+          <ExperimentListView {...props} history={[]} designSystemThemeApi={designSystemThemeApi} />,
         </BrowserRouter>
         ,
       </Provider>
@@ -100,9 +98,7 @@ test('If button to create experiment is pressed then open CreateExperimentModal'
 test('If button to delete experiment is pressed then open DeleteExperimentModal', () => {
   mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
   userEvent.click(screen.getAllByTestId('delete-experiment-button')[0]);
-  expect(
-    screen.getByText(`Delete Experiment "${Fixtures.experiments[0].name}"`),
-  ).toBeInTheDocument();
+  expect(screen.getByText(`Delete Experiment "${Fixtures.experiments[0].name}"`)).toBeInTheDocument();
 });
 
 test('If button to edit experiment is pressed then open RenameExperimentModal', () => {
@@ -114,9 +110,9 @@ test('If button to edit experiment is pressed then open RenameExperimentModal', 
 test('If activeExperimentIds is defined then choose all the corresponding experiments', () => {
   const localExperiments = [
     Fixtures.createExperiment(),
-    Fixtures.createExperiment({ experiment_id: '1', name: 'Test' }),
-    Fixtures.createExperiment({ experiment_id: '2', name: 'Second' }),
-    Fixtures.createExperiment({ experiment_id: '3', name: 'Third' }),
+    Fixtures.createExperiment({ experimentId: '1', name: 'Test' }),
+    Fixtures.createExperiment({ experimentId: '2', name: 'Second' }),
+    Fixtures.createExperiment({ experimentId: '3', name: 'Third' }),
   ];
   mountComponent({
     experiments: localExperiments,
@@ -140,9 +136,7 @@ test('should render when both experiments and activeExperimentIds are empty', ()
 
 test('virtual list should not render everything when there are many experiments', () => {
   const keys = Array.from(Array(1000).keys()).map((k) => k.toString());
-  const localExperiments = keys.map((k) =>
-    Fixtures.createExperiment({ experiment_id: k, name: k }),
-  );
+  const localExperiments = keys.map((k) => Fixtures.createExperiment({ experimentId: k, name: k }));
 
   mountComponent({
     experiments: localExperiments,

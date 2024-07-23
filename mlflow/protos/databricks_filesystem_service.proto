@@ -1,0 +1,147 @@
+// Check Databricks Protobuf Style Guide (go/protostyleguide) about recommended Protobuf practices.
+// See go/protostyleguide/syntax.
+syntax = "proto2";
+
+// See go/protostyleguide/packages.
+package mlflow.filesystem;
+
+import "databricks.proto";
+import "scalapb/scalapb.proto";
+
+option java_package = "com.databricks.api.proto.filesystem";
+option java_generate_equals_and_hash = true;
+option py_generic_services = true;
+option (scalapb.options) = {
+  flat_package: true,
+};
+
+service FilesystemService {
+
+  // Only for internal usage for now. Endpoint and request format are to be finalized.
+  rpc CreateDownloadUrl(CreateDownloadUrlRequest) returns (CreateDownloadUrlResponse) {
+    option (rpc) = {
+      endpoints: {
+        method: "POST",
+        path: "/fs/create-download-url",
+        since { major: 2, minor: 0 },
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  rpc CreateUploadUrl(CreateUploadUrlRequest) returns (CreateUploadUrlResponse) {
+    option (rpc) = {
+      endpoints: {
+        method: "POST",
+        path: "/fs/create-upload-url",
+        since { major: 2, minor: 0 },
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+}
+
+message HttpHeader {
+  optional string name = 1;
+  optional string value = 2;
+}
+
+message CreateDownloadUrlRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[CreateDownloadUrlResponse]";
+
+  // The path to the file for which we would like a pre-signed download URL from which you may GET
+  // the file's contents. This path can be an HDFS-style path starting with a scheme, or a
+  // Unix-style absolute path. For example:
+  // "dbfs:/Volumes/<catalog>/<schema>/<volume>/<path_to_file>" or
+  // "/Volumes/<catalog>/<schema>/<volume>/<path_to_file>".
+  optional string path = 1;
+}
+
+message CreateDownloadUrlResponse {
+  option (scalapb.message).extends = "com.databricks.rpc.DoNotLogContents";
+  // The pre-signed download URL which you may use to GET the specified file.
+  //
+  // To download the file, issue an HTTP GET request with the headers specified below
+  // (see 'headers') and the body of the response should be the file's contents. If the file
+  // does not exist or can't be accessed, you'll receive a cloud-service-provider-specific
+  // error response.
+  optional string url = 1;
+
+  // These headers must be included in your HTTP request to the given 'url'. If all of the headers
+  // are not included exactly, the behavior of the request is unspecified (most likely you will get
+  // an error response).
+  repeated HttpHeader headers = 2;
+}
+
+message CreateUploadUrlRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[CreateUploadUrlResponse]";
+
+  // The path to the file for which we would like a pre-signed upload URL to which you may PUT
+  // the file's contents. This path can be an HDFS-style path starting with a scheme, or a
+  // Unix-style absolute path. For example:
+  // "dbfs:/Volumes/<catalog>/<schema>/<volume>/<path_to_file>" or
+  // "/Volumes/<catalog>/<schema>/<volume>/<path_to_file>".
+  optional string path = 1;
+}
+
+message CreateUploadUrlResponse {
+  option (scalapb.message).extends = "com.databricks.rpc.DoNotLogContents";
+
+  // The pre-signed download URL which you may use to PUT the specified file's contents.
+  //
+  // To upload the file, issue an HTTP PUT request with the headers specified below, and with the
+  // body of the request being the file contents you wish to upload.
+  //
+  // You must add the "Content-Length" header to your request with the value being the number of
+  // bytes you are uploading. The maximum possible Content-Length depends on the cloud service
+  // provider, but is at least 5GB.
+  //
+  // The headers include a "Content-Type" of "application/octet-stream". You must encode your file
+  // contents in the request body as an octet-stream.
+  //
+  // You'll receive a cloud-service-provider-specific response.
+  optional string url = 1;
+
+  // These headers must be included in your HTTP request to the given 'url'. If all of the headers
+  // are not included exactly, the behavior of the request is unspecified (most likely you will get
+  // an error response).
+  repeated HttpHeader headers = 2;
+}
+
+message DirectoryEntry {
+  option (scalapb.message).extends = "com.databricks.rpc.DoNotLogContents";
+
+  // The path of the file or directory.
+  // Directories have a trailing slash.
+  // Example 1: "/Volumes/catalog/schema/volume/directory/file.txt"
+  // Example 2: "/Volumes/catalog/schema/volume/directory/"
+  optional string path = 1;
+
+  // True if the path is a directory.
+  optional bool is_directory = 2;
+
+  // The length of the file in bytes or null if the path is a directory.
+  optional int64 file_size = 3;
+
+  // Last modification time of given file/directory in milliseconds since the Unix Epoch.
+  // NOTE: This field is not set for directories.
+  optional int64 last_modified = 4;
+
+  // Name of the file or directory.
+  // There is no slash at the end of the directory names.
+  // Example: “file.txt” or “mydirectory”
+  optional string name = 5;
+}
+
+// The response structure for listing files with the /fs/directories endpoint.
+message ListDirectoryResponse {
+  option (scalapb.message).extends = "com.databricks.rpc.DoNotLogContents";
+
+  // The files and directories in the specified path.
+  // Note that a file and a directory can share the same path.
+  repeated DirectoryEntry contents = 1;
+
+  // A token that can be sent as `page_token` to retrieve the next page.
+  // If this field is omitted, there are no subsequent pages.
+  optional string next_page_token = 2;
+}

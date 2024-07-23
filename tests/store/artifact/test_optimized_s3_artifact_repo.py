@@ -5,6 +5,7 @@ from unittest import mock
 from unittest.mock import ANY
 
 import pytest
+import requests
 
 from mlflow.protos.service_pb2 import FileInfo
 from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
@@ -17,6 +18,7 @@ from tests.helper_functions import set_boto_credentials  # noqa: F401
 
 S3_REPOSITORY_MODULE = "mlflow.store.artifact.optimized_s3_artifact_repo"
 S3_ARTIFACT_REPOSITORY = f"{S3_REPOSITORY_MODULE}.OptimizedS3ArtifactRepository"
+DEFAULT_REGION_NAME = "us_random_region"
 
 
 @pytest.fixture
@@ -35,7 +37,6 @@ def test_get_s3_client_hits_cache(s3_artifact_root, monkeypatch):
         mock_get_s3_client.return_value = s3_client_mock
         s3_client_mock.head_bucket.return_value = {"BucketRegion": "us-west-2"}
 
-        # pylint: disable=no-value-for-parameter
         repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
 
         # We get the s3 client once during initialization to get the bucket region name
@@ -84,6 +85,13 @@ def test_get_s3_client_verify_param_set_correctly(
 ):
     monkeypatch.setenv("MLFLOW_S3_IGNORE_TLS", ignore_tls_env)
     with mock.patch("boto3.client") as mock_get_s3_client:
+        s3_client_mock = mock.Mock()
+        s3_client_mock.head_bucket.return_value = {
+            "ResponseMetadata": {
+                "HTTPHeaders": {"x-amz-bucket-region": DEFAULT_REGION_NAME},
+            }
+        }
+        mock_get_s3_client.return_value = s3_client_mock
         repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
         repo._get_s3_client()
         mock_get_s3_client.assert_called_with(
@@ -135,14 +143,46 @@ def test_get_s3_client_region_name_set_correctly(s3_artifact_root, client_throws
         )
 
 
+def test_get_s3_client_region_name_set_correctly_with_non_throwing_response(s3_artifact_root):
+    region_name = "us_random_region_42"
+    with mock.patch("boto3.client") as mock_get_s3_client:
+        s3_client_mock = mock.Mock()
+        mock_get_s3_client.return_value = s3_client_mock
+        s3_client_mock.head_bucket.return_value = {
+            "ResponseMetadata": {
+                "HTTPHeaders": {"x-amz-bucket-region": region_name},
+            }
+        }
+        repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+        repo._get_s3_client()
+
+        mock_get_s3_client.assert_called_with(
+            "s3",
+            config=ANY,
+            endpoint_url=ANY,
+            verify=None,
+            aws_access_key_id=None,
+            aws_secret_access_key=None,
+            aws_session_token=None,
+            region_name=region_name,
+        )
+
+
 def test_s3_client_config_set_correctly(s3_artifact_root):
     repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
     s3_client = repo._get_s3_client()
-    assert s3_client.meta.config.s3.get("addressing_style") == "path"
+    assert s3_client.meta.config.s3.get("addressing_style") == "auto"
 
 
 def test_s3_creds_passed_to_client(s3_artifact_root):
     with mock.patch("boto3.client") as mock_get_s3_client:
+        s3_client_mock = mock.Mock()
+        s3_client_mock.head_bucket.return_value = {
+            "ResponseMetadata": {
+                "HTTPHeaders": {"x-amz-bucket-region": DEFAULT_REGION_NAME},
+            }
+        }
+        mock_get_s3_client.return_value = s3_client_mock
         repo = OptimizedS3ArtifactRepository(
             s3_artifact_root,
             access_key_id="my-id",
@@ -206,3 +246,56 @@ def test_download_file_in_parallel_when_necessary(
             parallel_download_mock.assert_called_with(file_size, remote_file_path, ANY)
         else:
             download_mock.assert_called()
+
+
+def test_refresh_credentials():
+    with mock.patch(
+        "mlflow.store.artifact.optimized_s3_artifact_repo._get_s3_client"
+    ) as mock_get_s3_client, mock.patch(
+        "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository._get_region_name"
+    ) as mock_get_region_name:
+        s3_client_mock = mock.Mock()
+        mock_get_s3_client.return_value = s3_client_mock
+        resp = requests.Response()
+        resp.status_code = 401
+        err = requests.HTTPError(response=resp)
+        s3_client_mock.download_file.side_effect = err
+        mock_get_region_name.return_value = "us-west-2"
+
+        def credential_refresh_def():
+            return {
+                "access_key_id": "my-id-2",
+                "secret_access_key": "my-key-2",
+                "session_token": "my-session-2",
+                "s3_upload_extra_args": {},
+            }
+
+        repo = OptimizedS3ArtifactRepository(
+            "s3://my_bucket/my_path",
+            access_key_id="my-id-1",
+            secret_access_key="my-key-1",
+            session_token="my-session-1",
+            credential_refresh_def=credential_refresh_def,
+        )
+        try:
+            repo._download_from_cloud("file_1.txt", "local_path")
+        except requests.HTTPError as e:
+            assert e == err
+
+        mock_get_s3_client.assert_any_call(
+            addressing_style=None,
+            access_key_id="my-id-1",
+            secret_access_key="my-key-1",
+            session_token="my-session-1",
+            region_name="us-west-2",
+            s3_endpoint_url=None,
+        )
+
+        mock_get_s3_client.assert_any_call(
+            addressing_style=None,
+            access_key_id="my-id-2",
+            secret_access_key="my-key-2",
+            session_token="my-session-2",
+            region_name="us-west-2",
+            s3_endpoint_url=None,
+        )

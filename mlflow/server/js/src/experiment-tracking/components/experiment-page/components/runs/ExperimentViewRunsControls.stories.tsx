@@ -7,10 +7,9 @@ import promiseMiddleware from 'redux-promise-middleware';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
 import { ExperimentViewRunsControls } from './ExperimentViewRunsControls';
 import { experimentRunsSelector } from '../../utils/experimentRuns.selector';
-import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
-import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
-import { GetExperimentRunsContextProvider } from '../../contexts/GetExperimentRunsContext';
-import { UpdateExperimentSearchFacetsFn } from '../../../../types';
+import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
+import { createExperimentPageUIState } from '../../models/ExperimentPageUIState';
+import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 
 const MOCK_EXPERIMENT = EXPERIMENT_RUNS_MOCK_STORE.entities.experimentsById['123456789'];
 
@@ -29,80 +28,55 @@ export default {
   argTypes: {},
 };
 
-const createComponentWrapper = (viewState: SearchExperimentRunsViewState) => () => {
-  const [searchFacetsState, setSearchFacetsState] = useState<SearchExperimentRunsFacetsState>(
-    new SearchExperimentRunsFacetsState(),
-  );
-  const [messages, setMessages] = useState<string[]>([]);
-  const updateSearchFacets: UpdateExperimentSearchFacetsFn = (updatedFacetsState) => {
-    if (typeof updatedFacetsState === 'function') {
-      setSearchFacetsState(updatedFacetsState);
-
-      setMessages((currentMessages) => [
-        'updateSearchFacets() called with setter function',
-        ...currentMessages,
-      ]);
-    } else {
-      setSearchFacetsState((s) => ({ ...s, ...updatedFacetsState }));
-
-      setMessages((currentMessages) => [
-        `updateSearchFacets() called while updating state ${JSON.stringify(updatedFacetsState)}`,
-        ...currentMessages,
-      ]);
-    }
-  };
+const createComponentWrapper = (viewState: ExperimentPageViewState) => () => {
+  const [searchFacetsState] = useState(createExperimentPageSearchFacetsState());
+  const [messages] = useState<string[]>([]);
 
   return (
     <Provider
-      store={createStore(
-        (s) => s as any,
-        EXPERIMENT_RUNS_MOCK_STORE,
-        compose(applyMiddleware(promiseMiddleware())),
-      )}
+      store={createStore((s) => s as any, EXPERIMENT_RUNS_MOCK_STORE, compose(applyMiddleware(promiseMiddleware())))}
     >
-      <IntlProvider locale='en'>
+      <IntlProvider locale="en">
         <MemoryRouter>
-          <GetExperimentRunsContextProvider actions={MOCK_ACTIONS as any}>
-            <div
-              css={{
-                marginBottom: 20,
-                paddingBottom: 10,
-                borderBottom: '1px solid #ccc',
-              }}
-            >
-              <h2>Component:</h2>
-            </div>
-            <ExperimentViewRunsControls
-              runsData={MOCK_RUNS_DATA}
-              searchFacetsState={searchFacetsState}
-              experimentId={'123'}
-              viewState={viewState}
-              updateSearchFacets={updateSearchFacets}
-              updateViewState={() => {}}
-              requestError={null}
-              expandRows={false}
-              updateExpandRows={() => {}}
-            />
-            <div
-              css={{
-                marginTop: 20,
-                paddingTop: 10,
-                borderTop: '1px solid #ccc',
-              }}
-            >
-              <h2>Debug info:</h2>
-              <h3>Current search facets state:</h3>
-              <div css={{ fontFamily: 'monospace', marginBottom: 10 }}>
-                {JSON.stringify(searchFacetsState)}
+          <div
+            css={{
+              marginBottom: 20,
+              paddingBottom: 10,
+              borderBottom: '1px solid #ccc',
+            }}
+          >
+            <h2>Component:</h2>
+          </div>
+          <ExperimentViewRunsControls
+            runsData={MOCK_RUNS_DATA}
+            searchFacetsState={searchFacetsState}
+            experimentId="123"
+            viewState={viewState}
+            updateViewState={() => {}}
+            requestError={null}
+            expandRows={false}
+            updateExpandRows={() => {}}
+            refreshRuns={() => {}}
+            uiState={createExperimentPageUIState()}
+            isLoading={false}
+          />
+          <div
+            css={{
+              marginTop: 20,
+              paddingTop: 10,
+              borderTop: '1px solid #ccc',
+            }}
+          >
+            <h2>Debug info:</h2>
+            <h3>Current search facets state:</h3>
+            <div css={{ fontFamily: 'monospace', marginBottom: 10 }}>{JSON.stringify(searchFacetsState)}</div>
+            <h3>Log:</h3>
+            {messages.map((m, i) => (
+              <div key={i} css={{ fontFamily: 'monospace' }}>
+                - {m}
               </div>
-              <h3>Log:</h3>
-              {messages.map((m, i) => (
-                <div key={i} css={{ fontFamily: 'monospace' }}>
-                  - {m}
-                </div>
-              ))}
-            </div>
-          </GetExperimentRunsContextProvider>
+            ))}
+          </div>
         </MemoryRouter>
       </IntlProvider>
     </Provider>
@@ -115,8 +89,6 @@ export const Default = createComponentWrapper({
   hiddenChildRunsSelected: {},
   previewPaneVisible: false,
   artifactViewState: {},
-  viewMaximized: false,
-  runListHidden: false,
 });
 
 export const WithOneRunSelected = createComponentWrapper({
@@ -125,8 +97,6 @@ export const WithOneRunSelected = createComponentWrapper({
   hiddenChildRunsSelected: {},
   previewPaneVisible: false,
   artifactViewState: {},
-  viewMaximized: false,
-  runListHidden: false,
 });
 
 export const WithTwoRunSelected = createComponentWrapper({
@@ -135,6 +105,4 @@ export const WithTwoRunSelected = createComponentWrapper({
   hiddenChildRunsSelected: {},
   previewPaneVisible: false,
   artifactViewState: {},
-  viewMaximized: false,
-  runListHidden: false,
 });

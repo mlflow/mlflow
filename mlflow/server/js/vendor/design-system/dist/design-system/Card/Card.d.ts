@@ -1,4 +1,4 @@
-import type { HTMLAttributes, PropsWithChildren } from 'react';
+import type { HTMLAttributes, HTMLProps, PropsWithChildren } from 'react';
 import React from 'react';
 import type { DangerousGeneralProps, HTMLDataAttributes } from '../types';
 export interface CardProps extends DangerousGeneralProps, HTMLDataAttributes, HTMLAttributes<HTMLDivElement> {
@@ -25,7 +25,7 @@ export interface CardProps extends DangerousGeneralProps, HTMLDataAttributes, HT
      *
      * @default undefined
      */
-    onClick?: () => void;
+    onClick?: (e?: React.MouseEvent | React.KeyboardEvent) => void;
     /**
      * Width of the card, used when displaying a list of cards with matching widths
      *
@@ -46,6 +46,9 @@ export interface CardProps extends DangerousGeneralProps, HTMLDataAttributes, HT
      * @default undefined
      */
     topBarContent?: React.ReactNode;
+    href?: string;
+    anchorProps?: HTMLProps<HTMLAnchorElement>;
+    navigateFn?: () => void;
 }
-export declare const Card: ({ children, customLoadingContent, dangerouslyAppendEmotionCSS, loading, width, bottomBarContent, topBarContent, disableHover, onClick, ...dataAndAttributes }: PropsWithChildren<CardProps>) => import("@emotion/react/jsx-runtime").JSX.Element;
+export declare const Card: ({ children, customLoadingContent, dangerouslyAppendEmotionCSS, loading, width, bottomBarContent, topBarContent, disableHover, onClick, href, navigateFn, anchorProps, ...dataAndAttributes }: PropsWithChildren<CardProps>) => import("@emotion/react/jsx-runtime").JSX.Element;
 //# sourceMappingURL=Card.d.ts.map

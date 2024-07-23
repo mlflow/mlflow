@@ -15,9 +15,7 @@ class CustomPredict(mlflow.pyfunc.PythonModel):
     def load_context(self, context):
         self.model = mlflow.sklearn.load_model(context.artifacts["custom_model"])
 
-    def predict(
-        self, context, model_input, params: Optional[Dict[str, Any]] = None
-    ):  # pylint: disable=unused-argument
+    def predict(self, context, model_input, params: Optional[Dict[str, Any]] = None):
         prediction = self.model.predict(model_input)
         return iris_classes(prediction)
 
@@ -40,7 +38,7 @@ with mlflow.start_run(run_name="test_pyfunc") as run:
         # log a custom model
         mlflow.pyfunc.log_model(
             artifact_path="artifacts",
-            code_path=[os.getcwd()],
+            code_paths=[os.getcwd()],
             artifacts={"custom_model": model_info.model_uri},
             python_model=CustomPredict(),
             signature=signature,

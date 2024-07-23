@@ -33,12 +33,16 @@ def test_gpu_monitor():
     assert isinstance(gpu_monitor.metrics["gpu_0_memory_usage_percentage"], list)
     assert isinstance(gpu_monitor.metrics["gpu_0_memory_usage_megabytes"], list)
     assert isinstance(gpu_monitor.metrics["gpu_0_utilization_percentage"], list)
+    assert isinstance(gpu_monitor.metrics["gpu_0_power_usage_watts"], list)
+    assert isinstance(gpu_monitor.metrics["gpu_0_power_usage_percentage"], list)
 
     gpu_monitor.collect_metrics()
     aggregated_metrics = gpu_monitor.aggregate_metrics()
     assert isinstance(aggregated_metrics["gpu_0_memory_usage_percentage"], float)
     assert isinstance(aggregated_metrics["gpu_0_memory_usage_megabytes"], float)
     assert isinstance(aggregated_metrics["gpu_0_utilization_percentage"], float)
+    assert isinstance(aggregated_metrics["gpu_0_power_usage_watts"], float)
+    assert isinstance(aggregated_metrics["gpu_0_power_usage_percentage"], float)
 
     gpu_monitor.clear_metrics()
     assert len(gpu_monitor.metrics.keys) == 0

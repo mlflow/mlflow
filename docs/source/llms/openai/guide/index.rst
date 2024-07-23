@@ -109,7 +109,7 @@ To successfully log a model targeting Azure OpenAI Service, specific environment
 - **OPENAI_API_BASE**: The base endpoint for your Azure OpenAI resource (e.g., ``https://<your-service-name>.openai.azure.com/``). Within the Azure OpenAI documentation and guides, this key is referred to as ``AZURE_OPENAI_ENDPOINT`` or simply ``ENDPOINT``.
 - **OPENAI_API_VERSION**: The API version to use for the Azure OpenAI Service. More information can be found in the `Azure OpenAI documentation <https://learn.microsoft.com/en-us/azure/ai-services/openai/reference>`_, including up-to-date lists of supported versions.
 - **OPENAI_API_TYPE**: If using Azure OpenAI endpoints, this value should be set to ``"azure"``.
-- **DEPLOYMENT_ID**: The deployment name that you chose when you deployed the model in Azure. To learn more, visit the `Azure OpenAI deployment documentation <https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/create-resource?pivots=web-portal>`_.
+- **OPENAI_DEPLOYMENT_NAME**: The deployment name that you chose when you deployed the model in Azure. To learn more, visit the `Azure OpenAI deployment documentation <https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/create-resource?pivots=web-portal>`_.
 
 Azure OpenAI Service in MLflow
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -117,6 +117,16 @@ Integrating Azure OpenAI models within MLflow follows similar procedures to dire
 
 .. literalinclude:: ../../../../../examples/openai/azure_openai.py
     :language: python
+
+OpenAI Autologging
+------------------
+
+.. attention::
+    Autologging is only supported for OpenAI >= 1.17.
+
+To learn more about autologging support for the OpenAI flavor, please `see the autologging guide <../autologging.html>`_.
+
+For more examples, please click `here <https://github.com/mlflow/mlflow/blob/master/examples/openai/autologging>`_.
 
 Next Steps in Your NLP Journey
 ------------------------------

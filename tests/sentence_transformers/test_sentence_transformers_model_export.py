@@ -5,7 +5,9 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 import pytest
+import sentence_transformers
 import yaml
+from packaging.version import Version
 from pyspark.sql import SparkSession
 from pyspark.sql.types import ArrayType, DoubleType
 from sentence_transformers import SentenceTransformer
@@ -16,7 +18,7 @@ import mlflow.sentence_transformers
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
-from mlflow.models.utils import _read_example
+from mlflow.models.utils import _get_mlflow_model_input_example_dict, _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.environment import _mlflow_conda_env
 
@@ -25,6 +27,7 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 
@@ -37,6 +40,11 @@ def model_path(tmp_path):
 @pytest.fixture
 def basic_model():
     return SentenceTransformer("all-MiniLM-L6-v2")
+
+
+@pytest.fixture
+def model_with_remote_code():
+    return SentenceTransformer("Alibaba-NLP/gte-base-en-v1.5", trust_remote_code=True)
 
 
 @pytest.fixture(scope="module")
@@ -58,6 +66,20 @@ def test_model_save_and_load(model_path, basic_model):
     assert isinstance(encoded_multi, np.ndarray)
     assert len(encoded_multi) == 3
     assert all(len(x) == 384 for x in encoded_multi)
+
+
+@pytest.mark.skipif(
+    Version(sentence_transformers.__version__) < Version("2.4.0"),
+    reason="`trust_remote_code` is not supported in Sentence Transformers < 2.3.0 "
+    "and `include_prompt` from gte-base-en-v1.5 requires 2.4.0 or above",
+)
+def test_model_save_and_load_with_custom_code(model_path, model_with_remote_code):
+    mlflow.sentence_transformers.save_model(model=model_with_remote_code, path=model_path)
+    loaded_model = mlflow.sentence_transformers.load_model(model_path)
+
+    encoded_single = loaded_model.encode("I'm just a simple string; nothing to see here.")
+    assert isinstance(encoded_single, np.ndarray)
+    assert len(encoded_single) == 768
 
 
 def test_dependency_mapping():
@@ -91,11 +113,36 @@ def test_logged_data_structure(model_path, basic_model):
     ) == expected_requirements
 
     mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
-    assert mlmodel["flavors"]["python_function"]["loader_module"] == "mlflow.sentence_transformers"
-    assert (
-        mlmodel["flavors"]["python_function"]["data"]
-        == mlflow.sentence_transformers.SENTENCE_TRANSFORMERS_DATA_PATH
-    )
+    assert "model_size_bytes" in mlmodel
+
+    pyfunc_flavor = mlmodel["flavors"]["python_function"]
+    assert pyfunc_flavor["loader_module"] == "mlflow.sentence_transformers"
+    assert pyfunc_flavor["data"] == mlflow.sentence_transformers.SENTENCE_TRANSFORMERS_DATA_PATH
+
+    st_flavor = mlmodel["flavors"]["sentence_transformers"]
+    assert st_flavor["pipeline_model_type"] == "BertModel"
+    assert st_flavor["source_model_name"] == "sentence-transformers/all-MiniLM-L6-v2"
+
+
+@pytest.mark.parametrize(
+    ("model_name", "expected"),
+    [
+        (
+            "sentence-transformers/all-MiniLM-L6-v2",
+            "sentence-transformers/all-MiniLM-L6-v2",
+        ),
+        (
+            "/path./to_/local-/path?/sentence-transformers_all-MiniLM-L6-v2/",
+            "sentence-transformers/all-MiniLM-L6-v2",
+        ),
+        (
+            "/path/to/local/path/custom-user-009_model_name_with_underscore/",
+            "custom-user-009/model_name_with_underscore",
+        ),
+    ],
+)
+def test_get_transformers_model_name(model_name, expected):
+    assert mlflow.sentence_transformers._get_transformers_model_name(model_name) == expected
 
 
 def test_model_logging_and_inference(basic_model):
@@ -402,12 +449,15 @@ def test_spark_udf(basic_model, spark):
 )
 def test_pyfunc_serve_and_score(input1, input2, basic_model):
     with mlflow.start_run():
-        model_info = mlflow.sentence_transformers.log_model(basic_model, "my_model")
+        model_info = mlflow.sentence_transformers.log_model(
+            basic_model, "my_model", input_example=input1
+        )
     loaded_pyfunc = pyfunc.load_model(model_uri=model_info.model_uri)
     local_predict = loaded_pyfunc.predict(input1)
 
     # Check that the giving the same string to the served model results in the same result
-    inference_data = json.dumps({"inputs": input1})
+    inference_data = get_serving_input_example(model_info.model_uri)
+    assert json.loads(inference_data) == {"inputs": input1}
     resp = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=inference_data,
@@ -442,19 +492,24 @@ SIGNATURE_FROM_EXAMPLE = infer_signature(
 
 
 @pytest.mark.parametrize(
-    ("example", "signature", "expected_signature"),
+    ("example", "signature", "expected_signature", "example_no_conversion"),
     [
-        (None, None, mlflow.sentence_transformers._get_default_signature()),
-        (SENTENCES_DF, None, SIGNATURE_FROM_EXAMPLE),
-        (None, SIGNATURE, SIGNATURE),
-        (SENTENCES, SIGNATURE, SIGNATURE),
+        (None, None, mlflow.sentence_transformers._get_default_signature(), False),
+        (SENTENCES_DF, None, SIGNATURE_FROM_EXAMPLE, False),
+        (None, SIGNATURE, SIGNATURE, False),
+        (SENTENCES, SIGNATURE, SIGNATURE, False),
+        (SENTENCES, SIGNATURE, SIGNATURE, True),
     ],
 )
 def test_signature_and_examples_are_saved_correctly(
-    example, signature, expected_signature, basic_model, model_path
+    example, signature, expected_signature, basic_model, model_path, example_no_conversion
 ):
     mlflow.sentence_transformers.save_model(
-        basic_model, path=model_path, signature=signature, input_example=example
+        basic_model,
+        path=model_path,
+        signature=signature,
+        input_example=example,
+        example_no_conversion=example_no_conversion,
     )
     mlflow_model = Model.load(model_path)
 
@@ -463,7 +518,11 @@ def test_signature_and_examples_are_saved_correctly(
     if example is None:
         assert mlflow_model.saved_input_example_info is None
     else:
-        if isinstance(example, pd.DataFrame):
+        if example_no_conversion:
+            assert mlflow_model.saved_input_example_info["type"] == "json_object"
+            saved_example = _get_mlflow_model_input_example_dict(mlflow_model, model_path)
+            assert saved_example == example
+        elif isinstance(example, pd.DataFrame):
             pd.testing.assert_frame_equal(_read_example(mlflow_model, model_path), example)
         else:
             np.testing.assert_equal(_read_example(mlflow_model, model_path), example)
@@ -480,3 +539,51 @@ def test_model_log_with_signature_inference(basic_model):
 
     model_info = Model.load(model_uri)
     assert model_info.signature == SIGNATURE
+
+
+def test_verify_task_and_update_metadata():
+    # Update embedding task with empty metadata
+    metadata = mlflow.sentence_transformers._verify_task_and_update_metadata("llm/v1/embeddings")
+    assert metadata == {"task": "llm/v1/embeddings"}
+    # Update embedding task with metadata containing task
+    metadata = mlflow.sentence_transformers._verify_task_and_update_metadata(
+        "llm/v1/embeddings", metadata
+    )
+    assert metadata == {"task": "llm/v1/embeddings"}
+
+    # Update embedding task with metadata containing different task
+    metadata = {"task": "llm/v1/completions"}
+    with pytest.raises(
+        MlflowException, match=r"Task type is inconsistent with the task value from metadata"
+    ):
+        mlflow.sentence_transformers._verify_task_and_update_metadata("llm/v1/embeddings", metadata)
+
+    # Invalid task type
+    with pytest.raises(MlflowException, match=r"Task type could only be llm/v1/embeddings"):
+        mlflow.sentence_transformers._verify_task_and_update_metadata("llm/v1/completions")
+
+
+def test_model_pyfunc_with_dict_input(basic_model, model_path):
+    mlflow.sentence_transformers.save_model(basic_model, model_path, task="llm/v1/embeddings")
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    sentence = "hello world and hello mlflow"
+    sentences = [sentence, "goodbye my friends", "i am a sentence"]
+    embedding_dim = basic_model.get_sentence_embedding_dimension()
+
+    single_input = {"input": sentence}
+    emb_single_input = loaded_pyfunc.predict(single_input)
+
+    assert isinstance(emb_single_input, dict)
+    assert len(emb_single_input["data"]) == 1
+    assert isinstance(emb_single_input["data"][0], dict)
+    assert emb_single_input["data"][0]["embedding"].shape == (embedding_dim,)
+    assert emb_single_input["usage"]["prompt_tokens"] == 8
+
+    multiple_input = {"input": sentences}
+    emb_multiple_input = loaded_pyfunc.predict(multiple_input)
+
+    assert isinstance(emb_multiple_input, dict)
+    assert len(emb_multiple_input["data"]) == 3
+    assert emb_multiple_input["data"][0]["embedding"].shape == (embedding_dim,)
+    assert emb_multiple_input["usage"]["prompt_tokens"] == 19

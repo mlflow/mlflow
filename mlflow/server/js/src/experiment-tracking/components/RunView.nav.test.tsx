@@ -1,19 +1,19 @@
-import { act, renderWithIntl, screen } from '../../common/utils/TestUtils';
-import { RunView } from './RunView';
+import { renderWithIntl, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { RunPage } from './run-page/RunPage';
 import thunk from 'redux-thunk';
 import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
 import { EXPERIMENT_RUNS_MOCK_STORE } from './experiment-page/fixtures/experiment-runs.fixtures';
-import { MemoryRouter, Route, Routes } from '../../common/utils/RoutingUtils';
-
-import { shouldEnableDeepLearningUI } from '../../common/utils/FeatureUtils';
-import userEvent from '@testing-library/user-event';
+import { createMLflowRoutePath } from '../../common/utils/RoutingUtils';
+import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
+import userEvent from '@testing-library/user-event-14';
 import { RoutePaths } from '../routes';
+import { useRunDetailsPageData } from './run-page/useRunDetailsPageData';
 
 // Mock tab contents
 jest.mock('./run-page/RunViewMetricCharts', () => ({
-  RunViewMetricCharts: jest.fn(() => <div>metric charts tab</div>),
+  RunViewMetricCharts: jest.fn((props) => <div>{props.mode} metric charts</div>),
 }));
 jest.mock('./run-page/RunViewOverview', () => ({
   RunViewOverview: jest.fn(() => <div>overview tab</div>),
@@ -21,23 +21,15 @@ jest.mock('./run-page/RunViewOverview', () => ({
 jest.mock('./run-page/RunViewArtifactTab', () => ({
   RunViewArtifactTab: jest.fn(() => <div>artifacts tab</div>),
 }));
-
-// Enable flag manipulation
-jest.mock('../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../common/utils/FeatureUtils'),
-  shouldEnableDeepLearningUI: jest.fn(),
+jest.mock('./run-page/RunViewHeaderRegisterModelButton', () => ({
+  RunViewHeaderRegisterModelButton: jest.fn(() => <div>register model</div>),
+}));
+jest.mock('./run-page/useRunDetailsPageData', () => ({
+  useRunDetailsPageData: jest.fn(),
 }));
 
 describe('RunView navigation integration test', () => {
-  const minimalProps = {
-    runUuid: 'experiment123456789_run1',
-    getMetricPagePath: jest.fn().mockReturnValue('/'),
-    experimentId: '123456789',
-    handleSetRunTag: jest.fn(),
-  };
-  const renderComponent = (
-    initialRoute = '/experiments/123456789/runs/experiment123456789_run1',
-  ) => {
+  const renderComponent = (initialRoute = '/experiments/123456789/runs/experiment123456789_run1') => {
     const mockStore = configureStore([thunk, promiseMiddleware()]);
     const mockState = {
       ...EXPERIMENT_RUNS_MOCK_STORE,
@@ -46,70 +38,77 @@ describe('RunView navigation integration test', () => {
         hasComparedExperimentsBefore: false,
       },
     };
-    return renderWithIntl(
-      <MemoryRouter initialEntries={[initialRoute]}>
-        <Routes>
-          <Route
-            path={RoutePaths.runPageWithTab}
-            element={
-              <Provider store={mockStore(mockState)}>
-                <RunView {...minimalProps} />
-              </Provider>
-            }
-          />
-        </Routes>
-      </MemoryRouter>,
+    const renderResult = renderWithIntl(
+      <Provider store={mockStore(mockState)}>
+        <TestRouter
+          initialEntries={[createMLflowRoutePath(initialRoute)]}
+          routes={[testRoute(<RunPage />, RoutePaths.runPageWithTab)]}
+        />
+      </Provider>,
     );
+
+    return renderResult;
   };
   beforeEach(() => {
-    jest.mocked(shouldEnableDeepLearningUI).mockImplementation(() => true);
+    jest.mocked(useRunDetailsPageData).mockImplementation(
+      () =>
+        ({
+          data: {
+            experiment: EXPERIMENT_RUNS_MOCK_STORE.entities.experimentsById['123456789'],
+            runInfo: EXPERIMENT_RUNS_MOCK_STORE.entities.runInfosByUuid['experiment123456789_run1'],
+            latestMetrics: {},
+            tags: {},
+            params: {},
+          },
+          errors: {},
+          loading: false,
+        } as any),
+    );
   });
   test('should display overview by default and allow changing the tab', async () => {
     renderComponent();
-    expect(screen.queryByText('overview tab')).toBeInTheDocument();
-    expect(screen.queryByText('metric charts tab')).not.toBeInTheDocument();
-    expect(screen.queryByText('artifacts tab')).not.toBeInTheDocument();
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('tab', { name: 'Metric charts' }));
+    await waitFor(() => {
+      expect(screen.queryByText('overview tab')).toBeInTheDocument();
+      expect(screen.queryByText('model metric charts')).not.toBeInTheDocument();
+      expect(screen.queryByText('system metric charts')).not.toBeInTheDocument();
+      expect(screen.queryByText('artifacts tab')).not.toBeInTheDocument();
     });
 
+    await userEvent.click(screen.getByRole('tab', { name: 'Model metrics' }));
+
     expect(screen.queryByText('overview tab')).not.toBeInTheDocument();
-    expect(screen.queryByText('metric charts tab')).toBeInTheDocument();
+    expect(screen.queryByText('model metric charts')).toBeInTheDocument();
+    expect(screen.queryByText('system metric charts')).not.toBeInTheDocument();
     expect(screen.queryByText('artifacts tab')).not.toBeInTheDocument();
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('tab', { name: 'Artifacts' }));
-    });
+    await userEvent.click(screen.getByRole('tab', { name: 'System metrics' }));
 
     expect(screen.queryByText('overview tab')).not.toBeInTheDocument();
-    expect(screen.queryByText('metric charts tab')).not.toBeInTheDocument();
+    expect(screen.queryByText('model metric charts')).not.toBeInTheDocument();
+    expect(screen.queryByText('system metric charts')).toBeInTheDocument();
+    expect(screen.queryByText('artifacts tab')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Artifacts' }));
+
+    expect(screen.queryByText('overview tab')).not.toBeInTheDocument();
+    expect(screen.queryByText('model metrics')).not.toBeInTheDocument();
+    expect(screen.queryByText('system metrics')).not.toBeInTheDocument();
     expect(screen.queryByText('artifacts tab')).toBeInTheDocument();
-  });
-
-  test('should not display navigation tabs when deep learning UI features are not enabled', async () => {
-    jest.mocked(shouldEnableDeepLearningUI).mockImplementation(() => false);
-
-    renderComponent();
-
-    expect(screen.queryByRole('tab', { name: 'Overview' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Metric charts' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Artifacts' })).not.toBeInTheDocument();
-
-    expect(screen.queryByText('overview tab')).toBeInTheDocument();
   });
 
   test('should display artirfact tab if using a targeted artifact URL', async () => {
-    renderComponent(
-      '/experiments/123456789/runs/experiment123456789_run1/artifacts/model/conda.yaml',
-    );
-    expect(screen.queryByText('artifacts tab')).toBeInTheDocument();
+    renderComponent('/experiments/123456789/runs/experiment123456789_run1/artifacts/model/conda.yaml');
+
+    await waitFor(() => {
+      expect(screen.queryByText('artifacts tab')).toBeInTheDocument();
+    });
   });
 
   test('should display artirfact tab if using a targeted artifact URL (legacy artifactPath pattern)', async () => {
-    renderComponent(
-      '/experiments/123456789/runs/experiment123456789_run1/artifactPath/model/conda.yaml',
-    );
-    expect(screen.queryByText('artifacts tab')).toBeInTheDocument();
+    renderComponent('/experiments/123456789/runs/experiment123456789_run1/artifactPath/model/conda.yaml');
+    await waitFor(() => {
+      expect(screen.queryByText('artifacts tab')).toBeInTheDocument();
+    });
   });
 });

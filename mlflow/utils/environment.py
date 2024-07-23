@@ -1,24 +1,32 @@
 import logging
 import os
+import pathlib
 import re
 import subprocess
 import sys
 import tempfile
+from typing import List
 
 import yaml
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.version import Version
 
-from mlflow.environment_variables import _MLFLOW_TESTING
+from mlflow.environment_variables import (
+    _MLFLOW_TESTING,
+    MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT,
+    MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import PYTHON_VERSION, insecure_hash
+from mlflow.utils.os import is_windows
 from mlflow.utils.process import _exec_cmd
 from mlflow.utils.requirements_utils import (
     _infer_requirements,
     _parse_requirements,
     warn_dependency_requirement_mismatches,
 )
+from mlflow.utils.timeout import MlflowTimeoutError, run_with_timeout
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -41,8 +49,6 @@ _CONDA_DEPENDENCY_REGEX = re.compile(
     r"(?P<operator><|>|<=|>=|=|==|!=)?"
     r"(?P<version>[\d.]+)?$"
 )
-
-_IS_UNIX = os.name != "nt"
 
 
 class _PythonEnv:
@@ -385,13 +391,14 @@ def _parse_pip_requirements(pip_requirements):
         )
 
 
-_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE = (
-    "Encountered an unexpected error while inferring pip requirements (model URI: %s, flavor: %s),"
-    " fall back to return %s. Set logging level to DEBUG to see the full traceback."
+_INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE = (
+    "Encountered an unexpected error while inferring pip requirements "
+    "(model URI: {model_uri}, flavor: {flavor}). Fall back to return {fallback}. "
+    "Set logging level to DEBUG to see the full traceback. "
 )
 
 
-def infer_pip_requirements(model_uri, flavor, fallback=None):
+def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None):
     """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
 
@@ -400,19 +407,46 @@ def infer_pip_requirements(model_uri, flavor, fallback=None):
         flavor: The flavor name of the model.
         fallback: If provided, an unexpected error during the inference procedure is swallowed
             and the value of ``fallback`` is returned. Otherwise, the error is raised.
+        timeout: If specified, the inference operation is bound by the timeout (in seconds).
 
     Returns:
         A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
 
     """
+    raise_on_error = MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS.get()
+
+    if timeout and is_windows():
+        timeout = None
+        _logger.warning(
+            "On Windows, timeout is not supported for model requirement inference. Therefore, "
+            "the operation is not bound by a timeout and may hang indefinitely. If it hangs, "
+            "please consider specifying the signature manually."
+        )
+
     try:
-        return _infer_requirements(model_uri, flavor)
-    except Exception:
-        if fallback is not None:
-            _logger.warning(_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE, model_uri, flavor, fallback)
-            _logger.debug("", exc_info=True)
-            return fallback
-        raise
+        if timeout:
+            with run_with_timeout(timeout):
+                return _infer_requirements(model_uri, flavor, raise_on_error=raise_on_error)
+        else:
+            return _infer_requirements(model_uri, flavor, raise_on_error=raise_on_error)
+    except Exception as e:
+        if raise_on_error or (fallback is None):
+            raise
+
+        if isinstance(e, MlflowTimeoutError):
+            msg = (
+                "Attempted to infer pip requirements for the saved model or pipeline but the "
+                f"operation timed out in {timeout} seconds. Fall back to return {fallback}. "
+                "You can specify a different timeout by setting the environment variable "
+                f"{MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT}."
+            )
+        else:
+            msg = _INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE.format(
+                model_uri=model_uri, flavor=flavor, fallback=fallback
+            )
+        _logger.warning(msg)
+        _logger.debug("", exc_info=True)
+        return fallback
 
 
 def _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements):
@@ -729,6 +763,56 @@ def _get_pip_install_mlflow():
         return f"pip install mlflow=={VERSION} 1>&2"
 
 
+def _get_requirements_from_file(
+    file_path: pathlib.Path,
+) -> List[Requirement]:
+    data = file_path.read_text()
+    if file_path.name == _CONDA_ENV_FILE_NAME:
+        conda_env = yaml.safe_load(data)
+        reqs = _get_pip_deps(conda_env)
+    else:
+        reqs = data.splitlines()
+    return [Requirement(req) for req in reqs if req]
+
+
+def _write_requirements_to_file(
+    file_path: pathlib.Path,
+    new_reqs: List[str],
+) -> None:
+    if file_path.name == _CONDA_ENV_FILE_NAME:
+        conda_env = yaml.safe_load(file_path.read_text())
+        conda_env = _overwrite_pip_deps(conda_env, new_reqs)
+        with file_path.open("w") as file:
+            yaml.dump(conda_env, file)
+    else:
+        file_path.write_text("\n".join(new_reqs))
+
+
+def _add_or_overwrite_requirements(
+    new_reqs: List[Requirement],
+    old_reqs: List[Requirement],
+) -> List[str]:
+    deduped_new_reqs = _deduplicate_requirements([str(req) for req in new_reqs])
+    deduped_new_reqs = [Requirement(req) for req in deduped_new_reqs]
+
+    old_reqs_dict = {req.name: str(req) for req in old_reqs}
+    new_reqs_dict = {req.name: str(req) for req in deduped_new_reqs}
+    old_reqs_dict.update(new_reqs_dict)
+    return list(old_reqs_dict.values())
+
+
+def _remove_requirements(
+    reqs_to_remove: List[Requirement],
+    old_reqs: List[Requirement],
+) -> List[str]:
+    old_reqs_dict = {req.name: str(req) for req in old_reqs}
+    for req in reqs_to_remove:
+        if req.name not in old_reqs_dict:
+            _logger.warning(f'"{req.name}" not found in requirements, ignoring')
+        old_reqs_dict.pop(req.name, None)
+    return list(old_reqs_dict.values())
+
+
 class Environment:
     def __init__(self, activate_cmd, extra_env=None):
         if not isinstance(activate_cmd, list):
@@ -756,10 +840,10 @@ class Environment:
         if not isinstance(command, list):
             command = [command]
 
-        separator = " && " if _IS_UNIX else " & "
+        separator = " && " if not is_windows() else " & "
 
         command = separator.join(map(str, self._activate_cmd + command))
-        command = ["bash", "-c", command] if _IS_UNIX else ["cmd", "/c", command]
+        command = ["bash", "-c", command] if not is_windows() else ["cmd", "/c", command]
         _logger.info("=== Running command '%s'", command)
         return _exec_cmd(
             command,

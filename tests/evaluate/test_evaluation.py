@@ -1,8 +1,10 @@
+import inspect
 import io
 import json
 import os
 import re
 import signal
+import subprocess
 import uuid
 from collections import namedtuple
 from unittest import mock
@@ -17,6 +19,8 @@ import sklearn.impute
 import sklearn.linear_model
 import sklearn.pipeline
 import sklearn.preprocessing
+from langchain.llms import FakeListLLM
+from langchain.prompts import PromptTemplate
 from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 from PIL import Image, ImageChops
 from pyspark.ml.linalg import Vectors
@@ -31,7 +35,9 @@ from sklearn.metrics import (
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.data.evaluation_dataset import EvaluationDataset, _gen_md5_for_arraylike_obj
 from mlflow.data.pandas_dataset import from_pandas
+from mlflow.entities import Trace, TraceData
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import (
     EvaluationArtifact,
@@ -41,8 +47,7 @@ from mlflow.models.evaluation import (
 )
 from mlflow.models.evaluation.artifacts import ImageEvaluationArtifact
 from mlflow.models.evaluation.base import (
-    EvaluationDataset,
-    _gen_md5_for_arraylike_obj,
+    _is_model_deployment_endpoint_uri,
     _start_run_or_reuse_active_run,
 )
 from mlflow.models.evaluation.base import (
@@ -51,12 +56,23 @@ from mlflow.models.evaluation.base import (
 from mlflow.models.evaluation.base import (
     _normalize_evaluators_and_evaluator_config_args as _normalize_config,
 )
+from mlflow.models.evaluation.default_evaluator import DefaultEvaluator
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracking.artifact_utils import get_artifact_uri
 from mlflow.utils import insecure_hash
+from mlflow.utils.autologging_utils import (
+    MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG,
+)
 from mlflow.utils.file_utils import TempDir
+
+from tests.tracing.helper import create_test_trace_info, get_traces
+from tests.utils.test_file_utils import spark_session  # noqa: F401
+
+INFERENCE_FILE_NAME = "inference_inputs_outputs.json"
 
 
 def get_iris():
@@ -106,12 +122,6 @@ def get_raw_tag(run_id, tag_name):
 
 def get_local_artifact_path(run_id, artifact_path):
     return get_artifact_uri(run_id, artifact_path).replace("file://", "")
-
-
-@pytest.fixture(scope="module")
-def spark_session():
-    with SparkSession.builder.master("local[*]").getOrCreate() as session:
-        yield session
 
 
 @pytest.fixture(scope="module")
@@ -243,9 +253,7 @@ def get_linear_regressor_model_uri():
 
     with mlflow.start_run() as run:
         mlflow.sklearn.log_model(reg, "reg_model")
-        linear_regressor_model_uri = get_artifact_uri(run.info.run_id, "reg_model")
-
-    return linear_regressor_model_uri
+        return get_artifact_uri(run.info.run_id, "reg_model")
 
 
 @pytest.fixture
@@ -260,9 +268,7 @@ def get_spark_linear_regressor_model_uri():
 
     with mlflow.start_run() as run:
         mlflow.spark.log_model(spark_reg_model, "spark_reg_model")
-        spark_linear_regressor_model_uri = get_artifact_uri(run.info.run_id, "spark_reg_model")
-
-    return spark_linear_regressor_model_uri
+        return get_artifact_uri(run.info.run_id, "spark_reg_model")
 
 
 @pytest.fixture
@@ -282,11 +288,7 @@ def multiclass_logistic_regressor_model_uri_by_max_iter(max_iter):
 
     with mlflow.start_run() as run:
         mlflow.sklearn.log_model(clf, f"clf_model_{max_iter}_iters")
-        multiclass_logistic_regressor_model_uri = get_artifact_uri(
-            run.info.run_id, f"clf_model_{max_iter}_iters"
-        )
-
-    return multiclass_logistic_regressor_model_uri
+        return get_artifact_uri(run.info.run_id, f"clf_model_{max_iter}_iters")
 
 
 @pytest.fixture
@@ -301,9 +303,7 @@ def get_binary_logistic_regressor_model_uri():
 
     with mlflow.start_run() as run:
         mlflow.sklearn.log_model(clf, "bin_clf_model")
-        binary_logistic_regressor_model_uri = get_artifact_uri(run.info.run_id, "bin_clf_model")
-
-    return binary_logistic_regressor_model_uri
+        return get_artifact_uri(run.info.run_id, "bin_clf_model")
 
 
 @pytest.fixture
@@ -318,9 +318,7 @@ def get_svm_model_url():
 
     with mlflow.start_run() as run:
         mlflow.sklearn.log_model(clf, "svm_model")
-        svm_model_uri = get_artifact_uri(run.info.run_id, "svm_model")
-
-    return svm_model_uri
+        return get_artifact_uri(run.info.run_id, "svm_model")
 
 
 @pytest.fixture
@@ -374,6 +372,232 @@ def baseline_model_uri(request):
     if request.param == "invalid_model_uri":
         return "invalid_uri"
     return None
+
+
+def test_mlflow_evaluate_logs_traces():
+    eval_data = pd.DataFrame(
+        {
+            "inputs": [
+                "What is MLflow?",
+                "What is Spark?",
+            ],
+            "ground_truth": ["What is MLflow?", "Not what is Spark?"],
+        }
+    )
+
+    @mlflow.trace
+    def model(inputs):
+        return inputs
+
+    with mlflow.start_run() as run:
+        evaluate(
+            model, eval_data, targets="ground_truth", extra_metrics=[mlflow.metrics.exact_match()]
+        )
+    assert len(get_traces()) == 1
+    assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+
+
+def test_pyfunc_evaluate_logs_traces():
+    class Model(mlflow.pyfunc.PythonModel):
+        @mlflow.trace()
+        def predict(self, _, inputs):
+            return self.add(inputs, inputs)
+
+        @mlflow.trace()
+        def add(self, x, y):
+            return x + y
+
+    eval_data = pd.DataFrame(
+        {
+            "inputs": [1, 2, 4],
+            "ground_truth": [2, 4, 8],
+        }
+    )
+
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=Model())
+        evaluate(
+            model_info.model_uri,
+            eval_data,
+            targets="ground_truth",
+            extra_metrics=[mlflow.metrics.exact_match()],
+        )
+    assert len(get_traces()) == 1
+    assert len(get_traces()[0].data.spans) == 2
+    assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+
+
+def test_langchain_evaluate_autologs_traces():
+    # Check langchain autolog parameters are restored after evaluation
+    mlflow.langchain.autolog(log_models=True, log_inputs_outputs=True)
+
+    prompt = PromptTemplate(
+        input_variables=["input"],
+        template="Test Prompt {input}",
+    )
+    llm = FakeListLLM(responses=["response"])
+    chain = prompt | llm
+
+    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
+
+        def model(inputs):
+            return [chain.invoke({"input": input}) for input in inputs["inputs"]]
+
+        eval_data = pd.DataFrame(
+            {
+                "inputs": [
+                    "What is MLflow?",
+                    "What is Spark?",
+                ],
+                "ground_truth": ["What is MLflow?", "Not what is Spark?"],
+            }
+        )
+
+        with mlflow.start_run() as run:
+            evaluate(
+                model,
+                eval_data,
+                targets="ground_truth",
+                extra_metrics=[mlflow.metrics.exact_match()],
+            )
+        log_model_mock.assert_not_called()
+
+    assert len(get_traces()) == 2
+    for trace in get_traces():
+        assert len(trace.data.spans) == 3
+    assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+
+    TRACE_BUFFER.clear()
+
+    # Test original langchain autolog configs is restored
+    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
+        with mlflow.start_run() as run:
+            chain.invoke("text")
+
+            loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
+            loaded_dict = loaded_table.to_dict("records")
+            assert len(loaded_dict) == 1
+            assert loaded_dict[0]["input"] == "text"
+        log_model_mock.assert_called_once()
+        assert len(get_traces()) == 1
+        assert len(get_traces()[0].data.spans) == 3
+
+
+def test_langchain_pyfunc_autologs_traces():
+    prompt = PromptTemplate(
+        input_variables=["inputs"],
+        template="Test Prompt {inputs}",
+    )
+    llm = FakeListLLM(responses=["response"])
+    chain = prompt | llm
+
+    eval_data = pd.DataFrame(
+        {
+            "inputs": ["What is MLflow?"],
+            "ground_truth": ["What is MLflow?"],
+        }
+    )
+
+    with mlflow.start_run() as run:
+        model_info = mlflow.langchain.log_model(chain, artifact_path="model")
+        evaluate(
+            model_info.model_uri,
+            eval_data,
+            targets="ground_truth",
+            extra_metrics=[mlflow.metrics.exact_match()],
+        )
+    assert len(get_traces()) == 1
+    assert len(get_traces()[0].data.spans) == 3
+    assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+
+
+def test_langchain_evaluate_fails_with_an_exception():
+    # Check langchain autolog parameters are restored after evaluation
+    mlflow.langchain.autolog(log_models=True, log_inputs_outputs=True)
+
+    prompt = PromptTemplate(
+        input_variables=["input"],
+        template="Test Prompt {input}",
+    )
+    llm = FakeListLLM(responses=["response"])
+    chain = prompt | llm
+
+    with mock.patch("mlflow.langchain.log_model") as log_model_mock, mock.patch.object(
+        DefaultEvaluator, "evaluate", side_effect=MlflowException("evaluate mock error")
+    ):
+
+        def model(inputs):
+            return [chain.invoke({"input": input}) for input in inputs["inputs"]]
+
+        eval_data = pd.DataFrame(
+            {
+                "inputs": [
+                    "What is MLflow?",
+                    "What is Spark?",
+                ],
+                "ground_truth": ["What is MLflow?", "Not what is Spark?"],
+            }
+        )
+        with mlflow.start_run() as run:
+            with pytest.raises(MlflowException, match="evaluate mock error"):
+                evaluate(
+                    model,
+                    eval_data,
+                    targets="ground_truth",
+                    extra_metrics=[mlflow.metrics.exact_match()],
+                )
+            log_model_mock.assert_not_called()
+
+    assert len(get_traces()) == 0
+
+    TRACE_BUFFER.clear()
+
+    # Test original langchain autolog configs is restored
+    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
+        with mlflow.start_run() as run:
+            chain.invoke("text")
+
+            loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
+            loaded_dict = loaded_table.to_dict("records")
+            assert len(loaded_dict) == 1
+            assert loaded_dict[0]["input"] == "text"
+        log_model_mock.assert_called_once()
+        assert len(get_traces()) == 1
+        assert len(get_traces()[0].data.spans) == 3
+
+
+def test_langchain_autolog_parameters_matches_default_parameters():
+    # The custom config is to restrict langchain autologging to only log traces.
+    # The parameters in this configuration should match the signature of
+    # mlflow.langchain.autolog exactly. The values of the parameters should be set
+    # in a way that disables logging anything but traces.
+    params = inspect.signature(mlflow.langchain.autolog).parameters
+    for name in params:
+        assert name in MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG
+    for name in MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG:
+        assert name in params
+
+
+def test_evaluate_works_with_no_langchain_installed():
+    with mock.patch.dict("sys.modules", {"langchain": None}):
+        # Import within the test context
+        with pytest.raises(ImportError, match="import of langchain halted"):
+            import langchain  # noqa: F401
+        eval_data = pd.DataFrame(
+            {
+                "inputs": [1],
+                "ground_truth": [1],
+            }
+        )
+
+        @mlflow.trace
+        def model(inputs):
+            return inputs
+
+        evaluate(
+            model, eval_data, targets="ground_truth", extra_metrics=[mlflow.metrics.exact_match()]
+        )
+        assert len(get_traces()) == 1
 
 
 # Test validation with valid baseline_model uri
@@ -705,6 +929,13 @@ def test_gen_md5_for_arraylike_obj():
     assert get_md5(list3) == get_md5(list4)
 
 
+def test_gen_md5_for_arraylike_obj_with_pandas_df_using_float_idx_does_not_raise_keyerror():
+    float_indices = np.random.uniform(low=0.5, high=13.3, size=(10,))
+    df = pd.DataFrame(np.random.randn(10, 4), index=float_indices, columns=["A", "B", "C", "D"])
+    md5_gen = insecure_hash.md5()
+    assert _gen_md5_for_arraylike_obj(md5_gen, df) is None
+
+
 def test_dataset_hash(
     iris_dataset, iris_pandas_df_dataset, iris_pandas_df_num_cols_dataset, diabetes_spark_dataset
 ):
@@ -712,6 +943,27 @@ def test_dataset_hash(
     assert iris_pandas_df_dataset.hash == "799d4f50e2e353127f94a0e5300add06"
     assert iris_pandas_df_num_cols_dataset.hash == "3c5fc56830a0646001253e25e17bdce4"
     assert diabetes_spark_dataset.hash == "ebfb050519e7e5b463bd38b0c8d04243"
+
+
+def test_trace_dataset_hash():
+    # Validates that a dataset containing Traces can be hashed.
+    df = pd.DataFrame(
+        {
+            "request": ["Hello"],
+            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([], "", ""))],
+        }
+    )
+    dataset = EvaluationDataset(data=df)
+    assert dataset.hash == "757c14bf38aa42d36b93ccd70b1ea719"
+    # Hash of a dataset with a different column should be different
+    df2 = pd.DataFrame(
+        {
+            "request": ["Hi"],
+            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([], "", ""))],
+        }
+    )
+    dataset2 = EvaluationDataset(data=df2)
+    assert dataset2.hash != dataset.hash
 
 
 def test_dataset_with_pandas_dataframe():
@@ -810,7 +1062,7 @@ def test_log_dataset_tag(iris_dataset, iris_pandas_df_dataset):
         ]
 
 
-class FakeEvauator1(ModelEvaluator):
+class FakeEvaluator1(ModelEvaluator):
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         raise RuntimeError()
 
@@ -818,7 +1070,7 @@ class FakeEvauator1(ModelEvaluator):
         raise RuntimeError()
 
 
-class FakeEvauator2(ModelEvaluator):
+class FakeEvaluator2(ModelEvaluator):
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         raise RuntimeError()
 
@@ -847,9 +1099,14 @@ class PyFuncModelMatcher:
         return isinstance(other, mlflow.pyfunc.PyFuncModel)
 
 
+class ModelPredictFuncMatcher:
+    def __eq__(self, other):
+        return callable(other)
+
+
 def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri, iris_dataset):
     with mock.patch.object(
-        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
+        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvaluator1}
     ):
         evaluator1_config = {"eval1_confg_a": 3, "eval1_confg_b": 4}
         evaluator1_return_value = EvaluationResult(
@@ -857,9 +1114,9 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
             artifacts={"a1": FakeArtifact1(uri="uri1"), "a2": FakeArtifact2(uri="uri2")},
         )
         with mock.patch.object(
-            FakeEvauator1, "can_evaluate", return_value=False
+            FakeEvaluator1, "can_evaluate", return_value=False
         ) as mock_can_evaluate, mock.patch.object(
-            FakeEvauator1, "evaluate", return_value=evaluator1_return_value
+            FakeEvaluator1, "evaluate", return_value=evaluator1_return_value
         ) as mock_evaluate:
             with mlflow.start_run():
                 with pytest.raises(
@@ -879,9 +1136,9 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                 )
                 mock_evaluate.assert_not_called()
         with mock.patch.object(
-            FakeEvauator1, "can_evaluate", return_value=True
+            FakeEvaluator1, "can_evaluate", return_value=True
         ) as mock_can_evaluate, mock.patch.object(
-            FakeEvauator1, "evaluate", return_value=evaluator1_return_value
+            FakeEvaluator1, "evaluate", return_value=evaluator1_return_value
         ) as mock_evaluate:
             with mlflow.start_run() as run:
                 eval1_result = evaluate(
@@ -938,7 +1195,7 @@ def test_model_validation_interface_invalid_baseline_model_should_throw(
     multiclass_logistic_regressor_model_uri, iris_dataset, baseline_model_uri, expected_error
 ):
     with mock.patch.object(
-        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
+        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvaluator1}
     ):
         evaluator1_config = {"config": True}
         with expected_error:
@@ -965,7 +1222,7 @@ def test_evaluate_with_multi_evaluators(
     with mock.patch.object(
         _model_evaluation_registry,
         "_registry",
-        {"test_evaluator1": FakeEvauator1, "test_evaluator2": FakeEvauator2},
+        {"test_evaluator1": FakeEvaluator1, "test_evaluator2": FakeEvaluator2},
     ):
         evaluator1_config = {"eval1_confg": 3}
         evaluator2_config = {"eval2_confg": 4}
@@ -1000,13 +1257,13 @@ def test_evaluate_with_multi_evaluators(
         # evaluators=["test_evaluator1", "test_evaluator2"]
         for evaluators in [None, ["test_evaluator1", "test_evaluator2"]]:
             with mock.patch.object(
-                FakeEvauator1, "can_evaluate", return_value=True
+                FakeEvaluator1, "can_evaluate", return_value=True
             ) as mock_can_evaluate1, mock.patch.object(
-                FakeEvauator1, "evaluate", return_value=evaluator1_return_value
+                FakeEvaluator1, "evaluate", return_value=evaluator1_return_value
             ) as mock_evaluate1, mock.patch.object(
-                FakeEvauator2, "can_evaluate", return_value=True
+                FakeEvaluator2, "can_evaluate", return_value=True
             ) as mock_can_evaluate2, mock.patch.object(
-                FakeEvauator2, "evaluate", return_value=evaluator2_return_value
+                FakeEvaluator2, "evaluate", return_value=evaluator2_return_value
             ) as mock_evaluate2:
                 with mlflow.start_run() as run:
                     eval_result = evaluate(
@@ -1050,6 +1307,46 @@ def test_evaluate_with_multi_evaluators(
                     )
 
 
+def test_custom_evaluators_no_model_or_preds(multiclass_logistic_regressor_model_uri, iris_dataset):
+    """
+    Tests that custom evaluators are called correctly when no model or predictions are provided
+    """
+    with mock.patch.object(
+        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvaluator1}
+    ):
+        with mock.patch.object(
+            FakeEvaluator1, "can_evaluate", return_value=True
+        ) as mock_can_evaluate, mock.patch.object(FakeEvaluator1, "evaluate") as mock_evaluate:
+            with mlflow.start_run() as run:
+                evaluate(
+                    model=None,
+                    data=iris_dataset._constructor_args["data"],
+                    predictions=None,
+                    model_type="classifier",
+                    targets=iris_dataset._constructor_args["targets"],
+                    evaluators="test_evaluator1",
+                    evaluator_config=None,
+                    extra_metrics=None,
+                    baseline_model=None,
+                )
+
+                mock_can_evaluate.assert_called_once_with(
+                    model_type="classifier", evaluator_config={}
+                )
+                mock_evaluate.assert_called_once_with(
+                    model=None,
+                    dataset=iris_dataset,
+                    predictions=None,
+                    model_type="classifier",
+                    run_id=run.info.run_id,
+                    evaluator_config={},
+                    custom_metrics=None,
+                    extra_metrics=None,
+                    custom_artifacts=None,
+                    baseline_model=None,
+                )
+
+
 def test_start_run_or_reuse_active_run():
     with _start_run_or_reuse_active_run() as run_id:
         assert mlflow.active_run().info.run_id == run_id
@@ -1091,10 +1388,10 @@ def test_normalize_evaluators_and_evaluator_config_args():
         {"default": {"a": 3}},
     )
 
-    with mock.patch.object(_base_logger, "warning") as patched_warning_fn:
+    with mock.patch.object(_base_logger, "debug") as patched_debug_fn:
         _normalize_config(None, None)
-        patched_warning_fn.assert_called_once()
-        assert "Multiple registered evaluators are found" in patched_warning_fn.call_args[0][0]
+        patched_debug_fn.assert_called_once()
+        assert "Multiple registered evaluators have been" in patched_debug_fn.call_args[0][0]
 
     assert _normalize_config("dummy_evaluator", {"a": 3}) == (
         ["dummy_evaluator"],
@@ -1117,7 +1414,7 @@ def test_evaluate_env_manager_params(multiclass_logistic_regressor_model_uri, ir
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
     with mock.patch.object(
-        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
+        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvaluator1}
     ):
         with pytest.raises(MlflowException, match="The model argument must be a string URI"):
             evaluate(
@@ -1197,12 +1494,10 @@ def test_evaluate_terminates_model_servers(multiclass_logistic_regressor_model_u
     with mock.patch.object(
         _model_evaluation_registry,
         "_registry",
-        {"test_evaluator1": FakeEvauator1},
-    ), mock.patch.object(FakeEvauator1, "can_evaluate", return_value=True), mock.patch.object(
-        FakeEvauator1, "evaluate", return_value=EvaluationResult(metrics={}, artifacts={})
-    ), mock.patch(
-        "mlflow.pyfunc._load_model_or_server"
-    ) as server_loader, mock.patch(
+        {"test_evaluator1": FakeEvaluator1},
+    ), mock.patch.object(FakeEvaluator1, "can_evaluate", return_value=True), mock.patch.object(
+        FakeEvaluator1, "evaluate", return_value=EvaluationResult(metrics={}, artifacts={})
+    ), mock.patch("mlflow.pyfunc._load_model_or_server") as server_loader, mock.patch(
         "os.kill"
     ) as os_mock:
         server_loader.side_effect = [served_model_1, served_model_2]
@@ -1485,58 +1780,11 @@ def test_evaluate_with_static_mlflow_dataset_input():
     assert "root_mean_squared_error" in run.data.metrics
 
 
-def test_evaluate_with_static_spark_dataset_unsupported():
-    data = sklearn.datasets.load_diabetes()
-    spark = SparkSession.builder.master("local[*]").getOrCreate()
-    rows = [
-        (Vectors.dense(features), float(label), float(label))
-        for features, label in zip(data.data, data.target)
-    ]
-    spark_dataframe = spark.createDataFrame(
-        spark.sparkContext.parallelize(rows, 1), ["features", "label", "model_output"]
-    )
-    with mlflow.start_run():
-        with pytest.raises(
-            MlflowException,
-            match="The data must be a pandas dataframe or mlflow.data."
-            "pandas_dataset.PandasDataset when model=None.",
-        ):
-            mlflow.evaluate(
-                data=spark_dataframe,
-                targets="label",
-                predictions="model_output",
-                model_type="regressor",
-            )
-
-
 def test_evaluate_with_static_dataset_error_handling_pandas_dataframe():
     X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
     X = X[::5]
     y = y[::5]
     with mlflow.start_run():
-        with pytest.raises(
-            MlflowException,
-            match="The model output must be specified in the "
-            "predictions parameter when model=None.",
-        ):
-            mlflow.evaluate(
-                data=X.assign(y=y, model_output=y),
-                targets="y",
-                model_type="regressor",
-            )
-
-        with pytest.raises(
-            MlflowException,
-            match="The data must be a pandas dataframe or "
-            "mlflow.data.pandas_dataset.PandasDataset when model=None.",
-        ):
-            mlflow.evaluate(
-                data=X.assign(y=y, model_output=y).to_numpy(),
-                targets="y",
-                predictions="model_output",
-                model_type="regressor",
-            )
-
         with pytest.raises(MlflowException, match="The data argument cannot be None."):
             mlflow.evaluate(
                 data=None,
@@ -1585,3 +1833,340 @@ def test_evaluate_with_static_dataset_error_handling_pandas_dataset():
                 model_type="regressor",
                 predictions="model_output",
             )
+
+
+@pytest.mark.parametrize(
+    "baseline_model_uri",
+    [("None"), ("binary_logistic_regressor_model_uri")],
+    indirect=["baseline_model_uri"],
+)
+def test_binary_classification_missing_minority_class_exception_override(
+    binary_logistic_regressor_model_uri, breast_cancer_dataset, baseline_model_uri, monkeypatch
+):
+    monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", True)
+
+    ds_targets = breast_cancer_dataset._constructor_args["targets"]
+    # Simulate a missing target label
+    ds_targets = np.where(ds_targets == 0, 1, ds_targets)
+
+    with mlflow.start_run() as run:
+        eval_result = evaluate(
+            binary_logistic_regressor_model_uri,
+            breast_cancer_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=ds_targets,
+            evaluators=["default"],
+            baseline_model=baseline_model_uri,
+        )
+    _, saved_metrics, _, _ = get_run_data(run.info.run_id)
+
+    assert saved_metrics == eval_result.metrics
+
+
+@pytest.mark.parametrize(
+    "baseline_model_uri",
+    [("None"), ("multiclass_logistic_regressor_baseline_model_uri_4")],
+    indirect=["baseline_model_uri"],
+)
+def test_multiclass_classification_missing_minority_class_exception_override(
+    multiclass_logistic_regressor_model_uri, iris_dataset, baseline_model_uri, monkeypatch
+):
+    monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", True)
+
+    ds_targets = iris_dataset._constructor_args["targets"]
+    # Simulate a missing target label
+    ds_targets = np.where(ds_targets == 0, 1, ds_targets)
+
+    with mlflow.start_run() as run:
+        eval_result = evaluate(
+            multiclass_logistic_regressor_model_uri,
+            iris_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=ds_targets,
+            evaluators=["default"],
+            baseline_model=baseline_model_uri,
+        )
+    _, saved_metrics, _, saved_artifacts = get_run_data(run.info.run_id)
+
+    assert saved_metrics == eval_result.metrics
+    assert "shap_beeswarm_plot.png" not in saved_artifacts
+
+
+@pytest.mark.parametrize(
+    ("model", "is_endpoint_uri"),
+    [
+        ("endpoints:/test", True),
+        ("endpoints:///my-chat", True),
+        ("models:/test", False),
+        (None, False),
+    ],
+)
+def test_is_model_deployment_endpoint_uri(model, is_endpoint_uri):
+    assert _is_model_deployment_endpoint_uri(model) == is_endpoint_uri
+
+
+_DUMMY_CHAT_RESPONSE = {
+    "id": "1",
+    "object": "text_completion",
+    "created": "2021-10-01T00:00:00.000000Z",
+    "model": "gpt-3.5-turbo",
+    "choices": [
+        {
+            "index": 0,
+            "message": {
+                "content": "This is a response",
+                "role": "assistant",
+            },
+            "finish_reason": "length",
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 1,
+        "completion_tokens": 1,
+        "total_tokens": 2,
+    },
+}
+
+_TEST_QUERY_LIST = ["What is MLflow?", "What is Spark?"]
+_TEST_GT_LIST = [
+    "MLflow is an open-source platform for machine learning (ML).",
+    "Apache Spark is an open-source, distributed computing system.",
+]
+
+
+@pytest.mark.parametrize(
+    ("input_data", "feature_names", "targets"),
+    [
+        # String input column
+        (
+            pd.DataFrame({"inputs": _TEST_QUERY_LIST, "ground_truth": _TEST_GT_LIST}),
+            None,
+            "ground_truth",
+        ),
+        # String input column with feature_names
+        (
+            pd.DataFrame({"question": _TEST_QUERY_LIST, "ground_truth": _TEST_GT_LIST}),
+            ["question"],
+            "ground_truth",
+        ),
+        # Dictionary input column that contains message history
+        (
+            pd.DataFrame(
+                {
+                    "inputs": [
+                        {
+                            "messages": [{"content": q, "role": "user"}],
+                            "max_tokens": 10,
+                        }
+                        for q in _TEST_QUERY_LIST
+                    ],
+                    "ground_truth": _TEST_GT_LIST,
+                }
+            ),
+            None,
+            "ground_truth",
+        ),
+        # List of string
+        (
+            _TEST_QUERY_LIST,
+            None,
+            _TEST_GT_LIST,
+        ),
+        # List of string with feature_names
+        (
+            _TEST_QUERY_LIST,
+            ["question"],
+            _TEST_GT_LIST,
+        ),
+        # List of string with feature_names and w/o targets
+        (
+            _TEST_QUERY_LIST,
+            ["question"],
+            None,
+        ),
+        # List of dictionary with feature_names
+        (
+            [
+                {
+                    "messages": [{"content": q, "role": "user"}],
+                    "max_tokens": 10,
+                }
+                for q in _TEST_QUERY_LIST
+            ],
+            None,
+            _TEST_GT_LIST,
+        ),
+    ],
+)
+@mock.patch("mlflow.deployments.get_deploy_client")
+def test_evaluate_on_chat_model_endpoint(mock_deploy_client, input_data, feature_names, targets):
+    mock_deploy_client.return_value.predict.return_value = _DUMMY_CHAT_RESPONSE
+    mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/chat"}
+
+    with mlflow.start_run():
+        eval_result = mlflow.evaluate(
+            model="endpoints:/chat",
+            data=input_data,
+            model_type="question-answering",
+            feature_names=feature_names,
+            targets=targets,
+            inference_params={"max_tokens": 10, "temperature": 0.5},
+        )
+
+    # Validate the endpoint is called with correct payloads
+    call_args_list = mock_deploy_client.return_value.predict.call_args_list
+    expected_calls = [
+        mock.call(
+            endpoint="chat",
+            inputs={
+                "messages": [{"content": "What is MLflow?", "role": "user"}],
+                "max_tokens": 10,
+                "temperature": 0.5,
+            },
+        ),
+        mock.call(
+            endpoint="chat",
+            inputs={
+                "messages": [{"content": "What is Spark?", "role": "user"}],
+                "max_tokens": 10,
+                "temperature": 0.5,
+            },
+        ),
+    ]
+    assert all(call in call_args_list for call in expected_calls)
+
+    # Validate the evaluation metrics
+    expected_metrics_subset = {"toxicity/v1/ratio", "ari_grade_level/v1/mean"}
+    if targets:
+        expected_metrics_subset.add("exact_match/v1")
+    assert expected_metrics_subset.issubset(set(eval_result.metrics.keys()))
+
+    # Validate the model output is passed to the evaluator in the correct format (string)
+    eval_results_table = eval_result.tables["eval_results_table"]
+    assert eval_results_table["outputs"].equals(pd.Series(["This is a response"] * 2))
+
+
+_DUMMY_COMPLETION_RESPONSE = {
+    "id": "1",
+    "object": "text_completion",
+    "created": "2021-10-01T00:00:00.000000Z",
+    "model": "gpt-3.5-turbo",
+    "choices": [{"index": 0, "text": "This is a response", "finish_reason": "length"}],
+    "usage": {
+        "prompt_tokens": 1,
+        "completion_tokens": 1,
+        "total_tokens": 2,
+    },
+}
+
+
+@pytest.mark.parametrize(
+    ("input_data", "feature_names"),
+    [
+        (pd.DataFrame({"inputs": _TEST_QUERY_LIST}), None),
+        (pd.DataFrame({"question": _TEST_QUERY_LIST}), ["question"]),
+        (pd.DataFrame({"inputs": [{"prompt": q} for q in _TEST_QUERY_LIST]}), None),
+        (_TEST_QUERY_LIST, None),
+        ([{"prompt": q} for q in _TEST_QUERY_LIST], None),
+    ],
+)
+@mock.patch("mlflow.deployments.get_deploy_client")
+def test_evaluate_on_completion_model_endpoint(mock_deploy_client, input_data, feature_names):
+    mock_deploy_client.return_value.predict.return_value = _DUMMY_COMPLETION_RESPONSE
+    mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/completions"}
+
+    with mlflow.start_run():
+        eval_result = mlflow.evaluate(
+            model="endpoints:/completions",
+            data=input_data,
+            inference_params={"max_tokens": 10},
+            model_type="text",
+            feature_names=feature_names,
+        )
+
+    # Validate the endpoint is called with correct payloads
+    call_args_list = mock_deploy_client.return_value.predict.call_args_list
+    expected_calls = [
+        mock.call(endpoint="completions", inputs={"prompt": "What is MLflow?", "max_tokens": 10}),
+        mock.call(endpoint="completions", inputs={"prompt": "What is Spark?", "max_tokens": 10}),
+    ]
+    assert all(call in call_args_list for call in expected_calls)
+
+    # Validate the evaluation metrics
+    expected_metrics_subset = {
+        "toxicity/v1/ratio",
+        "ari_grade_level/v1/mean",
+        "flesch_kincaid_grade_level/v1/mean",
+    }
+    assert expected_metrics_subset.issubset(set(eval_result.metrics.keys()))
+
+    # Validate the model output is passed to the evaluator in the correct format (string)
+    eval_results_table = eval_result.tables["eval_results_table"]
+    assert eval_results_table["outputs"].equals(pd.Series(["This is a response"] * 2))
+
+
+@pytest.mark.parametrize(
+    ("input_data", "error_message"),
+    [
+        # Extra input columns
+        (
+            pd.DataFrame(
+                {
+                    "inputs": _TEST_QUERY_LIST,
+                    "extra_input": ["a", "b"],
+                    "ground_truth": _TEST_GT_LIST,
+                }
+            ),
+            "The number of input columns must be 1",
+        ),
+        # Missing input columns
+        (
+            pd.DataFrame({"ground_truth": _TEST_GT_LIST}),
+            "The number of input columns must be 1",
+        ),
+        # Input column not str or dict
+        (
+            pd.DataFrame({"inputs": [1, 2], "ground_truth": _TEST_GT_LIST}),
+            "Invalid input column type",
+        ),
+    ],
+)
+def test_evaluate_on_model_endpoint_invalid_input_data(input_data, error_message):
+    with pytest.raises(MlflowException, match=error_message):
+        with mlflow.start_run():
+            mlflow.evaluate(
+                model="endpoints:/chat",
+                data=input_data,
+                model_type="question-answering",
+                targets="ground_truth",
+                inference_params={"max_tokens": 10, "temperature": 0.5},
+            )
+
+
+def test_import_evaluation_dataset():
+    # This test is to validate both imports work at the same time
+    from mlflow.models.evaluation import EvaluationDataset
+    from mlflow.models.evaluation.base import EvaluationDataset  # noqa: F401
+
+
+def test_evaluate_shows_server_stdout_and_stderr_on_error(
+    linear_regressor_model_uri, diabetes_dataset
+):
+    with mlflow.start_run():
+        server_proc = subprocess.Popen(
+            ["echo", "test1324"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        )
+        with mock.patch(
+            "mlflow.pyfunc.backend.PyFuncBackend.serve",
+            return_value=server_proc,
+        ) as mock_serve:
+            with pytest.raises(MlflowException, match="test1324"):
+                evaluate(
+                    linear_regressor_model_uri,
+                    diabetes_dataset._constructor_args["data"],
+                    model_type="regressor",
+                    targets=diabetes_dataset._constructor_args["targets"],
+                    evaluators="dummy_evaluator",
+                    env_manager="virtualenv",
+                )
+            mock_serve.assert_called_once()

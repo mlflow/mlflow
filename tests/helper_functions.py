@@ -12,6 +12,7 @@ import tempfile
 import time
 import uuid
 from contextlib import ExitStack, contextmanager
+from functools import wraps
 from unittest import mock
 
 import pytest
@@ -19,6 +20,7 @@ import requests
 import yaml
 
 import mlflow
+from mlflow.models import Model
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
@@ -29,6 +31,7 @@ from mlflow.utils.environment import (
     _get_pip_deps,
 )
 from mlflow.utils.file_utils import read_yaml, write_yaml
+from mlflow.utils.os import is_windows
 
 AWS_METADATA_IP = "169.254.169.254"  # Used to fetch AWS Instance and User metadata.
 LOCALHOST = "127.0.0.1"
@@ -79,14 +82,15 @@ def score_model_in_sagemaker_docker_container(
     activity_polling_timeout_seconds=500,
 ):
     """
-    :param model_uri: URI to the model to be served.
-    :param data: The data to send to the docker container for testing. This is either a
-                 Pandas dataframe or string of the format specified by `content_type`.
-    :param content_type: The type of the data to send to the docker container for testing. This is
-                         one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
-    :param flavor: Model flavor to be deployed.
-    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
-                                             declaring the scoring process to have failed.
+    Args:
+        model_uri: URI to the model to be served.
+        data: The data to send to the docker container for testing. This is either a
+            Pandas dataframe or string of the format specified by `content_type`.
+        content_type: The type of the data to send to the docker container for testing. This is
+            one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
+        flavor: Model flavor to be deployed.
+        activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
+            declaring the scoring process to have failed.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
@@ -99,17 +103,20 @@ def score_model_in_sagemaker_docker_container(
         cmd=scoring_cmd.split(" "),
         env=env,
     )
-    return _evaluate_scoring_proc(
-        proc, port, data, content_type, activity_polling_timeout_seconds, False
-    )
+    with RestEndpoint(
+        proc, port, activity_polling_timeout_seconds, validate_version=False
+    ) as endpoint:
+        return endpoint.invoke(data, content_type)
 
 
 def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None, env=None):
     """
     Builds a dockerfile for the specified model.
-    :param model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
-    :param extra_args: List of extra args to pass to `mlflow models build-docker` command
-    :param output_directory: Output directory to generate Dockerfile and model artifacts
+
+    Args:
+        model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
+        extra_args: List of extra args to pass to `mlflow models build-docker` command
+        output_directory: Output directory to generate Dockerfile and model artifacts
     """
     cmd = [
         "mlflow",
@@ -130,11 +137,15 @@ def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None
 def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
     """
     Builds a docker image containing the specified model, returning the name of the image.
-    :param model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
-    :param extra_args: List of extra args to pass to `mlflow models build-docker` command
+
+    Args:
+        model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
+        extra_args: List of extra args to pass to `mlflow models build-docker` command
     """
     name = uuid.uuid4().hex
     cmd = [
+        sys.executable,
+        "-m",
         "mlflow",
         "models",
         "build-docker",
@@ -142,14 +153,20 @@ def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
         "-n",
         name,
     ]
-    mlflow_home = os.environ.get("MLFLOW_HOME")
-    if mlflow_home:
+    if mlflow_home := os.environ.get("MLFLOW_HOME"):
         cmd += ["--mlflow-home", mlflow_home]
     if extra_args:
         cmd += extra_args
-    p = subprocess.Popen(cmd, env=env)
-    assert p.wait() == 0, f"Failed to build docker image to serve model from {model_uri}"
-    return name
+
+    # Docker image build occasionally fails on GitHub Actions while running `apt-get` due to
+    # transient network issues. Retry the build a few times as a workaround.
+    for _ in range(3):
+        p = subprocess.Popen(cmd, env=env)
+        if p.wait() == 0:
+            return name
+        time.sleep(5)
+
+    raise RuntimeError(f"Failed to build docker image to serve model from {model_uri}")
 
 
 def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):
@@ -189,6 +206,12 @@ def pyfunc_serve_from_docker_image_with_env_override(
     return _start_scoring_proc(cmd=scoring_cmd, env=env)
 
 
+def get_serving_input_example(model_uri):
+    mlflow_model = Model.load(model_uri)
+    local_path = _download_artifact_from_uri(model_uri)
+    return mlflow_model.get_serving_input(local_path)
+
+
 def pyfunc_serve_and_score_model(
     model_uri,
     data,
@@ -197,18 +220,32 @@ def pyfunc_serve_and_score_model(
     extra_args=None,
     stdout=sys.stdout,
 ):
+    with pyfunc_scoring_endpoint(
+        model_uri,
+        extra_args=extra_args,
+        activity_polling_timeout_seconds=activity_polling_timeout_seconds,
+        stdout=stdout,
+    ) as endpoint:
+        return endpoint.invoke(data, content_type)
+
+
+@contextmanager
+def pyfunc_scoring_endpoint(
+    model_uri, activity_polling_timeout_seconds=500, extra_args=None, stdout=sys.stdout
+):
     """
-    :param model_uri: URI to the model to be served.
-    :param data: The data to send to the pyfunc server for testing. This is either a
-                 Pandas dataframe or string of the format specified by `content_type`.
-    :param content_type: The type of the data to send to the pyfunc server for testing. This is
-                         one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
-    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
-                                             declaring the scoring process to have failed.
-    :param extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
-                       example, passing ``extra_args=["--env-manager", "local"]`` will pass the
-                       ``--env-manager local`` flag to the scoring server to ensure that conda
-                       environment activation is skipped.
+    Args:
+        model_uri: URI to the model to be served.
+        data: The data to send to the pyfunc server for testing. This is either a
+            Pandas dataframe or string of the format specified by `content_type`.
+        content_type: The type of the data to send to the pyfunc server for testing. This is
+            one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
+        activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
+            declaring the scoring process to have failed.
+        extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
+            example, passing ``extra_args=["--env-manager", "local"]`` will pass the
+            ``--env-manager local`` flag to the scoring server to ensure that conda
+            environment activation is skipped.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
@@ -216,6 +253,8 @@ def pyfunc_serve_and_score_model(
     env.update(MLFLOW_HOME=_get_mlflow_home())
     port = get_safe_port()
     scoring_cmd = [
+        sys.executable,
+        "-m",
         "mlflow",
         "models",
         "serve",
@@ -224,20 +263,23 @@ def pyfunc_serve_and_score_model(
         "-p",
         str(port),
         "--install-mlflow",
-    ]
-    validate_version = True
-    if extra_args is not None:
-        scoring_cmd += extra_args
-        validate_version = "--enable-mlserver" not in extra_args
-    proc = _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout)
-    return _evaluate_scoring_proc(
-        proc, port, data, content_type, activity_polling_timeout_seconds, validate_version
-    )
+    ] + (extra_args or [])
+
+    with _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout) as proc:
+        validate_version = "--enable-mlserver" not in (extra_args or [])
+        try:
+            with RestEndpoint(
+                proc, port, activity_polling_timeout_seconds, validate_version=validate_version
+            ) as endpoint:
+                yield endpoint
+        finally:
+            proc.terminate()
 
 
 def _get_mlflow_home():
     """
-    :return: The path to the MLflow installation root directory
+    Returns:
+        The path to the MLflow installation root directory.
     """
     mlflow_module_path = os.path.dirname(os.path.abspath(mlflow.__file__))
     # The MLflow root directory is one level about the mlflow module location
@@ -245,7 +287,7 @@ def _get_mlflow_home():
 
 
 def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
-    if os.name != "nt":
+    if not is_windows():
         return subprocess.Popen(
             cmd,
             stdout=stdout,
@@ -305,7 +347,7 @@ class RestEndpoint:
         if self._proc.poll() is None:
             # Terminate the process group containing the scoring process.
             # This will terminate all child processes of the scoring process
-            if os.name != "nt":
+            if not is_windows():
                 pgrp = os.getpgid(self._proc.pid)
                 os.killpg(pgrp, signal.SIGTERM)
             else:
@@ -334,19 +376,6 @@ class RestEndpoint:
         )
 
 
-def _evaluate_scoring_proc(
-    proc, port, data, content_type, activity_polling_timeout_seconds=250, validate_version=True
-):
-    """
-    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
-                                             declaring the scoring process to have failed.
-    """
-    with RestEndpoint(
-        proc, port, activity_polling_timeout_seconds, validate_version=validate_version
-    ) as endpoint:
-        return endpoint.invoke(data, content_type)
-
-
 @pytest.fixture(autouse=True)
 def set_boto_credentials(monkeypatch):
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "NotARealAccessKey")
@@ -373,9 +402,12 @@ def create_mock_response(status_code, text):
     """
     Create a mock response object with the status_code and text
 
-    :param: status_code int HTTP status code
-    :param: text message from the response
-    :return: mock HTTP Response
+    Args:
+        status_code: HTTP status code.
+        text: Message from the response.
+
+    Returns:
+        Mock HTTP Response.
     """
     response = mock.MagicMock()
     response.status_code = status_code
@@ -465,11 +497,12 @@ def _is_available_on_pypi(package, version=None, module=None):
     """
     Returns True if the specified package version is available on PyPI.
 
-    :param package: The name of the package.
-    :param version: The version of the package. If None, defaults to the installed version.
-    :param module: The name of the top-level module provided by the package . For example,
-                   if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
-                   to `package`.
+    Args:
+        package: The name of the package.
+        version: The version of the package. If None, defaults to the installed version.
+        module: The name of the top-level module provided by the package. For example,
+            if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
+            to `package`.
     """
     from mlflow.utils.requirements_utils import _get_installed_version
 
@@ -635,3 +668,73 @@ def clear_hub_cache():
     except ImportError:
         # Local import check for mlflow-skinny not including huggingface_hub
         pass
+
+
+def flaky(max_tries=3):
+    """
+    Annotation decorator for retrying flaky functions up to max_tries times, and raise the Exception
+    if it fails after max_tries attempts.
+
+    Args:
+        max_tries: Maximum number of times to retry the function.
+
+    Returns:
+        Decorated function.
+    """
+
+    def flaky_test_func(test_func):
+        @wraps(test_func)
+        def decorated_func(*args, **kwargs):
+            for i in range(max_tries):
+                try:
+                    return test_func(*args, **kwargs)
+                except Exception as e:
+                    _logger.warning(f"Attempt {i+1} failed with error: {e}")
+                    if i == max_tries - 1:
+                        raise
+                    time.sleep(3)
+
+        return decorated_func
+
+    return flaky_test_func
+
+
+@contextmanager
+def start_mock_openai_server():
+    """
+    Start a fake service that mimics the OpenAI endpoints such as /chat/completions.
+
+    Yields:
+        The base URL of the mock OpenAI server.
+    """
+    port = get_safe_port()
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "tests.openai.mock_openai:app",
+            "--host",
+            "localhost",
+            "--port",
+            str(port),
+        ]
+    ) as proc:
+        try:
+            base_url = f"http://localhost:{port}"
+            for _ in range(10):
+                try:
+                    resp = requests.get(f"{base_url}/health")
+                except requests.ConnectionError:
+                    time.sleep(2)
+                    continue
+                if resp.ok:
+                    break
+            else:
+                proc.kill()
+                proc.wait()
+                raise RuntimeError("Failed to start mock OpenAI server")
+
+            yield base_url
+        finally:
+            proc.kill()

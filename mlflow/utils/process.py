@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 
-_IS_UNIX = os.name != "nt"
+from mlflow.utils.os import is_windows
 
 
 class ShellCommandException(Exception):
@@ -122,8 +122,8 @@ def _exec_cmd(
 
 
 def _join_commands(*commands):
-    entry_point = ["bash", "-c"] if _IS_UNIX else ["cmd", "/c"]
-    sep = " && " if _IS_UNIX else " & "
+    entry_point = ["bash", "-c"] if not is_windows() else ["cmd", "/c"]
+    sep = " && " if not is_windows() else " & "
     return [*entry_point, sep.join(map(str, commands))]
 
 

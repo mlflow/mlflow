@@ -19,7 +19,7 @@ _INVALID_DB_URI_MSG = (
 
 _DBFS_FUSE_PREFIX = "/dbfs/"
 _DBFS_HDFS_URI_PREFIX = "dbfs:/"
-_UC_VOLUMES_URI_PREFIX = "/Volumes/"
+_uc_volume_URI_PREFIX = "/Volumes/"
 _UC_DBFS_SYMLINK_PREFIX = "/.fuse-mounts/"
 _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
 
@@ -91,8 +91,7 @@ def is_fuse_or_uc_volumes_uri(uri):
     """
     Validates whether a provided URI is directed to a FUSE mount point or a UC volumes mount point.
     Multiple directory paths are collapsed into a single designator for root path validation.
-    example:
-    "////Volumes/" will resolve to "/Volumes/" for validation purposes.
+    For example, "////Volumes/" will resolve to "/Volumes/" for validation purposes.
     """
     resolved_uri = re.sub("/+", "/", uri)
     return any(
@@ -100,9 +99,25 @@ def is_fuse_or_uc_volumes_uri(uri):
         for x in [
             _DBFS_FUSE_PREFIX,
             _DBFS_HDFS_URI_PREFIX,
-            _UC_VOLUMES_URI_PREFIX,
+            _uc_volume_URI_PREFIX,
             _UC_DBFS_SYMLINK_PREFIX,
         ]
+    )
+
+
+def _is_uc_volumes_path(path: str) -> bool:
+    return re.match(r"^/[vV]olumes?/", path) is not None
+
+
+def is_uc_volumes_uri(uri: str) -> bool:
+    parsed_uri = urllib.parse.urlparse(uri)
+    return parsed_uri.scheme == "dbfs" and _is_uc_volumes_path(parsed_uri.path)
+
+
+def is_valid_uc_volumes_uri(uri: str) -> bool:
+    parsed_uri = urllib.parse.urlparse(uri)
+    return parsed_uri.scheme == "dbfs" and bool(
+        re.match(r"^/[vV]olumes?/[^/]+/[^/]+/[^/]+/[^/]+", parsed_uri.path)
     )
 
 
@@ -326,7 +341,9 @@ def _join_posixpaths_and_append_absolute_suffixes(prefix_path, suffix_path):
     >>> assert result2 == "relpath/absolutepath"
     >>> result3 = _join_posixpaths_and_append_absolute_suffixes("/absolutepath", "relpath")
     >>> assert result3 == "/absolutepath/relpath"
-    >>> result4 = _join_posixpaths_and_append_absolute_suffixes("/absolutepath1", "/absolutepath2")
+    >>> result4 = _join_posixpaths_and_append_absolute_suffixes(
+    ...     "/absolutepath1", "/absolutepath2"
+    ... )
     >>> assert result4 == "/absolutepath1/absolutepath2"
     """
     if len(prefix_path) == 0:
@@ -485,8 +502,24 @@ def _decode(url):
     # Keep decoding until the url stops changing (with a max of 10 iterations)
     for _ in range(10):
         decoded = urllib.parse.unquote(url)
-        if decoded == url:
+        parsed = urllib.parse.urlunparse(urllib.parse.urlparse(decoded))
+        if parsed == url:
             return url
-        url = decoded
+        url = parsed
 
     raise ValueError("Failed to decode url")
+
+
+def strip_scheme(uri: str) -> str:
+    """
+    Strips the scheme from the specified URI.
+
+    Example:
+
+    >>> strip_scheme("http://example.com")
+    '//example.com'
+    """
+    parsed = urllib.parse.urlparse(uri)
+    # `_replace` looks like a private method, but it's actually part of the public API:
+    # https://docs.python.org/3/library/collections.html#collections.somenamedtuple._replace
+    return urllib.parse.urlunparse(parsed._replace(scheme=""))

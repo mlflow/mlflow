@@ -1,30 +1,50 @@
-import { LegacySkeleton } from '@databricks/design-system';
-import { Theme } from '@emotion/react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { connect } from 'react-redux';
-import type {
-  ExperimentStoreEntities,
-  KeyValueEntity,
-  MetricEntitiesByName,
-  MetricHistoryByName,
-  UpdateExperimentSearchFacetsFn,
-} from '../../types';
-import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
-import { RunsCompareCardConfig } from './runs-compare.types';
-import type { RunsCompareChartType } from './runs-compare.types';
-import { RunsCompareAddChartMenu } from './RunsCompareAddChartMenu';
-import { RunsCompareCharts } from './RunsCompareCharts';
-import { SearchExperimentRunsFacetsState } from '../experiment-page/models/SearchExperimentRunsFacetsState';
-import { RunsCompareConfigureModal } from './RunsCompareConfigureModal';
+import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import type { KeyValueEntity, MetricEntitiesByName, ChartSectionConfig, ImageEntity } from '../../types';
+import { RunsChartsCardConfig } from '../runs-charts/runs-charts.types';
+import type { RunsChartType, SerializedRunsChartsCardConfigCard } from '../runs-charts/runs-charts.types';
+import { RunsChartsConfigureModal } from '../runs-charts/components/RunsChartsConfigureModal';
 import { getUUID } from '../../../common/utils/ActionUtils';
 import type { RunsChartsRunData } from '../runs-charts/components/RunsCharts.common';
 import {
   AUTOML_EVALUATION_METRIC_TAG,
+  LOG_IMAGE_TAG_INDICATOR,
   MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
+  MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH,
 } from '../../constants';
-import { RunsCompareTooltipBody } from './RunsCompareTooltipBody';
+import { RunsChartsTooltipBody } from '../runs-charts/components/RunsChartsTooltipBody';
 import { RunsChartsTooltipWrapper } from '../runs-charts/hooks/useRunsChartsTooltip';
-import { useMultipleChartsMetricHistory } from './hooks/useMultipleChartsMetricHistory';
+import { useUpdateExperimentViewUIState } from '../experiment-page/contexts/ExperimentPageUIStateContext';
+import { ExperimentPageUIState, RUNS_VISIBILITY_MODE } from '../experiment-page/models/ExperimentPageUIState';
+import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
+import { RunsChartsSectionAccordion } from '../runs-charts/components/sections/RunsChartsSectionAccordion';
+import { ReduxState, ThunkDispatch } from '@mlflow/mlflow/src/redux-types';
+import { SearchIcon } from '@databricks/design-system';
+import { Input } from '@databricks/design-system';
+import { useIntl } from 'react-intl';
+import { shouldEnableImageGridCharts, shouldUseNewRunRowsVisibilityModel } from '../../../common/utils/FeatureUtils';
+import {
+  type RunsGroupByConfig,
+  getRunGroupDisplayName,
+  isRemainingRunsGroup,
+  normalizeRunsGroupByKey,
+} from '../experiment-page/utils/experimentPage.group-row-utils';
+import { filter, isString, keyBy, values } from 'lodash';
+import {
+  type RunsChartsUIConfigurationSetter,
+  RunsChartsUIConfigurationContextProvider,
+  useUpdateRunsChartsUIConfiguration,
+  useReorderRunsChartsFn,
+  useInsertRunsChartsFn,
+  useRemoveRunsChartFn,
+  useConfirmChartCardConfigurationFn,
+} from '../runs-charts/hooks/useRunsChartsUIConfiguration';
+import { useToggleRowVisibilityCallback } from '../experiment-page/hooks/useToggleRowVisibilityCallback';
+import { RunsChartsFullScreenModal } from '../runs-charts/components/RunsChartsFullScreenModal';
+import { usePopulateImagesByRunUuid } from '../experiment-page/hooks/usePopulateImagesByRunUuid';
+import { useGetExperimentRunColor } from '../experiment-page/hooks/useExperimentRunColor';
+import { DragAndDropProvider } from '../../../common/hooks/useDragAndDropElement';
 
 export interface RunsCompareProps {
   comparedRuns: RunRowType[];
@@ -32,45 +52,134 @@ export interface RunsCompareProps {
   metricKeyList: string[];
   paramKeyList: string[];
   experimentTags: Record<string, KeyValueEntity>;
-  searchFacetsState: SearchExperimentRunsFacetsState;
-  updateSearchFacets: UpdateExperimentSearchFacetsFn;
-
-  // Provided by redux connect().
-  paramsByRunUuid: Record<string, Record<string, KeyValueEntity>>;
-  latestMetricsByRunUuid: Record<string, MetricEntitiesByName>;
-  metricsByRunUuid: Record<string, MetricHistoryByName>;
+  compareRunCharts?: SerializedRunsChartsCardConfigCard[];
+  compareRunSections?: ChartSectionConfig[];
+  groupBy: null | string | RunsGroupByConfig;
+  autoRefreshEnabled?: boolean;
+  hideEmptyCharts?: boolean;
 }
+
+/**
+ * Utility function: based on a run row coming from runs table, creates run data trace to be used in charts
+ */
+const createRunDataTrace = (
+  run: RunRowType,
+  latestMetricsByRunUuid: Record<string, MetricEntitiesByName>,
+  paramsByRunUuid: Record<string, Record<string, KeyValueEntity>>,
+  tagsByRunUuid: Record<string, Record<string, KeyValueEntity>>,
+  imagesByRunUuid: Record<string, Record<string, Record<string, ImageEntity>>>,
+  color: string,
+) => ({
+  uuid: run.runUuid,
+  displayName: run.runInfo?.runName || run.runUuid,
+  runInfo: run.runInfo,
+  metrics: latestMetricsByRunUuid[run.runUuid] || {},
+  params: paramsByRunUuid[run.runUuid] || {},
+  tags: tagsByRunUuid[run.runUuid] || {},
+  images: imagesByRunUuid[run.runUuid] || {},
+  color,
+  pinned: run.pinned,
+  pinnable: run.pinnable,
+  metricsHistory: {},
+  belongsToGroup: run.runDateAndNestInfo?.belongsToGroup,
+  hidden: run.hidden,
+});
+
+/**
+ * Utility function: based on a group row coming from runs table, creates run group data trace to be used in charts
+ */
+const createGroupDataTrace = (run: RunRowType, color: string) => {
+  // Latest aggregated metrics in groups does not contain step or timestamps.
+  // For step, we're using maxStep which will help determine the chart type.
+  // For timestamp, we use 0 as a placeholder.
+  const metricsData = run.groupParentInfo?.aggregatedMetricData
+    ? keyBy(
+        values(run.groupParentInfo?.aggregatedMetricData).map(({ key, value, maxStep }) => ({
+          key,
+          value,
+          step: maxStep,
+          timestamp: 0,
+        })),
+        'key',
+      )
+    : {};
+  return {
+    uuid: run.rowUuid,
+    displayName: getRunGroupDisplayName(run.groupParentInfo),
+    groupParentInfo: run.groupParentInfo,
+    metrics: metricsData,
+    params: run.groupParentInfo?.aggregatedParamData || {},
+    // TODO: add tags for groups
+    tags: {},
+    images: {},
+    color,
+    pinned: run.pinned,
+    pinnable: run.pinnable,
+    metricsHistory: {},
+    hidden: run.hidden,
+  };
+};
 
 /**
  * Component displaying comparison charts and differences (and in future artifacts) between experiment runs.
  * Intended to be mounted next to runs table.
  *
- * This component extracts params/metrics from redux store by itself for quicker access, however
+ * This component extracts params/metrics from redux store by itself for quicker access. However,
  * it needs a provided list of compared run entries using same model as runs table.
  */
 export const RunsCompareImpl = ({
-  comparedRuns,
   isLoading,
-  searchFacetsState,
-  updateSearchFacets,
-  latestMetricsByRunUuid,
-  metricsByRunUuid,
-  paramsByRunUuid,
+  comparedRuns,
   metricKeyList,
   paramKeyList,
   experimentTags,
+  compareRunCharts,
+  compareRunSections,
+  groupBy,
+  autoRefreshEnabled,
+  hideEmptyCharts,
 }: RunsCompareProps) => {
-  const [initiallyLoaded, setInitiallyLoaded] = useState(false);
-  const [configuredCardConfig, setConfiguredCardConfig] = useState<RunsCompareCardConfig | null>(
-    null,
+  // Updater function for the general experiment view UI state
+  const updateUIState = useUpdateExperimentViewUIState();
+  const getRunColor = useGetExperimentRunColor();
+
+  // Updater function for charts UI state
+  const updateChartsUIState = useUpdateRunsChartsUIConfiguration();
+
+  const { paramsByRunUuid, latestMetricsByRunUuid, tagsByRunUuid, imagesByRunUuid } = useSelector(
+    (state: ReduxState) => ({
+      paramsByRunUuid: state.entities.paramsByRunUuid,
+      latestMetricsByRunUuid: state.entities.latestMetricsByRunUuid,
+      tagsByRunUuid: state.entities.tagsByRunUuid,
+      imagesByRunUuid: state.entities.imagesByRunUuid,
+    }),
   );
 
-  const addNewChartCard = useCallback((type: RunsCompareChartType) => {
-    // TODO: pass existing runs data and get pre-configured initial setup for every chart type
-    setConfiguredCardConfig(RunsCompareCardConfig.getEmptyChartCardByType(type));
-  }, []);
+  const { theme } = useDesignSystemTheme();
+  const [initiallyLoaded, setInitiallyLoaded] = useState(false);
+  const [configuredCardConfig, setConfiguredCardConfig] = useState<RunsChartsCardConfig | null>(null);
+  const [search, setSearch] = useState('');
+  const { formatMessage } = useIntl();
 
-  const startEditChart = useCallback((chartCard: RunsCompareCardConfig) => {
+  const groupByNormalized = useMemo(
+    () =>
+      // In case we encounter deprecated string-based group by descriptor
+      normalizeRunsGroupByKey(groupBy),
+    [groupBy],
+  );
+
+  const [fullScreenChart, setFullScreenChart] = useState<
+    { config: RunsChartsCardConfig; title: string; subtitle: ReactNode } | undefined
+  >(undefined);
+
+  const addNewChartCard = (metricSectionId: string) => {
+    return (type: RunsChartType) => {
+      // TODO: pass existing runs data and get pre-configured initial setup for every chart type
+      setConfiguredCardConfig(RunsChartsCardConfig.getEmptyChartCardByType(type, false, undefined, metricSectionId));
+    };
+  };
+
+  const startEditChart = useCallback((chartCard: RunsChartsCardConfig) => {
     setConfiguredCardConfig(chartCard);
   }, []);
 
@@ -89,198 +198,284 @@ export const RunsCompareImpl = ({
   /**
    * Dataset generated for all charts in a single place
    */
-  const chartRunData: RunsChartsRunData[] = useMemo(
-    () =>
-      comparedRuns
-        .filter((run) => !run.hidden)
-        .map((run) => ({
-          runInfo: run.runInfo,
-          metrics: latestMetricsByRunUuid[run.runUuid] || {},
-          params: paramsByRunUuid[run.runUuid] || {},
-          color: run.color,
-          pinned: run.pinned,
-          pinnable: run.pinnable,
-          metricsHistory: {},
-        })),
-    [comparedRuns, latestMetricsByRunUuid, paramsByRunUuid],
-  );
+  const chartData: RunsChartsRunData[] = useMemo(() => {
+    if (!groupBy) {
+      return comparedRuns
+        .filter((run) => run.runInfo)
+        .filter((run) => shouldUseNewRunRowsVisibilityModel() || !run.hidden)
+        .map<RunsChartsRunData>((run) =>
+          createRunDataTrace(
+            run,
+            latestMetricsByRunUuid,
+            paramsByRunUuid,
+            tagsByRunUuid,
+            imagesByRunUuid,
+            getRunColor(run.runUuid),
+          ),
+        );
+    }
 
-  const { isLoading: isMetricHistoryLoading, chartRunDataWithHistory } =
-    useMultipleChartsMetricHistory(searchFacetsState.compareRunCharts || [], chartRunData);
+    const groupChartDataEntries = comparedRuns
+      .filter((run) => shouldUseNewRunRowsVisibilityModel() || !run.hidden)
+      .filter((run) => run.groupParentInfo && !isRemainingRunsGroup(run.groupParentInfo))
+      .map<RunsChartsRunData>((group) => createGroupDataTrace(group, getRunColor(group.groupParentInfo?.groupId)));
+
+    const remainingRuns = comparedRuns
+      .filter((run) => shouldUseNewRunRowsVisibilityModel() || !run.hidden)
+      .filter((run) => !run.groupParentInfo && !run.runDateAndNestInfo?.belongsToGroup)
+      .map((run) =>
+        createRunDataTrace(
+          run,
+          latestMetricsByRunUuid,
+          paramsByRunUuid,
+          tagsByRunUuid,
+          imagesByRunUuid,
+          getRunColor(run.runUuid),
+        ),
+      );
+
+    return [...groupChartDataEntries, ...remainingRuns];
+  }, [groupBy, comparedRuns, latestMetricsByRunUuid, paramsByRunUuid, tagsByRunUuid, imagesByRunUuid, getRunColor]);
+
+  const filteredImageData = chartData.filter((run) => !run.hidden && run.tags[LOG_IMAGE_TAG_INDICATOR]);
+  usePopulateImagesByRunUuid({
+    runUuids: filteredImageData.map((run) => run.uuid),
+    runUuidsIsActive: filteredImageData.map((run) => run.runInfo?.status === 'RUNNING'),
+    enabled: shouldEnableImageGridCharts(),
+    autoRefreshEnabled,
+  });
 
   // Set chart cards to the user-facing base config if there is no other information.
   useEffect(() => {
-    if (!searchFacetsState.compareRunCharts && chartRunDataWithHistory.length > 0) {
-      updateSearchFacets(
-        (current) => ({
-          ...current,
-          compareRunCharts: RunsCompareCardConfig.getBaseChartConfigs(
-            primaryMetricKey,
-            chartRunDataWithHistory[0].metrics,
-          ),
-        }),
-        { replaceHistory: true },
-      );
+    if ((!compareRunSections || !compareRunCharts) && chartData.length > 0) {
+      const { resultChartSet, resultSectionSet } = RunsChartsCardConfig.getBaseChartAndSectionConfigs({
+        primaryMetricKey,
+        runsData: chartData,
+        useParallelCoordinatesChart: true,
+      });
+      updateChartsUIState((current) => ({
+        ...current,
+        compareRunCharts: resultChartSet,
+        compareRunSections: resultSectionSet,
+      }));
     }
-  }, [
-    searchFacetsState.compareRunCharts,
-    primaryMetricKey,
-    updateSearchFacets,
-    chartRunDataWithHistory,
-  ]);
+  }, [compareRunCharts, compareRunSections, primaryMetricKey, chartData, updateChartsUIState]);
+
+  /**
+   * When chartData changes, we need to update the RunCharts with the latest charts
+   */
+  useEffect(() => {
+    updateChartsUIState((current) => {
+      if (!current.compareRunCharts || !current.compareRunSections) {
+        return current;
+      }
+
+      const { resultChartSet, resultSectionSet, isResultUpdated } = RunsChartsCardConfig.updateChartAndSectionConfigs({
+        compareRunCharts: current.compareRunCharts,
+        compareRunSections: current.compareRunSections,
+        runsData: chartData,
+        isAccordionReordered: current.isAccordionReordered,
+      });
+
+      if (!isResultUpdated) {
+        return current;
+      }
+      return {
+        ...current,
+        compareRunCharts: resultChartSet,
+        compareRunSections: resultSectionSet,
+      };
+    });
+  }, [chartData, updateChartsUIState]);
 
   const onTogglePin = useCallback(
     (runUuid: string) => {
-      updateSearchFacets((existingFacets) => ({
+      updateUIState((existingFacets: ExperimentPageUIState) => ({
         ...existingFacets,
         runsPinned: !existingFacets.runsPinned.includes(runUuid)
           ? [...existingFacets.runsPinned, runUuid]
           : existingFacets.runsPinned.filter((r) => r !== runUuid),
       }));
     },
-    [updateSearchFacets],
+    [updateUIState],
   );
+
+  const toggleRunVisibility = useToggleRowVisibilityCallback(comparedRuns);
 
   const onHideRun = useCallback(
     (runUuid: string) => {
-      updateSearchFacets((existingFacets) => ({
+      if (shouldUseNewRunRowsVisibilityModel()) {
+        toggleRunVisibility(RUNS_VISIBILITY_MODE.CUSTOM, runUuid);
+        return;
+      }
+      updateUIState((existingFacets: ExperimentPageUIState) => ({
         ...existingFacets,
         runsHidden: [...existingFacets.runsHidden, runUuid],
       }));
     },
-    [updateSearchFacets],
+    [updateUIState, toggleRunVisibility],
   );
 
-  const submitForm = (configuredCard: Partial<RunsCompareCardConfig>) => {
-    // TODO: implement validation
-    const serializedCard = RunsCompareCardConfig.serialize({
-      ...configuredCard,
-      uuid: getUUID(),
-    });
+  const confirmChartCardConfiguration = useConfirmChartCardConfigurationFn();
 
-    // Creating new chart
-    if (!configuredCard.uuid) {
-      updateSearchFacets((current) => ({
-        ...current,
-        // This condition ensures that chart collection will remain undefined if not set previously
-        compareRunCharts: current.compareRunCharts && [...current.compareRunCharts, serializedCard],
-      }));
-    } /* Editing existing chart */ else {
-      updateSearchFacets((current) => ({
-        ...current,
-        compareRunCharts: current.compareRunCharts?.map((existingChartCard) => {
-          if (existingChartCard.uuid === configuredCard.uuid) {
-            return serializedCard;
-          }
-          return existingChartCard;
-        }),
-      }));
-    }
+  const submitForm = (configuredCard: Partial<RunsChartsCardConfig>) => {
+    confirmChartCardConfiguration(configuredCard);
 
     // Hide the modal
     setConfiguredCardConfig(null);
   };
 
-  const removeChart = (configToDelete: RunsCompareCardConfig) => {
-    updateSearchFacets((current) => ({
-      ...current,
-      compareRunCharts: current.compareRunCharts?.filter(
-        (setup) => setup.uuid !== configToDelete.uuid,
-      ),
-    }));
-  };
+  /**
+   * Removes the chart from the compare run view.
+   */
+  const removeChart = useRemoveRunsChartFn();
+
+  /**
+   * Reorders the charts in the compare run view.
+   */
+  const reorderCharts = useReorderRunsChartsFn();
+
+  /*
+   * Inserts the source chart into the target group
+   */
+  const insertCharts = useInsertRunsChartsFn();
 
   /**
    * Data utilized by the tooltip system:
    * runs data and toggle pin callback
    */
   const tooltipContextValue = useMemo(
-    () => ({ runs: chartRunDataWithHistory, onTogglePin, onHideRun }),
-    [chartRunDataWithHistory, onHideRun, onTogglePin],
+    () => ({ runs: chartData, onTogglePin, onHideRun }),
+    [chartData, onHideRun, onTogglePin],
   );
 
   if (!initiallyLoaded) {
     return (
-      <div css={styles.wrapper}>
+      <div
+        css={{
+          flex: 1,
+          borderTop: `1px solid ${theme.colors.border}`,
+          borderLeft: `1px solid ${theme.colors.border}`,
+
+          // Let's cover 1 pixel of the grid's border for the sleek look
+          marginLeft: -1,
+
+          position: 'relative' as const,
+          backgroundColor: theme.colors.backgroundSecondary,
+          paddingLeft: theme.spacing.md,
+          paddingRight: theme.spacing.md,
+          paddingBottom: theme.spacing.md,
+          zIndex: 1,
+          overflowY: 'auto' as const,
+        }}
+      >
         <LegacySkeleton />
       </div>
     );
   }
 
   return (
-    <div css={styles.wrapper} data-testid='experiment-view-compare-runs-chart-area'>
-      <div css={styles.controlsWrapper}>
-        <RunsCompareAddChartMenu onAddChart={addNewChartCard} />
-      </div>
-      <RunsChartsTooltipWrapper
-        contextData={tooltipContextValue}
-        component={RunsCompareTooltipBody}
+    <div
+      css={{
+        flex: 1,
+        borderTop: `1px solid ${theme.colors.border}`,
+        borderLeft: `1px solid ${theme.colors.border}`,
+
+        // Let's cover 1 pixel of the grid's border for the sleek look
+        marginLeft: -1,
+
+        position: 'relative' as const,
+        backgroundColor: theme.colors.backgroundSecondary,
+        paddingLeft: theme.spacing.md,
+        paddingRight: theme.spacing.md,
+        paddingBottom: theme.spacing.md,
+        zIndex: 1,
+        overflowY: 'auto' as const,
+
+        // Make sure charts are visible even on small screens
+        minWidth: 320,
+      }}
+      data-testid="experiment-view-compare-runs-chart-area"
+    >
+      <div
+        css={{
+          paddingTop: theme.spacing.sm,
+          paddingBottom: theme.spacing.sm,
+        }}
       >
-        <RunsCompareCharts
-          chartRunData={chartRunDataWithHistory}
-          cardsConfig={searchFacetsState.compareRunCharts || []}
-          onStartEditChart={startEditChart}
-          onRemoveChart={removeChart}
-          isMetricHistoryLoading={isMetricHistoryLoading}
+        <Input
+          role="searchbox"
+          prefix={<SearchIcon />}
+          value={search}
+          allowClear
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={formatMessage({
+            defaultMessage: 'Search metric charts',
+            description: 'Run page > Charts tab > Filter metric charts input > placeholder',
+          })}
         />
+      </div>
+      <RunsChartsTooltipWrapper contextData={tooltipContextValue} component={RunsChartsTooltipBody}>
+        <DragAndDropProvider>
+          <RunsChartsSectionAccordion
+            compareRunSections={compareRunSections}
+            compareRunCharts={compareRunCharts}
+            reorderCharts={reorderCharts}
+            insertCharts={insertCharts}
+            chartData={chartData}
+            startEditChart={startEditChart}
+            removeChart={removeChart}
+            addNewChartCard={addNewChartCard}
+            search={search}
+            groupBy={groupByNormalized}
+            setFullScreenChart={setFullScreenChart}
+            autoRefreshEnabled={autoRefreshEnabled}
+            hideEmptyCharts={hideEmptyCharts}
+          />
+        </DragAndDropProvider>
       </RunsChartsTooltipWrapper>
       {configuredCardConfig && (
-        <RunsCompareConfigureModal
-          chartRunData={chartRunDataWithHistory}
+        <RunsChartsConfigureModal
+          chartRunData={chartData}
           metricKeyList={metricKeyList}
           paramKeyList={paramKeyList}
           config={configuredCardConfig}
           onSubmit={submitForm}
           onCancel={() => setConfiguredCardConfig(null)}
+          groupBy={groupByNormalized}
         />
       )}
+      <RunsChartsFullScreenModal
+        fullScreenChart={fullScreenChart}
+        onCancel={() => setFullScreenChart(undefined)}
+        chartData={chartData}
+        groupBy={groupByNormalized}
+        tooltipContextValue={tooltipContextValue}
+        tooltipComponent={RunsChartsTooltipBody}
+        autoRefreshEnabled={autoRefreshEnabled}
+      />
     </div>
   );
 };
 
-const styles = {
-  controlsWrapper: (theme: Theme) => ({
-    position: 'sticky' as const,
-    top: 0,
-    marginBottom: theme.spacing.md,
-    display: 'flex' as const,
-    justifyContent: 'flex-end',
-    zIndex: 2,
-    backgroundColor: theme.colors.backgroundSecondary,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
-  }),
-  wrapper: (theme: Theme) => ({
-    borderTop: `1px solid ${theme.colors.border}`,
-    borderLeft: `1px solid ${theme.colors.border}`,
+export const RunsCompare = (props: RunsCompareProps) => {
+  // Updater function for the general experiment view UI state
+  const updateUIState = useUpdateExperimentViewUIState();
 
-    // Let's cover 1 pixel of the grid's border for the sleek look
-    marginLeft: -1,
+  // An extracted partial updater function, responsible for setting charts UI state
+  const updateChartsUIState = useCallback<(stateSetter: RunsChartsUIConfigurationSetter) => void>(
+    (setter) => {
+      updateUIState((state) => ({
+        ...state,
+        ...setter(state),
+      }));
+    },
+    [updateUIState],
+  );
 
-    position: 'relative' as const,
-    backgroundColor: theme.colors.backgroundSecondary,
-    paddingLeft: theme.spacing.md,
-    paddingRight: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
-    zIndex: 1,
-    overflowY: 'auto' as const,
-  }),
+  return (
+    <RunsChartsUIConfigurationContextProvider updateChartsUIState={updateChartsUIState}>
+      <RunsCompareImpl {...props} />
+    </RunsChartsUIConfigurationContextProvider>
+  );
 };
-
-const mapStateToProps = ({ entities }: { entities: ExperimentStoreEntities }) => {
-  const { paramsByRunUuid, latestMetricsByRunUuid, metricsByRunUuid } = entities;
-  return { paramsByRunUuid, latestMetricsByRunUuid, metricsByRunUuid };
-};
-
-export const RunsCompare = connect(
-  mapStateToProps,
-  // mapDispatchToProps function (not provided):
-  undefined,
-  // mergeProps function (not provided):
-  undefined,
-  {
-    // We're interested only in "entities" sub-tree so we won't
-    // re-render on other state changes (e.g. API request IDs)
-    areStatesEqual: (nextState, prevState) => nextState.entities === prevState.entities,
-  },
-)(RunsCompareImpl);

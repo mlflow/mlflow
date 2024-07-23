@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-  Button,
-  CloseIcon,
-  CopyIcon,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { Button, CloseIcon, CopyIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { CopyButton } from '../../shared/building_blocks/CopyButton';
 
 const PREVIEW_SIDEBAR_WIDTH = 300;
@@ -40,7 +34,7 @@ export const PreviewSidebar = ({
         flexDirection: 'column',
         height: '100%',
       }}
-      data-testid='preview-sidebar-content'
+      data-testid="preview-sidebar-content"
     >
       {content ? (
         <>
@@ -70,7 +64,14 @@ export const PreviewSidebar = ({
               </Typography.Title>
             )}
             {copyText && <CopyButton copyText={copyText} showLabel={false} icon={<CopyIcon />} />}
-            {onClose && <Button type='primary' icon={<CloseIcon />} onClick={onClose} />}
+            {onClose && (
+              <Button
+                componentId="codegen_mlflow_app_src_common_components_previewsidebar.tsx_67"
+                type="primary"
+                icon={<CloseIcon />}
+                onClick={onClose}
+              />
+            )}
           </div>
           <div
             css={{

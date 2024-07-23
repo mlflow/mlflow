@@ -8,11 +8,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.24.1",
-            "maximum": "1.3.2"
+            "maximum": "1.5.1"
         },
         "autologging": {
             "minimum": "0.24.1",
-            "maximum": "1.3.2"
+            "maximum": "1.5.1"
         }
     },
     "pytorch": {
@@ -21,11 +21,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.9.0",
-            "maximum": "2.1.1"
+            "maximum": "2.3.1"
         },
         "autologging": {
             "minimum": "1.9.0",
-            "maximum": "2.1.1"
+            "maximum": "2.3.1"
         }
     },
     "pytorch-lightning": {
@@ -33,8 +33,21 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "pytorch-lightning"
         },
         "autologging": {
-            "minimum": "1.4.9",
-            "maximum": "2.1.2"
+            "minimum": "1.9.0",
+            "maximum": "2.3.3"
+        }
+    },
+    "keras": {
+        "package_info": {
+            "pip_release": "keras"
+        },
+        "models": {
+            "minimum": "3.0.2",
+            "maximum": "3.4.1"
+        },
+        "autologging": {
+            "minimum": "3.0.2",
+            "maximum": "3.4.1"
         }
     },
     "tensorflow": {
@@ -42,12 +55,12 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "tensorflow"
         },
         "models": {
-            "minimum": "2.6.5",
-            "maximum": "2.15.0"
+            "minimum": "2.7.4",
+            "maximum": "2.17.0"
         },
         "autologging": {
-            "minimum": "2.6.5",
-            "maximum": "2.15.0"
+            "minimum": "2.7.4",
+            "maximum": "2.17.0"
         }
     },
     "xgboost": {
@@ -56,11 +69,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.4.2",
-            "maximum": "2.0.2"
+            "maximum": "2.1.0"
         },
         "autologging": {
             "minimum": "1.4.2",
-            "maximum": "2.0.2"
+            "maximum": "2.1.0"
         }
     },
     "lightgbm": {
@@ -69,11 +82,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.1.1",
-            "maximum": "4.1.0"
+            "maximum": "4.4.0"
         },
         "autologging": {
             "minimum": "3.1.1",
-            "maximum": "4.1.0"
+            "maximum": "4.4.0"
         }
     },
     "catboost": {
@@ -82,7 +95,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.0.0",
-            "maximum": "1.2.2"
+            "maximum": "1.2.5"
         }
     },
     "gluon": {
@@ -104,11 +117,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.4.1",
-            "maximum": "2.7.13"
+            "maximum": "2.7.15"
         },
         "autologging": {
             "minimum": "2.4.1",
-            "maximum": "2.7.13"
+            "maximum": "2.7.15"
         }
     },
     "onnx": {
@@ -116,8 +129,8 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "onnx"
         },
         "models": {
-            "minimum": "1.7.0",
-            "maximum": "1.15.0"
+            "minimum": "1.13.1",
+            "maximum": "1.16.1"
         }
     },
     "spacy": {
@@ -126,7 +139,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.2.4",
-            "maximum": "3.7.2"
+            "maximum": "3.7.5"
         }
     },
     "statsmodels": {
@@ -135,11 +148,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.11.1",
-            "maximum": "0.14.0"
+            "maximum": "0.14.2"
         },
         "autologging": {
             "minimum": "0.11.1",
-            "maximum": "0.14.0"
+            "maximum": "0.14.2"
         }
     },
     "spark": {
@@ -147,12 +160,12 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "pyspark"
         },
         "models": {
-            "minimum": "3.0.0",
-            "maximum": "3.5.0"
+            "minimum": "3.1.2",
+            "maximum": "3.5.1"
         },
         "autologging": {
-            "minimum": "3.0.0",
-            "maximum": "3.5.0"
+            "minimum": "3.1.2",
+            "maximum": "3.5.1"
         }
     },
     "mleap": {
@@ -169,7 +182,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "prophet"
         },
         "models": {
-            "minimum": "1.0.1",
+            "minimum": "1.1.1",
             "maximum": "1.1.5"
         }
     },
@@ -197,7 +210,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.40.0.1",
-            "maximum": "3.44.0.2"
+            "maximum": "3.46.0.4"
         }
     },
     "shap": {
@@ -206,7 +219,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.41.0",
-            "maximum": "0.43.0"
+            "maximum": "0.46.0"
         }
     },
     "paddle": {
@@ -215,7 +228,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.4.1",
-            "maximum": "2.5.2"
+            "maximum": "2.6.1"
         }
     },
     "transformers": {
@@ -224,11 +237,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.25.1",
-            "maximum": "4.35.2"
+            "maximum": "4.42.4"
         },
         "autologging": {
             "minimum": "4.25.1",
-            "maximum": "4.35.2"
+            "maximum": "4.42.4"
         }
     },
     "openai": {
@@ -237,7 +250,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.27.2",
-            "maximum": "1.3.7"
+            "maximum": "1.36.1"
+        },
+        "autologging": {
+            "minimum": "1.17.0",
+            "maximum": "1.36.1"
         }
     },
     "langchain": {
@@ -246,16 +263,20 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.0.244",
-            "maximum": "0.0.345"
+            "maximum": "0.2.10"
+        },
+        "autologging": {
+            "minimum": "0.1.0",
+            "maximum": "0.2.10"
         }
     },
-    "promptflow": {
+    "llama_index": {
         "package_info": {
-            "pip_release": "promptflow"
+            "pip_release": "llama-index"
         },
         "models": {
-            "minimum": "1.1.0",
-            "maximum": "1.3.0"
+            "minimum": "0.10.44",
+            "maximum": "0.10.56"
         }
     },
     "sentence_transformers": {
@@ -264,7 +285,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.2.2",
-            "maximum": "2.2.2"
+            "maximum": "3.0.1"
         }
     },
     "johnsnowlabs": {
@@ -273,7 +294,16 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.4.6",
-            "maximum": "5.1.8"
+            "maximum": "5.4.1"
+        }
+    },
+    "promptflow": {
+        "package_info": {
+            "pip_release": "promptflow"
+        },
+        "models": {
+            "minimum": "1.3.0",
+            "maximum": "1.13.0"
         }
     }
 }

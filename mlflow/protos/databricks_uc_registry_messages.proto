@@ -139,6 +139,10 @@ message TemporaryCredentials {
   // Server time when the credential will expire, in epoch milliseconds.
   // The API client is advised to cache the credential given this expiration time.
   optional int64 expiration_time = 1;
+
+  optional StorageMode storage_mode = 6;
+
+  optional EncryptionDetails encryption_details = 7;
 }
 
 // AWS temporary credentials for API authentication.
@@ -180,6 +184,34 @@ message R2Credentials {
   optional string session_token = 3;
 }
 
+enum StorageMode {
+  STORAGE_MODE_UNSPECIFIED = 0;
+  // The storage resources of the workspace are hosted by customers.
+  CUSTOMER_HOSTED = 1;
+  // Default storage
+  DEFAULT_STORAGE = 2;
+}
+
+message EncryptionDetails {
+  oneof encryption_details_type {
+    // Details for CLOUD_MANAGED_SSE_KEYS:
+    SseEncryptionDetails sse_encryption_details = 1;
+  }
+}
+
+enum SseEncryptionAlgorithm {
+  SSE_ENCRYPTION_ALGORITHM_UNSPECIFIED = 0;
+  AWS_SSE_KMS = 2;   // "aws:kms" in x-amz-server-side-encryption' header
+}
+
+message SseEncryptionDetails {
+  optional SseEncryptionAlgorithm algorithm = 1;
+
+  // Optional. The ARN of the SSE-KMS key used with the S3 location, when algorithm = "SSE-KMS".
+  // Sets the value of the 'x-amz-server-side-encryption-aws-kms-key-id' header.
+  optional string aws_kms_key_arn = 2;
+}
+
 message CreateRegisteredModelRequest {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[CreateRegisteredModelResponse]";
 
@@ -202,6 +234,9 @@ message UpdateRegisteredModelRequest {
 
   // Registered model unique name identifier.
   optional string name = 1 [(validate_required) = true];
+
+  // If provided, will rename this ``registered_model`` to the new name provided.
+  optional string new_name = 3;
 
   // If provided, updates the description for this ``registered_model``.
   optional string description = 2;
@@ -250,6 +285,17 @@ message SearchRegisteredModelsResponse {
   optional string next_page_token = 2;
 }
 
+enum DependencyType {
+  DEPENDENCY_TYPE_UNSPECIFIED = 0;
+  DATABRICKS_VECTOR_INDEX = 1;
+  DATABRICKS_MODEL_ENDPOINT = 2;
+}
+
+message Dependency {
+  optional DependencyType type = 1;
+  optional string name = 2;
+}
+
 message CreateModelVersionRequest {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[CreateModelVersionResponse]";
 
@@ -274,6 +320,9 @@ message CreateModelVersionRequest {
 
   // Tags associated with model version.
   repeated ModelVersionTag tags = 7;
+
+  // Additional dependencies to pass to createModelVersion including VectorSearch and Embedding endpoints
+  repeated Dependency model_version_dependencies = 8;
 }
 
 message CreateModelVersionResponse {
@@ -530,6 +579,34 @@ message Notebook {
   optional string notebook_run_id = 3;
 }
 
+enum TableType {
+    TABLE = 0;
+    PERSISTED_VIEW = 1;
+    TEMP_VIEW = 2;
+    MATERIALIZED_VIEW = 3;
+    STREAMING_LIVE_TABLE = 4;
+    PATH = 5;
+}
+
+message Table {
+    optional string name = 1;
+    optional TableType table_type = 2;
+    optional string location = 3;
+    optional string table_id = 4;
+}
+
+message Securable {
+    oneof value {
+        Table table = 1;
+    }
+}
+
+message Lineage {
+    optional Securable target_securable = 4;
+    repeated Securable source_securables = 5;
+}
+
 message LineageHeaderInfo {
   repeated Entity entities = 1;
+  repeated Lineage lineages = 2;
 }

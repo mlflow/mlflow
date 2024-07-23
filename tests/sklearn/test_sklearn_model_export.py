@@ -11,11 +11,13 @@ import pandas as pd
 import pytest
 import sklearn
 import sklearn.linear_model as glm
+import sklearn.naive_bayes as nb
 import sklearn.neighbors as knn
 import yaml
 from packaging.version import Version
 from sklearn import datasets
 from sklearn.pipeline import Pipeline as SKPipeline
+from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import FunctionTransformer as SKFunctionTransformer
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -44,6 +46,7 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 from tests.store._unity_catalog.conftest import (
@@ -96,6 +99,14 @@ def sklearn_logreg_model(iris_df):
     linear_lr = glm.LogisticRegression()
     linear_lr.fit(X, y)
     return ModelWithData(model=linear_lr, inference_data=X)
+
+
+@pytest.fixture(scope="module")
+def sklearn_gaussian_model(iris_df):
+    X, y = iris_df
+    gaussian_nb = nb.GaussianNB()
+    gaussian_nb.fit(X, y)
+    return ModelWithData(model=gaussian_nb, inference_data=X)
 
 
 @pytest.fixture(scope="module")
@@ -655,12 +666,14 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
     model, inference_dataframe = sklearn_knn_model
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.sklearn.log_model(
+            model, artifact_path, input_example=inference_dataframe
+        )
 
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=pd.DataFrame(inference_dataframe),
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
@@ -768,12 +781,18 @@ def test_log_model_with_code_paths(sklearn_knn_model):
         add_mock.assert_called()
 
 
-def test_log_predict_proba(sklearn_logreg_model):
-    model, inference_dataframe = sklearn_logreg_model
-    expected_scores = model.predict_proba(inference_dataframe)
+@pytest.mark.parametrize(
+    "predict_fn", ["predict", "predict_proba", "predict_log_proba", "predict_joint_log_proba"]
+)
+def test_log_model_with_custom_pyfunc_predict_fn(sklearn_gaussian_model, predict_fn):
+    if Version(sklearn.__version__) < Version("1.2.0") and predict_fn == "predict_joint_log_proba":
+        pytest.skip("predict_joint_log_proba is not available in scikit-learn < 1.2.0")
+
+    model, inference_dataframe = sklearn_gaussian_model
+    expected_scores = getattr(model, predict_fn)(inference_dataframe)
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(model, artifact_path, pyfunc_predict_fn="predict_proba")
+        mlflow.sklearn.log_model(model, artifact_path, pyfunc_predict_fn=predict_fn)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     loaded_model = pyfunc.load_model(model_uri)
@@ -859,3 +878,16 @@ def test_model_registration_metadata_handling(sklearn_knn_model, tmp_path):
     # This validates that the models artifact repo will not attempt to create a
     # "registered model metadata" file if the source of an artifact download is a file.
     assert os.listdir(dst_full) == ["MLmodel"]
+
+
+def test_pipeline_predict_proba(sklearn_knn_model, model_path):
+    knn_model = sklearn_knn_model.model
+    pipeline = make_pipeline(knn_model)
+
+    mlflow.sklearn.save_model(sk_model=pipeline, path=model_path, pyfunc_predict_fn="predict_proba")
+    reloaded_knn_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    np.testing.assert_array_equal(
+        knn_model.predict_proba(sklearn_knn_model.inference_data),
+        reloaded_knn_pyfunc.predict(sklearn_knn_model.inference_data),
+    )

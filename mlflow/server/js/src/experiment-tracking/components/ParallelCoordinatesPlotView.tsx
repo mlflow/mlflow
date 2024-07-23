@@ -46,8 +46,7 @@ export class ParallelCoordinatesPlotView extends React.Component<
     const { paramDimensions, metricDimensions, metricKeys } = this.props;
     const lastMetricKey = this.findLastKeyFromState(metricKeys);
     const lastMetricDimension = this.props.metricDimensions.find((d) => d.label === lastMetricKey);
-    const colorScaleConfigs =
-      ParallelCoordinatesPlotView.getColorScaleConfigsForDimension(lastMetricDimension);
+    const colorScaleConfigs = ParallelCoordinatesPlotView.getColorScaleConfigsForDimension(lastMetricDimension);
     // This make sure axis order consistency across renders.
     const orderedDimensions = ParallelCoordinatesPlotView.getDimensionsOrderedBySequence(
       [...paramDimensions, ...metricDimensions],
@@ -107,9 +106,7 @@ export class ParallelCoordinatesPlotView extends React.Component<
   maybeUpdateStateForColorScale = (currentSequenceFromPlotly: any) => {
     const rightmostMetricKeyFromState = this.findLastKeyFromState(this.props.metricKeys);
     const metricsKeySet = new Set(this.props.metricKeys);
-    const rightmostMetricKeyFromPlotly = _.findLast(currentSequenceFromPlotly, (key) =>
-      metricsKeySet.has(key),
-    );
+    const rightmostMetricKeyFromPlotly = _.findLast(currentSequenceFromPlotly, (key) => metricsKeySet.has(key));
     // Currently we always render color scale based on the rightmost metric axis, so if that changes
     // we need to setState with the new axes sequence to trigger a rerender.
     if (rightmostMetricKeyFromState !== rightmostMetricKeyFromPlotly) {
@@ -130,7 +127,7 @@ export class ParallelCoordinatesPlotView extends React.Component<
         css={styles.plot}
         data={this.getData()}
         onUpdate={this.handlePlotUpdate}
-        className='pcp-plot'
+        className="pcp-plot"
         config={{ displayModeBar: false }}
       />
     );
@@ -233,9 +230,7 @@ const styles = {
 const mapStateToProps = (state: any, ownProps: any) => {
   const { runUuids, paramKeys, metricKeys } = ownProps;
   const { latestMetricsByRunUuid, paramsByRunUuid } = state.entities;
-  const paramDimensions = paramKeys.map((paramKey: any) =>
-    createDimension(paramKey, runUuids, paramsByRunUuid),
-  );
+  const paramDimensions = paramKeys.map((paramKey: any) => createDimension(paramKey, runUuids, paramsByRunUuid));
   const metricDimensions = metricKeys.map((metricKey: any) =>
     createDimension(metricKey, runUuids, latestMetricsByRunUuid),
   );

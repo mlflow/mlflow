@@ -4,7 +4,7 @@ import time
 from contextlib import contextmanager
 
 import sqlalchemy
-from alembic.migration import MigrationContext  # pylint: disable=import-error
+from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import sql
 
@@ -48,11 +48,14 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlParam,
     SqlRun,
     SqlTag,
+    SqlTraceInfo,
+    SqlTraceRequestMetadata,
+    SqlTraceTag,
 )
 
 _logger = logging.getLogger(__name__)
 
-MAX_RETRY_COUNT = 15
+MAX_RETRY_COUNT = 10
 
 
 def _get_package_dir():
@@ -83,6 +86,9 @@ def _all_tables_exist(engine):
         SqlDataset.__tablename__,
         SqlInput.__tablename__,
         SqlInputTag.__tablename__,
+        SqlTraceInfo.__tablename__,
+        SqlTraceTag.__tablename__,
+        SqlTraceRequestMetadata.__tablename__,
     }
 
 
@@ -165,13 +171,14 @@ def _get_alembic_config(db_url, alembic_dir=None):
     Constructs an alembic Config object referencing the specified database and migration script
     directory.
 
-    :param db_url Database URL, like sqlite:///<absolute-path-to-local-db-file>. See
-    https://docs.sqlalchemy.org/en/13/core/engines.html#database-urls for a full list of valid
-    database URLs.
-    :param alembic_dir Path to migration script directory. Uses canonical migration script
-    directory under mlflow/alembic if unspecified. TODO: remove this argument in MLflow 1.1, as
-    it's only used to run special migrations for pre-1.0 users to remove duplicate constraint
-    names.
+    Args:
+        db_url: Database URL, like sqlite:///<absolute-path-to-local-db-file>. See
+            https://docs.sqlalchemy.org/en/13/core/engines.html#database-urls for a full list of
+            valid database URLs.
+        alembic_dir: Path to migration script directory. Uses canonical migration script
+            directory under mlflow/alembic if unspecified. TODO: remove this argument in MLflow 1.1,
+            as it's only used to run special migrations for pre-1.0 users to remove duplicate
+            constraint names.
     """
     from alembic.config import Config
 
@@ -195,9 +202,10 @@ def _upgrade_db(engine):
     Note that schema migrations can be slow and are not guaranteed to be transactional -
     we recommend taking a backup of your database before running migrations.
 
-    :param url Database URL, like sqlite:///<absolute-path-to-local-db-file>. See
-    https://docs.sqlalchemy.org/en/13/core/engines.html#database-urls for a full list of valid
-    database URLs.
+    Args:
+        url: Database URL, like sqlite:///<absolute-path-to-local-db-file>. See
+            https://docs.sqlalchemy.org/en/13/core/engines.html#database-urls for a full list of
+            valid database URLs.
     """
     # alembic adds significant import time, so we import it lazily
     from alembic import command

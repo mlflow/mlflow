@@ -7,7 +7,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
-class TestDatasetSource(DatasetSource):
+class SampleDatasetSource(DatasetSource):
     def __init__(self, uri):
         self._uri = uri
 
@@ -39,11 +39,11 @@ class TestDatasetSource(DatasetSource):
     def _resolve(cls, raw_source: Any) -> DatasetSource:
         return cls(raw_source)
 
-    def _to_dict(self) -> Dict[Any, Any]:
+    def to_dict(self) -> Dict[Any, Any]:
         return {"uri": self.uri}
 
     @classmethod
-    def _from_dict(cls, source_dict: Dict[Any, Any]) -> DatasetSource:
+    def from_dict(cls, source_dict: Dict[Any, Any]) -> DatasetSource:
         uri = source_dict.get("uri")
         if uri is None:
             raise MlflowException(

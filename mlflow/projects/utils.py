@@ -137,7 +137,8 @@ def fetch_and_validate_project(uri, version, entry_point, parameters):
     parameters = parameters or {}
     work_dir = _fetch_project(uri=uri, version=version)
     project = _project_spec.load_project(work_dir)
-    project.get_entry_point(entry_point)._validate_parameters(parameters)
+    if entry_point_obj := project.get_entry_point(entry_point):
+        entry_point_obj._validate_parameters(parameters)
     return work_dir
 
 
@@ -297,22 +298,28 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
     # Consolidate parameters for logging.
     # `storage_dir` is `None` since we want to log actual path not downloaded local path
     entry_point_obj = project.get_entry_point(entry_point)
-    final_params, extra_params = entry_point_obj.compute_parameters(parameters, storage_dir=None)
-    params_list = [
-        Param(key, value) for key, value in list(final_params.items()) + list(extra_params.items())
-    ]
-    tracking.MlflowClient().log_batch(active_run.info.run_id, params=params_list)
+    if entry_point_obj:
+        final_params, extra_params = entry_point_obj.compute_parameters(
+            parameters, storage_dir=None
+        )
+        params_list = [
+            Param(key, value)
+            for key, value in list(final_params.items()) + list(extra_params.items())
+        ]
+        tracking.MlflowClient().log_batch(active_run.info.run_id, params=params_list)
     return active_run
 
 
 def get_entry_point_command(project, entry_point, parameters, storage_dir):
     """
     Returns the shell command to execute in order to run the specified entry point.
-    :param project: Project containing the target entry point
-    :param entry_point: Entry point to run
-    :param parameters: Parameters (dictionary) for the entry point command
-    :param storage_dir: Base local directory to use for downloading remote artifacts passed to
-                        arguments of type 'path'. If None, a temporary base directory is used.
+
+    Args:
+        project: Project containing the target entry point.
+        entry_point: Entry point to run.
+        parameters: Parameters (dictionary) for the entry point command.
+        storage_dir: Base local directory to use for downloading remote artifacts passed to
+            arguments of type 'path'. If None, a temporary base directory is used.
     """
     storage_dir_for_run = _get_storage_dir(storage_dir)
     _logger.info(

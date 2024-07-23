@@ -219,7 +219,7 @@ def test_validate_batch_log_limits():
     _validate_batch_log_limits([], [], too_many_tags[:100])
 
 
-def test_validate_batch_log_data():
+def test_validate_batch_log_data(monkeypatch):
     metrics_with_bad_key = [
         Metric("good-metric-key", 1.0, 0, 0),
         Metric("super-long-bad-key" * 1000, 4.0, 0, 0),
@@ -258,6 +258,7 @@ def test_validate_batch_log_data():
         "tags": [tags_with_bad_key, tags_with_bad_val],
     }
     good_kwargs = {"metrics": [], "params": [], "tags": []}
+    monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
     for arg_name, arg_values in bad_kwargs.items():
         for arg_value in arg_values:
             final_kwargs = copy.deepcopy(good_kwargs)
