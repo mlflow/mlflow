@@ -297,9 +297,8 @@ def get_notebook_id():
     notebook_id = _get_property_from_spark_context("spark.databricks.notebook.id")
     if notebook_id is not None:
         return notebook_id
-    acl_path = acl_path_of_acl_root()
-    if acl_path.startswith("/workspace"):
-        return acl_path.split("/")[-1]
+    if (path := acl_path_of_acl_root()) and path.startswith("/workspace"):
+        return path.split("/")[-1]
     return None
 
 
