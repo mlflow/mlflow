@@ -123,7 +123,8 @@ def _get_command_context():
 
 
 def _get_extra_context(context_key):
-    return _get_command_context().extraContext().get(context_key).get()
+    opt = _get_command_context().extraContext().get(context_key)
+    return opt.get() if opt.isDefined() else None
 
 
 def _get_context_tag(context_tag_key):
