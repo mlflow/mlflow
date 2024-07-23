@@ -33,7 +33,7 @@ from mlflow.models.dependencies_schemas import DependenciesSchemasType, set_retr
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.pyfunc.context import Context, set_prediction_context
-from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
 from mlflow.utils.openai_utils import (
     TEST_CONTENT,
     _mock_chat_completion_response,
@@ -197,10 +197,10 @@ def test_autolog_manage_run():
     traces = get_traces()
     assert len(traces) == 2
     for trace in traces:
-        attrs = trace.data.spans[0].attributes
-        assert attrs[SpanAttributeKey.SPAN_TYPE] == "CHAIN"
-        assert attrs[SpanAttributeKey.INPUTS] == {"product": "MLflow"}
-        assert attrs[SpanAttributeKey.OUTPUTS] == {"text": TEST_CONTENT}
+        span = trace.data.spans[0]
+        assert span.span_type == "CHAIN"
+        assert span.inputs == {"product": "MLflow"}
+        assert span.outputs == {"text": TEST_CONTENT}
 
 
 def test_autolog_manage_run_no_active_run():
@@ -287,18 +287,15 @@ def test_llmchain_autolog():
         spans = trace.data.spans
         assert len(spans) == 2  # chain + llm
         assert spans[0].name == "LLMChain"
-        attrs = spans[0].attributes
-        assert attrs[SpanAttributeKey.SPAN_TYPE] == "CHAIN"
-        assert attrs[SpanAttributeKey.INPUTS] == {"product": "MLflow"}
-        assert attrs[SpanAttributeKey.OUTPUTS] == {"text": TEST_CONTENT}
+        assert spans[0].span_type == "CHAIN"
+        assert spans[0].inputs == {"product": "MLflow"}
+        assert spans[0].outputs == {"text": TEST_CONTENT}
         assert spans[1].name == "OpenAI"
         assert spans[1].parent_id == spans[0].span_id
+        assert spans[1].span_type == "LLM"
+        assert spans[1].inputs == ["What is a good name for a company that makes MLflow?"]
+        assert spans[1].outputs["generations"][0][0]["text"] == "test"
         attrs = spans[1].attributes
-        assert attrs[SpanAttributeKey.SPAN_TYPE] == "LLM"
-        assert attrs[SpanAttributeKey.INPUTS] == [
-            "What is a good name for a company that makes MLflow?"
-        ]
-        assert attrs[SpanAttributeKey.OUTPUTS]["generations"][0][0]["text"] == "test"
         assert attrs["invocation_params"]["model_name"] == "gpt-3.5-turbo-instruct"
         assert attrs["invocation_params"]["temperature"] == 0.9
 
@@ -474,15 +471,14 @@ def test_agent_autolog():
     traces = get_traces()
     assert len(traces) == 4
     for trace in traces:
-        spans = [(s.name, s.attributes[SpanAttributeKey.SPAN_TYPE]) for s in trace.data.spans]
+        spans = [(s.name, s.span_type) for s in trace.data.spans]
         assert spans == [
             ("AgentExecutor", "CHAIN"),
             ("LLMChain", "CHAIN"),
             ("OpenAI", "LLM"),
         ]
-        attrs = trace.data.spans[0].attributes
-        assert attrs[SpanAttributeKey.INPUTS] == input
-        assert attrs[SpanAttributeKey.OUTPUTS] == {"output": TEST_CONTENT}
+        assert trace.data.spans[0].inputs == input
+        assert trace.data.spans[0].outputs == {"output": TEST_CONTENT}
 
 
 def test_loaded_agent_autolog():
@@ -551,7 +547,7 @@ def test_runnable_sequence_autolog():
     traces = get_traces()
     assert len(traces) == 2
     for trace in traces:
-        spans = {(s.name, s.attributes[SpanAttributeKey.SPAN_TYPE]) for s in trace.data.spans}
+        spans = {(s.name, s.span_type) for s in trace.data.spans}
         # Since the chain includes parallel execution, the order of some
         # spans is not deterministic.
         assert spans == {
@@ -637,12 +633,9 @@ def test_retriever_autolog(tmp_path):
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "VectorStoreRetriever"
-    attrs = spans[0].attributes
-    assert attrs[SpanAttributeKey.SPAN_TYPE] == "RETRIEVER"
-    assert attrs[SpanAttributeKey.INPUTS] == query
-    assert attrs[SpanAttributeKey.OUTPUTS][0]["metadata"] == {
-        "source": "tests/langchain/state_of_the_union.txt"
-    }
+    assert spans[0].span_type == "RETRIEVER"
+    assert spans[0].inputs == query
+    assert spans[0].outputs[0]["metadata"] == {"source": "tests/langchain/state_of_the_union.txt"}
 
 
 def test_retriever_autlog_inputs_outputs(tmp_path):
@@ -1117,7 +1110,7 @@ def test_langchain_tracer_injection_for_arbitrary_runnables(log_traces):
     traces = get_traces()
     if should_log_traces:
         assert len(traces) == 1
-        assert traces[0].data.spans[0].attributes[SpanAttributeKey.SPAN_TYPE] == "CHAIN"
+        assert traces[0].data.spans[0].span_type == "CHAIN"
     else:
         assert len(traces) == 0
 

@@ -21,7 +21,6 @@ from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.llama_index.tracer import remove_llama_index_tracer, set_llama_index_tracer
-from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 
@@ -57,11 +56,11 @@ def test_trace_llm_complete(is_async):
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.{}complete".format("a" if is_async else "")
+    assert spans[0].span_type == SpanType.LLM
+    assert spans[0].inputs == {"args": ["Hello"]}
+    assert spans[0].outputs["text"] == "Hello"
 
     attr = spans[0].attributes
-    assert attr[SpanAttributeKey.SPAN_TYPE] == SpanType.LLM
-    assert attr[SpanAttributeKey.INPUTS] == {"args": ["Hello"]}
-    assert attr[SpanAttributeKey.OUTPUTS]["text"] == "Hello"
     assert attr["usage"] == {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12}
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
@@ -87,11 +86,11 @@ def test_trace_llm_complete_stream():
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.stream_complete"
+    assert spans[0].span_type == SpanType.LLM
+    assert spans[0].inputs == {"args": ["Hello"]}
+    assert spans[0].outputs["text"] == "Hello world"
 
     attr = spans[0].attributes
-    assert attr[SpanAttributeKey.SPAN_TYPE] == SpanType.LLM
-    assert attr[SpanAttributeKey.INPUTS] == {"args": ["Hello"]}
-    assert attr[SpanAttributeKey.OUTPUTS]["text"] == "Hello world"
     assert attr["usage"] == {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12}
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
@@ -114,13 +113,11 @@ def test_trace_llm_chat(is_async):
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.achat" if is_async else "OpenAI.chat"
-
-    attr = spans[0].attributes
-    assert attr[SpanAttributeKey.SPAN_TYPE] == SpanType.CHAT_MODEL
-    assert attr[SpanAttributeKey.INPUTS] == {
+    assert spans[0].span_type == SpanType.CHAT_MODEL
+    assert spans[0].inputs == {
         "messages": [{"role": "system", "content": "Hello", "additional_kwargs": {}}]
     }
-    assert attr[SpanAttributeKey.OUTPUTS] == {
+    assert spans[0].outputs == {
         "message": {
             "role": "assistant",
             "content": '[{"role": "system", "content": "Hello"}]',
@@ -131,6 +128,8 @@ def test_trace_llm_chat(is_async):
         "logprobs": None,
         "additional_kwargs": {},
     }
+
+    attr = spans[0].attributes
     assert attr["usage"] == {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21}
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
@@ -157,13 +156,11 @@ def test_trace_llm_chat_stream():
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.stream_chat"
-
-    attr = spans[0].attributes
-    assert attr[SpanAttributeKey.SPAN_TYPE] == SpanType.CHAT_MODEL
-    assert attr[SpanAttributeKey.INPUTS] == {
+    assert spans[0].span_type == SpanType.CHAT_MODEL
+    assert spans[0].inputs == {
         "messages": [{"role": "system", "content": "Hello", "additional_kwargs": {}}]
     }
-    assert attr[SpanAttributeKey.OUTPUTS] == {
+    assert spans[0].outputs == {
         "message": {
             "role": "assistant",
             "content": "Hello world",
@@ -174,6 +171,8 @@ def test_trace_llm_chat_stream():
         "logprobs": None,
         "additional_kwargs": {},
     }
+
+    attr = spans[0].attributes
     assert attr["usage"] == {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21}
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
@@ -203,9 +202,9 @@ def test_trace_llm_error(monkeypatch, is_stream):
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.stream_chat" if is_stream else "OpenAI.chat"
-    assert spans[0].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.CHAT_MODEL
-    assert spans[0].attributes[SpanAttributeKey.INPUTS] == {"messages": [message.dict()]}
-    assert SpanAttributeKey.OUTPUTS not in spans[0].attributes
+    assert spans[0].span_type == SpanType.CHAT_MODEL
+    assert spans[0].inputs == {"messages": [message.dict()]}
+    assert spans[0].outputs is None
     events = traces[0].data.spans[0].events
     assert len(events) == 1
     assert events[0].attributes["exception.message"] == "Connection error."
@@ -231,30 +230,26 @@ def test_trace_retriever(multi_index, is_async):
         assert spans[i].parent_id == spans[i - 1].span_id
 
     assert spans[0].name == "BaseRetriever.aretrieve" if is_async else "BaseRetriever.retrieve"
-    assert spans[0].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.RETRIEVER
-    assert spans[0].attributes[SpanAttributeKey.INPUTS] == {"str_or_query_bundle": "apple"}
-    output = spans[0].attributes[SpanAttributeKey.OUTPUTS]
-    assert len(output) == 1
-    assert output[0]["node"]["text"] == retrieved[0].text
+    assert spans[0].span_type == SpanType.RETRIEVER
+    assert spans[0].inputs == {"str_or_query_bundle": "apple"}
+    assert len(spans[0].outputs) == 1
+    assert spans[0].outputs[0]["node"]["text"] == retrieved[0].text
 
     assert spans[1].name.startswith("VectorIndexRetriever")
-    assert spans[1].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.RETRIEVER
-    assert spans[1].attributes[SpanAttributeKey.INPUTS]["query_bundle"]["query_str"] == "apple"
-    assert (
-        spans[1].attributes[SpanAttributeKey.OUTPUTS]
-        == spans[0].attributes[SpanAttributeKey.OUTPUTS]
-    )
+    assert spans[1].span_type == SpanType.RETRIEVER
+    assert spans[1].inputs["query_bundle"]["query_str"] == "apple"
+    assert spans[1].outputs == spans[0].outputs
 
     assert spans[2].name.startswith("BaseEmbedding")
-    assert spans[2].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.EMBEDDING
-    assert spans[2].attributes[SpanAttributeKey.INPUTS] == {"query": "apple"}
-    assert len(spans[2].attributes[SpanAttributeKey.OUTPUTS]) == 1536  # embedding size
+    assert spans[2].span_type == SpanType.EMBEDDING
+    assert spans[2].inputs == {"query": "apple"}
+    assert len(spans[2].outputs) == 1536  # embedding size
     assert spans[2].attributes["model_name"] == Settings.embed_model.model_name
 
     assert spans[3].name.startswith("OpenAIEmbedding")
-    assert spans[3].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.EMBEDDING
-    assert spans[3].attributes[SpanAttributeKey.INPUTS] == {"query": "apple"}
-    assert len(spans[3].attributes[SpanAttributeKey.OUTPUTS]) == 1536  # embedding size
+    assert spans[3].span_type == SpanType.EMBEDDING
+    assert spans[3].inputs == {"query": "apple"}
+    assert len(spans[3].outputs) == 1536  # embedding size
     assert spans[3].attributes["model_name"] == Settings.embed_model.model_name
 
 
@@ -287,9 +282,9 @@ def test_trace_query_engine(multi_index, is_stream, is_async):
     # Validate span attributes for some key spans
     spans = traces[0].data.spans
     assert spans[0].name == f"BaseQueryEngine.{prefix}query"
-    assert spans[0].attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.CHAIN
-    assert spans[0].attributes[SpanAttributeKey.INPUTS] == {"str_or_query_bundle": "Hello"}
-    assert spans[0].attributes[SpanAttributeKey.OUTPUTS] == response
+    assert spans[0].span_type == SpanType.CHAIN
+    assert spans[0].inputs == {"str_or_query_bundle": "Hello"}
+    assert spans[0].outputs == response
 
 
 def test_trace_agent():
@@ -348,9 +343,9 @@ def test_trace_agent():
     spans = traces[0].data.spans
     name_to_span = {span.name: span for span in spans}
     tool_span = name_to_span["FunctionTool.call"]
-    assert tool_span.attributes[SpanAttributeKey.SPAN_TYPE] == SpanType.TOOL
-    assert tool_span.attributes[SpanAttributeKey.INPUTS] == {"kwargs": {"a": 1, "b": 2}}
-    assert tool_span.attributes[SpanAttributeKey.OUTPUTS]["content"] == "3"
+    assert tool_span.span_type == SpanType.TOOL
+    assert tool_span.inputs == {"kwargs": {"a": 1, "b": 2}}
+    assert tool_span.outputs["content"] == "3"
     assert tool_span.attributes["name"] == "add"
     assert tool_span.attributes["description"] is not None
     assert tool_span.attributes["parameters"] is not None
@@ -379,7 +374,7 @@ def test_trace_chat_engine(multi_index, is_stream, is_async):
     assert len(traces) == 1
     assert traces[0].info.status == TraceStatus.OK
     root_span = traces[0].data.spans[0]
-    assert root_span.attributes[SpanAttributeKey.INPUTS] == {"message": "Hello"}
+    assert root_span.inputs == {"message": "Hello"}
 
 
 def test_tracer_handle_tracking_uri_update(tmp_path):
