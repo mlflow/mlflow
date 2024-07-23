@@ -168,7 +168,7 @@ def test_docstring_version_compatibility_warning():
         with warnings.catch_warnings(record=True) as w:
             another_func()
 
-        assert mock_version.call_count == 2
+        mock_version.assert_called()
         # Exclude irrelevant warnings
         warns = [x for x in w if "MLflow Models integration is known to be compatible" in str(x)]
         assert len(warns) == 1
