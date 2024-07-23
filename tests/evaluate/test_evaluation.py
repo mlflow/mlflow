@@ -1909,7 +1909,7 @@ _DUMMY_CHAT_RESPONSE = {
     "id": "1",
     "object": "text_completion",
     "created": "2021-10-01T00:00:00.000000Z",
-    "model": "gpt-3.5-turbo",
+    "model": "gpt-4o-mini",
     "choices": [
         {
             "index": 0,
@@ -2050,7 +2050,7 @@ _DUMMY_COMPLETION_RESPONSE = {
     "id": "1",
     "object": "text_completion",
     "created": "2021-10-01T00:00:00.000000Z",
-    "model": "gpt-3.5-turbo",
+    "model": "gpt-4o-mini",
     "choices": [{"index": 0, "text": "This is a response", "finish_reason": "length"}],
     "usage": {
         "prompt_tokens": 1,

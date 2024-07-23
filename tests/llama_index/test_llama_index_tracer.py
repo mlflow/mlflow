@@ -41,10 +41,10 @@ def _get_all_traces() -> List[Trace]:
 
 @pytest.mark.parametrize("is_async", [True, False])
 def test_trace_llm_complete(is_async):
-    # By default llama-index uses "gpt-3.5-turbo" model that only has chat interface,
+    # By default llama-index uses "gpt-4o-mini" model that only has chat interface,
     # and llama-index redirects completion call to chat endpoint. We use non-chat
     # model here to test trace for completion.
-    model_name = "gpt-3.5-turbo-instruct"
+    model_name = "gpt-4o-mini"
     llm = OpenAI(model=model_name)
 
     response = asyncio.run(llm.acomplete("Hello")) if is_async else llm.complete("Hello")
@@ -69,7 +69,7 @@ def test_trace_llm_complete(is_async):
 
 
 def test_trace_llm_complete_stream():
-    model_name = "gpt-3.5-turbo-instruct"
+    model_name = "gpt-4o-mini"
     llm = OpenAI(model=model_name)
 
     response_gen = llm.stream_complete("Hello")

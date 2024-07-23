@@ -46,7 +46,7 @@ def test_predict_openai(mock_openai_creds):
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
         "created": 1677858242,
-        "model": "gpt-3.5-turbo-0301",
+        "model": "gpt-4o-mini",
         "usage": {
             "prompt_tokens": 13,
             "completion_tokens": 7,
@@ -134,7 +134,7 @@ def test_get_endpoint_openai(mock_openai_creds):
     mock_response = mock.Mock()
     mock_response.status_code = 200
     mock_response.json.return_value = {
-        "id": "gpt-3.5-turbo-instruct",
+        "id": "gpt-4o-mini",
         "object": "model",
         "created": 1686935002,
         "owned_by": "openai",
@@ -144,7 +144,7 @@ def test_get_endpoint_openai(mock_openai_creds):
         "requests.get",
         return_value=mock_response,
     ) as mock_request:
-        resp = client.get_endpoint("gpt-3.5-turbo-instruct")
+        resp = client.get_endpoint("gpt-4o-mini")
         mock_request.assert_called_once()
         assert resp == mock_response.json.return_value
 
@@ -155,7 +155,7 @@ def test_get_endpoint_azure_openai(mock_azure_openai_creds):
     with pytest.raises(
         NotImplementedError, match="Get endpoint is not implemented for Azure OpenAI API"
     ):
-        client.get_endpoint("gpt-3.5-turbo-instruct")
+        client.get_endpoint("gpt-4o-mini")
 
 
 def test_predict_azure_openai(mock_azure_openai_creds):
@@ -164,7 +164,7 @@ def test_predict_azure_openai(mock_azure_openai_creds):
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
         "created": 1677858242,
-        "model": "gpt-3.5-turbo-0301",
+        "model": "gpt-4o-mini",
         "usage": {
             "prompt_tokens": 13,
             "completion_tokens": 7,
