@@ -521,7 +521,7 @@ def azure_config(api_type: str):
         "route_type": "llm/v1/completions",
         "model": {
             "provider": "openai",
-            "name": "gpt-35-turbo",
+            "name": "gpt-4o-mini",
             "config": {
                 "openai_api_type": api_type,
                 "openai_api_key": "key",
