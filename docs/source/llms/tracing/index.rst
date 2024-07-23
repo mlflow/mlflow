@@ -393,6 +393,9 @@ To set a span type, you can pass the ``span_type`` parameter to the :py:func:`@m
         z = x + y
         span.set_outputs({"z": z})
 
+        print(span.span_type)
+        # Output: MATH
+
 
 Context Handler
 ###############
