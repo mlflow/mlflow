@@ -374,6 +374,13 @@ def get_module_min_and_max_supported_ranges(module_name):
     return min_version, max_version
 
 
+def _do_version_compatibility_warning(msg: str):
+    """
+    Isolate the warn call to show the warning only once.
+    """
+    warnings.warn(msg, category=UserWarning, stacklevel=2)
+
+
 def docstring_version_compatibility_warning(integration_name):
     """
     Generates a docstring that can be applied as a note stating a version compatibility range for
@@ -405,7 +412,7 @@ def docstring_version_compatibility_warning(integration_name):
         def version_func(*args, **kwargs):
             installed_version = Version(importlib_metadata.version(module_key))
             if installed_version < Version(min_ver) or installed_version > Version(max_ver):
-                warnings.warn(notice, category=FutureWarning, stacklevel=2)
+                _do_version_compatibility_warning(notice)
             return func(*args, **kwargs)
 
         version_func.__doc__ = (
