@@ -1,8 +1,8 @@
 import json
 from collections import Counter, deque
 from unittest import mock
-import pytest
 
+import pytest
 from llama_index.core import PromptTemplate, Settings
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
@@ -15,6 +15,12 @@ from mlflow.llama_index.serialize_objects import (
     object_to_dict,
     serialize_settings,
 )
+
+
+@pytest.fixture
+def mock_logger():
+    with mock.patch("mlflow.llama_index.serialize_objects._logger") as mock_logger:
+        yield mock_logger
 
 
 def test_get_object_import_path_class_instantiated():
