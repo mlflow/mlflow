@@ -11,6 +11,7 @@ from llama_index.core.schema import BaseComponent
 
 _logger = logging.getLogger(__name__)
 
+
 def _get_object_import_path(o: object) -> str:
     if not inspect.isclass(o):
         o = o.__class__
@@ -87,7 +88,7 @@ def dict_to_object(object_representation: Dict[str, Any]) -> object:
         return _construct_prompt_template_object(module, kwargs)
     else:
         object_class = getattr(module, class_name)
-        
+
         # Many embeddings model accepts parameter `model`, while BaseEmbedding accepts `model_name`.
         # Both parameters will be serialized as kwargs, but passing both to the constructor will
         # raise duplicate argument error. Some class like OpenAIEmbedding handles this in its
