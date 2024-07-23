@@ -7,7 +7,6 @@ import logging
 import os
 import re
 import shutil
-import traceback
 import types
 import warnings
 from functools import lru_cache
