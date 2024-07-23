@@ -446,7 +446,9 @@ def convert_input_example_to_serving_input(
     can be used for model inference in the scoring server.
 
     Args:
-        input_example: model input example
+        input_example: model input example. Supported types are pandas.DataFrame, numpy.ndarray,
+            dictionary of (name -> numpy.ndarray), list, scalars, and any json-seriazable objects
+            if example_no_conversion is set to True.
         example_no_conversion: If True, the input example is not converted and directly
             saved as a json object. Default to False.
 
