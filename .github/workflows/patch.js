@@ -47,7 +47,7 @@ module.exports = async ({ context, github, core }) => {
     owner,
     repo,
   });
-  const version = latestRelease.data.tag_name.replace("v", "");
+  const version = latestRelease.data.tag_name.replace("v", "").replace(/rc\d+$/, "");
   const [major, minor, micro] = version.split(".");
   const nextMicro = version.includes("rc") ? micro : (parseInt(micro) + 1).toString();
   const label = `patch-${major}.${minor}.${nextMicro}`;
