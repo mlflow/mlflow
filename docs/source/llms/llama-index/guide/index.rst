@@ -23,6 +23,7 @@ Key benefits include the ability to track runs and experiments, manage model ver
 maintain environment tracking via Conda and Python environments. 
 
 For generative AI specifically, MLflow boasts additional functionality listed below:
+
 * Tracing: A method of tracking agent chain lineage and the associated duration of each step, which facilitates model explainability and debugging.  
 * Prompt Engineering UI: A user interface for designing, testing, and refining prompts for language models.
 * MLflow Deployments Server: A highly performant and modular model deployment framework that easily allows you to switch out base LLMs.
