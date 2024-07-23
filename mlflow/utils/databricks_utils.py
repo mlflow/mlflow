@@ -166,7 +166,7 @@ def is_in_databricks_notebook():
     if _get_property_from_spark_context("spark.databricks.notebook.id") is not None:
         return True
     try:
-        return acl_path_of_acl_root().startswith("/workspace")
+        return path.startswith("/workspace") if (path := acl_path_of_acl_root()) else False
     except Exception:
         return False
 
