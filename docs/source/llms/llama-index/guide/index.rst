@@ -1,5 +1,5 @@
 LlamaIndex within MLflow (Experimental)
-======================================
+=======================================
 
 .. attention::
    The ``llama_index`` flavor is currently under active development and is marked as Experimental. Public APIs are evolving, and new features are being added to enhance its functionality.
