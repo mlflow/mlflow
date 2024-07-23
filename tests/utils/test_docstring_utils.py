@@ -1,4 +1,12 @@
-from mlflow.utils.docstring_utils import ParamDocs, _indent, format_docstring
+import warnings
+from unittest import mock
+
+from mlflow.utils.docstring_utils import (
+    ParamDocs,
+    _indent,
+    docstring_version_compatibility_warning,
+    format_docstring,
+)
 
 
 def test_indent_empty():
@@ -145,3 +153,22 @@ Another line\n    Another indented line""",
 
     assert f.__doc__ == expected
     assert f.__name__ == "f"
+
+
+def test_docstring_version_compatibility_warning():
+    @docstring_version_compatibility_warning("sklearn")
+    def func():
+        pass
+
+    @docstring_version_compatibility_warning("sklearn")
+    def another_func():
+        func()
+
+    with mock.patch("importlib_metadata.version", return_value="0.0.0") as mock_version:
+        with warnings.catch_warnings(record=True) as w:
+            another_func()
+
+        mock_version.assert_called()
+        # Exclude irrelevant warnings
+        warns = [x for x in w if "MLflow Models integration is known to be compatible" in str(x)]
+        assert len(warns) == 1
