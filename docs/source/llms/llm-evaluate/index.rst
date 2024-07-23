@@ -166,14 +166,22 @@ The supported LLM model types and associated metrics are listed below:
     * `ari_grade_level <https://en.wikipedia.org/wiki/Automated_readability_index>`_ :sup:`2`
     * `flesch_kincaid_grade_level <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level>`_ :sup:`2`
 
+* **retrievers**: ``model_type="retriever"``:
 
-:sup:`1` Requires package `evaluate <https://pypi.org/project/evaluate>`_, `torch <https://pytorch.org/get-started/locally/>`_, and 
+    * `precision_at_k <https://en.wikipedia.org/wiki/Evaluation_measures_(information_retrieval)#Precision_at_k>`_  :sup:`4`
+    * `recall_at_k <https://en.wikipedia.org/wiki/Evaluation_measures_(information_retrieval)#Recall>`_ :sup:`4`
+    * `ndcg_at_k <https://en.wikipedia.org/wiki/Discounted_cumulative_gain#Normalized_DCG>`_ :sup:`4`
+
+
+:sup:`1` Requires packages `evaluate <https://pypi.org/project/evaluate>`_, `torch <https://pytorch.org/get-started/locally/>`_, and 
 `transformers <https://huggingface.co/docs/transformers/installation>`_
 
 :sup:`2` Requires package `textstat <https://pypi.org/project/textstat>`_
 
-:sup:`3` Requires package `evaluate <https://pypi.org/project/evaluate>`_, `nltk <https://pypi.org/project/nltk>`_, and 
+:sup:`3` Requires packages `evaluate <https://pypi.org/project/evaluate>`_, `nltk <https://pypi.org/project/nltk>`_, and 
 `rouge-score <https://pypi.org/project/rouge-score>`_
+
+:sup:`4` All retriever metrics have a default ``retriever_k`` value of ``3`` that can be overridden by specifying ``retriever_k`` in the ``evaluator_config`` argument. 
 
 .. _llm-eval-custom-metrics:
 
@@ -427,9 +435,9 @@ to evaluate your model as an MLflow model, we recommend following the steps belo
 
         with mlflow.start_run():
             system_prompt = "Answer the following question in two sentences"
-            # Wrap "gpt-3.5-turbo" as an MLflow model.
+            # Wrap "gpt-4o-mini" as an MLflow model.
             logged_model_info = mlflow.openai.log_model(
-                model="gpt-3.5-turbo",
+                model="gpt-4o-mini",
                 task=openai.chat.completions,
                 artifact_path="model",
                 messages=[
@@ -479,7 +487,7 @@ up OpenAI authentication to run the code below.
         system_prompt = "Please answer the following question in formal language."
         for index, row in inputs.iterrows():
             completion = openai.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": "{row}"},

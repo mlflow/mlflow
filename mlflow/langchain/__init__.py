@@ -77,7 +77,11 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
 )
-from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
+from mlflow.utils.docstring_utils import (
+    LOG_MODEL_PARAM_DOCS,
+    docstring_version_compatibility_warning,
+    format_docstring,
+)
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
@@ -129,6 +133,7 @@ def get_default_conda_env():
 
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
+@docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces for internal predict calls while saving model
 def save_model(
     lc_model,
@@ -284,12 +289,14 @@ def save_model(
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+
     if signature is None:
-        if input_example is not None:
+        if saved_example is not None:
             wrapped_model = _LangChainModelWrapper(lc_model)
-            signature = _infer_signature_from_input_example(
-                input_example, wrapped_model, no_conversion=example_no_conversion
-            )
+            signature = _infer_signature_from_input_example(saved_example, wrapped_model)
         else:
             if hasattr(lc_model, "input_keys"):
                 input_columns = [
@@ -320,13 +327,8 @@ def save_model(
                 else None
             )
 
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path, example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -406,6 +408,7 @@ def save_model(
 
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
+@docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     lc_model,
@@ -922,6 +925,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
 
 
 @experimental
+@docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces while loading model
 def load_model(model_uri, dst_path=None):
     """

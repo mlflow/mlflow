@@ -104,31 +104,32 @@ def save_model(
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Save ``llama_index`` index to a path on the local file system.
-
-    TODO: add note on supported model types
+    """
+    Save a LlamaIndex index to a path on the local file system.
 
     Args:
-        index: llama_index index to be saved.
+        index: LlamaIndex index to be saved.
         path: Local path where the serialized model (as YAML) is to be saved.
-        engine_type: Determine how the instantiated index can be interacted with. The supported
-            types are as follows:
+        engine_type: Determine the inference interface for the index when loaded as a pyfunc
+            model. The supported types are as follows:
 
-            - "chat": instantiate the object as a llama_index ``chat_engine``.
-            - "query": instantiate the object as a llama_index ``query_engine``.
-            - "retriever": instantiate the object as a llama_index ``retriever``.
+            - ``"chat"``: load the index as an instance of the LlamaIndex
+              `ChatEngine <https://docs.llamaindex.ai/en/stable/module_guides/deploying/chat_engines/>`_.
+            - ``"query"``: load the index as an instance of the LlamaIndex
+              `QueryEngine <https://docs.llamaindex.ai/en/stable/module_guides/deploying/query_engine/>`_.
+            - ``"retriever"``: load the index as an instance of the LlamaIndex
+              `Retriever <https://docs.llamaindex.ai/en/stable/module_guides/querying/retriever/>`_.
 
-        model_config: Keyword arguments to be passed to the llama_index engine at instantiation.
+        model_config: Keyword arguments to be passed to the LlamaIndex engine at instantiation.
             Note that not all llama index objects have supported serialization; when an object is
             not supported, an info log message will be emitted and the unsupported object will be
             dropped.
-
         code_paths: {{ code_paths }}
         mlflow_model: An MLflow model object that specifies the flavor that this model is being
             added to.
         signature: A Model Signature object that describes the input and output Schema of the
-            model. The model signature can be inferred using `infer_signature` function
-            of `mlflow.models.signature`.
+            model. The model signature can be inferred using ``infer_signature`` function
+            of ``mlflow.models.signature``.
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
@@ -146,9 +147,13 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
-    if signature is None and input_example is not None:
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+
+    if signature is None and saved_example is not None:
         wrapped_model = create_engine_wrapper(index, engine_type, model_config)
-        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is False:
         signature = None
 
@@ -156,8 +161,6 @@ def save_model(
         mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -237,19 +240,22 @@ def log_model(
     **kwargs,
 ):
     """
-    Log a ``llama_index`` index as an MLflow artifact for the current run.
+    Log a LlamaIndex index as an MLflow artifact for the current run.
 
     Args:
-        index: llama_index index to be saved.
+        index: LlamaIndex index to be saved.
         artifact_path: Local path where the serialized model (as YAML) is to be saved.
-        engine_type: Determine how the instantiated index can be interacted with. The supported
-            types are as follows:
+        engine_type: Determine the inference interface for the index when loaded as a pyfunc
+            model. The supported types are as follows:
 
-            - "chat": instantiate the object as a llama_index `chat_engine`.
-            - "query": instantiate the object as a llama_index `query_engine`.
-            - "retriever": instantiate the object as a llama_index `retriever`.
+            - ``"chat"``: load the index as an instance of the LlamaIndex
+              `ChatEngine <https://docs.llamaindex.ai/en/stable/module_guides/deploying/chat_engines/>`_.
+            - ``"query"``: load the index as an instance of the LlamaIndex
+              `QueryEngine <https://docs.llamaindex.ai/en/stable/module_guides/deploying/query_engine/>`_.
+            - ``"retriever"``: load the index as an instance of the LlamaIndex
+              `Retriever <https://docs.llamaindex.ai/en/stable/module_guides/querying/retriever/>`_.
 
-        model_config: Keyword arguments to be passed to the llama_index engine at instantiation.
+        model_config: Keyword arguments to be passed to the LlamaIndex engine at instantiation.
             Note that not all llama index objects have supported serialization; when an object is
             not supported, an info log message will be emitted and the unsupported object will be
             dropped.
@@ -259,7 +265,7 @@ def log_model(
             version under ``registered_model_name``, also creating a
             registered model if one with the given name does not exist.
         signature: A Model Signature object that describes the input and output Schema of the
-            model. The model signature can be inferred using `infer_signature` function
+            model. The model signature can be inferred using ``infer_signature`` function
             of `mlflow.models.signature`.
         input_example: {{ input_example }}
         await_registration_for: Number of seconds to wait for the model version
@@ -323,7 +329,7 @@ def _load_index(path, flavor_conf):
 @trace_disabled  # Suppress traces while loading model
 def load_model(model_uri, dst_path=None):
     """
-    Load a ``llama_index`` index from a local file or a run.
+    Load a LlamaIndex index from a local file or a run.
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
@@ -342,7 +348,7 @@ def load_model(model_uri, dst_path=None):
             path will be created.
 
     Returns:
-        A ``llama_index`` index object.
+        A LlamaIndex index object.
     """
     from mlflow.llama_index.serialize_objects import deserialize_settings
 
@@ -371,15 +377,15 @@ def autolog(
     silent: bool = False,
 ):
     """
-    Enables (or disables) and configures autologging from llama_index to MLflow. Currently, MLflow
+    Enables (or disables) and configures autologging from LlamaIndex to MLflow. Currently, MLflow
     only supports autologging for tracing.
 
     Args:
         log_traces: If ``True``, traces are logged for Langchain models by using
             MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
             collected during inference. Default to ``True``.
-        disable: If ``True``, disables the llama_index autologging integration. If ``False``,
-            enables the llama_index autologging integration.
+        disable: If ``True``, disables the LlamaIndex autologging integration. If ``False``,
+            enables the LlamaIndex autologging integration.
         silent: If ``True``, suppress all event logs and warnings from MLflow during LlamaIndex
             autologging. If ``False``, show all events and warnings.
     """

@@ -17,13 +17,13 @@ capabilities into their applications.
 .. note::
     MLflow Tracing is currently in **Experimental Status** and is subject to change without deprecation warning or notification. 
 
-MLflow offers comprehensive tracing capabilities to monitor and analyze the execution of GenAI applications. This includes automated tracing with 
-LangChain integration, manual trace instrumentation using high-level fluent APIs, and low-level client APIs for fine-grained control. This functionality 
+MLflow offers comprehensive tracing capabilities to monitor and analyze the execution of GenAI applications. This includes automated tracing GenAI frameworks such as
+LangChain, OpenAI, and LlamaIndex, manual trace instrumentation using high-level fluent APIs, and low-level client APIs for fine-grained control. This functionality 
 allows you to capture detailed trace data, enabling better debugging, performance monitoring, and insights into complex workflows. 
 Whether through decorators, context managers, or explicit API calls, MLflow provides the flexibility needed to trace and optimize the operations 
 of your GenAI models and retain your traced data within the tracking server for further analysis.
 
-- `Automated tracing with integrated libraries <tracing/index.html#automatic-tracing>`_: Seamless integration with libraries such as LangChain and OpenAI, for automatic trace data collection.
+- `Automated tracing with GenAI libraries <tracing/index.html#automatic-tracing>`_: Seamless integration with libraries such as LangChain, OpenAI, and LlamaIndex, for automatic trace data collection.
 - `Manual trace instrumentation with high-level fluent APIs <tracing/index.html#tracing-fluent-apis>`_: Easy-to-use decorators and context managers for adding tracing with minimal code changes.
 - `Low-level client APIs for tracing <tracing/index.html#tracing-client-apis>`_: Thread-safe methods for detailed and explicit control over trace data management.
 

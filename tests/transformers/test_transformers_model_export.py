@@ -2,6 +2,7 @@ import base64
 import gc
 import importlib.util
 import json
+import math
 import os
 import pathlib
 import re
@@ -1570,7 +1571,12 @@ def test_classifier_pipeline(text_classification_pipeline, model_path, data):
         assert len(inference) == len(data)
         for key in ["score", "label"]:
             for value in range(0, len(data)):
-                assert native_inference[value][key] == inference_dict[key][value]
+                if key == "label":
+                    assert inference_dict[key][value] == native_inference[value][key]
+                else:
+                    assert math.isclose(
+                        native_inference[value][key], inference_dict[key][value], rel_tol=1e-7
+                    )
 
 
 @pytest.mark.parametrize(
@@ -1842,7 +1848,12 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
     # validate that the pyfunc served model registers text_pair in the same manner as native
     for key in ["score", "label"]:
         for value in [0, 1]:
-            assert values_dict[key][value] == native_predict[value][key]
+            if key == "label":
+                assert values_dict[key][value] == native_predict[value][key]
+            else:
+                assert math.isclose(
+                    values_dict[key][value], native_predict[value][key], rel_tol=1e-7
+                )
 
 
 def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline):
@@ -2035,10 +2046,10 @@ def test_feature_extraction_pipeline_pyfunc_predict(feature_extraction_pipeline)
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-
-    # A single string input is an invalid input to serving. Verify that this throws.
-    with pytest.raises(MlflowException, match="Invalid response. Predictions response contents"):
-        PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    assert response.status_code == 200
+    prediction = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    assert len(prediction.columns) == 384
+    assert len(prediction) == 4
 
 
 def test_loading_unsupported_pipeline_type_as_pyfunc(small_multi_modal_pipeline, model_path):

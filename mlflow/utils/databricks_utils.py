@@ -123,7 +123,8 @@ def _get_command_context():
 
 
 def _get_extra_context(context_key):
-    return _get_command_context().extraContext().get(context_key).get()
+    opt = _get_command_context().extraContext().get(context_key)
+    return opt.get() if opt.isDefined() else None
 
 
 def _get_context_tag(context_tag_key):
@@ -165,7 +166,7 @@ def is_in_databricks_notebook():
     if _get_property_from_spark_context("spark.databricks.notebook.id") is not None:
         return True
     try:
-        return acl_path_of_acl_root().startswith("/workspace")
+        return path.startswith("/workspace") if (path := acl_path_of_acl_root()) else False
     except Exception:
         return False
 
@@ -293,12 +294,10 @@ def is_in_cluster():
 @_use_repl_context_if_available("notebookId")
 def get_notebook_id():
     """Should only be called if is_in_databricks_notebook is true"""
-    notebook_id = _get_property_from_spark_context("spark.databricks.notebook.id")
-    if notebook_id is not None:
+    if notebook_id := _get_property_from_spark_context("spark.databricks.notebook.id"):
         return notebook_id
-    acl_path = acl_path_of_acl_root()
-    if acl_path.startswith("/workspace"):
-        return acl_path.split("/")[-1]
+    if (path := acl_path_of_acl_root()) and path.startswith("/workspace"):
+        return path.split("/")[-1]
     return None
 
 
@@ -500,8 +499,10 @@ def _fail_malformed_databricks_auth(uri):
         "variables DATABRICKS_HOST + DATABRICKS_TOKEN, or set environmental variables "
         "DATABRICKS_HOST + DATABRICKS_CLIENT_ID + DATABRICKS_CLIENT_SECRET, or you can "
         "edit '~/.databrickscfg' file to set host + token or host + client_id + client_secret "
-        "for specific profile section. For details of these authentication types, please "
-        "refer to document "
+        "for specific profile section, or you can log in by command 'databricks auth login' "
+        "which configures an authentication profile in '~/.databrickscfg' with auth_type of "
+        "'databricks-cli'.\n"
+        "For details of these authentication types, please refer to document "
         "'https://docs.databricks.com/en/dev-tools/auth/index.html#unified-auth'."
     )
 
@@ -910,6 +911,14 @@ def get_databricks_env_vars(tracking_uri):
         return {}
 
     config = _get_databricks_creds_config(tracking_uri)
+
+    if config.auth_type == "databricks-cli":
+        raise MlflowException(
+            "You configured authentication type to 'databricks-cli', in this case, MLflow cannot "
+            "read credential values, so that MLflow cannot construct the databricks environment "
+            "variables for child process authentication."
+        )
+
     # We set these via environment variables so that only the current profile is exposed, rather
     # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary
     # part of ~/.databrickscfg into the container

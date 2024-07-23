@@ -440,6 +440,7 @@ from mlflow.models.utils import (
     _enforce_schema,
     _load_model_code_path,
     _save_example,
+    _split_input_data_and_params,
     _validate_and_get_model_code_path,
 )
 from mlflow.protos.databricks_pb2 import (
@@ -641,6 +642,30 @@ def _validate_params(params, model_metadata):
     return
 
 
+def _validate_prediction_input(data: PyFuncInput, params, input_schema, params_schema, flavor=None):
+    """
+    Internal helper function to transform and validate input data and params for prediction.
+    Any additional transformation logics related to input data and params should be added here.
+    """
+    if input_schema is not None:
+        try:
+            data = _enforce_schema(data, input_schema, flavor)
+        except Exception as e:
+            # Include error in message for backwards compatibility
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to enforce schema of data '{data}' "
+                f"with schema '{input_schema}'. "
+                f"Error: {e}",
+            )
+    params = _enforce_params_schema(params, params_schema)
+    if HAS_PYSPARK and isinstance(data, SparkDataFrame):
+        _logger.warning(
+            "Input data is a Spark DataFrame. Note that behaviour for "
+            "Spark DataFrames is model dependent."
+        )
+    return data, params
+
+
 class PyFuncModel:
     """
     MLflow 'python function' model.
@@ -688,30 +713,6 @@ class PyFuncModel:
         NOTE: This is a stable developer API.
         """
         return self.__model_impl
-
-    def _validate_prediction_input(
-        self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None
-    ) -> PyFuncInput:
-        input_schema = self.metadata.get_input_schema()
-        flavor = self.loader_module
-        if input_schema is not None:
-            try:
-                data = _enforce_schema(data, input_schema, flavor)
-            except Exception as e:
-                # Include error in message for backwards compatibility
-                raise MlflowException.invalid_parameter_value(
-                    f"Failed to enforce schema of data '{data}' "
-                    f"with schema '{input_schema}'. "
-                    f"Error: {e}",
-                )
-
-        params = _validate_params(params, self.metadata)
-        if HAS_PYSPARK and isinstance(data, SparkDataFrame):
-            _logger.warning(
-                "Input data is a Spark DataFrame. Note that behaviour for "
-                "Spark DataFrames is model dependent."
-            )
-        return data, params
 
     def _update_dependencies_schemas_in_prediction_context(self, context: Context):
         if self._model_meta and self._model_meta.metadata:
@@ -765,7 +766,12 @@ class PyFuncModel:
         Returns:
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
-        data, params = self._validate_prediction_input(data, params)
+        # fetch the schema from metadata to avoid signature change after model is loaded
+        self.input_schema = self.metadata.get_input_schema()
+        self.params_schema = self.metadata.get_params_schema()
+        data, params = _validate_prediction_input(
+            data, params, self.input_schema, self.params_schema, self.loader_module
+        )
         params_arg = inspect.signature(self._predict_fn).parameters.get("params")
         if params_arg and params_arg.kind != inspect.Parameter.VAR_KEYWORD:
             return self._predict_fn(data, params=params)
@@ -803,7 +809,11 @@ class PyFuncModel:
         if self._predict_stream_fn is None:
             raise MlflowException("This model does not support predict_stream method.")
 
-        data, params = self._validate_prediction_input(data, params)
+        self.input_schema = self.metadata.get_input_schema()
+        self.params_schema = self.metadata.get_params_schema()
+        data, params = _validate_prediction_input(
+            data, params, self.input_schema, self.params_schema, self.loader_module
+        )
         data = _convert_llm_input_data(data)
         if isinstance(data, list):
             # `predict_stream` only accepts single input.
@@ -2459,6 +2469,7 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
+    saved_example = None
 
     hints = None
     if signature is not None:
@@ -2483,18 +2494,24 @@ def save_model(
                 CHAT_MODEL_OUTPUT_SCHEMA,
             )
             input_example = input_example or CHAT_MODEL_INPUT_EXAMPLE
+            input_example, input_params = _split_input_data_and_params(input_example)
 
             if isinstance(input_example, list):
                 params = ChatParams()
-                messages = [
-                    each_message
-                    for each_message in input_example
-                    if isinstance(each_message, ChatMessage)
-                ]
+                messages = []
+                for each_message in input_example:
+                    if isinstance(each_message, ChatMessage):
+                        messages.append(each_message)
+                    else:
+                        messages.append(ChatMessage(**each_message))
             else:
                 # If the input example is a dictionary, convert it to ChatMessage format
                 messages = [ChatMessage(**m) for m in input_example["messages"]]
                 params = ChatParams(**{k: v for k, v in input_example.items() if k != "messages"})
+            input_example = (
+                {"messages": [m.to_dict() for m in messages]},
+                {**params.to_dict(), **(input_params or {})},
+            )
 
             # call load_context() first, as predict may depend on it
             _logger.info("Predicting on input example to validate output")
@@ -2509,6 +2526,7 @@ def save_model(
                     "`ChatResponse(**output)`",
                 )
         elif isinstance(python_model, PythonModel):
+            saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
             input_arg_index = 1  # second argument
             if signature := _infer_signature_from_type_hints(
                 python_model.predict,
@@ -2516,22 +2534,21 @@ def save_model(
                 input_example=input_example,
             ):
                 mlflow_model.signature = signature
-            elif input_example is not None:
+            elif saved_example is not None:
                 try:
                     context = PythonModelContext(artifacts, model_config)
                     python_model.load_context(context)
                     mlflow_model.signature = _infer_signature_from_input_example(
-                        input_example,
+                        saved_example,
                         _PythonModelPyfuncWrapper(python_model, None, None),
-                        no_conversion=example_no_conversion,
                     )
                 except Exception as e:
                     _logger.warning(f"Failed to infer model signature from input example. {e}")
 
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path, example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
+    if saved_example is None:
+        saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
 
     with _get_dependencies_schemas() as dependencies_schemas:
         schema = dependencies_schemas.to_dict()

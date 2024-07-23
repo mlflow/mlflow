@@ -204,6 +204,7 @@ def start_run(
     experiment_id: Optional[str] = None,
     run_name: Optional[str] = None,
     nested: bool = False,
+    parent_run_id: Optional[str] = None,
     tags: Optional[Dict[str, Any]] = None,
     description: Optional[str] = None,
     log_system_metrics: Optional[bool] = None,
@@ -236,6 +237,8 @@ def start_run(
         run_name: Name of new run. Used only when ``run_id`` is unspecified. If a new run is
             created and ``run_name`` is not specified, a random name will be generated for the run.
         nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
+        parent_run_id: If specified, the current run will be nested under the the run with
+            the specified UUID. The parent run must be in the ACTIVE state.
         tags: An optional dictionary of string keys and values to set as tags on the run.
             If a run is being resumed, these tags are set on the resumed run. If a new run is
             being created, these tags are set on the new run.
@@ -279,11 +282,21 @@ def start_run(
         print("version tag value: {}".format(parent_run.data.tags.get("version")))
         print("priority tag value: {}".format(parent_run.data.tags.get("priority")))
         print("--")
+
         # Search all child runs with a parent id
         query = f"tags.mlflow.parentRunId = '{parent_run.info.run_id}'"
         results = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=query)
         print("child runs:")
         print(results[["run_id", "params.child", "tags.mlflow.runName"]])
+
+        # Create a nested run under the existing parent run
+        with mlflow.start_run(
+            run_name="NEW_CHILD_RUN",
+            experiment_id=experiment_id,
+            description="new child",
+            parent_run_id=parent_run.info.run_id,
+        ) as child_run:
+            mlflow.log_param("new-child", "yes")
 
     .. code-block:: text
         :caption: Output
@@ -359,7 +372,28 @@ def start_run(
             )
         active_run_obj = client.get_run(existing_run_id)
     else:
-        parent_run_id = _active_run_stack[-1].info.run_id if len(_active_run_stack) > 0 else None
+        if parent_run_id:
+            _validate_run_id(parent_run_id)
+            # Make sure parent_run_id matches the current run id, if there is an active run
+            if len(_active_run_stack) > 0 and parent_run_id != _active_run_stack[-1].info.run_id:
+                raise Exception(
+                    (
+                        "Current run with UUID {} does not match the specified parent_run_id {}"
+                        + " To start a new nested run under the parent run with UUID {}, "
+                        + "first end the current run with mlflow.end_run()."
+                    ).format(_active_run_stack[-1].info.run_id, parent_run_id)
+                )
+            parent_run_obj = client.get_run(parent_run_id)
+            # Check if the specified parent_run has been deleted.
+            if parent_run_obj.info.lifecycle_stage == LifecycleStage.DELETED:
+                raise MlflowException(
+                    f"Cannot start run under parent run with ID {parent_run_id} "
+                    f"because it is in the deleted state."
+                )
+        else:
+            parent_run_id = (
+                _active_run_stack[-1].info.run_id if len(_active_run_stack) > 0 else None
+            )
 
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 
@@ -665,6 +699,11 @@ def log_param(key: str, value: Any, synchronous: Optional[bool] = None) -> Any:
 def flush_async_logging() -> None:
     """Flush all pending async logging."""
     _get_store().flush_async_logging()
+
+
+def _shut_down_async_logging() -> None:
+    """Shutdown the async logging and flush all pending data."""
+    _get_store().shut_down_async_logging()
 
 
 def flush_artifact_async_logging() -> None:

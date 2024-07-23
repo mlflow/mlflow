@@ -2410,7 +2410,7 @@ in your current system environment in order to run the example):
     )
     mlflow.log_param("system_prompt", system_prompt)
     logged_model = mlflow.openai.log_model(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         task=openai.chat.completions,
         artifact_path="model",
         messages=[
