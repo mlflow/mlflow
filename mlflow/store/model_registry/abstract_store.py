@@ -406,7 +406,7 @@ class AbstractStore:
             )
             eprint(
                 f"Copied version '{src_mv.version}' of model '{src_mv.name}'"
-                f" to version '{mv_copy.version}' of model '{mv_copy}'."
+                f" to version '{mv_copy.version}' of model '{mv_copy.name}'."
             )
         except MlflowException as e:
             raise MlflowException(
