@@ -164,9 +164,11 @@ def test_docstring_version_compatibility_warning():
     def another_func():
         func()
 
-    with mock.patch("importlib_metadata.version", return_value="0.0.0"):
+    with mock.patch("importlib_metadata.version", return_value="0.0.0") as mock_version:
         with warnings.catch_warnings(record=True) as w:
             another_func()
+
+        assert mock_version.call_count == 2
 
         # Exclude irrelevant warnings
         warns = [x for x in w if "MLflow Models integration is known to be compatible" in str(x)]
