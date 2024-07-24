@@ -296,7 +296,7 @@ def test_llmchain_autolog():
         assert spans[1].inputs == ["What is a good name for a company that makes MLflow?"]
         assert spans[1].outputs["generations"][0][0]["text"] == "test"
         attrs = spans[1].attributes
-        assert attrs["invocation_params"]["model_name"] == "gpt-4o-mini"
+        assert attrs["invocation_params"]["model_name"] == "gpt-3.5-turbo"
         assert attrs["invocation_params"]["temperature"] == 0.9
 
 
