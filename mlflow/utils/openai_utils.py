@@ -87,6 +87,13 @@ class _MockResponse:
         return self.json_data
 
 
+class _MockStreamResponse:
+    def __init__(self, status_code, json_data):
+        self.status_code = status_code
+        self.iter_lines = lambda: iter([f"data: {json.dumps(json_data)}".encode()])
+        self.headers = {"Content-Type": "text/event-stream"}
+
+
 def _chat_completion_json_sample(content):
     # https://platform.openai.com/docs/api-reference/chat/create
     return {
@@ -109,6 +116,31 @@ def _mock_chat_completion_response(content=TEST_CONTENT):
     return _MockResponse(200, _chat_completion_json_sample(content))
 
 
+def _chat_completion_stream_chunk(content):
+    return {
+        "id": "chatcmpl-123",
+        "object": "chat.completion.chunk",
+        "created": 1677652288,
+        "choices": [
+            {
+                "index": 0,
+                "delta": {
+                    "content": content,
+                    "function_call": None,
+                    "role": None,
+                    "tool_calls": None,
+                },
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
+    }
+
+
+def _mock_chat_completion_stream_response(content=TEST_CONTENT):
+    return _MockStreamResponse(200, _chat_completion_stream_chunk(content))
+
+
 @contextmanager
 def _mock_request(**kwargs):
     with mock.patch("requests.Session.request", **kwargs) as m:
@@ -116,10 +148,13 @@ def _mock_request(**kwargs):
 
 
 @contextmanager
-def _mock_openai_arequest():
-    with mock.patch(
-        "aiohttp.ClientSession.request", side_effect=_mock_async_chat_completion_response
-    ) as mock_request:
+def _mock_openai_arequest(stream=False):
+    if stream:
+        side_effect = _mock_async_chat_completion_stream_response
+    else:
+        side_effect = _mock_async_chat_completion_response
+
+    with mock.patch("aiohttp.ClientSession.request", side_effect=side_effect) as mock_request:
         yield mock_request
 
 
@@ -133,6 +168,32 @@ async def _mock_async_chat_completion_response(content=TEST_CONTENT, **kwargs):
     resp.json_data = json_data
     resp.json.return_value = json_data
     resp.read.return_value = resp.content
+    return resp
+
+
+async def _mock_async_chat_completion_stream_response(content=TEST_CONTENT, **kwargs):
+    resp = AsyncMock()
+    json_data = _chat_completion_stream_chunk(content)
+    resp.status = 200
+
+    class DummyAsyncIter:
+        def __init__(self):
+            self._content = [f"data: {json.dumps(json_data)}".encode()]
+            self._index = 0
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if self._index < len(self._content):
+                self._index += 1
+                return self._content[self._index - 1]
+            else:
+                raise StopAsyncIteration
+
+    # OpenAI uses content instead of iter_lines for async stream parsing
+    resp.content = DummyAsyncIter()
+    resp.headers = {"Content-Type": "text/event-stream"}
     return resp
 
 
