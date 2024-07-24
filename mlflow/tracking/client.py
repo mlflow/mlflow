@@ -494,6 +494,8 @@ class MlflowClient:
             experiment_ids: List of experiment ids to scope the search.
             filter_string: A search filter string. Supported filter keys are `name`, `status`,
                `timestamp_ms` and `tags`. Example: `filter_string=f"status='OK'"`
+            filter_string: A search filter string. Supported filter keys are `name`, `status`, 
+               `timestamp_ms` and `tags`. Example: `filter_string=f"status='OK'"`
             max_results: Maximum number of traces desired.
             order_by: List of order_by clauses.
             page_token: Token specifying the next page of results. It should be obtained from
