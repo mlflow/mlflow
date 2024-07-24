@@ -31,10 +31,6 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
-from mlflow.langchain._langchain_autolog import (
-    _update_langchain_model_config,
-    patched_inference,
-)
 from mlflow.langchain.databricks_dependencies import _detect_databricks_dependencies
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
@@ -593,6 +589,8 @@ def _save_model(model, path, loader_fn, persist_dir):
 
 
 def _load_model(local_model_path, flavor_conf):
+    from mlflow.langchain._langchain_autolog import _update_langchain_model_config
+
     # model_type is not accurate as the class can be subclass
     # of supported types, we define _MODEL_LOAD_KEY to ensure
     # which load function to use
@@ -961,6 +959,8 @@ def _patch_runnable_cls(cls):
     Args:
         cls: The class to patch.
     """
+    from mlflow.langchain._langchain_autolog import patched_inference
+
     patch_functions = ["invoke", "batch", "stream", "ainvoke", "abatch", "astream"]
     for func_name in patch_functions:
         if hasattr(cls, func_name):
@@ -1070,6 +1070,8 @@ def autolog(
         from langchain.chains.base import Chain
         from langchain.schema import BaseRetriever
         from langchain.schema.runnable import Runnable
+
+        from mlflow.langchain._langchain_autolog import patched_inference
 
         # avoid duplicate patching
         patched_classes = set()
