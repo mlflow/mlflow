@@ -78,15 +78,16 @@ def _exec_cmd(
     env = env if extra_env is None else {**os.environ, **extra_env}
 
     if is_in_databricks_runtime():
-        python_paths = os.environ["PYTHONPATH"].split(":")
-        filtered_paths = []
-        for p in python_paths:
-            try:
-                os.stat(p)
-                filtered_paths.append(p)
-            except PermissionError:
-                pass
-        os.environ["PYTHONPATH"] = ":".join(filtered_paths)
+        if python_path_env := os.environ.get("PYTHONPATH"):
+            python_paths = python_path_env.split(":")
+            filtered_paths = []
+            for p in python_paths:
+                try:
+                    os.stat(p)
+                    filtered_paths.append(p)
+                except PermissionError:
+                    pass
+            os.environ["PYTHONPATH"] = ":".join(filtered_paths)
 
     # In Python < 3.8, `subprocess.Popen` doesn't accept a command containing path-like
     # objects (e.g. `["ls", pathlib.Path("abc")]`) on Windows. To avoid this issue,
