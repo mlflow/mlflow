@@ -438,6 +438,7 @@ def _split_input_data_and_params(input_example):
     return input_example, None
 
 
+@experimental
 def convert_input_example_to_serving_input(
     input_example, example_no_conversion=False
 ) -> Optional[str]:
@@ -1761,6 +1762,7 @@ def _flatten_nested_params(
 
 # NB: this function should always be kept in sync with the serving
 # process in scoring_server invocations.
+@experimental
 def validate_serving_input(model_uri: str, serving_input: Union[str, Dict[str, Any]]):
     """
     Helper function to validate the model can be served and provided input is valid
