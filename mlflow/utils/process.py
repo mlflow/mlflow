@@ -60,6 +60,8 @@ def _exec_cmd(
         otherwise return a Popen instance.
 
     """
+    from mlflow.utils.databricks_utils import is_in_databricks_runtime
+
     illegal_kwargs = set(kwargs.keys()).intersection({"text"})
     if illegal_kwargs:
         raise ValueError(f"`kwargs` cannot contain {list(illegal_kwargs)}")
@@ -74,6 +76,17 @@ def _exec_cmd(
         )
 
     env = env if extra_env is None else {**os.environ, **extra_env}
+
+    if is_in_databricks_runtime():
+        python_paths = os.environ["PYTHONPATH"].split(":")
+        filtered_paths = []
+        for p in python_paths:
+            try:
+                os.stat(p)
+                filtered_paths.append(p)
+            except PermissionError:
+                pass
+        os.environ["PYTHONPATH"] = ":".join(filtered_paths)
 
     # In Python < 3.8, `subprocess.Popen` doesn't accept a command containing path-like
     # objects (e.g. `["ls", pathlib.Path("abc")]`) on Windows. To avoid this issue,
