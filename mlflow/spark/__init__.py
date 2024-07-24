@@ -704,7 +704,7 @@ def save_model(
         try:
             spark = _get_active_spark_session()
             if spark is not None:
-                wrapped_model = _PyFuncModelWrapper(spark, spark_model)
+                wrapped_model = _PyFuncModelWrapper(spark, spark_model, signature=None)
                 # We cast the predictions to a Pandas series because the Spark _PyFuncModelWrapper
                 # returns predictions as a list, which the `infer_signature` API does not support
                 # (unless it is a list of strings).
@@ -994,7 +994,7 @@ class _PyFuncModelWrapper:
 
         # Convert List[np.float64] / np.array[np.float64] type to List[float] type,
         # otherwise it will break `spark.createDataFrame` column type inferring.
-        if self.signature.inputs:
+        if self.signature and self.signature.inputs:
             for col_spec in self.signature.inputs.inputs:
                 if isinstance(col_spec.type, Array) and col_spec.type.is_sparkml_vector:
                     if col_spec.name is None:
@@ -1010,7 +1010,7 @@ class _PyFuncModelWrapper:
         spark_df = self.spark.createDataFrame(pandas_df)
 
         # Convert Array[Double] column to spark ML vector type according to signature
-        if self.signature.inputs:
+        if self.signature and self.signature.inputs:
             for col_spec in self.signature.inputs.inputs:
                 if isinstance(col_spec.type, Array) and col_spec.type.is_sparkml_vector:
                     from pyspark.ml.functions import array_to_vector
@@ -1037,7 +1037,7 @@ class _PyFuncModelWrapper:
         # If signature output schema exists and it contains vector type columns,
         # Convert spark ML vector type column to Array[Double] otherwise it will
         # break enforce_schema checking
-        if self.signature.outputs:
+        if self.signature and self.signature.outputs:
             for col_spec in self.signature.outputs.inputs:
                 if isinstance(col_spec.type, Array) and col_spec.type.is_sparkml_vector:
                     from pyspark.ml.functions import vector_to_array
