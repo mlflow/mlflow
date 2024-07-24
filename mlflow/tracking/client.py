@@ -4725,5 +4725,4 @@ class MlflowClient:
             Aliases: ["test-alias"]
         """
         _validate_model_name(name)
-        _validate_model_alias_name(alias)
         return self._get_registry_client().get_model_version_by_alias(name, alias)
