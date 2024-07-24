@@ -34,7 +34,6 @@ from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
-from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.utils.openai_utils import (
     TEST_CONTENT,
     _mock_chat_completion_response,
@@ -61,10 +60,6 @@ TEXT_COMPLEXITY_METRICS = get_text_complexity_metrics()
 def get_mlflow_model(artifact_uri, model_subpath=MODEL_DIR):
     model_conf_path = os.path.join(artifact_uri, model_subpath, "MLmodel")
     return Model.load(model_conf_path)
-
-
-def get_traces():
-    return mlflow.MlflowClient().search_traces(experiment_ids=[DEFAULT_EXPERIMENT_ID])
 
 
 def create_openai_llmchain():
