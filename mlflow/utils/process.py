@@ -85,7 +85,7 @@ def _exec_cmd(
                 try:
                     os.stat(p)
                     filtered_paths.append(p)
-                except PermissionError:
+                except (PermissionError, FileNotFoundError):
                     pass
             os.environ["PYTHONPATH"] = ":".join(filtered_paths)
 
