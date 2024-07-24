@@ -155,7 +155,7 @@ def _get_runnable_config_with_callback(
     """
     Create a new RunnableConfig (or a list of them) with the new callback injected.
 
-    This function should ALWAYS return a new RunnableConfig instance, instead of mutating the original
+    This function MUST return a new RunnableConfig instance, instead of mutating the original
     config. This is because the original config may be shared across different calls and in-place
     modification may cause unexpected behaviors, e.g. double injection.
 
@@ -186,7 +186,7 @@ def _inject_callback(
     """
     Inject a callback into the original callbacks.
 
-    This function should ALWAYS return a new list or new callback manager instance, instead of
+    This function MUST return a new list or new callback manager instance, instead of
     mutating the original callbacks. This is because the original callbacks may be shared across
     different calls and in-place modification may cause unexpected behaviors, e.g. double injection.
 
