@@ -161,11 +161,11 @@ def http_request(
     if extra_headers:
         headers = dict(**headers, **extra_headers)
 
-    # generate a client_request_uuid header for the request 
+    # generate a X-MLflow-Request-ID header for the request 
     # this uuid will be used to track the request in the backend
     # and should be reused across retries
-    if "client_request_uuid" not in headers:
-        headers["client_request_uuid"] = str(uuid.uuid4())
+    if "X-MLflow-Request-ID" not in headers:
+        headers["X-MLflow-Request-ID"] = str(uuid.uuid4())
 
     if auth_str:
         headers["Authorization"] = auth_str
