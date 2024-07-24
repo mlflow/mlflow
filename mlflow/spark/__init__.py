@@ -1048,7 +1048,6 @@ class _PyFuncModelWrapper:
                         col_name = col_spec.name
 
                     prediction_df = prediction_df.withColumn(col_name, vector_to_array(col_name))
-        breakpoint()
         return [
             x.prediction
             for x in prediction_df.collect()

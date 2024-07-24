@@ -769,9 +769,9 @@ def _check_or_set_model_prediction_column(spark_model, input_spark_df):
 
     prediction_column = "prediction"
     if isinstance(spark_model, PipelineModel) and spark_model.stages[-1].hasParam("outputCol"):
-        from pyspark.sql import SparkSession
+        from mlflow.utils._spark_utils import _get_active_spark_session
 
-        spark = SparkSession.builder.getOrCreate()
+        spark = _get_active_spark_session()
         # do a transform with an empty input DataFrame
         # to get the schema of the transformed DataFrame
         transformed_df = spark_model.transform(spark.createDataFrame([], input_spark_df.schema))
@@ -1077,8 +1077,6 @@ def autolog(
                             f"{unsupported_columns}. Output schema is not be logged."
                         )
                         model_output = None
-                    else:
-                        model_output = model_output
 
                     return infer_signature(input_example_slice, model_output)
 
