@@ -249,7 +249,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "openai"
         },
         "models": {
-            "minimum": "0.27.2",
+            "minimum": "1.0.0",
             "maximum": "1.36.1"
         },
         "autologging": {
@@ -262,7 +262,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "langchain"
         },
         "models": {
-            "minimum": "0.0.244",
+            "minimum": "0.1.0",
             "maximum": "0.2.10"
         },
         "autologging": {

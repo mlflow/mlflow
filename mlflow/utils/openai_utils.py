@@ -3,9 +3,10 @@ import os
 import time
 from contextlib import contextmanager
 from enum import Enum
+from http import HTTPStatus
 from typing import NamedTuple, Optional
 from unittest import mock
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import mlflow
 
@@ -79,9 +80,17 @@ class _MockResponse:
     def __init__(self, status_code, json_data):
         self.status_code = status_code
         self.content = json.dumps(json_data).encode()
-        self.headers = {"Content-Type": "application/json"}
+        self.headers = {"content-type": "application/json"}
         self.text = mlflow.__version__
         self.json_data = json_data
+        self.reason_phrase = HTTPStatus(status_code).phrase
+        self.request = MagicMock()
+
+        def mock_raise_for_status():
+            if 400 <= status_code < 600:
+                raise Exception(f"Mock HTTPX request {status_code} Error")
+
+        self.raise_for_status = mock_raise_for_status
 
     def json(self):
         return self.json_data
@@ -111,7 +120,7 @@ def _mock_chat_completion_response(content=TEST_CONTENT):
 
 @contextmanager
 def _mock_request(**kwargs):
-    with mock.patch("requests.Session.request", **kwargs) as m:
+    with mock.patch("httpx.Client.send", **kwargs) as m:
         yield m
 
 
