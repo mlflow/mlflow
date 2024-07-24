@@ -397,7 +397,7 @@ def _validate_model_version(model_version):
         )
 
 
-def _validate_model_alias_name(model_alias_name, perform_latest_check=True):
+def _validate_model_alias_name(model_alias_name):
     if model_alias_name is None or model_alias_name == "":
         raise MlflowException(
             "Registered model alias name cannot be empty.", INVALID_PARAMETER_VALUE
@@ -410,7 +410,7 @@ def _validate_model_alias_name(model_alias_name, perform_latest_check=True):
     _validate_length_limit(
         "Registered model alias name", MAX_REGISTERED_MODEL_ALIAS_LENGTH, model_alias_name
     )
-    if perform_latest_check and model_alias_name.lower() == "latest":
+    if model_alias_name.lower() == "latest":
         raise MlflowException(
             "'latest' alias name (case insensitive) is reserved.", INVALID_PARAMETER_VALUE
         )

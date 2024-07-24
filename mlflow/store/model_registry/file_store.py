@@ -942,7 +942,7 @@ class FileStore(AbstractStore):
 
     def _get_registered_model_alias_path(self, name, alias):
         _validate_model_name(name)
-        _validate_model_alias_name(alias, perform_latest_check=False)
+        _validate_model_alias_name(alias)
         registered_model_path = self._get_registered_model_path(name)
         if not exists(registered_model_path):
             raise MlflowException(
