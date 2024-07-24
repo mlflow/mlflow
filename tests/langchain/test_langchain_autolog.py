@@ -784,6 +784,7 @@ class AsyncCustomCallbackHandler(AsyncCallbackHandler):
 _CONFIG_PATTERNS = [
     # Config with no user callbacks
     RunnableConfig(max_concurrency=1),
+    RunnableConfig(callbacks=None),
     # With user callbacks
     RunnableConfig(callbacks=[CustomCallbackHandler()]),
     RunnableConfig(callbacks=BaseCallbackManager([CustomCallbackHandler()])),
@@ -1024,9 +1025,9 @@ async def test_langchain_autolog_callback_injection_in_astream(invoke_arg, confi
     model = create_openai_runnable()
     original_handlers = _extract_callback_handlers(config)
     _reset_callback_handlers(original_handlers)
+    input = {"product": "MLflow"}
 
     async def invoke_astream(model, config):
-        input = {"product": "MLflow"}
         if invoke_arg == "args":
             astream = model.astream(input, config)
         elif invoke_arg == "kwargs":

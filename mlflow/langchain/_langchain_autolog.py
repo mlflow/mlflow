@@ -92,6 +92,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
 
     if config.log_traces:
         args, kwargs = _get_args_with_mlflow_tracer(func_name, args, kwargs)
+        _logger.debug("Injected MLflow callbacks into the model.")
 
     # Traces does not require an MLflow run, only the other optional artifacts require it.
     if config.should_log_optional_artifacts():
@@ -169,7 +170,7 @@ def _get_runnable_config_with_callback(
         return [_get_runnable_config_with_callback(c, new_callback) for c in original_config]
     elif isinstance(original_config, dict):
         config_copy = original_config.copy()
-        callbacks = config_copy.pop("callbacks", [])
+        callbacks = config_copy.pop("callbacks", None) or []
         callbacks = _inject_callback(callbacks, new_callback)
         return RunnableConfig(callbacks=callbacks, **config_copy)
     else:
