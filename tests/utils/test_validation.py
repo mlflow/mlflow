@@ -80,7 +80,7 @@ BAD_ALIAS_NAMES = [
     "V1",
     "latest",
     "Latest",
-    "LATEST"
+    "LATEST",
 ]
 
 
