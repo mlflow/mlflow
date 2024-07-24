@@ -828,18 +828,19 @@ def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, config):
     original_handlers = _extract_callback_handlers(config)
 
     with _mock_request(return_value=_mock_chat_completion_response()):
+        input = {"product": "MLflow"}
         if invoke_arg == "args":
-            model.invoke("MLflow", config)
+            model.invoke(input, config)
         elif invoke_arg == "kwargs":
-            model.invoke("MLflow", config=config)
+            model.invoke(input, config=config)
         elif invoke_arg is None:
-            model.invoke("MLflow")
+            model.invoke(input)
 
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
     assert traces[0].data.spans[0].name == "RunnableSequence"
-    assert traces[0].data.spans[0].inputs == "MLflow"
+    assert traces[0].data.spans[0].inputs == input
     assert traces[0].data.spans[0].outputs == TEST_CONTENT
 
     # Original callback should not be mutated
@@ -861,19 +862,20 @@ async def test_langchain_autolog_callback_injection_in_ainvoke(invoke_arg, confi
     original_handlers = _extract_callback_handlers(config)
 
     with _mock_openai_arequest():
+        input = {"product": "MLflow"}
         if invoke_arg == "args":
-            await model.ainvoke("MLflow", config)
+            await model.ainvoke(input, config)
         elif invoke_arg == "kwargs":
-            await model.ainvoke("MLflow", config=config)
+            await model.ainvoke(input, config=config)
         elif invoke_arg is None:
-            await model.ainvoke("MLflow")
+            await model.ainvoke(input)
 
     ## Trace doesn't work for .abatch() patching
     # traces = get_traces()
     # assert len(traces) == 1
     # assert traces[0].info.status == "OK"
     # assert traces[0].data.spans[0].name == "RunnableSequence"
-    # assert traces[0].data.spans[0].inputs == "MLflow"
+    # assert traces[0].data.spans[0].inputs == input
     # assert traces[0].data.spans[0].outputs == TEST_CONTENT
 
     # Original callback should not be mutated
@@ -902,20 +904,20 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config):
     original_handlers = _extract_callback_handlers(config)
 
     with _mock_request(return_value=_mock_chat_completion_response()):
-        inputs = ["MLflow"] * 2
+        input = {"product": "MLflow"}
         if invoke_arg == "args":
-            model.batch(inputs, config)
+            model.batch([input] * 2, config)
         elif invoke_arg == "kwargs":
-            model.batch(inputs, config=config)
+            model.batch([input] * 2, config=config)
         elif invoke_arg is None:
-            model.batch(inputs)
+            model.batch([input] * 2)
 
     traces = get_traces()
     assert len(traces) == 2
     for trace in traces:
         assert trace.info.status == "OK"
         assert trace.data.spans[0].name == "RunnableSequence"
-        assert trace.data.spans[0].inputs == "MLflow"
+        assert trace.data.spans[0].inputs == input
         assert trace.data.spans[0].outputs == TEST_CONTENT
 
     # Original callback should not be mutated
@@ -947,13 +949,13 @@ async def test_langchain_autolog_callback_injection_in_abatch(invoke_arg, config
     original_handlers = _extract_callback_handlers(config)
 
     with _mock_openai_arequest():
-        inputs = ["MLflow"] * 2
+        input = {"product": "MLflow"}
         if invoke_arg == "args":
-            await model.abatch(inputs, config)
+            await model.abatch([input] * 2, config)
         elif invoke_arg == "kwargs":
-            await model.abatch(inputs, config=config)
+            await model.abatch([input] * 2, config=config)
         elif invoke_arg is None:
-            await model.abatch(inputs)
+            await model.abatch([input] * 2)
 
     ## Trace doesn't work for .abatch() patching
     # traces = get_traces()
@@ -961,7 +963,7 @@ async def test_langchain_autolog_callback_injection_in_abatch(invoke_arg, config
     # for trace in traces:
     #     assert trace.info.status == "OK"
     #     assert trace.data.spans[0].name == "RunnableSequence"
-    #     assert trace.data.spans[0].inputs == "MLflow"
+    #     assert trace.data.spans[0].inputs == input
     #     assert trace.data.spans[0].outputs == TEST_CONTENT
 
     # Original callback should not be mutated
@@ -983,19 +985,20 @@ def test_langchain_autolog_callback_injection_in_stream(invoke_arg, config):
     original_handlers = _extract_callback_handlers(config)
 
     with _mock_request(return_value=_mock_chat_completion_stream_response()):
+        input = {"product": "MLflow"}
         if invoke_arg == "args":
-            list(model.stream("MLflow", config))
+            list(model.stream(input, config))
         elif invoke_arg == "kwargs":
-            list(model.stream("MLflow", config=config))
+            list(model.stream(input, config=config))
         elif invoke_arg is None:
-            list(model.stream("MLflow"))
+            list(model.stream(input))
 
     ## Trace doesn't work for .stream() patching
     # traces = get_traces()
     # assert len(traces) == 1
     # assert traces[0].info.status == "OK"
     # assert traces[0].data.spans[0].name == "RunnableSequence"
-    # assert traces[0].data.spans[0].inputs == "MLflow"
+    # assert traces[0].data.spans[0].inputs == input
     # assert traces[0].data.spans[0].outputs == TEST_CONTENT
 
     # Original callback should not be mutated
@@ -1012,29 +1015,32 @@ def test_langchain_autolog_callback_injection_in_stream(invoke_arg, config):
 @pytest.mark.asyncio
 async def test_langchain_autolog_callback_injection_in_astream(invoke_arg, config):
     mlflow.langchain.autolog()
+
     model = create_openai_runnable()
     original_handlers = _extract_callback_handlers(config)
 
-    async def invoke_astream(model, invoke_arg, config):
+    async def invoke_astream(model, config):
+        input = {"product": "MLflow"}
         if invoke_arg == "args":
-            async for result in model.astream("MLflow", config):
-                return result
+            astream = model.astream(input, config)
         elif invoke_arg == "kwargs":
-            async for result in model.astream("MLflow", config=config):
-                return result
+            astream = model.astream(input, config=config)
         elif invoke_arg is None:
-            async for result in model.astream("MLflow"):
-                return result
+            astream = model.astream(input)
+
+        # Consume the stream
+        async for _ in astream:
+            pass
 
     with _mock_openai_arequest(stream=True):
-        await invoke_astream(model, invoke_arg, config)
+        await invoke_astream(model, config)
 
     ## Trace doesn't work for .astream() patching
     # traces = get_traces()
     # assert len(traces) == 1
     # assert traces[0].info.status == "OK"
     # assert traces[0].data.spans[0].name == "RunnableSequence"
-    # assert traces[0].data.spans[0].inputs == "MLflow"
+    # assert traces[0].data.spans[0].inputs == input
     # assert traces[0].data.spans[0].outputs == TEST_CONTENT
 
     # Original callback should not be mutated
