@@ -267,6 +267,7 @@ def test_model_export_with_signature_and_examples(spark_model_iris, iris_signatu
                 if example is None and signature is None:
                     assert mlflow_model.signature is None
                 else:
+                    breakpoint()
                     assert mlflow_model.signature == iris_signature
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None

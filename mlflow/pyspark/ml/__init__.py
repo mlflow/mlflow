@@ -783,6 +783,28 @@ def _check_or_set_model_prediction_column(spark_model, input_spark_df):
     return prediction_column
 
 
+def _infer_spark_model_signature(spark_model, input_example_spark_df):
+    from mlflow.models import infer_signature
+
+    prediction_column = _check_or_set_model_prediction_column(spark_model, input_example_spark_df)
+    model_output = spark_model.transform(input_example_spark_df).select(prediction_column)
+    # TODO: Remove this once we support non-scalar spark data types
+    unsupported_columns = _get_columns_with_unsupported_data_type(model_output)
+    if unsupported_columns:
+        _logger.warning(
+            "Model outputs contain unsupported Spark data types: "
+            f"{unsupported_columns}. Output schema is not be logged."
+        )
+        model_output = None
+
+    signature = infer_signature(input_example_spark_df, model_output)
+    if signature.outputs:
+        # We only have one prediction column output,
+        # convert it to unamed output schema to keep consistent with old MLflow version.
+        signature.outputs.inputs[0]._name = None
+    return signature
+
+
 @autologging_integration(AUTOLOGGING_INTEGRATION_NAME)
 def autolog(
     log_models=True,
@@ -1067,18 +1089,7 @@ def autolog(
                     return limited_input_df
 
                 def _infer_model_signature(input_example_slice):
-                    prediction_column = _check_or_set_model_prediction_column(spark_model, input_example_slice)
-                    model_output = spark_model.transform(input_example_slice).select(prediction_column)
-                    # TODO: Remove this once we support non-scalar spark data types
-                    unsupported_columns = _get_columns_with_unsupported_data_type(model_output)
-                    if unsupported_columns:
-                        _logger.warning(
-                            "Model outputs contain unsupported Spark data types: "
-                            f"{unsupported_columns}. Output schema is not be logged."
-                        )
-                        model_output = None
-
-                    return infer_signature(input_example_slice, model_output)
+                    return _infer_spark_model_signature(spark_model, input_example_slice)
 
                 # TODO: Remove this once we support non-scalar spark data types
                 nonlocal log_model_signatures

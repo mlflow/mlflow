@@ -704,12 +704,10 @@ def save_model(
         try:
             spark = _get_active_spark_session()
             if spark is not None:
-                wrapped_model = _PyFuncModelWrapper(spark, spark_model, signature=None)
-                # We cast the predictions to a Pandas series because the Spark _PyFuncModelWrapper
-                # returns predictions as a list, which the `infer_signature` API does not support
-                # (unless it is a list of strings).
-                prediction = pd.Series(wrapped_model.predict(input_ex))
-                signature = infer_signature(input_ex, prediction)
+                input_example_spark_df = spark.createDataFrame(input_ex)
+                signature = mlflow.pyspark.ml._infer_spark_model_signature(
+                    spark_model, input_example_spark_df
+                )
         except Exception as e:
             if environment_variables._MLFLOW_TESTING.get():
                 raise
