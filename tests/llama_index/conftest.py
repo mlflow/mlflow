@@ -12,7 +12,7 @@ from llama_index.core import (
     Settings,
     VectorStoreIndex,
 )
-from llama_index.core.callbacks import CallbackManager, TokenCountingHandler
+from llama_index.core.callbacks import CallbackManager, LlamaDebugHandler
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
@@ -72,7 +72,7 @@ def settings(monkeypatch, mock_openai):
     )
     monkeypatch.setattr(Settings, "llm", OpenAI())
     monkeypatch.setattr(Settings, "embed_model", OpenAIEmbedding())
-    monkeypatch.setattr(Settings, "callback_manager", CallbackManager([TokenCountingHandler()]))
+    monkeypatch.setattr(Settings, "callback_manager", CallbackManager([LlamaDebugHandler()]))
     monkeypatch.setattr(Settings, "_tokenizer", _mock_tokenizer)  # must bypass setter
     monkeypatch.setattr(Settings, "context_window", 4096)  # this enters the _prompt_helper field
     monkeypatch.setattr(Settings, "node_parser", SentenceSplitter(chunk_size=1024))
