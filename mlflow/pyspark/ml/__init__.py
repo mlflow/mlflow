@@ -789,8 +789,7 @@ def _infer_spark_model_signature(spark_model, input_example_spark_df):
     prediction_column = _check_or_set_model_prediction_column(spark_model, input_example_spark_df)
     model_output = spark_model.transform(input_example_spark_df).select(prediction_column)
     # TODO: Remove this once we support non-scalar spark data types
-    unsupported_columns = _get_columns_with_unsupported_data_type(model_output)
-    if unsupported_columns:
+    if unsupported_columns := _get_columns_with_unsupported_data_type(model_output):
         _logger.warning(
             "Model outputs contain unsupported Spark data types: "
             f"{unsupported_columns}. Output schema is not be logged."
@@ -800,7 +799,7 @@ def _infer_spark_model_signature(spark_model, input_example_spark_df):
     signature = infer_signature(input_example_spark_df, model_output)
     if signature.outputs:
         # We only have one prediction column output,
-        # convert it to unamed output schema to keep consistent with old MLflow version.
+        # convert it to unnamed output schema to keep consistent with old MLflow version.
         signature.outputs.inputs[0]._name = None
     return signature
 
@@ -1095,8 +1094,7 @@ def autolog(
                 # TODO: Remove this once we support non-scalar spark data types
                 nonlocal log_model_signatures
                 if log_model_signatures:
-                    unsupported_columns = _get_columns_with_unsupported_data_type(input_df)
-                    if unsupported_columns:
+                    if unsupported_columns := _get_columns_with_unsupported_data_type(input_df):
                         _logger.warning(
                             "Model inputs contain unsupported Spark data types: "
                             f"{unsupported_columns}. Model signature is not logged."

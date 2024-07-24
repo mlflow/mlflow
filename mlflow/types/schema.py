@@ -442,7 +442,7 @@ class Array:
     def __init__(
         self,
         dtype: Union["Array", "Map", DataType, Object, str],
-        _is_sparkml_vector: bool = False,
+        is_sparkml_vector: bool = False,
     ) -> None:
         try:
             self._dtype = DataType[dtype] if isinstance(dtype, str) else dtype
@@ -458,12 +458,12 @@ class Array:
                 f"'dtype' argument, but got '{self.dtype.__class__}'"
             )
 
-        if _is_sparkml_vector and self.dtype != DataType.double:
+        if is_sparkml_vector and self.dtype != DataType.double:
             raise MlflowException(
                 "Only 'Array(double)' type can be set as Spark ML vector type."
             )
 
-        self._is_sparkml_vector = _is_sparkml_vector
+        self._is_sparkml_vector = is_sparkml_vector
 
     @property
     def is_sparkml_vector(self) -> bool:
@@ -496,7 +496,7 @@ class Array:
         `items` keys.
         Example: {"type": "array", "items": "string"}
         """
-        if not {"items", "type", "is_sparkml_vector"} <= set(kwargs.keys()):
+        if not {"items", "type"} <= set(kwargs.keys()):
             raise MlflowException(
                 "Missing keys in Array JSON. Expected to find keys `items` and `type`"
             )
@@ -507,8 +507,6 @@ class Array:
         if not {"type"} <= set(kwargs["items"].keys()):
             raise MlflowException("Missing keys in Array's items JSON. Expected to find key `type`")
 
-        is_sparkml_vector = kwargs.get("is_sparkml_vector", False)
-
         if kwargs["items"]["type"] == OBJECT_TYPE:
             item_type = Object.from_json_dict(**kwargs["items"])
         elif kwargs["items"]["type"] == ARRAY_TYPE:
@@ -518,7 +516,7 @@ class Array:
         else:
             item_type = kwargs["items"]["type"]
 
-        return cls(dtype=item_type, _is_sparkml_vector=is_sparkml_vector)
+        return cls(dtype=item_type, is_sparkml_vector=kwargs.get("is_sparkml_vector", False))
 
     def __repr__(self) -> str:
         if self.is_sparkml_vector:
@@ -551,7 +549,7 @@ def get_spark_ml_vector_type():
     """
     Get the spark ML vector type.
     """
-    return Array(dtype=DataType.double, _is_sparkml_vector=True)
+    return Array(dtype=DataType.double, is_sparkml_vector=True)
 
 
 class Map:

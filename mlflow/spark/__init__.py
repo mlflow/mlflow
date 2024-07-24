@@ -995,10 +995,7 @@ class _PyFuncModelWrapper:
         if self.signature and self.signature.inputs:
             for col_spec in self.signature.inputs.inputs:
                 if isinstance(col_spec.type, Array) and col_spec.type.is_sparkml_vector:
-                    if col_spec.name is None:
-                        col_name = pandas_df.columns[0]
-                    else:
-                        col_name = col_spec.name
+                    col_name = col_spec.name or pandas_df.columns[0]
 
                     pandas_df[col_name] = pd.Series([
                         [float(elem) for elem in array]
@@ -1013,10 +1010,7 @@ class _PyFuncModelWrapper:
                 if isinstance(col_spec.type, Array) and col_spec.type.is_sparkml_vector:
                     from pyspark.ml.functions import array_to_vector
 
-                    if col_spec.name is None:
-                        col_name = spark_df.columns[0]
-                    else:
-                        col_name = col_spec.name
+                    col_name = col_spec.name or spark_df.columns[0]
                     spark_df = spark_df.withColumn(col_name, array_to_vector(col_name))
 
         # For the case of no signature or signature logged by old version MLflow,
@@ -1040,11 +1034,7 @@ class _PyFuncModelWrapper:
                 if isinstance(col_spec.type, Array) and col_spec.type.is_sparkml_vector:
                     from pyspark.ml.functions import vector_to_array
 
-                    if col_spec.name is None:
-                        col_name = prediction_df.columns[0]
-                    else:
-                        col_name = col_spec.name
-
+                    col_name = col_spec.name or prediction_df.columns[0]
                     prediction_df = prediction_df.withColumn(col_name, vector_to_array(col_name))
         return [
             x.prediction
