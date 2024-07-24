@@ -267,7 +267,6 @@ def test_model_export_with_signature_and_examples(spark_model_iris, iris_signatu
                 if example is None and signature is None:
                     assert mlflow_model.signature is None
                 else:
-                    breakpoint()
                     assert mlflow_model.signature == iris_signature
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
@@ -1008,7 +1007,7 @@ def test_model_with_vector_input(model_path, spark):
     input_type = model_info.signature.inputs.input_dict()['features'].type
     assert isinstance(input_type, Array) and input_type.is_sparkml_vector
 
-    assert model_info.signature.outputs.input_dict()['prediction'].type == DataType.double
+    assert model_info.signature.outputs.inputs[0].type == DataType.double
 
     model = mlflow.pyfunc.load_model(model_uri)
 
@@ -1024,7 +1023,7 @@ def test_model_with_vector_input_vector_output(model_path, spark):
         [([3., 4.], 0), ([5., 6.], 1)], schema="features array<double>, label long"
     ).select(array_to_vector("features").alias("features"), col("label"))
 
-    lor = LogisticRegression(maxIter=2)\
+    lor = LogisticRegression(maxIter=2) \
         .setPredictionCol("") \
         .setProbabilityCol("prediction")  # set probability outputs as prediction column
     with mlflow.start_run() as run:
@@ -1037,7 +1036,7 @@ def test_model_with_vector_input_vector_output(model_path, spark):
     input_type = model_info.signature.inputs.input_dict()['features'].type
     assert isinstance(input_type, Array) and input_type.is_sparkml_vector
 
-    output_type = model_info.signature.outputs.input_dict()["prediction"].type
+    output_type = model_info.signature.outputs.inputs[0].type
     assert isinstance(output_type, Array) and output_type.is_sparkml_vector
 
     model = mlflow.pyfunc.load_model(model_uri)

@@ -483,7 +483,10 @@ class Array:
         items = (
             {"type": self.dtype.name} if isinstance(self.dtype, DataType) else self.dtype.to_dict()
         )
-        return {"type": ARRAY_TYPE, "items": items, "is_sparkml_vector": self.is_sparkml_vector}
+        is_sparkml_vector_attr = (
+            {"is_sparkml_vector": self.is_sparkml_vector} if self.is_sparkml_vector else {}
+        )
+        return {"type": ARRAY_TYPE, "items": items, **is_sparkml_vector_attr}
 
     @classmethod
     def from_json_dict(cls, **kwargs):

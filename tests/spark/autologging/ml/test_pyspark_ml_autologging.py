@@ -1061,7 +1061,7 @@ def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
         _assert_autolog_infers_model_signature_correctly(
             run,
             input_sig_spec=[{"name": "text", "type": "string", "required": True}],
-            output_sig_spec=None,
+            output_sig_spec=[{'required': True, 'type': 'double'}],
         )
 
 
@@ -1081,9 +1081,8 @@ def test_autolog_signature_scalar_input_and_non_scalar_output(dataset_numeric):
     pipe = Pipeline(
         stages=[VectorAssembler(inputCols=input_cols, outputCol="features"), LinearRegression()]
     )
-    with mlflow.start_run() as run, mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
+    with mlflow.start_run() as run:
         pipe.fit(dataset_numeric)
-        mock_warning.assert_called_once_with(AnyStringWith("Output schema is not be logged"))
         ml_model_path = pathlib.Path(run.info.artifact_uri).joinpath("model", "MLmodel")
         with open(ml_model_path) as f:
             data = yaml.safe_load(f)
@@ -1091,7 +1090,7 @@ def test_autolog_signature_scalar_input_and_non_scalar_output(dataset_numeric):
             assert json.loads(signature["inputs"]) == [
                 {"name": "number", "type": "double", "required": True}
             ]
-            assert signature["outputs"] is None
+            assert json.loads(signature["outputs"]) == [{"type": "double", "required": True}]
 
 
 @pytest.fixture
@@ -1110,9 +1109,9 @@ def multinomial_lr_with_index_to_string_stage_pipeline(multinomial_df_with_strin
         stages=[
             string_indexer,
             VectorAssembler(inputCols=["id"], outputCol="features"),
-            LogisticRegression(),
+            LogisticRegression().setPredictionCol("lorPrediction"),
             IndexToString(
-                inputCol="prediction", outputCol="originalLabel", labels=string_indexer.labels
+                inputCol="lorPrediction", outputCol="prediction", labels=string_indexer.labels
             ),
         ]
     )
@@ -1140,7 +1139,7 @@ def test_signature_with_index_to_string_stage(
         _assert_autolog_infers_model_signature_correctly(
             run,
             input_sig_spec=[{"name": "id", "type": "long", "required": True}],
-            output_sig_spec=None,
+            output_sig_spec=[{'required': True, 'type': 'string'}],
         )
 
 
@@ -1167,9 +1166,9 @@ def pipeline_for_feature_cols(input_df_with_non_features):
         stages=[
             string_indexer,
             VectorAssembler(inputCols=["id"], outputCol="features"),
-            LogisticRegression(),
+            LogisticRegression().setPredictionCol("lorPrediction"),
             IndexToString(
-                inputCol="prediction", outputCol="originalLabel", labels=string_indexer.labels
+                inputCol="lorPrediction", outputCol="prediction", labels=string_indexer.labels
             ),
         ]
     )
@@ -1184,7 +1183,7 @@ def test_signature_with_non_feature_input_columns(
         _assert_autolog_infers_model_signature_correctly(
             run,
             input_sig_spec=[{"name": "id", "type": "long", "required": True}],
-            output_sig_spec=None,
+            output_sig_spec=[{'required': True, 'type': 'string'}],
         )
 
 

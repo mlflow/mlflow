@@ -1081,7 +1081,8 @@ def autolog(
                     cast_spark_df_with_vector_to_array,
                     get_feature_cols,
                 )
-                def _get_input_example_df():
+
+                def _get_input_example_spark_df():
                     feature_cols = list(get_feature_cols(input_df, spark_model))
                     limited_input_df = input_df.select(feature_cols).limit(
                         INPUT_EXAMPLE_SAMPLE_ROWS
@@ -1102,14 +1103,18 @@ def autolog(
                         )
                         log_model_signatures = False
 
-                input_example, signature = resolve_input_example_and_signature(
-                    _get_input_example_df,
+                input_example_spark_df, signature = resolve_input_example_and_signature(
+                    _get_input_example_spark_df,
                     _infer_model_signature,
                     log_input_examples,
                     log_model_signatures,
                     _logger,
                 )
 
+                if input_example_spark_df:
+                    input_example = cast_spark_df_with_vector_to_array(input_example_spark_df).toPandas()
+                else:
+                    input_example = None
                 mlflow.spark.log_model(
                     spark_model,
                     artifact_path="model",
