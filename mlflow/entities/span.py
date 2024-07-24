@@ -144,6 +144,11 @@ class Span:
         return self.get_attribute(SpanAttributeKey.OUTPUTS)
 
     @property
+    def span_type(self) -> str:
+        """The type of the span."""
+        return self.get_attribute(SpanAttributeKey.SPAN_TYPE)
+
+    @property
     def _trace_id(self) -> str:
         """
         The OpenTelemetry trace ID of the span. Note that this should not be exposed to
