@@ -24,8 +24,14 @@ import { isSystemMetricKey } from '../../utils/MetricsUtils';
 import DeleteRunModal from '../modals/DeleteRunModal';
 import Routes from '../../routes';
 import { RunViewMetricChartsV2 } from './RunViewMetricChartsV2';
-import { shouldUseUnifiedRunCharts } from 'common/utils/FeatureUtils';
+import {
+  shouldEnableRunDetailsPageTracesTab,
+  shouldUseUnifiedRunCharts,
+} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
+import { RunViewTracesTab } from './RunViewTracesTab';
+import type { RunInfoEntity } from '../../types';
+import type { UseGetRunQueryResponseRunInfo } from './hooks/useGetRunQuery';
 
 const RunPageLoadingState = () => (
   <PageContainer>
@@ -59,7 +65,10 @@ export const RunPage = () => {
     errors: { experimentFetchError, runFetchError },
   } = useRunDetailsPageData(runUuid, experimentId);
 
-  const { runInfo, latestMetrics, tags, experiment, params } = data;
+  const { latestMetrics, tags, experiment, params } = data;
+
+  // Casting RunInfo to GraphQL-originating type so we can be sure that all null checks will kick in
+  const runInfo = data.runInfo as RunInfoEntity | UseGetRunQueryResponseRunInfo;
 
   const [modelMetricKeys, systemMetricKeys] = useMemo<[string[], string[]]>(() => {
     if (!latestMetrics) {
@@ -93,7 +102,18 @@ export const RunPage = () => {
           return <RunViewMetricCharts mode="system" metricKeys={systemMetricKeys} runInfo={runInfo} />;
         }
       case RunPageTabName.ARTIFACTS:
-        return <RunViewArtifactTab runUuid={runUuid} runTags={tags} experimentId={experimentId} />;
+        return (
+          <RunViewArtifactTab
+            runUuid={runUuid}
+            runTags={tags}
+            experimentId={experimentId}
+            artifactUri={runInfo.artifactUri ?? undefined}
+          />
+        );
+      case RunPageTabName.TRACES:
+        if (shouldEnableRunDetailsPageTracesTab()) {
+          return <RunViewTracesTab runUuid={runUuid} runTags={tags} experimentId={experimentId} />;
+        }
     }
     return <RunViewOverview runUuid={runUuid} onRunDataUpdated={refetchRun} />;
   };
@@ -146,7 +166,7 @@ export const RunPage = () => {
       <RenameRunModal
         runUuid={runUuid}
         onClose={() => setRenameModalVisible(false)}
-        runName={runInfo.runName}
+        runName={runInfo.runName ?? ''}
         isOpen={renameModalVisible}
         onSuccess={refetchRun}
       />

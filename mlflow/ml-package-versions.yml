@@ -6,7 +6,7 @@ sklearn:
 
   models:
     minimum: "0.24.1"
-    maximum: "1.4.2"
+    maximum: "1.5.1"
     requirements:
       "< 1.0": ["scipy==1.7.3"]
     python:
@@ -16,7 +16,7 @@ sklearn:
 
   autologging:
     minimum: "0.24.1"
-    maximum: "1.4.2"
+    maximum: "1.5.1"
     python:
       "== dev": "3.9"
     requirements:
@@ -37,7 +37,7 @@ pytorch:
 
   models:
     minimum: "1.9.0"
-    maximum: "2.3.0"
+    maximum: "2.3.1"
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
@@ -47,7 +47,7 @@ pytorch:
 
   autologging:
     minimum: "1.9.0"
-    maximum: "2.3.0"
+    maximum: "2.3.1"
     requirements:
       ">= 0.0.0": ["tensorboard"]
     run: |
@@ -62,7 +62,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.9.0"
-    maximum: "2.2.4"
+    maximum: "2.3.3"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
       # torchmetrics==0.8.0 released a breaking change for versions 1.3 and 1.4 where
@@ -86,7 +86,7 @@ keras:
 
   models:
     minimum: "3.0.2"
-    maximum: "3.3.3"
+    maximum: "3.4.1"
     python:
       "== dev": "3.9"
     requirements:
@@ -97,7 +97,7 @@ keras:
 
   autologging:
     minimum: "3.0.2"
-    maximum: "3.3.3"
+    maximum: "3.4.1"
     python:
       "== dev": "3.9"
     requirements:
@@ -114,7 +114,7 @@ tensorflow:
 
   models:
     minimum: "2.7.4"
-    maximum: "2.16.1"
+    maximum: "2.17.0"
     python:
       "== dev": "3.9"
     requirements:
@@ -135,7 +135,7 @@ tensorflow:
 
   autologging:
     minimum: "2.7.4"
-    maximum: "2.16.1"
+    maximum: "2.17.0"
     python:
       "== dev": "3.9"
     requirements:
@@ -155,7 +155,7 @@ xgboost:
 
   models:
     minimum: "1.4.2"
-    maximum: "2.0.3"
+    maximum: "2.1.0"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
       "< 1.6": ["pandas<2"]
@@ -164,7 +164,7 @@ xgboost:
 
   autologging:
     minimum: "1.4.2"
-    maximum: "2.0.3"
+    maximum: "2.1.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
       "< 1.6": ["pandas<2"]
@@ -181,7 +181,7 @@ lightgbm:
 
   models:
     minimum: "3.1.1"
-    maximum: "4.3.0"
+    maximum: "4.4.0"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -189,7 +189,7 @@ lightgbm:
 
   autologging:
     minimum: "3.1.1"
-    maximum: "4.3.0"
+    maximum: "4.4.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
     run: |
@@ -289,7 +289,7 @@ onnx:
 
   models:
     minimum: "1.13.1"
-    maximum: "1.16.0"
+    maximum: "1.16.1"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
       "< 1.11.0": ["numpy<1.24.0"]
@@ -304,7 +304,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.7.4"
+    maximum: "3.7.5"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0", "werkzeug<3"]
@@ -501,7 +501,7 @@ h2o:
     pip_release: "h2o"
   models:
     minimum: "3.40.0.1"
-    maximum: "3.46.0.2"
+    maximum: "3.46.0.4"
     run: |
       pytest tests/h2o
 
@@ -510,7 +510,7 @@ shap:
     pip_release: "shap"
   models:
     minimum: "0.41.0"
-    maximum: "0.45.1"
+    maximum: "0.46.0"
     requirements:
       "<= 0.41.0": ["numpy<1.24.0"]
     run: |
@@ -539,7 +539,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.25.1"
-    maximum: "4.41.0"
+    maximum: "4.42.4"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -567,7 +567,11 @@ transformers:
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
       # See: https://github.com/huggingface/transformers/issues/23352 for discussion
       "< 4.30.0": ["tensorflow<2.13.0"]
+      # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
+      # `accelerate>=0.32.0` is incompatible with `huggingface_hub==0.17.3`.
+      "== 4.34.1": ["accelerate<0.32.0"]
     pre_test: |
+      export PYTHONPATH=./
       python tests/transformers/helper.py
     run: |
       # Run all Transformers tests except autologging
@@ -576,7 +580,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.25.1"
-    maximum: "4.41.0"
+    maximum: "4.42.4"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -587,7 +591,8 @@ transformers:
       ">= 0.0.0": [
           "datasets",
           # 0.22.0 is broken: https://github.com/huggingface/huggingface_hub/issues/2157
-          "huggingface_hub!=0.22.0",
+          # 0.24.0 contains a breaking change for setfit: https://github.com/huggingface/setfit/issues/544
+          "huggingface_hub<0.24.0,!=0.22.0",
           "hf_transfer",
           "torch",
           "torchvision",
@@ -603,6 +608,9 @@ transformers:
       # prior to 4.30.0 are incompatible with this breaking change in Keras.
       # See: https://github.com/huggingface/transformers/issues/23352 for discussion
       "< 4.30.0": ["tensorflow<2.13.0"]
+      # Installing `transformers==4.34.1` with `datasets` results in installing `huggingface_hub==0.17.3`.
+      # `accelerate>=0.32.0` is incompatible with `huggingface_hub==0.17.3`.
+      "== 4.34.1": ["accelerate<0.32.0"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
 
@@ -613,14 +621,14 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "0.27.2"
-    maximum: "1.30.1"
+    maximum: "1.36.1"
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
     run: |
       pytest tests/openai/test_openai_model_export.py
   autologging:
     minimum: "1.17.0"
-    maximum: "1.27.0"
+    maximum: "1.36.1"
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
     run: |
@@ -633,12 +641,13 @@ langchain:
       pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/langchain
   models:
     minimum: "0.0.244"
-    maximum: "0.2.1"
+    maximum: "0.2.10"
     requirements:
       ">= 0.0.0": [
           "pyspark",
           "transformers",
-          "tensorflow<2.16",
+          "torch",
+          "torchvision",
           "openai",
           "google-search-results",
           "psutil",
@@ -664,13 +673,11 @@ langchain:
         pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
       fi
   autologging:
-    minimum: "0.1.4"
-    maximum: "0.2.1"
+    minimum: "0.1.0"
+    maximum: "0.2.10"
     requirements:
       ">= 0.0.0": [
           "pyspark",
-          "transformers",
-          "tensorflow",
           "openai",
           "google-search-results",
           "psutil",
@@ -679,10 +686,9 @@ langchain:
           "numexpr",
           "spacy",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
+          "pytest-asyncio", # for testing runnable async functions patches
         ]
     run: |
-      # For MlflowCallback text analysis
-      python -m spacy download en_core_web_sm
       pytest tests/langchain/test_langchain_autolog.py
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
@@ -693,6 +699,26 @@ langchain:
         pytest tests/langchain/test_langchain_autolog.py
       fi
 
+llama_index:
+  package_info:
+    pip_release: "llama-index"
+    install_dev: |
+      pip install git+https://github.com/run-llama/llama_index.git
+  models:
+    # New event/span framework is fully implemented in 0.10.44
+    minimum: "0.10.44"
+    maximum: "0.10.56"
+    requirements:
+      ">= 0.0.0": [
+          "openai",
+          # Required to test Databricks integration
+          "llama-index-llms-databricks",
+          "llama-index-embeddings-databricks",
+        ]
+    run:
+      # TODO: Add --ignore flag for autologging test once it's implemented
+      pytest tests/llama_index
+
 sentence_transformers:
   package_info:
     pip_release: "sentence-transformers"
@@ -700,7 +726,7 @@ sentence_transformers:
       pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
     minimum: "2.2.2"
-    maximum: "2.7.0"
+    maximum: "3.0.1"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -718,7 +744,7 @@ johnsnowlabs:
     pip_release: "johnsnowlabs"
   models:
     minimum: "4.4.6"
-    maximum: "5.3.5"
+    maximum: "5.4.1"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
       "< 5.2.8": ["pyspark<3.4"]
@@ -737,7 +763,7 @@ promptflow:
       pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow
   models:
     minimum: "1.3.0"
-    maximum: "1.10.1"
+    maximum: "1.13.0"
     requirements:
       # Requirements to run sparkudf predict test
       ">= 0.0.0": ["pyspark", "jinja2"]

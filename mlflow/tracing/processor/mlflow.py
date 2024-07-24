@@ -79,7 +79,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
 
     def _start_trace(self, span: OTelSpan) -> TraceInfo:
         experiment_id = get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID)
-        metadata = {}
+        metadata = {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}
         # If the span is started within an active MLflow run, we should record it as a trace tag
         if run := mlflow.active_run():
             metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
@@ -109,7 +109,6 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             for key, value in unfiltered_tags.items()
             if key in TRACE_RESOLVE_TAGS_ALLOWLIST
         }
-        tags.update({TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)})
 
         # If the trace is created in the context of MLflow model evaluation, we extract the request
         # ID from the prediction context. Otherwise, we create a new trace info by calling the
@@ -118,6 +117,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             tags.update({TraceTagKey.EVAL_REQUEST_ID: request_id})
         if depedencies_schema := maybe_get_dependencies_schemas():
             tags.update(depedencies_schema)
+        tags.update({TraceTagKey.TRACE_NAME: span.name})
 
         return self._client._start_tracked_trace(
             experiment_id=experiment_id,
@@ -166,12 +166,6 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 TraceMetadataKey.OUTPUTS: self._truncate_metadata(
                     root_span.attributes.get(SpanAttributeKey.OUTPUTS)
                 ),
-            }
-        )
-        # Mutable info like trace name should be recorded in tags
-        trace.info.tags.update(
-            {
-                TraceTagKey.TRACE_NAME: root_span.name,
             }
         )
 

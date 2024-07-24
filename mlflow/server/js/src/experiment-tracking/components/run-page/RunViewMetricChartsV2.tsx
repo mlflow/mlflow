@@ -27,10 +27,11 @@ import { useIsTabActive } from '../../../common/hooks/useIsTabActive';
 import { shouldEnableImageGridCharts, shouldEnableRunDetailsPageAutoRefresh } from '../../../common/utils/FeatureUtils';
 import { usePopulateImagesByRunUuid } from '../experiment-page/hooks/usePopulateImagesByRunUuid';
 import { DragAndDropProvider } from '../../../common/hooks/useDragAndDropElement';
+import type { UseGetRunQueryResponseRunInfo } from './hooks/useGetRunQuery';
 
 interface RunViewMetricChartsV2Props {
   metricKeys: string[];
-  runInfo: RunInfoEntity;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   /**
    * Whether to display model or system metrics. This affects labels and tooltips.
    */
@@ -63,7 +64,7 @@ export const RunViewMetricChartsV2Impl = ({
   >(undefined);
 
   const metricsForRun = useSelector(({ entities }: ReduxState) => {
-    return mapValues(entities.sampledMetricsByRunUuid[runInfo.runUuid], (metricsByRange) => {
+    return mapValues(entities.sampledMetricsByRunUuid[runInfo.runUuid ?? ''], (metricsByRange) => {
       return compact(
         values(metricsByRange)
           .map(({ metricsHistory }) => metricsHistory)
@@ -109,13 +110,13 @@ export const RunViewMetricChartsV2Impl = ({
   const chartData: RunsChartsRunData[] = useMemo(
     () => [
       {
-        displayName: runInfo.runName,
-        metrics: latestMetricsByRunUuid[runInfo.runUuid] || {},
-        params: paramsByRunUuid[runInfo.runUuid] || {},
-        tags: tagsByRunUuid[runInfo.runUuid] || {},
-        images: imagesByRunUuid[runInfo.runUuid] || {},
+        displayName: runInfo.runName ?? '',
+        metrics: latestMetricsByRunUuid[runInfo.runUuid ?? ''] || {},
+        params: paramsByRunUuid[runInfo.runUuid ?? ''] || {},
+        tags: tagsByRunUuid[runInfo.runUuid ?? ''] || {},
+        images: imagesByRunUuid[runInfo.runUuid ?? ''] || {},
         metricHistory: {},
-        uuid: runInfo.runUuid,
+        uuid: runInfo.runUuid ?? '',
         color: theme.colors.primary,
         runInfo,
       },
@@ -178,7 +179,7 @@ export const RunViewMetricChartsV2Impl = ({
   const autoRefreshEnabled = chartUIState.autoRefreshEnabled && shouldEnableRunDetailsPageAutoRefresh() && isTabActive;
 
   usePopulateImagesByRunUuid({
-    runUuids: [runInfo.runUuid],
+    runUuids: [runInfo.runUuid ?? ''],
     runUuidsIsActive: [runInfo.status === 'RUNNING'],
     autoRefreshEnabled,
     enabled: shouldEnableImageGridCharts(),

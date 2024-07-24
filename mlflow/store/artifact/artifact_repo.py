@@ -3,6 +3,7 @@ import logging
 import os
 import posixpath
 import tempfile
+import traceback
 from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
@@ -68,7 +69,9 @@ class ArtifactRepository:
         self._async_logging_queue = AsyncArtifactsLoggingQueue(log_artifact_handler)
 
     def _create_thread_pool(self):
-        return ThreadPoolExecutor(max_workers=self.max_workers)
+        return ThreadPoolExecutor(
+            max_workers=self.max_workers, thread_name_prefix=f"Mlflow{self.__class__.__name__}"
+        )
 
     def flush_async_logging(self):
         """
@@ -257,6 +260,7 @@ class ArtifactRepository:
 
         # Wait for downloads to complete and collect failures
         failed_downloads = {}
+        tracebacks = {}
         with ArtifactProgressBar.files(desc="Downloading artifacts", total=len(futures)) as pbar:
             for f in as_completed(futures):
                 try:
@@ -265,11 +269,17 @@ class ArtifactRepository:
                 except Exception as e:
                     path = futures[f]
                     failed_downloads[path] = e
+                    tracebacks[path] = traceback.format_exc()
 
         if failed_downloads:
-            template = "##### File {path} #####\n{error}"
+            if _logger.isEnabledFor(logging.DEBUG):
+                template = "##### File {path} #####\n{error}\nTraceback:\n{traceback}\n"
+            else:
+                template = "##### File {path} #####\n{error}"
+
             failures = "\n".join(
-                template.format(path=path, error=error) for path, error in failed_downloads.items()
+                template.format(path=path, error=error, traceback=tracebacks[path])
+                for path, error in failed_downloads.items()
             )
             raise MlflowException(
                 message=(

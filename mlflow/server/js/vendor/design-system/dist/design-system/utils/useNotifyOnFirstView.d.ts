@@ -1,4 +1,3 @@
-/// <reference types="react" />
 interface useNotifyOnFirstViewProps {
     onView: () => void;
 }

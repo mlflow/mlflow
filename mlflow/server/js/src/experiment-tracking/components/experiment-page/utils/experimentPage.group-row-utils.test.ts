@@ -560,6 +560,7 @@ describe('metric history aggregation', () => {
       MOCK_RUN_UUIDS_TO_HISTORY_MAP,
       'metric', // metricKey
       'base', // selectedXAxisMetricKey
+      false, // ignoreOutliers
     );
     // for metric vs step plotting
     const metricsHistoryInGroup = flatMap(MOCK_RUN_UUIDS_TO_HISTORY_MAP, (obj) => {

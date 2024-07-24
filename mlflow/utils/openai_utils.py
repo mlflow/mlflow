@@ -5,8 +5,7 @@ from contextlib import contextmanager
 from enum import Enum
 from typing import NamedTuple, Optional
 from unittest import mock
-
-import requests
+from unittest.mock import AsyncMock
 
 import mlflow
 
@@ -106,58 +105,8 @@ def _chat_completion_json_sample(content):
     }
 
 
-def _completion_json_sample(content):
-    return {
-        "id": "cmpl-123",
-        "object": "text_completion",
-        "created": 1589478378,
-        "model": "text-davinci-003",
-        "choices": [{"text": content, "index": 0, "finish_reason": "length"}],
-        "usage": {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
-    }
-
-
-def _models_retrieve_json_sample():
-    # https://platform.openai.com/docs/api-reference/models/retrieve
-    return {
-        "id": "gpt-3.5-turbo",
-        "object": "model",
-        "owned_by": "openai",
-        "permission": [],
-    }
-
-
 def _mock_chat_completion_response(content=TEST_CONTENT):
     return _MockResponse(200, _chat_completion_json_sample(content))
-
-
-def _mock_completion_response(content=TEST_CONTENT):
-    return _MockResponse(200, _completion_json_sample(content))
-
-
-def _mock_embeddings_response(num_texts):
-    return _MockResponse(
-        200,
-        {
-            "object": "list",
-            "data": [
-                {
-                    "object": "embedding",
-                    "embedding": [
-                        0.0,
-                    ],
-                    "index": i,
-                }
-                for i in range(num_texts)
-            ],
-            "model": "text-embedding-ada-002",
-            "usage": {"prompt_tokens": 8, "total_tokens": 8},
-        },
-    )
-
-
-def _mock_models_retrieve_response():
-    return _MockResponse(200, _models_retrieve_json_sample())
 
 
 @contextmanager
@@ -167,32 +116,24 @@ def _mock_request(**kwargs):
 
 
 @contextmanager
-def _mock_request_post(**kwargs):
-    with mock.patch("requests.post", **kwargs) as m:
-        yield m
+def _mock_openai_arequest():
+    with mock.patch(
+        "aiohttp.ClientSession.request", side_effect=_mock_async_chat_completion_response
+    ) as mock_request:
+        yield mock_request
 
 
-def _mock_openai_request():
-    original = requests.post
-
-    def request(*args, **kwargs):
-        url = kwargs.get("url")
-        for key in kwargs.get("json"):
-            assert key in REQUEST_FIELDS, f"'{key}' is not a valid request field"
-
-        if "/chat/completions" in url:
-            messages = kwargs.get("json").get("messages")
-            return _mock_chat_completion_response(content=json.dumps(messages))
-        elif "/completions" in url:
-            prompt = kwargs.get("json").get("prompt")
-            return _mock_completion_response(content=json.dumps(prompt))
-        elif "/embeddings" in url:
-            inp = kwargs.get("json").get("input")
-            return _mock_embeddings_response(len(inp) if isinstance(inp, list) else 1)
-        else:
-            return original(*args, **kwargs)
-
-    return _mock_request_post(new=request)
+async def _mock_async_chat_completion_response(content=TEST_CONTENT, **kwargs):
+    resp = AsyncMock()
+    json_data = _chat_completion_json_sample(content)
+    resp.status = 200
+    resp.content = json.dumps(json_data).encode()
+    resp.headers = {"Content-Type": "application/json"}
+    resp.text = mlflow.__version__
+    resp.json_data = json_data
+    resp.json.return_value = json_data
+    resp.read.return_value = resp.content
+    return resp
 
 
 def _validate_model_params(task, model, params):
@@ -213,12 +154,13 @@ def _validate_model_params(task, model, params):
 
 class _OAITokenHolder:
     def __init__(self, api_type):
-        self._api_token = None
         self._credential = None
+        self._api_type = api_type
         self._is_azure_ad = api_type in ("azure_ad", "azuread")
-        self._key_configured = "OPENAI_API_KEY" in os.environ
+        self._azure_ad_token = None
+        self._api_token_env = os.environ.get("OPENAI_API_KEY")
 
-        if self._is_azure_ad and not self._key_configured:
+        if self._is_azure_ad and not self._api_token_env:
             try:
                 from azure.identity import DefaultAzureCredential
             except ImportError:
@@ -228,14 +170,26 @@ class _OAITokenHolder:
                 )
             self._credential = DefaultAzureCredential()
 
-    def validate(self, logger=None):
+    @property
+    def token(self):
+        return self._api_token_env or self._azure_ad_token.token
+
+    def auth_headers(self):
+        if self._api_type == "azure":
+            # For Azure OpenAI API keys, the `api-key` header must be used:
+            # https://learn.microsoft.com/en-us/azure/ai-services/openai/reference#authentication
+            return {"api-key": self.token}
+        else:
+            return {"Authorization": f"Bearer {self.token}"}
+
+    def refresh(self, logger=None):
         """Validates the token or API key configured for accessing the OpenAI resource."""
 
-        if self._key_configured:
+        if self._api_token_env:
             return
 
         if self._is_azure_ad:
-            if not self._api_token or self._api_token.expires_on < time.time() + 60:
+            if not self._azure_ad_token or self._azure_ad_token.expires_on < time.time() + 60:
                 from azure.core.exceptions import ClientAuthenticationError
 
                 if logger:
@@ -244,7 +198,7 @@ class _OAITokenHolder:
                         "acquire a new token."
                     )
                 try:
-                    self._api_token = self._credential.get_token(
+                    self._azure_ad_token = self._credential.get_token(
                         "https://cognitiveservices.azure.com/.default"
                     )
                 except ClientAuthenticationError as err:
@@ -252,7 +206,7 @@ class _OAITokenHolder:
                         "Unable to acquire a valid Azure AD token for the resource due to "
                         f"the following error: {err.message}"
                     ) from err
-                os.environ["OPENAI_API_KEY"] = self._api_token.token
+
             if logger:
                 logger.debug("Token refreshed successfully")
         else:

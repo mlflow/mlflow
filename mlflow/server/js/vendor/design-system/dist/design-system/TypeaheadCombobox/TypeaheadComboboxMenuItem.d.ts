@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { UseComboboxReturnValue } from 'downshift';
 import type { Theme } from '../../theme';
 export interface TypeaheadComboboxMenuItemProps<T> extends React.HTMLAttributes<HTMLElement> {

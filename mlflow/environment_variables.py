@@ -392,6 +392,12 @@ MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO", True
 )
 
+#: Specifies whether or not to use UC Volume FUSE mount to store artifacts on Databricks
+#: (default: ``True``)
+MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO", True
+)
+
 #: Private environment variable that should be set to ``True`` when running autologging tests.
 #: (default: ``False``)
 _MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TESTING", False)
@@ -611,7 +617,6 @@ MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT", int, 500
 )
 
-
 #: Specifies the number of connection pools to cache in urllib3. This environment variable sets the
 #: `pool_connections` parameter in the `requests.adapters.HTTPAdapter` constructor. By adjusting
 #: this variable, users can enhance the concurrency of HTTP requests made by MLflow.
@@ -630,4 +635,16 @@ MLFLOW_ENABLE_UC_FUNCTIONS = _BooleanEnvironmentVariable("MLFLOW_ENABLE_UC_FUNCT
 #: logging a batch.
 MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS = _EnvironmentVariable(
     "MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS", int, None
+)
+
+#: Whether to enable Databricks SDK. If true, MLflow uses databricks-sdk to send HTTP requests
+#: to Databricks endpoint, otherwise MLflow uses ``requests`` library to send HTTP requests
+#: to Databricks endpoint. Note that if you want to use OAuth authentication, you have to
+#: set this environment variable to true.
+#: (default: ``True``)
+MLFLOW_ENABLE_DB_SDK = _BooleanEnvironmentVariable("MLFLOW_ENABLE_DB_SDK", True)
+
+#: A flag that's set to 'true' in the child process for capturing modules.
+_MLFLOW_IN_CAPTURE_MODULE_PROCESS = _BooleanEnvironmentVariable(
+    "MLFLOW_IN_CAPTURE_MODULE_PROCESS", False
 )

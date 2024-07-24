@@ -41,18 +41,13 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: actions/setup-node@v3
         with:
-          node-version: "16"
+          node-version: "20"
 
       - name: Build UI
         working-directory: mlflow/server/js
         run: |
           yarn
           yarn build
-
-      - name: Check dependencies consistency
-        run: |
-          pip install pyyaml
-          ./dev/validate-requirements-consistency.sh
 
       - name: Install dependencies
         run: |
@@ -62,9 +57,9 @@ jobs:
         id: build-dist
         run: |
           if [ "${{ matrix.type }}" == "skinny" ]; then
-            ./dev/build.sh --skinny
+            python dev/build.py --package-type skinny
           else
-            ./dev/build.sh
+            python dev/build.py
           fi
 
           # List distribution files and check their file sizes
@@ -122,7 +117,6 @@ jobs:
         env:
           WHEEL_SIZE: ${{ steps.build-dist.outputs.wheel-size }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
 

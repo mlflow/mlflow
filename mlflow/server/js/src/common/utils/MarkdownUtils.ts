@@ -13,10 +13,16 @@ import { Converter } from 'showdown';
 // simple line breaks, code blocks, emojis)
 const DEFAULT_MARKDOWN_FLAVOR = 'github';
 
-export const getConverter = () => {
-  const converter = new Converter();
-  converter.setFlavor(DEFAULT_MARKDOWN_FLAVOR);
-  return converter;
+let _converter: Converter | null = null;
+
+export const getMarkdownConverter = () => {
+  // Reuse the same converter instance if available
+  if (_converter) {
+    return _converter;
+  }
+  _converter = new Converter();
+  _converter.setFlavor(DEFAULT_MARKDOWN_FLAVOR);
+  return _converter;
 };
 
 // Options for HTML sanitizer.

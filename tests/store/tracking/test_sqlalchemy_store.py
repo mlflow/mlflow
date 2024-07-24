@@ -66,6 +66,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
@@ -77,6 +78,16 @@ from mlflow.utils.name_utils import _GENERATOR_PREDICATES
 from mlflow.utils.os import is_windows
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
+from mlflow.utils.validation import (
+    MAX_DATASET_DIGEST_SIZE,
+    MAX_DATASET_NAME_SIZE,
+    MAX_DATASET_PROFILE_SIZE,
+    MAX_DATASET_SCHEMA_SIZE,
+    MAX_DATASET_SOURCE_SIZE,
+    MAX_EXPERIMENT_NAME_LENGTH,
+    MAX_INPUT_TAG_KEY_SIZE,
+    MAX_INPUT_TAG_VALUE_SIZE,
+)
 
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking.test_file_store import assert_dataset_inputs_equal
@@ -653,6 +664,9 @@ def test_create_experiments(store: SqlAlchemyStore):
     assert actual.creation_time >= time_before_create
     assert actual.last_update_time == actual.creation_time
 
+    with pytest.raises(MlflowException, match=r"Experiment name exceeds the maximum length"):
+        store.create_experiment(name="x" * (MAX_EXPERIMENT_NAME_LENGTH + 1))
+
 
 def test_create_experiment_with_tags_works_correctly(store: SqlAlchemyStore):
     experiment_id = store.create_experiment(
@@ -791,6 +805,9 @@ def test_create_run_with_tags(store: SqlAlchemyStore):
     expected = _get_run_configs(experiment_id=experiment_id, tags=tags)
 
     actual = store.create_run(**expected)
+
+    # run name should be added as a tag by the store
+    tags.append(RunTag(mlflow_tags.MLFLOW_RUN_NAME, expected["run_name"]))
 
     assert actual.info.experiment_id == experiment_id
     assert actual.info.user_id == expected["user_id"]
@@ -3343,115 +3360,243 @@ def test_log_inputs_fails_with_missing_inputs(store: SqlAlchemyStore):
         )
 
 
-def test_log_inputs_fails_with_too_large_inputs(store: SqlAlchemyStore):
-    experiment_id = _create_experiments(store, "test exp")
-    run = _run_factory(store, config=_get_run_configs(experiment_id))
+def _validate_log_inputs(
+    store: SqlAlchemyStore,
+    exp_name,
+    dataset_inputs,
+):
+    run = _run_factory(store, _get_run_configs(_create_experiments(store, exp_name)))
+    store.log_inputs(run.info.run_id, dataset_inputs)
+    run1 = store.get_run(run.info.run_id)
+    assert_dataset_inputs_equal(run1.inputs.dataset_inputs, dataset_inputs)
 
+
+def _validate_invalid_log_inputs(store: SqlAlchemyStore, run_id, dataset_inputs, error_message):
+    with pytest.raises(MlflowException, match=error_message):
+        store.log_inputs(run_id, dataset_inputs)
+
+
+def test_log_inputs_with_large_inputs_limit_check(store: SqlAlchemyStore):
+    run = _run_factory(store, _get_run_configs(_create_experiments(store, "test_invalid_inputs")))
+    run_id = run.info.run_id
+
+    # Test input key
     dataset = entities.Dataset(name="name1", digest="digest1", source_type="type", source="source")
+    _validate_log_inputs(
+        store,
+        "test_input_key",
+        [
+            entities.DatasetInput(
+                tags=[entities.InputTag(key="a" * MAX_INPUT_TAG_KEY_SIZE, value="train")],
+                dataset=dataset,
+            )
+        ],
+    )
+    _validate_invalid_log_inputs(
+        store,
+        run_id,
+        [
+            entities.DatasetInput(
+                tags=[entities.InputTag(key="a" * (MAX_INPUT_TAG_KEY_SIZE + 1), value="train")],
+                dataset=dataset,
+            )
+        ],
+        f"InputTag key exceeds the maximum length of {MAX_INPUT_TAG_KEY_SIZE}",
+    )
 
+    # Test input value
+    dataset = entities.Dataset(name="name2", digest="digest1", source_type="type", source="source")
+    _validate_log_inputs(
+        store,
+        "test_input_value",
+        [
+            entities.DatasetInput(
+                tags=[entities.InputTag(key="key", value="a" * MAX_INPUT_TAG_VALUE_SIZE)],
+                dataset=dataset,
+            )
+        ],
+    )
+    _validate_invalid_log_inputs(
+        store,
+        run_id,
+        [
+            entities.DatasetInput(
+                tags=[entities.InputTag(key="key", value="a" * (MAX_INPUT_TAG_VALUE_SIZE + 1))],
+                dataset=dataset,
+            )
+        ],
+        f"InputTag value exceeds the maximum length of {MAX_INPUT_TAG_VALUE_SIZE}",
+    )
+
+    # Test dataset name
     tags = [entities.InputTag(key="key", value="train")]
+    _validate_log_inputs(
+        store,
+        "test_dataset_name",
+        [
+            entities.DatasetInput(
+                tags=tags,
+                dataset=entities.Dataset(
+                    name="a" * MAX_DATASET_NAME_SIZE,
+                    digest="digest1",
+                    source_type="type",
+                    source="source",
+                ),
+            )
+        ],
+    )
+    _validate_invalid_log_inputs(
+        store,
+        run_id,
+        [
+            entities.DatasetInput(
+                tags=tags,
+                dataset=entities.Dataset(
+                    name="a" * (MAX_DATASET_NAME_SIZE + 1),
+                    digest="digest1",
+                    source_type="type",
+                    source="source",
+                ),
+            )
+        ],
+        f"Dataset name exceeds the maximum length of {MAX_DATASET_NAME_SIZE}",
+    )
 
-    # Test input key too large (limit is 255)
-    with pytest.raises(MlflowException, match="InputTag key exceeds the maximum length of 255"):
-        store.log_inputs(
-            run.info.run_id,
-            [
-                entities.DatasetInput(
-                    tags=[entities.InputTag(key="a" * 256, value="train")], dataset=dataset
-                )
-            ],
-        )
+    # Test dataset digest
+    _validate_log_inputs(
+        store,
+        "test_dataset_digest",
+        [
+            entities.DatasetInput(
+                tags=tags,
+                dataset=entities.Dataset(
+                    name="name1",
+                    digest="a" * MAX_DATASET_DIGEST_SIZE,
+                    source_type="type",
+                    source="source",
+                ),
+            )
+        ],
+    )
+    _validate_invalid_log_inputs(
+        store,
+        run_id,
+        [
+            entities.DatasetInput(
+                tags=tags,
+                dataset=entities.Dataset(
+                    name="name1",
+                    digest="a" * (MAX_DATASET_DIGEST_SIZE + 1),
+                    source_type="type",
+                    source="source",
+                ),
+            )
+        ],
+        f"Dataset digest exceeds the maximum length of {MAX_DATASET_DIGEST_SIZE}",
+    )
 
-    # Test input value too large (limit is 500)
-    with pytest.raises(MlflowException, match="InputTag value exceeds the maximum length of 500"):
-        store.log_inputs(
-            run.info.run_id,
-            [
-                entities.DatasetInput(
-                    tags=[entities.InputTag(key="key", value="a" * 501)], dataset=dataset
-                )
-            ],
-        )
+    # Test dataset source
+    _validate_log_inputs(
+        store,
+        "test_dataset_source",
+        [
+            entities.DatasetInput(
+                tags=tags,
+                dataset=entities.Dataset(
+                    name="name3",
+                    digest="digest1",
+                    source_type="type",
+                    source="a" * MAX_DATASET_SOURCE_SIZE,
+                ),
+            )
+        ],
+    )
+    _validate_invalid_log_inputs(
+        store,
+        run_id,
+        [
+            entities.DatasetInput(
+                tags=tags,
+                dataset=entities.Dataset(
+                    name="name3",
+                    digest="digest1",
+                    source_type="type",
+                    source="a" * (MAX_DATASET_SOURCE_SIZE + 1),
+                ),
+            )
+        ],
+        f"Dataset source exceeds the maximum length of {MAX_DATASET_SOURCE_SIZE}",
+    )
 
-    # Test dataset name too large (limit is 500)
-    with pytest.raises(MlflowException, match="Dataset name exceeds the maximum length of 500"):
-        store.log_inputs(
-            run.info.run_id,
-            [
-                entities.DatasetInput(
-                    tags=tags,
-                    dataset=entities.Dataset(
-                        name="a" * 501, digest="digest1", source_type="type", source="source"
-                    ),
-                )
-            ],
-        )
+    # Test dataset schema
+    _validate_log_inputs(
+        store,
+        "test_dataset_schema",
+        [
+            entities.DatasetInput(
+                tags=tags,
+                dataset=entities.Dataset(
+                    name="name4",
+                    digest="digest1",
+                    source_type="type",
+                    source="source",
+                    schema="a" * MAX_DATASET_SCHEMA_SIZE,
+                ),
+            )
+        ],
+    )
+    _validate_invalid_log_inputs(
+        store,
+        run_id,
+        [
+            entities.DatasetInput(
+                tags=tags,
+                dataset=entities.Dataset(
+                    name="name4",
+                    digest="digest1",
+                    source_type="type",
+                    source="source",
+                    schema="a" * (MAX_DATASET_SCHEMA_SIZE + 1),
+                ),
+            )
+        ],
+        f"Dataset schema exceeds the maximum length of {MAX_DATASET_SCHEMA_SIZE}",
+    )
 
-    # Test dataset digest too large (limit is 36)
-    with pytest.raises(MlflowException, match="Dataset digest exceeds the maximum length of 36"):
-        store.log_inputs(
-            run.info.run_id,
-            [
-                entities.DatasetInput(
-                    tags=tags,
-                    dataset=entities.Dataset(
-                        name="name", digest="a" * 37, source_type="type", source="source"
-                    ),
-                )
-            ],
-        )
-
-    # Test dataset source too large (limit is 65535)
-    with pytest.raises(MlflowException, match="Dataset source exceeds the maximum length of 65535"):
-        store.log_inputs(
-            run.info.run_id,
-            [
-                entities.DatasetInput(
-                    tags=tags,
-                    dataset=entities.Dataset(
-                        name="name", digest="digest", source_type="type", source="a" * 65536
-                    ),
-                )
-            ],
-        )
-
-    # Test dataset schema too large (limit is 65535)
-    with pytest.raises(MlflowException, match="Dataset schema exceeds the maximum length of 65535"):
-        store.log_inputs(
-            run.info.run_id,
-            [
-                entities.DatasetInput(
-                    tags=tags,
-                    dataset=entities.Dataset(
-                        name="name",
-                        digest="digest",
-                        source_type="type",
-                        source="source",
-                        schema="a" * 65536,
-                    ),
-                )
-            ],
-        )
-
-    # Test dataset profile too large (limit is 16777215)
-    with pytest.raises(
-        MlflowException, match="Dataset profile exceeds the maximum length of 16777215"
-    ):
-        store.log_inputs(
-            run.info.run_id,
-            [
-                entities.DatasetInput(
-                    tags=tags,
-                    dataset=entities.Dataset(
-                        name="name",
-                        digest="digest",
-                        source_type="type",
-                        source="source",
-                        profile="a" * 16777216,
-                    ),
-                )
-            ],
-        )
+    # Test dataset profile
+    _validate_log_inputs(
+        store,
+        "test_dataset_profile",
+        [
+            entities.DatasetInput(
+                tags=tags,
+                dataset=entities.Dataset(
+                    name="name5",
+                    digest="digest1",
+                    source_type="type",
+                    source="source",
+                    profile="a" * MAX_DATASET_PROFILE_SIZE,
+                ),
+            )
+        ],
+    )
+    _validate_invalid_log_inputs(
+        store,
+        run_id,
+        [
+            entities.DatasetInput(
+                tags=tags,
+                dataset=entities.Dataset(
+                    name="name5",
+                    digest="digest1",
+                    source_type="type",
+                    source="source",
+                    profile="a" * (MAX_DATASET_PROFILE_SIZE + 1),
+                ),
+            )
+        ],
+        f"Dataset profile exceeds the maximum length of {MAX_DATASET_PROFILE_SIZE}",
+    )
 
 
 def test_log_inputs_with_duplicates_in_single_request(store: SqlAlchemyStore):
@@ -3935,7 +4080,7 @@ def store_with_traces(tmp_path):
         execution_time_ms=6,
         status=TraceStatus.OK,
         tags={"mlflow.traceName": "ddd"},
-        request_metadata={"mlflow.sourceRun": "run0"},
+        request_metadata={TraceMetadataKey.SOURCE_RUN: "run0"},
     )
     _create_trace(
         store,
@@ -3945,7 +4090,7 @@ def store_with_traces(tmp_path):
         execution_time_ms=2,
         status=TraceStatus.ERROR,
         tags={"mlflow.traceName": "aaa", "fruit": "apple", "color": "red"},
-        request_metadata={"mlflow.sourceRun": "run1"},
+        request_metadata={TraceMetadataKey.SOURCE_RUN: "run1"},
     )
     _create_trace(
         store,
@@ -4039,11 +4184,11 @@ def test_search_traces_order_by(store_with_traces, order_by, expected_ids):
         ("tags.fruit = 'apple' and tags.color != 'red'", ["tr-2"]),
         # Search by request metadata
         ("run_id = 'run0'", ["tr-0"]),
-        ("request_metadata.mlflow.sourceRun = 'run0'", ["tr-0"]),
-        ("request_metadata.mlflow.sourceRun = 'run1'", ["tr-1"]),
-        ("request_metadata.`mlflow.sourceRun` = 'run0'", ["tr-0"]),
-        ("metadata.mlflow.sourceRun = 'run0'", ["tr-0"]),
-        ("metadata.mlflow.sourceRun != 'run0'", ["tr-1"]),
+        (f"request_metadata.{TraceMetadataKey.SOURCE_RUN} = 'run0'", ["tr-0"]),
+        (f"request_metadata.{TraceMetadataKey.SOURCE_RUN} = 'run1'", ["tr-1"]),
+        (f"request_metadata.`{TraceMetadataKey.SOURCE_RUN}` = 'run0'", ["tr-0"]),
+        (f"metadata.{TraceMetadataKey.SOURCE_RUN} = 'run0'", ["tr-0"]),
+        (f"metadata.{TraceMetadataKey.SOURCE_RUN} != 'run0'", ["tr-1"]),
     ],
 )
 def test_search_traces_with_filter(store_with_traces, filter_string, expected_ids):

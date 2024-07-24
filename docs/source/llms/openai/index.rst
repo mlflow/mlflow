@@ -25,6 +25,23 @@ The integration includes:
 - **Conversational AI**: Exploring the capabilities of the Chat Completions API for interactive, context-aware applications.
 - **Embeddings Generation**: Corpus and text embeddings generation capabilities for advanced document retrieval use cases.
 
+Autologging Support for the OpenAI integration
+----------------------------------------------
+
+.. toctree::
+    :maxdepth: 2
+    :hidden:
+
+    ./autologging
+
+If you'd like to learn more about autologging support for OpenAI within MLflow, please visit the `OpenAI Autologging <autologging.html>`_ page.
+
+Tracing with the OpenAI flavor
+------------------------------
+
+MLflow's OpenAI flavor includes an integrated automated tracing feature with the use of the :py:func:`mlflow.openai.autolog` API. To learn more about 
+how to log your development usage of the OpenAI SDK, please visit the `guide to autologging tracing <../tracing/index.html#automatic-tracing>`_ for this flavor.
+
 What makes this Integration so Special?
 ---------------------------------------
 The combination of MLflow's experiment tracking and model management with OpenAI's cutting-edge NLP models unlocks new potential for AI applications. 

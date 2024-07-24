@@ -1,10 +1,10 @@
-import Utils from 'common/utils/Utils';
-import { listImagesApi } from 'experiment-tracking/actions';
-import { EXPERIMENT_RUNS_IMAGE_AUTO_REFRESH_INTERVAL } from 'experiment-tracking/constants';
+import Utils from '@mlflow/mlflow/src/common/utils/Utils';
+import { listImagesApi } from '@mlflow/mlflow/src/experiment-tracking/actions';
+import { EXPERIMENT_RUNS_IMAGE_AUTO_REFRESH_INTERVAL } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
-import { ThunkDispatch } from 'redux-types';
-import { NUM_RUNS_TO_SUPPORT_FOR_LOG_IMAGE } from 'experiment-tracking/constants';
+import { ThunkDispatch } from '@mlflow/mlflow/src/redux-types';
+import { NUM_RUNS_TO_SUPPORT_FOR_LOG_IMAGE } from '@mlflow/mlflow/src/experiment-tracking/constants';
 
 export const usePopulateImagesByRunUuid = ({
   runUuids,

@@ -1,6 +1,8 @@
 import React from 'react';
 import type { SelectContentProps, SelectOptionGroupProps, SelectOptionProps, SelectTriggerProps } from '.';
+import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
 import type { ConditionalOptionalLabel } from '../DialogCombobox';
+import type { AnalyticsEventValueChangeNoPiiFlagOptionalProps } from '../types';
 export interface SimpleSelectChangeEventType {
     target: {
         name?: string;
@@ -9,7 +11,7 @@ export interface SimpleSelectChangeEventType {
     };
     type: string;
 }
-export interface SimpleSelectProps extends Omit<SelectTriggerProps, 'onChange' | 'value' | 'defaultValue' | 'onClear' | 'label'> {
+export interface SimpleSelectProps extends Omit<SelectTriggerProps, 'onChange' | 'value' | 'defaultValue' | 'onClear' | 'label'>, AnalyticsEventValueChangeNoPiiFlagOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     /** For an uncontrolled `SimpleSelect`, optionally specify a defaultValue. Will be ignored if using `value` to control state of the component. */
     defaultValue?: string;
     value?: string;

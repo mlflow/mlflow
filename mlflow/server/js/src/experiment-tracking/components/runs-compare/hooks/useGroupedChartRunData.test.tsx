@@ -110,6 +110,7 @@ describe('useGroupedChartRunData', () => {
         metricKeys: params.metricKeys ?? [],
         sampledDataResultsByRunUuid: params.sampledDataResultsByRunUuid ?? {},
         aggregateFunction: params.aggregateFunction ?? RunGroupingAggregateFunction.Average,
+        ignoreOutliers: params.ignoreOutliers ?? false,
       },
     });
   it('should return the fallback data if grouping is disabled', () => {

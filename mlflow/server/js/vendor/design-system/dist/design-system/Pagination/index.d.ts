@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { SerializedStyles } from '@emotion/react';
 import type { PaginationProps as AntdPaginationProps } from 'antd';
 import type { Theme } from '../../theme';

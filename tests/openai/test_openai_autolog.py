@@ -61,6 +61,21 @@ def test_chat_completions_autolog_streaming(client, monkeypatch):
         assert output[1]["id"] == "chatcmpl-123"
         assert output[1]["choices"][0]["delta"]["content"] == " world"
 
+    trace = mlflow.get_last_active_trace()
+    assert trace is not None
+    assert isinstance(trace.data.response, str)
+
+    response_data = json.loads(trace.data.response)
+
+    assert response_data["result"] == "Hello world"
+
+    stream_event_data = trace.data.spans[0].attributes["events"]
+
+    assert stream_event_data[0]["id"] == "chatcmpl-123"
+    assert stream_event_data[0]["choices"][0]["delta"]["content"] == "Hello"
+    assert stream_event_data[1]["id"] == "chatcmpl-123"
+    assert stream_event_data[1]["choices"][0]["delta"]["content"] == " world"
+
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
 def test_loaded_chat_completions_autolog(client, monkeypatch):
@@ -134,6 +149,21 @@ def test_completions_autolog_streaming(client, monkeypatch):
         assert output[0]["choices"][0]["text"] == "Hello"
         assert output[1]["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
         assert output[1]["choices"][0]["text"] == " world"
+
+    trace = mlflow.get_last_active_trace()
+    assert trace is not None
+    assert isinstance(trace.data.response, str)
+
+    response_data = json.loads(trace.data.response)
+
+    assert response_data["result"] == "Hello world"
+
+    stream_event_data = trace.data.spans[0].attributes["events"]
+
+    assert stream_event_data[0]["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
+    assert stream_event_data[0]["choices"][0]["text"] == "Hello"
+    assert stream_event_data[1]["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
+    assert stream_event_data[1]["choices"][0]["text"] == " world"
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")

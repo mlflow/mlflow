@@ -58,8 +58,6 @@ from mlflow.store.model_registry import (
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.constant import (
     TRACE_REQUEST_ID_PREFIX,
-    TRACE_SCHEMA_VERSION,
-    TRACE_SCHEMA_VERSION_KEY,
     SpanAttributeKey,
     TraceTagKey,
 )
@@ -108,7 +106,7 @@ _logger = logging.getLogger(__name__)
 _STAGES_DEPRECATION_WARNING = (
     "Model registry stages will be removed in a future major release. To learn more about the "
     "deprecation of model registry stages, see our migration guide here: https://mlflow.org/docs/"
-    f"{mlflow.__version__.replace('.dev0', '')}/model-registry.html#migrating-from-stages"
+    "latest/model-registry.html#migrating-from-stages"
 )
 
 
@@ -456,7 +454,7 @@ class MlflowClient:
         )
 
     @experimental
-    def get_trace(self, request_id: str) -> Trace:
+    def get_trace(self, request_id: str, display=True) -> Trace:
         """
         Get the trace matching the specified ``request_id``.
 
@@ -476,7 +474,8 @@ class MlflowClient:
             trace = client.get_trace(request_id)
         """
         trace = self._tracking_client.get_trace(request_id)
-        get_display_handler().display_traces([trace])
+        if display:
+            get_display_handler().display_traces([trace])
         return trace
 
     @experimental
@@ -611,13 +610,12 @@ class MlflowClient:
             if isinstance(mlflow_span, NoOpSpan):
                 return mlflow_span
 
-            if inputs:
+            if inputs is not None:
                 mlflow_span.set_inputs(inputs)
-            if attributes:
-                mlflow_span.set_attributes(attributes)
+            mlflow_span.set_attributes(attributes or {})
+
             trace_manager = InMemoryTraceManager.get_instance()
             tags = exclude_immutable_tags(tags or {})
-            tags.update({TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)})
             if is_in_databricks_model_serving_environment():
                 # Update trace tags for trace in in-memory trace manager
                 with trace_manager.get_trace(request_id) as trace:
@@ -699,11 +697,11 @@ class MlflowClient:
             parsed_span = {}
 
             parsed_span["name"] = span.name
-            parsed_span["type"] = span.get_attribute(SpanAttributeKey.SPAN_TYPE)
-            span_inputs = span.get_attribute(SpanAttributeKey.INPUTS)
+            parsed_span["type"] = span.span_type
+            span_inputs = span.inputs
             if span_inputs and isinstance(span_inputs, dict):
                 parsed_span["inputs"] = list(span_inputs.keys())
-            span_outputs = span.get_attribute(SpanAttributeKey.OUTPUTS)
+            span_outputs = span.outputs
             if span_outputs and isinstance(span_outputs, dict):
                 parsed_span["outputs"] = list(span_outputs.keys())
 
@@ -859,9 +857,8 @@ class MlflowClient:
         try:
             otel_span = mlflow.tracing.provider.start_detached_span(name, parent=parent_span._span)
             span = create_mlflow_span(otel_span, request_id, span_type)
-            if attributes:
-                span.set_attributes(attributes)
-            if inputs:
+            span.set_attributes(attributes or {})
+            if inputs is not None:
                 span.set_inputs(inputs)
 
             trace_manager.register_span(span)
@@ -880,7 +877,7 @@ class MlflowClient:
         request_id: str,
         span_id: str,
         outputs: Optional[Dict[str, Any]] = None,
-        attributes: Optional[Any] = None,
+        attributes: Optional[Dict[str, Any]] = None,
         status: Union[SpanStatus, str] = "OK",
     ):
         """
@@ -911,9 +908,8 @@ class MlflowClient:
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
 
-        if attributes:
-            span.set_attributes(attributes or {})
-        if outputs:
+        span.set_attributes(attributes or {})
+        if outputs is not None:
             span.set_outputs(outputs)
         span.set_status(status)
 
@@ -1252,7 +1248,7 @@ class MlflowClient:
         """Create an experiment.
 
         Args:
-            name: The experiment name. Must be unique.
+            name: The experiment name, which must be a unique string.
             artifact_location: The location to store run artifacts. If not provided, the server
                 picks anappropriate default.
             tags: A dictionary of key-value pairs that are converted into
@@ -2212,7 +2208,7 @@ class MlflowClient:
                 .. warning::
 
                     - Out-of-range integer values will raise ValueError.
-                    - Out-of-range float values will raise ValueError.
+                    - Out-of-range float values will auto-scale with min/max and warn.
 
             - shape (H: height, W: width):
 
@@ -2552,7 +2548,7 @@ class MlflowClient:
                 )
                 existing_predictions = self._read_from_file(downloaded_artifact_path)
             data = pd.concat([existing_predictions, data], ignore_index=True)
-            _logger.info(
+            _logger.debug(
                 "Appending new table to already existing artifact "
                 f"{artifact_file} for run {run_id}."
             )

@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { PopoverProps as AntDPopoverProps } from 'antd';
 import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
 /**

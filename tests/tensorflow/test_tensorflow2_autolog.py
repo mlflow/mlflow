@@ -24,6 +24,7 @@ from mlflow.models.utils import _read_example
 from mlflow.tensorflow import load_checkpoint
 from mlflow.tensorflow.autologging import _TensorBoard
 from mlflow.tensorflow.callback import MlflowCallback
+from mlflow.tracking.fluent import _shut_down_async_logging
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
@@ -42,6 +43,7 @@ SavedModelInfo = collections.namedtuple(
 @pytest.fixture(autouse=True)
 def clear_session():
     yield
+    _shut_down_async_logging()
     tf.keras.backend.clear_session()
 
 

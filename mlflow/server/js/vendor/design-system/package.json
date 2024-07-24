@@ -1,6 +1,6 @@
 {
   "name": "@databricks/design-system",
-  "version": "1.0.0-1743ac3d",
+  "version": "1.0.0-73baa384",
   "description": "DuBois Design System",
   "keywords": [],
   "license": "ISC",
@@ -58,10 +58,10 @@
     "prep-deps": ": # magic task to allow yarn ensure-deps plugin prepare dependencies of this package"
   },
   "devDependencies": {
-    "@babel/core": "^7.23.0",
-    "@babel/preset-env": "^7.22.20",
-    "@babel/preset-react": "^7.22.15",
-    "@babel/preset-typescript": "^7.23.0",
+    "@babel/core": "^7.24.7",
+    "@babel/preset-env": "^7.24.7",
+    "@babel/preset-react": "^7.24.7",
+    "@babel/preset-typescript": "^7.24.7",
     "@databricks/config-eslint": "1.0.0",
     "@databricks/config-jest": "1.0.0",
     "@databricks/config-percy": "0.0.0",
@@ -134,7 +134,7 @@
     "storybook-dark-mode": "^1.0.8",
     "style-loader": "^3.3.1",
     "tsconfig-paths": "^3.9.0",
-    "typescript": "5.2.2",
+    "typescript": "^5.5.2",
     "usehooks-ts": "^2.9.1",
     "webpack": "^5.75.0",
     "webpack-merge": "^5.8.0"
@@ -147,7 +147,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^4.7.0",
-    "@babel/runtime": "^7.23.1",
+    "@babel/runtime": "^7.24.7",
     "@emotion/unitless": "^0.8.1",
     "@floating-ui/react": "^0.24.6",
     "@radix-ui/react-context-menu": "2.1.5",
@@ -162,19 +162,22 @@
     "@radix-ui/react-toast": "1.1.5",
     "@radix-ui/react-toggle": "1.0.3",
     "@radix-ui/react-toolbar": "1.0.4",
+    "@radix-ui/react-tooltip": "^1.0.7",
     "@testing-library/react": "^12.1.2",
     "@testing-library/user-event-14": "npm:@testing-library/user-event@^14.0.0",
     "antd": "4.16.8",
     "chroma-js": "^2.4.2",
     "classnames": "^2.3.1",
+    "date-fns": "^3.6.0",
     "dom-accessibility-api": "^0.5.9",
     "downshift": "^6.1.9",
     "enzyme": "^3.11.0",
     "lodash": "^4.17.21",
     "postcss-prefixwrap": "^1.37.0",
+    "react-day-picker": "^8.10.1",
     "react-hook-form": "^7.36.0",
     "react-resizable": "^3.0.4",
-    "tslib": "^2.6.2"
+    "tslib": "^2.6.3"
   },
   "stableVersion": "1.7.0"
 }

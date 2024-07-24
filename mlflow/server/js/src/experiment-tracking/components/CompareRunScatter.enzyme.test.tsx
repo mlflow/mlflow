@@ -15,7 +15,7 @@ import { mount } from 'enzyme';
 import { Metric, Param } from '../sdk/MlflowMessages';
 import { CompareRunScatter, CompareRunScatterImpl } from './CompareRunScatter';
 import { ArtifactNode } from '../utils/ArtifactUtils';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 
 describe('CompareRunScatter', () => {
   let wrapper;

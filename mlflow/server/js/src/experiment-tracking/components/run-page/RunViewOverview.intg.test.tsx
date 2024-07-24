@@ -1,6 +1,6 @@
 import { DeepPartial } from 'redux';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
-import { renderWithIntl, act, screen, within } from 'common/utils/TestUtils.react18';
+import { renderWithIntl, act, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { RunViewOverview } from './RunViewOverview';
 import { ReduxState } from '../../../redux-types';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';

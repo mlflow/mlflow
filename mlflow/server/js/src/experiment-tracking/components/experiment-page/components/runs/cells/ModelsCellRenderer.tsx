@@ -1,5 +1,5 @@
 import React from 'react';
-import { ModelsIcon, Overflow, Tag, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { ModelsIcon, Overflow, Tag, LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
 import Utils from '../../../../../../common/utils/Utils';
 import { ModelRegistryRoutes } from '../../../../../../model-registry/routes';
 import Routes from '../../../../../routes';
@@ -44,10 +44,10 @@ const ModelLink = ({
     const displayFullName = `${registeredModelName} v${registeredModelVersion}`;
     if (registeredModelName) {
       return (
-        <Tooltip title={displayFullName} placement="topLeft">
+        <LegacyTooltip title={displayFullName} placement="topLeft">
           <span css={{ verticalAlign: 'middle' }}>{registeredModelName}</span>{' '}
           <Tag css={{ marginRight: 0, verticalAlign: 'middle' }}>v{registeredModelVersion}</Tag>
-        </Tooltip>
+        </LegacyTooltip>
       );
     }
 

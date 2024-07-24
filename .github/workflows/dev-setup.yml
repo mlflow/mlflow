@@ -6,6 +6,11 @@ on:
       - "dev/dev-env-setup.sh"
       - "dev/test-dev-env-setup.sh"
       - ".github/workflows/dev-setup.yml"
+  pull_request:
+    paths:
+      - "dev/dev-env-setup.sh"
+      - "dev/test-dev-env-setup.sh"
+      - ".github/workflows/dev-setup.yml"
   schedule:
     - cron: "42 7 * * 0"
   workflow_dispatch:
@@ -42,6 +47,7 @@ jobs:
     if: github.event_name != 'schedule' || github.repository == 'mlflow-automation/mlflow'
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/free-disk-space
         with:
           submodules: recursive
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}

@@ -3,6 +3,7 @@
 import graphene
 import mlflow
 from mlflow.server.graphql.graphql_custom_scalars import LongString
+from mlflow.server.graphql.graphql_errors import ApiError
 from mlflow.utils.proto_json_utils import parse_dict
 
 
@@ -18,6 +19,12 @@ class MlflowRunStatus(graphene.Enum):
     FINISHED = 3
     FAILED = 4
     KILLED = 5
+
+
+class MlflowViewType(graphene.Enum):
+    ACTIVE_ONLY = 1
+    DELETED_ONLY = 2
+    ALL = 3
 
 
 class MlflowModelVersionTag(graphene.ObjectType):
@@ -45,6 +52,45 @@ class MlflowModelVersion(graphene.ObjectType):
 class MlflowSearchModelVersionsResponse(graphene.ObjectType):
     model_versions = graphene.List(graphene.NonNull(MlflowModelVersion))
     next_page_token = graphene.String()
+    apiError = graphene.Field(ApiError)
+
+
+class MlflowDatasetSummary(graphene.ObjectType):
+    experiment_id = graphene.String()
+    name = graphene.String()
+    digest = graphene.String()
+    context = graphene.String()
+
+
+class MlflowSearchDatasetsResponse(graphene.ObjectType):
+    dataset_summaries = graphene.List(graphene.NonNull(MlflowDatasetSummary))
+    apiError = graphene.Field(ApiError)
+
+
+class MlflowMetricWithRunId(graphene.ObjectType):
+    key = graphene.String()
+    value = graphene.Float()
+    timestamp = LongString()
+    step = LongString()
+    run_id = graphene.String()
+
+
+class MlflowGetMetricHistoryBulkIntervalResponse(graphene.ObjectType):
+    metrics = graphene.List(graphene.NonNull(MlflowMetricWithRunId))
+    apiError = graphene.Field(ApiError)
+
+
+class MlflowFileInfo(graphene.ObjectType):
+    path = graphene.String()
+    is_dir = graphene.Boolean()
+    file_size = LongString()
+
+
+class MlflowListArtifactsResponse(graphene.ObjectType):
+    root_uri = graphene.String()
+    files = graphene.List(graphene.NonNull(MlflowFileInfo))
+    next_page_token = graphene.String()
+    apiError = graphene.Field(ApiError)
 
 
 class MlflowDataset(graphene.ObjectType):
@@ -112,8 +158,15 @@ class MlflowRun(graphene.ObjectType):
     inputs = graphene.Field(MlflowRunInputs)
 
 
+class MlflowSearchRunsResponse(graphene.ObjectType):
+    runs = graphene.List(graphene.NonNull('mlflow.server.graphql.graphql_schema_extensions.MlflowRunExtension'))
+    next_page_token = graphene.String()
+    apiError = graphene.Field(ApiError)
+
+
 class MlflowGetRunResponse(graphene.ObjectType):
     run = graphene.Field('mlflow.server.graphql.graphql_schema_extensions.MlflowRunExtension')
+    apiError = graphene.Field(ApiError)
 
 
 class MlflowExperimentTag(graphene.ObjectType):
@@ -133,11 +186,40 @@ class MlflowExperiment(graphene.ObjectType):
 
 class MlflowGetExperimentResponse(graphene.ObjectType):
     experiment = graphene.Field(MlflowExperiment)
+    apiError = graphene.Field(ApiError)
 
 
 class MlflowSearchModelVersionsInput(graphene.InputObjectType):
     filter = graphene.String()
     max_results = LongString()
+    order_by = graphene.List(graphene.String)
+    page_token = graphene.String()
+
+
+class MlflowSearchDatasetsInput(graphene.InputObjectType):
+    experiment_ids = graphene.List(graphene.String)
+
+
+class MlflowGetMetricHistoryBulkIntervalInput(graphene.InputObjectType):
+    run_ids = graphene.List(graphene.String)
+    metric_key = graphene.String()
+    start_step = graphene.Int()
+    end_step = graphene.Int()
+    max_results = graphene.Int()
+
+
+class MlflowListArtifactsInput(graphene.InputObjectType):
+    run_id = graphene.String()
+    run_uuid = graphene.String()
+    path = graphene.String()
+    page_token = graphene.String()
+
+
+class MlflowSearchRunsInput(graphene.InputObjectType):
+    experiment_ids = graphene.List(graphene.String)
+    filter = graphene.String()
+    run_view_type = graphene.Field(MlflowViewType)
+    max_results = graphene.Int()
     order_by = graphene.List(graphene.String)
     page_token = graphene.String()
 
@@ -153,7 +235,9 @@ class MlflowGetExperimentInput(graphene.InputObjectType):
 
 class QueryType(graphene.ObjectType):
     mlflow_get_experiment = graphene.Field(MlflowGetExperimentResponse, input=MlflowGetExperimentInput())
+    mlflow_get_metric_history_bulk_interval = graphene.Field(MlflowGetMetricHistoryBulkIntervalResponse, input=MlflowGetMetricHistoryBulkIntervalInput())
     mlflow_get_run = graphene.Field(MlflowGetRunResponse, input=MlflowGetRunInput())
+    mlflow_list_artifacts = graphene.Field(MlflowListArtifactsResponse, input=MlflowListArtifactsInput())
     mlflow_search_model_versions = graphene.Field(MlflowSearchModelVersionsResponse, input=MlflowSearchModelVersionsInput())
 
     def resolve_mlflow_get_experiment(self, info, input):
@@ -162,11 +246,23 @@ class QueryType(graphene.ObjectType):
         parse_dict(input_dict, request_message)
         return mlflow.server.handlers.get_experiment_impl(request_message)
 
+    def resolve_mlflow_get_metric_history_bulk_interval(self, info, input):
+        input_dict = vars(input)
+        request_message = mlflow.protos.service_pb2.GetMetricHistoryBulkInterval()
+        parse_dict(input_dict, request_message)
+        return mlflow.server.handlers.get_metric_history_bulk_interval_impl(request_message)
+
     def resolve_mlflow_get_run(self, info, input):
         input_dict = vars(input)
         request_message = mlflow.protos.service_pb2.GetRun()
         parse_dict(input_dict, request_message)
         return mlflow.server.handlers.get_run_impl(request_message)
+
+    def resolve_mlflow_list_artifacts(self, info, input):
+        input_dict = vars(input)
+        request_message = mlflow.protos.service_pb2.ListArtifacts()
+        parse_dict(input_dict, request_message)
+        return mlflow.server.handlers.list_artifacts_impl(request_message)
 
     def resolve_mlflow_search_model_versions(self, info, input):
         input_dict = vars(input)
@@ -176,4 +272,17 @@ class QueryType(graphene.ObjectType):
 
 
 class MutationType(graphene.ObjectType):
-    pass
+    mlflow_search_datasets = graphene.Field(MlflowSearchDatasetsResponse, input=MlflowSearchDatasetsInput())
+    mlflow_search_runs = graphene.Field(MlflowSearchRunsResponse, input=MlflowSearchRunsInput())
+
+    def resolve_mlflow_search_datasets(self, info, input):
+        input_dict = vars(input)
+        request_message = mlflow.protos.service_pb2.SearchDatasets()
+        parse_dict(input_dict, request_message)
+        return mlflow.server.handlers.search_datasets_impl(request_message)
+
+    def resolve_mlflow_search_runs(self, info, input):
+        input_dict = vars(input)
+        request_message = mlflow.protos.service_pb2.SearchRuns()
+        parse_dict(input_dict, request_message)
+        return mlflow.server.handlers.search_runs_impl(request_message)

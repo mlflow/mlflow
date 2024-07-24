@@ -4,7 +4,6 @@ from copy import deepcopy
 from pathlib import Path
 from unittest import mock
 
-import numpy as np
 import pandas as pd
 import pytest
 import yaml
@@ -30,6 +29,7 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 
@@ -198,19 +198,21 @@ def test_diviner_signature_and_examples_saved_correctly(
 ):
     prediction = grouped_prophet.forecast(horizon=20, frequency="D")
     signature = infer_signature(diviner_data.df, prediction) if use_signature else None
-    example = diviner_data.df[0:5].copy(deep=False) if use_example else None
+    example = pd.DataFrame([{"horizon": 20, "frequency": "D"}]) if use_example else None
     mlflow.diviner.save_model(
         grouped_prophet, path=model_path, signature=signature, input_example=example
     )
     mlflow_model = Model.load(model_path)
-    assert signature == mlflow_model.signature
+    if signature is not None or example is None:
+        assert signature == mlflow_model.signature
+    else:
+        # signature is inferred from input_example
+        assert mlflow_model.signature is not None
     if example is None:
         assert mlflow_model.saved_input_example_info is None
     else:
         r_example = _read_example(mlflow_model, model_path).copy(deep=False)
-        # NB: datetime values are implicitly cast, so this needs to be reverted.
-        r_example["ds"] = pd.to_datetime(r_example["ds"], format=DS_FORMAT)
-        np.testing.assert_array_equal(r_example, example)
+        pd.testing.assert_frame_equal(example, r_example)
 
 
 def test_diviner_load_from_remote_uri_succeeds(grouped_pmdarima, model_path, mock_s3_bucket):
@@ -398,19 +400,16 @@ def test_diviner_model_log_without_conda_env_uses_default_env_with_expected_depe
 def test_pmdarima_pyfunc_serve_and_score(grouped_prophet):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.diviner.log_model(
-            grouped_prophet,
-            artifact_path,
+        model_info = mlflow.diviner.log_model(
+            grouped_prophet, artifact_path, input_example={"horizon": 10, "frequency": "W"}
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
     local_predict = grouped_prophet.forecast(horizon=10, frequency="W")
 
-    inference_data = pd.DataFrame({"horizon": 10, "frequency": "W"}, index=[0])
-
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_data,
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )

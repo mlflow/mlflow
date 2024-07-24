@@ -105,7 +105,7 @@ class AbstractStore:
         If an experiment with the given name already exists, throws exception.
 
         Args:
-            name: Desired name for an experiment
+            name: Desired name for an experiment.
             artifact_location: Base location for artifacts in runs. May be None.
             tags: Experiment tags to set upon experiment creation
 
@@ -621,18 +621,29 @@ class AbstractStore:
     def end_async_logging(self):
         """
         Ends the async logging queue. This method is a no-op if the queue is not active. This is
-        different from flush as it just stops the async logging queue from accepting new data, but
-        flush will ensure all data is processed before returning.
+        different from flush as it just stops the async logging queue from accepting
+        new data (moving the queue state TEAR_DOWN state), but flush will ensure all data
+        is processed before returning (moving the queue to IDLE state).
         """
         if self._async_logging_queue.is_active():
             self._async_logging_queue.end_async_logging()
 
     def flush_async_logging(self):
         """
-        Flushes the async logging queue. This method is a no-op if the queue is not active.
+        Flushes the async logging queue. This method is a no-op if the queue is already
+        at IDLE state. This methods also shutdown the logging worker threads.
+        After flushing, logging thread is setup again.
         """
-        if self._async_logging_queue.is_active():
+        if not self._async_logging_queue.is_idle():
             self._async_logging_queue.flush()
+
+    def shut_down_async_logging(self):
+        """
+        Shuts down the async logging queue. This method is a no-op if the queue is already
+        at IDLE state. This methods also shutdown the logging worker threads.
+        """
+        if not self._async_logging_queue.is_idle():
+            self._async_logging_queue.shut_down_async_logging()
 
     @abstractmethod
     def record_logged_model(self, run_id, mlflow_model):

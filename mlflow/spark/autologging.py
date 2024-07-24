@@ -29,7 +29,9 @@ _spark_table_info_listener = None
 
 # Queue & singleton consumer thread for logging Spark datasource info asynchronously
 _metric_queue = []
-_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+_thread_pool = concurrent.futures.ThreadPoolExecutor(
+    max_workers=1, thread_name_prefix="MlflowSparkAutologging"
+)
 
 
 # Exposed for testing

@@ -14,7 +14,9 @@ from mlflow.legacy_databricks_cli.configure.provider import (
 )
 from mlflow.utils import databricks_utils
 from mlflow.utils.databricks_utils import (
+    DatabricksConfigProvider,
     check_databricks_secret_scope_access,
+    get_databricks_host_creds,
     get_databricks_runtime_major_minor_version,
     get_mlflow_credential_context_by_run_id,
     get_workspace_info_from_databricks_secrets,
@@ -22,7 +24,6 @@ from mlflow.utils.databricks_utils import (
     is_databricks_default_tracking_uri,
     is_running_in_ipython_environment,
 )
-from mlflow.utils.uri import construct_db_uri_from_profile
 
 from tests.helper_functions import mock_method_chain
 
@@ -37,43 +38,6 @@ def test_no_throw():
     assert not databricks_utils.is_in_databricks_job()
     assert not databricks_utils.is_dbfs_fuse_available()
     assert not databricks_utils.is_in_databricks_runtime()
-
-
-@mock.patch("mlflow.utils.databricks_utils.get_config")
-def test_databricks_params_token(get_config):
-    get_config.return_value = DatabricksConfig.from_token("host", "mytoken", insecure=False)
-    params = databricks_utils.get_databricks_host_creds()
-    assert params.host == "host"
-    assert params.token == "mytoken"
-    assert not params.ignore_tls_verification
-
-
-@mock.patch("mlflow.utils.databricks_utils.get_config")
-def test_databricks_params_user_password(get_config):
-    get_config.return_value = DatabricksConfig.from_password("host", "user", "pass", insecure=False)
-    params = databricks_utils.get_databricks_host_creds()
-    assert params.host == "host"
-    assert params.username == "user"
-    assert params.password == "pass"
-
-
-@mock.patch("mlflow.utils.databricks_utils.get_config")
-def test_databricks_params_no_verify(get_config):
-    get_config.return_value = DatabricksConfig.from_password("host", "user", "pass", insecure=True)
-    params = databricks_utils.get_databricks_host_creds()
-    assert params.ignore_tls_verification
-
-
-@mock.patch("mlflow.utils.databricks_utils.ProfileConfigProvider")
-def test_databricks_params_custom_profile(ProfileConfigProvider):
-    mock_provider = mock.MagicMock()
-    mock_provider.get_config.return_value = DatabricksConfig.from_password(
-        "host", "user", "pass", insecure=True
-    )
-    ProfileConfigProvider.return_value = mock_provider
-    params = databricks_utils.get_databricks_host_creds(construct_db_uri_from_profile("profile"))
-    assert params.ignore_tls_verification
-    ProfileConfigProvider.assert_called_with("profile")
 
 
 @mock.patch("mlflow.utils.databricks_utils.ProfileConfigProvider")
@@ -91,16 +55,12 @@ def test_databricks_registry_profile(ProfileConfigProvider):
         assert params.token == "random"
 
 
-@mock.patch("mlflow.utils.databricks_utils.get_config")
-def test_databricks_empty_uri(get_config):
-    get_config.return_value = None
-    with pytest.raises(MlflowException, match="Got malformed Databricks CLI profile"):
-        databricks_utils.get_databricks_host_creds("")
+def test_databricks_no_creds_found():
+    with pytest.raises(MlflowException, match="Reading databricks credential configuration failed"):
+        databricks_utils.get_databricks_host_creds()
 
 
-@mock.patch("mlflow.utils.databricks_utils.get_config")
-def test_databricks_single_slash_in_uri_scheme_throws(get_config):
-    get_config.return_value = None
+def test_databricks_single_slash_in_uri_scheme_throws():
     with pytest.raises(MlflowException, match="URI is formatted incorrectly"):
         databricks_utils.get_databricks_host_creds("databricks:/profile:path")
 
@@ -194,8 +154,7 @@ def test_databricks_params_env_var_overrides_model_serving_oauth(monkeypatch, oa
     ):
         params = databricks_utils.get_databricks_host_creds()
         # should use token and host from envvar, rather than token from oauthfile
-        assert params.host == "host_envvar"
-        assert params.token == "pat_token"
+        assert params.use_databricks_sdk
 
 
 def test_model_serving_config_provider_errors_caught():
@@ -313,7 +272,7 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
         None, "user", "pass", insecure=True
     )
     ProfileConfigProvider.return_value = mock_provider
-    with pytest.raises(Exception, match="You haven't configured the CLI yet"):
+    with pytest.raises(Exception, match="Reading databricks credential configuration failed with"):
         databricks_utils.get_databricks_host_creds()
 
     # No authentication
@@ -322,7 +281,7 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
         "host", None, None, insecure=True
     )
     ProfileConfigProvider.return_value = mock_provider
-    with pytest.raises(Exception, match="You haven't configured the CLI yet"):
+    with pytest.raises(Exception, match="Reading databricks credential configuration failed with"):
         databricks_utils.get_databricks_host_creds()
 
 
@@ -543,3 +502,18 @@ def test_get_dbr_major_minor_version_throws_on_invalid_version_key(monkeypatch):
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.x")
     with pytest.raises(MlflowException, match="Failed to parse databricks runtime version"):
         get_databricks_runtime_major_minor_version()
+
+
+def test_prioritize_env_var_config_provider(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "my_host1")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "token1")
+
+    class MyProvider(DatabricksConfigProvider):
+        def get_config(self):
+            return DatabricksConfig(host="my_host2", token="token2")
+
+    monkeypatch.setattr(databricks_utils, "_dynamic_token_config_provider", MyProvider)
+
+    hc = get_databricks_host_creds("databricks")
+    assert hc.host == "my_host1"
+    assert hc.token == "token1"

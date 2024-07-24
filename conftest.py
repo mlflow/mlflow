@@ -5,6 +5,8 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
+import traceback
 
 import click
 import pytest
@@ -171,6 +173,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/johnsnowlabs",
             "tests/keras",
             "tests/keras_core",
+            "tests/llama_index",
             "tests/langchain",
             "tests/lightgbm",
             "tests/mleap",
@@ -263,6 +266,32 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 )
                 break
 
+    main_thread = threading.main_thread()
+    if threads := [t for t in threading.enumerate() if t is not main_thread]:
+        terminalreporter.section("Remaining threads", yellow=True)
+        for idx, thread in enumerate(threads, start=1):
+            terminalreporter.write(f"{idx}: {thread}\n")
+
+        if non_daemon_threads := [t for t in threads if not t.daemon]:
+            frames = sys._current_frames()
+            terminalreporter.section("Tracebacks of non-daemon threads", yellow=True)
+            for thread in non_daemon_threads:
+                thread.join(timeout=1)
+                if thread.is_alive() and (frame := frames.get(thread.ident)):
+                    terminalreporter.section(repr(thread), sep="~")
+                    terminalreporter.write("".join(traceback.format_stack(frame)))
+
+    try:
+        import psutil
+    except ImportError:
+        pass
+    else:
+        current_process = psutil.Process()
+        if children := current_process.children(recursive=True):
+            terminalreporter.section("Remaining child processes", yellow=True)
+            for idx, child in enumerate(children, start=1):
+                terminalreporter.write(f"{idx}: {child}\n")
+
 
 @pytest.fixture(scope="module", autouse=True)
 def clean_up_envs():
@@ -346,10 +375,12 @@ def serve_wheel(request, tmp_path_factory):
         ],
         cwd=root,
     ) as prc:
-        url = f"http://localhost:{port}"
-        if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
-            url = f"{existing_url} {url}"
-        os.environ["PIP_EXTRA_INDEX_URL"] = url
+        try:
+            url = f"http://localhost:{port}"
+            if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
+                url = f"{existing_url} {url}"
+            os.environ["PIP_EXTRA_INDEX_URL"] = url
 
-        yield
-        prc.terminate()
+            yield
+        finally:
+            prc.terminate()

@@ -18,7 +18,7 @@ import mlflow.sentence_transformers
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
-from mlflow.models.utils import _read_example
+from mlflow.models.utils import _get_mlflow_model_input_example_dict, _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.environment import _mlflow_conda_env
 
@@ -27,6 +27,7 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 
@@ -448,12 +449,15 @@ def test_spark_udf(basic_model, spark):
 )
 def test_pyfunc_serve_and_score(input1, input2, basic_model):
     with mlflow.start_run():
-        model_info = mlflow.sentence_transformers.log_model(basic_model, "my_model")
+        model_info = mlflow.sentence_transformers.log_model(
+            basic_model, "my_model", input_example=input1
+        )
     loaded_pyfunc = pyfunc.load_model(model_uri=model_info.model_uri)
     local_predict = loaded_pyfunc.predict(input1)
 
     # Check that the giving the same string to the served model results in the same result
-    inference_data = json.dumps({"inputs": input1})
+    inference_data = get_serving_input_example(model_info.model_uri)
+    assert json.loads(inference_data) == {"inputs": input1}
     resp = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=inference_data,
@@ -488,19 +492,24 @@ SIGNATURE_FROM_EXAMPLE = infer_signature(
 
 
 @pytest.mark.parametrize(
-    ("example", "signature", "expected_signature"),
+    ("example", "signature", "expected_signature", "example_no_conversion"),
     [
-        (None, None, mlflow.sentence_transformers._get_default_signature()),
-        (SENTENCES_DF, None, SIGNATURE_FROM_EXAMPLE),
-        (None, SIGNATURE, SIGNATURE),
-        (SENTENCES, SIGNATURE, SIGNATURE),
+        (None, None, mlflow.sentence_transformers._get_default_signature(), False),
+        (SENTENCES_DF, None, SIGNATURE_FROM_EXAMPLE, False),
+        (None, SIGNATURE, SIGNATURE, False),
+        (SENTENCES, SIGNATURE, SIGNATURE, False),
+        (SENTENCES, SIGNATURE, SIGNATURE, True),
     ],
 )
 def test_signature_and_examples_are_saved_correctly(
-    example, signature, expected_signature, basic_model, model_path
+    example, signature, expected_signature, basic_model, model_path, example_no_conversion
 ):
     mlflow.sentence_transformers.save_model(
-        basic_model, path=model_path, signature=signature, input_example=example
+        basic_model,
+        path=model_path,
+        signature=signature,
+        input_example=example,
+        example_no_conversion=example_no_conversion,
     )
     mlflow_model = Model.load(model_path)
 
@@ -509,7 +518,11 @@ def test_signature_and_examples_are_saved_correctly(
     if example is None:
         assert mlflow_model.saved_input_example_info is None
     else:
-        if isinstance(example, pd.DataFrame):
+        if example_no_conversion:
+            assert mlflow_model.saved_input_example_info["type"] == "json_object"
+            saved_example = _get_mlflow_model_input_example_dict(mlflow_model, model_path)
+            assert saved_example == example
+        elif isinstance(example, pd.DataFrame):
             pd.testing.assert_frame_equal(_read_example(mlflow_model, model_path), example)
         else:
             np.testing.assert_equal(_read_example(mlflow_model, model_path), example)

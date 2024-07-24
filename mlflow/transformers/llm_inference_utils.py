@@ -4,10 +4,13 @@ import time
 import uuid
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
+import numpy as np
 import pandas as pd
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
+from mlflow.transformers.flavor_config import FlavorKey
 from mlflow.types.llm import (
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
@@ -55,6 +58,11 @@ _SIGNATURE_FOR_LLM_INFERENCE_TASK = {
     ),
 }
 
+_LLM_INFERENCE_TASK_TO_DATA_FIELD = {
+    _LLM_INFERENCE_TASK_CHAT: "messages",
+    _LLM_INFERENCE_TASK_COMPLETIONS: "prompt",
+}
+
 
 def infer_signature_from_llm_inference_task(
     inference_task: str, signature: Optional[ModelSignature] = None
@@ -73,60 +81,85 @@ def infer_signature_from_llm_inference_task(
     return inferred_signature
 
 
-def convert_data_messages_with_chat_template(data, tokenizer):
-    """For the Chat inference task, apply chat template to messages to create prompt."""
-    if "messages" in data.columns:
-        messages = data.pop("messages").tolist()[0]
-    else:
-        raise MlflowException("The 'messages' field is required for the Chat inference task.")
+def convert_messages_to_prompt(messages: List[Dict], tokenizer) -> str:
+    """For the Chat inference task, apply chat template to messages to create prompt.
+
+    Args:
+        messages: List of message e.g. [{"role": user, "content": xxx}, ...]
+        tokenizer: The tokenizer object used for inference.
+
+    Returns:
+        The prompt string contains the messages.
+    """
+    if not (isinstance(messages, list) and all(isinstance(msg, dict) for msg in messages)):
+        raise MlflowException(
+            f"Input messages should be list of dictionaries, but got: {type(messages)}.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     try:
-        messages_str = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
+        return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     except Exception as e:
         raise MlflowException(f"Failed to apply chat template: {e}")
 
-    data["prompt"] = messages_str
 
-
-def preprocess_llm_inference_params(
-    data,
+def preprocess_llm_inference_input(
+    data: Union[pd.DataFrame, Dict],
+    params: Optional[Dict[str, Any]] = None,
     flavor_config: Optional[Dict[str, Any]] = None,
 ) -> Tuple[List[Any], Dict[str, Any]]:
     """
     When a MLflow inference task is given, return updated `data` and `params` that
-    - Extract the parameters from the input data.
+    - Extract the parameters from the input data (from the first row if passed multiple rows)
     - Replace OpenAI specific parameters with Hugging Face specific parameters, in particular
       - `max_tokens` with `max_new_tokens`
       - `stop` with `stopping_criteria`
+
+    Args:
+        data: Input data for the LLM inference task. Either a pandas DataFrame (after signature
+            enforcement) or a raw dictionary payload.
+        params: Optional dictionary of parameters.
+        flavor_config: Optional dictionary of flavor configuration.
     """
-    if not isinstance(data, pd.DataFrame):
+    if isinstance(data, pd.DataFrame):
+        # Pandas convert None to np.nan internally, which is not preferred
+        data = data.replace(np.nan, None).to_dict(orient="list")
+    elif isinstance(data, dict):
+        # Convert single value to list for consistency with DataFrame
+        data = {k: [v] for k, v in data.items()}
+    else:
         raise MlflowException(
-            "`data` is expected to be a pandas DataFrame for MLflow inference task after signature "
-            f"enforcement, but got type: {type(data)}."
+            "Input data for a Transformer model logged with `llm/v1/chat` or `llm/v1/completions`"
+            f"task is expected to be a pandas DataFrame or a dictionary, but got: {type(data)}.",
+            error_code=BAD_REQUEST,
         )
 
-    updated_data = []
-    params = {}
+    flavor_config = flavor_config or {}
+    params = params or {}
 
-    for column in data.columns:
-        if column in ["prompt", "messages"]:
-            updated_data = data[column].tolist()
-        else:
-            param = data[column].tolist()[0]
-            if column == "max_tokens":
-                params["max_new_tokens"] = param
-            elif column == "stop":
-                source_model_name = (
-                    flavor_config.get("source_model_name") if flavor_config else None
-                )
-                if stop := _get_stopping_criteria(param, source_model_name):
-                    params["stopping_criteria"] = stop
-            else:
-                params[column] = param
+    # Extract list of input data (prompt, messages) to LLM
+    task = flavor_config[_LLM_INFERENCE_TASK_KEY]
+    input_col = _LLM_INFERENCE_TASK_TO_DATA_FIELD.get(task)
+    if input_col not in data:
+        raise MlflowException(
+            f"Transformer model saved with `{task}` task excepts `{input_col}`"
+            "to be passed as input data.",
+            error_code=BAD_REQUEST,
+        )
+    update_data = data.pop(input_col)
 
-    return updated_data, params
+    # The rest of fields in input payload should goes to params and override default ones
+    params_in_data = {k: v[0] for k, v in data.items() if v[0] is not None}
+    params = {**params, **params_in_data}
+
+    if max_tokens := params.pop("max_tokens", None):
+        params["max_new_tokens"] = max_tokens
+    if stop := params.pop("stop", None):
+        params["stopping_criteria"] = _get_stopping_criteria(
+            stop,
+            flavor_config.get(FlavorKey.MODEL_NAME),
+        )
+    return update_data, params
 
 
 def _get_stopping_criteria(stop: Optional[Union[str, List[str]]], model_name: Optional[str] = None):

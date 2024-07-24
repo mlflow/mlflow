@@ -4,113 +4,212 @@ Tracing in MLflow
 .. note::
     MLflow Tracing is currently in **Experimental Status** and is subject to change without deprecation warning or notification. 
 
+
 MLflow offers a number of different options to enable tracing of your GenAI applications. 
 
-- **Automated tracing with LangChain**: MLflow provides a fully automated integration with LangChain that can activate by simply enabling ``mlflow.langchain.autolog()``.
+- **Automated tracing**: MLflow provides a fully automated integration with integrated libraries such as LangChain, OpenAI, and LlamaIndex, that can activate by simply enabling ``mlflow.<library>.autolog()``.
 - **Manual trace instrumentation with high-level fluent APIs**: Decorators, function wrappers and context managers via the fluent API allow you to add tracing functionality with minor code modifications.
 - **Low-level client APIs for tracing**: The MLflow client API provides a thread-safe way to handle trace implementations, even in aysnchronous modes of operation.
 
 
 To learn more about what tracing is, see our `Tracing Concepts Overview <./overview.html>`_ guide. 
 
-.. note::
-    MLflow Tracing support is available for **early access** with the **MLflow 2.14.0rc0** release candidate build. Versions of MLflow prior to this release 
-    do not contain the full set of features that are required for trace logging support.  
-
-    Release candidates can be installed via PyPI via the following syntax, which will fetch the latest release candidate build 
-    for a given release version:
-
-    .. code-block:: shell
-
-        pip install --pre mlflow==2.14.0rc*
-
-.. warning:: 
-    If you are using MLflow tracing from within Databricks, MLflow **2.13.2 and above** contain the required dependencies to utilize tracing functionality 
-    within Databricks. Additionally, it is not recommended to install release candidates of MLflow on Databricks except for compatibility testing. 
-    Other Databricks service integrations with MLflow may not function correctly if you do install an RC build of MLflow.
-
-LangChain Automatic Tracing
----------------------------
-
-The easiest way to get started with MLflow Tracing is to leverage the built-in capabilities with MLflow's LangChain integration. As part of the 
-:py:func:`mlflow.langchain.autolog` integration, traces are logged to the active MLflow Experiment when calling invocation APIs on chains. 
-
-In the example below, the model and its associated metadata will be logged as a run, while the traces are logged separately to the active experiment.
-
-Running the code below will automatically log the traces associated with the simple chain that is being interacted with. 
+To explore the structure and schema of MLflow Tracing, please see the `Tracing Schema <./tracing-schema.html>`_ guide.
 
 .. note::
-    This example has been confirmed working with the following requirement versions:
+    MLflow Tracing support is available with the **MLflow 2.14.0** release. Versions of MLflow prior to this release 
+    do not contain the full set of features that are required for trace logging support.
 
-    .. code-block:: shell
+.. contents:: Table of Contents
+    :local:
+    :depth: 1
 
-        pip install openai==1.30.5 langchain==0.2.1 langchain-openai==0.1.8 langchain-community==0.2.1 mlflow==2.14.0 tiktoken==0.7.0
+Automatic Tracing
+-----------------
 
-
-.. code-block:: python
-
-    import os
-
-    from langchain.prompts import PromptTemplate
-    from langchain_openai import OpenAI
-
-    import mlflow
-
-    assert (
-        "OPENAI_API_KEY" in os.environ
-    ), "Please set your OPENAI_API_KEY environment variable."
-
-    # Using a local MLflow tracking server
-    mlflow.set_tracking_uri("http://localhost:5000")
-
-    # Create a new experiment that the model and the traces will be logged to
-    mlflow.set_experiment("LangChain Tracing")
-
-    # Enable LangChain autologging
-    # Note that models and examples are not required to be logged in order to log traces.
-    # Simply enabling autolog for LangChain via mlflow.langchain.autolog() will enable trace logging.
-    mlflow.langchain.autolog(log_models=True, log_input_examples=True)
-
-    llm = OpenAI(temperature=0.7, max_tokens=1000)
-
-    prompt_template = (
-        "Imagine that you are {person}, and you are embodying their manner of answering questions posed to them. "
-        "While answering, attempt to mirror their conversational style, their wit, and the habits of their speech "
-        "and prose. You will emulate them as best that you can, attempting to distill their quirks, personality, "
-        "and habits of engagement to the best of your ability. Feel free to fully embrace their personality, whether "
-        "aspects of it are not guaranteed to be productive or entirely constructive or inoffensive."
-        "The question you are asked, to which you will reply as that person, is: {question}"
-    )
-
-    chain = prompt_template | llm
-
-    # Test the chain
-    chain.invoke(
-        {
-            "person": "Richard Feynman",
-            "question": "Why should we colonize Mars instead of Venus?",
-        }
-    )
-
-    # Let's test another call
-    chain.invoke(
-        {
-            "person": "Linus Torvalds",
-            "question": "Can I just set everyone's access to sudo to make things easier?",
-        }
-    )
+The easiest way to get started with MLflow Tracing is to leverage the built-in capabilities with MLflow's integrated libraries. MLflow provides automatic tracing capabilities for some of the integrated libraries such as
+LangChain, OpenAI, and LlamaIndex. For these libraries, you can instrument your code with
+just a single command ``mlflow.<library>.autolog()`` and MLflow will automatically log traces
+for model/API invocations to the active MLflow Experiment.
 
 
-If we navigate to the MLflow UI, we can see not only the model that has been auto-logged, but the traces as well, as shown in the below video:
+.. tabs::
 
-.. figure:: ../../_static/images/llms/tracing/langchain-tracing.gif
-    :alt: LangChain Tracing via autolog
-    :width: 100%
-    :align: center
+    .. tab::  LangChain
 
-.. note::
-    The example above is purposely simple (a simple chat completions demonstration) for purposes of brevity. In real-world scenarios involving complex 
-    RAG chains, the trace that is recorded by MLflow will be significantly more complex and verbose. 
+        .. raw:: html
+
+            <h3>LangChain Automatic Tracing</h3>
+
+        |
+
+        As part of the LangChain autologging integration, traces are logged to the active MLflow Experiment when calling invocation APIs on chains. You can enable tracing
+        for LangChain by calling the :py:func:`mlflow.langchain.autolog` function.
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.langchain.autolog()
+
+
+        In the full example below, the model and its associated metadata will be logged as a run, while the traces are logged separately to the active experiment. To learn more, please visit `LangChain Autologging documentation <../langchain/autologging.html>`_.
+
+        .. note::
+            This example has been confirmed working with the following requirement versions:
+
+            .. code-block:: shell
+
+                pip install openai==1.30.5 langchain==0.2.1 langchain-openai==0.1.8 langchain-community==0.2.1 mlflow==2.14.0 tiktoken==0.7.0
+
+
+        .. code-block:: python
+
+            import os
+
+            from langchain.prompts import PromptTemplate
+            from langchain_openai import OpenAI
+
+            import mlflow
+
+            assert (
+                "OPENAI_API_KEY" in os.environ
+            ), "Please set your OPENAI_API_KEY environment variable."
+
+            # Using a local MLflow tracking server
+            mlflow.set_tracking_uri("http://localhost:5000")
+
+            # Create a new experiment that the model and the traces will be logged to
+            mlflow.set_experiment("LangChain Tracing")
+
+            # Enable LangChain autologging
+            # Note that models and examples are not required to be logged in order to log traces.
+            # Simply enabling autolog for LangChain via mlflow.langchain.autolog() will enable trace logging.
+            mlflow.langchain.autolog(log_models=True, log_input_examples=True)
+
+            llm = OpenAI(temperature=0.7, max_tokens=1000)
+
+            prompt_template = (
+                "Imagine that you are {person}, and you are embodying their manner of answering questions posed to them. "
+                "While answering, attempt to mirror their conversational style, their wit, and the habits of their speech "
+                "and prose. You will emulate them as best that you can, attempting to distill their quirks, personality, "
+                "and habits of engagement to the best of your ability. Feel free to fully embrace their personality, whether "
+                "aspects of it are not guaranteed to be productive or entirely constructive or inoffensive."
+                "The question you are asked, to which you will reply as that person, is: {question}"
+            )
+
+            chain = prompt_template | llm
+
+            # Test the chain
+            chain.invoke(
+                {
+                    "person": "Richard Feynman",
+                    "question": "Why should we colonize Mars instead of Venus?",
+                }
+            )
+
+            # Let's test another call
+            chain.invoke(
+                {
+                    "person": "Linus Torvalds",
+                    "question": "Can I just set everyone's access to sudo to make things easier?",
+                }
+            )
+
+
+        If we navigate to the MLflow UI, we can see not only the model that has been auto-logged, but the traces as well, as shown in the below video:
+
+        .. figure:: ../../_static/images/llms/tracing/langchain-tracing.gif
+            :alt: LangChain Tracing via autolog
+            :width: 100%
+            :align: center
+
+        .. note::
+            The example above is purposely simple (a simple chat completions demonstration) for purposes of brevity. In real-world scenarios involving complex 
+            RAG chains, the trace that is recorded by MLflow will be significantly more complex and verbose. 
+
+
+    .. tab:: OpenAI
+
+        .. raw:: html
+
+            <h3>LangChain Automatic Tracing</h3>
+
+        |
+
+        The MLflow OpenAI flavor's autologging feature has a direct integration with MLflow tracing. When OpenAI autologging is enabled with :py:func:`mlflow.openai.autolog`, 
+        usage of the OpenAI SDK will automatically record generated traces during interactive development. 
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.openai.autolog()
+
+
+        For example, the code below will log traces to the currently active experiment (in this case, the activated experiment ``"OpenAI"``, set through the use 
+        of the :py:func:`mlflow.set_experiment` API).
+        To learn more about OpenAI autologging, you can `view the documentation here <../openai/autologging.html>`_.
+
+        .. code-block:: python
+
+            import os
+            import openai
+            import mlflow
+
+            # Calling the autolog API will enable trace logging by default.
+            mlflow.openai.autolog()
+
+            mlflow.set_experiment("OpenAI")
+
+            openai_client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
+            messages = [
+                {
+                    "role": "user",
+                    "content": "How can I improve my resting metabolic rate most effectively?",
+                }
+            ]
+
+            response = openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=messages,
+                temperature=0.99,
+            )
+
+            print(response)
+
+        The logged trace, associated with the ``OpenAI`` experiment, can be seen in the MLflow UI, as shown below:
+
+        .. figure:: ../../_static/images/llms/tracing/openai-tracing.png
+            :alt: OpenAI Tracing
+            :width: 100%
+            :align: center
+
+    .. tab:: LlamaIndex
+
+        .. raw:: html
+
+            <h3>LlamaIndex Automatic Tracing</h3>
+
+        |
+
+        The MLflow LlamaIndex flavor's autologging feature has a direct integration with MLflow tracing. When LlamaIndex autologging is enabled with :py:func:`mlflow.llama_index.autolog`, invocation of components
+        such as LLMs, agents, and query/chat engines will automatically record generated traces during interactive development.
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.llama_index.autolog()
+
+
+        To see the full example of tracing LlamaIndex, please visit `LLamaIndex Tracing documentation <../llama-index/index.html##enable-tracing>`_.
+
+        .. figure:: ../../_static/images/llms/llama-index/llama-index-trace.png
+            :alt: LlamaIndex Tracing
+            :width: 100%
+            :align: center
 
 
 Tracing Fluent APIs
@@ -240,6 +339,64 @@ If we look at this trace from within the MLflow UI, we can see the relationship 
     :width: 100%
     :align: center
 
+
+Span Type
+#########
+
+Span types are a way to categorize spans within a trace. By default, the span type is set to ``"UNKNOWN"`` when using the trace decorator. MLflow provides a set of predefined span types for common use cases, while also allowing you to setting custom span types.
+
+The following span types are available:
+
+.. list-table::
+    :header-rows: 1
+
+    * - Span Type
+      - Description
+    * - ``"LLM"``
+      - Represents a call to an LLM endpoint or a local model.
+    * - ``"CHAT_MODEL"``
+      - Represents a query to a chat model. This is a special case of an LLM interaction.
+    * - ``"CHAIN"``
+      - Represents a chain of operations.
+    * - ``"AGENT"``
+      - Represents an autonomous agent operation.
+    * - ``"TOOL"``
+      - Represents a tool execution (typically by an agent), such as querying a search engine.
+    * - ``"EMBEDDING"``
+      - Represents a text embedding operation.
+    * - ``"RETRIEVER"``
+      - Represents a context retrieval operation, such as querying a vector database.
+    * - ``"PARSER"``
+      - Represents a parsing operation, transforming text into a structured format.
+    * - ``"RERANKER"``
+      - Represents a re-ranking operation, ordering the retrieved contexts based on relevance.
+    * - ``"UNKNOWN"``
+      - A default span type that is used when no other span type is specified.
+
+To set a span type, you can pass the ``span_type`` parameter to the :py:func:`@mlflow.trace <mlflow.trace>` decorator or :py:func:`mlflow.start_span <mlflow.start_span>` context manager. When you are using `automatic tracing <#automatic-tracing>`_, the span type is automatically set by MLflow.
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.entities import SpanType
+
+
+    # Using a built-in span type
+    @mlflow.trace(span_type=SpanType.RETRIEVER)
+    def retrieve_documents(query: str):
+        ...
+
+
+    # Setting a custom span type
+    with mlflow.start_span(name="add", span_type="MATH") as span:
+        span.set_inputs({"x": z, "y": y})
+        z = x + y
+        span.set_outputs({"z": z})
+
+        print(span.span_type)
+        # Output: MATH
+
+
 Context Handler
 ###############
 
@@ -343,7 +500,7 @@ capture its inputs, outputs, and execution context.
             # Wrap another external function
             traced_factorial = mlflow.trace(math.factorial)
 
-            factorial = traced_factorial(raised)
+            factorial = traced_factorial(int(raised))
 
             # Wrap another and call it directly
             response = mlflow.trace(math.sqrt)(factorial)
@@ -450,6 +607,8 @@ spans are properly ended.
         outputs={"final_output_key": "final_output_value"},
         attributes={"token_usage": "1174"},
     )
+
+.. _search_traces:
 
 Searching and Retrieving Traces
 -------------------------------
@@ -720,3 +879,89 @@ Client API
         request_id=parent_span.request_id,
         attributes={"attribute3": "value3", "attribute4": "value4"},
     )
+
+Q: How can I see the stack trace of a Span that captured an Exception?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The MLflow UI does not display Exception types, messages, or stacktraces if faults occur while logging a trace. 
+However, the trace does contain this critical debugging information as part of the Span objects that comprise the Trace. 
+
+The simplest way to retrieve a particular stack trace information from a span that endured an exception is to retrieve the trace directly in 
+an interactive environment (such as a Jupyter Notebook). 
+
+Here is an example of intentionally throwing an Exception while a trace is being collected and a simple way to view the exception details:
+
+.. code-block:: python
+
+    import mlflow
+
+    experiment = mlflow.set_experiment("Intentional Exception")
+
+    with mlflow.start_span(name="A Problematic Span") as span:
+        span.set_inputs({"input": "Exception should log as event"})
+        span.set_attribute("a", "b")
+        raise Exception("Intentionally throwing!")
+        span.set_outputs({"This": "should not be recorded"})
+
+When running this, an Exception will be thrown, as expected. However, a trace is still logged to the active experiment and can be retrieved as follows:
+
+.. code-block:: python
+    
+    from pprint import pprint
+
+    trace = mlflow.get_trace(span.request_id)
+    trace_data = trace.data
+    pprint(trace_data.to_dict(), indent=1)  # Minimum indent due to depth of Span object
+
+In an interactive environment, such as a Jupyter Notebook, the ``stdout`` return will render an output like this:
+
+
+.. code-block:: text
+
+    {'spans': [{'name': 'A Span',
+        'context': {'span_id': '0x896ff177c0942903',
+            'trace_id': '0xcae9cb08ec0a273f4c0aab36c484fe87'},
+        'parent_id': None,
+        'start_time': 1718063629190062000,
+        'end_time': 1718063629190595000,
+        'status_code': 'ERROR',
+        'status_message': 'Exception: Intentionally throwing!',
+        'attributes': {'mlflow.traceRequestId': '"7d418211df5945fa94e5e39b8009039e"',
+            'mlflow.spanType': '"UNKNOWN"',
+            'mlflow.spanInputs': '{"input": "Exception should log as event"}',
+            'a': '"b"'},
+        'events': [{'name': 'exception',
+            'timestamp': 1718063629190527000,
+            'attributes': {'exception.type': 'Exception',
+            'exception.message': 'Intentionally throwing!',
+            'exception.stacktrace': 'Traceback (most recent call last):\n  
+                                     File "/usr/local/lib/python3.8/site-packages/opentelemetry/trace/__init__.py", 
+                                     line 573, in use_span\n    
+                                        yield span\n  File "/usr/local/mlflow/mlflow/tracing/fluent.py", 
+                                     line 241, in start_span\n    
+                                        yield mlflow_span\n  File "/var/folders/cd/n8n0rm2x53l_s0xv_j_xklb00000gp/T/ipykernel_9875/4089093747.py", 
+                                     line 4, in <cell line: 1>\n    
+                                        raise Exception("Intentionally throwing!")\nException: Intentionally throwing!\n',
+            'exception.escaped': 'False'}}]}],
+     'request': '{"input": "Exception should log as event"}',
+     'response': None
+    }
+
+The ``exception.stacktrace`` attribute contains the full stack trace of the Exception that was raised during the span's execution.
+
+Alternatively, if you were to use the MLflowClient API to search traces, the access to retrieve the span's event data from the failure would be 
+slightly different (due to the return value being a ``pandas`` DataFrame). To use the ``search_traces`` API to access the same exception data would 
+be as follows:
+
+.. code-block:: python
+
+    import mlflow
+
+    client = mlflow.MlflowClient()
+
+    traces = client.search_traces(
+        experiment_ids=[experiment.experiment_id]
+    )  # This returns a pandas DataFrame
+    pprint(traces["trace"][0].data.spans[0].to_dict(), indent=1)
+
+The stdout values that will be rendered from this call are identical to those from the example span data above. 

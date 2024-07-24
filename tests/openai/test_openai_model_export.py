@@ -15,7 +15,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
 
-from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.helper_functions import get_serving_input_example, pyfunc_serve_and_score_model
 from tests.openai.conftest import is_v1
 
 
@@ -537,20 +537,23 @@ def test_embeddings_batch_size_azure(tmp_path, monkeypatch):
     assert model._model_impl.api_config.batch_size == 16
 
 
-def test_embeddings_pyfunc_server_and_score(tmp_path):
-    mlflow.openai.save_model(
-        model="text-embedding-ada-002",
-        task=embeddings(),
-        path=tmp_path,
-    )
+def test_embeddings_pyfunc_server_and_score():
     df = pd.DataFrame({"text": ["a", "b"]})
+    with mlflow.start_run():
+        model_info = mlflow.openai.log_model(
+            model="text-embedding-ada-002",
+            task=embeddings(),
+            artifact_path="model",
+            input_example=df,
+        )
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        tmp_path,
-        data=pd.DataFrame(df),
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    expected = mlflow.pyfunc.load_model(tmp_path).predict(df)
+    expected = mlflow.pyfunc.load_model(model_info.model_uri).predict(df)
     actual = pd.DataFrame(data=json.loads(resp.content.decode("utf-8")))
     pd.testing.assert_frame_equal(actual, pd.DataFrame({"predictions": expected}))
 
@@ -623,3 +626,34 @@ def test_engine_and_deployment_id_for_azure_openai(tmp_path, monkeypatch):
         MlflowException, match=r"Either engine or deployment_id must be set for Azure OpenAI API"
     ):
         mlflow.pyfunc.load_model(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("api_type", "auth_headers"),
+    [
+        ("azure", {"api-key": "test"}),
+        ("azure_ad", {"Authorization": "Bearer test"}),
+        ("azuread", {"Authorization": "Bearer test"}),
+        ("openai", {"Authorization": "Bearer test"}),
+    ],
+)
+def test_openai_request_auth_headers(api_type, auth_headers, tmp_path, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_TYPE", api_type)
+    if "azure" in api_type:
+        monkeypatch.setenv("OPENAI_DEPLOYMENT_NAME", "test")
+    mlflow.openai.save_model(
+        model="gpt-4o",
+        task="chat.completions",
+        path=tmp_path,
+    )
+    model = mlflow.pyfunc.load_model(tmp_path)
+    with mock.patch("requests.Session.request") as mock_request:
+        model.predict("What is the meaning of life?")
+        mock_request.assert_called_once_with(
+            method="post",
+            url=mock.ANY,
+            data=mock.ANY,
+            json=mock.ANY,
+            timeout=mock.ANY,
+            headers=auth_headers,
+        )

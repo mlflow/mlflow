@@ -23,6 +23,7 @@ from packaging.version import InvalidVersion, Version
 
 import mlflow
 from mlflow.environment_variables import (
+    _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
     MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
     MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT,
 )
@@ -196,6 +197,15 @@ def _prune_packages(packages):
     """
     packages = set(packages)
     requires = set(_flatten(map(_get_requires_recursive, packages)))
+
+    # LlamaIndex have one root "llama-index" package that bundles many sub-packages such as
+    # llama-index-llms-openai. Many of those sub-packages are optional, but some are defined
+    # as dependencies of the root package. However, the root package does not pin the versions
+    # for those sub-packages, resulting in non-deterministic behavior when loading the model
+    # later. To address this issue, we keep all sub-packages within the requirements.
+    # Ref: https://github.com/run-llama/llama_index/issues/14788#issuecomment-2232107585
+    requires = {req for req in requires if not req.startswith("llama-index-")}
+
     # Do not exclude mlflow's dependencies
     return packages - (requires - set(_get_requires("mlflow")))
 
@@ -319,7 +329,11 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False):
                             *record_full_module_args,
                         ],
                         timeout_seconds=process_timeout,
-                        env={**main_env, **transformer_env},
+                        env={
+                            **main_env,
+                            **transformer_env,
+                            _MLFLOW_IN_CAPTURE_MODULE_PROCESS.name: "true",
+                        },
                     )
                     with open(output_file) as f:
                         return f.read().splitlines()
@@ -348,7 +362,10 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False):
                 *record_full_module_args,
             ],
             timeout_seconds=process_timeout,
-            env=main_env,
+            env={
+                **main_env,
+                _MLFLOW_IN_CAPTURE_MODULE_PROCESS.name: "true",
+            },
         )
 
         if os.path.exists(error_file):
@@ -433,19 +450,19 @@ def _load_pypi_package_index():
 _PYPI_PACKAGE_INDEX = None
 
 
-def _infer_requirements(model_uri, flavor):
+def _infer_requirements(model_uri, flavor, raise_on_error=False):
     """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
 
     Args:
         model_uri: The URI of the model.
         flavor: The flavor name of the model.
+        raise_on_error: If True, raise an exception if an unrecognized package is encountered.
 
     Returns:
         A list of inferred pip requirements.
 
     """
-    raise_on_error = MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS.get()
     _init_modules_to_packages_map()
     global _PYPI_PACKAGE_INDEX
     if _PYPI_PACKAGE_INDEX is None:

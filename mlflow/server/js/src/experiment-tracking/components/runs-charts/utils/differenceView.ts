@@ -1,10 +1,10 @@
-import { MLFLOW_SYSTEM_METRIC_PREFIX } from 'experiment-tracking/constants';
-import { KeyValueEntity, MetricEntitiesByName } from 'experiment-tracking/types';
+import { MLFLOW_SYSTEM_METRIC_PREFIX } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import { KeyValueEntity, MetricEntitiesByName } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { useCallback, useMemo } from 'react';
 import { RunsChartsRunData } from '../components/RunsCharts.common';
 import { DifferenceCardAttributes, RunsChartsDifferenceCardConfig } from '../runs-charts.types';
-import Utils from 'common/utils/Utils';
-import { Run } from 'experiment-tracking/sdk/MlflowMessages';
+import Utils from '@mlflow/mlflow/src/common/utils/Utils';
+import { Run } from '@mlflow/mlflow/src/experiment-tracking/sdk/MlflowMessages';
 import type { RunsGroupByConfig } from '../../experiment-page/utils/experimentPage.group-row-utils';
 
 const DEFAULT_EMPTY_VALUE = '-';

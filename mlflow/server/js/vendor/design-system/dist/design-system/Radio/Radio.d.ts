@@ -1,14 +1,12 @@
-/// <reference types="react" />
 import type { SerializedStyles } from '@emotion/react';
 import type { RadioGroupProps as AntDRadioGroupProps, RadioProps as AntDRadioProps } from 'antd';
 import type { Theme } from '../../theme';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
 import type { AnalyticsEventValueChangeNoPiiFlagOptionalProps, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
 export type { RadioChangeEvent } from 'antd';
-export declare const getRadioStyles: ({ theme, clsPrefix, useNewStyles, }: {
+export declare const getRadioStyles: ({ theme, clsPrefix }: {
     theme: Theme;
     clsPrefix: string;
-    useNewStyles?: boolean | undefined;
 }) => SerializedStyles;
 export interface RadioProps extends Omit<AntDRadioProps, 'prefixCls' | 'type' | 'skipGroup'>, DangerouslySetAntdProps<AntDRadioGroupProps>, HTMLDataAttributes {
 }

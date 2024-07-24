@@ -1,5 +1,109 @@
 # CHANGELOG
 
+## 2.14.3 (2024-07-12)
+
+MLflow 2.14.3 is a patch release that addresses bug fixes and additional documentation for released features
+
+Features:
+
+- [Model Registry] Add support for server-side encryption when uploading files to AWS S3 (#12495, @artjen)
+
+Bug fixes:
+
+- [Models] Fix stream trace logging with the OpenAI autologging implementation to record the correct chunk structure (#12629, @BenWilson2)
+- [Models] Fix batch inference behavior for Whisper-based translation models to allow for multiple audio file inputs (#12575, @B-Step62)
+
+Documentation updates:
+
+- [Docs] Add documentation for OpenAI autologging (#12608, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#12556, #12628, @B-Step62; #12582, #12560, @harupy; #12553, @nojaf
+
+## 2.14.2 (2024-07-03)
+
+MLflow 2.14.2 is a patch release that includes several important bug fixes and documentation enhancements.
+
+Bug fixes:
+
+- [Models] Fix an issue with requirements inference error handling when disabling the default warning-only behavior (#12547, @B-Step62)
+- [Models] Fix dependency inference issues with Transformers models saved with the unified API `llm/v1/xxx` task definitions. (#12551, @B-Step62)
+- [Models / Databricks] Fix an issue with MLlfow `log_model` introduced in MLflow 2.13.0 that causes Databricks DLT service to crash in some situations (#12514, @WeichenXu123)
+- [Models] Fix an output data structure issue with the `predict_stream` implementation for LangChain AgentExecutor and other non-Runnable chains (#12518, @B-Step62)
+- [Tracking] Fix an issue with the `predict_proba` inference method in the `sklearn` flavor when loading an sklearn pipeline object as `pyfunc` (#12554, @WeichenXu123)
+- [Tracking] Fix an issue with the Tracing implementation where other services usage of OpenTelemetry would activate MLflow tracing and cause errors (#12457, @B-Step62)
+- [Tracking / Databricks] Correct an issue when running dependency inference in Databricks that can cause duplicate dependency entries to be logged (#12493, @sunishsheth2009)
+
+Documentation updates:
+
+- [Docs] Add documentation and guides for the MLflow tracing schema (#12521, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#12311, #12285, #12535, #12543, #12320, #12444, @B-Step62; #12310, #12340, @serena-ruan; #12409, #12432, #12471, #12497, #12499, @harupy; #12555, @nojaf; #12472, #12431, @xq-yin; #12530, #12529, #12528, #12527, #12526, #12524, #12531, #12523, #12525, #12522, @dbczumar; #12483, @jsuchome; #12465, #12441, @BenWilson2; #12450, @StarryZhang-whu
+
+## 2.14.1 (2024-06-20)
+
+MLflow 2.14.1 is a patch release that contains several bug fixes and documentation improvements
+
+Bug fixes:
+
+- [Models] Fix params and model_config handling for llm/v1/xxx Transformers model (#12401, @B-Step62)
+- [UI] Fix dark mode user preference (#12386, @daniellok-db)
+- [Docker] Fix docker image failing to build with `install_mlflow=False` (#12388, @daniellok-db)
+
+Documentation updates:
+
+- [Docs] Add link to langchain autologging page in doc (#12398, @xq-yin)
+- [Docs] Add documentation for Models from Code (#12381, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#12415, #12396, #12394, @harupy; #12403, #12382, @BenWilson2; #12397, @B-Step62
+
+## 2.14.0 (2024-06-17)
+
+MLflow 2.14.0 includes several major features and improvements that we're very excited to announce!
+
+### Major features:
+
+- **MLflow Tracing**: Tracing is powerful tool designed to enhance your ability to monitor, analyze, and debug GenAI applications by allowing you to inspect the intermediate outputs generated as your application handles a request. This update comes with an automatic LangChain integration to make it as easy as possible to get started, but we've also implemented high-level fluent APIs, and low-level client APIs for users who want more control over their trace instrumentation. For more information, check out the [guide in our docs](https://mlflow.org/docs/latest/llms/tracing/index.html)!
+- **Unity Catalog Integration**: The MLflow Deployments server now has an integration with Unity Catalog, allowing you to leverage registered functions as tools for enhancing your chat application. For more information, check out [this guide](https://mlflow.org/docs/latest/llms/deployments/uc_integration.html)!
+- **OpenAI Autologging**: Autologging support has now been added for the OpenAI model flavor. With this feature, MLflow will automatically log a model upon calling the OpenAI API. Each time a request is made, the inputs and outputs will be logged as artifacts. Check out [the guide](https://mlflow.org/docs/latest/llms/openai/guide/index.html#openai-autologging) for more information!
+
+Other Notable Features:
+
+- [Models] Support input images encoded with b64.encodebytes (#12087, @MadhuM02)
+- [Tracking] Support async logging per X seconds (#12324, @chenmoneygithub)
+- [Tracking] Provide a way to set urllib's connection number and max size (#12227, @chenmoneygithub)
+- [Projects] Make MLflow project runner supporting submit spark job to databricks runtime >= 13 (#12139, @WeichenXu123)
+- [UI] Add the "description" column to the runs table (#11996, @zhouyou9505)
+
+Bug fixes:
+
+- [Model Registry] Handle no headers presigned url (#12349, @artjen)
+- [Models] Fix docstring order for ChatResponse class and make object field immutable (#12305, @xq-yin)
+- [Databricks] Fix root user checking in get_databricks_nfs_temp_dir and get_databricks_local_temp_dir (#12186, @WeichenXu123)
+- [Tracking] fix _init_server process terminate hang (#12076, @zhouyou9505)
+- [Scoring] Fix MLflow model container and slow test CI failure (#12042, @WeichenXu123)
+
+Documentation updates:
+
+- [Docs] Enhance documentation for autologging supported libraries (#12356, @xq-yin)
+- [Tracking, Docs] Adding Langchain as a code example and doc string (#12325, @sunishsheth2009)
+- [Tracking, Docs] Adding Pyfunc as a code example and doc string (#12336, @sunishsheth2009)
+- [Docs] Add FAQ entry for viewing trace exceptions in Docs (#12309, @BenWilson2)
+- [Docs] Add note about 'fork' vs 'spawn' method when using multiprocessing for parallel runs (#12337, @B-Step62)
+- [Docs] Fix type error in tracing example for function wrapping (#12338, @B-Step62)
+- [Docs] Add example usage of "extract_fields" for mlflow.search_traces in documentation (#12319, @xq-yin)
+- [Docs] Update LangChain Autologging docs (#12306, @B-Step62)
+- [Docs] Add Tracing documentation (#12191, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#12359, #12308, #12350, #12284, #12345, #12316, #12287, #12303, #12291, #12288, #12265, #12170, #12248, #12263, #12249, #12251, #12239, #12241, #12240, #12235, #12242, #12172, #12215, #12228, #12216, #12164, #12225, #12203, #12181, #12198, #12195, #12192, #12146, #12171, #12163, #12166, #12124, #12106, #12113, #12112, #12074, #12077, #12058, @harupy; #12355, #12326, #12114, #12343, #12328, #12327, #12340, #12286, #12310, #12200, #12209, #12189, #12194, #12201, #12196, #12174, #12107, @serena-ruan; #12364, #12352, #12354, #12353, #12351, #12298, #12297, #12220, #12155, @daniellok-db; #12311, #12357, #12346, #12312, #12339, #12281, #12283, #12282, #12268, #12236, #12247, #12199, #12232, #12233, #12221, #12229, #12207, #12212, #12193, #12167, #12137, #12147, #12148, #12138, #12127, #12065, @B-Step62; #12289, #12253, #12330 @xq-yin; #11771, @lababidi; #12280, #12275, @BenWilson2; #12246, #12244, #12211, #12066, #12061, @WeichenXu123; #12278, @sunishsheth2009; #12136, @kriscon-db; #11911, @jessechancy; #12169, @hubertzub-db
+
 ## 2.13.2 (2024-06-06)
 
 MLflow 2.13.2 is a patch release that includes several bug fixes and integration improvements to existing

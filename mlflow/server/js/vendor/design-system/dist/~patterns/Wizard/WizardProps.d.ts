@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { ButtonProps } from '@databricks/design-system';
 import type { WizardStep } from './WizardStep';
 import type { WizardCurrentStepParams, WizardCurrentStepResult } from './useWizardCurrentStep';
@@ -79,7 +78,7 @@ export interface WizardProps {
      */
     doneButtonContent: React.ReactNode;
     /**
-     * Extra set of ordered buttons to be displayed in the footer to the right of the cancel button
+     * Extra set of ordered buttons to be displayed in the footer to the left of the next button
      * The only button property that will be overriden is type to default; keeping the far right button as the only primary button.
      */
     extraFooterButtonsLeft?: ButtonProps[];
@@ -107,7 +106,8 @@ export interface WizardProps {
      */
     padding?: string | number;
     /**
-     * If true user will be able to click to steps that have been completed or are less than current step
+     * If true user will be able to click to steps that have been completed, in error or warning states, or are less than current step,
+     * or every step before a step is completed.
      * This default behavior can be overriden by setting `clickEnabled` on each `WizardStep`
      *
      * @default false

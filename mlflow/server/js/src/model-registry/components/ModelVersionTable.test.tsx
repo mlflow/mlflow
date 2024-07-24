@@ -1,7 +1,7 @@
 import React from 'react';
 import { mockModelVersionDetailed } from '../test-utils';
 import { ModelVersionStatus, Stages } from '../constants';
-import { renderWithIntl, screen } from 'common/utils/TestUtils.react17';
+import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';

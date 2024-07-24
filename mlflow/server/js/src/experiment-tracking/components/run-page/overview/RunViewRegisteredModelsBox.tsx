@@ -3,6 +3,7 @@ import { Link } from '../../../../common/utils/RoutingUtils';
 import { ModelVersionInfoEntity, RunInfoEntity } from '../../../types';
 import { ModelRegistryRoutes } from '../../../../model-registry/routes';
 import { ReactComponent as RegisteredModelOkIcon } from '../../../../common/static/registered-model-grey-ok.svg';
+import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
 
 const getModelLink = (modelVersion: ModelVersionInfoEntity) => {
   const { name, version } = modelVersion;
@@ -17,7 +18,7 @@ export const RunViewRegisteredModelsBox = ({
   registeredModels,
   runInfo,
 }: {
-  runInfo: RunInfoEntity;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   registeredModels: ModelVersionInfoEntity[];
 }) => {
   const { theme } = useDesignSystemTheme();

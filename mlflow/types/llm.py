@@ -96,6 +96,18 @@ class ChatParams(_BaseDataclass):
             **Optional**, defaults to ``1``
         stream (bool): Whether to stream back responses as they are generated.
             **Optional**, defaults to ``False``
+        top_p (float): An optional param to control sampling with temperature, the model considers
+            the results of the tokens with top_p probability mass. E.g., 0.1 means only the tokens
+            comprising the top 10% probability mass are considered.
+        top_k (int): An optional param for reducing the vocabulary size to top k tokens
+            (sorted in descending order by their probabilites).
+        frequency_penalty: (float): An optional param of positive or negative value,
+            positive values penalize new tokens based on
+            their existing frequency in the text so far, decreasing the model's likelihood to repeat
+            the same line verbatim.
+        presence_penalty: (float): An optional param of positive or negative value,
+            positive values penalize new tokens based on whether they appear in the text so far,
+            increasing the model's likelihood to talk about new topics.
     """
 
     temperature: float = 1.0
@@ -104,12 +116,22 @@ class ChatParams(_BaseDataclass):
     n: int = 1
     stream: bool = False
 
+    top_p: Optional[float] = None
+    top_k: Optional[int] = None
+    frequency_penalty: Optional[float] = None
+    presence_penalty: Optional[float] = None
+
     def __post_init__(self):
         self._validate_field("temperature", float, True)
         self._validate_field("max_tokens", int, False)
         self._validate_list("stop", str, False)
         self._validate_field("n", int, True)
         self._validate_field("stream", bool, True)
+
+        self._validate_field("top_p", float, False)
+        self._validate_field("top_k", int, False)
+        self._validate_field("frequency_penalty", float, False)
+        self._validate_field("presence_penalty", float, False)
 
 
 @dataclass()
@@ -223,12 +245,13 @@ class ChatChoice(_BaseDataclass):
         index (int): The index of the response in the list of responses.
         message (:py:class:`ChatMessage`): The message that was generated.
         finish_reason (str): The reason why generation stopped.
+            **Optional**, defaults to ``"stop"``
         logprobs (:py:class:`ChatChoiceLogProbs`): Log probability information for the choice.
     """
 
     index: int
     message: ChatMessage
-    finish_reason: str
+    finish_reason: str = "stop"
     logprobs: Optional[ChatChoiceLogProbs] = None
 
     def __post_init__(self):
@@ -255,18 +278,21 @@ class TokenUsageStats(_BaseDataclass):
 
     Args:
         prompt_tokens (int): The number of tokens in the prompt.
+            **Optional**, defaults to ``None``
         completion_tokens (int): The number of tokens in the generated completion.
+            **Optional**, defaults to ``None``
         total_tokens (int): The total number of tokens used.
+            **Optional**, defaults to ``None``
     """
 
-    prompt_tokens: int
-    completion_tokens: int
-    total_tokens: int
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
 
     def __post_init__(self):
-        self._validate_field("prompt_tokens", int, True)
-        self._validate_field("completion_tokens", int, True)
-        self._validate_field("total_tokens", int, True)
+        self._validate_field("prompt_tokens", int, False)
+        self._validate_field("completion_tokens", int, False)
+        self._validate_field("total_tokens", int, False)
 
 
 @dataclass
@@ -275,28 +301,28 @@ class ChatResponse(_BaseDataclass):
     The full response object returned by the chat endpoint.
 
     Args:
-        id (str): The ID of the response.
-        model (str): The name of the model used.
         choices (List[:py:class:`ChatChoice`]): A list of :py:class:`ChatChoice` objects
             containing the generated responses
         usage (:py:class:`TokenUsageStats`): An object describing the tokens used by the request.
+        id (str): The ID of the response. **Optional**, defaults to ``None``
+        model (str): The name of the model used. **Optional**, defaults to ``None``
         object (str): The object type. The value should always be 'chat.completion'
         created (int): The time the response was created.
             **Optional**, defaults to the current time.
     """
 
-    id: str
-    model: str
     choices: List[ChatChoice]
     usage: TokenUsageStats
+    id: Optional[str] = None
+    model: Optional[str] = None
     object: Literal["chat.completion"] = "chat.completion"
     created: int = field(default_factory=lambda: int(time.time()))
 
     def __post_init__(self):
-        self._validate_field("id", str, True)
+        self._validate_field("id", str, False)
         self._validate_field("object", str, True)
         self._validate_field("created", int, True)
-        self._validate_field("model", str, True)
+        self._validate_field("model", str, False)
         self._convert_dataclass_list("choices", ChatChoice)
         if isinstance(self.usage, dict):
             self.usage = TokenUsageStats(**self.usage)
@@ -331,6 +357,10 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
         ColSpec(name="stop", type=Array(DataType.string), required=False),
         ColSpec(name="n", type=DataType.long, required=False),
         ColSpec(name="stream", type=DataType.boolean, required=False),
+        ColSpec(name="top_p", type=DataType.double, required=False),
+        ColSpec(name="top_k", type=DataType.long, required=False),
+        ColSpec(name="frequency_penalty", type=DataType.double, required=False),
+        ColSpec(name="presence_penalty", type=DataType.double, required=False),
     ]
 )
 

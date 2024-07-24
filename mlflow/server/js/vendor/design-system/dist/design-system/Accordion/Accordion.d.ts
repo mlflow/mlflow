@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { Interpolation, Theme as EmotionTheme } from '@emotion/react';
 import type { CollapseProps as AntDCollapseProps, CollapsePanelProps as AntDCollapsePanelProps } from 'antd';
 import type { CollapsibleType } from 'antd/lib/collapse/CollapsePanel';

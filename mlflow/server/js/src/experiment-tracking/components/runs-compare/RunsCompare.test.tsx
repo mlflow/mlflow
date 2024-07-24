@@ -1,5 +1,12 @@
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
-import { renderWithIntl, act, fireEvent, screen, within } from 'common/utils/TestUtils.react18';
+import {
+  renderWithIntl,
+  act,
+  fireEvent,
+  screen,
+  within,
+  waitFor,
+} from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { ImageEntity, MetricEntitiesByName } from '../../types';
 import { useUpdateExperimentViewUIState } from '../experiment-page/contexts/ExperimentPageUIStateContext';
 import { ExperimentPageUIState } from '../experiment-page/models/ExperimentPageUIState';
@@ -7,13 +14,20 @@ import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import {
   RunsChartType,
   RunsChartsBarCardConfig,
+  RunsChartsCardConfig,
   RunsChartsLineCardConfig,
   RunsChartsParallelCardConfig,
+  RunsChartsDifferenceCardConfig,
+  DifferenceCardConfigCompareGroup,
 } from '../runs-charts/runs-charts.types';
 import { RunsCompare } from './RunsCompare';
 import { useSampledMetricHistory } from '../runs-charts/hooks/useSampledMetricHistory';
 import userEvent from '@testing-library/user-event-14';
 import { RunsChartsLineChartXAxisType } from '../runs-charts/components/RunsCharts.common';
+import {
+  shouldEnableDifferenceViewCharts,
+  shouldEnableHidingChartsWithNoData,
+} from '../../../common/utils/FeatureUtils';
 
 jest.setTimeout(30000); // Larger timeout for integration testing
 
@@ -32,6 +46,12 @@ jest.mock('../experiment-page/contexts/ExperimentPageUIStateContext', () => ({
 
 jest.mock('../runs-charts/hooks/useSampledMetricHistory', () => ({
   useSampledMetricHistory: jest.fn(),
+}));
+
+jest.mock('../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual('../../../common/utils/FeatureUtils'),
+  shouldEnableHidingChartsWithNoData: jest.fn().mockImplementation(() => false),
+  shouldEnableDifferenceViewCharts: jest.fn().mockImplementation(() => false),
 }));
 
 jest.setTimeout(30000); // Larger timeout for integration testing
@@ -100,6 +120,12 @@ describe('RunsCompare', () => {
     xAxisScaleType: 'linear',
     selectedXAxisMetricKey: '',
     selectedMetricKeys: ['metric-beta', 'metric-alpha'],
+    range: {
+      xMin: undefined,
+      xMax: undefined,
+      yMin: undefined,
+      yMax: undefined,
+    },
   };
 
   const compareRunSections = [
@@ -131,6 +157,7 @@ describe('RunsCompare', () => {
 
   beforeEach(() => {
     jest.mocked(useUpdateExperimentViewUIState).mockReturnValue(updateUIState);
+    jest.mocked(shouldEnableHidingChartsWithNoData).mockImplementation(() => false);
 
     jest.mocked(useSampledMetricHistory).mockReturnValue({
       isLoading: false,
@@ -176,6 +203,7 @@ describe('RunsCompare', () => {
           compareRunCharts={currentUIState.compareRunCharts}
           compareRunSections={currentUIState.compareRunSections}
           groupBy={groupBy}
+          hideEmptyCharts={currentUIState.hideEmptyCharts}
         />
       </MockedReduxStoreProvider>,
     );
@@ -1244,19 +1272,27 @@ describe('RunsCompare', () => {
 
     const modelMetricsSection = screen.getByText('Model metrics');
     const sectionHeader = modelMetricsSection.closest(
-      '[data-testid="on-search-runs-compare-section-header"]',
+      '[data-testid="experiment-view-compare-runs-section-header"]',
     ) as HTMLElement;
 
-    // Click on the section header
-    await act(async () => {
-      fireEvent.click(sectionHeader);
-    });
-
+    // Expect particular charts to disappear
     expect(screen.queryByRole('heading', { name: 'metric-beta' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'metric-gamma' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'tmp/metric-omega' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'metric-alpha' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'metric-beta vs metric-alpha' })).toBeInTheDocument();
+
+    // Expect metric section to be displayed
+    expect(currentUIState.compareRunSections?.find(({ name }) => name === 'Model metrics')?.display).toEqual(true);
+
+    // Click on the section header
+    await userEvent.click(sectionHeader);
+
+    const [updateUIFunction] = jest.mocked(updateUIState).mock.lastCall;
+    const newUIState: ExperimentPageUIState = updateUIFunction(currentUIState);
+
+    // Expect metric section to be hidden
+    expect(newUIState.compareRunSections?.find(({ name }) => name === 'Model metrics')?.display).toEqual(false);
   });
 
   test('correctly determines chart types run groups mixed with ungrouped runs', async () => {
@@ -1322,5 +1358,149 @@ describe('RunsCompare', () => {
         }),
       ]),
     );
+  });
+
+  describe('hiding charts with no data', () => {
+    // Set up charts
+    beforeEach(() => {
+      jest.mocked(shouldEnableHidingChartsWithNoData).mockImplementation(() => true);
+      jest.mocked(shouldEnableDifferenceViewCharts).mockImplementation(() => true);
+
+      currentUIState.compareRunCharts = [
+        {
+          type: RunsChartType.BAR,
+          uuid: 'chart-alpha',
+          runsCountToCompare: 10,
+          metricKey: 'metric-alpha',
+          metricSectionId: 'metric-section-1',
+          deleted: false,
+          isGenerated: true,
+        } as RunsChartsBarCardConfig,
+        {
+          type: RunsChartType.PARALLEL,
+          uuid: 'chart-parallel',
+          runsCountToCompare: 10,
+          metricSectionId: 'metric-section-1',
+          selectedMetrics: ['metric-parallel-1', 'metric-parallel-2'],
+          deleted: false,
+          isGenerated: true,
+        } as RunsChartsParallelCardConfig,
+        {
+          type: RunsChartType.DIFFERENCE,
+          uuid: 'chart-difference',
+          runsCountToCompare: 10,
+          metricSectionId: 'metric-section-1',
+          compareGroups: [DifferenceCardConfigCompareGroup.MODEL_METRICS],
+          chartName: 'Runs difference view',
+          showDifferencesOnly: true,
+          deleted: false,
+          isGenerated: true,
+        } as RunsChartsDifferenceCardConfig,
+      ];
+    });
+
+    // Set up non-configured charts
+    const noConfigCharts = [
+      {
+        type: RunsChartType.PARALLEL,
+        uuid: 'chart-parallel',
+        runsCountToCompare: 10,
+        metricSectionId: 'metric-section-1',
+        selectedMetrics: [] as string[],
+        deleted: false,
+        isGenerated: true,
+      } as RunsChartsParallelCardConfig,
+      {
+        type: RunsChartType.DIFFERENCE,
+        uuid: 'chart-difference',
+        runsCountToCompare: 10,
+        metricSectionId: 'metric-section-1',
+        compareGroups: [] as DifferenceCardConfigCompareGroup[],
+        chartName: 'Runs difference view',
+        showDifferencesOnly: true,
+        deleted: false,
+        isGenerated: true,
+      } as RunsChartsDifferenceCardConfig,
+    ];
+
+    // Set up metrics store to contain data for unrelated metric
+    const componentProps = {
+      latestMetricsByRunUuid: {
+        run_latest: {
+          'metric-unrelated': { key: 'metric-unrelated', value: 1, step: 0 },
+        },
+        run_oldest: {
+          'metric-unrelated': { key: 'metric-unrelated', value: 1, step: 0 },
+        },
+      } as any,
+      comparedRuns: [
+        { runUuid: 'run_latest', runName: 'Last run', runInfo: {} },
+        { runUuid: 'run_oldest', runName: 'First run', runInfo: {} },
+      ] as any,
+    };
+
+    test('displays a warning when configured charts do not contain corresponding data and hiding empty charts is disabled', async () => {
+      currentUIState.hideEmptyCharts = false;
+      createComponentMock(componentProps);
+
+      await waitFor(() => {
+        expect(screen.getByText(/metric-alpha/)).toBeInTheDocument();
+        expect(screen.getByText(/Parallel Coordinates/)).toBeInTheDocument();
+        expect(screen.getAllByText(/No chart data available for the currently visible runs/)).toHaveLength(2);
+        expect(screen.getByText(/Runs difference view/)).toBeInTheDocument();
+        expect(screen.getByText(/No run differences to display/)).toBeInTheDocument();
+      });
+    });
+
+    test('displays a warning when all runs are hidden', async () => {
+      currentUIState.hideEmptyCharts = false;
+      createComponentMock({ ...componentProps, comparedRuns: [] });
+
+      await waitFor(() => {
+        expect(screen.queryByText(/metric-alpha/)).not.toBeInTheDocument();
+        expect(screen.getByText(/All runs are hidden\./)).toBeInTheDocument();
+      });
+    });
+
+    test('does not display empty chart at all when hiding empty charts is set', async () => {
+      currentUIState.hideEmptyCharts = true;
+      createComponentMock(componentProps);
+
+      await waitFor(() => {
+        expect(screen.queryByText(/metric-alpha/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/Parallel Coordinates/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/No chart data available for the currently visible runs/)).not.toBeInTheDocument();
+
+        // Runs difference view is visible even if hide empty charts is set
+        expect(screen.getByText(/Runs difference view/)).toBeInTheDocument();
+        expect(screen.getByText(/No run differences to display/)).toBeInTheDocument();
+      });
+    });
+
+    test('does not display parallel coords or runs difference chart when not configured and hiding empty charts is set', async () => {
+      currentUIState.hideEmptyCharts = true;
+      currentUIState.compareRunCharts = noConfigCharts;
+      createComponentMock(componentProps);
+
+      await waitFor(() => {
+        expect(screen.queryByText(/Parallel Coordinates/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/No chart data available for the currently visible runs/)).not.toBeInTheDocument();
+
+        expect(screen.queryByText(/Runs difference view/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/No run differences to display/)).not.toBeInTheDocument();
+      });
+    });
+
+    test('displays a warning when parallel coords or runs difference chart not configured and hiding empty charts is disabled', async () => {
+      currentUIState.hideEmptyCharts = false;
+      currentUIState.compareRunCharts = noConfigCharts;
+      createComponentMock(componentProps);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Parallel Coordinates/)).toBeInTheDocument();
+        expect(screen.getByText(/Runs difference view/)).toBeInTheDocument();
+        expect(screen.getAllByText(/Configure chart/)).toHaveLength(2);
+      });
+    });
   });
 });

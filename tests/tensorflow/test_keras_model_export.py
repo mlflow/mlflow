@@ -1,4 +1,3 @@
-import json
 import os
 import pickle
 import random
@@ -42,6 +41,7 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     assert_array_almost_equal,
     assert_register_model_called_with_local_model_path,
+    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 from tests.pyfunc.test_spark import score_model_as_udf
@@ -218,11 +218,12 @@ def test_pyfunc_serve_and_score(data):
     x, _ = data
     model = get_model(data)
     with mlflow.start_run():
-        model_info = mlflow.tensorflow.log_model(model, artifact_path="model")
+        model_info = mlflow.tensorflow.log_model(model, artifact_path="model", input_example=x)
     expected = model.predict(x)
+    inference_payload = get_serving_input_example(model_info.model_uri)
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_info.model_uri,
-        data=pd.DataFrame(x),
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
@@ -655,17 +656,17 @@ def test_pyfunc_serve_and_score_transformers():
     model.compile()
 
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(
+        model_info = mlflow.tensorflow.log_model(
             model,
             artifact_path="model",
             extra_pip_requirements=extra_pip_requirements,
+            input_example=dummy_inputs,
         )
-        model_uri = mlflow.get_artifact_uri("model")
 
-    data = json.dumps({"inputs": dummy_inputs.tolist()})
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data,
+        model_info.model_uri,
+        inference_payload,
         pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )

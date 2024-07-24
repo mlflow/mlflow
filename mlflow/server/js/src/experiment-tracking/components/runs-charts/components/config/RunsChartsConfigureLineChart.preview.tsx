@@ -1,15 +1,22 @@
 import { LegacySkeleton } from '@databricks/design-system';
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { connect } from 'react-redux';
 import { ReduxState } from '../../../../../redux-types';
 import { MetricHistoryByName } from '../../../../types';
-import { RunsChartsLineChartXAxisType, type RunsChartsRunData } from '../RunsCharts.common';
+import {
+  RunsChartsLineChartXAxisType,
+  removeOutliersFromMetricHistory,
+  type RunsChartsRunData,
+} from '../RunsCharts.common';
 import { RunsMetricsLinePlot } from '../RunsMetricsLinePlot';
 import { RunsChartsTooltipMode, useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import { RunsChartsLineCardConfig } from '../../runs-charts.types';
-import { shouldEnableDeepLearningUIPhase3 } from '../../../../../common/utils/FeatureUtils';
+import {
+  shouldEnableDeepLearningUIPhase3,
+  shouldEnableManualRangeControls,
+} from '../../../../../common/utils/FeatureUtils';
 import { useSampledMetricHistory } from '../../hooks/useSampledMetricHistory';
-import { compact, uniq } from 'lodash';
+import { compact, isUndefined, uniq } from 'lodash';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import { useGroupedChartRunData } from '../../../runs-compare/hooks/useGroupedChartRunData';
 
@@ -26,6 +33,7 @@ export const RunsChartsConfigureLineChartPreviewImpl = ({
   metricsByRunUuid: Record<string, MetricHistoryByName>;
 }) => {
   const usingMultipleRunsHoverTooltip = shouldEnableDeepLearningUIPhase3();
+  const usingManualRangeControls = shouldEnableManualRangeControls();
 
   const isGrouped = useMemo(() => previewData.some((r) => r.groupParentInfo), [previewData]);
 
@@ -35,11 +43,11 @@ export const RunsChartsConfigureLineChartPreviewImpl = ({
     if (isGrouped) {
       const runsInGroups = compact(previewData.map((r) => r.groupParentInfo)).flatMap((g) => g.runUuids);
       const ungroupedRuns = compact(
-        previewData.filter((r) => !r.groupParentInfo && !r.belongsToGroup).map((r) => r.runInfo?.runUuid),
+        previewData.filter((r) => !r.groupParentInfo && !r.belongsToGroup).map((r) => r.runInfo?.runUuid ?? undefined),
       );
       return [...runsInGroups, ...ungroupedRuns];
     }
-    return compact(previewData.map((r) => r.runInfo)).map((g) => g.runUuid);
+    return compact(previewData.map((r) => r.runInfo)).map((g) => g.runUuid ?? '');
   }, [previewData, isGrouped]);
 
   const metricKeysToFetch = useMemo(() => {
@@ -64,7 +72,7 @@ export const RunsChartsConfigureLineChartPreviewImpl = ({
         const metricsHistory = metricKeysToFetch.reduce((acc: MetricHistoryByName, key) => {
           const history = resultsByRunUuid[run.uuid]?.[key]?.metricsHistory;
           if (history) {
-            acc[key] = history;
+            acc[key] = cardConfig.ignoreOutliers ? removeOutliersFromMetricHistory(history) : history;
           }
           return acc;
         }, {});
@@ -74,7 +82,7 @@ export const RunsChartsConfigureLineChartPreviewImpl = ({
           metricsHistory,
         };
       }),
-    [metricKeysToFetch, resultsByRunUuid, previewData],
+    [metricKeysToFetch, resultsByRunUuid, previewData, cardConfig.ignoreOutliers],
   );
 
   const sampledGroupData = useGroupedChartRunData({
@@ -85,6 +93,7 @@ export const RunsChartsConfigureLineChartPreviewImpl = ({
     aggregateFunction,
     selectedXAxisMetricKey:
       cardConfig.xAxisKey === RunsChartsLineChartXAxisType.METRIC ? cardConfig.selectedXAxisMetricKey : undefined,
+    ignoreOutliers: cardConfig.ignoreOutliers ?? false,
   });
 
   // Use grouped data traces only if enabled and if there are any groups
@@ -98,6 +107,19 @@ export const RunsChartsConfigureLineChartPreviewImpl = ({
   if (isLoading) {
     return <LegacySkeleton />;
   }
+
+  const checkValidRange = (
+    rangeMin: number | undefined,
+    rangeMax: number | undefined,
+  ): [number, number] | undefined => {
+    if (isUndefined(rangeMin) || isUndefined(rangeMax)) {
+      return undefined;
+    }
+    return [rangeMin, rangeMax];
+  };
+
+  const xRange = checkValidRange(cardConfig.range?.xMin, cardConfig.range?.xMax);
+  const yRange = checkValidRange(cardConfig.range?.yMin, cardConfig.range?.yMax);
 
   return (
     <RunsMetricsLinePlot
@@ -113,6 +135,8 @@ export const RunsChartsConfigureLineChartPreviewImpl = ({
       useDefaultHoverBox={false}
       onHover={setTooltip}
       onUnhover={resetTooltip}
+      xRange={usingManualRangeControls ? xRange : undefined}
+      yRange={usingManualRangeControls ? yRange : undefined}
     />
   );
 };

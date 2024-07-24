@@ -14,7 +14,7 @@ import { RunsChartsAddChartMenu } from '../RunsChartsAddChartMenu';
 import { RunsChartType } from '../../runs-charts.types';
 import { useEffect, useRef, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { useDragAndDropElement } from 'common/hooks/useDragAndDropElement';
+import { useDragAndDropElement } from '@mlflow/mlflow/src/common/hooks/useDragAndDropElement';
 import { CheckIcon } from '@databricks/design-system';
 import { METRIC_CHART_SECTION_HEADER_SIZE } from '../../../MetricChartsAccordion';
 import cx from 'classnames';
@@ -32,6 +32,10 @@ export interface RunsChartsSectionHeaderProps {
   onSectionReorder: (sourceSectionId: string, targetSectionId: string) => void;
   isExpanded: boolean;
   supportedChartTypes?: RunsChartType[] | undefined;
+  /**
+   * Set to "true" to hide various controls (e.g. edit, add, delete) in the section header.
+   */
+  hideExtraControls: boolean;
 }
 
 export const RunsChartsSectionHeader = ({
@@ -46,6 +50,7 @@ export const RunsChartsSectionHeader = ({
   onSetSectionName,
   onSectionReorder,
   isExpanded,
+  hideExtraControls,
   supportedChartTypes,
 }: RunsChartsSectionHeaderProps) => {
   const { theme } = useDesignSystemTheme();
@@ -249,16 +254,18 @@ export const RunsChartsSectionHeader = ({
           >
             {`(${sectionChartsLength})`}
           </div>
-          <div className="section-element-visibility-on-hover-and-not-drag section-element-hidden-on-edit">
-            <Button
-              componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-compare_sections_runscomparesectionheader.tsx_246"
-              onClick={onEdit}
-              aria-label="Icon label"
-              icon={<PencilIcon />}
-            />
-          </div>
+          {!hideExtraControls && (
+            <div className="section-element-visibility-on-hover-and-not-drag section-element-hidden-on-edit">
+              <Button
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-compare_sections_runscomparesectionheader.tsx_246"
+                onClick={onEdit}
+                aria-label="Icon label"
+                icon={<PencilIcon />}
+              />
+            </div>
+          )}
         </div>
-        {editSection === index && (
+        {editSection === index && !hideExtraControls && (
           <div style={{ padding: `0 ${theme.spacing.xs}px` }}>
             <Button
               componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-compare_sections_runscomparesectionheader.tsx_251"
@@ -268,100 +275,105 @@ export const RunsChartsSectionHeader = ({
             />
           </div>
         )}
-        <div
-          className="section-element-visibility-on-hover section-element-hidden-on-edit"
-          css={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', cursor: 'grab' }}
-        >
-          <DragIcon
-            rotate={90}
-            style={{ color: theme.colors.textSecondary }}
-            ref={dragHandleRef}
-            onMouseDown={() => setIsDraggingHandle(true)}
-            onMouseLeave={() => {
-              setIsDraggingHandle(false);
-            }}
-            data-testid="experiment-view-compare-runs-section-header-drag-handle"
-          />
-        </div>
-        <div
-          style={{
-            position: 'absolute',
-            top: '50%',
-            right: '0',
-            transform: 'translate(0, -50%)',
-            display: 'flex',
-            alignItems: 'center',
-          }}
-        >
+        {!hideExtraControls && (
           <div
-            onClick={stopPropagation}
-            onMouseDown={stopPropagation}
-            onMouseUp={stopPropagation}
-            onDoubleClick={stopPropagation}
-            className="section-element-visibility-on-hover-and-not-drag section-element-hidden-on-edit"
+            className="section-element-visibility-on-hover section-element-hidden-on-edit"
+            css={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', cursor: 'grab' }}
           >
-            <DropdownMenu.Root modal={false}>
-              <DropdownMenu.Trigger asChild>
-                <Button
-                  componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-compare_sections_runscomparesectionheader.tsx_288"
-                  icon={<OverflowIcon />}
-                />
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Content>
-                <DropdownMenu.Item onClick={addSectionAbove}>
-                  <FormattedMessage
-                    defaultMessage="Add section above"
-                    description="Experiment page > compare runs > chart section > add section above label"
-                  />
-                </DropdownMenu.Item>
-                <DropdownMenu.Item onClick={addSectionBelow}>
-                  <FormattedMessage
-                    defaultMessage="Add section below"
-                    description="Experiment page > compare runs > chart section > add section below label"
-                  />
-                </DropdownMenu.Item>
-                <DropdownMenu.Item onClick={deleteSection}>
-                  <FormattedMessage
-                    defaultMessage="Delete section"
-                    description="Experiment page > compare runs > chart section > delete section label"
-                  />
-                </DropdownMenu.Item>
-              </DropdownMenu.Content>
-            </DropdownMenu.Root>
-            <DangerModal
-              visible={isDeleteSectionModalOpen}
-              onOk={deleteModalConfirm}
-              onCancel={deleteModalCancel}
-              title="Delete section"
-            >
-              <FormattedMessage
-                defaultMessage="Deleting the section will permanently remove it and the charts it contains. This cannot be undone."
-                description="Experiment page > compare runs > chart section > delete section warning message"
-              />
-            </DangerModal>
-          </div>
-          <div
-            onClick={stopPropagation}
-            onMouseDown={stopPropagation}
-            onMouseUp={stopPropagation}
-            onDoubleClick={stopPropagation}
-            className={cx(
-              {
-                'section-element-visibility-on-hover-and-not-drag': !isExpanded,
-              },
-              'section-element-hidden-on-edit',
-            )}
-            css={{
-              alignSelf: 'flex-end',
-              marginLeft: theme.spacing.xs,
-            }}
-          >
-            <RunsChartsAddChartMenu
-              onAddChart={addNewChartCard(section.uuid)}
-              supportedChartTypes={supportedChartTypes}
+            <DragIcon
+              rotate={90}
+              style={{ color: theme.colors.textSecondary }}
+              ref={dragHandleRef}
+              onMouseDown={() => setIsDraggingHandle(true)}
+              onMouseLeave={() => {
+                setIsDraggingHandle(false);
+              }}
+              data-testid="experiment-view-compare-runs-section-header-drag-handle"
             />
           </div>
-        </div>
+        )}
+        {!hideExtraControls && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '50%',
+              right: '0',
+              transform: 'translate(0, -50%)',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <div
+              onClick={stopPropagation}
+              onMouseDown={stopPropagation}
+              onMouseUp={stopPropagation}
+              onDoubleClick={stopPropagation}
+              className="section-element-visibility-on-hover-and-not-drag section-element-hidden-on-edit"
+            >
+              <DropdownMenu.Root modal={false}>
+                <DropdownMenu.Trigger asChild>
+                  <Button
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-compare_sections_runscomparesectionheader.tsx_288"
+                    icon={<OverflowIcon />}
+                  />
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content>
+                  <DropdownMenu.Item onClick={addSectionAbove}>
+                    <FormattedMessage
+                      defaultMessage="Add section above"
+                      description="Experiment page > compare runs > chart section > add section above label"
+                    />
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item onClick={addSectionBelow}>
+                    <FormattedMessage
+                      defaultMessage="Add section below"
+                      description="Experiment page > compare runs > chart section > add section below label"
+                    />
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item onClick={deleteSection}>
+                    <FormattedMessage
+                      defaultMessage="Delete section"
+                      description="Experiment page > compare runs > chart section > delete section label"
+                    />
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
+              <DangerModal
+                visible={isDeleteSectionModalOpen}
+                onOk={deleteModalConfirm}
+                onCancel={deleteModalCancel}
+                title="Delete section"
+              >
+                <FormattedMessage
+                  defaultMessage="Deleting the section will permanently remove it and the charts it contains. This cannot be undone."
+                  description="Experiment page > compare runs > chart section > delete section warning message"
+                />
+              </DangerModal>
+            </div>
+
+            <div
+              onClick={stopPropagation}
+              onMouseDown={stopPropagation}
+              onMouseUp={stopPropagation}
+              onDoubleClick={stopPropagation}
+              className={cx(
+                {
+                  'section-element-visibility-on-hover-and-not-drag': !isExpanded,
+                },
+                'section-element-hidden-on-edit',
+              )}
+              css={{
+                alignSelf: 'flex-end',
+                marginLeft: theme.spacing.xs,
+              }}
+            >
+              <RunsChartsAddChartMenu
+                onAddChart={addNewChartCard(section.uuid)}
+                supportedChartTypes={supportedChartTypes}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

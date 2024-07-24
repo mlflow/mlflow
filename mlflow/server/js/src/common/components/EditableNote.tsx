@@ -6,10 +6,10 @@
  */
 
 import React, { Component } from 'react';
-import { Alert, Button, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Button, LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { Prompt } from './Prompt';
 import ReactMde, { SvgIcon } from 'react-mde';
-import { forceAnchorTagNewTab, getConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
+import { forceAnchorTagNewTab, getMarkdownConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
 import './EditableNote.css';
 import { FormattedMessage, IntlShape, injectIntl } from 'react-intl';
 
@@ -54,7 +54,7 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
     error: null,
   };
 
-  converter = getConverter();
+  converter = getMarkdownConverter();
 
   handleMdeValueChange = (markdown: any) => {
     this.setState({ markdown });
@@ -210,12 +210,12 @@ function TooltipIcon(props: TooltipIconProps) {
   const { name } = props;
   return (
     // @ts-expect-error TS(2322): Type '{ children: Element; position: string; title... Remove this comment to see the full error message
-    <Tooltip position="top" title={name}>
+    <LegacyTooltip position="top" title={name}>
       <span css={{ color: theme.colors.textPrimary }}>
         {/* @ts-expect-error TS(2322): Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message */}
         <SvgIcon icon={name} />
       </span>
-    </Tooltip>
+    </LegacyTooltip>
   );
 }
 

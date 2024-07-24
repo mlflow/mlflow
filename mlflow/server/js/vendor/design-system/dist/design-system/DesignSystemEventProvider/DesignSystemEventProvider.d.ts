@@ -1,3 +1,4 @@
+import type { UIEvent } from 'react';
 import React from 'react';
 export type DesignSystemEventTypeMapping<V> = {
     [K in DesignSystemEventProviderAnalyticsEventTypes]: V;
@@ -7,6 +8,7 @@ export declare enum DesignSystemEventProviderComponentTypes {
     Banner = "banner",
     Button = "button",
     Checkbox = "checkbox",
+    DialogCombobox = "dialog_combobox",
     DropdownMenuCheckboxItem = "dropdown_menu_checkbox_item",
     DropdownMenuItem = "dropdown_menu_item",
     DropdownMenuRadioGroup = "dropdown_menu_radio_group",
@@ -15,7 +17,13 @@ export declare enum DesignSystemEventProviderComponentTypes {
     Notification = "notification",
     PillControl = "pill_control",
     RadioGroup = "radio_group",
+    SegmentedControlGroup = "segmented_control_group",
+    SimpleSelect = "simple_select",
     Switch = "switch",
+    TabsV2 = "tabs",
+    Tag = "tag",
+    TextArea = "text_area",
+    ToggleButton = "toggle_button",
     TypographyLink = "typography_link"
 }
 export declare enum DesignSystemEventProviderAnalyticsEventTypes {
@@ -32,7 +40,7 @@ export type DesignSystemEventProviderCallbackParams = {
     componentId: string;
     value: unknown;
     shouldStartInteraction?: boolean;
-    event?: any;
+    event?: UIEvent;
 };
 export type DesignSystemEventProviderCallback = (params: DesignSystemEventProviderCallbackParams) => void;
 /**
@@ -49,10 +57,10 @@ export declare const useDesignSystemEventComponentCallbacks: ({ componentType, c
     componentType: DesignSystemEventProviderComponentTypes;
     componentId: string | undefined;
     analyticsEvents: ReadonlyArray<DesignSystemEventProviderAnalyticsEventTypes>;
-    valueHasNoPii?: boolean | undefined;
-    shouldStartInteraction?: boolean | undefined;
+    valueHasNoPii?: boolean;
+    shouldStartInteraction?: boolean;
 }) => {
-    onClick: (event?: any) => void;
+    onClick: (event?: UIEvent) => void;
     onValueChange: (value?: any) => void;
     onView: () => void;
 };

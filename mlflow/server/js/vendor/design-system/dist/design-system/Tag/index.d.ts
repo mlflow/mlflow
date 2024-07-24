@@ -1,8 +1,9 @@
 import type { HTMLAttributes } from 'react';
 import React from 'react';
 import type { SecondaryColorToken, TagColorToken } from '../../theme/colors';
-import type { HTMLDataAttributes } from '../types';
-export interface TagProps extends HTMLDataAttributes, HTMLAttributes<HTMLSpanElement> {
+import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
+import type { AnalyticsEventOptionalProps, HTMLDataAttributes } from '../types';
+export interface TagProps extends HTMLDataAttributes, HTMLAttributes<HTMLSpanElement>, AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     /**
      * The color of the tag.
      */

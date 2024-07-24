@@ -51,7 +51,7 @@ CREATE TABLE datasets (
 	digest VARCHAR(36) NOT NULL,
 	dataset_source_type VARCHAR(36) NOT NULL,
 	dataset_source TEXT NOT NULL,
-	dataset_schema TEXT,
+	dataset_schema MEDIUMTEXT,
 	dataset_profile MEDIUMTEXT,
 	PRIMARY KEY (experiment_id, name, digest),
 	CONSTRAINT datasets_ibfk_1 FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)

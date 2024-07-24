@@ -49,6 +49,7 @@ jobs:
           pip install -r requirements/lint-requirements.txt
           # TODO: Use a precompiled binary once it's available: https://github.com/tamasfe/taplo/issues/542
           cargo install taplo-cli@0.9.0 --locked
+      - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Install pre-commit hooks
         run: |

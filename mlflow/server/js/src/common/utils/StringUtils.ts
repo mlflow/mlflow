@@ -6,6 +6,8 @@
  */
 
 import _ from 'lodash';
+// Import pako lazily to reduce bundle size
+const lazyPako = () => import('pako');
 
 export const truncateToFirstLineWithMaxLength = (str: any, maxLength: any) => {
   const truncated = _.truncate(str, {
@@ -175,3 +177,43 @@ export const getStringSHA256 = (input: string) => {
     return Array.prototype.map.call(new Uint8Array(arrayBuffer), (x) => ('00' + x.toString(16)).slice(-2)).join('');
   });
 };
+
+const COMPRESSED_TEXT_DEFLATE_PREFIX = 'deflate;';
+
+export const textCompressDeflate = async (text: string) => {
+  const pako = await lazyPako();
+  const binaryData = pako.deflate(text);
+
+  // Buffer-based implementation
+  if (typeof Buffer !== 'undefined') {
+    const b64encoded = Buffer.from(binaryData).toString('base64');
+    return `${COMPRESSED_TEXT_DEFLATE_PREFIX}${b64encoded}`;
+  }
+
+  // btoa-based implementation
+  const binaryString = Array.from(binaryData, (byte) => String.fromCodePoint(byte)).join('');
+  return `${COMPRESSED_TEXT_DEFLATE_PREFIX}${btoa(binaryString)}`;
+};
+
+export const textDecompressDeflate = async (compressedText: string) => {
+  const pako = await lazyPako();
+  if (!compressedText.startsWith(COMPRESSED_TEXT_DEFLATE_PREFIX)) {
+    throw new Error('Invalid compressed text, payload header invalid');
+  }
+  const compressedTextWithoutPrefix = compressedText.slice(COMPRESSED_TEXT_DEFLATE_PREFIX.length);
+
+  // Buffer-based implementation
+  if (typeof Buffer !== 'undefined') {
+    const binaryString = Buffer.from(compressedTextWithoutPrefix, 'base64');
+    return pako.inflate(binaryString, { to: 'string' });
+  }
+
+  // atob-based implementation
+  const binaryString = atob(compressedTextWithoutPrefix);
+  return pako.inflate(
+    Uint8Array.from(binaryString, (m) => m.codePointAt(0) ?? 0),
+    { to: 'string' },
+  );
+};
+
+export const isTextCompressedDeflate = (text: string) => text.startsWith(COMPRESSED_TEXT_DEFLATE_PREFIX);

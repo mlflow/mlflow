@@ -30,7 +30,6 @@ export const shouldUseExperimentPageChartViewAsDefault = () => false;
  */
 export const shouldEnableDifferenceViewCharts = () => false;
 
-export const shouldEnableRunsTableRunNameColumnResize = () => false;
 /**
  * Image grid charts feature
  */
@@ -39,11 +38,32 @@ export const shouldEnableImageGridCharts = () => false;
  * Log table images feature
  */
 export const shouldEnableLogTableImages = () => false;
-
+/**
+ * Manual range controls feature
+ */
+export const shouldEnableManualRangeControls = () => false;
+/**
+ * Keeping original lines when smoothing.
+ */
+export const shouldEnableChartsOriginalLinesWhenSmoothing = () => false;
+/**
+ * Enable to use larger color selection (palette of 400 colors) and murmur hashing of
+ * run UUIDs for color assignment
+ */
+export const shouldEnableLargerColorSelection = () => false;
+/**
+ * Enable chart expressions feature
+ */
+export const shouldEnableChartExpressions = () => false;
 /**
  * Should enable toggling aggregation of individual runs in run groups
  */
 export const shouldEnableToggleIndividualRunsInGroups = () => false;
+
+/**
+ * Enables toggle controls for hiding charts with no data
+ */
+export const shouldEnableHidingChartsWithNoData = () => false;
 
 /**
  * Update relative time axis to use date
@@ -51,6 +71,10 @@ export const shouldEnableToggleIndividualRunsInGroups = () => false;
 export const shouldEnableRelativeTimeDateAxis = () => false;
 
 export const shouldEnableTracingUI = () => true;
+export const shouldEnableRunDetailsPageTracesTab = () => false;
+export const shouldUseCompressedExperimentViewSharedState = () => true;
+export const shouldEnableUnifiedChartDataTraceHighlight = () => true;
+export const shouldDeferLineChartRendering = () => true;
 
 /**
  * A flag determining if we should display the new models UI.

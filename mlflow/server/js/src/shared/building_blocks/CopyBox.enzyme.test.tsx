@@ -1,6 +1,6 @@
 import React from 'react';
 import { CopyBox } from './CopyBox';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 
 describe('CopyBox', () => {
   it('should render with minimal props without exploding', () => {

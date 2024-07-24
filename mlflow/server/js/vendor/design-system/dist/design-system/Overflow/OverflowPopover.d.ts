@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { PopoverProps } from '../Popover/Popover';
 interface OverflowPopoverProps extends PopoverProps {
     items: React.ReactNode[];

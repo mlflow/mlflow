@@ -1,4 +1,4 @@
-import { MlflowService } from 'experiment-tracking/sdk/MlflowService';
+import { MlflowService } from '@mlflow/mlflow/src/experiment-tracking/sdk/MlflowService';
 import { getUUID } from '../../common/utils/ActionUtils';
 import type { AsyncAction } from '../../redux-types';
 import {

@@ -1,5 +1,5 @@
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
-import { renderWithIntl, screen, waitFor } from 'common/utils/TestUtils.react18';
+import { renderWithIntl, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { getExperimentApi, getRunApi, updateRunApi } from '../../actions';
 import { searchModelVersionsApi } from '../../../model-registry/actions';
 import { merge } from 'lodash';

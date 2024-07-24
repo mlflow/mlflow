@@ -3,7 +3,14 @@ import userEvent from '@testing-library/user-event';
 import { DeepPartial } from 'redux';
 import { MemoryRouter, useNavigate } from '../../common/utils/RoutingUtils';
 import { MockedReduxStoreProvider } from '../../common/utils/TestUtils';
-import { findAntdOption, act, screen, within, fastFillInput, renderWithIntl } from 'common/utils/TestUtils.react17';
+import {
+  findAntdOption,
+  act,
+  screen,
+  within,
+  fastFillInput,
+  renderWithIntl,
+} from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
 import { PromoteModelButton } from './PromoteModelButton';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
 import { Services as ModelRegistryService } from '../services';

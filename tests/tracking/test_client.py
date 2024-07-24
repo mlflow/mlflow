@@ -436,7 +436,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run):
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == '{"output": 25}'
     if with_active_run:
-        assert trace.info.request_metadata["mlflow.sourceRun"] == run_id
+        assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
         assert trace.info.experiment_id == run.info.experiment_id
     else:
         assert trace.info.experiment_id == experiment_id
@@ -478,6 +478,25 @@ def test_start_and_end_trace(tracking_uri, with_active_run):
         "mlflow.spanOutputs": {"output": 25},
     }
     assert child_span_2.start_time_ns <= child_span_2.end_time_ns - 0.1 * 1e6
+
+
+def test_start_and_end_trace_capture_falsy_input_and_output(tracking_uri):
+    # This test is to verify that falsy input and output values are correctly logged
+    client = MlflowClient(tracking_uri)
+    experiment_id = client.create_experiment("test_experiment")
+
+    root = client.start_trace(name="root", experiment_id=experiment_id, inputs=[])
+    span = client.start_span(
+        name="child", request_id=root.request_id, parent_id=root.span_id, inputs=0
+    )
+    client.end_span(request_id=root.request_id, span_id=span.span_id, outputs=False)
+    client.end_trace(request_id=root.request_id, outputs="")
+
+    trace = client.get_trace(root.request_id)
+    assert trace.data.spans[0].inputs == []
+    assert trace.data.spans[0].outputs == ""
+    assert trace.data.spans[1].inputs == 0
+    assert trace.data.spans[1].outputs is False
 
 
 @pytest.mark.usefixtures("reset_active_experiment")
@@ -625,8 +644,11 @@ def test_log_trace_with_databricks_tracking_uri(
     assert trace_info.request_id == "tr-12345"
     assert trace_info.experiment_id == "test_experiment_id"
     assert trace_info.status == TraceStatus.OK
-    assert trace_info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
-    assert trace_info.request_metadata[TraceMetadataKey.OUTPUTS] == "5"
+    assert trace_info.request_metadata == {
+        TraceMetadataKey.INPUTS: '{"x": 1, "y": 2}',
+        TraceMetadataKey.OUTPUTS: "5",
+        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+    }
     assert trace_info.tags == {
         "mlflow.traceName": "predict",
         "mlflow.artifactLocation": "test",
@@ -634,7 +656,6 @@ def test_log_trace_with_databricks_tracking_uri(
         "mlflow.source.name": "test",
         "mlflow.source.type": "LOCAL",
         "tag": "tag_value",
-        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
     }
 
     trace_data = traces[0].data

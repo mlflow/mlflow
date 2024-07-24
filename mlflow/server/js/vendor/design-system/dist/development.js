@@ -1,16 +1,21 @@
 import { css } from '@emotion/react';
-import React__default, { forwardRef, useCallback } from 'react';
-import { W as WarningIcon, q as DangerIcon, u as useDesignSystemTheme, b as useDesignSystemEventComponentCallbacks, c as DesignSystemEventProviderComponentTypes, d as DesignSystemEventProviderAnalyticsEventTypes, e as useNotifyOnFirstView, B as Button$1, C as CloseIcon, f as addDebugOutlineIfEnabled, T as Typography, a0 as primitiveColors, p as getShadowScrollStyles } from './Typography-78b12af3.js';
+import React__default, { forwardRef, useState, useRef, useEffect, useCallback, useImperativeHandle, useMemo, createContext } from 'react';
+import { W as WarningIcon, x as DangerIcon, a as useDesignSystemTheme, c as useDesignSystemEventComponentCallbacks, d as DesignSystemEventProviderComponentTypes, e as DesignSystemEventProviderAnalyticsEventTypes, f as useNotifyOnFirstView, B as Button$1, C as CloseIcon, h as addDebugOutlineIfEnabled, o as Typography, a4 as primitiveColors, k as Root$5, T as Trigger$1, l as Content$1, A as Arrow, r as getValidationStateColor, p as importantify, w as getShadowScrollStyles } from './Typography-c0049677.js';
 import { jsx, Fragment, jsxs } from '@emotion/react/jsx-runtime';
-import { M as MegaphoneIcon, P as PlusIcon, C as CloseSmallIcon } from './PlusIcon-e78c4843.js';
-import * as RadixSlider from '@radix-ui/react-slider';
-import * as RadixToolbar from '@radix-ui/react-toolbar';
-export { S as Stepper } from './Stepper-2c82de4e.js';
+import { M as MegaphoneIcon, I as Input, C as CalendarEventIcon, A as ArrowRightIcon, P as PlusIcon, a as CloseSmallIcon } from './index-a2e493c0.js';
+import { format, isValid } from 'date-fns';
+import { DayPicker, useDayRender, Button as Button$2 } from 'react-day-picker';
 import { RadioGroup, RadioGroupItem } from '@radix-ui/react-radio-group';
+import * as Progress$1 from '@radix-ui/react-progress';
+import * as RadixSlider from '@radix-ui/react-slider';
+export { S as Stepper } from './Stepper-431a4a97.js';
 import { useMergeRefs } from '@floating-ui/react';
 import * as ScrollArea from '@radix-ui/react-scroll-area';
 import * as RadixTabs from '@radix-ui/react-tabs';
+import * as RadixToolbar from '@radix-ui/react-toolbar';
 import 'antd';
+import '@radix-ui/react-popover';
+import '@radix-ui/react-tooltip';
 import '@ant-design/icons';
 import 'lodash/isNil';
 import 'lodash/endsWith';
@@ -22,7 +27,7 @@ import 'lodash/memoize';
 import '@emotion/unitless';
 import 'lodash/isUndefined';
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$1() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$3() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const {
   Text,
   Paragraph
@@ -30,13 +35,13 @@ const {
 const BANNER_MIN_HEIGHT = 68;
 // Max height will allow 2 lines of description (3 lines total)
 const BANNER_MAX_HEIGHT = 82;
-var _ref$1 = process.env.NODE_ENV === "production" ? {
+var _ref$2 = process.env.NODE_ENV === "production" ? {
   name: "1te1whx",
   styles: "margin-left:auto;display:flex;align-items:center"
 } : {
   name: "13c4h59-rightContainer",
   styles: "margin-left:auto;display:flex;align-items:center;label:rightContainer;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$1
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$3
 };
 const useStyles = (props, theme) => {
   const bannerLevelToBannerColors = {
@@ -103,7 +108,7 @@ const useStyles = (props, theme) => {
     mainContent: /*#__PURE__*/css("flex-direction:column;align-self:", props.description ? 'flex-start' : 'center', ";display:flex;box-sizing:border-box;padding-right:", theme.spacing.sm, "px;padding-top:2px;padding-bottom:2px;min-width:", theme.spacing.lg, "px;width:100%;" + (process.env.NODE_ENV === "production" ? "" : ";label:mainContent;")),
     messageTextBlock: /*#__PURE__*/css("display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;&&{color:", colorScheme.textColor, ";}" + (process.env.NODE_ENV === "production" ? "" : ";label:messageTextBlock;")),
     descriptionBlock: /*#__PURE__*/css("display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;&&{color:", colorScheme.textColor, ";}" + (process.env.NODE_ENV === "production" ? "" : ";label:descriptionBlock;")),
-    rightContainer: _ref$1,
+    rightContainer: _ref$2,
     closeIconContainer: /*#__PURE__*/css("display:flex;margin-left:", theme.spacing.xs, "px;box-sizing:border-box;line-height:0;" + (process.env.NODE_ENV === "production" ? "" : ";label:closeIconContainer;")),
     closeButton: /*#__PURE__*/css("cursor:pointer;background:none;border:none;margin:0;&&{height:24px!important;width:24px!important;padding:", theme.spacing.xs, "px!important;}&&:hover{background-color:transparent!important;border-color:", colorScheme.textHoverColor, "!important;color:", colorScheme.closeIconTextHoverColor ? colorScheme.closeIconTextHoverColor : colorScheme.textColor, "!important;background-color:", colorScheme.closeIconBackgroundHoverColor ? colorScheme.closeIconBackgroundHoverColor : colorScheme.backgroundDefaultColor, "!important;}&&:active{border-color:", colorScheme.actionBorderColor, "!important;color:", colorScheme.closeIconTextPressColor ? colorScheme.closeIconTextPressColor : colorScheme.textColor, "!important;background-color:", colorScheme.closeIconBackgroundPressColor ? colorScheme.closeIconBackgroundPressColor : colorScheme.backgroundDefaultColor, "!important;}" + (process.env.NODE_ENV === "production" ? "" : ";label:closeButton;")),
     closeIcon: /*#__PURE__*/css("color:", colorScheme.closeIconColor ? colorScheme.closeIconColor : colorScheme.textColor, "!important;" + (process.env.NODE_ENV === "production" ? "" : ";label:closeIcon;")),
@@ -218,344 +223,495 @@ const Banner = props => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-var _ref = process.env.NODE_ENV === "production" ? {
-  name: "1tciq3q",
-  styles: "position:relative;display:flex;align-items:center;&[data-orientation=\"vertical\"]{flex-direction:column;width:20px;height:100px;}&[data-orientation=\"horizontal\"]{height:20px;width:200px;}"
+function _EMOTION_STRINGIFIED_CSS_ERROR__$2() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+const dayPickerStyles = process.env.NODE_ENV === "production" ? {
+  name: "rfehes",
+  styles: ".rdp{--rdp-cell-size:40px;--rdp-caption-font-size:18px;--rdp-accent-color:#0000ff;--rdp-background-color:#e7edff;--rdp-accent-color-dark:#3003e1;--rdp-background-color-dark:#180270;--rdp-outline:2px solid var(--rdp-accent-color);--rdp-outline-selected:3px solid var(--rdp-accent-color);--rdp-selected-color:#fff;margin:1em;}.rdp-vhidden{box-sizing:border-box;padding:0;margin:0;background:transparent;border:0;-moz-appearance:none;-webkit-appearance:none;appearance:none;position:absolute!important;top:0;width:1px!important;height:1px!important;padding:0!important;overflow:hidden!important;clip:rect(1px, 1px, 1px, 1px)!important;border:0!important;}.rdp-button_reset{appearance:none;position:relative;margin:0;padding:0;cursor:default;color:inherit;background:none;font:inherit;-moz-appearance:none;-webkit-appearance:none;}.rdp-button_reset:focus-visible{outline:none;}.rdp-button{border:2px solid transparent;}.rdp-button[disabled]:not(.rdp-day_selected){opacity:0.25;}.rdp-button:not([disabled]){cursor:pointer;}.rdp-button:focus-visible:not([disabled]){color:inherit;background-color:var(--rdp-background-color);border:var(--rdp-outline);}.rdp-button:hover:not([disabled]):not(.rdp-day_selected){background-color:var(--rdp-background-color);}.rdp-months{display:flex;}.rdp-month{margin:0 1em;}.rdp-month:first-child{margin-left:0;}.rdp-month:last-child{margin-right:0;}.rdp-table{margin:0;max-width:calc(var(--rdp-cell-size) * 7);border-collapse:collapse;}.rdp-with_weeknumber .rdp-table{max-width:calc(var(--rdp-cell-size) * 8);border-collapse:collapse;}.rdp-caption{display:flex;align-items:center;justify-content:space-between;padding:0;text-align:left;}.rdp-multiple_months .rdp-caption{position:relative;display:block;text-align:center;}.rdp-caption_dropdowns{position:relative;display:inline-flex;}.rdp-caption_label{position:relative;z-index:1;display:inline-flex;align-items:center;margin:0;padding:0 0.25em;white-space:nowrap;color:currentColor;border:0;border:2px solid transparent;font-family:inherit;font-size:var(--rdp-caption-font-size);font-weight:bold;}.rdp-nav{white-space:nowrap;}.rdp-multiple_months .rdp-caption_start .rdp-nav{position:absolute;top:50%;left:0;transform:translateY(-50%);}.rdp-multiple_months .rdp-caption_end .rdp-nav{position:absolute;top:50%;right:0;transform:translateY(-50%);}.rdp-nav_button{display:inline-flex;align-items:center;justify-content:center;width:var(--rdp-cell-size);height:var(--rdp-cell-size);padding:0.25em;border-radius:100%;}.rdp-dropdown_year,.rdp-dropdown_month{position:relative;display:inline-flex;align-items:center;}.rdp-dropdown{appearance:none;position:absolute;z-index:2;top:0;bottom:0;left:0;width:100%;margin:0;padding:0;cursor:inherit;opacity:0;border:none;background-color:transparent;font-family:inherit;font-size:inherit;line-height:inherit;}.rdp-dropdown[disabled]{opacity:unset;color:unset;}.rdp-dropdown:focus-visible:not([disabled])+.rdp-caption_label{background-color:var(--rdp-background-color);border:var(--rdp-outline);border-radius:6px;}.rdp-dropdown_icon{margin:0 0 0 5px;}.rdp-head{border:0;}.rdp-head_row,.rdp-row{height:100%;}.rdp-head_cell{vertical-align:middle;font-size:0.75em;font-weight:700;text-align:center;height:100%;height:var(--rdp-cell-size);padding:0;text-transform:uppercase;}.rdp-tbody{border:0;}.rdp-tfoot{margin:0.5em;}.rdp-cell{width:var(--rdp-cell-size);height:100%;height:var(--rdp-cell-size);padding:0;text-align:center;}.rdp-weeknumber{font-size:0.75em;}.rdp-weeknumber,.rdp-day{display:flex;overflow:hidden;align-items:center;justify-content:center;box-sizing:border-box;width:var(--rdp-cell-size);max-width:var(--rdp-cell-size);height:var(--rdp-cell-size);margin:0;border:2px solid transparent;border-radius:100%;}.rdp-day_today:not(.rdp-day_outside){font-weight:bold;}.rdp-day_selected,.rdp-day_selected:focus-visible,.rdp-day_selected:hover{color:var(--rdp-selected-color);opacity:1;background-color:var(--rdp-accent-color);}.rdp-day_outside{opacity:0.5;}.rdp-day_selected:focus-visible{outline:var(--rdp-outline);outline-offset:2px;z-index:1;}.rdp:not([dir='rtl']) .rdp-day_range_start:not(.rdp-day_range_end){border-top-right-radius:0;border-bottom-right-radius:0;}.rdp:not([dir='rtl']) .rdp-day_range_end:not(.rdp-day_range_start){border-top-left-radius:0;border-bottom-left-radius:0;}.rdp[dir='rtl'] .rdp-day_range_start:not(.rdp-day_range_end){border-top-left-radius:0;border-bottom-left-radius:0;}.rdp[dir='rtl'] .rdp-day_range_end:not(.rdp-day_range_start){border-top-right-radius:0;border-bottom-right-radius:0;}.rdp-day_range_end.rdp-day_range_start{border-radius:100%;}.rdp-day_range_middle{border-radius:0;}"
 } : {
-  name: "18im58f-getRootStyles",
-  styles: "position:relative;display:flex;align-items:center;&[data-orientation=\"vertical\"]{flex-direction:column;width:20px;height:100px;}&[data-orientation=\"horizontal\"]{height:20px;width:200px;};label:getRootStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__
+  name: "11liau0-dayPickerStyles",
+  styles: ".rdp{--rdp-cell-size:40px;--rdp-caption-font-size:18px;--rdp-accent-color:#0000ff;--rdp-background-color:#e7edff;--rdp-accent-color-dark:#3003e1;--rdp-background-color-dark:#180270;--rdp-outline:2px solid var(--rdp-accent-color);--rdp-outline-selected:3px solid var(--rdp-accent-color);--rdp-selected-color:#fff;margin:1em;}.rdp-vhidden{box-sizing:border-box;padding:0;margin:0;background:transparent;border:0;-moz-appearance:none;-webkit-appearance:none;appearance:none;position:absolute!important;top:0;width:1px!important;height:1px!important;padding:0!important;overflow:hidden!important;clip:rect(1px, 1px, 1px, 1px)!important;border:0!important;}.rdp-button_reset{appearance:none;position:relative;margin:0;padding:0;cursor:default;color:inherit;background:none;font:inherit;-moz-appearance:none;-webkit-appearance:none;}.rdp-button_reset:focus-visible{outline:none;}.rdp-button{border:2px solid transparent;}.rdp-button[disabled]:not(.rdp-day_selected){opacity:0.25;}.rdp-button:not([disabled]){cursor:pointer;}.rdp-button:focus-visible:not([disabled]){color:inherit;background-color:var(--rdp-background-color);border:var(--rdp-outline);}.rdp-button:hover:not([disabled]):not(.rdp-day_selected){background-color:var(--rdp-background-color);}.rdp-months{display:flex;}.rdp-month{margin:0 1em;}.rdp-month:first-child{margin-left:0;}.rdp-month:last-child{margin-right:0;}.rdp-table{margin:0;max-width:calc(var(--rdp-cell-size) * 7);border-collapse:collapse;}.rdp-with_weeknumber .rdp-table{max-width:calc(var(--rdp-cell-size) * 8);border-collapse:collapse;}.rdp-caption{display:flex;align-items:center;justify-content:space-between;padding:0;text-align:left;}.rdp-multiple_months .rdp-caption{position:relative;display:block;text-align:center;}.rdp-caption_dropdowns{position:relative;display:inline-flex;}.rdp-caption_label{position:relative;z-index:1;display:inline-flex;align-items:center;margin:0;padding:0 0.25em;white-space:nowrap;color:currentColor;border:0;border:2px solid transparent;font-family:inherit;font-size:var(--rdp-caption-font-size);font-weight:bold;}.rdp-nav{white-space:nowrap;}.rdp-multiple_months .rdp-caption_start .rdp-nav{position:absolute;top:50%;left:0;transform:translateY(-50%);}.rdp-multiple_months .rdp-caption_end .rdp-nav{position:absolute;top:50%;right:0;transform:translateY(-50%);}.rdp-nav_button{display:inline-flex;align-items:center;justify-content:center;width:var(--rdp-cell-size);height:var(--rdp-cell-size);padding:0.25em;border-radius:100%;}.rdp-dropdown_year,.rdp-dropdown_month{position:relative;display:inline-flex;align-items:center;}.rdp-dropdown{appearance:none;position:absolute;z-index:2;top:0;bottom:0;left:0;width:100%;margin:0;padding:0;cursor:inherit;opacity:0;border:none;background-color:transparent;font-family:inherit;font-size:inherit;line-height:inherit;}.rdp-dropdown[disabled]{opacity:unset;color:unset;}.rdp-dropdown:focus-visible:not([disabled])+.rdp-caption_label{background-color:var(--rdp-background-color);border:var(--rdp-outline);border-radius:6px;}.rdp-dropdown_icon{margin:0 0 0 5px;}.rdp-head{border:0;}.rdp-head_row,.rdp-row{height:100%;}.rdp-head_cell{vertical-align:middle;font-size:0.75em;font-weight:700;text-align:center;height:100%;height:var(--rdp-cell-size);padding:0;text-transform:uppercase;}.rdp-tbody{border:0;}.rdp-tfoot{margin:0.5em;}.rdp-cell{width:var(--rdp-cell-size);height:100%;height:var(--rdp-cell-size);padding:0;text-align:center;}.rdp-weeknumber{font-size:0.75em;}.rdp-weeknumber,.rdp-day{display:flex;overflow:hidden;align-items:center;justify-content:center;box-sizing:border-box;width:var(--rdp-cell-size);max-width:var(--rdp-cell-size);height:var(--rdp-cell-size);margin:0;border:2px solid transparent;border-radius:100%;}.rdp-day_today:not(.rdp-day_outside){font-weight:bold;}.rdp-day_selected,.rdp-day_selected:focus-visible,.rdp-day_selected:hover{color:var(--rdp-selected-color);opacity:1;background-color:var(--rdp-accent-color);}.rdp-day_outside{opacity:0.5;}.rdp-day_selected:focus-visible{outline:var(--rdp-outline);outline-offset:2px;z-index:1;}.rdp:not([dir='rtl']) .rdp-day_range_start:not(.rdp-day_range_end){border-top-right-radius:0;border-bottom-right-radius:0;}.rdp:not([dir='rtl']) .rdp-day_range_end:not(.rdp-day_range_start){border-top-left-radius:0;border-bottom-left-radius:0;}.rdp[dir='rtl'] .rdp-day_range_start:not(.rdp-day_range_end){border-top-left-radius:0;border-bottom-left-radius:0;}.rdp[dir='rtl'] .rdp-day_range_end:not(.rdp-day_range_start){border-top-right-radius:0;border-bottom-right-radius:0;}.rdp-day_range_end.rdp-day_range_start{border-radius:100%;}.rdp-day_range_middle{border-radius:0;};label:dayPickerStyles;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$2
 };
-const getRootStyles$1 = () => {
-  return _ref;
-};
-const Root$3 = /*#__PURE__*/forwardRef((props, ref) => {
-  return jsx(RadixSlider.Root, {
-    ...addDebugOutlineIfEnabled(),
-    css: getRootStyles$1(),
-    ...props,
-    ref: ref
-  });
-});
-const getTrackStyles = theme => {
-  return /*#__PURE__*/css({
-    backgroundColor: theme.colors.grey100,
-    position: 'relative',
-    flexGrow: 1,
-    borderRadius: 9999,
-    '&[data-orientation="vertical"]': {
-      width: 3
-    },
-    '&[data-orientation="horizontal"]': {
-      height: 3
-    }
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getTrackStyles;");
-};
-const Track = /*#__PURE__*/forwardRef((props, ref) => {
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(RadixSlider.Track, {
-    css: getTrackStyles(theme),
-    ...props,
-    ref: ref
-  });
-});
-const getRangeStyles = theme => {
-  return /*#__PURE__*/css({
-    backgroundColor: theme.colors.primary,
-    position: 'absolute',
-    borderRadius: 9999,
-    height: '100%',
-    '&[data-disabled]': {
-      backgroundColor: theme.colors.grey100
-    }
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getRangeStyles;");
-};
-const Range = /*#__PURE__*/forwardRef((props, ref) => {
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(RadixSlider.Range, {
-    css: getRangeStyles(theme),
-    ...props,
-    ref: ref
-  });
-});
-const getThumbStyles = theme => {
-  return /*#__PURE__*/css({
-    display: 'block',
-    width: 20,
-    height: 20,
-    backgroundColor: theme.colors.actionPrimaryBackgroundDefault,
-    boxShadow: `0 2px 4px 0 ${theme.colors.grey400}`,
-    borderRadius: 10,
-    outline: 'none',
-    '&:hover': {
-      backgroundColor: theme.colors.actionPrimaryBackgroundHover
-    },
-    '&:focus': {
-      backgroundColor: theme.colors.actionPrimaryBackgroundPress
-    },
-    '&[data-disabled]': {
-      backgroundColor: theme.colors.grey200,
-      boxShadow: 'none'
-    }
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getThumbStyles;");
-};
-const Thumb = /*#__PURE__*/forwardRef((props, ref) => {
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(RadixSlider.Thumb, {
-    css: getThumbStyles(theme),
-    ...props,
-    ref: ref
-  });
-});
 
-var Slider = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  Range: Range,
-  Root: Root$3,
-  Thumb: Thumb,
-  Track: Track
-});
-
-const getRootStyles = theme => {
-  return /*#__PURE__*/css({
-    alignItems: 'center',
-    backgroundColor: theme.colors.backgroundSecondary,
-    border: `1px solid ${theme.colors.borderDecorative}`,
-    borderRadius: theme.borders.borderRadiusMd,
-    boxShadow: theme.general.shadowLow,
-    display: 'flex',
-    gap: theme.spacing.md,
-    width: 'max-content',
-    padding: theme.spacing.sm
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getRootStyles;");
+function _EMOTION_STRINGIFIED_CSS_ERROR__$1() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+const handleInputKeyDown = (event, setIsVisible) => {
+  if (event.key === ' ' || event.key === 'Enter' || event.key === 'Space') {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsVisible(true);
+  }
 };
-const Root$2 = /*#__PURE__*/forwardRef((props, ref) => {
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(RadixToolbar.Root, {
-    ...addDebugOutlineIfEnabled(),
-    css: getRootStyles(theme),
-    ...props,
-    ref: ref
+function Day(props) {
+  const buttonRef = useRef(null);
+  const dayRender = useDayRender(props.date, props.displayMonth, buttonRef);
+  if (dayRender.isHidden) {
+    return jsx("div", {
+      role: "cell"
+    });
+  }
+  if (!dayRender.isButton) {
+    return jsx("div", {
+      ...dayRender.divProps
+    });
+  }
+  return jsx(Button$2, {
+    name: "day",
+    ref: buttonRef,
+    ...dayRender.buttonProps,
+    role: "button"
   });
-});
-const Button = /*#__PURE__*/forwardRef((props, ref) => {
-  return jsx(RadixToolbar.Button, {
-    ...props,
-    ref: ref
-  });
-});
-const getSeparatorStyles = theme => {
-  return /*#__PURE__*/css({
-    alignSelf: 'stretch',
-    backgroundColor: theme.colors.borderDecorative,
-    width: 1
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getSeparatorStyles;");
+}
+var _ref$1 = process.env.NODE_ENV === "production" ? {
+  name: "1xsrjyo",
+  styles: "*::-webkit-calendar-picker-indicator{display:none;}"
+} : {
+  name: "wudvyp-DatePicker",
+  styles: "*::-webkit-calendar-picker-indicator{display:none;};label:DatePicker;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$1
 };
-const Separator = /*#__PURE__*/forwardRef((props, ref) => {
+const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
   const {
-    theme
+    classNamePrefix
   } = useDesignSystemTheme();
-  return jsx(RadixToolbar.Separator, {
-    css: getSeparatorStyles(theme),
-    ...props,
-    ref: ref
-  });
-});
-const Link = /*#__PURE__*/forwardRef((props, ref) => {
-  return jsx(RadixToolbar.Link, {
-    ...props,
-    ref: ref
-  });
-});
-const ToggleGroup = /*#__PURE__*/forwardRef((props, ref) => {
-  return jsx(RadixToolbar.ToggleGroup, {
-    ...props,
-    ref: ref
-  });
-});
-const getToggleItemStyles = theme => {
-  return /*#__PURE__*/css({
-    background: 'none',
-    color: theme.colors.textPrimary,
-    border: 'none',
-    cursor: 'pointer',
-    '&:hover': {
-      color: theme.colors.actionDefaultTextHover
-    },
-    '&[data-state="on"]': {
-      color: theme.colors.actionDefaultTextPress
+  const {
+    id,
+    name,
+    value,
+    validationState,
+    onChange,
+    allowClear,
+    onClear,
+    includeTime,
+    defaultTime,
+    onOpenChange,
+    open,
+    datePickerProps,
+    timeInputProps,
+    mode = 'single',
+    selected,
+    wrapperDivProps,
+    width,
+    maxWidth,
+    minWidth,
+    ...restProps
+  } = props;
+  const format$1 = includeTime ? 'yyyy-MM-dd HH:mm' : 'yyyy-MM-dd';
+  const [date, setDate] = useState(value);
+  const [triggerValue, setTriggerValue] = useState(value ? format(value, format$1) : undefined);
+  const [isVisible, setIsVisible] = useState(Boolean(open));
+  const inputRef = useRef(null);
+  const visibleRef = useRef(isVisible);
+  // Needed to avoid the clear icon click also reopening the datepicker
+  const fromClearRef = useRef(null);
+  useEffect(() => {
+    if (!isVisible && visibleRef.current) {
+      var _inputRef$current;
+      (_inputRef$current = inputRef.current) === null || _inputRef$current === void 0 || _inputRef$current.focus();
     }
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getToggleItemStyles;");
-};
-const ToggleItem = /*#__PURE__*/forwardRef((props, ref) => {
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(RadixToolbar.ToggleItem, {
-    css: getToggleItemStyles(theme),
-    ...props,
-    ref: ref
-  });
-});
+    visibleRef.current = isVisible;
+    onOpenChange === null || onOpenChange === void 0 || onOpenChange(isVisible);
+  }, [isVisible, onOpenChange]);
+  useEffect(() => {
+    setIsVisible(Boolean(open));
+  }, [open]);
+  const handleChange = useCallback(date => {
+    if (onChange) {
+      onChange({
+        target: {
+          name,
+          value: date
+        },
+        type: 'change'
+      });
+    }
+  }, [onChange, name]);
+  const handleDatePickerUpdate = date => {
+    setDate(prevDate => {
+      // Set default time if date is set the first time
+      if (!prevDate && date && includeTime && defaultTime) {
+        const timeSplit = defaultTime.split(':');
+        date === null || date === void 0 || date.setHours(+timeSplit[0]);
+        date === null || date === void 0 || date.setMinutes(+timeSplit[1]);
+      } else if (prevDate && date && includeTime) {
+        date.setHours(prevDate.getHours());
+        date.setMinutes(prevDate.getMinutes());
+      }
+      handleChange === null || handleChange === void 0 || handleChange(date);
+      return date;
+    });
+    setTriggerValue(format(date, format$1));
+    if (!includeTime) {
+      setIsVisible(false);
+    }
+  };
+  const handleTriggerUpdate = e => {
+    var _e$nativeEvent;
+    const value = (_e$nativeEvent = e.nativeEvent) === null || _e$nativeEvent === void 0 || (_e$nativeEvent = _e$nativeEvent.target) === null || _e$nativeEvent === void 0 ? void 0 : _e$nativeEvent.value;
+    setTriggerValue(value);
+    if (value) {
+      const parsedDate = new Date(value);
+      if (isValid(parsedDate)) {
+        setDate(parsedDate);
+        handleChange === null || handleChange === void 0 || handleChange(parsedDate);
+      }
+    }
+  };
+  const handleClear = useCallback(() => {
+    setDate(undefined);
+    setTriggerValue(undefined);
+    onClear === null || onClear === void 0 || onClear();
+    handleChange === null || handleChange === void 0 || handleChange(undefined);
+  }, [onClear, handleChange]);
+  const handleTimeUpdate = e => {
+    var _e$nativeEvent2;
+    const newTime = (_e$nativeEvent2 = e.nativeEvent) === null || _e$nativeEvent2 === void 0 || (_e$nativeEvent2 = _e$nativeEvent2.target) === null || _e$nativeEvent2 === void 0 ? void 0 : _e$nativeEvent2.value;
+    const time = date ? format(date, 'HH:mm') : undefined;
+    if (newTime && newTime !== time) {
+      if (date) {
+        const updatedDate = date;
+        const timeSplit = newTime.split(':');
+        updatedDate.setHours(+timeSplit[0]);
+        updatedDate.setMinutes(+timeSplit[1]);
+        handleDatePickerUpdate(date);
+      }
+    }
+  };
 
-var Toolbar = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  Button: Button,
-  Link: Link,
-  Root: Root$2,
-  Separator: Separator,
-  ToggleGroup: ToggleGroup,
-  ToggleItem: ToggleItem
-});
-
-const PreviewCard = _ref => {
-  let {
-    icon,
-    title,
-    subtitle,
-    titleActions,
-    children,
-    startActions,
-    endActions,
-    image,
-    onClick,
-    size = 'default',
-    dangerouslyAppendEmotionCSS,
-    ...props
-  } = _ref;
-  const styles = usePreviewCardStyles({
-    onClick,
-    size
-  });
-  const tabIndex = onClick ? 0 : undefined;
-  const role = onClick ? 'button' : undefined;
-  const showFooter = startActions || endActions;
-  return jsxs("div", {
-    ...addDebugOutlineIfEnabled(),
-    css: [styles['container'], dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:PreviewCard;"],
-    tabIndex: tabIndex,
-    onClick: onClick,
-    role: role,
-    ...props,
-    children: [image && jsx("div", {
-      children: image
-    }), jsxs("div", {
-      css: styles['header'],
-      children: [icon && jsx("div", {
-        children: icon
-      }), jsxs("div", {
-        css: styles['titleWrapper'],
-        children: [title && jsx("div", {
-          css: styles['title'],
-          children: title
-        }), subtitle && jsx("div", {
-          css: styles['subTitle'],
-          children: subtitle
-        })]
-      }), titleActions && jsx("div", {
-        children: titleActions
+  // Manually add the clear icon click event listener to avoid reopening the datepicker when clearing the input
+  useEffect(() => {
+    if (allowClear && inputRef.current) {
+      var _input;
+      const clearIcon = (_input = inputRef.current.input) === null || _input === void 0 || (_input = _input.closest('[type="button"]')) === null || _input === void 0 ? void 0 : _input.querySelector(`.${classNamePrefix}-input-clear-icon`);
+      if (clearIcon !== fromClearRef.current) {
+        fromClearRef.current = clearIcon;
+        const clientEventListener = e => {
+          e.stopPropagation();
+          e.preventDefault();
+          handleClear();
+        };
+        clearIcon.addEventListener('click', clientEventListener);
+      }
+    }
+  }, [classNamePrefix, defaultTime, handleClear, allowClear]);
+  return jsx("div", {
+    css: /*#__PURE__*/css({
+      width,
+      minWidth,
+      maxWidth,
+      pointerEvents: restProps !== null && restProps !== void 0 && restProps.disabled ? 'none' : 'auto'
+    }, process.env.NODE_ENV === "production" ? "" : ";label:DatePicker;"),
+    ...wrapperDivProps,
+    children: jsxs(Root$5, {
+      open: isVisible,
+      onOpenChange: setIsVisible,
+      children: [jsx(Trigger$1, {
+        asChild: true,
+        disabled: restProps === null || restProps === void 0 ? void 0 : restProps.disabled,
+        children: jsxs("div", {
+          children: [jsx(Input, {
+            id: id,
+            ref: inputRef,
+            name: name,
+            validationState: validationState,
+            allowClear: allowClear,
+            placeholder: "Select Date",
+            "aria-label": includeTime ? 'Select Date and Time' : 'Select Date',
+            suffix: jsx(CalendarEventIcon, {}),
+            role: "textbox",
+            ...restProps,
+            css: _ref$1,
+            type: includeTime ? 'datetime-local' : 'date',
+            onKeyDown: event => handleInputKeyDown(event, setIsVisible),
+            onChange: handleTriggerUpdate,
+            value: triggerValue
+          }), jsx("input", {
+            type: "hidden",
+            ref: ref,
+            value: date
+          })]
+        })
+      }), jsxs(Content$1, {
+        align: "start",
+        css: dayPickerStyles,
+        children: [jsx(DayPicker, {
+          ...datePickerProps,
+          mode: mode,
+          selected: mode === 'range' ? selected : date,
+          onDayClick: handleDatePickerUpdate,
+          components: {
+            Day
+          }
+        }), includeTime && jsx(Input, {
+          type: "time",
+          "aria-label": "Time",
+          role: "textbox",
+          ...timeInputProps,
+          value: date ? format(date, 'HH:mm') : defaultTime,
+          onChange: handleTimeUpdate,
+          disabled: !date || (timeInputProps === null || timeInputProps === void 0 ? void 0 : timeInputProps.disabled)
+        }), jsx(Arrow, {})]
       })]
-    }), children && jsx("div", {
-      css: styles['childrenWrapper'],
-      children: children
-    }), showFooter && jsxs("div", {
-      css: styles['footer'],
-      children: [jsx("div", {
-        css: styles['action'],
-        children: startActions
-      }), jsx("div", {
-        css: styles['action'],
-        children: endActions
-      })]
-    })]
+    })
   });
-};
-const usePreviewCardStyles = _ref2 => {
+});
+const getRangePickerStyles = (clsPrefix, theme, _ref2) => {
   let {
-    onClick,
-    size
+    validationState,
+    disabled,
+    useTransparent = false
   } = _ref2;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  const isInteractive = onClick !== undefined;
+  const inputClass = `.${clsPrefix}-input`;
+  const affixClass = `.${clsPrefix}-input-affix-wrapper`;
+  const validationColor = getValidationStateColor(theme, validationState);
   return {
-    container: {
-      borderRadius: theme.borders.borderRadiusLg,
-      border: `1px solid ${theme.colors.border}`,
-      padding: size === 'large' ? theme.spacing.lg : theme.spacing.md,
-      color: theme.colors.textSecondary,
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      gap: size === 'large' ? theme.spacing.md : theme.spacing.sm,
-      cursor: isInteractive ? 'pointer' : 'default',
-      ...(isInteractive && {
-        '&:hover, &:focus-within': {
-          boxShadow: theme.general.shadowLow
+    '&&': {
+      ...(disabled && {
+        pointerEvents: 'none'
+      }),
+      lineHeight: theme.typography.lineHeightBase,
+      minHeight: theme.general.heightSm,
+      ...(validationState && {
+        borderColor: validationColor
+      }),
+      '&[data-focused="true"], &[data-focused="true"]:hover': {
+        [`${affixClass}:focus-within, ${affixClass}`]: {
+          outlineWidth: '0px !important',
+          boxShadow: 'none',
+          border: 'none'
         },
-        '&:active': {
-          background: theme.colors.actionTertiaryBackgroundPress,
-          borderColor: theme.colors.actionDefaultBorderHover,
-          boxShadow: theme.general.shadowLow
-        },
-        '&:focus': {
-          outlineColor: theme.colors.actionPrimaryBackgroundDefault,
-          outlineWidth: 2,
-          outlineOffset: -2,
-          outlineStyle: 'solid',
-          boxShadow: theme.general.shadowLow,
-          borderColor: theme.colors.actionDefaultBorderHover
-        },
-        '&:active:not(:focus):not(:focus-within)': {
-          background: 'transparent',
-          borderColor: theme.colors.border
-        }
-      })
+        outlineColor: validationState ? validationColor : theme.colors.actionPrimaryBackgroundDefault,
+        outlineWidth: 2,
+        borderRadius: 4,
+        outlineStyle: 'solid',
+        boxShadow: 'none',
+        borderColor: 'transparent'
+      },
+      [`&:hover ${affixClass}`]: {
+        borderColor: validationState ? validationColor : theme.colors.actionPrimaryBackgroundHover
+      }
     },
-    header: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: theme.spacing.sm
-    },
-    title: {
-      fontWeight: theme.typography.typographyBoldFontWeight,
-      color: theme.colors.textPrimary,
-      lineHeight: theme.typography.lineHeightSm
-    },
-    subTitle: {
-      lineHeight: theme.typography.lineHeightSm
-    },
-    titleWrapper: {
-      flexGrow: 1,
-      overflow: 'hidden'
-    },
-    childrenWrapper: {
-      flexGrow: 1
-    },
-    footer: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      flexWrap: 'wrap'
-    },
-    action: {
-      overflow: 'hidden'
+    [`&${inputClass}, ${inputClass}`]: {
+      ...(useTransparent && {
+        backgroundColor: 'transparent'
+      }),
+      '&:disabled': {
+        backgroundColor: theme.colors.actionDisabledBackground,
+        color: theme.colors.actionDisabledText,
+        borderColor: theme.colors.actionDisabledBorder
+      },
+      '&::placeholder': {
+        color: theme.colors.textPlaceholder
+      }
     }
   };
 };
+var _ref3 = process.env.NODE_ENV === "production" ? {
+  name: "1tbporb",
+  styles: "border-right:none;border-top-right-radius:0;border-bottom-right-radius:0;*::-webkit-calendar-picker-indicator{display:none;}"
+} : {
+  name: "lvtbb2-RangePicker",
+  styles: "border-right:none;border-top-right-radius:0;border-bottom-right-radius:0;*::-webkit-calendar-picker-indicator{display:none;};label:RangePicker;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$1
+};
+var _ref4 = process.env.NODE_ENV === "production" ? {
+  name: "1rv6kv8",
+  styles: "border-left:none;border-top-left-radius:0;border-bottom-left-radius:0"
+} : {
+  name: "1vhmfrm-RangePicker",
+  styles: "border-left:none;border-top-left-radius:0;border-bottom-left-radius:0;label:RangePicker;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$1
+};
+const RangePicker = props => {
+  var _startDatePickerProps6, _endDatePickerProps$d5;
+  const {
+    classNamePrefix,
+    theme
+  } = useDesignSystemTheme();
+  const {
+    id,
+    onChange,
+    startDatePickerProps,
+    endDatePickerProps,
+    includeTime,
+    allowClear,
+    minWidth,
+    maxWidth,
+    width,
+    disabled
+  } = props;
+  const [range, setRange] = useState({
+    from: startDatePickerProps === null || startDatePickerProps === void 0 ? void 0 : startDatePickerProps.value,
+    to: endDatePickerProps === null || endDatePickerProps === void 0 ? void 0 : endDatePickerProps.value
+  });
+
+  // Focus is lost when the popover is closed, we need to set the focus back to the input that opened the popover manually.
+  const [isFromVisible, setIsFromVisible] = useState(false);
+  const [isToVisible, setIsToVisible] = useState(false);
+  const [isRangeInputFocused, setIsRangeInputFocused] = useState(false);
+  const fromInputRef = useRef(null);
+  const toInputRef = useRef(null);
+  useImperativeHandle(startDatePickerProps === null || startDatePickerProps === void 0 ? void 0 : startDatePickerProps.ref, () => fromInputRef.current);
+  useImperativeHandle(endDatePickerProps === null || endDatePickerProps === void 0 ? void 0 : endDatePickerProps.ref, () => toInputRef.current);
+  const fromInputRefVisible = useRef(isFromVisible);
+  const toInputRefVisible = useRef(isToVisible);
+  useEffect(() => {
+    if (!isFromVisible && fromInputRefVisible.current) {
+      var _fromInputRef$current;
+      (_fromInputRef$current = fromInputRef.current) === null || _fromInputRef$current === void 0 || _fromInputRef$current.focus();
+    }
+    fromInputRefVisible.current = isFromVisible;
+  }, [isFromVisible]);
+  useEffect(() => {
+    if (!isToVisible && toInputRefVisible.current) {
+      var _toInputRef$current;
+      (_toInputRef$current = toInputRef.current) === null || _toInputRef$current === void 0 || _toInputRef$current.focus();
+    }
+    toInputRefVisible.current = isToVisible;
+  }, [isToVisible]);
+  const handleUpdateDate = useCallback(function (e, isStart) {
+    let shouldFocusNextInput = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
+    setRange(prevRange => {
+      const date = e.target.value;
+      const newRange = isStart ? {
+        from: date,
+        to: prevRange === null || prevRange === void 0 ? void 0 : prevRange.to
+      } : {
+        from: prevRange === null || prevRange === void 0 ? void 0 : prevRange.from,
+        to: date
+      };
+      if (!includeTime) {
+        if (isStart) {
+          setIsFromVisible(false);
+          if (shouldFocusNextInput) {
+            setIsToVisible(true);
+          }
+        } else {
+          setIsToVisible(false);
+        }
+      }
+      if (isStart) {
+        var _startDatePickerProps;
+        startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps = startDatePickerProps.onChange) === null || _startDatePickerProps === void 0 || _startDatePickerProps.call(startDatePickerProps, e);
+      } else {
+        var _endDatePickerProps$o;
+        endDatePickerProps === null || endDatePickerProps === void 0 || (_endDatePickerProps$o = endDatePickerProps.onChange) === null || _endDatePickerProps$o === void 0 || _endDatePickerProps$o.call(endDatePickerProps, e);
+      }
+      onChange === null || onChange === void 0 || onChange(newRange);
+      return newRange;
+    });
+  }, [onChange, includeTime, startDatePickerProps, endDatePickerProps]);
+
+  // Use useMemo to calculate disabled dates
+  const disabledDates = useMemo(() => {
+    var _startDatePickerProps2, _endDatePickerProps$d;
+    let startDisabledFromProps, endDisabledFromProps;
+    if (startDatePickerProps !== null && startDatePickerProps !== void 0 && (_startDatePickerProps2 = startDatePickerProps.datePickerProps) !== null && _startDatePickerProps2 !== void 0 && _startDatePickerProps2.disabled) {
+      var _startDatePickerProps3, _startDatePickerProps4, _startDatePickerProps5;
+      startDisabledFromProps = Array.isArray(startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps3 = startDatePickerProps.datePickerProps) === null || _startDatePickerProps3 === void 0 ? void 0 : _startDatePickerProps3.disabled) ? startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps4 = startDatePickerProps.datePickerProps) === null || _startDatePickerProps4 === void 0 ? void 0 : _startDatePickerProps4.disabled : [startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps5 = startDatePickerProps.datePickerProps) === null || _startDatePickerProps5 === void 0 ? void 0 : _startDatePickerProps5.disabled];
+    }
+    const startDisabled = [{
+      after: range === null || range === void 0 ? void 0 : range.to
+    }, ...(startDisabledFromProps ? startDisabledFromProps : [])].filter(Boolean);
+    if (endDatePickerProps !== null && endDatePickerProps !== void 0 && (_endDatePickerProps$d = endDatePickerProps.datePickerProps) !== null && _endDatePickerProps$d !== void 0 && _endDatePickerProps$d.disabled) {
+      var _endDatePickerProps$d2, _endDatePickerProps$d3, _endDatePickerProps$d4;
+      endDisabledFromProps = Array.isArray(endDatePickerProps === null || endDatePickerProps === void 0 || (_endDatePickerProps$d2 = endDatePickerProps.datePickerProps) === null || _endDatePickerProps$d2 === void 0 ? void 0 : _endDatePickerProps$d2.disabled) ? endDatePickerProps === null || endDatePickerProps === void 0 || (_endDatePickerProps$d3 = endDatePickerProps.datePickerProps) === null || _endDatePickerProps$d3 === void 0 ? void 0 : _endDatePickerProps$d3.disabled : [endDatePickerProps === null || endDatePickerProps === void 0 || (_endDatePickerProps$d4 = endDatePickerProps.datePickerProps) === null || _endDatePickerProps$d4 === void 0 ? void 0 : _endDatePickerProps$d4.disabled];
+    }
+    const endDisabled = [{
+      before: range === null || range === void 0 ? void 0 : range.from
+    }, ...(endDisabledFromProps ? endDisabledFromProps : [])].filter(Boolean);
+    return {
+      startDisabled,
+      endDisabled
+    };
+  }, [range === null || range === void 0 ? void 0 : range.from, range === null || range === void 0 ? void 0 : range.to, startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps6 = startDatePickerProps.datePickerProps) === null || _startDatePickerProps6 === void 0 ? void 0 : _startDatePickerProps6.disabled, endDatePickerProps === null || endDatePickerProps === void 0 || (_endDatePickerProps$d5 = endDatePickerProps.datePickerProps) === null || _endDatePickerProps$d5 === void 0 ? void 0 : _endDatePickerProps$d5.disabled]);
+  return jsxs("div", {
+    "data-focused": isRangeInputFocused,
+    css: [{
+      display: 'flex',
+      alignItems: 'center',
+      minWidth,
+      maxWidth,
+      width
+    }, getRangePickerStyles(classNamePrefix, theme, {
+      validationState: (startDatePickerProps === null || startDatePickerProps === void 0 ? void 0 : startDatePickerProps.validationState) || (endDatePickerProps === null || endDatePickerProps === void 0 ? void 0 : endDatePickerProps.validationState),
+      disabled
+    }), process.env.NODE_ENV === "production" ? "" : ";label:RangePicker;"],
+    children: [jsx(DatePicker, {
+      ...startDatePickerProps,
+      id: id,
+      ref: fromInputRef,
+      disabled: disabled,
+      onChange: e => handleUpdateDate(e, true),
+      includeTime: includeTime,
+      open: isFromVisible,
+      onOpenChange: setIsFromVisible,
+      allowClear: allowClear,
+      datePickerProps: {
+        ...(startDatePickerProps === null || startDatePickerProps === void 0 ? void 0 : startDatePickerProps.datePickerProps),
+        disabled: disabledDates.startDisabled
+      }
+      // @ts-expect-error - DatePickerProps does not have a mode property in the public API but is needed for this use case
+      ,
+      mode: "range",
+      selected: range,
+      value: range === null || range === void 0 ? void 0 : range.from,
+      onFocus: e => {
+        var _startDatePickerProps7;
+        setIsRangeInputFocused(true);
+        startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps7 = startDatePickerProps.onFocus) === null || _startDatePickerProps7 === void 0 || _startDatePickerProps7.call(startDatePickerProps, e);
+      },
+      onBlur: e => {
+        var _startDatePickerProps8;
+        setIsRangeInputFocused(false);
+        startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps8 = startDatePickerProps.onBlur) === null || _startDatePickerProps8 === void 0 || _startDatePickerProps8.call(startDatePickerProps, e);
+      },
+      css: _ref3,
+      wrapperDivProps: {
+        style: {
+          width: '50%'
+        }
+      },
+      suffix: jsx(ArrowRightIcon, {})
+    }), jsx(DatePicker, {
+      ...endDatePickerProps,
+      ref: toInputRef,
+      disabled: disabled,
+      onChange: e => handleUpdateDate(e, false),
+      includeTime: includeTime,
+      open: isToVisible,
+      onOpenChange: setIsToVisible,
+      allowClear: allowClear,
+      datePickerProps: {
+        ...(endDatePickerProps === null || endDatePickerProps === void 0 ? void 0 : endDatePickerProps.datePickerProps),
+        disabled: disabledDates.endDisabled
+      }
+      // @ts-expect-error - DatePickerProps does not have a mode property in the public API but is needed for this use case
+      ,
+      mode: "range",
+      selected: range,
+      value: range === null || range === void 0 ? void 0 : range.to,
+      onFocus: e => {
+        var _startDatePickerProps9;
+        setIsRangeInputFocused(true);
+        startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps9 = startDatePickerProps.onFocus) === null || _startDatePickerProps9 === void 0 || _startDatePickerProps9.call(startDatePickerProps, e);
+      },
+      onBlur: e => {
+        var _startDatePickerProps10;
+        setIsRangeInputFocused(false);
+        startDatePickerProps === null || startDatePickerProps === void 0 || (_startDatePickerProps10 = startDatePickerProps.onBlur) === null || _startDatePickerProps10 === void 0 || _startDatePickerProps10.call(startDatePickerProps, e);
+      },
+      css: _ref4,
+      wrapperDivProps: {
+        style: {
+          width: '50%'
+        }
+      }
+    })]
+  });
+};
 
 const RadioGroupContext = /*#__PURE__*/React__default.createContext('medium');
-const Root$1 = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
+const Root$4 = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
   let {
     size,
     componentId,
@@ -727,27 +883,378 @@ const useRadioGroupItemStyles = (size, iconClass) => {
 var PillControl = /*#__PURE__*/Object.freeze({
   __proto__: null,
   Item: Item,
-  Root: Root$1
+  Root: Root$4
+});
+
+const PreviewCard = _ref => {
+  let {
+    icon,
+    title,
+    subtitle,
+    titleActions,
+    children,
+    startActions,
+    endActions,
+    image,
+    onClick,
+    size = 'default',
+    dangerouslyAppendEmotionCSS,
+    ...props
+  } = _ref;
+  const styles = usePreviewCardStyles({
+    onClick,
+    size
+  });
+  const tabIndex = onClick ? 0 : undefined;
+  const role = onClick ? 'button' : undefined;
+  const showFooter = startActions || endActions;
+  return jsxs("div", {
+    ...addDebugOutlineIfEnabled(),
+    css: [styles['container'], dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:PreviewCard;"],
+    tabIndex: tabIndex,
+    onClick: onClick,
+    role: role,
+    ...props,
+    children: [image && jsx("div", {
+      children: image
+    }), jsxs("div", {
+      css: styles['header'],
+      children: [icon && jsx("div", {
+        children: icon
+      }), jsxs("div", {
+        css: styles['titleWrapper'],
+        children: [title && jsx("div", {
+          css: styles['title'],
+          children: title
+        }), subtitle && jsx("div", {
+          css: styles['subTitle'],
+          children: subtitle
+        })]
+      }), titleActions && jsx("div", {
+        children: titleActions
+      })]
+    }), children && jsx("div", {
+      css: styles['childrenWrapper'],
+      children: children
+    }), showFooter && jsxs("div", {
+      css: styles['footer'],
+      children: [jsx("div", {
+        css: styles['action'],
+        children: startActions
+      }), jsx("div", {
+        css: styles['action'],
+        children: endActions
+      })]
+    })]
+  });
+};
+const usePreviewCardStyles = _ref2 => {
+  let {
+    onClick,
+    size
+  } = _ref2;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  const isInteractive = onClick !== undefined;
+  return {
+    container: {
+      borderRadius: theme.borders.borderRadiusLg,
+      border: `1px solid ${theme.colors.border}`,
+      padding: size === 'large' ? theme.spacing.lg : theme.spacing.md,
+      color: theme.colors.textSecondary,
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      gap: size === 'large' ? theme.spacing.md : theme.spacing.sm,
+      cursor: isInteractive ? 'pointer' : 'default',
+      ...(isInteractive && {
+        '&:hover, &:focus-within': {
+          boxShadow: theme.general.shadowLow
+        },
+        '&:active': {
+          background: theme.colors.actionTertiaryBackgroundPress,
+          borderColor: theme.colors.actionDefaultBorderHover,
+          boxShadow: theme.general.shadowLow
+        },
+        '&:focus': {
+          outlineColor: theme.colors.actionPrimaryBackgroundDefault,
+          outlineWidth: 2,
+          outlineOffset: -2,
+          outlineStyle: 'solid',
+          boxShadow: theme.general.shadowLow,
+          borderColor: theme.colors.actionDefaultBorderHover
+        },
+        '&:active:not(:focus):not(:focus-within)': {
+          background: 'transparent',
+          borderColor: theme.colors.border
+        }
+      })
+    },
+    header: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: theme.spacing.sm
+    },
+    title: {
+      fontWeight: theme.typography.typographyBoldFontWeight,
+      color: theme.colors.textPrimary,
+      lineHeight: theme.typography.lineHeightSm
+    },
+    subTitle: {
+      lineHeight: theme.typography.lineHeightSm
+    },
+    titleWrapper: {
+      flexGrow: 1,
+      overflow: 'hidden'
+    },
+    childrenWrapper: {
+      flexGrow: 1
+    },
+    footer: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      flexWrap: 'wrap'
+    },
+    action: {
+      overflow: 'hidden'
+    }
+  };
+};
+
+const progressContextDefaults = {
+  progress: 0
+};
+const ProgressContext = /*#__PURE__*/createContext(progressContextDefaults);
+const ProgressContextProvider = _ref => {
+  let {
+    children,
+    value
+  } = _ref;
+  return jsx(ProgressContext.Provider, {
+    value: value,
+    children: children
+  });
+};
+
+const getProgressRootStyles = (theme, _ref) => {
+  let {
+    minWidth,
+    maxWidth
+  } = _ref;
+  const styles = {
+    position: 'relative',
+    overflow: 'hidden',
+    backgroundColor: theme.colors.progressTrack,
+    height: theme.spacing.sm,
+    width: '100%',
+    borderRadius: theme.spacing.xs,
+    ...(minWidth && {
+      minWidth
+    }),
+    ...(maxWidth && {
+      maxWidth
+    }),
+    /* Fix overflow clipping in Safari */
+    /* https://gist.github.com/domske/b66047671c780a238b51c51ffde8d3a0 */
+    transform: 'translateZ(0)'
+  };
+  return /*#__PURE__*/css(importantify(styles), process.env.NODE_ENV === "production" ? "" : ";label:getProgressRootStyles;");
+};
+const Root$3 = props => {
+  const {
+    children,
+    value,
+    minWidth,
+    maxWidth,
+    ...restProps
+  } = props;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(ProgressContextProvider, {
+    value: {
+      progress: value
+    },
+    children: jsx(Progress$1.Root, {
+      value: value,
+      ...restProps,
+      css: getProgressRootStyles(theme, {
+        minWidth,
+        maxWidth
+      }),
+      children: children
+    })
+  });
+};
+const getProgressIndicatorStyles = theme => {
+  const styles = {
+    backgroundColor: theme.colors.progressFill,
+    height: '100%',
+    width: '100%',
+    transition: 'transform 300ms linear',
+    borderRadius: theme.spacing.xs
+  };
+  return /*#__PURE__*/css(importantify(styles), process.env.NODE_ENV === "production" ? "" : ";label:getProgressIndicatorStyles;");
+};
+const Indicator = props => {
+  const {
+    progress
+  } = React__default.useContext(ProgressContext);
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(Progress$1.Indicator, {
+    css: getProgressIndicatorStyles(theme),
+    style: {
+      transform: `translateX(-${100 - (progress !== null && progress !== void 0 ? progress : 100)}%)`
+    },
+    ...props
+  });
+};
+
+var Progress = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  Indicator: Indicator,
+  Root: Root$3
+});
+
+function _EMOTION_STRINGIFIED_CSS_ERROR__() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref = process.env.NODE_ENV === "production" ? {
+  name: "1tciq3q",
+  styles: "position:relative;display:flex;align-items:center;&[data-orientation=\"vertical\"]{flex-direction:column;width:20px;height:100px;}&[data-orientation=\"horizontal\"]{height:20px;width:200px;}"
+} : {
+  name: "18im58f-getRootStyles",
+  styles: "position:relative;display:flex;align-items:center;&[data-orientation=\"vertical\"]{flex-direction:column;width:20px;height:100px;}&[data-orientation=\"horizontal\"]{height:20px;width:200px;};label:getRootStyles;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__
+};
+const getRootStyles$1 = () => {
+  return _ref;
+};
+const Root$2 = /*#__PURE__*/forwardRef((props, ref) => {
+  return jsx(RadixSlider.Root, {
+    ...addDebugOutlineIfEnabled(),
+    css: getRootStyles$1(),
+    ...props,
+    ref: ref
+  });
+});
+const getTrackStyles = theme => {
+  return /*#__PURE__*/css({
+    backgroundColor: theme.colors.grey100,
+    position: 'relative',
+    flexGrow: 1,
+    borderRadius: 9999,
+    '&[data-orientation="vertical"]': {
+      width: 3
+    },
+    '&[data-orientation="horizontal"]': {
+      height: 3
+    }
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getTrackStyles;");
+};
+const Track = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(RadixSlider.Track, {
+    css: getTrackStyles(theme),
+    ...props,
+    ref: ref
+  });
+});
+const getRangeStyles = theme => {
+  return /*#__PURE__*/css({
+    backgroundColor: theme.colors.primary,
+    position: 'absolute',
+    borderRadius: 9999,
+    height: '100%',
+    '&[data-disabled]': {
+      backgroundColor: theme.colors.grey100
+    }
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getRangeStyles;");
+};
+const Range = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(RadixSlider.Range, {
+    css: getRangeStyles(theme),
+    ...props,
+    ref: ref
+  });
+});
+const getThumbStyles = theme => {
+  return /*#__PURE__*/css({
+    display: 'block',
+    width: 20,
+    height: 20,
+    backgroundColor: theme.colors.actionPrimaryBackgroundDefault,
+    boxShadow: `0 2px 4px 0 ${theme.colors.grey400}`,
+    borderRadius: 10,
+    outline: 'none',
+    '&:hover': {
+      backgroundColor: theme.colors.actionPrimaryBackgroundHover
+    },
+    '&:focus': {
+      backgroundColor: theme.colors.actionPrimaryBackgroundPress
+    },
+    '&[data-disabled]': {
+      backgroundColor: theme.colors.grey200,
+      boxShadow: 'none'
+    }
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getThumbStyles;");
+};
+const Thumb = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(RadixSlider.Thumb, {
+    css: getThumbStyles(theme),
+    ...props,
+    ref: ref
+  });
+});
+
+var Slider = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  Range: Range,
+  Root: Root$2,
+  Thumb: Thumb,
+  Track: Track
 });
 
 const TabsV2RootContext = /*#__PURE__*/React__default.createContext({
-  activeValue: undefined
+  activeValue: undefined,
+  componentId: 'design_system.tabsv2.default_component_id'
 });
 const TabsV2ListContext = /*#__PURE__*/React__default.createContext({
   viewportRef: {
     current: null
   }
 });
-const Root = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
+const Root$1 = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
   let {
     value,
     defaultValue,
     onValueChange,
+    componentId,
+    analyticsEvents,
+    valueHasNoPii,
     ...props
   } = _ref;
   const isControlled = value !== undefined;
   const [uncontrolledActiveValue, setUncontrolledActiveValue] = React__default.useState(defaultValue);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.TabsV2,
+    componentId,
+    analyticsEvents: analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    valueHasNoPii,
+    shouldStartInteraction: true
+  });
   const onValueChangeWrapper = value => {
+    eventContext.onValueChange(value);
     if (onValueChange) {
       onValueChange(value);
     }
@@ -757,7 +1264,8 @@ const Root = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
   };
   return jsx(TabsV2RootContext.Provider, {
     value: {
-      activeValue: isControlled ? value : uncontrolledActiveValue
+      activeValue: isControlled ? value : uncontrolledActiveValue,
+      componentId
     },
     children: jsx(RadixTabs.Root, {
       value: value,
@@ -777,6 +1285,9 @@ const List = /*#__PURE__*/React__default.forwardRef((_ref2, forwardedRef) => {
     ...props
   } = _ref2;
   const viewportRef = React__default.useRef(null);
+  const {
+    componentId
+  } = React__default.useContext(TabsV2RootContext);
   const css = useListStyles();
   return jsx(TabsV2ListContext.Provider, {
     value: {
@@ -811,7 +1322,7 @@ const List = /*#__PURE__*/React__default.forwardRef((_ref2, forwardedRef) => {
           "aria-label": "Add tab",
           css: css['addButton'],
           onClick: addButtonProps.onClick,
-          componentId: addButtonProps.componentId,
+          componentId: `${componentId}.add_tab`,
           className: addButtonProps.className
         })
       })]
@@ -829,13 +1340,19 @@ const Trigger = /*#__PURE__*/React__default.forwardRef((_ref3, forwardedRef) => 
   const triggerRef = React__default.useRef(null);
   const mergedRef = useMergeRefs([forwardedRef, triggerRef]);
   const {
-    activeValue
+    activeValue,
+    componentId
   } = React__default.useContext(TabsV2RootContext);
   const {
     viewportRef
   } = React__default.useContext(TabsV2ListContext);
   const isClosable = onClose !== undefined && !disabled;
   const css = useTriggerStyles();
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Button,
+    componentId: `${componentId}.close_tab`,
+    analyticsEvents: [DesignSystemEventProviderAnalyticsEventTypes.OnClick]
+  });
   React__default.useEffect(() => {
     if (triggerRef.current && viewportRef.current && activeValue === value) {
       const viewportPosition = viewportRef.current.getBoundingClientRect();
@@ -855,7 +1372,8 @@ const Trigger = /*#__PURE__*/React__default.forwardRef((_ref3, forwardedRef) => 
     // Instead, we close the tab when the Delete key is pressed
     ,
     onKeyDown: e => {
-      if (onClose && e.key === 'Delete') {
+      if (isClosable && e.key === 'Delete') {
+        eventContext.onClick();
         e.stopPropagation();
         e.preventDefault();
         onClose(value);
@@ -871,6 +1389,7 @@ const Trigger = /*#__PURE__*/React__default.forwardRef((_ref3, forwardedRef) => 
         // button is clicked and not when the control key is pressed (to avoid MacOS right click).
         // Reimplementing the same behavior for the close icon in the trigger
         if (!disabled && e.button === 0 && e.ctrlKey === false) {
+          eventContext.onClick();
           // Clicking the close icon should not select the tab
           e.stopPropagation();
           e.preventDefault();
@@ -1022,9 +1541,103 @@ var TabsV2 = /*#__PURE__*/Object.freeze({
   __proto__: null,
   Content: Content,
   List: List,
-  Root: Root,
+  Root: Root$1,
   Trigger: Trigger
 });
 
-export { BANNER_MAX_HEIGHT, BANNER_MIN_HEIGHT, Banner, PillControl, PreviewCard, Slider, TabsV2, Toolbar };
+const getRootStyles = theme => {
+  return /*#__PURE__*/css({
+    alignItems: 'center',
+    backgroundColor: theme.colors.backgroundSecondary,
+    border: `1px solid ${theme.colors.borderDecorative}`,
+    borderRadius: theme.borders.borderRadiusMd,
+    boxShadow: theme.general.shadowLow,
+    display: 'flex',
+    gap: theme.spacing.md,
+    width: 'max-content',
+    padding: theme.spacing.sm
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getRootStyles;");
+};
+const Root = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(RadixToolbar.Root, {
+    ...addDebugOutlineIfEnabled(),
+    css: getRootStyles(theme),
+    ...props,
+    ref: ref
+  });
+});
+const Button = /*#__PURE__*/forwardRef((props, ref) => {
+  return jsx(RadixToolbar.Button, {
+    ...props,
+    ref: ref
+  });
+});
+const getSeparatorStyles = theme => {
+  return /*#__PURE__*/css({
+    alignSelf: 'stretch',
+    backgroundColor: theme.colors.borderDecorative,
+    width: 1
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getSeparatorStyles;");
+};
+const Separator = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(RadixToolbar.Separator, {
+    css: getSeparatorStyles(theme),
+    ...props,
+    ref: ref
+  });
+});
+const Link = /*#__PURE__*/forwardRef((props, ref) => {
+  return jsx(RadixToolbar.Link, {
+    ...props,
+    ref: ref
+  });
+});
+const ToggleGroup = /*#__PURE__*/forwardRef((props, ref) => {
+  return jsx(RadixToolbar.ToggleGroup, {
+    ...props,
+    ref: ref
+  });
+});
+const getToggleItemStyles = theme => {
+  return /*#__PURE__*/css({
+    background: 'none',
+    color: theme.colors.textPrimary,
+    border: 'none',
+    cursor: 'pointer',
+    '&:hover': {
+      color: theme.colors.actionDefaultTextHover
+    },
+    '&[data-state="on"]': {
+      color: theme.colors.actionDefaultTextPress
+    }
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getToggleItemStyles;");
+};
+const ToggleItem = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(RadixToolbar.ToggleItem, {
+    css: getToggleItemStyles(theme),
+    ...props,
+    ref: ref
+  });
+});
+
+var Toolbar = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  Button: Button,
+  Link: Link,
+  Root: Root,
+  Separator: Separator,
+  ToggleGroup: ToggleGroup,
+  ToggleItem: ToggleItem
+});
+
+export { BANNER_MAX_HEIGHT, BANNER_MIN_HEIGHT, Banner, DatePicker, PillControl, PreviewCard, Progress, RangePicker, Slider, TabsV2, Toolbar };
 //# sourceMappingURL=development.js.map

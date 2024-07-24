@@ -130,6 +130,7 @@ def save_model(
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
+    example_no_conversion: bool = False,
 ) -> None:
     """
     .. note::
@@ -169,6 +170,7 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
+        example_no_conversion: {{ example_no_conversion }}
     """
     import sentence_transformers
 
@@ -181,24 +183,26 @@ def save_model(
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, str(path))
 
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(
+        mlflow_model, input_example, path, no_conversion=example_no_conversion
+    )
+
     if task is not None:
         signature = ModelSignature(
             inputs=EMBEDDING_MODEL_INPUT_SCHEMA, outputs=EMBEDDING_MODEL_OUTPUT_SCHEMA
         )
-    elif signature is None and input_example is not None:
+    elif signature is None and saved_example is not None:
         wrapped_model = _SentenceTransformerModelWrapper(model)
-        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is None:
         signature = _get_default_signature()
     elif signature is False:
         signature = None
 
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, str(path))
     if metadata is not None:
         mlflow_model.metadata = metadata
     model_config = None
@@ -312,6 +316,7 @@ def log_model(
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
+    example_no_conversion: bool = False,
 ):
     """
     .. note::
@@ -376,6 +381,7 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
+        example_no_conversion: {{ example_no_conversion }}
     """
     if task is not None:
         metadata = _verify_task_and_update_metadata(task, metadata)
@@ -394,6 +400,7 @@ def log_model(
         input_example=input_example,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        example_no_conversion=example_no_conversion,
     )
 
 

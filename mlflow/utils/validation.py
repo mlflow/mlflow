@@ -52,6 +52,7 @@ MAX_ENTITIES_PER_BATCH = 1000
 MAX_BATCH_LOG_REQUEST_SIZE = int(1e6)
 MAX_PARAM_VAL_LENGTH = 6000
 MAX_TAG_VAL_LENGTH = 5000
+MAX_EXPERIMENT_NAME_LENGTH = 500
 MAX_EXPERIMENT_TAG_KEY_LENGTH = 250
 MAX_EXPERIMENT_TAG_VAL_LENGTH = 5000
 MAX_ENTITY_KEY_LENGTH = 250
@@ -60,7 +61,10 @@ MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH = 5000
 MAX_EXPERIMENTS_LISTED_PER_PAGE = 50000
 MAX_DATASET_NAME_SIZE = 500
 MAX_DATASET_DIGEST_SIZE = 36
-MAX_DATASET_SCHEMA_SIZE = 65535  # 64KB -1 (the db limit for TEXT column)
+# 1MB -1, the db limit for MEDIUMTEXT column is 16MB, but
+# we restrict to 1MB because user might log lots of datasets
+# to a single run, 16MB increases burden on db
+MAX_DATASET_SCHEMA_SIZE = 1048575
 MAX_DATASET_SOURCE_SIZE = 65535  # 64KB -1 (the db limit for TEXT column)
 MAX_DATASET_PROFILE_SIZE = 16777215  # 16MB -1 (the db limit for MEDIUMTEXT column)
 MAX_INPUT_TAG_KEY_SIZE = 255
@@ -366,6 +370,11 @@ def _validate_experiment_name(experiment_name):
         raise MlflowException(
             f"Invalid experiment name: {experiment_name}. Expects a string.",
             error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if len(experiment_name) > MAX_EXPERIMENT_NAME_LENGTH:
+        raise MlflowException.invalid_parameter_value(
+            f"Experiment name exceeds the maximum length of {MAX_EXPERIMENT_NAME_LENGTH} characters"
         )
 
 

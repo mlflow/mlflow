@@ -1,5 +1,5 @@
 import { useEvaluationAddNewInputsModal } from './useEvaluationAddNewInputsModal';
-import { renderWithIntl, screen } from 'common/utils/TestUtils.react17';
+import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
 import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { createParamFieldName } from '../../experiment-page/utils/experimentPage.column-utils';
 import { useEffect } from 'react';

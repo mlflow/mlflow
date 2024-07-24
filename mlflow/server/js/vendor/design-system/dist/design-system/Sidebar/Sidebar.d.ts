@@ -96,7 +96,7 @@ export interface PanelBodyProps {
     dangerouslyAppendEmotionCSS?: Interpolation<EmotionTheme>;
 }
 export declare function Nav({ children, dangerouslyAppendEmotionCSS }: NavProps): JSX.Element;
-export declare function NavButton({ active, disabled, icon, onClick, children, dangerouslyAppendEmotionCSS, 'aria-label': ariaLabel, ...restProps }: NavButtonProps): JSX.Element;
+export declare const NavButton: React.ForwardRefExoticComponent<NavButtonProps & React.RefAttributes<HTMLButtonElement>>;
 export declare function Content({ disableResize, openPanelId, closable, onClose, onResizeStart, onResizeStop, width, minWidth, maxWidth, destroyInactivePanels, children, dangerouslyAppendEmotionCSS, enableCompact, resizeBoxStyle, }: ContentProps): JSX.Element;
 export declare function Panel({ panelId, children, forceRender, dangerouslyAppendEmotionCSS, ...delegated }: PanelProps): JSX.Element | null;
 export declare function PanelHeader({ children, dangerouslyAppendEmotionCSS }: PanelHeaderProps): JSX.Element;
@@ -107,7 +107,7 @@ export declare const Sidebar: {
     ({ position, children, dangerouslyAppendEmotionCSS }: SidebarProps): JSX.Element;
     Content: typeof Content;
     Nav: typeof Nav;
-    NavButton: typeof NavButton;
+    NavButton: React.ForwardRefExoticComponent<NavButtonProps & React.RefAttributes<HTMLButtonElement>>;
     Panel: typeof Panel;
     PanelHeader: typeof PanelHeader;
     PanelHeaderTitle: typeof PanelHeaderTitle;
