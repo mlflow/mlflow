@@ -32,6 +32,7 @@ from mlflow.utils.environment import (
     _add_or_overwrite_requirements,
     _get_requirements_from_file,
     _remove_requirements,
+    _save_frozen_requirements,
     _write_requirements_to_file,
 )
 from mlflow.utils.file_utils import TempDir
@@ -696,6 +697,7 @@ class Model:
                 artifact_path=artifact_path, run_id=run_id, metadata=metadata, resources=resources
             )
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
+            _save_frozen_requirements(path=local_path)
             # `save_model` calls `load_model` to infer the model requirements, which may result in
             # __pycache__ directories being created in the model directory.
             for pycache in Path(local_path).rglob("__pycache__"):
