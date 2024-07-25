@@ -229,6 +229,10 @@ _ML_PACKAGE_VERSIONS = {
         "models": {
             "minimum": "2.4.1",
             "maximum": "2.6.1"
+        },
+        "autologging": {
+            "minimum": "2.4.1",
+            "maximum": "2.6.1"
         }
     },
     "transformers": {

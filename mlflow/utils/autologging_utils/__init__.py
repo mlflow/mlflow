@@ -434,8 +434,10 @@ def autologging_integration(name):
             # contain all the flavors support autologging, but may not be up-to-date. To avoid
             # silent failure, we raise an exception here to capture the issue in CI or assist
             # users to report the issue.
-            if name not in FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY and get_autologging_config(
-                name, "disable_for_unsupported_versions"
+            if (
+                name != "mlflow"
+                and name not in FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY
+                and get_autologging_config(name, "disable_for_unsupported_versions")
             ):
                 raise MlflowException(
                     "The `disable_for_unsupported_versions` configuration is not supported for "
