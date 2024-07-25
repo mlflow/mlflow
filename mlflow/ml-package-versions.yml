@@ -641,7 +641,7 @@ langchain:
       pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/langchain
   models:
     minimum: "0.0.244"
-    maximum: "0.2.10"
+    maximum: "0.2.11"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -674,7 +674,7 @@ langchain:
       fi
   autologging:
     minimum: "0.1.0"
-    maximum: "0.2.10"
+    maximum: "0.2.11"
     requirements:
       ">= 0.0.0": [
           "pyspark",
