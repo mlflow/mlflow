@@ -707,7 +707,7 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
-    maximum: "0.10.56"
+    maximum: "0.10.58"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -715,9 +715,13 @@ llama_index:
           "llama-index-llms-databricks",
           "llama-index-embeddings-databricks",
         ]
-    run:
-      # TODO: Add --ignore flag for autologging test once it's implemented
-      pytest tests/llama_index
+    run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
+  autologging:
+    minimum: "0.10.44"
+    maximum: "0.10.58"
+    requirements:
+      ">= 0.0.0": ["openai"]
+    run: pytest tests/llama_index/test_llama_index_autolog.py tests/llama_index/test_llama_index_tracer.py
 
 sentence_transformers:
   package_info:
