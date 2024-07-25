@@ -36,6 +36,21 @@ print("Running Query Engine:\n")
 print(" User > What is the capital of France?")
 print(f"  🔍  > {response}")
 
+# Interact with the index as a chat engine with streaming API
+chat_engine = index.as_chat_engine()
+response1 = chat_engine.stream_chat("Hi")
+response2 = chat_engine.stream_chat("How are you?")
+
+print("\033\n[94m-------")
+print("Running Chat engine:\n")
+print(" User > Hi")
+print("  🤖  > ", end="")
+response1.print_response_stream()
+print("\n User > How are you?")
+print("  🤖  > ", end="")
+response2.print_response_stream()
+print("\033[0m")
+
 
 # Create OpenAI agent
 def multiply(a: int, b: int) -> int:
