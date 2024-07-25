@@ -311,7 +311,7 @@ def save_model(
 
         # Chat
         mlflow.openai.save_model(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             task=openai.chat.completions,
             messages=[{"role": "user", "content": "Tell me a joke."}],
             path="model",
@@ -474,7 +474,7 @@ def log_model(
 
     Args:
         model: The OpenAI model name or reference instance, e.g.,
-            ``openai.Model.retrieve("gpt-3.5-turbo")``.
+            ``openai.Model.retrieve("gpt-4o-mini")``.
         task: The task the model is performing, e.g., ``openai.chat.completions`` or
             ``'chat.completions'``.
         artifact_path: Run-relative artifact path.
@@ -522,7 +522,7 @@ def log_model(
         # Chat
         with mlflow.start_run():
             info = mlflow.openai.log_model(
-                model="gpt-3.5-turbo",
+                model="gpt-4o-mini",
                 task=openai.chat.completions,
                 messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
                 artifact_path="model",

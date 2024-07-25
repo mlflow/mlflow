@@ -18,7 +18,7 @@ def test_chat_completions_autolog_tracing_success(client, monkeypatch):
     with mlflow.start_run():
         client.chat.completions.create(
             messages=messages,
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             temperature=0,
         )
 
@@ -41,7 +41,7 @@ def test_chat_completions_autolog_tracing_error(client, monkeypatch):
     ):
         client.chat.completions.create(
             messages=messages,
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             temperature=5.0,
         )
 

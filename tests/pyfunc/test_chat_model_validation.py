@@ -36,7 +36,7 @@ MOCK_OPENAI_CHAT_COMPLETION_RESPONSE = {
     "id": "chatcmpl-123",
     "object": "chat.completion",
     "created": 1702685778,
-    "model": "gpt-3.5-turbo-0125",
+    "model": "gpt-4o-mini",
     "choices": [
         {
             "index": 0,

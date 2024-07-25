@@ -275,7 +275,7 @@ needs the following information:
 * ``grading_prompt``: describe the scoring critieria. 
 * ``examples``: a few input/output examples with score, they are used as a reference for LLM judge.
 * ``model``: the identifier of LLM judge, in the format of "openai:/gpt-4" or "endpoints:/databricks-llama-2-70b-chat".  
-* ``parameters``: the extra parameters to send to LLM judge, e.g., ``temperature`` for ``"openai:/gpt-3.5-turbo-16k"``.
+* ``parameters``: the extra parameters to send to LLM judge, e.g., ``temperature`` for ``"openai:/gpt-4o-mini"``.
 * ``aggregations``: The list of options to aggregate the per-row scores using numpy functions.
 * ``greater_is_better``: indicates if a higher score means your model is better.
 
@@ -344,7 +344,7 @@ Now let's define the ``professionalism`` metric, you will see how each field is 
             "business or academic settings. "
         ),
         examples=[professionalism_example_score_2, professionalism_example_score_4],
-        model="openai:/gpt-3.5-turbo-16k",
+        model="openai:/gpt-4o-mini",
         parameters={"temperature": 0.0},
         aggregations=["mean", "variance"],
         greater_is_better=True,
