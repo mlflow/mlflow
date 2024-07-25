@@ -52,6 +52,10 @@ from mlflow.utils.validation import (
 
 from tests.helper_functions import AnyStringWith
 from tests.utils.test_file_utils import spark_session  # noqa: F401
+from pyspark.sql.functions import col
+from pyspark.ml.functions import array_to_vector
+from mlflow.types import DataType
+
 
 MODEL_DIR = "model"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
@@ -1254,3 +1258,63 @@ def test_find_and_set_features_col_as_vector_if_needed(lr, dataset_binomial):
         IllegalArgumentException, match="requirement failed: Column features must be of type"
     ):
         pipeline_model.transform(df_with_array_features)
+
+
+def test_model_with_vector_input(spark_session):
+    from mlflow.types.schema import Array
+
+    mlflow.pyspark.ml.autolog()
+    train_df = spark_session.createDataFrame(
+        [([3., 4.], 0), ([5., 6.], 1)], schema="features array<double>, label long"
+    ).select(array_to_vector("features").alias("features"), col("label"))
+
+    lor = LogisticRegression(maxIter=2)
+    with mlflow.start_run() as run:
+        lor.fit(train_df)
+
+    model_uri = f"runs:/{run.info.run_id}/model"
+
+    # check vector type is inferred correctly
+    model_info = mlflow.models.get_model_info(model_uri)
+    input_type = model_info.signature.inputs.input_dict()['features'].type
+    assert isinstance(input_type, Array)
+    assert input_type.is_sparkml_vector
+
+    assert model_info.signature.outputs.inputs[0].type == DataType.double
+
+    model = mlflow.pyfunc.load_model(model_uri)
+
+    test_pdf = pd.DataFrame({'features': [[1., 2.], [3., 4.]]})
+    model.predict(test_pdf)  # ensure enforcing input / output schema passing
+
+
+def test_model_with_vector_input_vector_output(spark_session):
+    from mlflow.types.schema import Array
+
+    mlflow.pyspark.ml.autolog()
+    train_df = spark_session.createDataFrame(
+        [([3., 4.], 0), ([5., 6.], 1)], schema="features array<double>, label long"
+    ).select(array_to_vector("features").alias("features"), col("label"))
+
+    lor = LogisticRegression(maxIter=2) \
+        .setPredictionCol("") \
+        .setProbabilityCol("prediction")  # set probability outputs as prediction column
+    with mlflow.start_run() as run:
+        lor.fit(train_df)
+
+    model_uri = f"runs:/{run.info.run_id}/model"
+
+    # check vector type is inferred correctly
+    model_info = mlflow.models.get_model_info(model_uri)
+    input_type = model_info.signature.inputs.input_dict()['features'].type
+    assert isinstance(input_type, Array)
+    assert input_type.is_sparkml_vector
+
+    output_type = model_info.signature.outputs.inputs[0].type
+    assert isinstance(output_type, Array)
+    assert output_type.is_sparkml_vector
+
+    model = mlflow.pyfunc.load_model(model_uri)
+
+    test_pdf = pd.DataFrame({'features': [[1., 2.], [3., 4.]]})
+    model.predict(test_pdf)  # ensure enforcing input / output schema passing

@@ -997,10 +997,9 @@ class _PyFuncModelWrapper:
                 if isinstance(col_spec.type, Array) and col_spec.type.is_sparkml_vector:
                     col_name = col_spec.name or pandas_df.columns[0]
 
-                    pandas_df[col_name] = pd.Series([
-                        [float(elem) for elem in array]
-                        for array in pandas_df[col_name]
-                    ])
+                    pandas_df[col_name] = pandas_df[col_name].map(
+                        lambda array: [float(elem) for elem in array]
+                    )
 
         spark_df = self.spark.createDataFrame(pandas_df)
 

@@ -544,12 +544,12 @@ class Array:
 
         raise MlflowException(f"Array type {self!r} and {arr!r} are incompatible")
 
-
-def get_spark_ml_vector_type():
-    """
-    Get the spark ML vector type.
-    """
-    return Array(dtype=DataType.double, is_sparkml_vector=True)
+    @classmethod
+    def get_spark_ml_vector_type(cls):
+        """
+        Get the spark ML vector type.
+        """
+        return Array(dtype=DataType.double, is_sparkml_vector=True)
 
 
 class Map:
@@ -692,6 +692,10 @@ class ColSpec:
     def name(self) -> Optional[str]:
         """The column name or None if the columns is unnamed."""
         return self._name
+
+    @name.setter
+    def name(self, value: bool) -> None:
+        self._name = value
 
     @experimental
     @property

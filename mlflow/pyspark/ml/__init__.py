@@ -800,7 +800,7 @@ def _infer_spark_model_signature(spark_model, input_example_spark_df):
     if signature.outputs:
         # We only have one prediction column output,
         # convert it to unnamed output schema to keep consistent with old MLflow version.
-        signature.outputs.inputs[0]._name = None
+        signature.outputs.inputs[0].name = None
     return signature
 
 

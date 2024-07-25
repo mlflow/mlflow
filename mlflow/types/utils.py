@@ -19,7 +19,6 @@ from mlflow.types.schema import (
     Property,
     Schema,
     TensorSpec,
-    get_spark_ml_vector_type,
 )
 
 _logger = logging.getLogger(__name__)
@@ -572,7 +571,7 @@ def _infer_spark_type(x, data=None, col_name=None) -> DataType:
             ]
         )
     elif isinstance(x, VectorUDT):
-        return get_spark_ml_vector_type()
+        return Array.get_spark_ml_vector_type()
 
     else:
         raise MlflowException.invalid_parameter_value(
