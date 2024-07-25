@@ -459,9 +459,7 @@ class Array:
             )
 
         if is_sparkml_vector and self.dtype != DataType.double:
-            raise MlflowException(
-                "Only 'Array(double)' type can be set as Spark ML vector type."
-            )
+            raise MlflowException("Only 'Array(double)' type can be set as Spark ML vector type.")
 
         self._is_sparkml_vector = is_sparkml_vector
 

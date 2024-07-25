@@ -24,9 +24,11 @@ from pyspark.ml.evaluation import (
     RegressionEvaluator,
 )
 from pyspark.ml.feature import HashingTF, IndexToString, StringIndexer, Tokenizer, VectorAssembler
+from pyspark.ml.functions import array_to_vector
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression, LinearRegressionModel
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder, TrainValidationSplit
+from pyspark.sql.functions import col
 
 import mlflow
 from mlflow import MlflowClient
@@ -43,6 +45,7 @@ from mlflow.pyspark.ml import (
     _should_log_model,
 )
 from mlflow.pyspark.ml._autolog import cast_spark_df_with_vector_to_array, get_feature_cols
+from mlflow.types import DataType
 from mlflow.utils import _truncate_dict
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING, MLFLOW_PARENT_RUN_ID
 from mlflow.utils.validation import (
@@ -50,12 +53,7 @@ from mlflow.utils.validation import (
     MAX_PARAM_VAL_LENGTH,
 )
 
-from tests.helper_functions import AnyStringWith
 from tests.utils.test_file_utils import spark_session  # noqa: F401
-from pyspark.sql.functions import col
-from pyspark.ml.functions import array_to_vector
-from mlflow.types import DataType
-
 
 MODEL_DIR = "model"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
@@ -1045,12 +1043,18 @@ def test_autolog_signature_with_estimator(spark_session, dataset_multinomial, lr
         lr.fit(dataset_multinomial)
         model_conf = _read_model_conf_as_dict(run)
         assert "signature" in model_conf
-        assert _read_schema(model_conf["signature"]['inputs']) == [
-            {'type': 'array', 'items': {'type': 'double'},
-             'is_sparkml_vector': True,
-             'name': 'features', 'required': True}
+        assert _read_schema(model_conf["signature"]["inputs"]) == [
+            {
+                "type": "array",
+                "items": {"type": "double"},
+                "is_sparkml_vector": True,
+                "name": "features",
+                "required": True,
+            }
         ]
-        assert _read_schema(model_conf["signature"]['outputs']) == [{'type': 'double', 'required': True}]
+        assert _read_schema(model_conf["signature"]["outputs"]) == [
+            {"type": "double", "required": True}
+        ]
 
 
 def test_autolog_input_example_with_pipeline(lr_pipeline, dataset_text):
@@ -1071,7 +1075,7 @@ def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
         _assert_autolog_infers_model_signature_correctly(
             run,
             input_sig_spec=[{"name": "text", "type": "string", "required": True}],
-            output_sig_spec=[{'required': True, 'type': 'double'}],
+            output_sig_spec=[{"required": True, "type": "double"}],
         )
 
 
@@ -1082,10 +1086,17 @@ def test_autolog_signature_non_scaler_input(dataset_multinomial, lr):
         model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
         model_conf = Model.load(model_path.joinpath("MLmodel"))
         assert model_conf.signature.inputs.to_dict() == (
-            [{'type': 'array', 'items': {'type': 'double'}, 'is_sparkml_vector': True, 'name': 'features',
-              'required': True}]
+            [
+                {
+                    "type": "array",
+                    "items": {"type": "double"},
+                    "is_sparkml_vector": True,
+                    "name": "features",
+                    "required": True,
+                }
+            ]
         )
-        assert model_conf.signature.outputs.to_dict() == [{'type': 'double', 'required': True}]
+        assert model_conf.signature.outputs.to_dict() == [{"type": "double", "required": True}]
 
 
 def test_autolog_signature_scalar_input_and_non_scalar_output(dataset_numeric):
@@ -1152,7 +1163,7 @@ def test_signature_with_index_to_string_stage(
         _assert_autolog_infers_model_signature_correctly(
             run,
             input_sig_spec=[{"name": "id", "type": "long", "required": True}],
-            output_sig_spec=[{'required': True, 'type': 'string'}],
+            output_sig_spec=[{"required": True, "type": "string"}],
         )
 
 
@@ -1196,7 +1207,7 @@ def test_signature_with_non_feature_input_columns(
         _assert_autolog_infers_model_signature_correctly(
             run,
             input_sig_spec=[{"name": "id", "type": "long", "required": True}],
-            output_sig_spec=[{'required': True, 'type': 'string'}],
+            output_sig_spec=[{"required": True, "type": "string"}],
         )
 
 
@@ -1265,7 +1276,7 @@ def test_model_with_vector_input(spark_session):
 
     mlflow.pyspark.ml.autolog()
     train_df = spark_session.createDataFrame(
-        [([3., 4.], 0), ([5., 6.], 1)], schema="features array<double>, label long"
+        [([3.0, 4.0], 0), ([5.0, 6.0], 1)], schema="features array<double>, label long"
     ).select(array_to_vector("features").alias("features"), col("label"))
 
     lor = LogisticRegression(maxIter=2)
@@ -1276,7 +1287,7 @@ def test_model_with_vector_input(spark_session):
 
     # check vector type is inferred correctly
     model_info = mlflow.models.get_model_info(model_uri)
-    input_type = model_info.signature.inputs.input_dict()['features'].type
+    input_type = model_info.signature.inputs.input_dict()["features"].type
     assert isinstance(input_type, Array)
     assert input_type.is_sparkml_vector
 
@@ -1284,7 +1295,7 @@ def test_model_with_vector_input(spark_session):
 
     model = mlflow.pyfunc.load_model(model_uri)
 
-    test_pdf = pd.DataFrame({'features': [[1., 2.], [3., 4.]]})
+    test_pdf = pd.DataFrame({"features": [[1.0, 2.0], [3.0, 4.0]]})
     model.predict(test_pdf)  # ensure enforcing input / output schema passing
 
 
@@ -1293,12 +1304,12 @@ def test_model_with_vector_input_vector_output(spark_session):
 
     mlflow.pyspark.ml.autolog()
     train_df = spark_session.createDataFrame(
-        [([3., 4.], 0), ([5., 6.], 1)], schema="features array<double>, label long"
+        [([3.0, 4.0], 0), ([5.0, 6.0], 1)], schema="features array<double>, label long"
     ).select(array_to_vector("features").alias("features"), col("label"))
 
-    lor = LogisticRegression(maxIter=2) \
-        .setPredictionCol("") \
-        .setProbabilityCol("prediction")  # set probability outputs as prediction column
+    lor = (
+        LogisticRegression(maxIter=2).setPredictionCol("").setProbabilityCol("prediction")
+    )  # set probability outputs as prediction column
     with mlflow.start_run() as run:
         lor.fit(train_df)
 
@@ -1306,7 +1317,7 @@ def test_model_with_vector_input_vector_output(spark_session):
 
     # check vector type is inferred correctly
     model_info = mlflow.models.get_model_info(model_uri)
-    input_type = model_info.signature.inputs.input_dict()['features'].type
+    input_type = model_info.signature.inputs.input_dict()["features"].type
     assert isinstance(input_type, Array)
     assert input_type.is_sparkml_vector
 
@@ -1316,5 +1327,5 @@ def test_model_with_vector_input_vector_output(spark_session):
 
     model = mlflow.pyfunc.load_model(model_uri)
 
-    test_pdf = pd.DataFrame({'features': [[1., 2.], [3., 4.]]})
+    test_pdf = pd.DataFrame({"features": [[1.0, 2.0], [3.0, 4.0]]})
     model.predict(test_pdf)  # ensure enforcing input / output schema passing

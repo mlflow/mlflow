@@ -753,13 +753,16 @@ _AUTOLOGGING_METRICS_MANAGER = _AutologgingMetricsManager()
 
 
 def _get_columns_with_unsupported_data_type(df):
-    from mlflow.types.schema import DataType
     from pyspark.ml.linalg import VectorUDT
+
+    from mlflow.types.schema import DataType
 
     supported_spark_types = DataType.get_spark_types()
     unsupported_columns = []
     for field in df.schema.fields:
-        if (field.dataType not in supported_spark_types) and not isinstance(field.dataType, VectorUDT):
+        if (field.dataType not in supported_spark_types) and not isinstance(
+            field.dataType, VectorUDT
+        ):
             unsupported_columns.append(field)
     return unsupported_columns
 
@@ -1073,9 +1076,6 @@ def autolog(
 
         if log_models:
             if _should_log_model(spark_model):
-                from pyspark.sql import SparkSession
-
-                from mlflow.models import infer_signature
                 from mlflow.pyspark.ml._autolog import (
                     cast_spark_df_with_vector_to_array,
                     get_feature_cols,
@@ -1083,10 +1083,7 @@ def autolog(
 
                 def _get_input_example_spark_df():
                     feature_cols = list(get_feature_cols(input_df, spark_model))
-                    limited_input_df = input_df.select(feature_cols).limit(
-                        INPUT_EXAMPLE_SAMPLE_ROWS
-                    )
-                    return limited_input_df
+                    return input_df.select(feature_cols).limit(INPUT_EXAMPLE_SAMPLE_ROWS)
 
                 def _infer_model_signature(input_example_slice):
                     return _infer_spark_model_signature(spark_model, input_example_slice)
@@ -1110,7 +1107,9 @@ def autolog(
                 )
 
                 if input_example_spark_df:
-                    input_example = cast_spark_df_with_vector_to_array(input_example_spark_df).toPandas()
+                    input_example = cast_spark_df_with_vector_to_array(
+                        input_example_spark_df
+                    ).toPandas()
                 else:
                     input_example = None
                 mlflow.spark.log_model(

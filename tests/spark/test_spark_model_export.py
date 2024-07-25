@@ -12,7 +12,6 @@ import pyspark
 import pytest
 import yaml
 from packaging.version import Version
-
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.pipeline import Pipeline
@@ -36,7 +35,7 @@ from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
 )
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
-from mlflow.types.schema import ColSpec, Schema, Array
+from mlflow.types.schema import Array, ColSpec, Schema
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -989,10 +988,12 @@ def test_model_log_with_signature_inference(spark_model_iris, input_example):
 
 def test_log_model_with_vector_input_type_signature(spark, spark_model_estimator):
     from pyspark.ml.functions import vector_to_array
+
     model = spark_model_estimator.model
     with mlflow.start_run():
         model_info = mlflow.spark.log_model(
-            model, "model",
+            model,
+            "model",
             signature=ModelSignature(
                 inputs=Schema(
                     [
@@ -1000,17 +1001,18 @@ def test_log_model_with_vector_input_type_signature(spark, spark_model_estimator
                     ]
                 ),
                 outputs=Schema([ColSpec(type=DataType.double)]),
-            )
+            ),
         )
 
     model_uri = model_info.model_uri
     model_meta = Model.load(model_uri)
-    input_type = model_meta.signature.inputs.input_dict()['features'].type
+    input_type = model_meta.signature.inputs.input_dict()["features"].type
     assert isinstance(input_type, Array)
     assert input_type.is_sparkml_vector
 
     pyfunc_model = pyfunc.load_model(model_uri)
-    infer_data = spark_model_estimator.spark_df \
-        .withColumn("features", vector_to_array("features")).toPandas()
+    infer_data = spark_model_estimator.spark_df.withColumn(
+        "features", vector_to_array("features")
+    ).toPandas()
     preds = pyfunc_model.predict(infer_data)
     assert spark_model_estimator.predictions == preds

@@ -498,8 +498,8 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
 
 def _infer_spark_type(x, data=None, col_name=None) -> DataType:
     import pyspark.sql.types
-    from pyspark.sql.functions import col, collect_list
     from pyspark.ml.linalg import VectorUDT
+    from pyspark.sql.functions import col, collect_list
 
     if isinstance(x, pyspark.sql.types.NumericType):
         if isinstance(x, pyspark.sql.types.IntegralType):

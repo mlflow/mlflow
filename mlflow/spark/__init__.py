@@ -25,7 +25,6 @@ import re
 import shutil
 from typing import Any, Dict, Optional
 
-import pandas as pd
 import yaml
 from packaging.version import Version
 
@@ -33,7 +32,7 @@ import mlflow
 from mlflow import environment_variables, mleap, pyfunc
 from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
+from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE
 from mlflow.models.utils import _Example, _save_example
@@ -1016,9 +1015,7 @@ class _PyFuncModelWrapper:
         # the signature does not support spark ML vector type, in this case,
         # automatically infer vector type input columns and do the conversion
         # using `_find_and_set_features_col_as_vector_if_needed` utility function.
-        spark_df = _find_and_set_features_col_as_vector_if_needed(
-            spark_df, self.spark_model
-        )
+        spark_df = _find_and_set_features_col_as_vector_if_needed(spark_df, self.spark_model)
 
         prediction_column = mlflow.pyspark.ml._check_or_set_model_prediction_column(
             self.spark_model, spark_df
@@ -1035,10 +1032,7 @@ class _PyFuncModelWrapper:
 
                     col_name = col_spec.name or prediction_df.columns[0]
                     prediction_df = prediction_df.withColumn(col_name, vector_to_array(col_name))
-        return [
-            x.prediction
-            for x in prediction_df.collect()
-        ]
+        return [x.prediction for x in prediction_df.collect()]
 
 
 @autologging_integration(FLAVOR_NAME)
