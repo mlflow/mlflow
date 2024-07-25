@@ -125,8 +125,8 @@ def load_project(directory):
         python_env_path = os.path.join(directory, python_env)
         if not os.path.exists(python_env_path):
             raise ExecutionException(
-                "Project specified python_env file %s, but no such "
-                "file was found." % python_env_path
+                f"Project specified python_env file {python_env_path}, but no such "
+                "file was found."
             )
         return Project(
             env_type=env_type.PYTHON,
@@ -141,8 +141,8 @@ def load_project(directory):
         conda_env_path = os.path.join(directory, conda_path)
         if not os.path.exists(conda_env_path):
             raise ExecutionException(
-                "Project specified conda environment file %s, but no such "
-                "file was found." % conda_env_path
+                f"Project specified conda environment file {conda_env_path}, but no such "
+                "file was found."
             )
         return Project(
             env_type=env_type.CONDA,
@@ -217,9 +217,10 @@ class Project:
             command = f"Rscript -e \"mlflow::mlflow_source('{quote(entry_point)}')\" --args"
             return EntryPoint(name=entry_point, parameters={}, command=command)
         raise ExecutionException(
-            "Could not find {0} among entry points {1} or interpret {0} as a "
+            f"Could not find {entry_point} among entry points {list(self._entry_points.keys())} "
+            f"or interpret {entry_point} as a "
             "runnable script. Supported script file extensions: "
-            "{2}".format(entry_point, list(self._entry_points.keys()), list(ext_to_cmd.keys()))
+            f"{list(ext_to_cmd.keys())}"
         )
 
 
@@ -238,8 +239,9 @@ class EntryPoint:
                 missing_params.append(name)
         if missing_params:
             raise ExecutionException(
-                "No value given for missing parameters: %s"
-                % ", ".join([f"'{name}'" for name in missing_params])
+                "No value given for missing parameters: {}".format(
+                    ", ".join([f"'{name}'" for name in missing_params])
+                )
             )
 
     def compute_parameters(self, user_parameters, storage_dir):

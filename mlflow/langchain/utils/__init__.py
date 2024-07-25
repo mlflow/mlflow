@@ -332,9 +332,8 @@ def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn, temp_dir=None):
             )
         if not isinstance(loader_fn, types.FunctionType):
             raise mlflow.MlflowException.invalid_parameter_value(
-                "The `loader_fn` must be a function that returns a {loader_arg}.".format(
-                    loader_arg=special_chain_info.loader_arg
-                )
+                "The `loader_fn` must be a function that returns a "
+                f"{special_chain_info.loader_arg}."
             )
 
     # If lc_model is a retriever, wrap it in a _RetrieverChain
@@ -486,6 +485,7 @@ def _patch_loader(loader_func: Callable) -> Callable:
         # access to the tracking server), it is safe to set this flag to True.
         def patched_loader(*args, **kwargs):
             return loader_func(*args, **kwargs, allow_dangerous_deserialization=True)
+
     else:
 
         def patched_loader(*args, **kwargs):

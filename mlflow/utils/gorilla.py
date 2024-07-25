@@ -93,7 +93,6 @@ def default_filter(name, obj):
 
 
 class DecoratorData:
-
     """Decorator data.
 
     Attributes
@@ -116,7 +115,6 @@ class DecoratorData:
 
 
 class Settings:
-
     """Define the patching behaviour.
 
     Attributes
@@ -170,7 +168,6 @@ class Settings:
 
 
 class Patch:
-
     """Describe all the information required to apply a patch.
 
     Attributes
@@ -213,12 +210,12 @@ class Patch:
         self.is_inplace_patch = None
 
     def __repr__(self):
-        return "{}(destination={!r}, name={!r}, obj={!r}, settings={!r})".format(
-            type(self).__name__,
-            self.destination,
-            self.name,
-            self.obj,
-            self.settings,
+        return (
+            f"{type(self).__name__}("
+            f"destination={self.destination!r}, "
+            f"name={self.name!r}, "
+            f"obj={self.obj!r}, "
+            f"settings={self.settings!r})"
         )
 
     def __eq__(self, other):

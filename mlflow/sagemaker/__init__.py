@@ -1,6 +1,7 @@
 """
 The ``mlflow.sagemaker`` module provides an API for deploying MLflow models to Amazon SageMaker.
 """
+
 import json
 import logging
 import os
@@ -30,7 +31,10 @@ from mlflow.models.container import (
     SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_unique_resource_id
 from mlflow.utils.file_utils import TempDir
@@ -41,7 +45,11 @@ DEPLOYMENT_MODE_ADD = "add"
 DEPLOYMENT_MODE_REPLACE = "replace"
 DEPLOYMENT_MODE_CREATE = "create"
 
-DEPLOYMENT_MODES = [DEPLOYMENT_MODE_CREATE, DEPLOYMENT_MODE_ADD, DEPLOYMENT_MODE_REPLACE]
+DEPLOYMENT_MODES = [
+    DEPLOYMENT_MODE_CREATE,
+    DEPLOYMENT_MODE_ADD,
+    DEPLOYMENT_MODE_REPLACE,
+]
 
 DEFAULT_BUCKET_NAME_PREFIX = "mlflow-sagemaker"
 
@@ -77,11 +85,8 @@ def _get_preferred_deployment_flavor(model_config):
         raise MlflowException(
             message=(
                 "The specified model does not contain any of the supported flavors for"
-                " deployment. The model contains the following flavors: {model_flavors}."
-                " Supported flavors: {supported_flavors}".format(
-                    model_flavors=model_config.flavors.keys(),
-                    supported_flavors=SUPPORTED_DEPLOYMENT_FLAVORS,
-                )
+                " deployment. The model contains the following flavors: "
+                f"{model_config.flavors.keys()}. Supported flavors: {SUPPORTED_DEPLOYMENT_FLAVORS}"
             ),
             error_code=RESOURCE_DOES_NOT_EXIST,
         )
@@ -1325,7 +1330,9 @@ def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client, **assum
             obj = sess.resource("s3").Bucket(bucket).Object(key)
             obj.upload_fileobj(fobj)
             response = s3_client.put_object_tagging(
-                Bucket=bucket, Key=key, Tagging={"TagSet": [{"Key": "SageMaker", "Value": "true"}]}
+                Bucket=bucket,
+                Key=key,
+                Tagging={"TagSet": [{"Key": "SageMaker", "Value": "true"}]},
             )
             _logger.info("tag response: %s", response)
             return f"s3://{bucket}/{key}"
@@ -1499,7 +1506,10 @@ def _create_sagemaker_transform_job(
         "AssembleWith": assemble_with,
     }
 
-    transform_resources = {"InstanceType": instance_type, "InstanceCount": instance_count}
+    transform_resources = {
+        "InstanceType": instance_type,
+        "InstanceCount": instance_count,
+    }
 
     data_processing = {
         "InputFilter": input_filter,
@@ -1517,7 +1527,8 @@ def _create_sagemaker_transform_job(
         Tags=[{"Key": "model_name", "Value": model_name}],
     )
     _logger.info(
-        "Created batch transform job with arn: %s", transform_job_response["TransformJobArn"]
+        "Created batch transform job with arn: %s",
+        transform_job_response["TransformJobArn"],
     )
 
     def status_check_fn():
@@ -1641,7 +1652,8 @@ def _create_sagemaker_endpoint(
         endpoint_config_kwargs["DataCaptureConfig"] = data_capture_config
     endpoint_config_response = sage_client.create_endpoint_config(**endpoint_config_kwargs)
     _logger.info(
-        "Created endpoint configuration with arn: %s", endpoint_config_response["EndpointConfigArn"]
+        "Created endpoint configuration with arn: %s",
+        endpoint_config_response["EndpointConfigArn"],
     )
 
     endpoint_response = sage_client.create_endpoint(
@@ -1842,7 +1854,9 @@ def _update_sagemaker_endpoint(
         if mode == DEPLOYMENT_MODE_REPLACE:
             for pv in deployed_production_variants:
                 deployed_model_arn = _delete_sagemaker_model(
-                    model_name=pv["ModelName"], sage_client=sage_client, s3_client=s3_client
+                    model_name=pv["ModelName"],
+                    sage_client=sage_client,
+                    s3_client=s3_client,
                 )
                 _logger.info("Deleted model with arn: %s", deployed_model_arn)
 
@@ -1961,7 +1975,9 @@ def _find_endpoint(endpoint_name, sage_client):
 
         if "NextToken" in endpoints_page:
             endpoints_page = sage_client.list_endpoints(
-                MaxResults=100, NextToken=endpoints_page["NextToken"], NameContains=endpoint_name
+                MaxResults=100,
+                NextToken=endpoints_page["NextToken"],
+                NameContains=endpoint_name,
             )
         else:
             return None
@@ -2847,7 +2863,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
         try:
             sage_client = boto3.client(
-                "sagemaker-runtime", region_name=self.region_name, **assume_role_credentials
+                "sagemaker-runtime",
+                region_name=self.region_name,
+                **assume_role_credentials,
             )
             response = sage_client.invoke_endpoint(
                 EndpointName=deployment_name,

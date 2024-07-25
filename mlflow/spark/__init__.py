@@ -18,6 +18,7 @@ Spark MLlib (native) format
     ``mlflow/java`` package. This flavor is produced only if you specify
     MLeap-compatible arguments.
 """
+
 import logging
 import os
 import posixpath
@@ -316,8 +317,9 @@ def _mlflowdbfs_path(run_id, artifact_path):
             f"artifact_path should be relative, found: {artifact_path}",
             INVALID_PARAMETER_VALUE,
         )
-    return "{}:///artifacts?run_id={}&path=/{}".format(
-        _MLFLOWDBFS_SCHEME, run_id, posixpath.join(artifact_path, _SPARK_MODEL_PATH_SUB)
+    return (
+        f"{_MLFLOWDBFS_SCHEME}:///artifacts?run_id={run_id}"
+        f"&path=/{posixpath.join(artifact_path, _SPARK_MODEL_PATH_SUB)}"
     )
 
 
@@ -414,7 +416,8 @@ class _HadoopFileSystem:
             # Log a debug-level message, since existence checks may raise exceptions
             # in normal operating circumstances that do not warrant warnings
             _logger.debug(
-                "Unexpected exception while checking if model uri is visible on DFS: %s", ex
+                "Unexpected exception while checking if model uri is visible on DFS: %s",
+                ex,
             )
         return False
 
@@ -941,7 +944,10 @@ def _find_and_set_features_col_as_vector_if_needed(spark_df, spark_model):
                 for _field in spark_df.schema.fields
                 if _field.name == features_col_name
                 and _field.dataType
-                in [t.ArrayType(t.DoubleType(), True), t.ArrayType(t.DoubleType(), False)]
+                in [
+                    t.ArrayType(t.DoubleType(), True),
+                    t.ArrayType(t.DoubleType(), False),
+                ]
             ]
             if len(features_col_type) == 1:
                 return spark_df.withColumn(

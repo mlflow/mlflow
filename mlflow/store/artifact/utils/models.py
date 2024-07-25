@@ -3,7 +3,10 @@ from typing import NamedTuple, Optional
 
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
-from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri, is_databricks_uri
+from mlflow.utils.uri import (
+    get_databricks_profile_uri_from_artifact_uri,
+    is_databricks_uri,
+)
 
 _MODELS_URI_SUFFIX_LATEST = "latest"
 
@@ -18,9 +21,8 @@ def _improper_model_uri_msg(uri):
         f"Not a proper models:/ URI: {uri}. "
         + "Models URIs must be of the form 'models:/model_name/suffix' "
         + "or 'models:/model_name@alias' where suffix is a model version, stage, "
-        + "or the string '%s' and where alias is a registered model alias. "
-        % _MODELS_URI_SUFFIX_LATEST
-        + "Only one of suffix or alias can be defined at a time."
+        + f"or the string '{_MODELS_URI_SUFFIX_LATEST}' and where alias is a registered model "
+        + "alias. Only one of suffix or alias can be defined at a time."
     )
 
 
@@ -90,5 +92,8 @@ def get_model_name_and_version(client, models_uri):
     if model_version is not None:
         return model_name, model_version
     if model_alias is not None:
-        return model_name, client.get_model_version_by_alias(model_name, model_alias).version
+        return (
+            model_name,
+            client.get_model_version_by_alias(model_name, model_alias).version,
+        )
     return model_name, str(_get_latest_model_version(client, model_name, model_stage))

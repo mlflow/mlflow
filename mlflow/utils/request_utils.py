@@ -86,8 +86,9 @@ def download_chunk(*, range_start, range_end, headers, download_path, http_uri):
             expected_length = int(expected_length)
             if actual_length < expected_length:
                 raise IOError(
-                    "Incomplete read ({} bytes read, {} more expected)".format(
-                        actual_length, expected_length - actual_length
+                    incomplete_read_msg=(
+                        f"Incomplete read ({actual_length} bytes read, "
+                        f"{expected_length - actual_length} more expected)"
                     )
                 )
         # File will have been created upstream. Use r+b to ensure chunks

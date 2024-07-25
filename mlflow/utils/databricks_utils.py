@@ -464,9 +464,9 @@ def get_workspace_info_from_databricks_secrets(tracking_uri):
 
 def _fail_malformed_databricks_auth(profile):
     raise MlflowException(
-        "Got malformed Databricks CLI profile '%s'. Please make sure the "
+        f"Got malformed Databricks CLI profile '{profile}'. Please make sure the "
         "Databricks CLI is properly configured as described at "
-        "https://github.com/databricks/databricks-cli." % profile
+        "https://github.com/databricks/databricks-cli."
     )
 
 

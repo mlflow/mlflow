@@ -150,13 +150,7 @@ def train(epoch):
         optimizer.step()
         if batch_idx % args.log_interval == 0:
             print(
-                "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
-                    epoch,
-                    batch_idx * len(data),
-                    len(train_loader.dataset),
-                    100.0 * batch_idx / len(train_loader),
-                    loss.data.item(),
-                )
+                f"Train Epoch: {epoch} [{batch_idx * len(data)}/{len(train_loader.dataset)} ({100.0 * batch_idx / len(train_loader):.0f}%)]\tLoss: {loss.data.item():.6f}"
             )
             step = epoch * len(train_loader) + batch_idx
             log_scalar("train_loss", loss.data.item(), step)
@@ -181,9 +175,7 @@ def test(epoch):
     test_loss /= len(test_loader.dataset)
     test_accuracy = 100.0 * correct / len(test_loader.dataset)
     print(
-        "\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n".format(
-            test_loss, correct, len(test_loader.dataset), test_accuracy
-        )
+        f"\nTest set: Average loss: {test_loss:.4f}, Accuracy: {correct}/{len(test_loader.dataset)} ({test_accuracy:.0f}%)\n"
     )
     step = (epoch + 1) * len(train_loader)
     log_scalar("test_loss", test_loss, step)
@@ -215,15 +207,18 @@ with mlflow.start_run():
     print("Uploading TensorBoard events as a run artifact...")
     mlflow.log_artifacts(output_dir, artifact_path="events")
     print(
-        "\nLaunch TensorBoard with:\n\ntensorboard --logdir=%s"
-        % os.path.join(mlflow.get_artifact_uri(), "events")
+        "\nLaunch TensorBoard with:\n\ntensorboard --logdir={}".format(
+            os.path.join(mlflow.get_artifact_uri(), "events")
+        )
     )
 
     # Log the model as an artifact of the MLflow run.
     print("\nLogging the trained model as a run artifact...")
     mlflow.pytorch.log_model(model, artifact_path="pytorch-model", pickle_module=pickle)
     print(
-        "\nThe model is logged at:\n%s" % os.path.join(mlflow.get_artifact_uri(), "pytorch-model")
+        "\nThe model is logged at:\n{}".format(
+            os.path.join(mlflow.get_artifact_uri(), "pytorch-model")
+        )
     )
 
     # Since the model was logged as an artifact, it can be loaded to make predictions

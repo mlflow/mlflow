@@ -1,6 +1,7 @@
 """
 Utilities for validating user inputs such as metric names and parameter names.
 """
+
 import logging
 import numbers
 import posixpath
@@ -69,7 +70,10 @@ MAX_REGISTERED_MODEL_ALIAS_LENGTH = 255
 MAX_TRACE_TAG_KEY_LENGTH = 250
 MAX_TRACE_TAG_VAL_LENGTH = 8000
 
-_UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ", ".join(DATABASE_ENGINES)
+_UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {{{}}}".format(
+    ", ".join(DATABASE_ENGINES)
+)
+
 
 PARAM_VALIDATION_MSG = """
 
@@ -103,8 +107,8 @@ tracking store."""
 def bad_path_message(name):
     return (
         "Names may be treated as files in certain cases, and must not resolve to other names"
-        " when treated as such. This name would resolve to '%s'"
-    ) % posixpath.normpath(name)
+        f" when treated as such. This name would resolve to '{posixpath.normpath(name)}'"
+    )
 
 
 def path_not_unique(name):
@@ -349,9 +353,9 @@ def _validate_batch_log_data(metrics, params, tags):
 def _validate_batch_log_api_req(json_req):
     if len(json_req) > MAX_BATCH_LOG_REQUEST_SIZE:
         error_msg = (
-            "Batched logging API requests must be at most {limit} bytes, got a "
-            "request of size {size}."
-        ).format(limit=MAX_BATCH_LOG_REQUEST_SIZE, size=len(json_req))
+            f"Batched logging API requests must be at most {MAX_BATCH_LOG_REQUEST_SIZE} bytes, "
+            f"got a request of size {len(json_req)}."
+        )
         raise MlflowException(error_msg, error_code=INVALID_PARAMETER_VALUE)
 
 

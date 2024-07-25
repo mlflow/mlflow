@@ -7,6 +7,7 @@ PyTorch (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+
 import atexit
 import importlib
 import logging
@@ -834,9 +835,8 @@ def save_state_dict(state_dict, path, **kwargs):
     # successfully completes, leaving the user unaware of the mistake.
     if not isinstance(state_dict, dict):
         raise TypeError(
-            "Invalid object type for `state_dict`: {}. Must be an instance of `dict`".format(
-                type(state_dict)
-            )
+            f"Invalid object type for `state_dict`: {type(state_dict)}. Must be an "
+            "instance of `dict`"
         )
 
     os.makedirs(path, exist_ok=True)
@@ -1059,7 +1059,12 @@ def autolog(
         from mlflow.pytorch._lightning_autolog import patched_fit
 
         safe_patch(
-            FLAVOR_NAME, pl.Trainer, "fit", patched_fit, manage_run=True, extra_tags=extra_tags
+            FLAVOR_NAME,
+            pl.Trainer,
+            "fit",
+            patched_fit,
+            manage_run=True,
+            extra_tags=extra_tags,
         )
 
     try:
@@ -1070,7 +1075,12 @@ def autolog(
         from mlflow.pytorch._lightning_autolog import patched_fit
 
         safe_patch(
-            FLAVOR_NAME, L.Trainer, "fit", patched_fit, manage_run=True, extra_tags=extra_tags
+            FLAVOR_NAME,
+            L.Trainer,
+            "fit",
+            patched_fit,
+            manage_run=True,
+            extra_tags=extra_tags,
         )
 
     try:
@@ -1187,7 +1197,9 @@ __all__ = [
 ]
 
 try:
-    from mlflow.pytorch._lightning_autolog import MlflowModelCheckpointCallback  # noqa: F401
+    from mlflow.pytorch._lightning_autolog import (
+        MlflowModelCheckpointCallback,  # noqa: F401
+    )
 
     __all__.append("MLflowModelCheckpointCallback")
 except ImportError:

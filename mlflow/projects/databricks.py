@@ -13,7 +13,11 @@ from shlex import quote
 
 from mlflow import tracking
 from mlflow.entities import RunStatus
-from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_RUN_ID, MLFLOW_TRACKING_URI
+from mlflow.environment_variables import (
+    MLFLOW_EXPERIMENT_ID,
+    MLFLOW_RUN_ID,
+    MLFLOW_TRACKING_URI,
+)
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.projects.utils import MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG
@@ -78,9 +82,9 @@ def before_run_validations(tracking_uri, backend_config):
         raise ExecutionException(
             "When running on Databricks, the MLflow tracking URI must be of the form "
             "'databricks' or 'databricks://profile', or a remote HTTP URI accessible to both the "
-            "current client and code running on Databricks. Got local tracking URI %s. "
-            "Please specify a valid tracking URI via mlflow.set_tracking_uri or by setting the "
-            "MLFLOW_TRACKING_URI environment variable." % tracking_uri
+            f"current client and code running on Databricks. Got local tracking URI {tracking_uri}."
+            " Please specify a valid tracking URI via mlflow.set_tracking_uri or by setting the "
+            "MLFLOW_TRACKING_URI environment variable."
         )
 
 
@@ -176,7 +180,10 @@ class DatabricksJobRunner:
             )
             _logger.info(f"=== Total file size to compress: {directory_size} KB ===")
             file_utils.make_tarfile(
-                temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME, custom_filter=custom_filter
+                temp_tar_filename,
+                project_dir,
+                DB_TARFILE_ARCHIVE_NAME,
+                custom_filter=custom_filter,
             )
             with open(temp_tar_filename, "rb") as tarred_project:
                 tarfile_hash = hashlib.sha256(tarred_project.read()).hexdigest()
@@ -278,7 +285,8 @@ class DatabricksJobRunner:
             MLFLOW_RUN_ID.name: run_id,
         }
         _logger.info(
-            "=== Running databricks spark job of project %s on Databricks ===", project_uri
+            "=== Running databricks spark job of project %s on Databricks ===",
+            project_uri,
         )
 
         tmp_dir = Path(get_or_create_tmp_dir())
@@ -354,7 +362,11 @@ os.chdir('{project_dir}')
             MLFLOW_TRACKING_URI.name: tracking_uri,
             MLFLOW_EXPERIMENT_ID.name: experiment_id,
         }
-        _logger.info("=== Running entry point %s of project %s on Databricks ===", entry_point, uri)
+        _logger.info(
+            "=== Running entry point %s of project %s on Databricks ===",
+            entry_point,
+            uri,
+        )
         # Launch run on Databricks
         command = _get_databricks_run_cmd(
             dbfs_fuse_uri, run_id, entry_point, parameters, env_manager
@@ -388,13 +400,17 @@ os.chdir('{project_dir}')
 
     def jobs_runs_cancel(self, databricks_run_id):
         response = self._databricks_api_request(
-            endpoint="/api/2.0/jobs/runs/cancel", method="POST", json={"run_id": databricks_run_id}
+            endpoint="/api/2.0/jobs/runs/cancel",
+            method="POST",
+            json={"run_id": databricks_run_id},
         )
         return json.loads(response.text)
 
     def jobs_runs_get(self, databricks_run_id):
         response = self._databricks_api_request(
-            endpoint="/api/2.0/jobs/runs/get", method="GET", params={"run_id": databricks_run_id}
+            endpoint="/api/2.0/jobs/runs/get",
+            method="GET",
+            params={"run_id": databricks_run_id},
         )
         return json.loads(response.text)
 
@@ -475,7 +491,14 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters, 
 
 
 def run_databricks(
-    remote_run, uri, entry_point, work_dir, parameters, experiment_id, cluster_spec, env_manager
+    remote_run,
+    uri,
+    entry_point,
+    work_dir,
+    parameters,
+    experiment_id,
+    cluster_spec,
+    env_manager,
 ):
     """
     Run the project at the specified URI on Databricks, returning a ``SubmittedRun`` that can be
@@ -484,7 +507,14 @@ def run_databricks(
     run_id = remote_run.info.run_id
     db_job_runner = DatabricksJobRunner(databricks_profile_uri=tracking.get_tracking_uri())
     db_run_id = db_job_runner.run_databricks(
-        uri, entry_point, work_dir, parameters, experiment_id, cluster_spec, run_id, env_manager
+        uri,
+        entry_point,
+        work_dir,
+        parameters,
+        experiment_id,
+        cluster_spec,
+        run_id,
+        env_manager,
     )
     submitted_run = DatabricksSubmittedRun(db_run_id, run_id, db_job_runner)
     submitted_run._print_description_and_log_tags()
@@ -542,7 +572,9 @@ class DatabricksSubmittedRun(SubmittedRun):
             self._mlflow_run_id, MLFLOW_DATABRICKS_RUN_URL, jobs_page_url
         )
         tracking.MlflowClient().set_tag(
-            self._mlflow_run_id, MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, self._databricks_run_id
+            self._mlflow_run_id,
+            MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID,
+            self._databricks_run_id,
         )
         tracking.MlflowClient().set_tag(
             self._mlflow_run_id, MLFLOW_DATABRICKS_WEBAPP_URL, host_creds.host

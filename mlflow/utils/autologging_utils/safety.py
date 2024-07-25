@@ -972,10 +972,9 @@ def _validate_args(
 
     def _assert_autologging_input_kwargs_are_superset(autologging_call_input, user_call_input):
         assert set(user_call_input.keys()).issubset(set(autologging_call_input.keys())), (
-            "Keyword or dictionary arguments to original function omit"
-            " one or more expected keys: '{}'".format(
-                set(user_call_input.keys()) - set(autologging_call_input.keys())
-            )
+            "Keyword or dictionary arguments to original function omit "
+            f"one or more expected keys: "
+            f"'{set(user_call_input.keys()) - set(autologging_call_input.keys())}'"
         )
 
     def _validate(autologging_call_input, user_call_input=None):
@@ -1001,10 +1000,9 @@ def _validate_args(
             _validate_new_input(autologging_call_input)
             return
 
-        assert type(autologging_call_input) == type(
-            user_call_input
-        ), "Type of input to original function '{}' does not match expected type '{}'".format(
-            type(autologging_call_input), type(user_call_input)
+        assert type(autologging_call_input) == type(user_call_input), (
+            f"Type of input to original function '{type(autologging_call_input)}' does not match "
+            f"expected type '{type(user_call_input)}'"
         )
 
         if type(autologging_call_input) in [list, tuple]:

@@ -18,9 +18,8 @@ class RequestAuthProviderRegistry:
                 self.register(entrypoint.load())
             except (AttributeError, ImportError) as exc:
                 warnings.warn(
-                    'Failure attempting to register request auth provider "{}": {}'.format(
-                        entrypoint.name, str(exc)
-                    ),
+                    f'Failure attempting to register request auth provider "{entrypoint.name}": '
+                    f"{exc!s}",
                     stacklevel=2,
                 )
 

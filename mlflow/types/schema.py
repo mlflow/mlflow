@@ -750,9 +750,8 @@ class TensorInfo:
 
         if not isinstance(shape, (tuple, list)):
             raise TypeError(
-                "Expected `shape` to be instance of `{}` or `{}`, received `{}`".format(
-                    tuple, list, shape.__class__
-                )
+                f"Expected `shape` to be instance of `{tuple}` or `{list}`, "
+                f"received `{shape.__class__}`"
             )
         self._dtype = dtype
         self._shape = tuple(shape)
@@ -897,8 +896,9 @@ class Schema:
             or all(isinstance(x, ColSpec) for x in inputs)
         ):
             raise MlflowException(
-                "Creating Schema with a combination of {0} and {1} is not supported. "
-                "Please choose one of {0} or {1}".format(ColSpec.__class__, TensorSpec.__class__)
+                f"Creating Schema with a combination of {ColSpec.__class__} and "
+                f"{TensorSpec.__class__} is not supported. "
+                f"Please choose one of {ColSpec.__class__} or {TensorSpec.__class__}"
             )
         if (
             all(isinstance(x, TensorSpec) for x in inputs)

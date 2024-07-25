@@ -116,9 +116,7 @@ class CardTab:
             The updated card instance.
         """
         try:
-            profile_iframe = (
-                "<iframe srcdoc='{src}' width='100%' height='500' frameborder='0'></iframe>"
-            ).format(src=html.escape(profile))
+            profile_iframe = f"<iframe srcdoc='{html.escape(profile)}' width='100%' height='500' frameborder='0'></iframe>"  # noqa: E501
         except Exception as e:
             profile_iframe = f"Unable to create data profile. Error found:\n{e}"
         self.add_html(name, profile_iframe)
@@ -318,7 +316,11 @@ class FailureCard(BaseCard):
     """
 
     def __init__(
-        self, recipe_name: str, step_name: str, failure_traceback: str, output_directory: str
+        self,
+        recipe_name: str,
+        step_name: str,
+        failure_traceback: str,
+        output_directory: str,
     ):
         super().__init__(
             recipe_name=recipe_name,

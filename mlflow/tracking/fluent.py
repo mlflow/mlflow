@@ -2,6 +2,7 @@
 Internal module implementing the fluent API, allowing management of an active
 MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
 """
+
 import atexit
 import contextlib
 import importlib
@@ -162,9 +163,9 @@ def set_experiment(
     if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
         raise MlflowException(
             message=(
-                "Cannot set a deleted experiment '%s' as the active experiment. "
+                f"Cannot set a deleted experiment '{experiment.name}' as the active experiment. "
                 "You can restore the experiment, or permanently delete the "
-                "experiment to create a new one." % experiment.name
+                "experiment to create a new one."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -2054,8 +2055,8 @@ def search_runs(
         return pd.DataFrame(data)
     else:
         raise ValueError(
-            "Unsupported output format: %s. Supported string values are 'pandas' or 'list'"
-            % output_format
+            f"Unsupported output format: {output_format}. "
+            f"Supported string values are 'pandas' or 'list'"
         )
 
 

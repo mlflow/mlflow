@@ -385,9 +385,8 @@ def _parse_pip_requirements(pip_requirements):
     else:
         raise TypeError(
             "`pip_requirements` must be either a string path to a pip requirements file on the "
-            "local filesystem or an iterable of pip requirement strings, but got `{}`".format(
-                type(pip_requirements)
-            )
+            "local filesystem or an iterable of pip requirement strings, but got "
+            f"`{type(pip_requirements)}`"
         )
 
 

@@ -1012,9 +1012,9 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optiona
         if num_actual_columns < len(input_schema.inputs):
             raise MlflowException(
                 "Model inference is missing inputs. The model signature declares "
-                "{} inputs  but the provided value only has "
-                "{} inputs. Note: the inputs were not named in the signature so we can "
-                "only verify their count.".format(len(input_schema.inputs), num_actual_columns)
+                f"{len(input_schema.inputs)} inputs  but the provided value only has "
+                f"{num_actual_columns} inputs. Note: the inputs were not named in the signature "
+                "so we can only verify their count."
             )
     if input_schema.is_tensor_spec():
         return _enforce_tensor_schema(pf_input, input_schema)
