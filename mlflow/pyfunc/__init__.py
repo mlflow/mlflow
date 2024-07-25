@@ -2208,7 +2208,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config=None,
-    example_no_conversion=False,
+    example_no_conversion=None,
     streamable=None,
     resources: Optional[Union[str, List[Resource]]] = None,
     **kwargs,
@@ -2618,7 +2618,7 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config=None,
-    example_no_conversion=False,
+    example_no_conversion=None,
     streamable=None,
     resources: Optional[Union[str, List[Resource]]] = None,
 ):

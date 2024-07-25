@@ -490,7 +490,6 @@ def test_save_load_input_example_without_conversion(tmp_path):
             python_model=MyModel(),
             artifact_path="test_model",
             input_example=input_example,
-            example_no_conversion=True,
         )
         local_path = _download_artifact_from_uri(
             f"runs:/{run.info.run_id}/test_model", output_path=tmp_path

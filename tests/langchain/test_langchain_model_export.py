@@ -3134,7 +3134,6 @@ def test_save_model_as_code_correct_streamable(chain_model_signature, chain_path
             artifact_path=artifact_path,
             signature=chain_model_signature,
             input_example=input_example,
-            example_no_conversion=True,
         )
 
     assert model_info.flavors["langchain"]["streamable"] is True

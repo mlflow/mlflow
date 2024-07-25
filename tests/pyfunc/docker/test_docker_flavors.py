@@ -259,7 +259,6 @@ def langchain_model(model_path):
         lc_model=chain,
         path=model_path,
         input_example={"messages": "Hi"},
-        example_no_conversion=False,
     )
     return model_path
 
