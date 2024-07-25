@@ -1273,7 +1273,7 @@ def test_functional_python_model_list_to_list(tmp_path):
     assert loaded_model.predict([{"a": "x"}, {"a": "y"}]) == ["x", "y"]
 
 
-def list_to_list_pep585(x: list[str]) -> list[str]:
+def list_to_list_pep585(x: List[str]) -> List[str]:
     return x
 
 
@@ -1378,7 +1378,7 @@ def test_functional_python_model_list_dict_to_list_dict(tmp_path):
     ]
 
 
-def list_dict_to_list_dict_pep585(x: list[dict[str, str]]) -> list[dict[str, str]]:
+def list_dict_to_list_dict_pep585(x: List[Dict[str, str]]) -> List[Dict[str, str]]:
     return [{v: k for k, v in d.items()} for d in x]  # swap keys and values
 
 

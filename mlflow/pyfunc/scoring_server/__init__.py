@@ -21,8 +21,6 @@ import sys
 import traceback
 from typing import Any, Dict, NamedTuple, Optional, Tuple
 
-import flask
-
 from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 
 # NB: We need to be careful what we import form mlflow here. Scoring server is used from within
@@ -300,6 +298,8 @@ class InvocationsResponse(NamedTuple):
 
 
 def invocations(data, content_type, model, input_schema):
+    import flask
+
     type_parts = list(map(str.strip, content_type.split(";")))
     mime_type = type_parts[0]
     parameter_value_pairs = type_parts[1:]
@@ -426,6 +426,8 @@ def init(model: PyFuncModel):
     """
     Initialize the server. Loads pyfunc model from the path.
     """
+    import flask
+
     app = flask.Flask(__name__)
     input_schema = model.metadata.get_input_schema()
 

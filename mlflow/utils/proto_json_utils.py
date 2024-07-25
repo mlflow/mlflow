@@ -528,7 +528,7 @@ def parse_instances_data(data, schema=None):
 
 # TODO: we should update convert_to_numpy in MLflow 3.0 to avoid
 # converting genAI flavors data to numpy
-def parse_inputs_data(inputs_data, schema=None, convert_to_numpy=True):
+def parse_inputs_data(inputs_data_or_path, schema=None, convert_to_numpy=True):
     """
     Helper function to cast inputs_data based on the schema.
     Inputs data must be able to pass to the model for pyfunc predict directly.
@@ -542,6 +542,11 @@ def parse_inputs_data(inputs_data, schema=None, convert_to_numpy=True):
             we convert them to numpy array.
             Default to True for backwards compatibility.
     """
+    if isinstance(inputs_data_or_path, str) and os.path.exists(inputs_data_or_path):
+        with open(inputs_data_or_path) as handle:
+            inputs_data = json.load(handle)
+    else:
+        inputs_data = inputs_data_or_path
     return _cast_schema_type(inputs_data, schema, convert_to_numpy=convert_to_numpy)
 
 

@@ -158,9 +158,9 @@ def _handle_ndarray_input(input_array: Union[np.ndarray, dict]):
         result = {}
         for name in input_array.keys():
             result[name] = _handle_ndarray_nans(input_array[name]).tolist()
-        return {INPUTS: result}
+        return result
     else:
-        return {INPUTS: _handle_ndarray_nans(input_array).tolist()}
+        return _handle_ndarray_nans(input_array).tolist()
 
 
 def _handle_sparse_matrix(x: Union["csr_matrix", "csc_matrix"]):
@@ -220,7 +220,7 @@ def _check_no_nd_array(data):
     if isinstance(data, np.ndarray):
         return False
     if isinstance(data, list):
-        return all(_check_no_nd_array(x) for x in data if isinstance(x, list))
+        return all(_check_no_nd_array(x) for x in data)
     if isinstance(data, dict):
         return all(_check_no_nd_array(x) for x in data.values())
     return True
@@ -295,11 +295,12 @@ class _Example:
             INPUT_EXAMPLE_PATH: EXAMPLE_FILENAME,
         }
 
-        self._inference_data = input_example
-        # Avoid changing the variable passed in
-        model_input, self._inference_params = _split_input_data_and_params(deepcopy(input_example))
+        self._inference_data, self._inference_params = _split_input_data_and_params(
+            deepcopy(input_example)
+        )
         if self._inference_params:
             self.info[EXAMPLE_PARAMS_KEY] = "true"
+        model_input = deepcopy(self._inference_data)
 
         is_unified_llm_input = False
         if isinstance(model_input, dict):
@@ -316,6 +317,7 @@ class _Example:
                     )
                 self.info["type"] = "ndarray"
                 model_input = _handle_ndarray_input(model_input)
+                self.serving_input = {INPUTS: model_input}
             else:
                 # TODO: remove this warning after 2.17.0 release
                 _logger.warning(
@@ -336,6 +338,7 @@ class _Example:
             """type: ndarray"""
             model_input = _handle_ndarray_input(model_input)
             self.info["type"] = "ndarray"
+            self.serving_input = {INPUTS: model_input}
         elif isinstance(model_input, list):
             """
             Supported types are:
@@ -345,7 +348,7 @@ class _Example:
             """
             if not _check_no_nd_array(model_input):
                 raise TensorsNotSupportedException(
-                    "Numpy arrays in list are not supported as input examples. "
+                    "Numpy arrays in list are not supported as input examples."
                 )
             self.info["type"] = "json_object"
             self.serving_input = {INPUTS: model_input}
@@ -356,13 +359,13 @@ class _Example:
             - scipy.sparse.csc_matrix
             Note: This type of input is not supported by the scoring server yet
             """
-            model_input = _handle_sparse_matrix(model_input)
-            self.serving_input = None
             if isinstance(model_input, csc_matrix):
                 example_type = "sparse_matrix_csc"
             else:
                 example_type = "sparse_matrix_csr"
             self.info["type"] = example_type
+            model_input = _handle_sparse_matrix(model_input)
+            self.serving_input = None
         elif isinstance(model_input, pd.DataFrame):
             model_input = _convert_dataframe_to_split_dict(model_input)
             self.serving_input = {DF_SPLIT: model_input}
