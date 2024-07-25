@@ -888,7 +888,7 @@ class TrackingServiceClient:
         run_url = f"{experment_url}/runs/{run_id}"
 
         _logger.info(f"🎊 View run {run_name} at: {run_url}.")
-        _logger.info(f"💫 View your experiment at: {experment_url}.")
+        _logger.info(f"💫 View experiment at: {experment_url}.")
 
     def set_terminated(self, run_id, status=None, end_time=None):
         """Set a run's status to terminated.
