@@ -1,7 +1,8 @@
+import os
+
 from pydantic import validator
 
 from mlflow.gateway.base_models import ConfigModel
-from mlflow.gateway.config import _resolve_api_key_from_input
 
 
 class MyLLMConfig(ConfigModel):
@@ -9,4 +10,11 @@ class MyLLMConfig(ConfigModel):
 
     @validator("my_llm_api_key", pre=True)
     def validate_my_llm_api_key(cls, value):
-        return _resolve_api_key_from_input(value)
+        if value.startswith("$"):
+            # This resolves the API key from an environment variable
+            env_var_name = value[1:]
+            if env_var := os.getenv(env_var_name):
+                return env_var
+            else:
+                raise ValueError(f"Environment variable {env_var_name!r} is not set")
+        return value

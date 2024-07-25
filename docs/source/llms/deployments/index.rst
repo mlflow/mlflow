@@ -1201,11 +1201,12 @@ and a config class that inherits from ``mlflow.gateway.base_models.ConfigModel``
 .. code-block:: python
     :caption: Example
 
+    import os
     from typing import AsyncIterable
 
     from pydantic import validator
     from mlflow.gateway.base_models import ConfigModel
-    from mlflow.gateway.config import RouteConfig, _resolve_api_key_from_input
+    from mlflow.gateway.config import RouteConfig
     from mlflow.gateway.providers import BaseProvider
     from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -1216,8 +1217,7 @@ and a config class that inherits from ``mlflow.gateway.base_models.ConfigModel``
 
         @validator("my_llm_api_key", pre=True)
         def validate_my_llm_api_key(cls, value):
-            # This resolves the API key from an environment variable
-            return _resolve_api_key_from_input(value)
+            return os.environ[value.lstrip("$")]
 
 
     class MyLLMProvider(BaseProvider):
@@ -1284,9 +1284,9 @@ The entry point should be in the format ``<name> = <module>:<class>``.
 
 You can specify more than one entry point in the same package if you have multiple providers.
 Note that entry point names must be globally unique. If two plugins specify the same entry point name,
-MLflow will raise an error at startup time. 
+MLflow will raise an error at startup time.
 
-MLflow already provides a number of providers by default. Your plugin name cannot be the same as any one 
+MLflow already provides a number of providers by default. Your plugin name cannot be the same as any one
 of them. See :ref:`deployments_configuration_details` for a complete list of default providers.
 
 Finally, you need to install the plugin package in the same environment as the MLflow Deployments Server.
