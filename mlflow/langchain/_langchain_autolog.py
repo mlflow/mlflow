@@ -5,9 +5,8 @@ import uuid
 import warnings
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
-from langchain.schema.runnable.config import RunnableConfig
 from langchain_core.callbacks.base import BaseCallbackHandler, BaseCallbackManager
 
 import mlflow
@@ -148,9 +147,9 @@ def _get_args_with_mlflow_tracer(func_name, args, kwargs):
 
 
 def _get_runnable_config_with_callback(
-    original_config: Union[None, RunnableConfig, List[RunnableConfig]],
+    original_config: Union[None, Dict, List[Dict]],
     new_callback: BaseCallbackHandler,
-) -> Union[RunnableConfig, List[RunnableConfig]]:
+) -> Union[Dict, List[Dict]]:
     """
     Create a new RunnableConfig (or a list of them) with the new callback injected.
 
@@ -162,6 +161,8 @@ def _get_runnable_config_with_callback(
         original_config: the original RunnableConfig passed by the user
         new_callback: a new callback to be injected
     """
+    from langchain.schema.runnable.config import RunnableConfig
+
     if original_config is None:
         return RunnableConfig(callbacks=[new_callback])
     elif isinstance(original_config, list):
