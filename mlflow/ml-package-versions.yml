@@ -640,7 +640,7 @@ langchain:
     install_dev: |
       pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/langchain
   models:
-    minimum: "0.0.244"
+    minimum: "0.0.334"
     maximum: "0.2.11"
     requirements:
       ">= 0.0.0": [

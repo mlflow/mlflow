@@ -1033,7 +1033,7 @@ def _validate_args(
         # the user with the one we copied and injected our callbacks into. We cannot do this
         # in-place to avoid side-effects, so create a new callback manager instance. It will
         # fail at the strict equality check below, so we instead check that their handlers
-        # are the compatible.
+        # are effectively the compatible.
         elif is_langchain_callbacks_manager(
             autologging_call_input
         ) and is_langchain_callbacks_manager(user_call_input):

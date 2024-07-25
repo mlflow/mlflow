@@ -108,8 +108,6 @@ def _get_args_with_mlflow_tracer(func_name, args, kwargs):
     """
     Get the patched arguments with MLflow tracer injected.
     """
-    from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
-
     mlflow_tracer = MlflowLangchainTracer()
 
     if func_name in ["invoke", "batch", "stream", "ainvoke", "abatch", "astream"]:
@@ -168,6 +166,8 @@ def _get_runnable_config_with_callback(
         return RunnableConfig(callbacks=[new_callback])
     elif isinstance(original_config, list):
         return [_get_runnable_config_with_callback(c, new_callback) for c in original_config]
+    # Here we expect RunnableConfig, but it is a TypedDict so cannot be used for `isinstance`
+    # check. At runtime, it will merely be a dict.
     elif isinstance(original_config, dict):
         config_copy = original_config.copy()
         callbacks = config_copy.pop("callbacks", None) or []
@@ -182,7 +182,8 @@ def _get_runnable_config_with_callback(
 
 
 def _inject_callback(
-    original_callbacks: Union[List, BaseCallbackManager], new_callback: MlflowLangchainTracer
+    original_callbacks: Union[List[BaseCallbackHandler], BaseCallbackManager],
+    new_callback: MlflowLangchainTracer,
 ) -> Union[List, BaseCallbackManager]:
     """
     Inject a callback into the original callbacks.
