@@ -53,7 +53,7 @@ class MlflowDeploymentClient(BaseDeploymentClient):
             {
                 "name": "chat",
                 "endpoint_type": "llm/v1/chat",
-                "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
+                "model": {"name": "gpt-4o-mini", "provider": "openai"},
                 "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
             },
         ]
@@ -162,7 +162,7 @@ class MlflowDeploymentClient(BaseDeploymentClient):
             assert endpoint.dict() == {
                 "name": "chat",
                 "endpoint_type": "llm/v1/chat",
-                "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
+                "model": {"name": "gpt-4o-mini", "provider": "openai"},
                 "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
             }
         """
@@ -222,7 +222,7 @@ class MlflowDeploymentClient(BaseDeploymentClient):
                 {
                     "name": "chat",
                     "endpoint_type": "llm/v1/chat",
-                    "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
+                    "model": {"name": "gpt-4o-mini", "provider": "openai"},
                     "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
                 },
             ]
@@ -267,7 +267,7 @@ class MlflowDeploymentClient(BaseDeploymentClient):
                 "id": "chatcmpl-8OLoQuaeJSLybq3NBoe0w5eyqjGb9",
                 "object": "chat.completion",
                 "created": 1700814410,
-                "model": "gpt-3.5-turbo-0613",
+                "model": "gpt-4o-mini",
                 "choices": [
                     {
                         "index": 0,

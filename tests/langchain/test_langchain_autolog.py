@@ -784,6 +784,7 @@ class AsyncCustomCallbackHandler(AsyncCallbackHandler):
 _CONFIG_PATTERNS = [
     # Config with no user callbacks
     RunnableConfig(max_concurrency=1),
+    RunnableConfig(callbacks=None),
     # With user callbacks
     RunnableConfig(callbacks=[CustomCallbackHandler()]),
     RunnableConfig(callbacks=BaseCallbackManager([CustomCallbackHandler()])),
@@ -877,13 +878,12 @@ async def test_langchain_autolog_callback_injection_in_ainvoke(invoke_arg, confi
         elif invoke_arg is None:
             await model.ainvoke(input)
 
-    ## Trace doesn't work for .abatch() patching
-    # traces = get_traces()
-    # assert len(traces) == 1
-    # assert traces[0].info.status == "OK"
-    # assert traces[0].data.spans[0].name == "RunnableSequence"
-    # assert traces[0].data.spans[0].inputs == input
-    # assert traces[0].data.spans[0].outputs == TEST_CONTENT
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert traces[0].data.spans[0].name == "RunnableSequence"
+    assert traces[0].data.spans[0].inputs == input
+    assert traces[0].data.spans[0].outputs == TEST_CONTENT
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
@@ -906,9 +906,6 @@ async def test_langchain_autolog_callback_injection_in_ainvoke(invoke_arg, confi
     + [[config, config] for config in _CONFIG_PATTERNS],
 )
 def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config):
-    if isinstance(config, list) and invoke_arg:
-        pytest.skip("Non working case")
-
     mlflow.langchain.autolog()
 
     model = create_openai_runnable()
@@ -952,9 +949,6 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config):
 )
 @pytest.mark.asyncio
 async def test_langchain_autolog_callback_injection_in_abatch(invoke_arg, config):
-    if isinstance(config, list) and invoke_arg:
-        pytest.skip("Non working case")
-
     mlflow.langchain.autolog()
 
     model = create_openai_runnable()
@@ -970,14 +964,13 @@ async def test_langchain_autolog_callback_injection_in_abatch(invoke_arg, config
         elif invoke_arg is None:
             await model.abatch([input] * 2)
 
-    ## Trace doesn't work for .abatch() patching
-    # traces = get_traces()
-    # assert len(traces) == 2
-    # for trace in traces:
-    #     assert trace.info.status == "OK"
-    #     assert trace.data.spans[0].name == "RunnableSequence"
-    #     assert trace.data.spans[0].inputs == input
-    #     assert trace.data.spans[0].outputs == TEST_CONTENT
+    traces = get_traces()
+    assert len(traces) == 2
+    for trace in traces:
+        assert trace.info.status == "OK"
+        assert trace.data.spans[0].name == "RunnableSequence"
+        assert trace.data.spans[0].inputs == input
+        assert trace.data.spans[0].outputs == TEST_CONTENT
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
@@ -1007,13 +1000,12 @@ def test_langchain_autolog_callback_injection_in_stream(invoke_arg, config):
         elif invoke_arg is None:
             list(model.stream(input))
 
-    ## Trace doesn't work for .stream() patching
-    # traces = get_traces()
-    # assert len(traces) == 1
-    # assert traces[0].info.status == "OK"
-    # assert traces[0].data.spans[0].name == "RunnableSequence"
-    # assert traces[0].data.spans[0].inputs == input
-    # assert traces[0].data.spans[0].outputs == TEST_CONTENT
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert traces[0].data.spans[0].name == "RunnableSequence"
+    assert traces[0].data.spans[0].inputs == input
+    assert traces[0].data.spans[0].outputs == TEST_CONTENT
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
@@ -1033,9 +1025,9 @@ async def test_langchain_autolog_callback_injection_in_astream(invoke_arg, confi
     model = create_openai_runnable()
     original_handlers = _extract_callback_handlers(config)
     _reset_callback_handlers(original_handlers)
+    input = {"product": "MLflow"}
 
     async def invoke_astream(model, config):
-        input = {"product": "MLflow"}
         if invoke_arg == "args":
             astream = model.astream(input, config)
         elif invoke_arg == "kwargs":
@@ -1050,13 +1042,12 @@ async def test_langchain_autolog_callback_injection_in_astream(invoke_arg, confi
     with _mock_openai_arequest(stream=True):
         await invoke_astream(model, config)
 
-    ## Trace doesn't work for .astream() patching
-    # traces = get_traces()
-    # assert len(traces) == 1
-    # assert traces[0].info.status == "OK"
-    # assert traces[0].data.spans[0].name == "RunnableSequence"
-    # assert traces[0].data.spans[0].inputs == input
-    # assert traces[0].data.spans[0].outputs == TEST_CONTENT
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert traces[0].data.spans[0].name == "RunnableSequence"
+    assert traces[0].data.spans[0].inputs == input
+    assert traces[0].data.spans[0].outputs == TEST_CONTENT
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)

@@ -164,6 +164,10 @@ def test_docstring_version_compatibility_warning():
     def another_func():
         func()
 
+    @docstring_version_compatibility_warning("sklearn", warn=False)
+    def does_not_warn():
+        pass
+
     with mock.patch("importlib_metadata.version", return_value="0.0.0") as mock_version:
         with warnings.catch_warnings(record=True) as w:
             another_func()
@@ -172,3 +176,9 @@ def test_docstring_version_compatibility_warning():
         # Exclude irrelevant warnings
         warns = [x for x in w if "MLflow Models integration is known to be compatible" in str(x)]
         assert len(warns) == 1
+
+        with warnings.catch_warnings(record=True) as w:
+            does_not_warn()
+
+        warns = [x for x in w if "MLflow Models integration is known to be compatible" in str(x)]
+        assert len(warns) == 0
