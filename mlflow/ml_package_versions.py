@@ -263,11 +263,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.0.244",
-            "maximum": "0.2.10"
+            "maximum": "0.2.11"
         },
         "autologging": {
             "minimum": "0.1.0",
-            "maximum": "0.2.10"
+            "maximum": "0.2.11"
         }
     },
     "llama_index": {
