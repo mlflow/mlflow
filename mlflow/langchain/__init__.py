@@ -133,7 +133,7 @@ def get_default_conda_env():
 
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
-@docstring_version_compatibility_warning(FLAVOR_NAME)
+@docstring_version_compatibility_warning(FLAVOR_NAME, warn=False)
 @trace_disabled  # Suppress traces for internal predict calls while saving model
 def save_model(
     lc_model,
@@ -408,7 +408,7 @@ def save_model(
 
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
-@docstring_version_compatibility_warning(FLAVOR_NAME)
+@docstring_version_compatibility_warning(FLAVOR_NAME, warn=False)
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     lc_model,
@@ -925,7 +925,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
 
 
 @experimental
-@docstring_version_compatibility_warning(FLAVOR_NAME)
+@docstring_version_compatibility_warning(FLAVOR_NAME, warn=False)
 @trace_disabled  # Suppress traces while loading model
 def load_model(model_uri, dst_path=None):
     """
