@@ -68,7 +68,7 @@ def create_route(
             not managed by Databricks (the provider isn't 'databricks').
         model: A dictionary representing the model details to be associated with the route.
             This parameter is required for all routes. This dictionary should define:
-            - The model name (e.g., "gpt-3.5-turbo")
+            - The model name (e.g., "gpt-4o-mini")
             - The provider (e.g., "openai", "anthropic")
             - The configuration for the model used in the route
 

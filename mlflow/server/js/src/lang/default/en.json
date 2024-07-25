@@ -311,6 +311,10 @@
     "defaultMessage": "Click to pin the run",
     "description": "A tooltip for the pin icon button in the runs chart tooltip next to the not pinned run"
   },
+  "5B5dhT": {
+    "defaultMessage": "Validate the model before deployment",
+    "description": "Heading text for validating the model before deploying it for serving"
+  },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
@@ -1326,6 +1330,10 @@
   "RzZVxC": {
     "defaultMessage": "An error occurred while rendering this component.",
     "description": "Description of error fallback component"
+  },
+  "S0Qif0": {
+    "defaultMessage": "Validate the serving payload works on the model",
+    "description": "Code comment which states how to validate serving payload"
   },
   "S7ESYH": {
     "defaultMessage": "Visualizations",
@@ -2638,6 +2646,10 @@
   "tLb7+M": {
     "defaultMessage": "{timeSince, plural, =1 {1 day} other {# days}} ago",
     "description": "Text for time in days since given date for MLflow views"
+  },
+  "tNySO0": {
+    "defaultMessage": "Run the following code to validate model inference works on the example payload, prior to deploying it to a serving endpoint",
+    "description": "Section heading to display the code block on how we can use validate an input against registered model prior to serving"
   },
   "tbAlJg": {
     "defaultMessage": "Go to external location",

@@ -76,10 +76,11 @@ BAD_ALIAS_NAMES = [
     "a" * 256,
     None,
     "$dgs",
-    "latest",
-    "Latest",
     "v123",
     "V1",
+    "latest",
+    "Latest",
+    "LATEST",
 ]
 
 

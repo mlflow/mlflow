@@ -19,7 +19,7 @@ Deprecated:
         route_type: llm/v1/chat
         model:
           provider: openai
-          name: gpt-3.5-turbo
+          name: gpt-4o-mini
           config:
             openai_api_key: $OPENAI_API_KEY
 
@@ -32,7 +32,7 @@ New:
         endpoint_type: llm/v1/chat  # Renamed to "endpoint_type"
         model:
           provider: openai
-          name: gpt-3.5-turbo
+          name: gpt-4o-mini
           config:
             openai_api_key: $OPENAI_API_KEY
 

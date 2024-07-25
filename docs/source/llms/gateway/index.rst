@@ -97,7 +97,7 @@ For details about the configuration file's parameters (including parameters for 
         route_type: llm/v1/completions
         model:
           provider: openai
-          name: gpt-3.5-turbo
+          name: gpt-4o-mini
           config:
             openai_api_key: $OPENAI_API_KEY
 
@@ -105,7 +105,7 @@ For details about the configuration file's parameters (including parameters for 
         route_type: llm/v1/chat
         model:
           provider: openai
-          name: gpt-3.5-turbo
+          name: gpt-4o-mini
           config:
             openai_api_key: $OPENAI_API_KEY
 
@@ -216,7 +216,7 @@ Firstly, update the :ref:`MLflow AI Gateway config <gateway_configuration>` YAML
         route_type: llm/v1/completions
         model:
           provider: openai
-          name: gpt-3.5-turbo
+          name: gpt-4o-mini
           config:
             openai_api_key: $OPENAI_API_KEY
       - name: completions-gpt4
@@ -228,7 +228,7 @@ Firstly, update the :ref:`MLflow AI Gateway config <gateway_configuration>` YAML
             openai_api_key: $OPENAI_API_KEY
 
 This updated configuration adds a new completions route ``completions-gpt4`` while still preserving the original ``completions``
-route that was configured with the ``gpt-3.5-turbo``  model.
+route that was configured with the ``gpt-4o-mini``  model.
 
 Once the configuration file is updated, simply save your changes. The Gateway will automatically create the new route with zero downtime.
 
@@ -373,8 +373,8 @@ A route in the MLflow AI Gateway consists of the following fields:
 
 * **model**: Defines the model to which this route will forward requests. The model contains the following details:
 
-    * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for OpenAI's ``GPT-3.5`` models.
-    * **name**: The name of the model to use. For example, ``gpt-3.5-turbo`` for OpenAI's ``GPT-3.5-Turbo`` model.
+    * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for OpenAI's ``GPT-4o`` models.
+    * **name**: The name of the model to use. For example, ``gpt-4o-mini`` for OpenAI's ``GPT-4o-Mini`` model.
     * **config**: Contains any additional configuration details required for the model. This includes specifying the API base URL and the API key.
 
 Here's an example of a route configuration:
@@ -386,12 +386,12 @@ Here's an example of a route configuration:
         type: chat/completions
         model:
           provider: openai
-          name: gpt-3.5-turbo
+          name: gpt-4o-mini
           config:
             openai_api_key: $OPENAI_API_KEY
 
 In the example above, a request sent to the completions route would be forwarded to the
-``gpt-3.5-turbo`` model provided by ``openai``.
+``gpt-4o-mini`` model provided by ``openai``.
 
 The routes in the configuration file can be updated at any time, and the MLflow AI Gateway will
 automatically update its available routes without requiring a restart. This feature provides you
@@ -473,13 +473,13 @@ Here is an example of a single-route configuration:
         route_type: llm/v1/chat
         model:
           provider: openai
-          name: gpt-3.5-turbo
+          name: gpt-4o-mini
           config:
             openai_api_key: $OPENAI_API_KEY
 
 
 In this example, we define a route named ``chat`` that corresponds to the ``llm/v1/chat`` type, which
-will use the ``gpt-3.5-turbo`` model from OpenAI to return query responses from the OpenAI service.
+will use the ``gpt-4o-mini`` model from OpenAI to return query responses from the OpenAI service.
 
 The Gateway configuration is very easy to update.
 Simply edit the configuration file and save your changes, and the MLflow AI Gateway service will automatically

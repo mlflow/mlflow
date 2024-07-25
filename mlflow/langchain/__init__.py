@@ -31,10 +31,6 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
-from mlflow.langchain._langchain_autolog import (
-    _update_langchain_model_config,
-    patched_inference,
-)
 from mlflow.langchain.databricks_dependencies import _detect_databricks_dependencies
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
@@ -77,7 +73,11 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
 )
-from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
+from mlflow.utils.docstring_utils import (
+    LOG_MODEL_PARAM_DOCS,
+    docstring_version_compatibility_warning,
+    format_docstring,
+)
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
@@ -129,6 +129,7 @@ def get_default_conda_env():
 
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
+@docstring_version_compatibility_warning(FLAVOR_NAME, warn=False)
 @trace_disabled  # Suppress traces for internal predict calls while saving model
 def save_model(
     lc_model,
@@ -403,6 +404,7 @@ def save_model(
 
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
+@docstring_version_compatibility_warning(FLAVOR_NAME, warn=False)
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     lc_model,
@@ -587,6 +589,8 @@ def _save_model(model, path, loader_fn, persist_dir):
 
 
 def _load_model(local_model_path, flavor_conf):
+    from mlflow.langchain._langchain_autolog import _update_langchain_model_config
+
     # model_type is not accurate as the class can be subclass
     # of supported types, we define _MODEL_LOAD_KEY to ensure
     # which load function to use
@@ -919,6 +923,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
 
 
 @experimental
+@docstring_version_compatibility_warning(FLAVOR_NAME, warn=False)
 @trace_disabled  # Suppress traces while loading model
 def load_model(model_uri, dst_path=None):
     """
@@ -954,6 +959,8 @@ def _patch_runnable_cls(cls):
     Args:
         cls: The class to patch.
     """
+    from mlflow.langchain._langchain_autolog import patched_inference
+
     patch_functions = ["invoke", "batch", "stream", "ainvoke", "abatch", "astream"]
     for func_name in patch_functions:
         if hasattr(cls, func_name):
@@ -1063,6 +1070,8 @@ def autolog(
         from langchain.chains.base import Chain
         from langchain.schema import BaseRetriever
         from langchain.schema.runnable import Runnable
+
+        from mlflow.langchain._langchain_autolog import patched_inference
 
         # avoid duplicate patching
         patched_classes = set()
