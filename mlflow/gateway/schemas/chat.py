@@ -92,7 +92,7 @@ _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 
 class ResponsePayload(ResponseModel):
     id: Optional[str] = None
-    object: Literal["chat.completion"] = "chat.completion"
+    object: str = "chat.completion"
     created: int
     model: str
     choices: List[Choice]
