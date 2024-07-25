@@ -874,8 +874,9 @@ def get_model_info(model_uri: str) -> ModelInfo:
     """
     from mlflow.pyfunc import _download_artifact_from_uri
 
-    local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=None)
-    model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
+    meta_file_uri = model_uri.rstrip("/") + "/" + MLMODEL_FILE_NAME
+    meta_local_path = _download_artifact_from_uri(artifact_uri=meta_file_uri)
+    model_meta = Model.load(meta_local_path)
     return ModelInfo(
         artifact_path=model_meta.artifact_path,
         flavors=model_meta.flavors,
