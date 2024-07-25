@@ -22,7 +22,7 @@ def test_chat_completions_autolog_artifacts(client, monkeypatch):
         client.chat.completions._mlflow_session_id = "test_session_id"
         client.chat.completions.create(
             messages=messages,
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             temperature=0,
         )
 
@@ -42,7 +42,7 @@ def test_chat_completions_autolog_streaming(client, monkeypatch):
         client.chat.completions._mlflow_session_id = "test_session_id"
         stream = client.chat.completions.create(
             messages=messages,
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             temperature=0,
             stream=True,
         )
@@ -84,13 +84,13 @@ def test_loaded_chat_completions_autolog(client, monkeypatch):
     with mlflow.start_run() as run:
         client.chat.completions.create(
             messages=messages,
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             temperature=0,
         )
 
     loaded_model = mlflow.openai.load_model(f"runs:/{run.info.run_id}/model")
     assert loaded_model == {
-        "model": "gpt-3.5-turbo",
+        "model": "gpt-4o-mini",
         "task": "chat.completions",
     }
 
@@ -112,7 +112,7 @@ def test_completions_autolog_artifacts(client, monkeypatch):
         client.completions._mlflow_session_id = "test_session_id"
         client.completions.create(
             prompt="test",
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             temperature=0,
         )
 
@@ -131,7 +131,7 @@ def test_completions_autolog_streaming(client, monkeypatch):
         client.completions._mlflow_session_id = "test_session_id"
         stream = client.completions.create(
             prompt="test",
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             temperature=0,
             stream=True,
         )
@@ -172,13 +172,13 @@ def test_loaded_completions_autolog(client, monkeypatch):
     with mlflow.start_run() as run:
         client.completions.create(
             prompt="test",
-            model="gpt-3.5-turbo-instruct",
+            model="gpt-4o-mini",
             temperature=0,
         )
 
     loaded_model = mlflow.openai.load_model(f"runs:/{run.info.run_id}/model")
     assert loaded_model == {
-        "model": "gpt-3.5-turbo-instruct",
+        "model": "gpt-4o-mini",
         "task": "completions",
     }
 
@@ -245,7 +245,7 @@ def test_autolog_with_registered_model_name(client):
     mlflow.openai.autolog(log_models=True, registered_model_name=registered_model_name)
     client.chat.completions.create(
         messages=[{"role": "user", "content": "test"}],
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         temperature=0,
     )
     registered_model = MlflowClient().get_registered_model(registered_model_name)

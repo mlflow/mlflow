@@ -29,7 +29,7 @@ def chat_response(payload: ChatPayload):
         "id": "chatcmpl-123",
         "object": "chat.completion",
         "created": 1677652288,
-        "model": "gpt-3.5-turbo-0613",
+        "model": "gpt-4o-mini",
         "system_fingerprint": "fp_44709d6fcb",
         "choices": [
             {
@@ -55,7 +55,7 @@ def _make_chat_stream_chunk(content):
         "id": "chatcmpl-123",
         "object": "chat.completion.chunk",
         "created": 1677652288,
-        "model": "gpt-3.5-turbo-0613",
+        "model": "gpt-4o-mini",
         "system_fingerprint": "fp_44709d6fcb",
         "choices": [
             {
@@ -110,7 +110,7 @@ def completions_response(payload: CompletionsPayload):
         "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
         "object": "text_completion",
         "created": 1589478378,
-        "model": "gpt-3.5-turbo",
+        "model": "gpt-4o-mini",
         "choices": [
             {
                 "text": text,
@@ -129,7 +129,7 @@ def _make_completions_stream_chunk(content):
         "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
         "object": "text_completion",
         "created": 1589478378,
-        "model": "gpt-3.5-turbo-instruct",
+        "model": "gpt-4o-mini",
         "choices": [{"finish_reason": None, "index": 0, "logprobs": None, "text": content}],
         "system_fingerprint": None,
         "usage": {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},

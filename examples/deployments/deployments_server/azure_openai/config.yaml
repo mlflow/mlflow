@@ -3,7 +3,7 @@ endpoints:
     endpoint_type: llm/v1/chat
     model:
       provider: openai
-      name: gpt-35-turbo
+      name: gpt-4o-mini
       config:
         openai_api_type: "azure"
         openai_api_key: $OPENAI_API_KEY
@@ -15,7 +15,7 @@ endpoints:
     endpoint_type: llm/v1/completions
     model:
       provider: openai
-      name: gpt-35-turbo
+      name: gpt-4o-mini
       config:
         openai_api_type: "azuread"
         openai_api_key: $AZURE_AAD_TOKEN

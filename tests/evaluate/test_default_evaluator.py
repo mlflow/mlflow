@@ -3549,7 +3549,7 @@ def test_evaluate_with_correctness():
         ),
         examples=[],
         version="v1",
-        model="openai:/gpt-3.5-turbo-16k",
+        model="openai:/gpt-4o-mini",
         grading_context_columns=["ground_truth"],
         parameters={"temperature": 0.0},
         aggregations=["mean", "variance", "p90"],
@@ -4195,7 +4195,7 @@ def test_log_genai_custom_metrics_as_artifacts():
         )
         # This simulates the code path for metrics created from make_genai_metric
         answer_similarity_metric = answer_similarity(
-            model="gateway:/gpt-3.5-turbo", examples=[example]
+            model="gateway:/gpt-4o-mini", examples=[example]
         )
         another_custom_metric = make_genai_metric_from_prompt(
             name="another custom llm judge",
