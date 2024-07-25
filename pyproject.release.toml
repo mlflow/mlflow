@@ -93,7 +93,7 @@ sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 xethub = ["mlflow-xethub"]
 jfrog = ["mlflow-jfrog-plugin"]
-langchain = ["langchain>=0.1.0,<=0.2.10"]
+langchain = ["langchain>=0.1.0,<=0.2.11"]
 
 [project.urls]
 homepage = "https://mlflow.org"
