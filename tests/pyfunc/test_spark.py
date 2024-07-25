@@ -1540,7 +1540,9 @@ def test_spark_udf_infer_return_type(spark, tmp_path):
     assert pdf["output"][1] == ("b", [1], (False, ("another_string",)), [(0.2,), (0.3,)])
 
 
-def test_spark_udf_env_manager_with_invalid_pythonpath(spark, sklearn_model, model_path, monkeypatch):
+def test_spark_udf_env_manager_with_invalid_pythonpath(
+    spark, sklearn_model, model_path, monkeypatch
+):
     monkeypatch.setenv("PYTHONPATH", "/tmp/abcdefg:/tmp/12345")
     model, inference_data = sklearn_model
 
