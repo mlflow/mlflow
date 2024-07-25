@@ -381,13 +381,15 @@ def _do_version_compatibility_warning(msg: str):
     warnings.warn(msg, category=UserWarning, stacklevel=2)
 
 
-def docstring_version_compatibility_warning(integration_name):
+def docstring_version_compatibility_warning(integration_name, warn=True):
     """
     Generates a docstring that can be applied as a note stating a version compatibility range for
-    a given flavor.
+    a given flavor and optionally raises a warning if the installed version is outside of the
+    supported range.
 
     Args:
         integration_name: The name of the module as stored within ml-package-versions.yml
+        warn: If True, raise a warning if the installed version is outside of the supported range.
 
     Returns:
         The wrapped function with the additional docstring header applied
@@ -411,7 +413,11 @@ def docstring_version_compatibility_warning(integration_name):
         @wraps(func)
         def version_func(*args, **kwargs):
             installed_version = Version(importlib_metadata.version(module_key))
-            if installed_version < Version(min_ver) or installed_version > Version(max_ver):
+            if (
+                warn
+                and installed_version < Version(min_ver)
+                or installed_version > Version(max_ver)
+            ):
                 _do_version_compatibility_warning(notice)
             return func(*args, **kwargs)
 
