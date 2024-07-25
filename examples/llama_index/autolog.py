@@ -5,13 +5,14 @@ For more information about MLflow LlamaIndex integration, see:
 https://mlflow.org/docs/latest/llms/llama-index/index.html
 """
 
+import os
+
 from llama_index.agent.openai import OpenAIAgent
 from llama_index.core import Document, Settings, VectorStoreIndex
 from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai import OpenAI
 
 import mlflow
-import os
 
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable"
 
@@ -30,27 +31,30 @@ mlflow.llama_index.autolog()
 # Query the index
 query_engine = index.as_query_engine()
 response = query_engine.query("What is the capital of France?")
-print(f"\033\n[94m-------")
-print(f"Running Query Engine:\n")
-print(f" User > What is the capital of France?")
+print("\033\n[94m-------")
+print("Running Query Engine:\n")
+print(" User > What is the capital of France?")
 print(f"  🔍  > {response}")
+
 
 # Create OpenAI agent
 def multiply(a: int, b: int) -> int:
     """Multiple two integers and returns the result integer"""
     return a * b
 
+
 def add(a: int, b: int) -> int:
     """Add two integers and returns the result integer"""
     return a + b
+
 
 add_tool = FunctionTool.from_defaults(fn=add)
 multiply_tool = FunctionTool.from_defaults(fn=multiply)
 agent = OpenAIAgent.from_tools([multiply_tool, add_tool])
 response = agent.chat("What is 2 times 3?")
-print(f"\033\n[94m-------")
-print(f"Running Agent:\n")
-print(f" User > What is 2 times 3?")
+print("\033\n[94m-------")
+print("Running Agent:\n")
+print(" User > What is 2 times 3?")
 print(f"  🦙  > {response}")
 print("\n-------\n\n\033[0m")
 

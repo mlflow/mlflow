@@ -6,12 +6,13 @@ For more information about MLflow LlamaIndex integration, see:
 https://mlflow.org/docs/latest/llms/llama-index/index.html
 """
 
+import os
+
 from llama_index.core import Document, Settings, VectorStoreIndex
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
 
 import mlflow
-import os
 
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable"
 
@@ -49,11 +50,11 @@ chat_model = mlflow.pyfunc.load_model(model_info.model_uri)
 response1 = chat_model.predict("Hi")
 response2 = chat_model.predict("How are you?")
 
-print(f"\033[94m-------")
-print(f"Loaded the model back as a chat engine:\n")
-print(f" User > Hi")
+print("\033[94m-------")
+print("Loaded the model back as a chat engine:\n")
+print(" User > Hi")
 print(f"  🤖  > {response1}")
-print(f" User > How are you?")
+print(" User > How are you?")
 print(f"  🤖  > {response2}")
 print("\033[0m")
 
@@ -63,15 +64,15 @@ loaded_index = mlflow.llama_index.load_model(model_info.model_uri)
 query_engine = loaded_index.as_query_engine()
 response = query_engine.query("What is the capital of France?")
 
-print(f"\033[94m-------")
-print(f"Loaded the model back as a query engine:\n")
-print(f" User > What is the capital of France?")
+print("\033[94m-------")
+print("Loaded the model back as a query engine:\n")
+print(" User > What is the capital of France?")
 print(f"  🔍  > {response}")
 print("-------\n\033[0m")
 
 print(
     "\033[92m"
-    f"🚀 Now run `mlflow ui --port 5000` and open MLflow UI to see the logged information, such as "
+    "🚀 Now run `mlflow ui --port 5000` and open MLflow UI to see the logged information, such as "
     "serialized index, global Settings, model signature, dependencies, and more."
 )
 print(f" - Run URL: http://127.0.0.1:5000/#/experiments/{experiment_id}/runs/{run_id}")
