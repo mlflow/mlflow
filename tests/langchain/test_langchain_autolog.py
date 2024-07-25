@@ -795,6 +795,12 @@ _ASYNC_CONFIG_PATTERNS = [
 ]
 
 
+def _reset_callback_handlers(handlers):
+    if handlers:
+        for handler in handlers:
+            handler.logs = []
+
+
 def _extract_callback_handlers(config) -> Optional[List[BaseCallbackHandler]]:
     if isinstance(config, list):
         callbacks = []
@@ -821,6 +827,7 @@ def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, config):
 
     model = create_openai_runnable()
     original_handlers = _extract_callback_handlers(config)
+    _reset_callback_handlers(original_handlers)
 
     with _mock_request(return_value=_mock_chat_completion_response()):
         input = {"product": "MLflow"}
@@ -844,7 +851,11 @@ def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, config):
 
     # The original callback is called by the chain
     if handlers and invoke_arg:
-        handlers[0].logs = ["chain_start", "chain_end"]
+        # NB: Langchain has a bug that the callback is called different times when
+        # passed by a list or a callback manager. As a workaround we only check
+        # the content of the events not the count.
+        # https://github.com/langchain-ai/langchain/issues/24642
+        assert set(handlers[0].logs) == {"chain_start", "chain_end"}
 
 
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs", None])
@@ -855,6 +866,7 @@ async def test_langchain_autolog_callback_injection_in_ainvoke(invoke_arg, confi
 
     model = create_openai_runnable()
     original_handlers = _extract_callback_handlers(config)
+    _reset_callback_handlers(original_handlers)
 
     with _mock_openai_arequest():
         input = {"product": "MLflow"}
@@ -879,7 +891,11 @@ async def test_langchain_autolog_callback_injection_in_ainvoke(invoke_arg, confi
 
     # The original callback is called by the chain
     if handlers and invoke_arg:
-        handlers[0].logs = ["chain_start", "chain_end"]
+        # NB: Langchain has a bug that the callback is called different times when
+        # passed by a list or a callback manager. As a workaround we only check
+        # the content of the events not the count.
+        # https://github.com/langchain-ai/langchain/issues/24642
+        assert set(handlers[0].logs) == {"chain_start", "chain_end"}
 
 
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs"])
@@ -897,6 +913,7 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config):
 
     model = create_openai_runnable()
     original_handlers = _extract_callback_handlers(config)
+    _reset_callback_handlers(original_handlers)
 
     with _mock_request(return_value=_mock_chat_completion_response()):
         input = {"product": "MLflow"}
@@ -922,7 +939,7 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config):
     # The original callback is called by the chain
     if handlers and invoke_arg:
         for handler in handlers:
-            handler.logs = ["chain_start", "chain_end"] * 2
+            assert set(handler.logs) == {"chain_start", "chain_end"}
 
 
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs", None])
@@ -942,6 +959,7 @@ async def test_langchain_autolog_callback_injection_in_abatch(invoke_arg, config
 
     model = create_openai_runnable()
     original_handlers = _extract_callback_handlers(config)
+    _reset_callback_handlers(original_handlers)
 
     with _mock_openai_arequest():
         input = {"product": "MLflow"}
@@ -968,7 +986,7 @@ async def test_langchain_autolog_callback_injection_in_abatch(invoke_arg, config
     # The original callback is called by the chain
     if handlers and invoke_arg:
         for handler in handlers:
-            handler.logs = ["chain_start", "chain_end"] * 2
+            assert set(handler.logs) == {"chain_start", "chain_end"}
 
 
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs", None])
@@ -978,6 +996,7 @@ def test_langchain_autolog_callback_injection_in_stream(invoke_arg, config):
 
     model = create_openai_runnable()
     original_handlers = _extract_callback_handlers(config)
+    _reset_callback_handlers(original_handlers)
 
     with _mock_request(return_value=_mock_chat_completion_stream_response()):
         input = {"product": "MLflow"}
@@ -1002,7 +1021,7 @@ def test_langchain_autolog_callback_injection_in_stream(invoke_arg, config):
 
     # The original callback is called by the chain
     if handlers and invoke_arg:
-        handlers[0].logs = ["chain_start", "chain_end"]
+        assert set(handlers[0].logs) == {"chain_start", "chain_end"}
 
 
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs", None])
@@ -1013,6 +1032,7 @@ async def test_langchain_autolog_callback_injection_in_astream(invoke_arg, confi
 
     model = create_openai_runnable()
     original_handlers = _extract_callback_handlers(config)
+    _reset_callback_handlers(original_handlers)
 
     async def invoke_astream(model, config):
         input = {"product": "MLflow"}
@@ -1044,7 +1064,7 @@ async def test_langchain_autolog_callback_injection_in_astream(invoke_arg, confi
 
     # The original callback is called by the chain
     if handlers and invoke_arg:
-        handlers[0].logs = ["chain_start", "chain_end"]
+        assert set(handlers[0].logs) == {"chain_start", "chain_end"}
 
 
 def test_langchain_autolog_produces_expected_traces_with_streaming(tmp_path):
