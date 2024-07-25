@@ -16,11 +16,15 @@ FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY = {
     "tensorflow": ("tensorflow", "tensorflow"),
     "xgboost": ("xgboost", "xgboost"),
     "sklearn": ("sklearn", "sklearn"),
+    "paddle": ("paddle", "paddle"),
     "pytorch": ("torch", "pytorch"),
     "pyspark.ml": ("pyspark", "spark"),
+    "spark": ("pyspark", "spark"),
     "transformers": ("transformers", "transformers"),
     "sentence_transformers": ("sentence_transformers", "sentence_transformers"),
     "langchain": ("langchain", "langchain"),
+    "llama_index": ("llama_index", "llama_index"),
+    "openai": ("openai", "openai"),
 }
 
 

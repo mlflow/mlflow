@@ -7,6 +7,8 @@ from typing import List
 
 import mlflow
 from mlflow.entities import Metric
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 
@@ -426,6 +428,21 @@ def autologging_integration(name):
             # `mlflow.autolog()` invoke all active integrations with disable=True.
             if name != "mlflow" and get_autologging_config(name, "disable", True):
                 return
+
+            # The `disable_for_unsupported_versions` is only effective when the flavor name is
+            # listed in `FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY` mapping. The mapping should
+            # contain all the flavors support autologging, but may not be up-to-date. To avoid
+            # silent failure, we raise an exception here to capture the issue in CI or assist
+            # users to report the issue.
+            if name not in FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY and get_autologging_config(
+                name, "disable_for_unsupported_versions"
+            ):
+                raise MlflowException(
+                    "The `disable_for_unsupported_versions` configuration is not supported for "
+                    f"the {name} flavor. Please contact the MLflow maintainers for "
+                    "assistance.",
+                    error_code=INTERNAL_ERROR,
+                )
 
             is_silent_mode = get_autologging_config(name, "silent", False)
             # Reroute non-MLflow warnings encountered during autologging enablement to an
