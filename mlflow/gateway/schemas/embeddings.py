@@ -21,7 +21,7 @@ class RequestPayload(RequestModel):
 
 
 class EmbeddingObject(ResponseModel):
-    object: str = "embedding"
+    object: Optional[str] = "embedding"
     embedding: List[float]
     index: int
 
@@ -85,7 +85,7 @@ _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class ResponsePayload(ResponseModel):
-    object: str = "list"
+    object: Optional[str] = "list"
     data: List[EmbeddingObject]
     model: str
     usage: EmbeddingsUsage
