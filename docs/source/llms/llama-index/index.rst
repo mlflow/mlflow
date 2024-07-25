@@ -38,8 +38,31 @@ The integration of the LlamaIndex library with MLflow provides a seamless experi
 Getting Started
 ---------------
 
-TBA
+In this introductory tutorial, you will learn the most fundamental components of LlamaIndex and how to leverage the integration with MLflow to store, retrieve, and 
+use an index. 
 
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="notebooks/llama_index_quickstart.html">
+                    <div class="header">
+                        LlamaIndex Quickstart
+                    </div>
+                    <p>
+                        Get started with MLflow and LlamaIndex by exploring the simplest possible index configuration of a VectorStoreIndex.
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
+
+.. toctree::
+    :maxdepth: 2
+    :hidden:
+
+    notebooks/llama_index_quickstart.ipynb
 
 Concepts
 --------
@@ -261,7 +284,9 @@ However, sometimes you may want to use a different LLM for inference. In such ca
 
     # Load the index back
     loaded_index = mlflow.llama_index.load_model(model_info.model_uri)
+
     assert Settings.llm.model == "gpt-4o-mini"
+
 
     # Update the settings to use GPT-4 instead
     Settings.llm = OpenAI("gpt-4")
