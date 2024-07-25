@@ -4,6 +4,7 @@ import logging
 from functools import singledispatchmethod
 from typing import Any, Dict, Generator, Optional, Tuple, Union
 
+import pydantic
 from llama_index.core.base.agent.types import BaseAgent, BaseAgentWorker, TaskStepOutput
 from llama_index.core.base.base_retriever import BaseRetriever
 from llama_index.core.base.embeddings.base import BaseEmbedding
@@ -28,7 +29,7 @@ from llama_index.core.instrumentation.span.base import BaseSpan
 from llama_index.core.instrumentation.span_handlers import BaseSpanHandler
 from llama_index.core.multi_modal_llms import MultiModalLLM
 from llama_index.core.tools import BaseTool
-from pydantic import PrivateAttr
+from packaging.version import Version
 
 from mlflow.entities import LiveSpan, SpanEvent, SpanType
 from mlflow.entities.span_status import SpanStatusCode
@@ -36,6 +37,8 @@ from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracking.client import MlflowClient
 
 _logger = logging.getLogger(__name__)
+
+IS_PYDANTIC_V1 = Version(pydantic.__version__).major < 2
 
 
 def set_llama_index_tracer():
@@ -77,7 +80,7 @@ def remove_llama_index_tracer():
 
 
 class _LlamaSpan(BaseSpan, extra="allow"):
-    _mlflow_span: LiveSpan = PrivateAttr()
+    _mlflow_span: LiveSpan = pydantic.PrivateAttr()
 
     def __init__(self, id_: str, parent_id: Optional[str], mlflow_span: LiveSpan):
         super().__init__(id_=id_, parent_id=parent_id)
@@ -367,16 +370,22 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     def _extract_token_usage(
         self, response: Union[ChatResponse, CompletionResponse]
     ) -> Dict[str, int]:
-        if (raw := response.raw) and (usage := raw.get("usage")):
-            return usage
-        else:
-            usage = {}
-            # Look for token counts in additional_kwargs of the completion payload
-            if additional_kwargs := getattr(response, "additional_kwargs", None):
-                for k in ["prompt_tokens", "completion_tokens", "total_tokens"]:
-                    if (v := additional_kwargs.get(k)) is not None:
-                        usage[k] = v
-            return usage
+        if raw := response.raw:
+            # The raw response can be a Pydantic model or a dictionary
+            if isinstance(raw, pydantic.BaseModel):
+                raw = raw.dict() if IS_PYDANTIC_V1 else raw.model_dump()
+
+            if usage := raw.get("usage"):
+                return usage
+
+        # If the usage is not found in the raw response, look for token counts
+        # in additional_kwargs of the completion payload
+        usage = {}
+        if additional_kwargs := getattr(response, "additional_kwargs", None):
+            for k in ["prompt_tokens", "completion_tokens", "total_tokens"]:
+                if (v := additional_kwargs.get(k)) is not None:
+                    usage[k] = v
+        return usage
 
 
 _StreamEndEvent = Union[LLMChatEndEvent, LLMCompletionEndEvent, ExceptionEvent]
