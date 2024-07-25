@@ -1204,10 +1204,10 @@ and a config class that inherits from ``mlflow.gateway.base_models.ConfigModel``
     from typing import AsyncIterable
 
     from pydantic import validator
-    from mlflow.deployments.server.base_models import ConfigModel
-    from mlflow.deployments.server.config import RouteConfig, _resolve_api_key_from_input
-    from mlflow.deployments.server.providers import BaseProvider
-    from mlflow.deployments.server.schemas import chat, completions, embeddings
+    from mlflow.gateway.base_models import ConfigModel
+    from mlflow.gateway.config import RouteConfig, _resolve_api_key_from_input
+    from mlflow.gateway.providers import BaseProvider
+    from mlflow.gateway.schemas import chat, completions, embeddings
 
 
     class MyLLMConfig(ConfigModel):
