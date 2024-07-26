@@ -15,7 +15,7 @@ def client(mock_openai):
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
-def test_chat_completions_autolog_artifacts(client, monkeypatch):
+def test_chat_completions_autolog(client, monkeypatch):
     mlflow.openai.autolog(log_models=True)
     messages = [{"role": "user", "content": "test"}]
     with mlflow.start_run() as run:
@@ -32,6 +32,14 @@ def test_chat_completions_autolog_artifacts(client, monkeypatch):
 
     with open(f"{artifact_dir}/output.json") as f:
         assert json.load(f)["id"] == "chatcmpl-123"
+
+    trace = mlflow.get_last_active_trace()
+    assert trace is not None
+    assert trace.info.status == "OK"
+    assert len(trace.data.spans) == 1
+    span = trace.data.spans[0]
+    assert span.inputs == {"messages": messages, "model": "gpt-4o-mini", "temperature": 0}
+    assert span.outputs["id"] == "chatcmpl-123"
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
@@ -63,11 +71,16 @@ def test_chat_completions_autolog_streaming(client, monkeypatch):
 
     trace = mlflow.get_last_active_trace()
     assert trace is not None
-    assert isinstance(trace.data.response, str)
-
-    response_data = json.loads(trace.data.response)
-
-    assert response_data["result"] == "Hello world"
+    assert trace.info.status == "OK"
+    assert len(trace.data.spans) == 1
+    span = trace.data.spans[0]
+    assert span.inputs == {
+        "messages": messages,
+        "model": "gpt-4o-mini",
+        "temperature": 0,
+        "stream": True,
+    }
+    assert span.outputs == "Hello world"  # aggregated string of streaming response
 
     stream_event_data = trace.data.spans[0].attributes["events"]
 
@@ -106,7 +119,7 @@ def test_loaded_chat_completions_autolog(client, monkeypatch):
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
-def test_completions_autolog_artifacts(client, monkeypatch):
+def test_completions_autolog(client, monkeypatch):
     mlflow.openai.autolog(log_models=True)
     with mlflow.start_run() as run:
         client.completions._mlflow_session_id = "test_session_id"
@@ -122,6 +135,14 @@ def test_completions_autolog_artifacts(client, monkeypatch):
 
     with open(f"{artifact_dir}/output.json") as f:
         assert json.load(f)["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
+
+    trace = mlflow.get_last_active_trace()
+    assert trace is not None
+    assert trace.info.status == "OK"
+    assert len(trace.data.spans) == 1
+    span = trace.data.spans[0]
+    assert span.inputs == {"prompt": "test", "model": "gpt-4o-mini", "temperature": 0}
+    assert span.outputs["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
@@ -152,11 +173,16 @@ def test_completions_autolog_streaming(client, monkeypatch):
 
     trace = mlflow.get_last_active_trace()
     assert trace is not None
-    assert isinstance(trace.data.response, str)
-
-    response_data = json.loads(trace.data.response)
-
-    assert response_data["result"] == "Hello world"
+    assert trace.info.status == "OK"
+    assert len(trace.data.spans) == 1
+    span = trace.data.spans[0]
+    assert span.inputs == {
+        "prompt": "test",
+        "model": "gpt-4o-mini",
+        "temperature": 0,
+        "stream": True,
+    }
+    assert span.outputs == "Hello world"  # aggregated string of streaming response
 
     stream_event_data = trace.data.spans[0].attributes["events"]
 
