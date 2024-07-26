@@ -125,8 +125,8 @@ def load_text2text_generation_pipeline():
 def load_text_generation_pipeline():
     task = "text-generation"
     architecture = "distilgpt2"
-    model = transformers.AutoModelWithLMHead.from_pretrained(architecture, chat_template=chat_template)
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+    model = transformers.AutoModelWithLMHead.from_pretrained(architecture)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture, chat_template=chat_template)
     return transformers.pipeline(task=task, model=model, tokenizer=tokenizer)
 
 
