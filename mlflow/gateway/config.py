@@ -313,7 +313,9 @@ class Model(ConfigModel):
             config_type = config_types[provider]
             return config_type(**info)
 
-        raise MlflowException.invalid_parameter_value("A provider must be provided for each gateway route.")
+        raise MlflowException.invalid_parameter_value(
+            "A provider must be provided for each gateway route."
+        )
 
     @pydantic_field_validator(field_name="config")
     def validate_config(cls, info, values):
