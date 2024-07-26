@@ -239,6 +239,48 @@ def test_rate_limit():
         assert resp.status_code == 429
 
 
+def test_openai_rate_limit():
+    config = GatewayConfig(
+        **{
+            "endpoints": [
+                {
+                    "name": "chat",
+                    "endpoint_type": "llm/v1/chat",
+                    "model": {
+                        "name": "gpt-4",
+                        "provider": "openai",
+                        "config": {
+                            "openai_api_key": "mykey",
+                            "openai_api_base": "https://api.openai.com/v1",
+                        },
+                    },
+                    "limit": {"calls": 1, "key": None, "renewal_period": "minute"},
+                }
+            ]
+        }
+    )
+    app = create_app_from_config(config)
+    client = TestClient(app)
+    endpoint_path = "/v1/chat/completions"
+
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(model_response)
+    ) as mock_post:
+        resp = client.post(
+            endpoint_path,
+            json={"messages": [{"role": "user", "content": "Tell me a joke"}]},
+        )
+        mock_post.assert_called_once()
+        assert resp.status_code == 200
+        assert resp.json() == test_response
+        # second call
+        resp = client.post(
+            endpoint_path,
+            json={"messages": [{"role": "user", "content": "Tell me a joke again"}]},
+        )
+        assert resp.status_code == 429
+
+
 def test_create_app_from_env_fails_if_MLFLOW_DEPLOYMENTS_CONFIG_is_not_set(monkeypatch):
     monkeypatch.delenv("MLFLOW_DEPLOYMENTS_CONFIG", raising=False)
     with pytest.raises(MlflowException, match="'MLFLOW_DEPLOYMENTS_CONFIG' is not set"):
