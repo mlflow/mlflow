@@ -289,7 +289,7 @@ def make_pip_install_command(packages):
 
 
 def divider(title, length=None):
-    length = (shutil.get_terminal_size(fallback=(80, 24))[0] if length is None else length)
+    length = shutil.get_terminal_size(fallback=(80, 24))[0] if length is None else length
     rest = length - len(title) - 2
     left = rest // 2 if rest % 2 else (rest + 1) // 2
     return "\n{} {} {}\n".format("=" * left, title, "=" * (rest - left))
@@ -425,7 +425,7 @@ def expand_config(config):
                 install_dev = remove_comments(package_info.install_dev)
                 requirements = get_matched_requirements(cfg.requirements or {}, DEV_VERSION)
                 if requirements:
-                    install =  make_pip_install_command(requirements) + "\n" + install_dev
+                    install = make_pip_install_command(requirements) + "\n" + install_dev
                 else:
                     install = install_dev
                 python = get_python_version(cfg.python, package_info.pip_release, DEV_VERSION)

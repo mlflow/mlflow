@@ -305,9 +305,7 @@ class Model(ConfigModel):
         formatted_value = value.replace("-", "_").upper()
         if formatted_value in Provider.__members__:
             return Provider[formatted_value]
-        raise MlflowException.invalid_parameter_value(
-            f"The provider '{value}' is not supported."
-        )
+        raise MlflowException.invalid_parameter_value(f"The provider '{value}' is not supported.")
 
     @classmethod
     def _validate_config(cls, info, values):
