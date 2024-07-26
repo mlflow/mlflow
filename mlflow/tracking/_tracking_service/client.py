@@ -39,6 +39,7 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.artifact_utils import get_artifact_uri_for_trace
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags
 from mlflow.tracking._tracking_service import utils
@@ -48,7 +49,7 @@ from mlflow.utils.async_logging.run_operations import RunOperations, get_combine
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS, MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri
+from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
 from mlflow.utils.validation import (
     MAX_ENTITIES_PER_BATCH,
     MAX_METRICS_PER_BATCH,
@@ -873,6 +874,22 @@ class TrackingServiceClient:
         """
         return self._get_artifact_repo(run_id).download_artifacts(path, dst_path)
 
+    def _log_url(self, run_id):
+        if not isinstance(self.store, RestStore):
+            return
+        host_url = self.store.get_host_creds().host
+        run_info = self.store.get_run(run_id).info
+        experiment_id = run_info.experiment_id
+        run_name = run_info.run_name
+        if is_databricks_uri(self.tracking_uri):
+            experment_url = f"{host_url}/ml/experiments/{experiment_id}"
+        else:
+            experment_url = f"{host_url}/#/experiments/{experiment_id}"
+        run_url = f"{experment_url}/runs/{run_id}"
+
+        _logger.info(f"🏃 View run {run_name} at: {run_url}.")
+        _logger.info(f"🧪 View experiment at: {experment_url}.")
+
     def set_terminated(self, run_id, status=None, end_time=None):
         """Set a run's status to terminated.
 
@@ -886,6 +903,7 @@ class TrackingServiceClient:
         # data in the background. This call is making sure every async logging data has been
         # submitted for logging, but not necessarily finished logging.
         self.store.shut_down_async_logging()
+        self._log_url(run_id)
         self.store.update_run_info(
             run_id,
             run_status=RunStatus.from_string(status),

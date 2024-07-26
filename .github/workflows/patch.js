@@ -43,11 +43,12 @@ module.exports = async ({ context, github, core }) => {
     return;
   }
 
-  const latestRelease = await github.rest.repos.getLatestRelease({
+  const releases = await github.rest.repos.listReleases({
     owner,
     repo,
+    per_page: 1,
   });
-  const version = latestRelease.data.tag_name.replace("v", "");
+  const version = releases.data[0].tag_name.replace("v", "");
   const [major, minor, micro] = version.replace(/rc\d+$/, "").split(".");
   const nextMicro = version.includes("rc") ? micro : (parseInt(micro) + 1).toString();
   const label = `patch-${major}.${minor}.${nextMicro}`;

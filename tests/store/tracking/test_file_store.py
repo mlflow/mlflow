@@ -571,6 +571,10 @@ def test_get_experiment_by_name(store):
         exp = store.get_experiment_by_name(exp_names)
         assert exp is None
 
+    exp_id = experiments[0]
+    store.delete_experiment(exp_id)
+    assert store.get_experiment_by_name(exp_data[exp_id]["name"]).experiment_id == exp_id
+
 
 def test_create_additional_experiment_generates_random_fixed_length_id(store):
     store._get_active_experiments = mock.Mock(return_value=[])

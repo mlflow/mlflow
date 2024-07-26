@@ -30,7 +30,6 @@ if _MLFLOW_RUN_SLOW_TESTS.get():
     from tests.catboost.test_catboost_model_export import reg_model  # noqa: F401
     from tests.diviner.test_diviner_model_export import (  # noqa: F401
         diviner_data,
-        diviner_groups,
         grouped_prophet,
     )
     from tests.fastai.test_fastai_model_export import fastai_model as fastai_model_raw  # noqa: F401
@@ -198,14 +197,12 @@ def catboost_model(model_path, reg_model):
 
 
 @pytest.fixture
-def diviner_model(model_path, grouped_prophet, diviner_groups):
+def diviner_model(model_path, grouped_prophet):
     save_model_with_latest_mlflow_version(
         flavor="diviner",
         diviner_model=grouped_prophet,
         path=model_path,
-        input_example=pd.DataFrame(
-            {"groups": [diviner_groups], "horizon": 10, "frequency": "D"}, index=[0]
-        ),
+        input_example={"horizon": 10, "frequency": "D"},
     )
     return model_path
 

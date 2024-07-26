@@ -333,7 +333,7 @@ class FileStore(AbstractStore):
     def get_experiment_by_name(self, experiment_name):
         def pagination_wrapper_func(number_to_get, next_page_token):
             return self.search_experiments(
-                view_type=ViewType.ACTIVE_ONLY,
+                view_type=ViewType.ALL,
                 max_results=number_to_get,
                 filter_string=f"name = '{experiment_name}'",
                 page_token=next_page_token,
