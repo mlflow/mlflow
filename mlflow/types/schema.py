@@ -685,7 +685,6 @@ class ColSpec:
         try:
             self._type = DataType[type] if isinstance(type, str) else type
         except KeyError:
-            breakpoint()
             raise MlflowException(
                 f"Unsupported type '{type}', expected instance of DataType or "
                 f"one of {[t.name for t in DataType]}"

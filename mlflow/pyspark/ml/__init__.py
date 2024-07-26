@@ -770,11 +770,8 @@ def _get_columns_with_unsupported_data_type(df):
 def _check_or_set_model_prediction_column(spark_model, input_spark_df):
     from pyspark.ml import PipelineModel
 
-    if not isinstance(spark_model, PipelineModel):
-        raise MlflowException("The Spark model logged by MLflow should be a pipeline model.")
-
     prediction_column = "prediction"
-    if spark_model.stages[-1].hasParam("outputCol"):
+    if isinstance(spark_model, PipelineModel) and spark_model.stages[-1].hasParam("outputCol"):
         from mlflow.utils._spark_utils import _get_active_spark_session
 
         spark = _get_active_spark_session()
