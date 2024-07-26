@@ -250,10 +250,7 @@ def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in
 )
 @pytest.mark.parametrize("module_name", ["langchain", "langchain_community"])
 def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch):
-    if module_name == "langchain":
-        from langchain.chat_models import ChatDatabricks
-    elif module_name == "langchain_community":
-        from langchain_community.chat_models import ChatDatabricks
+    from langchain_community.chat_models import ChatDatabricks
 
     mock_get_deploy_client = MagicMock()
 
