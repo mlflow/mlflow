@@ -68,6 +68,7 @@ tenacity
 llama_index
 # Required by mlflow.langchain
 langchain
+langchain-community
 # Required by mlflow.promptflow
 promptflow
 # Required by mlflow.sentence_transformers
