@@ -422,7 +422,7 @@ def test_get_experiment(store: SqlAlchemyStore):
     assert store.get_experiment_by_name("idontexist") is None
 
     store.delete_experiment(experiment_id)
-    assert store.get_experiment_by_name(name) is None
+    assert store.get_experiment_by_name(name) is not None
 
 
 def test_search_experiments_view_type(store: SqlAlchemyStore):

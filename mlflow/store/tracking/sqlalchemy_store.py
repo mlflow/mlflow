@@ -396,7 +396,7 @@ class SqlAlchemyStore(AbstractStore):
         Specialized implementation for SQL backed store.
         """
         with self.ManagedSessionMaker() as session:
-            stages = LifecycleStage.view_type_to_stages(ViewType.ACTIVE_ONLY)
+            stages = LifecycleStage.view_type_to_stages(ViewType.ALL)
             experiment = (
                 session.query(SqlExperiment)
                 .options(*self._get_eager_experiment_query_options())
