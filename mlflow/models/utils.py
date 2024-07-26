@@ -327,7 +327,7 @@ class _Example:
                     "to pass pandas DataFrame input example, please pass the DF directly "
                 )
 
-                from mlflow.pyfunc.scoring_server.utils import _is_unified_llm_input
+                from mlflow.pyfunc.utils.serving_data_parser import _is_unified_llm_input
 
                 self.info["type"] = "json_object"
                 is_unified_llm_input = _is_unified_llm_input(model_input)

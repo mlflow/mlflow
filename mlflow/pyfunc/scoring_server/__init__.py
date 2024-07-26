@@ -51,7 +51,10 @@ except ImportError:
 from io import StringIO
 
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
-from mlflow.pyfunc.scoring_server.utils import _is_unified_llm_input
+from mlflow.pyfunc.utils.serving_data_parser import (  # noqa: F401
+    SUPPORTED_LLM_FORMATS,
+    _is_unified_llm_input,
+)
 from mlflow.server.handlers import catch_mlflow_exception
 
 _SERVER_MODEL_PATH = "__pyfunc_model_path__"

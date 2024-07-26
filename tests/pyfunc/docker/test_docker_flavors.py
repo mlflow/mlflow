@@ -177,7 +177,11 @@ def test_build_image_and_serve(flavor, request):
         )
 
         assert response.status_code == 200, f"Response: {response.text}"
-        assert "predictions" in response.json(), f"Response: {response.text}"
+        if flavor == "langchain":
+            # "messages" key is unified llm input, output is not wrapped into predictions
+            assert response.json() == ["Hi"]
+        else:
+            assert "predictions" in response.json(), f"Response: {response.text}"
 
 
 @pytest.fixture
