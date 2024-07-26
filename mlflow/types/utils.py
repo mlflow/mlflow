@@ -18,6 +18,7 @@ from mlflow.types.schema import (
     ParamSpec,
     Property,
     Schema,
+    SparkMLVector,
     TensorSpec,
 )
 
@@ -571,7 +572,7 @@ def _infer_spark_type(x, data=None, col_name=None) -> DataType:
             ]
         )
     elif isinstance(x, VectorUDT):
-        return Array.get_spark_ml_vector_type()
+        return SparkMLVector()
 
     else:
         raise MlflowException.invalid_parameter_value(

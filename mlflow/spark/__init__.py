@@ -43,7 +43,7 @@ from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
     _get_root_uri_and_artifact_path,
 )
-from mlflow.types.schema import Array
+from mlflow.types.schema import SparkMLVector
 from mlflow.utils import _get_fully_qualified_class_name, databricks_utils
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.class_utils import _get_class_from_string
@@ -993,7 +993,7 @@ class _PyFuncModelWrapper:
         # otherwise it will break `spark.createDataFrame` column type inferring.
         if self.signature and self.signature.inputs:
             for col_spec in self.signature.inputs.inputs:
-                if isinstance(col_spec.type, Array) and col_spec.type.is_sparkml_vector:
+                if isinstance(col_spec.type, SparkMLVector):
                     col_name = col_spec.name or pandas_df.columns[0]
 
                     pandas_df[col_name] = pandas_df[col_name].map(
@@ -1005,7 +1005,7 @@ class _PyFuncModelWrapper:
         # Convert Array[Double] column to spark ML vector type according to signature
         if self.signature and self.signature.inputs:
             for col_spec in self.signature.inputs.inputs:
-                if isinstance(col_spec.type, Array) and col_spec.type.is_sparkml_vector:
+                if isinstance(col_spec.type, SparkMLVector):
                     from pyspark.ml.functions import array_to_vector
 
                     col_name = col_spec.name or spark_df.columns[0]
@@ -1027,7 +1027,7 @@ class _PyFuncModelWrapper:
         # break enforce_schema checking
         if self.signature and self.signature.outputs:
             for col_spec in self.signature.outputs.inputs:
-                if isinstance(col_spec.type, Array) and col_spec.type.is_sparkml_vector:
+                if isinstance(col_spec.type, SparkMLVector):
                     from pyspark.ml.functions import vector_to_array
 
                     col_name = col_spec.name or prediction_df.columns[0]

@@ -17,6 +17,7 @@ from mlflow.utils.annotations import experimental
 ARRAY_TYPE = "array"
 OBJECT_TYPE = "object"
 MAP_TYPE = "map"
+SPARKML_VECTOR_TYPE = "sparkml_vector"
 
 
 class DataType(Enum):
@@ -72,9 +73,14 @@ class DataType(Enum):
         return self._pandas_type
 
     def to_spark(self):
-        import pyspark.sql.types
+        if self._spark_type == "VectorUDT":
+            from pyspark.ml.linalg import VectorUDT
 
-        return getattr(pyspark.sql.types, self._spark_type)()
+            return VectorUDT()
+        else:
+            import pyspark.sql.types
+
+            return getattr(pyspark.sql.types, self._spark_type)()
 
     def to_python(self):
         """Get equivalent python data type."""
@@ -231,6 +237,8 @@ class Property:
         dtype = dic["type"]
         if dtype == ARRAY_TYPE:
             return cls(name=name, dtype=Array.from_json_dict(**dic), required=required)
+        if dtype == SPARKML_VECTOR_TYPE:
+            return SparkMLVector()
         if dtype == OBJECT_TYPE:
             return cls(name=name, dtype=Object.from_json_dict(**dic), required=required)
         if dtype == MAP_TYPE:
@@ -442,7 +450,6 @@ class Array:
     def __init__(
         self,
         dtype: Union["Array", "Map", DataType, Object, str],
-        is_sparkml_vector: bool = False,
     ) -> None:
         try:
             self._dtype = DataType[dtype] if isinstance(dtype, str) else dtype
@@ -458,15 +465,6 @@ class Array:
                 f"'dtype' argument, but got '{self.dtype.__class__}'"
             )
 
-        if is_sparkml_vector and self.dtype != DataType.double:
-            raise MlflowException("Only 'Array(double)' type can be set as Spark ML vector type.")
-
-        self._is_sparkml_vector = is_sparkml_vector
-
-    @property
-    def is_sparkml_vector(self) -> bool:
-        return self._is_sparkml_vector
-
     @property
     def dtype(self) -> Union["Array", DataType, Object]:
         """The array data type."""
@@ -481,10 +479,7 @@ class Array:
         items = (
             {"type": self.dtype.name} if isinstance(self.dtype, DataType) else self.dtype.to_dict()
         )
-        is_sparkml_vector_attr = (
-            {"is_sparkml_vector": self.is_sparkml_vector} if self.is_sparkml_vector else {}
-        )
-        return {"type": ARRAY_TYPE, "items": items, **is_sparkml_vector_attr}
+        return {"type": ARRAY_TYPE, "items": items}
 
     @classmethod
     def from_json_dict(cls, **kwargs):
@@ -509,16 +504,16 @@ class Array:
             item_type = Object.from_json_dict(**kwargs["items"])
         elif kwargs["items"]["type"] == ARRAY_TYPE:
             item_type = Array.from_json_dict(**kwargs["items"])
+        elif kwargs["items"]["type"] == SPARKML_VECTOR_TYPE:
+            item_type = SparkMLVector()
         elif kwargs["items"]["type"] == MAP_TYPE:
             item_type = Map.from_json_dict(**kwargs["items"])
         else:
             item_type = kwargs["items"]["type"]
 
-        return cls(dtype=item_type, is_sparkml_vector=kwargs.get("is_sparkml_vector", False))
+        return cls(dtype=item_type)
 
     def __repr__(self) -> str:
-        if self.is_sparkml_vector:
-            return "SparkML vector"
         return f"Array({self.dtype!r})"
 
     def _merge(self, arr: "Array") -> "Array":
@@ -542,12 +537,30 @@ class Array:
 
         raise MlflowException(f"Array type {self!r} and {arr!r} are incompatible")
 
+
+class SparkMLVector(Array):
+    """
+    Specification used to represent a vector type in Spark ML.
+    """
+
+    def __init__(self):
+        super().__init__(dtype=DataType.double)
+
+    def to_dict(self):
+        return {"type": SPARKML_VECTOR_TYPE}
+
     @classmethod
-    def get_spark_ml_vector_type(cls):
-        """
-        Get the spark ML vector type.
-        """
-        return Array(dtype=DataType.double, is_sparkml_vector=True)
+    def from_json_dict(cls, **kwargs):
+        return SparkMLVector()
+
+    def __repr__(self) -> str:
+        return "SparkML vector"
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, SparkMLVector)
+
+    def _merge(self, arr: "Array") -> "Array":
+        raise MlflowException("SparkML vector type can't be merged with another Array type.")
 
 
 class Map:
@@ -612,6 +625,8 @@ class Map:
             return cls(value_type=Object.from_json_dict(**kwargs["values"]))
         if kwargs["values"]["type"] == ARRAY_TYPE:
             return cls(value_type=Array.from_json_dict(**kwargs["values"]))
+        if kwargs["values"]["type"] == SPARKML_VECTOR_TYPE:
+            return SparkMLVector()
         if kwargs["values"]["type"] == MAP_TYPE:
             return cls(value_type=Map.from_json_dict(**kwargs["values"]))
         return cls(value_type=kwargs["values"]["type"])
@@ -670,6 +685,7 @@ class ColSpec:
         try:
             self._type = DataType[type] if isinstance(type, str) else type
         except KeyError:
+            breakpoint()
             raise MlflowException(
                 f"Unsupported type '{type}', expected instance of DataType or "
                 f"one of {[t.name for t in DataType]}"
@@ -739,7 +755,7 @@ class ColSpec:
         """
         if not {"type"} <= set(kwargs.keys()):
             raise MlflowException("Missing keys in ColSpec JSON. Expected to find key `type`")
-        if kwargs["type"] not in [ARRAY_TYPE, OBJECT_TYPE, MAP_TYPE]:
+        if kwargs["type"] not in [ARRAY_TYPE, OBJECT_TYPE, MAP_TYPE, SPARKML_VECTOR_TYPE]:
             return cls(**kwargs)
         name = kwargs.pop("name", None)
         optional = kwargs.pop("optional", None)
@@ -759,6 +775,8 @@ class ColSpec:
             return cls(
                 name=name, type=Map.from_json_dict(**kwargs), optional=optional, required=required
             )
+        if kwargs["type"] == SPARKML_VECTOR_TYPE:
+            return cls(name=name, type=SparkMLVector(), optional=optional, required=required)
 
 
 class TensorInfo:
@@ -917,6 +935,7 @@ class Schema:
             raise MlflowException.invalid_parameter_value(
                 "Creating Schema with empty inputs is not allowed."
             )
+
         if not (all(x.name is None for x in inputs) or all(x.name is not None for x in inputs)):
             raise MlflowException(
                 "Creating Schema with a combination of named and unnamed inputs "

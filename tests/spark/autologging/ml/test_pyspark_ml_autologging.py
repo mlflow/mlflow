@@ -1045,9 +1045,7 @@ def test_autolog_signature_with_estimator(spark_session, dataset_multinomial, lr
         assert "signature" in model_conf
         assert _read_schema(model_conf["signature"]["inputs"]) == [
             {
-                "type": "array",
-                "items": {"type": "double"},
-                "is_sparkml_vector": True,
+                "type": "sparkml_vector",
                 "name": "features",
                 "required": True,
             }
@@ -1088,9 +1086,7 @@ def test_autolog_signature_non_scaler_input(dataset_multinomial, lr):
         assert model_conf.signature.inputs.to_dict() == (
             [
                 {
-                    "type": "array",
-                    "items": {"type": "double"},
-                    "is_sparkml_vector": True,
+                    "type": "sparkml_vector",
                     "name": "features",
                     "required": True,
                 }
@@ -1272,7 +1268,7 @@ def test_find_and_set_features_col_as_vector_if_needed(lr, dataset_binomial):
 
 
 def test_model_with_vector_input(spark_session):
-    from mlflow.types.schema import Array
+    from mlflow.types.schema import SparkMLVector
 
     mlflow.pyspark.ml.autolog()
     train_df = spark_session.createDataFrame(
@@ -1288,8 +1284,7 @@ def test_model_with_vector_input(spark_session):
     # check vector type is inferred correctly
     model_info = mlflow.models.get_model_info(model_uri)
     input_type = model_info.signature.inputs.input_dict()["features"].type
-    assert isinstance(input_type, Array)
-    assert input_type.is_sparkml_vector
+    assert isinstance(input_type, SparkMLVector)
 
     assert model_info.signature.outputs.inputs[0].type == DataType.double
 
@@ -1300,7 +1295,7 @@ def test_model_with_vector_input(spark_session):
 
 
 def test_model_with_vector_input_vector_output(spark_session):
-    from mlflow.types.schema import Array
+    from mlflow.types.schema import SparkMLVector
 
     mlflow.pyspark.ml.autolog()
     train_df = spark_session.createDataFrame(
@@ -1318,12 +1313,10 @@ def test_model_with_vector_input_vector_output(spark_session):
     # check vector type is inferred correctly
     model_info = mlflow.models.get_model_info(model_uri)
     input_type = model_info.signature.inputs.input_dict()["features"].type
-    assert isinstance(input_type, Array)
-    assert input_type.is_sparkml_vector
+    assert isinstance(input_type, SparkMLVector)
 
     output_type = model_info.signature.outputs.inputs[0].type
-    assert isinstance(output_type, Array)
-    assert output_type.is_sparkml_vector
+    assert isinstance(output_type, SparkMLVector)
 
     model = mlflow.pyfunc.load_model(model_uri)
 

@@ -35,7 +35,7 @@ from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
 )
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
-from mlflow.types.schema import Array, ColSpec, Schema
+from mlflow.types.schema import ColSpec, Schema
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -989,6 +989,8 @@ def test_model_log_with_signature_inference(spark_model_iris, input_example):
 def test_log_model_with_vector_input_type_signature(spark, spark_model_estimator):
     from pyspark.ml.functions import vector_to_array
 
+    from mlflow.types.schema import SparkMLVector
+
     model = spark_model_estimator.model
     with mlflow.start_run():
         model_info = mlflow.spark.log_model(
@@ -997,7 +999,7 @@ def test_log_model_with_vector_input_type_signature(spark, spark_model_estimator
             signature=ModelSignature(
                 inputs=Schema(
                     [
-                        ColSpec(name="features", type=Array.get_spark_ml_vector_type()),
+                        ColSpec(name="features", type=SparkMLVector()),
                     ]
                 ),
                 outputs=Schema([ColSpec(type=DataType.double)]),
@@ -1007,8 +1009,7 @@ def test_log_model_with_vector_input_type_signature(spark, spark_model_estimator
     model_uri = model_info.model_uri
     model_meta = Model.load(model_uri)
     input_type = model_meta.signature.inputs.input_dict()["features"].type
-    assert isinstance(input_type, Array)
-    assert input_type.is_sparkml_vector
+    assert isinstance(input_type, SparkMLVector)
 
     pyfunc_model = pyfunc.load_model(model_uri)
     infer_data = spark_model_estimator.spark_df.withColumn(
