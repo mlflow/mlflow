@@ -1519,7 +1519,7 @@ def test_deploy_cli_deletes_sagemaker_deployment(pretrained_model, sagemaker_cli
     assert len(response["Endpoints"]) == 0
 
 
-@pytest.mark.parametrize("i", range(100))
+@pytest.mark.parametrize("i", range(500))
 @mock_sagemaker_aws_services
 def test_get_deployment_successful(i, pretrained_model, sagemaker_client):
     name = "test-app"
