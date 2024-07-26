@@ -559,7 +559,9 @@ class SparkMLVector(Array):
     def __eq__(self, other) -> bool:
         return isinstance(other, SparkMLVector)
 
-    def _merge(self, arr: "Array") -> "Array":
+    def _merge(self, arr: Array) -> Array:
+        if isinstance(arr, SparkMLVector):
+            return deepcopy(self)
         raise MlflowException("SparkML vector type can't be merged with another Array type.")
 
 
