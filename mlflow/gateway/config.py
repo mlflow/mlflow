@@ -27,10 +27,9 @@ from mlflow.gateway.utils import (
     is_valid_endpoint_name,
     is_valid_mosiacml_chat_model,
 )
+from mlflow.utils.pydantic import IS_PYDANTIC_V2, pydantic_field_validator
 
 _logger = logging.getLogger(__name__)
-
-IS_PYDANTIC_V2 = version.parse(pydantic.version.VERSION) >= version.parse("2.0")
 
 
 class Provider(str, Enum):
@@ -58,20 +57,9 @@ class Provider(str, Enum):
 class TogetherAIConfig(ConfigModel):
     togetherai_api_key: str
 
-    if IS_PYDANTIC_V2:
-        from pydantic import field_validator as _field_validator
-
-        @_field_validator("togetherai_api_key", mode="before")
-        @classmethod
-        def validate_togetherai_api_key(cls, value):
-            return _resolve_api_key_from_input(value)
-
-    else:
-        from pydantic import validator as _validator
-
-        @_validator("togetherai_api_key", pre=True)
-        def validate_togetherai_api_key(cls, value):
-            return _resolve_api_key_from_input(value)
+    @pydantic_field_validator(field_name="togetherai_api_key")
+    def validate_togetherai_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 class RouteType(str, Enum):
@@ -83,59 +71,26 @@ class RouteType(str, Enum):
 class CohereConfig(ConfigModel):
     cohere_api_key: str
 
-    if IS_PYDANTIC_V2:
-        from pydantic import field_validator as _field_validator
-
-        @_field_validator("cohere_api_key", mode="before")
-        @classmethod
-        def validate_cohere_api_key(cls, value):
-            return _resolve_api_key_from_input(value)
-
-    else:
-        from pydantic import validator as _validator
-
-        @_validator("cohere_api_key", pre=True)
-        def validate_cohere_api_key(cls, value):
-            return _resolve_api_key_from_input(value)
+    @pydantic_field_validator(field_name="cohere_api_key")
+    def validate_cohere_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 class AI21LabsConfig(ConfigModel):
     ai21labs_api_key: str
 
-    if IS_PYDANTIC_V2:
-        from pydantic import field_validator as _field_validator
-
-        @_field_validator("ai21labs_api_key", mode="before")
-        @classmethod
-        def validate_ai21labs_api_key(cls, value):
-            return _resolve_api_key_from_input(value)
-
-    else:
-        from pydantic import validator as _validator
-
-        @_validator("ai21labs_api_key", pre=True)
-        def validate_ai21labs_api_key(cls, value):
-            return _resolve_api_key_from_input(value)
+    @pydantic_field_validator(field_name="ai21labs_api_key")
+    def validate_ai21labs_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 class MosaicMLConfig(ConfigModel):
     mosaicml_api_key: str
     mosaicml_api_base: Optional[str] = None
 
-    if IS_PYDANTIC_V2:
-        from pydantic import field_validator as _field_validator
-
-        @_field_validator("mosaicml_api_key", mode="before")
-        @classmethod
-        def validate_mosaicml_api_key(cls, value):
-            return _resolve_api_key_from_input(value)
-
-    else:
-        from pydantic import validator as _validator
-
-        @_validator("mosaicml_api_key", pre=True)
-        def validate_mosaicml_api_key(cls, value):
-            return _resolve_api_key_from_input(value)
+    @pydantic_field_validator(field_name="mosaicml_api_key")
+    def validate_mosaicml_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 class OpenAIAPIType(str, Enum):
@@ -165,20 +120,9 @@ class OpenAIConfig(ConfigModel):
     openai_deployment_name: Optional[str] = None
     openai_organization: Optional[str] = None
 
-    if IS_PYDANTIC_V2:
-        from pydantic import field_validator as _field_validator
-
-        @_field_validator("openai_api_key", mode="before")
-        @classmethod
-        def validate_openai_api_key(cls, value):
-            return _resolve_api_key_from_input(value)
-
-    else:
-        from pydantic import validator as _validator
-
-        @_validator("openai_api_key", pre=True)
-        def validate_openai_api_key(cls, value):
-            return _resolve_api_key_from_input(value)
+    @pydantic_field_validator(field_name="openai_api_key")
+    def validate_openai_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
     @classmethod
     def _validate_field_compatibility(cls, info: Dict[str, Any]):
@@ -235,39 +179,17 @@ class AnthropicConfig(ConfigModel):
     anthropic_api_key: str
     anthropic_version: str = "2023-06-01"
 
-    if IS_PYDANTIC_V2:
-        from pydantic import field_validator as _field_validator
-
-        @_field_validator("anthropic_api_key", mode="before")
-        @classmethod
-        def validate_anthropic_api_key(cls, value):
-            return _resolve_api_key_from_input(value)
-
-    else:
-        from pydantic import validator as _validator
-
-        @_validator("anthropic_api_key", pre=True)
-        def validate_anthropic_api_key(cls, value):
-            return _resolve_api_key_from_input(value)
+    @pydantic_field_validator(field_name="anthropic_api_key")
+    def validate_anthropic_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 class PaLMConfig(ConfigModel):
     palm_api_key: str
 
-    if IS_PYDANTIC_V2:
-        from pydantic import field_validator as _field_validator
-
-        @_field_validator("palm_api_key", mode="before")
-        @classmethod
-        def validate_palm_api_key(cls, value):
-            return _resolve_api_key_from_input(value)
-
-    else:
-        from pydantic import validator as _validator
-
-        @_validator("palm_api_key", pre=True)
-        def validate_palm_api_key(cls, value):
-            return _resolve_api_key_from_input(value)
+    @pydantic_field_validator(field_name="palm_api_key")
+    def validate_palm_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 class MlflowModelServingConfig(ConfigModel):
@@ -305,20 +227,9 @@ class AmazonBedrockConfig(ConfigModel):
 class MistralConfig(ConfigModel):
     mistral_api_key: str
 
-    if IS_PYDANTIC_V2:
-        from pydantic import field_validator as _field_validator
-
-        @_field_validator("mistral_api_key", mode="before")
-        @classmethod
-        def validate_mistral_api_key(cls, value):
-            return _resolve_api_key_from_input(value)
-
-    else:
-        from pydantic import validator as _validator
-
-        @_validator("mistral_api_key", pre=True)
-        def validate_mistral_api_key(cls, value):
-            return _resolve_api_key_from_input(value)
+    @pydantic_field_validator(field_name="mistral_api_key")
+    def validate_mistral_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 config_types = {
@@ -397,34 +308,16 @@ class Model(ConfigModel):
         ]
     ] = None
 
-    if IS_PYDANTIC_V2:
-        from pydantic import field_validator as _field_validator
-
-        @_field_validator("provider", mode="before")
-        @classmethod
-        def validate_provider(cls, value):
-            if isinstance(value, Provider):
-                return value
-            formatted_value = value.replace("-", "_").upper()
-            if formatted_value in Provider.__members__:
-                return Provider[formatted_value]
-            raise MlflowException.invalid_parameter_value(
-                f"The provider '{value}' is not supported."
-            )
-
-    else:
-        from pydantic import validator as _validator
-
-        @_validator("provider", pre=True)
-        def validate_provider(cls, value):
-            if isinstance(value, Provider):
-                return value
-            formatted_value = value.replace("-", "_").upper()
-            if formatted_value in Provider.__members__:
-                return Provider[formatted_value]
-            raise MlflowException.invalid_parameter_value(
-                f"The provider '{value}' is not supported."
-            )
+    @pydantic_field_validator(field_name="provider")
+    def validate_provider(cls, value):
+        if isinstance(value, Provider):
+            return value
+        formatted_value = value.replace("-", "_").upper()
+        if formatted_value in Provider.__members__:
+            return Provider[formatted_value]
+        raise MlflowException.invalid_parameter_value(
+            f"The provider '{value}' is not supported."
+        )
 
     @classmethod
     def _validate_config(cls, info, values):
@@ -436,20 +329,9 @@ class Model(ConfigModel):
             "A provider must be provided for each gateway route."
         )
 
-    if IS_PYDANTIC_V2:
-        from pydantic import field_validator as _field_validator
-
-        @_field_validator("config", mode="before")
-        @classmethod
-        def validate_config(cls, info, values):
-            return cls._validate_config(info, values)
-
-    else:
-        from pydantic import validator as _validator
-
-        @_validator("config", pre=True)
-        def validate_config(cls, config, values):
-            return cls._validate_config(config, values)
+    @pydantic_field_validator(field_name="config")
+    def validate_config(cls, info, values):
+        return cls._validate_config(info, values)
 
 
 class AliasedConfigModel(ConfigModel):
@@ -481,67 +363,29 @@ class RouteConfig(AliasedConfigModel):
     model: Model
     limit: Optional[Limit] = None
 
-    if IS_PYDANTIC_V2:
-        from pydantic import field_validator as _field_validator
+    @pydantic_field_validator(field_name="name")
+    def validate_endpoint_name(cls, route_name):
+        if not is_valid_endpoint_name(route_name):
+            raise MlflowException.invalid_parameter_value(
+                "The route name provided contains disallowed characters for a url endpoint. "
+                f"'{route_name}' is invalid. Names cannot contain spaces or any non "
+                "alphanumeric characters other than hyphen and underscore."
+            )
+        return route_name
 
-        @_field_validator("name", mode="before")
-        @classmethod
-        def validate_endpoint_name(cls, route_name):
-            if not is_valid_endpoint_name(route_name):
+    @pydantic_field_validator(field_name="model")
+    def validate_model(cls, model):
+        if model:
+            model_instance = Model(**model)
+            if (
+                model_instance.provider in Provider.values()
+                and model_instance.config is None
+            ):
                 raise MlflowException.invalid_parameter_value(
-                    "The route name provided contains disallowed characters for a url endpoint. "
-                    f"'{route_name}' is invalid. Names cannot contain spaces or any non "
-                    "alphanumeric characters other than hyphen and underscore."
+                    "A config must be supplied when setting a provider. The provider entry for "
+                    f"{model_instance.provider} is incorrect."
                 )
-            return route_name
-
-    else:
-        from pydantic import validator as _validator
-
-        @_validator("name", pre=True)
-        def validate_endpoint_name(cls, route_name):
-            if not is_valid_endpoint_name(route_name):
-                raise MlflowException.invalid_parameter_value(
-                    "The route name provided contains disallowed characters for a url endpoint. "
-                    f"'{route_name}' is invalid. Names cannot contain spaces or any non "
-                    "alphanumeric characters other than hyphen and underscore."
-                )
-            return route_name
-
-    if IS_PYDANTIC_V2:
-        from pydantic import field_validator as _field_validator
-
-        @_field_validator("model", mode="before")
-        @classmethod
-        def validate_model(cls, model):
-            if model:
-                model_instance = Model(**model)
-                if (
-                    model_instance.provider in Provider.values()
-                    and model_instance.config is None
-                ):
-                    raise MlflowException.invalid_parameter_value(
-                        "A config must be supplied when setting a provider. The provider entry for "
-                        f"{model_instance.provider} is incorrect."
-                    )
-            return model
-
-    else:
-        from pydantic import validator as _validator
-
-        @_validator("model", pre=True)
-        def validate_model(cls, model):
-            if model:
-                model_instance = Model(**model)
-                if (
-                    model_instance.provider in Provider.values()
-                    and model_instance.config is None
-                ):
-                    raise MlflowException.invalid_parameter_value(
-                        "A config must be supplied when setting a provider. The provider entry for "
-                        f"{model_instance.provider} is incorrect."
-                    )
-            return model
+        return model
 
     if IS_PYDANTIC_V2:
         from pydantic import model_validator as _model_validator
@@ -601,69 +445,30 @@ class RouteConfig(AliasedConfigModel):
                 )
             return values
 
-    if IS_PYDANTIC_V2:
-        from pydantic import field_validator as _field_validator
-
-        @_field_validator("route_type", mode="before")
-        @classmethod
-        def validate_route_type(cls, value):
-            if value in RouteType._value2member_map_:
-                return value
-            raise MlflowException.invalid_parameter_value(
-                f"The route_type '{value}' is not supported."
-            )
-
-    else:
-        from pydantic import validator as _validator
-
-        @_validator("route_type", pre=True)
-        def validate_route_type(cls, value):
-            if value in RouteType._value2member_map_:
-                return value
-            raise MlflowException.invalid_parameter_value(
-                f"The route_type '{value}' is not supported."
-            )
-
-    if IS_PYDANTIC_V2:
-        from pydantic import field_validator as _field_validator
-
-        @_field_validator("limit", mode="before")
-        @classmethod
-        def validate_limit(cls, value):
-            from limits import parse
-
-            if value:
-                limit = Limit(**value)
-                try:
-                    parse(f"{limit.calls}/{limit.renewal_period}")
-                except ValueError:
-                    raise MlflowException.invalid_parameter_value(
-                        "Failed to parse the rate limit configuration."
-                        "Please make sure limit.calls is a positive number and"
-                        "limit.renewal_period is a right granularity"
-                    )
-
+    @pydantic_field_validator(field_name="route_type")
+    def validate_route_type(cls, value):
+        if value in RouteType._value2member_map_:
             return value
+        raise MlflowException.invalid_parameter_value(
+            f"The route_type '{value}' is not supported."
+        )
 
-    else:
-        from pydantic import validator as _validator
+    @pydantic_field_validator(field_name="limit")
+    def validate_limit(cls, value):
+        from limits import parse
 
-        @_validator("limit", pre=True)
-        def validate_limit(cls, value):
-            from limits import parse
+        if value:
+            limit = Limit(**value)
+            try:
+                parse(f"{limit.calls}/{limit.renewal_period}")
+            except ValueError:
+                raise MlflowException.invalid_parameter_value(
+                    "Failed to parse the rate limit configuration."
+                    "Please make sure limit.calls is a positive number and"
+                    "limit.renewal_period is a right granularity"
+                )
 
-            if value:
-                limit = Limit(**value)
-                try:
-                    parse(f"{limit.calls}/{limit.renewal_period}")
-                except ValueError:
-                    raise MlflowException.invalid_parameter_value(
-                        "Failed to parse the rate limit configuration."
-                        "Please make sure limit.calls is a positive number and"
-                        "limit.renewal_period is a right granularity"
-                    )
-
-            return value
+        return value
 
     def to_route(self) -> "Route":
         return Route(
