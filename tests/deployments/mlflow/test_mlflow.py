@@ -142,7 +142,7 @@ def test_predict():
         "id": "chatcmpl-123",
         "object": "chat.completion",
         "created": 1677652288,
-        "model": "gpt-3.5-turbo-0613",
+        "model": "gpt-4o-mini",
         "choices": [
             {
                 "index": 0,
@@ -168,7 +168,7 @@ def test_predict():
             "id": "chatcmpl-123",
             "object": "chat.completion",
             "created": 1677652288,
-            "model": "gpt-3.5-turbo-0613",
+            "model": "gpt-4o-mini",
             "choices": [
                 {
                     "index": 0,

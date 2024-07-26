@@ -165,8 +165,13 @@ def _gen_md5_for_arraylike_obj(md5_gen, data):
     if len(data) < EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH * 2:
         md5_gen.update(_hash_array_like_obj_as_bytes(data))
     else:
-        head_rows = data[: EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH]
-        tail_rows = data[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH :]
+        if isinstance(data, pd.DataFrame):
+            # Access rows of pandas Df with iloc
+            head_rows = data.iloc[: EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH]
+            tail_rows = data.iloc[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH :]
+        else:
+            head_rows = data[: EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH]
+            tail_rows = data[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH :]
         md5_gen.update(_hash_array_like_obj_as_bytes(head_rows))
         md5_gen.update(_hash_array_like_obj_as_bytes(tail_rows))
 

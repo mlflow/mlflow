@@ -1,6 +1,7 @@
 import json
 import pathlib
 import pickle
+from dataclasses import asdict
 from typing import List
 
 import pytest
@@ -11,6 +12,7 @@ from mlflow.models.model import Model
 from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc.loaders.chat_model import _ChatModelPyfuncWrapper
 from mlflow.tracing.constant import TraceTagKey
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.llm import (
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
@@ -20,7 +22,11 @@ from mlflow.types.llm import (
 )
 from mlflow.types.schema import ColSpec, DataType, Schema
 
-from tests.helper_functions import expect_status_code, pyfunc_serve_and_score_model
+from tests.helper_functions import (
+    expect_status_code,
+    get_serving_input_example,
+    pyfunc_serve_and_score_model,
+)
 from tests.tracing.helper import get_traces
 
 # `None`s (`max_tokens` and `stop`) are excluded
@@ -114,7 +120,7 @@ def test_chat_model_with_trace(tmp_path):
     assert len(traces) == 1
     assert traces[0].info.tags[TraceTagKey.TRACE_NAME] == "predict"
     request = json.loads(traces[0].data.request)
-    assert request["messages"] == [str(ChatMessage(**msg)) for msg in messages]
+    assert request["messages"] == [asdict(ChatMessage(**msg)) for msg in messages]
 
 
 def test_chat_model_save_throws_with_signature(tmp_path):
@@ -232,10 +238,8 @@ def test_chat_model_predict(tmp_path):
     }
 
 
-def test_chat_model_works_in_serving(tmp_path):
+def test_chat_model_works_in_serving():
     model = TestChatModel()
-    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
-
     messages = [
         {"role": "system", "content": "You are a helpful assistant"},
         {"role": "user", "content": "Hello!"},
@@ -243,10 +247,18 @@ def test_chat_model_works_in_serving(tmp_path):
     params_subset = {
         "max_tokens": 100,
     }
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=model,
+            input_example=(messages, params_subset),
+            example_no_conversion=True,
+        )
 
+    inference_payload = get_serving_input_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
-        model_uri=tmp_path,
-        data=json.dumps({"messages": messages, **params_subset}),
+        model_uri=model_info.model_uri,
+        data=inference_payload,
         content_type="application/json",
         extra_args=["--env-manager", "local"],
     )
@@ -274,18 +286,21 @@ def test_chat_model_works_with_infer_signature_input_example(tmp_path):
         ],
         **params_subset,
     }
-    mlflow.pyfunc.save_model(python_model=model, path=tmp_path, input_example=input_example)
-    loaded_model = mlflow.pyfunc.load_model(tmp_path)
-    input_schema = loaded_model.metadata.get_input_schema()
-    output_schema = loaded_model.metadata.get_output_schema()
-    assert input_schema == CHAT_MODEL_INPUT_SCHEMA
-    assert output_schema == CHAT_MODEL_OUTPUT_SCHEMA
-    mlflow_model = Model.load(tmp_path)
-    assert mlflow_model.load_input_example(tmp_path).to_dict(orient="records")[0] == input_example
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=model, input_example=input_example, example_no_conversion=True
+        )
+    assert model_info.signature.inputs == CHAT_MODEL_INPUT_SCHEMA
+    assert model_info.signature.outputs == CHAT_MODEL_OUTPUT_SCHEMA
+    mlflow_model = Model.load(model_info.model_uri)
+    local_path = _download_artifact_from_uri(model_info.model_uri)
+    assert mlflow_model.load_input_example(local_path)["messages"] == input_example["messages"]
+    assert mlflow_model.load_input_example_params(local_path) == {**DEFAULT_PARAMS, **params_subset}
 
+    inference_payload = get_serving_input_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
-        model_uri=tmp_path,
-        data=json.dumps(input_example),
+        model_uri=model_info.model_uri,
+        data=inference_payload,
         content_type="application/json",
         extra_args=["--env-manager", "local"],
     )
@@ -304,29 +319,29 @@ def test_chat_model_works_with_chat_message_input_example(tmp_path):
     input_example = [
         ChatMessage(role="user", content="What is Retrieval-augmented Generation?", name="chat")
     ]
-    mlflow.pyfunc.save_model(python_model=model, path=tmp_path, input_example=input_example)
-    loaded_model = mlflow.pyfunc.load_model(tmp_path)
-    input_schema = loaded_model.metadata.get_input_schema()
-    output_schema = loaded_model.metadata.get_output_schema()
-    assert input_schema == CHAT_MODEL_INPUT_SCHEMA
-    assert output_schema == CHAT_MODEL_OUTPUT_SCHEMA
-    mlflow_model = Model.load(tmp_path)
-    assert (
-        mlflow_model.load_input_example(tmp_path).to_dict(orient="records")[0]
-        == input_example[0].to_dict()
-    )
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=model, input_example=input_example, example_no_conversion=True
+        )
+    assert model_info.signature.inputs == CHAT_MODEL_INPUT_SCHEMA
+    assert model_info.signature.outputs == CHAT_MODEL_OUTPUT_SCHEMA
+    mlflow_model = Model.load(model_info.model_uri)
+    local_path = _download_artifact_from_uri(model_info.model_uri)
+    assert mlflow_model.load_input_example(local_path) == {
+        "messages": [message.to_dict() for message in input_example]
+    }
 
-    convert_input_example = {"messages": [each_message.to_dict() for each_message in input_example]}
+    inference_payload = get_serving_input_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
-        model_uri=tmp_path,
-        data=json.dumps(convert_input_example),
+        model_uri=model_info.model_uri,
+        data=inference_payload,
         content_type="application/json",
         extra_args=["--env-manager", "local"],
     )
 
     expect_status_code(response, 200)
     choices = json.loads(response.content)["choices"]
-    assert choices[0]["message"]["content"] == json.dumps(convert_input_example["messages"])
+    assert choices[0]["message"]["content"] == json.dumps(json.loads(inference_payload)["messages"])
 
 
 def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
@@ -347,18 +362,24 @@ def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
         ],
         **params_subset,
     }
-    mlflow.pyfunc.save_model(python_model=model, path=tmp_path, input_example=input_example)
-    loaded_model = mlflow.pyfunc.load_model(tmp_path)
-    input_schema = loaded_model.metadata.get_input_schema()
-    output_schema = loaded_model.metadata.get_output_schema()
-    assert input_schema == CHAT_MODEL_INPUT_SCHEMA
-    assert output_schema == CHAT_MODEL_OUTPUT_SCHEMA
-    mlflow_model = Model.load(tmp_path)
-    assert mlflow_model.load_input_example(tmp_path).to_dict(orient="records")[0] == input_example
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=model, input_example=input_example, example_no_conversion=True
+        )
+    assert model_info.signature.inputs == CHAT_MODEL_INPUT_SCHEMA
+    assert model_info.signature.outputs == CHAT_MODEL_OUTPUT_SCHEMA
+    mlflow_model = Model.load(model_info.model_uri)
+    local_path = _download_artifact_from_uri(model_info.model_uri)
+    assert mlflow_model.load_input_example_params(local_path) == {
+        **DEFAULT_PARAMS,
+        **params_subset,
+    }
+    assert mlflow_model.load_input_example(local_path)["messages"] == input_example["messages"]
 
+    inference_payload = get_serving_input_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
-        model_uri=tmp_path,
-        data=json.dumps(input_example),
+        model_uri=model_info.model_uri,
+        data=inference_payload,
         content_type="application/json",
         extra_args=["--env-manager", "local"],
     )

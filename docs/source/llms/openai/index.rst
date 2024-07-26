@@ -40,7 +40,7 @@ Tracing with the OpenAI flavor
 ------------------------------
 
 MLflow's OpenAI flavor includes an integrated automated tracing feature with the use of the :py:func:`mlflow.openai.autolog` API. To learn more about 
-how to log your development usage of the OpenAI SDK, please visit the `guide to autologging tracing <../tracing/index.html#openai-automatic-tracing>`_ for this flavor.
+how to log your development usage of the OpenAI SDK, please visit the `guide to autologging tracing <../tracing/index.html#automatic-tracing>`_ for this flavor.
 
 What makes this Integration so Special?
 ---------------------------------------

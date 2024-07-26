@@ -55,7 +55,7 @@ routes:
     route_type: llm/v1/chat
     model:
       provider: openai
-      name: gpt-3.5-turbo
+      name: gpt-4o-mini
       config:
         openai_api_key: key
 
@@ -63,7 +63,7 @@ routes:
     route_type: llm/v1/completions
     model:
       provider: openai
-      name: gpt-3.5-turbo
+      name: gpt-4o-mini
       config:
         openai_api_key: key
 

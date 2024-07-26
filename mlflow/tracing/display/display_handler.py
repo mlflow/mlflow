@@ -14,7 +14,7 @@ def _serialize_trace_list(traces: List[Trace]):
         # we can't just call trace.to_json() because this
         # will cause the trace to be serialized twice (once
         # by to_json and once by json.dumps)
-        [json.loads(trace.to_json()) for trace in traces]
+        [json.loads(trace._serialize_for_mimebundle()) for trace in traces]
     )
 
 

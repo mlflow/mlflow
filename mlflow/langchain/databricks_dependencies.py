@@ -18,7 +18,7 @@ def _get_embedding_model_endpoint_names(index):
     return embedding_model_endpoint_names
 
 
-def _extract_databricks_dependencies_from_retriever(retriever) -> Generator[Resource, None, None]:
+def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None]:
     try:
         from langchain.embeddings import DatabricksEmbeddings as LegacyDatabricksEmbeddings
         from langchain.vectorstores import (
@@ -46,6 +46,23 @@ def _extract_databricks_dependencies_from_retriever(retriever) -> Generator[Reso
         embeddings = getattr(vectorstore, "embeddings", None)
         if isinstance(embeddings, (DatabricksEmbeddings, LegacyDatabricksEmbeddings)):
             yield DatabricksServingEndpoint(endpoint_name=embeddings.endpoint)
+
+
+def _extract_databricks_dependencies_from_retriever(retriever) -> Generator[Resource, None, None]:
+    if hasattr(retriever, "base_retriever"):
+        retriever = getattr(retriever, "base_retriever", None)
+
+    if hasattr(retriever, "retriever"):
+        retriever = getattr(retriever, "retriever", None)
+
+    if hasattr(retriever, "retrievers"):
+        retriever = getattr(retriever, "retrievers", None)
+
+    if isinstance(retriever, list):
+        for single_retriever in retriever:
+            yield from _get_vectorstore_from_retriever(single_retriever)
+    else:
+        yield from _get_vectorstore_from_retriever(retriever)
 
 
 def _extract_databricks_dependencies_from_llm(llm) -> Generator[Resource, None, None]:

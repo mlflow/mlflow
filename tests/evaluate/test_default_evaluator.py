@@ -2354,7 +2354,9 @@ def question_classifier(inputs):
 def test_evaluate_question_answering_with_numerical_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            artifact_path="model", python_model=question_classifier, input_example=[0, 1]
+            artifact_path="model",
+            python_model=question_classifier,
+            input_example=pd.DataFrame({"question": ["a", "b"]}),
         )
         data = pd.DataFrame({"question": ["a", "b"], "answer": [0, 1]})
         results = mlflow.evaluate(
@@ -2498,7 +2500,9 @@ def test_evaluate_text_summarization_with_targets_no_type_hints():
 
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            artifact_path="model", python_model=another_language_model, input_example=["a", "b"]
+            artifact_path="model",
+            python_model=another_language_model,
+            input_example=pd.DataFrame({"text": ["a", "b"]}),
         )
         data = pd.DataFrame({"text": ["a", "b"], "summary": ["a", "b"]})
         results = evaluate(
@@ -3545,7 +3549,7 @@ def test_evaluate_with_correctness():
         ),
         examples=[],
         version="v1",
-        model="openai:/gpt-3.5-turbo-16k",
+        model="openai:/gpt-4o-mini",
         grading_context_columns=["ground_truth"],
         parameters={"temperature": 0.0},
         aggregations=["mean", "variance", "p90"],
@@ -4191,7 +4195,7 @@ def test_log_genai_custom_metrics_as_artifacts():
         )
         # This simulates the code path for metrics created from make_genai_metric
         answer_similarity_metric = answer_similarity(
-            model="gateway:/gpt-3.5-turbo", examples=[example]
+            model="gateway:/gpt-4o-mini", examples=[example]
         )
         another_custom_metric = make_genai_metric_from_prompt(
             name="another custom llm judge",

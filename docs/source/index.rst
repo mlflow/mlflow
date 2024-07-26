@@ -193,6 +193,12 @@ Explore the guides and tutorials below to start your journey!
                 <p>LangChain</p>
             </div>
             <div class="icon-box">
+                <a href="llms/llama-index/index.html">
+                    <img src="_static/images/logos/llamaindex-logo.svg" alt="LlamaIndex"/>
+                </a>
+                <p>LlamaIndex</p>
+            </div>
+            <div class="icon-box">
                 <a href="llms/sentence-transformers/index.html">
                     <img src="_static/images/logos/sentence-transformers-logo.png" alt="Sentence Transformers"/>
                 </a>

@@ -143,9 +143,9 @@ def test_display_deduplicates_traces(monkeypatch):
     assert mock_display.call_count == 1
     assert mock_display.call_args[0][0] == {
         "application/databricks.mlflow.trace": json.dumps(
-            [json.loads(t.to_json()) for t in expected]
+            [json.loads(t._serialize_for_mimebundle()) for t in expected]
         ),
-        "text/plain": expected.__repr__(),
+        "text/plain": repr(expected),
     }
 
 
@@ -168,8 +168,8 @@ def test_display_respects_max_limit(monkeypatch):
 
     assert mock_display.call_count == 1
     assert mock_display.call_args[0][0] == {
-        "application/databricks.mlflow.trace": trace_a.to_json(),
-        "text/plain": trace_a.__repr__(),
+        "application/databricks.mlflow.trace": trace_a._serialize_for_mimebundle(),
+        "text/plain": repr(trace_a),
     }
 
 

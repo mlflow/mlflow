@@ -30,6 +30,7 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 
@@ -105,7 +106,11 @@ def test_signature_and_examples_are_saved_correctly(fastai_model):
                     model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
+                if signature is not None or example is None:
+                    assert signature == mlflow_model.signature
+                else:
+                    # signature is inferred from input_example
+                    assert mlflow_model.signature is not None
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
@@ -363,12 +368,14 @@ def test_pyfunc_serve_and_score(fastai_model):
     model, inference_dataframe = fastai_model
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.fastai.log_model(model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.fastai.log_model(
+            model, artifact_path, input_example=inference_dataframe
+        )
 
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_dataframe,
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
     # `[:, -1]` extracts the prediction column

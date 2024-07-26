@@ -48,3 +48,11 @@ class RunBatch:
         that we can properly notify the system when child batches have been processed.
         """
         self.child_batches.append(child_batch)
+
+    def complete(self):
+        """Mark the batch as completed."""
+        if self.completion_event:
+            self.completion_event.set()
+
+        for child_batch in self.child_batches:
+            child_batch.complete()

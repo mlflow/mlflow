@@ -414,6 +414,8 @@ def convert_data_type(data, spec):
 
 
 def _cast_schema_type(input_data, schema=None):
+    import numpy as np
+
     input_data = deepcopy(input_data)
     # spec_name -> spec mapping
     types_dict = schema.input_dict() if schema and schema.has_input_names() else {}
@@ -425,12 +427,15 @@ def _cast_schema_type(input_data, schema=None):
         ):
             # for data with a single column (not List[Dict]), match input with column
             input_data = {next(iter(types_dict)): input_data}
-        # Un-named schema should only contain a single column
-        elif not schema.has_input_names() and not isinstance(input_data, list):
+        # Un-named schema should only contain a single column or a single value
+        elif not schema.has_input_names() and not (
+            isinstance(input_data, list) or np.isscalar(input_data)
+        ):
             raise MlflowInvalidInputException(
-                "Failed to parse input data. This model contains an un-named tensor-based"
-                " model signature which expects a single n-dimensional array as input,"
-                f" however, an input of type {type(input_data)} was found."
+                "Failed to parse input data. This model contains an un-named "
+                " model signature which expects a single n-dimensional array or "
+                "a single value as input, however, an input of type "
+                f"{type(input_data)} was found."
             )
     if isinstance(input_data, dict):
         # each key corresponds to a column, values should be
@@ -456,10 +461,8 @@ def _cast_schema_type(input_data, schema=None):
             input_data = convert_data_type(input_data, spec)
         except Exception as e:
             raise MlflowInvalidInputException(
-                "Failed to parse input data. This model contains a tensor-based model "
-                "signature with input names, which suggests a dictionary / a list of "
-                "dictionaries input mapping input name to tensor or a pure list, but "
-                f"an input of `{input_data}` was found."
+                f"Failed to convert data `{input_data}` to type `{spec}` defined "
+                "in the model signature."
             ) from e
     return input_data
 

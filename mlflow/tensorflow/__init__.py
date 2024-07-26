@@ -33,6 +33,7 @@ from mlflow.tensorflow.callback import MlflowCallback, MlflowModelCheckpointCall
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
+from mlflow.tracking.fluent import _shut_down_async_logging
 from mlflow.types.schema import TensorSpec
 from mlflow.utils import is_iterator
 from mlflow.utils.autologging_utils import (
@@ -330,14 +331,24 @@ def save_model(
     import tensorflow as tf
     from tensorflow.keras.models import Model as KerasModel
 
-    if signature is None and input_example is not None:
+    # check if path exists
+    path = os.path.abspath(path)
+    _validate_and_prepare_target_save_path(path)
+
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+
+    if signature is None and saved_example is not None:
         wrapped_model = None
         if isinstance(model, KerasModel):
             wrapped_model = _KerasModelWrapper(model, signature)
         elif isinstance(model, tf.Module):
             wrapped_model = _TF2ModuleWrapper(model, signature)
         if wrapped_model is not None:
-            signature = _infer_signature_from_input_example(input_example, wrapped_model)
+            signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is False:
         signature = None
 
@@ -365,18 +376,8 @@ def save_model(
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
-    # check if path exists
-    path = os.path.abspath(path)
-    _validate_and_prepare_target_save_path(path)
-
-    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
-
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -1340,7 +1341,9 @@ def autolog(
                 history=history,
             )
             # Ensure all data are logged.
-            mlflow.flush_async_logging()
+            # Shut down the async logging (instead of flushing)
+            # to avoid leaving zombie threads between patchings.
+            _shut_down_async_logging()
 
             mlflow.log_artifacts(
                 local_dir=self.log_dir.location,

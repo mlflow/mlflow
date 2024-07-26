@@ -34,6 +34,7 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 
@@ -561,18 +562,19 @@ def test_pyfunc_serve_and_score(pd_model):
     model, inference_dataframe = pd_model
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.paddle.log_model(
+        model_info = mlflow.paddle.log_model(
             model,
             artifact_path,
             extra_pip_requirements=[PROTOBUF_REQUIREMENT]
             if Version(paddle.__version__) < Version("2.5.0")
             else None,
+            input_example=pd.DataFrame(inference_dataframe),
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=pd.DataFrame(inference_dataframe),
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
     scores = pd.DataFrame(

@@ -32,6 +32,7 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 
@@ -391,18 +392,6 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 def test_pyfunc_serve_and_score(prophet_model):
     artifact_path = "model"
-    with mlflow.start_run():
-        extra_pip_requirements = (
-            ["holidays<=0.24"] if Version(prophet.__version__) <= Version("1.1.3") else []
-        ) + (["pandas<2"] if Version(prophet.__version__) < Version("1.1") else [])
-        mlflow.prophet.log_model(
-            prophet_model.model, artifact_path, extra_pip_requirements=extra_pip_requirements
-        )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-    local_predict = prophet_model.model.predict(
-        prophet_model.model.make_future_dataframe(FORECAST_HORIZON)
-    )
-
     # cast to string representation of datetime series, otherwise will default cast to Unix time
     # which Prophet does not support for encoding
     inference_data = (
@@ -410,10 +399,24 @@ def test_pyfunc_serve_and_score(prophet_model):
         .dt.strftime(INFER_FORMAT)
         .to_frame(name="ds")
     )
+    with mlflow.start_run():
+        extra_pip_requirements = (
+            ["holidays<=0.24"] if Version(prophet.__version__) <= Version("1.1.3") else []
+        ) + (["pandas<2"] if Version(prophet.__version__) < Version("1.1") else [])
+        model_info = mlflow.prophet.log_model(
+            prophet_model.model,
+            artifact_path,
+            extra_pip_requirements=extra_pip_requirements,
+            input_example=inference_data,
+        )
+    local_predict = prophet_model.model.predict(
+        prophet_model.model.make_future_dataframe(FORECAST_HORIZON)
+    )
 
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_data,
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )

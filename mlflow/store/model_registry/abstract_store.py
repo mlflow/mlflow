@@ -7,6 +7,7 @@ from mlflow.entities.model_registry.model_version_status import ModelVersionStat
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.utils.annotations import developer_stable
+from mlflow.utils.logging_utils import eprint
 
 _logger = logging.getLogger(__name__)
 
@@ -384,10 +385,15 @@ class AbstractStore:
             the cloned model version.
         """
         try:
-            self.create_registered_model(dst_name)
+            create_model_response = self.create_registered_model(dst_name)
+            eprint(f"Successfully registered model '{create_model_response.name}'.")
         except MlflowException as e:
             if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
                 raise
+            eprint(
+                f"Registered model '{dst_name}' already exists."
+                f" Creating a new version of this model..."
+            )
 
         try:
             mv_copy = self.create_model_version(
@@ -397,6 +403,10 @@ class AbstractStore:
                 tags=[ModelVersionTag(k, v) for k, v in src_mv.tags.items()],
                 run_link=src_mv.run_link,
                 description=src_mv.description,
+            )
+            eprint(
+                f"Copied version '{src_mv.version}' of model '{src_mv.name}'"
+                f" to version '{mv_copy.version}' of model '{mv_copy.name}'."
             )
         except MlflowException as e:
             raise MlflowException(

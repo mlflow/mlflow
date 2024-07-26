@@ -20,6 +20,7 @@ FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY = {
     "pyspark.ml": ("pyspark", "spark"),
     "transformers": ("transformers", "transformers"),
     "sentence_transformers": ("sentence_transformers", "sentence_transformers"),
+    "langchain": ("langchain", "langchain"),
 }
 
 

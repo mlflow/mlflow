@@ -749,6 +749,16 @@ def test_start_run_with_parent():
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
 
+@pytest.mark.usefixtures(empty_active_run_stack.__name__)
+def test_start_run_with_parent_id():
+    parent_run_id = mlflow.start_run().info.run_id
+    mlflow.end_run()
+    nested_run_id = mlflow.start_run(parent_run_id=parent_run_id).info.run_id
+    mlflow.end_run()
+
+    assert mlflow.get_parent_run(nested_run_id).info.run_id == parent_run_id
+
+
 def test_start_run_with_parent_non_nested():
     with mock.patch("mlflow.tracking.fluent._active_run_stack", [mock.Mock()]):
         with pytest.raises(Exception, match=r"Run with UUID .+ is already active"):

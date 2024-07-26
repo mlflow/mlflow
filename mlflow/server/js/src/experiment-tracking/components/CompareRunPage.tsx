@@ -63,9 +63,22 @@ class CompareRunPageImpl extends Component<CompareRunPageProps> {
   }
 }
 
+/**
+ * When integrated via IFrame in Kubeflow it re-encodes the URI (sometimes multiple times), leading to an unparsable JSON.
+ * This function decodes the URI until it is parsable.
+ */
+const decodeURI = (uri: string): string => {
+  const decodedURI = decodeURIComponent(uri);
+  if (uri !== decodedURI) {
+    return decodeURI(decodedURI);
+  }
+  return decodedURI;
+};
+
 const mapStateToProps = (state: any, ownProps: WithRouterNextProps) => {
   const { location } = ownProps;
-  const searchValues = qs.parse(location.search);
+  const locationSearchDecoded = decodeURI(location.search);
+  const searchValues = qs.parse(locationSearchDecoded);
   // @ts-expect-error TS(2345): Argument of type 'string | string[] | ParsedQs | P... Remove this comment to see the full error message
   const runUuids = JSON.parse(searchValues['?runs']);
   // @ts-expect-error TS(2345): Argument of type 'string | string[] | ParsedQs | P... Remove this comment to see the full error message

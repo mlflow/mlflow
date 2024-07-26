@@ -48,7 +48,7 @@ configuration file that is defined at server start, permitting dynamic route cre
           endpoint_type: llm/v1/completions
           model:
               provider: openai
-              name: gpt-3.5-turbo
+              name: gpt-4o-mini
               config:
                   openai_api_key: $OPENAI_API_KEY
 
@@ -64,7 +64,7 @@ configuration file that is defined at server start, permitting dynamic route cre
           endpoint_type: llm/v1/chat
           model:
               provider: openai
-              name: gpt-3.5-turbo
+              name: gpt-4o-mini
               config:
                   openai_api_key: $OPENAI_API_KEY
 

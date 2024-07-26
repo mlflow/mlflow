@@ -598,7 +598,7 @@ def test_autologging_disable_restores_behavior():
     assert is_autolog_on()
 
     # The context manager should exit correctly even if an exception is raised
-    with pytest.raises(Exception, match="test"):  # noqa: PT012
+    with pytest.raises(Exception, match="test"):  # noqa PT012
         with mlflow.utils.autologging_utils.disable_autologging():
             assert not is_autolog_on()
             raise Exception("test")

@@ -142,7 +142,7 @@ flavors:
     setImmediate(() => {
       wrapper.update();
       expect(wrapper.find('.artifact-logged-model-view-code-group').length).toBe(1);
-      expect(wrapper.find('.artifact-logged-model-view-code-content').length).toBe(1);
+      expect(wrapper.find('.artifact-logged-model-view-code-content').length).toBe(2);
       done();
     });
   });
@@ -152,7 +152,21 @@ flavors:
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.find('.artifact-logged-model-view-code-content').html()).toContain('runs:/fakeUuid/modelPath');
+      expect(wrapper.find('.artifact-logged-model-view-code-content').at(1).html()).toContain(
+        'runs:/fakeUuid/modelPath',
+      );
+      done();
+    });
+  });
+
+  test('should render serving input validation in code snippet', (done) => {
+    const props = { ...commonProps, path: 'modelPath', artifactRootUri: 'some/root' };
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.find('.artifact-logged-model-view-code-content').at(0).html()).toContain(
+        'validate_serving_input(model_uri, serving_payload)',
+      );
       done();
     });
   });
@@ -182,9 +196,11 @@ flavors:
   test('should fetch artifacts on component update', () => {
     instance = wrapper.instance();
     instance.fetchLoggedModelMetadata = jest.fn();
+    instance.fetchServingInputExample = jest.fn();
     wrapper.setProps({ path: 'newpath', runUuid: 'newRunId' });
     expect(instance.fetchLoggedModelMetadata).toBeCalled();
     expect(instance.props.getArtifact).toBeCalled();
+    expect(instance.fetchServingInputExample).toBeCalled();
   });
 
   test('should render code snippet with original flavor when no pyfunc flavor', (done) => {
@@ -201,8 +217,8 @@ flavors:
       wrapper.update();
       expect(wrapper.state().flavor).toBe('sklearn');
       const codeContent = wrapper.find('.artifact-logged-model-view-code-content');
-      expect(codeContent.length).toBe(1);
-      expect(codeContent.text().includes('mlflow.sklearn.load_model')).toBe(true);
+      expect(codeContent.length).toBe(2);
+      expect(codeContent.at(1).text().includes('mlflow.sklearn.load_model')).toBe(true);
       done();
     });
   });
@@ -220,7 +236,80 @@ flavors:
     setImmediate(() => {
       wrapper.update();
       expect(wrapper.state().flavor).toBe('mleap');
-      expect(wrapper.find('.artifact-logged-model-view-code-content').length).toBe(0);
+      // Only validate model serving code snippet is rendered
+      expect(wrapper.find('.artifact-logged-model-view-code-content').length).toBe(1);
+      done();
+    });
+  });
+
+  test('should render serving validation code snippet if serving_input_payload exists', (done) => {
+    const getArtifact = jest
+      .fn()
+      .mockImplementationOnce((artifactLocation) => {
+        return Promise.resolve(`
+flavors:
+  sklearn:
+    version: 1.2.3
+`);
+      })
+      .mockImplementationOnce((artifactLocation) => {
+        return Promise.resolve(`
+{
+  "dataframe_split": {
+    "columns": [
+      "messages"
+    ],
+    "data": [
+      [
+        [
+          {
+            "role": "user",
+            "content": "some question"
+          }
+        ]
+      ]
+    ]
+  }
+}
+`);
+      });
+    const props = { ...minimalProps, getArtifact };
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.state().serving_input).toBeDefined();
+      const codeContent = wrapper.find('.artifact-logged-model-view-code-content');
+      expect(codeContent.length).toBe(2);
+      const codeContentText = codeContent.at(0).text();
+      expect(codeContentText.includes('# The model is logged with an input example')).toBe(true);
+      expect(codeContentText.includes('validate_serving_input(model_uri, serving_payload)')).toBe(true);
+      done();
+    });
+  });
+
+  test('should render serving validation code snippet if serving_input_payload does not exist', (done) => {
+    const getArtifact = jest
+      .fn()
+      .mockImplementationOnce((artifactLocation) => {
+        return Promise.resolve(`
+flavors:
+  sklearn:
+    version: 1.2.3
+`);
+      })
+      .mockImplementationOnce((artifactLocation) => {
+        return Promise.reject(new Error('file not existing'));
+      });
+    const props = { ...minimalProps, getArtifact };
+    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.state().serving_input).toBeDefined();
+      const codeContent = wrapper.find('.artifact-logged-model-view-code-content');
+      expect(codeContent.length).toBe(2);
+      const codeContentText = codeContent.at(0).text();
+      expect(codeContentText.includes('# The logged model does not contain an input_example')).toBe(true);
+      expect(codeContentText.includes('validate_serving_input(model_uri, serving_payload)')).toBe(true);
       done();
     });
   });

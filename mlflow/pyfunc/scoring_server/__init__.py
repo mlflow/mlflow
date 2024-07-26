@@ -19,7 +19,7 @@ import os
 import shlex
 import sys
 import traceback
-from typing import Dict, NamedTuple, Optional, Tuple
+from typing import Any, Dict, NamedTuple, Optional, Tuple
 
 import flask
 
@@ -73,6 +73,7 @@ INSTANCES = "instances"
 INPUTS = "inputs"
 
 SUPPORTED_FORMATS = {DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS}
+SERVING_PARAMS_KEY = "params"
 
 # Support unwrapped JSON with these keys for LLM use cases of Chat, Completions, Embeddings tasks
 LLM_CHAT_KEY = "messages"
@@ -200,7 +201,7 @@ def _split_data_and_params_for_llm_input(json_input, param_schema: Optional[Para
 def _split_data_and_params(json_input):
     input_dict = _decode_json_input(json_input)
     data = {k: v for k, v in input_dict.items() if k in SUPPORTED_FORMATS}
-    params = input_dict.pop("params", None)
+    params = input_dict.pop(SERVING_PARAMS_KEY, None)
     return data, params
 
 
@@ -337,19 +338,10 @@ def invocations(data, content_type, model, input_schema):
         data = parse_csv_input(csv_input=csv_input, schema=input_schema)
         params = None
     elif mime_type == CONTENT_TYPE_JSON:
-        json_input = _decode_json_input(data)
-        should_parse_as_unified_llm_input = any(x in json_input for x in SUPPORTED_LLM_FORMATS)
-        if should_parse_as_unified_llm_input:
-            # Unified LLM input format
-            if hasattr(model.metadata, "get_params_schema"):
-                params_schema = model.metadata.get_params_schema()
-            else:
-                params_schema = None
-            data, params = _split_data_and_params_for_llm_input(json_input, params_schema)
-        else:
-            # Traditional json input format
-            data, params = _split_data_and_params(data)
-            data = infer_and_parse_data(data, input_schema)
+        parsed_json_input = _parse_json_data(data, model.metadata, input_schema)
+        data = parsed_json_input.data
+        params = parsed_json_input.params
+        should_parse_as_unified_llm_input = parsed_json_input.is_unified_llm_input
     else:
         return InvocationsResponse(
             response=(
@@ -362,6 +354,8 @@ def invocations(data, content_type, model, input_schema):
         )
 
     # Do the prediction
+    # NB: utils._validate_serving_input mimic the scoring process here to validate input_example
+    # work for serving, so any changes here should be reflected there as well
     try:
         if inspect.signature(model.predict).parameters.get("params"):
             raw_predictions = model.predict(data, params=params)
@@ -399,6 +393,33 @@ def invocations(data, content_type, model, input_schema):
         predictions_to_json(raw_predictions, result)
 
     return InvocationsResponse(response=result.getvalue(), status=200, mimetype="application/json")
+
+
+def _is_unified_llm_input(json_input: dict):
+    return any(x in json_input for x in SUPPORTED_LLM_FORMATS)
+
+
+class ParsedJsonInput(NamedTuple):
+    data: Any
+    params: Optional[Dict]
+    is_unified_llm_input: bool
+
+
+def _parse_json_data(data, metadata, input_schema):
+    json_input = _decode_json_input(data)
+    is_unified_llm_input = _is_unified_llm_input(json_input)
+    if is_unified_llm_input:
+        # Unified LLM input format
+        if hasattr(metadata, "get_params_schema"):
+            params_schema = metadata.get_params_schema()
+        else:
+            params_schema = None
+        data, params = _split_data_and_params_for_llm_input(json_input, params_schema)
+    else:
+        # Traditional json input format
+        data, params = _split_data_and_params(data)
+        data = infer_and_parse_data(data, input_schema)
+    return ParsedJsonInput(data, params, is_unified_llm_input)
 
 
 def init(model: PyFuncModel):

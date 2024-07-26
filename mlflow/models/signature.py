@@ -18,7 +18,7 @@ from mlflow import environment_variables
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.utils import ModelInputExample, _contains_params, _Example
+from mlflow.models.utils import _contains_params, _Example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
@@ -351,13 +351,13 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
 
 
 def _infer_signature_from_input_example(
-    input_example: ModelInputExample, wrapped_model, no_conversion=False
+    input_example: Optional[_Example], wrapped_model
 ) -> Optional[ModelSignature]:
     """
     Infer the signature from an example input and a PyFunc wrapped model. Catches all exceptions.
 
     Args:
-        input_example: An instance representing a typical input to the model.
+        input_example: Saved _Example object that contains input example instance.
         wrapped_model: A PyFunc wrapped model which has a `predict` method.
 
     Returns:
@@ -365,18 +365,24 @@ def _infer_signature_from_input_example(
         based on the `input_example` and the model's outputs based on the prediction from the
         `wrapped_model`.
     """
+    from mlflow.pyfunc import _validate_prediction_input
+
+    if input_example is None:
+        return None
+
     try:
-        if _contains_params(input_example):
-            input_example, params = input_example
-        else:
-            params = None
-        if not no_conversion:
-            example = _Example(input_example)
-            # Copy the input example so that it is not mutated by predict()
-            input_example = deepcopy(example.inference_data)
-        input_schema = _infer_schema(input_example)
+        # Copy the input example so that it is not mutated by predict()
+        input_data = deepcopy(input_example.inference_data)
+        params = input_example.inference_params
+
+        input_schema = _infer_schema(input_data)
         params_schema = _infer_param_schema(params) if params else None
-        prediction = wrapped_model.predict(input_example, params=params)
+        # do the same validation as pyfunc predict to make sure the signature is correctly
+        # applied to the model
+        input_data, params = _validate_prediction_input(
+            input_data, params, input_schema, params_schema
+        )
+        prediction = wrapped_model.predict(input_data, params=params)
         # For column-based inputs, 1D numpy arrays likely signify row-based predictions. Thus, we
         # convert them to a Pandas series for inferring as a single ColSpec Schema.
         if (

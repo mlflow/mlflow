@@ -33,6 +33,7 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 
@@ -399,12 +400,14 @@ def test_pyfunc_serve_and_score(lgb_model):
     model, inference_dataframe = lgb_model
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.lightgbm.log_model(model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.lightgbm.log_model(
+            model, artifact_path, input_example=inference_dataframe
+        )
 
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_dataframe,
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
@@ -426,12 +429,12 @@ def test_pyfunc_serve_and_score_sklearn(model):
     model.fit(X, y)
 
     with mlflow.start_run():
-        mlflow.sklearn.log_model(model, artifact_path="model")
-        model_uri = mlflow.get_artifact_uri("model")
+        model_info = mlflow.sklearn.log_model(model, artifact_path="model", input_example=X.head(3))
 
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        X.head(3),
+        model_info.model_uri,
+        inference_payload,
         pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )

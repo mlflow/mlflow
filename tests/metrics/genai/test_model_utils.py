@@ -54,10 +54,10 @@ def set_bad_azure_envs(monkeypatch):
 
 
 def test_parse_model_uri():
-    prefix, suffix = _parse_model_uri("openai:/gpt-3.5-turbo")
+    prefix, suffix = _parse_model_uri("openai:/gpt-4o-mini")
 
     assert prefix == "openai"
-    assert suffix == "gpt-3.5-turbo"
+    assert suffix == "gpt-4o-mini"
 
     prefix, suffix = _parse_model_uri("model:/123")
 
@@ -77,17 +77,17 @@ def test_parse_model_uri():
 
 def test_parse_model_uri_throws_for_malformed():
     with pytest.raises(MlflowException, match="Malformed model uri"):
-        _parse_model_uri("gpt-3.5-turbo")
+        _parse_model_uri("gpt-4o-mini")
 
 
 def test_score_model_on_payload_throws_for_invalid():
     with pytest.raises(MlflowException, match="Unknown model uri prefix"):
-        score_model_on_payload("myprovider:/gpt-3.5-turbo", {})
+        score_model_on_payload("myprovider:/gpt-4o-mini", {})
 
 
 def test_score_model_openai_without_key():
     with pytest.raises(MlflowException, match="OPENAI_API_KEY environment variable not set"):
-        score_model_on_payload("openai:/gpt-3.5-turbo", {})
+        score_model_on_payload("openai:/gpt-4o-mini", {})
 
 
 def test_score_model_openai(set_envs):
@@ -95,7 +95,7 @@ def test_score_model_openai(set_envs):
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
         "created": 1677858242,
-        "model": "gpt-3.5-turbo-0301",
+        "model": "gpt-4o-mini",
         "usage": {
             "prompt_tokens": 13,
             "completion_tokens": 7,
@@ -117,11 +117,11 @@ def test_score_model_openai(set_envs):
     with mock.patch(
         "mlflow.openai.api_request_parallel_processor.process_api_requests", return_value=[resp]
     ) as mock_post:
-        resp = score_model_on_payload("openai:/gpt-3.5-turbo", "my prompt", {"temperature": 0.1})
+        resp = score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
         mock_post.assert_called_once_with(
             [
                 {
-                    "model": "gpt-3.5-turbo",
+                    "model": "gpt-4o-mini",
                     "temperature": 0.1,
                     "messages": [{"role": "user", "content": "my prompt"}],
                 }
@@ -149,7 +149,7 @@ def test_openai_authentication_error(set_envs):
         with pytest.raises(
             MlflowException, match="Authentication Error for OpenAI. Error response"
         ):
-            score_model_on_payload("openai:/gpt-3.5-turbo", "my prompt", {"temperature": 0.1})
+            score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
         mock_post.assert_called_once()
 
 
@@ -159,7 +159,7 @@ def test_openai_other_error(set_envs):
         side_effect=Exception("foo"),
     ) as mock_post:
         with pytest.raises(MlflowException, match="Error response from OpenAI"):
-            score_model_on_payload("openai:/gpt-3.5-turbo", "my prompt", {"temperature": 0.1})
+            score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
         mock_post.assert_called_once()
 
 
@@ -168,7 +168,7 @@ def test_score_model_azure_openai(set_azure_envs):
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
         "created": 1677858242,
-        "model": "gpt-3.5-turbo-0301",
+        "model": "gpt-4o-mini",
         "usage": {
             "prompt_tokens": 13,
             "completion_tokens": 7,
@@ -190,7 +190,7 @@ def test_score_model_azure_openai(set_azure_envs):
     with mock.patch(
         "mlflow.openai.api_request_parallel_processor.process_api_requests", return_value=[resp]
     ) as mock_post:
-        score_model_on_payload("openai:/gpt-3.5-turbo", "my prompt", {"temperature": 0.1})
+        score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
         mock_post.assert_called_once_with(
             [
                 {
@@ -209,7 +209,7 @@ def test_score_model_azure_openai_bad_envs(set_bad_azure_envs):
     with pytest.raises(
         MlflowException, match="Either engine or deployment_id must be set for Azure OpenAI API"
     ):
-        score_model_on_payload("openai:/gpt-3.5-turbo", "my prompt", {"temperature": 0.1})
+        score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
 
 
 def test_score_model_gateway_completions():
@@ -256,7 +256,7 @@ def test_score_model_gateway_chat():
             "input_tokens": 17,
             "output_tokens": 24,
             "total_tokens": 41,
-            "model": "gpt-3.5-turbo-0301",
+            "model": "gpt-4o-mini",
             "endpoint_type": "llm/v1/chat",
         },
     }
@@ -287,7 +287,7 @@ def test_score_model_endpoints_chat(set_deployment_envs, endpoint_type_key):
         "id": "chatcmpl-123",
         "object": "chat.completion",
         "created": 1677652288,
-        "model": "gpt-3.5-turbo-0613",
+        "model": "gpt-4o-mini",
         "system_fingerprint": "fp_44709d6fcb",
         "choices": [
             {
@@ -341,7 +341,7 @@ def test_score_model_endpoints_completions(set_deployment_envs, endpoint_type_ke
         "id": "cmpl-8PgdiXapPWBN3pyUuHcELH766QgqK",
         "object": "text_completion",
         "created": 1701132798,
-        "model": "gpt-3.5-turbo-instruct",
+        "model": "gpt-4o-mini",
         "choices": [
             {
                 "text": "\n\nHi there! How can I assist you today?",

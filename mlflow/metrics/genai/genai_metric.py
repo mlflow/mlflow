@@ -522,7 +522,7 @@ def make_genai_metric(
         if not isinstance(eval_model, str):
             raise MlflowException(
                 message="The model argument must be a string URI referring to an openai model "
-                "(openai:/gpt-3.5-turbo) or an MLflow Deployments endpoint "
+                "(openai:/gpt-4o-mini) or an MLflow Deployments endpoint "
                 f"(endpoints:/my-endpoint), passed {eval_model} instead",
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -681,7 +681,7 @@ def retrieve_custom_metrics(
         with mlflow.start_run() as run:
             system_prompt = "Answer the following question in two sentences"
             basic_qa_model = mlflow.openai.log_model(
-                model="gpt-3.5-turbo",
+                model="gpt-4o-mini",
                 task="chat.completions",
                 artifact_path="model",
                 messages=[

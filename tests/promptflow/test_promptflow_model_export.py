@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 import pytest
@@ -10,7 +9,7 @@ from mlflow import MlflowException
 from mlflow.deployments import PredictionsResponse
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 
-from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.helper_functions import get_serving_input_example, pyfunc_serve_and_score_model
 
 
 @pytest.fixture(scope="module")
@@ -57,13 +56,16 @@ def test_log_model_with_config():
     assert logged_model_config == model_config
 
 
-def log_promptflow_example_model(with_input_example=False):
+def log_promptflow_example_model(with_input_example=False, example_no_conversion=False):
     model = get_promptflow_example_model()
     with mlflow.start_run():
         if not with_input_example:
             return mlflow.promptflow.log_model(model, "promptflow_model")
         return mlflow.promptflow.log_model(
-            model, "promptflow_model", input_example={"text": "Python Hello World!"}
+            model,
+            "promptflow_model",
+            input_example={"text": "Python Hello World!"},
+            example_no_conversion=example_no_conversion,
         )
 
 
@@ -85,21 +87,21 @@ def test_promptflow_model_predict_pyfunc():
 
 def test_promptflow_model_serve_predict():
     # Assert predict with promptflow model
-    logged_model = log_promptflow_example_model()
-    # Assert predict with serve model
-    input_value = "Python Hello World!"
+    logged_model = log_promptflow_example_model(with_input_example=True, example_no_conversion=True)
+    inference_payload = get_serving_input_example(logged_model.model_uri)
     response = pyfunc_serve_and_score_model(
         logged_model.model_uri,
-        data=json.dumps({"inputs": {"text": input_value}}),
+        data=inference_payload,
         content_type=CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
     expected_result = (
         "system:\nYour task is to generate what I ask.\nuser:\n"
-        f"Write a simple {input_value} program that displays the greeting message."
+        "Write a simple Python Hello World! program that displays the "
+        "greeting message."
     )
     assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
-        "predictions": {"output": expected_result}
+        "predictions": [{"output": expected_result}]
     }
 
 

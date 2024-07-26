@@ -65,6 +65,8 @@ accelerate
 openai<1.0
 tiktoken
 tenacity
+# Required by mlflow.llama_index
+llama_index
 # Required by mlflow.langchain
 langchain
 # Required by mlflow.promptflow

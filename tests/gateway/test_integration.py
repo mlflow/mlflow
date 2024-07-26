@@ -40,7 +40,7 @@ def basic_config_dict():
                 "name": "chat-openai",
                 "route_type": "llm/v1/chat",
                 "model": {
-                    "name": "gpt-3.5-turbo",
+                    "name": "gpt-4o-mini",
                     "provider": "openai",
                     "config": {"openai_api_key": "$OPENAI_API_KEY"},
                 },
@@ -337,7 +337,7 @@ def test_openai_chat(gateway):
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
         "created": 1677858242,
-        "model": "gpt-3.5-turbo-0301",
+        "model": "gpt-4o-mini",
         "choices": [
             {
                 "message": {
@@ -721,7 +721,7 @@ def test_invalid_response_structure_raises(gateway):
             "input_tokens": 17,
             "output_tokens": 24,
             "total_tokens": 41,
-            "model": "gpt-3.5-turbo-0301",
+            "model": "gpt-4o-mini",
             "route_type": "llm/v1/chat",
         },
     }
@@ -758,7 +758,7 @@ def test_invalid_response_structure_no_raises(gateway):
             "input_tokens": 17,
             "output_tokens": 24,
             "total_tokens": 41,
-            "model": "gpt-3.5-turbo-0301",
+            "model": "gpt-4o-mini",
             "route_type": "llm/v1/chat",
         },
     }
@@ -793,7 +793,7 @@ def test_invalid_query_request_raises(gateway):
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
         "created": 1677858242,
-        "model": "gpt-3.5-turbo-0301",
+        "model": "gpt-4o-mini",
         "choices": [
             {
                 "message": {

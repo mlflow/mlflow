@@ -29,6 +29,7 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 from tests.prophet.test_prophet_model_export import DataGeneration
@@ -352,18 +353,17 @@ def test_pmdarima_model_log_without_conda_env_uses_default_env_with_expected_dep
 def test_pmdarima_pyfunc_serve_and_score(auto_arima_model):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.pmdarima.log_model(
+        model_info = mlflow.pmdarima.log_model(
             auto_arima_model,
             artifact_path,
+            input_example=pd.DataFrame({"n_periods": 30}, index=[0]),
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
     local_predict = auto_arima_model.predict(30)
 
-    inference_data = pd.DataFrame({"n_periods": 30}, index=[0])
-
+    inference_payload = get_serving_input_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_data,
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )

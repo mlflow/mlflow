@@ -22,7 +22,7 @@ def chat_config():
         "route_type": "llm/v1/chat",
         "model": {
             "provider": "openai",
-            "name": "gpt-3.5-turbo",
+            "name": "gpt-4o-mini",
             "config": {
                 "openai_api_base": "https://api.openai.com/v1",
                 "openai_api_key": "key",
@@ -75,7 +75,7 @@ async def test_uc_functions(monkeypatch):
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
         "created": 1677858242,
-        "model": "gpt-3.5-turbo-0301",
+        "model": "gpt-4o-mini",
         "usage": {
             "prompt_tokens": 13,
             "completion_tokens": 7,
@@ -107,7 +107,7 @@ async def test_uc_functions(monkeypatch):
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
         "created": 1677858242,
-        "model": "gpt-3.5-turbo-0301",
+        "model": "gpt-4o-mini",
         "usage": {
             "prompt_tokens": 13,
             "completion_tokens": 7,
@@ -184,7 +184,7 @@ async def test_uc_functions(monkeypatch):
             "id": "chatcmpl-abc123",
             "object": "chat.completion",
             "created": 1677858242,
-            "model": "gpt-3.5-turbo-0301",
+            "model": "gpt-4o-mini",
             "choices": [
                 {
                     "index": 0,
@@ -230,7 +230,7 @@ async def test_uc_functions_user_defined_functions(monkeypatch):
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
         "created": 1677858242,
-        "model": "gpt-3.5-turbo-0301",
+        "model": "gpt-4o-mini",
         "usage": {
             "prompt_tokens": 13,
             "completion_tokens": 7,
@@ -270,7 +270,7 @@ async def test_uc_functions_user_defined_functions(monkeypatch):
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
         "created": 1677858242,
-        "model": "gpt-3.5-turbo-0301",
+        "model": "gpt-4o-mini",
         "usage": {
             "prompt_tokens": 13,
             "completion_tokens": 7,
@@ -368,7 +368,7 @@ async def test_uc_functions_user_defined_functions(monkeypatch):
             "id": "chatcmpl-abc123",
             "object": "chat.completion",
             "created": 1677858242,
-            "model": "gpt-3.5-turbo-0301",
+            "model": "gpt-4o-mini",
             "choices": [
                 {
                     "index": 0,

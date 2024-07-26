@@ -48,6 +48,7 @@ from mlflow.environment_variables import MLFLOW_OPENAI_SECRET_SCOPE
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.openai._openai_autolog import patched_call
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -310,7 +311,7 @@ def save_model(
 
         # Chat
         mlflow.openai.save_model(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             task=openai.chat.completions,
             messages=[{"role": "user", "content": "Tell me a joke."}],
             path="model",
@@ -347,7 +348,6 @@ def save_model(
             _validate_model_params(
                 task, kwargs, {p.name: p.default for p in signature.params.params}
             )
-        mlflow_model.signature = signature
     elif task == "chat.completions":
         messages = kwargs.get("messages", [])
         if messages and not (
@@ -358,24 +358,30 @@ def save_model(
                 "'role' and 'content'."
             )
 
-        mlflow_model.signature = ModelSignature(
+        signature = ModelSignature(
             inputs=_get_input_schema(task, messages),
             outputs=Schema([ColSpec(type="string", name=None)]),
         )
     elif task == "completions":
         prompt = kwargs.get("prompt")
-        mlflow_model.signature = ModelSignature(
+        signature = ModelSignature(
             inputs=_get_input_schema(task, prompt),
             outputs=Schema([ColSpec(type="string", name=None)]),
         )
     elif task == "embeddings":
-        mlflow_model.signature = ModelSignature(
+        signature = ModelSignature(
             inputs=Schema([ColSpec(type="string", name=None)]),
             outputs=Schema([TensorSpec(type=np.dtype("float64"), shape=(-1,))]),
         )
 
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path, example_no_conversion)
+    saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+    if signature is None and saved_example is not None:
+        wrapped_model = _OpenAIWrapper(model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
+
+    if signature is not None:
+        mlflow_model.signature = signature
+
     if metadata is not None:
         mlflow_model.metadata = metadata
     model_data_path = os.path.join(path, MODEL_FILENAME)
@@ -468,7 +474,7 @@ def log_model(
 
     Args:
         model: The OpenAI model name or reference instance, e.g.,
-            ``openai.Model.retrieve("gpt-3.5-turbo")``.
+            ``openai.Model.retrieve("gpt-4o-mini")``.
         task: The task the model is performing, e.g., ``openai.chat.completions`` or
             ``'chat.completions'``.
         artifact_path: Run-relative artifact path.
@@ -516,7 +522,7 @@ def log_model(
         # Chat
         with mlflow.start_run():
             info = mlflow.openai.log_model(
-                model="gpt-3.5-turbo",
+                model="gpt-4o-mini",
                 task=openai.chat.completions,
                 messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
                 artifact_path="model",
