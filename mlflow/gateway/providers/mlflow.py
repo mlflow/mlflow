@@ -45,9 +45,7 @@ class EmbeddingsResponse(BaseModel):
         if isinstance(predictions, list) and all(
             isinstance(item, list) and not item for item in predictions
         ):
-            raise ValueError(
-                "One or more lists in the returned prediction response are empty"
-            )
+            raise ValueError("One or more lists in the returned prediction response are empty")
         elif all(isinstance(item, float) for item in predictions):
             return [predictions]
         else:
@@ -80,9 +78,7 @@ class MlflowModelServingProvider(BaseProvider):
         payload = jsonable_encoder(payload, exclude_none=True)
 
         input_data = payload.pop(key, None)
-        request_payload = {
-            "inputs": input_data if isinstance(input_data, list) else [input_data]
-        }
+        request_payload = {"inputs": input_data if isinstance(input_data, list) else [input_data]}
 
         if payload:
             request_payload["params"] = payload
@@ -102,9 +98,7 @@ class MlflowModelServingProvider(BaseProvider):
             for idx, entry in enumerate(inference_data)
         ]
 
-    async def completions(
-        self, payload: completions.RequestPayload
-    ) -> completions.ResponsePayload:
+    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         # Example request to MLflow REST API server for completions:
         # {
         #     "inputs": ["hi", "hello", "bye"],
@@ -188,9 +182,7 @@ class MlflowModelServingProvider(BaseProvider):
                     ),
                     finish_reason=None,
                 )
-                for idx, c in enumerate(
-                    self._process_chat_response_for_mlflow_serving(resp)
-                )
+                for idx, c in enumerate(self._process_chat_response_for_mlflow_serving(resp))
             ],
             usage=chat.ChatUsage(
                 prompt_tokens=None,
@@ -208,9 +200,7 @@ class MlflowModelServingProvider(BaseProvider):
 
         return inference_data
 
-    async def embeddings(
-        self, payload: embeddings.RequestPayload
-    ) -> embeddings.ResponsePayload:
+    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         # Example request to MLflow REST API server for embeddings:
         # {
         #     "inputs": ["a sentence", "another sentence"],
