@@ -248,7 +248,6 @@ def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-@pytest.mark.parametrize("module_name", ["langchain", "langchain_community"])
 def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch):
     from langchain_community.chat_models import ChatDatabricks
 
