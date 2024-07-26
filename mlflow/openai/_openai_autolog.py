@@ -166,7 +166,7 @@ def patched_call(original, self, *args, **kwargs):
                     mlflow_client.end_trace(
                         request_id=request_id,
                         attributes={"events": chunk_dicts},
-                        outputs={"result": "".join(output)},
+                        outputs="".join(output),
                     )
             except Exception as e:
                 _logger.warning(f"Encountered unexpected error during openai autologging: {e}")
@@ -181,7 +181,7 @@ def patched_call(original, self, *args, **kwargs):
         )
         if log_traces and request_id:
             try:
-                mlflow_client.end_trace(request_id=request_id, outputs={"result": result.to_json()})
+                mlflow_client.end_trace(request_id=request_id, outputs=result)
             except Exception as e:
                 _logger.warning(f"Encountered unexpected error when ending trace: {e}")
 
