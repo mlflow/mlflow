@@ -17,3 +17,18 @@ def pydantic_field_validator(field_name: str):
             return validator(field_name, pre=True)(func)
 
     return decorator
+
+
+def pydantic_model_validator(mode: str):
+    def decorator(func: Callable) -> Callable:
+        if IS_PYDANTIC_V2:
+            from pydantic import model_validator
+
+            return model_validator(mode=mode)(func)
+        else:
+            from pydantic import root_validator
+
+            pre = mode == "pre"
+            return root_validator(pre=pre)(func)
+
+    return decorator

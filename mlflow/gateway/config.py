@@ -27,7 +27,11 @@ from mlflow.gateway.utils import (
     is_valid_endpoint_name,
     is_valid_mosiacml_chat_model,
 )
-from mlflow.utils.pydantic import IS_PYDANTIC_V2, pydantic_field_validator
+from mlflow.utils.pydantic import (
+    IS_PYDANTIC_V2,
+    pydantic_field_validator,
+    pydantic_model_validator,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -160,19 +164,9 @@ class OpenAIConfig(ConfigModel):
 
         return info
 
-    if IS_PYDANTIC_V2:
-        from pydantic import model_validator as _model_validator
-
-        @_model_validator(mode="before")
-        def validate_field_compatibility(cls, info: Dict[str, Any]):
-            return cls._validate_field_compatibility(info)
-
-    else:
-        from pydantic import root_validator as _root_validator
-
-        @_root_validator(pre=False)
-        def validate_field_compatibility(cls, config: Dict[str, Any]):
-            return cls._validate_field_compatibility(config)
+    @pydantic_model_validator(mode="before")
+    def validate_field_compatibility(cls, info: Dict[str, Any]):
+        return cls._validate_field_compatibility(info)
 
 
 class AnthropicConfig(ConfigModel):
@@ -387,63 +381,31 @@ class RouteConfig(AliasedConfigModel):
                 )
         return model
 
-    if IS_PYDANTIC_V2:
-        from pydantic import model_validator as _model_validator
-
-        @_model_validator(mode="after")
-        def validate_route_type_and_model_name(self):
-            route_type = self.route_type
-            model = self.model
-            if (
-                model
-                and model.provider == "mosaicml"
-                and route_type == RouteType.LLM_V1_CHAT
-                and not is_valid_mosiacml_chat_model(model.name)
-            ):
-                raise MlflowException.invalid_parameter_value(
-                    f"An invalid model has been specified for the chat route. '{model.name}'. "
-                    f"Ensure the model selected starts with one of: "
-                    f"{MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES}"
-                )
-            if (
-                model
-                and model.provider == "ai21labs"
-                and not is_valid_ai21labs_model(model.name)
-            ):
-                raise MlflowException.invalid_parameter_value(
-                    f"An Unsupported AI21Labs model has been specified: '{model.name}'. "
-                    f"Please see documentation for supported models."
-                )
-            return self
-
-    else:
-        from pydantic import root_validator as _root_validator
-
-        @_root_validator(skip_on_failure=True)
-        def validate_route_type_and_model_name(cls, values):
-            route_type = values.get("route_type")
-            model = values.get("model")
-            if (
-                model
-                and model.provider == "mosaicml"
-                and route_type == RouteType.LLM_V1_CHAT
-                and not is_valid_mosiacml_chat_model(model.name)
-            ):
-                raise MlflowException.invalid_parameter_value(
-                    f"An invalid model has been specified for the chat route. '{model.name}'. "
-                    f"Ensure the model selected starts with one of: "
-                    f"{MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES}"
-                )
-            if (
-                model
-                and model.provider == "ai21labs"
-                and not is_valid_ai21labs_model(model.name)
-            ):
-                raise MlflowException.invalid_parameter_value(
-                    f"An Unsupported AI21Labs model has been specified: '{model.name}'. "
-                    f"Please see documentation for supported models."
-                )
-            return values
+    @pydantic_model_validator(mode="after")
+    def validate_route_type_and_model_name(self):
+        route_type = self.route_type
+        model = self.model
+        if (
+            model
+            and model.provider == "mosaicml"
+            and route_type == RouteType.LLM_V1_CHAT
+            and not is_valid_mosiacml_chat_model(model.name)
+        ):
+            raise MlflowException.invalid_parameter_value(
+                f"An invalid model has been specified for the chat route. '{model.name}'. "
+                f"Ensure the model selected starts with one of: "
+                f"{MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES}"
+            )
+        if (
+            model
+            and model.provider == "ai21labs"
+            and not is_valid_ai21labs_model(model.name)
+        ):
+            raise MlflowException.invalid_parameter_value(
+                f"An Unsupported AI21Labs model has been specified: '{model.name}'. "
+                f"Please see documentation for supported models."
+            )
+        return self
 
     @pydantic_field_validator(field_name="route_type")
     def validate_route_type(cls, value):
