@@ -49,7 +49,7 @@ from mlflow.utils.async_logging.run_operations import RunOperations, get_combine
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS, MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri
+from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
 from mlflow.utils.validation import (
     MAX_ENTITIES_PER_BATCH,
     MAX_METRICS_PER_BATCH,
@@ -881,7 +881,7 @@ class TrackingServiceClient:
         run_info = self.store.get_run(run_id).info
         experiment_id = run_info.experiment_id
         run_name = run_info.run_name
-        if self.tracking_uri == "databricks":
+        if is_databricks_uri(self.tracking_uri):
             experment_url = f"{host_url}/ml/experiments/{experiment_id}"
         else:
             experment_url = f"{host_url}/#/experiments/{experiment_id}"
