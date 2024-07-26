@@ -21,6 +21,7 @@ from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
 from mlflow.models.model_config import _set_model_config
 from mlflow.store.artifact.utils.models import get_model_name_and_version
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.types.schema import Array, Map, Object, Property
 from mlflow.types.utils import (
@@ -326,7 +327,7 @@ class _Example:
                     "to pass pandas DataFrame input example, please pass the DF directly "
                 )
 
-                from mlflow.pyfunc.scoring_server import _is_unified_llm_input
+                from mlflow.pyfunc.scoring_server.utils import _is_unified_llm_input
 
                 self.info["type"] = "json_object"
                 is_unified_llm_input = _is_unified_llm_input(model_input)
@@ -566,6 +567,23 @@ def _load_serving_input_example(mlflow_model: Model, path: str):
     if serving_input_path is None:
         return None
     with open(os.path.join(path, serving_input_path)) as handle:
+        return handle.read()
+
+
+def load_serving_example_from_path(model_uri_or_path: str):
+    """
+    Load serving input example from a model directory or URI.
+
+    Args:
+        model_uri_or_path: Model URI or path to the `model` directory.
+            e.g. models://<model_name>/<model_version> or /path/to/model
+    """
+    if os.path.exists(model_uri_or_path):
+        local_serving_input_path = model_uri_or_path.rstrip("/") + "/" + SERVING_INPUT_FILENAME
+    else:
+        serving_input_path = model_uri_or_path.rstrip("/") + "/" + SERVING_INPUT_FILENAME
+        local_serving_input_path = _download_artifact_from_uri(serving_input_path)
+    with open(local_serving_input_path) as handle:
         return handle.read()
 
 

@@ -51,6 +51,7 @@ except ImportError:
 from io import StringIO
 
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
+from mlflow.pyfunc.scoring_server.utils import _is_unified_llm_input
 from mlflow.server.handlers import catch_mlflow_exception
 
 _SERVER_MODEL_PATH = "__pyfunc_model_path__"
@@ -72,12 +73,6 @@ INPUTS = "inputs"
 
 SUPPORTED_FORMATS = {DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS}
 SERVING_PARAMS_KEY = "params"
-
-# Support unwrapped JSON with these keys for LLM use cases of Chat, Completions, Embeddings tasks
-LLM_CHAT_KEY = "messages"
-LLM_COMPLETIONS_KEY = "prompt"
-LLM_EMBEDDINGS_KEY = "input"
-SUPPORTED_LLM_FORMATS = {LLM_CHAT_KEY, LLM_COMPLETIONS_KEY, LLM_EMBEDDINGS_KEY}
 
 REQUIRED_INPUT_FORMAT = (
     f"The input must be a JSON dictionary with exactly one of the input fields {SUPPORTED_FORMATS}"
@@ -393,10 +388,6 @@ def invocations(data, content_type, model, input_schema):
         predictions_to_json(raw_predictions, result)
 
     return InvocationsResponse(response=result.getvalue(), status=200, mimetype="application/json")
-
-
-def _is_unified_llm_input(json_input: dict):
-    return any(x in json_input for x in SUPPORTED_LLM_FORMATS)
 
 
 class ParsedJsonInput(NamedTuple):
