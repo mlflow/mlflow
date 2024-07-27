@@ -148,16 +148,16 @@ def test_default_requirements(pipeline, expected_requirements, request):
     assert _strip_requirements(conda_requirements) == (expected_requirements | {"mlflow"})
 
 
-def test_inference_task_validation(small_seq2seq_pipeline, text_generation_pipeline):
+def test_inference_task_validation(small_seq2seq_pipeline):
     with pytest.raises(
         MlflowException, match="The task provided is invalid. 'llm/v1/invalid' is not"
     ):
-        _validate_llm_inference_task_type("llm/v1/invalid", text_generation_pipeline)
+        _validate_llm_inference_task_type("llm/v1/invalid", "text-generation")
     with pytest.raises(
         MlflowException, match="The task provided is invalid. 'llm/v1/completions' is not"
     ):
         _validate_llm_inference_task_type("llm/v1/completions", small_seq2seq_pipeline)
-    _validate_llm_inference_task_type("llm/v1/completions", text_generation_pipeline)
+    _validate_llm_inference_task_type("llm/v1/completions", "text-generation")
 
 
 @pytest.mark.parametrize(
@@ -3657,3 +3657,60 @@ def test_device_param_on_load_model(device, small_qa_pipeline, model_path, monke
             rf"but the `device` argument is provided with value {device}.",
         ):
             mlflow.transformers.load_model(model_path, return_type="components", device=device)
+
+
+def test_save_model_with_repo_id(model_path):
+    mlflow.transformers.save_model(
+        transformers_model="distilgpt2",
+        path=model_path,
+        pip_requirements=[
+            "mlflow",
+            "transformers",
+            "torch",
+            "sentencepiece",
+        ],
+    )
+
+    logged_info = Model.load(model_path)
+    flavor_conf = logged_info.flavors["transformers"]
+    assert flavor_conf["source_model_name"] == "distilbert/distilgpt2"
+    assert flavor_conf["task"] == "text-generation"
+    assert flavor_conf["framework"] == "pt"
+    assert flavor_conf["instance_type"] == "TextGenerationPipeline"
+    assert flavor_conf["tokenizer_type"] == "GPT2TokenizerFast"
+
+    # model_size_bytes is not accurate at this point
+    assert logged_info.model_size_bytes < 1_000_000
+
+    # Default task signature should be used
+    assert logged_info.signature.inputs == Schema([ColSpec(DataType.string)])
+    assert logged_info.signature.outputs == Schema([ColSpec(DataType.string)])
+
+    # Load as native pipeline
+    loaded_pipeline = mlflow.transformers.load_model(model_path)
+    isinstance(loaded_pipeline, transformers.TextGenerationPipeline)
+    pred_native = loaded_pipeline("How are you?")[0]["generated_text"]
+    assert pred_native.startswith("How are you?")
+
+    # Load as pyfunc
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
+    pred_pyfunc = loaded_pyfunc.predict("How are you?")[0]
+    assert pred_pyfunc.startswith("How are you?")
+
+    # Serve
+    response = pyfunc_serve_and_score_model(
+        model_path,
+        data=json.dumps({"inputs": ["How are you?"]}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    pred_serve = json.loads(response.content.decode("utf-8"))
+    assert pred_serve["predictions"][0].startswith("How are you?")
+
+
+def test_save_model_with_repo_id_raise_if_pip_requirements_not_provided(model_path):
+    with pytest.raises(MlflowException, match="A repository ID is provided"):
+        mlflow.transformers.save_model(
+            transformers_model="distilgpt2",
+            path=model_path,
+        )

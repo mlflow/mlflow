@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ALREADY_EXISTS
@@ -118,13 +118,19 @@ def _get_model_config(model, save_pretrained=True):
     return conf
 
 
-def _get_component_config(component, key, save_pretrained=True, default_repo=None):
+def _get_component_config(
+    component: Any,
+    key: str,
+    save_pretrained: bool = True,
+    default_repo: Optional[str] = None,
+    commit_sha: Optional[str] = None,
+) -> Dict[str, Any]:
     conf = {FlavorKey.COMPONENT_TYPE.format(key): _get_instance_type(component)}
 
     # Log source repo name and commit sha for the component
     if not save_pretrained:
         repo = getattr(component, "name_or_path", default_repo)
-        revision = get_latest_commit_for_repo(repo)
+        revision = commit_sha or get_latest_commit_for_repo(repo)
         conf[FlavorKey.COMPONENT_NAME.format(key)] = repo
         conf[FlavorKey.COMPONENT_REVISION.format(key)] = revision
 
@@ -155,6 +161,66 @@ def _get_instance_type(obj):
     the base ABC type of the model.
     """
     return obj.__class__.__name__
+
+
+def build_flavor_config_from_repo_info(
+    hf_repo_info: Dict, processor=None, torch_dtype=None
+) -> Dict[str, Any]:
+    """
+    Generates the flavor metadata from a Hugging Face model repository ID e.g. "meta-llama/Meta-Llama-3.1-405B, instead of the pipeline instance in-memory.
+    """
+    from transformers import AutoTokenizer, pipelines
+
+    task = hf_repo_info.pipeline_tag
+    task_metadata = pipelines.check_task(task)
+    pipeline_class = task_metadata[1]["impl"].__name__
+    flavor_conf = {
+        FlavorKey.TASK: task,
+        FlavorKey.INSTANCE_TYPE: pipeline_class,
+        FlavorKey.FRAMEWORK: _infer_framework(hf_repo_info),
+        FlavorKey.TORCH_DTYPE: str(torch_dtype) if torch_dtype else None,
+        FlavorKey.MODEL_TYPE: hf_repo_info.config["architectures"][0],
+        FlavorKey.MODEL_NAME: hf_repo_info.id,
+        FlavorKey.MODEL_REVISION: hf_repo_info.sha,
+    }
+
+    components = {FlavorKey.TOKENIZER}
+    tokenizer = AutoTokenizer.from_pretrained(hf_repo_info.id)
+    tokenizer_conf = _get_component_config(
+        tokenizer, FlavorKey.TOKENIZER, save_pretrained=False, commit_sha=hf_repo_info.sha
+    )
+    flavor_conf.update(tokenizer_conf)
+
+    if processor:
+        flavor_conf.update(
+            _get_component_config(
+                processor, FlavorKey.PROCESSOR, save_pretrained=False, commit_sha=hf_repo_info.sha
+            )
+        )
+
+    flavor_conf[FlavorKey.COMPONENTS] = list(components)
+    return flavor_conf
+
+
+def _infer_framework(hf_repo_info: Dict) -> str:
+    """
+    Infer framework mimicing Transformers implementation, but without loading
+    the model into memory
+    https://github.com/huggingface/transformers/blob/44f6fdd74f84744b159fa919474fd3108311a906/src/transformers/pipelines/base.py#L215C28-L215C37
+    """
+    from transformers.utils import is_torch_available
+
+    if not is_torch_available:
+        return "tf"
+
+    # Check repo tag
+    repo_tag = hf_repo_info.tags
+    is_torch_supported = "pytorch" in repo_tag
+    if not is_torch_supported:
+        return "tf"
+
+    # Default to Pytorch if both are available, probably we should do a better check
+    return "pt"
 
 
 def update_flavor_conf_to_persist_pretrained_model(

@@ -53,6 +53,7 @@ from mlflow.tracking.artifact_utils import _get_root_uri_and_artifact_path
 from mlflow.transformers.flavor_config import (
     FlavorKey,
     build_flavor_config,
+    build_flavor_config_from_repo_info,
     update_flavor_conf_to_persist_pretrained_model,
 )
 from mlflow.transformers.hub_utils import is_valid_hf_repo_id
@@ -465,6 +466,7 @@ def save_model(
         kwargs: Optional additional configurations for transformers serialization.
 
     """
+    import huggingface_hub
     import transformers
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
@@ -475,15 +477,35 @@ def save_model(
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, str(path))
 
-    _validate_transformers_model_dict(transformers_model)
-
     if isinstance(transformers_model, transformers.Pipeline):
+        _validate_transformers_model_dict(transformers_model)
         built_pipeline = transformers_model
+        hf_repo_id = built_pipeline.model.name_or_path
+        pipeline_task = built_pipeline.task
     elif isinstance(transformers_model, dict):
+        _validate_transformers_model_dict(transformers_model)
         built_pipeline = _build_pipeline_from_model_input(transformers_model, task=task)
+        hf_repo_id = built_pipeline.model.name_or_path
+        pipeline_task = built_pipeline.task
+    elif isinstance(transformers_model, str):
+        # Save with repo name e.g. "meta-llama/Meta-Llama-3.1-405B"
+        built_pipeline = None
+        hf_repo_id = transformers_model
+        hf_repo_info = huggingface_hub.model_info(transformers_model)
+        pipeline_task = hf_repo_info.transformers_info.pipeline_tag
+
+        if save_pretrained:
+            _logger.info(
+                "Repository ID is provided as the model to log. `save_pretrained` is override "
+                "to False and the model weight is not saved in the model artifact."
+            )
+            save_pretrained = False
     else:
         raise MlflowException(
-            "The `transformers_model` must be a Transformers Pipeline or a dictionary, "
+            "The `transformers_model` must be one of the following types: \n"
+            " (1) a transformers Pipeline\n"
+            " (2) a dictionary of components for a transformers Pipeline\n"
+            " (3) a HuggingFace Hub repository ID.\n"
             f"received: {type(transformers_model)}",
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -495,7 +517,7 @@ def save_model(
     # invalid state of the model's weights in this scenario. Hence, we raise.
     # We might be able to remove this check once this PR is merged to transformers:
     # https://github.com/huggingface/transformers/issues/20072
-    if _is_model_distributed_in_memory(built_pipeline.model):
+    if _is_model_distributed_in_memory(built_pipeline):
         raise MlflowException(
             "The model that is attempting to be saved has been loaded into memory "
             "with an incompatible configuration. If you are using the accelerate "
@@ -509,19 +531,24 @@ def save_model(
 
     if task and task.startswith(_LLM_INFERENCE_TASK_PREFIX):
         llm_inference_task = task
-        _validate_llm_inference_task_type(llm_inference_task, built_pipeline)
-    else:
-        llm_inference_task = None
+        _validate_llm_inference_task_type(llm_inference_task, pipeline_task)
 
-    if llm_inference_task:
         mlflow_model.signature = infer_signature_from_llm_inference_task(
             llm_inference_task, signature
         )
-    elif signature is not None:
+        # The model with LLM inference task should accept a standard dictionary format
+        # alone so the example should not be converted to pandas DataFrame
+        example_no_conversion = True
+    else:
+        llm_inference_task = None
+
+    if signature is not None:
         mlflow_model.signature = signature
 
     if input_example is not None:
-        input_example = format_input_example_for_special_cases(input_example, built_pipeline)
+        # TODO: Formatting example for special cases is not supported for repo_id based logging
+        if not isinstance(transformers_model, str):
+            input_example = format_input_example_for_special_cases(input_example, pipeline_task)
         _save_example(mlflow_model, input_example, str(path), example_no_conversion)
 
     if metadata is not None:
@@ -547,9 +574,9 @@ def save_model(
 
     if prompt_template is not None:
         # prevent saving prompt templates for unsupported pipeline types
-        if built_pipeline.task not in _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES:
+        if pipeline_task not in _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES:
             raise MlflowException(
-                f"Prompt templating is not supported for the `{built_pipeline.task}` task type. "
+                f"Prompt templating is not supported for the `{pipeline_task}` task type. "
                 f"Supported task types are: {_SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES}."
             )
 
@@ -559,7 +586,7 @@ def save_model(
         else:
             mlflow_model.metadata = {FlavorKey.PROMPT_TEMPLATE: prompt_template}
 
-    if is_peft_model(built_pipeline.model):
+    if is_peft_model(built_pipeline):
         _logger.info(
             "Overriding save_pretrained to False for PEFT models, following the Transformers "
             "behavior. The PEFT adaptor and config will be saved, but the base model weights "
@@ -569,7 +596,7 @@ def save_model(
         built_pipeline.model.save_pretrained(path.joinpath(_PEFT_ADAPTOR_DIR_NAME))
         save_pretrained = False
 
-    if not save_pretrained and not is_valid_hf_repo_id(built_pipeline.model.name_or_path):
+    if not save_pretrained and not is_valid_hf_repo_id(hf_repo_id):
         _logger.warning(
             "The save_pretrained parameter is set to False, but the specified model does not "
             "have a valid HuggingFace Hub repository identifier. Therefore, the weights will "
@@ -578,7 +605,10 @@ def save_model(
         save_pretrained = True
 
     # Create the flavor configuration
-    flavor_conf = build_flavor_config(built_pipeline, processor, torch_dtype, save_pretrained)
+    if built_pipeline is not None:
+        flavor_conf = build_flavor_config(built_pipeline, processor, torch_dtype, save_pretrained)
+    else:
+        flavor_conf = build_flavor_config_from_repo_info(hf_repo_info, processor, torch_dtype)
 
     if llm_inference_task:
         flavor_conf.update({_LLM_INFERENCE_TASK_KEY: llm_inference_task})
@@ -601,10 +631,10 @@ def save_model(
     if save_pretrained:
         save_pipeline_pretrained_weights(path, built_pipeline, flavor_conf, processor)
     else:
-        repo = built_pipeline.model.name_or_path
         _logger.info(
-            "Skipping saving pretrained model weights to disk as the save_pretrained is set to "
-            f"False. The reference to HuggingFace Hub repository {repo} will be logged instead."
+            "Skipping saving pretrained model weights to disk as the save_pretrained "
+            f"is set to False. The reference to HuggingFace Hub repository {hf_repo_id} "
+            "will be logged instead."
         )
 
     if inference_config:
@@ -616,24 +646,27 @@ def save_model(
             json.dumps(inference_config, indent=2)
         )
 
-    model_name = built_pipeline.model.name_or_path
-
     # Get the model card from either the argument or the HuggingFace marketplace
-    card_data = model_card or _fetch_model_card(model_name)
+    card_data = model_card or _fetch_model_card(hf_repo_id)
 
     # If the card data can be acquired, save the text and the data separately
     _write_card_data(card_data, path)
 
     # Write the license information (or guidance) along with the model
-    _write_license_information(model_name, card_data, path)
+    _write_license_information(hf_repo_id, card_data, path)
 
     # Only allow a subset of task types to have a pyfunc definition.
     # Currently supported types are NLP-based language tasks which have a pipeline definition
     # consisting exclusively of a Model and a Tokenizer.
-    if _should_add_pyfunc_to_model(built_pipeline):
+    if (
+        built_pipeline
+        is None  # TODO: Now we add pyfunc for all repo_id based saving. We should check here instead.
+        or _should_add_pyfunc_to_model(built_pipeline)
+    ):
         if mlflow_model.signature is None:
             mlflow_model.signature = infer_or_get_default_signature(
                 pipeline=built_pipeline,
+                task=pipeline_task,
                 example=input_example,
                 model_config=model_config or inference_config,
                 flavor_config=flavor_conf,
@@ -642,7 +675,7 @@ def save_model(
         # if pipeline is text-generation and a prompt template is specified,
         # provide the return_full_text=False config by default to avoid confusing
         # extra text for end-users
-        if prompt_template is not None and built_pipeline.task == "text-generation":
+        if prompt_template is not None and pipeline_task == "text-generation":
             return_full_text_key = "return_full_text"
             model_config = model_config or {}
             if return_full_text_key not in model_config:
@@ -677,6 +710,14 @@ def save_model(
 
     if conda_env is None:
         if pip_requirements is None:
+            if built_pipeline is None:
+                raise MlflowException(
+                    "A repository ID is provided as the `transformers_model`. We cannot infer the "
+                    "required pip libraries for the model. Please provide the `pip_requirements` "
+                    "argument to save_model() to manually specify the pip requirements.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
             default_reqs = get_default_pip_requirements(built_pipeline.model)
             # NB: Skip inferring requirements for PEFT models to avoid loading the full pretrained
             # model into memory. PEFT is mainly designed for fine-tuning large models under limited
@@ -1070,6 +1111,7 @@ def persist_pretrained_model(model_uri: str) -> None:
         # Now the model can be registered to the Model Registry
         mlflow.register_model(f"runs:/{run.info.run_id}/pipeline", "qa_pipeline")
     """
+    ## TODO: Update this not to load model into memory
     # Check if the model weight already exists in the model artifact before downloading
     root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
     artifact_repo = get_artifact_repository(root_uri)
@@ -1094,6 +1136,8 @@ def persist_pretrained_model(model_uri: str) -> None:
         )
         model_conf.add_flavor(FLAVOR_NAME, **updated_flavor_conf)
         model_conf.save(mlmodel_path)
+
+        # TODO: Update model size, too
 
         # Save pretrained weights
         save_pipeline_pretrained_weights(
@@ -1121,16 +1165,18 @@ def persist_pretrained_model(model_uri: str) -> None:
     _logger.info(f"The pretrained model has been successfully persisted in {model_uri}.")
 
 
-def _is_model_distributed_in_memory(transformers_model):
+def _is_model_distributed_in_memory(pipeline):
     """Check if the model is distributed across multiple devices in memory."""
+    if pipeline is None:
+        return False
 
     # Check if the model attribute exists. If not, accelerate was not used and the model can
     # be safely saved
-    if not hasattr(transformers_model, "hf_device_map"):
+    if not hasattr(pipeline.model, "hf_device_map"):
         return False
     # If the device map has more than one unique value entry, then the weights are not within
     # a contiguous memory system (VRAM, SYS, or DISK) and thus cannot be safely saved.
-    return len(set(transformers_model.hf_device_map.values())) > 1
+    return len(set(pipeline.model.hf_device_map.values())) > 1
 
 
 # This function attempts to determine if a GPU is available for the PyTorch and TensorFlow libraries
@@ -1431,18 +1477,18 @@ def _get_task_for_model(model_name_or_path: str, default_task=None) -> str:
         ) from e
 
 
-def _validate_llm_inference_task_type(llm_inference_task: str, pipeline: Pipeline) -> None:
+def _validate_llm_inference_task_type(llm_inference_task: str, pipeline_task: str) -> None:
     """
     Validates that an ``inference_task`` type is supported by ``transformers`` pipeline type.
     """
     supported_llm_inference_tasks = _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK.get(
-        pipeline.task, []
+        pipeline_task, []
     )
 
     if llm_inference_task not in supported_llm_inference_tasks:
         raise MlflowException(
             f"The task provided is invalid. '{llm_inference_task}' is not a supported task for "
-            f"the {pipeline.task} pipeline. Must be one of {supported_llm_inference_tasks}",
+            f"the {pipeline_task} pipeline. Must be one of {supported_llm_inference_tasks}",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
