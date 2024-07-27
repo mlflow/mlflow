@@ -66,6 +66,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         self._s3_upload_extra_args = s3_upload_extra_args if s3_upload_extra_args else {}
 
     def _refresh_credentials(self):
+        _logger.info(
+            "refreshing s3 credentials"
+        )
         if not self._credential_refresh_def:
             return self._get_s3_client()
         new_creds = self._credential_refresh_def()

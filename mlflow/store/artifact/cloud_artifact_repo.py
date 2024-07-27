@@ -224,6 +224,12 @@ class CloudArtifactRepository(ArtifactRepository):
         """
         return {header.name: header.value for header in headers}
 
+    def _refresh_credentials(self):
+        """
+        :return:
+        """
+        raise Exception("not implemented")
+
     def _parallelized_download_from_cloud(self, file_size, remote_file_path, local_path):
         read_credentials = self._get_read_credential_infos([remote_file_path])
         # Read credentials for only one file were requested. So we expected only one value in
@@ -246,6 +252,7 @@ class CloudArtifactRepository(ArtifactRepository):
             )
 
             if failed_downloads:
+                self._refresh_credentials()
                 new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
