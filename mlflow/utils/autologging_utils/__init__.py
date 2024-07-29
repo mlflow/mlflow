@@ -529,7 +529,7 @@ def disable_autologging(exemptions=None):
 
 @contextlib.contextmanager
 def restrict_langchain_autologging_to_traces_only():
-    if "langchain" not in sys.modules:
+    if sys.modules.get("langchain") is None:
         yield
     else:
         prev_langchain_params = AUTOLOGGING_INTEGRATIONS.get(mlflow.langchain.FLAVOR_NAME)
