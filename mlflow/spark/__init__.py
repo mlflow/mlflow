@@ -183,6 +183,9 @@ def log_model(
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
         signature: {{ signature }}
+            If your Spark model contains Spark ML vector type input or output column,
+            you should create ``SparkMLVector`` vector type for the column,
+            or you can simply invoke ````
         input_example: {{ input_example }}
         await_registration_for: Number of seconds to wait for the model version to finish
             being created and is in ``READY`` status. By default, the function
