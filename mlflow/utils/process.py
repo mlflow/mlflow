@@ -91,6 +91,9 @@ def _exec_cmd(
         env.update(extra_env)
 
     if is_in_databricks_runtime():
+        # in databricks runtime, the PYTHONPATH might contain inaccessible path
+        # which causes virtualenv python environment creation subprocess failure.
+        # as a workaround, we remove inaccessible path out of python path.
         env = _remove_inaccesible_python_path(env)
 
     # In Python < 3.8, `subprocess.Popen` doesn't accept a command containing path-like
