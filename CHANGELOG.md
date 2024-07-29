@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## 2.15.0 (2024-07-29)
+
+MLflow 2.15.0 includes several major features and improvements
+
+Features:
+
+- [Models / Tracking] Make MLflow supports spark vector UDT type (#12758, @WeichenXu123)
+- [] Add url logging when finishing MLflow run (#12708, @chenmoneygithub)
+- [Models] Improve `get_model_info` API (#12761, @WeichenXu123)
+- [UI] Add model serving input validation section in UI (#12729, @serena-ruan)
+
+Bug fixes:
+
+- [Scoring] Fix Spark UDF permission denied issue in Databricks runtime (#12774, @WeichenXu123)
+- [] File store get_experiment_by_name returns all stage experiments (#12788, @serena-ruan)
+- [Tracking] [2] Fix Langchain callback injection logic (#12773, @B-Step62)
+
+Documentation updates:
+
+- [Docs / Examples] Update/Replace GPT-3.5-turbo with GPT-4o-mini (#12746, @Acksout)
+- [Docs / Examples] Replace GPT-3.5-turbo with GPT-4o-mini (#12740, @Acksout)
+
+Small bug fixes and documentation updates:
+
+#12807, #12800, #10874, @WeichenXu123; #12803, @hcmturner; #12795, #12786, #12796, #12792, #12791, #12778, #12777, #12755, #12751, #12753, #12749, @harupy; #12804, @annzhang-db; #12797, #12787, #12784, #12771, #12737, @B-Step62; #12793, #12770, @serena-ruan; #12747, @michael-berk; #12342, @kriscon-db; #12766, @artjen; #12757, #12750, #12727, @daniellok-db; #12745, @BenWilson2; #12742, @edwardfeng-db
+
 ## 2.14.3 (2024-07-12)
 
 MLflow 2.14.3 is a patch release that addresses bug fixes and additional documentation for released features
