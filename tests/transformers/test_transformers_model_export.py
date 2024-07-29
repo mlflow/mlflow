@@ -61,7 +61,7 @@ from tests.helper_functions import (
     pyfunc_scoring_endpoint,
     pyfunc_serve_and_score_model,
 )
-from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API, chat_template
+from tests.transformers.helper import CHAT_TEMPLATE, IS_NEW_FEATURE_EXTRACTION_API
 from tests.transformers.test_transformers_peft_model import SKIP_IF_PEFT_NOT_AVAILABLE
 
 # NB: Some pipelines under test in this suite come very close or outright exceed the
@@ -3329,8 +3329,7 @@ def test_local_custom_model_save_and_load(text_generation_pipeline, model_path, 
 
     locally_loaded_model = transformers.AutoModelWithLMHead.from_pretrained(local_repo_path)
     tokenizer = transformers.AutoTokenizer.from_pretrained(
-        local_repo_path,
-        chat_template=chat_template
+        local_repo_path, chat_template=CHAT_TEMPLATE
     )
     model_dict = {"model": locally_loaded_model, "tokenizer": tokenizer}
 
