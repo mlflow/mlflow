@@ -32,9 +32,6 @@ def _remove_inaccesible_python_path(env):
     """
     Remove inaccessible path from PYTHONPATH environment variable.
     """
-    if env is None:
-        env = os.environ.copy()
-
     if python_path_env := env.get("PYTHONPATH"):
         python_paths = python_path_env.split(":")
         filtered_paths = []
@@ -91,7 +88,10 @@ def _exec_cmd(
             "`capture_output=True` and `stream_output=True` cannot be specified at the same time"
         )
 
-    env = env if extra_env is None else {**os.environ, **extra_env}
+    # Copy current `os.environ` or passed in `env` to avoid mutate it.
+    env = os.environ.copy() if env is None else env.copy()
+    if extra_env is not None:
+        env.update(extra_env)
 
     env = _remove_inaccesible_python_path(env)
 
