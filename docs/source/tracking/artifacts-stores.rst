@@ -210,3 +210,36 @@ Deletion Behavior
 In order to allow MLflow Runs to be restored, Run metadata and artifacts are not automatically removed
 from the backend store or artifact store when a Run is deleted. The :ref:`mlflow gc <cli>` CLI is provided
 for permanently removing Run metadata and artifacts for deleted runs.
+
+Multipart upload for proxied artifact access
+============================================
+
+.. note::
+    This feature is experimental and may be changed or removed in a future release without notice.
+
+Tracking Server supports uploading large artifacts using multipart upload for proxied artifact access.
+To enable this feature, set ``MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD`` to ``true``.
+
+.. code-block:: bash
+
+    export MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD=true
+
+Under the hood, the Tracking Server will create a multipart upload request with the underlying storage,
+generate presigned urls for each part, and let the client upload the parts directly to the storage.
+Once all parts are uploaded, the Tracking Server will complete the multipart upload.
+None of the data will pass through the Tracking Server.
+
+If the underlying storage does not support multipart upload, the Tracking Server will fallback to a single part upload.
+If multipart upload is supported but fails for any reason, an exception will be thrown.
+
+MLflow supports multipart upload for the following storage for proxied artifact access:
+
+- Amazon S3
+- Google Cloud Storage
+
+You can configure the following environment variables:
+
+- ``MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE`` - Specifies the minimum file size in bytes to use multipart upload
+  when logging artifacts (Default: 500 MB)
+- ``MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE`` - Specifies the chunk size in bytes to use when performing multipart upload
+  (Default: 100 MB)
