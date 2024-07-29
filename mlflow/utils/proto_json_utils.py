@@ -369,43 +369,34 @@ def _get_jsonable_obj(data, pandas_orient="records"):
         return data
 
 
-def convert_data_type(data, spec, convert_to_numpy=True):
+def convert_data_type(data, spec):
     """
     Convert input data to the type specified in the spec.
 
     Args:
         data: Input data.
         spec: ColSpec or TensorSpec.
-        convert_to_numpy: Whether to convert the data to numpy array. Default
-            to True for backwards compatibility.
     """
     import numpy as np
 
-    from mlflow.models.utils import _enforce_array, _enforce_map, _enforce_object, _enforce_type
+    from mlflow.models.utils import _enforce_array, _enforce_map, _enforce_object
     from mlflow.types.schema import Array, ColSpec, DataType, Map, Object, TensorSpec
 
     try:
         if spec is None:
-            return np.array(data) if convert_to_numpy else data
+            return np.array(data)
         if isinstance(spec, TensorSpec):
             return np.array(data, dtype=spec.type)
         if isinstance(spec, ColSpec):
             if isinstance(spec.type, DataType):
-                if convert_to_numpy:
-                    return (
-                        np.array(data, spec.type.to_numpy())
-                        if isinstance(data, (list, np.ndarray))
-                        else np.array([data], spec.type.to_numpy())[0]
-                    )
-                else:
-                    return _enforce_type(data, spec.type)
+                return (
+                    np.array(data, spec.type.to_numpy())
+                    if isinstance(data, (list, np.ndarray))
+                    else np.array([data], spec.type.to_numpy())[0]
+                )
             elif isinstance(spec.type, Array):
                 # convert to numpy array for backwards compatibility
-                return (
-                    np.array(_enforce_array(data, spec.type))
-                    if convert_to_numpy
-                    else _enforce_array(data, spec.type)
-                )
+                return np.array(_enforce_array(data, spec.type))
             elif isinstance(spec.type, Object):
                 return _enforce_object(data, spec.type)
             elif isinstance(spec.type, Map):
@@ -420,7 +411,7 @@ def convert_data_type(data, spec, convert_to_numpy=True):
     )
 
 
-def _cast_schema_type(input_data, schema=None, convert_to_numpy=True):
+def _cast_schema_type(input_data, schema=None):
     import numpy as np
 
     input_data = deepcopy(input_data)
@@ -448,28 +439,24 @@ def _cast_schema_type(input_data, schema=None, convert_to_numpy=True):
         # each key corresponds to a column, values should be
         # checked against the schema
         input_data = {
-            col: convert_data_type(data, types_dict.get(col), convert_to_numpy)
-            for col, data in input_data.items()
+            col: convert_data_type(data, types_dict.get(col)) for col, data in input_data.items()
         }
     elif isinstance(input_data, list):
         # List of dictionaries of column_name -> value mapping
         # List[Dict] must correspond to a schema with named columns
         if all(isinstance(x, dict) for x in input_data):
             input_data = [
-                {
-                    col: convert_data_type(value, types_dict.get(col), convert_to_numpy)
-                    for col, value in data.items()
-                }
+                {col: convert_data_type(value, types_dict.get(col)) for col, value in data.items()}
                 for data in input_data
             ]
         # List of values
         else:
             spec = schema.inputs[0] if schema else None
-            input_data = convert_data_type(input_data, spec, convert_to_numpy)
+            input_data = convert_data_type(input_data, spec)
     else:
         spec = schema.inputs[0] if schema else None
         try:
-            input_data = convert_data_type(input_data, spec, convert_to_numpy)
+            input_data = convert_data_type(input_data, spec)
         except Exception as e:
             raise MlflowInvalidInputException(
                 f"Failed to convert data `{input_data}` to type `{spec}` defined "
@@ -526,9 +513,10 @@ def parse_instances_data(data, schema=None):
     return data
 
 
-# TODO: we should update convert_to_numpy in MLflow 3.0 to avoid
-# converting genAI flavors data to numpy
-def parse_inputs_data(inputs_data_or_path, schema=None, convert_to_numpy=True):
+# TODO: Reuse this function for `inputs` key data parsing in serving, and
+# add `convert_to_numpy` param to avoid converting data to numpy arrays for
+# genAI flavors.
+def parse_inputs_data(inputs_data_or_path, schema=None):
     """
     Helper function to cast inputs_data based on the schema.
     Inputs data must be able to pass to the model for pyfunc predict directly.
@@ -536,18 +524,13 @@ def parse_inputs_data(inputs_data_or_path, schema=None, convert_to_numpy=True):
     Args:
         inputs_data: A json-serializable object
         schema: data schema to cast to. Be of type `mlflow.types.Schema`.
-        convert_to_numpy: Whether to converts the inputs_data to numpy type.
-            If true, we convert the inputs data to numpy array when schema is
-            None. And for all numpy array compatible variables in inputs data,
-            we convert them to numpy array.
-            Default to True for backwards compatibility.
     """
     if isinstance(inputs_data_or_path, str) and os.path.exists(inputs_data_or_path):
         with open(inputs_data_or_path) as handle:
             inputs_data = json.load(handle)
     else:
         inputs_data = inputs_data_or_path
-    return _cast_schema_type(inputs_data, schema, convert_to_numpy=convert_to_numpy)
+    return _cast_schema_type(inputs_data, schema)
 
 
 def parse_tf_serving_input(inp_dict, schema=None):
