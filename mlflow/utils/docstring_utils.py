@@ -7,7 +7,6 @@ import importlib_metadata
 from packaging.version import Version
 
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
-from mlflow.utils.autologging_utils.versioning import FLAVOR_TO_MODULE_NAME
 
 
 def _create_placeholder(key: str):
@@ -364,16 +363,17 @@ def get_module_min_and_max_supported_ranges(flavor_name):
         flavor_name: The flavor name registered in ml_package_versions.py
 
     Returns:
-        tuple of minimum supported version, maximum supported version as strings.
+        tuple of module name, minimum supported version, maximum supported version as strings.
     """
     if flavor_name == "pyspark.ml":
         # pyspark.ml is a special case of spark flavor
         flavor_name = "spark"
 
+    module_name = _ML_PACKAGE_VERSIONS[flavor_name]["package_info"].get("module_name", flavor_name)
     versions = _ML_PACKAGE_VERSIONS[flavor_name]["models"]
     min_version = versions["minimum"]
     max_version = versions["maximum"]
-    return min_version, max_version
+    return module_name, min_version, max_version
 
 
 def _do_version_compatibility_warning(msg: str):
@@ -401,8 +401,7 @@ def docstring_version_compatibility_warning(integration_name, warn=True):
         # NB: if using this decorator, ensure the package name to module name reference is
         # updated with the flavor's `save` and `load` functions being used within
         # ml-package-version.yml file.
-        module_name = FLAVOR_TO_MODULE_NAME[integration_name]
-        min_ver, max_ver = get_module_min_and_max_supported_ranges(integration_name)
+        module_name, min_ver, max_ver = get_module_min_and_max_supported_ranges(integration_name)
         required_pkg_versions = f"``{min_ver}`` -  ``{max_ver}``"
 
         notice = (
