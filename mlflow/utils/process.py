@@ -29,7 +29,7 @@ class ShellCommandException(Exception):
         return cls("\n".join(lines))
 
 
-def _remove_inaccesible_python_path(env):
+def _remove_inaccessible_python_path(env):
     """
     Remove inaccessible path from PYTHONPATH environment variable.
     """
@@ -94,7 +94,7 @@ def _exec_cmd(
         # in databricks runtime, the PYTHONPATH might contain inaccessible path
         # which causes virtualenv python environment creation subprocess failure.
         # as a workaround, we remove inaccessible path out of python path.
-        env = _remove_inaccesible_python_path(env)
+        env = _remove_inaccessible_python_path(env)
 
     # In Python < 3.8, `subprocess.Popen` doesn't accept a command containing path-like
     # objects (e.g. `["ls", pathlib.Path("abc")]`) on Windows. To avoid this issue,
