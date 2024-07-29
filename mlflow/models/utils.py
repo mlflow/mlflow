@@ -9,6 +9,7 @@ import re
 import sys
 import tempfile
 import uuid
+import warnings
 from contextlib import contextmanager
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
@@ -514,10 +515,11 @@ def _save_example(
 
     # TODO: remove this and all example_no_conversion param after 2.17.0 release
     if no_conversion is not None:
-        _logger.warning(
+        warnings.warn(
             "The `example_no_conversion` parameter is deprecated since mlflow 2.16.0. "
-            "MLflow no longer converts input examples when logging the model. "
-            "Please remove the parameter from your call args."
+            "This parameter is no longer used and safe to be removed, "
+            "MLflow no longer converts input examples when logging the model.",
+            FutureWarning,
         )
 
     example = _Example(input_example)
@@ -581,9 +583,16 @@ def load_serving_example_from_uri(model_uri_or_path: str):
             e.g. models://<model_name>/<model_version> or /path/to/model
     """
     serving_input_path = model_uri_or_path.rstrip("/") + "/" + SERVING_INPUT_FILENAME
-    local_serving_input_path = _download_artifact_from_uri(serving_input_path)
-    with open(local_serving_input_path) as handle:
-        result = handle.read()
+    if os.path.exists(serving_input_path):
+        with open(serving_input_path) as handle:
+            result = handle.read()
+    else:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            local_serving_input_path = _download_artifact_from_uri(
+                serving_input_path, output_path=tmpdir
+            )
+            with open(local_serving_input_path) as handle:
+                result = handle.read()
     # To avoid including indent in the output
     return json.dumps(json.loads(result))
 

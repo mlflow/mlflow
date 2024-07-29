@@ -751,9 +751,9 @@ model signatures in log_model calls when signatures aren't specified.
 
 
 .. note::
-    In latest MLflow, we do not convert dictionary input example to pandas DataFrame anymore. If the model input is json-serializable object, e.g. list or dictionary,
-    we directly save it as json object without any conversion. For numpy arrays, we convert it to json serializable format when saving. For pandas 
-    DataFrame, we save its dictionary format with ``to_dict(orient='split')``.
+    Since MLflow 2.16.0, dictionary input example is not converted to pandas DataFrame anymore. If the model input is json-serializable object, e.g. list or dictionary,
+    it is saved as json object without any conversion. For numpy arrays, a json serializable format is saved. For pandas DataFrame, it is converted to dictionary format 
+    with ``to_dict(orient='split')`` and saved into json format.
     ``example_no_conversion`` parameter for langchain, openai, pyfunc and transformers flavors will be dropped in a future release.
 
 Similar to model signatures, model inputs can be column-based (i.e DataFrames), tensor-based
@@ -859,8 +859,8 @@ The following example demonstrates how to log a model with an example containing
 
 Model Serving Example
 ---------------------
-When logging a model with input example, we automatically save a serving payload to ``serving_input_payload.json`` file,
-and validate the serving input payload against the logged model prior to model deployment. The serving payload is
+When logging a model with input example, a corresponding serving payload is automatically saved in ``serving_input_payload.json`` file,
+which is validated against the logged model prior to model deployment. The serving payload is
 converted from input example, and it is a json string that can be used when querying a deployed model endpoint. 
 
 The following example demonstrates how to use the serving payload:

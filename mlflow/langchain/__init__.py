@@ -244,11 +244,12 @@ def save_model(
                     )
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
-        example_no_conversion: If ``False``, the input example will be converted to a Pandas
+        example_no_conversion: This parameter is deprecated and will be removed in a future
+                release, please drop it and input examples are not converted anymore.
+                If ``False``, the input example will be converted to a Pandas
                 DataFrame format when saving. This is useful when the model expects a DataFrame
                 input and the input example could be passed directly to the model.
-                Defaults to ``None``. This parameter is deprecated and will be removed in a future
-                release, please drop it and we do not convert input example anymore.
+                Defaults to ``None``.
         model_config: The model configuration to apply to the model if saving model from code. This
             configuration is available during model loading.
 
@@ -530,11 +531,12 @@ def log_model(
                     )
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
-        example_no_conversion: If ``False``, the input example will be converted to a Pandas
+        example_no_conversion: This parameter is deprecated and will be removed in a future
+                release, please drop it and input examples are not converted anymore.
+                If ``False``, the input example will be converted to a Pandas
                 DataFrame format when saving. This is useful when the model expects a DataFrame
                 input and the input example could be passed directly to the model.
-                Defaults to ``None``. This parameter is deprecated and will be removed in a future
-                release, please drop it and we do not convert input example anymore.
+                Defaults to ``None``.
         run_id: run_id to associate with this model version. If specified, we resume the
                 run and log the model to that run. Otherwise, a new run is created.
                 Default to None.

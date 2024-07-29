@@ -5,5 +5,5 @@ LLM_EMBEDDINGS_KEY = "input"
 SUPPORTED_LLM_FORMATS = {LLM_CHAT_KEY, LLM_COMPLETIONS_KEY, LLM_EMBEDDINGS_KEY}
 
 
-def _is_unified_llm_input(json_input: dict):
+def is_unified_llm_input(json_input: dict):
     return any(x in json_input for x in SUPPORTED_LLM_FORMATS)
