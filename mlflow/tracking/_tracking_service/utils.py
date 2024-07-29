@@ -4,7 +4,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
-from typing import Generator, Union
+from typing import Generator, Optional, Union
 
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -20,6 +20,17 @@ from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 
 _logger = logging.getLogger(__name__)
 _tracking_uri = None
+
+
+def _is_uri_sanitized(uri: Optional[str] = None):
+    """Raises value error if forbidden chars are in the tracking uri."""
+    if uri is None:
+        return
+
+    forbidden_chars = {":", "'", "?", "<", ">", "|"}
+    intersection = set.intersection(forbidden_chars, set(uri))
+    if len(intersection) > 0:
+        raise ValueError(f"Special character: {intersection} is not allowed in uri")
 
 
 def is_tracking_uri_set():
