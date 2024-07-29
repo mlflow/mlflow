@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.os import is_windows
 
 
@@ -88,12 +89,13 @@ def _exec_cmd(
             "`capture_output=True` and `stream_output=True` cannot be specified at the same time"
         )
 
-    # Copy current `os.environ` or passed in `env` to avoid mutate it.
+    # Copy current `os.environ` or passed in `env` to avoid mutating it.
     env = os.environ.copy() if env is None else env.copy()
     if extra_env is not None:
         env.update(extra_env)
 
-    env = _remove_inaccesible_python_path(env)
+    if is_in_databricks_runtime():
+        env = _remove_inaccesible_python_path(env)
 
     # In Python < 3.8, `subprocess.Popen` doesn't accept a command containing path-like
     # objects (e.g. `["ls", pathlib.Path("abc")]`) on Windows. To avoid this issue,
