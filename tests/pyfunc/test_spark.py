@@ -1543,21 +1543,26 @@ def test_spark_udf_infer_return_type(spark, tmp_path):
 def test_spark_udf_env_manager_with_invalid_pythonpath(
     spark, sklearn_model, model_path, monkeypatch
 ):
-    monkeypatch.setenv("PYTHONPATH", "/tmp/abcdefg:/tmp/12345")
-    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "15.0")
-    model, inference_data = sklearn_model
+    origin_python_path = os.environ.get("PYTHONPATH", "")
+    monkeypatch.setenv("PYTHONPATH", f"{origin_python_path}:/tmp/abcdefg:/tmp/12345")
+    with mock.patch(
+        "mlflow.utils.databricks_utils.is_in_databricks_runtime", return_value=True
+    ), mock.patch("mlflow.utils.virtualenv._is_pyenv_available", return_value=True), mock.patch(
+        "mlflow.utils.virtualenv._get_pyenv_bin_path", return_value="pyenv"
+    ):
+        model, inference_data = sklearn_model
 
-    mlflow.sklearn.save_model(model, model_path)
-    expected_pred_result = model.predict(inference_data)
+        mlflow.sklearn.save_model(model, model_path)
+        expected_pred_result = model.predict(inference_data)
 
-    infer_data = pd.DataFrame(inference_data, columns=["a", "b"])
-    infer_spark_df = spark.createDataFrame(infer_data)
+        infer_data = pd.DataFrame(inference_data, columns=["a", "b"])
+        infer_spark_df = spark.createDataFrame(infer_data)
 
-    pyfunc_udf = spark_udf(spark, model_path, env_manager="virtualenv")
-    result = (
-        infer_spark_df.select(pyfunc_udf("a", "b").alias("predictions"))
-        .toPandas()
-        .predictions.to_numpy()
-    )
+        pyfunc_udf = spark_udf(spark, model_path, env_manager="virtualenv")
+        result = (
+            infer_spark_df.select(pyfunc_udf("a", "b").alias("predictions"))
+            .toPandas()
+            .predictions.to_numpy()
+        )
 
     np.testing.assert_allclose(result, expected_pred_result, rtol=1e-5)
