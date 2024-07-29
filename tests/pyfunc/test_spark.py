@@ -1543,13 +1543,16 @@ def test_spark_udf_infer_return_type(spark, tmp_path):
 def test_spark_udf_env_manager_with_invalid_pythonpath(
     spark, sklearn_model, model_path, tmp_path, monkeypatch
 ):
-    # create an unredable file
-    unredable_file = tmp_path / "unredable_file"
-    unredable_file.write_text("unredable file content")
-    unredable_file.chmod(0o000)
-    non_exist_file = "/tmp/abcdefg"
+    # create an unreadable file
+    unreadable_file = tmp_path / "unreadable_file"
+    unreadable_file.write_text("unreadable file content")
+    unreadable_file.chmod(0o000)
+    with pytest.raises(PermissionError):
+        with unreadable_file.open():
+            pass
+    non_exist_file = tmp_path / "does_not_exist"
     origin_python_path = os.environ.get("PYTHONPATH", "")
-    monkeypatch.setenv("PYTHONPATH", f"{origin_python_path}:{non_exist_file}:{unredable_file}")
+    monkeypatch.setenv("PYTHONPATH", f"{origin_python_path}:{non_exist_file}:{unreadable_file}")
     with mock.patch(
         "mlflow.utils.databricks_utils.is_in_databricks_runtime", return_value=True
     ), mock.patch("mlflow.utils.virtualenv._is_pyenv_available", return_value=True), mock.patch(
