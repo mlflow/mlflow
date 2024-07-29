@@ -45,8 +45,8 @@ class ROCMMonitor(BaseMetricsMonitor):
 
         try:
             rocml.smi_initialize()
-        except:
-            raise RunTimeError("Failed to initialize RSMI, skip logging GPU metrics")
+        except RuntimeError:
+            raise RuntimeError("Failed to initialize RSMI, skip logging GPU metrics")
 
         super().__init__()
 
