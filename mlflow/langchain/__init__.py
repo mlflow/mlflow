@@ -247,7 +247,7 @@ def save_model(
         example_no_conversion: If ``False``, the input example will be converted to a Pandas
                 DataFrame format when saving. This is useful when the model expects a DataFrame
                 input and the input example could be passed directly to the model.
-                Defaults to ``True``. This parameter is deprecated and will be removed in a future
+                Defaults to ``None``. This parameter is deprecated and will be removed in a future
                 release, please drop it and we do not convert input example anymore.
         model_config: The model configuration to apply to the model if saving model from code. This
             configuration is available during model loading.
@@ -533,7 +533,7 @@ def log_model(
         example_no_conversion: If ``False``, the input example will be converted to a Pandas
                 DataFrame format when saving. This is useful when the model expects a DataFrame
                 input and the input example could be passed directly to the model.
-                Defaults to ``True``. This parameter is deprecated and will be removed in a future
+                Defaults to ``None``. This parameter is deprecated and will be removed in a future
                 release, please drop it and we do not convert input example anymore.
         run_id: run_id to associate with this model version. If specified, we resume the
                 run and log the model to that run. Otherwise, a new run is created.

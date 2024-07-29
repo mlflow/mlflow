@@ -570,7 +570,7 @@ def _load_serving_input_example(mlflow_model: Model, path: str):
         return handle.read()
 
 
-def load_serving_example_from_path(model_uri_or_path: str):
+def load_serving_example_from_uri(model_uri_or_path: str):
     """
     Load serving input example from a model directory or URI.
 
@@ -584,7 +584,9 @@ def load_serving_example_from_path(model_uri_or_path: str):
         serving_input_path = model_uri_or_path.rstrip("/") + "/" + SERVING_INPUT_FILENAME
         local_serving_input_path = _download_artifact_from_uri(serving_input_path)
     with open(local_serving_input_path) as handle:
-        return handle.read()
+        result = handle.read()
+    # To avoid including indent in the output
+    return json.dumps(json.loads(result))
 
 
 def _read_example(mlflow_model: Model, path: str):
