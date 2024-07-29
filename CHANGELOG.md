@@ -2,7 +2,21 @@
 
 ## 2.15.0 (2024-07-29)
 
-MLflow 2.15.0 includes several major features and improvements
+We are excited to announce the release candidate for MLflow 2.15.0. This release includes several major features and improvements
+
+- **LlamaIndex Flavor**🦙 - MLflow now offers a native integration with [LlamaIndex](https://www.llamaindex.ai/), one of the most popular libraries for building GenAI apps centered around custom data. This integration allows you to log LlamaIndex indices within MLflow, allowing for the loading and deployment of your indexed data for inference tasks  with different engine types. MLflow also provides comprehensive tracing support for LlamaIndex operations, offering unprecedented transparency into complex queries. Check out the [MLflow LlamaIndex documentation](https://mlflow.org/docs/latest/llms/llama-index/index.html) to get started! (#12633, @michael-berk, @B-Step62)
+
+- **OpenAI Tracing**🔍 - We've enhanced our OpenAI integration with a new tracing feature that works seamlessly with MLflow OpenAI autologging. You can now enable tracing of their OpenAI API usage with a single `mlflow.openai.autolog()` call, thereby MLflow will  automatically log valuable metadata such as token usage and a history of your interactions, providing deeper insights into your OpenAI-powered applications. To start exploring this new capability, please check out [the tracing documentation](https://mlflow.org/docs/latest/llms/tracing/index.html#automatic-tracing)! (#12267, @gabrielfu)
+
+- **Spark VectorUDT Support**💥 - The ModelSignature
+ (#12758, @WeichenXu123)
+
+
+- **Enhanced Model Deployment with New Validation Feature**✅ - To improve the reliability of model deployments, MLflow has added a new method to validate your model before deploying it to an inference endpoint. This feature helps to eliminate typical errors in input and output handling, streamlining the process of model deployment and increasing confidence in your deployed models. By catching potential issues early, you can ensure a smoother transition from development to production. (#12710, @serena-ruan)
+
+- **Custom Metrics Definition Recording for Evaluations**📊 - We've strengthened the flexibility of defining custom metrics for model evaluation by automatically logging and versioning metrics definitions, including models used as judges and prompt templates. With this new capability, you can ensure reproducibility of evaluations across different runs and easily reuse evaluation setups for consistency, facilitating more meaningful comparisons between different models or versions. (#12487, #12509, @xq-yin)
+
+- **Databricks SDK Integration**🔐 - MLflow's interaction with Databricks endpoints has been fully migrated to use the [Databricks SDK](https://docs.databricks.com/en/dev-tools/sdk-python.html). This change brings more robust and reliable connections between MLflow and Databricks, and access to the latest Databricks features and capabilities. We mark the legacy databricks-cli support as deprecated and will remove in the future release.  (#12313, @WeichenXu123)
 
 Features:
 
