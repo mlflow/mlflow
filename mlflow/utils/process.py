@@ -77,7 +77,6 @@ def _exec_cmd(
         otherwise return a Popen instance.
 
     """
-    from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
     illegal_kwargs = set(kwargs.keys()).intersection({"text"})
     if illegal_kwargs:
