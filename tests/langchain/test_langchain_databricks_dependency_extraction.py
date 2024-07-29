@@ -214,7 +214,8 @@ def test_parsing_dependency_from_databricks_retriever(module_name, monkeypatch: 
 )
 @pytest.mark.parametrize("module_name", ["langchain", "langchain_community"])
 def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in_index(
-    module_name, monkeypatch: pytest.MonkeyPatch,
+    module_name,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     if module_name == "langchain":
         from langchain.vectorstores import DatabricksVectorSearch
