@@ -215,16 +215,16 @@ def _convert_dataframe_to_split_dict(df):
     return result
 
 
-def _check_no_nd_array(data):
+def _contains_nd_array(data):
     import numpy as np
 
     if isinstance(data, np.ndarray):
-        return False
+        return True
     if isinstance(data, list):
-        return all(_check_no_nd_array(x) for x in data)
+        return any(_contains_nd_array(x) for x in data)
     if isinstance(data, dict):
-        return all(_check_no_nd_array(x) for x in data.values())
-    return True
+        return any(_contains_nd_array(x) for x in data.values())
+    return False
 
 
 # SELF NOTE: this will not be a breaking change as for users who use this new MLflow
@@ -241,9 +241,8 @@ class _Example:
 
     The _Example is created from example data provided by user. The example(s) can be provided as
     pandas.DataFrame, numpy.ndarray, python dictionary or python list. The assumption is that the
-    example contains jsonable elements (see storage format section below). We do not convert the
-    input example, but save it as a json serializable object if it is a pandas DataFrame or numpy
-    array.
+    example contains jsonable elements (see storage format section below). The input example will
+    be saved as a json serializable object if it is a pandas DataFrame or numpy array.
     If the example is a tuple, the first element is considered as the example data and the second
     element is considered as the example params.
 
@@ -322,15 +321,16 @@ class _Example:
             else:
                 # TODO: remove this warning after 2.17.0 release
                 _logger.warning(
-                    "We do not convert dictionary input example to pandas Dataframe "
-                    "format, we directly save it as a json object. If you want "
-                    "to pass pandas DataFrame input example, please pass the DF directly "
+                    "Since MLflow 2.16.0, we no longer convert dictionary input example "
+                    "to pandas Dataframe, and directly save it as a json object. "
+                    "If the model expects a pandas DataFrame input instead, please "
+                    "pass the pandas DataFrame as input example directly."
                 )
 
-                from mlflow.pyfunc.utils.serving_data_parser import _is_unified_llm_input
+                from mlflow.pyfunc.utils.serving_data_parser import is_unified_llm_input
 
                 self.info["type"] = "json_object"
-                is_unified_llm_input = _is_unified_llm_input(model_input)
+                is_unified_llm_input = is_unified_llm_input(model_input)
                 if is_unified_llm_input:
                     self.serving_input = model_input
                 else:
@@ -347,7 +347,7 @@ class _Example:
             - List[Dict[str, Union[DataType, List, Dict]]]
             --> type: json_object
             """
-            if not _check_no_nd_array(model_input):
+            if _contains_nd_array(model_input):
                 raise TensorsNotSupportedException(
                     "Numpy arrays in list are not supported as input examples."
                 )
@@ -465,6 +465,7 @@ def _split_input_data_and_params(input_example):
     return input_example, None
 
 
+@experimental
 def convert_input_example_to_serving_input(input_example) -> Optional[str]:
     """
     Helper function to convert a model's input example to a serving input example that
@@ -514,8 +515,9 @@ def _save_example(
     # TODO: remove this and all example_no_conversion param after 2.17.0 release
     if no_conversion is not None:
         _logger.warning(
-            "example_no_conversion is deprecated, we no longer convert input examples "
-            "when logging the model. Please remove this parameter."
+            "The `example_no_conversion` parameter is deprecated since mlflow 2.16.0. "
+            "MLflow no longer converts input examples when logging the model. "
+            "Please remove the parameter from your call args."
         )
 
     example = _Example(input_example)
@@ -578,11 +580,8 @@ def load_serving_example_from_uri(model_uri_or_path: str):
         model_uri_or_path: Model URI or path to the `model` directory.
             e.g. models://<model_name>/<model_version> or /path/to/model
     """
-    if os.path.exists(model_uri_or_path):
-        local_serving_input_path = model_uri_or_path.rstrip("/") + "/" + SERVING_INPUT_FILENAME
-    else:
-        serving_input_path = model_uri_or_path.rstrip("/") + "/" + SERVING_INPUT_FILENAME
-        local_serving_input_path = _download_artifact_from_uri(serving_input_path)
+    serving_input_path = model_uri_or_path.rstrip("/") + "/" + SERVING_INPUT_FILENAME
+    local_serving_input_path = _download_artifact_from_uri(serving_input_path)
     with open(local_serving_input_path) as handle:
         result = handle.read()
     # To avoid including indent in the output

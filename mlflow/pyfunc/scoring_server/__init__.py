@@ -53,7 +53,7 @@ from io import StringIO
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils.serving_data_parser import (  # noqa: F401
     SUPPORTED_LLM_FORMATS,
-    _is_unified_llm_input,
+    is_unified_llm_input,
 )
 from mlflow.server.handlers import catch_mlflow_exception
 
@@ -401,8 +401,8 @@ class ParsedJsonInput(NamedTuple):
 
 def _parse_json_data(data, metadata, input_schema):
     json_input = _decode_json_input(data)
-    is_unified_llm_input = _is_unified_llm_input(json_input)
-    if is_unified_llm_input:
+    _is_unified_llm_input = is_unified_llm_input(json_input)
+    if _is_unified_llm_input:
         # Unified LLM input format
         if hasattr(metadata, "get_params_schema"):
             params_schema = metadata.get_params_schema()
@@ -413,7 +413,7 @@ def _parse_json_data(data, metadata, input_schema):
         # Traditional json input format
         data, params = _split_data_and_params(data)
         data = infer_and_parse_data(data, input_schema)
-    return ParsedJsonInput(data, params, is_unified_llm_input)
+    return ParsedJsonInput(data, params, _is_unified_llm_input)
 
 
 def init(model: PyFuncModel):

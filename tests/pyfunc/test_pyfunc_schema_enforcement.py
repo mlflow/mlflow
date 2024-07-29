@@ -27,7 +27,7 @@ from mlflow.models.utils import (
     _enforce_schema,
 )
 from mlflow.pyfunc import PyFuncModel
-from mlflow.pyfunc.scoring_server import _is_unified_llm_input
+from mlflow.pyfunc.scoring_server import is_unified_llm_input
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.types.schema import Array, Map, Object, Property
@@ -2236,7 +2236,7 @@ def test_input_example_validation_during_logging(
         extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 200, response.content
-    if _is_unified_llm_input(example):
+    if is_unified_llm_input(example):
         result = json.loads(response.content.decode("utf-8"))
     else:
         result = json.loads(response.content.decode("utf-8"))["predictions"]
