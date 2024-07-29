@@ -16,7 +16,7 @@ We are excited to announce the release candidate for MLflow 2.15.0. This release
 
 - **Databricks SDK Integration**🔐 - MLflow's interaction with Databricks endpoints has been fully migrated to use the [Databricks SDK](https://docs.databricks.com/en/dev-tools/sdk-python.html). This change brings more robust and reliable connections between MLflow and Databricks, and access to the latest Databricks features and capabilities. We mark the legacy databricks-cli support as deprecated and will remove in the future release.  (#12313, @WeichenXu123)
 
-- **Spark VectorUDT Support**💥 - MLflow's [Model Signature](https://mlflow.org/docs/latest/model/signatures.html) framework is enhanced with support for Spark Vector UDT (User Defined Type), allowing you to log and deploy models that use Spark VectorUDT types with the harness of rigorous type validation. (#12758, @WeichenXu123)
+- **Spark VectorUDT Support**💥 - MLflow's [Model Signature](https://mlflow.org/docs/latest/model/signatures.html) framework now supports Spark Vector UDT (User Defined Type), enabling logging and deployment of models using Spark VectorUDT with robust type validation. (#12758, @WeichenXu123)
 
 ### Other Notable Changes
 
