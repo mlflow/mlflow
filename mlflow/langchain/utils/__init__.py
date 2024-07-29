@@ -62,10 +62,7 @@ _UNSUPPORTED_LLM_WARNING_MESSAGE = (
     "MLflow does not guarantee support for LLMs outside of HuggingFacePipeline and OpenAI, found %s"
 )
 
-# Minimum version of langchain required to support ChatOpenAI and AzureChatOpenAI in MLflow
-# Before this version, our hacky patching to support loading ChatOpenAI and AzureChatOpenAI
-# will not work.
-_LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI = Version("0.0.307")
+
 _LC_MIN_VERSION_SUPPORT_RUNNABLE = Version("0.0.311")
 _CHAT_MODELS_ERROR_MSG = re.compile("Loading (openai-chat|azure-openai-chat) LLM not supported")
 
@@ -614,7 +611,11 @@ def patch_langchain_type_to_cls_dict():
     # NB: get_type_to_cls_dict() method is defined in the following two modules with the same
     # name but with slight different elements. This is most likely just a mistake in the
     # LangChain codebase, but we patch them separately to avoid any potential issues.
-    modules_to_patch = ["langchain.llms", "langchain_community.llms.loading"]
+    modules_to_patch = [
+        "langchain.llms",
+        "langchain.llms.loading",  # Required for LangChain version < 0.0.349
+        "langchain_community.llms.loading",
+    ]
     originals = {}
     for module_name in modules_to_patch:
         try:

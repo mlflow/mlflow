@@ -3,9 +3,10 @@ import os
 import time
 from contextlib import contextmanager
 from enum import Enum
+from http import HTTPStatus
 from typing import NamedTuple, Optional
 from unittest import mock
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import mlflow
 
@@ -79,9 +80,17 @@ class _MockResponse:
     def __init__(self, status_code, json_data):
         self.status_code = status_code
         self.content = json.dumps(json_data).encode()
-        self.headers = {"Content-Type": "application/json"}
+        self.headers = {"content-type": "application/json"}
         self.text = mlflow.__version__
         self.json_data = json_data
+        self.reason_phrase = HTTPStatus(status_code).phrase
+        self.request = MagicMock()
+
+        def mock_raise_for_status():
+            if 400 <= status_code < 600:
+                raise Exception(f"Mock HTTPX request {status_code} Error")
+
+        self.raise_for_status = mock_raise_for_status
 
     def json(self):
         return self.json_data
@@ -91,7 +100,7 @@ class _MockStreamResponse:
     def __init__(self, status_code, json_data):
         self.status_code = status_code
         self.iter_lines = lambda: iter([f"data: {json.dumps(json_data)}".encode()])
-        self.headers = {"Content-Type": "text/event-stream"}
+        self.headers = {"content-type": "text/event-stream"}
 
 
 def _chat_completion_json_sample(content):
@@ -143,7 +152,7 @@ def _mock_chat_completion_stream_response(content=TEST_CONTENT):
 
 @contextmanager
 def _mock_request(**kwargs):
-    with mock.patch("requests.Session.request", **kwargs) as m:
+    with mock.patch("httpx.Client.send", **kwargs) as m:
         yield m
 
 
@@ -163,7 +172,7 @@ async def _mock_async_chat_completion_response(content=TEST_CONTENT, **kwargs):
     json_data = _chat_completion_json_sample(content)
     resp.status = 200
     resp.content = json.dumps(json_data).encode()
-    resp.headers = {"Content-Type": "application/json"}
+    resp.headers = {"content-type": "application/json"}
     resp.text = mlflow.__version__
     resp.json_data = json_data
     resp.json.return_value = json_data
@@ -193,7 +202,7 @@ async def _mock_async_chat_completion_stream_response(content=TEST_CONTENT, **kw
 
     # OpenAI uses content instead of iter_lines for async stream parsing
     resp.content = DummyAsyncIter()
-    resp.headers = {"Content-Type": "text/event-stream"}
+    resp.headers = {"content-type": "text/event-stream"}
     return resp
 
 
