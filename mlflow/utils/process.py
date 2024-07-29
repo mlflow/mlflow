@@ -32,6 +32,9 @@ def _remove_inaccesible_python_path(env):
     """
     Remove inaccessible path from PYTHONPATH environment variable.
     """
+    if env is None:
+        env = os.environ.copy()
+
     if python_path_env := env.get("PYTHONPATH"):
         python_paths = python_path_env.split(":")
         filtered_paths = []
@@ -39,6 +42,7 @@ def _remove_inaccesible_python_path(env):
             if os.access(p, os.R_OK):
                 filtered_paths.append(p)
         env["PYTHONPATH"] = ":".join(filtered_paths)
+    return env
 
 
 def _exec_cmd(
@@ -90,7 +94,7 @@ def _exec_cmd(
 
     env = env if extra_env is None else {**os.environ, **extra_env}
 
-    _remove_inaccesible_python_path(env)
+    env = _remove_inaccesible_python_path(env)
 
     # In Python < 3.8, `subprocess.Popen` doesn't accept a command containing path-like
     # objects (e.g. `["ls", pathlib.Path("abc")]`) on Windows. To avoid this issue,
