@@ -17,6 +17,7 @@ from mlflow.utils.annotations import experimental
 ARRAY_TYPE = "array"
 OBJECT_TYPE = "object"
 MAP_TYPE = "map"
+SPARKML_VECTOR_TYPE = "sparkml_vector"
 
 
 class DataType(Enum):
@@ -72,9 +73,14 @@ class DataType(Enum):
         return self._pandas_type
 
     def to_spark(self):
-        import pyspark.sql.types
+        if self._spark_type == "VectorUDT":
+            from pyspark.ml.linalg import VectorUDT
 
-        return getattr(pyspark.sql.types, self._spark_type)()
+            return VectorUDT()
+        else:
+            import pyspark.sql.types
+
+            return getattr(pyspark.sql.types, self._spark_type)()
 
     def to_python(self):
         """Get equivalent python data type."""
@@ -231,6 +237,8 @@ class Property:
         dtype = dic["type"]
         if dtype == ARRAY_TYPE:
             return cls(name=name, dtype=Array.from_json_dict(**dic), required=required)
+        if dtype == SPARKML_VECTOR_TYPE:
+            return SparkMLVector()
         if dtype == OBJECT_TYPE:
             return cls(name=name, dtype=Object.from_json_dict(**dic), required=required)
         if dtype == MAP_TYPE:
@@ -491,13 +499,19 @@ class Array:
             raise MlflowException("Expected items to be a dictionary of Object JSON")
         if not {"type"} <= set(kwargs["items"].keys()):
             raise MlflowException("Missing keys in Array's items JSON. Expected to find key `type`")
+
         if kwargs["items"]["type"] == OBJECT_TYPE:
-            return cls(dtype=Object.from_json_dict(**kwargs["items"]))
-        if kwargs["items"]["type"] == ARRAY_TYPE:
-            return cls(dtype=Array.from_json_dict(**kwargs["items"]))
-        if kwargs["items"]["type"] == MAP_TYPE:
-            return cls(dtype=Map.from_json_dict(**kwargs["items"]))
-        return cls(dtype=kwargs["items"]["type"])
+            item_type = Object.from_json_dict(**kwargs["items"])
+        elif kwargs["items"]["type"] == ARRAY_TYPE:
+            item_type = Array.from_json_dict(**kwargs["items"])
+        elif kwargs["items"]["type"] == SPARKML_VECTOR_TYPE:
+            item_type = SparkMLVector()
+        elif kwargs["items"]["type"] == MAP_TYPE:
+            item_type = Map.from_json_dict(**kwargs["items"])
+        else:
+            item_type = kwargs["items"]["type"]
+
+        return cls(dtype=item_type)
 
     def __repr__(self) -> str:
         return f"Array({self.dtype!r})"
@@ -522,6 +536,33 @@ class Array:
             return Array(dtype=self.dtype._merge(arr.dtype))
 
         raise MlflowException(f"Array type {self!r} and {arr!r} are incompatible")
+
+
+class SparkMLVector(Array):
+    """
+    Specification used to represent a vector type in Spark ML.
+    """
+
+    def __init__(self):
+        super().__init__(dtype=DataType.double)
+
+    def to_dict(self):
+        return {"type": SPARKML_VECTOR_TYPE}
+
+    @classmethod
+    def from_json_dict(cls, **kwargs):
+        return SparkMLVector()
+
+    def __repr__(self) -> str:
+        return "SparkML vector"
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, SparkMLVector)
+
+    def _merge(self, arr: Array) -> Array:
+        if isinstance(arr, SparkMLVector):
+            return deepcopy(self)
+        raise MlflowException("SparkML vector type can't be merged with another Array type.")
 
 
 class Map:
@@ -586,6 +627,8 @@ class Map:
             return cls(value_type=Object.from_json_dict(**kwargs["values"]))
         if kwargs["values"]["type"] == ARRAY_TYPE:
             return cls(value_type=Array.from_json_dict(**kwargs["values"]))
+        if kwargs["values"]["type"] == SPARKML_VECTOR_TYPE:
+            return SparkMLVector()
         if kwargs["values"]["type"] == MAP_TYPE:
             return cls(value_type=Map.from_json_dict(**kwargs["values"]))
         return cls(value_type=kwargs["values"]["type"])
@@ -665,6 +708,10 @@ class ColSpec:
         """The column name or None if the columns is unnamed."""
         return self._name
 
+    @name.setter
+    def name(self, value: bool) -> None:
+        self._name = value
+
     @experimental
     @property
     def optional(self) -> bool:
@@ -709,7 +756,7 @@ class ColSpec:
         """
         if not {"type"} <= set(kwargs.keys()):
             raise MlflowException("Missing keys in ColSpec JSON. Expected to find key `type`")
-        if kwargs["type"] not in [ARRAY_TYPE, OBJECT_TYPE, MAP_TYPE]:
+        if kwargs["type"] not in [ARRAY_TYPE, OBJECT_TYPE, MAP_TYPE, SPARKML_VECTOR_TYPE]:
             return cls(**kwargs)
         name = kwargs.pop("name", None)
         optional = kwargs.pop("optional", None)
@@ -729,6 +776,8 @@ class ColSpec:
             return cls(
                 name=name, type=Map.from_json_dict(**kwargs), optional=optional, required=required
             )
+        if kwargs["type"] == SPARKML_VECTOR_TYPE:
+            return cls(name=name, type=SparkMLVector(), optional=optional, required=required)
 
 
 class TensorInfo:
@@ -887,6 +936,7 @@ class Schema:
             raise MlflowException.invalid_parameter_value(
                 "Creating Schema with empty inputs is not allowed."
             )
+
         if not (all(x.name is None for x in inputs) or all(x.name is not None for x in inputs)):
             raise MlflowException(
                 "Creating Schema with a combination of named and unnamed inputs "
