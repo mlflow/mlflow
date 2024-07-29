@@ -7,8 +7,6 @@ from typing import List
 
 import mlflow
 from mlflow.entities import Metric
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 
@@ -41,7 +39,7 @@ from mlflow.utils.autologging_utils.safety import (  # noqa: F401
     with_managed_run,
 )
 from mlflow.utils.autologging_utils.versioning import (
-    FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
+    FLAVOR_TO_MODULE_NAME,
     get_min_max_version_and_pip_release,
     is_flavor_supported_for_associated_package_versions,
 )
@@ -342,8 +340,7 @@ def gen_autologging_package_version_requirements_doc(integration_name):
         A document note string saying the compatibility for the specified autologging
         integration's associated package versions.
     """
-    _, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[integration_name]
-    min_ver, max_ver, pip_release = get_min_max_version_and_pip_release(module_key)
+    min_ver, max_ver, pip_release = get_min_max_version_and_pip_release(integration_name)
     required_pkg_versions = f"``{min_ver}`` <= ``{pip_release}`` <= ``{max_ver}``"
 
     return (
@@ -362,7 +359,7 @@ def _check_and_log_warning_for_unsupported_package_versions(integration_name):
     are not supported, log a warning message.
     """
     if (
-        integration_name in FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY
+        integration_name in FLAVOR_TO_MODULE_NAME
         and not get_autologging_config(integration_name, "disable", True)
         and not get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
         and not is_flavor_supported_for_associated_package_versions(integration_name)
@@ -429,23 +426,6 @@ def autologging_integration(name):
             if name != "mlflow" and get_autologging_config(name, "disable", True):
                 return
 
-            # The `disable_for_unsupported_versions` is only effective when the flavor name is
-            # listed in `FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY` mapping. The mapping should
-            # contain all the flavors support autologging, but may not be up-to-date. To avoid
-            # silent failure, we raise an exception here to capture the issue in CI or assist
-            # users to report the issue.
-            if (
-                name != "mlflow"
-                and name not in FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY
-                and get_autologging_config(name, "disable_for_unsupported_versions")
-            ):
-                raise MlflowException(
-                    "The `disable_for_unsupported_versions` configuration is not supported for "
-                    f"the {name} flavor. Please contact the MLflow maintainers for "
-                    "assistance.",
-                    error_code=INTERNAL_ERROR,
-                )
-
             is_silent_mode = get_autologging_config(name, "silent", False)
             # Reroute non-MLflow warnings encountered during autologging enablement to an
             # MLflow event logger, and enforce silent mode if applicable (i.e. if the corresponding
@@ -477,7 +457,7 @@ def autologging_integration(name):
         # during the execution of import hooks for `mlflow.autolog()`.
         wrapped_autolog.integration_name = name
 
-        if name in FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY:
+        if name in FLAVOR_TO_MODULE_NAME:
             wrapped_autolog.__doc__ = gen_autologging_package_version_requirements_doc(name) + (
                 wrapped_autolog.__doc__ or ""
             )
@@ -517,7 +497,7 @@ def autologging_is_disabled(integration_name):
         return True
 
     if (
-        integration_name in FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY
+        integration_name in FLAVOR_TO_MODULE_NAME
         and not is_flavor_supported_for_associated_package_versions(integration_name)
     ):
         return get_autologging_config(integration_name, "disable_for_unsupported_versions", False)

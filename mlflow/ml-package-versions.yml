@@ -32,6 +32,7 @@ sklearn:
 pytorch:
   package_info:
     pip_release: "torch"
+    module_name: "torch"
     install_dev: |
       pip install --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 
@@ -341,6 +342,7 @@ statsmodels:
 spark:
   package_info:
     pip_release: "pyspark"
+    module_name: "pyspark"
     install_dev: |
       temp_dir=$(mktemp -d)
       git clone --depth 1 https://github.com/apache/spark.git $temp_dir
@@ -704,6 +706,7 @@ langchain:
 llama_index:
   package_info:
     pip_release: "llama-index"
+    module_name: "llama_index.core"
     install_dev: |
       pip install git+https://github.com/run-llama/llama_index.git
   models:

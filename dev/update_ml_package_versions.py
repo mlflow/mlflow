@@ -105,6 +105,7 @@ def update_ml_package_versions_py(config_path):
         for name, cfg in yaml.load(f, Loader=yaml.SafeLoader).items():
             # Extract required fields
             pip_release = extract_field(cfg, ("package_info", "pip_release"))
+            module_name = extract_field(cfg, ("package_info", "module_name"))
             min_version = extract_field(cfg, ("models", "minimum"))
             max_version = extract_field(cfg, ("models", "maximum"))
             if min_version:
@@ -117,6 +118,8 @@ def update_ml_package_versions_py(config_path):
                         "maximum": max_version,
                     },
                 }
+                if module_name:
+                    config[name]["package_info"]["module_name"] = module_name
             else:
                 config[name] = {
                     "package_info": {
