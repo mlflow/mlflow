@@ -18,7 +18,7 @@ import shutil
 import string
 import sys
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
 from urllib.parse import urlparse
 
 import numpy as np
@@ -56,7 +56,7 @@ from mlflow.transformers.flavor_config import (
     build_flavor_config_from_repo_info,
     update_flavor_conf_to_persist_pretrained_model,
 )
-from mlflow.transformers.hub_utils import is_valid_hf_repo_id
+from mlflow.transformers.hub_utils import download_model_weights_from_hub, is_valid_hf_repo_id
 from mlflow.transformers.llm_inference_utils import (
     _LLM_INFERENCE_TASK_CHAT,
     _LLM_INFERENCE_TASK_COMPLETIONS,
@@ -76,6 +76,8 @@ from mlflow.transformers.llm_inference_utils import (
 from mlflow.transformers.model_io import (
     _COMPONENTS_BINARY_DIR_NAME,
     _MODEL_BINARY_FILE_NAME,
+    _PROCESSOR_BINARY_DIR_NAME,
+    load_components,
     load_model_and_components_from_huggingface_hub,
     load_model_and_components_from_local,
     save_pipeline_pretrained_weights,
@@ -660,7 +662,7 @@ def save_model(
     # consisting exclusively of a Model and a Tokenizer.
     if (
         built_pipeline
-        is None  # TODO: Now we add pyfunc for all repo_id based saving. We should check here instead.
+        is None  # TODO: we should check if the mode in the repo is eligible for pyfunc
         or _should_add_pyfunc_to_model(built_pipeline)
     ):
         if mlflow_model.signature is None:
@@ -1071,7 +1073,10 @@ def load_model(
     return _load_model(local_model_path, flavor_config, return_type, device, **kwargs)
 
 
-def persist_pretrained_model(model_uri: str) -> None:
+def persist_pretrained_model(
+    model_uri: str,
+    framework: Optional[Literal["pt", "tf"]] = None,
+) -> None:
     """
     Persist Transformers pretrained model weights to the artifacts directory of the specified
     model_uri. This API is primary used for updating an MLflow Model that was logged or saved
@@ -1111,7 +1116,6 @@ def persist_pretrained_model(model_uri: str) -> None:
         # Now the model can be registered to the Model Registry
         mlflow.register_model(f"runs:/{run.info.run_id}/pipeline", "qa_pipeline")
     """
-    ## TODO: Update this not to load model into memory
     # Check if the model weight already exists in the model artifact before downloading
     root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
     artifact_repo = get_artifact_repository(root_uri)
@@ -1126,23 +1130,41 @@ def persist_pretrained_model(model_uri: str) -> None:
 
     with TempDir() as tmp_dir:
         local_model_path = artifact_repo.download_artifacts(artifact_path, dst_path=tmp_dir.path())
-        pipeline = load_model(local_model_path, return_type="pipeline")
-
-        # Update MLModel flavor config
         mlmodel_path = os.path.join(local_model_path, MLMODEL_FILE_NAME)
         model_conf = Model.load(mlmodel_path)
-        updated_flavor_conf = update_flavor_conf_to_persist_pretrained_model(
-            model_conf.flavors[FLAVOR_NAME]
-        )
+        flavor_conf = model_conf.flavors.get(FLAVOR_NAME)
+
+        # First, try persisting model weight without loading the pipeline into memory
+        try:
+            download_model_weights_from_hub(
+                flavor_conf, os.path.join(local_model_path, _MODEL_BINARY_FILE_NAME)
+            )
+
+            # Load other components from the hub and persist them
+            for name, component in load_components(flavor_conf).items():
+                save_path = (
+                    os.path.join(local_model_path, _PROCESSOR_BINARY_DIR_NAME)
+                    if name == "processor"
+                    else os.path.join(local_model_path, _COMPONENTS_BINARY_DIR_NAME, name)
+                )
+                component.save_pretrained(save_path)
+
+        except Exception:
+            # As a fallback, load it to memory
+            _logger.warning(
+                "Failed to persist the pretrained model weights directly from the HuggingFace "
+                "Hub repository. Falling back to save the weights by loading the pipeline into "
+                "memory. This may cause OOM errors if the model is large."
+            )
+            pipeline = load_model(local_model_path, return_type="pipeline")
+            # Save pretrained weights
+            save_pipeline_pretrained_weights(pathlib.Path(local_model_path), pipeline, flavor_conf)
+
+        # Update MLModel flavor config
+        updated_flavor_conf = update_flavor_conf_to_persist_pretrained_model(flavor_conf)
         model_conf.add_flavor(FLAVOR_NAME, **updated_flavor_conf)
         model_conf.save(mlmodel_path)
-
         # TODO: Update model size, too
-
-        # Save pretrained weights
-        save_pipeline_pretrained_weights(
-            pathlib.Path(local_model_path), pipeline, updated_flavor_conf
-        )
 
         # Upload updated local artifacts to MLflow
         for dir_to_upload in (_MODEL_BINARY_FILE_NAME, _COMPONENTS_BINARY_DIR_NAME):

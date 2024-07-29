@@ -167,7 +167,8 @@ def build_flavor_config_from_repo_info(
     hf_repo_info: Dict, processor=None, torch_dtype=None
 ) -> Dict[str, Any]:
     """
-    Generates the flavor metadata from a Hugging Face model repository ID e.g. "meta-llama/Meta-Llama-3.1-405B, instead of the pipeline instance in-memory.
+    Generates the flavor metadata from a Hugging Face model repository ID
+    e.g. "meta-llama/Meta-Llama-3.1-405B, instead of the pipeline instance in-memory.
     """
     from transformers import AutoTokenizer, pipelines
 
@@ -210,7 +211,7 @@ def _infer_framework(hf_repo_info: Dict) -> str:
     """
     from transformers.utils import is_torch_available
 
-    if not is_torch_available:
+    if not is_torch_available():
         return "tf"
 
     # Check repo tag

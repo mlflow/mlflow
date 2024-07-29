@@ -96,7 +96,15 @@ def load_model_and_components_from_huggingface_hub(flavor_conf, accelerate_conf,
     loaded[FlavorKey.MODEL] = _load_model(
         model_repo, flavor_conf, accelerate_conf, device, revision=model_revision
     )
+    loaded.update(load_components(flavor_conf))
+    return loaded
 
+
+def load_components(flavor_conf):
+    """
+    Load the auxiliary components of a Transformer pipeline from HuggingFace Hub, such as tokenizer,
+    """
+    loaded = {}
     components = flavor_conf.get(FlavorKey.COMPONENTS, [])
     if FlavorKey.PROCESSOR_TYPE in flavor_conf:
         components.append("processor")

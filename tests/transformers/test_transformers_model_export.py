@@ -3559,15 +3559,13 @@ def test_save_and_load_pipeline_without_save_pretrained_false(
         mlflow.pyfunc.load_model(model_path).predict(input_example)
 
 
-# Patch tempdir just to verify the invocation
-@mock.patch("mlflow.transformers.TempDir", side_effect=mlflow.utils.file_utils.TempDir)
-def test_persist_pretrained_model(mock_tmpdir, small_seq2seq_pipeline):
+@pytest.mark.parametrize("repo_id", ["distilgpt2", "mrm8488/t5-small-finetuned-common_gen"])
+def test_persist_pretrained_model(repo_id):
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
-            transformers_model=small_seq2seq_pipeline,
+            transformers_model=repo_id,
             artifact_path="model",
-            save_pretrained=False,
-            pip_requirements=["mlflow"],  # For speed up logging
+            pip_requirements=["mlflow", "transformers"],
         )
 
     artifact_path = Path(mlflow.artifacts.download_artifacts(model_info.model_uri))
@@ -3580,20 +3578,75 @@ def test_persist_pretrained_model(mock_tmpdir, small_seq2seq_pipeline):
     assert not model_path.exists()
     assert not tokenizer_path.exists()
 
-    mlflow.transformers.persist_pretrained_model(model_info.model_uri)
+    with mock.patch("mlflow.transformers.load_model") as mock_load_model:
+        mlflow.transformers.persist_pretrained_model(model_info.model_uri)
 
-    mock_tmpdir.assert_called_once()
+    # persist_pretrained_model should only download the weights and
+    # log them as artifacts. It should not load the pipeline to memory.
+    mock_load_model.assert_not_called()
+
     updated_config = Model.load(model_info.model_uri).flavors["transformers"]
     assert "model_binary" in updated_config
     assert "source_model_revision" not in updated_config
+
+    # Check if the correct weight files are persisted
     assert model_path.exists()
-    assert (model_path / "tf_model.h5").exists()
     assert tokenizer_path.exists()
     assert (tokenizer_path / "tokenizer.json").exists()
 
-    # Repeat persisting the model will no-op
-    mock_tmpdir.reset_mock()
+    # Load the model back and verify the prediction
+    loaded_model = mlflow.transformers.load_model(model_info.model_uri)
+    assert isinstance(loaded_model, transformers.Pipeline)
+    assert loaded_model("How are you?") is not None
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) >= Version("4.39.0"),
+    reason="Transformer has compatibility issue with non-torch environment",
+)
+@mock.patch("transformers.utils.is_torch_available", return_value=False)
+def test_persist_pretrained_model_tf(mock_torch_available):
+    # reload transformers module to avoid torch dependency
+    importlib.reload(transformers)
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model="google/tapas-small-finetuned-wtq",
+            artifact_path="model",
+            pip_requirements=["mlflow", "transformers"],
+        )
+
     mlflow.transformers.persist_pretrained_model(model_info.model_uri)
+
+    artifact_path = Path(mlflow.artifacts.download_artifacts(model_info.model_uri))
+    model_path = artifact_path / "model"
+    tokenizer_path = artifact_path / "components" / "tokenizer"
+
+    # If pytorch is not available, persist_pretrained_model should download the TF weight files.
+    assert model_path.exists()
+    assert (model_path / "tf_model.h5").exists()
+
+    assert tokenizer_path.exists()
+    assert (tokenizer_path / "tokenizer_config.json").exists()
+
+
+@mock.patch("mlflow.transformers.TempDir", side_effect=mlflow.utils.file_utils.TempDir)
+def test_persist_pretrained_model_non_idepotent(mock_tmpdir):
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model="distilgpt2",
+            artifact_path="model",
+            # Saving model with repo_id requires pip_requirements
+            # to be specified explicitly
+            pip_requirements=["mlflow", "transformers"],
+        )
+    mock_tmpdir.assert_not_called()
+
+    mlflow.persist_pretrained_model(model_info.model_uri)
+    mock_tmpdir.assert_called_once()
+
+    mock_tmpdir.reset_mock()
+    mlflow.persist_pretrained_model(model_info.model_uri)
     mock_tmpdir.assert_not_called()
 
 
