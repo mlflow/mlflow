@@ -45,10 +45,7 @@ def _is_pyenv_available():
     """
     Returns True if pyenv is available, otherwise False.
     """
-    if is_in_databricks_runtime():
-        return os.path.exists(_DATABRICKS_PYENV_BIN_PATH)
-    else:
-        return shutil.which("pyenv") is not None
+    return _get_pyenv_bin_path() is not None
 
 
 def _validate_pyenv_is_available():
@@ -90,7 +87,9 @@ _SEMANTIC_VERSION_REGEX = re.compile(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$")
 
 
 def _get_pyenv_bin_path():
-    return _DATABRICKS_PYENV_BIN_PATH if is_in_databricks_runtime() else "pyenv"
+    if is_in_databricks_runtime() and os.path.exists(_DATABRICKS_PYENV_BIN_PATH):
+        return _DATABRICKS_PYENV_BIN_PATH
+    return shutil.which("pyenv")
 
 
 def _find_latest_installable_python_version(version_prefix):
