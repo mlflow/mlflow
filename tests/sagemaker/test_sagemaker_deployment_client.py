@@ -1519,9 +1519,8 @@ def test_deploy_cli_deletes_sagemaker_deployment(pretrained_model, sagemaker_cli
     assert len(response["Endpoints"]) == 0
 
 
-@pytest.mark.parametrize("i", range(500))  # temporary change to ensure this is not flaky
 @mock_sagemaker_aws_services
-def test_get_deployment_successful(i, pretrained_model, sagemaker_client):
+def test_get_deployment_successful(pretrained_model, sagemaker_client):
     name = "test-app"
     region_name = sagemaker_client.meta.region_name
     sagemaker_deployment_client = mfs.SageMakerDeploymentClient(f"sagemaker:/{region_name}")
@@ -1532,15 +1531,15 @@ def test_get_deployment_successful(i, pretrained_model, sagemaker_client):
     endpoint_description = sagemaker_deployment_client.get_deployment(name)
 
     expected_description = sagemaker_client.describe_endpoint(EndpointName=name)
-    # The date header value is not deterministic. Use `mock.ANY` to match any value.
+    # The date header value in `expected_description` is occasionally one second ahead of
+    # `endpoint_description`. To avoid flakiness, use `mock.ANY` to match any value.
     expected_description["ResponseMetadata"]["HTTPHeaders"]["date"] = mock.ANY
     assert endpoint_description == expected_description
 
 
 @mock_sagemaker_aws_services
-@pytest.mark.parametrize("i", range(500))  # temporary change to ensure this is not flaky
 def test_get_deployment_with_assumed_role_arn(
-    i, pretrained_model, sagemaker_client, sagemaker_deployment_client
+    pretrained_model, sagemaker_client, sagemaker_deployment_client
 ):
     name = "test-app"
     sagemaker_deployment_client.create_deployment(name=name, model_uri=pretrained_model.model_uri)
@@ -1548,7 +1547,8 @@ def test_get_deployment_with_assumed_role_arn(
     endpoint_description = sagemaker_deployment_client.get_deployment(name)
 
     expected_description = sagemaker_client.describe_endpoint(EndpointName=name)
-    # The date header value is not deterministic. Use `mock.ANY` to match any value.
+    # The date header value in `expected_description` is occasionally one second ahead of
+    # `endpoint_description`. To avoid flakiness, use `mock.ANY` to match any value.
     expected_description["ResponseMetadata"]["HTTPHeaders"]["date"] = mock.ANY
     assert endpoint_description == expected_description
 
