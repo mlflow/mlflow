@@ -1562,9 +1562,7 @@ def test_spark_udf_env_manager_with_invalid_pythonpath(
     infer_data = pd.DataFrame(inference_data, columns=["a", "b"])
     infer_spark_df = spark.createDataFrame(infer_data)
 
-    with mock.patch(
-        "mlflow.utils.databricks_utils.is_in_databricks_runtime", return_value=True
-    ):
+    with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_runtime", return_value=True):
         pyfunc_udf = spark_udf(spark, model_path, env_manager="virtualenv")
 
     result = (
