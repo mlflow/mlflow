@@ -1531,6 +1531,9 @@ def test_get_deployment_successful(pretrained_model, sagemaker_client):
     endpoint_description = sagemaker_deployment_client.get_deployment(name)
 
     expected_description = sagemaker_client.describe_endpoint(EndpointName=name)
+    # The date header value in `expected_description` is occasionally one second ahead of
+    # `endpoint_description`. To avoid flakiness, use `mock.ANY` to match any value.
+    expected_description["ResponseMetadata"]["HTTPHeaders"]["date"] = mock.ANY
     assert endpoint_description == expected_description
 
 
@@ -1544,6 +1547,9 @@ def test_get_deployment_with_assumed_role_arn(
     endpoint_description = sagemaker_deployment_client.get_deployment(name)
 
     expected_description = sagemaker_client.describe_endpoint(EndpointName=name)
+    # The date header value in `expected_description` is occasionally one second ahead of
+    # `endpoint_description`. To avoid flakiness, use `mock.ANY` to match any value.
+    expected_description["ResponseMetadata"]["HTTPHeaders"]["date"] = mock.ANY
     assert endpoint_description == expected_description
 
 
