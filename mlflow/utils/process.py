@@ -33,13 +33,9 @@ def _remove_inaccesible_python_path(env):
     """
     Remove inaccessible path from PYTHONPATH environment variable.
     """
-    if python_path_env := env.get("PYTHONPATH"):
-        python_paths = python_path_env.split(":")
-        filtered_paths = []
-        for p in python_paths:
-            if os.access(p, os.R_OK):
-                filtered_paths.append(p)
-        env["PYTHONPATH"] = ":".join(filtered_paths)
+    if python_path := env.get("PYTHONPATH"):
+        paths = [p for p in python_path.split(":") if os.access(p, os.R_OK)]
+        env["PYTHONPATH"] = ":".join(paths)
     return env
 
 
@@ -90,7 +86,7 @@ def _exec_cmd(
         )
 
     # Copy current `os.environ` or passed in `env` to avoid mutating it.
-    env = os.environ.copy() if env is None else env.copy()
+    env = env or os.environ.copy()
     if extra_env is not None:
         env.update(extra_env)
 

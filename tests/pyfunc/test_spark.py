@@ -1544,6 +1544,7 @@ def test_spark_udf_env_manager_with_invalid_pythonpath(
     spark, sklearn_model, model_path, monkeypatch
 ):
     monkeypatch.setenv("PYTHONPATH", "/tmp/abcdefg:/tmp/12345")
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "15.0")
     model, inference_data = sklearn_model
 
     mlflow.sklearn.save_model(model, model_path)
