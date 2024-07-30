@@ -1,10 +1,10 @@
-from contextlib import contextmanager
 import importlib
 import inspect
 import json
 import os
 import shutil
 import sqlite3
+from contextlib import contextmanager
 from operator import itemgetter
 from typing import Any, Dict, Iterator, List, Mapping, Optional
 from unittest import mock
@@ -106,6 +106,7 @@ from tests.tracing.export.test_inference_table_exporter import _REQUEST_ID
 VECTORSTORE_KWARGS = (
     {"allow_dangerous_deserialization": True} if IS_PICKLE_SERIALIZATION_RESTRICTED else {}
 )
+
 
 @contextmanager
 def _mock_async_request(content=TEST_CONTENT):
