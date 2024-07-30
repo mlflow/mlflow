@@ -40,9 +40,12 @@ try:
 except ImportError:
     from langchain.llms import HuggingFacePipeline
 from langchain.callbacks.base import BaseCallbackHandler
-from langchain.chat_models import ChatOpenAI as LegacyChatOpenAI
+
+# TODO: We should use langchain_openai instead of the community models
+# once the partner package loading issue is resolved
+from langchain.chat_models import AzureChatOpenAI, ChatOpenAI
 from langchain.chat_models.base import SimpleChatModel
-from langchain.llms import OpenAI as LegacyOpenAI
+from langchain.llms import OpenAI
 from langchain.llms.base import LLM
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
@@ -63,7 +66,6 @@ from langchain.tools import Tool
 from langchain.vectorstores import FAISS
 from langchain_core.callbacks.base import BaseCallbackHandler
 from langchain_experimental.sql import SQLDatabaseChain
-from langchain_openai import AzureChatOpenAI, ChatOpenAI, OpenAI
 from packaging import version
 from packaging.version import Version
 from pydantic import BaseModel
@@ -182,7 +184,7 @@ def create_openai_llmagent(return_intermediate_steps=False):
     # TODO: The new OpenAI LLM from langchain-openai package does not support pickle
     # serialization and make AgentExecutor saving to fail. We need to fix this issue
     # and update this test to use the new OpenAI LLM.
-    llm = LegacyOpenAI(temperature=0)
+    llm = OpenAI(temperature=0)
     tools = load_tools(["serpapi", "llm-math"], llm=llm)
     return initialize_agent(
         tools,
@@ -377,13 +379,6 @@ def test_pyfunc_spark_udf_with_langchain_model(spark):
     assert pdf["answer"].tolist() == [TEST_CONTENT, TEST_CONTENT]
 
 
-def _check_llm_chain_equality(chain1, chain2):
-    # TODO: Replace this soft assertion once we support loading from partner packages.
-    assert type(chain1) == type(chain2)
-    assert chain1.llm.__class__.__name__ == chain2.llm.__class__.__name__
-    assert chain1.llm.temperature == chain2.llm.temperature
-
-
 def test_save_and_load_chat_openai(model_path):
     llm = ChatOpenAI(temperature=0.9)
     prompt = PromptTemplate.from_template("What is a good name for a company that makes {product}?")
@@ -391,7 +386,7 @@ def test_save_and_load_chat_openai(model_path):
     mlflow.langchain.save_model(chain, model_path)
 
     loaded_model = mlflow.langchain.load_model(model_path)
-    _check_llm_chain_equality(chain, loaded_model)
+    assert loaded_model == chain
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(model_path)
     prediction = loaded_pyfunc_model.predict([{"product": "Mlflow?"}])
@@ -408,7 +403,7 @@ def test_save_and_load_azure_chat_openai(model_path, monkeypatch):
     mlflow.langchain.save_model(chain, model_path)
 
     loaded_model = mlflow.langchain.load_model(model_path)
-    _check_llm_chain_equality(chain, loaded_model)
+    assert loaded_model == chain
 
 
 def test_langchain_log_huggingface_hub_model_metadata(model_path):
@@ -1358,9 +1353,7 @@ def test_save_load_runnable_sequence():
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     assert type(loaded_model) == RunnableSequence
     assert type(loaded_model.steps[0]) == PromptTemplate
-    # TODO: We should load the OpenAI LLM back from langchain-openai package instead
-    # of the legacy community package
-    assert type(loaded_model.steps[1]) == LegacyOpenAI
+    assert type(loaded_model.steps[1]) == OpenAI
     assert type(loaded_model.steps[2]) == StrOutputParser
 
 
@@ -1377,9 +1370,7 @@ def test_save_load_long_runnable_sequence(model_path):
     loaded_model = mlflow.langchain.load_model(model_path)
     assert type(loaded_model) == RunnableSequence
     assert type(loaded_model.steps[0]) == PromptTemplate
-    # TODO: We should load the OpenAI LLM back from langchain-openai package instead
-    # of the legacy community package
-    assert type(loaded_model.steps[1]) == LegacyOpenAI
+    assert type(loaded_model.steps[1]) == OpenAI
     assert type(loaded_model.steps[2]) == StrOutputParser
     for i in range(3, 13):
         assert type(loaded_model.steps[i]) == RunnablePassthrough
@@ -1426,9 +1417,7 @@ def test_save_load_runnable_sequence_with_chat_openai():
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     assert type(loaded_model) == RunnableSequence
     assert type(loaded_model.steps[0]) == PromptTemplate
-    # TODO: We should load the ChatOpenAI back from langchain-openai package instead
-    # of the legacy community package
-    assert type(loaded_model.steps[1]) == LegacyChatOpenAI
+    assert type(loaded_model.steps[1]) == ChatOpenAI
     assert type(loaded_model.steps[2]) == StrOutputParser
 
 
