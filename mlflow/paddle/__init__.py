@@ -433,6 +433,12 @@ class _PaddleWrapper:
     def __init__(self, pd_model):
         self.pd_model = pd_model
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.pd_model
+
     def predict(
         self,
         data,

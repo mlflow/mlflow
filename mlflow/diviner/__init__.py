@@ -444,6 +444,12 @@ class _DivinerModelWrapper:
     def __init__(self, diviner_model):
         self.diviner_model = diviner_model
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.diviner_model
+
     def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
         """A method that allows a pyfunc implementation of this flavor to generate forecasted values
         from the end of a trained Diviner model's training series per group.

@@ -868,6 +868,12 @@ class _PyFuncModelWrapper:
         self.spark = spark or _get_or_create_sparksession()
         self.spark_model = spark_model
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.spark_model
+
     def predict(self, text, params: Optional[Dict[str, Any]] = None):
         """Generate predictions given input data in a pandas DataFrame.
 

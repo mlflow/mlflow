@@ -728,6 +728,12 @@ class _PyTorchWrapper:
         self.pytorch_model = pytorch_model
         self.device = device
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.pytorch_model
+
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
         """
         Args:

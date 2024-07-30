@@ -1610,6 +1610,12 @@ class _TransformersWrapper:
             self.flavor_config.get(_LLM_INFERENCE_TASK_KEY) if self.flavor_config else None
         )
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.pipeline
+
     def _convert_pandas_to_dict(self, data):
         import transformers
 

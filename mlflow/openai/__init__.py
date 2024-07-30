@@ -685,6 +685,12 @@ class _OpenAIWrapper:
         if self.task != "embeddings":
             self._setup_completions()
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.model
+
     def _setup_completions(self):
         if self.task == "chat.completions":
             self.template = self.model.get("messages", [])
