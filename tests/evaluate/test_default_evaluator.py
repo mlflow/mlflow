@@ -4332,3 +4332,36 @@ def test_xgboost_model_evaluate_work_with_shap_explainer():
                 for call_arg in mock_warning.call_args
                 if isinstance(call_arg, tuple)
             )
+
+
+@pytest.mark.parametrize(
+    "evaluator_config",
+    [
+        None,
+        {"default": {"pos_label": 1}},
+        {"default": {"label_list": [0, 1]}},
+        {"default": {"label_list": [0, 1], "pos_label": 1}},
+    ],
+)
+def test_evaluate_classifier_calculate_label_list_correctly(evaluator_config):
+    data = pd.DataFrame({"target": [0, 0, 1, 0], "prediction": [0, 1, 0, 0]})
+
+    result = mlflow.evaluate(
+        data=data,
+        model_type="classifier",
+        targets="target",
+        predictions="prediction",
+        evaluator_config=evaluator_config,
+    )
+    for metric in [
+        "true_negatives",
+        "false_positives",
+        "false_negatives",
+        "true_positives",
+        "example_count",
+        "accuracy_score",
+        "recall_score",
+        "precision_score",
+        "f1_score",
+    ]:
+        assert metric in result.metrics
