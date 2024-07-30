@@ -74,7 +74,7 @@ Packages
     :target: https://mvnrepository.com/artifact/org.mlflow/mlflow-spark
     :alt: Maven Central - mlflow-spark
 
-.. _Slack: https://join.slack.com/t/mlflow-users/shared_invite/zt-1iffrtbly-UNU8hV03aV8feUeGmqf_uA
+.. _Slack: https://join.slack.com/t/mlflow-users/shared_invite/zt-2nyy6x19s-iBUGKEBExnXXv0zQD28uWg
 
 Job Statuses
 
