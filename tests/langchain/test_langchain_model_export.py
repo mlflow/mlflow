@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import importlib
 import inspect
 import json
@@ -38,13 +39,25 @@ try:
     from langchain_huggingface import HuggingFacePipeline
 except ImportError:
     from langchain.llms import HuggingFacePipeline
+from langchain.callbacks.base import BaseCallbackHandler
 from langchain.chat_models import ChatOpenAI as LegacyChatOpenAI
+from langchain.chat_models.base import SimpleChatModel
 from langchain.llms import OpenAI as LegacyOpenAI
 from langchain.llms.base import LLM
 from langchain.memory import ConversationBufferMemory
-from langchain.prompts import PromptTemplate
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
 from langchain.requests import TextRequestsWrapper
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
+from langchain.schema.output_parser import StrOutputParser
+from langchain.schema.runnable import (
+    RunnableBinding,
+    RunnableBranch,
+    RunnableLambda,
+    RunnableParallel,
+    RunnablePassthrough,
+    RunnableSequence,
+)
+from langchain.schema.runnable.passthrough import RunnableAssign
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.tools import Tool
 from langchain.vectorstores import FAISS
@@ -63,7 +76,6 @@ from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.langchain.utils import (
-    _LC_MIN_VERSION_SUPPORT_RUNNABLE,
     IS_PICKLE_SERIALIZATION_RESTRICTED,
     lc_runnables_types,
 )
@@ -94,6 +106,11 @@ from tests.tracing.export.test_inference_table_exporter import _REQUEST_ID
 VECTORSTORE_KWARGS = (
     {"allow_dangerous_deserialization": True} if IS_PICKLE_SERIALIZATION_RESTRICTED else {}
 )
+
+@contextmanager
+def _mock_async_request(content=TEST_CONTENT):
+    with _mock_request(return_value=_mock_chat_completion_response(content)) as m:
+        yield m
 
 
 @pytest.fixture
@@ -390,7 +407,7 @@ def test_save_and_load_azure_chat_openai(model_path, monkeypatch):
     mlflow.langchain.save_model(chain, model_path)
 
     loaded_model = mlflow.langchain.load_model(model_path)
-    assert _check_llm_chain_equality(chain, loaded_model)
+    _check_llm_chain_equality(chain, loaded_model)
 
 
 def test_langchain_log_huggingface_hub_model_metadata(model_path):
@@ -948,13 +965,7 @@ def test_agent_with_unpicklable_tools(tmp_path):
                 mlflow.langchain.log_model(agent, "unpicklable_tools")
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
-    reason="feature not existing",
-)
 def test_save_load_runnable_passthrough():
-    from langchain.schema.runnable import RunnablePassthrough
-
     runnable = RunnablePassthrough()
     assert runnable.invoke("hello") == "hello"
 
@@ -979,13 +990,7 @@ def test_save_load_runnable_passthrough():
     }
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
-    reason="feature not existing",
-)
 def test_save_load_runnable_lambda(spark):
-    from langchain.schema.runnable import RunnableLambda
-
     def add_one(x: int) -> int:
         return x + 1
 
@@ -1025,13 +1030,7 @@ def test_save_load_runnable_lambda(spark):
     }
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
-    reason="feature not existing",
-)
 def test_save_load_runnable_lambda_in_sequence():
-    from langchain.schema.runnable import RunnableLambda
-
     def add_one(x):
         return x + 1
 
@@ -1064,14 +1063,7 @@ def test_save_load_runnable_lambda_in_sequence():
     }
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 def test_predict_with_callbacks(fake_chat_model):
-    from langchain.callbacks.base import BaseCallbackHandler
-    from langchain.prompts import ChatPromptTemplate
-    from langchain.schema.output_parser import StrOutputParser
-
     class TestCallbackHandler(BaseCallbackHandler):
         def __init__(self):
             super().__init__()
@@ -1128,13 +1120,7 @@ def test_predict_with_callbacks(fake_chat_model):
     }
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 def test_predict_with_callbacks_supports_chat_response_conversion(fake_chat_model):
-    from langchain.prompts import ChatPromptTemplate
-    from langchain.schema.output_parser import StrOutputParser
-
     prompt = ChatPromptTemplate.from_template("What's your favorite {industry} company?")
     chain = prompt | fake_chat_model | StrOutputParser()
     # Test the basic functionality of the chain
@@ -1182,13 +1168,7 @@ def test_predict_with_callbacks_supports_chat_response_conversion(fake_chat_mode
         )
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
-    reason="feature not existing",
-)
 def test_save_load_runnable_parallel():
-    from langchain.schema.runnable import RunnableParallel
-
     def fake_llm(prompt: str) -> str:
         return "completion"
 
@@ -1223,12 +1203,7 @@ def test_save_load_runnable_parallel():
     }
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 def test_simple_chat_model_inference():
-    from langchain.chat_models.base import SimpleChatModel
-
     class ChatModel(SimpleChatModel):
         def _call(self, messages, stop, run_manager, **kwargs):
             return "\n".join([f"{message.type}: {message.content}" for message in messages])
@@ -1270,13 +1245,7 @@ def test_simple_chat_model_inference():
         assert response3[i]["choices"][0]["message"] == expected_resp_content
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
-    reason="feature not existing",
-)
 def tests_save_load_complex_runnable_parallel():
-    from langchain.schema.runnable import RunnableParallel
-
     with _mock_request(return_value=_mock_chat_completion_response()):
         chain = create_openai_llmchain()
         runnable = RunnableParallel({"llm": chain})
@@ -1303,13 +1272,7 @@ def tests_save_load_complex_runnable_parallel():
     }
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
-    reason="feature not existing",
-)
 def test_save_load_runnable_parallel_and_assign_in_sequence():
-    from langchain.schema.runnable import RunnablePassthrough
-
     def fake_llm(prompt: str) -> str:
         return "completion"
 
@@ -1345,16 +1308,7 @@ def test_save_load_runnable_parallel_and_assign_in_sequence():
     }
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
-    reason="feature not existing",
-)
 def test_save_load_complex_runnable_assign(fake_chat_model):
-    from langchain.prompts import ChatPromptTemplate
-    from langchain.schema.output_parser import StrOutputParser
-    from langchain.schema.runnable import RunnableParallel
-    from langchain.schema.runnable.passthrough import RunnableAssign
-
     prompt = ChatPromptTemplate.from_template(
         "What is a good name for a company that makes {product}?"
     )
@@ -1392,13 +1346,7 @@ def test_save_load_complex_runnable_assign(fake_chat_model):
     }
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 def test_save_load_runnable_sequence():
-    from langchain.schema.output_parser import StrOutputParser
-    from langchain.schema.runnable import RunnableSequence
-
     prompt1 = PromptTemplate.from_template("what is the city {person} is from?")
     llm = OpenAI(temperature=0.9)
     model = prompt1 | llm | StrOutputParser()
@@ -1415,13 +1363,7 @@ def test_save_load_runnable_sequence():
     assert type(loaded_model.steps[2]) == StrOutputParser
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 def test_save_load_long_runnable_sequence(model_path):
-    from langchain.schema.output_parser import StrOutputParser
-    from langchain.schema.runnable import RunnablePassthrough, RunnableSequence
-
     prompt1 = PromptTemplate.from_template("what is the city {person} is from?")
     llm = OpenAI(temperature=0.9)
     model = prompt1 | llm | StrOutputParser()
@@ -1442,13 +1384,7 @@ def test_save_load_long_runnable_sequence(model_path):
         assert type(loaded_model.steps[i]) == RunnablePassthrough
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
-    reason="feature not existing",
-)
 def test_save_load_complex_runnable_sequence():
-    from langchain.schema.runnable import RunnablePassthrough
-
     with _mock_request(return_value=_mock_chat_completion_response()):
         llm_chain = create_openai_llmchain()
         chain = llm_chain | RunnablePassthrough()
@@ -1479,9 +1415,6 @@ def test_save_load_complex_runnable_sequence():
 
 
 def test_save_load_runnable_sequence_with_chat_openai():
-    from langchain.schema.output_parser import StrOutputParser
-    from langchain.schema.runnable import RunnableSequence
-
     prompt1 = PromptTemplate.from_template("what is the city {person} is from?")
     llm = ChatOpenAI(temperature=0.9)
     model = prompt1 | llm | StrOutputParser()
@@ -1498,13 +1431,7 @@ def test_save_load_runnable_sequence_with_chat_openai():
     assert type(loaded_model.steps[2]) == StrOutputParser
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 def test_save_load_simple_chat_model(spark, fake_chat_model):
-    from langchain.prompts import ChatPromptTemplate
-    from langchain.schema.output_parser import StrOutputParser
-
     prompt = ChatPromptTemplate.from_template(
         "What is a good name for a company that makes {product}?"
     )
@@ -1544,14 +1471,7 @@ def test_save_load_simple_chat_model(spark, fake_chat_model):
     }
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 def test_save_load_rag(tmp_path, spark, fake_chat_model):
-    from langchain.prompts import ChatPromptTemplate
-    from langchain.schema.output_parser import StrOutputParser
-    from langchain.schema.runnable import RunnablePassthrough
-
     # Create the vector db, persist the db to a local fs folder
     loader = TextLoader("tests/langchain/state_of_the_union.txt")
     documents = loader.load()
@@ -1622,12 +1542,7 @@ def test_save_load_rag(tmp_path, spark, fake_chat_model):
     }
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 def test_runnable_branch_save_load():
-    from langchain.schema.runnable import RunnableBranch
-
     branch = RunnableBranch(
         (lambda x: isinstance(x, str), lambda x: x.upper()),
         (lambda x: isinstance(x, int), lambda x: x + 1),
@@ -1662,14 +1577,7 @@ def test_runnable_branch_save_load():
     }
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 def test_complex_runnable_branch_save_load(fake_chat_model, fake_classifier_chat_model):
-    from langchain.prompts import ChatPromptTemplate
-    from langchain.schema.output_parser import StrOutputParser
-    from langchain.schema.runnable import RunnableBranch, RunnableLambda
-
     prompt = ChatPromptTemplate.from_template("{question_is_relevant}\n{query}")
     # Need to add prompt here as the chat model doesn't accept dict input
     answer_model = prompt | fake_chat_model
@@ -1741,13 +1649,7 @@ def test_complex_runnable_branch_save_load(fake_chat_model, fake_classifier_chat
     }
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 def test_chat_with_history(spark, fake_chat_model):
-    from langchain.schema.output_parser import StrOutputParser
-    from langchain.schema.runnable import RunnableLambda
-
     prompt_with_history_str = """
     Here is a history between you and a human: {chat_history}
 
@@ -1823,17 +1725,11 @@ def _extract_endpoint_name_from_lc_model(lc_model):
         yield DatabricksServingEndpoint(endpoint_name=lc_model.endpoint_name)
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 @mock.patch(
     "mlflow.langchain.databricks_dependencies._extract_dependency_list_from_lc_model",
     _extract_endpoint_name_from_lc_model,
 )
 def test_databricks_dependency_extraction_from_lcel_chain():
-    from langchain_core.output_parsers import StrOutputParser
-    from langchain_core.prompts import ChatPromptTemplate
-
     prompt_1 = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
     prompt_2 = ChatPromptTemplate.from_template(
         "compare which joke is better {joke1} or {joke2}. Output the better joke."
@@ -1878,9 +1774,6 @@ def _extract_databricks_dependencies_from_llm(llm):
         yield DatabricksServingEndpoint(endpoint_name=llm.endpoint_name)
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 @mock.patch(
     "mlflow.langchain.databricks_dependencies._extract_databricks_dependencies_from_llm",
     _extract_databricks_dependencies_from_llm,
@@ -1965,13 +1858,7 @@ def test_databricks_dependency_extraction_log_errors_as_warnings(mock_warning):
     assert reloaded_model.resources is None
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 def test_predict_with_builtin_pyfunc_chat_conversion(spark):
-    from langchain.chat_models.base import SimpleChatModel
-    from langchain.schema.output_parser import StrOutputParser
-
     class ChatModel(SimpleChatModel):
         def _call(self, messages, stop, run_manager, **kwargs):
             return "\n".join([f"{message.type}: {message.content}" for message in messages])
@@ -2090,12 +1977,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
     )
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
-    from langchain.chat_models.base import SimpleChatModel
-
     class ChatModel(SimpleChatModel):
         def _call(self, messages, stop, run_manager, **kwargs):
             return "You own MLflow"
@@ -2158,12 +2040,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
         ]
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 def test_pyfunc_builtin_chat_request_conversion_fails_gracefully():
-    from langchain.schema.runnable import RunnablePassthrough
-
     chain = RunnablePassthrough() | itemgetter("messages")
     # Ensure we're going to test that "messages" remains intact & unchanged even if it
     # doesn't appear explicitly in the chain's input schema
@@ -2252,12 +2129,7 @@ def test_pyfunc_builtin_chat_request_conversion_fails_gracefully():
     ]
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 def test_pyfunc_builtin_chat_response_conversion_fails_gracefully():
-    from langchain.schema.runnable import RunnablePassthrough
-
     llm = OpenAI(temperature=0.9)
     prompt = PromptTemplate(
         input_variables=["messages"],
@@ -2299,12 +2171,8 @@ def test_pyfunc_builtin_chat_response_conversion_fails_gracefully():
         ]
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 def test_save_load_chain_that_relies_on_pickle_serialization(monkeypatch, model_path):
     from langchain_community.llms.databricks import Databricks
-    from langchain_core.output_parsers import StrOutputParser
 
     monkeypatch.setattr(
         "langchain_community.llms.databricks._DatabricksServingEndpointClient",
@@ -2382,9 +2250,6 @@ def _get_message_content(predictions):
     return predictions[0]["choices"][0]["message"]["content"]
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 @pytest.mark.parametrize(
     ("chain_path", "model_config"),
     [
@@ -2497,9 +2362,6 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
     )
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 @pytest.mark.parametrize(
     "chain_path",
     [
@@ -2536,9 +2398,6 @@ def test_save_load_chain_as_code_model_config_dict(chain_model_signature, chain_
     assert answer == _get_message_content(pyfunc_loaded_model.predict(input_example))
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 @pytest.mark.parametrize(
     "model_config",
     [
@@ -2581,9 +2440,6 @@ def test_save_load_chain_as_code_with_different_names(
     assert answer == _get_message_content(pyfunc_loaded_model.predict(input_example))
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 @pytest.mark.parametrize(
     "chain_path",
     [
@@ -2645,9 +2501,6 @@ def test_save_load_chain_as_code_multiple_times(
     assert loaded_model.middle[0].messages[0].prompt.template == new_config["llm_prompt_template"]
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 @pytest.mark.parametrize("chain_path", [os.path.abspath("tests/langchain1/sample_code/chain.py")])
 def test_save_load_chain_errors(chain_model_signature, chain_path):
     input_example = {
@@ -2674,9 +2527,6 @@ def test_save_load_chain_errors(chain_model_signature, chain_path):
             )
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 @pytest.mark.parametrize(
     "chain_path",
     [
@@ -2792,9 +2642,6 @@ def fake_chat_stream_model():
     return get_fake_chat_stream_model()
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 @pytest.mark.parametrize("provide_signature", [True, False])
 def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_signature):
     input_example = {
@@ -2879,14 +2726,7 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_sign
             ]
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 def test_simple_chat_model_stream_with_callbacks(fake_chat_stream_model):
-    from langchain.callbacks.base import BaseCallbackHandler
-    from langchain.prompts import ChatPromptTemplate
-    from langchain.schema.output_parser import StrOutputParser
-
     class TestCallbackHandler(BaseCallbackHandler):
         def __init__(self):
             super().__init__()
@@ -2930,14 +2770,7 @@ def test_simple_chat_model_stream_with_callbacks(fake_chat_stream_model):
     assert callback_handler2.num_llm_start_calls == 1
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
-    reason="feature not existing",
-)
 def test_langchain_model_save_exception(fake_chat_model):
-    from langchain.prompts import PromptTemplate
-    from langchain.schema.output_parser import StrOutputParser
-
     prompt = PromptTemplate.from_template(
         "What's your favorite {industry} company in {country}?", partial_variables={"country": "US"}
     )
@@ -2951,16 +2784,7 @@ def test_langchain_model_save_exception(fake_chat_model):
             mlflow.langchain.log_model(chain, "model_path", input_example={"industry": "tech"})
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
-    reason="feature not existing",
-)
 def test_langchain_model_save_load_with_listeners(fake_chat_model):
-    from langchain.prompts import ChatPromptTemplate
-    from langchain.schema.output_parser import StrOutputParser
-    from langchain.schema.runnable import RunnableLambda, RunnablePassthrough
-    from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-
     prompt = ChatPromptTemplate.from_messages(
         [
             ("system", "You are a helpful assistant."),
@@ -3001,10 +2825,6 @@ def test_langchain_model_save_load_with_listeners(fake_chat_model):
 
 
 @pytest.mark.parametrize("enable_mlflow_tracing", [True, False])
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
-    reason="feature not existing",
-)
 def test_langchain_model_inject_callback_in_model_serving(
     monkeypatch, model_path, enable_mlflow_tracing
 ):
@@ -3039,10 +2859,6 @@ def test_langchain_model_inject_callback_in_model_serving(
 
 
 @pytest.mark.parametrize("env_var", ["MLFLOW_ENABLE_TRACE_IN_SERVING", "ENABLE_MLFLOW_TRACING"])
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
-    reason="feature not existing",
-)
 def test_langchain_model_not_inject_callback_when_disabled(monkeypatch, model_path, env_var):
     # Emulate the model serving environment
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
@@ -3062,9 +2878,6 @@ def test_langchain_model_not_inject_callback_when_disabled(monkeypatch, model_pa
     assert _TRACE_BUFFER == {}
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 @pytest.mark.parametrize(
     "chain_path",
     [
@@ -3130,13 +2943,7 @@ def test_save_model_as_code_correct_streamable(chain_model_signature, chain_path
     }
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 def test_save_load_langchain_binding(fake_chat_model):
-    from langchain_core.output_parsers import StrOutputParser
-    from langchain_core.runnables import RunnableBinding
-
     runnable_binding = RunnableBinding(bound=fake_chat_model, kwargs={"stop": ["-"]})
     model = runnable_binding | StrOutputParser()
     assert model.invoke("Say something") == "Databricks"
@@ -3161,12 +2968,7 @@ def test_save_load_langchain_binding(fake_chat_model):
     }
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 def test_langchain_bindings_save_load_with_config_and_types(fake_chat_model):
-    from langchain_core.output_parsers import StrOutputParser
-
     class CustomCallbackHandler(BaseCallbackHandler):
         def __init__(self):
             self.count = 0
@@ -3211,9 +3013,6 @@ def test_langchain_bindings_save_load_with_config_and_types(fake_chat_model):
     }
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 def test_langchain_2_12_model_loads():
     TEST_DIR = "tests"
     TEST_MLFLOW_12_2_LANGCHAIN_MODEL = os.path.join(
@@ -3230,9 +3029,6 @@ def test_langchain_2_12_model_loads():
     assert output[0]["choices"][0]["message"]["content"] == "Databricks"
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 @pytest.mark.parametrize(
     "chain_path",
     [
@@ -3284,15 +3080,8 @@ def test_load_chain_with_model_config_overrides_saved_config(
         }
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 @pytest.mark.parametrize("streamable", [True, False, None])
 def test_langchain_model_streamable_param_in_log_model(streamable, fake_chat_model):
-    from langchain.prompts import ChatPromptTemplate
-    from langchain.schema.output_parser import StrOutputParser
-    from langchain.schema.runnable import RunnableParallel
-
     prompt = ChatPromptTemplate.from_template("What's your favorite {industry} company?")
     chain = prompt | fake_chat_model | StrOutputParser()
 
@@ -3319,9 +3108,6 @@ def model_type(request):
     return lc_runnables_types()[request.param]
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE, reason="feature not existing"
-)
 @pytest.mark.parametrize("streamable", [True, False, None])
 @pytest.mark.parametrize("model_type", range(len(lc_runnables_types())), indirect=True)
 def test_langchain_model_streamable_param_in_log_model_for_lc_runnable_types(
@@ -3385,13 +3171,7 @@ def test_agent_executor_model_with_messages_input():
     ]
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < _LC_MIN_VERSION_SUPPORT_RUNNABLE,
-    reason="feature not existing",
-)
 def test_signature_inference_fails(monkeypatch: pytest.MonkeyPatch):
-    from langchain.schema.runnable import RunnableLambda
-
     monkeypatch.setenv("MLFLOW_TESTING", "false")
 
     model = RunnableLambda(lambda x: x)
