@@ -640,7 +640,8 @@ langchain:
     install_dev: |
       pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/langchain
   models:
-    minimum: "0.0.334"
+    # Where the large package update was made (langchain-core, community, ...)
+    minimum: "0.0.349"
     maximum: "0.2.11"
     requirements:
       ">= 0.0.0": [
@@ -678,7 +679,8 @@ langchain:
     requirements:
       ">= 0.0.0": [
           "pyspark",
-          "openai",
+          # Pinning for the same reason as in the models section
+          "openai<1.8.0",
           "google-search-results",
           "psutil",
           "faiss-cpu",
