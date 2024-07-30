@@ -15,6 +15,8 @@ _logger = logging.getLogger(__name__)
 transformers_version = Version(transformers.__version__)
 IS_NEW_FEATURE_EXTRACTION_API = transformers_version >= Version("4.27.0")
 
+CHAT_TEMPLATE = "{% for message in messages %}{{ message.content }}{{ eos_token }}{% endfor %}"
+
 
 def prefetch(func):
     """
@@ -124,7 +126,9 @@ def load_text_generation_pipeline():
     task = "text-generation"
     architecture = "distilgpt2"
     model = transformers.AutoModelWithLMHead.from_pretrained(architecture)
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        architecture, chat_template=CHAT_TEMPLATE
+    )
     return transformers.pipeline(task=task, model=model, tokenizer=tokenizer)
 
 
