@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.os import is_windows
 
 
@@ -26,6 +27,16 @@ class ShellCommandException(Exception):
                 process.stderr,
             ]
         return cls("\n".join(lines))
+
+
+def _remove_inaccessible_python_path(env):
+    """
+    Remove inaccessible path from PYTHONPATH environment variable.
+    """
+    if python_path := env.get("PYTHONPATH"):
+        paths = [p for p in python_path.split(":") if os.access(p, os.R_OK)]
+        env["PYTHONPATH"] = ":".join(paths)
+    return env
 
 
 def _exec_cmd(
@@ -60,6 +71,7 @@ def _exec_cmd(
         otherwise return a Popen instance.
 
     """
+
     illegal_kwargs = set(kwargs.keys()).intersection({"text"})
     if illegal_kwargs:
         raise ValueError(f"`kwargs` cannot contain {list(illegal_kwargs)}")
@@ -73,7 +85,16 @@ def _exec_cmd(
             "`capture_output=True` and `stream_output=True` cannot be specified at the same time"
         )
 
-    env = env if extra_env is None else {**os.environ, **extra_env}
+    # Copy current `os.environ` or passed in `env` to avoid mutating it.
+    env = env or os.environ.copy()
+    if extra_env is not None:
+        env.update(extra_env)
+
+    if is_in_databricks_runtime():
+        # in databricks runtime, the PYTHONPATH might contain inaccessible path
+        # which causes virtualenv python environment creation subprocess failure.
+        # as a workaround, we remove inaccessible path out of python path.
+        env = _remove_inaccessible_python_path(env)
 
     # In Python < 3.8, `subprocess.Popen` doesn't accept a command containing path-like
     # objects (e.g. `["ls", pathlib.Path("abc")]`) on Windows. To avoid this issue,

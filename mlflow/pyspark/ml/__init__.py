@@ -753,14 +753,58 @@ _AUTOLOGGING_METRICS_MANAGER = _AutologgingMetricsManager()
 
 
 def _get_columns_with_unsupported_data_type(df):
+    from pyspark.ml.linalg import VectorUDT
+
     from mlflow.types.schema import DataType
 
     supported_spark_types = DataType.get_spark_types()
     unsupported_columns = []
     for field in df.schema.fields:
-        if field.dataType not in supported_spark_types:
+        if (field.dataType not in supported_spark_types) and not isinstance(
+            field.dataType, VectorUDT
+        ):
             unsupported_columns.append(field)
     return unsupported_columns
+
+
+def _check_or_set_model_prediction_column(spark_model, input_spark_df):
+    from pyspark.ml import PipelineModel
+
+    prediction_column = "prediction"
+    if isinstance(spark_model, PipelineModel) and spark_model.stages[-1].hasParam("outputCol"):
+        from mlflow.utils._spark_utils import _get_active_spark_session
+
+        spark = _get_active_spark_session()
+        # do a transform with an empty input DataFrame
+        # to get the schema of the transformed DataFrame
+        transformed_df = spark_model.transform(spark.createDataFrame([], input_spark_df.schema))
+        # Ensure prediction column doesn't already exist
+        if prediction_column not in transformed_df.columns:
+            # make sure predict work by default for Transformers
+            spark_model.stages[-1].setOutputCol(prediction_column)
+
+    return prediction_column
+
+
+def _infer_spark_model_signature(spark_model, input_example_spark_df):
+    from mlflow.models import infer_signature
+
+    prediction_column = _check_or_set_model_prediction_column(spark_model, input_example_spark_df)
+    model_output = spark_model.transform(input_example_spark_df).select(prediction_column)
+    # TODO: Remove this once we support non-scalar spark data types
+    if unsupported_columns := _get_columns_with_unsupported_data_type(model_output):
+        _logger.warning(
+            "Model outputs contain unsupported Spark data types: "
+            f"{unsupported_columns}. Output schema is not be logged."
+        )
+        model_output = None
+
+    signature = infer_signature(input_example_spark_df, model_output)
+    if signature.outputs:
+        # We only have one prediction column output,
+        # convert it to unnamed output schema to keep consistent with old MLflow version.
+        signature.outputs.inputs[0].name = None
+    return signature
 
 
 @autologging_integration(AUTOLOGGING_INTEGRATION_NAME)
@@ -1032,63 +1076,42 @@ def autolog(
 
         if log_models:
             if _should_log_model(spark_model):
-                from pyspark.sql import SparkSession
-
-                from mlflow.models import infer_signature
                 from mlflow.pyspark.ml._autolog import (
                     cast_spark_df_with_vector_to_array,
                     get_feature_cols,
                 )
-                from mlflow.spark import _find_and_set_features_col_as_vector_if_needed
 
-                spark = SparkSession.builder.getOrCreate()
-
-                def _get_input_example_as_pd_df():
+                def _get_input_example_spark_df():
                     feature_cols = list(get_feature_cols(input_df, spark_model))
-                    limited_input_df = input_df.select(feature_cols).limit(
-                        INPUT_EXAMPLE_SAMPLE_ROWS
-                    )
-                    return cast_spark_df_with_vector_to_array(limited_input_df).toPandas()
+                    return input_df.select(feature_cols).limit(INPUT_EXAMPLE_SAMPLE_ROWS)
 
                 def _infer_model_signature(input_example_slice):
-                    input_slice_df = _find_and_set_features_col_as_vector_if_needed(
-                        spark.createDataFrame(input_example_slice), spark_model
-                    )
-                    model_output = spark_model.transform(input_slice_df).drop(
-                        *input_slice_df.columns
-                    )
-                    # TODO: Remove this once we support non-scalar spark data types
-                    unsupported_columns = _get_columns_with_unsupported_data_type(model_output)
-                    if unsupported_columns:
-                        _logger.warning(
-                            "Model outputs contain unsupported Spark data types: "
-                            f"{unsupported_columns}. Output schema is not be logged."
-                        )
-                        model_output = None
-                    else:
-                        model_output = model_output.toPandas()
-
-                    return infer_signature(input_example_slice, model_output)
+                    return _infer_spark_model_signature(spark_model, input_example_slice)
 
                 # TODO: Remove this once we support non-scalar spark data types
                 nonlocal log_model_signatures
                 if log_model_signatures:
-                    unsupported_columns = _get_columns_with_unsupported_data_type(input_df)
-                    if unsupported_columns:
+                    if unsupported_columns := _get_columns_with_unsupported_data_type(input_df):
                         _logger.warning(
                             "Model inputs contain unsupported Spark data types: "
                             f"{unsupported_columns}. Model signature is not logged."
                         )
                         log_model_signatures = False
 
-                input_example, signature = resolve_input_example_and_signature(
-                    _get_input_example_as_pd_df,
+                input_example_spark_df, signature = resolve_input_example_and_signature(
+                    _get_input_example_spark_df,
                     _infer_model_signature,
                     log_input_examples,
                     log_model_signatures,
                     _logger,
                 )
 
+                if input_example_spark_df:
+                    input_example = cast_spark_df_with_vector_to_array(
+                        input_example_spark_df
+                    ).toPandas()
+                else:
+                    input_example = None
                 mlflow.spark.log_model(
                     spark_model,
                     artifact_path="model",

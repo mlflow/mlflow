@@ -118,9 +118,14 @@ class MockVectorSearchClient:
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.MonkeyPatch):
-    from langchain.embeddings import DatabricksEmbeddings
-    from langchain.vectorstores import DatabricksVectorSearch
+@pytest.mark.parametrize("module_name", ["langchain", "langchain_community"])
+def test_parsing_dependency_from_databricks_retriever(module_name, monkeypatch: pytest.MonkeyPatch):
+    if module_name == "langchain":
+        from langchain.embeddings import DatabricksEmbeddings
+        from langchain.vectorstores import DatabricksVectorSearch
+    elif module_name == "langchain_community":
+        from langchain_community.embeddings import DatabricksEmbeddings
+        from langchain_community.vectorstores import DatabricksVectorSearch
 
     vsc = MockVectorSearchClient()
     vs_index_1 = vsc.get_index(endpoint_name="vs_endpoint", index_name="mlflow.rag.vs_index_1")
@@ -207,99 +212,15 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.Monkey
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.MonkeyPatch):
-    from langchain_community.embeddings import DatabricksEmbeddings
-    from langchain_community.vectorstores import DatabricksVectorSearch
-
-    vsc = MockVectorSearchClient()
-    vs_index_1 = vsc.get_index(endpoint_name="vs_endpoint", index_name="mlflow.rag.vs_index_1")
-    vs_index_2 = vsc.get_index(
-        endpoint_name="vs_endpoint", index_name="mlflow.rag.vs_index_2", has_embedding_endpoint=True
-    )
-    mock_get_deploy_client = MagicMock()
-
-    monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
-    embedding_model = DatabricksEmbeddings(endpoint="databricks-bge-large-en")
-
-    mock_module = MagicMock()
-    mock_module.VectorSearchIndex = MockVectorSearchIndex
-
-    monkeypatch.setitem(sys.modules, "databricks.vector_search.client", mock_module)
-
-    # set embedding model
-    vectorstore_1 = DatabricksVectorSearch(
-        vs_index_1, text_column="content", embedding=embedding_model
-    )
-    retriever_1 = vectorstore_1.as_retriever()
-
-    # vs_index_2 has builtin embedding endpoint "embedding-model"
-    vectorstore_2 = DatabricksVectorSearch(vs_index_2, text_column="content")
-    retriever_2 = vectorstore_2.as_retriever()
-
-    from langchain.chat_models import ChatOpenAI
-
-    llm = ChatOpenAI(temperature=0)
-
-    assert list(_extract_databricks_dependencies_from_retriever(retriever_1)) == [
-        DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index_1"),
-        DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
-    ]
-
-    assert list(_extract_databricks_dependencies_from_retriever(retriever_2)) == [
-        DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index_2"),
-        DatabricksServingEndpoint(endpoint_name="embedding-model"),
-    ]
-
-    from langchain.retrievers.multi_query import MultiQueryRetriever
-
-    multi_query_retriever = MultiQueryRetriever.from_llm(retriever=retriever_1, llm=llm)
-    assert list(_extract_databricks_dependencies_from_retriever(multi_query_retriever)) == [
-        DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index_1"),
-        DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
-    ]
-
-    from langchain.retrievers import ContextualCompressionRetriever
-    from langchain.retrievers.document_compressors import LLMChainExtractor
-
-    compressor = LLMChainExtractor.from_llm(llm)
-    compression_retriever = ContextualCompressionRetriever(
-        base_compressor=compressor, base_retriever=retriever_1
-    )
-    assert list(_extract_databricks_dependencies_from_retriever(compression_retriever)) == [
-        DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index_1"),
-        DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
-    ]
-
-    from langchain.retrievers import EnsembleRetriever
-
-    ensemble_retriever = EnsembleRetriever(
-        retrievers=[retriever_1, retriever_2], weights=[0.5, 0.5]
-    )
-    assert list(_extract_databricks_dependencies_from_retriever(ensemble_retriever)) == [
-        DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index_1"),
-        DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
-        DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index_2"),
-        DatabricksServingEndpoint(endpoint_name="embedding-model"),
-    ]
-
-    from langchain.retrievers import TimeWeightedVectorStoreRetriever
-
-    time_weighted_retriever = TimeWeightedVectorStoreRetriever(
-        vectorstore=vectorstore_1, decay_rate=0.0000000000000000000000001, k=1
-    )
-    assert list(_extract_databricks_dependencies_from_retriever(time_weighted_retriever)) == [
-        DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index_1"),
-        DatabricksServingEndpoint(endpoint_name="databricks-bge-large-en"),
-    ]
-
-
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
-)
+@pytest.mark.parametrize("module_name", ["langchain", "langchain_community"])
 def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in_index(
+    module_name,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    from langchain.vectorstores import DatabricksVectorSearch
+    if module_name == "langchain":
+        from langchain.vectorstores import DatabricksVectorSearch
+    elif module_name == "langchain_community":
+        from langchain_community.vectorstores import DatabricksVectorSearch
 
     vsc = MockVectorSearchClient()
     vs_index = vsc.get_index(
@@ -323,53 +244,6 @@ def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in
         DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
         DatabricksServingEndpoint(endpoint_name="embedding-model"),
     ]
-
-
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
-)
-def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in_index(
-    monkeypatch: pytest.MonkeyPatch,
-):
-    from langchain_community.vectorstores import DatabricksVectorSearch
-
-    vsc = MockVectorSearchClient()
-    vs_index = vsc.get_index(
-        endpoint_name="dbdemos_vs_endpoint",
-        index_name="mlflow.rag.vs_index",
-        has_embedding_endpoint=True,
-    )
-    mock_get_deploy_client = MagicMock()
-
-    monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
-
-    mock_module = MagicMock()
-    mock_module.VectorSearchIndex = MockVectorSearchIndex
-
-    monkeypatch.setitem(sys.modules, "databricks.vector_search.client", mock_module)
-
-    vectorstore = DatabricksVectorSearch(vs_index, text_column="content")
-    retriever = vectorstore.as_retriever()
-    resources = list(_extract_databricks_dependencies_from_retriever(retriever))
-    assert resources == [
-        DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
-        DatabricksServingEndpoint(endpoint_name="embedding-model"),
-    ]
-
-
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
-)
-def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch):
-    from langchain.chat_models import ChatDatabricks
-
-    mock_get_deploy_client = MagicMock()
-
-    monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
-
-    chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
-    resources = list(_extract_databricks_dependencies_from_chat_model(chat_model))
-    assert resources == [DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat")]
 
 
 @pytest.mark.skipif(

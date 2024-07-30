@@ -974,19 +974,17 @@ def load_model(
 
     lineage_header_info = None
     if (
-        (not _MLFLOW_IN_CAPTURE_MODULE_PROCESS.get())
-        and databricks_utils.is_in_databricks_runtime()
-        and (
-            databricks_utils.is_in_databricks_notebook() or databricks_utils.is_in_databricks_job()
-        )
-    ):
+        not _MLFLOW_IN_CAPTURE_MODULE_PROCESS.get()
+    ) and databricks_utils.is_in_databricks_runtime():
         entity_list = []
         # Get notebook id and job id, pack them into lineage_header_info
-        if notebook_id := databricks_utils.get_notebook_id():
+        if databricks_utils.is_in_databricks_notebook() and (
+            notebook_id := databricks_utils.get_notebook_id()
+        ):
             notebook_entity = Notebook(id=notebook_id)
             entity_list.append(Entity(notebook=notebook_entity))
 
-        if job_id := databricks_utils.get_job_id():
+        if databricks_utils.is_in_databricks_job() and (job_id := databricks_utils.get_job_id()):
             job_entity = Job(id=job_id)
             entity_list.append(Entity(job=job_entity))
 
