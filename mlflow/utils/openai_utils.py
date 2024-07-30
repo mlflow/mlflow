@@ -76,21 +76,24 @@ REQUEST_FIELDS_EMBEDDINGS = {"input", "model", "encoding_format", "user"}
 REQUEST_FIELDS = REQUEST_FIELDS_CHAT | REQUEST_FIELDS_COMPLETIONS | REQUEST_FIELDS_EMBEDDINGS
 
 
+def mock_raise_for_status(status_code):
+    def _func():
+        if 400 <= status_code < 600:
+            raise Exception(f"Mock HTTPX request {status_code} Error")
+
+    return _func
+
+
 class _MockResponse:
     def __init__(self, status_code, json_data):
+        self.request = MagicMock()
         self.status_code = status_code
         self.content = json.dumps(json_data).encode()
         self.headers = {"content-type": "application/json"}
         self.text = mlflow.__version__
         self.json_data = json_data
         self.reason_phrase = HTTPStatus(status_code).phrase
-        self.request = MagicMock()
-
-        def mock_raise_for_status():
-            if 400 <= status_code < 600:
-                raise Exception(f"Mock HTTPX request {status_code} Error")
-
-        self.raise_for_status = mock_raise_for_status
+        self.raise_for_status = mock_raise_for_status(status_code)
 
     def json(self):
         return self.json_data
@@ -98,9 +101,12 @@ class _MockResponse:
 
 class _MockStreamResponse:
     def __init__(self, status_code, json_data):
+        self.request = MagicMock()
         self.status_code = status_code
-        self.iter_lines = lambda: iter([f"data: {json.dumps(json_data)}".encode()])
+        self.reason_phrase = HTTPStatus(status_code).phrase
+        self.iter_lines = lambda: iter([f"data: {json.dumps(json_data)}", "\n"])
         self.headers = {"content-type": "text/event-stream"}
+        self.raise_for_status = mock_raise_for_status(status_code)
 
 
 def _chat_completion_json_sample(content):

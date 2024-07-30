@@ -2,7 +2,9 @@ import sys
 from contextlib import contextmanager
 from unittest.mock import MagicMock
 
+import langchain
 import pytest
+from packaging.version import Version
 
 from mlflow.langchain.databricks_dependencies import (
     _detect_databricks_dependencies,
@@ -302,6 +304,9 @@ def remove_langchain_modules():
         sys.modules.update(saved_modules)  # Restore all removed modules safely
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.1.0"), reason="feature not existing"
+)
 def test_parsing_dependency_correct_loads_langchain_modules():
     with remove_langchain_modules():
         import langchain_community

@@ -353,10 +353,6 @@ def test_langchain_model_predict():
         assert result == [TEST_CONTENT]
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.354"),
-    reason="LLMChain does not support streaming before LangChain 0.0.354",
-)
 def test_langchain_model_predict_stream():
     with _mock_request(return_value=_mock_chat_completion_response()):
         model = create_openai_llmchain()
@@ -486,10 +482,6 @@ def test_langchain_agent_model_predict(return_intermediate_steps):
 @pytest.mark.skipif(
     Version(openai.__version__) >= Version("1.0"),
     reason="OpenAI Client since 1.0 contains thread lock object that cannot be pickled.",
-)
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.354"),
-    reason="AgentExecutor does not support streaming before LangChain 0.0.354",
 )
 def test_langchain_agent_model_predict_stream():
     langchain_agent_output = {
