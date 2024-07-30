@@ -641,7 +641,7 @@ langchain:
       pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/langchain
   models:
     # Where the large package update was made (langchain-core, community, ...)
-    minimum: "0.0.349"
+    minimum: "0.0.354"
     maximum: "0.2.11"
     requirements:
       ">= 0.0.0": [

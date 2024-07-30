@@ -578,11 +578,7 @@ def patch_langchain_type_to_cls_dict():
     # NB: get_type_to_cls_dict() method is defined in the following two modules with the same
     # name but with slight different elements. This is most likely just a mistake in the
     # LangChain codebase, but we patch them separately to avoid any potential issues.
-    modules_to_patch = [
-        "langchain.llms",
-        "langchain.llms.loading",  # Required for LangChain version < 0.0.349
-        "langchain_community.llms.loading",
-    ]
+    modules_to_patch = ["langchain.llms", "langchain_community.llms.loading"]
     originals = {}
     for module_name in modules_to_patch:
         try:
