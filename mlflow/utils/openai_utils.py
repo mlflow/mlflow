@@ -158,36 +158,26 @@ def _mock_request(**kwargs):
 
 @contextmanager
 def _mock_openai_arequest(stream=False):
-    if stream:
-        side_effect = _mock_async_chat_completion_stream_response
-    else:
-        side_effect = _mock_async_chat_completion_response
+    with mock.patch("httpx.AsyncClient.send", new_callable=AsyncMock) as m:
+        if stream:
+            m.return_value = _mock_async_chat_completion_stream_response()
+        else:
+            m.return_value = _mock_chat_completion_response()
+        yield m
 
-    with mock.patch("aiohttp.ClientSession.request", side_effect=side_effect) as mock_request:
-        yield mock_request
 
-
-async def _mock_async_chat_completion_response(content=TEST_CONTENT, **kwargs):
-    resp = AsyncMock()
-    json_data = _chat_completion_json_sample(content)
+def _mock_async_chat_completion_stream_response():
+    resp = MagicMock()
+    json_data = _chat_completion_stream_chunk(TEST_CONTENT)
+    resp.request = MagicMock()
     resp.status = 200
-    resp.content = json.dumps(json_data).encode()
-    resp.headers = {"content-type": "application/json"}
-    resp.text = mlflow.__version__
-    resp.json_data = json_data
-    resp.json.return_value = json_data
-    resp.read.return_value = resp.content
-    return resp
-
-
-async def _mock_async_chat_completion_stream_response(content=TEST_CONTENT, **kwargs):
-    resp = AsyncMock()
-    json_data = _chat_completion_stream_chunk(content)
-    resp.status = 200
+    resp.reason_phrase = HTTPStatus(200).phrase
 
     class DummyAsyncIter:
         def __init__(self):
-            self._content = [f"data: {json.dumps(json_data)}".encode()]
+            # NB: The new line element is required for the OpenAI async client to send an SSE event
+            # https://github.com/openai/openai-python/blob/v1.7.2/src/openai/_streaming.py#L240-L256
+            self._content = [f"data: {json.dumps(json_data)}", "\n"]
             self._index = 0
 
         def __aiter__(self):
@@ -201,7 +191,7 @@ async def _mock_async_chat_completion_stream_response(content=TEST_CONTENT, **kw
                 raise StopAsyncIteration
 
     # OpenAI uses content instead of iter_lines for async stream parsing
-    resp.content = DummyAsyncIter()
+    resp.aiter_lines.return_value = DummyAsyncIter()
     resp.headers = {"content-type": "text/event-stream"}
     return resp
 
