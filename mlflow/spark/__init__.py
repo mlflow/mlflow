@@ -192,7 +192,7 @@ def log_model(
             When loading a Spark ML model with ``SparkMLVector`` vector type input as MLflow
             pyfunc model, it accepts ``Array[double]`` type input. MLflow internally converts
             the array into Spark ML vector and then invoke Spark model for inference. Similarly,
-            if the model has vector type output, Mlflow internally converts Spark ML vector
+            if the model has vector type output, MLflow internally converts Spark ML vector
             output data into ``Array[double]`` type inference result.
 
             Example:
@@ -209,9 +209,8 @@ def log_model(
                 train_df = spark.createDataFrame(
                     [([3.0, 4.0], 0), ([5.0, 6.0], 1)], schema="features array<double>, label long"
                 ).select(array_to_vector("features").alias("features"), col("label"))
-                lor = (
-                    LogisticRegression(maxIter=2).setPredictionCol("").setProbabilityCol("prediction")
-                )
+                lor = LogisticRegression(maxIter=2)
+                lor.setPredictionCol("").setProbabilityCol("prediction")
                 lor_model = lor.fit(train_df)
 
                 test_df = train_df.select("features")
