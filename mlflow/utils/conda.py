@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from pathlib import Path
 
 import yaml
 
@@ -107,6 +108,8 @@ def _create_conda_env(
     capture_output,
 ):
     if conda_env_path:
+        conda_env = Path(conda_env_path).read_text()
+        _logger.info("Conda environment: %s", conda_env)
         process._exec_cmd(
             [
                 conda_env_create_path,
@@ -116,6 +119,7 @@ def _create_conda_env(
                 project_env_name,
                 "--file",
                 conda_env_path,
+                "--verbose",
             ],
             extra_env=conda_extra_env_vars,
             capture_output=capture_output,
