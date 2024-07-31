@@ -16,11 +16,8 @@ from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.langchain.runnables import get_runnable_steps
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import name_utils
-from mlflow.utils.autologging_utils import (
-    AutoLoggingConfig,
-    disable_autologging,
-    get_autologging_config,
-)
+from mlflow.utils.autologging_utils import disable_autologging, get_autologging_config
+from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.autologging_utils.safety import _resolve_extra_tags
 
 _logger = logging.getLogger(__name__)

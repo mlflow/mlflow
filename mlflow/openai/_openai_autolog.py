@@ -17,11 +17,8 @@ from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.autologging_utils import (
-    AutoLoggingConfig,
-    disable_autologging,
-    get_autologging_config,
-)
+from mlflow.utils.autologging_utils import disable_autologging, get_autologging_config
+from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.autologging_utils.safety import _resolve_extra_tags
 
 MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["openai"]["autologging"]["minimum"])
