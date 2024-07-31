@@ -78,7 +78,7 @@ Packages
 
 Job Statuses
 
-|examples| |cross-version-tests| |r-devel| |test-requirements| |stale| |push-images| |slow-tests|
+|examples| |cross-version-tests| |r-devel| |test-requirements| |stale| |push-images| |slow-tests| |website-e2e|
 
 .. |examples| image:: https://img.shields.io/github/actions/workflow/status/mlflow-automation/mlflow/examples.yml.svg?branch=master&event=schedule&label=Examples&style=for-the-badge&logo=github
     :target: https://github.com/mlflow-automation/mlflow/actions/workflows/examples.yml?query=workflow%3AExamples+event%3Aschedule
