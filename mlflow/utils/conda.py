@@ -142,7 +142,7 @@ def _create_conda_env(
 
 
 def _create_conda_env_retry(
-    conda_env_path, conda_env_create_path, project_env_name, conda_extra_env_vars, _capture_output
+    conda_env_path, conda_env_create_path, project_env_name, conda_extra_env_vars, capture_output
 ):
     """
     `conda env create` command can fail due to network issues such as `ConnectionResetError`
@@ -156,7 +156,7 @@ def _create_conda_env_retry(
                 conda_env_create_path,
                 project_env_name,
                 conda_extra_env_vars,
-                capture_output=True,
+                capture_output=capture_output,
             )
         except process.ShellCommandException as e:
             error_str = str(e)
