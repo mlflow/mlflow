@@ -1,0 +1,90 @@
+{
+  "database_name": "sqlhistory",
+  "table_name": "query_records",
+  "all_columns": [
+    { "name": "account_id", "bytes_value": "69UiiAD5RDq+FzY6tx9WBg==" },
+    {
+      "name": "add_on_proto",
+      "string_value": "{\"spark_context_id\":\"3909812455066284429\",\"execution_id\":\"230\",\"feature_flags\":{\"is_query_execution_summary_enabled\":true,\"live_query_profile_enabled\":true,\"live_query_profile_interval_seconds\":20},\"runtime_abilities\":{\"supports_live_query_profile\":true}}"
+    },
+    { "name": "cluster_id", "string_value": "1212-155404-jiwq4plk" },
+    {
+      "name": "control_plane_last_updated_timestamp",
+      "column_type": "debezium.shaded.io.debezium.time.ZonedTimestamp",
+      "string_value": "2023-12-13T14:23:23.512Z"
+    },
+    { "name": "duration", "int_value": 537 },
+    { "name": "endpoint_channel_name", "string_value": "CHANNEL_NAME_CURRENT" },
+    { "name": "endpoint_dbsql_version", "string_value": "2023.50" },
+    { "name": "endpoint_id", "long_value": "-4230412356687363566" },
+    { "name": "entity_run_id", "is_null": true },
+    { "name": "error_message", "is_null": true },
+    { "name": "executed_as_user_id", "long_value": "3101859943757526" },
+    {
+      "name": "execution_end_time",
+      "column_type": "debezium.shaded.io.debezium.time.ZonedTimestamp",
+      "string_value": "2023-12-13T14:23:23.496Z"
+    },
+    { "name": "execution_number", "int_value": 0 },
+    { "name": "internal_deleted_timestamp", "is_null": true },
+    { "name": "internal_error_message", "is_null": true },
+    { "name": "internal_execution_number", "int_value": 0 },
+    {
+      "name": "internal_last_updated_timestamp",
+      "column_type": "debezium.shaded.io.debezium.time.ZonedTimestamp",
+      "string_value": "2023-12-13T14:23:25.391345Z"
+    },
+    { "name": "internal_metrics_proto", "is_null": true },
+    { "name": "internal_shard_id", "long_value": "3852047495260786" },
+    { "name": "internal_state_id", "int_value": 70 },
+    { "name": "internal_workspace_id", "long_value": "26313010352454" },
+    { "name": "is_from_cache", "int_value": 0 },
+    { "name": "is_scheduled", "int_value": 0 },
+    { "name": "is_visible", "int_value": 1 },
+    {
+      "name": "last_update_time",
+      "column_type": "debezium.shaded.io.debezium.time.ZonedTimestamp",
+      "string_value": "2023-12-13T14:23:23.522Z"
+    },
+    {
+      "name": "metrics_proto",
+      "bytes_value": "CJkEEAAYESDsAigtQABIAFAAWABgAGgAeACIAQCQAQCYAQegAQCoAQC4AQDAAQDYAc+nvpzGMeIBBQgCEJgC4gEECAEQAeIBBAgDEAziAQQIBBAF6AEA8AGqAvgBbw=="
+    },
+    {
+      "name": "mysql_record_created_time",
+      "column_type": "debezium.shaded.io.debezium.time.ZonedTimestamp",
+      "string_value": "2023-12-13T14:23:22.999236Z"
+    },
+    { "name": "org_id", "long_value": "26313010352454" },
+    {
+      "name": "plans_state",
+      "column_type": "debezium.shaded.io.debezium.data.Enum",
+      "string_value": "EXISTS"
+    },
+    {
+      "name": "query_end_time",
+      "column_type": "debezium.shaded.io.debezium.time.ZonedTimestamp",
+      "string_value": "2023-12-13T14:23:23.512Z"
+    },
+    { "name": "query_id", "string_value": "01ee99c3-2beb-1805-80e1-c217a8a87f24" },
+    { "name": "query_id_bin", "bytes_value": "Ae6ZwyvrGAWA4cIXqKh/JA==" },
+    {
+      "name": "query_start_time",
+      "column_type": "debezium.shaded.io.debezium.time.ZonedTimestamp",
+      "string_value": "2023-12-13T14:23:22.959Z"
+    },
+    { "name": "query_text", "bytes_value": "REVTQyBgc25vd2ZsYWtlX2RiX3B1YmxpY2AuYHdlYl9wYWdlYA==" },
+    { "name": "rows_produced", "long_value": "17" },
+    { "name": "session_id", "string_value": "01ee99c3-2b9f-18ea-a1f6-f8f3962b8ca6" },
+    {
+      "name": "source",
+      "bytes_value": "EjQKFERhdGFicmlja3NKREJDRHJpdmVyEgYyLjYuMzIaCkRhdGFicmlja3MiCEZpdmV0cmFuWAA="
+    },
+    { "name": "source_id", "is_null": true },
+    { "name": "source_type", "is_null": true },
+    { "name": "statement_type", "int_value": 6 },
+    { "name": "status_id", "int_value": 70 },
+    { "name": "user_id", "long_value": "3101859943757526" },
+    { "name": "user_name", "string_value": "jade.wang+ft1@databricks.com" }
+  ]
+}

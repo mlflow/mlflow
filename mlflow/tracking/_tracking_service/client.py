@@ -44,7 +44,7 @@ from mlflow.tracing.artifact_utils import get_artifact_uri_for_trace
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
-from mlflow.utils import chunk_list
+from mlflow.utils import chunk_list, databricks_utils
 from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS, MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
@@ -877,18 +877,24 @@ class TrackingServiceClient:
     def _log_url(self, run_id):
         if not isinstance(self.store, RestStore):
             return
-        host_url = self.store.get_host_creds().host.rstrip("/")
+
+        if databricks_utils.is_in_databricks_runtime():
+            host_url = databricks_utils.get_workspace_url() or self.store.get_host_creds().host
+        else:
+            host_url = self.store.get_host_creds().host
+
+        host_url = host_url.rstrip("/")
         run_info = self.store.get_run(run_id).info
         experiment_id = run_info.experiment_id
         run_name = run_info.run_name
         if is_databricks_uri(self.tracking_uri):
-            experment_url = f"{host_url}/ml/experiments/{experiment_id}"
+            experiment_url = f"{host_url}/ml/experiments/{experiment_id}"
         else:
-            experment_url = f"{host_url}/#/experiments/{experiment_id}"
-        run_url = f"{experment_url}/runs/{run_id}"
+            experiment_url = f"{host_url}/#/experiments/{experiment_id}"
+        run_url = f"{experiment_url}/runs/{run_id}"
 
         _logger.info(f"🏃 View run {run_name} at: {run_url}.")
-        _logger.info(f"🧪 View experiment at: {experment_url}.")
+        _logger.info(f"🧪 View experiment at: {experiment_url}.")
 
     def set_terminated(self, run_id, status=None, end_time=None):
         """Set a run's status to terminated.
