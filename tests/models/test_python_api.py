@@ -87,7 +87,7 @@ def test_predict_with_pip_requirements_override(env_manager):
             # XGBoost should be installed by pip_requirements_override
             import xgboost
 
-            assert xgboost.__version__ == "1.7.3"
+            assert xgboost.__version__ == "1.7.6"
 
             # Scikit-learn version should be overridden to 1.3.0 by pip_requirements_override
             import sklearn
@@ -102,7 +102,7 @@ def test_predict_with_pip_requirements_override(env_manager):
         )
         run_id = run.info.run_id
 
-    requirements_override = ["xgboost==1.7.3", "scikit-learn==1.3.0"]
+    requirements_override = ["xgboost==1.7.6", "scikit-learn==1.3.0"]
     if env_manager == CONDA:
         # Install charset-normalizer with conda-forge to work around pip-vs-conda issue during
         # CI tests. At the beginning of the CI test, it installs MLflow dependencies via pip,
