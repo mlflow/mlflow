@@ -751,8 +751,8 @@ model signatures in log_model calls when signatures aren't specified.
 
 
 .. note::
-    Since MLflow 2.16.0, dictionary input example is not converted to pandas DataFrame anymore. If the model input is json-serializable object, e.g. list or dictionary,
-    it is saved as json object without any conversion. For numpy arrays, a json serializable format is saved. For pandas DataFrame, it is converted to dictionary format 
+    Prior to MLflow 2.16.0, dictionary input example was converted to Pandas DataFrame format when saving. In later versions, the input
+    example is simply saved in its JSON serialized format. For pandas DataFrame, it is converted to dictionary format 
     with ``to_dict(orient='split')`` and saved into json format.
     ``example_no_conversion`` parameter for langchain, openai, pyfunc and transformers flavors will be dropped in a future release.
 
@@ -857,13 +857,15 @@ The following example demonstrates how to log a model with an example containing
     mlflow.transformers.log_model(..., input_example=input_example)
 
 
-Model Serving Example
----------------------
-When logging a model with input example, a corresponding serving payload is automatically saved in ``serving_input_payload.json`` file,
-which is validated against the logged model prior to model deployment. The serving payload is
-converted from input example, and it is a json string that can be used when querying a deployed model endpoint. 
+Model Serving Payload Example
+-----------------------------
+Once an MLflow model is deployed to a REST endpoint for inference, the request payload will be
+JSON serialized and may have subtle difference from in-memory representation.
+To validate your model works for inference, you can use the ``serving_input_payload.json`` file.
+It is automatically logged along with the model when an ``input_example`` is provided and contains
+a json format of the given input example for querying a deployed model endpoint.
 
-The following example demonstrates how to use the serving payload:
+The following example demonstrates how to load the serving payload from a logged model:
 
 .. code-block:: python
 
@@ -882,14 +884,23 @@ The following example demonstrates how to use the serving payload:
     serving_example = load_serving_example_from_uri(model_info.model_uri)
     print(f"serving_example: {serving_example}")
 
-Serve the model
+You can validate the input example works prior to serving:
+
+.. code-block:: python
+
+    from mlflow.models import validate_serving_input
+
+    result = validate_serving_input(model_info.model_uri, serving_example)
+    print(f"prediction result: {result}")
+
+Serve the model locally
 
 .. code-block:: bash
 
     mlflow models serve --model-uri "<YOUR_MODEL_URI>"
 
-Query the model
+Validate model inference with the serving payload example
 
 .. code-block:: bash
 
-    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d YOUR_SERVING_EXAMPLE
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d 'YOUR_SERVING_EXAMPLE'

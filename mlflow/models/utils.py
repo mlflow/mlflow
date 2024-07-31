@@ -228,11 +228,6 @@ def _contains_nd_array(data):
     return False
 
 
-# SELF NOTE: this will not be a breaking change as for users who use this new MLflow
-# version, model artifacts should always contain serving_input_example, and model serving UI
-# fetches that file to display the input example.
-# For users using old MLflow version, this should continue to work as model serving UI
-# defaults to parse the input example with the old way.
 class _Example:
     """
     Represents an input example for MLflow model.
@@ -321,11 +316,13 @@ class _Example:
                 self.serving_input = {INPUTS: model_input}
             else:
                 # TODO: remove this warning after 2.17.0 release
-                _logger.warning(
+                warnings.warn(
                     "Since MLflow 2.16.0, we no longer convert dictionary input example "
                     "to pandas Dataframe, and directly save it as a json object. "
                     "If the model expects a pandas DataFrame input instead, please "
-                    "pass the pandas DataFrame as input example directly."
+                    "pass the pandas DataFrame as input example directly.",
+                    FutureWarning,
+                    stacklevel=2,
                 )
 
                 from mlflow.pyfunc.utils.serving_data_parser import is_unified_llm_input
@@ -516,10 +513,11 @@ def _save_example(
     # TODO: remove this and all example_no_conversion param after 2.17.0 release
     if no_conversion is not None:
         warnings.warn(
-            "The `example_no_conversion` parameter is deprecated since mlflow 2.16.0. "
-            "This parameter is no longer used and safe to be removed, "
+            "The `example_no_conversion` parameter is deprecated since mlflow 2.16.0 and will be "
+            "removed in a future release. This parameter is no longer used and safe to be removed, "
             "MLflow no longer converts input examples when logging the model.",
             FutureWarning,
+            stacklevel=2,
         )
 
     example = _Example(input_example)
@@ -585,16 +583,14 @@ def load_serving_example_from_uri(model_uri_or_path: str):
     serving_input_path = model_uri_or_path.rstrip("/") + "/" + SERVING_INPUT_FILENAME
     if os.path.exists(serving_input_path):
         with open(serving_input_path) as handle:
-            result = handle.read()
+            return handle.read()
     else:
         with tempfile.TemporaryDirectory() as tmpdir:
             local_serving_input_path = _download_artifact_from_uri(
                 serving_input_path, output_path=tmpdir
             )
             with open(local_serving_input_path) as handle:
-                result = handle.read()
-    # To avoid including indent in the output
-    return json.dumps(json.loads(result))
+                return handle.read()
 
 
 def _read_example(mlflow_model: Model, path: str):

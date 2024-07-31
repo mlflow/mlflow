@@ -791,8 +791,6 @@ class Model:
                         f"Got error: {e}",
                         exc_info=_logger.isEnabledFor(logging.DEBUG),
                     )
-                    # if _MLFLOW_TESTING.get():
-                    #     raise e
 
         return model_info
 

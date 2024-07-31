@@ -522,7 +522,7 @@ def parse_inputs_data(inputs_data_or_path, schema=None):
     Inputs data must be able to pass to the model for pyfunc predict directly.
 
     Args:
-        inputs_data: A json-serializable object
+        inputs_data_or_path: A json-serializable object or path to a json file
         schema: data schema to cast to. Be of type `mlflow.types.Schema`.
     """
     if isinstance(inputs_data_or_path, str) and os.path.exists(inputs_data_or_path):
