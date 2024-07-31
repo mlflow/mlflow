@@ -152,13 +152,14 @@ xgboost:
     pip_release: "xgboost"
     install_dev: |
       pip install git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
-
   models:
     minimum: "1.4.2"
     maximum: "2.1.0"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
       "< 1.6": ["pandas<2"]
+    python:
+      "== dev": "3.10"
     run: |
       pytest tests/xgboost/test_xgboost_model_export.py
 
@@ -168,6 +169,8 @@ xgboost:
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
       "< 1.6": ["pandas<2"]
+    python:
+      "== dev": "3.10"
     run: |
       pytest tests/xgboost/test_xgboost_autolog.py
 
