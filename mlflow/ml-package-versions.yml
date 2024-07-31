@@ -169,7 +169,6 @@ xgboost:
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
       "< 1.6": ["pandas<2"]
-      "== dev": ["setuptools==59.8.0"]
     python:
       "== dev": "3.10"
     run: |
