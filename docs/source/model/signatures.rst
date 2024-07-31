@@ -156,13 +156,13 @@ Column-based signatures support data primitives defined within the :py:class:`ML
 Column-based signature also support composite data types of these primitives.
 
 - Array (list, numpy arrays)
+- Spark ML vector (it inherits ``Array[double]`` type)
 - Object (dictionary)
 
 .. warning::
 
-    Support for Array and Object types was introduced in MLflow version **2.10.0**. These types will not be recognized in previous versions of MLflow. 
-    If you are saving a model that uses these signature types, you should ensure that any other environment that attempts to load these models 
-    has a version of MLflow installed that is at least 2.10.0.
+    * Support for Array and Object types was introduced in MLflow version **2.10.0**. These types will not be recognized in previous versions of MLflow.  If you are saving a model that uses these signature types, you should ensure that any other environment that attempts to load these models  has a version of MLflow installed that is at least 2.10.0.
+    * Support for Spark ML vector type was introduced in MLflow version **2.15.0**, These type will not be recognized in previous versions of MLflow.
 
 Additional examples for composite data types can be seen by viewing the `signature examples notebook <notebooks/signature_examples.html>`_.
 
