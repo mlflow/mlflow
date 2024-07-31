@@ -649,7 +649,7 @@ langchain:
           "transformers",
           "torch",
           "torchvision",
-          # TODO: he LLM saving/loading logic does not handle partner packages such as langchain-openai
+          # TODO: The LLM saving/loading logic does not handle partner packages such as langchain-openai
           # and always load llms from the legacy community package. Particularly for OpenAI LLM,
           # the legacy version is not comptible with OpenAI SDK >= 1.8.0, so we need to pin the
           # version here until resolving the loading issue.
