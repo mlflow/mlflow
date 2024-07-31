@@ -224,6 +224,8 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
+          /usr/share/miniconda/bin/conda config --show channels
+          /usr/share/miniconda/bin/conda config --remove channels defaults
           pytest 'tests/models/test_python_api.py::test_predict_with_pip_requirements_override[conda]' -s
 
   # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
