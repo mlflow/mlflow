@@ -4343,7 +4343,7 @@ def test_xgboost_model_evaluate_work_with_shap_explainer():
         {"default": {"label_list": [0, 1], "pos_label": 1}},
     ],
 )
-def test_evaluate_classifier_calculate_label_list_correctly(evaluator_config):
+def test_evaluate_binary_classifier_calculate_label_list_correctly(evaluator_config):
     data = pd.DataFrame({"target": [0, 0, 1, 0], "prediction": [0, 1, 0, 0]})
 
     result = mlflow.evaluate(
@@ -4365,3 +4365,38 @@ def test_evaluate_classifier_calculate_label_list_correctly(evaluator_config):
         "f1_score",
     ]:
         assert metric in result.metrics
+
+
+@pytest.mark.parametrize(
+    "evaluator_config",
+    [
+        None,
+        {"default": {"label_list": [0, 1, 2]}},
+    ],
+)
+def test_evaluate_multi_classifier_calculate_label_list_correctly(evaluator_config):
+    data = pd.DataFrame({"target": [1, 0, 1, 1], "prediction": [1, 2, 0, 0]})
+
+    result = mlflow.evaluate(
+        data=data,
+        model_type="classifier",
+        targets="target",
+        predictions="prediction",
+        evaluator_config=evaluator_config,
+    )
+    for metric in [
+        "example_count",
+        "accuracy_score",
+        "recall_score",
+        "precision_score",
+        "f1_score",
+    ]:
+        assert metric in result.metrics
+
+    for metric in [
+        "true_negatives",
+        "false_positives",
+        "false_negatives",
+        "true_positives",
+    ]:
+        assert metric not in result.metrics
