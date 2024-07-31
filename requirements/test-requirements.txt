@@ -41,8 +41,7 @@ tiktoken
 ipywidgets
 tqdm
 # Required for LLM eval in `mlflow.evaluate`
-# TODO: Unpin once we support openai 1.0
-openai<1.0
+openai
 # Required for showing pytest stats
 psutil
 # SQLAlchemy == 2.0.25 requires typing_extensions >= 4.6.0

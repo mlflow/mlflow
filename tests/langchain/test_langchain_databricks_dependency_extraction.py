@@ -32,9 +32,6 @@ class MockDatabricksServingEndpointClient:
         self.task = task
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
-)
 def test_parsing_dependency_from_databricks_llm(monkeypatch: pytest.MonkeyPatch):
     from langchain.llms import Databricks
 
@@ -115,9 +112,6 @@ class MockVectorSearchClient:
         return MockVectorSearchIndex(endpoint_name, index_name, has_embedding_endpoint)
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
-)
 @pytest.mark.parametrize("module_name", ["langchain", "langchain_community"])
 def test_parsing_dependency_from_databricks_retriever(module_name, monkeypatch: pytest.MonkeyPatch):
     if module_name == "langchain":
@@ -209,9 +203,6 @@ def test_parsing_dependency_from_databricks_retriever(module_name, monkeypatch: 
     ]
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
-)
 @pytest.mark.parametrize("module_name", ["langchain", "langchain_community"])
 def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in_index(
     module_name,
@@ -246,9 +237,6 @@ def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in
     ]
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
-)
 def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch):
     from langchain_community.chat_models import ChatDatabricks
 
@@ -261,9 +249,6 @@ def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch
     assert resources == [DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat")]
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
-)
 def test_parsing_dependency_from_databricks(monkeypatch: pytest.MonkeyPatch):
     from langchain_community.chat_models import ChatDatabricks
     from langchain_community.vectorstores import DatabricksVectorSearch
@@ -366,9 +351,6 @@ def test_parsing_dependency_correct_loads_langchain_modules():
         langchain_community.chat_models.ChatDatabricks
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
-)
 def test_module_removal():
     import langchain_community.llms
 
