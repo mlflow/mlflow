@@ -261,7 +261,7 @@ def get_requires_python(package: str, version: str) -> str:
         ),
         None,
     )
-    candidates = ("3.8", "3.9")
+    candidates = ("3.8", "3.9", "3.10")
     if requires_python is None:
         return candidates[0]
 
