@@ -5,33 +5,33 @@ import pytest
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.openai.conftest import is_v1
 
 
 @pytest.fixture
-def client(mock_openai):
+def client(monkeypatch, mock_openai):
+    monkeypatch.setenvs(
+        {
+            "OPENAI_API_KEY": "test",
+            "OPENAI_API_BASE": mock_openai,
+        }
+    )
     return openai.OpenAI(api_key="test", base_url=mock_openai)
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
-def test_chat_completions_autolog(client, monkeypatch):
-    mlflow.openai.autolog(log_models=True)
+@pytest.mark.parametrize("log_models", [True, False])
+def test_chat_completions_autolog(client, log_models):
+    mlflow.openai.autolog(log_models=log_models)
+
     messages = [{"role": "user", "content": "test"}]
-    with mlflow.start_run() as run:
-        client.chat.completions._mlflow_session_id = "test_session_id"
-        client.chat.completions.create(
-            messages=messages,
-            model="gpt-4o-mini",
-            temperature=0,
-        )
-
-    artifact_dir = MlflowClient().download_artifacts(run.info.run_id, "artifacts-test_session_id-0")
-    with open(f"{artifact_dir}/input.json") as f:
-        assert json.load(f)["messages"] == messages
-
-    with open(f"{artifact_dir}/output.json") as f:
-        assert json.load(f)["id"] == "chatcmpl-123"
+    client.chat.completions.create(
+        messages=messages,
+        model="gpt-4o-mini",
+        temperature=0,
+    )
 
     trace = mlflow.get_last_active_trace()
     assert trace is not None
@@ -41,33 +41,34 @@ def test_chat_completions_autolog(client, monkeypatch):
     assert span.inputs == {"messages": messages, "model": "gpt-4o-mini", "temperature": 0}
     assert span.outputs["id"] == "chatcmpl-123"
 
+    if log_models:
+        run_id = trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+        assert run_id is not None
+        loaded_model = mlflow.openai.load_model(f"runs:/{run_id}/model")
+        assert loaded_model == {
+            "model": "gpt-4o-mini",
+            "task": "chat.completions",
+        }
+        pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
+        assert pyfunc_model.predict("test") == [json.dumps(messages)]
+
+    else:
+        assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
+
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
-def test_chat_completions_autolog_streaming(client, monkeypatch):
-    mlflow.openai.autolog(log_models=True)
+def test_chat_completions_autolog_streaming(client):
+    mlflow.openai.autolog()
+
     messages = [{"role": "user", "content": "test"}]
-    with mlflow.start_run() as run:
-        client.chat.completions._mlflow_session_id = "test_session_id"
-        stream = client.chat.completions.create(
-            messages=messages,
-            model="gpt-4o-mini",
-            temperature=0,
-            stream=True,
-        )
-        for _ in stream:
-            pass
-
-    artifact_dir = MlflowClient().download_artifacts(run.info.run_id, "artifacts-test_session_id-0")
-    with open(f"{artifact_dir}/input.json") as f:
-        assert json.load(f)["messages"] == messages
-
-    with open(f"{artifact_dir}/output.json") as f:
-        output = json.load(f)
-        assert len(output) == 2
-        assert output[0]["id"] == "chatcmpl-123"
-        assert output[0]["choices"][0]["delta"]["content"] == "Hello"
-        assert output[1]["id"] == "chatcmpl-123"
-        assert output[1]["choices"][0]["delta"]["content"] == " world"
+    stream = client.chat.completions.create(
+        messages=messages,
+        model="gpt-4o-mini",
+        temperature=0,
+        stream=True,
+    )
+    for _ in stream:
+        pass
 
     trace = mlflow.get_last_active_trace()
     assert trace is not None
@@ -91,31 +92,27 @@ def test_chat_completions_autolog_streaming(client, monkeypatch):
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
-def test_loaded_chat_completions_autolog(client, monkeypatch):
-    mlflow.openai.autolog(log_models=True)
+def test_chat_completions_autolog_tracing_error(client):
+    mlflow.openai.autolog()
     messages = [{"role": "user", "content": "test"}]
-    with mlflow.start_run() as run:
+    with pytest.raises(openai.BadRequestError, match="Temperature must be between 0.0 and 2.0"):
         client.chat.completions.create(
             messages=messages,
             model="gpt-4o-mini",
-            temperature=0,
+            temperature=5.0,
         )
 
-    loaded_model = mlflow.openai.load_model(f"runs:/{run.info.run_id}/model")
-    assert loaded_model == {
-        "model": "gpt-4o-mini",
-        "task": "chat.completions",
-    }
+    trace = mlflow.get_last_active_trace()
+    assert trace.info.status == "ERROR"
 
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": client.base_url,
-        }
-    )
-    pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
-    # expected output from mock_openai
-    assert pyfunc_model.predict("test") == [json.dumps(messages)]
+    assert len(trace.data.spans) == 1
+    span = trace.data.spans[0]
+    assert span.name == "Completions"
+    assert span.inputs["messages"][0]["content"] == "test"
+    assert span.outputs is None
+
+    assert span.events[0].name == "exception"
+    assert span.events[0].attributes["exception.type"] == "openai.BadRequestError"
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
@@ -143,22 +140,15 @@ def test_chat_completions_autolog_tracing_error(client):
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
-def test_completions_autolog(client, monkeypatch):
-    mlflow.openai.autolog(log_models=True)
-    with mlflow.start_run() as run:
-        client.completions._mlflow_session_id = "test_session_id"
-        client.completions.create(
-            prompt="test",
-            model="gpt-4o-mini",
-            temperature=0,
-        )
+@pytest.mark.parametrize("log_models", [True, False])
+def test_completions_autolog(client, log_models):
+    mlflow.openai.autolog(log_models=log_models)
 
-    artifact_dir = MlflowClient().download_artifacts(run.info.run_id, "artifacts-test_session_id-0")
-    with open(f"{artifact_dir}/input.json") as f:
-        assert json.load(f)["prompt"] == "test"
-
-    with open(f"{artifact_dir}/output.json") as f:
-        assert json.load(f)["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
+    client.completions.create(
+        prompt="test",
+        model="gpt-4o-mini",
+        temperature=0,
+    )
 
     trace = mlflow.get_last_active_trace()
     assert trace is not None
@@ -168,32 +158,32 @@ def test_completions_autolog(client, monkeypatch):
     assert span.inputs == {"prompt": "test", "model": "gpt-4o-mini", "temperature": 0}
     assert span.outputs["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
 
+    if log_models:
+        run_id = trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+        assert run_id is not None
+        loaded_model = mlflow.openai.load_model(f"runs:/{run_id}/model")
+        assert loaded_model == {
+            "model": "gpt-4o-mini",
+            "task": "completions",
+        }
+        pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
+        assert pyfunc_model.predict("test") == ["test"]
+    else:
+        assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
+
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
-def test_completions_autolog_streaming(client, monkeypatch):
-    mlflow.openai.autolog(log_models=True)
-    with mlflow.start_run() as run:
-        client.completions._mlflow_session_id = "test_session_id"
-        stream = client.completions.create(
-            prompt="test",
-            model="gpt-4o-mini",
-            temperature=0,
-            stream=True,
-        )
-        for _ in stream:
-            pass
+def test_completions_autolog_streaming(client):
+    mlflow.openai.autolog()
 
-    artifact_dir = MlflowClient().download_artifacts(run.info.run_id, "artifacts-test_session_id-0")
-    with open(f"{artifact_dir}/input.json") as f:
-        assert json.load(f)["prompt"] == "test"
-
-    with open(f"{artifact_dir}/output.json") as f:
-        output = json.load(f)
-        assert len(output) == 2
-        assert output[0]["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
-        assert output[0]["choices"][0]["text"] == "Hello"
-        assert output[1]["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
-        assert output[1]["choices"][0]["text"] == " world"
+    stream = client.completions.create(
+        prompt="test",
+        model="gpt-4o-mini",
+        temperature=0,
+        stream=True,
+    )
+    for _ in stream:
+        pass
 
     trace = mlflow.get_last_active_trace()
     assert trace is not None
@@ -217,76 +207,37 @@ def test_completions_autolog_streaming(client, monkeypatch):
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
-def test_loaded_completions_autolog(client, monkeypatch):
-    mlflow.openai.autolog(log_models=True)
-    with mlflow.start_run() as run:
-        client.completions.create(
-            prompt="test",
-            model="gpt-4o-mini",
-            temperature=0,
-        )
+@pytest.mark.parametrize("log_models", [True, False])
+def test_embeddings_autolog(client, log_models):
+    mlflow.openai.autolog(log_models=log_models)
 
-    loaded_model = mlflow.openai.load_model(f"runs:/{run.info.run_id}/model")
-    assert loaded_model == {
-        "model": "gpt-4o-mini",
-        "task": "completions",
-    }
-
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": client.base_url,
-        }
+    client.embeddings.create(
+        input="test",
+        model="text-embedding-ada-002",
     )
-    pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
-    # expected output from mock_openai
-    assert pyfunc_model.predict("test") == ["test"]
 
+    trace = mlflow.get_last_active_trace()
+    assert trace is not None
+    assert trace.info.status == "OK"
+    assert len(trace.data.spans) == 1
+    span = trace.data.spans[0]
+    assert span.inputs == {"input": "test", "model": "text-embedding-ada-002"}
+    assert span.outputs["data"][0]["embedding"] == list(range(1536))
 
-@pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
-def test_embeddings_autolog_artifacts(client, monkeypatch):
-    mlflow.openai.autolog(log_models=True)
-    with mlflow.start_run() as run:
-        client.embeddings._mlflow_session_id = "test_session_id"
-        client.embeddings.create(
-            input="test",
-            model="text-embedding-ada-002",
-        )
-
-    artifact_dir = MlflowClient().download_artifacts(run.info.run_id, "artifacts-test_session_id-0")
-    with open(f"{artifact_dir}/input.json") as f:
-        assert json.load(f)["input"] == "test"
-
-    with open(f"{artifact_dir}/output.json") as f:
-        assert len(json.load(f)["data"][0]["embedding"]) == 1536
-
-
-@pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
-def test_loaded_embeddings_autolog(client, monkeypatch):
-    mlflow.openai.autolog(log_models=True)
-    with mlflow.start_run() as run:
-        client.embeddings.create(
-            input="test",
-            model="text-embedding-ada-002",
-        )
-
-    loaded_model = mlflow.openai.load_model(f"runs:/{run.info.run_id}/model")
-    assert loaded_model == {
-        "model": "text-embedding-ada-002",
-        "task": "embeddings",
-    }
-
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": client.base_url,
+    if log_models:
+        run_id = trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+        assert run_id is not None
+        loaded_model = mlflow.openai.load_model(f"runs:/{run_id}/model")
+        assert loaded_model == {
+            "model": "text-embedding-ada-002",
+            "task": "embeddings",
         }
-    )
-    pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
-    # expected output from mock_openai
-    output = pyfunc_model.predict("test")
-    assert len(output) == 1
-    assert len(output[0]) == 1536
+        pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
+        output = pyfunc_model.predict("test")
+        assert len(output) == 1
+        assert len(output[0]) == 1536
+    else:
+        assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
 
 
 @pytest.mark.skipif(not is_v1, reason="Requires OpenAI SDK v1")
