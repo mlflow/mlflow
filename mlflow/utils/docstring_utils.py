@@ -260,9 +260,6 @@ by converting it to a list. Bytes are base64-encoded. When the ``signature`` par
         "example_no_conversion": (
             """This parameter is deprecated and will be removed in a future release,
 please drop it and input examples are not converted during model logging anymore.
-If ``True``, the input example will not be converted to a Pandas DataFrame
-format when saving. This is useful when the model expects a non-DataFrame input and the
-input example could be passed directly to the model. Defaults to ``None``.
 """
         ),
         "prompt_template": (
