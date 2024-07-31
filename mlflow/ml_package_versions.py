@@ -262,7 +262,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "langchain"
         },
         "models": {
-            "minimum": "0.0.244",
+            "minimum": "0.0.354",
             "maximum": "0.2.11"
         },
         "autologging": {
