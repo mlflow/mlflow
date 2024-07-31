@@ -877,7 +877,7 @@ class TrackingServiceClient:
     def _log_url(self, run_id):
         if not isinstance(self.store, RestStore):
             return
-        host_url = self.store.get_host_creds().host
+        host_url = self.store.get_host_creds().host.rstrip("/")
         run_info = self.store.get_run(run_id).info
         experiment_id = run_info.experiment_id
         run_name = run_info.run_name
