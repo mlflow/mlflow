@@ -625,7 +625,7 @@ openai:
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
     run: |
-      pytest tests/openai/test_openai_model_export.py
+      pytest tests/openai --ignore tests/openai/test_openai_autolog.py
   autologging:
     minimum: "1.17.0"
     maximum: "1.37.1"
@@ -640,7 +640,8 @@ langchain:
     install_dev: |
       pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/langchain
   models:
-    minimum: "0.0.244"
+    # Where the large package update was made (langchain-core, community, ...)
+    minimum: "0.0.354"
     maximum: "0.2.11"
     requirements:
       ">= 0.0.0": [
@@ -648,7 +649,11 @@ langchain:
           "transformers",
           "torch",
           "torchvision",
-          "openai",
+          # TODO: The LLM saving/loading logic does not handle partner packages such as langchain-openai
+          # and always load llms from the legacy community package. Particularly for OpenAI LLM,
+          # the legacy version is not comptible with OpenAI SDK >= 1.8.0, so we need to pin the
+          # version here until resolving the loading issue.
+          "openai<1.8.0",
           "google-search-results",
           "psutil",
           "faiss-cpu",
@@ -659,12 +664,8 @@ langchain:
         ]
       ">= 0.2": ["langchain-huggingface"]
     run: |
-      LANGCHAIN_NEW=$(python -c "from packaging.version import Version;import langchain;print(Version(langchain.__version__) >= Version('0.0.267'))")
       # Run all langchain tests except autologging
-      pytest tests/langchain --ignore tests/langchain/test_langchain_tracer.py --ignore tests/langchain/test_langchain_autolog.py
-      if [[ $LANGCHAIN_NEW = "True" ]]; then
-        pytest tests/langchain/test_langchain_tracer.py
-      fi
+      pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
       if [[ $PYDANTIC_VERSION == 1.* && $LANGCHAIN_NEW = "True" ]]; then
@@ -678,7 +679,8 @@ langchain:
     requirements:
       ">= 0.0.0": [
           "pyspark",
-          "openai",
+          # Pinning for the same reason as in the models section
+          "openai<1.8.0",
           "google-search-results",
           "psutil",
           "faiss-cpu",

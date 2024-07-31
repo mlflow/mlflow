@@ -47,9 +47,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: actions/setup-node@v3
-        with:
-          node-version: "20"
+      - uses: ./.github/actions/setup-node
       - name: Disable problem matcher
         if: runner.os == 'Windows'
         run: |

@@ -117,9 +117,7 @@ jobs:
       # js
       # ************************************************************************
       - if: steps.diff.outputs.js == 'true'
-        uses: actions/setup-node@v3
-        with:
-          node-version: "16"
+        uses: ./.github/actions/setup-node
       - if: steps.diff.outputs.js == 'true'
         working-directory: mlflow/server/js
         run: |
