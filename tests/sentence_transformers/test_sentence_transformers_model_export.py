@@ -18,7 +18,7 @@ import mlflow.sentence_transformers
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
-from mlflow.models.utils import _get_mlflow_model_input_example_dict, _read_example
+from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.environment import _mlflow_conda_env
 
@@ -492,24 +492,22 @@ SIGNATURE_FROM_EXAMPLE = infer_signature(
 
 
 @pytest.mark.parametrize(
-    ("example", "signature", "expected_signature", "example_no_conversion"),
+    ("example", "signature", "expected_signature"),
     [
-        (None, None, mlflow.sentence_transformers._get_default_signature(), False),
-        (SENTENCES_DF, None, SIGNATURE_FROM_EXAMPLE, False),
-        (None, SIGNATURE, SIGNATURE, False),
-        (SENTENCES, SIGNATURE, SIGNATURE, False),
-        (SENTENCES, SIGNATURE, SIGNATURE, True),
+        (None, None, mlflow.sentence_transformers._get_default_signature()),
+        (SENTENCES_DF, None, SIGNATURE_FROM_EXAMPLE),
+        (None, SIGNATURE, SIGNATURE),
+        (SENTENCES, SIGNATURE, SIGNATURE),
     ],
 )
 def test_signature_and_examples_are_saved_correctly(
-    example, signature, expected_signature, basic_model, model_path, example_no_conversion
+    example, signature, expected_signature, basic_model, model_path
 ):
     mlflow.sentence_transformers.save_model(
         basic_model,
         path=model_path,
         signature=signature,
         input_example=example,
-        example_no_conversion=example_no_conversion,
     )
     mlflow_model = Model.load(model_path)
 
@@ -518,13 +516,11 @@ def test_signature_and_examples_are_saved_correctly(
     if example is None:
         assert mlflow_model.saved_input_example_info is None
     else:
-        if example_no_conversion:
-            assert mlflow_model.saved_input_example_info["type"] == "json_object"
-            saved_example = _get_mlflow_model_input_example_dict(mlflow_model, model_path)
-            assert saved_example == example
-        elif isinstance(example, pd.DataFrame):
+        if isinstance(example, pd.DataFrame):
+            assert mlflow_model.saved_input_example_info["type"] == "dataframe"
             pd.testing.assert_frame_equal(_read_example(mlflow_model, model_path), example)
         else:
+            assert mlflow_model.saved_input_example_info["type"] == "json_object"
             np.testing.assert_equal(_read_example(mlflow_model, model_path), example)
 
 

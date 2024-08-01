@@ -21,8 +21,6 @@ import sys
 import traceback
 from typing import Any, Dict, NamedTuple, Optional, Tuple
 
-import flask
-
 from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 
 # NB: We need to be careful what we import form mlflow here. Scoring server is used from within
@@ -53,6 +51,7 @@ except ImportError:
 from io import StringIO
 
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
+from mlflow.pyfunc.utils.serving_data_parser import is_unified_llm_input
 from mlflow.server.handlers import catch_mlflow_exception
 
 _SERVER_MODEL_PATH = "__pyfunc_model_path__"
@@ -74,12 +73,6 @@ INPUTS = "inputs"
 
 SUPPORTED_FORMATS = {DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS}
 SERVING_PARAMS_KEY = "params"
-
-# Support unwrapped JSON with these keys for LLM use cases of Chat, Completions, Embeddings tasks
-LLM_CHAT_KEY = "messages"
-LLM_COMPLETIONS_KEY = "prompt"
-LLM_EMBEDDINGS_KEY = "input"
-SUPPORTED_LLM_FORMATS = {LLM_CHAT_KEY, LLM_COMPLETIONS_KEY, LLM_EMBEDDINGS_KEY}
 
 REQUIRED_INPUT_FORMAT = (
     f"The input must be a JSON dictionary with exactly one of the input fields {SUPPORTED_FORMATS}"
@@ -300,6 +293,8 @@ class InvocationsResponse(NamedTuple):
 
 
 def invocations(data, content_type, model, input_schema):
+    import flask
+
     type_parts = list(map(str.strip, content_type.split(";")))
     mime_type = type_parts[0]
     parameter_value_pairs = type_parts[1:]
@@ -395,10 +390,6 @@ def invocations(data, content_type, model, input_schema):
     return InvocationsResponse(response=result.getvalue(), status=200, mimetype="application/json")
 
 
-def _is_unified_llm_input(json_input: dict):
-    return any(x in json_input for x in SUPPORTED_LLM_FORMATS)
-
-
 class ParsedJsonInput(NamedTuple):
     data: Any
     params: Optional[Dict]
@@ -407,8 +398,8 @@ class ParsedJsonInput(NamedTuple):
 
 def _parse_json_data(data, metadata, input_schema):
     json_input = _decode_json_input(data)
-    is_unified_llm_input = _is_unified_llm_input(json_input)
-    if is_unified_llm_input:
+    _is_unified_llm_input = is_unified_llm_input(json_input)
+    if _is_unified_llm_input:
         # Unified LLM input format
         if hasattr(metadata, "get_params_schema"):
             params_schema = metadata.get_params_schema()
@@ -419,13 +410,15 @@ def _parse_json_data(data, metadata, input_schema):
         # Traditional json input format
         data, params = _split_data_and_params(data)
         data = infer_and_parse_data(data, input_schema)
-    return ParsedJsonInput(data, params, is_unified_llm_input)
+    return ParsedJsonInput(data, params, _is_unified_llm_input)
 
 
 def init(model: PyFuncModel):
     """
     Initialize the server. Loads pyfunc model from the path.
     """
+    import flask
+
     app = flask.Flask(__name__)
     input_schema = model.metadata.get_input_schema()
 

@@ -56,7 +56,7 @@ def test_log_model_with_config():
     assert logged_model_config == model_config
 
 
-def log_promptflow_example_model(with_input_example=False, example_no_conversion=False):
+def log_promptflow_example_model(with_input_example=False):
     model = get_promptflow_example_model()
     with mlflow.start_run():
         if not with_input_example:
@@ -65,7 +65,6 @@ def log_promptflow_example_model(with_input_example=False, example_no_conversion
             model,
             "promptflow_model",
             input_example={"text": "Python Hello World!"},
-            example_no_conversion=example_no_conversion,
         )
 
 
@@ -87,7 +86,7 @@ def test_promptflow_model_predict_pyfunc():
 
 def test_promptflow_model_serve_predict():
     # Assert predict with promptflow model
-    logged_model = log_promptflow_example_model(with_input_example=True, example_no_conversion=True)
+    logged_model = log_promptflow_example_model(with_input_example=True)
     inference_payload = get_serving_input_example(logged_model.model_uri)
     response = pyfunc_serve_and_score_model(
         logged_model.model_uri,
