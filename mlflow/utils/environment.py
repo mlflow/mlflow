@@ -2,6 +2,8 @@ import logging
 import os
 import pathlib
 import re
+from collections import Counter
+from importlib.metadata import PackageNotFoundError, version
 import subprocess
 import sys
 import tempfile
@@ -94,8 +96,8 @@ class _PythonEnv:
     @staticmethod
     def _get_package_version(package_name):
         try:
-            return __import__(package_name).__version__
-        except (ImportError, AttributeError, AssertionError):
+            return version(package_name)
+        except PackageNotFoundError:
             return None
 
     @staticmethod
@@ -236,7 +238,7 @@ def _mlflow_conda_env(
     pip_deps = mlflow_deps + additional_pip_deps
     conda_deps = additional_conda_deps if additional_conda_deps else []
     if pip_deps:
-        pip_version = _get_pip_version()
+        pip_version = _PythonEnv._get_package_version("pip")
         if pip_version is not None:
             # When a new version of pip is released on PyPI, it takes a while until that version is
             # uploaded to conda-forge. This time lag causes `conda create` to fail with
