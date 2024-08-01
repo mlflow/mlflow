@@ -18,7 +18,7 @@ sklearn:
     minimum: "0.24.1"
     maximum: "1.5.1"
     python:
-      "== dev": "3.9"
+      "== dev": "3.10"
     requirements:
       ">= 0.0.0": ["matplotlib"]
       "< 1.0": ["scipy==1.7.3"]

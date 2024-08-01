@@ -1810,7 +1810,7 @@ def test_autolog_emits_warning_message_when_pos_label_used_for_multilabel():
         )
 
 
-def test_sklearn_distutils_issue(monkeypatch, tmp_path):
+def test_autolog_setuptools_distutils_issue(monkeypatch, tmp_path):
     # This test ensures https://github.com/scikit-learn/scikit-learn/issues/26992 is fixed
     code = """
 from sklearn.cluster import KMeans
