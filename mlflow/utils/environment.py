@@ -262,7 +262,7 @@ def _mlflow_conda_env(
 def _get_package_version(package_name: str) -> Optional[str]:
     try:
         return importlib.metadata.version(package_name)
-    except importlib.metadata.version.PackageNotFoundError:
+    except importlib.metadata.PackageNotFoundError:
         return None
 
 
