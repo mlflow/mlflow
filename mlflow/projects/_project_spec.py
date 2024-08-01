@@ -42,22 +42,35 @@ def load_project(directory):
 
     project_name = yaml_obj.get("name")
 
+    # Parse entry points
+    entry_points = {}
+    for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
+        parameters = entry_point_yaml.get("parameters", {})
+        command = entry_point_yaml.get("command")
+        entry_points[name] = EntryPoint(name, parameters, command)
+
     databricks_spark_job_yaml = yaml_obj.get("databricks_spark_job")
     if databricks_spark_job_yaml is not None:
         python_file = databricks_spark_job_yaml.get("python_file")
 
-        entry_points = databricks_spark_job_yaml.get("entry_points")
-
-        if python_file is None and entry_points is None:
+        if python_file is None and not entry_points:
             raise MlflowException(
                 "Databricks Spark job requires either 'databricks_spark_job.python_file' "
                 "setting or 'entry_points' setting."
             )
-        if python_file is not None and entry_points is not None:
+        if python_file is not None and entry_points:
             raise MlflowException(
                 "Databricks Spark job does not allow 'databricks_spark_job.python_file' "
                 "setting and 'entry_points' setting coexisting."
             )
+
+        for entry_point in entry_points.values():
+            for param in entry_point.parameters.values():
+                if param.type == "path":
+                    raise MlflowException(
+                        "Databricks Spark job does not support entry point parameter of 'path' "
+                        f"type but got 'path' type parameter '{param.name}'."
+                    )
 
         if env_type.DOCKER in yaml_obj:
             raise MlflowException(
@@ -83,13 +96,6 @@ def load_project(directory):
             databricks_spark_job_spec=databricks_spark_job_spec,
             name=project_name,
         )
-
-    # Parse entry points
-    entry_points = {}
-    for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
-        parameters = entry_point_yaml.get("parameters", {})
-        command = entry_point_yaml.get("command")
-        entry_points[name] = EntryPoint(name, parameters, command)
 
     # Validate config if docker_env parameter is present
     docker_env = yaml_obj.get(env_type.DOCKER)
