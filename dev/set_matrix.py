@@ -45,7 +45,7 @@ VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
 # Treat "dev" as "newer than any existing versions"
 DEV_NUMERIC = "9999.9999.9999"
-
+VALID_CATEGORIES = ["models", "autologging"]
 
 class Version(OriginalVersion):
     def __init__(self, version):
@@ -63,6 +63,7 @@ class Version(OriginalVersion):
 class PackageInfo(BaseModel):
     pip_release: str
     install_dev: Optional[str] = None
+    module_name: Optional[str] = None
 
 
 class TestConfig(BaseModel):
@@ -380,6 +381,9 @@ def expand_config(config):
             "torch",
         )
         for category, cfg in cfgs.items():
+            if category not in VALID_CATEGORIES:
+                raise ValueError(f"Flavor {name} contains an invalid category in ml-package-versions.yml: '{category}'")
+
             cfg = TestConfig(**cfg)
             versions = filter_versions(
                 all_versions,
