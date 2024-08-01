@@ -32,6 +32,7 @@ sklearn:
 pytorch:
   package_info:
     pip_release: "torch"
+    module_name: "torch"
     install_dev: |
       pip install --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 
@@ -341,6 +342,7 @@ statsmodels:
 spark:
   package_info:
     pip_release: "pyspark"
+    module_name: "pyspark"
     install_dev: |
       temp_dir=$(mktemp -d)
       git clone --depth 1 https://github.com/apache/spark.git $temp_dir
@@ -526,9 +528,9 @@ paddle:
       "< 2.5.0": ["google-cloud-storage==2.14.0"]
     run: |
       pytest tests/paddle/test_paddle_model_export.py
-  autolog:
+  autologging:
     minimum: "2.4.1"
-    maximum: "2.4.1"
+    maximum: "2.6.1"
     run: |
       pytest tests/paddle/test_paddle_autolog.py
 
@@ -702,6 +704,7 @@ langchain:
 llama_index:
   package_info:
     pip_release: "llama-index"
+    module_name: "llama_index.core"
     install_dev: |
       pip install git@github.com:run-llama/llama_index.git
   models:
