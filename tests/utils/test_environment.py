@@ -1,3 +1,4 @@
+import importlib.metadata
 import os
 from unittest import mock
 
@@ -49,8 +50,6 @@ def test_mlflow_conda_env_returns_expected_env_dict_when_output_path_is_not_spec
 
 @pytest.mark.parametrize("conda_deps", [["conda-dep-1=0.0.1", "conda-dep-2"], None])
 def test_mlflow_conda_env_includes_pip_dependencies_but_pip_is_not_specified(conda_deps):
-    import pip
-
     additional_pip_deps = ["pip-dep==0.0.1"]
     env = _mlflow_conda_env(
         path=None, additional_conda_deps=conda_deps, additional_pip_deps=additional_pip_deps
@@ -58,7 +57,8 @@ def test_mlflow_conda_env_includes_pip_dependencies_but_pip_is_not_specified(con
     if conda_deps is not None:
         for conda_dep in conda_deps:
             assert conda_dep in env["dependencies"]
-    assert f"pip<={pip.__version__}" in env["dependencies"]
+    pip_version = importlib.metadata.version("pip")
+    assert f"pip<={pip_version}" in env["dependencies"]
 
 
 @pytest.mark.parametrize("pip_specification", ["pip", "pip==20.0.02"])
