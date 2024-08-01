@@ -787,7 +787,7 @@ Example files logged by MLflow:
         .. code-block:: json
 
             {
-                "question": "What is MLflow?"
+              "question": "What is MLflow?"
             }
 
      - The input example in its original format.
@@ -795,11 +795,11 @@ Example files logged by MLflow:
      - 
         .. code-block:: json
 
-                {
-                    "inputs": {
-                        "question": "What is MLflow?"
-                    }
-                }
+            {
+              "inputs": {
+                "question": "What is MLflow?"
+              }
+            }
 
      - JSON-serialized version of the input example with one of the predefined keys (``dataframe_split``, ``instances``, ``inputs`` or ``dataframe_records``) that mlflow scoring server requires when `querying a deployed model endpoint <../../deployment/deploy-model-locally.html#local-inference-server-spec>`_.
 
