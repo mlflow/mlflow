@@ -47,6 +47,7 @@ DEV_VERSION = "dev"
 DEV_NUMERIC = "9999.9999.9999"
 VALID_CATEGORIES = ["models", "autologging"]
 
+
 class Version(OriginalVersion):
     def __init__(self, version):
         self._is_dev = version == DEV_VERSION
@@ -369,6 +370,72 @@ def get_flavor(name):
     return {"pytorch-lightning": "pytorch"}.get(name, name)
 
 
+def validate_test_coverage(flavor: str, config: Dict):
+    """
+    Validate that all test files for the flavor are executed in the cross-version tests.
+
+    This is done by parsing `run` commands in the `ml-package-versions.yml` to get the list
+    of executed test files, and then comparing it with the actual test files in the directory.
+    """
+    test_dir = os.path.join("tests", flavor)
+    all_test_files = _get_test_files_in_dir(test_dir)
+
+    for category in VALID_CATEGORIES:
+        run_command = config.get(category, {}).get("run")
+        if not run_command:
+            continue
+
+        # Consolidate multi-line commands with "\" to a single line
+        commands = []
+        curr = ""
+        for cmd in run_command.split("\n"):
+            if cmd.endswith("\\"):
+                curr += cmd.rstrip("\\")
+            else:
+                commands.append(curr + cmd)
+                curr = ""
+
+        # Parse pytest commands to get the executed test files
+        for cmd in commands:
+            cmd = cmd.strip().rstrip(";")
+            if cmd.startswith("pytest"):
+                all_test_files -= _get_test_files_from_pytest_command(cmd, test_dir)
+
+    if all_test_files:
+        raise ValueError(
+            f"Flavor '{flavor}' has test files that are not covered by the test matrix. \n"
+            + "\n".join(f" - {t}" for t in all_test_files)
+            + f"\nPlease update {VERSIONS_YAML_PATH} to execute all test files."
+        )
+
+
+def _get_test_files_in_dir(test_dir):
+    test_files = set()
+    for root, _, files in os.walk(test_dir):
+        for file in files:
+            if file.startswith("test_") and file.endswith(".py"):
+                test_files.add(os.path.join(root, file).replace("\\", "/"))
+    return test_files
+
+
+def _get_test_files_from_pytest_command(cmd, test_dir):
+    executed_files = set()
+    ignore_files = set()
+    is_ignore = False
+    for arg in cmd.split(" "):
+        if arg == "--ignore":
+            is_ignore = True
+            continue
+        elif arg.startswith(test_dir):
+            test_files = _get_test_files_in_dir(arg) if os.path.isdir(arg) else {arg}
+            if is_ignore:
+                ignore_files |= test_files
+                is_ignore = False
+            else:
+                executed_files |= test_files
+    return executed_files - ignore_files
+
+
 def expand_config(config):
     matrix = set()
     for name, cfgs in config.items():
@@ -382,7 +449,9 @@ def expand_config(config):
         )
         for category, cfg in cfgs.items():
             if category not in VALID_CATEGORIES:
-                raise ValueError(f"Flavor {name} contains an invalid category in ml-package-versions.yml: '{category}'")
+                raise ValueError(
+                    f"Flavor {name} has an invalid category in {VERSIONS_YAML_PATH}: '{category}'"
+                )
 
             cfg = TestConfig(**cfg)
             versions = filter_versions(
@@ -581,4 +650,8 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    # main(sys.argv[1:])
+    args = parse_args(sys.argv[1:])
+    config = read_yaml(args.versions_yaml)
+    for flavor, cfg in config.items():
+        validate_test_coverage(flavor, cfg)
