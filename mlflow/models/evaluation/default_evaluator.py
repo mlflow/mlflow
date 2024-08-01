@@ -1522,6 +1522,8 @@ class DefaultEvaluator(ModelEvaluator):
             self.is_binomial = self.num_classes <= 2
 
             if self.is_binomial:
+                # sort label_list ASC to make sure the last one is pos label
+                self.label_list.sort()
                 if self.pos_label is None:
                     self.pos_label = self.label_list[-1]
                 else:
@@ -1532,8 +1534,8 @@ class DefaultEvaluator(ModelEvaluator):
                     self.label_list = np.append(self.label_list, self.pos_label)
                 if len(self.label_list) < 2:
                     raise MlflowException(
-                        f"The evaluation dataset contains {len(self.label_list)} unique labels, "
-                        "it is not a valid classification dataset.",
+                        "Evaluation dataset for classification must contain at least two unique "
+                        f"labels, but only {len(self.label_list)} unique labels were found.",
                     )
                 with _suppress_class_imbalance_errors(IndexError, log_warning=False):
                     _logger.info(
