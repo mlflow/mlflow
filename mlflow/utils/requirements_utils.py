@@ -168,6 +168,15 @@ def _normalize_package_name(pkg_name):
 
 
 def _iter_requires(name: str):
+    """
+    Iterates over the requirements of the specified package.
+
+    Args:
+        name: The name of the package.
+
+    Yields:
+        The names of the required packages.
+    """
     try:
         reqs = importlib.metadata.requires(name)
     except importlib.metadata.PackageNotFoundError:
@@ -177,7 +186,7 @@ def _iter_requires(name: str):
         return
 
     for req in reqs:
-        # Ignore extra dependencies
+        # Skip extra dependencies
         if "extra ==" in req:
             continue
 
