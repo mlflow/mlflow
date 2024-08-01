@@ -245,7 +245,8 @@ def save_model(
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
         example_no_conversion: This parameter is deprecated and will be removed in a future
-                release, please drop it and input examples are not converted anymore.
+                release. It's no longer used and can be safely removed. Input examples are
+                not converted anymore.
         model_config: The model configuration to apply to the model if saving model from code. This
             configuration is available during model loading.
 
@@ -528,7 +529,8 @@ def log_model(
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
         example_no_conversion: This parameter is deprecated and will be removed in a future
-                release, please drop it and input examples are not converted anymore.
+                release. It's no longer used and can be safely removed. Input examples are
+                not converted anymore.
         run_id: run_id to associate with this model version. If specified, we resume the
                 run and log the model to that run. Otherwise, a new run is created.
                 Default to None.

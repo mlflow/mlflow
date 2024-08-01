@@ -258,8 +258,8 @@ by converting it to a list. Bytes are base64-encoded. When the ``signature`` par
 """
         ),
         "example_no_conversion": (
-            """This parameter is deprecated and will be removed in a future release,
-please drop it and input examples are not converted during model logging anymore.
+            """This parameter is deprecated and will be removed in a future release.
+It's no longer used and can be safely removed. Input examples are not converted anymore.
 """
         ),
         "prompt_template": (
