@@ -187,7 +187,8 @@ def _iter_requires(name: str):
 
     for req in reqs:
         # Skip extra dependencies
-        if "extra ==" in req:
+        semi_colon_idx = req.find(";")
+        if (semi_colon_idx != -1) and req[semi_colon_idx:].startswith("; extra =="):
             continue
 
         req = Requirement(req)
