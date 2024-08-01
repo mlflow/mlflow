@@ -1,8 +1,6 @@
-import inspect
 import json
 import logging
 import os
-import uuid
 from contextlib import contextmanager
 from copy import deepcopy
 from typing import Iterator
@@ -15,9 +13,12 @@ from mlflow.entities import RunTag, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
+from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.autologging_utils import disable_autologging, get_autologging_config
+from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.autologging_utils.safety import _resolve_extra_tags
 
 MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["openai"]["autologging"]["minimum"])
@@ -95,16 +96,16 @@ def patched_call(original, self, *args, **kwargs):
     from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
     from openai.types.completion import Completion
 
+    config = AutoLoggingConfig.init(flavor_name=mlflow.openai.FLAVOR_NAME)
     run_id = getattr(self, "_mlflow_run_id", None)
     active_run = mlflow.active_run()
     mlflow_client = mlflow.MlflowClient()
     request_id = None
 
-    if run_id is None:
-        # only log the tags once
-        extra_tags = get_autologging_config(mlflow.openai.FLAVOR_NAME, "extra_tags", None)
+    # If optional artifacts logging are enabled e.g. log_models, we need to create a run
+    if config.should_log_optional_artifacts() and run_id is None:
         # include run context tags
-        resolved_tags = context_registry.resolve_tags(extra_tags)
+        resolved_tags = context_registry.resolve_tags(config.extra_tags)
         tags = _resolve_extra_tags(mlflow.openai.FLAVOR_NAME, resolved_tags)
         if active_run:
             run_id = active_run.info.run_id
@@ -119,39 +120,28 @@ def patched_call(original, self, *args, **kwargs):
             )
             run_id = run.info.run_id
 
-    log_traces = get_autologging_config(mlflow.openai.FLAVOR_NAME, "log_traces", False)
-    if log_traces:
+    if config.log_traces:
         root_span = mlflow_client.start_trace(
             name=self.__class__.__name__, span_type=_get_span_type(self.__class__), inputs=kwargs
         )
         request_id = root_span.request_id
+        # If a new autolog run is created, associate the trace with the run
+        if run_id is not None:
+            tm = InMemoryTraceManager().get_instance()
+            tm.set_request_metadata(request_id, TraceMetadataKey.SOURCE_RUN, run_id)
 
     # Execute the original function
     try:
         result = original(self, *args, **kwargs)
     except Exception as e:
         # We have to end the trace even the exception is raised
-        if log_traces and request_id:
+        if config.log_traces and request_id:
             try:
                 root_span.add_event(SpanEvent.from_exception(e))
                 mlflow_client.end_trace(request_id=request_id, status=SpanStatusCode.ERROR)
             except Exception as inner_e:
                 _logger.warning(f"Encountered unexpected error when ending trace: {inner_e}")
         raise e
-
-    # Use session_id-inference_id as artifact directory where mlflow
-    # callback logs artifacts into, to avoid overriding artifacts
-    session_id = getattr(self, "_mlflow_session_id", uuid.uuid4().hex)
-    inference_id = getattr(self, "_mlflow_inference_id", 0)
-
-    # log input and output as artifacts
-    call_args = inspect.getcallargs(original, self, *args, **kwargs)
-    call_args.pop("self")
-    mlflow_client.log_text(
-        run_id=run_id,
-        text=json.dumps(call_args, indent=2, cls=_OpenAIJsonEncoder),
-        artifact_file=f"artifacts-{session_id}-{inference_id}/input.json",
-    )
 
     if isinstance(result, Stream):
         # If the output is a stream, we add a hook to store the intermediate chunks
@@ -168,13 +158,9 @@ def patched_call(original, self, *args, **kwargs):
                 yield chunk
 
             try:
+                chunk_dicts = []
                 chunk_dicts = [chunk.to_dict() for chunk in chunks]
-                mlflow_client.log_text(
-                    run_id=run_id,
-                    text=json.dumps(chunk_dicts),
-                    artifact_file=f"artifacts-{session_id}-{inference_id}/output.json",
-                )
-                if log_traces and request_id:
+                if config.log_traces and request_id:
                     mlflow_client.end_trace(
                         request_id=request_id,
                         attributes={"events": chunk_dicts},
@@ -185,30 +171,17 @@ def patched_call(original, self, *args, **kwargs):
 
         result._iterator = _stream_output_logging_hook(result._iterator)
     else:
-        # If the output is not a stream, we simply log the output as a single artifact
-        mlflow_client.log_text(
-            run_id=run_id,
-            text=result.to_json(),
-            artifact_file=f"artifacts-{session_id}-{inference_id}/output.json",
-        )
-        if log_traces and request_id:
+        if config.log_traces and request_id:
             try:
                 mlflow_client.end_trace(request_id=request_id, outputs=result)
             except Exception as e:
                 _logger.warning(f"Encountered unexpected error when ending trace: {e}")
 
-    log_models = get_autologging_config(mlflow.openai.FLAVOR_NAME, "log_models", False)
-    log_input_examples = get_autologging_config(
-        mlflow.openai.FLAVOR_NAME, "log_input_examples", False
-    )
-    log_model_signatures = get_autologging_config(
-        mlflow.openai.FLAVOR_NAME, "log_model_signatures", False
-    )
     input_example = None
-    if log_models and not hasattr(self, "_mlflow_model_logged"):
-        if log_input_examples:
+    if config.log_models and not hasattr(self, "_mlflow_model_logged"):
+        if config.log_input_examples:
             input_example = deepcopy(_get_input_from_model(self, kwargs))
-            if not log_model_signatures:
+            if not config.log_model_signatures:
                 _logger.info(
                     "Signature is automatically generated for logged model if "
                     "input_example is provided. To disable log_model_signatures, "
@@ -241,12 +214,9 @@ def patched_call(original, self, *args, **kwargs):
     # Even if the model is not logged, we keep a single run per model
     if not hasattr(self, "_mlflow_run_id"):
         self._mlflow_run_id = run_id
-    if not hasattr(self, "_mlflow_session_id"):
-        self._mlflow_session_id = session_id
-    self._mlflow_inference_id = inference_id + 1
 
     # Terminate the run if it is not managed by the user
-    if active_run is None or active_run.info.run_id != run_id:
+    if run_id is not None and (active_run is None or active_run.info.run_id != run_id):
         mlflow_client.set_terminated(run_id)
 
     return result

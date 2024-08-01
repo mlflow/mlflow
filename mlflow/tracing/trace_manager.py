@@ -140,6 +140,14 @@ class InMemoryTraceManager:
         """
         return self._trace_id_to_request_id.get(trace_id)
 
+    def set_request_metadata(self, request_id: str, key: str, value: str):
+        """
+        Set the request metadata for the given request ID.
+        """
+        with self.get_trace(request_id) as trace:
+            if trace:
+                trace.info.request_metadata[key] = value
+
     def pop_trace(self, trace_id: int) -> Optional[Trace]:
         """
         Pop the trace data for the given id and return it as a ready-to-publish Trace object.
