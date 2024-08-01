@@ -386,7 +386,7 @@ def test_llmchain_autolog_log_inputs_outputs():
     question = {"product": "MLflow"}
     answer = {"product": "MLflow", "text": TEST_CONTENT}
     with _mock_request(return_value=_mock_chat_completion_response()), mock.patch(
-        "mlflow.langchain._langchain_autolog._logger.warning"
+        "mlflow.utils.autologging_utils.config._logger.warning"
     ) as mock_warning:
         model = create_openai_llmchain()
         with mlflow.start_run() as run:
