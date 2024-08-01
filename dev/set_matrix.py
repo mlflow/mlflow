@@ -650,8 +650,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    # main(sys.argv[1:])
-    args = parse_args(sys.argv[1:])
-    config = read_yaml(args.versions_yaml)
-    for flavor, cfg in config.items():
-        validate_test_coverage(flavor, cfg)
+    main(sys.argv[1:])
