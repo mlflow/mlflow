@@ -61,6 +61,9 @@ _PYPROJECT_TOML_FILES = {
     "pyproject.toml": {
         7: 'version = "{new_version}"',
     },
+    "pyproject.release.toml": {
+        7: 'version = "{new_version}"',
+    },
 }
 
 _R_FILES = {
