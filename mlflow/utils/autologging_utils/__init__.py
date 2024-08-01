@@ -16,6 +16,7 @@ from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 _logger = logging.getLogger(__name__)
 
 # Import autologging utilities used by this module
+from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
 from mlflow.utils.autologging_utils.client import MlflowAutologgingQueueingClient  # noqa: F401
 from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
@@ -39,7 +40,6 @@ from mlflow.utils.autologging_utils.safety import (  # noqa: F401
     with_managed_run,
 )
 from mlflow.utils.autologging_utils.versioning import (
-    FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
     get_min_max_version_and_pip_release,
     is_flavor_supported_for_associated_package_versions,
 )
@@ -340,8 +340,7 @@ def gen_autologging_package_version_requirements_doc(integration_name):
         A document note string saying the compatibility for the specified autologging
         integration's associated package versions.
     """
-    _, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[integration_name]
-    min_ver, max_ver, pip_release = get_min_max_version_and_pip_release(module_key)
+    min_ver, max_ver, pip_release = get_min_max_version_and_pip_release(integration_name)
     required_pkg_versions = f"``{min_ver}`` <= ``{pip_release}`` <= ``{max_ver}``"
 
     return (
@@ -360,7 +359,7 @@ def _check_and_log_warning_for_unsupported_package_versions(integration_name):
     are not supported, log a warning message.
     """
     if (
-        integration_name in FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY
+        integration_name in FLAVOR_TO_MODULE_NAME
         and not get_autologging_config(integration_name, "disable", True)
         and not get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
         and not is_flavor_supported_for_associated_package_versions(integration_name)
@@ -458,7 +457,7 @@ def autologging_integration(name):
         # during the execution of import hooks for `mlflow.autolog()`.
         wrapped_autolog.integration_name = name
 
-        if name in FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY:
+        if name in FLAVOR_TO_MODULE_NAME:
             wrapped_autolog.__doc__ = gen_autologging_package_version_requirements_doc(name) + (
                 wrapped_autolog.__doc__ or ""
             )
@@ -498,7 +497,7 @@ def autologging_is_disabled(integration_name):
         return True
 
     if (
-        integration_name in FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY
+        integration_name in FLAVOR_TO_MODULE_NAME
         and not is_flavor_supported_for_associated_package_versions(integration_name)
     ):
         return get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
@@ -530,7 +529,7 @@ def disable_autologging(exemptions=None):
 
 @contextlib.contextmanager
 def restrict_langchain_autologging_to_traces_only():
-    if "langchain" not in sys.modules:
+    if sys.modules.get("langchain") is None:
         yield
     else:
         prev_langchain_params = AUTOLOGGING_INTEGRATIONS.get(mlflow.langchain.FLAVOR_NAME)

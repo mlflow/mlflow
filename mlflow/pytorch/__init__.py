@@ -929,9 +929,6 @@ def autolog(
     ``add_scalar`` and ``add_hparams`` methods to mlflow. In this case, there's also
     no notion of an "epoch".
 
-    .. Note:: Only pytorch-lightning modules between versions MIN_REQ_VERSION and
-        MAX_REQ_VERSION are known to be compatible with mlflow's autologging.
-
     Args:
         log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
             are logged after every epoch.

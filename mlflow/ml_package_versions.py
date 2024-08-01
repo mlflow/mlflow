@@ -17,7 +17,8 @@ _ML_PACKAGE_VERSIONS = {
     },
     "pytorch": {
         "package_info": {
-            "pip_release": "torch"
+            "pip_release": "torch",
+            "module_name": "torch"
         },
         "models": {
             "minimum": "1.9.0",
@@ -157,7 +158,8 @@ _ML_PACKAGE_VERSIONS = {
     },
     "spark": {
         "package_info": {
-            "pip_release": "pyspark"
+            "pip_release": "pyspark",
+            "module_name": "pyspark"
         },
         "models": {
             "minimum": "3.1.2",
@@ -229,6 +231,10 @@ _ML_PACKAGE_VERSIONS = {
         "models": {
             "minimum": "2.4.1",
             "maximum": "2.6.1"
+        },
+        "autologging": {
+            "minimum": "2.4.1",
+            "maximum": "2.6.1"
         }
     },
     "transformers": {
@@ -272,7 +278,8 @@ _ML_PACKAGE_VERSIONS = {
     },
     "llama_index": {
         "package_info": {
-            "pip_release": "llama-index"
+            "pip_release": "llama-index",
+            "module_name": "llama_index.core"
         },
         "models": {
             "minimum": "0.10.44",
@@ -310,4 +317,27 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "1.14.0"
         }
     }
+}
+
+# A mapping of flavor name to the module name to be imported for autologging.
+# This is used for checking version compatibility in autologging.
+# DO NOT EDIT MANUALLY
+FLAVOR_TO_MODULE_NAME = {
+    "sklearn": "sklearn",
+    "pytorch": "torch",
+    "pytorch-lightning": "pytorch-lightning",
+    "keras": "keras",
+    "tensorflow": "tensorflow",
+    "xgboost": "xgboost",
+    "lightgbm": "lightgbm",
+    "gluon": "gluon",
+    "fastai": "fastai",
+    "statsmodels": "statsmodels",
+    "spark": "pyspark",
+    "paddle": "paddle",
+    "transformers": "transformers",
+    "openai": "openai",
+    "langchain": "langchain",
+    "llama_index": "llama_index.core",
+    "pyspark.ml": "pyspark"
 }
