@@ -173,7 +173,7 @@ def _iter_requires(name: str):
     except importlib.metadata.PackageNotFoundError:
         return
 
-    if not reqs:
+    if reqs is None:
         return
 
     for req in reqs:
