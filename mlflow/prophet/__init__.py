@@ -341,6 +341,12 @@ class _ProphetModelWrapper:
     def __init__(self, pr_model):
         self.pr_model = pr_model
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.pr_model
+
     def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
         """
         Args:

@@ -925,6 +925,15 @@ class PyFuncModel:
             info["flavor"] = self._model_meta.flavors[FLAVOR_NAME]["loader_module"]
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
+    @experimental
+    def get_raw_model(self):
+        """
+        Get the underlying raw model if the model wrapper implemented `get_raw_model` function.
+        """
+        if hasattr(self._model_impl, "get_raw_model"):
+            return self._model_impl.get_raw_model()
+        raise NotImplementedError("`get_raw_model` is not implemented by the underlying model")
+
 
 def _get_pip_requirements_from_model_path(model_path: str):
     req_file_path = os.path.join(model_path, _REQUIREMENTS_FILE_NAME)
@@ -2206,7 +2215,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config=None,
-    example_no_conversion=False,
+    example_no_conversion=None,
     streamable=None,
     resources: Optional[Union[str, List[Resource]]] = None,
     **kwargs,
@@ -2616,7 +2625,7 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config=None,
-    example_no_conversion=False,
+    example_no_conversion=None,
     streamable=None,
     resources: Optional[Union[str, List[Resource]]] = None,
 ):

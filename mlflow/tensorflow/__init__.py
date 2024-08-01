@@ -763,6 +763,12 @@ class _TF2Wrapper:
         self.model = model
         self.infer = infer
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.model
+
     def predict(
         self,
         data,
@@ -816,6 +822,12 @@ class _TF2ModuleWrapper:
         self.model = model
         self.signature = signature
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.model
+
     def predict(
         self,
         data,
@@ -848,6 +860,12 @@ class _KerasModelWrapper:
     def __init__(self, keras_model, signature):
         self.keras_model = keras_model
         self.signature = signature
+
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.keras_model
 
     def predict(
         self,

@@ -252,7 +252,6 @@ def test_chat_model_works_in_serving():
             "model",
             python_model=model,
             input_example=(messages, params_subset),
-            example_no_conversion=True,
         )
 
     inference_payload = get_serving_input_example(model_info.model_uri)
@@ -288,7 +287,7 @@ def test_chat_model_works_with_infer_signature_input_example(tmp_path):
     }
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=model, input_example=input_example, example_no_conversion=True
+            "model", python_model=model, input_example=input_example
         )
     assert model_info.signature.inputs == CHAT_MODEL_INPUT_SCHEMA
     assert model_info.signature.outputs == CHAT_MODEL_OUTPUT_SCHEMA
@@ -321,7 +320,7 @@ def test_chat_model_works_with_chat_message_input_example(tmp_path):
     ]
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=model, input_example=input_example, example_no_conversion=True
+            "model", python_model=model, input_example=input_example
         )
     assert model_info.signature.inputs == CHAT_MODEL_INPUT_SCHEMA
     assert model_info.signature.outputs == CHAT_MODEL_OUTPUT_SCHEMA
@@ -364,7 +363,7 @@ def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
     }
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=model, input_example=input_example, example_no_conversion=True
+            "model", python_model=model, input_example=input_example
         )
     assert model_info.signature.inputs == CHAT_MODEL_INPUT_SCHEMA
     assert model_info.signature.outputs == CHAT_MODEL_OUTPUT_SCHEMA

@@ -267,7 +267,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    example_no_conversion=False,
+    example_no_conversion=None,
     **kwargs,
 ):
     """
@@ -466,7 +466,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    example_no_conversion=False,
+    example_no_conversion=None,
     **kwargs,
 ):
     """
@@ -684,6 +684,12 @@ class _OpenAIWrapper:
 
         if self.task != "embeddings":
             self._setup_completions()
+
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.model
 
     def _setup_completions(self):
         if self.task == "chat.completions":

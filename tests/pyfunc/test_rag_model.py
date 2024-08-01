@@ -41,7 +41,7 @@ def test_rag_model_works_with_type_hint(tmp_path):
 
     # confirm the input example is set
     mlflow_model = Model.load(tmp_path)
-    assert mlflow_model.load_input_example(tmp_path).to_dict(orient="records")[0] == input_example
+    assert mlflow_model.load_input_example(tmp_path) == input_example
 
     # test that the model can be served
     response = pyfunc_serve_and_score_model(

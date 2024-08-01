@@ -891,3 +891,17 @@ def test_pipeline_predict_proba(sklearn_knn_model, model_path):
         knn_model.predict_proba(sklearn_knn_model.inference_data),
         reloaded_knn_pyfunc.predict(sklearn_knn_model.inference_data),
     )
+
+
+def test_get_raw_model(sklearn_knn_model):
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(
+            sklearn_knn_model.model, "model", input_example=sklearn_knn_model.inference_data
+        )
+    pyfunc_model = pyfunc.load_model(model_info.model_uri)
+    raw_model = pyfunc_model.get_raw_model()
+    assert type(raw_model) == type(sklearn_knn_model.model)
+    np.testing.assert_array_equal(
+        raw_model.predict(sklearn_knn_model.inference_data),
+        sklearn_knn_model.model.predict(sklearn_knn_model.inference_data),
+    )

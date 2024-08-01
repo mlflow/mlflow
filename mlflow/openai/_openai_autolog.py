@@ -12,6 +12,8 @@ from packaging.version import Version
 import mlflow
 from mlflow import MlflowException
 from mlflow.entities import RunTag, SpanType
+from mlflow.entities.span_event import SpanEvent
+from mlflow.entities.span_status import SpanStatusCode
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.fluent import _get_experiment_id
@@ -125,7 +127,17 @@ def patched_call(original, self, *args, **kwargs):
         request_id = root_span.request_id
 
     # Execute the original function
-    result = original(self, *args, **kwargs)
+    try:
+        result = original(self, *args, **kwargs)
+    except Exception as e:
+        # We have to end the trace even the exception is raised
+        if log_traces and request_id:
+            try:
+                root_span.add_event(SpanEvent.from_exception(e))
+                mlflow_client.end_trace(request_id=request_id, status=SpanStatusCode.ERROR)
+            except Exception as inner_e:
+                _logger.warning(f"Encountered unexpected error when ending trace: {inner_e}")
+        raise e
 
     # Use session_id-inference_id as artifact directory where mlflow
     # callback logs artifacts into, to avoid overriding artifacts

@@ -245,7 +245,8 @@ def _serialize_input_data(input_data, content_type):
 
 def _serialize_to_json(input_data):
     # imported inside function to avoid circular import
-    from mlflow.pyfunc.scoring_server import SUPPORTED_FORMATS, SUPPORTED_LLM_FORMATS
+    from mlflow.pyfunc.scoring_server import SUPPORTED_FORMATS
+    from mlflow.pyfunc.utils.serving_data_parser import SUPPORTED_LLM_FORMATS
 
     if isinstance(input_data, dict) and any(
         key in input_data for key in SUPPORTED_FORMATS | SUPPORTED_LLM_FORMATS

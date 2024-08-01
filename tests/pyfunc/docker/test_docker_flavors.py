@@ -9,7 +9,6 @@ To run this test, run the following command manually
 
 """
 import contextlib
-import json
 import os
 import shutil
 import sys
@@ -24,6 +23,7 @@ import requests
 import mlflow
 from mlflow.environment_variables import _MLFLOW_RUN_SLOW_TESTS
 from mlflow.models.flavor_backend_registry import get_flavor_backend
+from mlflow.models.utils import load_serving_example_from_uri
 
 # Only import model fixtures if when MLFLOW_RUN_SLOW_TESTS environment variable is set to true
 if _MLFLOW_RUN_SLOW_TESTS.get():
@@ -167,22 +167,21 @@ def test_build_image_and_serve(flavor, request):
     # Run a container
     port = get_safe_port()
     with start_container(port):
-        # Make a scoring request with a saved input example
-        with open(os.path.join(model_path, "input_example.json")) as f:
-            input_example = json.load(f)
-
-        # Wrap Pandas dataframe in a proper payload format
-        if "columns" in input_example or "data" in input_example:
-            input_example = {"dataframe_split": input_example}
+        # Make a scoring request with a saved serving input example
+        inference_payload = load_serving_example_from_uri(model_path)
 
         response = requests.post(
             url=f"http://localhost:{port}/invocations",
-            data=json.dumps(input_example),
+            data=inference_payload,
             headers={"Content-Type": "application/json"},
         )
 
         assert response.status_code == 200, f"Response: {response.text}"
-        assert "predictions" in response.json(), f"Response: {response.text}"
+        if flavor == "langchain":
+            # "messages" key is unified llm input, output is not wrapped into predictions
+            assert response.json() == ["Hi"]
+        else:
+            assert "predictions" in response.json(), f"Response: {response.text}"
 
 
 @pytest.fixture
@@ -259,7 +258,6 @@ def langchain_model(model_path):
         lc_model=chain,
         path=model_path,
         input_example={"messages": "Hi"},
-        example_no_conversion=False,
     )
     return model_path
 
