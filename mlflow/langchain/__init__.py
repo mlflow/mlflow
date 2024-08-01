@@ -1063,13 +1063,6 @@ def autolog(
             MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
             collected during inference. Default to ``True``.
     """
-    if log_inputs_outputs is not None:
-        logger.warning(
-            "The log_inputs_outputs option is deprecated and will be removed in a future "
-            "release. Please use the log_traces option in `mlflow.langchain.autolog` "
-            "to log traces (including inputs and outputs) of the model."
-        )
-
     with contextlib.suppress(ImportError):
         import langchain
         import langchain_community

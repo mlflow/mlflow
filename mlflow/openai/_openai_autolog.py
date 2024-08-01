@@ -127,9 +127,8 @@ def patched_call(original, self, *args, **kwargs):
         request_id = root_span.request_id
         # If a new autolog run is created, associate the trace with the run
         if run_id is not None:
-            trace_manager = InMemoryTraceManager().get_instance()
-            with trace_manager.get_trace(request_id) as trace:
-                trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] = run_id
+            tm = InMemoryTraceManager().get_instance()
+            tm.set_request_metadata(request_id, TraceMetadataKey.SOURCE_RUN, run_id)
 
     # Execute the original function
     try:
