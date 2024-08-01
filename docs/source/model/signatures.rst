@@ -748,7 +748,43 @@ model signatures in log_model calls when signatures aren't specified.
     Secondly, and just as importantly, it **validates the model's requirements**. This input example is utilized to execute a prediction 
     using the model that is about to be logged, thereby enhancing the accuracy in identifying model requirement dependencies.
     It is **highly recommended** to always include an input example along with your models when you log them.
+    Since MLflow 2.16.0, if the provided input example fails on validation, a warning is issued with an instruction to validate the input example
+    prior to model deployment.
 
+Since MLflow 2.16.0, when logging a model with an input example, there are two files saved into the model's artifacts directory:
+
+- ``input_example.json``: The input example in JSON format.
+- ``serving_input_payload.json``: The input example converted to JSON format for querying a deployed model endpoint.
+
+The following example demonstrates the difference between the two files:
+
+.. code-block:: python
+
+    import mlflow
+
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="model",
+            input_example={"question": "What is MLflow?"},
+        )
+
+.. figure:: ../_static/images/models/input_example_json.png
+    :align: center
+    :figwidth: 90%
+
+.. figure:: ../_static/images/models/serving_input_payload_json.png
+    :align: center
+    :figwidth: 90%
+
+``input_example.json`` contains the input example in its original format, while ``serving_input_payload.json`` is a JSON-serialized version of the input example with
+a defined ``key`` (one of ``dataframe_split, instances, inputs or dataframe_records``) that mlflow scoring server requires when `querying a deployed model endpoint <../../cli.html#mlflow-models-serve>`_.
 
 .. note::
     Prior to MLflow 2.16.0, dictionary input example was converted to Pandas DataFrame format when saving. In later versions, the input
