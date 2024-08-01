@@ -865,7 +865,7 @@ def autolog(
     log_datasets=False,
     disable=False,
     exclusive=False,
-    disable_for_unsupported_versions=True,
+    disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
     extra_tags=None,

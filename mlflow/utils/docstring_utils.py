@@ -7,9 +7,6 @@ import importlib_metadata
 from packaging.version import Version
 
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
-from mlflow.utils.autologging_utils.versioning import (
-    FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
-)
 
 
 def _create_placeholder(key: str):
@@ -353,7 +350,7 @@ it to MLflow without modifying the model weights. In such case, specifying this 
 )
 
 
-def get_module_min_and_max_supported_ranges(module_name):
+def get_module_min_and_max_supported_ranges(flavor_name):
     """
     Extracts the minimum and maximum supported package versions from the provided module name.
     The version information is provided via the yaml-to-python-script generation script in
@@ -361,15 +358,20 @@ def get_module_min_and_max_supported_ranges(module_name):
     mlflow.ml_package_versions
 
     Args:
-        module_name: The string name of the module as it is registered in ml_package_versions.py
+        flavor_name: The flavor name registered in ml_package_versions.py
 
     Returns:
-        tuple of minimum supported version, maximum supported version as strings.
+        tuple of module name, minimum supported version, maximum supported version as strings.
     """
-    versions = _ML_PACKAGE_VERSIONS[module_name]["models"]
+    if flavor_name == "pyspark.ml":
+        # pyspark.ml is a special case of spark flavor
+        flavor_name = "spark"
+
+    module_name = _ML_PACKAGE_VERSIONS[flavor_name]["package_info"].get("module_name", flavor_name)
+    versions = _ML_PACKAGE_VERSIONS[flavor_name]["models"]
     min_version = versions["minimum"]
     max_version = versions["maximum"]
-    return min_version, max_version
+    return module_name, min_version, max_version
 
 
 def _do_version_compatibility_warning(msg: str):
@@ -395,10 +397,9 @@ def docstring_version_compatibility_warning(integration_name, warn=True):
 
     def annotated_func(func):
         # NB: if using this decorator, ensure the package name to module name reference is
-        # updated with the flavor's `save` and `load` functions being used within the dictionary
-        # mlflow.utils.autologging_utils.versioning.FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY
-        _, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[integration_name]
-        min_ver, max_ver = get_module_min_and_max_supported_ranges(module_key)
+        # updated with the flavor's `save` and `load` functions being used within
+        # ml-package-version.yml file.
+        module_name, min_ver, max_ver = get_module_min_and_max_supported_ranges(integration_name)
         required_pkg_versions = f"``{min_ver}`` -  ``{max_ver}``"
 
         notice = (
@@ -410,7 +411,7 @@ def docstring_version_compatibility_warning(integration_name, warn=True):
 
         @wraps(func)
         def version_func(*args, **kwargs):
-            installed_version = Version(importlib_metadata.version(module_key))
+            installed_version = Version(importlib_metadata.version(module_name))
             if (
                 warn
                 and installed_version < Version(min_ver)
