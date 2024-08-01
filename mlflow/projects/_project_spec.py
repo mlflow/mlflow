@@ -44,11 +44,20 @@ def load_project(directory):
 
     databricks_spark_job_yaml = yaml_obj.get("databricks_spark_job")
     if databricks_spark_job_yaml is not None:
-        if "python_file" not in databricks_spark_job_yaml:
-            raise MlflowException("'python_file' field is required for Databricks Spark job.")
+        python_file = databricks_spark_job_yaml.get("python_file")
 
-        if "entry_points" in yaml_obj:
-            raise MlflowException("Databricks Spark job does not support setting 'entry_points'.")
+        entry_points = databricks_spark_job_yaml.get("entry_points")
+
+        if python_file is None and entry_points is None:
+            raise MlflowException(
+                "Databricks Spark job requires either 'databricks_spark_job.python_file' "
+                "setting or 'entry_points' setting."
+            )
+        if python_file is not None and entry_points is not None:
+            raise MlflowException(
+                "Databricks Spark job does not allow 'databricks_spark_job.python_file' "
+                "setting and 'entry_points' setting coexisting."
+            )
 
         if env_type.DOCKER in yaml_obj:
             raise MlflowException(
@@ -202,7 +211,11 @@ class Project:
 
     def get_entry_point(self, entry_point):
         if self.databricks_spark_job_spec:
-            return None
+            if self._entry_points is None or entry_point not in self._entry_points:
+                raise MlflowException(
+                    f"The entry point '{entry_point}' is not defined in Databricks spark job "
+                    f"MLproject file."
+                )
 
         if entry_point in self._entry_points:
             return self._entry_points[entry_point]
