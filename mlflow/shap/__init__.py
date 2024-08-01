@@ -652,6 +652,12 @@ class _SHAPWrapper:
 
         self.explainer = _load_explainer(explainer_file=shap_explainer_artifacts_path, model=model)
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.explainer
+
     def predict(
         self,
         dataframe,

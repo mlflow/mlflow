@@ -1020,6 +1020,12 @@ class _PyFuncModelWrapper:
         self.spark_model = spark_model
         self.signature = signature
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.spark_model
+
     def predict(
         self,
         pandas_df,

@@ -398,6 +398,12 @@ class _PromptflowModelWrapper:
             connections_name_overrides=connection_overrides,
         )
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.model
+
     def predict(  # pylint: disable=unused-argument
         self,
         data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]]],

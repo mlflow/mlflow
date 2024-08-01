@@ -619,6 +619,12 @@ class _LangChainModelWrapper:
         self.lc_model = lc_model
         self.model_path = model_path
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.lc_model
+
     def predict(
         self,
         data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
