@@ -6,6 +6,8 @@ import json
 import os
 import pickle
 import re
+import subprocess
+import sys
 from unittest import mock
 
 import matplotlib.pyplot as plt
@@ -1806,3 +1808,24 @@ def test_autolog_emits_warning_message_when_pos_label_used_for_multilabel():
             "Metric error: Target is multiclass but average='binary'. Please choose another "
             "average setting, one of [None, 'micro', 'macro', 'weighted']."
         )
+
+
+def test_sklearn_distutils_issue(monkeypatch, tmp_path):
+    # This test ensures https://github.com/scikit-learn/scikit-learn/issues/26992 is fixed
+    code = """
+from sklearn.cluster import KMeans
+from sklearn.datasets import load_iris
+
+import mlflow
+
+model = KMeans().fit(*(load_iris(return_X_y=True)))
+
+with mlflow.start_run():
+    mlflow.sklearn.log_model(model, "model")
+
+mlflow.sklearn.autolog()
+"""
+    tmp_path.joinpath("script.py").write_text(code)
+    monkeypatch.chdir(tmp_path)
+    # To reproduce the issue, the code must be executed in a subprocess
+    subprocess.check_call([sys.executable, "script.py"])
