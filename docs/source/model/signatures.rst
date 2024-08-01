@@ -775,13 +775,21 @@ The following example demonstrates the difference between the two files:
             input_example={"question": "What is MLflow?"},
         )
 
-.. figure:: ../_static/images/models/input_example_json.png
-    :align: center
-    :figwidth: 90%
+Example files:
 
-.. figure:: ../_static/images/models/serving_input_payload_json.png
-    :align: center
-    :figwidth: 90%
+ +---------------------------------------+-----------------------------------------+
+ |  input_example.json                   |  serving_input_payload.json             |
+ +---------------------------------------+-----------------------------------------+
+ | .. code-block:: json                  | .. code-block:: json                    |
+ |                                       |                                         |
+ |    {                                  |   {                                     |
+ |        "question": "What is MLflow?"  |       "inputs": {                       |
+ |    }                                  |         "question": "What is MLflow?"   |
+ |                                       |       }                                 |
+ |                                       |   }                                     |
+ |                                       |                                         |
+ +---------------------------------------+-----------------------------------------+
+
 
 ``input_example.json`` contains the input example in its original format, while ``serving_input_payload.json`` is a JSON-serialized version of the input example with
 a defined ``key`` (one of ``dataframe_split, instances, inputs or dataframe_records``) that mlflow scoring server requires when `querying a deployed model endpoint <../../cli.html#mlflow-models-serve>`_.
