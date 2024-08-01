@@ -614,3 +614,17 @@ def test_model_without_signature_predict(xgb_model):
     data = pd.DataFrame(example).to_dict(orient="split")
     parsed_data = dataframe_from_parsed_json(data, pandas_orient="split")
     loaded_model.predict(parsed_data)
+
+
+def test_get_raw_model(xgb_model):
+    with mlflow.start_run():
+        model_info = mlflow.xgboost.log_model(
+            xgb_model.model, "model", input_example=xgb_model.inference_dataframe.head(3)
+        )
+    pyfunc_model = pyfunc.load_model(model_info.model_uri)
+    raw_model = pyfunc_model.get_raw_model()
+    assert type(raw_model) == type(xgb_model.model)
+    np.testing.assert_array_almost_equal(
+        raw_model.predict(xgb_model.inference_dmatrix),
+        xgb_model.model.predict(xgb_model.inference_dmatrix),
+    )

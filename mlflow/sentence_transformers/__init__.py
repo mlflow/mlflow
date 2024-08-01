@@ -492,6 +492,12 @@ class _SentenceTransformerModelWrapper:
         self.model = model
         self.task = task
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.model
+
     def predict(self, sentences, params: Optional[Dict[str, Any]] = None):
         """
         Args:
