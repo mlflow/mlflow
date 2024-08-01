@@ -31,6 +31,7 @@ import os
 import re
 import shutil
 import sys
+import warnings
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
@@ -402,7 +403,10 @@ def validate_test_coverage(flavor: str, config: Dict):
                 all_test_files -= _get_test_files_from_pytest_command(cmd, test_dir)
 
     if all_test_files:
-        raise ValueError(
+        # TODO: Update this after updating ml-package-versions.yml to
+        # have all test files in the matrix. Since the job pulls the
+        # config file from master branch, we cannot update them at once.
+        warnings.warn(
             f"Flavor '{flavor}' has test files that are not covered by the test matrix. \n"
             + "\n".join(f" - {t}" for t in all_test_files)
             + f"\nPlease update {VERSIONS_YAML_PATH} to execute all test files."
