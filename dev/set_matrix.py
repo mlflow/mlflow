@@ -447,6 +447,7 @@ def expand_config(config):
             "sentence-transformers",
             "torch",
         )
+        validate_test_coverage(name, cfgs)
         for category, cfg in cfgs.items():
             if category not in VALID_CATEGORIES:
                 raise ValueError(
