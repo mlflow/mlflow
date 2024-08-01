@@ -376,4 +376,6 @@ jobs:
       - uses: ./.github/actions/setup-python
       - env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python github_models.py
+        run: |
+          pip install openai
+          python github_models.py
