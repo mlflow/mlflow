@@ -242,7 +242,7 @@ flavors:
     });
   });
 
-  test('should render serving validation code snippet if serving_input_payload exists', (done) => {
+  test('should render serving validation code snippet if serving_input_example exists', (done) => {
     const getArtifact = jest
       .fn()
       .mockImplementationOnce((artifactLocation) => {
@@ -287,7 +287,7 @@ flavors:
     });
   });
 
-  test('should render serving validation code snippet if serving_input_payload does not exist', (done) => {
+  test('should render serving validation code snippet if serving_input_example does not exist', (done) => {
     const getArtifact = jest
       .fn()
       .mockImplementationOnce((artifactLocation) => {
