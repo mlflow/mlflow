@@ -16,7 +16,7 @@ import mlflow
 from mlflow.models import Model, ModelSignature, infer_signature, set_model, validate_schema
 from mlflow.models.model import METADATA_FILES
 from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
-from mlflow.models.utils import _save_example
+from mlflow.models.utils import _read_example, _save_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
@@ -161,14 +161,14 @@ def test_model_log():
             "flavor2": {"x": 1, "y": 2},
         }
         assert loaded_model.signature == sig
-        path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
-        x = dataframe_from_raw_json(path)
-        assert x.to_dict(orient="records")[0] == input_example
+        x = _read_example(
+            Model(saved_input_example_info=loaded_model.saved_input_example_info), local_path
+        )
+        assert x == input_example
         assert not hasattr(loaded_model, "databricks_runtime")
 
         loaded_example = loaded_model.load_input_example(local_path)
-        assert isinstance(loaded_example, pd.DataFrame)
-        assert loaded_example.to_dict(orient="records")[0] == input_example
+        assert loaded_example == input_example
 
         assert Version(loaded_model.mlflow_version) == Version(mlflow.version.VERSION)
 
@@ -215,9 +215,10 @@ def test_model_info():
             "flavor2": {"x": 1, "y": 2},
         }
 
-        path = os.path.join(local_path, model_info.saved_input_example_info["artifact_path"])
-        x = dataframe_from_raw_json(path)
-        assert x.to_dict(orient="records")[0] == input_example
+        x = _read_example(
+            Model(saved_input_example_info=model_info.saved_input_example_info), local_path
+        )
+        assert x == input_example
 
         model_signature = model_info_fetched.signature
         assert model_info.signature_dict == sig.to_dict()
@@ -277,9 +278,10 @@ def test_model_log_with_databricks_runtime():
             "flavor2": {"x": 1, "y": 2},
         }
         assert loaded_model.signature == sig
-        path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
-        x = dataframe_from_raw_json(path)
-        assert x.to_dict(orient="records")[0] == input_example
+        x = _read_example(
+            Model(saved_input_example_info=loaded_model.saved_input_example_info), local_path
+        )
+        assert x == input_example
         assert loaded_model.databricks_runtime == dbr_version
 
 
@@ -315,6 +317,8 @@ def test_model_log_with_input_example_succeeds():
 
         # date column will get deserialized into string
         input_example["d"] = input_example["d"].apply(lambda x: x.isoformat())
+        # datetime Datatype numpy type is [ns]
+        input_example["e"] = input_example["e"].astype(np.dtype("datetime64[ns]"))
         pd.testing.assert_frame_equal(x, input_example)
 
         loaded_example = loaded_model.load_input_example(local_path)
@@ -358,6 +362,8 @@ def test_model_input_example_with_params_log_load_succeeds(tmp_path):
     pdf["d"] = pdf["d"].apply(lambda x: x.isoformat())
     loaded_example = loaded_model.load_input_example(local_path)
     assert isinstance(loaded_example, pd.DataFrame)
+    # datetime Datatype numpy type is [ns]
+    pdf["e"] = pdf["e"].astype(np.dtype("datetime64[ns]"))
     pd.testing.assert_frame_equal(loaded_example, pdf)
 
     params = loaded_model.load_input_example_params(local_path)
@@ -490,7 +496,6 @@ def test_save_load_input_example_without_conversion(tmp_path):
             python_model=MyModel(),
             artifact_path="test_model",
             input_example=input_example,
-            example_no_conversion=True,
         )
         local_path = _download_artifact_from_uri(
             f"runs:/{run.info.run_id}/test_model", output_path=tmp_path

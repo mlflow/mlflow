@@ -130,7 +130,7 @@ def save_model(
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
-    example_no_conversion: bool = False,
+    example_no_conversion: Optional[bool] = None,
 ) -> None:
     """
     .. note::
@@ -316,7 +316,7 @@ def log_model(
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
-    example_no_conversion: bool = False,
+    example_no_conversion: Optional[bool] = None,
 ):
     """
     .. note::
