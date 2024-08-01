@@ -84,8 +84,10 @@ def test_parse_requirements(tmp_path, monkeypatch):
     """
     Ensures `_parse_requirements` returns the same result as `pip._internal.req.parse_requirements`
     """
-    from pip._internal.network.session import PipSession
-    from pip._internal.req import parse_requirements as pip_parse_requirements
+    from pip._internal.network.session import PipSession  # noqa: TID251
+    from pip._internal.req import (  # noqa: TID251
+        parse_requirements as pip_parse_requirements,
+    )
 
     root_req_src = """
 # No version specifier
