@@ -748,13 +748,11 @@ model signatures in log_model calls when signatures aren't specified.
     Secondly, and just as importantly, it **validates the model's requirements**. This input example is utilized to execute a prediction 
     using the model that is about to be logged, thereby enhancing the accuracy in identifying model requirement dependencies.
     It is **highly recommended** to always include an input example along with your models when you log them.
-    Since MLflow 2.16.0, if the provided input example fails on validation, a warning is issued with an instruction to validate the input example
-    prior to model deployment.
 
 Since MLflow 2.16.0, when logging a model with an input example, there are two files saved into the model's artifacts directory:
 
 - ``input_example.json``: The input example in JSON format.
-- ``serving_input_payload.json``: The input example converted to JSON format for querying a deployed model endpoint.
+- ``serving_input_payload.json``: The input example in JSON format, with additional transformation to have compatible schema for querying a deployed model REST endpoint.
 
 The following example demonstrates the difference between the two files:
 
@@ -775,30 +773,41 @@ The following example demonstrates the difference between the two files:
             input_example={"question": "What is MLflow?"},
         )
 
-Example files:
+Example files logged by MLflow:
 
- +---------------------------------------+-----------------------------------------+
- |  input_example.json                   |  serving_input_payload.json             |
- +---------------------------------------+-----------------------------------------+
- | .. code-block:: json                  | .. code-block:: json                    |
- |                                       |                                         |
- |    {                                  |   {                                     |
- |        "question": "What is MLflow?"  |       "inputs": {                       |
- |    }                                  |         "question": "What is MLflow?"   |
- |                                       |       }                                 |
- |                                       |   }                                     |
- |                                       |                                         |
- +---------------------------------------+-----------------------------------------+
+.. list-table::
+   :header-rows: 1
+   :class: wrap-table
 
+   * - File name
+     - Content
+     - Explanation
+   * - input_example.json
+     - 
+        .. code-block:: json
 
-``input_example.json`` contains the input example in its original format, while ``serving_input_payload.json`` is a JSON-serialized version of the input example with
-a defined ``key`` (one of ``dataframe_split, instances, inputs or dataframe_records``) that mlflow scoring server requires when `querying a deployed model endpoint <../../cli.html#mlflow-models-serve>`_.
+            {
+                "question": "What is MLflow?"
+            }
+
+     - The input example in its original format.
+   * - serving_input_payload.json
+     - 
+        .. code-block:: json
+
+                {
+                    "inputs": {
+                        "question": "What is MLflow?"
+                    }
+                }
+
+     - JSON-serialized version of the input example with one of the predefined keys (``dataframe_split``, ``instances``, ``inputs`` or ``dataframe_records``) that mlflow scoring server requires when `querying a deployed model endpoint <../../deployment/deploy-model-locally.html#local-inference-server-spec>`_.
 
 .. note::
     Prior to MLflow 2.16.0, dictionary input example was converted to Pandas DataFrame format when saving. In later versions, the input
     example is simply saved in its JSON serialized format. For pandas DataFrame, it is converted to dictionary format 
-    with ``to_dict(orient='split')`` and saved into json format.
-    ``example_no_conversion`` parameter for langchain, openai, pyfunc and transformers flavors will be dropped in a future release.
+    with ``to_dict(orient='split')`` and saved into json format. ``example_no_conversion`` parameter for langchain, openai, pyfunc and
+    transformers flavors is no longer used and safe to be removed, it will be dropped in a future release.
 
 Similar to model signatures, model inputs can be column-based (i.e DataFrames), tensor-based
 (i.e numpy.ndarrays) or json object (i.e python dictionary). We offer support for input_example 
