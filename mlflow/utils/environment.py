@@ -1,3 +1,4 @@
+import importlib.metadata
 import logging
 import os
 import pathlib
@@ -5,7 +6,7 @@ import re
 import subprocess
 import sys
 import tempfile
-from typing import List
+from typing import List, Optional
 
 import yaml
 from packaging.requirements import InvalidRequirement, Requirement
@@ -92,17 +93,10 @@ class _PythonEnv:
         )
 
     @staticmethod
-    def _get_package_version(package_name):
-        try:
-            return __import__(package_name).__version__
-        except (ImportError, AttributeError, AssertionError):
-            return None
-
-    @staticmethod
     def get_current_build_dependencies():
         build_dependencies = []
         for package in _PythonEnv.BUILD_PACKAGES:
-            version = _PythonEnv._get_package_version(package)
+            version = _get_package_version(package)
             dep = (package + "==" + version) if version else package
             build_dependencies.append(dep)
         return build_dependencies
@@ -236,7 +230,7 @@ def _mlflow_conda_env(
     pip_deps = mlflow_deps + additional_pip_deps
     conda_deps = additional_conda_deps if additional_conda_deps else []
     if pip_deps:
-        pip_version = _get_pip_version()
+        pip_version = _get_package_version("pip")
         if pip_version is not None:
             # When a new version of pip is released on PyPI, it takes a while until that version is
             # uploaded to conda-forge. This time lag causes `conda create` to fail with
@@ -265,18 +259,10 @@ def _mlflow_conda_env(
         return env
 
 
-def _get_pip_version():
-    """
-    Returns:
-        The version of ``pip`` that is installed in the current environment,
-        or ``None`` if ``pip`` is not currently installed / does not have a
-        ``__version__`` attribute.
-    """
+def _get_package_version(package_name: str) -> Optional[str]:
     try:
-        import pip
-
-        return pip.__version__
-    except ImportError:
+        return importlib.metadata.version(package_name)
+    except importlib.metadata.PackageNotFoundError:
         return None
 
 
