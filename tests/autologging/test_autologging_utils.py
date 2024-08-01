@@ -8,6 +8,7 @@ import pytest
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
 from mlflow.utils import gorilla
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
@@ -24,7 +25,6 @@ from mlflow.utils.autologging_utils import (
 )
 from mlflow.utils.autologging_utils.safety import AutologgingSession, _wrap_patch
 from mlflow.utils.autologging_utils.versioning import (
-    FLAVOR_TO_MODULE_NAME,
     _check_version_in_range,
     _is_pre_or_dev_release,
     _strip_dev_version_suffix,

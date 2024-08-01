@@ -3,29 +3,8 @@ import re
 
 from packaging.version import InvalidVersion, Version
 
-from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
+from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS, FLAVOR_TO_MODULE_NAME
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
-
-
-def _get_autolog_flavor_module_map():
-    """
-    Parse ml-package-versions.py to get the mapping of flavor name to
-    the module name to be imported for autologging.
-    """
-    autolog_flavor_module_map = {}
-    for flavor, config in _ML_PACKAGE_VERSIONS.items():
-        if "autologging" not in config:
-            continue
-        module_name = config["package_info"].get("module_name", flavor)
-        autolog_flavor_module_map[flavor] = module_name
-
-    # pyspark.ml is a special case of spark flavor
-    autolog_flavor_module_map["pyspark.ml"] = "pyspark"
-    return autolog_flavor_module_map
-
-
-# A map FLAVOR_NAME -> a tuple of (dependent_module_name, key_in_ML_PACKAGE_VERSIONS)
-FLAVOR_TO_MODULE_NAME = _get_autolog_flavor_module_map()
 
 
 def _check_version_in_range(ver, min_ver, max_ver):

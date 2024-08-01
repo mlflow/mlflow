@@ -318,3 +318,26 @@ _ML_PACKAGE_VERSIONS = {
         }
     }
 }
+
+# A mapping of flavor name to the module name to be imported for autologging.
+# This is used for checking version compatibility in autologging.
+# DO NOT EDIT MANUALLY
+FLAVOR_TO_MODULE_NAME = {
+    "sklearn": "sklearn",
+    "pytorch": "torch",
+    "pytorch-lightning": "pytorch-lightning",
+    "keras": "keras",
+    "tensorflow": "tensorflow",
+    "xgboost": "xgboost",
+    "lightgbm": "lightgbm",
+    "gluon": "gluon",
+    "fastai": "fastai",
+    "statsmodels": "statsmodels",
+    "spark": "pyspark",
+    "paddle": "paddle",
+    "transformers": "transformers",
+    "openai": "openai",
+    "langchain": "langchain",
+    "llama_index": "llama_index.core",
+    "pyspark.ml": "pyspark"
+}

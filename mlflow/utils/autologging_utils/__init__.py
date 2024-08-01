@@ -16,6 +16,7 @@ from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 _logger = logging.getLogger(__name__)
 
 # Import autologging utilities used by this module
+from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
 from mlflow.utils.autologging_utils.client import MlflowAutologgingQueueingClient  # noqa: F401
 from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
@@ -39,7 +40,6 @@ from mlflow.utils.autologging_utils.safety import (  # noqa: F401
     with_managed_run,
 )
 from mlflow.utils.autologging_utils.versioning import (
-    FLAVOR_TO_MODULE_NAME,
     get_min_max_version_and_pip_release,
     is_flavor_supported_for_associated_package_versions,
 )
