@@ -71,7 +71,7 @@ EXAMPLE_DATA_KEY = "inputs"
 EXAMPLE_PARAMS_KEY = "params"
 EXAMPLE_FILENAME = "input_example.json"
 SERVING_INPUT_PATH = "serving_input_path"
-SERVING_INPUT_FILENAME = "serving_input_payload.json"
+SERVING_INPUT_FILENAME = "serving_input_example.json"
 
 # TODO: import from scoring_server after refactoring
 DF_SPLIT = "dataframe_split"
