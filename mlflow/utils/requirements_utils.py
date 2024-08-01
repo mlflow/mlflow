@@ -3,6 +3,7 @@ This module provides a set of utilities for interpreting and creating requiremen
 (e.g. pip's `requirements.txt`), which is useful for managing ML software environments.
 """
 
+import importlib.metadata
 import json
 import logging
 import os
@@ -17,7 +18,6 @@ from threading import Timer
 from typing import List, NamedTuple, Optional
 
 import importlib_metadata
-import pkg_resources  # noqa: TID251
 from packaging.requirements import Requirement
 from packaging.version import InvalidVersion, Version
 
@@ -167,11 +167,32 @@ def _normalize_package_name(pkg_name):
     return _NORMALIZE_REGEX.sub("-", pkg_name).lower()
 
 
+def _iter_requires(name: str):
+    try:
+        reqs = importlib.metadata.requires(name)
+    except importlib.metadata.PackageNotFoundError:
+        return
+
+    if not reqs:
+        return
+
+    for req in reqs:
+        # Ignore extra dependencies
+        if "extra ==" in req:
+            continue
+
+        req = Requirement(req)
+        # Skip the requirement if the environment marker is not satisfied
+        if req.marker and not req.marker.evaluate():
+            continue
+
+        yield req.name
+
+
 def _get_requires(pkg_name):
     norm_pkg_name = _normalize_package_name(pkg_name)
-    if package := pkg_resources.working_set.by_key.get(norm_pkg_name):
-        for req in package.requires():
-            yield _normalize_package_name(req.name)
+    for req in _iter_requires(norm_pkg_name):
+        yield _normalize_package_name(req.name)
 
 
 def _get_requires_recursive(pkg_name, seen_before=None):

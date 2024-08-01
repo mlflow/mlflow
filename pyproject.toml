@@ -256,7 +256,7 @@ ban-relative-imports = "all"
 forced-separate = ["tests"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-"pkg_resources".msg = "We're migrating away from pkg_resources. Please use importlib.resources or importlib.metadata instead."
+"pkg_resources".msg = "Do not use pkg_resources. Use importlib.resources or importlib.metadata instead."
 "pip".msg = "Importing pip can cause undesired side effects such as https://github.com/scikit-learn/scikit-learn/issues/26992. Consider using `subprocess.run([sys.executable, '-m', 'pip', ...])` instead."
 
 [tool.ruff.lint.pydocstyle]
