@@ -683,7 +683,10 @@ class UcModelRegistryStore(BaseRestStore):
                 # Clean up temporary model directory at end of block. We assume a temporary
                 # model directory was created if the `source` is not a local path
                 # (must be downloaded from remote to a temporary directory) and
-                # `local_model_dir` is not a UC volumes path
+                # `local_model_dir` is not a FUSE-mounted path. The check for FUSE-mounted
+                # paths is important as mlflow.artifacts.download_artifacts() can return
+                # a FUSE mounted path equivalent to the (remote) source path in some cases,
+                # e.g. return /dbfs/some/path for source dbfs:/some/path.
                 if not os.path.exists(source) and not is_fuse_or_uc_volumes_uri(local_model_dir):
                     shutil.rmtree(local_model_dir)
 
