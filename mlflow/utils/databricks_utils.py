@@ -583,7 +583,24 @@ def get_databricks_host_creds(server_uri=None):
     if MLFLOW_ENABLE_DB_SDK.get():
         from databricks.sdk import WorkspaceClient
 
-        profile, _ = get_db_info_from_uri(server_uri)
+        profile, key_prefix = get_db_info_from_uri(server_uri)
+        if key_prefix is not None:
+            try:
+                config = TrackingURIConfigProvider(server_uri).get_config()
+                WorkspaceClient(host=config.host, token=config.token)
+                return MlflowHostCreds(
+                    config.host,
+                    token=config.token,
+                    use_databricks_sdk=True,
+                )
+            except Exception as _:
+                raise MlflowException(
+                    f"The hostname and credentials configured by {server_uri} is invalid. "
+                    "Please create valid hostname secret by command "
+                    f"'databricks secrets put-secret {profile} {key_prefix}-host' and "
+                    "create valid token secret by command "
+                    f"'databricks secrets put-secret {profile} {key_prefix}-token'."
+                )
         try:
             # Using databricks-sdk to create Databricks WorkspaceClient instance,
             # If authentication is failed, MLflow falls back to legacy authentication methods,
