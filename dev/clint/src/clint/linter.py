@@ -83,7 +83,7 @@ MLFLOW_CLASS_NAME = Rule(
 TEST_NAME_TYPO = Rule(
     "MLF0004",
     "test-name-typo",
-    "This function looks like a test, but its name does not start with `test_`.",
+    "This function looks like a test, but its name does not start with 'test_'.",
 )
 
 
