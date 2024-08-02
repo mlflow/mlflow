@@ -344,14 +344,14 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_we
             positive_class_index, positive_class, y, y_pred, None
         )
         per_class_metrics = {"positive_class": positive_class}
-        per_class_metrics.update(
-            _get_binary_classifier_metrics(
-                y_true=y_bin,
-                y_pred=y_pred_bin,
-                pos_label=1,
-                sample_weights=sample_weights,
-            )
+        binary_classifier_metrics = _get_binary_classifier_metrics(
+            y_true=y_bin,
+            y_pred=y_pred_bin,
+            pos_label=1,
+            sample_weights=sample_weights,
         )
+        if binary_classifier_metrics:
+            per_class_metrics.update(binary_classifier_metrics)
         per_class_metrics_list.append(per_class_metrics)
 
     return pd.DataFrame(per_class_metrics_list)

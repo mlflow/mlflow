@@ -4353,7 +4353,7 @@ def test_evaluate_binary_classifier_calculate_label_list_correctly(evaluator_con
         predictions="prediction",
         evaluator_config=evaluator_config,
     )
-    for metric in [
+    metrics_set = {
         "true_negatives",
         "false_positives",
         "false_negatives",
@@ -4363,40 +4363,56 @@ def test_evaluate_binary_classifier_calculate_label_list_correctly(evaluator_con
         "recall_score",
         "precision_score",
         "f1_score",
-    ]:
-        assert metric in result.metrics
+    }
+    assert metrics_set.issubset(result.metrics)
 
 
 @pytest.mark.parametrize(
-    "evaluator_config",
+    ("evaluator_config", "data"),
     [
-        None,
-        {"default": {"label_list": [0, 1, 2]}},
+        (None, {"target": [1, 0, 1, 1], "prediction": [1, 2, 0, 0]}),
+        (
+            {"default": {"label_list": [0, 1, 2]}},
+            {"target": [1, 0, 1, 1], "prediction": [1, 2, 0, 0]},
+        ),
+        (
+            {"default": {"label_list": [0, 1, 2], "pos_label": 1}},
+            {"target": [0, 0, 0, 0], "prediction": [0, 0, 0, 0]},
+        ),
     ],
 )
-def test_evaluate_multi_classifier_calculate_label_list_correctly(evaluator_config):
-    data = pd.DataFrame({"target": [1, 0, 1, 1], "prediction": [1, 2, 0, 0]})
-
+def test_evaluate_multi_classifier_calculate_label_list_correctly(
+    evaluator_config, data, monkeypatch
+):
+    monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", "true")
     result = mlflow.evaluate(
-        data=data,
+        data=pd.DataFrame(data),
         model_type="classifier",
         targets="target",
         predictions="prediction",
         evaluator_config=evaluator_config,
     )
-    for metric in [
+    metrics_set = {
         "example_count",
         "accuracy_score",
         "recall_score",
         "precision_score",
         "f1_score",
-    ]:
-        assert metric in result.metrics
+    }
+    assert metrics_set.issubset(result.metrics)
+    assert all(
+        metric not in result.metrics
+        for metric in ["true_negatives", "false_positives", "false_negatives", "true_positives"]
+    )
 
-    for metric in [
-        "true_negatives",
-        "false_positives",
-        "false_negatives",
-        "true_positives",
-    ]:
-        assert metric not in result.metrics
+
+def test_evaluate_errors_invalid_pos_label():
+    data = pd.DataFrame({"target": [0, 0, 1, 0], "prediction": [0, 1, 0, 0]})
+    with pytest.raises(MlflowException, match=r"'pos_label' 1 must exist in 'label_list'"):
+        mlflow.evaluate(
+            data=data,
+            model_type="classifier",
+            targets="target",
+            predictions="prediction",
+            evaluator_config={"default": {"pos_label": 1, "label_list": [0]}},
+        )
