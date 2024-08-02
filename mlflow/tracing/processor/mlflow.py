@@ -154,7 +154,9 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
 
     def _update_trace_info(self, trace: _Trace, root_span: OTelReadableSpan):
         """Update the trace info with the final values from the root span."""
-        # Q: Why do we need to update timestamp_ms here? We already saved it when start
+        # The trace/span start time needs adjustment to exclude the latency of
+        # the backend API call. We already adjusted the span start time in the
+        # on_start method, so we reflect the same to the trace start time here.
         trace.info.timestamp_ms = root_span.start_time // 1_000_000  # nanosecond to millisecond
         trace.info.execution_time_ms = (root_span.end_time - root_span.start_time) // 1_000_000
         trace.info.status = TraceStatus.from_otel_status(root_span.status)
