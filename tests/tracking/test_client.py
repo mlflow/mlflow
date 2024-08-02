@@ -673,7 +673,9 @@ def test_log_trace_with_databricks_tracking_uri(
     mock_upload_trace_data.assert_called_once()
 
 
-def test_start_and_end_trace_does_not_log_trace_when_disabled(tracking_uri, monkeypatch, async_logging_enabled):
+def test_start_and_end_trace_does_not_log_trace_when_disabled(
+    tracking_uri, monkeypatch, async_logging_enabled
+):
     client = MlflowClient(tracking_uri)
     experiment_id = client.create_experiment("test_experiment")
 

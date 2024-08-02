@@ -371,7 +371,6 @@ def test_loaded_llmchain_autolog():
         assert signature == infer_signature(question, [TEST_CONTENT])
 
 
-
 @mock.patch("mlflow.tracing.export.mlflow.get_display_handler")
 def test_loaded_llmchain_within_model_evaluation(mock_get_display, tmp_path, async_logging_enabled):
     # Disable autolog here as it is enabled in other tests.
@@ -676,7 +675,9 @@ def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, config, asyn
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs", None])
 @pytest.mark.parametrize("config", _CONFIG_PATTERNS + _ASYNC_CONFIG_PATTERNS)
 @pytest.mark.asyncio
-async def test_langchain_autolog_callback_injection_in_ainvoke(invoke_arg, config, async_logging_enabled):
+async def test_langchain_autolog_callback_injection_in_ainvoke(
+    invoke_arg, config, async_logging_enabled
+):
     mlflow.langchain.autolog()
 
     model = create_openai_runnable()
@@ -766,7 +767,9 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config, async
     + [[config, config] for config in _CONFIG_PATTERNS + _ASYNC_CONFIG_PATTERNS],
 )
 @pytest.mark.asyncio
-async def test_langchain_autolog_callback_injection_in_abatch(invoke_arg, config, async_logging_enabled):
+async def test_langchain_autolog_callback_injection_in_abatch(
+    invoke_arg, config, async_logging_enabled
+):
     mlflow.langchain.autolog()
 
     model = create_openai_runnable()
@@ -841,7 +844,9 @@ def test_langchain_autolog_callback_injection_in_stream(invoke_arg, config, asyn
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs", None])
 @pytest.mark.parametrize("config", _CONFIG_PATTERNS + _ASYNC_CONFIG_PATTERNS)
 @pytest.mark.asyncio
-async def test_langchain_autolog_callback_injection_in_astream(invoke_arg, config, async_logging_enabled):
+async def test_langchain_autolog_callback_injection_in_astream(
+    invoke_arg, config, async_logging_enabled
+):
     mlflow.langchain.autolog()
 
     model = create_openai_runnable()

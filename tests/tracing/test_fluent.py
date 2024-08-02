@@ -218,7 +218,9 @@ def test_trace_with_databricks_tracking_uri(
 
 # NB: async logging should be no-op for model serving,
 # but we test it here to make sure it doesn't break
-def test_trace_in_databricks_model_serving(mock_databricks_serving_with_tracing_env, async_logging_enabled):
+def test_trace_in_databricks_model_serving(
+    mock_databricks_serving_with_tracing_env, async_logging_enabled
+):
     # Dummy flask app for prediction
     import flask
 
@@ -444,6 +446,17 @@ def test_trace_ignore_exception_from_tracing_logic(monkeypatch, async_logging_en
     assert output == 7
     assert len(traces) == 1  # The trace from the previous prediction
     TRACE_BUFFER.clear()
+
+
+def test_trace_skip_resolving_unrelated_tags_to_traces():
+    with mock.patch("mlflow.tracking.context.registry.DatabricksRepoRunContext") as mock_context:
+        mock_context.in_context.return_value = ["unrelated tags"]
+
+        model = DefaultTestModel()
+        model.predict(2, 5)
+
+    trace = mlflow.get_last_active_trace()
+    assert "unrelated tags" not in trace.info.tags
 
 
 def test_start_span_context_manager(async_logging_enabled):

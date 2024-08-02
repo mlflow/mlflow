@@ -28,6 +28,8 @@ from mlflow.tracing.utils import (
     maybe_get_request_id,
 )
 from mlflow.tracking.client import MlflowClient
+from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunContext
+from mlflow.tracking.context.git_context import GitRunContext
 from mlflow.tracking.context.registry import resolve_tags
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.tracking.fluent import _get_experiment_id
@@ -103,7 +105,8 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             )
             self._issued_default_exp_warning = True
 
-        unfiltered_tags = resolve_tags()
+        # Avoid running unnecessary context providers to avoid overhead
+        unfiltered_tags = resolve_tags(ignore=[DatabricksRepoRunContext, GitRunContext])
         tags = {
             key: value
             for key, value in unfiltered_tags.items()
