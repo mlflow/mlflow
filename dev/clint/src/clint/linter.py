@@ -133,7 +133,6 @@ class Linter(ast.NodeVisitor):
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
         self._no_rst(node)
-        self._test_name_typo(node)
         self._mlflow_class_name(node)
         self.generic_visit(node)
         self.stack.pop()
