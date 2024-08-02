@@ -46,6 +46,7 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
 from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
+from mlflow.utils.databricks_utils import get_workspace_url
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS, MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
@@ -877,7 +878,9 @@ class TrackingServiceClient:
     def _log_url(self, run_id):
         if not isinstance(self.store, RestStore):
             return
-        host_url = self.store.get_host_creds().host.rstrip("/")
+        host_url = get_workspace_url()
+        if host_url is None:
+            host_url = self.store.get_host_creds().host.rstrip("/")
         run_info = self.store.get_run(run_id).info
         experiment_id = run_info.experiment_id
         run_name = run_info.run_name
