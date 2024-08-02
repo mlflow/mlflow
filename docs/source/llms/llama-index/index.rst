@@ -111,6 +111,10 @@ The ``index`` object is the centerpiece of the LlamaIndex and MLflow integration
     documents = SimpleDirectoryReader("data").load_data()
     index = VectorStoreIndex.from_documents(documents)
 
+.. note::
+
+    Currently, MLflow LlamaIndex flavor only support logging and loading the index with the default in-memory vector store. The support for external vector stores such as ``FaissVectorStore`` and ``DatabricksVectorSearch`` will be added in future releases.
+
 Logging the Index to MLflow
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
