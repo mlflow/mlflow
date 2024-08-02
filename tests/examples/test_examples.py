@@ -42,9 +42,10 @@ def clean_up_mlflow_virtual_environments():
 def mock_openai():
     # Some examples includes OpenAI API calls, so we start a mock server.
     with start_mock_openai_server() as base_url:
-        os.environ["OPENAI_API_BASE"] = base_url
-        os.environ["OPENAI_API_KEY"] = "test"
-        yield
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setenv("OPENAI_API_BASE", base_url)
+            mp.setenv("OPENAI_API_KEY", "test")
+            yield
 
 
 @pytest.mark.notrackingurimock
