@@ -13,9 +13,10 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import load_serving_example
 from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
 
-from tests.helper_functions import get_serving_input_example, pyfunc_serve_and_score_model
+from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.openai.conftest import is_v1
 
 
@@ -546,7 +547,7 @@ def test_embeddings_pyfunc_server_and_score():
             artifact_path="model",
             input_example=df,
         )
-    inference_payload = get_serving_input_example(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=inference_payload,

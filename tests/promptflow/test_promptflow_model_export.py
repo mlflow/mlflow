@@ -7,9 +7,10 @@ from pyspark.sql import SparkSession
 import mlflow
 from mlflow import MlflowException
 from mlflow.deployments import PredictionsResponse
+from mlflow.models.utils import load_serving_example
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 
-from tests.helper_functions import get_serving_input_example, pyfunc_serve_and_score_model
+from tests.helper_functions import pyfunc_serve_and_score_model
 
 
 @pytest.fixture(scope="module")
@@ -87,7 +88,7 @@ def test_promptflow_model_predict_pyfunc():
 def test_promptflow_model_serve_predict():
     # Assert predict with promptflow model
     logged_model = log_promptflow_example_model(with_input_example=True)
-    inference_payload = get_serving_input_example(logged_model.model_uri)
+    inference_payload = load_serving_example(logged_model.model_uri)
     response = pyfunc_serve_and_score_model(
         logged_model.model_uri,
         data=inference_payload,

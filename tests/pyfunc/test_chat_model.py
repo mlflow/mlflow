@@ -10,6 +10,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import Model
 from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import load_serving_example
 from mlflow.pyfunc.loaders.chat_model import _ChatModelPyfuncWrapper
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -24,7 +25,6 @@ from mlflow.types.schema import ColSpec, DataType, Schema
 
 from tests.helper_functions import (
     expect_status_code,
-    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 from tests.tracing.helper import get_traces
@@ -254,7 +254,7 @@ def test_chat_model_works_in_serving():
             input_example=(messages, params_subset),
         )
 
-    inference_payload = get_serving_input_example(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
         model_uri=model_info.model_uri,
         data=inference_payload,
@@ -296,7 +296,7 @@ def test_chat_model_works_with_infer_signature_input_example(tmp_path):
     assert mlflow_model.load_input_example(local_path)["messages"] == input_example["messages"]
     assert mlflow_model.load_input_example_params(local_path) == {**DEFAULT_PARAMS, **params_subset}
 
-    inference_payload = get_serving_input_example(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
         model_uri=model_info.model_uri,
         data=inference_payload,
@@ -330,7 +330,7 @@ def test_chat_model_works_with_chat_message_input_example(tmp_path):
         "messages": [message.to_dict() for message in input_example]
     }
 
-    inference_payload = get_serving_input_example(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
         model_uri=model_info.model_uri,
         data=inference_payload,
@@ -375,7 +375,7 @@ def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
     }
     assert mlflow_model.load_input_example(local_path)["messages"] == input_example["messages"]
 
-    inference_payload = get_serving_input_example(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
         model_uri=model_info.model_uri,
         data=inference_payload,

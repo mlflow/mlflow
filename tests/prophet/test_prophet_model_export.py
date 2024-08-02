@@ -19,7 +19,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.utils
 from mlflow import pyfunc
 from mlflow.models import Model, infer_signature
-from mlflow.models.utils import _read_example
+from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -32,7 +32,6 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
-    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 
@@ -413,7 +412,7 @@ def test_pyfunc_serve_and_score(prophet_model):
         prophet_model.model.make_future_dataframe(FORECAST_HORIZON)
     )
 
-    inference_payload = get_serving_input_example(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=inference_payload,

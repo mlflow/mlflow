@@ -752,7 +752,7 @@ model signatures in log_model calls when signatures aren't specified.
 Since MLflow 2.16.0, when logging a model with an input example, there are two files saved into the model's artifacts directory:
 
 - ``input_example.json``: The input example in JSON format.
-- ``serving_input_payload.json``: The input example in JSON format, with additional transformation to have compatible schema for querying a deployed model REST endpoint.
+- ``serving_input_example.json``: The input example in JSON format, with additional transformation to have compatible schema for querying a deployed model REST endpoint.
 
 The following example demonstrates the difference between the two files:
 
@@ -791,7 +791,7 @@ Example files logged by MLflow:
             }
 
      - The input example in its original format.
-   * - serving_input_payload.json
+   * - serving_input_example.json
      - 
         .. code-block:: json
 
@@ -914,7 +914,7 @@ Model Serving Payload Example
 -----------------------------
 Once an MLflow model is deployed to a REST endpoint for inference, the request payload will be
 JSON serialized and may have subtle difference from in-memory representation.
-To validate your model works for inference, you can use the ``serving_input_payload.json`` file.
+To validate your model works for inference, you can use the ``serving_input_example.json`` file.
 It is automatically logged along with the model when an ``input_example`` is provided and contains
 a json format of the given input example for querying a deployed model endpoint.
 
@@ -923,7 +923,7 @@ The following example demonstrates how to load the serving payload from a logged
 .. code-block:: python
 
     import mlflow
-    from mlflow.models.utils import load_serving_example_from_uri
+    from mlflow.models.utils import load_serving_example
 
     input_example = {
         "messages": [
@@ -934,7 +934,7 @@ The following example demonstrates how to load the serving payload from a logged
     }
     model_info = mlflow.langchain.log_model(..., input_example=input_example)
     print(f"model_uri: {model_info.model_uri}")
-    serving_example = load_serving_example_from_uri(model_info.model_uri)
+    serving_example = load_serving_example(model_info.model_uri)
     print(f"serving_example: {serving_example}")
 
 You can validate the input example works prior to serving:
