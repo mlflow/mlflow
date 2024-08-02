@@ -160,6 +160,8 @@ xgboost:
     requirements:
       ">= 0.0.0": ["scikit-learn"]
       "< 1.6": ["pandas<2"]
+    python:
+      "== dev": "3.10"
     run: |
       pytest tests/xgboost/test_xgboost_model_export.py
 
@@ -169,6 +171,8 @@ xgboost:
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
       "< 1.6": ["pandas<2"]
+    python:
+      "== dev": "3.10"
     run: |
       pytest tests/xgboost/test_xgboost_autolog.py
 
