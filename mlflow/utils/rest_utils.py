@@ -89,15 +89,19 @@ def http_request(
         from databricks.sdk.config import Config
         from databricks.sdk.errors import DatabricksError
 
-        config = Config(
-            profile=host_creds.databricks_auth_profile,
-            retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
-        )
-        # Note: If we use `config` param, all SDK configurations must be set in `config` object.
         if host_creds.use_secret_scope_token:
-            ws_client = WorkspaceClient(host=host_creds.host, token=host_creds.token, config=config)
+            config = Config(
+                host=host_creds.host,
+                token=host_creds.token,
+                retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
+            )
         else:
-            ws_client = WorkspaceClient(config=config)
+            config = Config(
+                profile=host_creds.databricks_auth_profile,
+                retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
+            )
+        # Note: If we use `config` param, all SDK configurations must be set in `config` object.
+        ws_client = WorkspaceClient(config=config)
         try:
             # Databricks SDK `APIClient.do` API is for making request using
             # HTTP

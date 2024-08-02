@@ -601,7 +601,7 @@ def get_databricks_host_creds(server_uri=None):
                     f"'databricks secrets put-secret {profile} {key_prefix}-host' and "
                     "create valid token secret by command "
                     f"'databricks secrets put-secret {profile} {key_prefix}-token' "
-                    f"(Error: {repr(e)})."
+                    f"(Error: {e!r})."
                 )
         try:
             # Using databricks-sdk to create Databricks WorkspaceClient instance,
