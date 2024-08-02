@@ -62,12 +62,15 @@ class SystemMetricsMonitor:
         # Instantiate default monitors.
         self.monitors = [CPUMonitor(), DiskMonitor(), NetworkMonitor()]
         try:
-            if torch.cuda.is_available() and not torch.version.hip:
-                # NVIDIA GPU
-                gpu_monitor = GPUMonitor()
-            elif torch.version.hip:
-                # AMD/HIP GPU
-                gpu_monitor = ROCMMonitor()
+            # NVIDIA GPU
+            gpu_monitor = GPUMonitor()
+            self.monitors.append(gpu_monitor)
+        except (ImportError, RuntimeError):
+            # ImportError raised if pynvml is not installed.
+            # RuntimeError raised if pynvml cannot be initialized
+            # (typically no NVIDIA GPU available).
+            # Falling back to pyrocml (AMD/HIP GPU)
+            gpu_monitor = ROCMMonitor()
             self.monitors.append(gpu_monitor)
         except Exception as e:
             _logger.warning(
