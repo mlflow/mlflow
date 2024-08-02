@@ -4332,3 +4332,86 @@ def test_xgboost_model_evaluate_work_with_shap_explainer():
                 for call_arg in mock_warning.call_args
                 if isinstance(call_arg, tuple)
             )
+
+
+@pytest.mark.parametrize(
+    "evaluator_config",
+    [
+        None,
+        {"default": {"pos_label": 1}},
+        {"default": {"label_list": [0, 1]}},
+        {"default": {"label_list": [0, 1], "pos_label": 1}},
+    ],
+)
+def test_evaluate_binary_classifier_calculate_label_list_correctly(evaluator_config):
+    data = pd.DataFrame({"target": [0, 0, 1, 0], "prediction": [0, 1, 0, 0]})
+
+    result = mlflow.evaluate(
+        data=data,
+        model_type="classifier",
+        targets="target",
+        predictions="prediction",
+        evaluator_config=evaluator_config,
+    )
+    metrics_set = {
+        "true_negatives",
+        "false_positives",
+        "false_negatives",
+        "true_positives",
+        "example_count",
+        "accuracy_score",
+        "recall_score",
+        "precision_score",
+        "f1_score",
+    }
+    assert metrics_set.issubset(result.metrics)
+
+
+@pytest.mark.parametrize(
+    ("evaluator_config", "data"),
+    [
+        (None, {"target": [1, 0, 1, 1], "prediction": [1, 2, 0, 0]}),
+        (
+            {"default": {"label_list": [0, 1, 2]}},
+            {"target": [1, 0, 1, 1], "prediction": [1, 2, 0, 0]},
+        ),
+        (
+            {"default": {"label_list": [0, 1, 2], "pos_label": 1}},
+            {"target": [0, 0, 0, 0], "prediction": [0, 0, 0, 0]},
+        ),
+    ],
+)
+def test_evaluate_multi_classifier_calculate_label_list_correctly(
+    evaluator_config, data, monkeypatch
+):
+    monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", "true")
+    result = mlflow.evaluate(
+        data=pd.DataFrame(data),
+        model_type="classifier",
+        targets="target",
+        predictions="prediction",
+        evaluator_config=evaluator_config,
+    )
+    metrics_set = {
+        "example_count",
+        "accuracy_score",
+        "recall_score",
+        "precision_score",
+        "f1_score",
+    }
+    assert metrics_set.issubset(result.metrics)
+    assert {"true_negatives", "false_positives", "false_negatives", "true_positives"}.isdisjoint(
+        result.metrics
+    )
+
+
+def test_evaluate_errors_invalid_pos_label():
+    data = pd.DataFrame({"target": [0, 0, 1, 0], "prediction": [0, 1, 0, 0]})
+    with pytest.raises(MlflowException, match=r"'pos_label' 1 must exist in 'label_list'"):
+        mlflow.evaluate(
+            data=data,
+            model_type="classifier",
+            targets="target",
+            predictions="prediction",
+            evaluator_config={"default": {"pos_label": 1, "label_list": [0]}},
+        )
