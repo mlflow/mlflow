@@ -600,9 +600,8 @@ def get_databricks_host_creds(server_uri=None):
                     "Please create valid hostname secret by command "
                     f"'databricks secrets put-secret {profile} {key_prefix}-host' and "
                     "create valid token secret by command "
-                    f"'databricks secrets put-secret {profile} {key_prefix}-token' "
-                    f"(Error: {e!r})."
-                )
+                    f"'databricks secrets put-secret {profile} {key_prefix}-token'."
+                ) from e
         try:
             # Using databricks-sdk to create Databricks WorkspaceClient instance,
             # If authentication is failed, MLflow falls back to legacy authentication methods,
