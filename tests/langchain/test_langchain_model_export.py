@@ -1234,7 +1234,7 @@ def test_simple_chat_model_inference():
         assert response3[i]["choices"][0]["message"] == expected_resp_content
 
 
-def tests_save_load_complex_runnable_parallel():
+def test_save_load_complex_runnable_parallel():
     with _mock_request(return_value=_mock_chat_completion_response()):
         chain = create_openai_llmchain()
         runnable = RunnableParallel({"llm": chain})
