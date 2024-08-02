@@ -24,4 +24,17 @@ service UnityCatalogService {
       visibility: PUBLIC_UNDOCUMENTED,
     };
   }
+
+  // Registered Model Management API
+  rpc createRegisteredModel(CreateRegisteredModel) returns (CreateRegisteredModel.Response) {
+    option (rpc) = {
+      endpoints: {
+        method: "POST",
+        path: "/unity-catalog/models",
+        since { major: 2, minor: 1 },
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
 }
