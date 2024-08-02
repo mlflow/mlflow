@@ -4400,9 +4400,8 @@ def test_evaluate_multi_classifier_calculate_label_list_correctly(
         "f1_score",
     }
     assert metrics_set.issubset(result.metrics)
-    assert all(
-        metric not in result.metrics
-        for metric in ["true_negatives", "false_positives", "false_negatives", "true_positives"]
+    assert {"true_negatives", "false_positives", "false_negatives", "true_positives"}.isdisjoint(
+        result.metrics
     )
 
 
