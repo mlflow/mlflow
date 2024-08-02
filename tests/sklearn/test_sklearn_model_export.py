@@ -27,7 +27,7 @@ from mlflow import pyfunc
 from mlflow.entities.model_registry.model_version import ModelVersion, ModelVersionStatus
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
-from mlflow.models.utils import _read_example, load_serving_example_from_uri
+from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -669,7 +669,7 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
             model, artifact_path, input_example=inference_dataframe
         )
 
-    inference_payload = load_serving_example_from_uri(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=inference_payload,

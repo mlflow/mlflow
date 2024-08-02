@@ -21,7 +21,7 @@ import mlflow.pytorch
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
-from mlflow.models.utils import _read_example, load_serving_example_from_uri
+from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.pytorch import get_default_conda_env
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -562,7 +562,7 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
             input_example=data[0],
         )
 
-    inference_payload = load_serving_example_from_uri(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_info.model_uri,
         data=inference_payload,
@@ -599,7 +599,7 @@ def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickl
             input_example=data[0],
         )
 
-    inference_payload = load_serving_example_from_uri(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_info.model_uri,
         data=inference_payload,
@@ -654,7 +654,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
 
     # Deploy the custom pyfunc model and ensure that it is able to successfully load its
     # constituent PyTorch model via `mlflow.pytorch.load_model`
-    inference_payload = load_serving_example_from_uri(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_info.model_uri,
         data=inference_payload,
@@ -846,7 +846,7 @@ def test_pyfunc_serve_and_score(data):
     with mlflow.start_run():
         model_info = mlflow.pytorch.log_model(model, artifact_path="model", input_example=data[0])
 
-    inference_payload = load_serving_example_from_uri(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
         model_info.model_uri,
         inference_payload,
@@ -887,7 +887,7 @@ def test_pyfunc_serve_and_score_transformers():
             model, artifact_path="model", input_example=np.array(input_ids.tolist())
         )
 
-    inference_payload = load_serving_example_from_uri(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
         model_info.model_uri,
         inference_payload,
@@ -1237,7 +1237,7 @@ def test_model_log_with_signature_inference(sequential_model, data):
         inputs=Schema([TensorSpec(np.dtype("float32"), (-1, 4))]),
         outputs=Schema([TensorSpec(np.dtype("float32"), (-1, 1))]),
     )
-    inference_payload = load_serving_example_from_uri(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
         inference_payload,

@@ -22,7 +22,7 @@ else:
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.models import ModelSignature
-from mlflow.models.utils import load_serving_example_from_uri
+from mlflow.models.utils import load_serving_example
 from mlflow.pyfunc import spark_udf
 from mlflow.types.schema import Schema, TensorSpec
 
@@ -382,7 +382,7 @@ def test_scoring_server_successfully_on_single_multidim_input_model(
 
     inp_dict = json.dumps({"instances": test_input.tolist()})
     test_input_df = pd.DataFrame({"x": test_input.reshape((-1, 4 * 3)).tolist()})
-    serving_input_example = load_serving_example_from_uri(model_info.model_uri)
+    serving_input_example = load_serving_example(model_info.model_uri)
 
     for input_data in (inp_dict, test_input_df, serving_input_example):
         response_records_content_type = pyfunc_serve_and_score_model(
@@ -418,7 +418,7 @@ def test_scoring_server_successfully_on_multi_multidim_input_model(
         model_info = mlflow.tensorflow.log_model(model, "model", input_example=input_example)
     assert model_info.signature.inputs == signature.inputs
 
-    serving_input_example = load_serving_example_from_uri(model_info.model_uri)
+    serving_input_example = load_serving_example(model_info.model_uri)
     for input_data in (inp_dict, test_input_df, serving_input_example):
         response_records_content_type = pyfunc_serve_and_score_model(
             model_uri=model_info.model_uri,

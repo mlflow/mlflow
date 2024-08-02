@@ -17,7 +17,7 @@ import mlflow.utils
 import mlflow.xgboost
 from mlflow import pyfunc
 from mlflow.models import Model, ModelSignature
-from mlflow.models.utils import _read_example, load_serving_example_from_uri
+from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
@@ -445,7 +445,7 @@ def test_pyfunc_serve_and_score(xgb_model):
             model, artifact_path, input_example=inference_dataframe
         )
 
-    inference_payload = load_serving_example_from_uri(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=inference_payload,
@@ -472,7 +472,7 @@ def test_pyfunc_serve_and_score_sklearn(model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(model, artifact_path="model", input_example=X.head(3))
 
-    inference_payload = load_serving_example_from_uri(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
         model_info.model_uri,
         inference_payload,

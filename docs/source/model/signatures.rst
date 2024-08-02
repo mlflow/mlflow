@@ -923,7 +923,7 @@ The following example demonstrates how to load the serving payload from a logged
 .. code-block:: python
 
     import mlflow
-    from mlflow.models.utils import load_serving_example_from_uri
+    from mlflow.models.utils import load_serving_example
 
     input_example = {
         "messages": [
@@ -934,7 +934,7 @@ The following example demonstrates how to load the serving payload from a logged
     }
     model_info = mlflow.langchain.log_model(..., input_example=input_example)
     print(f"model_uri: {model_info.model_uri}")
-    serving_example = load_serving_example_from_uri(model_info.model_uri)
+    serving_example = load_serving_example(model_info.model_uri)
     print(f"serving_example: {serving_example}")
 
 You can validate the input example works prior to serving:
