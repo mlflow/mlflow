@@ -18,7 +18,7 @@ import mlflow.sentence_transformers
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
-from mlflow.models.utils import _read_example
+from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.environment import _mlflow_conda_env
 
@@ -27,7 +27,6 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
-    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 
@@ -456,7 +455,7 @@ def test_pyfunc_serve_and_score(input1, input2, basic_model):
     local_predict = loaded_pyfunc.predict(input1)
 
     # Check that the giving the same string to the served model results in the same result
-    inference_data = get_serving_input_example(model_info.model_uri)
+    inference_data = load_serving_example(model_info.model_uri)
     assert json.loads(inference_data) == {"inputs": input1}
     resp = pyfunc_serve_and_score_model(
         model_info.model_uri,

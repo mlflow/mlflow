@@ -22,7 +22,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.deployments import PredictionsResponse
 from mlflow.models import Model, ModelSignature
-from mlflow.models.utils import _read_example
+from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import Schema, TensorSpec
@@ -41,7 +41,6 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     assert_array_almost_equal,
     assert_register_model_called_with_local_model_path,
-    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 from tests.pyfunc.test_spark import score_model_as_udf
@@ -220,7 +219,7 @@ def test_pyfunc_serve_and_score(data):
     with mlflow.start_run():
         model_info = mlflow.tensorflow.log_model(model, artifact_path="model", input_example=x)
     expected = model.predict(x)
-    inference_payload = get_serving_input_example(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_info.model_uri,
         data=inference_payload,
@@ -663,7 +662,7 @@ def test_pyfunc_serve_and_score_transformers():
             input_example=dummy_inputs,
         )
 
-    inference_payload = get_serving_input_example(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
         model_info.model_uri,
         inference_payload,

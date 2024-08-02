@@ -5,7 +5,7 @@ export const COLUMN_TYPES = {
   TAGS: 'tags',
 };
 export const MLMODEL_FILE_NAME = 'MLmodel';
-export const SERVING_INPUT_FILE_NAME = 'serving_input_payload.json';
+export const SERVING_INPUT_FILE_NAME = 'serving_input_example.json';
 export const ONE_MB = 1024 * 1024;
 
 export const ATTRIBUTE_COLUMN_LABELS = {

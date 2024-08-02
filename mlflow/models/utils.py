@@ -71,7 +71,7 @@ EXAMPLE_DATA_KEY = "inputs"
 EXAMPLE_PARAMS_KEY = "params"
 EXAMPLE_FILENAME = "input_example.json"
 SERVING_INPUT_PATH = "serving_input_path"
-SERVING_INPUT_FILENAME = "serving_input_payload.json"
+SERVING_INPUT_FILENAME = "serving_input_example.json"
 
 # TODO: import from scoring_server after refactoring
 DF_SPLIT = "dataframe_split"
@@ -572,7 +572,7 @@ def _load_serving_input_example(mlflow_model: Model, path: str):
         return handle.read()
 
 
-def load_serving_example_from_uri(model_uri_or_path: str):
+def load_serving_example(model_uri_or_path: str):
     """
     Load serving input example from a model directory or URI.
 

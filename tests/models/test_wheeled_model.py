@@ -14,6 +14,7 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import METADATA_FILES
+from mlflow.models.utils import load_serving_example
 from mlflow.models.wheeled_model import _ORIGINAL_REQ_FILE_NAME, _WHEELS_FOLDER_NAME, WheeledModel
 from mlflow.pyfunc.model import MLMODEL_FILE_NAME, Model
 from mlflow.store.artifact.utils.models import _improper_model_uri_msg
@@ -28,7 +29,6 @@ from mlflow.utils.environment import (
 from tests.helper_functions import (
     _is_available_on_pypi,
     _mlflow_major_version_string,
-    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 
@@ -339,7 +339,7 @@ def test_serving_wheeled_model(sklearn_knn_model):
     with mlflow.start_run():
         WheeledModel.log_model(model_uri=model_uri)
 
-    inference_payload = get_serving_input_example(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
         wheeled_model_uri,
         data=inference_payload,

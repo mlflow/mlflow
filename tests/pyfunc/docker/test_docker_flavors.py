@@ -23,7 +23,7 @@ import requests
 import mlflow
 from mlflow.environment_variables import _MLFLOW_RUN_SLOW_TESTS
 from mlflow.models.flavor_backend_registry import get_flavor_backend
-from mlflow.models.utils import load_serving_example_from_uri
+from mlflow.models.utils import load_serving_example
 
 # Only import model fixtures if when MLFLOW_RUN_SLOW_TESTS environment variable is set to true
 if _MLFLOW_RUN_SLOW_TESTS.get():
@@ -168,7 +168,7 @@ def test_build_image_and_serve(flavor, request):
     port = get_safe_port()
     with start_container(port):
         # Make a scoring request with a saved serving input example
-        inference_payload = load_serving_example_from_uri(model_path)
+        inference_payload = load_serving_example(model_path)
 
         response = requests.post(
             url=f"http://localhost:{port}/invocations",
