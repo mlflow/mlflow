@@ -31,13 +31,13 @@ from mlflow.entities import (
     SpanStatus,
     SpanType,
     Trace,
-    TraceData,
     TraceInfo,
     ViewType,
 )
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID, NoOpSpan, create_mlflow_span
+from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException

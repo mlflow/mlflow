@@ -4,7 +4,6 @@ from typing import Any, Dict, List, Optional
 from unittest import mock
 
 import openai
-import pandas as pd
 import pytest
 from langchain.chains.llm import LLMChain
 from langchain.chat_models import ChatOpenAI
@@ -25,9 +24,7 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.langchain._langchain_autolog import (
-    INFERENCE_FILE_NAME,
     UNSUPPORT_LOG_MODEL_MESSAGE,
-    _combine_input_and_output,
     _resolve_tags,
 )
 from mlflow.models import Model
@@ -37,6 +34,7 @@ from mlflow.models.utils import _read_example
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
 
+from tests.tracing.conftest import async_logging_enabled  # noqa: F401
 from tests.tracing.helper import get_traces
 
 MODEL_DIR = "model"
@@ -176,7 +174,7 @@ def create_runnable_sequence():
     return chain_with_history, input_example
 
 
-def test_autolog_manage_run():
+def test_autolog_manage_run(async_logging_enabled):
     mlflow.langchain.autolog(log_models=True, extra_tags={"test_tag": "test"})
     run = mlflow.start_run()
     model = create_openai_llmchain()
@@ -195,6 +193,9 @@ def test_autolog_manage_run():
     assert MlflowClient().get_run(run.info.run_id).data.tags["test_tag"] == "test"
     assert MlflowClient().get_run(run.info.run_id).data.tags["mlflow.autologging"] == "langchain"
     mlflow.end_run()
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 2
@@ -249,7 +250,7 @@ def test_resolve_tags():
     }
 
 
-def test_autolog_record_exception():
+def test_autolog_record_exception(async_logging_enabled):
     from langchain.schema.runnable import RunnableLambda
 
     def always_fail(input):
@@ -262,6 +263,9 @@ def test_autolog_record_exception():
     with pytest.raises(Exception, match="Error!"):
         model.invoke("test")
 
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
+
     traces = get_traces()
     assert len(traces) == 1
     trace = traces[0]
@@ -270,7 +274,7 @@ def test_autolog_record_exception():
     assert trace.data.spans[0].name == "always_fail"
 
 
-def test_llmchain_autolog():
+def test_llmchain_autolog(async_logging_enabled):
     mlflow.langchain.autolog(log_models=True)
     question = "MLflow"
     answer = {"product": "MLflow", "text": TEST_CONTENT}
@@ -280,6 +284,9 @@ def test_llmchain_autolog():
         # Call twice to test that the model is only logged once
         assert model.invoke(question) == answer
         log_model_mock.assert_called_once()
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 2
@@ -364,8 +371,9 @@ def test_loaded_llmchain_autolog():
         assert signature == infer_signature(question, [TEST_CONTENT])
 
 
+
 @mock.patch("mlflow.tracing.export.mlflow.get_display_handler")
-def test_loaded_llmchain_within_model_evaluation(mock_get_display, tmp_path):
+def test_loaded_llmchain_within_model_evaluation(mock_get_display, tmp_path, async_logging_enabled):
     # Disable autolog here as it is enabled in other tests.
     mlflow.langchain.autolog(disable=True)
 
@@ -380,6 +388,9 @@ def test_loaded_llmchain_within_model_evaluation(mock_get_display, tmp_path):
         with set_prediction_context(Context(request_id=request_id, is_evaluate=True)):
             response = loaded_model.predict({"product": "MLflow"})
 
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
+
     assert response == [TEST_CONTENT]
     trace = mlflow.get_trace(request_id)
     assert trace.info.tags[TraceTagKey.EVAL_REQUEST_ID] == request_id
@@ -390,7 +401,7 @@ def test_loaded_llmchain_within_model_evaluation(mock_get_display, tmp_path):
     mock_display_handler.display_traces.assert_not_called()
 
 
-def test_agent_autolog():
+def test_agent_autolog(async_logging_enabled):
     mlflow.langchain.autolog(log_models=True)
     model = create_openai_llmagent()
     with mock.patch("mlflow.langchain.log_model") as log_model_mock:
@@ -405,6 +416,9 @@ def test_agent_autolog():
         assert model.invoke("Hi", return_only_outputs=True) == {"output": TEST_CONTENT}
         assert model.invoke("Hi", return_only_outputs=True) == {"output": TEST_CONTENT}
         log_model_mock.assert_called_once()
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 4
@@ -447,13 +461,16 @@ def test_loaded_agent_autolog():
         assert signature == infer_signature(input, [TEST_CONTENT])
 
 
-def test_runnable_sequence_autolog():
+def test_runnable_sequence_autolog(async_logging_enabled):
     mlflow.langchain.autolog(log_models=True)
     chain, input_example = create_runnable_sequence()
     with mock.patch("mlflow.langchain.log_model") as log_model_mock:
         assert chain.invoke(input_example) == TEST_CONTENT
         assert chain.invoke(input_example) == TEST_CONTENT
         log_model_mock.assert_called_once()
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 2
@@ -499,37 +516,7 @@ def test_loaded_runnable_sequence_autolog():
         assert signature == infer_signature(input_example, [TEST_CONTENT])
 
 
-def test_runnable_sequence_autolog_log_inputs_outputs():
-    mlflow.langchain.autolog(log_inputs_outputs=True)
-    chain, input_example = create_runnable_sequence()
-    output = TEST_CONTENT
-    with mlflow.start_run() as run:
-        assert chain.invoke(input_example) == output
-    loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
-    loaded_dict = loaded_table.to_dict("records")
-    assert len(loaded_dict) == 1
-    assert loaded_dict[0]["input-messages"] == input_example["messages"][0]
-    assert loaded_dict[0]["output"] == output
-    session_id = loaded_dict[0]["session_id"]
-
-    with mlflow.start_run(run.info.run_id):
-        chain.invoke(input_example)
-    loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
-    loaded_dict = loaded_table.to_dict("records")
-    assert (
-        loaded_dict
-        == [
-            {
-                "input-messages": input_example["messages"][0],
-                "output": output,
-                "session_id": session_id,
-            }
-        ]
-        * 2
-    )
-
-
-def test_retriever_autolog(tmp_path):
+def test_retriever_autolog(tmp_path, async_logging_enabled):
     mlflow.langchain.autolog(log_models=True)
     model, query = create_retriever(tmp_path)
     with mock.patch("mlflow.langchain.log_model") as log_model_mock, mock.patch(
@@ -539,6 +526,9 @@ def test_retriever_autolog(tmp_path):
         log_model_mock.assert_not_called()
         logger_mock.assert_called_once_with(UNSUPPORT_LOG_MODEL_MESSAGE)
 
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
+
     traces = get_traces()
     assert len(traces) == 1
     spans = traces[0].data.spans
@@ -547,28 +537,6 @@ def test_retriever_autolog(tmp_path):
     assert spans[0].span_type == "RETRIEVER"
     assert spans[0].inputs == query
     assert spans[0].outputs[0]["metadata"] == {"source": "tests/langchain/state_of_the_union.txt"}
-
-
-def test_retriever_autlog_inputs_outputs(tmp_path):
-    mlflow.langchain.autolog(log_inputs_outputs=True)
-    model, query = create_retriever(tmp_path)
-    with mlflow.start_run() as run:
-        documents = model.get_relevant_documents(query)
-        documents = [
-            {"page_content": doc.page_content, "metadata": doc.metadata} for doc in documents
-        ]
-    loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
-    loaded_dict = loaded_table.to_dict("records")
-    assert len(loaded_dict) == 1
-    assert loaded_dict[0]["input"] == query
-    assert loaded_dict[0]["output"] == documents
-    session_id = loaded_dict[0]["session_id"]
-
-    with mlflow.start_run(run.info.run_id):
-        model.get_relevant_documents(query)
-    loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
-    loaded_dict = loaded_table.to_dict("records")
-    assert loaded_dict == [{"input": query, "output": documents, "session_id": session_id}] * 2
 
 
 def test_unsupported_log_model_models_autolog(tmp_path):
@@ -598,61 +566,6 @@ def test_unsupported_log_model_models_autolog(tmp_path):
         assert retrieval_chain.invoke(question) == TEST_CONTENT
         logger_mock.assert_called_once_with(UNSUPPORT_LOG_MODEL_MESSAGE)
         log_model_mock.assert_not_called()
-
-
-@pytest.mark.parametrize(
-    ("input", "output", "expected"),
-    [
-        ("data", "result", {"input": ["data"], "output": ["result"], "session_id": ["session_id"]}),
-        (
-            "data",
-            {"result": "some_result"},
-            {"input": ["data"], "output-result": "some_result", "session_id": ["session_id"]},
-        ),
-        (
-            "data",
-            ["some_result"],
-            {"input": ["data"], "output": ["some_result"], "session_id": ["session_id"]},
-        ),
-        (
-            ["data"],
-            "some_result",
-            {"input": ["data"], "output": ["some_result"], "session_id": ["session_id"]},
-        ),
-        (
-            {"data": "some_data"},
-            ["some_result"],
-            {"input-data": "some_data", "output": ["some_result"], "session_id": ["session_id"]},
-        ),
-        (
-            {"data": "some_data"},
-            {"result": "some_result"},
-            {
-                "input-data": "some_data",
-                "output-result": "some_result",
-                "session_id": ["session_id"],
-            },
-        ),
-        (
-            [{"data": "some_data"}],
-            {"result": "some_result"},
-            {
-                "input": [{"data": "some_data"}],
-                "output-result": "some_result",
-                "session_id": ["session_id"],
-            },
-        ),
-    ],
-)
-def test_combine_input_and_output(input, output, expected):
-    assert (
-        _combine_input_and_output(input, output, session_id="session_id", func_name="") == expected
-    )
-    with mlflow.start_run() as run:
-        mlflow.log_table(expected, INFERENCE_FILE_NAME, run.info.run_id)
-    loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
-    pdf = pd.DataFrame(expected)
-    pd.testing.assert_frame_equal(loaded_table, pdf)
 
 
 class CustomCallbackHandler(BaseCallbackHandler):
@@ -723,7 +636,7 @@ def _extract_callback_handlers(config) -> Optional[List[BaseCallbackHandler]]:
 
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs", None])
 @pytest.mark.parametrize("config", _CONFIG_PATTERNS)
-def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, config):
+def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, config, async_logging_enabled):
     mlflow.langchain.autolog()
 
     model = create_openai_runnable()
@@ -737,6 +650,9 @@ def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, config):
         model.invoke(input, config=config)
     elif invoke_arg is None:
         model.invoke(input)
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -760,7 +676,7 @@ def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, config):
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs", None])
 @pytest.mark.parametrize("config", _CONFIG_PATTERNS + _ASYNC_CONFIG_PATTERNS)
 @pytest.mark.asyncio
-async def test_langchain_autolog_callback_injection_in_ainvoke(invoke_arg, config):
+async def test_langchain_autolog_callback_injection_in_ainvoke(invoke_arg, config, async_logging_enabled):
     mlflow.langchain.autolog()
 
     model = create_openai_runnable()
@@ -774,6 +690,9 @@ async def test_langchain_autolog_callback_injection_in_ainvoke(invoke_arg, confi
         await model.ainvoke(input, config=config)
     elif invoke_arg is None:
         await model.ainvoke(input)
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -802,7 +721,7 @@ async def test_langchain_autolog_callback_injection_in_ainvoke(invoke_arg, confi
     # list of configs are also supported for batch call
     + [[config, config] for config in _CONFIG_PATTERNS],
 )
-def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config):
+def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config, async_logging_enabled):
     mlflow.langchain.autolog()
 
     model = create_openai_runnable()
@@ -816,6 +735,9 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config):
         model.batch([input] * 2, config=config)
     elif invoke_arg is None:
         model.batch([input] * 2)
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 2
@@ -844,7 +766,7 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config):
     + [[config, config] for config in _CONFIG_PATTERNS + _ASYNC_CONFIG_PATTERNS],
 )
 @pytest.mark.asyncio
-async def test_langchain_autolog_callback_injection_in_abatch(invoke_arg, config):
+async def test_langchain_autolog_callback_injection_in_abatch(invoke_arg, config, async_logging_enabled):
     mlflow.langchain.autolog()
 
     model = create_openai_runnable()
@@ -858,6 +780,9 @@ async def test_langchain_autolog_callback_injection_in_abatch(invoke_arg, config
         await model.abatch([input] * 2, config=config)
     elif invoke_arg is None:
         await model.abatch([input] * 2)
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 2
@@ -879,7 +804,7 @@ async def test_langchain_autolog_callback_injection_in_abatch(invoke_arg, config
 
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs", None])
 @pytest.mark.parametrize("config", _CONFIG_PATTERNS)
-def test_langchain_autolog_callback_injection_in_stream(invoke_arg, config):
+def test_langchain_autolog_callback_injection_in_stream(invoke_arg, config, async_logging_enabled):
     mlflow.langchain.autolog()
 
     model = create_openai_runnable()
@@ -893,6 +818,9 @@ def test_langchain_autolog_callback_injection_in_stream(invoke_arg, config):
         list(model.stream(input, config=config))
     elif invoke_arg is None:
         list(model.stream(input))
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -913,7 +841,7 @@ def test_langchain_autolog_callback_injection_in_stream(invoke_arg, config):
 @pytest.mark.parametrize("invoke_arg", ["args", "kwargs", None])
 @pytest.mark.parametrize("config", _CONFIG_PATTERNS + _ASYNC_CONFIG_PATTERNS)
 @pytest.mark.asyncio
-async def test_langchain_autolog_callback_injection_in_astream(invoke_arg, config):
+async def test_langchain_autolog_callback_injection_in_astream(invoke_arg, config, async_logging_enabled):
     mlflow.langchain.autolog()
 
     model = create_openai_runnable()
@@ -935,6 +863,9 @@ async def test_langchain_autolog_callback_injection_in_astream(invoke_arg, confi
 
     await invoke_astream(model, config)
 
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
+
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
@@ -951,7 +882,7 @@ async def test_langchain_autolog_callback_injection_in_astream(invoke_arg, confi
         assert set(handlers[0].logs) == {"chain_start", "chain_end"}
 
 
-def test_langchain_autolog_produces_expected_traces_with_streaming(tmp_path):
+def test_langchain_autolog_produces_expected_traces_with_streaming(tmp_path, async_logging_enabled):
     from langchain.prompts import ChatPromptTemplate
     from langchain.schema.output_parser import StrOutputParser
     from langchain.schema.runnable import RunnablePassthrough
@@ -975,6 +906,9 @@ def test_langchain_autolog_produces_expected_traces_with_streaming(tmp_path):
     list(retrieval_chain.stream(question))
     retrieval_chain.invoke(question)
 
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
+
     traces = get_traces()
     assert len(traces) == 2
     stream_trace = traces[0]
@@ -987,7 +921,7 @@ def test_langchain_autolog_produces_expected_traces_with_streaming(tmp_path):
 
 
 @pytest.mark.parametrize("log_traces", [True, False, None])
-def test_langchain_tracer_injection_for_arbitrary_runnables(log_traces):
+def test_langchain_tracer_injection_for_arbitrary_runnables(log_traces, async_logging_enabled):
     from langchain.schema.runnable import RouterRunnable, RunnableLambda
 
     should_log_traces = log_traces is not False
@@ -1007,6 +941,10 @@ def test_langchain_tracer_injection_for_arbitrary_runnables(log_traces):
             mock_debug.assert_called_once_with("Injected MLflow callbacks into the model.")
         else:
             mock_debug.assert_not_called()
+
+    if async_logging_enabled and log_traces:
+        mlflow.flush_trace_async_logging(terminate=True)
+
     traces = get_traces()
     if should_log_traces:
         assert len(traces) == 1

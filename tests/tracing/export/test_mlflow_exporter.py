@@ -8,7 +8,7 @@ from mlflow.tracing.trace_manager import InMemoryTraceManager
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
 
-def test_export():
+def test_export(async_logging_enabled):
     trace_id = 12345
     request_id = f"tr-{trace_id}"
     otel_span = create_mock_otel_span(
@@ -40,6 +40,9 @@ def test_export():
     exporter = MlflowSpanExporter(mock_client, mock_display)
 
     exporter.export([otel_span, non_root_otel_span, invalid_otel_span])
+
+    if async_logging_enabled:
+        exporter._async_queue.flush(terminate=True)
 
     # Spans should be cleared from the trace manager
     assert len(exporter._trace_manager._traces) == 0
