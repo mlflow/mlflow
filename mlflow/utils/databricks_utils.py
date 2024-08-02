@@ -592,14 +592,16 @@ def get_databricks_host_creds(server_uri=None):
                     config.host,
                     token=config.token,
                     use_databricks_sdk=True,
+                    use_secret_scope_token=True,
                 )
-            except Exception as _:
+            except Exception as e:
                 raise MlflowException(
                     f"The hostname and credentials configured by {server_uri} is invalid. "
                     "Please create valid hostname secret by command "
                     f"'databricks secrets put-secret {profile} {key_prefix}-host' and "
                     "create valid token secret by command "
-                    f"'databricks secrets put-secret {profile} {key_prefix}-token'."
+                    f"'databricks secrets put-secret {profile} {key_prefix}-token' "
+                    f"(Error: {repr(e)})."
                 )
         try:
             # Using databricks-sdk to create Databricks WorkspaceClient instance,
