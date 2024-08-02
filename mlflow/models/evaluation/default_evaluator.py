@@ -1518,12 +1518,12 @@ class DefaultEvaluator(ModelEvaluator):
 
             if self.label_list is None:
                 self.label_list = np.unique(np.concatenate([self.y, self.y_pred]))
+            # sort label_list ASC, for binary classification it makes sure the last one is pos label
+            self.label_list.sort()
             self.num_classes = len(self.label_list)
             self.is_binomial = self.num_classes <= 2
 
             if self.is_binomial:
-                # sort label_list ASC to make sure the last one is pos label
-                self.label_list.sort()
                 if self.pos_label is None:
                     self.pos_label = self.label_list[-1]
                 else:
