@@ -70,7 +70,6 @@ from mlflow.store._unity_catalog.lineage.constants import (
 from mlflow.store.artifact.presigned_url_artifact_repo import PresignedUrlArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.rest_store import BaseRestStore
-from mlflow.utils.file_utils import create_tmp_dir
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils._unity_catalog_utils import (
     get_artifact_repo_from_storage_info,
@@ -89,6 +88,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_RUN_ID,
     MLFLOW_DATABRICKS_NOTEBOOK_ID,
 )
+from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
@@ -667,12 +667,8 @@ class UcModelRegistryStore(BaseRestStore):
             yield local_model_path
         else:
             try:
-                # MLflow download artifacts has an optimization where
-                # source model artifacts are returned ... TODO clean up
-                should_use_tmpdir = not os.path.exists(source)
-                destination_dir = create_tmp_dir() if should_use_tmpdir else source
                 local_model_dir = mlflow.artifacts.download_artifacts(
-                    artifact_uri=source, tracking_uri=self.tracking_uri, dst_path=destination_dir
+                    artifact_uri=source, tracking_uri=self.tracking_uri
                 )
             except Exception as e:
                 raise MlflowException(
@@ -684,7 +680,11 @@ class UcModelRegistryStore(BaseRestStore):
             try:
                 yield local_model_dir
             finally:
-                if should_use_tmpdir:
+                # Clean up temporary model directory at end of block. We assume a temporary
+                # model directory was created if the `source` is not a local path
+                # (must be downloaded from remote to a temporary directory) and
+                # `local_model_dir` is not a UC volumes path
+                if not os.path.exists(source) and not is_fuse_or_uc_volumes_uri(local_model_dir):
                     shutil.rmtree(local_model_dir)
 
     def create_model_version(
