@@ -95,6 +95,7 @@ def load_project(directory):
         return Project(
             databricks_spark_job_spec=databricks_spark_job_spec,
             name=project_name,
+            entry_points=entry_points,
         )
 
     # Validate config if docker_env parameter is present
@@ -222,6 +223,7 @@ class Project:
                 # it does not need to configure entry_point section
                 # and the 'entry_point' param in 'mlflow run' command is ignored
                 return None
+
             if self._entry_points is None or entry_point not in self._entry_points:
                 raise MlflowException(
                     f"The entry point '{entry_point}' is not defined in Databricks spark job "
