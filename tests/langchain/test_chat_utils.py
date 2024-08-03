@@ -82,7 +82,7 @@ def test_transform_response_iter_to_chat_format_ai_message():
         )
 
 
-def testtransform_request_json_for_chat_if_necessary_no_conversion():
+def test_transform_request_json_for_chat_if_necessary_no_conversion():
     model = MagicMock(spec=AgentExecutor)
     request_json = {"messages": [{"role": "user", "content": "some_input"}]}
     assert transform_request_json_for_chat_if_necessary(request_json, model) == (
@@ -91,7 +91,7 @@ def testtransform_request_json_for_chat_if_necessary_no_conversion():
     )
 
 
-def testtransform_request_json_for_chat_if_necessary_conversion():
+def test_transform_request_json_for_chat_if_necessary_conversion():
     model = MagicMock(spec=SimpleChatModel)
     request_json = {"messages": [{"role": "user", "content": "some_input"}]}
 

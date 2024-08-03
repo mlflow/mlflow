@@ -20,7 +20,6 @@ import requests
 import yaml
 
 import mlflow
-from mlflow.models import Model
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
@@ -204,12 +203,6 @@ def pyfunc_serve_from_docker_image_with_env_override(
     if extra_args is not None:
         scoring_cmd += extra_args
     return _start_scoring_proc(cmd=scoring_cmd, env=env)
-
-
-def get_serving_input_example(model_uri):
-    mlflow_model = Model.load(model_uri)
-    local_path = _download_artifact_from_uri(model_uri)
-    return mlflow_model.get_serving_input(local_path)
 
 
 def pyfunc_serve_and_score_model(

@@ -18,7 +18,7 @@ import mlflow.spacy
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
-from mlflow.models.utils import _read_example
+from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
@@ -31,7 +31,6 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _mlflow_major_version_string,
     allow_infer_pip_requirements_fallback_if,
-    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 
@@ -403,7 +402,7 @@ def test_pyfunc_serve_and_score(spacy_model_with_data):
             input_example=inference_dataframe,
         )
 
-    inference_payload = get_serving_input_example(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=inference_payload,

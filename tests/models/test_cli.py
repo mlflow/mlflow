@@ -24,6 +24,7 @@ from mlflow.environment_variables import MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNIN
 from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import get_model_requirements_files
+from mlflow.models.utils import load_serving_example
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.pyfunc.backend import PyFuncBackend
 from mlflow.pyfunc.scoring_server import (
@@ -45,7 +46,6 @@ from tests.helper_functions import (
     PROTOBUF_REQUIREMENT,
     RestEndpoint,
     get_safe_port,
-    get_serving_input_example,
     pyfunc_build_image,
     pyfunc_generate_dockerfile,
     pyfunc_serve_and_score_model,
@@ -157,7 +157,7 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
     for model_uri in model_uris:
         with TempDir() as tpm:
             output_file_path = tpm.path("stoudt")
-            inference_payload = get_serving_input_example(model_uri)
+            inference_payload = load_serving_example(model_uri)
             with open(output_file_path, "w") as output_file:
                 scoring_response = pyfunc_serve_and_score_model(
                     model_uri,

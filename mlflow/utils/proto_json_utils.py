@@ -373,8 +373,6 @@ def convert_data_type(data, spec):
     """
     Convert input data to the type specified in the spec.
 
-    This method converts data into numpy array for backwards compatibility.
-
     Args:
         data: Input data.
         spec: ColSpec or TensorSpec.
@@ -513,6 +511,26 @@ def parse_instances_data(data, schema=None):
                     "The length of values for each input/column name are not the same"
                 )
     return data
+
+
+# TODO: Reuse this function for `inputs` key data parsing in serving, and
+# add `convert_to_numpy` param to avoid converting data to numpy arrays for
+# genAI flavors.
+def parse_inputs_data(inputs_data_or_path, schema=None):
+    """
+    Helper function to cast inputs_data based on the schema.
+    Inputs data must be able to pass to the model for pyfunc predict directly.
+
+    Args:
+        inputs_data_or_path: A json-serializable object or path to a json file
+        schema: data schema to cast to. Be of type `mlflow.types.Schema`.
+    """
+    if isinstance(inputs_data_or_path, str) and os.path.exists(inputs_data_or_path):
+        with open(inputs_data_or_path) as handle:
+            inputs_data = json.load(handle)
+    else:
+        inputs_data = inputs_data_or_path
+    return _cast_schema_type(inputs_data, schema)
 
 
 def parse_tf_serving_input(inp_dict, schema=None):

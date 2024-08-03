@@ -133,7 +133,7 @@ for model/API invocations to the active MLflow Experiment.
 
         .. raw:: html
 
-            <h3>LangChain Automatic Tracing</h3>
+            <h3>OpenAI Automatic Tracing</h3>
 
         |
 

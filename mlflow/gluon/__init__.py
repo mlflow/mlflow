@@ -106,6 +106,12 @@ class _GluonModelWrapper:
     def __init__(self, gluon_model):
         self.gluon_model = gluon_model
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.gluon_model
+
     def predict(
         self,
         data,

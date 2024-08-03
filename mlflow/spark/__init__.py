@@ -182,7 +182,64 @@ def log_model(
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
-        signature: {{ signature }}
+        signature: A Model Signature object that describes the input and output Schema of the
+            model. The model signature can be inferred using `infer_signature` function
+            of `mlflow.models.signature`.
+            Note if your Spark model contains Spark ML vector type input or output column,
+            you should create ``SparkMLVector`` vector type for the column,
+            `infer_signature` function can also infer ``SparkMLVector`` vector type correctly
+            from Spark Dataframe input / output.
+            When loading a Spark ML model with ``SparkMLVector`` vector type input as MLflow
+            pyfunc model, it accepts ``Array[double]`` type input. MLflow internally converts
+            the array into Spark ML vector and then invoke Spark model for inference. Similarly,
+            if the model has vector type output, MLflow internally converts Spark ML vector
+            output data into ``Array[double]`` type inference result.
+
+            Example:
+
+            .. code-block:: python
+
+                from mlflow.models import infer_signature
+                from pyspark.sql.functions import col
+                from pyspark.ml.classification import LogisticRegression
+                from pyspark.ml.functions import array_to_vector
+                import pandas as pd
+                import mlflow
+
+                train_df = spark.createDataFrame(
+                    [([3.0, 4.0], 0), ([5.0, 6.0], 1)], schema="features array<double>, label long"
+                ).select(array_to_vector("features").alias("features"), col("label"))
+                lor = LogisticRegression(maxIter=2)
+                lor.setPredictionCol("").setProbabilityCol("prediction")
+                lor_model = lor.fit(train_df)
+
+                test_df = train_df.select("features")
+                prediction_df = lor_model.transform(train_df).select("prediction")
+
+                signature = infer_signature(test_df, prediction_df)
+
+                with mlflow.start_run() as run:
+                    model_info = mlflow.spark.log_model(
+                        lor_model,
+                        "model",
+                        signature=signature,
+                    )
+
+                # The following signature is outputed:
+                # inputs:
+                #   ['features': SparkML vector (required)]
+                # outputs:
+                #   ['prediction': SparkML vector (required)]
+                print(model_info.signature)
+
+                loaded = mlflow.pyfunc.load_model(model_info.model_uri)
+
+                test_dataset = pd.DataFrame({"features": [[1.0, 2.0]]})
+
+                # `loaded.predict` accepts `Array[double]` type input column,
+                # and generates `Array[double]` type output column.
+                print(loaded.predict(test_dataset))
+
         input_example: {{ input_example }}
         await_registration_for: Number of seconds to wait for the model version to finish
             being created and is in ``READY`` status. By default, the function
@@ -663,7 +720,7 @@ def save_model(
         sample_input: A sample input that is used to add the MLeap flavor to the model.
             This must be a PySpark DataFrame that the model can evaluate. If
             ``sample_input`` is ``None``, the MLeap flavor is not added.
-        signature: {{ signature }}
+        signature: See the document of argument ``signature`` in :py:func:`mlflow.spark.log_model`.
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
@@ -962,6 +1019,12 @@ class _PyFuncModelWrapper:
         self.spark = spark
         self.spark_model = spark_model
         self.signature = signature
+
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.spark_model
 
     def predict(
         self,
