@@ -217,6 +217,11 @@ class Project:
 
     def get_entry_point(self, entry_point):
         if self.databricks_spark_job_spec:
+            if self.databricks_spark_job_spec.python_file is not None:
+                # If Databricks Spark job is configured with python_file field,
+                # it does not need to configure entry_point section
+                # and the 'entry_point' param in 'mlflow run' command is ignored
+                return None
             if self._entry_points is None or entry_point not in self._entry_points:
                 raise MlflowException(
                     f"The entry point '{entry_point}' is not defined in Databricks spark job "
