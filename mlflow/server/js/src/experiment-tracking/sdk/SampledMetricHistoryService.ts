@@ -49,7 +49,7 @@ export const getSampledMetricHistoryBulkAction =
     const skippedRunUuids = runUuids.filter((runUuid) => {
       // If refresh mode is set to `all`, no runs are skipped
       if (refreshMode === 'all') {
-        return [];
+        return false;
       }
       const sampledHistoryEntry = getExistingDataForRunUuid(runUuid)?.[rangeKey];
 
