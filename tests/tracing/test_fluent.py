@@ -445,7 +445,6 @@ async def test_trace_handle_exception_during_prediction_async():
 
     with pytest.raises(ValueError, match=r"Some error"):
         await model.predict(2, 5)
-        # model.some_operation_raise_error(2, 4)
 
     # Trace should be logged even if the function fails, with status code ERROR
     trace = mlflow.get_last_active_trace()
