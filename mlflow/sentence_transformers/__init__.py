@@ -130,7 +130,7 @@ def save_model(
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
-    example_no_conversion: bool = False,
+    example_no_conversion: Optional[bool] = None,
 ) -> None:
     """
     .. note::
@@ -316,7 +316,7 @@ def log_model(
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
-    example_no_conversion: bool = False,
+    example_no_conversion: Optional[bool] = None,
 ):
     """
     .. note::
@@ -491,6 +491,12 @@ class _SentenceTransformerModelWrapper:
     def __init__(self, model, task=None):
         self.model = model
         self.task = task
+
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.model
 
     def predict(self, sentences, params: Optional[Dict[str, Any]] = None):
         """

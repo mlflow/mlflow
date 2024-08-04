@@ -108,7 +108,7 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config: Optional[Dict[str, Any]] = None,
-    example_no_conversion=False,
+    example_no_conversion=None,
 ):
     """
     Log a Promptflow model as an MLflow artifact for the current run.
@@ -209,7 +209,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config: Optional[Dict[str, Any]] = None,
-    example_no_conversion=False,
+    example_no_conversion=None,
 ):
     """
     Save a Promptflow model to a path on the local file system.
@@ -397,6 +397,12 @@ class _PromptflowModelWrapper:
             connection_provider=connection_provider,
             connections_name_overrides=connection_overrides,
         )
+
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.model
 
     def predict(  # pylint: disable=unused-argument
         self,

@@ -32,6 +32,12 @@ class _ChatModelPyfuncWrapper:
         self.context = context
         self.signature = signature
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.chat_model
+
     def _convert_input(self, model_input):
         import pandas
 

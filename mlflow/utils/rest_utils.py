@@ -89,10 +89,17 @@ def http_request(
         from databricks.sdk.config import Config
         from databricks.sdk.errors import DatabricksError
 
-        config = Config(
-            profile=host_creds.databricks_auth_profile,
-            retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
-        )
+        if host_creds.use_secret_scope_token:
+            config = Config(
+                host=host_creds.host,
+                token=host_creds.token,
+                retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
+            )
+        else:
+            config = Config(
+                profile=host_creds.databricks_auth_profile,
+                retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
+            )
         # Note: If we use `config` param, all SDK configurations must be set in `config` object.
         ws_client = WorkspaceClient(config=config)
         try:
@@ -422,6 +429,7 @@ class MlflowHostCreds:
         databricks_auth_profile=None,
         client_id=None,
         client_secret=None,
+        use_secret_scope_token=False,
     ):
         if not host:
             raise MlflowException(
@@ -452,6 +460,7 @@ class MlflowHostCreds:
         self.databricks_auth_profile = databricks_auth_profile
         self.client_id = client_id
         self.client_secret = client_secret
+        self.use_secret_scope_token = use_secret_scope_token
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):

@@ -4,8 +4,7 @@ import logging
 import uuid
 import warnings
 from copy import deepcopy
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Union
 
 from langchain_core.callbacks.base import BaseCallbackHandler, BaseCallbackManager
 
@@ -17,11 +16,8 @@ from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.langchain.runnables import get_runnable_steps
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import name_utils
-from mlflow.utils.autologging_utils import (
-    AUTOLOGGING_INTEGRATIONS,
-    disable_autologging,
-    get_autologging_config,
-)
+from mlflow.utils.autologging_utils import disable_autologging, get_autologging_config
+from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.autologging_utils.safety import _resolve_extra_tags
 
 _logger = logging.getLogger(__name__)
@@ -32,45 +28,6 @@ UNSUPPORT_LOG_MODEL_MESSAGE = (
     "using `mlflow.langchain.log_model(model, artifact_path, loader_fn=..., persist_dir=...)`"
 )
 INFERENCE_FILE_NAME = "inference_inputs_outputs.json"
-
-
-@dataclass
-class AutoLoggingConfig:
-    log_models: bool
-    log_input_examples: bool
-    log_model_signatures: bool
-    log_traces: bool
-    log_inputs_outputs: Optional[bool] = None
-    extra_tags: Optional[dict] = None
-
-    def should_log_optional_artifacts(self):
-        """
-        Check if any optional artifacts should be logged to MLflow.
-        """
-        return (
-            self.log_models
-            or self.log_input_examples
-            or self.log_model_signatures
-            or self.log_inputs_outputs
-        )
-
-    @classmethod
-    def init(cls):
-        config_dict = AUTOLOGGING_INTEGRATIONS.get(mlflow.langchain.FLAVOR_NAME, {})
-        if config_dict.get("log_inputs_outputs"):
-            _logger.warning(
-                "The log_inputs_outputs option is deprecated and will be removed in a future "
-                "release. Please use the log_traces option in `mlflow.langchain.autolog` "
-                "to log traces (including inputs and outputs) of the model."
-            )
-        return cls(
-            log_models=config_dict.get("log_models", False),
-            log_input_examples=config_dict.get("log_input_examples", False),
-            log_model_signatures=config_dict.get("log_model_signatures", False),
-            log_traces=config_dict.get("log_traces", True),
-            log_inputs_outputs=config_dict.get("log_inputs_outputs", False),
-            extra_tags=config_dict.get("extra_tags", None),
-        )
 
 
 def patched_inference(func_name, original, self, *args, **kwargs):
@@ -87,7 +44,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         with disable_autologging():
             return original(self, *args, **kwargs)
 
-    config = AutoLoggingConfig.init()
+    config = AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME)
 
     if config.log_traces:
         args, kwargs = _get_args_with_mlflow_tracer(func_name, args, kwargs)

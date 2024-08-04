@@ -3,6 +3,7 @@ from operator import itemgetter
 from typing import Any, Dict, List, Optional
 from unittest import mock
 
+import openai
 import pandas as pd
 import pytest
 from langchain.chains.llm import LLMChain
@@ -17,6 +18,7 @@ from langchain_core.callbacks.base import (
     BaseCallbackHandler,
     BaseCallbackManager,
 )
+from packaging.version import Version
 from test_langchain_model_export import FAISS, DeterministicDummyEmbeddings
 
 import mlflow
@@ -384,7 +386,7 @@ def test_llmchain_autolog_log_inputs_outputs():
     question = {"product": "MLflow"}
     answer = {"product": "MLflow", "text": TEST_CONTENT}
     with _mock_request(return_value=_mock_chat_completion_response()), mock.patch(
-        "mlflow.langchain._langchain_autolog._logger.warning"
+        "mlflow.utils.autologging_utils.config._logger.warning"
     ) as mock_warning:
         model = create_openai_llmchain()
         with mlflow.start_run() as run:
@@ -492,6 +494,11 @@ def test_agent_autolog():
         assert trace.data.spans[0].outputs == {"output": TEST_CONTENT}
 
 
+# TODO: Fix the AgentExecutor saving issue and remove the skip
+@pytest.mark.skipif(
+    Version(openai.__version__) >= Version("1.0"),
+    reason="OpenAI Client since 1.0 contains thread lock object that cannot be pickled.",
+)
 def test_loaded_agent_autolog():
     mlflow.langchain.autolog(log_models=True, log_input_examples=True)
     model, input, mock_response = create_openai_llmagent()
