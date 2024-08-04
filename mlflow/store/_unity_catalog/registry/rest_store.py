@@ -88,7 +88,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_RUN_ID,
     MLFLOW_DATABRICKS_NOTEBOOK_ID,
 )
-from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
@@ -97,7 +96,7 @@ from mlflow.utils.rest_utils import (
     http_request,
     verify_rest_response,
 )
-from mlflow.utils.uri import _is_uc_volumes_path
+from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
