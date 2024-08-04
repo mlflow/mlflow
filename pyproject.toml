@@ -120,6 +120,7 @@ mlflow = "mlflow.cli:cli"
 
 [project.entry-points."mlflow.app"]
 basic-auth = "mlflow.server.auth:create_app"
+keycloak-auth = "mlflow.server.keycloak_auth:create_app"
 
 [project.entry-points."mlflow.app.client"]
 basic-auth = "mlflow.server.auth.client:AuthServiceClient"
