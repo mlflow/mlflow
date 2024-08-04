@@ -40,9 +40,7 @@ def _already_ran(entry_point_name, parameters, git_commit, experiment_id=None):
 
         if run.info.to_proto().status != RunStatus.FINISHED:
             eprint(
-                ("Run matched, but is not FINISHED, so skipping (run_id={}, status={})").format(
-                    run.info.run_id, run.info.status
-                )
+                f"Run matched, but is not FINISHED, so skipping (run_id={run.info.run_id}, status={run.info.status})"
             )
             continue
 

@@ -27,9 +27,8 @@ class RequestHeaderProviderRegistry:
                 self.register(entrypoint.load())
             except (AttributeError, ImportError) as exc:
                 warnings.warn(
-                    'Failure attempting to register request header provider "{}": {}'.format(
-                        entrypoint.name, str(exc)
-                    ),
+                    "Failure attempting to register request header provider "
+                    f'"{entrypoint.name}": {exc!s}',
                     stacklevel=2,
                 )
 

@@ -485,7 +485,10 @@ def convert_input_example_to_serving_input(input_example) -> Optional[str]:
 
 
 def _save_example(
-    mlflow_model: Model, input_example: Optional[ModelInputExample], path: str, no_conversion=None
+    mlflow_model: Model,
+    input_example: Optional[ModelInputExample],
+    path: str,
+    no_conversion=None,
 ) -> Optional[_Example]:
     """
     Saves example to a file on the given path and updates passed Model with example metadata.
@@ -890,7 +893,8 @@ def _enforce_named_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
         # Otherwise, the schema is not valid.
         else:
             new_pf_input[name] = pd.Series(
-                [_enforce_type(obj, input_type, required) for obj in pf_input[name]], name=name
+                [_enforce_type(obj, input_type, required) for obj in pf_input[name]],
+                name=name,
             )
     return pd.DataFrame(new_pf_input)
 
@@ -907,7 +911,8 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
         for shape in [(-1,), (-1, 1)]:
             if tensor_spec.shape == shape:
                 return _enforce_tensor_spec(
-                    np.array(pd_series, dtype=tensor_spec.type).reshape(shape), tensor_spec
+                    np.array(pd_series, dtype=tensor_spec.type).reshape(shape),
+                    tensor_spec,
                 )
         raise MlflowException(
             f"The input pandas dataframe column '{name}' contains scalar "
@@ -1165,9 +1170,9 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optiona
         if num_actual_columns < len(input_schema.inputs):
             raise MlflowException(
                 "Model inference is missing inputs. The model signature declares "
-                "{} inputs  but the provided value only has "
-                "{} inputs. Note: the inputs were not named in the signature so we can "
-                "only verify their count.".format(len(input_schema.inputs), num_actual_columns)
+                f"{len(input_schema.inputs)} inputs  but the provided value only has "
+                f"{num_actual_columns} inputs. Note: the inputs were not named in the signature "
+                "so we can only verify their count."
             )
     if input_schema.is_tensor_spec():
         return _enforce_tensor_schema(pf_input, input_schema)

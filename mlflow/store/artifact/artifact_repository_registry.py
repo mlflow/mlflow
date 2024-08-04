@@ -49,9 +49,8 @@ class ArtifactRepositoryRegistry:
                 self.register(entrypoint.name, entrypoint.load())
             except (AttributeError, ImportError) as exc:
                 warnings.warn(
-                    'Failure attempting to register artifact repository for scheme "{}": {}'.format(
-                        entrypoint.name, str(exc)
-                    ),
+                    "Failure attempting to register artifact repository for scheme "
+                    f'"{entrypoint.name}": {exc!s}',
                     stacklevel=2,
                 )
 
