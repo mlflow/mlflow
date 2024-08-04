@@ -163,7 +163,7 @@ model_uri = '${modelPath}'
 
 # The model is logged with an input example. MLflow converts
 # it into the serving payload format for the deployed model endpoint,
-# and saves it to 'serving_input_payload.json'
+# and saves it to 'serving_input_example.json'
 serving_payload = """${servingInput}"""
 
 # Validate the serving payload works on the model
@@ -312,7 +312,7 @@ validate_serving_input(model_uri, serving_payload)`;
           <span className="code-comment">
             {`# The model is logged with an input example. MLflow converts
 # it into the serving payload format for the deployed model endpoint,
-# and saves it to 'serving_input_payload.json'\n`}
+# and saves it to 'serving_input_example.json'\n`}
           </span>
           serving_payload = <span className="code-string">{`"""${servingInput}"""`}</span>
         </div>

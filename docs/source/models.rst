@@ -125,6 +125,7 @@ In MLflow, understanding the intricacies of model signatures and input examples 
 
 - **Model Signature**: Defines the schema for model inputs, outputs, and additional inference parameters, promoting a standardized interface for model interaction.
 - **Model Input Example**: Provides a concrete instance of valid model input, aiding in understanding and testing model requirements. Additionally, if an input example is provided when logging a model, a model signature will be automatically inferred and stored if not explicitly provided.
+- **Model Serving Payload Example**: Provides a json payload example for querying a deployed model endpoint. If an input example is provided when logging a model, a serving paylod example is automatically generated from the input example and saved as ``serving_input_example.json``.
 
 Our documentation delves into several key areas:
 

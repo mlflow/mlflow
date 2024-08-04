@@ -199,7 +199,17 @@ class AsyncLoggingQueue:
                 run_batch.complete()
 
         for run_batch in run_batches:
-            self._batch_logging_worker_threadpool.submit(logging_func, run_batch)
+            try:
+                self._batch_logging_worker_threadpool.submit(logging_func, run_batch)
+            except Exception as e:
+                _logger.error(
+                    f"Failed to submit batch for logging: {e}. Usually this means you are not "
+                    "shutting down MLflow properly before exiting. Please make sure you are using "
+                    "context mananger, e.g., `with mlflow.start_run():` or call `mlflow.end_run()`"
+                    "explicilty to terminate MLflow logging before exiting."
+                )
+                run_batch.exception = e
+                run_batch.complete()
 
     def _wait_for_batch(self, batch: RunBatch) -> None:
         """Wait for the given batch to be processed by the logging thread.

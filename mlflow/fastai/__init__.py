@@ -349,6 +349,12 @@ class _FastaiModelWrapper:
     def __init__(self, learner):
         self.learner = learner
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.learner
+
     def predict(
         self,
         dataframe,

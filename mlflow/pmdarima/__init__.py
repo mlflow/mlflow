@@ -513,6 +513,12 @@ class _PmdarimaModelWrapper:
         self.pmdarima_model = pmdarima_model
         self._pmdarima_version = pmdarima.__version__
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.pmdarima_model
+
     def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
         """
         Args:

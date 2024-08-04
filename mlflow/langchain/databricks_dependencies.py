@@ -49,15 +49,19 @@ def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None
 
 
 def _extract_databricks_dependencies_from_retriever(retriever) -> Generator[Resource, None, None]:
+    # ContextualCompressionRetriever uses attribute "base_retriever"
     if hasattr(retriever, "base_retriever"):
         retriever = getattr(retriever, "base_retriever", None)
 
+    # Most other retrievers use attribute "retriever"
     if hasattr(retriever, "retriever"):
         retriever = getattr(retriever, "retriever", None)
 
+    # EnsembleRetriever uses attribute "retrievers" for multiple retrievers
     if hasattr(retriever, "retrievers"):
         retriever = getattr(retriever, "retrievers", None)
 
+    # If there are multiple retrievers, we iterate over them to get dependencies from each of them
     if isinstance(retriever, list):
         for single_retriever in retriever:
             yield from _get_vectorstore_from_retriever(single_retriever)

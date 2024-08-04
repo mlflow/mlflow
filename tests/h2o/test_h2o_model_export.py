@@ -18,7 +18,7 @@ import mlflow.h2o
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models import Model, ModelSignature
-from mlflow.models.utils import _read_example
+from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
 from mlflow.types.schema import ColSpec, Schema
@@ -31,7 +31,6 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _compare_logged_code_paths,
     _mlflow_major_version_string,
-    get_serving_input_example,
     pyfunc_serve_and_score_model,
 )
 
@@ -340,7 +339,7 @@ def test_pyfunc_serve_and_score(h2o_iris_model):
             model, artifact_path, input_example=inference_dataframe.as_data_frame()
         )
 
-    inference_payload = get_serving_input_example(model_info.model_uri)
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=inference_payload,

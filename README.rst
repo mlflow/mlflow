@@ -74,11 +74,11 @@ Packages
     :target: https://mvnrepository.com/artifact/org.mlflow/mlflow-spark
     :alt: Maven Central - mlflow-spark
 
-.. _Slack: https://join.slack.com/t/mlflow-users/shared_invite/zt-1iffrtbly-UNU8hV03aV8feUeGmqf_uA
+.. _Slack: https://mlflow.org/slack
 
 Job Statuses
 
-|examples| |cross-version-tests| |r-devel| |test-requirements| |stale| |push-images| |slow-tests|
+|examples| |cross-version-tests| |r-devel| |test-requirements| |stale| |push-images| |slow-tests| |website-e2e|
 
 .. |examples| image:: https://img.shields.io/github/actions/workflow/status/mlflow-automation/mlflow/examples.yml.svg?branch=master&event=schedule&label=Examples&style=for-the-badge&logo=github
     :target: https://github.com/mlflow-automation/mlflow/actions/workflows/examples.yml?query=workflow%3AExamples+event%3Aschedule
@@ -95,6 +95,8 @@ Job Statuses
     :target: https://github.com/mlflow/mlflow/actions/workflows/push-images.yml?query=event%3Arelease
 .. |slow-tests| image:: https://img.shields.io/github/actions/workflow/status/mlflow-automation/mlflow/slow-tests.yml.svg?branch=master&event=schedule&label=slow-tests&logo=github&style=for-the-badge
     :target: https://github.com/mlflow-automation/mlflow/actions/workflows/slow-tests.yml?query=event%3Aschedule
+.. |website-e2e| image:: https://img.shields.io/github/actions/workflow/status/mlflow/mlflow-website/e2e.yml.svg?branch=master&event=schedule&label=website-e2e&logo=github&style=for-the-badge
+    :target: https://github.com/mlflow/mlflow-website/actions/workflows/e2e.yml?query=event%3Aschedule
 
 Installing
 ----------

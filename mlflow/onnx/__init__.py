@@ -310,6 +310,12 @@ class _OnnxModelWrapper:
         self.inputs = [(inp.name, inp.type) for inp in self.rt.get_inputs()]
         self.output_names = [outp.name for outp in self.rt.get_outputs()]
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.rt
+
     def _cast_float64_to_float32(self, feeds):
         for input_name, input_type in self.inputs:
             if input_type == "tensor(float)":

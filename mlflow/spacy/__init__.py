@@ -277,6 +277,12 @@ class _SpacyModelWrapper:
     def __init__(self, spacy_model):
         self.spacy_model = spacy_model
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.spacy_model
+
     def predict(
         self,
         dataframe,
