@@ -171,8 +171,7 @@ def trace(
 
             def wrapper(*args, **kwargs):
                 with _WrappingContext(fn, args, kwargs) as wrapping_coro:
-                    result = fn(*args, **kwargs)
-                    return wrapping_coro.send(result)
+                    return wrapping_coro.send(fn(*args, **kwargs))
 
         return functools.wraps(fn)(wrapper)
 
