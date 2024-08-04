@@ -12,7 +12,7 @@ _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
 
 class RequestPayload(RequestModel):
     input: Union[str, List[int], List[str], List[List[int]]]
-    encoding_format: Optional[Literal["float", "base64"]] = "float"
+    encoding_format: Optional[Literal["float", "base64"]] = None
 
     class Config:
         if IS_PYDANTIC_V2:
