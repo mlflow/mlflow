@@ -27,7 +27,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          role-to-assume: arn:aws:iam::${{secrets.AWS_ACCOUNT_ID_DEV}}:role/github-actions-eks-deploy-role
+          role-to-assume: arn:aws:iam::${{secrets.AWS_ACCOUNT_ID_DEV}}:role/terraform-jumphost
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
