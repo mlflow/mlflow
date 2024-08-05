@@ -98,8 +98,8 @@ class TestConfig(BaseModel):
 
 class FlavorConfig(BaseModel, extra="forbid"):
     package_info: PackageInfo
-    models: TestConfig = None
-    autologging: TestConfig = None
+    models: Optional[TestConfig] = None
+    autologging: Optional[TestConfig] = None
 
     @property
     def categories(self) -> List[Tuple[str, TestConfig]]:
@@ -138,10 +138,11 @@ def read_yaml(location, if_error=None):
         if re.match(r"^https?://", location):
             resp = requests.get(location)
             resp.raise_for_status()
-            return yaml.safe_load(resp.text)
+            yaml_dict = yaml.safe_load(resp.text)
         else:
             with open(location) as f:
-                return yaml.safe_load(f)
+                yaml_dict = yaml.safe_load(f)
+        return {name: FlavorConfig(**cfg) for name, cfg in yaml_dict.items()}
     except Exception as e:
         if if_error is not None:
             print(f"Failed to read '{location}' due to: `{e}`")
@@ -562,9 +563,7 @@ def apply_changed_files(changed_files, matrix):
 
 def generate_matrix(args):
     args = parse_args(args)
-    for name, cfg in read_yaml(args.versions_yaml).items():
-        FlavorConfig(**cfg)
-    config = {name: FlavorConfig(**cfg) for name, cfg in read_yaml(args.versions_yaml).items()}
+    config = read_yaml(args.versions_yaml)
     if (args.ref_versions_yaml, args.changed_files).count(None) == 2:
         matrix = expand_config(config)
     else:
