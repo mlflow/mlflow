@@ -1,7 +1,7 @@
 import functools
 
 from mlflow.protos.databricks_managed_catalog_service_pb2 import UnityCatalogService
-from mlflow.protos.databricks_unity_catalog_oss_messages_pb2 import (
+from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     CreateRegisteredModel,
     RegisteredModelInfo,
     TagKeyValue,

@@ -1,5 +1,5 @@
 from mlflow.entities.model_registry import RegisteredModel, RegisteredModelAlias, RegisteredModelTag
-from mlflow.protos.databricks_unity_catalog_oss_messages_pb2 import RegisteredModelInfo
+from mlflow.protos.unity_catalog_oss_messages_pb2 import RegisteredModelInfo
 
 
 def registered_model_from_uc_oss_proto(uc_oss_proto: RegisteredModelInfo) -> RegisteredModel:
