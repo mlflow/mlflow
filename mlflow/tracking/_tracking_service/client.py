@@ -223,7 +223,7 @@ class TrackingServiceClient:
             The updated TraceInfo object.
         """
         tags = exclude_immutable_tags(tags or {})
-        self.store.end_trace(
+        return self.store.end_trace(
             request_id=request_id,
             timestamp_ms=timestamp_ms,
             status=status,
@@ -817,7 +817,7 @@ class TrackingServiceClient:
     def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder)
-        artifact_repo.upload_trace_data(trace_data_json)
+        return artifact_repo.upload_trace_data(trace_data_json)
 
     def _log_artifact_async(self, run_id, filename, artifact_path=None, artifact=None):
         """
