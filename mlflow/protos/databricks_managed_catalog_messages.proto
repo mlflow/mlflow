@@ -64,6 +64,8 @@ message CreateRegisteredModel {
 }
 
 message RegisteredModelInfo {
+  // Input fields:
+
   // [Create:REQ Update:OPT] Name of Model, relative to parent Schema.
   optional string name = 1;
   // [Create:REQ Update:IGN] Name of parent Catalog.
