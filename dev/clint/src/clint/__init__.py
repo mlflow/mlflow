@@ -8,6 +8,7 @@ import re
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 from clint.config import Config
@@ -34,7 +35,7 @@ def main():
     args = Args.parse()
     with ProcessPoolExecutor() as pool:
         futures = [
-            pool.submit(lint_file, f)
+            pool.submit(lint_file, Path(f))
             for f in args.files
             if not EXCLUDE_REGEX.match(f) and os.path.exists(f)
         ]
