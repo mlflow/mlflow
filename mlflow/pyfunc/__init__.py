@@ -1072,7 +1072,7 @@ class _ServedPyFuncModel(PyFuncModel):
         self._server_pid = server_pid
         # We need to set `env_manager` attribute because it is used by Databricks runtime
         # evaluate usage logging to log 'env_manager' tag in `_evaluate` function patching.
-        self.env_manager = env_manager
+        self._env_manager = env_manager
 
     def predict(self, data, params=None):
         """
@@ -1098,6 +1098,9 @@ class _ServedPyFuncModel(PyFuncModel):
             raise MlflowException("Served PyFunc Model is missing server process ID.")
         return self._server_pid
 
+    @property
+    def env_manager(self):
+        return self._env_manager
 
 def _load_model_or_server(
     model_uri: str, env_manager: str, model_config: Optional[Dict[str, Any]] = None
