@@ -11,3 +11,29 @@ body {
 #root {
   height: 100%;
 }
+
+.experiment-link {
+  color: #0c3246;
+}
+
+.experiment-link {
+  color: #0c3246;
+}
+
+.experiment-link:hover {
+  color: #e74860;
+}
+
+/* .experiment-list-meta-item ul :nth-child(3),
+.experiment-list-meta-item ul :nth-child(4) {
+  display: none;
+} */
+
+.tagCss {
+  background-color: #e74860 !important;
+}
+
+
+.experiment-Checkbox input[type="checkbox"]:checked {
+  background-color: #e74860 !important;
+}

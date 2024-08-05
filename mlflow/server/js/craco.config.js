@@ -313,6 +313,7 @@ module.exports = function () {
         new webpack.EnvironmentPlugin({
           MLFLOW_SHOW_GDPR_PURGING_MESSAGES: process.env.MLFLOW_SHOW_GDPR_PURGING_MESSAGES ? 'true' : 'false',
           MLFLOW_USE_ABSOLUTE_AJAX_URLS: process.env.MLFLOW_USE_ABSOLUTE_AJAX_URLS ? 'true' : 'false',
+          REACT_APP_WEB_BASE_URL: process.env.REACT_APP_WEB_BASE_URL? process.env.REACT_APP_WEB_BASE_URL : "http://localhost:5000/"
         }),
       ],
     },
