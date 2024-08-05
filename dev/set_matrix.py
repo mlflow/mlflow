@@ -48,7 +48,12 @@ VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
 # Treat "dev" as "newer than any existing versions"
 DEV_NUMERIC = "9999.9999.9999"
-
+TEST_COVERAGE_EXCLUSION_LIST = {
+    # Spark autologging test run command includes complex shell commands
+    # to run each test in a separate process. This script cannot parse
+    # such complex commands.
+    "spark"
+}
 
 class Version(OriginalVersion):
     def __init__(self, version):
@@ -112,7 +117,6 @@ class FlavorConfig(BaseModel, extra="forbid"):
 
 
 class MatrixItem(BaseModel, extra="forbid"):
-    name: str
     flavor: str
     category: str
     job_name: str
@@ -384,10 +388,6 @@ def parse_args(args):
     return parser.parse_args(args)
 
 
-def get_flavor(name):
-    return {"pytorch-lightning": "pytorch"}.get(name, name)
-
-
 def validate_test_coverage(flavor: str, config: FlavorConfig):
     """
     Validate that all test files for the flavor are executed in the cross-version tests.
@@ -419,9 +419,7 @@ def validate_test_coverage(flavor: str, config: FlavorConfig):
                 tested_files |= _get_test_files_from_pytest_command(cmd, test_dir)
 
     if untested_files := _get_test_files(test_dir) - tested_files:
-        # TODO: Update this after fixing ml-package-versions.yml to
-        # have all test files in the matrix.
-        warnings.warn(
+        raise RuntimeError(
             f"Flavor '{flavor}' has test files that are not covered by the test matrix. \n"
             + "\n".join(f"\033[91m - {t}\033[0m" for t in untested_files)
             + f"\nPlease update {VERSIONS_YAML_PATH} to execute all test files. Note that this "
@@ -464,8 +462,7 @@ def _get_test_files_from_pytest_command(cmd, test_dir):
 
 def expand_config(config):
     matrix = set()
-    for name, flavor_config in config.items():
-        flavor = get_flavor(name)
+    for flavor, flavor_config in config.items():
         package_info = flavor_config.package_info
         all_versions = get_released_versions(package_info.pip_release)
         free_disk_space = package_info.pip_release in (
@@ -473,7 +470,10 @@ def expand_config(config):
             "sentence-transformers",
             "torch",
         )
-        validate_test_coverage(name, flavor_config)
+
+        if flavor not in TEST_COVERAGE_EXCLUSION_LIST:
+            validate_test_coverage(flavor, flavor_config)
+
         for category, cfg in flavor_config.categories:
             versions = filter_versions(
                 all_versions,
@@ -498,10 +498,9 @@ def expand_config(config):
 
                 matrix.add(
                     MatrixItem(
-                        name=name,
                         flavor=flavor,
                         category=category,
-                        job_name=f"{name} / {category} / {ver}",
+                        job_name=f"{flavor} / {category} / {ver}",
                         install=install,
                         run=run,
                         package=package_info.pip_release,
@@ -528,10 +527,9 @@ def expand_config(config):
                 dev_version = Version.create_dev()
                 matrix.add(
                     MatrixItem(
-                        name=name,
                         flavor=flavor,
                         category=category,
-                        job_name=f"{name} / {category} / {dev_version}",
+                        job_name=f"{flavor} / {category} / {dev_version}",
                         install=install,
                         run=run,
                         package=package_info.pip_release,
@@ -592,7 +590,7 @@ def generate_matrix(args):
     if args.only_latest:
         groups = defaultdict(list)
         for item in matrix:
-            groups[(item.name, item.category)].append(item)
+            groups[(item.flavor, item.category)].append(item)
         matrix = {max(group, key=lambda x: x.version) for group in groups.values()}
 
     return set(matrix)
@@ -615,7 +613,7 @@ def set_action_output(name, value):
 def split(matrix, n):
     grouped_by_name = defaultdict(list)
     for item in matrix:
-        grouped_by_name[item.name].append(item)
+        grouped_by_name[item.flavor].append(item)
 
     num = len(matrix) // n
     chunk = []
@@ -658,7 +656,7 @@ def main(args):
     print(divider("Parameters"))
     print(json.dumps(args, indent=2))
     matrix = generate_matrix(args)
-    matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
+    matrix = sorted(matrix, key=lambda x: (x.flavor, x.category, x.version))
     matrix = [x for x in matrix if x.flavor not in ("gluon", "mleap")]
     assert len(matrix) <= MAX_ITEMS * 2, f"Too many jobs: {len(matrix)} > {MAX_ITEMS * NUM_JOBS}"
     for idx, mat in enumerate(split(matrix, NUM_JOBS), start=1):

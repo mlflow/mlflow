@@ -77,7 +77,7 @@ pytorch-lightning:
       # The problematic commit: https://github.com/Lightning-AI/torchmetrics/commit/3527e17516902eb5265cd2a4f76ad6b0f9f77692
       "< 1.8.0": ["torchmetrics<1.0.0"]
     run: |
-      pytest tests/pytorch/test_pytorch_autolog.py
+      pytest tests/pytorch-lightning/test_pytorch_autolog.py
 
 keras:
   package_info:
@@ -94,7 +94,7 @@ keras:
       ">= 3.0.0": ["jax[cpu]>0.4"]
     run: |
       export KERAS_BACKEND=jax
-      pytest tests/keras/test_callback.py
+      pytest tests/keras --ignore tests/keras/test_keras_autolog.py
 
   autologging:
     minimum: "3.0.2"
@@ -132,7 +132,8 @@ tensorflow:
         tests/tensorflow/test_tensorflow2_core_model_export.py \
         tests/tensorflow/test_tensorflow2_metric_value_conversion_utils.py \
         tests/tensorflow/test_keras_model_export.py \
-        tests/tensorflow/test_keras_pyfunc_model_works_with_all_input_types.py
+        tests/tensorflow/test_keras_pyfunc_model_works_with_all_input_types.py \
+        tests/tensorflow/test_mlflow_callback.py
 
   autologging:
     minimum: "2.7.4"
