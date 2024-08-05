@@ -76,7 +76,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-            role-to-assume: arn:aws:iam::${{secrets.AWS_ACCOUNT_ID_DEV}}:role/terraform-jumphost
+            role-to-assume: arn:aws:iam::${{secrets.AWS_ACCOUNT_ID_DEV}}:role/github-actions-terraform-role
             aws-region: us-west-1
 
       - name: "Terragrunt Plan"
