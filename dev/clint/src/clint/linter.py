@@ -4,6 +4,7 @@ import ast
 import re
 import tokenize
 from dataclasses import dataclass
+from pathlib import Path
 
 from clint.builtin import BUILTIN_MODULES
 
@@ -41,7 +42,7 @@ class Rule:
 @dataclass
 class Violation:
     rule: Rule
-    path: str
+    path: Path
     lineno: int
     col_offset: int
 
@@ -57,7 +58,7 @@ class Violation:
             "column": self.col_offset,
             "endLine": self.lineno,
             "endColumn": self.col_offset,
-            "path": self.path,
+            "path": str(self.path),
             "symbol": self.rule.name,
             "message": self.rule.message,
             "message-id": self.rule.id,
@@ -65,24 +66,29 @@ class Violation:
 
 
 NO_RST = Rule(
-    "Z0001",
+    "MLF0001",
     "no-rst",
     "Do not use RST style. Use Google style instead.",
 )
 LAZY_BUILTIN_IMPORT = Rule(
-    "Z0002",
+    "MLF0002",
     "lazy-builtin-import",
     "Builtin modules must be imported at the top level.",
 )
 MLFLOW_CLASS_NAME = Rule(
-    "Z0003",
+    "MLF0003",
     "mlflow-class-name",
     "Should use `Mlflow` in class name, not `MLflow` or `MLFlow`.",
+)
+TEST_NAME_TYPO = Rule(
+    "MLF0004",
+    "test-name-typo",
+    "This function looks like a test, but its name does not start with 'test_'.",
 )
 
 
 class Linter(ast.NodeVisitor):
-    def __init__(self, path: str, ignore: dict[str, set[int]]):
+    def __init__(self, path: Path, ignore: dict[str, set[int]]):
         self.stack: list[ast.FunctionDef | ast.AsyncFunctionDef] = []
         self.path = path
         self.ignore = ignore
@@ -113,6 +119,13 @@ class Linter(ast.NodeVisitor):
     def _is_in_function(self) -> bool:
         return bool(self.stack)
 
+    def _test_name_typo(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        if not self.path.name.startswith("test_") or self._is_in_function():
+            return
+
+        if node.name.startswith("test") and not node.name.startswith("test_"):
+            self._check(node, TEST_NAME_TYPO)
+
     def _mlflow_class_name(self, node: ast.ClassDef) -> None:
         if "MLflow" in node.name or "MLFlow" in node.name:
             self._check(node, MLFLOW_CLASS_NAME)
@@ -125,12 +138,14 @@ class Linter(ast.NodeVisitor):
         self.stack.pop()
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self._test_name_typo(node)
         self.stack.append(node)
         self._no_rst(node)
         self.generic_visit(node)
         self.stack.pop()
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        self._test_name_typo(node)
         self.stack.append(node)
         self._no_rst(node)
         self.generic_visit(node)
@@ -149,7 +164,7 @@ class Linter(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def lint_file(path: str) -> list[Violation]:
+def lint_file(path: Path) -> list[Violation]:
     with open(path) as f:
         code = f.read()
         linter = Linter(path, ignore_map(code))
