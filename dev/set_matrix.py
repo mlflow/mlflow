@@ -63,13 +63,13 @@ class Version(OriginalVersion):
         return cls(DEV_VERSION)
 
 
-class PackageInfo(BaseModel):
+class PackageInfo(BaseModel, extra="forbid"):
     pip_release: str
     install_dev: Optional[str] = None
     module_name: Optional[str] = None
 
 
-class TestConfig(BaseModel):
+class TestConfig(BaseModel, extra="forbid"):
     minimum: Version
     maximum: Version
     unsupported: Optional[List[Version]] = None
@@ -111,7 +111,7 @@ class FlavorConfig(BaseModel, extra="forbid"):
         return cs
 
 
-class MatrixItem(BaseModel):
+class MatrixItem(BaseModel, extra="forbid"):
     name: str
     flavor: str
     category: str
@@ -388,7 +388,7 @@ def get_flavor(name):
     return {"pytorch-lightning": "pytorch"}.get(name, name)
 
 
-def validate_test_coverage(flavor: str, config: Dict):
+def validate_test_coverage(flavor: str, config: FlavorConfig):
     """
     Validate that all test files for the flavor are executed in the cross-version tests.
 
@@ -423,41 +423,42 @@ def validate_test_coverage(flavor: str, config: Dict):
         # have all test files in the matrix.
         warnings.warn(
             f"Flavor '{flavor}' has test files that are not covered by the test matrix. \n"
-            + "\n".join(f" - {t}" for t in untested_files)
-            + f"\nPlease update {VERSIONS_YAML_PATH} to execute all test files."
+            + "\n".join(f"\033[91m - {t}\033[0m" for t in untested_files)
+            + f"\nPlease update {VERSIONS_YAML_PATH} to execute all test files. Note that this "
+            "check does not handle complex syntax in test commands e.g. loop. It is generally "
+            "recommended to use simple commands as we cannot test the test commands themselves."
         )
 
 
-PYTEST_FILE_PATTERN = re.compile(r"test_.*\.py")
+PYTEST_FILE_PATTERN = re.compile(r"^test_.*\.py$")
 
 
-def _get_test_files(test_dir_or_path: str) -> Set[str]:
+def _get_test_files(test_dir_or_path: str) -> Set[Path]:
     """List all test files in the given directory or file path."""
-    if os.path.isfile(test_dir_or_path):
-        filename = os.path.basename(test_dir_or_path)
-        if PYTEST_FILE_PATTERN.match(filename):
-            return {test_dir_or_path}
+    path = Path(test_dir_or_path)
+    if path.is_dir():
+        return set(path.rglob("test_*.py"))
 
-    test_files = set()
-    for file in Path(test_dir_or_path).rglob("test_*.py"):
-        test_files.add(str(file))
-    return test_files
+    if PYTEST_FILE_PATTERN.match(path.name):
+        return {path}
+
+    return set()
 
 
 def _get_test_files_from_pytest_command(cmd, test_dir):
     parser = argparse.ArgumentParser()
     parser.add_argument("--ignore", action="append")
-    parser.add_argument("args", nargs="*")
+    parser.add_argument("paths", nargs="*")
     args = parser.parse_known_args(shlex.split(cmd))[0]
 
     executed_files = set()
     ignore_files = set()
-    for arg in args.args:
-        if arg.startswith(test_dir):
-            executed_files |= _get_test_files(arg)
-    for arg in args.ignore or []:
-        if arg.startswith(test_dir):
-            ignore_files |= _get_test_files(arg)
+    for path in args.paths:
+        if path.startswith(test_dir):
+            executed_files |= _get_test_files(path)
+    for ignore_path in args.ignore or []:
+        if ignore_path.startswith(test_dir):
+            ignore_files |= _get_test_files(ignore_path)
     return executed_files - ignore_files
 
 
@@ -657,6 +658,7 @@ def main(args):
     print(divider("Parameters"))
     print(json.dumps(args, indent=2))
     matrix = generate_matrix(args)
+    return
     matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
     matrix = [x for x in matrix if x.flavor not in ("gluon", "mleap")]
     assert len(matrix) <= MAX_ITEMS * 2, f"Too many jobs: {len(matrix)} > {MAX_ITEMS * NUM_JOBS}"
