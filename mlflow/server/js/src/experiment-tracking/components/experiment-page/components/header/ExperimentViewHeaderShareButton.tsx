@@ -39,14 +39,14 @@ export const ExperimentViewHeaderShareButton = ({
         />
       )}
       {/* TODO: ensure that E2E tests are working after refactor is complete */}
-      <Button
+      {/* <Button
         componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_header_experimentviewheadersharebutton.tsx_44"
         type="primary"
         onClick={() => setShowGetLinkModal(true)}
         data-test-id="share-button"
       >
         <FormattedMessage defaultMessage="Share" description="Text for share button on experiment view page header" />
-      </Button>
+      </Button> */}
     </>
   );
 };

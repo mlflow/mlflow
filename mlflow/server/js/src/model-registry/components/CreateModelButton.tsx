@@ -39,7 +39,7 @@ export class CreateModelButton extends React.Component<Props, State> {
 
     return (
       <div css={styles.wrapper}>
-        <Button
+        {/* <Button
           className="create-model-btn"
           css={styles.getButtonSize(buttonType)}
           // @ts-expect-error TS(2322): Type 'string' is not assignable to type '"link" | ... Remove this comment to see the full error message
@@ -48,7 +48,7 @@ export class CreateModelButton extends React.Component<Props, State> {
           data-testid="create-model-button"
         >
           {buttonText}
-        </Button>
+        </Button> */}
         <CreateModelModal modalVisible={modalVisible} hideModal={this.hideModal} />
       </div>
     );
