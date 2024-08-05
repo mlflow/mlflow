@@ -19,5 +19,3 @@ RUN python -m pip install --upgrade pip && \
     pip install --no-cache-dir -e .[extras]
 
 RUN pip install psycopg2-binary httpx
-
-CMD [ "mlflow", "server", "--app-name" ,"keycloak-auth", "--host", "0.0.0.0"]
