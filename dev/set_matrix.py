@@ -29,11 +29,13 @@ import functools
 import json
 import os
 import re
+import shlex
 import shutil
 import sys
 import warnings
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import requests
 import yaml
@@ -46,7 +48,6 @@ VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
 # Treat "dev" as "newer than any existing versions"
 DEV_NUMERIC = "9999.9999.9999"
-VALID_CATEGORIES = ["models", "autologging"]
 
 
 class Version(OriginalVersion):
@@ -93,6 +94,21 @@ class TestConfig(BaseModel):
     @validator("unsupported", pre=True)
     def validate_unsupported(cls, v):
         return [Version(v) for v in v] if v else None
+
+
+class FlavorConfig(BaseModel, extra="forbid"):
+    package_info: PackageInfo
+    models: TestConfig = None
+    autologging: TestConfig = None
+
+    @property
+    def categories(self) -> List[Tuple[str, TestConfig]]:
+        cs = []
+        if self.models:
+            cs.append(("models", self.models))
+        if self.autologging:
+            cs.append(("autologging", self.autologging))
+        return cs
 
 
 class MatrixItem(BaseModel):
@@ -379,17 +395,16 @@ def validate_test_coverage(flavor: str, config: Dict):
     of executed test files, and then comparing it with the actual test files in the directory.
     """
     test_dir = os.path.join("tests", flavor)
-    all_test_files = _get_test_files_in_dir(test_dir)
+    tested_files = set()
 
-    for category in VALID_CATEGORIES:
-        run_command = config.get(category, {}).get("run")
-        if not run_command:
+    for category, cfg in config.categories:
+        if not cfg.run:
             continue
 
         # Consolidate multi-line commands with "\" to a single line
         commands = []
         curr = ""
-        for cmd in run_command.split("\n"):
+        for cmd in cfg.run.split("\n"):
             if cmd.endswith("\\"):
                 curr += cmd.rstrip("\\")
             else:
@@ -400,65 +415,64 @@ def validate_test_coverage(flavor: str, config: Dict):
         for cmd in commands:
             cmd = cmd.strip().rstrip(";")
             if cmd.startswith("pytest"):
-                all_test_files -= _get_test_files_from_pytest_command(cmd, test_dir)
+                tested_files |= _get_test_files_from_pytest_command(cmd, test_dir)
 
-    if all_test_files:
-        # TODO: Update this after updating ml-package-versions.yml to
-        # have all test files in the matrix. Since the job pulls the
-        # config file from master branch, we cannot update them at once.
+    if untested_files := _get_test_files(test_dir) - tested_files:
+        # TODO: Update this after fixing ml-package-versions.yml to
+        # have all test files in the matrix.
         warnings.warn(
             f"Flavor '{flavor}' has test files that are not covered by the test matrix. \n"
-            + "\n".join(f" - {t}" for t in all_test_files)
+            + "\n".join(f" - {t}" for t in untested_files)
             + f"\nPlease update {VERSIONS_YAML_PATH} to execute all test files."
         )
 
 
-def _get_test_files_in_dir(test_dir):
+PYTEST_FILE_PATTERN = re.compile(r"test_.*\.py")
+
+
+def _get_test_files(test_dir_or_path: str) -> Set[str]:
+    """List all test files in the given directory or file path."""
+    if os.path.isfile(test_dir_or_path):
+        filename = os.path.basename(test_dir_or_path)
+        if PYTEST_FILE_PATTERN.match(filename):
+            return {test_dir_or_path}
+
     test_files = set()
-    for root, _, files in os.walk(test_dir):
-        for file in files:
-            if file.startswith("test_") and file.endswith(".py"):
-                test_files.add(os.path.join(root, file).replace("\\", "/"))
+    for file in Path(test_dir_or_path).rglob("test_*.py"):
+        test_files.add(str(file))
     return test_files
 
 
 def _get_test_files_from_pytest_command(cmd, test_dir):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ignore", action="append")
+    parser.add_argument("args", nargs="*")
+    args = parser.parse_known_args(shlex.split(cmd))[0]
+
     executed_files = set()
     ignore_files = set()
-    is_ignore = False
-    for arg in cmd.split(" "):
-        if arg == "--ignore":
-            is_ignore = True
-            continue
-        elif arg.startswith(test_dir):
-            test_files = _get_test_files_in_dir(arg) if os.path.isdir(arg) else {arg}
-            if is_ignore:
-                ignore_files |= test_files
-                is_ignore = False
-            else:
-                executed_files |= test_files
+    for arg in args.args:
+        if arg.startswith(test_dir):
+            executed_files |= _get_test_files(arg)
+    for arg in args.ignore or []:
+        if arg.startswith(test_dir):
+            ignore_files |= _get_test_files(arg)
     return executed_files - ignore_files
 
 
 def expand_config(config):
     matrix = set()
-    for name, cfgs in config.items():
+    for name, flavor_config in config.items():
         flavor = get_flavor(name)
-        package_info = PackageInfo(**cfgs.pop("package_info"))
+        package_info = flavor_config.package_info
         all_versions = get_released_versions(package_info.pip_release)
         free_disk_space = package_info.pip_release in (
             "transformers",
             "sentence-transformers",
             "torch",
         )
-        validate_test_coverage(name, cfgs)
-        for category, cfg in cfgs.items():
-            if category not in VALID_CATEGORIES:
-                raise ValueError(
-                    f"Flavor {name} has an invalid category in {VERSIONS_YAML_PATH}: '{category}'"
-                )
-
-            cfg = TestConfig(**cfg)
+        validate_test_coverage(name, flavor_config)
+        for category, cfg in flavor_config.categories:
             versions = filter_versions(
                 all_versions,
                 cfg.minimum,
@@ -548,7 +562,9 @@ def apply_changed_files(changed_files, matrix):
 
 def generate_matrix(args):
     args = parse_args(args)
-    config = read_yaml(args.versions_yaml)
+    for name, cfg in read_yaml(args.versions_yaml).items():
+        FlavorConfig(**cfg)
+    config = {name: FlavorConfig(**cfg) for name, cfg in read_yaml(args.versions_yaml).items()}
     if (args.ref_versions_yaml, args.changed_files).count(None) == 2:
         matrix = expand_config(config)
     else:
