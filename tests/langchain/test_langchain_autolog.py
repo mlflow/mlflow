@@ -947,7 +947,7 @@ def test_langchain_tracer_injection_for_arbitrary_runnables(log_traces, async_lo
         else:
             mock_debug.assert_not_called()
 
-    if async_logging_enabled and log_traces:
+    if async_logging_enabled and should_log_traces:
         mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
