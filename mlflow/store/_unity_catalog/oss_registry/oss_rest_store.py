@@ -1,11 +1,11 @@
 import functools
 
-from mlflow.protos.databricks_managed_catalog_messages_pb2 import (
+from mlflow.protos.databricks_managed_catalog_service_pb2 import UnityCatalogService
+from mlflow.protos.databricks_unity_catalog_oss_messages_pb2 import (
     CreateRegisteredModel,
     RegisteredModelInfo,
     TagKeyValue,
 )
-from mlflow.protos.databricks_managed_catalog_service_pb2 import UnityCatalogService
 from mlflow.store.model_registry.base_rest_store import BaseRestStore
 from mlflow.utils._oss_unity_catalog_utils import registered_model_from_uc_oss_proto
 from mlflow.utils._unity_catalog_utils import get_full_name_from_sc

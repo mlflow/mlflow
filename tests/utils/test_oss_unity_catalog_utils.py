@@ -1,5 +1,5 @@
 from mlflow.entities.model_registry import RegisteredModel, RegisteredModelAlias, RegisteredModelTag
-from mlflow.protos.databricks_managed_catalog_messages_pb2 import (
+from mlflow.protos.databricks_unity_catalog_oss_messages_pb2 import (
     RegisteredModelAliasInfo,
     RegisteredModelInfo,
     TagKeyValue,

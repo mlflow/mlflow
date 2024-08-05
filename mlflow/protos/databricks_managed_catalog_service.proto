@@ -4,6 +4,7 @@ package mlflow.managedcatalog;
 
 import "databricks.proto";
 import "databricks_managed_catalog_messages.proto";
+import "databricks_unity_catalog_oss_messages.proto";
 import "scalapb/scalapb.proto";
 
 option java_package = "com.databricks.api.proto.managedcatalog";

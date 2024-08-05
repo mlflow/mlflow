@@ -4,7 +4,7 @@ from unittest import mock
 import pytest
 
 from mlflow.entities.model_registry import RegisteredModelTag
-from mlflow.protos.databricks_managed_catalog_messages_pb2 import (
+from mlflow.protos.databricks_unity_catalog_oss_messages_pb2 import (
     CreateRegisteredModel,
     RegisteredModelInfo,
     TagKeyValue,
