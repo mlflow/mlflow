@@ -116,6 +116,7 @@ export const fetchEndpointRaw = ({
     'Content-Type': 'application/json; charset=utf-8',
     ...getDefaultHeaders(document.cookie),
     ...headerOptions,
+    Authorization : localStorage.getItem("authToken")
   };
 
   const defaultOptions = {

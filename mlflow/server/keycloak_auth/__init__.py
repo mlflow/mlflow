@@ -17,7 +17,7 @@ _logger = logging.getLogger(__name__)
 auth_config = read_auth_config()
 
 def is_unprotected_route(path: str) -> bool:
-    return path.startswith(("/static", "/favicon.ico", "/health"))
+    return path.startswith(("/static", "/favicon.ico", "/health")) or path == "/"
 
 
 def _before_request():

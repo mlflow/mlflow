@@ -6,9 +6,9 @@ import { HomePageDocsUrl, Version } from '../constants';
 import { DarkThemeSwitch } from '@mlflow/mlflow/src/common/components/DarkThemeSwitch';
 
 const colors = {
-  headerBg: '#0b3574',
+  headerBg: '#0c3246',
   headerText: '#e7f1fb',
-  headerActiveLink: '#43C9ED',
+  headerActiveLink: '#e74860',
 };
 
 const classNames = {
@@ -64,7 +64,7 @@ export const MlflowHeader = ({
             marginBottom: 13,
           }}
         >
-          {Version}
+          {/* {Version} */}
         </span>
       </div>
       <div
