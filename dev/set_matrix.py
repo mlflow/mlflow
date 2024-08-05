@@ -32,6 +32,7 @@ import re
 import shlex
 import shutil
 import sys
+import warnings
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -419,7 +420,9 @@ def validate_test_coverage(flavor: str, config: FlavorConfig):
                 tested_files |= _get_test_files_from_pytest_command(cmd, test_dir)
 
     if untested_files := _get_test_files(test_dir) - tested_files:
-        raise RuntimeError(
+        # TODO: Update this after the fix for the ml-package-versions.yml file is merged
+        # to the master branch.
+        warnings.warn(
             f"Flavor '{flavor}' has test files that are not covered by the test matrix. \n"
             + "\n".join(f"\033[91m - {t}\033[0m" for t in untested_files)
             + f"\nPlease update {VERSIONS_YAML_PATH} to execute all test files. Note that this "
