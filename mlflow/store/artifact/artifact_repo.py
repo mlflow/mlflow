@@ -349,17 +349,6 @@ class ArtifactRepository:
         with write_local_temp_trace_data_file(trace_data) as temp_file:
             self.log_artifact(temp_file)
 
-    def upload_trace_data_async(self, trace_data: str) -> None:
-        """
-        Upload the trace data asynchronously.
-
-        Args:
-            trace_data: The json-serialized trace data to upload.
-        """
-        # TODO: Make file write async?
-        with write_local_temp_trace_data_file(trace_data) as temp_file:
-            self._log_artifact_async(temp_file)
-
 
 @contextmanager
 def write_local_temp_trace_data_file(trace_data: str):
