@@ -62,16 +62,17 @@ jobs:
         env:
           ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_DEV }}
         run: |
-          echo 'locals {' > terragrunt/dev/params.hcl
-          echo '  aws_account_id = \"${ACCOUNT_ID}\"' >> terragrunt/dev/params.hcl
-          echo '  environment    = "dev"' >> terragrunt/dev/params.hcl
-          echo '  aws_region     = "us-west-1"' >> terragrunt/dev/params.hcl
-          echo '  app_name       = "nuodata-mlflow"' >> terragrunt/dev/params.hcl
-          echo '  tags = {' >> terragrunt/dev/params.hcl
-          echo '    env = "dev"' >> terragrunt/dev/params.hcl
-          echo '    project = "nuodata-mlflow"' >> terragrunt/dev/params.hcl
-          echo '  }' >> terragrunt/dev/params.hcl
-          echo '}' >> terragrunt/dev/params.hcl
+            echo "locals {" > terragrunt/dev/params.hcl
+            echo "  aws_account_id = \"${ACCOUNT_ID}\"" >> terragrunt/dev/params.hcl
+            echo "  environment    = \"dev\"" >> terragrunt/dev/params.hcl
+            echo "  aws_region     = \"us-west-1\"" >> terragrunt/dev/params.hcl
+            echo "  app_name       = \"nuodata-mlflow\"" >> terragrunt/dev/params.hcl
+            echo "  tags = {" >> terragrunt/dev/params.hcl
+            echo "    env = \"dev\"" >> terragrunt/dev/params.hcl
+            echo "    project = \"nuodata-mlflow\"" >> terragrunt/dev/params.hcl
+            echo "  }" >> terragrunt/dev/params.hcl
+            echo "}" >> terragrunt/dev/params.hcl
+
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
