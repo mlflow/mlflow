@@ -112,11 +112,16 @@ export const fetchEndpointRaw = ({
 
   // if custom headers has duplicate fields with default Headers,
   // values in the custom headers options will always override.
+  var authToken:any = ""
+  if ("authToken" in localStorage) {
+    authToken = localStorage.getItem("authToken");
+  }
+
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
     ...getDefaultHeaders(document.cookie),
     ...headerOptions,
-    Authorization : localStorage.getItem("authToken")
+    Authorization : "Bearer " + authToken
   };
 
   const defaultOptions = {
