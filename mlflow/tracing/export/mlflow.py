@@ -142,13 +142,14 @@ class AsyncTraceExportQueue:
         self._stop_event = threading.Event()
         self._is_activated = False
         self._unprocessed_tasks = set()
+        self._atexit_callback_registered = False
 
     def put(self, task: Task) -> None:
         """Put a new task to the queue for processing."""
         if not self.is_active():
             self.activate()
 
-        # If stop even is set, we should wait for the queue to be drained before putting the task.
+        # If stop event is set, we should wait for the queue to be drained before putting the task.
         if self._stop_event.is_set():
             self._stop_event.wait()
 
@@ -174,7 +175,7 @@ class AsyncTraceExportQueue:
 
         def _handle(task):
             task.handle()
-            self._unprocessed_tasks.remove(task)
+            self._unprocessed_tasks.discard(task)
 
         self._trace_logging_worker_threadpool.submit(_handle, task)
 
@@ -187,7 +188,9 @@ class AsyncTraceExportQueue:
             self._set_up_logging_thread()
             # Registering an atexit callback to ensure that any remaining log data
             # is flushed before the program exits.
-            atexit.register(self._at_exit_callback)
+            if not self._atexit_callback_registered:
+                atexit.register(self._at_exit_callback)
+                self._atexit_callback_registered = True
             self._is_activated = True
 
     def is_active(self) -> bool:
@@ -227,8 +230,9 @@ class AsyncTraceExportQueue:
         self._stop_event.set()
         self._trace_logging_thread.join()
         self._trace_logging_worker_threadpool.shutdown(wait=True)
+        self._is_activated = False
 
         # Restart the thread to listen to incoming data after flushing.
-        if terminate:
+        if not terminate:
             self._stop_event.clear()
             self.activate()
