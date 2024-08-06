@@ -11,7 +11,7 @@ _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class RequestPayload(RequestModel):
-    input: Union[str, List[int], List[str], List[List[int]]]
+    input: Union[str, List[str], List[int], List[List[int]]]
 
     class Config:
         if IS_PYDANTIC_V2:
