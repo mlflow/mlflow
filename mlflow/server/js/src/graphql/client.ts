@@ -11,8 +11,14 @@ const backgroundLinkTimeoutMs = 10000;
 const possibleTypes: Record<string, string[]> = {};
 
 const graphqlFetch = async (uri: any, options: any): Promise<Response> => {
+  var authToken:any = ""
+  if ("authToken" in localStorage) {
+    authToken = localStorage.getItem("authToken");
+  }
+
   const headers = new Headers({
     ...options.headers,
+    Authorization : "Bearer " + authToken
   });
 
   return fetch(uri, { ...options, headers }).then((res) => res);

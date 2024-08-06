@@ -13,11 +13,16 @@ import { getDefaultHeaders, HTTPMethods } from './FetchUtils';
  * Throw exception if the request fails.
  */
 export async function getArtifactBlob(artifactLocation: any) {
+  var authToken:any = ""
+  if ("authToken" in localStorage) {
+    authToken = localStorage.getItem("authToken");
+  }
+
   const getArtifactRequest = new Request(artifactLocation, {
     method: HTTPMethods.GET,
     redirect: 'follow',
     // TODO: fix types
-    headers: new Headers(getDefaultHeaders(document.cookie) as any),
+    headers: new Headers({ ...getDefaultHeaders(document.cookie), Authorization : "Bearer " + authToken } as any),
   });
   const response = await fetch(getArtifactRequest);
 
@@ -36,10 +41,14 @@ class TextArtifactTooLargeError extends Error {}
  */
 export const getArtifactChunkedText = async (artifactLocation: string) =>
   new Promise<string>(async (resolve, reject) => {
+    var authToken:any = ""
+    if ("authToken" in localStorage) {
+      authToken = localStorage.getItem("authToken");
+    }
     const getArtifactRequest = new Request(artifactLocation, {
       method: HTTPMethods.GET,
       redirect: 'follow',
-      headers: new Headers(getDefaultHeaders(document.cookie) as HeadersInit),
+      headers: new Headers({...getDefaultHeaders(document.cookie), Authorization : "Bearer " + authToken} as HeadersInit),
     });
     const response = await fetch(getArtifactRequest);
 
