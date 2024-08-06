@@ -2,21 +2,17 @@
 
 ## 2.15.1 (2024-08-06)
 
-MLflow 2.15.1 includes several major features and improvements
-
-Features:
-
-- [] Add label_list in evaluator_config (#12825, @serena-ruan)
+MLflow 2.15.1 is a patch release that addresses several bug fixes.
 
 Bug fixes:
 
-- [Tracking] Add `**kwargs` to the new span handler in the LlamaIndex Tracer (#12890, @B-Step62)
-- [UI] [BUG] able to refresh model metrics chart manually (#12869, @beomsun0829)
+- [Tracking] Fix silent disabling of LangChain autologging for LangChain >= 0.2.10. (#12779, @B-Step62)
+- [Tracking] Fix ``mlflow.evaluate`` crash on binary classification with data subset only contains single class (#12825, @serena-ruan)
+- [Tracking] Fix incompatibility of MLflow Tracing with LlamaIndex >= 0.10.61 (#12890, @B-Step62)
+- [Tracking] Record exceptions in OpenAI autolog tracing (#12841, @B-Step62)
 - [Tracking] Fix url with e2 proxy (#12873, @chenmoneygithub)
-- [Tracking] Fix: Regression connecting to MLFlow tracking server on other Databricks workspace (#12861, @WeichenXu123)
-- [Tracking] Wrap async logging batch submit by try except (#12831, @chenmoneygithub)
-- [Tracking] Avoid creating a Run in OpenAI autologging when only tracing is enabled (#12843, @B-Step62)
-- [Tracking] Fix error handling for OpenAI autolog tracing (#12841, @B-Step62)
+- [Tracking] Fix regression of connecting to MLflow tracking server on other Databricks workspace (#12861, @WeichenXu123)
+- [UI] Fix refresh button for model metrics on Experiment and Run pages (#12869, @beomsun0829)
 
 Documentation updates:
 
@@ -24,7 +20,7 @@ Documentation updates:
 
 Small bug fixes and documentation updates:
 
-#12823, #12860, #12779, #12844, @B-Step62; #12863, #12828, @harupy; #12845, @djliden; #12820, @annzhang-db
+#12823, #12860, #12844, #12843, @B-Step62; #12863, #12828, @harupy; #12845, @djliden; #12820, @annzhang-db; #12831, @chenmoneygithub
 
 ## 2.15.0 (2024-07-29)
 
