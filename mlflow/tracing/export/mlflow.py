@@ -201,7 +201,7 @@ class AsyncTraceExportQueue:
         with self._lock:
             self._trace_logging_thread = threading.Thread(
                 target=self._logging_loop,
-                name="MLflowAsyncTraceLoggingLoop",
+                name="MLflowTraceLoggingLoop",
                 daemon=True,
             )
             self._trace_logging_worker_threadpool = ThreadPoolExecutor(
