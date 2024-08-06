@@ -226,7 +226,7 @@ class Project:
 
             if self._entry_points is None or entry_point not in self._entry_points:
                 raise MlflowException(
-                    f"The entry point '{entry_point}' is not defined in Databricks spark job "
+                    f"The entry point '{entry_point}' is not defined in the Databricks spark job "
                     f"MLproject file."
                 )
 
