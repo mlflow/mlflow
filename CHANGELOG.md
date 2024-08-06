@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## 2.15.1 (2024-08-06)
+
+MLflow 2.15.1 includes several major features and improvements
+
+Features:
+
+- [] Add label_list in evaluator_config (#12825, @serena-ruan)
+
+Bug fixes:
+
+- [Tracking] Add `**kwargs` to the new span handler in the LlamaIndex Tracer (#12890, @B-Step62)
+- [UI] [BUG] able to refresh model metrics chart manually (#12869, @beomsun0829)
+- [Tracking] Fix url with e2 proxy (#12873, @chenmoneygithub)
+- [Tracking] Fix: Regression connecting to MLFlow tracking server on other Databricks workspace (#12861, @WeichenXu123)
+- [Tracking] Wrap async logging batch submit by try except (#12831, @chenmoneygithub)
+- [Tracking] Avoid creating a Run in OpenAI autologging when only tracing is enabled (#12843, @B-Step62)
+- [Tracking] Fix error handling for OpenAI autolog tracing (#12841, @B-Step62)
+
+Documentation updates:
+
+- [Docs] Update doc for Spark ML vector type (#12827, @WeichenXu123)
+
+Small bug fixes and documentation updates:
+
+#12823, #12860, #12779, #12844, @B-Step62; #12863, #12828, @harupy; #12845, @djliden; #12820, @annzhang-db
+
 ## 2.15.0 (2024-07-29)
 
 We are excited to announce the release candidate for MLflow 2.15.0. This release includes many major features and improvements!
