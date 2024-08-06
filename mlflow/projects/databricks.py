@@ -286,9 +286,10 @@ class DatabricksJobRunner:
         if project_spec.databricks_spark_job_spec.python_file is not None:
             if entry_point != "main" or parameters:
                 _logger.warning(
-                    "You configured Databricks spark job python_file and parameters in "
-                    "MLProject file databricks_spark_job section, the '--entry-point' "
-                    "and '--param-list' arguments specified in 'mlflow run' command are ignored."
+                    "You configured Databricks spark job python_file and parameters within the "
+                    "MLProject file's databricks_spark_job section. '--entry-point' "
+                    "and '--param-list' arguments specified in the 'mlflow run' command are "
+                    "ignored."
                 )
             job_code_file = project_spec.databricks_spark_job_spec.python_file
             job_parameters = project_spec.databricks_spark_job_spec.parameters
@@ -297,7 +298,7 @@ class DatabricksJobRunner:
             command_splits = command.split(" ")
             if command_splits[0] != "python":
                 raise MlflowException(
-                    "Databricks spark job only supports 'python' command in entry point "
+                    "Databricks spark job only supports 'python' command in the entry point "
                     "configuration."
                 )
             job_code_file = command_splits[1]

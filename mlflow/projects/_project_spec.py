@@ -60,8 +60,8 @@ def load_project(directory):
             )
         if python_file is not None and entry_points:
             raise MlflowException(
-                "Databricks Spark job does not allow 'databricks_spark_job.python_file' "
-                "setting and 'entry_points' setting coexisting."
+                "Databricks Spark job does not allow setting both "
+                "'databricks_spark_job.python_file' and 'entry_points'."
             )
 
         for entry_point in entry_points.values():
@@ -69,7 +69,7 @@ def load_project(directory):
                 if param.type == "path":
                     raise MlflowException(
                         "Databricks Spark job does not support entry point parameter of 'path' "
-                        f"type but got 'path' type parameter '{param.name}'."
+                        f"type. '{param.name}' value type is invalid."
                     )
 
         if env_type.DOCKER in yaml_obj:
