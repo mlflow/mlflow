@@ -125,6 +125,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         bound_args: inspect.BoundArguments,
         instance: Optional[Any] = None,
         parent_span_id: Optional[str] = None,
+        **kwargs: Any,
     ) -> _LlamaSpan:
         try:
             input_args = bound_args.arguments
