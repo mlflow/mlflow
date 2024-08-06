@@ -658,7 +658,6 @@ def main(args):
     print(divider("Parameters"))
     print(json.dumps(args, indent=2))
     matrix = generate_matrix(args)
-    return
     matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
     matrix = [x for x in matrix if x.flavor not in ("gluon", "mleap")]
     assert len(matrix) <= MAX_ITEMS * 2, f"Too many jobs: {len(matrix)} > {MAX_ITEMS * NUM_JOBS}"
