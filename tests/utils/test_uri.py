@@ -727,7 +727,7 @@ def test_resolve_uri_if_local_on_windows(input_uri, expected_uri):
         "dbfs://my///path",
         "/volumes/path/to/file",
         "/volumes/",
-        "DBFS:/my/path"
+        "DBFS:/my/path",
     ],
 )
 def test_correctly_detect_fuse_and_uc_uris(uri):
