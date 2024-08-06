@@ -58,6 +58,7 @@ uc_proto_files = [
     "databricks_uc_registry_service.proto",
     "databricks_filesystem_service.proto",
     "unity_catalog_oss_messages.proto",
+    "unity_catalog_oss_service.proto",
 ]
 facet_proto_files = ["facet_feature_statistics.proto"]
 python_proto_files = basic_proto_files + uc_proto_files + facet_proto_files
