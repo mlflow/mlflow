@@ -10,12 +10,28 @@
       homescreen on Android. See https://developers.google.com/web/fundamentals/engage-and-retain/web-app-manifest/
     -->
     <link rel="manifest" href="./static-files/manifest.json" crossorigin="use-credentials" />
-    <title>MLflow</title>
+    <title>Nuodata | MLflow</title>
   </head>
 
   <body>
     <noscript> You need to enable JavaScript to run this app. </noscript>
     <div id="root"></div>
     <div id="modal"></div>
+    <script>
+      // Listen for messages from the parent
+      window.addEventListener('message', function (event) {
+        if (event.data.type === 'runScript') {
+          const scriptContent = event.data.payload;
+          try {
+            // Create a script element and execute the code
+            const script = document.createElement('script');
+            script.textContent = scriptContent;
+            document.body.appendChild(script);
+          } catch (error) {
+            console.error('Error executing script:', error);
+          }
+        }
+      });
+    </script>
   </body>
 </html>
