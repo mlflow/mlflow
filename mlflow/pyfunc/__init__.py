@@ -1102,6 +1102,7 @@ class _ServedPyFuncModel(PyFuncModel):
     def env_manager(self):
         return self._env_manager
 
+
 def _load_model_or_server(
     model_uri: str, env_manager: str, model_config: Optional[Dict[str, Any]] = None
 ):
@@ -1180,8 +1181,10 @@ def _load_model_or_server(
         ) from e
 
     return _ServedPyFuncModel(
-        model_meta=model_meta, client=client, server_pid=scoring_server_proc.pid,
-        env_manager=env_manager
+        model_meta=model_meta,
+        client=client,
+        server_pid=scoring_server_proc.pid,
+        env_manager=env_manager,
     )
 
 
