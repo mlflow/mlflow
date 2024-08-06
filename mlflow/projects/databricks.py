@@ -515,14 +515,26 @@ def run_databricks(
 
 
 def run_databricks_spark_job(
-    remote_run, uri, work_dir, experiment_id, cluster_spec, project_spec,
-    entry_point, parameters,
+    remote_run,
+    uri,
+    work_dir,
+    experiment_id,
+    cluster_spec,
+    project_spec,
+    entry_point,
+    parameters,
 ):
     run_id = remote_run.info.run_id
     db_job_runner = DatabricksJobRunner(databricks_profile_uri=tracking.get_tracking_uri())
     db_run_id = db_job_runner.run_databricks_spark_job(
-        uri, work_dir, experiment_id, cluster_spec, run_id, project_spec,
-        entry_point, parameters,
+        uri,
+        work_dir,
+        experiment_id,
+        cluster_spec,
+        run_id,
+        project_spec,
+        entry_point,
+        parameters,
     )
     submitted_run = DatabricksSubmittedRun(db_run_id, run_id, db_job_runner)
     submitted_run._print_description_and_log_tags()
