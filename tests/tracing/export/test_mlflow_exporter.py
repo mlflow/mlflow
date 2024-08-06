@@ -88,7 +88,11 @@ def test_async_queue_activate_thread_safe(mock_atexit):
 
     def _count_threads():
         main_thread = threading.main_thread()
-        return sum(t.is_alive() for t in threading.enumerate() if t is not main_thread)
+        return sum(
+            t.is_alive()
+            for t in threading.enumerate()
+            if t is not main_thread and t.getName().startswith("MLflowTraceLogging")
+        )
 
     # 1. Validate activation
     with ThreadPoolExecutor(max_workers=10) as executor:
