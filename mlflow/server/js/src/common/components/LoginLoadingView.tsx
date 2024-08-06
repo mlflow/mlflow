@@ -19,7 +19,7 @@ const LoginLoadingView = () => {
         .then(async (auth: any) => {
           if (auth) {
             localStorage.setItem('authToken', keycloak?.token);
-            const path = window?.name ? "#/" + window.name : localStorage.getItem('loginPath');
+            const path = window?.name ? "#/" + (window.name == "experiments" ? window.name + "/0" : window.name) : localStorage.getItem('loginPath');
             window.location.href = '' + path;
           } else {
             alert('Error: Authentication failed');
