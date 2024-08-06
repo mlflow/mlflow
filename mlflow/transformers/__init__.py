@@ -282,7 +282,7 @@ def save_model(
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
-    example_no_conversion: bool = False,
+    example_no_conversion: Optional[bool] = None,
     prompt_template: Optional[str] = None,
     save_pretrained: bool = True,
     **kwargs,  # pylint: disable=unused-argument
@@ -517,9 +517,6 @@ def save_model(
         mlflow_model.signature = infer_signature_from_llm_inference_task(
             llm_inference_task, signature
         )
-        # The model with LLM inference task should accept a standard dictionary format
-        # alone so the example should not be converted to pandas DataFrame
-        example_no_conversion = True
     elif signature is not None:
         mlflow_model.signature = signature
 
@@ -735,7 +732,7 @@ def log_model(
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
-    example_no_conversion: bool = False,
+    example_no_conversion: Optional[bool] = None,
     prompt_template: Optional[str] = None,
     save_pretrained: bool = True,
     **kwargs,
@@ -1609,6 +1606,12 @@ class _TransformersWrapper:
         self.llm_inference_task = (
             self.flavor_config.get(_LLM_INFERENCE_TASK_KEY) if self.flavor_config else None
         )
+
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.pipeline
 
     def _convert_pandas_to_dict(self, data):
         import transformers

@@ -344,14 +344,14 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_we
             positive_class_index, positive_class, y, y_pred, None
         )
         per_class_metrics = {"positive_class": positive_class}
-        per_class_metrics.update(
-            _get_binary_classifier_metrics(
-                y_true=y_bin,
-                y_pred=y_pred_bin,
-                pos_label=1,
-                sample_weights=sample_weights,
-            )
+        binary_classifier_metrics = _get_binary_classifier_metrics(
+            y_true=y_bin,
+            y_pred=y_pred_bin,
+            pos_label=1,
+            sample_weights=sample_weights,
         )
+        if binary_classifier_metrics:
+            per_class_metrics.update(binary_classifier_metrics)
         per_class_metrics_list.append(per_class_metrics)
 
     return pd.DataFrame(per_class_metrics_list)
@@ -1511,23 +1511,32 @@ class DefaultEvaluator(ModelEvaluator):
             model_predictions = self.dataset.predictions_data
 
         if self.model_type == _ModelType.CLASSIFIER:
-            self.label_list = np.unique(self.y)
-            self.num_classes = len(self.label_list)
-
             if self.predict_fn is not None:
                 self.y_pred = self.predict_fn(self.X.copy_to_avoid_mutation())
             else:
                 self.y_pred = self.dataset.predictions_data
+
+            if self.label_list is None:
+                self.label_list = np.unique(np.concatenate([self.y, self.y_pred]))
+            # sort label_list ASC, for binary classification it makes sure the last one is pos label
+            self.label_list.sort()
+            self.num_classes = len(self.label_list)
             self.is_binomial = self.num_classes <= 2
 
             if self.is_binomial:
-                if self.pos_label in self.label_list:
-                    self.label_list = np.delete(
-                        self.label_list, np.where(self.label_list == self.pos_label)
-                    )
-                    self.label_list = np.append(self.label_list, self.pos_label)
-                elif self.pos_label is None:
+                if self.pos_label is None:
                     self.pos_label = self.label_list[-1]
+                else:
+                    if self.pos_label in self.label_list:
+                        self.label_list = np.delete(
+                            self.label_list, np.where(self.label_list == self.pos_label)
+                        )
+                    self.label_list = np.append(self.label_list, self.pos_label)
+                if len(self.label_list) < 2:
+                    raise MlflowException(
+                        "Evaluation dataset for classification must contain at least two unique "
+                        f"labels, but only {len(self.label_list)} unique labels were found.",
+                    )
                 with _suppress_class_imbalance_errors(IndexError, log_warning=False):
                     _logger.info(
                         "The evaluation dataset is inferred as binary dataset, positive label is "
@@ -1536,7 +1545,8 @@ class DefaultEvaluator(ModelEvaluator):
             else:
                 _logger.info(
                     "The evaluation dataset is inferred as multiclass dataset, number of classes "
-                    f"is inferred as {self.num_classes}"
+                    f"is inferred as {self.num_classes}. If this is incorrect, please specify the "
+                    "`label_list` parameter in `evaluator_config`."
                 )
 
             if self.predict_proba_fn is not None:
@@ -2024,6 +2034,11 @@ class DefaultEvaluator(ModelEvaluator):
         self.sample_weights = self.evaluator_config.get("sample_weights")
         self.eval_results_path = self.evaluator_config.get("eval_results_path")
         self.eval_results_mode = self.evaluator_config.get("eval_results_mode", "overwrite")
+        self.label_list = self.evaluator_config.get("label_list")
+        if self.pos_label and self.label_list and self.pos_label not in self.label_list:
+            raise MlflowException.invalid_parameter_value(
+                f"'pos_label' {self.pos_label} must exist in 'label_list' {self.label_list}."
+            )
 
         if self.eval_results_path:
             from mlflow.utils._spark_utils import _get_active_spark_session

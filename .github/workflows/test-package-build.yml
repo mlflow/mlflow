@@ -39,9 +39,7 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
-      - uses: actions/setup-node@v3
-        with:
-          node-version: "20"
+      - uses: ./.github/actions/setup-node
 
       - name: Build UI
         working-directory: mlflow/server/js

@@ -273,6 +273,12 @@ class _H2OModelWrapper:
     def __init__(self, h2o_model):
         self.h2o_model = h2o_model
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.h2o_model
+
     def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
         """
         Args:

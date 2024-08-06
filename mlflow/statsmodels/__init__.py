@@ -326,6 +326,12 @@ class _StatsmodelsModelWrapper:
     def __init__(self, statsmodels_model):
         self.statsmodels_model = statsmodels_model
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.statsmodels_model
+
     def predict(
         self,
         dataframe,

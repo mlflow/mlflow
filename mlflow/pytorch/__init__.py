@@ -728,6 +728,12 @@ class _PyTorchWrapper:
         self.pytorch_model = pytorch_model
         self.device = device
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.pytorch_model
+
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
         """
         Args:
@@ -922,9 +928,6 @@ def autolog(
     `torch.utils.tensorboard.SummaryWriter <https://pytorch.org/docs/stable/tensorboard.html>`_'s
     ``add_scalar`` and ``add_hparams`` methods to mlflow. In this case, there's also
     no notion of an "epoch".
-
-    .. Note:: Only pytorch-lightning modules between versions MIN_REQ_VERSION and
-        MAX_REQ_VERSION are known to be compatible with mlflow's autologging.
 
     Args:
         log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics

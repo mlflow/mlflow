@@ -16,7 +16,7 @@ from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import (
     _Example,
     _read_sparse_matrix_from_json,
-    _read_tensor_input_from_json,
+    parse_inputs_data,
 )
 from mlflow.types import DataType
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
@@ -126,7 +126,7 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
         example = _Example(d)
         example.save(tmp.path())
         filename = example.info["artifact_path"]
-        parsed_dict = _read_tensor_input_from_json(tmp.path(filename))
+        parsed_dict = parse_inputs_data(tmp.path(filename))
         assert d.keys() == parsed_dict.keys()
         # Asserting binary will fail since it is converted to base64 encoded strings.
         # The check above suffices that the binary input is stored.
@@ -142,7 +142,7 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
             example = _Example(input_example)
             example.save(tmp.path())
             filename = example.info["artifact_path"]
-            parsed_ary = _read_tensor_input_from_json(tmp.path(filename))
+            parsed_ary = parse_inputs_data(tmp.path(filename))
             np.testing.assert_array_equal(parsed_ary, input_example)
 
     # pass multidimensional array
@@ -152,12 +152,15 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
             example = _Example(input_example)
             example.save(tmp.path())
             filename = example.info["artifact_path"]
-            parsed_ary = _read_tensor_input_from_json(tmp.path(filename))
+            parsed_ary = parse_inputs_data(tmp.path(filename))
             np.testing.assert_array_equal(parsed_ary, input_example)
 
     # pass multidimensional array as a list
     example = np.array([[1, 2, 3]])
-    with pytest.raises(TensorsNotSupportedException, match=r"Row '0' has shape \(1, 3\)"):
+    with pytest.raises(
+        TensorsNotSupportedException,
+        match=r"Numpy arrays in list are not supported as input examples.",
+    ):
         _Example([example, example])
 
     # pass dict with scalars
@@ -166,8 +169,9 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
         x = _Example(example)
         x.save(tmp.path())
         filename = x.info["artifact_path"]
-        parsed_df = dataframe_from_raw_json(tmp.path(filename))
-        assert example == parsed_df.to_dict(orient="records")[0]
+        with open(tmp.path(filename)) as f:
+            parsed_data = json.load(f)
+        assert example == parsed_data
 
 
 def test_pandas_orients_for_input_examples(
@@ -215,12 +219,10 @@ def test_pandas_orients_for_input_examples(
         x = _Example(example)
         x.save(tmp.path())
         filename = x.info["artifact_path"]
-        assert x.info["type"] == "dataframe"
-        assert x.info["pandas_orient"] == "split"
+        assert x.info["type"] == "json_object"
         with open(tmp.path(filename)) as f:
             parsed_json = json.load(f)
-            dataframe = pd.read_json(json.dumps(parsed_json), orient=x.info["pandas_orient"])
-            assert (dataframe == example).all().all()
+            assert parsed_json == example
 
 
 def test_sparse_matrix_input_examples(dict_of_sparse_matrix):
@@ -271,11 +273,11 @@ def test_input_examples_with_nan(df_with_nan, dict_of_ndarrays_with_nans):
             example.save(tmp.path())
             filename = example.info["artifact_path"]
             assert example.info["type"] == "ndarray"
-            parsed_ary = _read_tensor_input_from_json(tmp.path(filename), schema=sig.inputs)
+            parsed_ary = parse_inputs_data(tmp.path(filename), schema=sig.inputs)
             assert np.array_equal(parsed_ary, input_example, equal_nan=True)
 
             # without a schema/dtype specified, the resulting tensor will keep the None type
-            no_schema_df = _read_tensor_input_from_json(tmp.path(filename))
+            no_schema_df = parse_inputs_data(tmp.path(filename))
             np.testing.assert_array_equal(
                 no_schema_df, np.where(np.isnan(input_example), None, input_example)
             )
@@ -442,10 +444,10 @@ def test_infer_signature_on_scalar_input_examples(input_example):
     mlflow_model = Model.load(model_uri)
     signature = mlflow_model.signature
     assert isinstance(signature, ModelSignature)
-    assert signature.inputs.inputs[0].name == 0
+    assert signature.inputs.inputs[0].name is None
     t = DataType.string if isinstance(input_example, str) else DataType.binary
     assert signature == ModelSignature(
-        inputs=Schema([ColSpec(name=0, type=t)]),
+        inputs=Schema([ColSpec(type=t)]),
         outputs=Schema([ColSpec(name=0, type=t)]),
     )
     # test that a single string still passes pyfunc schema enforcement

@@ -27,6 +27,7 @@ from mlflow.models.utils import (
     _enforce_schema,
 )
 from mlflow.pyfunc import PyFuncModel
+from mlflow.pyfunc.scoring_server import is_unified_llm_input
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.types.schema import Array, Map, Object, Property
@@ -2067,13 +2068,10 @@ def test_pyfunc_model_input_example_with_params(
     if isinstance(example, list) and all(np.isscalar(x) for x in example):
         np.testing.assert_equal(loaded_example, example)
     else:
-        if isinstance(example, list):
-            expected_example = pd.DataFrame(example)
-        elif isinstance(example, dict):
-            expected_example = pd.DataFrame([example])
+        if isinstance(example, pd.DataFrame):
+            pd.testing.assert_frame_equal(loaded_example, example)
         else:
-            expected_example = example
-        pd.testing.assert_frame_equal(loaded_example, expected_example)
+            assert loaded_example == example
 
     for test_example in ["saved_example", "manual_example"]:
         if test_example == "saved_example":
@@ -2238,7 +2236,10 @@ def test_input_example_validation_during_logging(
         extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 200, response.content
-    result = json.loads(response.content.decode("utf-8"))["predictions"]
+    if is_unified_llm_input(example):
+        result = json.loads(response.content.decode("utf-8"))
+    else:
+        result = json.loads(response.content.decode("utf-8"))["predictions"]
     assert_equal(result, expected_output)
 
     # make sure validate_serving_input has the same output

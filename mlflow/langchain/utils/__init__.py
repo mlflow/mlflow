@@ -62,11 +62,7 @@ _UNSUPPORTED_LLM_WARNING_MESSAGE = (
     "MLflow does not guarantee support for LLMs outside of HuggingFacePipeline and OpenAI, found %s"
 )
 
-# Minimum version of langchain required to support ChatOpenAI and AzureChatOpenAI in MLflow
-# Before this version, our hacky patching to support loading ChatOpenAI and AzureChatOpenAI
-# will not work.
-_LC_MIN_VERSION_SUPPORT_CHAT_OPEN_AI = Version("0.0.307")
-_LC_MIN_VERSION_SUPPORT_RUNNABLE = Version("0.0.311")
+
 _CHAT_MODELS_ERROR_MSG = re.compile("Loading (openai-chat|azure-openai-chat) LLM not supported")
 
 
@@ -104,71 +100,39 @@ def picklable_runnable_types():
     """
     from langchain.chat_models.base import SimpleChatModel
     from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.runnable import RunnableLambda, RunnablePassthrough
 
-    types = (
+    return (
         SimpleChatModel,
         ChatPromptTemplate,
+        RunnablePassthrough,
+        RunnableLambda,
     )
-
-    try:
-        from langchain.schema.runnable import (
-            RunnableLambda,
-            RunnablePassthrough,
-        )
-
-        types += (RunnableLambda, RunnablePassthrough)
-    except ImportError:
-        pass
-
-    return types
 
 
 @lru_cache
 def lc_runnable_with_steps_types():
-    # import them separately because they are added
-    # in different versions of langchain
-    try:
-        from langchain.schema.runnable import RunnableSequence
+    from langchain.schema.runnable import RunnableParallel, RunnableSequence
 
-        types = (RunnableSequence,)
-    except ImportError:
-        types = ()
-
-    try:
-        from langchain.schema.runnable import RunnableParallel
-
-        types += (RunnableParallel,)
-    except ImportError:
-        pass
-
-    return types
+    return (RunnableParallel, RunnableSequence)
 
 
 def lc_runnable_assign_types():
-    try:
-        from langchain.schema.runnable.passthrough import RunnableAssign
+    from langchain.schema.runnable.passthrough import RunnableAssign
 
-        return (RunnableAssign,)
-    except ImportError:
-        return ()
+    return (RunnableAssign,)
 
 
 def lc_runnable_branch_types():
-    try:
-        from langchain.schema.runnable import RunnableBranch
+    from langchain.schema.runnable import RunnableBranch
 
-        return (RunnableBranch,)
-    except ImportError:
-        return ()
+    return (RunnableBranch,)
 
 
 def lc_runnable_binding_types():
-    try:
-        from langchain.schema.runnable import RunnableBinding
+    from langchain.schema.runnable import RunnableBinding
 
-        return (RunnableBinding,)
-    except ImportError:
-        return ()
+    return (RunnableBinding,)
 
 
 def lc_runnables_types():
