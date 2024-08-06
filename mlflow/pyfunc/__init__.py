@@ -1066,10 +1066,13 @@ def load_model(
 
 
 class _ServedPyFuncModel(PyFuncModel):
-    def __init__(self, model_meta: Model, client: Any, server_pid: int):
+    def __init__(self, model_meta: Model, client: Any, server_pid: int, env_manager="local"):
         super().__init__(model_meta=model_meta, model_impl=client, predict_fn="invoke")
         self._client = client
         self._server_pid = server_pid
+        # We need to set `env_manager` attribute because it is used by Databricks runtime
+        # evaluate usage logging to log 'env_manager' tag in `_evaluate` function patching.
+        self._env_manager = env_manager
 
     def predict(self, data, params=None):
         """
@@ -1094,6 +1097,10 @@ class _ServedPyFuncModel(PyFuncModel):
         if self._server_pid is None:
             raise MlflowException("Served PyFunc Model is missing server process ID.")
         return self._server_pid
+
+    @property
+    def env_manager(self):
+        return self._env_manager
 
 
 def _load_model_or_server(
@@ -1174,7 +1181,10 @@ def _load_model_or_server(
         ) from e
 
     return _ServedPyFuncModel(
-        model_meta=model_meta, client=client, server_pid=scoring_server_proc.pid
+        model_meta=model_meta,
+        client=client,
+        server_pid=scoring_server_proc.pid,
+        env_manager=env_manager,
     )
 
 
