@@ -260,7 +260,12 @@ export const fetchEndpoint = ({
         success: ({ res }) => success({ resolve, reject, response: res }),
         errorCondition,
         // @ts-expect-error TS(2322): Type '({ res, err }: any) => any' is not assignabl... Remove this comment to see the full error message
-        error: ({ res, err }) => error({ resolve, reject, response: res, err: err }),
+        error: ({ res, err }) => {
+          if(res.status == 401){
+            window.location.href = '/#/sso-login';
+          }
+          return error({ resolve, reject, response: res, err: err })
+        },
       },
     ),
   );
