@@ -20,4 +20,4 @@ RUN pip cache purge && \
     python -m pip install --upgrade pip && \
     pip install --no-cache-dir -e .[extras]
 
-RUN pip install psycopg2-binary httpx flask_cors
+RUN pip install psycopg2-binary httpx

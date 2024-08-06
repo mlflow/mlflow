@@ -4,7 +4,7 @@ import uuid
 
 from flask import Flask, Response, make_response, request
 from mlflow.server.keycloak_auth.config import read_auth_config
-from flask_cors import CORS
+
 from mlflow.server.keycloak_auth.constants import INGESTION_CLIENT_READ_ROLE, INSUFFICIENT_PERMISSION_BY_ADMIN, TOKEN_NOT_FOUND, TOKEN_NOT_VALID
 from mlflow.server import app
 from werkzeug.exceptions import Unauthorized
@@ -93,7 +93,7 @@ def create_app(app: Flask = app):
     Returns:
         The app with authentication enabled.
     """
-    CORS(app)
+
     # secret key required for flashing
     if not app.secret_key:
         app.secret_key = str(uuid.uuid4())
