@@ -371,6 +371,7 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
 
 
 @experimental
+@autologging_integration(FLAVOR_NAME)
 def autolog(
     log_traces: bool = True,
     disable: bool = False,
@@ -399,15 +400,3 @@ def autolog(
         set_llama_index_tracer()
     else:
         remove_llama_index_tracer()
-
-    _autolog(disable=disable, silent=silent)
-
-
-@autologging_integration(FLAVOR_NAME)
-def _autolog(
-    disable: bool = False,
-    silent: bool = False,
-):
-    """
-    TODO: Implement patching logic for autologging models and artifacts.
-    """
