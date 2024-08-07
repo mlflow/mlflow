@@ -29,7 +29,7 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "2.4.0"
         }
     },
-    "pytorch-lightning": {
+    "pytorch_lightning": {
         "package_info": {
             "pip_release": "pytorch-lightning"
         },
@@ -325,7 +325,7 @@ _ML_PACKAGE_VERSIONS = {
 FLAVOR_TO_MODULE_NAME = {
     "sklearn": "sklearn",
     "pytorch": "torch",
-    "pytorch-lightning": "pytorch-lightning",
+    "pytorch_lightning": "pytorch_lightning",
     "keras": "keras",
     "tensorflow": "tensorflow",
     "xgboost": "xgboost",
