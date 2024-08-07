@@ -54,7 +54,7 @@ pytorch:
     run: |
       pytest tests/pytorch/test_tensorboard_autolog.py
 
-pytorch_lightning:
+pytorch-lightning:
   package_info:
     pip_release: "pytorch-lightning"
     install_dev: |
@@ -77,7 +77,7 @@ pytorch_lightning:
       # The problematic commit: https://github.com/Lightning-AI/torchmetrics/commit/3527e17516902eb5265cd2a4f76ad6b0f9f77692
       "< 1.8.0": ["torchmetrics<1.0.0"]
     run: |
-      pytest tests/pytorch_lightning/test_pytorch_autolog.py
+      pytest tests/pytorch-lightning/test_pytorch_autolog.py
 
 keras:
   package_info:
