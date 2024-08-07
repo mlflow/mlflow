@@ -1032,5 +1032,5 @@ def test_non_ascii_characters_not_escaped():
     data = Path(trace.info.tags["mlflow.artifactLocation"], "traces.json").read_text()
     assert "あ" in data
     assert "👍" in data
-    assert json.dumps("あ") not in data
-    assert json.dumps("👍") not in data
+    assert json.dumps("あ").strip('"') not in data
+    assert json.dumps("👍").strip('"') not in data
