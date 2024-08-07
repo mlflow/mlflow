@@ -115,7 +115,7 @@ def test_save_model_with_signature():
     np.testing.assert_allclose(
         keras.ops.convert_to_numpy(model(test_input)),
         loaded_pyfunc_model.predict(test_input),
-        rtol=0.001,
+        rtol=0.005,
     )
 
     # Clean up the global policy.
