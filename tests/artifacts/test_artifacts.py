@@ -42,6 +42,10 @@ def run_with_artifacts(tmp_path):
 
     return (run, artifact_path)
 
+@pytest.fixture
+def run_with_active_run():
+    with mlflow.start_run() as run:
+        yield run
 
 def test_download_artifacts_with_uri(run_with_artifact):
     run, artifact_path, artifact_content = run_with_artifact
@@ -312,3 +316,26 @@ def test_list_artifacts_throws_for_invalid_arguments():
 
     with pytest.raises(MlflowException, match="`artifact_path` cannot be specified"):
         mlflow.artifacts.list_artifacts(artifact_uri="uri", artifact_path="path")
+
+def test_get_artifact_uri_no_run_complain_true():
+    # Test with no active run and complain=True
+    with pytest.raises(MlflowException, match="No active run. Ensure that a run is active or set complain to False."):
+        mlflow.get_artifact_uri(artifact_path="some/path", complain=True)
+
+def test_get_artifact_uri_no_run_complain_false(run_with_active_run):
+    # Test with no active run and complain=False (start a new run)
+    artifact_uri = mlflow.get_artifact_uri(artifact_path="some/path", complain=False)
+    assert artifact_uri.startswith("file://")
+    assert "some/path" in artifact_uri
+
+def test_get_artifact_uri_with_active_run_complain_true(run_with_active_run):
+    # Test with an active run and complain=True
+    artifact_uri = mlflow.get_artifact_uri(artifact_path="some/path", complain=True)
+    assert artifact_uri.startswith("file://")
+    assert "some/path" in artifact_uri
+
+def test_get_artifact_uri_with_active_run_complain_false(run_with_active_run):
+    # Test with an active run and complain=False
+    artifact_uri = mlflow.get_artifact_uri(artifact_path="some/path", complain=False)
+    assert artifact_uri.startswith("file://")
+    assert "some/path" in artifact_uri

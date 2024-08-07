@@ -1832,7 +1832,7 @@ def delete_run(run_id: str) -> None:
     MlflowClient().delete_run(run_id)
 
 
-def get_artifact_uri(artifact_path: Optional[str] = None) -> str:
+def get_artifact_uri(artifact_path: Optional[str] = None, complain: bool= True) -> str:
     """
     Get the absolute URI of the specified artifact in the currently active run.
 
@@ -1883,6 +1883,13 @@ def get_artifact_uri(artifact_path: Optional[str] = None) -> str:
         Artifact uri: file:///.../0/a46a80f1c9644bd8f4e5dd5553fffce/artifacts
         Artifact uri: file:///.../0/a46a80f1c9644bd8f4e5dd5553fffce/artifacts/features/features.txt
     """
+    if complain and not mlflow.active_run():
+        raise MlflowException("No active run. Ensure that a run is active or set complain to False")
+    
+    # Ensure there's an active run if none exists
+    if not mlflow.active_run():
+        mlflow.start_run()
+        
     return artifact_utils.get_artifact_uri(
         run_id=_get_or_start_run().info.run_id, artifact_path=artifact_path
     )
