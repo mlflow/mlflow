@@ -276,7 +276,7 @@ export class ExperimentListView extends Component<Props, State> {
             Experiments
           </Typography.Title>
           <div>
-            <PlusCircleIcon
+            {/* <PlusCircleIcon
               // onClick={this.handleCreateExperiment}
               onClick={() => {
                 window.parent.postMessage({ type: 'CREATE_EXPERIMENT', payload: 'create_new_experiment' }, '*');
@@ -284,7 +284,7 @@ export class ExperimentListView extends Component<Props, State> {
               css={classNames.icon(theme)}
               title="New Experiment"
               data-testid="create-experiment-button"
-            />
+            /> */}
             {/* <PlusCircleIcon
               onClick={this.handleCreateExperiment}
               css={classNames.icon(theme)}
