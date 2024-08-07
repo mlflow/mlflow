@@ -187,6 +187,27 @@ export const ExperimentViewHeader = React.memo(
         spacerSize="sm"
       >
         {getShareButton()}
+        <Button
+          componentId="create-experiment-button"
+          size="middle"
+          onClick={() => {
+            window.parent.postMessage({ type: 'CREATE_EXPERIMENT', payload: 'create_new_experiment' }, '*');
+          }}
+          css={{
+            marginLeft: theme.spacing.sm,
+            background: `#e74860 !important`,
+            border: 'none',
+            ':hover': {
+              background: `#e74860 !important`,
+              border: 'none',
+            },
+            float: 'right',
+          }}
+        >
+          <Typography.Text css={{ color: '#FFF !important' }} size="md">
+            Add Experiments
+          </Typography.Text>
+        </Button>
       </PageHeader>
     );
   },
