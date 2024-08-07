@@ -2,6 +2,7 @@ import json
 import time
 from dataclasses import asdict
 from datetime import datetime
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -1018,3 +1019,18 @@ def test_get_last_active_trace():
     trace.info.status = TraceStatus.ERROR
     original_trace = mlflow.MlflowClient().get_trace(trace.info.request_id)
     assert original_trace.info.status == TraceStatus.OK
+
+
+def test_non_ascii_characters_not_escaped():
+    with mlflow.start_span() as span:
+        span.set_inputs({"japanese": "あ", "emoji": "👍"})
+
+    trace = mlflow.MlflowClient().get_trace(span.request_id)
+    span = trace.data.spans[0]
+    assert span.inputs == {"japanese": "あ", "emoji": "👍"}
+
+    data = Path(trace.info.tags["mlflow.artifactLocation"], "traces.json").read_text()
+    assert "あ" in data
+    assert "👍" in data
+    assert json.dumps("あ") not in data
+    assert json.dumps("👍") not in data
