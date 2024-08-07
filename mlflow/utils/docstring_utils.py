@@ -1,10 +1,6 @@
 import textwrap
 import warnings
-from functools import wraps
 from typing import Dict
-
-import importlib_metadata
-from packaging.version import Version
 
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 
@@ -381,7 +377,7 @@ def _do_version_compatibility_warning(msg: str):
     warnings.warn(msg, category=UserWarning, stacklevel=2)
 
 
-def docstring_version_compatibility_warning(integration_name, warn=True):
+def docstring_version_compatibility_warning(integration_name):
     """
     Generates a docstring that can be applied as a note stating a version compatibility range for
     a given flavor and optionally raises a warning if the installed version is outside of the
@@ -399,7 +395,7 @@ def docstring_version_compatibility_warning(integration_name, warn=True):
         # NB: if using this decorator, ensure the package name to module name reference is
         # updated with the flavor's `save` and `load` functions being used within
         # ml-package-version.yml file.
-        module_name, min_ver, max_ver = get_module_min_and_max_supported_ranges(integration_name)
+        _, min_ver, max_ver = get_module_min_and_max_supported_ranges(integration_name)
         required_pkg_versions = f"``{min_ver}`` -  ``{max_ver}``"
 
         notice = (
@@ -409,21 +405,10 @@ def docstring_version_compatibility_warning(integration_name, warn=True):
             "package versions outside of this range."
         )
 
-        @wraps(func)
-        def version_func(*args, **kwargs):
-            installed_version = Version(importlib_metadata.version(module_name))
-            if (
-                warn
-                and installed_version < Version(min_ver)
-                or installed_version > Version(max_ver)
-            ):
-                _do_version_compatibility_warning(notice)
-            return func(*args, **kwargs)
-
-        version_func.__doc__ = (
+        func.__doc__ = (
             "    .. Note:: " + notice + "\n" * 2 + func.__doc__ if func.__doc__ else notice
         )
 
-        return version_func
+        return func
 
     return annotated_func
