@@ -2515,6 +2515,7 @@ def test_save_load_chain_errors(chain_model_signature, chain_path):
     [
         os.path.abspath("tests/langchain/sample_code/no_config/chain.py"),
         "tests/langchain/../langchain/sample_code/no_config/chain.py",
+        "tests/langchain/../langchain/sample_code/no_config/chain_decorator.py",
     ],
 )
 def test_save_load_chain_as_code_optional_code_path(chain_model_signature, chain_path):
@@ -2866,6 +2867,7 @@ def test_langchain_model_not_inject_callback_when_disabled(monkeypatch, model_pa
     [
         os.path.abspath("tests/langchain/sample_code/no_config/chain.py"),
         "tests/langchain/../langchain/sample_code/no_config/chain.py",
+        "tests/langchain/../langchain/sample_code/no_config/chain_decorator.py",
     ],
 )
 def test_save_model_as_code_correct_streamable(chain_model_signature, chain_path):

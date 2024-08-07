@@ -1728,6 +1728,19 @@ def test_pyfunc_as_code_log_and_load():
     assert loaded_model.predict(model_input) == expected_output
 
 
+def test_pyfunc_as_code_log_and_load_as_decorator():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model="tests/pyfunc/sample_code/python_model_decorator.py",
+            artifact_path="model",
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    model_input = "asdf"
+    expected_output = f"This was the input: {model_input}"
+    assert loaded_model.predict(model_input) == expected_output
+
+
 def test_pyfunc_as_code_log_and_load_with_path():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(

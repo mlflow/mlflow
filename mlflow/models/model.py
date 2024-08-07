@@ -1,3 +1,4 @@
+import inspect
 import json
 import logging
 import os
@@ -5,6 +6,7 @@ import shutil
 import uuid
 import warnings
 from datetime import datetime
+from functools import wraps
 from pathlib import Path
 from pprint import pformat
 from typing import Any, Callable, Dict, List, Literal, NamedTuple, Optional, Union
@@ -1010,22 +1012,68 @@ def set_model(model):
     Args:
         model: The model object to be logged.
     """
-    from mlflow.pyfunc import PythonModel
 
-    if not (isinstance(model, PythonModel) or callable(model)):
-        try:
-            from mlflow.langchain import _validate_and_prepare_lc_model_or_path
+    def validate_and_set_model(model):
+        from mlflow.pyfunc import PythonModel
 
-            # If its not a PyFuncModel, then it should be a Langchain model (not a path)
-            # Check this since the validation function does not
-            if isinstance(model, str):
+        if not (isinstance(model, PythonModel) or callable(model)):
+            try:
+                from mlflow.langchain import _validate_and_prepare_lc_model_or_path
+
+                # If it's not a PyFuncModel, then it should be a Langchain model (not a path)
+                # Check this since the validation function does not
+                if isinstance(model, str):
+                    raise mlflow.MlflowException(
+                        "Model should either be an instance of PyFuncModel or Langchain type."
+                    )
+                model = _validate_and_prepare_lc_model_or_path(model, None)
+            except Exception as e:
                 raise mlflow.MlflowException(
                     "Model should either be an instance of PyFuncModel or Langchain type."
-                )
-            model = _validate_and_prepare_lc_model_or_path(model, None)
-        except Exception as e:
-            raise mlflow.MlflowException(
-                "Model should either be an instance of PyFuncModel or Langchain type."
-            ) from e
+                ) from e
+        globals()["__mlflow_model__"] = model
 
-    globals()["__mlflow_model__"] = model
+    # Check if the callable is a function (used as a decorator)
+    if inspect.isclass(model):
+        # If it's a class, validate and set an instance of the class
+        original_init = model.__init__
+
+        @wraps(model.__init__)
+        def new_init(self, *args, **kwargs):
+            original_init(self, *args, **kwargs)
+            validate_and_set_model(self)
+
+        model.__init__ = new_init
+        return model
+
+    # Check if the callable is a function (used as a decorator)
+    elif inspect.isfunction(model):
+        # Here we check for pyfunc function models
+        # Case:
+        #   from mlflow.models import set_model
+        #   def predict(model_input):
+        #       return f"This was the input: {model_input}"
+        #   set_model(predict)
+        if "model_input" in inspect.signature(model).parameters:
+            validate_and_set_model(model)
+
+        # Case:
+        #   @set_model
+        #   def retrieval_chain():
+        #     return (
+        #         {
+        #             "context": retriever,
+        #             "question": RunnablePassthrough(),
+        #         }
+        #         | prompt
+        #         | get_fake_chat_model()
+        #         | StrOutputParser()
+        #     )
+        #   retrieval_chain()
+        def wrapper(*args, **kwargs):
+            returned_model = model(*args, **kwargs)
+            validate_and_set_model(returned_model)
+
+        return wrapper
+    else:
+        validate_and_set_model(model)
