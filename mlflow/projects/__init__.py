@@ -146,7 +146,9 @@ def _run(
                 work_dir=work_dir,
                 experiment_id=experiment_id,
                 cluster_spec=backend_config,
-                databricks_spark_job_spec=project.databricks_spark_job_spec,
+                project_spec=project,
+                entry_point=entry_point,
+                parameters=parameters,
             )
 
         return run_databricks(

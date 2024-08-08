@@ -266,7 +266,9 @@ class DatabricksJobRunner:
         experiment_id,
         cluster_spec,
         run_id,
-        databricks_spark_job_spec,
+        project_spec,
+        entry_point,
+        parameters,
     ):
         from mlflow.utils.file_utils import get_or_create_tmp_dir
 
@@ -281,8 +283,29 @@ class DatabricksJobRunner:
             "=== Running databricks spark job of project %s on Databricks ===", project_uri
         )
 
+        if project_spec.databricks_spark_job_spec.python_file is not None:
+            if entry_point != "main" or parameters:
+                _logger.warning(
+                    "You configured Databricks spark job python_file and parameters within the "
+                    "MLProject file's databricks_spark_job section. '--entry-point' "
+                    "and '--param-list' arguments specified in the 'mlflow run' command are "
+                    "ignored."
+                )
+            job_code_file = project_spec.databricks_spark_job_spec.python_file
+            job_parameters = project_spec.databricks_spark_job_spec.parameters
+        else:
+            command = project_spec.get_entry_point(entry_point).compute_command(parameters, None)
+            command_splits = command.split(" ")
+            if command_splits[0] != "python":
+                raise MlflowException(
+                    "Databricks spark job only supports 'python' command in the entry point "
+                    "configuration."
+                )
+            job_code_file = command_splits[1]
+            job_parameters = command_splits[2:]
+
         tmp_dir = Path(get_or_create_tmp_dir())
-        origin_job_code = (Path(work_dir) / databricks_spark_job_spec.python_file).read_text()
+        origin_job_code = (Path(work_dir) / job_code_file).read_text()
         job_code_filename = f"{uuid.uuid4().hex}.py"
         new_job_code_file = tmp_dir / job_code_filename
 
@@ -319,7 +342,7 @@ os.chdir('{project_dir}')
 
         libraries_config = [
             {"pypi": {"package": python_lib}}
-            for python_lib in databricks_spark_job_spec.python_libraries
+            for python_lib in project_spec.databricks_spark_job_spec.python_libraries
         ]
         # Make Databricks Spark jobs API request to launch run.
         req_body_json = {
@@ -328,7 +351,7 @@ os.chdir('{project_dir}')
             "libraries": libraries_config,
             "spark_python_task": {
                 "python_file": f"dbfs:/{dbfs_job_code_file_path}",
-                "parameters": databricks_spark_job_spec.parameters,
+                "parameters": job_parameters,
             },
         }
 
@@ -492,12 +515,26 @@ def run_databricks(
 
 
 def run_databricks_spark_job(
-    remote_run, uri, work_dir, experiment_id, cluster_spec, databricks_spark_job_spec
+    remote_run,
+    uri,
+    work_dir,
+    experiment_id,
+    cluster_spec,
+    project_spec,
+    entry_point,
+    parameters,
 ):
     run_id = remote_run.info.run_id
     db_job_runner = DatabricksJobRunner(databricks_profile_uri=tracking.get_tracking_uri())
     db_run_id = db_job_runner.run_databricks_spark_job(
-        uri, work_dir, experiment_id, cluster_spec, run_id, databricks_spark_job_spec
+        uri,
+        work_dir,
+        experiment_id,
+        cluster_spec,
+        run_id,
+        project_spec,
+        entry_point,
+        parameters,
     )
     submitted_run = DatabricksSubmittedRun(db_run_id, run_id, db_job_runner)
     submitted_run._print_description_and_log_tags()

@@ -42,13 +42,35 @@ def load_project(directory):
 
     project_name = yaml_obj.get("name")
 
+    # Parse entry points
+    entry_points = {}
+    for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
+        parameters = entry_point_yaml.get("parameters", {})
+        command = entry_point_yaml.get("command")
+        entry_points[name] = EntryPoint(name, parameters, command)
+
     databricks_spark_job_yaml = yaml_obj.get("databricks_spark_job")
     if databricks_spark_job_yaml is not None:
-        if "python_file" not in databricks_spark_job_yaml:
-            raise MlflowException("'python_file' field is required for Databricks Spark job.")
+        python_file = databricks_spark_job_yaml.get("python_file")
 
-        if "entry_points" in yaml_obj:
-            raise MlflowException("Databricks Spark job does not support setting 'entry_points'.")
+        if python_file is None and not entry_points:
+            raise MlflowException(
+                "Databricks Spark job requires either 'databricks_spark_job.python_file' "
+                "setting or 'entry_points' setting."
+            )
+        if python_file is not None and entry_points:
+            raise MlflowException(
+                "Databricks Spark job does not allow setting both "
+                "'databricks_spark_job.python_file' and 'entry_points'."
+            )
+
+        for entry_point in entry_points.values():
+            for param in entry_point.parameters.values():
+                if param.type == "path":
+                    raise MlflowException(
+                        "Databricks Spark job does not support entry point parameter of 'path' "
+                        f"type. '{param.name}' value type is invalid."
+                    )
 
         if env_type.DOCKER in yaml_obj:
             raise MlflowException(
@@ -73,14 +95,8 @@ def load_project(directory):
         return Project(
             databricks_spark_job_spec=databricks_spark_job_spec,
             name=project_name,
+            entry_points=entry_points,
         )
-
-    # Parse entry points
-    entry_points = {}
-    for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
-        parameters = entry_point_yaml.get("parameters", {})
-        command = entry_point_yaml.get("command")
-        entry_points[name] = EntryPoint(name, parameters, command)
 
     # Validate config if docker_env parameter is present
     docker_env = yaml_obj.get(env_type.DOCKER)
@@ -202,7 +218,17 @@ class Project:
 
     def get_entry_point(self, entry_point):
         if self.databricks_spark_job_spec:
-            return None
+            if self.databricks_spark_job_spec.python_file is not None:
+                # If Databricks Spark job is configured with python_file field,
+                # it does not need to configure entry_point section
+                # and the 'entry_point' param in 'mlflow run' command is ignored
+                return None
+
+            if self._entry_points is None or entry_point not in self._entry_points:
+                raise MlflowException(
+                    f"The entry point '{entry_point}' is not defined in the Databricks spark job "
+                    f"MLproject file."
+                )
 
         if entry_point in self._entry_points:
             return self._entry_points[entry_point]
