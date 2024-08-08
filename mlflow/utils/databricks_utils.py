@@ -623,7 +623,7 @@ def get_databricks_host_creds(server_uri=None):
             use_databricks_sdk = True
             databricks_auth_profile = profile
         except Exception as e:
-            _logger.info(f"Failed to create databricks SDK workspace client, error: {e!r}")
+            _logger.debug(f"Failed to create databricks SDK workspace client, error: {e!r}")
             use_databricks_sdk = False
             databricks_auth_profile = None
     else:
@@ -1024,7 +1024,7 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                 except Exception as e:
                     _logger.debug(
                         "Unexpected internal error while constructing `DatabricksConfig` "
-                        f"from REPL context: {e}",
+                    f"from REPL context: {e}",
                     )
                 # Invoking getContext() will attempt to find the credentials related to the
                 # current command execution, so it's critical that we execute it on every
