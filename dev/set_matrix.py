@@ -42,7 +42,8 @@ import yaml
 from packaging.specifiers import SpecifierSet
 from packaging.version import InvalidVersion
 from packaging.version import Version as OriginalVersion
-from pydantic import BaseModel, validator
+from pydantic import BaseModel
+from mlflow.utils.pydantic import IS_PYDANTIC_V2, pydantic_field_validator
 
 VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
@@ -83,15 +84,15 @@ class TestConfig(BaseModel, extra="forbid"):
     class Config:
         arbitrary_types_allowed = True
 
-    @validator("minimum", pre=True)
+    @pydantic_field_validator(field_name="minimum")
     def validate_minimum(cls, v):
         return Version(v)
 
-    @validator("maximum", pre=True)
+    @pydantic_field_validator(field_name="maximum")
     def validate_maximum(cls, v):
         return Version(v)
 
-    @validator("unsupported", pre=True)
+    @pydantic_field_validator(field_name="unsopported")
     def validate_unsupported(cls, v):
         return [Version(v) for v in v] if v else None
 
