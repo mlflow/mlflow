@@ -15,6 +15,7 @@ from mlflow.gateway.schemas import completions
 
 class HFTextGenerationInferenceServerProvider(BaseProvider):
     NAME = "Hugging Face Text Generation Inference"
+    CONFIG_TYPE = HuggingFaceTextGenerationInferenceConfig
 
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)

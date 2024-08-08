@@ -11,6 +11,7 @@ from mlflow.gateway.schemas import completions
 
 class AI21LabsProvider(BaseProvider):
     NAME = "AI21Labs"
+    CONFIG_TYPE = AI21LabsConfig
 
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)

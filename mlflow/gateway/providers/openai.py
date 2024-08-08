@@ -41,6 +41,7 @@ def _get_workspace_client():
 
 class OpenAIProvider(BaseProvider):
     NAME = "OpenAI"
+    CONFIG_TYPE = OpenAIConfig
 
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
