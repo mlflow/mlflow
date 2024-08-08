@@ -162,6 +162,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
             dir_client = creds.get_directory_client(base_dir)
             filename = posixpath.basename(remote_full_path)
             file_client = dir_client.get_file_client(filename)
+            print(f"@SID downloading file {remote_file_path} using FS client with {file_client.url}, {file_client.primary_endpoint}")
             with open(local_path, "wb") as file:
                 file_client.download_file().readinto(file)
 
