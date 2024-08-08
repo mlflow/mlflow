@@ -1187,6 +1187,46 @@ MLflow Deployments Server API Documentation
 
 `API documentation <./api.html>`_
 
+OpenAI Compatibility
+====================
+
+MLflow Deployments Server is compatible with OpenAI API and supports the ``chat``, ``completions``, and ``embeddings`` APIs.
+The OpenAI client can be used to query the server as shown in the example below:
+
+1. Create a configuration file:
+
+.. code-block:: yaml
+
+    endpoints:
+      - name: my-chat
+        endpoint_type: llm/v1/chat
+        model:
+          provider: openai
+          name: gpt-4o-mini
+          config:
+            openai_api_key: $OPENAI_API_KEY
+
+2. Start the server with the configuration file:
+
+.. code-block:: shell
+
+    mlflow deployments start-server --config-path /path/to/config.yaml --port 7000
+
+3. Once the server is up and running, query the server using the OpenAI client:
+
+.. code-block:: python
+
+    from openai import OpenAI
+
+    client = OpenAI(base_url="http://localhost:7000/v1")
+    completion = client.chat.completions.create(
+        model="my-chat",
+        messages=[{"role": "user", "content": "Hello"}],
+    )
+    print(completion.choices[0].message.content)
+
+
+
 Unity Catalog Integration
 =========================
 
