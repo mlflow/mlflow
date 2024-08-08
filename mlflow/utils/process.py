@@ -1,5 +1,6 @@
 import functools
 import os
+import signal
 import subprocess
 import sys
 
@@ -47,6 +48,7 @@ def _exec_cmd(
     capture_output=True,
     synchronous=True,
     stream_output=False,
+    terminate_signals=None,
     **kwargs,
 ):
     """A convenience wrapper of `subprocess.Popen` for running a command from a Python script.
@@ -129,7 +131,18 @@ def _exec_cmd(
         for output_char in iter(lambda: process.stdout.read(1), ""):
             sys.stdout.write(output_char)
 
-    stdout, stderr = process.communicate()
+    original_signal_handlers = {}
+    for sig in terminate_signals or []:
+        original_signal_handlers[sig] = signal.signal(
+            sig, lambda signum, frame: process.terminate()
+        )
+
+    try:
+        stdout, stderr = process.communicate()
+    finally:
+        for sig, handler in original_signal_handlers.items():
+            signal.signal(sig, handler)
+
     returncode = process.poll()
     comp_process = subprocess.CompletedProcess(
         process.args,
