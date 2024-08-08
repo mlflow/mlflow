@@ -198,7 +198,11 @@ def test_dynamic_endpoint():
         assert resp.json() == test_response
 
 
-def test_rate_limit():
+@pytest.mark.parametrize(
+    "endpoint_path",
+    [f"{MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE}chat/invocations", "/v1/chat/completions"],
+)
+def test_rate_limit(endpoint_path: str):
     config = GatewayConfig(
         **{
             "endpoints": [
@@ -225,7 +229,7 @@ def test_rate_limit():
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(model_response)
     ) as mock_post:
         resp = client.post(
-            f"{MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE}chat/invocations",
+            endpoint_path,
             json={"messages": [{"role": "user", "content": "Tell me a joke"}]},
         )
         mock_post.assert_called_once()
@@ -233,7 +237,7 @@ def test_rate_limit():
         assert resp.json() == test_response
         # second call
         resp = client.post(
-            f"{MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE}chat/invocations",
+            endpoint_path,
             json={"messages": [{"role": "user", "content": "Tell me a joke again"}]},
         )
         assert resp.status_code == 429
