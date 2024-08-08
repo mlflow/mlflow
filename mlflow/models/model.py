@@ -67,6 +67,9 @@ METADATA_FILES = [
 ]
 MODEL_CONFIG = "config"
 MODEL_CODE_PATH = "model_code_path"
+SET_MODEL_ERROR = (
+    "Model should either be an instance of PyFuncModel, Langchain type, or LlamaIndex type."
+)
 
 
 class ModelInfo:
@@ -1000,6 +1003,21 @@ def update_model_requirements(
 __mlflow_model__ = None
 
 
+def _attempt_langchain_parse(model):
+    from mlflow.langchain import _validate_and_prepare_lc_model_or_path
+
+    if isinstance(model, str):
+        raise mlflow.MlflowException(SET_MODEL_ERROR)
+
+    return _validate_and_prepare_lc_model_or_path(model, None)
+
+
+def _attempt_llama_index_parse(model):
+    from mlflow.models.utils import _validate_and_get_model_code_path
+
+    return _validate_and_get_model_code_path(model)
+
+
 @experimental
 def set_model(model):
     """
@@ -1012,19 +1030,15 @@ def set_model(model):
     from mlflow.pyfunc import PythonModel
 
     if not (isinstance(model, PythonModel) or callable(model)):
-        try:
-            from mlflow.langchain import _validate_and_prepare_lc_model_or_path
+        parse_functions = [_attempt_langchain_parse, _attempt_llama_index_parse]
 
-            # If its not a PyFuncModel, then it should be a Langchain model (not a path)
-            # Check this since the validation function does not
-            if isinstance(model, str):
-                raise mlflow.MlflowException(
-                    "Model should either be an instance of PyFuncModel or Langchain type."
-                )
-            model = _validate_and_prepare_lc_model_or_path(model, None)
-        except Exception as e:
-            raise mlflow.MlflowException(
-                "Model should either be an instance of PyFuncModel or Langchain type."
-            ) from e
+        for parse_function in parse_functions:
+            try:
+                model = parse_function(model)
+            except Exception:
+                continue
+
+        if isinstance(model, str):
+            raise mlflow.MlflowException(SET_MODEL_ERROR)
 
     globals()["__mlflow_model__"] = model

@@ -1,5 +1,6 @@
 import logging
 import os
+import tempfile
 from typing import Any, Dict, List, Optional, Union
 
 import yaml
@@ -10,7 +11,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
-from mlflow.models.utils import _save_example
+from mlflow.models.utils import (
+    _load_model_code_path,
+    _save_example,
+    _validate_and_get_model_code_path,
+)
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -33,6 +38,8 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
+    _validate_and_copy_file_to_directory,
+    _validate_and_get_model_config_from_file,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -140,11 +147,32 @@ def save_model(
     from mlflow.llama_index.serialize_objects import serialize_settings
 
     _validate_engine_type(engine_type)
-    _validate_index(index)
-    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
-    path = os.path.abspath(path)
-    _validate_and_prepare_target_save_path(path)
+    # TODO: make this logic cleaner and maybe a util
+    with tempfile.TemporaryDirectory() as temp_dir:
+        index_or_code_path = (
+            _validate_and_get_model_code_path(index, temp_dir) if isinstance(index, str) else index
+        )
+
+        _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
+        path = os.path.abspath(path)
+        _validate_and_prepare_target_save_path(path)
+
+        if isinstance(model_config, str):
+            model_config = _validate_and_get_model_config_from_file(model_config)
+
+        model_code_path = None
+        if isinstance(index_or_code_path, str):
+            model_code_path = index_or_code_path
+            index = _load_model_code_path(model_code_path, model_config)
+            _validate_and_copy_file_to_directory(model_code_path, path, "code")
+
+        else:
+            index = index_or_code_path
+
+    _validate_index(index)
+
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
@@ -381,9 +409,8 @@ def autolog(
     only supports autologging for tracing.
 
     Args:
-        log_traces: If ``True``, traces are logged for Langchain models by using
-            MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
-            collected during inference. Default to ``True``.
+        log_traces: If ``True``, traces are logged for LlamIndex models by using. If ``False``,
+            no traces are collected during inference. Default to ``True``.
         disable: If ``True``, disables the LlamaIndex autologging integration. If ``False``,
             enables the LlamaIndex autologging integration.
         silent: If ``True``, suppress all event logs and warnings from MLflow during LlamaIndex

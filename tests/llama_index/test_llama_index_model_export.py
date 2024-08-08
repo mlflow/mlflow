@@ -1,3 +1,4 @@
+import os
 from typing import Any
 
 import numpy as np
@@ -344,3 +345,50 @@ def test_llama_index_databricks_integration(monkeypatch, document, model_path, m
     response = loaded_model.predict("Spell llamaindex")
     assert isinstance(response, str)
     assert response != ""
+
+
+@pytest.mark.parametrize(
+    "index_code_path",
+    [
+        os.path.abspath("tests/llama_index/sample_code/basic_vector_store.py"),
+    ],
+)
+def test_save_load_index_as_code_optional_code_path(index_code_path):
+    artifact_path = "new_model_path"
+    with mlflow.start_run():
+        model_info = mlflow.llama_index.log_model(
+            index=index_code_path,
+            engine_type="query",
+            artifact_path=artifact_path,
+            input_example="hi",
+        )
+
+    assert mlflow.models.model_config.__mlflow_model_config__ is None
+    assert mlflow.llama_index.load_model(model_info.model_uri)
+    loaded_model = mlflow.llama_index.load_model(model_info.model_uri)
+    assert mlflow.models.model_config.__mlflow_model_config__ is None
+    assert loaded_model.as_query_engine().query("Spell llamaindex").response != ""
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_loaded_model.predict("Spell llamaindex") != ""
+
+    # inference_payload = get_serving_input_examplget_serving_input_examplee(model_info.model_uri)
+    # response = pyfunc_serve_and_score_model(
+    #     model_info.model_uri,
+    #     data=inference_payload,
+    #     content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    #     extra_args=["--env-manager", "local"],
+    # )
+    # # avoid minor diff of created time in the response
+    # prediction_result = json.loads(response.content.decode("utf-8"))
+    # prediction_result[0]["created"] = 123
+    # expected_prediction = try_transform_response_to_chat_format(answer)
+    # expected_prediction["created"] = 123
+    # assert prediction_result == [expected_prediction]
+
+    # pyfunc_model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
+    # pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    # reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    # assert reloaded_model.resources["databricks"] == {
+    #     "serving_endpoint": [{"name": "fake-endpoint"}]
+    # }
+    # assert reloaded_model.metadata is None
