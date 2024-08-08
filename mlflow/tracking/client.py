@@ -129,6 +129,8 @@ class MlflowClient:
                 defaults to the service set by ``mlflow.tracking.set_registry_uri``. If
                 no such service was set, defaults to the tracking uri of the client.
         """
+
+        utils._is_uri_sanitized(tracking_uri)
         final_tracking_uri = utils._resolve_tracking_uri(tracking_uri)
         self._registry_uri = registry_utils._resolve_registry_uri(registry_uri, tracking_uri)
         self._tracking_client = TrackingServiceClient(final_tracking_uri)
