@@ -526,15 +526,10 @@ class SqlDataset(Base):
     """
 
     def __repr__(self):
-        return "<SqlDataset ({}, {}, {}, {}, {}, {}, {}, {})>".format(
-            self.dataset_uuid,
-            self.experiment_id,
-            self.name,
-            self.digest,
-            self.dataset_source_type,
-            self.dataset_source,
-            self.dataset_schema,
-            self.dataset_profile,
+        return (
+            f"<SqlDataset ({self.dataset_uuid}, {self.experiment_id}, {self.name}, "
+            f"{self.digest}, {self.dataset_source_type}, {self.dataset_source}, "
+            f"{self.dataset_schema}, {self.dataset_profile})>"
         )
 
     def to_mlflow_entity(self):
@@ -595,12 +590,9 @@ class SqlInput(Base):
     """
 
     def __repr__(self):
-        return "<SqlInput ({}, {}, {}, {}, {})>".format(
-            self.input_uuid,
-            self.source_type,
-            self.source_id,
-            self.destination_type,
-            self.destination_id,
+        return (
+            f"<SqlInput ({self.input_uuid}, {self.source_type}, {self.source_id}, "
+            f"{self.destination_type}, {self.destination_id})>"
         )
 
 

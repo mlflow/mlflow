@@ -7,6 +7,7 @@ PyTorch (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+
 import atexit
 import importlib
 import logging
@@ -840,9 +841,8 @@ def save_state_dict(state_dict, path, **kwargs):
     # successfully completes, leaving the user unaware of the mistake.
     if not isinstance(state_dict, dict):
         raise TypeError(
-            "Invalid object type for `state_dict`: {}. Must be an instance of `dict`".format(
-                type(state_dict)
-            )
+            f"Invalid object type for `state_dict`: {type(state_dict)}. Must be an "
+            "instance of `dict`"
         )
 
     os.makedirs(path, exist_ok=True)

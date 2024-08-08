@@ -40,9 +40,7 @@ class RunContextProviderRegistry:
                 self.register(entrypoint.load())
             except (AttributeError, ImportError) as exc:
                 warnings.warn(
-                    'Failure attempting to register context provider "{}": {}'.format(
-                        entrypoint.name, str(exc)
-                    ),
+                    f'Failure attempting to register context provider "{entrypoint.name}": {exc!s}',
                     stacklevel=2,
                 )
 

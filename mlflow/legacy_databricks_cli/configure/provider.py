@@ -138,7 +138,7 @@ def get_config():
         if config:
             return config
         raise InvalidConfigurationError(
-            "Custom provider returned no DatabricksConfig: %s" % _config_provider
+            f"Custom provider returned no DatabricksConfig: {_config_provider}"
         )
 
     config = DefaultConfigProvider().get_config()
@@ -182,7 +182,7 @@ def set_config_provider(provider):
     """
     global _config_provider
     if provider and not isinstance(provider, DatabricksConfigProvider):
-        raise Exception("Must be instance of DatabricksConfigProvider: %s" % _config_provider)
+        raise Exception(f"Must be instance of DatabricksConfigProvider: {_config_provider}")
     _config_provider = provider
 
 

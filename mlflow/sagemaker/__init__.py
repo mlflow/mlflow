@@ -1,6 +1,7 @@
 """
 The ``mlflow.sagemaker`` module provides an API for deploying MLflow models to Amazon SageMaker.
 """
+
 import json
 import logging
 import os
@@ -76,12 +77,9 @@ def _get_preferred_deployment_flavor(model_config):
     else:
         raise MlflowException(
             message=(
-                "The specified model does not contain any of the supported flavors for"
-                " deployment. The model contains the following flavors: {model_flavors}."
-                " Supported flavors: {supported_flavors}".format(
-                    model_flavors=model_config.flavors.keys(),
-                    supported_flavors=SUPPORTED_DEPLOYMENT_FLAVORS,
-                )
+                "The specified model does not contain any of the supported flavors for deployment. "
+                f"The model contains the following flavors: {model_config.flavors.keys()}."
+                f" Supported flavors: {SUPPORTED_DEPLOYMENT_FLAVORS}"
             ),
             error_code=RESOURCE_DOES_NOT_EXIST,
         )

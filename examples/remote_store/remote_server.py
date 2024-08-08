@@ -28,10 +28,7 @@ if __name__ == "__main__":
     run = service.get_run(run_id)
     print(f"Metadata & data for run with UUID {run_id}: {run}")
     local_dir = tempfile.mkdtemp()
-    message = "test artifact written during run {} within artifact URI {}\n".format(
-        active_run().info.run_id,
-        get_artifact_uri(),
-    )
+    message = f"test artifact written during run {active_run().info.run_id} within artifact URI {get_artifact_uri()}\n"
     try:
         file_path = os.path.join(local_dir, "some_output_file.txt")
         with open(file_path, "w") as handle:

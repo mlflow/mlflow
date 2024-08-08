@@ -117,8 +117,9 @@ class CardTab:
         """
         try:
             profile_iframe = (
-                "<iframe srcdoc='{src}' width='100%' height='500' frameborder='0'></iframe>"
-            ).format(src=html.escape(profile))
+                f"<iframe srcdoc='{html.escape(profile)}' width='100%' height='500' "
+                "frameborder='0'></iframe>"
+            )
         except Exception as e:
             profile_iframe = f"Unable to create data profile. Error found:\n{e}"
         self.add_html(name, profile_iframe)
