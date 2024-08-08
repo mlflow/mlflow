@@ -1023,7 +1023,7 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                 except Exception as e:
                     _logger.debug(
                         "Unexpected internal error while constructing `DatabricksConfig` "
-                    f"from REPL context: {e}",
+                        f"from REPL context: {e}",
                     )
                 # Invoking getContext() will attempt to find the credentials related to the
                 # current command execution, so it's critical that we execute it on every
