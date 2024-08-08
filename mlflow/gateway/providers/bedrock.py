@@ -17,7 +17,7 @@ from mlflow.gateway.providers.anthropic import AnthropicAdapter
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.cohere import CohereAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys
-from mlflow.gateway.schemas import completions
+from mlflow.gateway.schemas import chat, completions
 
 AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS = 8191
 
@@ -40,6 +40,13 @@ class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
     def model_to_completions(cls, payload, config):
         payload["model"] = config.model.name
         return super().model_to_completions(payload, config)
+
+    @classmethod
+    def chat_to_model(cls, payload, config):
+        # from https://docs.aws.amazon.com/pdfs/bedrock/latest/userguide/bedrock-ug.pdf:
+        # anthropic_version (Required): The value must be "bedrock-2023-05-31".
+        payload["anthropic_version"] = "bedrock-2023-05-31"
+        return super().chat_to_model(payload, config)
 
 
 class AWSTitanAdapter(ProviderAdapter):
@@ -284,4 +291,13 @@ class AmazonBedrockProvider(BaseProvider):
         payload = jsonable_encoder(payload, exclude_none=True, exclude_defaults=True)
         payload = self.underlying_provider_adapter.completions_to_model(payload, self.config)
         response = self._request(payload)
+
         return self.underlying_provider_adapter.model_to_completions(response, self.config)
+
+    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        self.check_for_model_field(payload)
+        payload = jsonable_encoder(payload, exclude_none=True, exclude_defaults=True)
+        payload = self.underlying_provider_adapter.chat_to_model(payload, self.config)
+        response = self._request(payload)
+
+        return self.underlying_provider_adapter.model_to_chat(response, self.config)
