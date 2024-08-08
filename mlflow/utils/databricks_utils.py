@@ -1071,7 +1071,7 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                             host=ctx.apiUrl, token=ctx.apiToken, insecure=ctx.sslTrustAll
                         )
                 except Exception as e:
-                    _logger.debug(  # noqa
+                    _logger.debug(
                         "Unexpected internal error while constructing `DatabricksConfig` "
                         f"from REPL context: {e}",
                     )
