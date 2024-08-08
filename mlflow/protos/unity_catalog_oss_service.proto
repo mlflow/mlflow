@@ -22,7 +22,8 @@ service UnityCatalogService {
         path: "/unity-catalog/models",
         since { major: 2, minor: 1 },
       },
-      visibility: PUBLIC_UNDOCUMENTED,
+      // https://docs.databricks.com/api/workspace/registeredmodels/create
+      visibility: PUBLIC,
     };
   }
 }
