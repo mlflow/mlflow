@@ -192,3 +192,16 @@ def mock_is_in_databricks(request):
         "mlflow.models.model.is_in_databricks_runtime", return_value=request.param
     ) as mock_databricks:
         yield mock_databricks
+
+
+@pytest.fixture
+def model_path(tmp_path):
+    model_path = tmp_path / "model"
+
+    yield model_path
+
+    # Pytest keeps the temporary directory created by `tmp_path` fixture for 3 recent test sessions
+    # by default. This is useful for debugging during local testing, but in CI it just wastes the
+    # disk space.
+    if os.getenv("GITHUB_ACTIONS") == "true":
+        shutil.rmtree(model_path, ignore_errors=True)

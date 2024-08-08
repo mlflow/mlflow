@@ -122,11 +122,6 @@ def sklearn_logreg_model(iris_data):
 
 
 @pytest.fixture
-def model_path(tmp_path):
-    return os.path.join(tmp_path, "model")
-
-
-@pytest.fixture
 def pyfunc_custom_env(tmp_path):
     conda_env = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(

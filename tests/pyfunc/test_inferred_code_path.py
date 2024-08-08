@@ -10,11 +10,6 @@ import mlflow
 from mlflow.models import Model
 
 
-@pytest.fixture
-def model_path(tmp_path):
-    return tmp_path / "model"
-
-
 @pytest.fixture(scope="module")
 def iris_data():
     iris = sklearn.datasets.load_iris()

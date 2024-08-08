@@ -57,11 +57,6 @@ def _get_dates_from_df(df):
 
 
 @pytest.fixture
-def model_path(tmp_path, subdir="model"):
-    return os.path.join(tmp_path, subdir)
-
-
-@pytest.fixture
 def statsmodels_custom_env(tmp_path):
     conda_env = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["pytest", "statsmodels"])

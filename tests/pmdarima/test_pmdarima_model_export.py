@@ -39,11 +39,6 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
 
 
 @pytest.fixture
-def model_path(tmp_path):
-    return tmp_path.joinpath("model")
-
-
-@pytest.fixture
 def pmdarima_custom_env(tmp_path):
     conda_env = tmp_path.joinpath("conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["pmdarima"])

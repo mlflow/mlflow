@@ -73,11 +73,6 @@ def sklearn_knn_model(iris_data):
     return knn_model
 
 
-@pytest.fixture
-def model_path(tmp_path):
-    return os.path.join(tmp_path, "model")
-
-
 def test_model_save_load(sklearn_knn_model, iris_data, tmp_path, model_path):
     sk_model_path = os.path.join(tmp_path, "knn.pkl")
     with open(sk_model_path, "wb") as f:
