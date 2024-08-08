@@ -6,9 +6,9 @@ import pytest
 from mlflow.entities.model_registry import RegisteredModelTag
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     RegisteredModelInfo,
-    TagKeyValue,
 )
 from mlflow.store._unity_catalog.registry_oss.rest_store_oss import UnityCatalogOssStore
+from mlflow.utils._unity_catalog_oss_utils import uc_oss_registered_model_tag_from_mlflow_tags
 from mlflow.utils.proto_json_utils import message_to_json
 
 from tests.helper_functions import mock_http_200
@@ -69,9 +69,6 @@ def test_create_registered_model(mock_http, store):
             catalog_name="catalog_1",
             schema_name="schema_1",
             comment=description,
-            tags=[
-                TagKeyValue(key="key", value="value"),
-                TagKeyValue(key="anotherKey", value="some other value"),
-            ],
+            tags=uc_oss_registered_model_tag_from_mlflow_tags(tags),
         ),
     )

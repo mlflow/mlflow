@@ -1,5 +1,7 @@
+from typing import List, Optional
+
 from mlflow.entities.model_registry import RegisteredModel, RegisteredModelAlias, RegisteredModelTag
-from mlflow.protos.unity_catalog_oss_messages_pb2 import RegisteredModelInfo
+from mlflow.protos.unity_catalog_oss_messages_pb2 import RegisteredModelInfo, TagKeyValue
 
 
 def registered_model_from_uc_oss_proto(uc_oss_proto: RegisteredModelInfo) -> RegisteredModel:
@@ -16,3 +18,11 @@ def registered_model_from_uc_oss_proto(uc_oss_proto: RegisteredModelInfo) -> Reg
             RegisteredModelTag(key=tag.key, value=tag.value) for tag in (uc_oss_proto.tags or [])
         ],
     )
+
+
+def uc_oss_registered_model_tag_from_mlflow_tags(
+    tags: Optional[List[RegisteredModelTag]],
+) -> List[TagKeyValue]:
+    if tags is None:
+        return []
+    return [TagKeyValue(key=t.key, value=t.value) for t in tags]
