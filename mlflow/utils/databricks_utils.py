@@ -5,7 +5,6 @@ import logging
 import os
 import subprocess
 import time
-from sys import stderr
 from typing import NamedTuple, Optional, TypeVar
 
 import mlflow.utils
