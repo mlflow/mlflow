@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 from autogen import ConversableAgent, GroupChat, GroupChatManager, UserProxyAgent, io
+from openai import APIConnectionError
 from openai.types.chat import ChatCompletion
 from openai.types.chat.chat_completion import ChatCompletionMessage, Choice
 
@@ -48,7 +49,26 @@ def get_simple_agent(llm_config):
     return assistant, user_proxy
 
 
-def test_tracing_agent_chat(llm_config):
+def test_enable_disable_autolog(llm_config):
+    mlflow.autogen.autolog()
+    with mock_user_input(["Hi", "exit"]):
+        assistant, user_proxy = get_simple_agent(llm_config)
+        assistant.initiate_chat(user_proxy, message="foo")
+
+    traces = get_traces()
+    assert len(traces) == 1
+
+    mlflow.autogen.autolog(disable=True)
+    with mock_user_input(["Hi", "exit"]):
+        assistant, user_proxy = get_simple_agent(llm_config)
+        assistant.initiate_chat(user_proxy, message="foo")
+
+    # No new trace should be created
+    traces = get_traces()
+    assert len(traces) == 1
+
+
+def test_tracing_agent(llm_config):
     mlflow.autogen.autolog()
 
     with mock_user_input(
@@ -100,7 +120,34 @@ def test_tracing_agent_chat(llm_config):
     assert llm_span_2.parent_id == agent_span_2.span_id
 
 
-def test_tracing_create_trace_per_chat_session(llm_config):
+def test_tracing_agent_with_error():
+    mlflow.autogen.autolog()
+
+    invalid_llm_config = {
+        "config_list": [
+            {
+                "model": "gpt-4o-mini",
+                "base_url": "invalid_url",
+                "api_key": "invalid",
+            }
+        ]
+    }
+    assistant = ConversableAgent("agent", llm_config=invalid_llm_config)
+    user_proxy = UserProxyAgent("user", code_execution_config=False)
+
+    with mock_user_input(["What is the capital of Tokyo?", "exit"]):
+        with pytest.raises(APIConnectionError, match="Connection error"):
+            assistant.initiate_chat(user_proxy, message="How can I help you today?")
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "ERROR"
+    assert traces[0].info.execution_time_ms > 0
+    assert traces[0].data.spans[0].status.status_code == "ERROR"
+    assert traces[0].data.spans[0].status.description == "Connection error."
+
+
+def test_tracing_agent_multiple_chat_sessions(llm_config):
     mlflow.autogen.autolog()
 
     with mock_user_input(["Hi", "exit", "Hello", "exit", "Hola", "exit"]):
@@ -109,27 +156,9 @@ def test_tracing_create_trace_per_chat_session(llm_config):
         assistant.initiate_chat(user_proxy, message="bar")
         assistant.initiate_chat(user_proxy, message="baz")
 
+    # Traces should be created for each chat session
     traces = get_traces()
     assert len(traces) == 3
-
-
-def test_enable_disable_autolog(llm_config):
-    mlflow.autogen.autolog()
-    with mock_user_input(["Hi", "exit"]):
-        assistant, user_proxy = get_simple_agent(llm_config)
-        assistant.initiate_chat(user_proxy, message="foo")
-
-    traces = get_traces()
-    assert len(traces) == 1
-
-    mlflow.autogen.autolog(disable=True)
-    with mock_user_input(["Hi", "exit"]):
-        assistant, user_proxy = get_simple_agent(llm_config)
-        assistant.initiate_chat(user_proxy, message="foo")
-
-    # No new trace should be created
-    traces = get_traces()
-    assert len(traces) == 1
 
 
 def test_tracing_agent_with_function_calling(llm_config):

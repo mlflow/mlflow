@@ -1,3 +1,4 @@
+import logging
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -9,11 +10,14 @@ from autogen.logger.base_logger import BaseLogger
 from openai.types.chat import ChatCompletion
 
 from mlflow import MlflowClient
-from mlflow.entities.span import Span, SpanType
-from mlflow.exceptions import MlflowException
+from mlflow.entities.span import NoOpSpan, Span, SpanType
+from mlflow.entities.span_event import SpanEvent
+from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.tracing.utils import capture_function_input_args
 
 _EXCLUDED_MESSAGE_SENDERS = ["chat_manager", "checking_agent"]
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -94,29 +98,58 @@ class MlflowAutogenLogger(BaseLogger):
         def _wrapper(*args, **kwargs):
             if self._chat_state.session_span is None:
                 # Create the trace per chat session
-                self._chat_state.session_span = self._client.start_trace(
+                span = self._client.start_trace(
                     name=span_name or f.__name__,
                     span_type=span_type,
                     inputs=capture_function_input_args(f, args, kwargs),
                 )
-                result = f(*args, **kwargs)
-                self._client.end_trace(self._chat_state.session_span.request_id, result)
-                # Clear the state to start a new chat session
-                self._chat_state.clear()
+                self._chat_state.session_span = span
+                try:
+                    result = f(*args, **kwargs)
+                except Exception as e:
+                    result = None
+                    self._record_exception(span, e)
+                    raise e
+                finally:
+                    self._client.end_trace(
+                        request_id=span.request_id, outputs=result, status=span.status
+                    )
+                    # Clear the state to start a new chat session
+                    self._chat_state.clear()
             elif not root_only:
                 span = self._start_span_in_session(
                     name=span_name or f.__name__,
                     span_type=span_type,
                     inputs=capture_function_input_args(f, args, kwargs),
                 )
-                result = f(*args, **kwargs)
-                self._client.end_span(span.request_id, span.span_id, result)
-                self._chat_state.pended_spans.append(span)
+                try:
+                    result = f(*args, **kwargs)
+                except Exception as e:
+                    result = None
+                    self._record_exception(span, e)
+                    raise e
+                finally:
+                    self._client.end_span(
+                        request_id=span.request_id,
+                        span_id=span.span_id,
+                        outputs=result,
+                        status=span.status,
+                    )
+                    self._chat_state.pended_spans.append(span)
             else:
                 result = f(*args, **kwargs)
             return result
 
         return _wrapper
+
+    def _record_exception(self, span: Span, e: Exception):
+        try:
+            span.set_status(SpanStatus(SpanStatusCode.ERROR, str(e)))
+            span.add_event(SpanEvent.from_exception(e))
+        except Exception as e:
+            _logger.warning(
+                "Failed to record exception in span.", exc_info=_logger.isEnabledFor(logging.DEBUG)
+            )
 
     def _start_span_in_session(
         self,
@@ -130,7 +163,9 @@ class MlflowAutogenLogger(BaseLogger):
         Start a span in the current chat session.
         """
         if self._chat_state.session_span is None:
-            raise MlflowException("No active chat session to start a span.")
+            _logger.warning("Failed to start span. No active chat session.")
+            return NoOpSpan()
+
         return self._client.start_span(
             request_id=self._chat_state.session_span.request_id,
             # Tentatively set the parent ID to the session root span, because we
