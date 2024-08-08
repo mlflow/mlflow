@@ -1022,10 +1022,9 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                             host=ctx.apiUrl, token=ctx.apiToken, insecure=ctx.sslTrustAll
                         )
                 except Exception as e:
-                    print(  # noqa
+                    _logger.debug(
                         "Unexpected internal error while constructing `DatabricksConfig` "
                         f"from REPL context: {e}",
-                        file=stderr,
                     )
                 # Invoking getContext() will attempt to find the credentials related to the
                 # current command execution, so it's critical that we execute it on every
