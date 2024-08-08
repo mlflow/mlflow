@@ -515,7 +515,7 @@ class _SpanAttributesRegistry:
         # NB: OpenTelemetry attribute can store not only string but also a few primitives like
         #   int, float, bool, and list of them. However, we serialize all into JSON string here
         #   for the simplicity in deserialization process.
-        self._span.set_attribute(key, json.dumps(value, cls=TraceJSONEncoder))
+        self._span.set_attribute(key, json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False))
 
 
 class _CachedSpanAttributesRegistry(_SpanAttributesRegistry):
