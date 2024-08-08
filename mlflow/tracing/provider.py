@@ -88,6 +88,17 @@ def _get_tracer(module_name: str):
     return _MLFLOW_TRACER_PROVIDER.get_tracer(module_name)
 
 
+def _get_trace_exporter():
+    """
+    Get the exporter instance that is used by the current tracer provider.
+    """
+    if _MLFLOW_TRACER_PROVIDER:
+        processors = _MLFLOW_TRACER_PROVIDER._active_span_processor._span_processors
+        # There should be only one processor used for MLflow tracing
+        processor = processors[0]
+        return processor.span_exporter
+
+
 def _setup_tracer_provider(disabled=False):
     """
     Instantiate a tracer provider and set it as the global tracer provider.
