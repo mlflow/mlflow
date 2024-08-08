@@ -5,11 +5,10 @@ import pytest
 
 from mlflow.entities.model_registry import RegisteredModelTag
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
-    CreateRegisteredModel,
     RegisteredModelInfo,
     TagKeyValue,
 )
-from mlflow.store._unity_catalog.oss_registry.oss_rest_store import OssUnityCatalogStore
+from mlflow.store._unity_catalog.registry_oss.rest_store_oss import UnityCatalogOssStore
 from mlflow.utils.proto_json_utils import message_to_json
 
 from tests.helper_functions import mock_http_200
@@ -19,13 +18,13 @@ from tests.store._unity_catalog.conftest import _REGISTRY_HOST_CREDS
 @pytest.fixture
 def store(mock_databricks_uc_oss_host_creds):
     with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"):
-        return OssUnityCatalogStore(store_uri="databricks-uc")
+        return UnityCatalogOssStore(store_uri="databricks-uc")
 
 
 def _args(endpoint, method, json_body, host_creds, extra_headers):
     res = {
         "host_creds": host_creds,
-        "endpoint": f"/api/2.0/unity-catalog/{endpoint}",
+        "endpoint": f"/api/2.1/unity-catalog/{endpoint}",
         "method": method,
         "extra_headers": extra_headers,
     }
@@ -65,16 +64,14 @@ def test_create_registered_model(mock_http, store):
         mock_http,
         "models",
         "POST",
-        CreateRegisteredModel(
-            registered_model_info=RegisteredModelInfo(
-                name="model_1",
-                catalog_name="catalog_1",
-                schema_name="schema_1",
-                comment=description,
-                tags=[
-                    TagKeyValue(key="key", value="value"),
-                    TagKeyValue(key="anotherKey", value="some other value"),
-                ],
-            )
+        RegisteredModelInfo(
+            name="model_1",
+            catalog_name="catalog_1",
+            schema_name="schema_1",
+            comment=description,
+            tags=[
+                TagKeyValue(key="key", value="value"),
+                TagKeyValue(key="anotherKey", value="some other value"),
+            ],
         ),
     )

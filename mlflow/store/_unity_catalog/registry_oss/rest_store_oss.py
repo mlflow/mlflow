@@ -7,7 +7,7 @@ from mlflow.protos.unity_catalog_oss_messages_pb2 import (
 )
 from mlflow.protos.unity_catalog_oss_service_pb2 import UnityCatalogService
 from mlflow.store.model_registry.base_rest_store import BaseRestStore
-from mlflow.utils._oss_unity_catalog_utils import registered_model_from_uc_oss_proto
+from mlflow.utils._unity_catalog_oss_utils import registered_model_from_uc_oss_proto
 from mlflow.utils._unity_catalog_utils import get_full_name_from_sc
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -25,7 +25,7 @@ _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
 
 
 @experimental
-class OssUnityCatalogStore(BaseRestStore):
+class UnityCatalogOssStore(BaseRestStore):
     """
     Client for an Open Source Unity Catalog Server accessed via REST API calls.
     """
