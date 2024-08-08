@@ -246,6 +246,7 @@ class CloudArtifactRepository(ArtifactRepository):
             )
 
             if failed_downloads:
+                self._refresh_credentials()
                 new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
@@ -300,4 +301,13 @@ class CloudArtifactRepository(ArtifactRepository):
             remote_file_path: Path to file in the remote artifact repository.
             local_path: Local path to download file to.
 
+        """
+    
+    @abstractmethod
+    def _refresh_credentials(self):
+        """
+        Refresh credentials for user in the case of credential expiration 
+
+        Args:
+            None 
         """
