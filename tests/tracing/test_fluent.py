@@ -2,6 +2,7 @@ import json
 import time
 from dataclasses import asdict
 from datetime import datetime
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -29,6 +30,7 @@ from mlflow.tracing.constant import (
 )
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.provider import _get_tracer
+from mlflow.utils.file_utils import local_file_uri_to_path
 
 from tests.tracing.helper import create_test_trace_info, create_trace, get_traces
 
@@ -1018,3 +1020,19 @@ def test_get_last_active_trace():
     trace.info.status = TraceStatus.ERROR
     original_trace = mlflow.MlflowClient().get_trace(trace.info.request_id)
     assert original_trace.info.status == TraceStatus.OK
+
+
+def test_non_ascii_characters_not_encoded_as_unicode():
+    with mlflow.start_span() as span:
+        span.set_inputs({"japanese": "あ", "emoji": "👍"})
+
+    trace = mlflow.MlflowClient().get_trace(span.request_id)
+    span = trace.data.spans[0]
+    assert span.inputs == {"japanese": "あ", "emoji": "👍"}
+
+    artifact_location = local_file_uri_to_path(trace.info.tags["mlflow.artifactLocation"])
+    data = Path(artifact_location, "traces.json").read_text()
+    assert "あ" in data
+    assert "👍" in data
+    assert json.dumps("あ").strip('"') not in data
+    assert json.dumps("👍").strip('"') not in data

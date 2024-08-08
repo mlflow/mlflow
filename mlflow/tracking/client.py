@@ -709,7 +709,9 @@ class MlflowClient:
 
         # Directly set the tag on the trace in the backend
         self._tracking_client.set_trace_tag(
-            trace_info.request_id, TraceTagKey.TRACE_SPANS, json.dumps(parsed_spans)
+            trace_info.request_id,
+            TraceTagKey.TRACE_SPANS,
+            json.dumps(parsed_spans, ensure_ascii=False),
         )
 
     @experimental
