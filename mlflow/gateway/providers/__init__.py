@@ -28,6 +28,7 @@ def get_provider(provider: Provider) -> Type[BaseProvider]:
         Provider.MLFLOW_MODEL_SERVING: MlflowModelServingProvider,
         Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HFTextGenerationInferenceServerProvider,
         Provider.BEDROCK: AmazonBedrockProvider,
+        Provider.AMAZON_BEDROCK: AmazonBedrockProvider,
         Provider.MISTRAL: MistralProvider,
         Provider.TOGETHERAI: TogetherAIProvider,
     }
