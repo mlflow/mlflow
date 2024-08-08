@@ -1190,7 +1190,7 @@ MLflow Deployments Server API Documentation
 OpenAI Compatibility
 ====================
 
-MLflow Deployments Server is compatible with OpenAI's API and supports the ``chat``, ``completions``, and ``embeddings`` APIs.
+MLflow Deployments Server is compatible with OpenAI API and supports the ``chat``, ``completions``, and ``embeddings`` APIs.
 The OpenAI client can be used to query the server as shown in the example below:
 
 1. Create a configuration file:
