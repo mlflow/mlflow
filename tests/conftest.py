@@ -21,8 +21,9 @@ from tests.autologging.fixtures import enable_test_mode
 
 
 @pytest.fixture(autouse=True)
-def tracking_uri_mock(tmp_path, request):
+def tracking_uri_mock(tmp_path, request, monkeypatch):
     if "notrackingurimock" not in request.keywords:
+        monkeypatch.setenv("MLFLOW_DEFAULT_ARTIFACT_ROOT", (tmp_path / "artifacts").as_uri())
         tracking_uri = path_to_local_sqlite_uri(tmp_path / f"{uuid.uuid4().hex}.sqlite")
         with _use_tracking_uri(tracking_uri):
             yield tracking_uri

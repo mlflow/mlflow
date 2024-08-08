@@ -6,7 +6,7 @@ from functools import partial
 from pathlib import Path
 from typing import Generator, Union
 
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.environment_variables import MLFLOW_DEFAULT_ARTIFACT_ROOT, MLFLOW_TRACKING_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.tracking.file_store import FileStore
@@ -127,14 +127,15 @@ def get_tracking_uri() -> str:
 
 
 def _get_file_store(store_uri, **_):
-    return FileStore(store_uri, store_uri)
+    return FileStore(store_uri, MLFLOW_DEFAULT_ARTIFACT_ROOT.get() or store_uri)
 
 
 def _get_sqlalchemy_store(store_uri, artifact_uri):
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
-    if artifact_uri is None:
-        artifact_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+    artifact_uri = (
+        artifact_uri or MLFLOW_DEFAULT_ARTIFACT_ROOT.get() or DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+    )
     return SqlAlchemyStore(store_uri, artifact_uri)
 
 
