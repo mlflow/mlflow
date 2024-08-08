@@ -1,14 +1,19 @@
+import os
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import pytest
 from llama_index.core import QueryBundle, Settings, VectorStoreIndex
+from llama_index.core.base.base_query_engine import BaseQueryEngine
 from llama_index.core.llms import ChatMessage
+from llama_index.core.vector_stores.simple import SimpleVectorStore
 from llama_index.embeddings.databricks import DatabricksEmbedding
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.databricks import Databricks
 from llama_index.llms.openai import OpenAI
+from llama_index.vector_stores.faiss import FaissVectorStore
 
 import mlflow
 import mlflow.llama_index
@@ -18,6 +23,7 @@ from mlflow.llama_index.pyfunc_wrapper import (
     _CHAT_MESSAGE_HISTORY_PARAMETER_NAME,
     create_engine_wrapper,
 )
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
 
 _EMBEDDING_DIM = 1536
@@ -344,3 +350,38 @@ def test_llama_index_databricks_integration(monkeypatch, document, model_path, m
     response = loaded_model.predict("Spell llamaindex")
     assert isinstance(response, str)
     assert response != ""
+
+
+@pytest.mark.parametrize(
+    ("index_code_path", "vector_store_class"),
+    [
+        (
+            "tests/llama_index/sample_code/basic_vector_store.py",
+            SimpleVectorStore,
+        ),
+        (
+            "tests/llama_index/sample_code/external_vector_store.py",
+            FaissVectorStore,
+        ),
+    ],
+)
+def test_save_load_index_as_code_optional_code_path(index_code_path, vector_store_class):
+    with mlflow.start_run():
+        model_info = mlflow.llama_index.log_model(
+            index=index_code_path,
+            engine_type="query",
+            artifact_path="model",
+            input_example="hi",
+        )
+
+    artifact_path = Path(_download_artifact_from_uri(model_info.model_uri))
+    assert os.path.exists(artifact_path / os.path.basename(index_code_path))
+    assert not os.path.exists(artifact_path / "index")
+    assert os.path.exists(artifact_path / "settings.json")
+
+    loaded_index = mlflow.llama_index.load_model(model_info.model_uri)
+    assert isinstance(loaded_index.vector_store, vector_store_class)
+
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert isinstance(pyfunc_loaded_model.get_raw_model(), BaseQueryEngine)
+    assert pyfunc_loaded_model.predict("Spell llamaindex") != ""

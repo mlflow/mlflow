@@ -67,6 +67,9 @@ METADATA_FILES = [
 ]
 MODEL_CONFIG = "config"
 MODEL_CODE_PATH = "model_code_path"
+SET_MODEL_ERROR = (
+    "Model should either be an instance of PyFuncModel, Langchain type, or LlamaIndex type."
+)
 
 
 class ModelInfo:
@@ -1001,6 +1004,18 @@ def update_model_requirements(
 __mlflow_model__ = None
 
 
+def _validate_langchain_model(model):
+    from mlflow.langchain import _validate_and_prepare_lc_model_or_path
+
+    return _validate_and_prepare_lc_model_or_path(model, None)
+
+
+def _validate_llama_index_model(model):
+    from mlflow.llama_index import _validate_and_prepare_llama_index_model_or_path
+
+    return _validate_and_prepare_llama_index_model_or_path(model, None)
+
+
 @experimental
 def set_model(model):
     """
@@ -1012,20 +1027,17 @@ def set_model(model):
     """
     from mlflow.pyfunc import PythonModel
 
-    if not (isinstance(model, PythonModel) or callable(model)):
-        try:
-            from mlflow.langchain import _validate_and_prepare_lc_model_or_path
+    if isinstance(model, str):
+        raise mlflow.MlflowException(SET_MODEL_ERROR)
 
-            # If its not a PyFuncModel, then it should be a Langchain model (not a path)
-            # Check this since the validation function does not
-            if isinstance(model, str):
-                raise mlflow.MlflowException(
-                    "Model should either be an instance of PyFuncModel or Langchain type."
-                )
-            model = _validate_and_prepare_lc_model_or_path(model, None)
-        except Exception as e:
-            raise mlflow.MlflowException(
-                "Model should either be an instance of PyFuncModel or Langchain type."
-            ) from e
+    if not (isinstance(model, PythonModel) or callable(model)):
+        for validate_function in [_validate_langchain_model, _validate_llama_index_model]:
+            try:
+                globals()["__mlflow_model__"] = validate_function(model)
+                return
+            except Exception:
+                pass
+        else:
+            raise mlflow.MlflowException(SET_MODEL_ERROR)
 
     globals()["__mlflow_model__"] = model
