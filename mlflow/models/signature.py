@@ -192,7 +192,6 @@ def infer_signature(
               .. code-block:: python
 
                     from mlflow.models import infer_signature
-                    from mlflow.transformers import generate_signature_output
 
                     # Define parameters for inference
                     params = {
@@ -204,8 +203,8 @@ def infer_signature(
 
                     # Infer the signature including parameters
                     signature = infer_signature(
-                        data,
-                        generate_signature_output(model, data),
+                        model_input=data,
+                        model_output=model(data),
                         params=params,
                     )
 
