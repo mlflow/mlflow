@@ -29,6 +29,15 @@ def mock_databricks_uc_host_creds():
 
 
 @pytest.fixture
+def mock_databricks_uc_oss_host_creds():
+    with mock.patch(
+        "mlflow.store._unity_catalog.registry_oss.rest_store_oss.get_databricks_host_creds",
+        side_effect=mock_host_creds,
+    ):
+        yield
+
+
+@pytest.fixture
 def configure_client_for_uc(mock_databricks_uc_host_creds):
     """
     Configure MLflow client to register models to UC

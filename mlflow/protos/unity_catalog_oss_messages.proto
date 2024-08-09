@@ -1,0 +1,92 @@
+syntax = "proto2";
+
+package mlflow.unitycatalog;
+
+import "scalapb/scalapb.proto";
+import "databricks.proto";
+
+option java_package = "com.databricks.api.proto.managedcatalog";
+option java_generate_equals_and_hash = true;
+option (scalapb.options) = {
+  flat_package: true,
+};
+
+// Registered Model Management API
+
+message CreateRegisteredModel {
+  optional RegisteredModelInfo registered_model_info = 1;
+
+  message Response {
+    optional RegisteredModelInfo registered_model_info = 1;
+  }
+}
+
+message RegisteredModelInfo {
+  // Input fields:
+
+  // [Create:REQ Update:OPT] Name of Model, relative to parent Schema.
+  optional string name = 1;
+  // [Create:REQ Update:IGN] Name of parent Catalog.
+  optional string catalog_name = 2;
+  // [Create:REQ Update:IGN] Name of parent Schema relative to its parent Catalog.
+  optional string schema_name = 3;
+  // [Create:IGN Update:OPT] Username of current owner of Model.
+  optional string owner = 4;
+  // [Create,Update:OPT] User-provided free-form text description.
+  optional string comment = 5;
+  // [Create:OPT] Registered model tags
+  repeated TagKeyValue tags = 20;
+
+  // Output-only fields:
+
+  // [Create,Update:IGN] Storage root URL for model
+  optional string storage_location = 6;
+  // [Create,Update:IGN] Unique identifier of parent Metastore.
+  optional string metastore_id = 7;
+  // [Create,Update:IGN] Full name of Model, in form of <catalog_name>.<schema_name>.<model_name>
+  optional string full_name = 9;
+  // [Create,Update:IGN] Time at which this Model was created, in epoch milliseconds.
+  optional int64 created_at = 11;
+  // [Create,Update:IGN] Username of Model creator.
+  optional string created_by = 12;
+  // [Create,Update:IGN] Time at which this Model was last modified, in epoch milliseconds.
+  optional int64 updated_at = 13;
+  // [Create,Update:IGN] Username of user who last modified the Model.
+  optional string updated_by = 14;
+  // [Create,Update:IGN] common - type of securable
+  optional SecurableType securable_type = 15;
+  // [Create,Update:IGN] common - kind of securable
+  optional SecurableKind securable_kind = 16;
+  // [Create,Update:IGN] ID of the securable that can be used in paging tokens
+  optional string id = 18;
+  // [Create,Update:IGN] Registered model aliases
+  repeated RegisteredModelAliasInfo aliases = 19;
+  // [Create,Update:IGN] Indicate if current model info contains only browsable metadata
+  optional bool browse_only = 21;
+  // [Create,Update:IGN] Encryption options to use when accessing cloud storage.
+  //  optional EncryptionDetails encryption_details = 22;
+}
+
+message TagKeyValue {
+  // name of the tag
+  optional string key = 1;
+  // value of the tag associated with the key, could be optional
+  optional string value = 2;
+}
+
+enum SecurableType {
+  UNKNOWN_SECURABLE_TYPE = 0;  // For detecting field not being set to a supported value
+  FUNCTION = 6;
+}
+
+enum SecurableKind {
+  UNKNOWN_SECURABLE_KIND = 0;  // For detecting field not being set to a supported value
+  FUNCTION_REGISTERED_MODEL = 71;
+}
+
+message RegisteredModelAliasInfo {
+  // Name of the alias.
+  optional string alias_name = 1;
+  // Numeric model version that alias will reference.
+  optional int64 version_num = 2;
+}

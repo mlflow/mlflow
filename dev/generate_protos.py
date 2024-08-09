@@ -57,6 +57,8 @@ uc_proto_files = [
     "databricks_uc_registry_messages.proto",
     "databricks_uc_registry_service.proto",
     "databricks_filesystem_service.proto",
+    "unity_catalog_oss_messages.proto",
+    "unity_catalog_oss_service.proto",
 ]
 facet_proto_files = ["facet_feature_statistics.proto"]
 python_proto_files = basic_proto_files + uc_proto_files + facet_proto_files
@@ -78,6 +80,10 @@ python_gencode_replacements = [
         "messages__pb2",
         "from . import databricks_managed_catalog_messages_pb2 as databricks_managed_"
         "catalog_messages_pb2",
+    ),
+    (
+        "import unity_catalog_oss_messages_pb2 as unity__catalog__oss__messages__pb2",
+        "from . import unity_catalog_oss_messages_pb2 as unity_catalog_oss_messages_pb2",
     ),
 ]
 
