@@ -261,8 +261,8 @@ def _save_internal_runnables(runnable, path, loader_fn, persist_dir):
                     yaml.dump(runnable_dict, f, default_flow_style=False)
                 # if the model cannot be loaded back, then `dict` is not enough for saving.
                 _load_model_from_config(path, conf)
-            except Exception:
-                raise Exception("Cannot save runnable without `save` method.")
+            except Exception as e:
+                raise Exception(f"Cannot save runnable with `dict` method. Error: {e}")
         else:
             raise Exception("Cannot save runnable without `save` or `dict` methods.")
     return conf
