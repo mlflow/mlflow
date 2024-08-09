@@ -25,6 +25,8 @@ from mlflow.utils.file_utils import (
 from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 
 _logger = logging.getLogger(__name__)
+console_handler = logging.StreamHandler()
+_logger.addHandler(console_handler)
 _ARTIFACT_UPLOAD_BATCH_SIZE = (
     50  # Max number of artifacts for which to fetch write credentials at once.
 )
@@ -230,6 +232,7 @@ class CloudArtifactRepository(ArtifactRepository):
         # the response.
         assert len(read_credentials) == 1
         cloud_credential_info = read_credentials[0]
+        _logger.log("logger working")
 
         with remove_on_error(local_path):
             parallel_download_subproc_env = os.environ.copy()
@@ -247,7 +250,7 @@ class CloudArtifactRepository(ArtifactRepository):
 
             if failed_downloads:
                 self._refresh_credentials()
-                _logger.info("CREDS REFRESHED")
+                _logger.log("CREDS REFRESHED")
                 new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
