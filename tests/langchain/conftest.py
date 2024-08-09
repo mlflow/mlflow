@@ -3,14 +3,22 @@ import importlib
 import openai
 import pytest
 
+from tests.helper_functions import start_mock_openai_server
+
 
 @pytest.fixture(autouse=True)
-def set_envs(monkeypatch):
+def set_envs(monkeypatch, mock_openai):
     monkeypatch.setenvs(
         {
-            "MLFLOW_TESTING": "true",
             "OPENAI_API_KEY": "test",
+            "OPENAI_API_BASE": mock_openai,
             "SERPAPI_API_KEY": "test",
         }
     )
     importlib.reload(openai)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def mock_openai():
+    with start_mock_openai_server() as base_url:
+        yield base_url

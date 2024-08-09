@@ -56,7 +56,6 @@ class TraceJSONEncoder(json.JSONEncoder):
                 return obj.dict()
         except ImportError:
             pass
-
         try:
             import pydantic
 
