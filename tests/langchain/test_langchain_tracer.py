@@ -1,9 +1,9 @@
 import random
 import time
-from unittest import mock
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, List, Optional
+from unittest import mock
 from unittest.mock import MagicMock
 
 import langchain
@@ -434,13 +434,13 @@ def test_agent_success(mock_databricks_serving_with_tracing_env):
     assert llm_chain_span.parent_id == root_span_id
     assert llm_chain_span.span_type == "CHAIN"
     assert llm_chain_span.inputs["input"] == langchain_input["input"]
-    assert llm_chain_span.outputs == {"text": f"Final Answer: test"}
+    assert llm_chain_span.outputs == {"text": "Final Answer: test"}
 
     # LLM of the LLMChain
     llm_span = spans[2]
     assert llm_span.parent_id == llm_chain_span.span_id
     assert llm_span.span_type == "LLM"
-    assert llm_span.outputs["generations"][0][0]["text"] == f"Final Answer: test"
+    assert llm_span.outputs["generations"][0][0]["text"] == "Final Answer: test"
 
     _validate_trace_json_serialization(trace)
 

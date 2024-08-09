@@ -5,7 +5,6 @@ from typing import NamedTuple, Optional
 
 import mlflow
 
-
 REQUEST_URL_CHAT = "https://api.openai.com/v1/chat/completions"
 REQUEST_URL_COMPLETIONS = "https://api.openai.com/v1/completions"
 REQUEST_URL_EMBEDDINGS = "https://api.openai.com/v1/embeddings"

@@ -346,8 +346,8 @@ def test_save_and_load_chat_openai(model_path):
     assert loaded_model == chain
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(model_path)
-    prediction = loaded_pyfunc_model.predict([{"product": "Mlflow"}])
-    assert prediction == ['[{"role": "user", "content": "What is Mlflow?"}]']
+    prediction = loaded_pyfunc_model.predict([{"product": "MLflow"}])
+    assert prediction == ['[{"role": "user", "content": "What is MLflow?"}]']
 
 
 def test_save_and_load_azure_chat_openai(model_path, monkeypatch):
@@ -396,7 +396,7 @@ def test_langchain_agent_model_predict(return_intermediate_steps):
             {
                 "index": 0,
                 "finish_reason": "stop",
-                "text": f"Final Answer: test",
+                "text": "Final Answer: test",
             }
         ],
         "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
@@ -413,15 +413,17 @@ def test_langchain_agent_model_predict(return_intermediate_steps):
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
 
     if return_intermediate_steps:
-        langchain_output = [{
-            "output": "test",
-            "intermediate_steps": {
-                "tool": "Search",
-                "tool_input": "High temperature in SF yesterday",
-                "log": " I need to find the temperature first...",
-                "result": "San Francisco...",
-            },
-        }]
+        langchain_output = [
+            {
+                "output": "test",
+                "intermediate_steps": {
+                    "tool": "Search",
+                    "tool_input": "High temperature in SF yesterday",
+                    "log": " I need to find the temperature first...",
+                    "result": "San Francisco...",
+                },
+            }
+        ]
         # hardcoded output key because that is the default for an agent
         # but it is not an attribute of the agent or anything that we log
     else:
@@ -461,7 +463,7 @@ def test_langchain_agent_model_predict_stream():
             {
                 "index": 0,
                 "finish_reason": "stop",
-                "text": f"Final Answer: test",
+                "text": "Final Answer: test",
             }
         ],
         "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
@@ -478,7 +480,7 @@ def test_langchain_agent_model_predict_stream():
         assert list(response) == [
             {
                 "output": "test",
-                "messages": [AIMessage(content=f"Final Answer: test")],
+                "messages": [AIMessage(content="Final Answer: test")],
             }
         ]
 

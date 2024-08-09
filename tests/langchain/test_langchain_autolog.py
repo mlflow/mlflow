@@ -96,14 +96,13 @@ def create_openai_llmagent():
         }
         llm = OpenAI(temperature=0)
     tools = load_tools(["serpapi", "llm-math"], llm=llm)
-    model = initialize_agent(
+    return initialize_agent(
         tools,
         llm,
         agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
         verbose=True,
         return_intermediate_steps=False,
     )
-    return model
 
 
 def create_retriever(tmp_path):
@@ -593,7 +592,9 @@ def test_unsupported_log_model_models_autolog(tmp_path):
         | StrOutputParser()
     )
     question = "What is MLflow?"
-    with mock.patch("mlflow.langchain._langchain_autolog._logger.info") as logger_mock, mock.patch("mlflow.langchain.log_model") as log_model_mock:
+    with mock.patch("mlflow.langchain._langchain_autolog._logger.info") as logger_mock, mock.patch(
+        "mlflow.langchain.log_model"
+    ) as log_model_mock:
         assert retrieval_chain.invoke(question) == TEST_CONTENT
         logger_mock.assert_called_once_with(UNSUPPORT_LOG_MODEL_MESSAGE)
         log_model_mock.assert_not_called()
