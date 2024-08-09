@@ -1,0 +1,29 @@
+syntax = "proto2";
+
+package mlflow.unitycatalog;
+
+import "databricks.proto";
+import "scalapb/scalapb.proto";
+import "unity_catalog_oss_messages.proto";
+
+option java_package = "com.databricks.api.proto.managedcatalog";
+option java_generate_equals_and_hash = true;
+option py_generic_services = true;
+option (scalapb.options) = {
+  flat_package: true,
+};
+
+service UnityCatalogService {
+  // Registered Model Management API
+  rpc createRegisteredModel(CreateRegisteredModel) returns (CreateRegisteredModel.Response) {
+    option (rpc) = {
+      endpoints: {
+        method: "POST",
+        path: "/unity-catalog/models",
+        since { major: 2, minor: 1 },
+      },
+      // https://docs.databricks.com/api/workspace/registeredmodels/create
+      visibility: PUBLIC,
+    };
+  }
+}
