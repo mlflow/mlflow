@@ -443,26 +443,25 @@ def tracking_client_log_batch(tmp_path):
 
 def test_log_batch(tracking_client_log_batch):
     client, run_id = tracking_client_log_batch
-    
-    metrics = [Metric(key="metric1", value=1.0, timestamp=12345, step=0),
-               Metric(key="metric2", value=2.0, timestamp=23456, step=1)]
-    
-    params = [Param(key="param1", value="value1"),
-              Param(key="param2", value="value2")]
-    
-    tags = [RunTag(key="tag1", value="value1"),
-            RunTag(key="tag2", value="value2")]
-    
+
+    metrics = [
+        Metric(key="metric1", value=1.0, timestamp=12345, step=0),
+        Metric(key="metric2", value=2.0, timestamp=23456, step=1),
+    ]
+
+    params = [Param(key="param1", value="value1"), Param(key="param2", value="value2")]
+
+    tags = [RunTag(key="tag1", value="value1"), RunTag(key="tag2", value="value2")]
+
     client.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
     run_data = client.get_run(run_id).data
-    
+
     expected_tags = {tag.key: tag.value for tag in tags}
-    expected_tags['mlflow.runName'] = run_data.tags['mlflow.runName']
-    
+    expected_tags["mlflow.runName"] = run_data.tags["mlflow.runName"]
+
     assert run_data.metrics == {metric.key: metric.value for metric in metrics}
     assert run_data.params == {param.key: param.value for param in params}
     assert run_data.tags == expected_tags
-
 
 
 def test_log_batch_with_empty_data(tracking_client_log_batch):
@@ -470,26 +469,27 @@ def test_log_batch_with_empty_data(tracking_client_log_batch):
 
     client.log_batch(run_id=run_id, metrics=[], params=[], tags=[])
     run_data = client.get_run(run_id).data
-    
+
     assert run_data.metrics == {}
     assert run_data.params == {}
-    assert run_data.tags == {'mlflow.runName': run_data.tags['mlflow.runName']}
+    assert run_data.tags == {"mlflow.runName": run_data.tags["mlflow.runName"]}
 
 
 def test_log_batch_with_numpy_array(tracking_client_log_batch):
     import numpy as np
+
     client, run_id = tracking_client_log_batch
-    
-    metrics = [Metric(key="metric1", value=np.array(1.), timestamp=12345, step=0)]
+
+    metrics = [Metric(key="metric1", value=np.array(1.0), timestamp=12345, step=0)]
     params = [Param(key="param1", value="value1")]
     tags = [RunTag(key="tag1", value="value1")]
-    
+
     client.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
     run_data = client.get_run(run_id).data
-    
+
     expected_tags = {tag.key: tag.value for tag in tags}
-    expected_tags['mlflow.runName'] = run_data.tags['mlflow.runName']
-    
+    expected_tags["mlflow.runName"] = run_data.tags["mlflow.runName"]
+
     assert run_data.metrics == {metric.key: metric.value for metric in metrics}
     assert run_data.params == {param.key: param.value for param in params}
     assert run_data.tags == expected_tags
