@@ -171,7 +171,7 @@ def test_log_artifacts(mlflow_artifact_repo, tmp_path, artifact_path):
     tmp_path_a.write_text("0")
     tmp_path_b.write_text("1")
 
-    with mock.patch.object(mlflow_artifact_repo, "log_artifact") as mock_log_artifact:
+    with mock.patch.object(mlflow_artifact_repo, "_log_artifact") as mock_log_artifact:
         mlflow_artifact_repo.log_artifacts(tmp_path, artifact_path)
         mock_log_artifact.assert_has_calls(
             [
