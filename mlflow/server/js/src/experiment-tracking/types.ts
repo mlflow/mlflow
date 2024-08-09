@@ -264,13 +264,6 @@ export enum MODEL_VERSION_FILTER {
   ALL_RUNS = 'All Runs',
 }
 
-export type ExperimentCategorizedUncheckedKeys = {
-  attributes: string[];
-  metrics: string[];
-  params: string[];
-  tags: string[];
-};
-
 /**
  * Function used to update the local (non-persistable) view state.
  * First parameter is the subset of fields that the current view state model will be merged with.
