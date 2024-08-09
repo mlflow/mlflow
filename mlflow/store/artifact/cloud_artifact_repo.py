@@ -2,6 +2,7 @@ import logging
 import math
 import os
 import posixpath
+import time
 from abc import abstractmethod
 from collections import namedtuple
 from concurrent.futures import as_completed
@@ -11,6 +12,8 @@ from mlflow.environment_variables import (
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
+    _MLFLOW_MPD_NUM_RETRIES,
+    _MLFLOW_MPD_RETRY_INTERVAL_SECONDS,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -23,6 +26,7 @@ from mlflow.utils.file_utils import (
     remove_on_error,
 )
 from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
+from mlflow.utils.request_utils import download_chunk
 
 _logger = logging.getLogger(__name__)
 console_handler = logging.StreamHandler()
@@ -248,18 +252,33 @@ class CloudArtifactRepository(ArtifactRepository):
                 headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
 
-            if failed_downloads:
+            while failed_downloads:
                 self._refresh_credentials()
                 _logger.info("CREDS REFRESHED")
                 new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
-                download_chunk_retries(
-                    chunks=list(failed_downloads),
-                    headers=new_headers,
-                    http_uri=new_signed_uri,
-                    download_path=local_path,
-                )
+                
+                num_retries = _MLFLOW_MPD_NUM_RETRIES.get()
+                interval = _MLFLOW_MPD_RETRY_INTERVAL_SECONDS.get()
+
+                futures = {self.chunk_thread_pool.submit(download_chunk, chunk.start, chunk.end, new_headers, local_path, new_signed_uri): chunk for chunk in failed_downloads}
+                
+                new_failed_downloads = []
+
+                for future in as_completed(futures):
+                    chunk = futures[future]
+                    try:
+                        future.result()
+                    except Exception as e:
+                        _logger.debug(
+                            f"Failed to download chunk {chunk.index} for {chunk.path}: {e}. "
+                            f"The download of this chunk will be retried later."
+                        )
+                        new_failed_downloads.append(chunk)
+                
+                failed_downloads = new_failed_downloads
+                time.sleep(interval)
 
     def _download_file(self, remote_file_path, local_path):
         # list_artifacts API only returns a list of FileInfos at the specified path
