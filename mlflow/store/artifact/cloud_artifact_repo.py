@@ -232,7 +232,7 @@ class CloudArtifactRepository(ArtifactRepository):
         # the response.
         assert len(read_credentials) == 1
         cloud_credential_info = read_credentials[0]
-        _logger.log("logger working")
+        _logger.info("logger working!")
 
         with remove_on_error(local_path):
             parallel_download_subproc_env = os.environ.copy()
@@ -250,7 +250,7 @@ class CloudArtifactRepository(ArtifactRepository):
 
             if failed_downloads:
                 self._refresh_credentials()
-                _logger.log("CREDS REFRESHED")
+                _logger.info("CREDS REFRESHED")
                 new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
