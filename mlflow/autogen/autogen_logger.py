@@ -15,6 +15,9 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.tracing.utils import capture_function_input_args
 
+# For GroupChat, a single "received_message" events are passed around multiple
+# internal layers and thus too verbose if we show them all. Therefore we ignore
+# some of the message senders listed below.
 _EXCLUDED_MESSAGE_SENDERS = ["chat_manager", "checking_agent"]
 
 _logger = logging.getLogger(__name__)
@@ -182,7 +185,6 @@ class MlflowAutogenLogger(BaseLogger):
 
     def log_event(self, source: Union[str, Agent], name: str, **kwargs: Dict[str, Any]):
         event_end_time = time.time_ns()
-        # received_message event indicates
         if name == "received_message":
             if (self._chat_state.last_message is not None) and (
                 kwargs.get("sender") not in _EXCLUDED_MESSAGE_SENDERS
@@ -238,15 +240,13 @@ class MlflowAutogenLogger(BaseLogger):
             },
             start_time_ns=start_time_epoch_ns,
         )
-        # TODO: Error handling
         self._client.end_span(
             request_id=span.request_id, span_id=span.span_id, outputs=response, end_time_ns=end_time
         )
         self._chat_state.pended_spans.append(span)
 
-    def log_function_use(
-        self, source: Union[str, Agent], function, args: Dict[str, Any], returns: any
-    ):
+    # The following methods are not used but are required to implement the BaseLogger interface.
+    def log_function_use(self, *args: Any, **kwargs: Any):
         pass
 
     def log_new_wrapper(self, wrapper, init_args):
