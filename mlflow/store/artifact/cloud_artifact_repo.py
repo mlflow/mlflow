@@ -256,7 +256,7 @@ class CloudArtifactRepository(ArtifactRepository):
             
             while failed_downloads and num_retries > 0:
                 self._refresh_credentials()
-                _logger.info("CREDS REFRESHED")
+                _logger.info("CREDS REFRESHED" + str(num_retries))
                 new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
