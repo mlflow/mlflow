@@ -164,6 +164,7 @@ def pytest_ignore_collect(collection_path, config):
         # Ignored files and directories must be included in dev/run-python-flavor-tests.sh
         model_flavors = [
             # Tests of flavor modules.
+            "tests/autogen",
             "tests/azureml",
             "tests/catboost",
             "tests/diviner",
