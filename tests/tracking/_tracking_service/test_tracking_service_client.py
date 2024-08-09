@@ -6,8 +6,7 @@ import pydantic
 import pytest
 
 from mlflow import MlflowClient
-from mlflow.entities import Run, RunInfo
-from mlflow.entities import Metric, Param, RunTag
+from mlflow.entities import Metric, Param, Run, RunInfo, RunTag
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
