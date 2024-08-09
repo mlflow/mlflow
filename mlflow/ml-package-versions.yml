@@ -674,8 +674,8 @@ langchain:
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
-      if [[ $PYDANTIC_VERSION == 1.* && $LANGCHAIN_NEW = "True" ]]; then
-        pip install 'pydantic>2'
+      if [[ $PYDANTIC_VERSION == 1.* ]]; then
+        pip install 'pydantic>2' 'fastapi>=0.100.0'
         echo "Testing langchain model export with pydantic v2"
         pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
       fi
@@ -701,7 +701,7 @@ langchain:
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
       if [[ $PYDANTIC_VERSION == 1.* ]]; then
-        pip install 'pydantic>2'
+        pip install 'pydantic>2' 'fastapi>=0.100.0'
         sleep 10
         echo "Testing langchain autolog with pydantic v2"
         pytest tests/langchain/test_langchain_autolog.py

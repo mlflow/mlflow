@@ -100,6 +100,9 @@ VECTORSTORE_KWARGS = (
     {"allow_dangerous_deserialization": True} if IS_PICKLE_SERIALIZATION_RESTRICTED else {}
 )
 
+# The mock OAI completion endpoint returns payload as it is
+TEST_CONTENT = "What is MLflow?"
+
 
 @pytest.fixture
 def model_path(tmp_path):
@@ -311,8 +314,7 @@ def test_langchain_model_predict():
         logged_model = mlflow.langchain.log_model(model, "langchain_model")
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     result = loaded_model.predict([{"product": "MLflow"}])
-    # The mock OAI completion endpoint returns payload as it is
-    assert result == ["What is MLflow?"]
+    assert result == [TEST_CONTENT]
 
 
 def test_langchain_model_predict_stream():
@@ -322,7 +324,7 @@ def test_langchain_model_predict_stream():
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     result = loaded_model.predict_stream([{"product": "MLflow"}])
     assert inspect.isgenerator(result)
-    assert list(result) == [{"product": "MLflow", "text": "What is MLflow?"}]
+    assert list(result) == [{"product": "MLflow", "text": TEST_CONTENT}]
 
 
 def test_pyfunc_spark_udf_with_langchain_model(spark):
@@ -1195,7 +1197,7 @@ def test_simple_chat_model_inference():
 def test_save_load_complex_runnable_parallel():
     chain = create_openai_llmchain()
     runnable = RunnableParallel({"llm": chain})
-    expected_result = {"llm": {"product": "MLflow", "text": "What is MLflow?"}}
+    expected_result = {"llm": {"product": "MLflow", "text": TEST_CONTENT}}
     assert runnable.invoke({"product": "MLflow"}) == expected_result
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
@@ -1329,7 +1331,7 @@ def test_save_load_long_runnable_sequence(model_path):
 def test_save_load_complex_runnable_sequence():
     llm_chain = create_openai_llmchain()
     chain = llm_chain | RunnablePassthrough()
-    expected_result = {"product": "MLflow", "text": "What is MLflow?"}
+    expected_result = {"product": "MLflow", "text": TEST_CONTENT}
     assert chain.invoke({"product": "MLflow"}) == expected_result
 
     with mlflow.start_run():
@@ -2277,7 +2279,7 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
 
     request_id = "mock_request_id"
     tracer = MlflowLangchainTracer(prediction_context=Context(request_id))
-    input_example = {"messages": [{"role": "user", "content": "What is MLflow?"}]}
+    input_example = {"messages": [{"role": "user", "content": TEST_CONTENT}]}
     response = pyfunc_loaded_model._model_impl._predict_with_callbacks(
         data=input_example, callback_handlers=[tracer]
     )
