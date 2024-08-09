@@ -370,25 +370,3 @@ def test_save_load_index_as_code_optional_code_path(index_code_path):
     assert loaded_model.as_query_engine().query("Spell llamaindex").response != ""
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_loaded_model.predict("Spell llamaindex") != ""
-
-    # inference_payload = get_serving_input_examplget_serving_input_examplee(model_info.model_uri)
-    # response = pyfunc_serve_and_score_model(
-    #     model_info.model_uri,
-    #     data=inference_payload,
-    #     content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-    #     extra_args=["--env-manager", "local"],
-    # )
-    # # avoid minor diff of created time in the response
-    # prediction_result = json.loads(response.content.decode("utf-8"))
-    # prediction_result[0]["created"] = 123
-    # expected_prediction = try_transform_response_to_chat_format(answer)
-    # expected_prediction["created"] = 123
-    # assert prediction_result == [expected_prediction]
-
-    # pyfunc_model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
-    # pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
-    # reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
-    # assert reloaded_model.resources["databricks"] == {
-    #     "serving_endpoint": [{"name": "fake-endpoint"}]
-    # }
-    # assert reloaded_model.metadata is None
