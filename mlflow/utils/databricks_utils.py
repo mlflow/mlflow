@@ -445,14 +445,19 @@ def get_workspace_info_from_dbutils():
 
 
 @_use_repl_context_if_available("workspaceUrl")
-def get_workspace_url():
+def _get_workspace_url():
     try:
-        spark_session = _get_active_spark_session()
-        if spark_session is not None:
+        if spark_session := _get_active_spark_session():
             if workspace_url := spark_session.conf.get("spark.databricks.workspaceUrl", None):
-                return f"https://{workspace_url}"
+                return workspace_url
     except Exception:
         return None
+
+
+def get_workspace_url():
+    if url := _get_workspace_url():
+        return f"https://{url}" if not url.startswith("https://") else url
+    return None
 
 
 def warn_on_deprecated_cross_workspace_registry_uri(registry_uri):
