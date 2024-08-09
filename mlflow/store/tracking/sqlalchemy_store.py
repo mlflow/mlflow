@@ -358,7 +358,7 @@ class SqlAlchemyStore(AbstractStore):
             session.query(SqlExperiment)
             .options(*query_options)
             .filter(
-                SqlExperiment.experiment_id == experiment_id,
+                SqlExperiment.experiment_id == int(experiment_id),
                 SqlExperiment.lifecycle_stage.in_(stages),
             )
             .one_or_none()
@@ -439,7 +439,7 @@ class SqlAlchemyStore(AbstractStore):
         session.add(run)
 
     def _list_run_infos(self, session, experiment_id):
-        return session.query(SqlRun).filter(SqlRun.experiment_id == experiment_id).all()
+        return session.query(SqlRun).filter(SqlRun.experiment_id == int(experiment_id)).all()
 
     def restore_experiment(self, experiment_id):
         with self.ManagedSessionMaker() as session:
@@ -1029,7 +1029,7 @@ class SqlAlchemyStore(AbstractStore):
                     ),
                     isouter=True,
                 )
-                .filter(SqlDataset.experiment_id.in_(experiment_ids))
+                .filter(SqlDataset.experiment_id.in_(map(int, experiment_ids)))
                 .limit(MAX_DATASET_SUMMARIES_RESULTS)
                 .all()
             )
@@ -1313,7 +1313,7 @@ class SqlAlchemyStore(AbstractStore):
                 stmt.distinct()
                 .options(*self._get_eager_run_query_options())
                 .filter(
-                    SqlRun.experiment_id.in_(experiment_ids),
+                    SqlRun.experiment_id.in_(map(int, experiment_ids)),
                     SqlRun.lifecycle_stage.in_(stages),
                     *attribute_filters,
                 )
