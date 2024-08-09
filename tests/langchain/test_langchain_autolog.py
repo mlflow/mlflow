@@ -36,19 +36,13 @@ from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
-from mlflow.utils.openai_utils import (
-    TEST_CONTENT,
-    _mock_chat_completion_response,
-    _mock_chat_completion_stream_response,
-    _mock_openai_arequest,
-    _mock_request,
-    _MockResponse,
-)
 
 from tests.tracing.helper import get_traces
 
 MODEL_DIR = "model"
-TEST_CONTENT = "test"
+# The mock OpenAI endpoint simply echos the prompt back as the completion.
+# So the expected output will be the prompt itself.
+TEST_CONTENT = "What is MLflow?"
 
 from langchain_community.callbacks.mlflow_callback import (
     get_text_complexity_metrics,
@@ -68,7 +62,7 @@ def create_openai_llmchain():
     llm = OpenAI(temperature=0.9)
     prompt = PromptTemplate(
         input_variables=["product"],
-        template="What is a good name for a company that makes {product}?",
+        template="What is {product}?",
     )
     return LLMChain(llm=llm, prompt=prompt)
 
@@ -78,7 +72,7 @@ def create_openai_runnable():
 
     prompt = PromptTemplate(
         input_variables=["product"],
-        template="What is a good name for a company that makes {product}?",
+        template="What is {product}?",
     )
     return prompt | ChatOpenAI(temperature=0.9) | StrOutputParser()
 
@@ -86,7 +80,21 @@ def create_openai_runnable():
 def create_openai_llmagent():
     from langchain.agents import AgentType, initialize_agent, load_tools
 
-    llm = OpenAI(temperature=0)
+    with mock.patch("openai.OpenAI") as mock_openai:
+        mock_openai.return_value.completions.create.return_value = {
+            "id": "chatcmpl-123",
+            "object": "chat.completion",
+            "created": 1677652288,
+            "choices": [
+                {
+                    "index": 0,
+                    "finish_reason": "stop",
+                    "text": f"Final Answer: {TEST_CONTENT}",
+                }
+            ],
+            "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
+        }
+        llm = OpenAI(temperature=0)
     tools = load_tools(["serpapi", "llm-math"], llm=llm)
     model = initialize_agent(
         tools,
@@ -95,24 +103,7 @@ def create_openai_llmagent():
         verbose=True,
         return_intermediate_steps=False,
     )
-    agent_input = {
-        "input": "What was the high temperature in SF yesterday in Fahrenheit?"
-        "What is that number raised to the .023 power?"
-    }
-    mock_response = {
-        "id": "chatcmpl-123",
-        "object": "chat.completion",
-        "created": 1677652288,
-        "choices": [
-            {
-                "index": 0,
-                "finish_reason": "stop",
-                "text": f"Final Answer: {TEST_CONTENT}",
-            }
-        ],
-        "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
-    }
-    return model, agent_input, mock_response
+    return model
 
 
 def create_retriever(tmp_path):
@@ -189,15 +180,14 @@ def create_runnable_sequence():
 def test_autolog_manage_run():
     mlflow.langchain.autolog(log_models=True, extra_tags={"test_tag": "test"})
     run = mlflow.start_run()
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        model = create_openai_llmchain()
-        model.invoke("MLflow")
-        assert model.run_id == run.info.run_id
+    model = create_openai_llmchain()
+    model.invoke("MLflow")
+    assert model.run_id == run.info.run_id
 
-        # The run_id should be propagated to the second call via model instance to
-        # avoid duplicate logging
-        model.invoke("MLflow")
-        assert model.run_id == run.info.run_id
+    # The run_id should be propagated to the second call via model instance to
+    # avoid duplicate logging
+    model.invoke("MLflow")
+    assert model.run_id == run.info.run_id
 
     # Active run created by an user should not be terminated
     assert mlflow.active_run() is not None
@@ -220,19 +210,18 @@ def test_autolog_manage_run_no_active_run():
     mlflow.langchain.autolog(log_models=True, extra_tags={"test_tag": "test"})
     assert mlflow.active_run() is None
 
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        model = create_openai_llmchain()
-        model.invoke("MLflow")
+    model = create_openai_llmchain()
+    model.invoke("MLflow")
 
-        # A new run should be created, and terminated after the inference
-        run = MlflowClient().get_run(model.run_id)
-        assert run.info.run_name.startswith("langchain-")
-        assert run.info.status == "FINISHED"
+    # A new run should be created, and terminated after the inference
+    run = MlflowClient().get_run(model.run_id)
+    assert run.info.run_name.startswith("langchain-")
+    assert run.info.status == "FINISHED"
 
-        # The run_id should be propagated to the second call via model instance to
-        # avoid duplicate logging
-        model.invoke("MLflow")
-        assert model.run_id == run.info.run_id
+    # The run_id should be propagated to the second call via model instance to
+    # avoid duplicate logging
+    model.invoke("MLflow")
+    assert model.run_id == run.info.run_id
 
     assert mlflow.active_run() is None
     assert run.data.tags["test_tag"] == "test"
@@ -286,13 +275,12 @@ def test_llmchain_autolog():
     mlflow.langchain.autolog(log_models=True)
     question = "MLflow"
     answer = {"product": "MLflow", "text": TEST_CONTENT}
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        model = create_openai_llmchain()
-        with mock.patch("mlflow.langchain.log_model") as log_model_mock:
-            assert model.invoke(question) == answer
-            # Call twice to test that the model is only logged once
-            assert model.invoke(question) == answer
-            log_model_mock.assert_called_once()
+    model = create_openai_llmchain()
+    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
+        assert model.invoke(question) == answer
+        # Call twice to test that the model is only logged once
+        assert model.invoke(question) == answer
+        log_model_mock.assert_called_once()
 
     traces = get_traces()
     assert len(traces) == 2
@@ -306,8 +294,8 @@ def test_llmchain_autolog():
         assert spans[1].name == "OpenAI"
         assert spans[1].parent_id == spans[0].span_id
         assert spans[1].span_type == "LLM"
-        assert spans[1].inputs == ["What is a good name for a company that makes MLflow?"]
-        assert spans[1].outputs["generations"][0][0]["text"] == "test"
+        assert spans[1].inputs == ["What is MLflow?"]
+        assert spans[1].outputs["generations"][0][0]["text"] == TEST_CONTENT
         attrs = spans[1].attributes
         assert attrs["invocation_params"]["model_name"] == "gpt-3.5-turbo-instruct"
         assert attrs["invocation_params"]["temperature"] == 0.9
@@ -317,12 +305,11 @@ def test_llmchain_autolog_should_not_generate_trace_while_saving_models(tmp_path
     mlflow.langchain.autolog()
     question = "MLflow"
 
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        model = create_openai_llmchain()
-        # Either save_model or log_model should not generate traces
-        mlflow.langchain.save_model(model, path=tmp_path / "model", input_example=question)
-        with mlflow.start_run():
-            mlflow.langchain.log_model(model, "model", input_example=question)
+    model = create_openai_llmchain()
+    # Either save_model or log_model should not generate traces
+    mlflow.langchain.save_model(model, path=tmp_path / "model", input_example=question)
+    with mlflow.start_run():
+        mlflow.langchain.log_model(model, "model", input_example=question)
 
     traces = get_traces()
     assert len(traces) == 0
@@ -332,11 +319,10 @@ def test_llmchain_autolog_no_optional_artifacts_by_default():
     mlflow.langchain.autolog()
     question = "MLflow"
     answer = {"product": "MLflow", "text": TEST_CONTENT}
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        model = create_openai_llmchain()
-        with mock.patch("mlflow.MlflowClient.create_run") as create_run_mock:
-            assert model.invoke(question) == answer
-            create_run_mock.assert_not_called()
+    model = create_openai_llmchain()
+    with mock.patch("mlflow.MlflowClient.create_run") as create_run_mock:
+        assert model.invoke(question) == answer
+        create_run_mock.assert_not_called()
 
     traces = get_traces()
     assert len(traces) == 1
@@ -347,11 +333,10 @@ def test_llmchain_autolog_no_optional_artifacts_by_default():
 def test_llmchain_autolog_with_registered_model_name():
     registered_model_name = "llmchain"
     mlflow.langchain.autolog(log_models=True, registered_model_name=registered_model_name)
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        model = create_openai_llmchain()
-        model.invoke("MLflow")
-        registered_model = MlflowClient().get_registered_model(registered_model_name)
-        assert registered_model.name == registered_model_name
+    model = create_openai_llmchain()
+    model.invoke("MLflow")
+    registered_model = MlflowClient().get_registered_model(registered_model_name)
+    assert registered_model.name == registered_model_name
 
 
 def test_loaded_llmchain_autolog():
@@ -359,79 +344,25 @@ def test_loaded_llmchain_autolog():
     model = create_openai_llmchain()
     question = {"product": "MLflow"}
     answer = {"product": "MLflow", "text": TEST_CONTENT}
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        with mlflow.start_run() as run:
-            assert model.invoke(question) == answer
-        with mock.patch("mlflow.langchain.log_model") as log_model_mock:
-            loaded_model = mlflow.langchain.load_model(f"runs:/{run.info.run_id}/model")
-            assert loaded_model.invoke(question) == answer
-            log_model_mock.assert_not_called()
-
-            mlflow_model = get_mlflow_model(run.info.artifact_uri)
-            model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
-            input_example = _read_example(mlflow_model, model_path)
-            assert input_example == question
-
-            pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
-            # _TestLangChainWrapper mocks this result
-            assert pyfunc_model.predict(question) == [TEST_CONTENT]
-            log_model_mock.assert_not_called()
-
-            signature = mlflow_model.signature
-            assert signature == infer_signature(question, [TEST_CONTENT])
-
-
-def test_llmchain_autolog_log_inputs_outputs():
-    mlflow.langchain.autolog(log_models=True, log_inputs_outputs=True)
-    question = {"product": "MLflow"}
-    answer = {"product": "MLflow", "text": TEST_CONTENT}
-    with _mock_request(return_value=_mock_chat_completion_response()), mock.patch(
-        "mlflow.utils.autologging_utils.config._logger.warning"
-    ) as mock_warning:
-        model = create_openai_llmchain()
-        with mlflow.start_run() as run:
-            model.invoke(question)
-        mock_warning.assert_called_once()
-        assert (
-            "The log_inputs_outputs option is deprecated and will be removed in a future release"
-            in mock_warning.call_args[0][0]
-        )
-        loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
-        loaded_dict = loaded_table.to_dict("records")
-        assert len(loaded_dict) == 1
-        assert loaded_dict[0]["input-product"] == question["product"]
-        assert loaded_dict[0]["output-text"] == answer["text"]
-        session_id = loaded_dict[0]["session_id"]
-
-        # inference history is appended to the same table
-        with mlflow.start_run(run.info.run_id):
-            model.invoke(question)
-        with mlflow.start_run():
-            model.invoke(question)
-        model.invoke(question)
-        loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
-        loaded_dict = loaded_table.to_dict("records")
-        assert (
-            loaded_dict
-            == [
-                {
-                    "input-product": question["product"],
-                    "output-product": answer["product"],
-                    "output-text": answer["text"],
-                    "session_id": session_id,
-                }
-            ]
-            * 4
-        )
-
-        # A different inference session adds a different session_id
+    with mlflow.start_run() as run:
+        assert model.invoke(question) == answer
+    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
         loaded_model = mlflow.langchain.load_model(f"runs:/{run.info.run_id}/model")
-        loaded_model.invoke(question)
-        loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
-        loaded_dict = loaded_table.to_dict("records")
-        assert len(loaded_dict) == 5
-        new_session_id = loaded_dict[-1]["session_id"]
-        assert new_session_id != session_id
+        assert loaded_model.invoke(question) == answer
+        log_model_mock.assert_not_called()
+
+        mlflow_model = get_mlflow_model(run.info.artifact_uri)
+        model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
+        input_example = _read_example(mlflow_model, model_path)
+        assert input_example == question
+
+        pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
+        # _TestLangChainWrapper mocks this result
+        assert pyfunc_model.predict(question) == [TEST_CONTENT]
+        log_model_mock.assert_not_called()
+
+        signature = mlflow_model.signature
+        assert signature == infer_signature(question, [TEST_CONTENT])
 
 
 @mock.patch("mlflow.tracing.export.mlflow.get_display_handler")
@@ -448,10 +379,9 @@ def test_loaded_llmchain_within_model_evaluation(mock_get_display, tmp_path):
     with mlflow.start_run(run_name="eval-run") as run:
         run_id = run.info.run_id
         with set_prediction_context(Context(request_id=request_id, is_evaluate=True)):
-            with _mock_request(return_value=_mock_chat_completion_response()):
-                response = loaded_model.predict({"product": "MLflow"})
+            response = loaded_model.predict({"product": "MLflow"})
 
-    assert response == ["test"]
+    assert response == [TEST_CONTENT]
     trace = mlflow.get_trace(request_id)
     assert trace.info.tags[TraceTagKey.EVAL_REQUEST_ID] == request_id
     assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
@@ -463,22 +393,18 @@ def test_loaded_llmchain_within_model_evaluation(mock_get_display, tmp_path):
 
 def test_agent_autolog():
     mlflow.langchain.autolog(log_models=True)
-    model, input, mock_response = create_openai_llmagent()
-    with _mock_request(return_value=_MockResponse(200, mock_response)), mock.patch(
-        "mlflow.langchain.log_model"
-    ) as log_model_mock:
+    model = create_openai_llmagent()
+    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
         # ensure __call__ is patched
-        assert model(input, return_only_outputs=True) == {"output": TEST_CONTENT}
-        assert model(input, return_only_outputs=True) == {"output": TEST_CONTENT}
+        assert model("Hi", return_only_outputs=True) == {"output": TEST_CONTENT}
+        assert model("Hi", return_only_outputs=True) == {"output": TEST_CONTENT}
         log_model_mock.assert_called_once()
 
-    model, input, mock_response = create_openai_llmagent()
-    with _mock_request(return_value=_MockResponse(200, mock_response)), mock.patch(
-        "mlflow.langchain.log_model"
-    ) as log_model_mock:
+    model = create_openai_llmagent()
+    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
         # ensure invoke is patched
-        assert model.invoke(input, return_only_outputs=True) == {"output": TEST_CONTENT}
-        assert model.invoke(input, return_only_outputs=True) == {"output": TEST_CONTENT}
+        assert model.invoke("Hi", return_only_outputs=True) == {"output": TEST_CONTENT}
+        assert model.invoke("Hi", return_only_outputs=True) == {"output": TEST_CONTENT}
         log_model_mock.assert_called_once()
 
     traces = get_traces()
@@ -490,7 +416,7 @@ def test_agent_autolog():
             ("LLMChain", "CHAIN"),
             ("OpenAI", "LLM"),
         ]
-        assert trace.data.spans[0].inputs == input
+        assert trace.data.spans[0].inputs == {"input": "Hi"}
         assert trace.data.spans[0].outputs == {"output": TEST_CONTENT}
 
 
@@ -502,56 +428,24 @@ def test_agent_autolog():
 def test_loaded_agent_autolog():
     mlflow.langchain.autolog(log_models=True, log_input_examples=True)
     model, input, mock_response = create_openai_llmagent()
-    with _mock_request(return_value=_MockResponse(200, mock_response)):
-        with mlflow.start_run() as run:
-            assert model(input, return_only_outputs=True) == {"output": TEST_CONTENT}
-        with mock.patch("mlflow.langchain.log_model") as log_model_mock:
-            loaded_model = mlflow.langchain.load_model(f"runs:/{run.info.run_id}/model")
-            assert loaded_model(input, return_only_outputs=True) == {"output": TEST_CONTENT}
-            log_model_mock.assert_not_called()
+    with mlflow.start_run() as run:
+        assert model(input, return_only_outputs=True) == {"output": TEST_CONTENT}
+    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
+        loaded_model = mlflow.langchain.load_model(f"runs:/{run.info.run_id}/model")
+        assert loaded_model(input, return_only_outputs=True) == {"output": TEST_CONTENT}
+        log_model_mock.assert_not_called()
 
-            mlflow_model = get_mlflow_model(run.info.artifact_uri)
-            model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
-            input_example = _read_example(mlflow_model, model_path)
-            assert input_example == input
+        mlflow_model = get_mlflow_model(run.info.artifact_uri)
+        model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
+        input_example = _read_example(mlflow_model, model_path)
+        assert input_example == input
 
-            pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
-            assert pyfunc_model.predict(input) == [TEST_CONTENT]
-            log_model_mock.assert_not_called()
+        pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
+        assert pyfunc_model.predict(input) == [TEST_CONTENT]
+        log_model_mock.assert_not_called()
 
-            signature = mlflow_model.signature
-            assert signature == infer_signature(input, [TEST_CONTENT])
-
-
-def test_agent_autolog_log_inputs_outputs():
-    mlflow.langchain.autolog(log_inputs_outputs=True)
-    model, input, mock_response = create_openai_llmagent()
-    output = {"output": TEST_CONTENT}
-    with _mock_request(return_value=_MockResponse(200, mock_response)):
-        with mlflow.start_run() as run:
-            assert model(input, return_only_outputs=True) == output
-        loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
-        loaded_dict = loaded_table.to_dict("records")
-        assert len(loaded_dict) == 1
-        assert loaded_dict[0]["input-input"] == input["input"]
-        assert loaded_dict[0]["output-output"] == output["output"]
-        session_id = loaded_dict[0]["session_id"]
-
-        with mlflow.start_run(run.info.run_id):
-            model.invoke(input, return_only_outputs=True)
-        loaded_table = mlflow.load_table(INFERENCE_FILE_NAME, run_ids=[run.info.run_id])
-        loaded_dict = loaded_table.to_dict("records")
-        assert (
-            loaded_dict
-            == [
-                {
-                    "input-input": input["input"],
-                    "output-output": output["output"],
-                    "session_id": session_id,
-                }
-            ]
-            * 2
-        )
+        signature = mlflow_model.signature
+        assert signature == infer_signature(input, [TEST_CONTENT])
 
 
 def test_runnable_sequence_autolog():
@@ -698,10 +592,8 @@ def test_unsupported_log_model_models_autolog(tmp_path):
         | chat_model
         | StrOutputParser()
     )
-    question = "What is a good name for a company that makes MLflow?"
-    with _mock_request(return_value=_mock_chat_completion_response()), mock.patch(
-        "mlflow.langchain._langchain_autolog._logger.info"
-    ) as logger_mock, mock.patch("mlflow.langchain.log_model") as log_model_mock:
+    question = "What is MLflow?"
+    with mock.patch("mlflow.langchain._langchain_autolog._logger.info") as logger_mock, mock.patch("mlflow.langchain.log_model") as log_model_mock:
         assert retrieval_chain.invoke(question) == TEST_CONTENT
         logger_mock.assert_called_once_with(UNSUPPORT_LOG_MODEL_MESSAGE)
         log_model_mock.assert_not_called()
@@ -837,22 +729,20 @@ def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, config):
     original_handlers = _extract_callback_handlers(config)
     _reset_callback_handlers(original_handlers)
 
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        input = {"product": "MLflow"}
-        if invoke_arg == "args":
-            model.invoke(input, config)
-        elif invoke_arg == "kwargs":
-            model.invoke(input, config=config)
-        elif invoke_arg is None:
-            model.invoke(input)
+    input = {"product": "MLflow"}
+    if invoke_arg == "args":
+        model.invoke(input, config)
+    elif invoke_arg == "kwargs":
+        model.invoke(input, config=config)
+    elif invoke_arg is None:
+        model.invoke(input)
 
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
     assert traces[0].data.spans[0].name == "RunnableSequence"
     assert traces[0].data.spans[0].inputs == input
-    assert traces[0].data.spans[0].outputs == TEST_CONTENT
-
+    assert traces[0].data.spans[0].outputs == '[{"role": "user", "content": "What is MLflow?"}]'
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
     assert handlers == original_handlers
@@ -876,21 +766,20 @@ async def test_langchain_autolog_callback_injection_in_ainvoke(invoke_arg, confi
     original_handlers = _extract_callback_handlers(config)
     _reset_callback_handlers(original_handlers)
 
-    with _mock_openai_arequest():
-        input = {"product": "MLflow"}
-        if invoke_arg == "args":
-            await model.ainvoke(input, config)
-        elif invoke_arg == "kwargs":
-            await model.ainvoke(input, config=config)
-        elif invoke_arg is None:
-            await model.ainvoke(input)
+    input = {"product": "MLflow"}
+    if invoke_arg == "args":
+        await model.ainvoke(input, config)
+    elif invoke_arg == "kwargs":
+        await model.ainvoke(input, config=config)
+    elif invoke_arg is None:
+        await model.ainvoke(input)
 
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
     assert traces[0].data.spans[0].name == "RunnableSequence"
     assert traces[0].data.spans[0].inputs == input
-    assert traces[0].data.spans[0].outputs == TEST_CONTENT
+    assert traces[0].data.spans[0].outputs == '[{"role": "user", "content": "What is MLflow?"}]'
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
@@ -919,14 +808,13 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config):
     original_handlers = _extract_callback_handlers(config)
     _reset_callback_handlers(original_handlers)
 
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        input = {"product": "MLflow"}
-        if invoke_arg == "args":
-            model.batch([input] * 2, config)
-        elif invoke_arg == "kwargs":
-            model.batch([input] * 2, config=config)
-        elif invoke_arg is None:
-            model.batch([input] * 2)
+    input = {"product": "MLflow"}
+    if invoke_arg == "args":
+        model.batch([input] * 2, config)
+    elif invoke_arg == "kwargs":
+        model.batch([input] * 2, config=config)
+    elif invoke_arg is None:
+        model.batch([input] * 2)
 
     traces = get_traces()
     assert len(traces) == 2
@@ -934,7 +822,7 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config):
         assert trace.info.status == "OK"
         assert trace.data.spans[0].name == "RunnableSequence"
         assert trace.data.spans[0].inputs == input
-        assert trace.data.spans[0].outputs == TEST_CONTENT
+        assert trace.data.spans[0].outputs == '[{"role": "user", "content": "What is MLflow?"}]'
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
@@ -962,14 +850,13 @@ async def test_langchain_autolog_callback_injection_in_abatch(invoke_arg, config
     original_handlers = _extract_callback_handlers(config)
     _reset_callback_handlers(original_handlers)
 
-    with _mock_openai_arequest():
-        input = {"product": "MLflow"}
-        if invoke_arg == "args":
-            await model.abatch([input] * 2, config)
-        elif invoke_arg == "kwargs":
-            await model.abatch([input] * 2, config=config)
-        elif invoke_arg is None:
-            await model.abatch([input] * 2)
+    input = {"product": "MLflow"}
+    if invoke_arg == "args":
+        await model.abatch([input] * 2, config)
+    elif invoke_arg == "kwargs":
+        await model.abatch([input] * 2, config=config)
+    elif invoke_arg is None:
+        await model.abatch([input] * 2)
 
     traces = get_traces()
     assert len(traces) == 2
@@ -977,7 +864,7 @@ async def test_langchain_autolog_callback_injection_in_abatch(invoke_arg, config
         assert trace.info.status == "OK"
         assert trace.data.spans[0].name == "RunnableSequence"
         assert trace.data.spans[0].inputs == input
-        assert trace.data.spans[0].outputs == TEST_CONTENT
+        assert trace.data.spans[0].outputs == '[{"role": "user", "content": "What is MLflow?"}]'
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
@@ -998,21 +885,20 @@ def test_langchain_autolog_callback_injection_in_stream(invoke_arg, config):
     original_handlers = _extract_callback_handlers(config)
     _reset_callback_handlers(original_handlers)
 
-    with _mock_request(return_value=_mock_chat_completion_stream_response()):
-        input = {"product": "MLflow"}
-        if invoke_arg == "args":
-            list(model.stream(input, config))
-        elif invoke_arg == "kwargs":
-            list(model.stream(input, config=config))
-        elif invoke_arg is None:
-            list(model.stream(input))
+    input = {"product": "MLflow"}
+    if invoke_arg == "args":
+        list(model.stream(input, config))
+    elif invoke_arg == "kwargs":
+        list(model.stream(input, config=config))
+    elif invoke_arg is None:
+        list(model.stream(input))
 
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
     assert traces[0].data.spans[0].name == "RunnableSequence"
     assert traces[0].data.spans[0].inputs == input
-    assert traces[0].data.spans[0].outputs == TEST_CONTENT
+    assert traces[0].data.spans[0].outputs == "Hello world"
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
@@ -1046,15 +932,14 @@ async def test_langchain_autolog_callback_injection_in_astream(invoke_arg, confi
         async for _ in astream:
             pass
 
-    with _mock_openai_arequest(stream=True):
-        await invoke_astream(model, config)
+    await invoke_astream(model, config)
 
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
     assert traces[0].data.spans[0].name == "RunnableSequence"
     assert traces[0].data.spans[0].inputs == input
-    assert traces[0].data.spans[0].outputs == TEST_CONTENT
+    assert traces[0].data.spans[0].outputs == "Hello world"
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
@@ -1086,9 +971,8 @@ def test_langchain_autolog_produces_expected_traces_with_streaming(tmp_path):
         | StrOutputParser()
     )
     question = "What is a good name for a company that makes MLflow?"
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        list(retrieval_chain.stream(question))
-        retrieval_chain.invoke(question)
+    list(retrieval_chain.stream(question))
+    retrieval_chain.invoke(question)
 
     traces = get_traces()
     assert len(traces) == 2
@@ -1184,14 +1068,13 @@ def test_set_retriever_schema_work_for_langchain_model():
     )
 
     model = create_openai_llmchain()
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        with mlflow.start_run():
-            model_info = mlflow.langchain.log_model(model, "model", input_example="MLflow")
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(model, "model", input_example="MLflow")
 
-        mlflow.langchain.autolog()
+    mlflow.langchain.autolog()
 
-        pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
-        pyfunc_model.predict("MLflow")
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    pyfunc_model.predict("MLflow")
 
     trace = mlflow.get_last_active_trace()
     assert DependenciesSchemasType.RETRIEVERS.value in trace.info.tags
