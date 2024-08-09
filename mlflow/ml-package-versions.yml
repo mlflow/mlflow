@@ -734,13 +734,14 @@ llama_index:
 
 autogen:
   package_info:
-    pip_release: "autogen"
+    pip_release: "pyautogen"
     install_dev: |
       pip install git+https://github.com/microsoft/autogen
   autologging:
     # Tool call logging is implemented in autogen 0.2.29
     minimum: "0.2.29"
     maximum: "0.2.33"
+    run: pytest/tests/autogen
 
 sentence_transformers:
   package_info:

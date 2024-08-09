@@ -292,7 +292,7 @@ _ML_PACKAGE_VERSIONS = {
     },
     "autogen": {
         "package_info": {
-            "pip_release": "autogen"
+            "pip_release": "pyautogen"
         },
         "autologging": {
             "minimum": "0.2.29",
