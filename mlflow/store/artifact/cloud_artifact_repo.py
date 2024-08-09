@@ -251,16 +251,15 @@ class CloudArtifactRepository(ArtifactRepository):
                 env=parallel_download_subproc_env,
                 headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
-
-            while failed_downloads:
+            num_retries = _MLFLOW_MPD_NUM_RETRIES.get()
+            interval = _MLFLOW_MPD_RETRY_INTERVAL_SECONDS.get()
+            
+            while failed_downloads and num_retries > 0:
                 self._refresh_credentials()
                 _logger.info("CREDS REFRESHED")
                 new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
-                
-                num_retries = _MLFLOW_MPD_NUM_RETRIES.get()
-                interval = _MLFLOW_MPD_RETRY_INTERVAL_SECONDS.get()
 
                 futures = {self.chunk_thread_pool.submit(download_chunk, chunk.start, chunk.end, new_headers, local_path, new_signed_uri): chunk for chunk in failed_downloads}
                 
@@ -270,6 +269,7 @@ class CloudArtifactRepository(ArtifactRepository):
                     chunk = futures[future]
                     try:
                         future.result()
+                        _logger.info(f"Successfully downloaded chunk {chunk.index} for {chunk.path}")
                     except Exception as e:
                         _logger.debug(
                             f"Failed to download chunk {chunk.index} for {chunk.path}: {e}. "
@@ -278,6 +278,7 @@ class CloudArtifactRepository(ArtifactRepository):
                         new_failed_downloads.append(chunk)
                 
                 failed_downloads = new_failed_downloads
+                num_retries -= 1
                 time.sleep(interval)
 
     def _download_file(self, remote_file_path, local_path):
