@@ -271,7 +271,7 @@ class CloudArtifactRepository(ArtifactRepository):
                         future.result()
                         _logger.info(f"Successfully downloaded chunk {chunk.index} for {chunk.path}")
                     except Exception as e:
-                        _logger.debug(
+                        _logger.info(
                             f"Failed to download chunk {chunk.index} for {chunk.path}: {e}. "
                             f"The download of this chunk will be retried later."
                         )
