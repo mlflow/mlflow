@@ -1034,10 +1034,12 @@ def set_model(model):
 
         for parse_function in parse_functions:
             try:
-                model = parse_function(model)
+                globals()["__mlflow_model__"] = model = parse_function(model)
+                return
             except Exception:
-                continue
-
+                pass
+        else:
+            raise mlflow.MlflowException(SET_MODEL_ERROR)
         if isinstance(model, str):
             raise mlflow.MlflowException(SET_MODEL_ERROR)
 
