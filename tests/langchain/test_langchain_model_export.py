@@ -101,7 +101,7 @@ from mlflow.utils.openai_utils import (
     _MockResponse,
 )
 
-from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.helper_functions import _compare_logged_code_paths, pyfunc_serve_and_score_model
 from tests.tracing.export.test_inference_table_exporter import _REQUEST_ID
 
 # this kwarg was added in langchain_community 0.0.27, and
@@ -2482,6 +2482,46 @@ def test_save_load_chain_as_code_multiple_times(
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     assert loaded_model.middle[0].messages[0].prompt.template == new_config["llm_prompt_template"]
+
+
+@pytest.mark.parametrize(
+    "chain_path",
+    [
+        os.path.abspath("tests/langchain/sample_code/chain.py"),
+        "tests/langchain/../langchain/sample_code/chain.py",
+    ],
+)
+def test_save_load_chain_as_code_with_model_paths(chain_model_signature, chain_path):
+    input_example = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "What is a good name for a company that makes MLflow?",
+            }
+        ]
+    }
+    artifact_path = "model_path"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.langchain._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        model_info = mlflow.langchain.log_model(
+            lc_model=chain_path,
+            artifact_path=artifact_path,
+            signature=chain_model_signature,
+            input_example=input_example,
+            code_paths=[__file__],
+            model_config={
+                "response": "modified response",
+                "embedding_size": 5,
+                "llm_prompt_template": "answer the question",
+            },
+        )
+        loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+        answer = "modified response"
+        model_uri = mlflow.get_artifact_uri(artifact_path=artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.langchain.FLAVOR_NAME)
+        assert loaded_model.invoke(input_example) == answer
+        add_mock.assert_called()
 
 
 @pytest.mark.parametrize("chain_path", [os.path.abspath("tests/langchain1/sample_code/chain.py")])
