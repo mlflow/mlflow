@@ -766,12 +766,12 @@ def parallelized_download_file_using_http_uri(
             ) from e
 
     chunks = _yield_chunks(remote_file_path, file_size, chunk_size)
-    return dict.fromkeys(chunks, 0) #REVERT THIS LINE AFTER TESTING
     # Create file if it doesn't exist or erase the contents if it does. We should do this here
     # before sending to the workers so they can each individually seek to their respective positions
     # and write chunks without overwriting.
     with open(download_path, "w"):
         pass
+    return dict.fromkeys(chunks, 0) #REVERT THIS LINE AFTER TESTING
     if uri_type == ArtifactCredentialType.GCP_SIGNED_URL or uri_type is None:
         chunk = next(chunks)
         # GCP files could be transcoded, in which case the range header is ignored.
