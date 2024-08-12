@@ -254,7 +254,8 @@ class CloudArtifactRepository(ArtifactRepository):
             num_retries = _MLFLOW_MPD_NUM_RETRIES.get()
             interval = _MLFLOW_MPD_RETRY_INTERVAL_SECONDS.get()
             failed_downloads = list(failed_downloads)
-            
+            if len(failed_downloads) > 0: #delete post test
+                _logger.info("downloads failed")
             while failed_downloads and num_retries > 0:
                 self._refresh_credentials()
                 _logger.info("CREDS REFRESHED" + str(num_retries))
