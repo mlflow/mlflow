@@ -911,6 +911,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
         )
 
         try:
+            _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
             model = _load_model_code_path(
                 code_path, {**(model_config or {}), **(model_config_overrides or {})}
             )
@@ -918,7 +919,6 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
             # We would like to clean up the dependencies schema which is set to global
             # after loading the mode to avoid the schema being used in the next model loading
             _clear_dependencies_schemas()
-        _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
         return model
     else:
         _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
