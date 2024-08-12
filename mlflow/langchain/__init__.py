@@ -885,10 +885,10 @@ def _load_pyfunc(path: str, model_config: Optional[Dict[str, Any]] = None):
     return wrapper_cls(_load_model_from_local_fs(path, model_config), path)
 
 
-def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
-    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+def _load_model_from_local_fs(model_code_path, model_config_overrides=None):
+    flavor_conf = _get_flavor_configuration(model_path=model_code_path, flavor_name=FLAVOR_NAME)
     pyfunc_flavor_conf = _get_flavor_configuration(
-        model_path=local_model_path, flavor_name=PYFUNC_FLAVOR_NAME
+        model_path=model_code_path, flavor_name=PYFUNC_FLAVOR_NAME
     )
     # The model_code_path and the model_config were previously saved langchain flavor but now we
     # also save them inside the pyfunc flavor. For backwards compatibility of previous models,
@@ -897,7 +897,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
         model_config = pyfunc_flavor_conf.get(MODEL_CONFIG, flavor_conf.get(MODEL_CONFIG, None))
         if isinstance(model_config, str):
             config_path = os.path.join(
-                local_model_path,
+                model_code_path,
                 os.path.basename(model_config),
             )
             model_config = _validate_and_get_model_config_from_file(config_path)
@@ -906,12 +906,11 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
             MODEL_CODE_PATH, flavor_conf.get(MODEL_CODE_PATH, None)
         )
         code_path = os.path.join(
-            local_model_path,
+            model_code_path,
             os.path.basename(flavor_code_path),
         )
-
+        _add_code_from_conf_to_system_path(model_code_path, flavor_conf)
         try:
-            _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
             model = _load_model_code_path(
                 code_path, {**(model_config or {}), **(model_config_overrides or {})}
             )
@@ -921,9 +920,8 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
             _clear_dependencies_schemas()
         return model
     else:
-        _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
         with patch_langchain_type_to_cls_dict():
-            return _load_model(local_model_path, flavor_conf)
+            return _load_model(model_code_path, flavor_conf)
 
 
 @experimental
