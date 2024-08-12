@@ -263,7 +263,7 @@ class CloudArtifactRepository(ArtifactRepository):
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
 
-                futures = {self.chunk_thread_pool.submit(download_chunk, chunk.start, chunk.end, new_headers, local_path, new_signed_uri): chunk for chunk in failed_downloads}
+                futures = {self.chunk_thread_pool.submit(download_chunk, range_start=chunk.start, range_end=chunk.end, headers=new_headers, download_path=local_path, http_uri=new_signed_uri): chunk for chunk in failed_downloads}
                 
                 new_failed_downloads = []
 
