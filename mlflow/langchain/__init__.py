@@ -890,6 +890,8 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
     pyfunc_flavor_conf = _get_flavor_configuration(
         model_path=local_model_path, flavor_name=PYFUNC_FLAVOR_NAME
     )
+    # Add code from the langchain flavor to the system path
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     # The model_code_path and the model_config were previously saved langchain flavor but now we
     # also save them inside the pyfunc flavor. For backwards compatibility of previous models,
     # we need to check both places.
@@ -909,7 +911,6 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
             local_model_path,
             os.path.basename(flavor_code_path),
         )
-        _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
         try:
             model = _load_model_code_path(
                 model_code_path, {**(model_config or {}), **(model_config_overrides or {})}

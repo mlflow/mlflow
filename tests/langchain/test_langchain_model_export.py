@@ -1414,6 +1414,26 @@ def test_save_load_runnable_sequence_with_chat_openai():
     assert type(loaded_model.steps[2]) == StrOutputParser
 
 
+def test_save_load_chain_with_model_paths():
+    prompt1 = PromptTemplate.from_template("what is the city {person} is from?")
+    llm = ChatOpenAI(temperature=0.9)
+    model = prompt1 | llm | StrOutputParser()
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(model, "model_path")
+    artifact_path = "model_path"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.langchain._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        model_info = mlflow.langchain.log_model(
+            lc_model=model, artifact_path=artifact_path, code_paths=[__file__]
+        )
+        mlflow.langchain.load_model(model_info.model_uri)
+        model_uri = mlflow.get_artifact_uri(artifact_path=artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.langchain.FLAVOR_NAME)
+        add_mock.assert_called()
+
+
 def test_save_load_simple_chat_model(spark, fake_chat_model):
     prompt = ChatPromptTemplate.from_template(
         "What is a good name for a company that makes {product}?"
