@@ -6,7 +6,7 @@ import pydantic
 import pytest
 
 from mlflow import MlflowClient
-from mlflow.entities import Run, RunInfo
+from mlflow.entities import Metric, Param, Run, RunInfo, RunTag
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
@@ -430,3 +430,65 @@ def test_search_traces_with_filestore(tmp_path):
         assert res2[0].info == trace_infos[0]
         assert res2.token is None
         assert mock_download_trace_data.call_count == 3
+
+
+@pytest.fixture
+def tracking_client_log_batch(tmp_path):
+    client = TrackingServiceClient(tmp_path.as_uri())
+    exp_id = client.create_experiment("test_log_batch")
+    run = client.create_run(exp_id)
+    return client, run.info.run_id
+
+
+def test_log_batch(tracking_client_log_batch):
+    client, run_id = tracking_client_log_batch
+
+    metrics = [
+        Metric(key="metric1", value=1.0, timestamp=12345, step=0),
+        Metric(key="metric2", value=2.0, timestamp=23456, step=1),
+    ]
+
+    params = [Param(key="param1", value="value1"), Param(key="param2", value="value2")]
+
+    tags = [RunTag(key="tag1", value="value1"), RunTag(key="tag2", value="value2")]
+
+    client.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
+    run_data = client.get_run(run_id).data
+
+    expected_tags = {tag.key: tag.value for tag in tags}
+    expected_tags["mlflow.runName"] = run_data.tags["mlflow.runName"]
+
+    assert run_data.metrics == {metric.key: metric.value for metric in metrics}
+    assert run_data.params == {param.key: param.value for param in params}
+    assert run_data.tags == expected_tags
+
+
+def test_log_batch_with_empty_data(tracking_client_log_batch):
+    client, run_id = tracking_client_log_batch
+
+    client.log_batch(run_id=run_id, metrics=[], params=[], tags=[])
+    run_data = client.get_run(run_id).data
+
+    assert run_data.metrics == {}
+    assert run_data.params == {}
+    assert run_data.tags == {"mlflow.runName": run_data.tags["mlflow.runName"]}
+
+
+def test_log_batch_with_numpy_array(tracking_client_log_batch):
+    import numpy as np
+
+    client, run_id = tracking_client_log_batch
+
+    metrics = [Metric(key="metric1", value=np.array(1.0), timestamp=12345, step=0)]
+    params = [Param(key="param1", value="value1")]
+    tags = [RunTag(key="tag1", value="value1")]
+
+    client.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
+    run_data = client.get_run(run_id).data
+
+    expected_tags = {tag.key: tag.value for tag in tags}
+    expected_tags["mlflow.runName"] = run_data.tags["mlflow.runName"]
+
+    assert run_data.metrics == {metric.key: metric.value for metric in metrics}
+    assert run_data.params == {param.key: param.value for param in params}
+    assert run_data.tags == expected_tags

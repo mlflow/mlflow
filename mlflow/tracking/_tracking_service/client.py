@@ -696,6 +696,16 @@ class TrackingServiceClient:
         if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
             return
 
+        metrics = [
+            Metric(
+                metric.key,
+                convert_metric_value_to_float_if_possible(metric.value),
+                metric.timestamp,
+                metric.step,
+            )
+            for metric in metrics
+        ]
+
         param_batches = chunk_list(params, MAX_PARAMS_TAGS_PER_BATCH)
         tag_batches = chunk_list(tags, MAX_PARAMS_TAGS_PER_BATCH)
 
