@@ -664,12 +664,13 @@ langchain:
           "psutil",
           "faiss-cpu",
           "langchain-experimental",
-          "langchain-openai",
           "numexpr",
           "hf_transfer",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
         ]
       ">= 0.2": ["langchain-huggingface"]
+      # We cannot use install langchain-openai with langchain >= 0.2.0, while pinning openai to <1.8.0
+      "< 0.2.0": ["langchain-openai"]
     run: |
       # Run all langchain tests except autologging
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
