@@ -1293,8 +1293,8 @@ Finally, you need to install the plugin package in the same environment as the M
 
 .. important::
 
-    Only install plugin packages you trust. Starting a server with plugin provider will
-    execute arbitrary codes in the plugin package.
+    Only install plugin packages from sources that you trust. Starting a server with a plugin provider will
+    execute any arbitrary code that is defined within the plugin package.
 
 Then, you can specify the plugin provider according to the entry point name
 in the MLflow Deployments Server configuration file.

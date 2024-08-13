@@ -6,8 +6,10 @@ from fastapi import HTTPException
 from mlflow.gateway.base_models import ConfigModel
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.utils.annotations import developer_stable
 
 
+@developer_stable
 class BaseProvider(ABC):
     """
     Base class for MLflow Gateway providers.
