@@ -890,6 +890,8 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
     pyfunc_flavor_conf = _get_flavor_configuration(
         model_path=local_model_path, flavor_name=PYFUNC_FLAVOR_NAME
     )
+    # Add code from the langchain flavor to the system path
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     # The model_code_path and the model_config were previously saved langchain flavor but now we
     # also save them inside the pyfunc flavor. For backwards compatibility of previous models,
     # we need to check both places.
@@ -905,23 +907,20 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
         flavor_code_path = pyfunc_flavor_conf.get(
             MODEL_CODE_PATH, flavor_conf.get(MODEL_CODE_PATH, None)
         )
-        code_path = os.path.join(
+        model_code_path = os.path.join(
             local_model_path,
             os.path.basename(flavor_code_path),
         )
-
         try:
             model = _load_model_code_path(
-                code_path, {**(model_config or {}), **(model_config_overrides or {})}
+                model_code_path, {**(model_config or {}), **(model_config_overrides or {})}
             )
         finally:
             # We would like to clean up the dependencies schema which is set to global
             # after loading the mode to avoid the schema being used in the next model loading
             _clear_dependencies_schemas()
-
         return model
     else:
-        _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
         with patch_langchain_type_to_cls_dict():
             return _load_model(local_model_path, flavor_conf)
 
