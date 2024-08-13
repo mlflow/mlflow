@@ -365,6 +365,65 @@ def test_save_and_load_azure_chat_openai(model_path, monkeypatch):
     assert loaded_model == chain
 
 
+def test_save_model_with_partner_package(tmp_path):
+    from langchain_community.chat_models import ChatOpenAI as ChatOpenAICommunity
+    from langchain_openai import ChatOpenAI as ChatOpenAIPartner
+
+    def _is_partner_pkg_warning_issued(warnings):
+        return any(
+            str(w.message).startswith(
+                "Your model contains a class imported from the LangChain "
+                "partner package `langchain-openai`."
+            )
+            for w in warnings
+        )
+
+    # 1. Saving a model with LLM from a community package
+    #    -> no warning should be raised
+    chain = ChatOpenAICommunity() | StrOutputParser()
+
+    with pytest.warns() as warnings:
+        mlflow.langchain.save_model(chain, tmp_path / "community-model")
+        assert not _is_partner_pkg_warning_issued(warnings)
+
+    # 2. Saving a model with LLM from a partner package
+    #    -> a warning should be raised and incorrect class is loaded
+    chain = ChatOpenAIPartner() | StrOutputParser()
+
+    with pytest.warns() as warnings:
+        mlflow.langchain.save_model(chain, tmp_path / "partner-model")
+        assert _is_partner_pkg_warning_issued(warnings)
+
+    loaded_model = mlflow.langchain.load_model(tmp_path / "partner-model")
+    loaded_llm = loaded_model.steps[0]
+    assert type(loaded_llm) == ChatOpenAICommunity
+
+    # 3. Saving a model using model-from-code
+    #    -> no warning should be raised and the correct class is loaded
+    with open(tmp_path / "model.py", "w") as f:
+        f.write(
+            """
+from langchain_openai import ChatOpenAI
+from langchain.schema.output_parser import StrOutputParser
+import mlflow
+
+chain = ChatOpenAI() | StrOutputParser()
+mlflow.models.set_model(chain)
+"""
+        )
+
+    with pytest.warns() as warnings:
+        mlflow.langchain.save_model(
+            lc_model=str(tmp_path / "model.py"),
+            path=tmp_path / "model-from-code",
+        )
+        assert not _is_partner_pkg_warning_issued(warnings)
+
+    loaded_model = mlflow.langchain.load_model(tmp_path / "model-from-code")
+    loaded_llm = loaded_model.steps[0]
+    assert type(loaded_llm) == ChatOpenAIPartner
+
+
 def test_langchain_log_huggingface_hub_model_metadata(model_path):
     model = create_huggingface_model(model_path)
     with mlflow.start_run():
