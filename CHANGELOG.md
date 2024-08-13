@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## 2.15.1 (2024-08-06)
+
+MLflow 2.15.1 is a patch release that addresses several bug fixes.
+
+Bug fixes:
+
+- [Tracking] Fix silent disabling of LangChain autologging for LangChain >= 0.2.10. (#12779, @B-Step62)
+- [Tracking] Fix ``mlflow.evaluate`` crash on binary classification with data subset only contains single class (#12825, @serena-ruan)
+- [Tracking] Fix incompatibility of MLflow Tracing with LlamaIndex >= 0.10.61 (#12890, @B-Step62)
+- [Tracking] Record exceptions in OpenAI autolog tracing (#12841, @B-Step62)
+- [Tracking] Fix url with e2 proxy (#12873, @chenmoneygithub)
+- [Tracking] Fix regression of connecting to MLflow tracking server on other Databricks workspace (#12861, @WeichenXu123)
+- [UI] Fix refresh button for model metrics on Experiment and Run pages (#12869, @beomsun0829)
+
+Documentation updates:
+
+- [Docs] Update doc for Spark ML vector type (#12827, @WeichenXu123)
+
+Small bug fixes and documentation updates:
+
+#12823, #12860, #12844, #12843, @B-Step62; #12863, #12828, @harupy; #12845, @djliden; #12820, @annzhang-db; #12831, @chenmoneygithub
+
 ## 2.15.0 (2024-07-29)
 
 We are excited to announce the release candidate for MLflow 2.15.0. This release includes many major features and improvements!

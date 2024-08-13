@@ -1,12 +1,12 @@
 from typing import Any, List, Optional
 
 from langchain.document_loaders import TextLoader
-from langchain.embeddings.fake import FakeEmbeddings
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema.output_parser import StrOutputParser
 from langchain.schema.runnable import RunnablePassthrough
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
+from langchain_community.embeddings import FakeEmbeddings
 
 from mlflow.models import ModelConfig, set_model
 

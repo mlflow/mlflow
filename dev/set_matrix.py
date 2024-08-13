@@ -29,10 +29,13 @@ import functools
 import json
 import os
 import re
+import shlex
 import shutil
 import sys
+import warnings
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import requests
 import yaml
@@ -60,12 +63,13 @@ class Version(OriginalVersion):
         return cls(DEV_VERSION)
 
 
-class PackageInfo(BaseModel):
+class PackageInfo(BaseModel, extra="forbid"):
     pip_release: str
     install_dev: Optional[str] = None
+    module_name: Optional[str] = None
 
 
-class TestConfig(BaseModel):
+class TestConfig(BaseModel, extra="forbid"):
     minimum: Version
     maximum: Version
     unsupported: Optional[List[Version]] = None
@@ -92,7 +96,22 @@ class TestConfig(BaseModel):
         return [Version(v) for v in v] if v else None
 
 
-class MatrixItem(BaseModel):
+class FlavorConfig(BaseModel, extra="forbid"):
+    package_info: PackageInfo
+    models: Optional[TestConfig] = None
+    autologging: Optional[TestConfig] = None
+
+    @property
+    def categories(self) -> List[Tuple[str, TestConfig]]:
+        cs = []
+        if self.models:
+            cs.append(("models", self.models))
+        if self.autologging:
+            cs.append(("autologging", self.autologging))
+        return cs
+
+
+class MatrixItem(BaseModel, extra="forbid"):
     name: str
     flavor: str
     category: str
@@ -119,10 +138,11 @@ def read_yaml(location, if_error=None):
         if re.match(r"^https?://", location):
             resp = requests.get(location)
             resp.raise_for_status()
-            return yaml.safe_load(resp.text)
+            yaml_dict = yaml.safe_load(resp.text)
         else:
             with open(location) as f:
-                return yaml.safe_load(f)
+                yaml_dict = yaml.safe_load(f)
+        return {name: FlavorConfig(**cfg) for name, cfg in yaml_dict.items()}
     except Exception as e:
         if if_error is not None:
             print(f"Failed to read '{location}' due to: `{e}`")
@@ -368,19 +388,93 @@ def get_flavor(name):
     return {"pytorch-lightning": "pytorch"}.get(name, name)
 
 
+def validate_test_coverage(flavor: str, config: FlavorConfig):
+    """
+    Validate that all test files for the flavor are executed in the cross-version tests.
+
+    This is done by parsing `run` commands in the `ml-package-versions.yml` to get the list
+    of executed test files, and then comparing it with the actual test files in the directory.
+    """
+    test_dir = os.path.join("tests", flavor)
+    tested_files = set()
+
+    for category, cfg in config.categories:
+        if not cfg.run:
+            continue
+
+        # Consolidate multi-line commands with "\" to a single line
+        commands = []
+        curr = ""
+        for cmd in cfg.run.split("\n"):
+            if cmd.endswith("\\"):
+                curr += cmd.rstrip("\\")
+            else:
+                commands.append(curr + cmd)
+                curr = ""
+
+        # Parse pytest commands to get the executed test files
+        for cmd in commands:
+            cmd = cmd.strip().rstrip(";")
+            if cmd.startswith("pytest"):
+                tested_files |= _get_test_files_from_pytest_command(cmd, test_dir)
+
+    if untested_files := _get_test_files(test_dir) - tested_files:
+        # TODO: Update this after fixing ml-package-versions.yml to
+        # have all test files in the matrix.
+        warnings.warn(
+            f"Flavor '{flavor}' has test files that are not covered by the test matrix. \n"
+            + "\n".join(f"\033[91m - {t}\033[0m" for t in untested_files)
+            + f"\nPlease update {VERSIONS_YAML_PATH} to execute all test files. Note that this "
+            "check does not handle complex syntax in test commands e.g. loop. It is generally "
+            "recommended to use simple commands as we cannot test the test commands themselves."
+        )
+
+
+PYTEST_FILE_PATTERN = re.compile(r"^test_.*\.py$")
+
+
+def _get_test_files(test_dir_or_path: str) -> Set[Path]:
+    """List all test files in the given directory or file path."""
+    path = Path(test_dir_or_path)
+    if path.is_dir():
+        return set(path.rglob("test_*.py"))
+
+    if PYTEST_FILE_PATTERN.match(path.name):
+        return {path}
+
+    return set()
+
+
+def _get_test_files_from_pytest_command(cmd, test_dir):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ignore", action="append")
+    parser.add_argument("paths", nargs="*")
+    args = parser.parse_known_args(shlex.split(cmd))[0]
+
+    executed_files = set()
+    ignore_files = set()
+    for path in args.paths:
+        if path.startswith(test_dir):
+            executed_files |= _get_test_files(path)
+    for ignore_path in args.ignore or []:
+        if ignore_path.startswith(test_dir):
+            ignore_files |= _get_test_files(ignore_path)
+    return executed_files - ignore_files
+
+
 def expand_config(config):
     matrix = set()
-    for name, cfgs in config.items():
+    for name, flavor_config in config.items():
         flavor = get_flavor(name)
-        package_info = PackageInfo(**cfgs.pop("package_info"))
+        package_info = flavor_config.package_info
         all_versions = get_released_versions(package_info.pip_release)
         free_disk_space = package_info.pip_release in (
             "transformers",
             "sentence-transformers",
             "torch",
         )
-        for category, cfg in cfgs.items():
-            cfg = TestConfig(**cfg)
+        validate_test_coverage(name, flavor_config)
+        for category, cfg in flavor_config.categories:
             versions = filter_versions(
                 all_versions,
                 cfg.minimum,

@@ -93,9 +93,9 @@ def is_fuse_or_uc_volumes_uri(uri):
     Multiple directory paths are collapsed into a single designator for root path validation.
     For example, "////Volumes/" will resolve to "/Volumes/" for validation purposes.
     """
-    resolved_uri = re.sub("/+", "/", uri)
+    resolved_uri = re.sub("/+", "/", uri).lower()
     return any(
-        resolved_uri.startswith(x)
+        resolved_uri.startswith(x.lower())
         for x in [
             _DBFS_FUSE_PREFIX,
             _DBFS_HDFS_URI_PREFIX,

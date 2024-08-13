@@ -19,8 +19,8 @@ import sklearn.impute
 import sklearn.linear_model
 import sklearn.pipeline
 import sklearn.preprocessing
-from langchain.llms import FakeListLLM
 from langchain.prompts import PromptTemplate
+from langchain_community.llms import FakeListLLM
 from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 from PIL import Image, ImageChops
 from pyspark.ml.linalg import Vectors
