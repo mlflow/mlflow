@@ -3,6 +3,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, List, Optional
+from unittest import mock
 from unittest.mock import MagicMock
 
 import langchain
@@ -33,28 +34,19 @@ from mlflow.pyfunc.context import Context
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.provider import trace_disabled
-from mlflow.utils.openai_utils import (
-    TEST_CONTENT,
-    _mock_chat_completion_response,
-    _mock_request,
-)
 
 from tests.tracing.helper import get_traces
 
-TEST_CONTENT = "test"
-
-
-@pytest.fixture(autouse=True)
-def set_envs(monkeypatch):
-    monkeypatch.setenv("RAG_TRACE_V2_ENABLED", "true")
-    monkeypatch.setenv("OPENAI_API_KEY", "test")
+# The mock OpenAI endpoint simply echos the prompt back as the completion.
+# So the expected output will be the prompt itself.
+TEST_CONTENT = "What is MLflow?"
 
 
 def create_openai_llmchain():
     llm = OpenAI(temperature=0.9)
     prompt = PromptTemplate(
         input_variables=["product"],
-        template="What is a good name for a company that makes {product}?",
+        template="What is {product}?",
     )
     return LLMChain(llm=llm, prompt=prompt)
 
@@ -71,7 +63,21 @@ def create_retriever():
 
 def create_openai_llmagent():
     # First, let's load the language model we're going to use to control the agent.
-    llm = OpenAI(temperature=0)
+    with mock.patch("openai.OpenAI") as mock_openai:
+        mock_openai.return_value.completions.create.return_value = {
+            "id": "chatcmpl-123",
+            "object": "chat.completion",
+            "created": 1677652288,
+            "choices": [
+                {
+                    "index": 0,
+                    "finish_reason": "stop",
+                    "text": "Final Answer: test",
+                }
+            ],
+            "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
+        }
+        llm = OpenAI(temperature=0)
 
     # Next, let's load some tools to use.
     tools = load_tools(["llm-math"], llm=llm)
@@ -362,12 +368,13 @@ def _predict_with_callbacks(lc_model, request_id, data):
     return response, trace_dict
 
 
-def test_e2e_rag_model_tracing_in_serving(mock_databricks_serving_with_tracing_env):
+def test_e2e_rag_model_tracing_in_serving(mock_databricks_serving_with_tracing_env, monkeypatch):
+    monkeypatch.setenv("RAG_TRACE_V2_ENABLED", "true")
+
     llm_chain = create_openai_llmchain()
 
     request_id = "test_request_id"
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        response, trace_dict = _predict_with_callbacks(llm_chain, request_id, ["MLflow"])
+    response, trace_dict = _predict_with_callbacks(llm_chain, request_id, ["MLflow"])
 
     assert response == [{"text": TEST_CONTENT}]
     trace = Trace.from_dict(trace_dict)
@@ -390,7 +397,7 @@ def test_e2e_rag_model_tracing_in_serving(mock_databricks_serving_with_tracing_e
     root_span_id = root_span.span_id
     child_span = spans[1]
     assert child_span.parent_id == root_span_id
-    assert child_span.inputs == ["What is a good name for a company that makes MLflow?"]
+    assert child_span.inputs == ["What is MLflow?"]
     assert child_span.outputs["generations"][0][0]["text"] == TEST_CONTENT
     assert child_span.span_type == "LLM"
 
@@ -400,12 +407,9 @@ def test_e2e_rag_model_tracing_in_serving(mock_databricks_serving_with_tracing_e
 def test_agent_success(mock_databricks_serving_with_tracing_env):
     agent = create_openai_llmagent()
     langchain_input = {"input": "What is 123 raised to the .023 power?"}
-    expected_output = {"output": TEST_CONTENT}
+    expected_output = {"output": "test"}
     request_id = "test_request_id"
-    with _mock_request(
-        return_value=_mock_chat_completion_response(content=f"Final Answer: {TEST_CONTENT}")
-    ):
-        response, trace_dict = _predict_with_callbacks(agent, request_id, langchain_input)
+    response, trace_dict = _predict_with_callbacks(agent, request_id, langchain_input)
 
     assert response == expected_output
     trace = Trace.from_dict(trace_dict)
@@ -430,13 +434,13 @@ def test_agent_success(mock_databricks_serving_with_tracing_env):
     assert llm_chain_span.parent_id == root_span_id
     assert llm_chain_span.span_type == "CHAIN"
     assert llm_chain_span.inputs["input"] == langchain_input["input"]
-    assert llm_chain_span.outputs == {"text": f"Final Answer: {TEST_CONTENT}"}
+    assert llm_chain_span.outputs == {"text": "Final Answer: test"}
 
     # LLM of the LLMChain
     llm_span = spans[2]
     assert llm_span.parent_id == llm_chain_span.span_id
     assert llm_span.span_type == "LLM"
-    assert llm_span.outputs["generations"][0][0]["text"] == f"Final Answer: {TEST_CONTENT}"
+    assert llm_span.outputs["generations"][0][0]["text"] == "Final Answer: test"
 
     _validate_trace_json_serialization(trace)
 
@@ -450,11 +454,10 @@ def test_tool_success(mock_databricks_serving_with_tracing_env):
 
     tool_input = {"question": "What up"}
     request_id = "test_request_id"
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        response, trace_dict = _predict_with_callbacks(chain_tool, request_id, tool_input)
+    response, trace_dict = _predict_with_callbacks(chain_tool, request_id, tool_input)
 
     # str output is converted to _ChatResponse
-    assert response["choices"][0]["message"]["content"] == TEST_CONTENT
+    output = response["choices"][0]["message"]["content"]
     trace = Trace.from_dict(trace_dict)
     spans = trace.data.spans
     assert len(spans) == 5
@@ -463,7 +466,7 @@ def test_tool_success(mock_databricks_serving_with_tracing_env):
     tool_span = spans[0]
     assert tool_span.span_type == "TOOL"
     assert tool_span.inputs == str(tool_input)
-    assert tool_span.outputs == TEST_CONTENT
+    assert tool_span.outputs is not None
     tool_span_id = tool_span.span_id
 
     # RunnableSequence
@@ -471,7 +474,7 @@ def test_tool_success(mock_databricks_serving_with_tracing_env):
     assert runnable_sequence_span.parent_id == tool_span_id
     assert runnable_sequence_span.span_type == "CHAIN"
     assert runnable_sequence_span.inputs == tool_input
-    assert runnable_sequence_span.outputs == TEST_CONTENT
+    assert runnable_sequence_span.outputs is not None
 
     # PromptTemplate
     prompt_template_span = spans[2]
@@ -482,7 +485,7 @@ def test_tool_success(mock_databricks_serving_with_tracing_env):
     # StrOutputParser
     output_parser_span = spans[4]
     assert output_parser_span.span_type == "CHAIN"
-    assert output_parser_span.outputs == TEST_CONTENT
+    assert output_parser_span.outputs == output
 
     _validate_trace_json_serialization(trace)
 
@@ -564,12 +567,11 @@ def test_tracer_noop_when_tracing_disabled(monkeypatch):
 
     @trace_disabled
     def _predict():
-        with _mock_request(return_value=_mock_chat_completion_response()):
-            return model._predict_with_callbacks(
-                ["MLflow"],
-                callback_handlers=[MlflowLangchainTracer()],
-                convert_chat_responses=True,
-            )
+        return model._predict_with_callbacks(
+            ["MLflow"],
+            callback_handlers=[MlflowLangchainTracer()],
+            convert_chat_responses=True,
+        )
 
     mock_logger = MagicMock()
     monkeypatch.setattr(mlflow.tracking.client, "_logger", mock_logger)
@@ -591,14 +593,13 @@ def test_tracer_nested_trace():
     llm = OpenAI(temperature=0.9)
     prompt = PromptTemplate(
         input_variables=["product"],
-        template="What is a good name for a company that makes {product}?",
+        template="What is {product}?",
     )
     chain = prompt | llm | StrOutputParser()
 
     @mlflow.trace(name="parent", span_type="SPECIAL")
     def run(message):
-        with _mock_request(return_value=_mock_chat_completion_response()):
-            return chain.invoke(message, config={"callbacks": [MlflowLangchainTracer()]})
+        return chain.invoke(message, config={"callbacks": [MlflowLangchainTracer()]})
 
     response = run("MLflow")
     expected_response = TEST_CONTENT

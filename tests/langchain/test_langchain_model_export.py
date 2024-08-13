@@ -1,10 +1,8 @@
-import importlib
 import inspect
 import json
 import os
 import shutil
 import sqlite3
-from contextlib import contextmanager
 from operator import itemgetter
 from typing import Any, Dict, Iterator, List, Mapping, Optional
 from unittest import mock
@@ -92,14 +90,6 @@ from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_K
 from mlflow.tracing.processor.inference_table import _HEADER_REQUEST_ID_KEY
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
-from mlflow.utils.openai_utils import (
-    TEST_CONTENT,
-    TEST_INTERMEDIATE_STEPS,
-    TEST_SOURCE_DOCUMENTS,
-    _mock_chat_completion_response,
-    _mock_request,
-    _MockResponse,
-)
 
 from tests.helper_functions import _compare_logged_code_paths, pyfunc_serve_and_score_model
 from tests.tracing.export.test_inference_table_exporter import _REQUEST_ID
@@ -110,11 +100,8 @@ VECTORSTORE_KWARGS = (
     {"allow_dangerous_deserialization": True} if IS_PICKLE_SERIALIZATION_RESTRICTED else {}
 )
 
-
-@contextmanager
-def _mock_async_request(content=TEST_CONTENT):
-    with _mock_request(return_value=_mock_chat_completion_response(content)) as m:
-        yield m
+# The mock OAI completion endpoint returns payload as it is
+TEST_CONTENT = "What is MLflow?"
 
 
 @pytest.fixture
@@ -126,18 +113,6 @@ def model_path(tmp_path):
 def spark():
     with SparkSession.builder.master("local[*]").getOrCreate() as s:
         yield s
-
-
-@pytest.fixture(autouse=True)
-def set_envs(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "MLFLOW_TESTING": "true",
-            "OPENAI_API_KEY": "test",
-            "SERPAPI_API_KEY": "test",
-        }
-    )
-    importlib.reload(openai)
 
 
 def create_huggingface_model(model_path):
@@ -164,7 +139,7 @@ def create_openai_llmchain():
     llm = OpenAI(temperature=0.9)
     prompt = PromptTemplate(
         input_variables=["product"],
-        template="What is a good name for a company that makes {product}?",
+        template="What is {product}?",
     )
     return LLMChain(llm=llm, prompt=prompt)
 
@@ -313,7 +288,7 @@ def test_langchain_native_save_and_load_model(model_path):
     assert type(loaded_model) == langchain.chains.llm.LLMChain
     assert type(loaded_model.llm) == langchain.llms.openai.OpenAI
     assert type(loaded_model.prompt) == langchain.prompts.PromptTemplate
-    assert loaded_model.prompt.template == "What is a good name for a company that makes {product}?"
+    assert loaded_model.prompt.template == "What is {product}?"
 
 
 def test_langchain_native_log_and_load_model():
@@ -330,39 +305,26 @@ def test_langchain_native_log_and_load_model():
     assert type(loaded_model) == langchain.chains.llm.LLMChain
     assert type(loaded_model.llm) == langchain.llms.openai.OpenAI
     assert type(loaded_model.prompt) == langchain.prompts.PromptTemplate
-    assert loaded_model.prompt.template == "What is a good name for a company that makes {product}?"
-
-
-def test_pyfunc_load_openai_model():
-    model = create_openai_llmchain()
-    with mlflow.start_run():
-        logged_model = mlflow.langchain.log_model(model, "langchain_model")
-
-    loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-
-    assert "langchain" in logged_model.flavors
-    assert type(loaded_model) == mlflow.pyfunc.PyFuncModel
+    assert loaded_model.prompt.template == "What is {product}?"
 
 
 def test_langchain_model_predict():
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        model = create_openai_llmchain()
-        with mlflow.start_run():
-            logged_model = mlflow.langchain.log_model(model, "langchain_model")
-        loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-        result = loaded_model.predict([{"product": "MLflow"}])
-        assert result == [TEST_CONTENT]
+    model = create_openai_llmchain()
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(model, "langchain_model")
+    loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+    result = loaded_model.predict([{"product": "MLflow"}])
+    assert result == [TEST_CONTENT]
 
 
 def test_langchain_model_predict_stream():
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        model = create_openai_llmchain()
-        with mlflow.start_run():
-            logged_model = mlflow.langchain.log_model(model, "langchain_model")
-        loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-        result = loaded_model.predict_stream([{"product": "MLflow"}])
-        assert inspect.isgenerator(result)
-        assert list(result) == [{"product": "MLflow", "text": "test"}]
+    model = create_openai_llmchain()
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(model, "langchain_model")
+    loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+    result = loaded_model.predict_stream([{"product": "MLflow"}])
+    assert inspect.isgenerator(result)
+    assert list(result) == [{"product": "MLflow", "text": TEST_CONTENT}]
 
 
 def test_pyfunc_spark_udf_with_langchain_model(spark):
@@ -373,12 +335,12 @@ def test_pyfunc_spark_udf_with_langchain_model(spark):
     df = spark.createDataFrame([("MLflow",), ("Spark",)], ["product"])
     df = df.withColumn("answer", loaded_model())
     pdf = df.toPandas()
-    assert pdf["answer"].tolist() == [TEST_CONTENT, TEST_CONTENT]
+    assert pdf["answer"].tolist() == ["What is MLflow?", "What is Spark?"]
 
 
 def test_save_and_load_chat_openai(model_path):
     llm = ChatOpenAI(temperature=0.9)
-    prompt = PromptTemplate.from_template("What is a good name for a company that makes {product}?")
+    prompt = PromptTemplate.from_template("What is {product}?")
     chain = LLMChain(llm=llm, prompt=prompt)
     mlflow.langchain.save_model(chain, model_path)
 
@@ -386,13 +348,13 @@ def test_save_and_load_chat_openai(model_path):
     assert loaded_model == chain
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(model_path)
-    prediction = loaded_pyfunc_model.predict([{"product": "Mlflow?"}])
-    assert prediction == [TEST_CONTENT]
+    prediction = loaded_pyfunc_model.predict([{"product": "MLflow"}])
+    assert prediction == ['[{"role": "user", "content": "What is MLflow?"}]']
 
 
 def test_save_and_load_azure_chat_openai(model_path, monkeypatch):
     monkeypatch.setenv("OPENAI_API_VERSION", "2023-05-15")
-    monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://mlflowtest.foo.bar/")
+    monkeypatch.setenv("OPENAI_API_BASE", "https://mlflowtest.foo.bar/")
 
     llm = AzureChatOpenAI(temperature=0.9)
     prompt = PromptTemplate.from_template("What is a good name for a company that makes {product}?")
@@ -436,7 +398,7 @@ def test_langchain_agent_model_predict(return_intermediate_steps):
             {
                 "index": 0,
                 "finish_reason": "stop",
-                "text": f"Final Answer: {TEST_CONTENT}",
+                "text": "Final Answer: test",
             }
         ],
         "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
@@ -446,26 +408,36 @@ def test_langchain_agent_model_predict(return_intermediate_steps):
         "input": "What was the high temperature in SF yesterday in Fahrenheit?"
         "What is that number raised to the .023 power?"
     }
-    with _mock_request(return_value=_MockResponse(200, langchain_agent_output)), mlflow.start_run():
+    with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(
             model, "langchain_model", input_example=langchain_input
         )
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
 
     if return_intermediate_steps:
-        langchain_output = [{"output": TEST_CONTENT, "intermediate_steps": TEST_INTERMEDIATE_STEPS}]
+        langchain_output = [
+            {
+                "output": "test",
+                "intermediate_steps": {
+                    "tool": "Search",
+                    "tool_input": "High temperature in SF yesterday",
+                    "log": " I need to find the temperature first...",
+                    "result": "San Francisco...",
+                },
+            }
+        ]
         # hardcoded output key because that is the default for an agent
         # but it is not an attribute of the agent or anything that we log
     else:
-        langchain_output = [TEST_CONTENT]
+        langchain_output = ["test"]
 
-    with _mock_request(return_value=_MockResponse(200, langchain_agent_output)):
+    with mock.patch("openai.OpenAI.completions.create", return_value=langchain_agent_output):
         result = loaded_model.predict([langchain_input])
         assert result == langchain_output
 
     inference_payload = load_serving_example(logged_model.model_uri)
     langchain_agent_output_serving = {"predictions": langchain_agent_output}
-    with _mock_request(return_value=_MockResponse(200, langchain_agent_output_serving)):
+    with mock.patch("openai.OpenAI.completions.create", return_value=langchain_agent_output):
         response = pyfunc_serve_and_score_model(
             logged_model.model_uri,
             data=inference_payload,
@@ -493,7 +465,7 @@ def test_langchain_agent_model_predict_stream():
             {
                 "index": 0,
                 "finish_reason": "stop",
-                "text": f"Final Answer: {TEST_CONTENT}",
+                "text": "Final Answer: test",
             }
         ],
         "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
@@ -504,13 +476,13 @@ def test_langchain_agent_model_predict_stream():
         logged_model = mlflow.langchain.log_model(model, "langchain_model")
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     langchain_input = {"input": "foo"}
-    with _mock_request(return_value=_MockResponse(200, langchain_agent_output)):
+    with mock.patch("openai.OpenAI.completions.create", return_value=langchain_agent_output):
         response = loaded_model.predict_stream([langchain_input])
         assert inspect.isgenerator(response)
         assert list(response) == [
             {
-                "output": TEST_CONTENT,
-                "messages": [AIMessage(content=f"Final Answer: {TEST_CONTENT}")],
+                "output": "test",
+                "messages": [AIMessage(content="Final Answer: test")],
             }
         ]
 
@@ -560,7 +532,7 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
         return vectorstore.as_retriever()
 
     langchain_input = {"query": "What did the president say about Ketanji Brown Jackson"}
-    with _mock_request(return_value=_mock_chat_completion_response()), mlflow.start_run():
+    with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(
             retrievalQA,
             "retrieval_qa_chain",
@@ -577,13 +549,12 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
     assert loaded_model == retrievalQA
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-    langchain_output = [TEST_CONTENT]
     result = loaded_pyfunc_model.predict([langchain_input])
-    assert result == langchain_output
+    # The mock OpenAI endpoint simply echos the input
+    assert result[0].startswith("Use the following pieces of context")
 
     # Serve the chain
     inference_payload = load_serving_example(logged_model.model_uri)
-    langchain_output_serving = {"predictions": langchain_output}
 
     response = pyfunc_serve_and_score_model(
         logged_model.model_uri,
@@ -591,10 +562,8 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-
-    assert (
-        PredictionsResponse.from_json(response.content.decode("utf-8")) == langchain_output_serving
-    )
+    response = PredictionsResponse.from_json(response.content.decode("utf-8"))
+    response["predictions"][0].startswith("Use the following pieces of context")
 
 
 def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
@@ -624,7 +593,7 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
         return vectorstore.as_retriever()
 
     langchain_input = {"query": "What did the president say about Ketanji Brown Jackson"}
-    with _mock_request(return_value=_mock_chat_completion_response()), mlflow.start_run():
+    with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(
             retrievalQA,
             "retrieval_qa_chain",
@@ -641,19 +610,11 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
     assert loaded_model == retrievalQA
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-    langchain_output = [
-        {
-            loaded_model.output_key: TEST_CONTENT,
-            "source_documents": TEST_SOURCE_DOCUMENTS,
-        }
-    ]
     result = loaded_pyfunc_model.predict([langchain_input])
-
-    assert result == langchain_output
+    assert result[0][loaded_model.output_key].startswith("Use the following")
 
     # Serve the chain
     inference_payload = load_serving_example(logged_model.model_uri)
-    langchain_output_serving = {"predictions": langchain_output}
 
     response = pyfunc_serve_and_score_model(
         logged_model.model_uri,
@@ -662,9 +623,8 @@ def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
         extra_args=["--env-manager", "local"],
     )
 
-    assert (
-        PredictionsResponse.from_json(response.content.decode("utf-8")) == langchain_output_serving
-    )
+    response = PredictionsResponse.from_json(response.content.decode("utf-8"))
+    assert response["predictions"][0][loaded_model.output_key].startswith("Use the following")
 
 
 # Define a special embedding for testing
@@ -1235,19 +1195,18 @@ def test_simple_chat_model_inference():
 
 
 def test_save_load_complex_runnable_parallel():
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        chain = create_openai_llmchain()
-        runnable = RunnableParallel({"llm": chain})
-        expected_result = {"llm": {"product": "MLflow", "text": TEST_CONTENT}}
-        assert runnable.invoke({"product": "MLflow"}) == expected_result
-        with mlflow.start_run():
-            model_info = mlflow.langchain.log_model(
-                runnable, "model_path", input_example=[{"product": "MLflow"}]
-            )
-        loaded_model = mlflow.langchain.load_model(model_info.model_uri)
-        assert loaded_model.invoke("MLflow") == expected_result
-        pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-        assert pyfunc_loaded_model.predict([{"product": "MLflow"}]) == [expected_result]
+    chain = create_openai_llmchain()
+    runnable = RunnableParallel({"llm": chain})
+    expected_result = {"llm": {"product": "MLflow", "text": TEST_CONTENT}}
+    assert runnable.invoke({"product": "MLflow"}) == expected_result
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            runnable, "model_path", input_example=[{"product": "MLflow"}]
+        )
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert loaded_model.invoke("MLflow") == expected_result
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_loaded_model.predict([{"product": "MLflow"}]) == [expected_result]
 
     inference_payload = load_serving_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
@@ -1370,22 +1329,21 @@ def test_save_load_long_runnable_sequence(model_path):
 
 
 def test_save_load_complex_runnable_sequence():
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        llm_chain = create_openai_llmchain()
-        chain = llm_chain | RunnablePassthrough()
-        expected_result = {"product": "MLflow", "text": TEST_CONTENT}
-        assert chain.invoke({"product": "MLflow"}) == expected_result
+    llm_chain = create_openai_llmchain()
+    chain = llm_chain | RunnablePassthrough()
+    expected_result = {"product": "MLflow", "text": TEST_CONTENT}
+    assert chain.invoke({"product": "MLflow"}) == expected_result
 
-        with mlflow.start_run():
-            model_info = mlflow.langchain.log_model(
-                chain, "model_path", input_example=[{"product": "MLflow"}]
-            )
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            chain, "model_path", input_example=[{"product": "MLflow"}]
+        )
 
-        loaded_model = mlflow.langchain.load_model(model_info.model_uri)
-        result = loaded_model.invoke({"product": "MLflow"})
-        assert result == expected_result
-        pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-        assert pyfunc_loaded_model.predict([{"product": "MLflow"}]) == [expected_result]
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    result = loaded_model.invoke({"product": "MLflow"})
+    assert result == expected_result
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_loaded_model.predict([{"product": "MLflow"}]) == [expected_result]
 
     inference_payload = load_serving_example(model_info.model_uri)
     response = pyfunc_serve_and_score_model(
@@ -2136,7 +2094,7 @@ def test_pyfunc_builtin_chat_response_conversion_fails_gracefully():
     llm = OpenAI(temperature=0.9)
     prompt = PromptTemplate(
         input_variables=["messages"],
-        template="What is a good name for a company that makes {messages}?",
+        template="What is {messages}?",
     )
     chain = RunnablePassthrough() | LLMChain(llm=llm, prompt=prompt) | RunnablePassthrough()
 
@@ -2149,29 +2107,24 @@ def test_pyfunc_builtin_chat_response_conversion_fails_gracefully():
     }
     signature = infer_signature(model_input=input_example)
 
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        with mlflow.start_run():
-            logged_model = mlflow.langchain.log_model(
-                chain,
-                "langchain_model",
-                signature=signature,
-                input_example=input_example,
-            )
-        loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-        result = loaded_model.predict(input_example)
-        # Verify that the chat request format was converted into LangChain messages correctly, but
-        # the response was not converted to the chat response format because it does not have the
-        # expected structure (a nonstandard dict with 'messages' and 'text' fields is returned)
-        assert result == [
-            {
-                "messages": [
-                    SystemMessage(content="You are a helpful assistant."),
-                    AIMessage(content="What would you like to ask?"),
-                    HumanMessage(content="Who owns MLflow?"),
-                ],
-                "text": TEST_CONTENT,
-            }
-        ]
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(
+            chain,
+            "langchain_model",
+            signature=signature,
+            input_example=input_example,
+        )
+    loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+    result = loaded_model.predict(input_example)
+    # Verify that the chat request format was converted into LangChain messages correctly, but
+    # the response was not converted to the chat response format because it does not have the
+    # expected structure (a nonstandard dict with 'messages' and 'text' fields is returned)
+    assert result[0]["messages"] == [
+        SystemMessage(content="You are a helpful assistant."),
+        AIMessage(content="What would you like to ask?"),
+        HumanMessage(content="Who owns MLflow?"),
+    ]
+    assert result[0]["text"].startswith("What is ")
 
 
 def test_save_load_chain_that_relies_on_pickle_serialization(monkeypatch, model_path):
@@ -2346,7 +2299,7 @@ def test_save_load_chain_as_code(chain_model_signature, chain_path, model_config
 
     request_id = "mock_request_id"
     tracer = MlflowLangchainTracer(prediction_context=Context(request_id))
-    input_example = {"messages": [{"role": "user", "content": "What is MLflow?"}]}
+    input_example = {"messages": [{"role": "user", "content": TEST_CONTENT}]}
     response = pyfunc_loaded_model._model_impl._predict_with_callbacks(
         data=input_example, callback_handlers=[tracer]
     )
