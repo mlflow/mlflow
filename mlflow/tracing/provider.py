@@ -52,7 +52,10 @@ def start_span_in_context(name: str) -> trace.Span:
 
 
 def start_detached_span(
-    name: str, parent: Optional[trace.Span] = None, experiment_id: Optional[str] = None
+    name: str,
+    parent: Optional[trace.Span] = None,
+    experiment_id: Optional[str] = None,
+    start_time_ns: Optional[int] = None,
 ) -> Optional[Tuple[str, trace.Span]]:
     """
     Start a new OpenTelemetry span that is not part of the current trace context, but with the
@@ -64,6 +67,8 @@ def start_detached_span(
                 span.
         experiment_id: The ID of the experiment. This is used to associate the span with a specific
             experiment in MLflow.
+        start_time_ns: The start time of the span in nanoseconds.
+            If not provided, the current timestamp is used.
 
     Returns:
         The newly created OpenTelemetry span.
@@ -73,7 +78,7 @@ def start_detached_span(
     attributes = (
         {SpanAttributeKey.EXPERIMENT_ID: json.dumps(experiment_id)} if experiment_id else None
     )
-    return tracer.start_span(name, context=context, attributes=attributes)
+    return tracer.start_span(name, context=context, attributes=attributes, start_time=start_time_ns)
 
 
 def _get_tracer(module_name: str):

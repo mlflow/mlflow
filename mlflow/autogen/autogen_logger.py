@@ -1,9 +1,10 @@
+import functools
 import logging
 import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from autogen import Agent, ConversableAgent
 from autogen.logger.base_logger import BaseLogger
@@ -14,6 +15,8 @@ from mlflow.entities.span import NoOpSpan, Span, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.tracing.utils import capture_function_input_args
+from mlflow.utils.autologging_utils import autologging_is_disabled
+from mlflow.utils.autologging_utils.safety import safe_patch
 
 # For GroupChat, a single "received_message" events are passed around multiple
 # internal layers and thus too verbose if we show them all. Therefore we ignore
@@ -21,6 +24,9 @@ from mlflow.tracing.utils import capture_function_input_args
 _EXCLUDED_MESSAGE_SENDERS = ["chat_manager", "checking_agent"]
 
 _logger = logging.getLogger(__name__)
+
+
+FLAVOR_NAME = "autogen"
 
 
 @dataclass
@@ -39,13 +45,13 @@ class ChatState:
     # LLM/Tool Spans created after the last message in the chat session.
     # We consider them as operations for generating the next message and
     # re-locate them under the corresponding message span.
-    pended_spans: List[Span] = field(default_factory=list)
+    pending_spans: List[Span] = field(default_factory=list)
 
     def clear(self):
         self.session_span = None
         self.last_message = None
         self.last_message_timestamp = 0
-        self.pended_spans = []
+        self.pending_spans = []
 
 
 class MlflowAutogenLogger(BaseLogger):
@@ -61,31 +67,30 @@ class MlflowAutogenLogger(BaseLogger):
         This handler is called whenever a new agent instance is created.
         Here we patch the agent's methods to start and end a trace around its chat session.
         """
-        if hasattr(agent, "initiate_chat"):
-            original = agent.initiate_chat
-            # Setting root_only = True because sometimes compounded agent calls initiate_chat()
-            # method of its sub-agents, which should not start a new trace.
-            agent.initiate_chat = self._patch_function_call(
-                original, "initiate_chat", root_only=True
-            )
         # TODO: Patch generate_reply() method as well
-        if hasattr(agent, "_wrap_function"):
-            # Wrap function (tool) use to create a span
-            original = agent._wrap_function
+        if hasattr(agent, "initiate_chat"):
+            safe_patch(
+                FLAVOR_NAME,
+                agent.__class__,
+                "initiate_chat",
+                # Setting root_only = True because sometimes compounded agent calls initiate_chat()
+                # method of its sub-agents, which should not start a new trace.
+                self._get_patch_function(root_only=True),
+            )
+        if hasattr(agent, "register_function"):
 
-            def _patched(func):
-                wrapped = original(func)
-                return self._patch_function_call(wrapped, span_type=SpanType.TOOL)
+            def patched(original, _self, function_map):
+                original(_self, function_map)
+                # Wrap the newly registered tools to start and end a span around its invocation.
+                for name, f in function_map.items():
+                    if f is not None:
+                        _self._function_map[name] = functools.partial(
+                            self._get_patch_function(span_type=SpanType.TOOL), f
+                        )
 
-            agent._wrap_function = _patched
+            safe_patch(FLAVOR_NAME, agent.__class__, "register_function", patched)
 
-    def _patch_function_call(
-        self,
-        f: Callable,
-        span_name=None,
-        span_type: str = SpanType.UNKNOWN,
-        root_only: bool = False,
-    ):
+    def _get_patch_function(self, span_type: str = SpanType.UNKNOWN, root_only: bool = False):
         """
         Patch a function to start and end a span around its invocation.
 
@@ -98,17 +103,22 @@ class MlflowAutogenLogger(BaseLogger):
                 not create a new span.
         """
 
-        def _wrapper(*args, **kwargs):
+        def _wrapper(original, *args, **kwargs):
+            # If autologging is disabled, just run the original function. This is a safety net to
+            # prevent patching side effects from being effective after autologging is disabled.
+            if autologging_is_disabled(FLAVOR_NAME):
+                return original(*args, **kwargs)
+
             if self._chat_state.session_span is None:
                 # Create the trace per chat session
                 span = self._client.start_trace(
-                    name=span_name or f.__name__,
+                    name=original.__name__,
                     span_type=span_type,
-                    inputs=capture_function_input_args(f, args, kwargs),
+                    inputs=capture_function_input_args(original, args, kwargs),
                 )
                 self._chat_state.session_span = span
                 try:
-                    result = f(*args, **kwargs)
+                    result = original(*args, **kwargs)
                 except Exception as e:
                     result = None
                     self._record_exception(span, e)
@@ -121,12 +131,12 @@ class MlflowAutogenLogger(BaseLogger):
                     self._chat_state.clear()
             elif not root_only:
                 span = self._start_span_in_session(
-                    name=span_name or f.__name__,
+                    name=original.__name__,
                     span_type=span_type,
-                    inputs=capture_function_input_args(f, args, kwargs),
+                    inputs=capture_function_input_args(original, args, kwargs),
                 )
                 try:
-                    result = f(*args, **kwargs)
+                    result = original(*args, **kwargs)
                 except Exception as e:
                     result = None
                     self._record_exception(span, e)
@@ -138,9 +148,9 @@ class MlflowAutogenLogger(BaseLogger):
                         outputs=result,
                         status=span.status,
                     )
-                    self._chat_state.pended_spans.append(span)
+                    self._chat_state.pending_spans.append(span)
             else:
-                result = f(*args, **kwargs)
+                result = original(*args, **kwargs)
             return result
 
         return _wrapper
@@ -204,9 +214,9 @@ class MlflowAutogenLogger(BaseLogger):
                 )
 
                 # Re-locate the pended spans under this message span
-                for child_span in self._chat_state.pended_spans:
+                for child_span in self._chat_state.pending_spans:
                     child_span._span._parent = span._span.context
-                self._chat_state.pended_spans = []
+                self._chat_state.pending_spans = []
 
             self._chat_state.last_message = kwargs
             self._chat_state.last_message_timestamp = event_end_time
@@ -243,7 +253,7 @@ class MlflowAutogenLogger(BaseLogger):
         self._client.end_span(
             request_id=span.request_id, span_id=span.span_id, outputs=response, end_time_ns=end_time
         )
-        self._chat_state.pended_spans.append(span)
+        self._chat_state.pending_spans.append(span)
 
     # The following methods are not used but are required to implement the BaseLogger interface.
     def log_function_use(self, *args: Any, **kwargs: Any):

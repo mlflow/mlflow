@@ -860,10 +860,9 @@ class MlflowClient:
             )
 
         try:
-            otel_span = mlflow.tracing.provider.start_detached_span(name, parent=parent_span._span)
-
-            if start_time_ns is not None:
-                otel_span._start_time = start_time_ns
+            otel_span = mlflow.tracing.provider.start_detached_span(
+                name=name, parent=parent_span._span, start_time_ns=start_time_ns
+            )
 
             span = create_mlflow_span(otel_span, request_id, span_type)
             span.set_attributes(attributes or {})
@@ -926,18 +925,13 @@ class MlflowClient:
         span.set_status(status)
 
         try:
-            span.end()
+            span.end(end_time=end_time_ns)
         except Exception as e:
             _logger.warning(
                 f"Failed to end span {span_id}: {e}. "
                 "For full traceback, set logging level to debug.",
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
-
-        # Override the end time if provided. Note that we cannot set this before calling
-        # span.end() because OTel refuses to end a span if the end time is already set.
-        if end_time_ns is not None:
-            span._end_time = end_time_ns
 
     def _start_tracked_trace(
         self,
