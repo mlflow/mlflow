@@ -14,6 +14,7 @@ from mlflow.gateway.schemas import chat, completions, embeddings
 
 class MosaicMLProvider(BaseProvider):
     NAME = "MosaicML"
+    CONFIG_TYPE = MosaicMLConfig
 
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)

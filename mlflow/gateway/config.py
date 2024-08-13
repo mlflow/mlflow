@@ -32,6 +32,9 @@ _logger = logging.getLogger(__name__)
 
 IS_PYDANTIC_V2 = version.parse(pydantic.version.VERSION) >= version.parse("2.0")
 
+if IS_PYDANTIC_V2:
+    from pydantic import SerializeAsAny
+
 
 class Provider(str, Enum):
     OPENAI = "openai"
@@ -229,22 +232,6 @@ class MistralConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
-config_types = {
-    Provider.COHERE: CohereConfig,
-    Provider.OPENAI: OpenAIConfig,
-    Provider.ANTHROPIC: AnthropicConfig,
-    Provider.AI21LABS: AI21LabsConfig,
-    Provider.MOSAICML: MosaicMLConfig,
-    Provider.BEDROCK: AmazonBedrockConfig,
-    Provider.AMAZON_BEDROCK: AmazonBedrockConfig,
-    Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
-    Provider.PALM: PaLMConfig,
-    Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HuggingFaceTextGenerationInferenceConfig,
-    Provider.MISTRAL: MistralConfig,
-    Provider.TOGETHERAI: TogetherAIConfig,
-}
-
-
 class ModelInfo(ResponseModel):
     name: Optional[str] = None
     provider: Provider
@@ -289,35 +276,30 @@ def _resolve_api_key_from_input(api_key_input):
 class Model(ConfigModel):
     name: Optional[str] = None
     provider: Union[str, Provider]
-    config: Optional[
-        Union[
-            CohereConfig,
-            OpenAIConfig,
-            AI21LabsConfig,
-            AnthropicConfig,
-            AmazonBedrockConfig,
-            MosaicMLConfig,
-            MlflowModelServingConfig,
-            HuggingFaceTextGenerationInferenceConfig,
-            PaLMConfig,
-            MistralConfig,
-            TogetherAIConfig,
-        ]
-    ] = None
+    if IS_PYDANTIC_V2:
+        config: Optional[SerializeAsAny[ConfigModel]] = None
+    else:
+        config: Optional[ConfigModel] = None
 
     @validator("provider", pre=True)
     def validate_provider(cls, value):
+        from mlflow.gateway.provider_registry import provider_registry
+
         if isinstance(value, Provider):
             return value
         formatted_value = value.replace("-", "_").upper()
         if formatted_value in Provider.__members__:
             return Provider[formatted_value]
+        if value in provider_registry.keys():
+            return value
         raise MlflowException.invalid_parameter_value(f"The provider '{value}' is not supported.")
 
     @classmethod
     def _validate_config(cls, info, values):
+        from mlflow.gateway.provider_registry import provider_registry
+
         if provider := values.get("provider"):
-            config_type = config_types[provider]
+            config_type = provider_registry.get(provider).CONFIG_TYPE
             return config_type(**info)
 
         raise MlflowException.invalid_parameter_value(
