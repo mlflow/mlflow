@@ -156,7 +156,7 @@ def trace(
             # Since the function call occurs outside the coroutine,
             # if an exception occurs, we need to throw it back in, so that
             # we return control to the coro (in particular, so that the __exit__'s
-            # of start_span and OTel's use_span can execute.)
+            # of start_span and OTel's use_span can execute).
             if exc_type is not None:
                 self.coro.throw(exc_type, exc_value, traceback)
             self.coro.close()
