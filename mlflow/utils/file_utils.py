@@ -771,7 +771,6 @@ def parallelized_download_file_using_http_uri(
     # and write chunks without overwriting.
     with open(download_path, "w"):
         pass
-    return dict.fromkeys(chunks, 0) #REVERT THIS LINE AFTER TESTING
     if uri_type == ArtifactCredentialType.GCP_SIGNED_URL or uri_type is None:
         chunk = next(chunks)
         # GCP files could be transcoded, in which case the range header is ignored.
