@@ -12,6 +12,7 @@ from mlflow.gateway.schemas import chat, completions, embeddings
 
 class PaLMProvider(BaseProvider):
     NAME = "PaLM"
+    CONFIG_TYPE = PaLMConfig
 
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
