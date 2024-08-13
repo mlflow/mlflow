@@ -664,6 +664,7 @@ langchain:
           "psutil",
           "faiss-cpu",
           "langchain-experimental",
+          "langchain-openai",
           "numexpr",
           "hf_transfer",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
