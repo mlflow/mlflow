@@ -51,11 +51,15 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     '`logging.getLogger("mlflow").setLevel(logging.DEBUG)` to see the full traceback.'
 )
 _LOG_MODEL_MISSING_SIGNATURE_WARNING = (
-    "Model logged without a signature. Signatures will be required for upcoming model registry "
-    "features as they validate model inputs and denote the expected schema of model outputs. "
+    "Model logged without a signature. Signatures are required for Databricks UC model registry "
+    "as they validate model inputs and denote the expected schema of model outputs. "
     f"Please visit https://www.mlflow.org/docs/{mlflow.__version__.replace('.dev0', '')}/"
-    "models.html#set-signature-on-logged-model for instructions on setting a model signature on "
-    "your logged model."
+    "model/signatures.html#how-to-set-signatures-on-models for instructions on setting "
+    "signature on models."
+)
+_LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING = (
+    "Model logged without a signature and input example. Please set `input_example` parameter "
+    "when logging the model to auto infer the model signature."
 )
 # NOTE: The _MLFLOW_VERSION_KEY constant is considered @developer_stable
 _MLFLOW_VERSION_KEY = "mlflow_version"
@@ -705,12 +709,14 @@ class Model:
                 _copy_model_metadata_for_uc_sharing(local_path, flavor)
 
             tracking_uri = _resolve_tracking_uri()
+            serving_input = mlflow_model.get_serving_input(local_path)
             # We check signature presence here as some flavors have a default signature as a
             # fallback when not provided by user, which is set during flavor's save_model() call.
-            if mlflow_model.signature is None and (
-                tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks"
-            ):
-                _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
+            if mlflow_model.signature is None:
+                if serving_input is None:
+                    _logger.warning(_LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING)
+                elif tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks":
+                    _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
             # if the model_config kwarg is passed in, then log the model config as an params
@@ -767,12 +773,6 @@ class Model:
                 model_info.registered_model_version = registered_model.version
 
             # validate input example works for serving when logging the model
-            serving_input = mlflow_model.get_serving_input(local_path)
-            if mlflow_model.signature is None and serving_input is None:
-                _logger.warning(
-                    "Input example should be provided to infer model signature if the model "
-                    "signature is not provided when logging the model."
-                )
             if serving_input:
                 from mlflow.models import validate_serving_input
 
