@@ -167,8 +167,8 @@ script.
     .. tab:: Models with Code Paths dependencies
 
         In this example, we will explore a more complex scenario that demonstrates how to work with multiple Python scripts and leverage the ``code_paths`` 
-        feature in MLflow for model management. Specifically, we will define a ``Calculator`` class in one script, which performs basic arithmetic 
-        operations, and then use this class within an ``ArithmeticModel`` custom ``PythonModel`` that we will define in a separate script. 
+        feature in MLflow for model management. Specifically, we will define a simple script that contains a function that performs basic arithmetic 
+        operations, and then use this function within an ``ArithmeticModel`` custom ``PythonModel`` that we will define in a separate script. 
         This model will be logged with MLflow, allowing us to perform predictions using the stored model.
 
         This tutorial will show you how to:
@@ -177,41 +177,20 @@ script.
         - Log a custom model with MLflow that relies on external code defined in another file.
         - Use the ``code_paths`` feature to include additional scripts when logging the model, ensuring that all dependencies are available when the model is loaded for inference.
 
-        In the first step, we define a ``Calculator`` class in a file named ``calculator.py``. This class includes a basic arithmetic operation, such as 
-        adding two numbers, and also keeps a history of operations performed. The purpose of this class is to encapsulate the logic that will be used 
-        later in the MLflow model.
+        In the first step, we define our ``add`` function in a file named ``calculator.py``, including the magic ``%%writefile`` command if we're running in a notebook cell:
 
-        The following code block writes the ``Calculator`` class definition to ``calculator.py``:
         
         .. code-block:: python
 
             # If running in a Jupyter or Databricks notebook cell, uncomment the following line:
             # %%writefile "./calculator.py"
 
-            from typing import List, TypeVar
 
+            def add(x, y):
+                return x + y
 
-            T = TypeVar("T", int, float, complex)
-
-
-            class Calculator:
-                def __init__(self):
-                    self.history = []
-
-                def add(self, a: T, b: T) -> T:
-                    result = a + b
-                    self.history.append(f"The sum of {a} and {b} is {result}")
-                    return {"result": result, "history": self.history}
-
-        This script defines a versatile calculator that can handle different types of numerical inputs (int, float, complex). The ``add`` method not only 
-        computes the sum of two numbers but also records the operation in a history log. This history can be useful for debugging or tracking the 
-        sequence of operations performed by the model.
-
-        Next, we create a new file, ``math_model.py``, which contains the ``ArithmeticModel`` class. This class will be responsible for loading the ``Calculator`` class, 
-        performing predictions, and validating the input data types. The predict method will leverage the ``Calculator`` class to perform the addition of two numbers provided as input.
-
-        The ``load_context`` method within ``ArithmeticModel`` ensures that the ``Calculator`` class, defined in the external ``calculator.py`` script, is loaded 
-        and available for use when the model is deployed or invoked.
+        Next, we create a new file, ``math_model.py``, which contains the ``ArithmeticModel`` class. This script will be responsible for importing the ``add`` function from our external script, defining our model, 
+        performing predictions, and validating the input data types. The predict method will leverage the ``add`` function to perform the addition of two numbers provided as input.
 
         The following code block writes the ``ArithmeticModel`` class definition to ``math_model.py``:
 
@@ -224,17 +203,12 @@ script.
             from mlflow.pyfunc import PythonModel
             from mlflow.models import set_model
 
+            from calculator import add
+
 
             class ArithmeticModel(PythonModel):
                 def __init__(self):
-                    self.model = None
                     self.types = (int, float, complex)
-
-                def load_context(self, context):
-                    # We are loading from an external module that is defined within a code_paths path
-                    from calculator import Calculator
-
-                    self.model = Calculator()
 
                 def predict(
                     self, context, model_input: Dict[str, Any], params=None
@@ -250,7 +224,8 @@ script.
                             f"Input types must be one of {self.types}, but received: {type(a)}, {type(b)}"
                         )
 
-                    return self.model.add(a, b)
+                    # Directly use a dependency that is defined within code_paths in the logged model
+                    return add(a, b)
 
 
             set_model(ArithmeticModel())
@@ -287,7 +262,7 @@ script.
 
         After logging the model, it can be loaded back into the notebook or any other environment that has access to the MLflow tracking server. 
         When the model is loaded, the ``calculator.py`` script will be executed along with the ``math_model.py`` script, ensuring that the 
-        ``Calculator`` class is available for use by the ``ArithmeticModel``.
+        ``add`` function is available for use by the ``ArithmeticModel``'s script's import statement.
 
         The following code block demonstrates how to load the model and make predictions:
 
@@ -295,21 +270,10 @@ script.
 
             my_model_from_code = mlflow.pyfunc.load_model(model_info.model_uri)
             my_model_from_code.predict({"a": 42, "b": 9001})
-            my_model_from_code.predict({"a": 37.25, "b": 5.32e7})
 
         This example showcases the model's ability to handle different numerical inputs, perform addition, and maintain a history of calculations. 
         The output of these predictions includes both the result of the arithmetic operation and the history log, which can be useful for auditing and 
         tracing the computations performed by the model.
-
-        .. code-block:: text
-
-            {
-                'result': 53200037.25,
-                'history': [
-                    'The sum of 42 and 9001 is 9043',
-                    'The sum of 37.25 and 53200000.0 is 53200037.25'
-                ]
-            }
 
         Looking at the stored model within the MLflow UI, you can see that both the ``math_model.py`` and ``calculator.py`` scripts are recorded as 
         artifacts in the run. This comprehensive logging allows you to track not just the model's parameters and metrics but also the code that 
