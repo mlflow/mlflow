@@ -13,7 +13,7 @@ from llama_index.embeddings.databricks import DatabricksEmbedding
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.databricks import Databricks
 from llama_index.llms.openai import OpenAI
-from llama_index.vector_stores.faiss import FaissVectorStore
+from llama_index.vector_stores.qdrant import QdrantVectorStore
 
 import mlflow
 import mlflow.llama_index
@@ -361,7 +361,7 @@ def test_llama_index_databricks_integration(monkeypatch, document, model_path, m
         ),
         (
             "tests/llama_index/sample_code/external_vector_store.py",
-            FaissVectorStore,
+            QdrantVectorStore,
         ),
     ],
 )

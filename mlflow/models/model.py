@@ -68,7 +68,7 @@ METADATA_FILES = [
 MODEL_CONFIG = "config"
 MODEL_CODE_PATH = "model_code_path"
 SET_MODEL_ERROR = (
-    "Model should either be an instance of PyFuncModel, Langchain type, or LlamaIndex type."
+    "Model should either be an instance of PyFuncModel, Langchain type, or LlamaIndex index."
 )
 
 
