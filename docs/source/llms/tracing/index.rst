@@ -728,9 +728,21 @@ and the :py:meth:`mlflow.client.MlflowClient.delete_trace_tag` method to remove 
 Async Logging
 -------------
 
-By default, MLflow Tracing are logged synchronously. This may introduce a performance overhead when logging Traces, especially when your MLflow Tracking Server is running on a remote server. If the performance overhead is a concern for you, you can enable **asynchronous logging** for tracing in MLflow 2.16.0 and later.
+By default, MLflow Traces are logged synchronously. This may introduce a performance overhead when logging Traces, especially when your MLflow Tracking Server is running on a remote server. If the performance overhead is a concern for you, you can enable **asynchronous logging** for tracing in MLflow 2.16.0 and later.
 
-To enable async logging for tracing, set the environment variable ``MLFLOW_ENABLE_ASYNC_LOGGING`` to ``true``. This will make the trace logging operation non-blocking and reduce the performance overhead.
+To enable async logging for tracing, call :py:func:`mlflow.config.enable_async_logging` in your code. This will make the trace logging operation non-blocking and reduce the performance overhead.
+
+.. code-block:: python
+
+    import mlflow
+
+    mlflow.config.enable_async_logging()
+
+    # Traces will be logged asynchronously
+    with mlflow.start_span(name="foo") as span:
+        span.set_inputs({"a": 1})
+        span.set_outputs({"b": 2})
+
 
 Note that the async logging does not fully eliminate the performance overhead. Some backend calls still need to be made synchronously and there are other factors such as data serialization. However, async logging can significantly reduce the overall overhead of logging traces, empirically about ~80% for typical workloads.
 
