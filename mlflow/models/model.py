@@ -51,15 +51,15 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     '`logging.getLogger("mlflow").setLevel(logging.DEBUG)` to see the full traceback.'
 )
 _LOG_MODEL_MISSING_SIGNATURE_WARNING = (
-    "Model logged without a signature. Signatures will be required for upcoming model registry "
-    "features as they validate model inputs and denote the expected schema of model outputs. "
+    "Model logged without a signature. Signatures are required for Databricks UC model registry "
+    "as they validate model inputs and denote the expected schema of model outputs. "
     f"Please visit https://www.mlflow.org/docs/{mlflow.__version__.replace('.dev0', '')}/"
-    "models.html#set-signature-on-logged-model for instructions on setting a model signature on "
-    "your logged model."
+    "model/signatures.html#how-to-set-signatures-on-models for instructions on setting "
+    "signature on models."
 )
 _LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING = (
-    "Input example should be provided to infer model signature if the model "
-    "signature is not provided when logging the model."
+    "Model logged without a signature and input example. Please set `input_example` parameter "
+    "when logging the model to auto infer the model signature."
 )
 # NOTE: The _MLFLOW_VERSION_KEY constant is considered @developer_stable
 _MLFLOW_VERSION_KEY = "mlflow_version"
