@@ -110,10 +110,7 @@ class UnityCatalogOssStore(BaseRestStore):
 
     def get_registered_model(self, name):
         full_name = get_full_name_from_sc(name, None)
-        req_body = message_to_json(
-            GetRegisteredModel(
-                full_name_arg=full_name
-            ))
+        req_body = message_to_json({"full_name":full_name})
         registered_model_info = self._call_endpoint(GetRegisteredModel, req_body)
         return registered_model_from_uc_oss_proto(registered_model_info)
 
