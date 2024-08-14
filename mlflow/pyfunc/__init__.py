@@ -198,7 +198,7 @@ Models From Code for Custom Models
     of serializing and deploying custom models through the use of script serialization. It is
     strongly recommended to migrate custom model implementations to this new paradigm to avoid the
     limitations and complexity of serializing with cloudpickle.
-    You can learn more about models from code within the 
+    You can learn more about models from code within the
     `Models From Code Guide <../model/models-from-code.html>`_.
 
 The section below illustrates the process of using the legacy serializer for custom Pyfunc models.

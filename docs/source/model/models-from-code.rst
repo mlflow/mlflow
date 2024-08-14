@@ -70,9 +70,9 @@ those contents to the file that you define.
 
 For example, running the following in a notebook:
 
-.. code-block:: python
+.. code-block:: none
 
-    %%writefile ./hello.py
+    %%writefile "./hello.py"
 
     print("hello!")
 
@@ -106,22 +106,24 @@ script.
 
         .. code-block:: python
 
-            %%writefile "./basic.py"
+            # If running in a Jupyter or Databricks notebook cell, uncomment the following line:
+            # %%writefile "./basic.py"
 
             import pandas as pd
             from typing import List, Dict
             from mlflow.pyfunc import PythonModel
             from mlflow.models import set_model
 
-            class BasicModel(PythonModel):
 
+            class BasicModel(PythonModel):
                 def exponential(self, numbers):
-                    return {f"{x}": 2 ** x for x in numbers}
-                
+                    return {f"{x}": 2**x for x in numbers}
+
                 def predict(self, context, model_input) -> Dict[str, float]:
                     if isinstance(model_input, pd.DataFrame):
                         model_input = model_input.to_dict()[0].values()
                     return self.exponential(model_input)
+
 
             # Specify which definition in this script represents the model instance
             set_model(BasicModel())
@@ -140,7 +142,7 @@ script.
                 model_info = mlflow.pyfunc.log_model(
                     python_model=model_path,  # Define the model as the path to the script that was just saved
                     artifact_path="arithemtic_model",
-                    input_example=[42.0, 24.0]
+                    input_example=[42.0, 24.0],
                 )
 
 
@@ -157,10 +159,10 @@ script.
         .. code-block:: python
             
             my_model = mlflow.pyfunc.load_model(model_info.model_uri)
-            my_model.predict([2.2,3.1,4.7]) 
+            my_model.predict([2.2, 3.1, 4.7])
 
             # or, with a Pandas DataFrame input
-            my_model.predict(pd.DataFrame([5.0,6.0,7.0]))
+            my_model.predict(pd.DataFrame([5.0, 6.0, 7.0]))
     
     .. tab:: Models with Code Paths dependencies
 
@@ -183,18 +185,19 @@ script.
         
         .. code-block:: python
 
-            %%writefile "./calculator.py"
+            # If running in a Jupyter or Databricks notebook cell, uncomment the following line:
+            # %%writefile "./calculator.py"
 
             from typing import List, TypeVar
 
 
-            T = TypeVar('T', int, float, complex)
+            T = TypeVar("T", int, float, complex)
 
-            class Calculator():
 
+            class Calculator:
                 def __init__(self):
                     self.history = []
-                    
+
                 def add(self, a: T, b: T) -> T:
                     result = a + b
                     self.history.append(f"The sum of {a} and {b} is {result}")
@@ -214,24 +217,28 @@ script.
 
         .. code-block:: python
 
-            %%writefile "./math_model.py"
+            # If running in a Jupyter or Databricks notebook cell, uncomment the following line:
+            # %%writefile "./math_model.py"
 
             from typing import Dict, Any, Union
             from mlflow.pyfunc import PythonModel
             from mlflow.models import set_model
 
-            class ArithmeticModel(PythonModel):
 
+            class ArithmeticModel(PythonModel):
                 def __init__(self):
                     self.model = None
                     self.types = (int, float, complex)
-                
+
                 def load_context(self, context):
                     # We are loading from an external module that is defined within a code_paths path
                     from calculator import Calculator
+
                     self.model = Calculator()
 
-                def predict(self, context, model_input: Dict[str, Any], params=None) -> Union[int, float, complex]:
+                def predict(
+                    self, context, model_input: Dict[str, Any], params=None
+                ) -> Union[int, float, complex]:
                     try:
                         a = model_input["a"]
                         b = model_input["b"]
@@ -239,9 +246,12 @@ script.
                         raise KeyError(f"Missing required input: {e.args[0]}") from e
 
                     if not isinstance(a, self.types) or not isinstance(b, self.types):
-                        raise ValueError(f"Input types must be one of {self.types}, but received: {type(a)}, {type(b)}")
+                        raise ValueError(
+                            f"Input types must be one of {self.types}, but received: {type(a)}, {type(b)}"
+                        )
 
                     return self.model.add(a, b)
+
 
             set_model(ArithmeticModel())
 
@@ -266,7 +276,9 @@ script.
                 model_info = mlflow.pyfunc.log_model(
                     python_model=model_path,  # The model is defined as the path to the script containing the model definition
                     artifact_path="arithemtic_model",
-                    code_paths=["calculator.py"],  # dependency definition included for the model to successfully import the implementation
+                    code_paths=[
+                        "calculator.py"
+                    ],  # dependency definition included for the model to successfully import the implementation
                 )
 
         This step registers the ``ArithmeticModel`` with MLflow, ensuring that both the primary model script and its dependencies are stored as 
@@ -337,7 +349,8 @@ script.
         
         .. code-block:: python
 
-            %%writefile "./mfc.py"
+            # If running in a Jupyter or Databricks notebook cell, uncomment the following line:
+            # %%writefile "./mfc.py"
 
             import os
             from operator import itemgetter
@@ -353,17 +366,20 @@ script.
 
             mlflow.langchain.autolog()
 
+
             def get_region(input_data):
                 default = "Virginia, USA"
                 if isinstance(input_data[0], dict):
                     return input_data[0].get("content").get("region", default)
                 return default
 
+
             def get_area(input_data):
                 default = "5000 square feet"
                 if isinstance(input_data[0], dict):
                     return input_data[0].get("content").get("area", default)
                 return default
+
 
             prompt = PromptTemplate(
                 template="You are a highly accomplished landscape designer that provides suggestions for landscape design decisions in a particular"
@@ -415,7 +431,7 @@ script.
                         "content": {
                             "region": "Austin, TX, USA",
                             "area": "1750 square feet",
-                        }
+                        },
                     }
                 ]
             }
@@ -424,7 +440,7 @@ script.
                 info = mlflow.langchain.log_model(
                     lc_model=chain_path,  # Defining the model as the script containing the chain definition and the set_model call
                     artifact_path="chain",
-                    input_example=input_example
+                    input_example=input_example,
                 )
 
         In this step, the entire chain of operations, from input processing to AI model inference, is logged as a single, cohesive model. Avoiding the 
