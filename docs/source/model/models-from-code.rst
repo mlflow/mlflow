@@ -11,9 +11,12 @@ Models From Code Guide
 
 
 The models from code feature is a comprehensive overhaul of the process of defining, storing, and loading custom models. The key difference between 
-legacy serialization and the models from code approach is in what is defined in the ``python_model`` argument within :py:func:`mlflow.pyfunc.log_model`. 
+legacy serialization of custom python models and the models from code approach is in how a model is represented during serialization. In the legacy
+approach, serialization is done on the model object using ``cloudpickle``, creating a binary file that is used to reconstruct the object when loaded. 
+In models from code, for the model types that are supported, a simple script is saved with the definition of either the custom pyfunc or the flavor's 
+interface (i.e., in the case of LangChain, we can define and mark an LCEL chain directly as a model within a script).
 
-The greatest gain associated with using models from code for custom ``pyfunc`` implementations is in the reduction of repetitive trial-and-error debugging 
+The greatest gain associated with using models from code for custom ``pyfunc`` and supported library implementations is in the reduction of repetitive trial-and-error debugging 
 that can occur when working on an implementation. The workflow shown below illustrates how these two methdologies compare when working on a solution:
 
 .. figure:: ../_static/images/models/models_from_code_journey.png
@@ -43,11 +46,12 @@ At no point in this process are there dependencies on serialization libraries su
 Core requirements for using Models From Code
 --------------------------------------------
 
-There are a few considerations to be aware of when evaluating whether your defined model is suitable for using the models from code approach for logging. 
+There are some important concepts to be aware of when using the models from code feature, as there are operations that are performed when logging a model
+via a script that may not be immediately apparent.
 
-- **Imports**: Models from code does not capture external references for non-pip installable packages. If you have external references (see the examples below), you must define these dependencies via ``code_paths`` arguments.
-- **Execution during logging**: In order to validate that the script file that you're logging is valid, the code will be executed before being written to disk. 
-- **Requirements inference**: Packages that are imported at the top of your defined model script will be inferred as requirements if they are installable from PyPI. 
+- **Imports**: Models from code does not capture external references for non-pip installable packages, just as the legacy ``cloudpickle`` implementation does not. If you have external references (see the examples below), you must define these dependencies via ``code_paths`` arguments.
+- **Execution during logging**: In order to validate that the script file that you're logging is valid, the code will be executed before being written to disk, exactly as other methods of model logging.
+- **Requirements inference**: Packages that are imported at the top of your defined model script will be inferred as requirements if they are installable from PyPI, regardless of whether you use them in the model execution logic or not.
 
 .. tip::
     If you define import statements that are never used within your script, these will still be included in the requirements listing. It is recommended to use a linter
@@ -99,6 +103,13 @@ script.
 .. tabs::
 
     .. tab:: Simple Example
+
+        .. raw:: html
+
+            <h3>Building a simple Models From Code model</h3>
+        
+        |
+
         In this example, we will define a very basic  model that, when called via ``predict()``, will utilize the input float value as an exponent to the number ``2``.
         The first code block, repesenting a discrete notebook cell, will create a file named ``basic.py`` in the same directory as the notebook. The contents of this 
         file will be the model definition ``BasicModel``, as well as the import statements and the MLflow function ``set_model`` that will instantiate an instance of 
@@ -166,16 +177,30 @@ script.
     
     .. tab:: Models with Code Paths dependencies
 
+        .. raw:: html
+
+            <h3>Using Models from Code with code_paths dependencies</h3>
+        
+        |
+
         In this example, we will explore a more complex scenario that demonstrates how to work with multiple Python scripts and leverage the ``code_paths`` 
         feature in MLflow for model management. Specifically, we will define a simple script that contains a function that performs basic arithmetic 
-        operations, and then use this function within an ``ArithmeticModel`` custom ``PythonModel`` that we will define in a separate script. 
+        operations, and then use this function within an ``AddModel`` custom ``PythonModel`` that we will define in a separate script. 
         This model will be logged with MLflow, allowing us to perform predictions using the stored model.
+
+         To learn more about the ``code_paths`` feature in MLflow, see the `guidelines on usage here <../model/dependencies.html#caveats-of-code-paths-option>`_.
 
         This tutorial will show you how to:
 
         - Create multiple Python files from within a Jupyter notebook.
         - Log a custom model with MLflow that relies on external code defined in another file.
         - Use the ``code_paths`` feature to include additional scripts when logging the model, ensuring that all dependencies are available when the model is loaded for inference.
+
+        .. raw:: html
+            
+            <h4>Defining a dependent code script</h4>
+        
+        |
 
         In the first step, we define our ``add`` function in a file named ``calculator.py``, including the magic ``%%writefile`` command if we're running in a notebook cell:
 
@@ -189,51 +214,46 @@ script.
             def add(x, y):
                 return x + y
 
-        Next, we create a new file, ``math_model.py``, which contains the ``ArithmeticModel`` class. This script will be responsible for importing the ``add`` function from our external script, defining our model, 
+        .. raw:: html
+            
+            <h4>Defining the model as a Python file</h4>
+        
+        |
+
+        Next, we create a new file, ``math_model.py``, which contains the ``AddModel`` class. This script will be responsible for importing the ``add`` function from our external script, defining our model, 
         performing predictions, and validating the input data types. The predict method will leverage the ``add`` function to perform the addition of two numbers provided as input.
 
-        The following code block writes the ``ArithmeticModel`` class definition to ``math_model.py``:
+        The following code block writes the ``AddModel`` class definition to ``math_model.py``:
 
         .. code-block:: python
 
             # If running in a Jupyter or Databricks notebook cell, uncomment the following line:
             # %%writefile "./math_model.py"
 
-            from typing import Dict, Any, Union
             from mlflow.pyfunc import PythonModel
             from mlflow.models import set_model
 
             from calculator import add
 
 
-            class ArithmeticModel(PythonModel):
-                def __init__(self):
-                    self.types = (int, float, complex)
-
-                def predict(
-                    self, context, model_input: Dict[str, Any], params=None
-                ) -> Union[int, float, complex]:
-                    try:
-                        a = model_input["a"]
-                        b = model_input["b"]
-                    except KeyError as e:
-                        raise KeyError(f"Missing required input: {e.args[0]}") from e
-
-                    if not isinstance(a, self.types) or not isinstance(b, self.types):
-                        raise ValueError(
-                            f"Input types must be one of {self.types}, but received: {type(a)}, {type(b)}"
-                        )
-
-                    # Directly use a dependency that is defined within code_paths in the logged model
-                    return add(a, b)
+            class AddModel(PythonModel):
+                def predict(self, context, model_input, params=None):
+                    return add(model_input["x"], model_input["y"])
 
 
-            set_model(ArithmeticModel())
+            set_model(AddModel())
+
 
         This model introduces error handling by checking the existence and types of the inputs, ensuring robustness. It serves as a practical example of 
         how custom logic can be encapsulated within an MLflow model while leveraging external dependencies.
 
-        Once the ``ArithmeticModel`` is defined, we can proceed to log it with MLflow. This process involves specifying the path to the ``math_model.py`` 
+        .. raw:: html
+            
+            <h4>Logging the Model from Code</h4>
+        
+        |
+
+        Once the ``AddModel`` custom Python model is defined, we can proceed to log it with MLflow. This process involves specifying the path to the ``math_model.py`` 
         script and using the ``code_paths`` parameter to include ``calculator.py`` as a dependency. This ensures that when the model is loaded in 
         a different environment or on another machine, all necessary code files are available for proper execution.
 
@@ -256,9 +276,15 @@ script.
                     ],  # dependency definition included for the model to successfully import the implementation
                 )
 
-        This step registers the ``ArithmeticModel`` with MLflow, ensuring that both the primary model script and its dependencies are stored as 
+        This step registers the ``AddModel`` model with MLflow, ensuring that both the primary model script and its dependencies are stored as 
         artifacts. By including ``calculator.py`` in the ``code_paths`` argument, we ensure that the model can be reliably reloaded and used for 
         predictions, regardless of the environment in which it is deployed.
+
+        .. raw:: html
+            
+            <h4>Loading and Viewing the model</h4>
+        
+        |
 
         After logging the model, it can be loaded back into the notebook or any other environment that has access to the MLflow tracking server. 
         When the model is loaded, the ``calculator.py`` script will be executed along with the ``math_model.py`` script, ensuring that the 
@@ -269,7 +295,7 @@ script.
         .. code-block:: python
 
             my_model_from_code = mlflow.pyfunc.load_model(model_info.model_uri)
-            my_model_from_code.predict({"a": 42, "b": 9001})
+            my_model_from_code.predict({"x": 42, "y": 9001})
 
         This example showcases the model's ability to handle different numerical inputs, perform addition, and maintain a history of calculations. 
         The output of these predictions includes both the result of the arithmetic operation and the history log, which can be useful for auditing and 
@@ -287,6 +313,12 @@ script.
 
     .. tab:: Models From Code with LangChain
 
+        .. raw:: html
+    
+            <h3>MLflow's native LangChain Models from Code support</h3>
+        
+        |
+
         In this slightly more advanced example, we will explore how to use the `MLflow LangChain integration <../llms/langchain/index.html>`_ to define 
         and manage a chain of operations for an AI model. This chain will help generate landscape design recommendations based on specific regional 
         and area-based inputs. The example showcases how to define a custom prompt, use a large language model (LLM) for generating responses, and 
@@ -298,6 +330,11 @@ script.
         - Logging the model with MLflow using the langchain integration, ensuring the entire chain of operations is captured.
         - Loading and using the logged model for making predictions in different contexts.
 
+        .. raw:: html
+
+            <h4>Defining the Model with LCEL</h4>
+        
+        |
 
         First, we will create a Python script named ``mfc.py``, which defines the chain of operations for generating landscape design recommendations. 
         This script utilizes the LangChain library along with MLflow's ``autolog`` feature for enabling the `capture of traces <../llms/tracing/index.html>`_.
@@ -325,10 +362,6 @@ script.
             from langchain_openai import ChatOpenAI
 
             import mlflow
-
-            mlflow.set_experiment("Homework Helper")
-
-            mlflow.langchain.autolog()
 
 
             def get_region(input_data):
@@ -372,6 +405,12 @@ script.
         `LangChain Expression Language (LCEL) <https://python.langchain.com/v0.1/docs/expression_language/>`_, as well as the custom default logic 
         that the chain will use for input processing. The defined chain is then specified as the model's interface object using the ``set_model`` function.
 
+        .. raw:: html
+
+            <h4>Logging the model using Models from Code</h4>
+        
+        |
+
         Once the chain is defined in ``mfc.py``, we log it using MLflow. This step involves specifying the path to the script that contains the chain 
         definition and using MLflow's ``langchain`` integration to ensure that all aspects of the chain are captured.
 
@@ -411,6 +450,12 @@ script.
         potential complexities associated with object serialization of the defined chain components, using the models from code feature ensures that 
         the exact code and logic that were used to develop and test a chain is what is executed when deploying the application without the risk of 
         incomplete or non-existent serialization capabilities.
+
+        .. raw:: html
+
+            <h4>Loading and Viewing the Model</h4>
+
+        |
 
         After logging the model, it can be loaded back into your environment for inference. This step demonstrates how to load the chain and 
         use it to generate landscape design recommendations based on new input data.
@@ -452,40 +497,70 @@ script.
         behaves as expected, generating AI-driven recommendations for landscape design. 
 
 
+FAQ for Models from Code
+------------------------
 
-Tips on Using Models From Code
-------------------------------
+There are several aspects of using the models from code feature for logging models that you should be aware of. While the behavior is similar to that of 
+using legacy model serialization, there are a few notable differences that you will need to make to your development workflow and code architecture.
 
-Dependency Management
-^^^^^^^^^^^^^^^^^^^^^
+Dependency Management and Requirements
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- **Import Statements**: Ensure that all necessary import statements are included in your model script. Missing imports will cause runtime errors when the model is executed. By specifying all dependencies explicitly, you make sure that the correct versions are captured in the ``requirements.txt`` file during the model logging process, ensuring compatibility in different environments.
+Proper management of dependencies and requirements is crucial for ensuring that your model can be loaded or deployed in new environments. 
 
-- **Non-Pip Installable Dependencies**: If your model relies on custom or non-PyPI packages, make sure to include these via the ``code_paths`` argument when logging the model. This will package the additional scripts or modules with the model, allowing it to be used seamlessly in different environments.
+Why did I get a NameError when loading my model from a saved script?
+####################################################################
 
-Script Execution & Validation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+When defining the script (or cell, if developing in a notebook), ensure that all of the required import statements are defined within the script. 
+Failing to include the import dependencies will not only result in a name resolution error, but the requirement dependencies will not be included 
+in the model's ``requirements.txt`` file. 
 
-- **Security**: Be **very careful** about what is defined in your script. If there are API Tokens, sensitive data, comments that contain authentication information, or anything else that you don't want to be visible in plain text are removed from your script. The models from code feature stores your notebook cell (when used with the magic ``%%writefile`` command) or script in plaintext. 
+Loading my model is giving me an ImportError.
+#############################################
 
-- **Pre-Execution**: Remember that the script you log will be **executed during the logging process**. This execution helps validate that the script is functional and that the defined model instance is properly instantiated. Ensure that any side effects of this execution are handled, such as temporary files or access to external resources.
+If you have external dependencies to your model definition script that are not available on PyPI, you must include these references using the 
+``code_paths`` argument when logging or saving your model. You may need to manually add import dependencies from these external scripts to the 
+``extra_pip_requirements`` argument when logging your model to ensure that all required dependencies are available to your model during loading.
 
-Requirements Inference
-^^^^^^^^^^^^^^^^^^^^^^
-- **Automatic Detection**: MLflow will automatically detect and infer the requirements for packages that are importable via PyPI if they are present in the script. If certain packages are not necessary for the model, it's advisable to remove their import statements to avoid unnecessary dependencies being added to the environment when the model is loaded or deployed.
+Why is my requirements.txt file filled with packages that my model isn't using?
+###############################################################################
 
-Managing Multiple Scripts
-^^^^^^^^^^^^^^^^^^^^^^^^^
-- **Use of code_paths**: If your model depends on multiple scripts or modules, these should be included using the ``code_paths`` parameter when logging the model. This ensures that all dependencies are included and available when the model is loaded later.
+MLflow will build the list of requirements from a models from code script based on the module-level import statements. There isn't an inspection 
+process that runs to validate whether your model's logic requires everything that is stated as an import. It is highly recommended to prune your 
+imports within these scripts to only include the minimal required import statements that your model requires to function. Having excessive imports 
+of large packages will introduce installation delays when loading or deploying your model as well as increased memory pressure in your deployed 
+inference environment.
 
-Jupyter Notebook Considerations
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-- **Notebook to Script Conversion**: Since Models from Code requires a ``.py`` script, you can use magic commands like ``%%writefile`` in Jupyter notebooks to save cells as Python scripts. This is especially useful when working in a notebook environment and allows you to convert your work into a format suitable for logging with MLflow.
+Logging using Models From Code
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- **Avoid Appending**: While the ``-a`` append option of ``%%writefile`` can be useful, it can also introduce hard-to-debug issues by merging multiple cells into one file. It’s generally safer to overwrite the file to reflect the latest state of your code.
+When logging models from a defined Python file, you will encounter some slight differences between the legacy model serialization process of 
+supplying an object reference. 
 
-Model Loading and Inference
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-- **Script-Based Model Loading**: When you load a model logged using Models from Code, the script is executed, and the defined model instance is created dynamically. Ensure that the model script is self-contained and does not rely on external state, as this could lead to inconsistent behavior during inference.
+I accidentally included an API Key in my script. What do I do?
+##############################################################
 
-- **Input Examples**: Providing input examples during the logging process can help in understanding how the model is intended to be used. These examples are saved alongside the model and can serve as a reference or for testing purposes when the model is deployed.
+Due to the fact that the models from code feature stores your script definition in plain text, completely visible within the MLflow UI's artifact viewer, 
+including sensitive data such as access keys or other authorization-based secrets is a security risk. If you have accidentally left a sensitive 
+key defined directly in your script when logging your model, it is advisable to:
+
+1. Delete the MLflow run that contains the leaked key. You can do this via the UI or through `the delete_run API <../python_api/mlflow.client.html#mlflow.client.MlflowClient.delete_run>`_.
+2. Delete the artifacts associated with the run. You can do this via the `mlflow gc <../cli.html#mlflow-gc>`_ cli command.
+3. Rotate your sensitive keys by generating a new key and deleting the leaked secret from the source system administration interface.
+4. Re-log the model to a new run, making sure to not set sensitive keys in your model definition script.
+
+Why is my model getting executed when I log it?
+###############################################
+
+In order to validate that the code is executable within the python file that defines a model, MLflow will instantiate the object that is defined as a model within 
+the ``set_model`` API. If you have external calls that are made during the initialization of your model, these will be made to ensure that your code is executable
+prior to logging. If such calls require authenticated access to services, please ensure that the environment that you are logging your model from has the 
+appropriate authentication configured so that your code can run.
+
+
+Additional Resources
+--------------------
+For additional related context topics that can enhance your understanding of MLflow's "Models From Code" feature, consider exploring the following sections in the MLflow documentation:
+
+- `Model API Documentation <../models.html#model-api>`_
+- `Managing Dependencies in MLflow Models <../model/dependencies.html>`_
