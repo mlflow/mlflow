@@ -16,6 +16,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
+    call_endpoint,
     _UC_OSS_REST_API_PATH_PREFIX,
     extract_all_api_info_for_service,
     extract_api_info_for_service,
@@ -114,7 +115,9 @@ class UnityCatalogOssStore(BaseRestStore):
             GetRegisteredModel(
                 full_name_arg=full_name
             ))
-        registered_model_info = self._call_endpoint(GetRegisteredModel, req_body)
+        endpoint, method = _METHOD_TO_INFO(GetRegisteredModel)
+        final_endpoint = endpoint.replace("{full_name_arg}", full_name)
+        registered_model_info = call_endpoint(get_databricks_host_creds(), endpoint=final_endpoint, method=method, json_body=req_body, response_proto=RegisteredModelInfo)
         return registered_model_from_uc_oss_proto(registered_model_info)
 
     # def get_latest_versions(self, name, stages=None):
