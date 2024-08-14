@@ -1,7 +1,10 @@
 import functools
 
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
+    UpdateRegisteredModel,
     CreateRegisteredModel,
+    GetRegisteredModel,
+    DeleteRegisteredModel,
     RegisteredModelInfo,
     TagKeyValue,
 )
@@ -36,6 +39,9 @@ class UnityCatalogOssStore(BaseRestStore):
     def _get_response_from_method(self, method):
         method_to_response = {
             CreateRegisteredModel: RegisteredModelInfo,
+            UpdateRegisteredModel: RegisteredModelInfo,
+            DeleteRegisteredModel: None,  # DeleteRegisteredModel does not return a response
+            GetRegisteredModel: RegisteredModelInfo,
         }
         return method_to_response[method]()
 
@@ -65,30 +71,60 @@ class UnityCatalogOssStore(BaseRestStore):
         return registered_model_from_uc_oss_proto(registered_model_info)
 
     def update_registered_model(self, name, description):
-        raise NotImplementedError("Method not implemented")
+        full_name = get_full_name_from_sc(name, None)
+        [catalog_name, schema_name, model_name] = full_name.split(".")
+        comment = description if description else ""
+        req_body = message_to_json(
+            UpdateRegisteredModel(
+            full_name_arg=full_name,
+            new_name=model_name,
+            registered_model_info=
+                RegisteredModelInfo(
+                    name=model_name,
+                    catalog_name=catalog_name,
+                    schema_name=schema_name,
+                    comment=comment,
+                ),
+            )
+        )
+        registered_model_info = self._call_endpoint(UpdateRegisteredModel, req_body)
+        registered_model_from_uc_oss_proto(self._call_endpoint(registered_model_info, req_body))
 
-    def rename_registered_model(self, name, new_name):
-        raise NotImplementedError("Method not implemented")
+    # def rename_registered_model(self, name, new_name):
+    #     raise NotImplementedError("Method not implemented")
 
     def delete_registered_model(self, name):
-        raise NotImplementedError("Method not implemented")
+        full_name = get_full_name_from_sc(name, None)
+        req_body = message_to_json(
+            DeleteRegisteredModel(
+                full_name_arg=full_name,
+                force=True
+            ))
+        self._call_endpoint(DeleteRegisteredModel, req_body)
+        
 
-    def search_registered_models(
-        self, filter_string=None, max_results=None, order_by=None, page_token=None
-    ):
-        raise NotImplementedError("Method not implemented")
+    # def search_registered_models(
+    #     self, filter_string=None, max_results=None, order_by=None, page_token=None
+    # ):
+    #     raise NotImplementedError("Method not implemented")
 
     def get_registered_model(self, name):
-        raise NotImplementedError("Method not implemented")
+        full_name = get_full_name_from_sc(name, None)
+        req_body = message_to_json(
+            GetRegisteredModel(
+                full_name_arg=full_name
+            ))
+        registered_model_info = self._call_endpoint(GetRegisteredModel, req_body)
+        return registered_model_from_uc_oss_proto(registered_model_info)
 
-    def get_latest_versions(self, name, stages=None):
-        raise NotImplementedError("Method not implemented")
+    # def get_latest_versions(self, name, stages=None):
+    #     raise NotImplementedError("Method not implemented")
 
-    def set_registered_model_tag(self, name, tag):
-        raise NotImplementedError("Method not implemented")
+    # def set_registered_model_tag(self, name, tag):
+    #     raise NotImplementedError("Method not implemented")
 
-    def delete_registered_model_tag(self, name, key):
-        raise NotImplementedError("Method not implemented")
+    # def delete_registered_model_tag(self, name, key):
+    #     raise NotImplementedError("Method not implemented")
 
     def create_model_version(
         self,
@@ -105,8 +141,8 @@ class UnityCatalogOssStore(BaseRestStore):
     def update_model_version(self, name, version, description):
         raise NotImplementedError("Method not implemented")
 
-    def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
-        raise NotImplementedError("Method not implemented")
+    # def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
+    #     raise NotImplementedError("Method not implemented")
 
     def delete_model_version(self, name, version):
         raise NotImplementedError("Method not implemented")
@@ -114,25 +150,25 @@ class UnityCatalogOssStore(BaseRestStore):
     def get_model_version(self, name, version):
         raise NotImplementedError("Method not implemented")
 
-    def get_model_version_download_uri(self, name, version):
-        raise NotImplementedError("Method not implemented")
+    # def get_model_version_download_uri(self, name, version):
+    #     raise NotImplementedError("Method not implemented")
 
-    def search_model_versions(
-        self, filter_string=None, max_results=None, order_by=None, page_token=None
-    ):
-        raise NotImplementedError("Method not implemented")
+    # def search_model_versions(
+    #     self, filter_string=None, max_results=None, order_by=None, page_token=None
+    # ):
+    #     raise NotImplementedError("Method not implemented")
 
-    def set_model_version_tag(self, name, version, tag):
-        raise NotImplementedError("Method not implemented")
+    # def set_model_version_tag(self, name, version, tag):
+    #     raise NotImplementedError("Method not implemented")
 
-    def delete_model_version_tag(self, name, version, key):
-        raise NotImplementedError("Method not implemented")
+    # def delete_model_version_tag(self, name, version, key):
+    #     raise NotImplementedError("Method not implemented")
 
-    def set_registered_model_alias(self, name, alias, version):
-        raise NotImplementedError("Method not implemented")
+    # def set_registered_model_alias(self, name, alias, version):
+    #     raise NotImplementedError("Method not implemented")
 
-    def delete_registered_model_alias(self, name, alias):
-        raise NotImplementedError("Method not implemented")
+    # def delete_registered_model_alias(self, name, alias):
+    #     raise NotImplementedError("Method not implemented")
 
-    def get_model_version_by_alias(self, name, alias):
-        raise NotImplementedError("Method not implemented")
+    # def get_model_version_by_alias(self, name, alias):
+    #     raise NotImplementedError("Method not implemented")

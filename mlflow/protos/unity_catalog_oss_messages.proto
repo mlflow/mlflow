@@ -21,6 +21,41 @@ message CreateRegisteredModel {
   }
 }
 
+message DeleteRegisteredModel {
+  // Required. Full name of the model.
+  optional string full_name_arg = 1 [(validate_required) = true, (scalapb.field).type = "FunctionFullName"];
+  // Optional. Force deletion even if the registered model is not empty. Default is false.
+  optional bool force = 2;
+
+  message Response {}
+}
+
+message GetRegisteredModel {
+
+  // Required. Full name of the Model.
+  optional string full_name_arg = 1 [(validate_required) = true, (scalapb.field).type = "FunctionFullName"];
+
+  message Response {
+    optional RegisteredModelInfo registered_model_info = 1 [(json_inline) = true];
+  }
+}
+
+message UpdateRegisteredModel {
+
+  // Required. Full name of the Model.
+  optional string full_name_arg = 1 [(validate_required) = true, (scalapb.field).type = "FunctionFullName"];
+
+  // Optional. New name of registered model (replaces registered_model_info.name for specifying new name).
+  optional string new_name = 3 [(scalapb.field).type = "FunctionName"];
+
+  // Optional. Partial RegisteredModelInfo with fields to change.
+  optional RegisteredModelInfo registered_model_info = 2 [(json_inline) = true];
+
+  message Response {
+    optional RegisteredModelInfo registered_model_info = 1 [(json_inline) = true];
+  }
+}
+
 message RegisteredModelInfo {
   // Input fields:
 
