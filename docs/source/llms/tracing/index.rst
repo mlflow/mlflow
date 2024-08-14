@@ -268,6 +268,25 @@ You can add additional metadata to the tracing decorator as follows:
 When adding additional metadata to the trace decorator constructor, these additional components will be logged along with the span entry within 
 the trace that is stored within the active MLflow experiment.
 
+
+Since MLflow 2.16.0, the trace decorator also supports async functions:
+
+.. code-block:: python
+
+    from openai import AsyncOpenAI
+
+    client = AsyncOpenAI()
+
+
+    @mlflow.trace
+    async def async_func(message: str):
+        return await client.chat.completion.create(
+            model="gpt-4o", messages=[{"role": "user", "content": message}]
+        )
+
+
+    await async_func("What is MLflow Tracing?")
+
 What is captured?
 #################
 
@@ -704,6 +723,16 @@ and the :py:meth:`mlflow.client.MlflowClient.delete_trace_tag` method to remove 
 
     # Delete a tag from a trace
     client.delete_trace_tag(request_id="12345678", key="tag_key")
+
+
+Async Logging
+-------------
+
+By default, MLflow Tracing are logged synchronously. This may introduce a performance overhead when logging Traces, especially when your MLflow Tracking Server is running on a remote server. If the performance overhead is a concern for you, you can enable **asynchronous logging** for tracing in MLflow 2.16.0 and later.
+
+To enable async logging for tracing, set the environment variable ``MLFLOW_ENABLE_ASYNC_LOGGING`` to ``true``. This will make the trace logging operation non-blocking and reduce the performance overhead.
+
+Note that the async logging does not fully eliminate the performance overhead. Some backend calls still need to be made synchronously and there are other factors such as data serialization. However, async logging can significantly reduce the overall overhead of logging traces, empirically about ~80% for typical workloads.
 
 
 FAQ
