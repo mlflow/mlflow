@@ -29,7 +29,6 @@ from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 from mlflow.utils.request_utils import download_chunk
 
 _logger = logging.getLogger(__name__)
-console_handler = logging.StreamHandler()
 _ARTIFACT_UPLOAD_BATCH_SIZE = (
     50  # Max number of artifacts for which to fetch write credentials at once.
 )
