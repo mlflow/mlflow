@@ -1,9 +1,9 @@
 import os
 import posixpath
 import sys
-from queue import Queue
 import urllib.parse
 from contextlib import contextmanager
+from queue import Queue
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
