@@ -10,13 +10,6 @@ def registered_model_from_uc_oss_proto(uc_oss_proto: RegisteredModelInfo) -> Reg
         creation_timestamp=uc_oss_proto.created_at,
         last_updated_timestamp=uc_oss_proto.updated_at,
         description=uc_oss_proto.comment,
-        aliases=[
-            RegisteredModelAlias(alias=alias.alias_name, version=str(alias.version_num))
-            for alias in (uc_oss_proto.aliases or [])
-        ],
-        tags=[
-            RegisteredModelTag(key=tag.key, value=tag.value) for tag in (uc_oss_proto.tags or [])
-        ],
     )
 
 
