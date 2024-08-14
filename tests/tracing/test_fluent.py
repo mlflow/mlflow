@@ -1,3 +1,4 @@
+import asyncio
 import json
 import time
 from dataclasses import asdict
@@ -53,6 +54,44 @@ class DefaultTestModel:
         return res
 
 
+class DefaultAsyncTestModel:
+    @mlflow.trace()
+    async def predict(self, x, y):
+        z = x + y
+        z = await self.add_one(z)
+        z = await mlflow.trace(self.square)(z)
+        return z  # noqa: RET504
+
+    @mlflow.trace(span_type=SpanType.LLM, name="add_one_with_custom_name", attributes={"delta": 1})
+    async def add_one(self, z):
+        return z + 1
+
+    async def square(self, t):
+        res = t**2
+        time.sleep(0.1)
+        return res
+
+
+class ErroringTestModel:
+    @mlflow.trace()
+    def predict(self, x, y):
+        return self.some_operation_raise_error(x, y)
+
+    @mlflow.trace()
+    def some_operation_raise_error(self, x, y):
+        raise ValueError("Some error")
+
+
+class ErroringAsyncTestModel:
+    @mlflow.trace()
+    async def predict(self, x, y):
+        return await self.some_operation_raise_error(x, y)
+
+    @mlflow.trace()
+    async def some_operation_raise_error(self, x, y):
+        raise ValueError("Some error")
+
+
 @pytest.fixture
 def mock_client():
     client = mock.MagicMock()
@@ -61,15 +100,16 @@ def mock_client():
 
 
 @pytest.mark.parametrize("with_active_run", [True, False])
-def test_trace(with_active_run):
-    model = DefaultTestModel()
+@pytest.mark.parametrize("sync", [True, False])
+def test_trace(sync, with_active_run):
+    model = DefaultTestModel() if sync else DefaultAsyncTestModel()
 
     if with_active_run:
         with mlflow.start_run() as run:
-            model.predict(2, 5)
+            model.predict(2, 5) if sync else asyncio.run(model.predict(2, 5))
             run_id = run.info.run_id
     else:
-        model.predict(2, 5)
+        model.predict(2, 5) if sync else asyncio.run(model.predict(2, 5))
 
     trace = mlflow.get_last_active_trace()
     trace_info = trace.info
@@ -322,22 +362,14 @@ def test_trace_in_model_evaluation(mock_store, monkeypatch):
     assert mock_store.end_trace.call_count == 2
 
 
-def test_trace_handle_exception_during_prediction():
+@pytest.mark.parametrize("sync", [True, False])
+def test_trace_handle_exception_during_prediction(sync):
     # This test is to make sure that the exception raised by the main prediction
     # logic is raised properly and the trace is still logged.
-    class TestModel:
-        @mlflow.trace()
-        def predict(self, x, y):
-            return self.some_operation_raise_error(x, y)
-
-        @mlflow.trace()
-        def some_operation_raise_error(self, x, y):
-            raise ValueError("Some error")
-
-    model = TestModel()
+    model = ErroringTestModel() if sync else ErroringAsyncTestModel()
 
     with pytest.raises(ValueError, match=r"Some error"):
-        model.predict(2, 5)
+        model.predict(2, 5) if sync else asyncio.run(model.predict(2, 5))
 
     # Trace should be logged even if the function fails, with status code ERROR
     trace = mlflow.get_last_active_trace()
