@@ -467,8 +467,6 @@ def test_langchain_evaluate_autologs_traces():
         assert len(trace.data.spans) == 3
     assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
 
-    TRACE_BUFFER.clear()
-
     # Test original langchain autolog configs is restored
     with mock.patch("mlflow.langchain.log_model") as log_model_mock:
         with mlflow.start_run() as run:
@@ -479,7 +477,7 @@ def test_langchain_evaluate_autologs_traces():
             assert len(loaded_dict) == 1
             assert loaded_dict[0]["input"] == "text"
         log_model_mock.assert_called_once()
-        assert len(get_traces()) == 1
+        assert len(get_traces()) == 3
         assert len(get_traces()[0].data.spans) == 3
 
 
