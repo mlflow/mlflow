@@ -58,7 +58,7 @@ black[jupyter]==23.7.0
     # via
     #   -r lint-requirements.txt
     #   blacken-docs
-blacken-docs==1.16.0
+blacken-docs==1.18.0
     # via -r lint-requirements.txt
 boto3==1.34.133
     # via moto

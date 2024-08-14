@@ -234,6 +234,8 @@ However, when the index uses external vector stores like ``DatabricksVectorSearc
 
 To use model-from-code logging, you first need to create a separate Python file that defines the index. If you are on Jupyter notebook, you can use the ``%%writefile`` magic command to save the cell code to a Python file.
 
+.. blacken-docs:off
+
 .. code-block:: python
 
     %%writefile index.py
@@ -254,6 +256,8 @@ To use model-from-code logging, you first need to create a separate Python file 
 
     # IMPORTANT: call set_model() method to tell MLflow to log this index
     mlflow.models.set_model(index)
+
+.. blacken-docs:on
 
 Then you can log the index by passing the Python file path to the :py:func:`mlflow.llama_index.log_model` function. The global `Settings <https://docs.llamaindex.ai/en/stable/module_guides/supporting_modules/settings/>`_ object is saved normally as part of the model.
 
