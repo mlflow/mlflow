@@ -102,9 +102,7 @@ class UnityCatalogOssStore(BaseRestStore):
             ))
         endpoint, method = _METHOD_TO_INFO[DeleteRegisteredModel]
         final_endpoint = endpoint.replace("{full_name_arg}", full_name)
-        registered_model_info = call_endpoint(get_databricks_host_creds(), endpoint=final_endpoint, method=method, json_body=req_body, response_proto=self._get_response_from_method(DeleteRegisteredModel))
-        self._call_endpoint(DeleteRegisteredModel, req_body)
-        
+        registered_model_info = call_endpoint(get_databricks_host_creds(), endpoint=final_endpoint, method=method, json_body=req_body, response_proto=self._get_response_from_method(DeleteRegisteredModel))        
 
     # def search_registered_models(
     #     self, filter_string=None, max_results=None, order_by=None, page_token=None
