@@ -82,13 +82,13 @@ logger = logging.getLogger(__name__)
 
 @lru_cache
 def base_lc_types():
-    import langchain.agents.agent
+    from langchain.agents.agent import AgentExecutor
     import langchain.chains.base
     import langchain.schema
 
     return (
         langchain.chains.base.Chain,
-        langchain.agents.agent.AgentExecutor,
+        AgentExecutor,
         langchain.schema.BaseRetriever,
     )
 
@@ -255,10 +255,10 @@ def _get_supported_llms():
 
 
 def _agent_executor_contains_unsupported_llm(lc_model, _SUPPORTED_LLMS):
-    import langchain.agents.agent
+    from langchain.agents.agent import AgentExecutor
 
     return (
-        isinstance(lc_model, langchain.agents.agent.AgentExecutor)
+        isinstance(lc_model, AgentExecutor)
         # 'RunnableMultiActionAgent' object has no attribute 'llm_chain'
         and hasattr(lc_model.agent, "llm_chain")
         and not any(
