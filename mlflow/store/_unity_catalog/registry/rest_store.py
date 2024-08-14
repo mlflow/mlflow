@@ -606,8 +606,8 @@ class UcModelRegistryStore(BaseRestStore):
             "All models in the Unity Catalog must be logged with a "
             "model signature containing both input and output "
             "type specifications. See "
-            "https://mlflow.org/docs/latest/models.html#model-signature "
-            "for details on how to log a model with a signature"
+            "https://mlflow.org/docs/latest/model/signatures.html#how-to-log-models-with-signatures"
+            " for details on how to log a model with a signature"
         )
         if model.signature is None:
             raise MlflowException(
