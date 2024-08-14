@@ -159,6 +159,7 @@ class UnityCatalogOssStore(BaseRestStore):
         endpoint, method = _METHOD_TO_INFO[GetRegisteredModel]
         final_endpoint = endpoint.replace("{full_name_arg}", full_name).replace("{version_arg}", str(version))
         registered_model_version = call_endpoint(get_databricks_host_creds(), endpoint=final_endpoint, method=method, json_body=req_body, response_proto=self._get_response_from_method(GetRegisteredModel))
+        return registered_model_from_uc_oss_proto(registered_model_version)
         
 
     # def get_model_version_download_uri(self, name, version):
