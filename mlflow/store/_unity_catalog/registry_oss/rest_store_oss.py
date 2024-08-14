@@ -115,7 +115,7 @@ class UnityCatalogOssStore(BaseRestStore):
             GetRegisteredModel(
                 full_name_arg=full_name
             ))
-        endpoint, method = _METHOD_TO_INFO(GetRegisteredModel)
+        endpoint, method = _METHOD_TO_INFO[GetRegisteredModel]
         final_endpoint = endpoint.replace("{full_name_arg}", full_name)
         registered_model_info = call_endpoint(get_databricks_host_creds(), endpoint=final_endpoint, method=method, json_body=req_body, response_proto=RegisteredModelInfo)
         return registered_model_from_uc_oss_proto(registered_model_info)
