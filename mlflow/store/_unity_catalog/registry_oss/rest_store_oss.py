@@ -91,7 +91,7 @@ class UnityCatalogOssStore(BaseRestStore):
         endpoint, method = _METHOD_TO_INFO[UpdateRegisteredModel]
         final_endpoint = endpoint.replace("{full_name_arg}", full_name)
         registered_model_info = call_endpoint(get_databricks_host_creds(), endpoint=final_endpoint, method=method, json_body=req_body, response_proto=self._get_response_from_method(UpdateRegisteredModel))
-        return registered_model_from_uc_oss_proto(self._call_endpoint(registered_model_info, req_body))
+        return registered_model_from_uc_oss_proto(registered_model_info)
 
     # def rename_registered_model(self, name, new_name):
     #     raise NotImplementedError("Method not implemented")
