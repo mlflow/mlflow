@@ -4,7 +4,7 @@ from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     UpdateRegisteredModel,
     CreateRegisteredModel,
     GetRegisteredModel,
-    GetModelVersionRequest,
+    GetModelVersion,
     DeleteRegisteredModel,
     RegisteredModelInfo,
     TagKeyValue,
@@ -155,12 +155,7 @@ class UnityCatalogOssStore(BaseRestStore):
 
     def get_model_version(self, name, version):
         full_name = get_full_name_from_sc(name, None)
-        req_body = message_to_json(GetModelVersionRequest(name=full_name, version=str(version)))
-        req_body = message_to_json(
-            GetRegisteredModel(
-                full_name_arg=full_name,
-                version_arg=version
-            ))
+        req_body = message_to_json(GetModelVersion(name=full_name, version=str(version)))
         endpoint, method = _METHOD_TO_INFO[GetRegisteredModel]
         final_endpoint = endpoint.replace("{full_name_arg}", full_name).replace("{version_arg}", str(version))
         registered_model_version = call_endpoint(get_databricks_host_creds(), endpoint=final_endpoint, method=method, json_body=req_body, response_proto=self._get_response_from_method(GetRegisteredModel))
