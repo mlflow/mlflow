@@ -159,5 +159,4 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
         """ 
         No-op method
         """
-        return None 
 
