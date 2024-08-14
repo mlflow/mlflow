@@ -148,6 +148,10 @@ class UnityCatalogOssStore(BaseRestStore):
         raise NotImplementedError("Method not implemented")
 
     def get_model_version(self, name, version):
+        # full_name = get_full_name_from_sc(name, None)
+        # req_body = message_to_json(GetModelVersionRequest(name=full_name, version=str(version)))
+        # response_proto = self._call_endpoint(GetModelVersionRequest, req_body)
+        # return model_version_from_uc_oss_proto(response_proto.model_version)
         raise NotImplementedError("Method not implemented")
 
     # def get_model_version_download_uri(self, name, version):

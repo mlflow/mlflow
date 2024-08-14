@@ -19,10 +19,9 @@ if Version(google.protobuf.__version__).major >= 5:
   from . import databricks_pb2 as databricks__pb2
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
   from . import unity_catalog_oss_messages_pb2 as unity_catalog_oss_messages_pb2
-  import model_registry_pb2 as model__registry__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1funity_catalog_oss_service.proto\x12\x13mlflow.unitycatalog\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\x1a unity_catalog_oss_messages.proto\x1a\x14model_registry.proto2\xd5\x05\n\x13UnityCatalogService\x12\xa5\x01\n\x15\x63reateRegisteredModel\x12*.mlflow.unitycatalog.CreateRegisteredModel\x1a\x33.mlflow.unitycatalog.CreateRegisteredModel.Response\"+\xf2\x86\x19\'\n#\n\x04POST\x12\x15/unity-catalog/models\x1a\x04\x08\x02\x10\x01\x10\x01\x12\xb6\x01\n\x15updateRegisteredModel\x12*.mlflow.unitycatalog.UpdateRegisteredModel\x1a\x33.mlflow.unitycatalog.UpdateRegisteredModel.Response\"<\xf2\x86\x19\x38\n4\n\x05PATCH\x12%/unity-catalog/models/{full_name_arg}\x1a\x04\x08\x02\x10\x01\x10\x03\x12\xab\x01\n\x12\x64\x65leteModelVersion\x12\x1a.mlflow.DeleteModelVersion\x1a#.mlflow.DeleteModelVersion.Response\"T\xf2\x86\x19P\nL\n\x06\x44\x45LETE\x12</unity-catalog/models/{full_name_arg}/versions/{version_arg}\x1a\x04\x08\x02\x10\x01\x10\x03\x12\xae\x01\n\x12getRegisteredModel\x12\'.mlflow.unitycatalog.GetRegisteredModel\x1a\x30.mlflow.unitycatalog.GetRegisteredModel.Response\"=\x90\x02\x02\xf2\x86\x19\x36\n2\n\x03GET\x12%/unity-catalog/models/{full_name_arg}\x1a\x04\x08\x02\x10\x01\x10\x03\x42\x34\n\'com.databricks.api.proto.managedcatalog\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1funity_catalog_oss_service.proto\x12\x13mlflow.unitycatalog\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\x1a unity_catalog_oss_messages.proto2\xe1\x05\n\x13UnityCatalogService\x12\xa5\x01\n\x15\x63reateRegisteredModel\x12*.mlflow.unitycatalog.CreateRegisteredModel\x1a\x33.mlflow.unitycatalog.CreateRegisteredModel.Response\"+\xf2\x86\x19\'\n#\n\x04POST\x12\x15/unity-catalog/models\x1a\x04\x08\x02\x10\x01\x10\x01\x12\xb6\x01\n\x15updateRegisteredModel\x12*.mlflow.unitycatalog.UpdateRegisteredModel\x1a\x33.mlflow.unitycatalog.UpdateRegisteredModel.Response\"<\xf2\x86\x19\x38\n4\n\x05PATCH\x12%/unity-catalog/models/{full_name_arg}\x1a\x04\x08\x02\x10\x01\x10\x03\x12\xb7\x01\n\x15\x64\x65leteRegisteredModel\x12*.mlflow.unitycatalog.DeleteRegisteredModel\x1a\x33.mlflow.unitycatalog.DeleteRegisteredModel.Response\"=\xf2\x86\x19\x39\n5\n\x06\x44\x45LETE\x12%/unity-catalog/models/{full_name_arg}\x1a\x04\x08\x02\x10\x01\x10\x03\x12\xae\x01\n\x12getRegisteredModel\x12\'.mlflow.unitycatalog.GetRegisteredModel\x1a\x30.mlflow.unitycatalog.GetRegisteredModel.Response\"=\x90\x02\x02\xf2\x86\x19\x36\n2\n\x03GET\x12%/unity-catalog/models/{full_name_arg}\x1a\x04\x08\x02\x10\x01\x10\x03\x42\x34\n\'com.databricks.api.proto.managedcatalog\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
 
   _globals = globals()
   _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,12 +33,12 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_UNITYCATALOGSERVICE'].methods_by_name['createRegisteredModel']._serialized_options = b'\362\206\031\'\n#\n\004POST\022\025/unity-catalog/models\032\004\010\002\020\001\020\001'
     _globals['_UNITYCATALOGSERVICE'].methods_by_name['updateRegisteredModel']._loaded_options = None
     _globals['_UNITYCATALOGSERVICE'].methods_by_name['updateRegisteredModel']._serialized_options = b'\362\206\0318\n4\n\005PATCH\022%/unity-catalog/models/{full_name_arg}\032\004\010\002\020\001\020\003'
-    _globals['_UNITYCATALOGSERVICE'].methods_by_name['deleteModelVersion']._loaded_options = None
-    _globals['_UNITYCATALOGSERVICE'].methods_by_name['deleteModelVersion']._serialized_options = b'\362\206\031P\nL\n\006DELETE\022</unity-catalog/models/{full_name_arg}/versions/{version_arg}\032\004\010\002\020\001\020\003'
+    _globals['_UNITYCATALOGSERVICE'].methods_by_name['deleteRegisteredModel']._loaded_options = None
+    _globals['_UNITYCATALOGSERVICE'].methods_by_name['deleteRegisteredModel']._serialized_options = b'\362\206\0319\n5\n\006DELETE\022%/unity-catalog/models/{full_name_arg}\032\004\010\002\020\001\020\003'
     _globals['_UNITYCATALOGSERVICE'].methods_by_name['getRegisteredModel']._loaded_options = None
     _globals['_UNITYCATALOGSERVICE'].methods_by_name['getRegisteredModel']._serialized_options = b'\220\002\002\362\206\0316\n2\n\003GET\022%/unity-catalog/models/{full_name_arg}\032\004\010\002\020\001\020\003'
-    _globals['_UNITYCATALOGSERVICE']._serialized_start=154
-    _globals['_UNITYCATALOGSERVICE']._serialized_end=879
+    _globals['_UNITYCATALOGSERVICE']._serialized_start=132
+    _globals['_UNITYCATALOGSERVICE']._serialized_end=869
   _builder.BuildServices(DESCRIPTOR, 'unity_catalog_oss_service_pb2', _globals)
   # @@protoc_insertion_point(module_scope)
 
@@ -63,10 +62,9 @@ else:
   from . import databricks_pb2 as databricks__pb2
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
   from . import unity_catalog_oss_messages_pb2 as unity_catalog_oss_messages_pb2
-  import model_registry_pb2 as model__registry__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1funity_catalog_oss_service.proto\x12\x13mlflow.unitycatalog\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\x1a unity_catalog_oss_messages.proto\x1a\x14model_registry.proto2\xd5\x05\n\x13UnityCatalogService\x12\xa5\x01\n\x15\x63reateRegisteredModel\x12*.mlflow.unitycatalog.CreateRegisteredModel\x1a\x33.mlflow.unitycatalog.CreateRegisteredModel.Response\"+\xf2\x86\x19\'\n#\n\x04POST\x12\x15/unity-catalog/models\x1a\x04\x08\x02\x10\x01\x10\x01\x12\xb6\x01\n\x15updateRegisteredModel\x12*.mlflow.unitycatalog.UpdateRegisteredModel\x1a\x33.mlflow.unitycatalog.UpdateRegisteredModel.Response\"<\xf2\x86\x19\x38\n4\n\x05PATCH\x12%/unity-catalog/models/{full_name_arg}\x1a\x04\x08\x02\x10\x01\x10\x03\x12\xab\x01\n\x12\x64\x65leteModelVersion\x12\x1a.mlflow.DeleteModelVersion\x1a#.mlflow.DeleteModelVersion.Response\"T\xf2\x86\x19P\nL\n\x06\x44\x45LETE\x12</unity-catalog/models/{full_name_arg}/versions/{version_arg}\x1a\x04\x08\x02\x10\x01\x10\x03\x12\xae\x01\n\x12getRegisteredModel\x12\'.mlflow.unitycatalog.GetRegisteredModel\x1a\x30.mlflow.unitycatalog.GetRegisteredModel.Response\"=\x90\x02\x02\xf2\x86\x19\x36\n2\n\x03GET\x12%/unity-catalog/models/{full_name_arg}\x1a\x04\x08\x02\x10\x01\x10\x03\x42\x34\n\'com.databricks.api.proto.managedcatalog\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1funity_catalog_oss_service.proto\x12\x13mlflow.unitycatalog\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\x1a unity_catalog_oss_messages.proto2\xe1\x05\n\x13UnityCatalogService\x12\xa5\x01\n\x15\x63reateRegisteredModel\x12*.mlflow.unitycatalog.CreateRegisteredModel\x1a\x33.mlflow.unitycatalog.CreateRegisteredModel.Response\"+\xf2\x86\x19\'\n#\n\x04POST\x12\x15/unity-catalog/models\x1a\x04\x08\x02\x10\x01\x10\x01\x12\xb6\x01\n\x15updateRegisteredModel\x12*.mlflow.unitycatalog.UpdateRegisteredModel\x1a\x33.mlflow.unitycatalog.UpdateRegisteredModel.Response\"<\xf2\x86\x19\x38\n4\n\x05PATCH\x12%/unity-catalog/models/{full_name_arg}\x1a\x04\x08\x02\x10\x01\x10\x03\x12\xb7\x01\n\x15\x64\x65leteRegisteredModel\x12*.mlflow.unitycatalog.DeleteRegisteredModel\x1a\x33.mlflow.unitycatalog.DeleteRegisteredModel.Response\"=\xf2\x86\x19\x39\n5\n\x06\x44\x45LETE\x12%/unity-catalog/models/{full_name_arg}\x1a\x04\x08\x02\x10\x01\x10\x03\x12\xae\x01\n\x12getRegisteredModel\x12\'.mlflow.unitycatalog.GetRegisteredModel\x1a\x30.mlflow.unitycatalog.GetRegisteredModel.Response\"=\x90\x02\x02\xf2\x86\x19\x36\n2\n\x03GET\x12%/unity-catalog/models/{full_name_arg}\x1a\x04\x08\x02\x10\x01\x10\x03\x42\x34\n\'com.databricks.api.proto.managedcatalog\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
 
 
 
@@ -79,12 +77,12 @@ else:
     _UNITYCATALOGSERVICE.methods_by_name['createRegisteredModel']._serialized_options = b'\362\206\031\'\n#\n\004POST\022\025/unity-catalog/models\032\004\010\002\020\001\020\001'
     _UNITYCATALOGSERVICE.methods_by_name['updateRegisteredModel']._options = None
     _UNITYCATALOGSERVICE.methods_by_name['updateRegisteredModel']._serialized_options = b'\362\206\0318\n4\n\005PATCH\022%/unity-catalog/models/{full_name_arg}\032\004\010\002\020\001\020\003'
-    _UNITYCATALOGSERVICE.methods_by_name['deleteModelVersion']._options = None
-    _UNITYCATALOGSERVICE.methods_by_name['deleteModelVersion']._serialized_options = b'\362\206\031P\nL\n\006DELETE\022</unity-catalog/models/{full_name_arg}/versions/{version_arg}\032\004\010\002\020\001\020\003'
+    _UNITYCATALOGSERVICE.methods_by_name['deleteRegisteredModel']._options = None
+    _UNITYCATALOGSERVICE.methods_by_name['deleteRegisteredModel']._serialized_options = b'\362\206\0319\n5\n\006DELETE\022%/unity-catalog/models/{full_name_arg}\032\004\010\002\020\001\020\003'
     _UNITYCATALOGSERVICE.methods_by_name['getRegisteredModel']._options = None
     _UNITYCATALOGSERVICE.methods_by_name['getRegisteredModel']._serialized_options = b'\220\002\002\362\206\0316\n2\n\003GET\022%/unity-catalog/models/{full_name_arg}\032\004\010\002\020\001\020\003'
-    _UNITYCATALOGSERVICE._serialized_start=154
-    _UNITYCATALOGSERVICE._serialized_end=879
+    _UNITYCATALOGSERVICE._serialized_start=132
+    _UNITYCATALOGSERVICE._serialized_end=869
   UnityCatalogService = service_reflection.GeneratedServiceType('UnityCatalogService', (_service.Service,), dict(
     DESCRIPTOR = _UNITYCATALOGSERVICE,
     __module__ = 'unity_catalog_oss_service_pb2'

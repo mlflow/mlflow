@@ -5,7 +5,6 @@ package mlflow.unitycatalog;
 import "databricks.proto";
 import "scalapb/scalapb.proto";
 import "unity_catalog_oss_messages.proto";
-import "model_registry.proto"; // Added import
 
 option java_package = "com.databricks.api.proto.managedcatalog";
 option java_generate_equals_and_hash = true;
@@ -39,11 +38,11 @@ service UnityCatalogService {
     };
   }
 
-  rpc deleteModelVersion(DeleteModelVersion) returns (DeleteModelVersion.Response) {
+  rpc deleteRegisteredModel(DeleteRegisteredModel) returns (DeleteRegisteredModel.Response) {
     option (rpc) = {
       endpoints: {
         method: "DELETE",
-        path: "/unity-catalog/models/{full_name_arg}/versions/{version_arg}",
+        path: "/unity-catalog/models/{full_name_arg}",
         since { major: 2, minor: 1 },
       },
       visibility: PUBLIC_UNDOCUMENTED,
@@ -61,6 +60,18 @@ service UnityCatalogService {
       visibility: PUBLIC_UNDOCUMENTED,
     };
   }
+
+  // rpc getModelVersion(GetModelVersion) returns (GetModelVersion.Response) {
+  //   option idempotency_level = IDEMPOTENT;
+  //   option (rpc) = {
+  //     endpoints: {
+  //       method: "GET",
+  //       path: "/unity-catalog/models/{full_name_arg}/versions/{version_arg}",
+  //       since { major: 2, minor: 1 },
+  //     },
+  //     visibility: PUBLIC_UNDOCUMENTED,
+  //   };
+  // }
 
 }
 
