@@ -41,7 +41,7 @@ class UnityCatalogOssStore(BaseRestStore):
         method_to_response = {
             CreateRegisteredModel: RegisteredModelInfo,
             UpdateRegisteredModel: RegisteredModelInfo,
-            DeleteRegisteredModel: DeleteRegisteredModel.response,  # DeleteRegisteredModel does not return a response
+            DeleteRegisteredModel: DeleteRegisteredModel,  # DeleteRegisteredModel does not return a response
             GetRegisteredModel: RegisteredModelInfo,
         }
         return method_to_response[method]()
