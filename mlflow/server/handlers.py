@@ -611,12 +611,8 @@ def _disable_if_artifacts_only(func):
 
 @catch_mlflow_exception
 def get_artifact_handler():
-    from querystring_parser import parser
-
-    query_string = request.query_string.decode("utf-8")
-    request_dict = parser.parse(query_string, normalized=True)
-    run_id = request_dict.get("run_id") or request_dict.get("run_uuid")
-    path = request_dict["path"]
+    run_id = request.args.get("run_id") or request.args.get("run_uuid")
+    path = request.args["path"]
     path = validate_path_is_safe(path)
     run = _get_tracking_store().get_run(run_id)
 
@@ -1881,10 +1877,7 @@ def _create_model_version():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def get_model_version_artifact_handler():
-    from querystring_parser import parser
-
-    query_string = request.query_string.decode("utf-8")
-    request_dict = parser.parse(query_string, normalized=True)
+    request_dict = request.args.to_dict()
     name = request_dict.get("name")
     version = request_dict.get("version")
     path = request_dict["path"]
@@ -2502,11 +2495,7 @@ def _delete_trace_tag(request_id):
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def get_trace_artifact_handler():
-    from querystring_parser import parser
-
-    query_string = request.query_string.decode("utf-8")
-    request_dict = parser.parse(query_string, normalized=True)
-    request_id = request_dict.get("request_id")
+    request_id = request.args.get("request_id")
 
     if not request_id:
         raise MlflowException(
