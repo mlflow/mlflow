@@ -740,7 +740,7 @@ autogen:
   autologging:
     # Tool call logging is implemented in autogen 0.2.29
     minimum: "0.2.29"
-    maximum: "0.2.33"
+    maximum: "0.2.34"
     run: pytest tests/autogen
 
 sentence_transformers:
