@@ -1877,10 +1877,9 @@ def _create_model_version():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def get_model_version_artifact_handler():
-    request_dict = request.args.to_dict()
-    name = request_dict.get("name")
-    version = request_dict.get("version")
-    path = request_dict["path"]
+    name = request.args.get("name")
+    version = request.args.get("version")
+    path = request.args["path"]
     path = validate_path_is_safe(path)
     artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
     if _is_servable_proxied_run_artifact_root(artifact_uri):
