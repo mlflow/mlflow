@@ -169,7 +169,6 @@ class UnityCatalogOssStore(BaseRestStore):
             )
         )
         model_version = self._call_endpoint(CreateModelVersion, req_body)
-        # new_version = model_version_from_uc_oss_proto(model_version)
         endpoint, method = _METHOD_TO_INFO[FinalizeModelVersion]
         final_endpoint = endpoint.replace("{full_name_arg}", full_name).replace("{version_arg}", str(model_version.version))
         finalize_req_body = message_to_json(FinalizeModelVersion(full_name_arg=full_name, version_arg=model_version.version))
@@ -182,8 +181,6 @@ class UnityCatalogOssStore(BaseRestStore):
         [catalog_name, schema_name, model_name] = full_name.split(".")
         req_body = message_to_json(
             UpdateModelVersion(
-                full_name_arg=full_name,
-                version_arg=version,
                 model_version_info=ModelVersionInfo(
                     comment = description,
                 )
