@@ -40,6 +40,14 @@ message GetRegisteredModel {
   }
 }
 
+message CreateModelVersion {
+  optional ModelVersionInfo model_version_info = 1 [(json_inline) = true];
+
+  message Response {
+    optional ModelVersionInfo model_version_info = 1 [(json_inline) = true];
+  }
+}
+
 message UpdateRegisteredModel {
 
   // Required. Full name of the Model.

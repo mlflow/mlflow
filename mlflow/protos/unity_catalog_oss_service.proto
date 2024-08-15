@@ -83,6 +83,18 @@ service UnityCatalogService {
       visibility: PUBLIC_UNDOCUMENTED,
     };
   }
+
+  rpc createModelVersion(CreateModelVersion) returns (CreateModelVersion.Response) {
+    option (rpc) = {
+      endpoints: {
+        method: "POST",
+        path: "/unity-catalog/models/versions",
+        since { major: 2, minor: 1 },
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+  
 }
 
 
