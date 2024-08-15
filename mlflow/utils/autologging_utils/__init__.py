@@ -381,9 +381,9 @@ def _check_and_log_warning_for_unsupported_package_versions(integration_name):
         module = importlib.import_module(FLAVOR_TO_MODULE_NAME[integration_name])
         _logger.warning(
             f"MLflow {integration_name} autologging is known to be compatible with "
-            f"{min_var} <= {pip_release} <= {max_var}, but your current version is "
+            f"{min_var} <= {pip_release} <= {max_var}, but the installed version is "
             f"{module.__version__}. If you encounter errors during autologging, try upgrading "
-            f"/ downgrading {pip_release} to a supported version, or try upgrading MLflow.",
+            f"/ downgrading {pip_release} to a compatible version, or try upgrading MLflow.",
         )
 
 
