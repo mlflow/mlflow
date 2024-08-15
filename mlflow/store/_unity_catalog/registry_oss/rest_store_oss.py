@@ -55,6 +55,7 @@ class UnityCatalogOssStore(BaseRestStore):
             DeleteModelVersion: DeleteModelVersion,  # DeleteModelVersion does not return a response
             GetRegisteredModel: RegisteredModelInfo,
             GetModelVersion: ModelVersionInfo,
+            FinalizeModelVersion: ModelVersionInfo,
         }
         return method_to_response[method]()
 
