@@ -94,7 +94,18 @@ service UnityCatalogService {
       visibility: PUBLIC_UNDOCUMENTED,
     };
   }
-  
+
+  rpc finalizeModelVersion(FinalizeModelVersion) returns (FinalizeModelVersion.Response) {
+    option (rpc) = {
+      endpoints: {
+        method: "PATCH",
+        path: "/unity-catalog/models/{full_name_arg}/versions/{version_arg}/finalize",
+        since { major: 2, minor: 1 },
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
 }
 
 

@@ -75,6 +75,19 @@ message DeleteModelVersion {
   message Response {}
 }
 
+message FinalizeModelVersion {
+
+  // Required. Full name of the parent registered model (from URL).
+  optional string full_name_arg = 1 [(validate_required) = true];
+
+  // Required. Integer model version number (from URL).
+  optional int64 version_arg = 2 [(validate_required) = true];
+
+  message Response {
+    optional ModelVersionInfo model_version_info = 1 [(json_inline) = true];
+  }
+}
+
 message RegisteredModelInfo {
   // Input fields:
 
