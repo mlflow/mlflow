@@ -180,7 +180,7 @@ class UnityCatalogOssStore(BaseRestStore):
         full_name = get_full_name_from_sc(name, None)
         [catalog_name, schema_name, model_name] = full_name.split(".")
         req_body = message_to_json(
-            model_version_info=ModelVersionInfo(
+            ModelVersionInfo(
                 comment = description,
             )
         )
