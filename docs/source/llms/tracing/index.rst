@@ -743,6 +743,9 @@ To enable async logging for tracing, call :py:func:`mlflow.config.enable_async_l
         span.set_inputs({"a": 1})
         span.set_outputs({"b": 2})
 
+    # If you don't see the traces in the UI after waiting for a while, you can manually flush the traces
+    # mlflow.flush_trace_async_logging()
+
 
 Note that the async logging does not fully eliminate the performance overhead. Some backend calls still need to be made synchronously and there are other factors such as data serialization. However, async logging can significantly reduce the overall overhead of logging traces, empirically about ~80% for typical workloads.
 
