@@ -827,7 +827,7 @@ def test_unsupported_versions_warning_should_not_shown_for_excluded_packages():
         AUTOLOGGING_INTEGRATIONS.clear()
         with mock.patch("mlflow.utils.autologging_utils._logger.warning") as log_warn_fn:
             mlflow.langchain.autolog()
-            assert (
+            assert len(log_warn_fn.call_args_list) == 0 or (
                 "MLflow langchain autologging is known to be compatible"
                 not in log_warn_fn.call_args_list[0][0]
             )
