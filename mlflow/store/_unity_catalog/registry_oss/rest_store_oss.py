@@ -2,6 +2,7 @@ import functools
 
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     UpdateRegisteredModel,
+    UpdateModelVersion,
     CreateRegisteredModel,
     CreateModelVersion,
     GetRegisteredModel,
@@ -56,6 +57,7 @@ class UnityCatalogOssStore(BaseRestStore):
             GetRegisteredModel: RegisteredModelInfo,
             GetModelVersion: ModelVersionInfo,
             FinalizeModelVersion: ModelVersionInfo,
+            UpdateModelVersion: ModelVersionInfo,
         }
         return method_to_response[method]()
 
@@ -176,7 +178,21 @@ class UnityCatalogOssStore(BaseRestStore):
 
     
     def update_model_version(self, name, version, description):
-        raise NotImplementedError("Method not implemented")
+        full_name = get_full_name_from_sc(name, None)
+        [catalog_name, schema_name, model_name] = full_name.split(".")
+        req_body = message_to_json(
+            UpdateModelVersion(
+                full_name_arg=full_name,
+                version_arg=version,
+                model_version_info=ModelVersionInfo(
+                    comment = description,
+                )
+            )
+        )
+        endpoint, method = _METHOD_TO_INFO[UpdateModelVersion]
+        final_endpoint = endpoint.replace("{full_name_arg}", full_name).replace("{version_arg}", str(version))
+        registered_model_version = call_endpoint(get_databricks_host_creds(), endpoint=final_endpoint, method=method, json_body=req_body, response_proto=self._get_response_from_method(UpdateModelVersion))
+        return model_version_from_uc_oss_proto(registered_model_version)
 
     # def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
     #     raise NotImplementedError("Method not implemented")

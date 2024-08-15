@@ -106,6 +106,17 @@ service UnityCatalogService {
     };
   }
 
+  rpc updateModelVersion(UpdateModelVersion) returns (UpdateModelVersion.Response) {
+    option (rpc) = {
+      endpoints: {
+        method: "PATCH",
+        path: "/unity-catalog/models/{full_name_arg}/versions/{version_arg}",
+        since { major: 2, minor: 1 },
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
 }
 
 
