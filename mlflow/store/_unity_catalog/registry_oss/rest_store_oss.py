@@ -6,6 +6,8 @@ from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     GetRegisteredModel,
     GetModelVersion,
     DeleteRegisteredModel,
+    DeleteModelVersion,
+    ModelVersionInfo,
     RegisteredModelInfo,
     TagKeyValue,
 )
@@ -43,7 +45,9 @@ class UnityCatalogOssStore(BaseRestStore):
             CreateRegisteredModel: RegisteredModelInfo,
             UpdateRegisteredModel: RegisteredModelInfo,
             DeleteRegisteredModel: DeleteRegisteredModel,  # DeleteRegisteredModel does not return a response
+            DeleteModelVersion: DeleteModelVersion,  # DeleteModelVersion does not return a response
             GetRegisteredModel: RegisteredModelInfo,
+            GetModelVersion: ModelVersionInfo,
         }
         return method_to_response[method]()
 
@@ -151,14 +155,18 @@ class UnityCatalogOssStore(BaseRestStore):
     #     raise NotImplementedError("Method not implemented")
 
     def delete_model_version(self, name, version):
-        raise NotImplementedError("Method not implemented")
+        full_name = get_full_name_from_sc(name, None)
+        req_body = message_to_json(DeleteRegisteredModel(full_name_arg=full_name, version_arg=version))
+        endpoint, method = _METHOD_TO_INFO[DeleteModelVersion]
+        final_endpoint = endpoint.replace("{full_name_arg}", full_name).replace("{version_arg}", str(version))
+        registered_model_info = call_endpoint(get_databricks_host_creds(), endpoint=final_endpoint, method=method, json_body=req_body, response_proto=self._get_response_from_method(DeleteModelVersion))
 
     def get_model_version(self, name, version):
         full_name = get_full_name_from_sc(name, None)
         req_body = message_to_json(GetModelVersion(full_name_arg=full_name, version_arg=version))
-        endpoint, method = _METHOD_TO_INFO[GetRegisteredModel]
+        endpoint, method = _METHOD_TO_INFO[GetModelVersion]
         final_endpoint = endpoint.replace("{full_name_arg}", full_name).replace("{version_arg}", str(version))
-        registered_model_version = call_endpoint(get_databricks_host_creds(), endpoint=final_endpoint, method=method, json_body=req_body, response_proto=self._get_response_from_method(GetRegisteredModel))
+        registered_model_version = call_endpoint(get_databricks_host_creds(), endpoint=final_endpoint, method=method, json_body=req_body, response_proto=self._get_response_from_method(GetModelVersion))
         return registered_model_from_uc_oss_proto(registered_model_version)
         
 
