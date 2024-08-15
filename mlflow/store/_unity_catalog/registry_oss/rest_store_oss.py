@@ -180,10 +180,8 @@ class UnityCatalogOssStore(BaseRestStore):
         full_name = get_full_name_from_sc(name, None)
         [catalog_name, schema_name, model_name] = full_name.split(".")
         req_body = message_to_json(
-            UpdateModelVersion(
-                model_version_info=ModelVersionInfo(
-                    comment = description,
-                )
+            model_version_info=ModelVersionInfo(
+                comment = description,
             )
         )
         endpoint, method = _METHOD_TO_INFO[UpdateModelVersion]
