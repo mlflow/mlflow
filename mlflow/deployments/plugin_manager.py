@@ -2,12 +2,12 @@ import abc
 import importlib.metadata
 import inspect
 
-from build.lib.mlflow.utils.os import get_entry_points
 from mlflow.deployments.base import BaseDeploymentClient
 from mlflow.deployments.utils import parse_target_uri
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.annotations import developer_stable
+from mlflow.utils.plugins import get_entry_points
 
 # TODO: refactor to have a common base class for all the plugin implementation in MLflow
 #   mlflow/tracking/context/registry.py
@@ -53,6 +53,18 @@ class PluginManager(abc.ABC):
         to register plugins
         """
         return self._has_registered
+
+    def register(self, target_name, plugin_module):
+        """Register a deployment client given its target name and module
+        Args:
+            target_name: The name of the deployment target. This name will be used by
+                `get_deploy_client()` to retrieve a deployment client from
+                the plugin store.
+            plugin_module: The module that implements the deployment plugin interface.
+        """
+        self.registry[target_name] = importlib.metadata.EntryPoint(
+            target_name, plugin_module, self.group_name
+        )
 
     def register_entrypoints(self):
         """
