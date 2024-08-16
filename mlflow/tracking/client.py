@@ -716,6 +716,7 @@ class MlflowClient:
         span_type: str = SpanType.UNKNOWN,
         inputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
+        start_time_ns: Optional[int] = None,
     ) -> Span:
         """
         Create a new span and start it without attaching it to the global trace context.
@@ -789,6 +790,8 @@ class MlflowClient:
                 both fluent APIs like `with mlflow.start_span()`, and imperative APIs like this.
             inputs: Inputs to set on the span.
             attributes: A dictionary of attributes to set on the span.
+            start_time_ns: The start time of the span in nano seconds since the UNIX epoch.
+                If not provided, the current time will be used.
 
         Returns:
             An :py:class:`mlflow.entities.Span` object representing the span.
@@ -850,7 +853,15 @@ class MlflowClient:
             )
 
         try:
-            otel_span = mlflow.tracing.provider.start_detached_span(name, parent=parent_span._span)
+            otel_span = mlflow.tracing.provider.start_detached_span(
+                name=name, parent=parent_span._span
+            )
+
+            # We have to set the custom start time here after the span is created,
+            # because span processor may override the start time in the on_start() method.
+            if start_time_ns is not None:
+                otel_span._start_time = start_time_ns
+
             span = create_mlflow_span(otel_span, request_id, span_type)
             span.set_attributes(attributes or {})
             if inputs is not None:
@@ -874,6 +885,7 @@ class MlflowClient:
         outputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
         status: Union[SpanStatus, str] = "OK",
+        end_time_ns: Optional[int] = None,
     ):
         """
         End the span with the given trace ID and span ID.
@@ -890,6 +902,8 @@ class MlflowClient:
                 representing the status code defined in
                 :py:class:`SpanStatusCode <mlflow.entities.SpanStatusCode>`
                 e.g. ``"OK"``, ``"ERROR"``. The default status is OK.
+            end_time_ns: The end time of the span in nano seconds since the UNIX epoch.
+                If not provided, the current time will be used.
         """
         if request_id == NO_OP_SPAN_REQUEST_ID:
             return
@@ -909,7 +923,7 @@ class MlflowClient:
         span.set_status(status)
 
         try:
-            span.end()
+            span.end(end_time=end_time_ns)
         except Exception as e:
             _logger.warning(
                 f"Failed to end span {span_id}: {e}. "
