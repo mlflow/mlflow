@@ -47,7 +47,6 @@ dependencies = [
   "pyarrow<16,>=4.0.0",
   "pytz<2025",
   "pyyaml<7,>=5.1",
-  "querystring_parser<2",
   "requests<3,>=2.17.3",
   "scikit-learn<2",
   "scipy<2",
