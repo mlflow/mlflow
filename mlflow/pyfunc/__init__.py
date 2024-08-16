@@ -188,6 +188,22 @@ following parameters:
 
 .. _pyfunc-create-custom:
 
+**********************************
+Models From Code for Custom Models
+**********************************
+
+.. tip::
+
+    MLflow 2.12.2 introduced the feature "models from code", which greatly simplifies the process
+    of serializing and deploying custom models through the use of script serialization. It is
+    strongly recommended to migrate custom model implementations to this new paradigm to avoid the
+    limitations and complexity of serializing with cloudpickle.
+    You can learn more about models from code within the
+    `Models From Code Guide <../model/models-from-code.html>`_.
+
+The section below illustrates the process of using the legacy serializer for custom Pyfunc models.
+Models from code will provide a far simpler experience for logging of your models.
+
 ******************************
 Creating custom Pyfunc models
 ******************************
@@ -378,7 +394,6 @@ support additional params.
 
 In summary, use the function-based Model when you have a simple function to serialize.
 If you need more power, use  the class-based model.
-
 """
 import collections
 import functools
