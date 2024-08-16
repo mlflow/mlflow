@@ -477,7 +477,7 @@ def _get_request_json(flask_request=request):
 
 
 def _get_request_message(request_message, flask_request=request, schema=None):
-    if flask_request.method == "GET" and len(flask_request.query_string) > 0:
+    if flask_request.method == "GET" and flask_request.args:
         # Convert atomic values of repeated fields to lists before calling protobuf deserialization.
         # Context: We parse the parameter string into a dictionary outside of protobuf since
         # protobuf does not know how to read the query parameters directly. The query parser above
