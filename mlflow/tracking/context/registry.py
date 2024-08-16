@@ -1,8 +1,10 @@
 import logging
 import warnings
+from typing import List, Optional
 
 import entrypoints
 
+from mlflow.tracking.context.abstract_context import RunContextProvider
 from mlflow.tracking.context.databricks_cluster_context import DatabricksClusterRunContext
 from mlflow.tracking.context.databricks_command_context import DatabricksCommandRunContext
 from mlflow.tracking.context.databricks_job_context import DatabricksJobRunContext
@@ -63,7 +65,7 @@ _run_context_provider_registry.register(SystemEnvironmentContext)
 _run_context_provider_registry.register_entrypoints()
 
 
-def resolve_tags(tags=None):
+def resolve_tags(tags=None, ignore: Optional[List[RunContextProvider]] = None):
     """Generate a set of tags for the current run context. Tags are resolved in the order,
     contexts are registered. Argument tags are applied last.
 
@@ -74,13 +76,17 @@ def resolve_tags(tags=None):
     Args:
         tags: A dictionary of tags to override. If specified, tags passed in this argument will
             override those inferred from the context.
+        ignore: A list of RunContextProvider classes to exclude from the resolution.
 
     Returns:
         A dictionary of resolved tags.
     """
-
+    ignore = ignore or []
     all_tags = {}
     for provider in _run_context_provider_registry:
+        if any(isinstance(provider, ig) for ig in ignore):
+            continue
+
         try:
             if provider.in_context():
                 all_tags.update(provider.tags())

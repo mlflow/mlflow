@@ -516,7 +516,7 @@ pyphen==0.15.0
     # via textstat
 pyspark==3.5.1
     # via -r test-requirements.txt
-pytest==8.1.0
+pytest==8.1.1
     # via
     #   -r test-requirements.txt
     #   pytest-cov

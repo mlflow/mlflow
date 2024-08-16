@@ -28,6 +28,8 @@ from mlflow.tracing.utils import (
     maybe_get_request_id,
 )
 from mlflow.tracking.client import MlflowClient
+from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunContext
+from mlflow.tracking.context.git_context import GitRunContext
 from mlflow.tracking.context.registry import resolve_tags
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.tracking.fluent import _get_experiment_id
@@ -103,7 +105,8 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             )
             self._issued_default_exp_warning = True
 
-        unfiltered_tags = resolve_tags()
+        # Avoid running unnecessary context providers to avoid overhead
+        unfiltered_tags = resolve_tags(ignore=[DatabricksRepoRunContext, GitRunContext])
         tags = {
             key: value
             for key, value in unfiltered_tags.items()
@@ -154,7 +157,9 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
 
     def _update_trace_info(self, trace: _Trace, root_span: OTelReadableSpan):
         """Update the trace info with the final values from the root span."""
-        # Q: Why do we need to update timestamp_ms here? We already saved it when start
+        # The trace/span start time needs adjustment to exclude the latency of
+        # the backend API call. We already adjusted the span start time in the
+        # on_start method, so we reflect the same to the trace start time here.
         trace.info.timestamp_ms = root_span.start_time // 1_000_000  # nanosecond to millisecond
         trace.info.execution_time_ms = (root_span.end_time - root_span.start_time) // 1_000_000
         trace.info.status = TraceStatus.from_otel_status(root_span.status)
