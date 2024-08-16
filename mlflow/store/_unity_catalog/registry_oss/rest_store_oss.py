@@ -12,7 +12,6 @@ from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     ModelVersionInfo,
     RegisteredModelInfo,
     FinalizeModelVersion,
-    TagKeyValue,
 )
 
 
@@ -71,7 +70,6 @@ class UnityCatalogOssStore(BaseRestStore):
         full_name = get_full_name_from_sc(name, None)
         [catalog_name, schema_name, model_name] = full_name.split(".")
         comment = description if description else ""
-        tags = [TagKeyValue(key=tag.key, value=tag.value) for tag in (tags or [])]
         # RegisteredModelInfo is inlined in the request and the response.
         # https://docs.databricks.com/api/workspace/registeredmodels/create
         req_body = message_to_json(
@@ -80,7 +78,6 @@ class UnityCatalogOssStore(BaseRestStore):
                 catalog_name=catalog_name,
                 schema_name=schema_name,
                 comment=comment,
-                tags=tags,
             )
         )
         registered_model_info = self._call_endpoint(CreateRegisteredModel, req_body)

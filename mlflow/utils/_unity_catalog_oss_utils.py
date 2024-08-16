@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from mlflow.entities.model_registry import RegisteredModel, RegisteredModelAlias, RegisteredModelTag, ModelVersion
-from mlflow.protos.unity_catalog_oss_messages_pb2 import RegisteredModelInfo, TagKeyValue, ModelVersionInfo, ModelVersionStatus
+from mlflow.protos.unity_catalog_oss_messages_pb2 import RegisteredModelInfo, ModelVersionInfo, ModelVersionStatus
 
 _STRING_TO_STATUS = {k: ModelVersionStatus.Value(k) for k in ModelVersionStatus.keys()}
 _STATUS_TO_STRING = {value: key for key, value in _STRING_TO_STATUS.items()}
@@ -25,14 +25,6 @@ def model_version_from_uc_oss_proto(uc_oss_proto: ModelVersionInfo) -> ModelVers
         run_id=uc_oss_proto.run_id,
         status=uc_oss_model_version_status_to_string(uc_oss_proto.status),
     )
-
-
-def uc_oss_registered_model_tag_from_mlflow_tags(
-    tags: Optional[List[RegisteredModelTag]],
-) -> List[TagKeyValue]:
-    if tags is None:
-        return []
-    return [TagKeyValue(key=t.key, value=t.value) for t in tags]
 
 def uc_oss_model_version_status_to_string(status):
     return _STATUS_TO_STRING[status]

@@ -20,7 +20,7 @@ if Version(google.protobuf.__version__).major >= 5:
   from . import databricks_pb2 as databricks__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n unity_catalog_oss_messages.proto\x12\x13mlflow.unitycatalog\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\xb5\x01\n\x15\x43reateRegisteredModel\x12G\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfo\x1aS\n\x08Response\x12G\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfo\"K\n\x15\x44\x65leteRegisteredModel\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05\x66orce\x18\x02 \x01(\x08\x1a\n\n\x08Response\"\x88\x01\n\x12GetRegisteredModel\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1aY\n\x08Response\x12M\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfoB\x04\x80\x87\x19\x01\"\xb2\x01\n\x12\x43reateModelVersion\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\x1aS\n\x08Response\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\"\xe6\x01\n\x15UpdateRegisteredModel\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x10\n\x08new_name\x18\x03 \x01(\t\x12M\n\x15registered_model_info\x18\x02 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfoB\x04\x80\x87\x19\x01\x1aY\n\x08Response\x12M\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfoB\x04\x80\x87\x19\x01\"H\n\x12\x44\x65leteModelVersion\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_arg\x18\x02 \x01(\x03\x1a\n\n\x08Response\"\x93\x01\n\x14\x46inalizeModelVersion\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_arg\x18\x02 \x01(\x03\x1aS\n\x08Response\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\"\x8a\x04\n\x13RegisteredModelInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\r\n\x05owner\x18\x04 \x01(\t\x12\x0f\n\x07\x63omment\x18\x05 \x01(\t\x12.\n\x04tags\x18\x14 \x03(\x0b\x32 .mlflow.unitycatalog.TagKeyValue\x12\x18\n\x10storage_location\x18\x06 \x01(\t\x12\x14\n\x0cmetastore_id\x18\x07 \x01(\t\x12\x11\n\tfull_name\x18\t \x01(\t\x12\x12\n\ncreated_at\x18\x0b \x01(\x03\x12\x12\n\ncreated_by\x18\x0c \x01(\t\x12\x12\n\nupdated_at\x18\r \x01(\x03\x12\x12\n\nupdated_by\x18\x0e \x01(\t\x12:\n\x0esecurable_type\x18\x0f \x01(\x0e\x32\".mlflow.unitycatalog.SecurableType\x12:\n\x0esecurable_kind\x18\x10 \x01(\x0e\x32\".mlflow.unitycatalog.SecurableKind\x12\n\n\x02id\x18\x12 \x01(\t\x12>\n\x07\x61liases\x18\x13 \x03(\x0b\x32-.mlflow.unitycatalog.RegisteredModelAliasInfo\x12\x13\n\x0b\x62rowse_only\x18\x15 \x01(\x08\"\x8e\x01\n\x0fGetModelVersion\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_arg\x18\x02 \x01(\x03\x1aS\n\x08Response\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\"\xda\x01\n\x12UpdateModelVersion\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_arg\x18\x02 \x01(\x03\x12G\n\x12model_version_info\x18\x03 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\x1aS\n\x08Response\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\"\xc2\x02\n\x10ModelVersionInfo\x12\x12\n\nmodel_name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\x0e\n\x06source\x18\x05 \x01(\t\x12\x0f\n\x07\x63omment\x18\x04 \x01(\t\x12\x0e\n\x06run_id\x18\x06 \x01(\t\x12\x37\n\x06status\x18\x08 \x01(\x0e\x32\'.mlflow.unitycatalog.ModelVersionStatus\x12\x0f\n\x07version\x18\t \x01(\x03\x12\x18\n\x10storage_location\x18\n \x01(\t\x12\x12\n\ncreated_at\x18\x0c \x01(\x03\x12\x12\n\ncreated_by\x18\r \x01(\t\x12\x12\n\nupdated_at\x18\x0e \x01(\x03\x12\x12\n\nupdated_by\x18\x0f \x01(\t\x12\n\n\x02id\x18\x10 \x01(\t\")\n\x0bTagKeyValue\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"C\n\x18RegisteredModelAliasInfo\x12\x12\n\nalias_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_num\x18\x02 \x01(\x03*t\n\x12ModelVersionStatus\x12 \n\x1cMODEL_VERSION_STATUS_UNKNOWN\x10\x00\x12\x18\n\x14PENDING_REGISTRATION\x10\x01\x12\x17\n\x13\x46\x41ILED_REGISTRATION\x10\x02\x12\t\n\x05READY\x10\x03*9\n\rSecurableType\x12\x1a\n\x16UNKNOWN_SECURABLE_TYPE\x10\x00\x12\x0c\n\x08\x46UNCTION\x10\x06*J\n\rSecurableKind\x12\x1a\n\x16UNKNOWN_SECURABLE_KIND\x10\x00\x12\x1d\n\x19\x46UNCTION_REGISTERED_MODEL\x10GB1\n\'com.databricks.api.proto.managedcatalog\xa0\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n unity_catalog_oss_messages.proto\x12\x13mlflow.unitycatalog\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\xb5\x01\n\x15\x43reateRegisteredModel\x12G\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfo\x1aS\n\x08Response\x12G\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfo\"K\n\x15\x44\x65leteRegisteredModel\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05\x66orce\x18\x02 \x01(\x08\x1a\n\n\x08Response\"\x88\x01\n\x12GetRegisteredModel\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1aY\n\x08Response\x12M\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfoB\x04\x80\x87\x19\x01\"\xb2\x01\n\x12\x43reateModelVersion\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\x1aS\n\x08Response\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\"\xe6\x01\n\x15UpdateRegisteredModel\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x10\n\x08new_name\x18\x03 \x01(\t\x12M\n\x15registered_model_info\x18\x02 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfoB\x04\x80\x87\x19\x01\x1aY\n\x08Response\x12M\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfoB\x04\x80\x87\x19\x01\"H\n\x12\x44\x65leteModelVersion\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_arg\x18\x02 \x01(\x03\x1a\n\n\x08Response\"\x93\x01\n\x14\x46inalizeModelVersion\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_arg\x18\x02 \x01(\x03\x1aS\n\x08Response\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\"\xfd\x01\n\x13RegisteredModelInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\x0f\n\x07\x63omment\x18\x04 \x01(\t\x12\x18\n\x10storage_location\x18\x05 \x01(\t\x12\x11\n\tfull_name\x18\x06 \x01(\t\x12\x12\n\ncreated_at\x18\x07 \x01(\x03\x12\x12\n\ncreated_by\x18\x08 \x01(\t\x12\x12\n\nupdated_at\x18\t \x01(\x03\x12\x12\n\nupdated_by\x18\n \x01(\t\x12\n\n\x02id\x18\x0b \x01(\t\x12\x13\n\x0b\x62rowse_only\x18\x0c \x01(\x08\"\x8e\x01\n\x0fGetModelVersion\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_arg\x18\x02 \x01(\x03\x1aS\n\x08Response\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\"\xda\x01\n\x12UpdateModelVersion\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_arg\x18\x02 \x01(\x03\x12G\n\x12model_version_info\x18\x03 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\x1aS\n\x08Response\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\"\xc2\x02\n\x10ModelVersionInfo\x12\x12\n\nmodel_name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\x0e\n\x06source\x18\x05 \x01(\t\x12\x0f\n\x07\x63omment\x18\x04 \x01(\t\x12\x0e\n\x06run_id\x18\x06 \x01(\t\x12\x37\n\x06status\x18\x07 \x01(\x0e\x32\'.mlflow.unitycatalog.ModelVersionStatus\x12\x0f\n\x07version\x18\x08 \x01(\x03\x12\x18\n\x10storage_location\x18\t \x01(\t\x12\x12\n\ncreated_at\x18\n \x01(\x03\x12\x12\n\ncreated_by\x18\x0b \x01(\t\x12\x12\n\nupdated_at\x18\x0c \x01(\x03\x12\x12\n\nupdated_by\x18\r \x01(\t\x12\n\n\x02id\x18\x0e \x01(\t*t\n\x12ModelVersionStatus\x12 \n\x1cMODEL_VERSION_STATUS_UNKNOWN\x10\x00\x12\x18\n\x14PENDING_REGISTRATION\x10\x01\x12\x17\n\x13\x46\x41ILED_REGISTRATION\x10\x02\x12\t\n\x05READY\x10\x03\x42\x31\n\'com.databricks.api.proto.managedcatalog\xa0\x01\x01\xe2?\x02\x10\x01')
 
   _globals = globals()
   _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -50,12 +50,8 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_UPDATEMODELVERSION_RESPONSE'].fields_by_name['model_version_info']._serialized_options = b'\200\207\031\001'
     _globals['_UPDATEMODELVERSION'].fields_by_name['model_version_info']._loaded_options = None
     _globals['_UPDATEMODELVERSION'].fields_by_name['model_version_info']._serialized_options = b'\200\207\031\001'
-    _globals['_MODELVERSIONSTATUS']._serialized_start=2464
-    _globals['_MODELVERSIONSTATUS']._serialized_end=2580
-    _globals['_SECURABLETYPE']._serialized_start=2582
-    _globals['_SECURABLETYPE']._serialized_end=2639
-    _globals['_SECURABLEKIND']._serialized_start=2641
-    _globals['_SECURABLEKIND']._serialized_end=2715
+    _globals['_MODELVERSIONSTATUS']._serialized_start=2083
+    _globals['_MODELVERSIONSTATUS']._serialized_end=2199
     _globals['_CREATEREGISTEREDMODEL']._serialized_start=99
     _globals['_CREATEREGISTEREDMODEL']._serialized_end=280
     _globals['_CREATEREGISTEREDMODEL_RESPONSE']._serialized_start=197
@@ -85,21 +81,17 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_FINALIZEMODELVERSION_RESPONSE']._serialized_start=594
     _globals['_FINALIZEMODELVERSION_RESPONSE']._serialized_end=677
     _globals['_REGISTEREDMODELINFO']._serialized_start=1137
-    _globals['_REGISTEREDMODELINFO']._serialized_end=1659
-    _globals['_GETMODELVERSION']._serialized_start=1662
-    _globals['_GETMODELVERSION']._serialized_end=1804
+    _globals['_REGISTEREDMODELINFO']._serialized_end=1390
+    _globals['_GETMODELVERSION']._serialized_start=1393
+    _globals['_GETMODELVERSION']._serialized_end=1535
     _globals['_GETMODELVERSION_RESPONSE']._serialized_start=594
     _globals['_GETMODELVERSION_RESPONSE']._serialized_end=677
-    _globals['_UPDATEMODELVERSION']._serialized_start=1807
-    _globals['_UPDATEMODELVERSION']._serialized_end=2025
+    _globals['_UPDATEMODELVERSION']._serialized_start=1538
+    _globals['_UPDATEMODELVERSION']._serialized_end=1756
     _globals['_UPDATEMODELVERSION_RESPONSE']._serialized_start=594
     _globals['_UPDATEMODELVERSION_RESPONSE']._serialized_end=677
-    _globals['_MODELVERSIONINFO']._serialized_start=2028
-    _globals['_MODELVERSIONINFO']._serialized_end=2350
-    _globals['_TAGKEYVALUE']._serialized_start=2352
-    _globals['_TAGKEYVALUE']._serialized_end=2393
-    _globals['_REGISTEREDMODELALIASINFO']._serialized_start=2395
-    _globals['_REGISTEREDMODELALIASINFO']._serialized_end=2462
+    _globals['_MODELVERSIONINFO']._serialized_start=1759
+    _globals['_MODELVERSIONINFO']._serialized_end=2081
   # @@protoc_insertion_point(module_scope)
 
 else:
@@ -122,22 +114,14 @@ else:
   from . import databricks_pb2 as databricks__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n unity_catalog_oss_messages.proto\x12\x13mlflow.unitycatalog\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\xb5\x01\n\x15\x43reateRegisteredModel\x12G\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfo\x1aS\n\x08Response\x12G\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfo\"K\n\x15\x44\x65leteRegisteredModel\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05\x66orce\x18\x02 \x01(\x08\x1a\n\n\x08Response\"\x88\x01\n\x12GetRegisteredModel\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1aY\n\x08Response\x12M\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfoB\x04\x80\x87\x19\x01\"\xb2\x01\n\x12\x43reateModelVersion\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\x1aS\n\x08Response\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\"\xe6\x01\n\x15UpdateRegisteredModel\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x10\n\x08new_name\x18\x03 \x01(\t\x12M\n\x15registered_model_info\x18\x02 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfoB\x04\x80\x87\x19\x01\x1aY\n\x08Response\x12M\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfoB\x04\x80\x87\x19\x01\"H\n\x12\x44\x65leteModelVersion\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_arg\x18\x02 \x01(\x03\x1a\n\n\x08Response\"\x93\x01\n\x14\x46inalizeModelVersion\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_arg\x18\x02 \x01(\x03\x1aS\n\x08Response\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\"\x8a\x04\n\x13RegisteredModelInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\r\n\x05owner\x18\x04 \x01(\t\x12\x0f\n\x07\x63omment\x18\x05 \x01(\t\x12.\n\x04tags\x18\x14 \x03(\x0b\x32 .mlflow.unitycatalog.TagKeyValue\x12\x18\n\x10storage_location\x18\x06 \x01(\t\x12\x14\n\x0cmetastore_id\x18\x07 \x01(\t\x12\x11\n\tfull_name\x18\t \x01(\t\x12\x12\n\ncreated_at\x18\x0b \x01(\x03\x12\x12\n\ncreated_by\x18\x0c \x01(\t\x12\x12\n\nupdated_at\x18\r \x01(\x03\x12\x12\n\nupdated_by\x18\x0e \x01(\t\x12:\n\x0esecurable_type\x18\x0f \x01(\x0e\x32\".mlflow.unitycatalog.SecurableType\x12:\n\x0esecurable_kind\x18\x10 \x01(\x0e\x32\".mlflow.unitycatalog.SecurableKind\x12\n\n\x02id\x18\x12 \x01(\t\x12>\n\x07\x61liases\x18\x13 \x03(\x0b\x32-.mlflow.unitycatalog.RegisteredModelAliasInfo\x12\x13\n\x0b\x62rowse_only\x18\x15 \x01(\x08\"\x8e\x01\n\x0fGetModelVersion\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_arg\x18\x02 \x01(\x03\x1aS\n\x08Response\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\"\xda\x01\n\x12UpdateModelVersion\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_arg\x18\x02 \x01(\x03\x12G\n\x12model_version_info\x18\x03 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\x1aS\n\x08Response\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\"\xc2\x02\n\x10ModelVersionInfo\x12\x12\n\nmodel_name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\x0e\n\x06source\x18\x05 \x01(\t\x12\x0f\n\x07\x63omment\x18\x04 \x01(\t\x12\x0e\n\x06run_id\x18\x06 \x01(\t\x12\x37\n\x06status\x18\x08 \x01(\x0e\x32\'.mlflow.unitycatalog.ModelVersionStatus\x12\x0f\n\x07version\x18\t \x01(\x03\x12\x18\n\x10storage_location\x18\n \x01(\t\x12\x12\n\ncreated_at\x18\x0c \x01(\x03\x12\x12\n\ncreated_by\x18\r \x01(\t\x12\x12\n\nupdated_at\x18\x0e \x01(\x03\x12\x12\n\nupdated_by\x18\x0f \x01(\t\x12\n\n\x02id\x18\x10 \x01(\t\")\n\x0bTagKeyValue\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"C\n\x18RegisteredModelAliasInfo\x12\x12\n\nalias_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_num\x18\x02 \x01(\x03*t\n\x12ModelVersionStatus\x12 \n\x1cMODEL_VERSION_STATUS_UNKNOWN\x10\x00\x12\x18\n\x14PENDING_REGISTRATION\x10\x01\x12\x17\n\x13\x46\x41ILED_REGISTRATION\x10\x02\x12\t\n\x05READY\x10\x03*9\n\rSecurableType\x12\x1a\n\x16UNKNOWN_SECURABLE_TYPE\x10\x00\x12\x0c\n\x08\x46UNCTION\x10\x06*J\n\rSecurableKind\x12\x1a\n\x16UNKNOWN_SECURABLE_KIND\x10\x00\x12\x1d\n\x19\x46UNCTION_REGISTERED_MODEL\x10GB1\n\'com.databricks.api.proto.managedcatalog\xa0\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n unity_catalog_oss_messages.proto\x12\x13mlflow.unitycatalog\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\xb5\x01\n\x15\x43reateRegisteredModel\x12G\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfo\x1aS\n\x08Response\x12G\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfo\"K\n\x15\x44\x65leteRegisteredModel\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05\x66orce\x18\x02 \x01(\x08\x1a\n\n\x08Response\"\x88\x01\n\x12GetRegisteredModel\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1aY\n\x08Response\x12M\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfoB\x04\x80\x87\x19\x01\"\xb2\x01\n\x12\x43reateModelVersion\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\x1aS\n\x08Response\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\"\xe6\x01\n\x15UpdateRegisteredModel\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x10\n\x08new_name\x18\x03 \x01(\t\x12M\n\x15registered_model_info\x18\x02 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfoB\x04\x80\x87\x19\x01\x1aY\n\x08Response\x12M\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfoB\x04\x80\x87\x19\x01\"H\n\x12\x44\x65leteModelVersion\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_arg\x18\x02 \x01(\x03\x1a\n\n\x08Response\"\x93\x01\n\x14\x46inalizeModelVersion\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_arg\x18\x02 \x01(\x03\x1aS\n\x08Response\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\"\xfd\x01\n\x13RegisteredModelInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\x0f\n\x07\x63omment\x18\x04 \x01(\t\x12\x18\n\x10storage_location\x18\x05 \x01(\t\x12\x11\n\tfull_name\x18\x06 \x01(\t\x12\x12\n\ncreated_at\x18\x07 \x01(\x03\x12\x12\n\ncreated_by\x18\x08 \x01(\t\x12\x12\n\nupdated_at\x18\t \x01(\x03\x12\x12\n\nupdated_by\x18\n \x01(\t\x12\n\n\x02id\x18\x0b \x01(\t\x12\x13\n\x0b\x62rowse_only\x18\x0c \x01(\x08\"\x8e\x01\n\x0fGetModelVersion\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_arg\x18\x02 \x01(\x03\x1aS\n\x08Response\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\"\xda\x01\n\x12UpdateModelVersion\x12\x11\n\tfull_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_arg\x18\x02 \x01(\x03\x12G\n\x12model_version_info\x18\x03 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\x1aS\n\x08Response\x12G\n\x12model_version_info\x18\x01 \x01(\x0b\x32%.mlflow.unitycatalog.ModelVersionInfoB\x04\x80\x87\x19\x01\"\xc2\x02\n\x10ModelVersionInfo\x12\x12\n\nmodel_name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\x0e\n\x06source\x18\x05 \x01(\t\x12\x0f\n\x07\x63omment\x18\x04 \x01(\t\x12\x0e\n\x06run_id\x18\x06 \x01(\t\x12\x37\n\x06status\x18\x07 \x01(\x0e\x32\'.mlflow.unitycatalog.ModelVersionStatus\x12\x0f\n\x07version\x18\x08 \x01(\x03\x12\x18\n\x10storage_location\x18\t \x01(\t\x12\x12\n\ncreated_at\x18\n \x01(\x03\x12\x12\n\ncreated_by\x18\x0b \x01(\t\x12\x12\n\nupdated_at\x18\x0c \x01(\x03\x12\x12\n\nupdated_by\x18\r \x01(\t\x12\n\n\x02id\x18\x0e \x01(\t*t\n\x12ModelVersionStatus\x12 \n\x1cMODEL_VERSION_STATUS_UNKNOWN\x10\x00\x12\x18\n\x14PENDING_REGISTRATION\x10\x01\x12\x17\n\x13\x46\x41ILED_REGISTRATION\x10\x02\x12\t\n\x05READY\x10\x03\x42\x31\n\'com.databricks.api.proto.managedcatalog\xa0\x01\x01\xe2?\x02\x10\x01')
 
   _MODELVERSIONSTATUS = DESCRIPTOR.enum_types_by_name['ModelVersionStatus']
   ModelVersionStatus = enum_type_wrapper.EnumTypeWrapper(_MODELVERSIONSTATUS)
-  _SECURABLETYPE = DESCRIPTOR.enum_types_by_name['SecurableType']
-  SecurableType = enum_type_wrapper.EnumTypeWrapper(_SECURABLETYPE)
-  _SECURABLEKIND = DESCRIPTOR.enum_types_by_name['SecurableKind']
-  SecurableKind = enum_type_wrapper.EnumTypeWrapper(_SECURABLEKIND)
   MODEL_VERSION_STATUS_UNKNOWN = 0
   PENDING_REGISTRATION = 1
   FAILED_REGISTRATION = 2
   READY = 3
-  UNKNOWN_SECURABLE_TYPE = 0
-  FUNCTION = 6
-  UNKNOWN_SECURABLE_KIND = 0
-  FUNCTION_REGISTERED_MODEL = 71
 
 
   _CREATEREGISTEREDMODEL = DESCRIPTOR.message_types_by_name['CreateRegisteredModel']
@@ -160,8 +144,6 @@ else:
   _UPDATEMODELVERSION = DESCRIPTOR.message_types_by_name['UpdateModelVersion']
   _UPDATEMODELVERSION_RESPONSE = _UPDATEMODELVERSION.nested_types_by_name['Response']
   _MODELVERSIONINFO = DESCRIPTOR.message_types_by_name['ModelVersionInfo']
-  _TAGKEYVALUE = DESCRIPTOR.message_types_by_name['TagKeyValue']
-  _REGISTEREDMODELALIASINFO = DESCRIPTOR.message_types_by_name['RegisteredModelAliasInfo']
   CreateRegisteredModel = _reflection.GeneratedProtocolMessageType('CreateRegisteredModel', (_message.Message,), {
 
     'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
@@ -311,20 +293,6 @@ else:
     })
   _sym_db.RegisterMessage(ModelVersionInfo)
 
-  TagKeyValue = _reflection.GeneratedProtocolMessageType('TagKeyValue', (_message.Message,), {
-    'DESCRIPTOR' : _TAGKEYVALUE,
-    '__module__' : 'unity_catalog_oss_messages_pb2'
-    # @@protoc_insertion_point(class_scope:mlflow.unitycatalog.TagKeyValue)
-    })
-  _sym_db.RegisterMessage(TagKeyValue)
-
-  RegisteredModelAliasInfo = _reflection.GeneratedProtocolMessageType('RegisteredModelAliasInfo', (_message.Message,), {
-    'DESCRIPTOR' : _REGISTEREDMODELALIASINFO,
-    '__module__' : 'unity_catalog_oss_messages_pb2'
-    # @@protoc_insertion_point(class_scope:mlflow.unitycatalog.RegisteredModelAliasInfo)
-    })
-  _sym_db.RegisterMessage(RegisteredModelAliasInfo)
-
   if _descriptor._USE_C_DESCRIPTORS == False:
 
     DESCRIPTOR._options = None
@@ -351,12 +319,8 @@ else:
     _UPDATEMODELVERSION_RESPONSE.fields_by_name['model_version_info']._serialized_options = b'\200\207\031\001'
     _UPDATEMODELVERSION.fields_by_name['model_version_info']._options = None
     _UPDATEMODELVERSION.fields_by_name['model_version_info']._serialized_options = b'\200\207\031\001'
-    _MODELVERSIONSTATUS._serialized_start=2464
-    _MODELVERSIONSTATUS._serialized_end=2580
-    _SECURABLETYPE._serialized_start=2582
-    _SECURABLETYPE._serialized_end=2639
-    _SECURABLEKIND._serialized_start=2641
-    _SECURABLEKIND._serialized_end=2715
+    _MODELVERSIONSTATUS._serialized_start=2083
+    _MODELVERSIONSTATUS._serialized_end=2199
     _CREATEREGISTEREDMODEL._serialized_start=99
     _CREATEREGISTEREDMODEL._serialized_end=280
     _CREATEREGISTEREDMODEL_RESPONSE._serialized_start=197
@@ -386,20 +350,16 @@ else:
     _FINALIZEMODELVERSION_RESPONSE._serialized_start=594
     _FINALIZEMODELVERSION_RESPONSE._serialized_end=677
     _REGISTEREDMODELINFO._serialized_start=1137
-    _REGISTEREDMODELINFO._serialized_end=1659
-    _GETMODELVERSION._serialized_start=1662
-    _GETMODELVERSION._serialized_end=1804
+    _REGISTEREDMODELINFO._serialized_end=1390
+    _GETMODELVERSION._serialized_start=1393
+    _GETMODELVERSION._serialized_end=1535
     _GETMODELVERSION_RESPONSE._serialized_start=594
     _GETMODELVERSION_RESPONSE._serialized_end=677
-    _UPDATEMODELVERSION._serialized_start=1807
-    _UPDATEMODELVERSION._serialized_end=2025
+    _UPDATEMODELVERSION._serialized_start=1538
+    _UPDATEMODELVERSION._serialized_end=1756
     _UPDATEMODELVERSION_RESPONSE._serialized_start=594
     _UPDATEMODELVERSION_RESPONSE._serialized_end=677
-    _MODELVERSIONINFO._serialized_start=2028
-    _MODELVERSIONINFO._serialized_end=2350
-    _TAGKEYVALUE._serialized_start=2352
-    _TAGKEYVALUE._serialized_end=2393
-    _REGISTEREDMODELALIASINFO._serialized_start=2395
-    _REGISTEREDMODELALIASINFO._serialized_end=2462
+    _MODELVERSIONINFO._serialized_start=1759
+    _MODELVERSIONINFO._serialized_end=2081
   # @@protoc_insertion_point(module_scope)
 
