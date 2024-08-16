@@ -1,8 +1,8 @@
 import abc
+import importlib.metadata
 import inspect
 
-import entrypoints
-
+from build.lib.mlflow.utils.os import get_entry_points
 from mlflow.deployments.base import BaseDeploymentClient
 from mlflow.deployments.utils import parse_target_uri
 from mlflow.exceptions import MlflowException
@@ -54,23 +54,12 @@ class PluginManager(abc.ABC):
         """
         return self._has_registered
 
-    def register(self, target_name, plugin_module):
-        """Register a deployment client given its target name and module
-
-        Args:
-            target_name: The name of the deployment target. This name will be used by
-                `get_deploy_client()` to retrieve a deployment client from
-                the plugin store.
-            plugin_module: The module that implements the deployment plugin interface.
-        """
-        self.registry[target_name] = entrypoints.EntryPoint(target_name, plugin_module, None)
-
     def register_entrypoints(self):
         """
         Runs through all the packages that has the `group_name` defined as the entrypoint
         and register that into the registry
         """
-        for entrypoint in entrypoints.get_group_all(self.group_name):
+        for entrypoint in get_entry_points(self.group_name):
             self.registry[entrypoint.name] = entrypoint
         self._has_registered = True
 
@@ -96,7 +85,7 @@ class DeploymentPlugins(PluginManager):
             )
             raise MlflowException(msg, error_code=RESOURCE_DOES_NOT_EXIST)
 
-        if isinstance(plugin_like, entrypoints.EntryPoint):
+        if isinstance(plugin_like, importlib.metadata.EntryPoint):
             try:
                 plugin_obj = plugin_like.load()
             except (AttributeError, ImportError) as exc:

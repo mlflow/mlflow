@@ -3,7 +3,7 @@ from typing import Dict, Type, Union
 from mlflow import MlflowException
 from mlflow.gateway.config import Provider
 from mlflow.gateway.providers import BaseProvider
-from mlflow.utils.os import get_entry_points
+from mlflow.utils.plugins import get_entry_points
 
 
 class ProviderRegistry:
