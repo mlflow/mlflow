@@ -1,8 +1,6 @@
 from mlflow.entities.model_registry import RegisteredModel, RegisteredModelAlias, RegisteredModelTag
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
-    RegisteredModelAliasInfo,
     RegisteredModelInfo,
-    TagKeyValue,
 )
 from mlflow.utils._unity_catalog_oss_utils import registered_model_from_uc_oss_proto
 
