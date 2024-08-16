@@ -29,7 +29,6 @@ def test_chunk_size_validation_failure():
     (Exception("fake_exception"),4)  # Simulate where there is a download failure and retries are exhausted
 ])
 def test__parallelized_download_from_cloud(monkeypatch, future_result, expected_call_count):
-    print("test__parallelized_download_from_cloud")
 
     # Mock environment variables
     monkeypatch.setenv("_MLFLOW_MPD_NUM_RETRIES", 3)
