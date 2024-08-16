@@ -11,9 +11,15 @@ from mlflow.langchain.databricks_dependencies import (
     _extract_databricks_dependencies_from_chat_model,
     _extract_databricks_dependencies_from_llm,
     _extract_databricks_dependencies_from_retriever,
+    _extract_databricks_dependencies_from_uc_function_toolkit
 )
 from mlflow.langchain.utils import IS_PICKLE_SERIALIZATION_RESTRICTED
-from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
+from mlflow.models.resources import (
+    DatabricksServingEndpoint, 
+    DatabricksVectorSearchIndex,
+    DatabricksSQLWarehouse,
+    DatabricksUCFunction,
+)
 
 
 class MockDatabricksServingEndpointClient:
@@ -236,6 +242,61 @@ def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in
         DatabricksServingEndpoint(endpoint_name="embedding-model"),
     ]
 
+def test_parsing_dependency_from_uc_function_toolkit(monkeypatch: pytest.MonkeyPatch):
+    from langchain_community.tools.databricks import UCFunctionToolkit
+    from langchain_core.tools import StructuredTool
+    from langchain_core.pydantic_v1 import create_model
+    
+    def mock_make_tool(self, function_name: str):
+        return StructuredTool(
+            name=function_name,
+            description="test_description",
+            args_schema=create_model(function_name),
+        )
+
+    monkeypatch.setattr("langchain_community.tools.databricks.UCFunctionToolkit._make_tool", mock_make_tool)
+
+    toolkit = UCFunctionToolkit(warehouse_id="testId1").include("rag.test.test_function")
+    resources = list(_extract_databricks_dependencies_from_uc_function_toolkit(toolkit))
+    assert resources == [
+        DatabricksSQLWarehouse(warehouse_id="testId1"),
+        DatabricksUCFunction(function_name="rag.test.test_function")
+    ]
+
+def test_parsing_multiple_dependency_from_uc_function_toolkit(monkeypatch: pytest.MonkeyPatch):
+    from langchain_community.tools.databricks import UCFunctionToolkit
+    from langchain_core.tools import StructuredTool
+    from langchain_core.pydantic_v1 import create_model
+    from databricks.sdk.service.catalog import FunctionInfo
+
+    mock_workspace_client = MagicMock()
+    
+    def mock_make_tool(self, function_name: str):
+        return StructuredTool(
+            name=function_name,
+            description="test_description",
+            args_schema=create_model(function_name),
+        )
+    
+    def mock_function_list(self,catalog_name, schema_name):
+        assert catalog_name=="rag"
+        assert schema_name=="test"
+        return [FunctionInfo(full_name="rag.test.test_function"), 
+                FunctionInfo(full_name="rag.test.test_function_2"), 
+                FunctionInfo(full_name="rag.test.test_function_3")]
+    
+    monkeypatch.setitem(sys.modules, "databricks.sdk.WorkspaceClient", mock_workspace_client)
+    monkeypatch.setattr("langchain_community.tools.databricks.UCFunctionToolkit._make_tool", mock_make_tool)
+    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.list", mock_function_list)
+
+    toolkit = UCFunctionToolkit(warehouse_id="testId1").include("rag.test.*")
+    resources = list(_extract_databricks_dependencies_from_uc_function_toolkit(toolkit))
+    assert resources == [
+        DatabricksSQLWarehouse(warehouse_id="testId1"),
+        DatabricksUCFunction(function_name="rag.test.test_function"),
+        DatabricksUCFunction(function_name="rag.test.test_function_2"),
+        DatabricksUCFunction(function_name="rag.test.test_function_3")
+    ]
 
 def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch):
     from langchain_community.chat_models import ChatDatabricks

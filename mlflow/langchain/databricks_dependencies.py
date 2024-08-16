@@ -1,7 +1,13 @@
 import logging
 from typing import Generator, List, Optional, Set
 
-from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex, Resource
+from mlflow.models.resources import (
+    DatabricksServingEndpoint,
+    DatabricksVectorSearchIndex, 
+    DatabricksSQLWarehouse, 
+    DatabricksUCFunction, 
+    Resource,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -47,6 +53,14 @@ def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None
         if isinstance(embeddings, (DatabricksEmbeddings, LegacyDatabricksEmbeddings)):
             yield DatabricksServingEndpoint(endpoint_name=embeddings.endpoint)
 
+def _extract_databricks_dependencies_from_uc_function_toolkit(uc_toolkit) -> Generator[Resource, None, None]:
+    from langchain_community.tools.databricks import UCFunctionToolkit
+
+    if isinstance(uc_toolkit, UCFunctionToolkit):
+        yield DatabricksSQLWarehouse(warehouse_id=uc_toolkit.warehouse_id)
+    
+        for function_name in uc_toolkit.tools.keys():
+            yield DatabricksUCFunction(function_name=function_name)
 
 def _extract_databricks_dependencies_from_retriever(retriever) -> Generator[Resource, None, None]:
     # ContextualCompressionRetriever uses attribute "base_retriever"
@@ -121,6 +135,7 @@ def _extract_dependency_list_from_lc_model(lc_model) -> Generator[Resource, None
     yield from _extract_databricks_dependencies_from_chat_model(lc_model)
     yield from _extract_databricks_dependencies_from_retriever(lc_model)
     yield from _extract_databricks_dependencies_from_llm(lc_model)
+    yield from _extract_databricks_dependencies_from_uc_function_toolkit(lc_model)
 
     # recursively inspect legacy chain
     for attr_name in _LEGACY_MODEL_ATTR_SET:
