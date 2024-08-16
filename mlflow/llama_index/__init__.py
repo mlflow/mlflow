@@ -400,11 +400,12 @@ def autolog(
     else:
         remove_llama_index_tracer()
 
-    _autolog(disable=disable, silent=silent)
+    _autolog(log_traces=log_traces, disable=disable, silent=silent)
 
 
 @autologging_integration(FLAVOR_NAME)
 def _autolog(
+    log_traces: bool,
     disable: bool = False,
     silent: bool = False,
 ):
