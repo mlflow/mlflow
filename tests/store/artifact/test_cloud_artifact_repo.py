@@ -26,14 +26,14 @@ def test_chunk_size_validation_failure():
 
 @pytest.mark.parametrize("future_result, expected_call_count", [
     (None, 2),  # Simulate where creds are expired, but successfully download after refresh
-    (Exception("fake_exception"), _MLFLOW_MPD_NUM_RETRIES.get() + 1)  # Simulate where there is a download failure and retries are exhausted
+    (Exception("fake_exception"),4)  # Simulate where there is a download failure and retries are exhausted
 ])
 def test__parallelized_download_from_cloud(monkeypatch, future_result, expected_call_count):
     print("test__parallelized_download_from_cloud")
 
     # Mock environment variables
-    monkeypatch.setattr(_MLFLOW_MPD_NUM_RETRIES, 'get', lambda: 3)
-    monkeypatch.setattr(_MLFLOW_MPD_RETRY_INTERVAL_SECONDS, 'get', lambda: 5)
+    monkeypatch.setenv("_MLFLOW_MPD_NUM_RETRIES", 3)
+    monkeypatch.setenv("_MLFLOW_MPD_RETRY_INTERVAL_SECONDS", 0)
 
     with mock.patch("mlflow.store.artifact.cloud_artifact_repo.CloudArtifactRepository") as cloud_artifact_mock:
         cloud_artifact_instance = cloud_artifact_mock.return_value
@@ -60,11 +60,7 @@ def test__parallelized_download_from_cloud(monkeypatch, future_result, expected_
             mock_download.return_value = mock_failed_downloads
 
             # Create a new ArtifactCredentialInfo object
-            fake_credential = ArtifactCredentialInfo()
-
-            # Set the values for the ArtifactCredentialInfo object
-            fake_credential.signed_uri = "fake_signed_uri"
-            fake_credential.type = ArtifactCredentialType.AWS_PRESIGNED_URL
+            fake_credential = ArtifactCredentialInfo(signed_uri="fake_signed_uri", type=ArtifactCredentialType.AWS_PRESIGNED_URL)
             fake_credential.headers.extend([ArtifactCredentialInfo.HttpHeader(name="fake_header_name", value="fake_header_value")])
 
             # Set the return value of _get_read_credential_infos to the fake_credential object
@@ -87,3 +83,4 @@ def test__parallelized_download_from_cloud(monkeypatch, future_result, expected_
 
                 # Assert that _get_read_credential_infos is called the expected number of times
                 assert cloud_artifact_instance._get_read_credential_infos.call_count == expected_call_count
+                # assert that download chunk is called with the correct args
