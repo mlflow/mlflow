@@ -23,7 +23,7 @@ message CreateRegisteredModel {
 
 message DeleteRegisteredModel {
   // Required. Full name of the model.
-  optional string full_name_arg = 1 [(validate_required) = true];
+  optional string full_name = 1 [(validate_required) = true];
   // Optional. Force deletion even if the registered model is not empty. Default is false.
   optional bool force = 2;
 
@@ -33,7 +33,7 @@ message DeleteRegisteredModel {
 message GetRegisteredModel {
 
   // Required. Full name of the Model.
-  optional string full_name_arg = 1 [(validate_required) = true];
+  optional string full_name = 1 [(validate_required) = true];
 
   message Response {
     optional RegisteredModelInfo registered_model_info = 1 [(json_inline) = true];
@@ -51,10 +51,10 @@ message CreateModelVersion {
 message UpdateRegisteredModel {
 
   // Required. Full name of the Model.
-  optional string full_name_arg = 1 [(validate_required) = true];
+  optional string full_name = 1;
 
   // Optional. New name of registered model (replaces registered_model_info.name for specifying new name).
-  optional string new_name = 3 [(scalapb.field).type = "FunctionName"];
+  optional string new_name = 3;
 
   // Optional. Partial RegisteredModelInfo with fields to change.
   optional RegisteredModelInfo registered_model_info = 2 [(json_inline) = true];
@@ -67,10 +67,10 @@ message UpdateRegisteredModel {
 message DeleteModelVersion {
   
   // Required. Full name of the parent registered model (from URL).
-  optional string full_name_arg = 1 [(validate_required) = true];
+  optional string full_name = 1;
 
   // Required. Integer model version number (from URL).
-  optional int64 version_arg = 2 [(validate_required) = true];
+  optional int64 version_arg = 2;
 
   message Response {}
 }
@@ -78,10 +78,10 @@ message DeleteModelVersion {
 message FinalizeModelVersion {
 
   // Required. Full name of the parent registered model (from URL).
-  optional string full_name_arg = 1 [(validate_required) = true];
+  optional string full_name = 1;
 
   // Required. Integer model version number (from URL).
-  optional int64 version_arg = 2 [(validate_required) = true];
+  optional int64 version_arg = 2;
 
   message Response {
     optional ModelVersionInfo model_version_info = 1 [(json_inline) = true];
@@ -137,16 +137,10 @@ message RegisteredModelInfo {
 message GetModelVersion {
 
   // Required. Full name of the parent registered model (from URL)..
-  optional string full_name_arg = 1 [(validate_required) = true];
+  optional string full_name = 1;
 
   // Required. Integer model version number (from URL).
-  optional int64 version_arg = 2 [(validate_required) = true];
-
-  // If false, aliases will be included in the ModelVersionInfo returned in the response.
-  optional bool include_aliases = 3;
-
-  // Optional. When Specified, BROWSE privilege will be checked and returning browsable metadata when applicable
-  optional bool include_browse = 4;
+  optional int64 version_arg = 2;
 
   message Response {
     optional ModelVersionInfo model_version_info = 1 [(json_inline) = true];
@@ -156,10 +150,10 @@ message GetModelVersion {
 message UpdateModelVersion {
 
   // Required. Full name of the parent registered model (from URL).
-  optional string full_name_arg = 1 [(validate_required) = true];
+  optional string full_name = 1;
 
   // Required. Integer model version number (from URL).
-  optional int64 version_arg = 2 [(validate_required) = true];
+  optional int64 version_arg = 2;
 
   // Required. Partial ModelVersionInfo with fields to change.
   optional ModelVersionInfo model_version_info = 3 [(json_inline) = true];
@@ -190,11 +184,6 @@ message ModelVersionInfo {
   optional string run_id = 6;
   // [Create:OPT Update:IGN] ID of the workspace containing the MLflow run that
   // generated this model version
-  optional int64 run_workspace_id = 7;
-  // [Create:OPT] Model Version tags
-  repeated TagKeyValue tags = 18;
-  // [Create:OPT Update:IGN] Model version dependencies.
-  optional DependencyList model_version_dependencies = 19;
 
   // Output-only fields:
 
@@ -205,8 +194,6 @@ message ModelVersionInfo {
   // [Create,Update:IGN] Storage root URL for model version
   optional string storage_location = 10;
   // [Create,Update:IGN] Unique identifier of parent Metastore.
-  optional string metastore_id = 11;
-  // [Create,Update:IGN] Time at which this model version was created, in epoch milliseconds.
   optional int64 created_at = 12;
   // [Create,Update:IGN] Username of model version creator.
   optional string created_by = 13;
@@ -216,8 +203,6 @@ message ModelVersionInfo {
   optional string updated_by = 15;
   // [Create,Update:IGN] Unique identifier of model version.
   optional string id = 16;
-  // [Create,Update:IGN] Registered model aliases associated with this model version.
-  repeated RegisteredModelAliasInfo aliases = 17;
 }
 
 message TagKeyValue {
@@ -252,23 +237,4 @@ message RegisteredModelAliasInfo {
   optional string alias_name = 1;
   // Numeric model version that alias will reference.
   optional int64 version_num = 2;
-}
-
-message DependencyList {
-  repeated Dependency dependencies = 1;
-}
-
-message Dependency {
-  oneof value {
-    TableDependency table = 1;
-    FunctionDependency function = 2;
-  }
-}
-
-message TableDependency {
-  optional string table_full_name = 1 [(scalapb.field).type = "TableFullName"];
-}
-
-message FunctionDependency {
-  optional string function_full_name = 1 [(scalapb.field).type = "FunctionFullName"];
 }

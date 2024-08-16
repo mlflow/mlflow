@@ -93,7 +93,7 @@ def test_update_registered_model(mock_http, store, creds):
         "models/catalog_1.schema_1.model_1",
         "PATCH",
         UpdateRegisteredModel(
-            full_name_arg="catalog_1.schema_1.model_1",
+            full_name="catalog_1.schema_1.model_1",
             new_name="model_1",
             registered_model_info=RegisteredModelInfo(name="model_1",catalog_name="catalog_1",schema_name="schema_1",comment=description)
         ),
@@ -109,7 +109,7 @@ def test_get_registered_model(mock_http, store, creds):
         mock_http,
         "models/catalog_1.schema_1.model_1",
         "GET",
-        GetRegisteredModel(full_name_arg="catalog_1.schema_1.model_1"),
+        GetRegisteredModel(full_name="catalog_1.schema_1.model_1"),
     )
 
 @mock_http_200
@@ -121,7 +121,7 @@ def test_delete_registered_model(mock_http, store, creds):
         "models/catalog_1.schema_1.model_1",
         "DELETE",
         DeleteRegisteredModel(
-            full_name_arg="catalog_1.schema_1.model_1",
+            full_name="catalog_1.schema_1.model_1",
         ),
     )
 
@@ -133,7 +133,7 @@ def test_create_model_version(mock_http, store, creds):
         mock_http,
         f"models/catalog_1.schema_1.model_1/versions/0/finalize",
         "PATCH",
-        FinalizeModelVersion(full_name_arg=model_name, version_arg=0),
+        FinalizeModelVersion(full_name=model_name, version_arg=0),
     )
 
 @mock_http_200
@@ -145,7 +145,7 @@ def test_get_model_version(mock_http, store, creds):
         mock_http,
         f"models/catalog_1.schema_1.model_1/versions/0",
         "GET",
-        GetModelVersion(full_name_arg=model_name, version_arg=version),
+        GetModelVersion(full_name=model_name, version_arg=version),
     )
 
 @mock_http_200
@@ -171,5 +171,5 @@ def test_delete_model_version(mock_http, store, creds):
         mock_http,
         f"models/catalog_1.schema_1.model_1/versions/0",
         "DELETE",
-        DeleteModelVersion(full_name_arg=model_name, version_arg=version),
+        DeleteModelVersion(full_name=model_name, version_arg=version),
     )
