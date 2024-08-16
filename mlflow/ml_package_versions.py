@@ -290,6 +290,15 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "0.10.58"
         }
     },
+    "autogen": {
+        "package_info": {
+            "pip_release": "pyautogen"
+        },
+        "autologging": {
+            "minimum": "0.2.29",
+            "maximum": "0.2.34"
+        }
+    },
     "sentence_transformers": {
         "package_info": {
             "pip_release": "sentence-transformers"
@@ -339,5 +348,6 @@ FLAVOR_TO_MODULE_NAME = {
     "openai": "openai",
     "langchain": "langchain",
     "llama_index": "llama_index.core",
+    "autogen": "autogen",
     "pyspark.ml": "pyspark"
 }
