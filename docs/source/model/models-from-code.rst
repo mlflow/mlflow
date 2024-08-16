@@ -10,25 +10,36 @@ Models From Code Guide
     using other libraries directly, using the provided saving and logging functionality within specific model flavors is recommended.
 
 
-The models from code feature is a comprehensive overhaul of the process of defining, storing, and loading custom models. The key difference between 
-legacy serialization of custom python models and the models from code approach is in how a model is represented during serialization. In the legacy
-approach, serialization is done on the model object using ``cloudpickle``, creating a binary file that is used to reconstruct the object when loaded. 
+The models from code feature is a comprehensive overhaul of the process of defining, storing, and loading both custom models and specific flavor
+implementations that do not depend on serialized model weights (such as `LangChain <../llms/langchain/index.html>`_ and
+`LlamaIndex <../llms/llama-index/index.html>`_). 
+
+The key difference between legacy serialization of these models and the Models from Code approach is in how a model is represented during serialization. 
+
+In the legacy approach, serialization is done on the model object using either ``cloudpickle`` (custom pyfunc and LangChain) or a custom serializer that has incomplete coverage 
+(in the case of LlamaIndex) of all functionality within the underlying package. For custom pyfunc, the usage of ``cloudpickle`` to serialize object instances creates a binary file that is used to reconstruct the object when loaded. 
+
 In models from code, for the model types that are supported, a simple script is saved with the definition of either the custom pyfunc or the flavor's 
 interface (i.e., in the case of LangChain, we can define and mark an LCEL chain directly as a model within a script).
 
 The greatest gain associated with using models from code for custom ``pyfunc`` and supported library implementations is in the reduction of repetitive trial-and-error debugging 
-that can occur when working on an implementation. The workflow shown below illustrates how these two methdologies compare when working on a solution:
+that can occur when working on an implementation. The workflow shown below illustrates how these two methdologies compare when working on a solution for a custom model:
 
 .. figure:: ../_static/images/models/models_from_code_journey.png
     :alt: Models from code comparison with legacy serialization
     :width: 80%
     :align: center
 
-Differences with Legacy PythonModel logging
--------------------------------------------
+Differences with Legacy serialization
+-------------------------------------
 
-In the legacy mode, an instance of your subclassed :py:class:`mlflow.pyfunc.PythonModel` is submitted in the call to ``log_model``. When called via an object
-reference, MLflow will utilize ``cloudpickle`` to attempt to serialize your object. 
+In the legacy mode for custom models, an instance of your subclassed :py:class:`mlflow.pyfunc.PythonModel` is submitted in the call to ``log_model``. When called via an object
+reference, MLflow will utilize ``cloudpickle`` to attempt to serialize your object.
+
+In the native flavor serialization for ``LangChain``, ``cloudpickle`` is used to store object references. However, only a subset of all object types that can be
+used within ``LangChain`` are available for serializing due to external state references or the use of lambda functions within the APIs. ``LlamaIndex``, on the 
+other hand, utilizes a custom serializer in the native implementation of the flavor that does not cover all possible uses of the library due to the need for
+excessively complex implementations to support edge case features within the library.
 
 In models from code, instead of passing an object reference to an instance of your custom model, you will simply pass a path reference to a script that 
 contains your model definition. When this mode is employed, MLflow will simply execute this script (along with any ``code_paths`` dependencies prior to running 
