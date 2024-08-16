@@ -31,7 +31,6 @@ dependencies = [
   "cloudpickle<4",
   "databricks-sdk<1,>=0.20.0",
   "docker<8,>=4.0.0",
-  "entrypoints<1",
   "gitpython<4,>=3.1.9",
   "graphene<4",
   "gunicorn<23; platform_system != 'Windows'",
@@ -255,6 +254,7 @@ forced-separate = ["tests"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "pkg_resources".msg = "Do not use pkg_resources. Use importlib.resources or importlib.metadata instead."
+"entrypoints".msg = "Do not use entrypoints. Use importlib.metadata.entry_points instead."
 "pip".msg = "Importing pip can cause undesired side effects such as https://github.com/scikit-learn/scikit-learn/issues/26992. Consider using `subprocess.run([sys.executable, '-m', 'pip', ...])` instead."
 
 [tool.ruff.lint.pydocstyle]

@@ -13,10 +13,6 @@ cloudpickle:
   pip_release: cloudpickle
   max_major_version: 3
 
-entrypoints:
-  pip_release: entrypoints
-  max_major_version: 0
-
 gitpython:
   pip_release: gitpython
   minimum: "3.1.9"
