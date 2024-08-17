@@ -250,7 +250,7 @@ class CloudArtifactRepository(ArtifactRepository):
             )
             num_retries = _MLFLOW_MPD_NUM_RETRIES.get()
             interval = _MLFLOW_MPD_RETRY_INTERVAL_SECONDS.get()
-            if num_retries < 0:
+            if num_retries == 0 and failed_downloads:
                 raise MlflowException(
                     message=(
                         f"Download Failed. _MLFLOW_MPD_NUM_RETRIES is set to 0, so retries will not be attempted."
