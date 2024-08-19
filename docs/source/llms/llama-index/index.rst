@@ -279,6 +279,11 @@ The logged index can be loaded back using the :py:func:`mlflow.llama_index.load_
     index = mlflow.llama_index.load_model(model_info.model_uri)
     index.as_query_engine().query("What is MLflow?")
 
+.. note::
+
+    The object that is passed to the ``set_model()`` method must be a LlamaIndex index that is compatible with the engine type specified during logging. More
+    objects support will be added in the future releases.
+
 
 I have an index logged with ``query`` engine type. Can I load it back a ``chat`` engine?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

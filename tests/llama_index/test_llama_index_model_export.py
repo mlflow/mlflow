@@ -27,6 +27,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
 
 _EMBEDDING_DIM = 1536
+_TEST_QUERY = "Spell llamaindex"
 
 
 @pytest.fixture
@@ -48,7 +49,7 @@ def test_llama_index_native_save_and_load_model(request, index_fixture, model_pa
     loaded_model = mlflow.llama_index.load_model(model_path)
 
     assert type(loaded_model) == type(index)
-    assert loaded_model.as_query_engine().query("Spell llamaindex").response != ""
+    assert loaded_model.as_query_engine().query(_TEST_QUERY).response != ""
 
 
 @pytest.mark.parametrize(
@@ -70,7 +71,7 @@ def test_llama_index_native_log_and_load_model(request, index_fixture):
     assert type(loaded_model) == type(index)
     engine = loaded_model.as_query_engine()
     assert engine is not None
-    assert engine.query("Spell llamaindex").response != ""
+    assert engine.query(_TEST_QUERY).response != ""
 
 
 def test_llama_index_save_invalid_object_raise():
@@ -343,13 +344,13 @@ def test_llama_index_databricks_integration(monkeypatch, document, model_path, m
 
     # validate if the mocking works
     with pytest.raises(Exception, match="Should not be called"):
-        index.as_query_engine().query("Spell llamaindex")
+        index.as_query_engine().query(_TEST_QUERY)
 
     loaded_model = mlflow.pyfunc.load_model(model_path)
 
-    response = loaded_model.predict("Spell llamaindex")
+    response = loaded_model.predict(_TEST_QUERY)
     assert isinstance(response, str)
-    assert response != ""
+    assert _TEST_QUERY in response
 
 
 @pytest.mark.parametrize(
@@ -384,4 +385,4 @@ def test_save_load_index_as_code_optional_code_path(index_code_path, vector_stor
 
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert isinstance(pyfunc_loaded_model.get_raw_model(), BaseQueryEngine)
-    assert pyfunc_loaded_model.predict("Spell llamaindex") != ""
+    assert _TEST_QUERY in pyfunc_loaded_model.predict(_TEST_QUERY)

@@ -421,7 +421,7 @@ def autolog(
     only supports autologging for tracing.
 
     Args:
-        log_traces: If ``True``, traces are logged for LlamIndex models by using. If ``False``,
+        log_traces: If ``True``, traces are logged for LlamaIndex models by using. If ``False``,
             no traces are collected during inference. Default to ``True``.
         disable: If ``True``, disables the LlamaIndex autologging integration. If ``False``,
             enables the LlamaIndex autologging integration.

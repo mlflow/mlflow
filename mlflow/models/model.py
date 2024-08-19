@@ -1023,21 +1023,26 @@ def set_model(model):
     to be logged.
 
     Args:
-        model: The model object to be logged.
+        model: The model object to be logged. Supported model types are:
+
+                - A Python function or callable object.
+                - A Langchain model or path to a Langchain model.
+                - A Llama Index model or path to a Llama Index model.
     """
     from mlflow.pyfunc import PythonModel
 
     if isinstance(model, str):
         raise mlflow.MlflowException(SET_MODEL_ERROR)
 
-    if not (isinstance(model, PythonModel) or callable(model)):
-        for validate_function in [_validate_langchain_model, _validate_llama_index_model]:
-            try:
-                globals()["__mlflow_model__"] = validate_function(model)
-                return
-            except Exception:
-                pass
-        else:
-            raise mlflow.MlflowException(SET_MODEL_ERROR)
+    if isinstance(model, PythonModel) or callable(model):
+        globals()["__mlflow_model__"] = model
+        return
 
-    globals()["__mlflow_model__"] = model
+    for validate_function in [_validate_langchain_model, _validate_llama_index_model]:
+        try:
+            globals()["__mlflow_model__"] = validate_function(model)
+            return
+        except Exception:
+            pass
+
+    raise mlflow.MlflowException(SET_MODEL_ERROR)
