@@ -2,8 +2,6 @@ import logging
 import warnings
 from typing import List, Optional
 
-import entrypoints
-
 from mlflow.tracking.context.abstract_context import RunContextProvider
 from mlflow.tracking.context.databricks_cluster_context import DatabricksClusterRunContext
 from mlflow.tracking.context.databricks_command_context import DatabricksCommandRunContext
@@ -13,6 +11,7 @@ from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunCon
 from mlflow.tracking.context.default_context import DefaultRunContext
 from mlflow.tracking.context.git_context import GitRunContext
 from mlflow.tracking.context.system_environment_context import SystemEnvironmentContext
+from mlflow.utils.plugins import get_entry_points
 
 _logger = logging.getLogger(__name__)
 
@@ -37,7 +36,7 @@ class RunContextProviderRegistry:
 
     def register_entrypoints(self):
         """Register tracking stores provided by other packages"""
-        for entrypoint in entrypoints.get_group_all("mlflow.run_context_provider"):
+        for entrypoint in get_entry_points("mlflow.run_context_provider"):
             try:
                 self.register(entrypoint.load())
             except (AttributeError, ImportError) as exc:
