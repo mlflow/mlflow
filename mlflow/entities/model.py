@@ -16,6 +16,7 @@ class Model(_MlflowObject):
         experiment_id: str,  # New field added
         model_id: str,
         name: str,
+        artifact_location: str,  # New field added
         creation_timestamp: int,
         last_updated_timestamp: int,
         run_id: Optional[str] = None,
@@ -28,6 +29,7 @@ class Model(_MlflowObject):
         self._experiment_id: str = experiment_id  # New field initialized
         self._model_id: str = model_id
         self._name: str = name
+        self._artifact_location: str = artifact_location  # New field initialized
         self._creation_time: int = creation_timestamp
         self._last_updated_timestamp: int = last_updated_timestamp
         self._run_id: Optional[str] = run_id
@@ -62,6 +64,15 @@ class Model(_MlflowObject):
     @name.setter
     def name(self, new_name: str):
         self._name = new_name
+
+    @property
+    def artifact_location(self) -> str:
+        """String. Location of the model artifacts."""
+        return self._artifact_location
+
+    @artifact_location.setter
+    def artifact_location(self, new_artifact_location: str):
+        self._artifact_location = new_artifact_location
 
     @property
     def creation_timestamp(self) -> int:

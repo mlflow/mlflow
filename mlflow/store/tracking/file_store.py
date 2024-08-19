@@ -1875,12 +1875,13 @@ class FileStore(AbstractStore):
             )
 
         model_id = str(uuid.uuid4())
-        artifact_uri = self._get_model_artifact_dir(experiment_id, model_id)
+        artifact_location = self._get_model_artifact_dir(experiment_id, model_id)
         creation_timestamp = int(time.time() * 1000)
         model = Model(
             experiment_id=experiment_id,
             model_id=model_id,
             name=name,
+            artifact_location=artifact_location,
             creation_timestamp=creation_timestamp,
             last_updated_timestamp=creation_timestamp,
             run_id=run_id,
@@ -1892,7 +1893,7 @@ class FileStore(AbstractStore):
         # Persist model metadata and create directories for logging metrics, tags
         model_dir = self._get_model_dir(experiment_id, model_id)
         mkdir(model_dir)
-        model_info_dict: Dict[str, Any] = self._make_persisted_model_dict(model, artifact_uri)
+        model_info_dict: Dict[str, Any] = self._make_persisted_model_dict(model)
         write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict)
         for tag in tags or []:
             self.set_model_tag(model_id=model_id, tag=tag)
@@ -1920,7 +1921,7 @@ class FileStore(AbstractStore):
         model.status = status
         model.last_updated_timestamp = int(time.time() * 1000)
         model_dir = self._get_model_dir(model.experiment_id, model.model_id)
-        model_info_dict = self._make_persisted_model_dict(model, model_dict["artifact_location"])
+        model_info_dict = self._make_persisted_model_dict(model)
         write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict, overwrite=True)
         return self.get_model(model_id)
 
@@ -1947,9 +1948,8 @@ class FileStore(AbstractStore):
             FileStore.ARTIFACTS_FOLDER_NAME,
         )
 
-    def _make_persisted_model_dict(self, model: Model, artifact_location) -> Dict[str, Any]:
+    def _make_persisted_model_dict(self, model: Model) -> Dict[str, Any]:
         model_dict = model.to_dictionary()
-        model_dict["artifact_location"] = artifact_location
         model_dict.pop("tags", None)
         model_dict["params"] = {param.key: param.value for param in model.params or []}
         return model_dict
