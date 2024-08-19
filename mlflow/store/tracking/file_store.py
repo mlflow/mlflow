@@ -1873,6 +1873,8 @@ class FileStore(AbstractStore):
                 f"Could not create model under non-active experiment with ID {experiment_id}.",
                 databricks_pb2.INVALID_STATE,
             )
+        for param in params or []:
+            _validate_param(param.key, param.value)
 
         model_id = str(uuid.uuid4())
         artifact_location = self._get_model_artifact_dir(experiment_id, model_id)
