@@ -7,10 +7,11 @@ def _get_entry_points(group: str) -> List[importlib.metadata.EntryPoint]:
     if sys.version_info >= (3, 10):
         return importlib.metadata.entry_points(group=group)
 
+    entrypoints = importlib.metadata.entry_points()
     try:
-        return importlib.metadata.entry_points().get(group, [])
+        return entrypoints.get(group, [])
     except AttributeError:
-        return importlib.metadata.entry_points().select(group=group)
+        return entrypoints.select(group=group)
 
 
 def get_entry_points(group: str) -> List[importlib.metadata.EntryPoint]:
