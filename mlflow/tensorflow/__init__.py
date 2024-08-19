@@ -7,6 +7,7 @@ TensorFlow (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+
 import importlib
 import logging
 import os
@@ -29,7 +30,9 @@ from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signat
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
-from mlflow.tensorflow.callback import MlflowCallback, MlflowModelCheckpointCallback  # noqa: F401
+from mlflow.tensorflow.callback import (
+    MlflowCallback,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
@@ -723,7 +726,10 @@ def _load_pyfunc(path):
         # In SavedModel format, loaded model should be compiled.
         should_compile = save_format == "tf"
         m = _load_keras_model(
-            path, keras_module=keras_module, save_format=save_format, compile=should_compile
+            path,
+            keras_module=keras_module,
+            save_format=save_format,
+            compile=should_compile,
         )
         return _KerasModelWrapper(m, model_meta.signature)
     if model_type == _MODEL_TYPE_TF1_ESTIMATOR:
@@ -977,6 +983,9 @@ def _setup_callbacks(callbacks, log_every_epoch, log_every_n_steps):
         checkpoint_save_freq = get_autologging_config(
             mlflow.tensorflow.FLAVOR_NAME, "checkpoint_save_freq", "epoch"
         )
+        checkpoint_file_suffix = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "checkpoint_file_suffix", ".h5"
+        )
 
         if not any(isinstance(callback, MlflowModelCheckpointCallback) for callback in callbacks):
             callbacks.append(
@@ -986,6 +995,7 @@ def _setup_callbacks(callbacks, log_every_epoch, log_every_n_steps):
                     save_best_only=checkpoint_save_best_only,
                     save_weights_only=checkpoint_save_weights_only,
                     save_freq=checkpoint_save_freq,
+                    checkpoint_file_suffix=checkpoint_file_suffix,
                 )
             )
 
@@ -1015,6 +1025,7 @@ def autolog(
     checkpoint_save_best_only=True,
     checkpoint_save_weights_only=False,
     checkpoint_save_freq="epoch",
+    checkpoint_file_suffix=".h5",
 ):
     """
     Enables autologging for ``tf.keras``.
@@ -1114,6 +1125,7 @@ def autolog(
             epochs, the monitored metric may potentially be less reliable (it
             could reflect as little as 1 batch, since the metrics get reset
             every epoch). Defaults to `"epoch"`.
+        checkpoint_file_suffix: checkpoint file suffix.
     """
     import tensorflow as tf
 
@@ -1155,7 +1167,11 @@ def autolog(
 
     def _get_early_stop_callback_attrs(callback):
         try:
-            return callback.stopped_epoch, callback.restore_best_weights, callback.patience
+            return (
+                callback.stopped_epoch,
+                callback.restore_best_weights,
+                callback.patience,
+            )
         except Exception:
             return None
 
@@ -1246,7 +1262,14 @@ def autolog(
             self.log_dir = None
 
         def _patch_implementation(self, original, inst, *args, **kwargs):
-            unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
+            unlogged_params = [
+                "self",
+                "x",
+                "y",
+                "callbacks",
+                "validation_data",
+                "verbose",
+            ]
 
             batch_size = None
             try:
@@ -1409,7 +1432,8 @@ def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None, targ
             dataset = from_numpy(features=x, targets=y, source=source, name=name)
     else:
         _logger.warning(
-            "Unrecognized dataset type %s. Dataset logging skipped.", type(tensorflow_dataset)
+            "Unrecognized dataset type %s. Dataset logging skipped.",
+            type(tensorflow_dataset),
         )
         return
 
