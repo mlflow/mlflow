@@ -305,7 +305,7 @@ def test_signature_for_rag():
         "outputs": (
             '[{"type": "array", "items": {"type": "object", "properties": '
             '{"finish_reason": {"type": "string", "required": true}, '
-            '"index": {"type": "integer", "required": true}, '
+            '"index": {"type": "long", "required": true}, '
             '"message": {"type": "object", "properties": '
             '{"content": {"type": "string", "required": true}, '
             '"role": {"type": "string", "required": true}}, '
