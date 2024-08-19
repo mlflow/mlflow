@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.model_param import ModelParam
@@ -13,11 +13,11 @@ class Model(_MlflowObject):
 
     def __init__(
         self,
+        experiment_id: str,  # New field added
         model_id: str,
         name: str,
         creation_timestamp: int,
         last_updated_timestamp: int,
-        source: Optional[str] = None,
         run_id: Optional[str] = None,
         status: ModelStatus = ModelStatus.READY,
         status_message: Optional[str] = None,
@@ -25,11 +25,11 @@ class Model(_MlflowObject):
         params: Optional[ModelParam] = None,
     ):
         super().__init__()
+        self._experiment_id: str = experiment_id  # New field initialized
         self._model_id: str = model_id
         self._name: str = name
         self._creation_time: int = creation_timestamp
         self._last_updated_timestamp: int = last_updated_timestamp
-        self._source: Optional[str] = source
         self._run_id: Optional[str] = run_id
         self._status: ModelStatus = status
         self._status_message: Optional[str] = status_message
@@ -37,9 +37,18 @@ class Model(_MlflowObject):
         self._params: Optional[ModelParam] = params
 
     @property
+    def experiment_id(self) -> str:
+        """String. Experiment ID associated with this Model."""
+        return self._experiment_id
+
+    @experiment_id.setter
+    def experiment_id(self, new_experiment_id: str):
+        self._experiment_id = new_experiment_id
+
+    @property
     def model_id(self) -> str:
-        """String. Unique ID for the Model."""
-        return self._name
+        """String. Unique ID for this Model."""
+        return self._model_id
 
     @model_id.setter
     def model_id(self, new_model_id: str):
@@ -47,7 +56,7 @@ class Model(_MlflowObject):
 
     @property
     def name(self) -> str:
-        """String. Name for the Model."""
+        """String. Name for this Model."""
         return self._name
 
     @name.setter
@@ -55,18 +64,13 @@ class Model(_MlflowObject):
         self._name = new_name
 
     @property
-    def version(self) -> str:
-        """version"""
-        return self._version
-
-    @property
     def creation_timestamp(self) -> int:
-        """Integer. Model version creation timestamp (milliseconds since the Unix epoch)."""
+        """Integer. Model creation timestamp (milliseconds since the Unix epoch)."""
         return self._creation_time
 
     @property
     def last_updated_timestamp(self) -> int:
-        """Integer. Timestamp of last update for this model version (milliseconds since the Unix
+        """Integer. Timestamp of last update for this Model (milliseconds since the Unix
         epoch).
         """
         return self._last_updated_timestamp
@@ -76,47 +80,18 @@ class Model(_MlflowObject):
         self._last_updated_timestamp = updated_timestamp
 
     @property
-    def description(self) -> str:
-        """String. Description"""
-        return self._description
-
-    @description.setter
-    def description(self, description: str):
-        self._description = description
-
-    @property
-    def user_id(self) -> str:
-        """String. User ID that created this model version."""
-        return self._user_id
-
-    @property
-    def current_stage(self) -> str:
-        """String. Current stage of this model version."""
-        return self._current_stage
-
-    @current_stage.setter
-    def current_stage(self, stage: str):
-        self._current_stage = stage
-
-    @property
-    def source(self) -> Optional[str]:
-        """String. Source path for the model."""
-        return self._source
-
-    @property
     def run_id(self) -> Optional[str]:
         """String. MLflow run ID that generated this model."""
         return self._run_id
 
     @property
-    def run_link(self) -> str:
-        """String. MLflow run link referring to the exact run that generated this model version."""
-        return self._run_link
-
-    @property
     def status(self) -> ModelStatus:
-        """String. Current status of this model."""
+        """String. Current status of this Model."""
         return self._status
+
+    @status.setter
+    def status(self, updated_status: str):
+        self._status = updated_status
 
     @property
     def status_message(self) -> Optional[str]:
@@ -125,7 +100,7 @@ class Model(_MlflowObject):
 
     @property
     def tags(self) -> Dict[str, str]:
-        """Dictionary of tag key (string) -> tag value for the current model version."""
+        """Dictionary of tag key (string) -> tag value for this Model."""
         return self._tags
 
     @property
@@ -140,3 +115,8 @@ class Model(_MlflowObject):
 
     def _add_tag(self, tag):
         self._tags[tag.key] = tag.value
+
+    def to_dictionary(self) -> Dict[str, Any]:
+        model_dict = dict(self)
+        model_dict["status"] = str(self.status)
+        return model_dict

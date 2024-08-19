@@ -6,7 +6,7 @@ import sys
 import time
 import uuid
 from dataclasses import dataclass
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 from mlflow.entities import (
     Dataset,
@@ -15,6 +15,11 @@ from mlflow.entities import (
     ExperimentTag,
     InputTag,
     Metric,
+    Model,
+    ModelInput,
+    ModelParam,
+    ModelStatus,
+    ModelTag,
     Param,
     Run,
     RunData,
@@ -170,6 +175,7 @@ class FileStore(AbstractStore):
         DATASETS_FOLDER_NAME,
         TRACES_FOLDER_NAME,
     ]
+    MODELS_FOLDER_NAME = "models"
 
     def __init__(self, root_directory=None, artifact_root_uri=None):
         """
@@ -1112,13 +1118,20 @@ class FileStore(AbstractStore):
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
 
-    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+    def log_inputs(
+        self,
+        run_id: str,
+        datasets: Optional[List[DatasetInput]] = None,
+        models: Optional[List[ModelInput]] = None,
+    ):
         """
-        Log inputs, such as datasets, to the specified run.
+        Log inputs, such as datasets and models, to the specified run.
 
         Args:
             run_id: String id for the run
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
+                as inputs to the run.
+            models: List of :py:class:`mlflow.entities.ModelInput` instances to log
                 as inputs to the run.
 
         Returns:
@@ -1128,13 +1141,13 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
 
-        if datasets is None:
+        if datasets is None and models is None:
             return
 
         experiment_dir = self._get_experiment_path(run_info.experiment_id, assert_exists=True)
         run_dir = self._get_run_dir(run_info.experiment_id, run_id)
 
-        for dataset_input in datasets:
+        for dataset_input in datasets or []:
             dataset = dataset_input.dataset
             dataset_id = FileStore._get_dataset_id(
                 dataset_name=dataset.name, dataset_digest=dataset.digest
@@ -1144,7 +1157,7 @@ class FileStore(AbstractStore):
                 os.makedirs(dataset_dir, exist_ok=True)
                 write_yaml(dataset_dir, FileStore.META_DATA_FILE_NAME, dict(dataset))
 
-            input_id = FileStore._get_input_id(dataset_id=dataset_id, run_id=run_id)
+            input_id = FileStore._get_dataset_input_id(dataset_id=dataset_id, run_id=run_id)
             input_dir = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME, input_id)
             if not os.path.exists(input_dir):
                 os.makedirs(input_dir, exist_ok=True)
@@ -1157,6 +1170,21 @@ class FileStore(AbstractStore):
                 )
                 fs_input.write_yaml(input_dir, FileStore.META_DATA_FILE_NAME)
 
+        for model_input in models or []:
+            model_id = model_input.model_id
+            input_id = FileStore._get_model_input_id(model_id=model_id, run_id=run_id)
+            input_dir = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME, input_id)
+            if not os.path.exists(input_dir):
+                os.makedirs(input_dir, exist_ok=True)
+                fs_input = FileStore._FileStoreInput(
+                    source_type=InputVertexType.MODEL,
+                    source_id=model_id,
+                    destination_type=InputVertexType.RUN,
+                    destination_id=run_id,
+                    tags={},
+                )
+                fs_input.write_yaml(input_dir, FileStore.META_DATA_FILE_NAME)
+
     @staticmethod
     def _get_dataset_id(dataset_name: str, dataset_digest: str) -> str:
         md5 = insecure_hash.md5(dataset_name.encode("utf-8"))
@@ -1164,8 +1192,14 @@ class FileStore(AbstractStore):
         return md5.hexdigest()
 
     @staticmethod
-    def _get_input_id(dataset_id: str, run_id: str) -> str:
+    def _get_dataset_input_id(dataset_id: str, run_id: str) -> str:
         md5 = insecure_hash.md5(dataset_id.encode("utf-8"))
+        md5.update(run_id.encode("utf-8"))
+        return md5.hexdigest()
+
+    @staticmethod
+    def _get_model_input_id(model_id: str, run_id: str) -> str:
+        md5 = insecure_hash.md5(model_id.encode("utf-8"))
         md5.update(run_id.encode("utf-8"))
         return md5.hexdigest()
 
@@ -1686,3 +1720,162 @@ class FileStore(AbstractStore):
                     exc_info=_logger.isEnabledFor(logging.DEBUG),
                 )
         return trace_infos
+
+    def create_model(
+        self,
+        experiment_id: str,
+        name: str,
+        run_id: Optional[str] = None,
+        tags: Optional[List[ModelTag]] = None,
+        params: Optional[List[ModelParam]] = None,
+    ) -> Model:
+        """
+        Create a new model.
+
+        Args:
+            experiment_id: ID of the Experiment where the model is being created.
+            name: Name of the model.
+            run_id: Run ID where the model is being created from.
+            tags: Key-value tags for the model.
+            params: Key-value params for the model.
+
+        Returns:
+            The model version.
+        """
+        experiment_id = FileStore.DEFAULT_EXPERIMENT_ID if experiment_id is None else experiment_id
+        experiment = self.get_experiment(experiment_id)
+        if experiment is None:
+            raise MlflowException(
+                "Could not create model under experiment with ID %s - no such experiment "
+                "exists." % experiment_id,
+                databricks_pb2.RESOURCE_DOES_NOT_EXIST,
+            )
+        if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
+            raise MlflowException(
+                f"Could not create model under non-active experiment with ID {experiment_id}.",
+                databricks_pb2.INVALID_STATE,
+            )
+
+        model_id = str(uuid.uuid4())
+        artifact_uri = self._get_model_artifact_dir(experiment_id, model_id)
+        creation_timestamp = int(time.time() * 1000)
+        model = Model(
+            experiment_id=experiment_id,
+            model_id=model_id,
+            name=name,
+            creation_timestamp=creation_timestamp,
+            last_updated_timestamp=creation_timestamp,
+            run_id=run_id,
+            status=ModelStatus.PENDING,
+            tags=tags,
+            params=params,
+        )
+
+        # Persist model metadata and create directories for logging metrics, tags
+        model_dir = self._get_model_dir(experiment_id, model_id)
+        mkdir(model_dir)
+        model_info_dict: Dict[str, Any] = self._make_persisted_model_dict(model, artifact_uri)
+        write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict)
+        for tag in tags or []:
+            self.set_model_tag(model_id=model_id, tag=tag)
+
+        return self.get_model(model_id=model_id)
+
+    def finalize_model(self, model_id: str, status: ModelStatus) -> Model:
+        """
+        Finalize a model by updating its status.
+
+        Args:
+            model_id: ID of the model to finalize.
+            status: Final status to set on the model.
+
+        Returns:
+            The updated model.
+        """
+        if status != ModelStatus.READY:
+            raise MlflowException(
+                f"Invalid model status: {status}. Expected statuses: [{ModelStatus.READY}]",
+                databricks_pb2.INVALID_PARAMETER_VALUE,
+            )
+        model_dict = self._get_model_dict(model_id)
+        model = Model.from_dictionary(model_dict)
+        model.status = status
+        model.last_updated_timestamp = int(time.time() * 1000)
+        model_dir = self._get_model_dir(model.experiment_id, model.model_id)
+        model_info_dict = self._make_persisted_model_dict(model, model_dict["artifact_location"])
+        write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict, overwrite=True)
+        return self.get_model(model_id)
+
+    def set_model_tag(self, model_id: str, tag: ModelTag):
+        _validate_tag_name(tag.key)
+        model = self.get_model(model_id)
+        tag_path = os.path.join(
+            self._get_model_dir(model.experiment_id, model.model_id),
+            FileStore.TAGS_FOLDER_NAME,
+            tag.key,
+        )
+        make_containing_dirs(tag_path)
+        # Don't add trailing newline
+        write_to(tag_path, self._writeable_value(tag.value))
+        return
+
+    def get_model(self, model_id: str) -> Model:
+        return Model.from_dictionary(self._get_model_dict(model_id))
+
+    def _get_model_artifact_dir(self, experiment_id: str, model_id: str) -> str:
+        return append_to_uri_path(
+            self.get_experiment(experiment_id).artifact_location,
+            model_id,
+            FileStore.ARTIFACTS_FOLDER_NAME,
+        )
+
+    def _make_persisted_model_dict(self, model: Model, artifact_location) -> Dict[str, Any]:
+        model_dict = model.to_dictionary()
+        model_dict["artifact_location"] = artifact_location
+        model_dict.pop("tags", None)
+        model_dict["params"] = {param.key: param.value for param in model.params or []}
+        return model_dict
+
+    def _get_model_dict(self, model_id: str) -> Dict[str, Any]:
+        exp_id, model_dir = self._find_model_root(model_id)
+        if model_dir is None:
+            raise MlflowException(
+                f"Model '{model_id}' not found", databricks_pb2.RESOURCE_DOES_NOT_EXIST
+            )
+        model_dict: Dict[str, Any] = self._get_model_info_from_dir(model_dir)
+        if model_dict["experiment_id"] != exp_id:
+            raise MlflowException(
+                f"Model '{model_id}' metadata is in invalid state.", databricks_pb2.INVALID_STATE
+            )
+        model_dict["tags"] = self._get_all_model_tags(model_dir)
+        return model_dict
+
+    def _get_model_dir(self, experiment_id: str, model_id: str) -> str:
+        if not self._has_experiment(experiment_id):
+            return None
+        return os.path.join(
+            self._get_experiment_path(experiment_id, assert_exists=True),
+            FileStore.MODELS_FOLDER_NAME,
+            model_id,
+        )
+
+    def _find_model_root(self, model_id):
+        self._check_root_dir()
+        all_experiments = self._get_active_experiments(True) + self._get_deleted_experiments(True)
+        for experiment_dir in all_experiments:
+            models_dir_path = os.path.join(experiment_dir, FileStore.MODELS_FOLDER_NAME)
+            models = find(models_dir_path, model_id, full_path=True)
+            if len(models) == 0:
+                continue
+            return os.path.basename(os.path.dirname(os.path.abspath(models_dir_path))), models[0]
+        return None, None
+
+    def _get_model_info_from_dir(self, model_dir: str) -> Dict[str, Any]:
+        return FileStore._read_yaml(model_dir, FileStore.META_DATA_FILE_NAME)
+
+    def _get_all_model_tags(self, model_dir: str) -> List[ModelTag]:
+        parent_path, tag_files = self._get_resource_files(model_dir, FileStore.TAGS_FOLDER_NAME)
+        tags = []
+        for tag_file in tag_files:
+            tags.append(self._get_tag_from_file(parent_path, tag_file))
+        return tags

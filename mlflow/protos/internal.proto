@@ -20,4 +20,6 @@ enum InputVertexType {
   RUN = 1;
 
   DATASET = 2;
+
+  MODEL = 3;
 }
