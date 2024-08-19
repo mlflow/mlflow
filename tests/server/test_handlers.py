@@ -216,7 +216,7 @@ def test_can_parse_post_json_with_content_type_params():
 def test_can_parse_get_json_with_unknown_fields():
     request = mock.MagicMock()
     request.method = "GET"
-    request.query_string = b"name=hello&superDuperUnknown=field"
+    request.args = {"name": "hello", "superDuperUnknown": "field"}
     msg = _get_request_message(CreateExperiment(), flask_request=request)
     assert msg.name == "hello"
 

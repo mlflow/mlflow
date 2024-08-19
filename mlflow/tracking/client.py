@@ -76,7 +76,6 @@ from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
     get_databricks_run_url,
-    is_in_databricks_model_serving_environment,
 )
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import (
@@ -616,15 +615,9 @@ class MlflowClient:
 
             trace_manager = InMemoryTraceManager.get_instance()
             tags = exclude_immutable_tags(tags or {})
-            if is_in_databricks_model_serving_environment():
-                # Update trace tags for trace in in-memory trace manager
-                with trace_manager.get_trace(request_id) as trace:
-                    trace.info.tags.update(tags)
-            else:
-                # Update trace tags in store and in-memory if tracking client is available
-                self._tracking_client.set_trace_tags(request_id, tags)
-                trace_info = self._tracking_client.get_trace_info(request_id)
-                trace_manager.update_trace_info(trace_info)
+            # Update trace tags for trace in in-memory trace manager
+            with trace_manager.get_trace(request_id) as trace:
+                trace.info.tags.update(tags)
             # Register new span in the in-memory trace manager
             trace_manager.register_span(mlflow_span)
 
@@ -723,6 +716,7 @@ class MlflowClient:
         span_type: str = SpanType.UNKNOWN,
         inputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
+        start_time_ns: Optional[int] = None,
     ) -> Span:
         """
         Create a new span and start it without attaching it to the global trace context.
@@ -796,6 +790,8 @@ class MlflowClient:
                 both fluent APIs like `with mlflow.start_span()`, and imperative APIs like this.
             inputs: Inputs to set on the span.
             attributes: A dictionary of attributes to set on the span.
+            start_time_ns: The start time of the span in nano seconds since the UNIX epoch.
+                If not provided, the current time will be used.
 
         Returns:
             An :py:class:`mlflow.entities.Span` object representing the span.
@@ -857,7 +853,15 @@ class MlflowClient:
             )
 
         try:
-            otel_span = mlflow.tracing.provider.start_detached_span(name, parent=parent_span._span)
+            otel_span = mlflow.tracing.provider.start_detached_span(
+                name=name, parent=parent_span._span
+            )
+
+            # We have to set the custom start time here after the span is created,
+            # because span processor may override the start time in the on_start() method.
+            if start_time_ns is not None:
+                otel_span._start_time = start_time_ns
+
             span = create_mlflow_span(otel_span, request_id, span_type)
             span.set_attributes(attributes or {})
             if inputs is not None:
@@ -881,6 +885,7 @@ class MlflowClient:
         outputs: Optional[Dict[str, Any]] = None,
         attributes: Optional[Dict[str, Any]] = None,
         status: Union[SpanStatus, str] = "OK",
+        end_time_ns: Optional[int] = None,
     ):
         """
         End the span with the given trace ID and span ID.
@@ -897,6 +902,8 @@ class MlflowClient:
                 representing the status code defined in
                 :py:class:`SpanStatusCode <mlflow.entities.SpanStatusCode>`
                 e.g. ``"OK"``, ``"ERROR"``. The default status is OK.
+            end_time_ns: The end time of the span in nano seconds since the UNIX epoch.
+                If not provided, the current time will be used.
         """
         if request_id == NO_OP_SPAN_REQUEST_ID:
             return
@@ -916,7 +923,7 @@ class MlflowClient:
         span.set_status(status)
 
         try:
-            span.end()
+            span.end(end_time=end_time_ns)
         except Exception as e:
             _logger.warning(
                 f"Failed to end span {span_id}: {e}. "

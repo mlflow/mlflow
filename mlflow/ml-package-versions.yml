@@ -734,6 +734,17 @@ llama_index:
       ">= 0.0.0": ["openai"]
     run: pytest tests/llama_index/test_llama_index_autolog.py tests/llama_index/test_llama_index_tracer.py
 
+autogen:
+  package_info:
+    pip_release: "pyautogen"
+    install_dev: |
+      pip install git+https://github.com/microsoft/autogen
+  autologging:
+    # Tool call logging is implemented in autogen 0.2.29
+    minimum: "0.2.29"
+    maximum: "0.2.34"
+    run: pytest tests/autogen
+
 sentence_transformers:
   package_info:
     pip_release: "sentence-transformers"

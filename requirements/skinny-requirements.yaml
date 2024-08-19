@@ -32,10 +32,6 @@ protobuf:
   minimum: "3.12.0"
   max_major_version: 5
 
-pytz:
-  pip_release: pytz
-  max_major_version: 2024
-
 requests:
   pip_release: requests
   minimum: "2.17.3"

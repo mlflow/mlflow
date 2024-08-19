@@ -1,4 +1,5 @@
 import contextlib
+import importlib
 import inspect
 import logging
 import sys
@@ -80,6 +81,17 @@ MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG = {
     "extra_model_classes": None,
     "log_traces": True,
 }
+
+# When the library version installed in the user's environment is outside of the supported
+# version range declared in `ml-package-versions.yml`, a warning message is issued to the user.
+# However, some libraries releases versions very frequently, and our configuration (updated on
+# MLflow release) cannot keep up with the pace, resulting in false alarms. Therefore, we
+# suppress warnings for certain libraries that are known to have frequent releases.
+_AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
+    "langchain",
+    "llama-index",
+    "openai",
+]
 
 _logger = logging.getLogger(__name__)
 
@@ -363,13 +375,15 @@ def _check_and_log_warning_for_unsupported_package_versions(integration_name):
         and not get_autologging_config(integration_name, "disable", True)
         and not get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
         and not is_flavor_supported_for_associated_package_versions(integration_name)
+        and integration_name not in _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST
     ):
+        min_var, max_var, pip_release = get_min_max_version_and_pip_release(integration_name)
+        module = importlib.import_module(FLAVOR_TO_MODULE_NAME[integration_name])
         _logger.warning(
-            "You are using an unsupported version of %s. If you encounter errors during "
-            "autologging, try upgrading / downgrading %s to a supported version, or try "
-            "upgrading MLflow.",
-            integration_name,
-            integration_name,
+            f"MLflow {integration_name} autologging is known to be compatible with "
+            f"{min_var} <= {pip_release} <= {max_var}, but the installed version is "
+            f"{module.__version__}. If you encounter errors during autologging, try upgrading "
+            f"/ downgrading {pip_release} to a compatible version, or try upgrading MLflow.",
         )
 
 
