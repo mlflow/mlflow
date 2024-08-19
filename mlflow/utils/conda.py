@@ -2,6 +2,7 @@ import json
 import logging
 import os
 
+import pkg_resources  # noqa
 import yaml
 
 from mlflow.environment_variables import MLFLOW_CONDA_CREATE_ENV_CMD, MLFLOW_CONDA_HOME
