@@ -121,8 +121,9 @@ class HdfsArtifactRepository(ArtifactRepository):
             return sorted(paths, key=lambda f: paths)
 
     def _is_directory(self, artifact_path):
+        hdfs_base_path = _resolve_base_path(self.path, artifact_path)
         with hdfs_system(scheme=self.scheme, host=self.host, port=self.port) as hdfs:
-            return hdfs.get_file_info(artifact_path).type == FileType.Directory
+            return hdfs.get_file_info(hdfs_base_path).type == FileType.Directory
 
     def _download_file(self, remote_file_path, local_path):
         hdfs_base_path = _resolve_base_path(self.path, remote_file_path)

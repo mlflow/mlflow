@@ -234,3 +234,18 @@ def test_delete_artifacts(hdfs_system_mock):
     delete_mock = hdfs_system_mock.return_value.delete_dir_contents
     repo.delete_artifacts("artifacts")
     delete_mock.assert_called_once_with("/some_path/maybe/path/artifacts")
+
+
+@mock.patch(
+    "mlflow.store.artifact.hdfs_artifact_repo.HadoopFileSystem", spec=pyarrow.fs.HadoopFileSystem
+)
+def test_is_directory_called_with_relative_path(hdfs_system_mock):
+    repo = HdfsArtifactRepository("hdfs://host/some/path")
+
+    get_file_info_mock = hdfs_system_mock.return_value.get_file_info
+    get_file_info_mock.side_effect = [
+        pyarrow.fs.FileInfo(path="/some/path/dir", type=pyarrow.fs.FileType.Directory, size=0),
+    ]
+
+    assert repo._is_directory("dir")
+    get_file_info_mock.assert_called_once_with("/some/path/dir")
