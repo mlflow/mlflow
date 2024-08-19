@@ -725,6 +725,8 @@ llama_index:
           # Required to test Databricks integration
           "llama-index-llms-databricks",
           "llama-index-embeddings-databricks",
+          # Required to test external vector stores
+          "llama-index-vector-stores-qdrant",
         ]
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
