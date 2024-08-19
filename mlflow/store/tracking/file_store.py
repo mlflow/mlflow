@@ -17,6 +17,7 @@ from mlflow.entities import (
     Metric,
     Model,
     ModelInput,
+    ModelOutput,
     ModelParam,
     ModelStatus,
     ModelTag,
@@ -25,6 +26,7 @@ from mlflow.entities import (
     RunData,
     RunInfo,
     RunInputs,
+    RunOutputs,
     RunStatus,
     RunTag,
     SourceType,
@@ -43,7 +45,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
-from mlflow.protos.internal_pb2 import InputVertexType
+from mlflow.protos.internal_pb2 import InputVertexType, OutputVertexType
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.file_store import FileStore as ModelRegistryFileStore
 from mlflow.store.tracking import (
@@ -164,6 +166,7 @@ class FileStore(AbstractStore):
     EXPERIMENT_TAGS_FOLDER_NAME = "tags"
     DATASETS_FOLDER_NAME = "datasets"
     INPUTS_FOLDER_NAME = "inputs"
+    OUTPUTS_FOLDER_NAME = "outputs"
     META_DATA_FILE_NAME = "meta.yaml"
     DEFAULT_EXPERIMENT_ID = "0"
     TRACE_INFO_FILE_NAME = "trace_info.yaml"
@@ -693,11 +696,12 @@ class FileStore(AbstractStore):
         params = self._get_all_params(run_info)
         tags = self._get_all_tags(run_info)
         inputs: RunInputs = self._get_all_inputs(run_info)
+        outputs: RunOutputs = self._get_all_outputs(run_info)
         if not run_info.run_name:
             run_name = _get_run_name_from_tags(tags)
             if run_name:
                 run_info._set_run_name(run_name)
-        return Run(run_info, RunData(metrics, params, tags), inputs)
+        return Run(run_info, RunData(metrics, params, tags), inputs, outputs)
 
     def _get_run_info(self, run_uuid):
         """
@@ -1185,6 +1189,41 @@ class FileStore(AbstractStore):
                 )
                 fs_input.write_yaml(input_dir, FileStore.META_DATA_FILE_NAME)
 
+    def log_outputs(self, run_id, models: Optional[List[ModelOutput]] = None):
+        """
+        Log outputs, such as models, to the specified run.
+
+        Args:
+            run_id: String id for the run
+            models: List of :py:class:`mlflow.entities.ModelOutput` instances to log
+                as outputs of the run.
+
+        Returns:
+            None.
+        """
+        _validate_run_id(run_id)
+        run_info = self._get_run_info(run_id)
+        check_run_is_active(run_info)
+
+        if models is None:
+            return
+
+        run_dir = self._get_run_dir(run_info.experiment_id, run_id)
+
+        for model_output in models:
+            model_id = model_output.model_id
+            output_dir = os.path.join(run_dir, FileStore.OUTPUTS_FOLDER_NAME, model_id)
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir, exist_ok=True)
+                fs_output = FileStore._FileStoreOutput(
+                    source_type=OutputVertexType.RUN_OUTPUT,
+                    source_id=model_id,
+                    destination_type=OutputVertexType.MODEL_OUTPUT,
+                    destination_id=run_id,
+                    tags={},
+                )
+                fs_output.write_yaml(output_dir, FileStore.META_DATA_FILE_NAME)
+
     @staticmethod
     def _get_dataset_id(dataset_name: str, dataset_digest: str) -> str:
         md5 = insecure_hash.md5(dataset_name.encode("utf-8"))
@@ -1231,15 +1270,43 @@ class FileStore(AbstractStore):
                 tags=dict_from_yaml["tags"],
             )
 
+    class _FileStoreOutput(NamedTuple):
+        source_type: int
+        source_id: str
+        destination_type: int
+        destination_id: str
+        tags: Dict[str, str]
+
+        def write_yaml(self, root: str, file_name: str):
+            dict_for_yaml = {
+                "source_type": OutputVertexType.Name(self.source_type),
+                "source_id": self.source_id,
+                "destination_type": OutputVertexType.Name(self.destination_type),
+                "destination_id": self.source_id,
+                "tags": self.tags,
+            }
+            write_yaml(root, file_name, dict_for_yaml)
+
+        @classmethod
+        def from_yaml(cls, root, file_name):
+            dict_from_yaml = FileStore._read_yaml(root, file_name)
+            return cls(
+                source_type=OutputVertexType.Value(dict_from_yaml["source_type"]),
+                source_id=dict_from_yaml["source_id"],
+                destination_type=OutputVertexType.Value(dict_from_yaml["destination_type"]),
+                destination_id=dict_from_yaml["destination_id"],
+                tags=dict_from_yaml["tags"],
+            )
+
     def _get_all_inputs(self, run_info: RunInfo) -> RunInputs:
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
         inputs_parent_path = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME)
-        experiment_dir = self._get_experiment_path(run_info.experiment_id, assert_exists=True)
         if not os.path.exists(inputs_parent_path):
             return RunInputs(dataset_inputs=[], model_inputs=[])
 
+        experiment_dir = self._get_experiment_path(run_info.experiment_id, assert_exists=True)
         dataset_inputs = self._get_dataset_inputs(run_info, inputs_parent_path, experiment_dir)
-        model_inputs = self._get_model_inputs(run_info, inputs_parent_path, experiment_dir)
+        model_inputs = self._get_model_inputs(inputs_parent_path, experiment_dir)
         return RunInputs(dataset_inputs=dataset_inputs, model_inputs=model_inputs)
 
     def _get_dataset_inputs(
@@ -1297,6 +1364,33 @@ class FileStore(AbstractStore):
             model_inputs.append(model_input)
 
         return model_inputs
+
+    def _get_all_outputs(self, run_info: RunInfo) -> RunOutputs:
+        run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
+        outputs_parent_path = os.path.join(run_dir, FileStore.OUTPUTS_FOLDER_NAME)
+        if not os.path.exists(outputs_parent_path):
+            return RunOutputs(model_outputs=[])
+
+        experiment_dir = self._get_experiment_path(run_info.experiment_id, assert_exists=True)
+        model_outputs = self._get_model_outputs(outputs_parent_path, experiment_dir)
+        return RunOutputs(model_outputs=model_outputs)
+
+    def _get_model_outputs(
+        self, outputs_parent_path: str, experiment_dir: str
+    ) -> List[ModelOutput]:
+        model_outputs = []
+        for output_dir in os.listdir(outputs_parent_path):
+            output_dir_full_path = os.path.join(outputs_parent_path, output_dir)
+            fs_output = FileStore._FileStoreOutput.from_yaml(
+                output_dir_full_path, FileStore.META_DATA_FILE_NAME
+            )
+            if fs_output.destination_type != OutputVertexType.MODEL_OUTPUT:
+                continue
+
+            model_output = ModelOutput(model_id=fs_output.destination_id)
+            model_outputs.append(model_output)
+
+        return model_outputs
 
     def _search_datasets(self, experiment_ids) -> List[_DatasetSummary]:
         """
