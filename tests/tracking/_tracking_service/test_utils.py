@@ -309,7 +309,9 @@ def test_handle_plugin_registration_failure_via_entrypoints(exception):
     mock_entrypoint = mock.Mock(load=mock.Mock(side_effect=exception))
     mock_entrypoint.name = "mock-scheme"
 
-    with mock.patch("mlflow.plugins._", return_value=[mock_entrypoint]) as mock_get_group_all:
+    with mock.patch(
+        "mlflow.utils.plugins._get_entry_points", return_value=[mock_entrypoint]
+    ) as mock_get_group_all:
         tracking_store = TrackingStoreRegistry()
 
         # Check that the raised warning contains the message from the original exception
