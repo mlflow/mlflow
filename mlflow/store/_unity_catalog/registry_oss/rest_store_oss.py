@@ -1,35 +1,31 @@
 import functools
 
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
-    UpdateRegisteredModel,
-    UpdateModelVersion,
-    CreateRegisteredModel,
     CreateModelVersion,
-    GetRegisteredModel,
-    GetModelVersion,
-    DeleteRegisteredModel,
+    CreateRegisteredModel,
     DeleteModelVersion,
+    DeleteRegisteredModel,
+    FinalizeModelVersion,
+    GetModelVersion,
+    GetRegisteredModel,
     ModelVersionInfo,
     RegisteredModelInfo,
-    FinalizeModelVersion,
+    UpdateModelVersion,
+    UpdateRegisteredModel,
 )
-
-
-
 from mlflow.protos.unity_catalog_oss_service_pb2 import UnityCatalogService
 from mlflow.store.model_registry.base_rest_store import BaseRestStore
 from mlflow.utils._unity_catalog_oss_utils import (
-    registered_model_from_uc_oss_proto,
     model_version_from_uc_oss_proto,
+    registered_model_from_uc_oss_proto,
 )
 from mlflow.utils._unity_catalog_utils import get_full_name_from_sc
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
-    call_endpoint,
     _UC_OSS_REST_API_PATH_PREFIX,
+    call_endpoint,
     extract_all_api_info_for_service,
     extract_api_info_for_service,
 )
@@ -54,8 +50,8 @@ class UnityCatalogOssStore(BaseRestStore):
             CreateRegisteredModel: RegisteredModelInfo,
             CreateModelVersion: ModelVersionInfo,
             UpdateRegisteredModel: RegisteredModelInfo,
-            DeleteRegisteredModel: DeleteRegisteredModel,  # DeleteRegisteredModel does not return a response
-            DeleteModelVersion: DeleteModelVersion,  # DeleteModelVersion does not return a response
+            DeleteRegisteredModel: DeleteRegisteredModel,  
+            DeleteModelVersion: DeleteModelVersion,  
             GetRegisteredModel: RegisteredModelInfo,
             GetModelVersion: ModelVersionInfo,
             FinalizeModelVersion: ModelVersionInfo,
@@ -125,7 +121,7 @@ class UnityCatalogOssStore(BaseRestStore):
         )
         endpoint, method = _METHOD_TO_INFO[DeleteRegisteredModel]
         final_endpoint = endpoint.replace("{full_name_arg}", full_name)
-        registered_model_info = call_endpoint(
+        call_endpoint(
             get_databricks_host_creds(),
             endpoint=final_endpoint,
             method=method,

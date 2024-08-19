@@ -4,14 +4,14 @@ from unittest import mock
 import pytest
 
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
-    RegisteredModelInfo,
-    UpdateRegisteredModel,
-    GetRegisteredModel,
+    DeleteModelVersion,
     DeleteRegisteredModel,
-    ModelVersionInfo,
     FinalizeModelVersion,
     GetModelVersion,
-    DeleteModelVersion
+    GetRegisteredModel,
+    ModelVersionInfo,
+    RegisteredModelInfo,
+    UpdateRegisteredModel,
 )
 from mlflow.store._unity_catalog.registry_oss.rest_store_oss import UnityCatalogOssStore
 from mlflow.utils.proto_json_utils import message_to_json
@@ -95,9 +95,7 @@ def test_update_registered_model(mock_http, store, creds):
 @mock_http_200
 def test_get_registered_model(mock_http, store, creds):
     model_name = "catalog_1.schema_1.model_1"
-
-    result = store.get_registered_model(name=model_name)
-
+    store.get_registered_model(name=model_name)
     _verify_requests(
         mock_http,
         "models/catalog_1.schema_1.model_1",
@@ -124,7 +122,7 @@ def test_create_model_version(mock_http, store, creds):
     store.create_model_version(name=model_name, source="source", run_id="run_id", description="description")
     _verify_requests(
         mock_http,
-        f"models/catalog_1.schema_1.model_1/versions/0/finalize",
+        "models/catalog_1.schema_1.model_1/versions/0/finalize",
         "PATCH",
         FinalizeModelVersion(full_name=model_name, version_arg=0),
     )
@@ -136,7 +134,7 @@ def test_get_model_version(mock_http, store, creds):
     store.get_model_version(name=model_name, version=version)
     _verify_requests(
         mock_http,
-        f"models/catalog_1.schema_1.model_1/versions/0",
+        "models/catalog_1.schema_1.model_1/versions/0",
         "GET",
         GetModelVersion(full_name=model_name, version_arg=version),
     )
@@ -148,7 +146,7 @@ def test_update_model_version(mock_http, store, creds):
     store.update_model_version(name=model_name, version=version, description="new description")
     _verify_requests(
         mock_http,
-        f"models/catalog_1.schema_1.model_1/versions/0",
+        "models/catalog_1.schema_1.model_1/versions/0",
         "PATCH",
         ModelVersionInfo(
             comment="new description",
@@ -162,7 +160,7 @@ def test_delete_model_version(mock_http, store, creds):
     store.delete_model_version(name=model_name, version=version)
     _verify_requests(
         mock_http,
-        f"models/catalog_1.schema_1.model_1/versions/0",
+        "models/catalog_1.schema_1.model_1/versions/0",
         "DELETE",
         DeleteModelVersion(full_name=model_name, version_arg=version),
     )

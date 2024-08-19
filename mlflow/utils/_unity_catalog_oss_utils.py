@@ -1,5 +1,9 @@
-from mlflow.entities.model_registry import RegisteredModel, ModelVersion
-from mlflow.protos.unity_catalog_oss_messages_pb2 import RegisteredModelInfo, ModelVersionInfo, ModelVersionStatus
+from mlflow.entities.model_registry import ModelVersion, RegisteredModel
+from mlflow.protos.unity_catalog_oss_messages_pb2 import (
+    ModelVersionInfo,
+    ModelVersionStatus,
+    RegisteredModelInfo,
+)
 
 _STRING_TO_STATUS = {k: ModelVersionStatus.Value(k) for k in ModelVersionStatus.keys()}
 _STATUS_TO_STRING = {value: key for key, value in _STRING_TO_STATUS.items()}
