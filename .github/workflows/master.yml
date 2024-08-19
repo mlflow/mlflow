@@ -368,3 +368,40 @@ jobs:
           # MLeap is incompatible on Windows with PySpark3.4 release.
           # Reinstate tests when MLeap has released a fix. [ML-30491]
           # pytest tests/mleap
+
+  setup-python-versions:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      versions: ${{ steps.versions.outputs.versions }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python version
+        id: versions
+        run: |
+          echo "::set-output name=versions::$(cat requirements/supported-python-versions.json)"
+
+  python-versions:
+    needs: setup-python-versions
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ${{ fromJson(needs.setup-python-versions.outputs.versions) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install mlflow
+        run: |
+          pip install .
+      - uses: ./.github/actions/show-versions
+      - name: Run tests
+        run: |
+          REPO_ROOT=$(git rev-parse --show-toplevel)
+          cd $(mktemp -d)
+          python $REPO_ROOT/examples/sklearn_autolog/linear_regression.py
