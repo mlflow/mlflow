@@ -111,10 +111,6 @@ The ``index`` object is the centerpiece of the LlamaIndex and MLflow integration
     documents = SimpleDirectoryReader("data").load_data()
     index = VectorStoreIndex.from_documents(documents)
 
-.. note::
-
-    Currently, MLflow LlamaIndex flavor only support logging and loading the index with the default in-memory vector store. The support for external vector stores such as ``FaissVectorStore`` and ``DatabricksVectorSearch`` will be added in future releases.
-
 Logging the Index to MLflow
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -143,6 +139,13 @@ The following code is an example of logging an index to MLflow with the ``chat``
             engine_type="chat",
             input_example="What did the author do growing up?",
         )
+
+.. note::
+
+    The above code snippet passes the index object directly to the ``log_model`` function.
+    This method only works with the default ``SimpleVectorStore`` vector store, which
+    simply keeps the embedded documents in memory. If your index uses **external vector stores** such as ``QdrantVectorStore`` or ``DatabricksVectorSearch``, you can use the Model-from-Code
+    logging method. See the `How to log an index with external vector stores <#how-to-log-an-index-with-external-vector-stores>`_ for more details.
 
 .. figure:: ../../_static/images/llms/llama-index/llama-index-artifacts.png
     :alt: MLflow artifacts for the LlamaIndex index
@@ -220,6 +223,67 @@ You can disable tracing by running the same function with the ``disable`` parame
 
 FAQ
 ---
+
+
+How to log and load an index with external vector stores?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If your index uses the default ``SimpleVectorStore``, you can log the index directly to MLflow using the :py:func:`mlflow.llama_index.log_model` function. MLflow persists the in-memory index data (embedded documents) to MLflow artifact store, which allows loading the index back with the same data without re-indexing the documents.
+
+However, when the index uses external vector stores like ``DatabricksVectorSearch`` and ``QdrantVectorStore``, the index data is stored remotely and they do not support local serialization. Thereby, you cannot log the index with these stores directly. For such cases, you can use the `Model-from-Code <../../../models.html#models-from-code>`_ logging that provides more control over the index saving process and allow you to use the external vector store.
+
+To use model-from-code logging, you first need to create a separate Python file that defines the index. If you are on Jupyter notebook, you can use the ``%%writefile`` magic command to save the cell code to a Python file.
+
+.. blacken-docs:off
+
+.. code-block:: python
+
+    %%writefile index.py
+
+    # Create Qdrant client with your own settings.
+    client = qdrant_client.QdrantClient(
+        host="localhost",
+        port=6333,
+    )
+
+    # Here we simply load vector store from the existing collection to avoid
+    # re-indexing documents, because this Python file is executed every time
+    # when the model is loaded. If you don't have an existing collection, create
+    # a new one by following the official tutorial:
+    # https://docs.llamaindex.ai/en/stable/examples/vector_stores/QdrantIndexDemo/
+    vector_store = QdrantVectorStore(client=client, collection_name="my_collection")
+    index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
+
+    # IMPORTANT: call set_model() method to tell MLflow to log this index
+    mlflow.models.set_model(index)
+
+.. blacken-docs:on
+
+Then you can log the index by passing the Python file path to the :py:func:`mlflow.llama_index.log_model` function. The global `Settings <https://docs.llamaindex.ai/en/stable/module_guides/supporting_modules/settings/>`_ object is saved normally as part of the model.
+
+.. code-block:: python
+
+    import mlflow
+
+    with mlflow.start_run():
+        model_info = mlflow.llama_index.log_model(
+            "index.py",
+            artifact_path="index",
+            engine_type="query",
+        )
+
+The logged index can be loaded back using the :py:func:`mlflow.llama_index.load_model` or :py:func:`mlflow.pyfunc.load_model` function, in the same way as with the local index.
+
+.. code-block:: python
+
+    index = mlflow.llama_index.load_model(model_info.model_uri)
+    index.as_query_engine().query("What is MLflow?")
+
+.. note::
+
+    The object that is passed to the ``set_model()`` method must be a LlamaIndex index that is compatible with the engine type specified during logging. More
+    objects support will be added in the future releases.
+
 
 I have an index logged with ``query`` engine type. Can I load it back a ``chat`` engine?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

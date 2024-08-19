@@ -1,5 +1,6 @@
 import logging
 import os
+import tempfile
 from typing import Any, Dict, List, Optional, Union
 
 import yaml
@@ -8,9 +9,13 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
 from mlflow.models.signature import _infer_signature_from_input_example
-from mlflow.models.utils import _save_example
+from mlflow.models.utils import (
+    _load_model_code_path,
+    _save_example,
+    _validate_and_get_model_code_path,
+)
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -33,6 +38,7 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
+    _validate_and_copy_file_to_directory,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -140,11 +146,25 @@ def save_model(
     from mlflow.llama_index.serialize_objects import serialize_settings
 
     _validate_engine_type(engine_type)
-    _validate_index(index)
-    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
-    path = os.path.abspath(path)
-    _validate_and_prepare_target_save_path(path)
+    # TODO: make this logic cleaner and maybe a util
+    with tempfile.TemporaryDirectory() as temp_dir:
+        index_or_code_path = _validate_and_prepare_llama_index_model_or_path(index, temp_dir)
+
+        _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
+        path = os.path.abspath(path)
+        _validate_and_prepare_target_save_path(path)
+
+        model_code_path = None
+        if isinstance(index_or_code_path, str):
+            model_code_path = index_or_code_path
+            index = _load_model_code_path(model_code_path, model_config)
+            _validate_and_copy_file_to_directory(model_code_path, path, "code")
+
+        else:
+            index = index_or_code_path
+
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
@@ -171,7 +191,9 @@ def save_model(
     settings_path = os.path.join(path, _SETTINGS_FILE)
     serialize_settings(settings_path)
 
-    _save_index(index, path)
+    # Do not save the index object in model-from-code saving mode
+    if not isinstance(model_code_path, str):
+        _save_index(index, path)
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -179,6 +201,7 @@ def save_model(
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
+        model_code_path=model_code_path,
         model_config=model_config,
     )
     mlflow_model.add_flavor(
@@ -298,14 +321,19 @@ def log_model(
     )
 
 
-def _validate_index(index):
+def _validate_and_prepare_llama_index_model_or_path(index, temp_dir=None):
     from llama_index.core.indices.base import BaseIndex
+
+    if isinstance(index, str):
+        return _validate_and_get_model_code_path(index, temp_dir)
 
     if not isinstance(index, BaseIndex):
         raise MlflowException.invalid_parameter_value(
             message=f"The provided object of type {type(index).__name__} is not a valid "
             "index. MLflow llama-index flavor only supports saving LlamaIndex indices."
         )
+
+    return index
 
 
 def _save_index(index, path):
@@ -320,9 +348,21 @@ def _load_index(path, flavor_conf):
 
     _add_code_from_conf_to_system_path(path, flavor_conf)
 
-    index_path = os.path.join(path, _INDEX_PERSIST_FOLDER)
-    storage_context = StorageContext.from_defaults(persist_dir=index_path)
-    return load_index_from_storage(storage_context)
+    # Handle model-from-code
+    pyfunc_flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=pyfunc.FLAVOR_NAME)
+    if model_code_path := pyfunc_flavor_conf.get(MODEL_CODE_PATH):
+        # TODO: The code path saved in the MLModel file is the local absolute path to the code
+        # file when it is saved. We should update the relative path in artifact directory.
+        model_code_path = os.path.join(
+            path,
+            os.path.basename(model_code_path),
+        )
+        return _load_model_code_path(model_code_path, flavor_conf)
+    else:
+        # Use default vector store when loading from the serialized index
+        index_path = os.path.join(path, _INDEX_PERSIST_FOLDER)
+        storage_context = StorageContext.from_defaults(persist_dir=index_path)
+        return load_index_from_storage(storage_context)
 
 
 @experimental
@@ -381,9 +421,8 @@ def autolog(
     only supports autologging for tracing.
 
     Args:
-        log_traces: If ``True``, traces are logged for Langchain models by using
-            MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
-            collected during inference. Default to ``True``.
+        log_traces: If ``True``, traces are logged for LlamaIndex models by using. If ``False``,
+            no traces are collected during inference. Default to ``True``.
         disable: If ``True``, disables the LlamaIndex autologging integration. If ``False``,
             enables the LlamaIndex autologging integration.
         silent: If ``True``, suppress all event logs and warnings from MLflow during LlamaIndex
