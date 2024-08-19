@@ -2,6 +2,8 @@ import abc
 import importlib.metadata
 import inspect
 
+import importlib_metadata
+
 from mlflow.deployments.base import BaseDeploymentClient
 from mlflow.deployments.utils import parse_target_uri
 from mlflow.exceptions import MlflowException
@@ -97,7 +99,7 @@ class DeploymentPlugins(PluginManager):
             )
             raise MlflowException(msg, error_code=RESOURCE_DOES_NOT_EXIST)
 
-        if isinstance(plugin_like, importlib.metadata.EntryPoint):
+        if isinstance(plugin_like, (importlib_metadata.EntryPoint, importlib.metadata.EntryPoint)):
             try:
                 plugin_obj = plugin_like.load()
             except (AttributeError, ImportError) as exc:
