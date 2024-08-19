@@ -75,11 +75,27 @@ def test__parallelized_download_from_cloud(monkeypatch, future_result, expected_
             futures = {future: fake_chunk_1}
 
             with mock.patch("mlflow.store.artifact.cloud_artifact_repo.as_completed", return_value=futures):
+                # Mocks
+                cloud_artifact_instance._get_read_credential_infos.return_value = [fake_credential]
+                cloud_artifact_instance._get_uri_for_path.return_value = "fake_uri_path"
                 cloud_artifact_instance.chunk_thread_pool.submit.return_value = future
 
-                # Call the method to test
-                cloud_artifact_instance._parallelized_download_from_cloud(1, "fake_remote_path", "fake_local_path")
+                #  Method Call
+                if future_result:
+                    with pytest.raises(MlflowException):
+                        cloud_artifact_instance._parallelized_download_from_cloud(1, "fake_remote_path", "fake_local_path")
+                else:
+                    cloud_artifact_instance._parallelized_download_from_cloud(1, "fake_remote_path", "fake_local_path")
 
-                # Assert that _get_read_credential_infos is called the expected number of times
+                #Assert
                 assert cloud_artifact_instance._get_read_credential_infos.call_count == expected_call_count
-                # assert that download chunk is called with the correct args
+
+                
+                # assert cloud_artifact_instance.chunk_thread_pool.submit.assert_called_with(
+                #         cloud_artifact_instance._download_chunk,
+                #         fake_chunk_1.start,
+                #         fake_chunk_1.end,
+                #         ArtifactCredentialInfo.HttpHeader(name="fake_header_name", value="fake_header_value"),
+                #         "fake_local_path",
+                #         "fake_signed_uri",
+                #     )

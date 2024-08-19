@@ -250,12 +250,6 @@ class CloudArtifactRepository(ArtifactRepository):
             )
             num_retries = _MLFLOW_MPD_NUM_RETRIES.get()
             interval = _MLFLOW_MPD_RETRY_INTERVAL_SECONDS.get()
-            if num_retries == 0 and failed_downloads:
-                raise MlflowException(
-                    message=(
-                        f"Download Failed. _MLFLOW_MPD_NUM_RETRIES is set to 0, so retries will not be attempted."
-                    )
-                )
             failed_downloads = list(failed_downloads)
             while failed_downloads and num_retries > 0:
                 self._refresh_credentials()
@@ -281,6 +275,13 @@ class CloudArtifactRepository(ArtifactRepository):
                 failed_downloads = new_failed_downloads
                 num_retries -= 1
                 time.sleep(interval)
+            
+            if num_retries == 0 and failed_downloads:
+                raise MlflowException(
+                    message=(
+                        f"All retries have been exhausted. Download has failed."
+                    )
+                )
 
     def _download_file(self, remote_file_path, local_path):
         # list_artifacts API only returns a list of FileInfos at the specified path
