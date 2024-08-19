@@ -1235,9 +1235,19 @@ class FileStore(AbstractStore):
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
         inputs_parent_path = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME)
         experiment_dir = self._get_experiment_path(run_info.experiment_id, assert_exists=True)
-        datasets_parent_path = os.path.join(experiment_dir, FileStore.DATASETS_FOLDER_NAME)
-        if not os.path.exists(inputs_parent_path) or not os.path.exists(datasets_parent_path):
-            return RunInputs(dataset_inputs=[])
+        if not os.path.exists(inputs_parent_path):
+            return RunInputs(dataset_inputs=[], model_inputs=[])
+
+        dataset_inputs = self._get_dataset_inputs(run_info, inputs_parent_path, experiment_dir)
+        model_inputs = self._get_model_inputs(run_info, inputs_parent_path, experiment_dir)
+        return RunInputs(dataset_inputs=dataset_inputs, model_inputs=model_inputs)
+
+    def _get_dataset_inputs(
+        self, run_info: RunInfo, inputs_parent_path: str, experiment_dir_path: str
+    ) -> List[DatasetInput]:
+        datasets_parent_path = os.path.join(experiment_dir_path, FileStore.DATASETS_FOLDER_NAME)
+        if not os.path.exists(datasets_parent_path):
+            return []
 
         dataset_dirs = os.listdir(datasets_parent_path)
         dataset_inputs = []
@@ -1247,9 +1257,6 @@ class FileStore(AbstractStore):
                 input_dir_full_path, FileStore.META_DATA_FILE_NAME
             )
             if fs_input.source_type != InputVertexType.DATASET:
-                logging.warning(
-                    f"Encountered invalid run input source type '{fs_input.source_type}'. Skipping."
-                )
                 continue
 
             matching_dataset_dirs = [d for d in dataset_dirs if d == fs_input.source_id]
@@ -1272,7 +1279,24 @@ class FileStore(AbstractStore):
             )
             dataset_inputs.append(dataset_input)
 
-        return RunInputs(dataset_inputs=dataset_inputs)
+        return dataset_inputs
+
+    def _get_model_inputs(
+        self, inputs_parent_path: str, experiment_dir_path: str
+    ) -> List[ModelInput]:
+        model_inputs = []
+        for input_dir in os.listdir(inputs_parent_path):
+            input_dir_full_path = os.path.join(inputs_parent_path, input_dir)
+            fs_input = FileStore._FileStoreInput.from_yaml(
+                input_dir_full_path, FileStore.META_DATA_FILE_NAME
+            )
+            if fs_input.source_type != InputVertexType.MODEL:
+                continue
+
+            model_input = ModelInput(model_id=fs_input.source_id)
+            model_inputs.append(model_input)
+
+        return model_inputs
 
     def _search_datasets(self, experiment_ids) -> List[_DatasetSummary]:
         """

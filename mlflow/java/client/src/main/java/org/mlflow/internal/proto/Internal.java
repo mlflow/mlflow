@@ -32,6 +32,10 @@ public final class Internal {
      * <code>DATASET = 2;</code>
      */
     DATASET(2),
+    /**
+     * <code>MODEL = 3;</code>
+     */
+    MODEL(3),
     ;
 
     /**
@@ -42,6 +46,10 @@ public final class Internal {
      * <code>DATASET = 2;</code>
      */
     public static final int DATASET_VALUE = 2;
+    /**
+     * <code>MODEL = 3;</code>
+     */
+    public static final int MODEL_VALUE = 3;
 
 
     public final int getNumber() {
@@ -66,6 +74,7 @@ public final class Internal {
       switch (value) {
         case 1: return RUN;
         case 2: return DATASET;
+        case 3: return MODEL;
         default: return null;
       }
     }
@@ -125,9 +134,9 @@ public final class Internal {
   static {
     java.lang.String[] descriptorData = {
       "\n\016internal.proto\022\017mlflow.internal\032\025scala" +
-      "pb/scalapb.proto*\'\n\017InputVertexType\022\007\n\003R" +
-      "UN\020\001\022\013\n\007DATASET\020\002B#\n\031org.mlflow.internal" +
-      ".proto\220\001\001\342?\002\020\001"
+      "pb/scalapb.proto*2\n\017InputVertexType\022\007\n\003R" +
+      "UN\020\001\022\013\n\007DATASET\020\002\022\t\n\005MODEL\020\003B#\n\031org.mlfl" +
+      "ow.internal.proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
