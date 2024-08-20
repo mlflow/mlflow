@@ -334,6 +334,28 @@ def test_requestor():
             mock_http, creds, "runs/log-model", "POST", message_to_json(expected_message)
         )
 
+    # if model has config, it should be removed from the model_json before sending to the server
+    with mock_http_request() as mock_http:
+        run_id = "run_id"
+        flavors_with_config = {
+            "tf": "flavor body",
+            "python_function": {"config": {"a": 1}, "code": "code"},
+        }
+        m_with_config = Model(
+            artifact_path="model/path", run_id="run_id", flavors=flavors_with_config
+        )
+        store.record_logged_model("run_id", m_with_config)
+        model_dict = m_with_config.to_dict()
+        del model_dict["flavors"]["python_function"]["config"]
+        expected_message = LogModel(run_id=run_id, model_json=json.dumps(model_dict))
+        _verify_requests(
+            mock_http,
+            creds,
+            "runs/log-model",
+            "POST",
+            message_to_json(expected_message),
+        )
+
 
 def test_get_experiment_by_name():
     creds = MlflowHostCreds("https://hello")

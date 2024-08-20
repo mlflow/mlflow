@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Dict, List, Optional
 
@@ -535,7 +536,25 @@ class RestStore(AbstractStore):
         self._call_endpoint(LogBatch, req_body)
 
     def record_logged_model(self, run_id, mlflow_model):
-        req_body = message_to_json(LogModel(run_id=run_id, model_json=mlflow_model.to_json()))
+        ## Ignore config while logging model
+        model_info = {
+            key: {
+                flavor_name: {
+                    flavor_key: flavor_value
+                    for flavor_key, flavor_value in flavor_dict.items()
+                    if flavor_key != "config"
+                }
+                if "config" in flavor_dict
+                else flavor_dict
+                for flavor_name, flavor_dict in value.items()
+            }
+            if key == "flavors"
+            else value
+            for key, value in mlflow_model.to_dict().items()
+        }
+
+        model_json = json.dumps(model_info)
+        req_body = message_to_json(LogModel(run_id=run_id, model_json=model_json))
         self._call_endpoint(LogModel, req_body)
 
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
