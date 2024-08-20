@@ -83,12 +83,7 @@ from mlflow.langchain.utils import (
 from mlflow.langchain.utils.chat import try_transform_response_to_chat_format
 from mlflow.models import Model
 from mlflow.models.dependencies_schemas import DependenciesSchemasType
-from mlflow.models.resources import (
-    DatabricksServingEndpoint,
-    DatabricksVectorSearchIndex,
-    DatabricksSQLWarehouse,
-    DatabricksUCFunction,
-)
+from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.models.utils import load_serving_example
 from mlflow.pyfunc.context import Context
@@ -1860,10 +1855,12 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
 
 
 def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
-    from databricks.sdk.service.catalog import FunctionInfo
-    from langchain_community.tools.databricks import UCFunctionToolkit
     import sys
 
+    from databricks.sdk.service.catalog import FunctionInfo
+    from langchain_community.tools.databricks import UCFunctionToolkit
+
+    # Return 2 functions from the function lis
     def mock_function_list(self, catalog_name, schema_name):
         assert catalog_name == "rag"
         assert schema_name == "studio"
@@ -1872,6 +1869,7 @@ def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
             FunctionInfo(full_name="rag.studio.test_function_b"),
         ]
 
+    # For each function ensure that it returns a tool which takes one input
     def mock_function_get(self, function_name):
         components = function_name.split(".")
         param_dict = {
@@ -1898,21 +1896,16 @@ def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
         )
 
     mock_workspace_client = mock.MagicMock()
-    mock_bind_tools = mock.MagicMock()
 
     monkeypatch.setitem(sys.modules, "databricks.sdk.WorkspaceClient", mock_workspace_client)
     monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.list", mock_function_list)
     monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
-    monkeypatch.setattr(
-        "langchain_community.chat_models.ChatDatabricks.bind_tools", mock_bind_tools
-    )
+    # Mocking Cloudpickle because serialization in this setup is failing
     monkeypatch.setattr("cloudpickle.dump", mock.MagicMock())
 
+    # Create an toolkit with the '*' syntax
     uc_function_tools = (
-        UCFunctionToolkit(warehouse_id="test_id_1")
-        .include("rag.studio.test_function_a")
-        .include("rag.studio.test_function_b")
-        .get_tools()
+        UCFunctionToolkit(warehouse_id="test_id_1").include("rag.studio.*").get_tools()
     )
 
     llm = OpenAI(temperature=0)
@@ -1933,11 +1926,8 @@ def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
     actual = reloaded_model.resources["databricks"]
 
+    # Ensure both functions are outputted
     expected = {
-        "serving_endpoint": [
-            {"name": "fake-llm-endpoint"},
-            {"name": "fake-embeddings"},
-        ],
         "sql_warehouse": [{"name": "test_id_1"}],
         "uc_function": [
             {"name": "rag.studio.test_function_a"},

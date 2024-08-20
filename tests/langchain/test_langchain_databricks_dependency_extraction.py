@@ -16,9 +16,9 @@ from mlflow.langchain.databricks_dependencies import (
 from mlflow.langchain.utils import IS_PICKLE_SERIALIZATION_RESTRICTED
 from mlflow.models.resources import (
     DatabricksServingEndpoint,
-    DatabricksVectorSearchIndex,
     DatabricksSQLWarehouse,
     DatabricksUCFunction,
+    DatabricksVectorSearchIndex,
 )
 
 
@@ -244,13 +244,15 @@ def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in
 
 
 def test_parsing_dependency_from_uc_function_toolkit(monkeypatch: pytest.MonkeyPatch):
-    from langchain_community.tools.databricks import UCFunctionToolkit
     from databricks.sdk.service.catalog import FunctionInfo
-    from langchain.llms import OpenAI
     from langchain.agents import initialize_agent
+    from langchain.llms import OpenAI
+    from langchain_community.tools.databricks import UCFunctionToolkit
 
+    # When get is called return a function
     def mock_function_get(self, function_name):
         components = function_name.split(".")
+        # Initialize agent used below requires functions to take in exactly one parameter
         param_dict = {
             "parameters": [
                 {
@@ -265,6 +267,7 @@ def test_parsing_dependency_from_uc_function_toolkit(monkeypatch: pytest.MonkeyP
                 }
             ]
         }
+        # Add the catalog, schema and name to the function Info followed by the parameter
         return FunctionInfo.from_dict(
             {
                 "catalog_name": components[0],
@@ -292,10 +295,10 @@ def test_parsing_dependency_from_uc_function_toolkit(monkeypatch: pytest.MonkeyP
 
 
 def test_parsing_multiple_dependency_from_uc_function_toolkit(monkeypatch: pytest.MonkeyPatch):
-    from langchain_community.tools.databricks import UCFunctionToolkit
-    from langchain.llms import OpenAI
-    from langchain.agents import initialize_agent
     from databricks.sdk.service.catalog import FunctionInfo
+    from langchain.agents import initialize_agent
+    from langchain.llms import OpenAI
+    from langchain_community.tools.databricks import UCFunctionToolkit
 
     mock_workspace_client = MagicMock()
 
@@ -324,6 +327,7 @@ def test_parsing_multiple_dependency_from_uc_function_toolkit(monkeypatch: pytes
             }
         )
 
+    # In addition to above now handle the case where a '*' is passed in and list all the functions
     def mock_function_list(self, catalog_name, schema_name):
         assert catalog_name == "rag"
         assert schema_name == "test"
@@ -345,10 +349,8 @@ def test_parsing_multiple_dependency_from_uc_function_toolkit(monkeypatch: pytes
         verbose=True,
     )
     resources = list(_extract_databricks_dependencies_from_uc_function_toolkit(agent))
-    print(resources)
-    print(len(resources))
-    for resource in resources:
-        print(resource)
+
+    # Ensure all resources are added in
     assert resources == [
         DatabricksUCFunction(function_name="rag.test.test_function"),
         DatabricksUCFunction(function_name="rag.test.test_function_2"),
