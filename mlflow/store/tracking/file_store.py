@@ -798,17 +798,26 @@ class FileStore(AbstractStore):
     @staticmethod
     def _get_metric_from_line(metric_name, metric_line, exp_id):
         metric_parts = metric_line.strip().split(" ")
-        if len(metric_parts) != 2 and len(metric_parts) != 3:
+        if len(metric_parts) != 2 and len(metric_parts) != 3 and len(metric_parts) != 5:
             raise MlflowException(
                 f"Metric '{metric_name}' is malformed; persisted metric data contained "
-                f"{len(metric_parts)} fields. Expected 2 or 3 fields. "
+                f"{len(metric_parts)} fields. Expected 2, 3, or 5 fields. "
                 f"Experiment id: {exp_id}",
                 databricks_pb2.INTERNAL_ERROR,
             )
         ts = int(metric_parts[0])
         val = float(metric_parts[1])
         step = int(metric_parts[2]) if len(metric_parts) == 3 else 0
-        return Metric(key=metric_name, value=val, timestamp=ts, step=step)
+        dataset_name = str(metric_parts[3]) if len(metric_parts) == 5 else None
+        dataset_digest = str(metric_parts[4]) if len(metric_parts) == 5 else None
+        return Metric(
+            key=metric_name,
+            value=val,
+            timestamp=ts,
+            step=step,
+            dataset_name=dataset_name,
+            dataset_digest=dataset_digest,
+        )
 
     def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
         """
@@ -978,7 +987,14 @@ class FileStore(AbstractStore):
     def _log_run_metric(self, run_info, metric):
         metric_path = self._get_metric_path(run_info.experiment_id, run_info.run_id, metric.key)
         make_containing_dirs(metric_path)
-        append_to(metric_path, f"{metric.timestamp} {metric.value} {metric.step}\n")
+        if metric.dataset_name is not None and metric.dataset_digest is not None:
+            append_to(
+                metric_path,
+                f"{metric.timestamp} {metric.value} {metric.step} {metric.dataset_name} "
+                f"{metric.dataset_digest}\n",
+            )
+        else:
+            append_to(metric_path, f"{metric.timestamp} {metric.value} {metric.step}\n")
 
     def _log_model_metric(self, experiment_id: str, model_id: str, run_id: str, metric: Metric):
         metric_path = self._get_model_metric_path(
