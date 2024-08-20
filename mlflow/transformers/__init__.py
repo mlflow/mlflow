@@ -1167,14 +1167,6 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
     if framework := flavor_config.get(FlavorKey.FRAMEWORK):
         conf["framework"] = framework
 
-    if device is None:
-        if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
-            try:
-                device = int(MLFLOW_DEFAULT_PREDICTION_DEVICE.get())
-            except ValueError:
-                device = _TRANSFORMERS_DEFAULT_CPU_DEVICE_ID
-        elif is_gpu_available():
-            device = _TRANSFORMERS_DEFAULT_GPU_DEVICE_ID
     # Note that we don't set the device in the conf yet because device is
     # incompatible with device_map.
     accelerate_model_conf = {}
@@ -1183,7 +1175,21 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         conf["device_map"] = device_map_strategy
         accelerate_model_conf["device_map"] = device_map_strategy
         # Cannot use device with device_map
+        if device is not None:
+            _logger.warning(
+                "MLFLOW_HUGGINGFACE_USE_DEVICE_MAP is set to True, device "
+                f"is incompatible with device_map, ignoring device param `{device}` passed."
+            )
         device = None
+
+    if device is None:
+        if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
+            try:
+                device = int(MLFLOW_DEFAULT_PREDICTION_DEVICE.get())
+            except ValueError:
+                device = _TRANSFORMERS_DEFAULT_CPU_DEVICE_ID
+        elif is_gpu_available():
+            device = _TRANSFORMERS_DEFAULT_GPU_DEVICE_ID
 
     if device is not None:
         conf["device"] = device
