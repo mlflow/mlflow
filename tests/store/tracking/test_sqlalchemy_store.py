@@ -4334,10 +4334,15 @@ def test_search_traces_with_invalid_filter(store_with_traces, filter_string, err
 
 
 def test_search_traces_raise_if_max_results_arg_is_invalid(store):
-    with pytest.raises(MlflowException, match="Invalid value for request parameter"):
+    with pytest.raises(
+        MlflowException,
+        match="Invalid value 50001 for parameter 'max_results' supplied.",
+    ):
         store.search_traces(experiment_ids=[], max_results=50001)
 
-    with pytest.raises(MlflowException, match="Invalid value for request parameter"):
+    with pytest.raises(
+        MlflowException, match="Invalid value -1 for parameter 'max_results' supplied."
+    ):
         store.search_traces(experiment_ids=[], max_results=-1)
 
 
