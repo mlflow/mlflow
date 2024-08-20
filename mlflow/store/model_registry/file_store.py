@@ -5,7 +5,7 @@ import sys
 import time
 import urllib
 from os.path import join
-from typing import List
+from typing import List, Optional
 
 from mlflow.entities.model_registry import (
     ModelVersion,
@@ -570,9 +570,23 @@ class FileStore(AbstractStore):
         return [alias.alias for alias in aliases if alias.version == version]
 
     def _get_file_model_version_from_dir(self, directory) -> FileModelVersion:
+        from mlflow.tracking.client import MlflowClient
+
         meta = FileStore._read_yaml(directory, FileStore.META_DATA_FILE_NAME)
         meta["tags"] = self._get_model_version_tags_from_dir(directory)
         meta["aliases"] = self._get_model_version_aliases(directory)
+        # Fetch metrics and params from model ID
+        #
+        # TODO: Propagate tracking URI to file store directly, rather than relying on global
+        # URI (individual MlflowClient instances may have different tracking URIs)
+        if "model_id" in meta:
+            try:
+                model = MlflowClient().get_model(meta["model_id"])
+                meta["metrics"] = model.metrics
+                meta["params"] = model.params
+            except Exception:
+                # TODO: Make this exception handling more specific
+                pass
         return FileModelVersion.from_dictionary(meta)
 
     def _save_model_version_as_meta_file(
@@ -605,6 +619,7 @@ class FileStore(AbstractStore):
         run_link=None,
         description=None,
         local_model_path=None,
+        model_id: Optional[str] = None,
     ) -> ModelVersion:
         """
         Create a new model version from given source and run ID.
@@ -617,6 +632,8 @@ class FileStore(AbstractStore):
                 instances associated with this model version.
             run_link: Link to the run from an MLflow tracking server that generated this model.
             description: Description of the version.
+            model_id: The ID of the model (from an Experiment) that is being promoted to a model
+                      version, if applicable.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
@@ -667,6 +684,7 @@ class FileStore(AbstractStore):
                     tags=tags,
                     aliases=[],
                     storage_location=storage_location,
+                    model_id=model_id,
                 )
                 model_version_dir = self._get_model_version_dir(name, version)
                 mkdir(model_version_dir)

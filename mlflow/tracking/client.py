@@ -4746,3 +4746,6 @@ class MlflowClient:
         params: Optional[Dict[str, str]] = None,
     ) -> Model:
         return self._tracking_client.create_model(experiment_id, name, run_id, tags, params)
+
+    def get_model(self, model_id: str) -> Model:
+        return self._tracking_client.get_model(model_id)

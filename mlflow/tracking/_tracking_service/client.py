@@ -999,3 +999,6 @@ class TrackingServiceClient:
             if params is not None
             else params,
         )
+
+    def get_model(self, model_id: str) -> Model:
+        return self.store.get_model(model_id)
