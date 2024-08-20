@@ -6,6 +6,7 @@ import pytest
 import mlflow
 from mlflow.entities import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 
 from tests.tracing.helper import create_test_trace_info
 
@@ -50,7 +51,7 @@ def mock_store(monkeypatch):
 
         def _mock_start_trace(experiment_id, timestamp_ms, request_metadata, tags):
             trace_info = create_test_trace_info(
-                request_id="tr-12345",
+                request_id=f"tr-{len(_traces)}",
                 experiment_id=experiment_id,
                 timestamp_ms=timestamp_ms,
                 execution_time_ms=None,
@@ -84,3 +85,10 @@ def databricks_tracking_uri():
         "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
     ):
         yield
+
+
+# Fixture to run the test case with and without async logging enabled
+@pytest.fixture(params=[True, False])
+def async_logging_enabled(request, monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_LOGGING.name, str(request.param))
+    return request.param

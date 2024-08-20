@@ -159,12 +159,21 @@ class has four key functions:
 
 
 Models From Code
-^^^^^^^^^^^^^^^^
+----------------
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    model/models-from-code
+
+To **learn more about the Models From Code feature**, please visit `the deep dive guide <model/models-from-code.html>`_ for more in-depth explanation 
+and to see additional examples.
 
 .. note::
     The Models from Code feature is available in MLflow versions 2.12.2 and later. This feature is experimental and may change in future releases.
 
-The Models from Code feature allows you to define and log models directly from Python code. This feature is particularly useful when you want to 
+The Models from Code feature allows you to define and log models directly from a stand-alone python script. This feature is particularly useful when you want to 
 log models that can be effectively stored as a code representation (models that do not need optimized weights through training) or applications 
 that rely on external services (e.g., LangChain chains). Another benefit is that this approach entirely bypasses the use of the ``pickle`` or 
 ``cloudpickle`` modules within Python, which can carry security risks when loading untrusted models.
@@ -277,6 +286,8 @@ This module also includes utilities for creating custom Python models, which is 
 adding custom python code to ML models. For more information, see the :ref:`custom Python models
 documentation <custom-python-models>`.
 
+For information on how to store a custom model from a python script (models from code functionality), 
+see the `guide to models from code <model/models-from-code.html>`_ for the recommended approaches.
 
 How To Load And Score Python Function Models
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

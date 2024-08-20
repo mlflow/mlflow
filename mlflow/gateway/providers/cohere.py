@@ -329,6 +329,7 @@ class CohereAdapter(ProviderAdapter):
 
 class CohereProvider(BaseProvider):
     NAME = "Cohere"
+    CONFIG_TYPE = CohereConfig
 
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)

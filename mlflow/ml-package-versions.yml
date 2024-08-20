@@ -669,13 +669,15 @@ langchain:
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
         ]
       ">= 0.2": ["langchain-huggingface"]
+      # We cannot use install langchain-openai with langchain >= 0.2.0, while pinning openai to <1.8.0
+      "< 0.2.0": ["langchain-openai"]
     run: |
       # Run all langchain tests except autologging
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
-      if [[ $PYDANTIC_VERSION == 1.* && $LANGCHAIN_NEW = "True" ]]; then
-        pip install 'pydantic>2'
+      if [[ $PYDANTIC_VERSION == 1.* ]]; then
+        pip install 'pydantic>2' 'fastapi>=0.100.0'
         echo "Testing langchain model export with pydantic v2"
         pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
       fi
@@ -701,7 +703,7 @@ langchain:
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
       if [[ $PYDANTIC_VERSION == 1.* ]]; then
-        pip install 'pydantic>2'
+        pip install 'pydantic>2' 'fastapi>=0.100.0'
         sleep 10
         echo "Testing langchain autolog with pydantic v2"
         pytest tests/langchain/test_langchain_autolog.py
@@ -723,6 +725,8 @@ llama_index:
           # Required to test Databricks integration
           "llama-index-llms-databricks",
           "llama-index-embeddings-databricks",
+          # Required to test external vector stores
+          "llama-index-vector-stores-qdrant",
         ]
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
@@ -731,6 +735,17 @@ llama_index:
     requirements:
       ">= 0.0.0": ["openai"]
     run: pytest tests/llama_index/test_llama_index_autolog.py tests/llama_index/test_llama_index_tracer.py
+
+autogen:
+  package_info:
+    pip_release: "pyautogen"
+    install_dev: |
+      pip install git+https://github.com/microsoft/autogen
+  autologging:
+    # Tool call logging is implemented in autogen 0.2.29
+    minimum: "0.2.29"
+    maximum: "0.2.34"
+    run: pytest tests/autogen
 
 sentence_transformers:
   package_info:

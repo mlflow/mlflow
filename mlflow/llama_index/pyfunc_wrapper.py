@@ -43,6 +43,9 @@ class _LlamaIndexModelWrapperBase:
         self.index = index
         self.model_config = model_config or {}
 
+    def get_raw_model(self):
+        return self.engine
+
     def _predict_single(self, *args, **kwargs) -> Any:
         raise NotImplementedError
 

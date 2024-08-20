@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import re
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Union
 
@@ -251,6 +253,9 @@ def _save_internal_runnables(runnable, path, loader_fn, persist_dir):
             _MODEL_LOAD_KEY: _CONFIG_LOAD_KEY,
         }
         model_path = path / _MODEL_DATA_YAML_FILE_NAME
+
+        _warning_if_imported_from_lc_partner_pkg(runnable)
+
         # Save some simple runnables that langchain natively supports.
         if hasattr(runnable, "save"):
             runnable.save(model_path)
@@ -266,6 +271,33 @@ def _save_internal_runnables(runnable, path, loader_fn, persist_dir):
         else:
             raise Exception("Cannot save runnable without `save` or `dict` methods.")
     return conf
+
+
+_LC_PARTNER_MODULE_PATTERN = re.compile(
+    r"langchain_(?!core|community|experimental|cli|text-splitters)([a-z0-9-]+)$"
+)
+
+
+def _warning_if_imported_from_lc_partner_pkg(runnable):
+    """
+    Issues a warning if the model contains LangChain partner packages in its requirements.
+
+    Popular integrations like OpenAI have been migrated from the central langchain-community
+    package to their own partner packages (e.g. langchain-openai). However, the class loading
+    mechanism in MLflow does not handle partner packages and always loads the community version.
+    This can lead to unexpected behavior because the community version is no longer maintained.
+    """
+    module = runnable.__module__
+    root_module = module.split(".")[0]
+    if m := _LC_PARTNER_MODULE_PATTERN.match(root_module):
+        warnings.warn(
+            "Your model contains a class imported from the LangChain partner package "
+            f"`langchain-{m.group(1)}`. When loading the model back, MLflow will use the "
+            "community version of the classes instead of the partner packages, which may "
+            "lead to unexpected behavior. To ensure that the model is loaded correctly, "
+            "it is recommended to save the model with the 'model-from-code' method "
+            "instead: https://mlflow.org/docs/latest/models.html#models-from-code"
+        )
 
 
 def _save_runnable_with_steps(model, file_path: Union[Path, str], loader_fn=None, persist_dir=None):
