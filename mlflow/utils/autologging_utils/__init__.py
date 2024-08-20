@@ -89,7 +89,7 @@ MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG = {
 # suppress warnings for certain libraries that are known to have frequent releases.
 _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
     "langchain",
-    "llama-index",
+    "llama_index",
     "openai",
 ]
 
