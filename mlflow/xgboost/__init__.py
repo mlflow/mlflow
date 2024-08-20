@@ -368,13 +368,16 @@ class _XGBModelWrapper:
         params = params or {}
         # filter is applied inside predict_fn wrapper for xgb.Booster
         if not isinstance(self.xgb_model, xgb.Booster):
-            params = _filter_allowed_kwargs(predict_fn, params)
+            params = _exclude_unrecognized_kwargs(predict_fn, params)
         return predict_fn(dataframe, **params)
 
 
-def _filter_allowed_kwargs(predict_fn, kwargs):
+def _exclude_unrecognized_kwargs(predict_fn, kwargs):
     filtered_kwargs = {}
     allowed_params = inspect.signature(predict_fn).parameters
+    # avoid excluding kwargs when predict function uses args or kwargs
+    if not allowed_params.keys().isdisjoint({"args", "kwargs"}):
+        return kwargs
     invalid_params = set()
     for key, value in kwargs.items():
         if key in allowed_params:
@@ -398,7 +401,7 @@ def _wrapped_xgboost_model_predict_fn(model, validate_features=True):
     if isinstance(model, xgb.Booster):
         # we need to wrap the predict function to accept data in pandas format
         def wrapped_predict_fn(data, *args, **kwargs):
-            filtered_kwargs = _filter_allowed_kwargs(model.predict, kwargs)
+            filtered_kwargs = _exclude_unrecognized_kwargs(model.predict, kwargs)
             return model.predict(
                 xgb.DMatrix(data), *args, validate_features=validate_features, **filtered_kwargs
             )
