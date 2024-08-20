@@ -1,8 +1,7 @@
 import json
-
 from dataclasses import asdict
+
 import numpy as np
-from openai import ChatCompletion
 import pandas as pd
 import pyspark
 import pytest
