@@ -18,9 +18,9 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
   "cachetools<6,>=5.0.0",
   "click<9,>=7.0",

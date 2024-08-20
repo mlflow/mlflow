@@ -26,7 +26,7 @@ env:
   MLFLOW_HOME: /home/runner/work/mlflow/mlflow
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
-  PYTHON_VERSION: "3.8"
+  PYTHON_VERSION: "3.9"
 
 defaults:
   run:

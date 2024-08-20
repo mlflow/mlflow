@@ -1,4 +1,4 @@
-FROM python:3.8
+FROM python:3.9
 
 ARG MINIFORG_FILENAME=Miniforge3-Linux-x86_64.sh
 ENV DEBIAN_FRONTEND=noninteractive \
