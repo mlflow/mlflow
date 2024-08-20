@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.entities.metric import Metric
 from mlflow.entities.model_param import ModelParam
 from mlflow.entities.model_status import ModelStatus
 from mlflow.entities.model_tag import ModelTag
@@ -13,30 +14,34 @@ class Model(_MlflowObject):
 
     def __init__(
         self,
-        experiment_id: str,  # New field added
+        experiment_id: str,
         model_id: str,
         name: str,
-        artifact_location: str,  # New field added
+        artifact_location: str,
         creation_timestamp: int,
         last_updated_timestamp: int,
+        model_type: Optional[str] = None,
         run_id: Optional[str] = None,
         status: ModelStatus = ModelStatus.READY,
         status_message: Optional[str] = None,
         tags: Optional[List[ModelTag]] = None,
         params: Optional[ModelParam] = None,
+        metrics: Optional[List[Metric]] = None,
     ):
         super().__init__()
-        self._experiment_id: str = experiment_id  # New field initialized
+        self._experiment_id: str = experiment_id
         self._model_id: str = model_id
         self._name: str = name
-        self._artifact_location: str = artifact_location  # New field initialized
+        self._artifact_location: str = artifact_location
         self._creation_time: int = creation_timestamp
         self._last_updated_timestamp: int = last_updated_timestamp
+        self._model_type: Optional[str] = model_type
         self._run_id: Optional[str] = run_id
         self._status: ModelStatus = status
         self._status_message: Optional[str] = status_message
         self._tags: Dict[str, str] = {tag.key: tag.value for tag in (tags or [])}
         self._params: Optional[ModelParam] = params
+        self._metrics: Optional[List[Metric]] = metrics
 
     @property
     def experiment_id(self) -> str:
@@ -91,6 +96,15 @@ class Model(_MlflowObject):
         self._last_updated_timestamp = updated_timestamp
 
     @property
+    def model_type(self) -> Optional[str]:
+        """String. Type of the model."""
+        return self._model_type
+
+    @model_type.setter
+    def model_type(self, new_model_type: Optional[str]):
+        self._model_type = new_model_type
+
+    @property
     def run_id(self) -> Optional[str]:
         """String. MLflow run ID that generated this model."""
         return self._run_id
@@ -118,6 +132,15 @@ class Model(_MlflowObject):
     def params(self) -> Optional[ModelParam]:
         """Model parameters."""
         return self._params
+
+    @property
+    def metrics(self) -> Optional[List[Metric]]:
+        """List of metrics associated with this Model."""
+        return self._metrics
+
+    @metrics.setter
+    def metrics(self, new_metrics: Optional[List[Metric]]):
+        self._metrics = new_metrics
 
     @classmethod
     def _properties(cls) -> List[str]:

@@ -246,6 +246,12 @@ class FileStore(AbstractStore):
             self._get_run_dir(experiment_id, run_uuid), FileStore.METRICS_FOLDER_NAME, metric_key
         )
 
+    def _get_model_metric_path(self, experiment_id: str, model_id: str, metric_key: str) -> str:
+        _validate_metric_name(metric_key)
+        return os.path.join(
+            self._get_model_dir(experiment_id, model_id), FileStore.METRICS_FOLDER_NAME, metric_key
+        )
+
     def _get_param_path(self, experiment_id, run_uuid, param_name):
         _validate_run_id(run_uuid)
         _validate_param_name(param_name)
@@ -962,16 +968,31 @@ class FileStore(AbstractStore):
         check_run_is_active(run_info)
         self._log_run_metric(run_info, metric)
         if metric.model_id is not None:
-            self._log_model_metric(model_id=metric.model_id, metric=metric)
-
+            self._log_model_metric(
+                experiment_id=run_info.experiment_id,
+                model_id=metric.model_id,
+                run_id=run_id,
+                metric=metric,
+            )
 
     def _log_run_metric(self, run_info, metric):
         metric_path = self._get_metric_path(run_info.experiment_id, run_info.run_id, metric.key)
         make_containing_dirs(metric_path)
         append_to(metric_path, f"{metric.timestamp} {metric.value} {metric.step}\n")
 
-    def _log_model_metric(self, model_id, metric):
-        pass
+    def _log_model_metric(self, experiment_id: str, model_id: str, run_id: str, metric: Metric):
+        metric_path = self._get_model_metric_path(
+            experiment_id=experiment_id, model_id=model_id, metric_key=metric.key
+        )
+        make_containing_dirs(metric_path)
+        if metric.dataset_name is not None and metric.dataset_digest is not None:
+            append_to(
+                metric_path,
+                f"{metric.timestamp} {metric.value} {metric.step} {run_id} {metric.dataset_name} "
+                f"{metric.dataset_digest}\n",
+            )
+        else:
+            append_to(metric_path, f"{metric.timestamp} {metric.value} {metric.step} {run_id}\n")
 
     def _writeable_value(self, tag_value):
         if tag_value is None:
@@ -1093,6 +1114,13 @@ class FileStore(AbstractStore):
                 self._log_run_param(run_info, param)
             for metric in metrics:
                 self._log_run_metric(run_info, metric)
+                if metric.model_id is not None:
+                    self._log_model_metric(
+                        experiment_id=run_info.experiment_id,
+                        model_id=metric.model_id,
+                        run_id=run_id,
+                        metric=metric,
+                    )
             for tag in tags:
                 # NB: If the tag run name value is set, update the run info to assure
                 # synchronization.
@@ -1979,6 +2007,7 @@ class FileStore(AbstractStore):
                 f"Model '{model_id}' metadata is in invalid state.", databricks_pb2.INVALID_STATE
             )
         model_dict["tags"] = self._get_all_model_tags(model_dir)
+        model_dict["metrics"] = self._get_all_model_metrics(model_id=model_id, model_dir=model_dir)
         return model_dict
 
     def _get_model_dir(self, experiment_id: str, model_id: str) -> str:
@@ -2010,3 +2039,56 @@ class FileStore(AbstractStore):
         for tag_file in tag_files:
             tags.append(self._get_tag_from_file(parent_path, tag_file))
         return tags
+
+    def _get_all_model_metrics(self, model_id: str, model_dir: str) -> List[Metric]:
+        parent_path, metric_files = self._get_resource_files(
+            model_dir, FileStore.METRICS_FOLDER_NAME
+        )
+        metrics = []
+        for metric_file in metric_files:
+            metrics.append(
+                FileStore._get_model_metric_from_file(
+                    model_id=model_id, parent_path=parent_path, metric_name=metric_file
+                )
+            )
+        return metrics
+
+    @staticmethod
+    def _get_model_metric_from_file(model_id: str, parent_path: str, metric_name: str) -> Metric:
+        _validate_metric_name(metric_name)
+        metric_objs = [
+            FileStore._get_model_metric_from_line(model_id, metric_name, line)
+            for line in read_file_lines(parent_path, metric_name)
+        ]
+        if len(metric_objs) == 0:
+            raise ValueError(f"Metric '{metric_name}' is malformed. No data found.")
+        # Python performs element-wise comparison of equal-length tuples, ordering them
+        # based on their first differing element. Therefore, we use max() operator to find the
+        # largest value at the largest timestamp. For more information, see
+        # https://docs.python.org/3/reference/expressions.html#value-comparisons
+        return max(metric_objs, key=lambda m: (m.step, m.timestamp, m.value))
+
+    @staticmethod
+    def _get_model_metric_from_line(model_id: str, metric_name: str, metric_line: str) -> Metric:
+        metric_parts = metric_line.strip().split(" ")
+        if len(metric_parts) not in [4, 6]:
+            raise MlflowException(
+                f"Metric '{metric_name}' is malformed; persisted metric data contained "
+                f"{len(metric_parts)} fields. Expected 4 or 6 fields.",
+                databricks_pb2.INTERNAL_ERROR,
+            )
+        ts = int(metric_parts[0])
+        val = float(metric_parts[1])
+        step = int(metric_parts[2])
+        dataset_name = str(metric_parts[4]) if len(metric_parts) == 6 else None
+        dataset_digest = str(metric_parts[5]) if len(metric_parts) == 6 else None
+        # TODO: Read run ID from the metric file and pass it to the Metric constructor
+        return Metric(
+            key=metric_name,
+            value=val,
+            timestamp=ts,
+            step=step,
+            model_id=model_id,
+            dataset_name=dataset_name,
+            dataset_digest=dataset_digest,
+        )
