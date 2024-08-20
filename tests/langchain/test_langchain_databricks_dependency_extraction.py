@@ -8,7 +8,7 @@ from packaging.version import Version
 
 from mlflow.langchain.databricks_dependencies import (
     _detect_databricks_dependencies,
-    _extract_databricks_dependencies_from_agent_tools,
+    _extract_databricks_dependencies_from_agent,
     _extract_databricks_dependencies_from_chat_model,
     _extract_databricks_dependencies_from_llm,
     _extract_databricks_dependencies_from_retriever,
@@ -243,7 +243,7 @@ def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in
     ]
 
 
-def test_parsing_dependency_from_uc_function_toolkit(monkeypatch: pytest.MonkeyPatch):
+def test_parsing_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
     from databricks.sdk.service.catalog import FunctionInfo
     from langchain.agents import initialize_agent
     from langchain.llms import OpenAI
@@ -287,19 +287,22 @@ def test_parsing_dependency_from_uc_function_toolkit(monkeypatch: pytest.MonkeyP
         verbose=True,
     )
 
-    resources = list(_extract_databricks_dependencies_from_agent_tools(agent))
+    resources = list(_extract_databricks_dependencies_from_agent(agent))
     assert resources == [
         DatabricksUCFunction(function_name="rag.test.test_function"),
         DatabricksSQLWarehouse(warehouse_id="testId1"),
     ]
 
 
-def test_parsing_multiple_dependency_from_uc_function_toolkit(monkeypatch: pytest.MonkeyPatch):
+def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
     from databricks.sdk.service.catalog import FunctionInfo
     from langchain.agents import initialize_agent
-    from langchain.llms import OpenAI
     from langchain_community.tools.databricks import UCFunctionToolkit
+    from langchain_community.chat_models import ChatDatabricks
+    from langchain_community.vectorstores import DatabricksVectorSearch
+    from langchain.tools.retriever import create_retriever_tool
 
+    mock_get_deploy_client = MagicMock()
     mock_workspace_client = MagicMock()
 
     def mock_function_get(self, function_name):
@@ -337,24 +340,51 @@ def test_parsing_multiple_dependency_from_uc_function_toolkit(monkeypatch: pytes
             FunctionInfo(full_name="rag.test.test_function_3"),
         ]
 
+    vsc = MockVectorSearchClient()
+    vs_index = vsc.get_index(
+        endpoint_name="dbdemos_vs_endpoint",
+        index_name="mlflow.rag.vs_index",
+        has_embedding_endpoint=True,
+    )
+
+    mock_module = MagicMock()
+    mock_module.VectorSearchIndex = MockVectorSearchIndex
+
+    monkeypatch.setitem(sys.modules, "databricks.vector_search.client", mock_module)
     monkeypatch.setitem(sys.modules, "databricks.sdk.WorkspaceClient", mock_workspace_client)
+    monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
     monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
     monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.list", mock_function_list)
 
+
     toolkit = UCFunctionToolkit(warehouse_id="testId1").include("rag.test.*")
-    llm = OpenAI(temperature=0)
+    chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
+
+    vectorstore = DatabricksVectorSearch(vs_index, text_column="content")
+    retriever = vectorstore.as_retriever()
+
+    retriever_tool = create_retriever_tool(
+        retriever,
+        "vs_index_name",
+        "vs_index_desc"
+    )
+
     agent = initialize_agent(
-        toolkit.get_tools(),
-        llm,
+        toolkit.get_tools() + [retriever_tool],
+        chat_model,
         verbose=True,
     )
-    resources = list(_extract_databricks_dependencies_from_agent_tools(agent))
-
+    resources = list(_extract_databricks_dependencies_from_agent(agent))
+    for resource in resources:
+        print(resource)
     # Ensure all resources are added in
     assert resources == [
+        DatabricksServingEndpoint(endpoint_name='databricks-llama-2-70b-chat'),
         DatabricksUCFunction(function_name="rag.test.test_function"),
         DatabricksUCFunction(function_name="rag.test.test_function_2"),
         DatabricksUCFunction(function_name="rag.test.test_function_3"),
+        DatabricksVectorSearchIndex(index_name='mlflow.rag.vs_index'),
+        DatabricksServingEndpoint(endpoint_name='embedding-model'),
         DatabricksSQLWarehouse(warehouse_id="testId1"),
     ]
 
