@@ -955,17 +955,23 @@ class FileStore(AbstractStore):
         runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
         return runs, next_page_token
 
-    def log_metric(self, run_id, metric):
+    def log_metric(self, run_id: str, metric: Metric):
         _validate_run_id(run_id)
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
         self._log_run_metric(run_info, metric)
+        if metric.model_id is not None:
+            self._log_model_metric(model_id=metric.model_id, metric=metric)
+
 
     def _log_run_metric(self, run_info, metric):
         metric_path = self._get_metric_path(run_info.experiment_id, run_info.run_id, metric.key)
         make_containing_dirs(metric_path)
         append_to(metric_path, f"{metric.timestamp} {metric.value} {metric.step}\n")
+
+    def _log_model_metric(self, model_id, metric):
+        pass
 
     def _writeable_value(self, tag_value):
         if tag_value is None:
@@ -1221,6 +1227,7 @@ class FileStore(AbstractStore):
                     destination_type=OutputVertexType.MODEL_OUTPUT,
                     destination_id=run_id,
                     tags={},
+                    step=model_output.step,
                 )
                 fs_output.write_yaml(output_dir, FileStore.META_DATA_FILE_NAME)
 
@@ -1276,6 +1283,7 @@ class FileStore(AbstractStore):
         destination_type: int
         destination_id: str
         tags: Dict[str, str]
+        step: int
 
         def write_yaml(self, root: str, file_name: str):
             dict_for_yaml = {
@@ -1284,6 +1292,7 @@ class FileStore(AbstractStore):
                 "destination_type": OutputVertexType.Name(self.destination_type),
                 "destination_id": self.source_id,
                 "tags": self.tags,
+                "step": self.step,
             }
             write_yaml(root, file_name, dict_for_yaml)
 
@@ -1296,6 +1305,7 @@ class FileStore(AbstractStore):
                 destination_type=OutputVertexType.Value(dict_from_yaml["destination_type"]),
                 destination_id=dict_from_yaml["destination_id"],
                 tags=dict_from_yaml["tags"],
+                step=dict_from_yaml["step"],
             )
 
     def _get_all_inputs(self, run_info: RunInfo) -> RunInputs:
@@ -1387,7 +1397,7 @@ class FileStore(AbstractStore):
             if fs_output.destination_type != OutputVertexType.MODEL_OUTPUT:
                 continue
 
-            model_output = ModelOutput(model_id=fs_output.destination_id)
+            model_output = ModelOutput(model_id=fs_output.destination_id, step=fs_output.step)
             model_outputs.append(model_output)
 
         return model_outputs
@@ -1897,6 +1907,7 @@ class FileStore(AbstractStore):
         mkdir(model_dir)
         model_info_dict: Dict[str, Any] = self._make_persisted_model_dict(model)
         write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict)
+        mkdir(model_dir, FileStore.METRICS_FOLDER_NAME)
         for tag in tags or []:
             self.set_model_tag(model_id=model_id, tag=tag)
 

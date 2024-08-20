@@ -10,11 +10,12 @@ class Metric(_MlflowObject):
     Metric object.
     """
 
-    def __init__(self, key, value, timestamp, step):
+    def __init__(self, key, value, timestamp, step, model_id: str = None):
         self._key = key
         self._value = value
         self._timestamp = timestamp
         self._step = step
+        self._model_id = model_id
 
     @property
     def key(self):
@@ -36,16 +37,24 @@ class Metric(_MlflowObject):
         """Integer metric step (x-coordinate)."""
         return self._step
 
+    @property
+    def model_id(self):
+        """ID of the Model associated with the metric."""
+        return self._model_id
+
     def to_proto(self):
         metric = ProtoMetric()
         metric.key = self.key
         metric.value = self.value
         metric.timestamp = self.timestamp
         metric.step = self.step
+        # TODO: Add model_id to the proto
+        metric.model_id = self.model_id
         return metric
 
     @classmethod
     def from_proto(cls, proto):
+        # TODO: Add model_id to the proto
         return cls(proto.key, proto.value, proto.timestamp, proto.step)
 
     def __eq__(self, __o):
@@ -69,6 +78,7 @@ class Metric(_MlflowObject):
             "value": self.value,
             "timestamp": self.timestamp,
             "step": self.step,
+            "model_id": self.model_id,
         }
 
     @classmethod
