@@ -1117,6 +1117,10 @@ class _ServedPyFuncModel(PyFuncModel):
     def env_manager(self):
         return self._env_manager
 
+    @env_manager.setter
+    def env_manager(self, value):
+        self._env_manager = value
+
 
 def _load_model_or_server(
     model_uri: str, env_manager: str, model_config: Optional[Dict[str, Any]] = None
