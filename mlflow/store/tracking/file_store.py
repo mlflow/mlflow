@@ -767,10 +767,12 @@ class FileStore(AbstractStore):
         return source_dirs[0], file_names
 
     @staticmethod
-    def _get_metric_from_file(parent_path, metric_name, exp_id):
+    def _get_metric_from_file(
+        parent_path: str, metric_name: str, run_id: str, exp_id: str
+    ) -> Metric:
         _validate_metric_name(metric_name)
         metric_objs = [
-            FileStore._get_metric_from_line(metric_name, line, exp_id)
+            FileStore._get_metric_from_line(run_id, metric_name, line, exp_id)
             for line in read_file_lines(parent_path, metric_name)
         ]
         if len(metric_objs) == 0:
@@ -791,12 +793,16 @@ class FileStore(AbstractStore):
         metrics = []
         for metric_file in metric_files:
             metrics.append(
-                self._get_metric_from_file(parent_path, metric_file, run_info.experiment_id)
+                self._get_metric_from_file(
+                    parent_path, metric_file, run_info.run_id, run_info.experiment_id
+                )
             )
         return metrics
 
     @staticmethod
-    def _get_metric_from_line(metric_name, metric_line, exp_id):
+    def _get_metric_from_line(
+        run_id: str, metric_name: str, metric_line: str, exp_id: str
+    ) -> Metric:
         metric_parts = metric_line.strip().split(" ")
         if len(metric_parts) != 2 and len(metric_parts) != 3 and len(metric_parts) != 5:
             raise MlflowException(
@@ -817,6 +823,7 @@ class FileStore(AbstractStore):
             step=step,
             dataset_name=dataset_name,
             dataset_digest=dataset_digest,
+            run_id=run_id,
         )
 
     def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
@@ -856,7 +863,7 @@ class FileStore(AbstractStore):
             return PagedList([], None)
         return PagedList(
             [
-                FileStore._get_metric_from_line(metric_key, line, run_info.experiment_id)
+                FileStore._get_metric_from_line(run_id, metric_key, line, run_info.experiment_id)
                 for line in read_file_lines(parent_path, metric_key)
             ],
             None,
@@ -2096,6 +2103,7 @@ class FileStore(AbstractStore):
         ts = int(metric_parts[0])
         val = float(metric_parts[1])
         step = int(metric_parts[2])
+        run_id = str(metric_parts[3])
         dataset_name = str(metric_parts[4]) if len(metric_parts) == 6 else None
         dataset_digest = str(metric_parts[5]) if len(metric_parts) == 6 else None
         # TODO: Read run ID from the metric file and pass it to the Metric constructor
@@ -2107,4 +2115,5 @@ class FileStore(AbstractStore):
             model_id=model_id,
             dataset_name=dataset_name,
             dataset_digest=dataset_digest,
+            run_id=run_id,
         )

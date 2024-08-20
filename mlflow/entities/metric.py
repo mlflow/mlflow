@@ -21,6 +21,7 @@ class Metric(_MlflowObject):
         model_id: Optional[str] = None,
         dataset_name: Optional[str] = None,
         dataset_digest: Optional[str] = None,
+        run_id: Optional[str] = None,
     ):
         if (dataset_name, dataset_digest).count(None) == 1:
             raise MlflowException(
@@ -35,6 +36,7 @@ class Metric(_MlflowObject):
         self._model_id = model_id
         self._dataset_name = dataset_name
         self._dataset_digest = dataset_digest
+        self._run_id = run_id
 
     @property
     def key(self):
@@ -71,19 +73,23 @@ class Metric(_MlflowObject):
         """String. Digest of the dataset associated with the metric."""
         return self._dataset_digest
 
+    @property
+    def run_id(self) -> Optional[str]:
+        """String. Run ID associated with the metric."""
+        return self._run_id
+
     def to_proto(self):
         metric = ProtoMetric()
         metric.key = self.key
         metric.value = self.value
         metric.timestamp = self.timestamp
         metric.step = self.step
-        # TODO: Add model_id, dataset_name, and dataset_digest to the proto
-        metric.model_id = self.model_id
+        # TODO: Add model_id, dataset_name, dataset_digest, and run_id to the proto
         return metric
 
     @classmethod
     def from_proto(cls, proto):
-        # TODO: Add model_id, dataset_name, and dataset_digest to the proto
+        # TODO: Add model_id, dataset_name, dataset_digest, and run_id to the proto
         return cls(proto.key, proto.value, proto.timestamp, proto.step)
 
     def __eq__(self, __o):
@@ -110,6 +116,7 @@ class Metric(_MlflowObject):
             "model_id": self.model_id,
             "dataset_name": self.dataset_name,
             "dataset_digest": self.dataset_digest,
+            "run_id": self._run_id,
         }
 
     @classmethod
