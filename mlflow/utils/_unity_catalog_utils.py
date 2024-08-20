@@ -130,20 +130,23 @@ def get_artifact_repo_from_storage_info(
         storage. It is first used to determine the type of blob storage and to access it. It is then
         passed to the relevant ArtifactRepository implementation to refresh credentials as needed.
     """
-    try:
-        return _get_artifact_repo_from_storage_info(
+    # try:
+    #     return _get_artifact_repo_from_storage_info(
+    #         storage_location=storage_location,
+    #         scoped_token=scoped_token,
+    #         base_credential_refresh_def=base_credential_refresh_def,
+    #     )
+    # except ImportError as e:
+    #     raise MlflowException(
+    #         "Unable to import necessary dependencies to access model version files in "
+    #         "Unity Catalog. Please ensure you have the necessary dependencies installed, "
+    #         "e.g. by running 'pip install mlflow[databricks]' or "
+    #         "'pip install mlflow-skinny[databricks]'"
+    #     ) from e
+    return _get_artifact_repo_from_storage_info(
             storage_location=storage_location,
             scoped_token=scoped_token,
-            base_credential_refresh_def=base_credential_refresh_def,
-        )
-    except ImportError as e:
-        raise MlflowException(
-            "Unable to import necessary dependencies to access model version files in "
-            "Unity Catalog. Please ensure you have the necessary dependencies installed, "
-            "e.g. by running 'pip install mlflow[databricks]' or "
-            "'pip install mlflow-skinny[databricks]'"
-        ) from e
-
+            base_credential_refresh_def=base_credential_refresh_def)
 
 def _get_artifact_repo_from_storage_info(
     storage_location: str,
