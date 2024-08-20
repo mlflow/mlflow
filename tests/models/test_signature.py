@@ -1,6 +1,8 @@
 import json
 
+from dataclasses import asdict
 import numpy as np
+from openai import ChatCompletion
 import pandas as pd
 import pyspark
 import pytest
@@ -18,6 +20,7 @@ from mlflow.types.schema import (
     ParamSpec,
     Schema,
     TensorSpec,
+    convert_dataclass_to_schema,
 )
 
 
@@ -313,3 +316,14 @@ def test_signature_for_rag():
         ),
         "params": None,
     }
+
+
+def test_infer_signature_and_convert_dataclass_to_schema_for_rag():
+    inferred_signature = infer_signature(
+        asdict(rag_signatures.ChatCompletionRequest()),
+        asdict(rag_signatures.ChatCompletionResponse()),
+    )
+    input_schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionRequest())
+    output_schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionResponse())
+    assert inferred_signature.inputs == input_schema
+    assert inferred_signature.outputs == output_schema
