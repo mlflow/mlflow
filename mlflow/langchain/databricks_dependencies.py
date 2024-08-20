@@ -3,9 +3,9 @@ from typing import Generator, List, Optional, Set
 
 from mlflow.models.resources import (
     DatabricksServingEndpoint,
-    DatabricksVectorSearchIndex, 
-    DatabricksSQLWarehouse, 
-    DatabricksUCFunction, 
+    DatabricksVectorSearchIndex,
+    DatabricksSQLWarehouse,
+    DatabricksUCFunction,
     Resource,
 )
 
@@ -53,14 +53,32 @@ def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None
         if isinstance(embeddings, (DatabricksEmbeddings, LegacyDatabricksEmbeddings)):
             yield DatabricksServingEndpoint(endpoint_name=embeddings.endpoint)
 
-def _extract_databricks_dependencies_from_uc_function_toolkit(uc_toolkit) -> Generator[Resource, None, None]:
-    from langchain_community.tools.databricks import UCFunctionToolkit
 
-    if isinstance(uc_toolkit, UCFunctionToolkit):
-        yield DatabricksSQLWarehouse(warehouse_id=uc_toolkit.warehouse_id)
-    
-        for function_name in uc_toolkit.tools.keys():
-            yield DatabricksUCFunction(function_name=function_name)
+def _extract_databricks_dependencies_from_uc_function_toolkit(
+    agent,
+) -> Generator[Resource, None, None]:
+    from langchain.agents import AgentExecutor
+    from langchain_community.tools.databricks import UCFunctionToolkit
+    from langchain_community.tools import BaseTool
+    import inspect
+
+    if isinstance(agent, AgentExecutor):
+        tools = agent.tools
+        warehouse_ids = set()
+        for tool in tools:
+            if isinstance(tool, BaseTool):
+                nonlocal_vars = inspect.getclosurevars(tool.func).nonlocals
+                if "self" in nonlocal_vars and isinstance(
+                    nonlocal_vars.get("self"), UCFunctionToolkit
+                ):  
+                    uc_function_toolkit = nonlocal_vars.get("self")
+                    warehouse_ids.add(uc_function_toolkit.warehouse_id)
+                    langchain_tool_name = tool.name
+                    filtered_tool_names = [tool_name for tool_name, uc_tool in uc_function_toolkit.tools.items() if uc_tool.name == langchain_tool_name]
+                    for tool_name in filtered_tool_names:
+                        yield DatabricksUCFunction(function_name=tool_name)
+        for warehouse_id in warehouse_ids:
+            yield DatabricksSQLWarehouse(warehouse_id=warehouse_id)
 
 def _extract_databricks_dependencies_from_retriever(retriever) -> Generator[Resource, None, None]:
     # ContextualCompressionRetriever uses attribute "base_retriever"

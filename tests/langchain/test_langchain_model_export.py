@@ -83,7 +83,12 @@ from mlflow.langchain.utils import (
 from mlflow.langchain.utils.chat import try_transform_response_to_chat_format
 from mlflow.models import Model
 from mlflow.models.dependencies_schemas import DependenciesSchemasType
-from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
+from mlflow.models.resources import (
+    DatabricksServingEndpoint,
+    DatabricksVectorSearchIndex,
+    DatabricksSQLWarehouse,
+    DatabricksUCFunction,
+)
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.models.utils import load_serving_example
 from mlflow.pyfunc.context import Context
@@ -1852,6 +1857,96 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
     assert all(item in actual["serving_endpoint"] for item in expected["serving_endpoint"])
     assert all(item in expected["serving_endpoint"] for item in actual["serving_endpoint"])
     assert actual["vector_search_index"] == expected["vector_search_index"]
+
+
+def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
+    from databricks.sdk.service.catalog import FunctionInfo
+    from langchain_community.tools.databricks import UCFunctionToolkit
+    import sys
+
+    def mock_function_list(self, catalog_name, schema_name):
+        assert catalog_name == "rag"
+        assert schema_name == "studio"
+        return [
+            FunctionInfo(full_name="rag.studio.test_function_a"),
+            FunctionInfo(full_name="rag.studio.test_function_b"),
+        ]
+
+    def mock_function_get(self, function_name):
+        components = function_name.split(".")
+        param_dict = {
+            "parameters": [
+                {
+                    "name": "request_id",
+                    "parameter_type": "PARAM",
+                    "position": 0,
+                    "type_json": '{"name":"request_id","type":"string","nullable":true,"metadata":{}}',
+                    "type_name": "STRING",
+                    "type_precision": 0,
+                    "type_scale": 0,
+                    "type_text": "string",
+                }
+            ]
+        }
+        return FunctionInfo.from_dict(
+            {
+                "catalog_name": components[0],
+                "schema_name": components[1],
+                "name": components[2],
+                "input_params": param_dict,
+            }
+        )
+
+    mock_workspace_client = mock.MagicMock()
+    mock_bind_tools = mock.MagicMock()
+
+    monkeypatch.setitem(sys.modules, "databricks.sdk.WorkspaceClient", mock_workspace_client)
+    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.list", mock_function_list)
+    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
+    monkeypatch.setattr(
+        "langchain_community.chat_models.ChatDatabricks.bind_tools", mock_bind_tools
+    )
+    monkeypatch.setattr("cloudpickle.dump", mock.MagicMock())
+
+    uc_function_tools = (
+        UCFunctionToolkit(warehouse_id="test_id_1")
+        .include("rag.studio.test_function_a")
+        .include("rag.studio.test_function_b")
+        .get_tools()
+    )
+
+    llm = OpenAI(temperature=0)
+    agent = initialize_agent(
+        uc_function_tools,
+        llm,
+        verbose=True,
+    )
+
+    pyfunc_artifact_path = "retrieval_qa_chain"
+    with mlflow.start_run() as run:
+        mlflow.langchain.log_model(
+            agent,
+            pyfunc_artifact_path,
+        )
+    pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
+    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    actual = reloaded_model.resources["databricks"]
+
+    expected = {
+        "serving_endpoint": [
+            {"name": "fake-llm-endpoint"},
+            {"name": "fake-embeddings"},
+        ],
+        "sql_warehouse": [{"name": "test_id_1"}],
+        "uc_function": [
+            {"name": "rag.studio.test_function_a"},
+            {"name": "rag.studio.test_function_b"},
+        ],
+    }
+    assert actual["sql_warehouse"] == expected["sql_warehouse"]
+    assert all(item in actual["uc_function"] for item in expected["uc_function"])
+    assert all(item in expected["uc_function"] for item in actual["uc_function"])
 
 
 def _error_func(*args, **kwargs):

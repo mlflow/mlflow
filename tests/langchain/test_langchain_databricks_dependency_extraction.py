@@ -11,11 +11,11 @@ from mlflow.langchain.databricks_dependencies import (
     _extract_databricks_dependencies_from_chat_model,
     _extract_databricks_dependencies_from_llm,
     _extract_databricks_dependencies_from_retriever,
-    _extract_databricks_dependencies_from_uc_function_toolkit
+    _extract_databricks_dependencies_from_uc_function_toolkit,
 )
 from mlflow.langchain.utils import IS_PICKLE_SERIALIZATION_RESTRICTED
 from mlflow.models.resources import (
-    DatabricksServingEndpoint, 
+    DatabricksServingEndpoint,
     DatabricksVectorSearchIndex,
     DatabricksSQLWarehouse,
     DatabricksUCFunction,
@@ -242,61 +242,120 @@ def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in
         DatabricksServingEndpoint(endpoint_name="embedding-model"),
     ]
 
+
 def test_parsing_dependency_from_uc_function_toolkit(monkeypatch: pytest.MonkeyPatch):
     from langchain_community.tools.databricks import UCFunctionToolkit
-    from langchain_core.tools import StructuredTool
-    from langchain_core.pydantic_v1 import create_model
-    
-    def mock_make_tool(self, function_name: str):
-        return StructuredTool(
-            name=function_name,
-            description="test_description",
-            args_schema=create_model(function_name),
+    from databricks.sdk.service.catalog import FunctionInfo
+    from langchain.llms import OpenAI
+    from langchain.agents import initialize_agent
+
+    def mock_function_get(self, function_name):
+        components = function_name.split(".")
+        param_dict = {
+            "parameters": [
+                {
+                    "name": "request_id",
+                    "parameter_type": "PARAM",
+                    "position": 0,
+                    "type_json": '{"name":"request_id","type":"string","nullable":true,"metadata":{}}',
+                    "type_name": "STRING",
+                    "type_precision": 0,
+                    "type_scale": 0,
+                    "type_text": "string",
+                }
+            ]
+        }
+        return FunctionInfo.from_dict(
+            {
+                "catalog_name": components[0],
+                "schema_name": components[1],
+                "name": components[2],
+                "input_params": param_dict,
+            }
         )
 
-    monkeypatch.setattr("langchain_community.tools.databricks.UCFunctionToolkit._make_tool", mock_make_tool)
+    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
 
     toolkit = UCFunctionToolkit(warehouse_id="testId1").include("rag.test.test_function")
-    resources = list(_extract_databricks_dependencies_from_uc_function_toolkit(toolkit))
+    llm = OpenAI(temperature=0)
+    agent = initialize_agent(
+        toolkit.get_tools(),
+        llm,
+        verbose=True,
+    )
+
+    resources = list(_extract_databricks_dependencies_from_uc_function_toolkit(agent))
     assert resources == [
+        DatabricksUCFunction(function_name="rag.test.test_function"),
         DatabricksSQLWarehouse(warehouse_id="testId1"),
-        DatabricksUCFunction(function_name="rag.test.test_function")
     ]
+
 
 def test_parsing_multiple_dependency_from_uc_function_toolkit(monkeypatch: pytest.MonkeyPatch):
     from langchain_community.tools.databricks import UCFunctionToolkit
-    from langchain_core.tools import StructuredTool
-    from langchain_core.pydantic_v1 import create_model
+    from langchain.llms import OpenAI
+    from langchain.agents import initialize_agent
     from databricks.sdk.service.catalog import FunctionInfo
 
     mock_workspace_client = MagicMock()
-    
-    def mock_make_tool(self, function_name: str):
-        return StructuredTool(
-            name=function_name,
-            description="test_description",
-            args_schema=create_model(function_name),
+
+    def mock_function_get(self, function_name):
+        components = function_name.split(".")
+        param_dict = {
+            "parameters": [
+                {
+                    "name": "request_id",
+                    "parameter_type": "PARAM",
+                    "position": 0,
+                    "type_json": '{"name":"request_id","type":"string","nullable":true,"metadata":{}}',
+                    "type_name": "STRING",
+                    "type_precision": 0,
+                    "type_scale": 0,
+                    "type_text": "string",
+                }
+            ]
+        }
+        return FunctionInfo.from_dict(
+            {
+                "catalog_name": components[0],
+                "schema_name": components[1],
+                "name": components[2],
+                "input_params": param_dict,
+            }
         )
-    
-    def mock_function_list(self,catalog_name, schema_name):
-        assert catalog_name=="rag"
-        assert schema_name=="test"
-        return [FunctionInfo(full_name="rag.test.test_function"), 
-                FunctionInfo(full_name="rag.test.test_function_2"), 
-                FunctionInfo(full_name="rag.test.test_function_3")]
-    
+
+    def mock_function_list(self, catalog_name, schema_name):
+        assert catalog_name == "rag"
+        assert schema_name == "test"
+        return [
+            FunctionInfo(full_name="rag.test.test_function"),
+            FunctionInfo(full_name="rag.test.test_function_2"),
+            FunctionInfo(full_name="rag.test.test_function_3"),
+        ]
+
     monkeypatch.setitem(sys.modules, "databricks.sdk.WorkspaceClient", mock_workspace_client)
-    monkeypatch.setattr("langchain_community.tools.databricks.UCFunctionToolkit._make_tool", mock_make_tool)
+    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
     monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.list", mock_function_list)
 
     toolkit = UCFunctionToolkit(warehouse_id="testId1").include("rag.test.*")
-    resources = list(_extract_databricks_dependencies_from_uc_function_toolkit(toolkit))
+    llm = OpenAI(temperature=0)
+    agent = initialize_agent(
+        toolkit.get_tools(),
+        llm,
+        verbose=True,
+    )
+    resources = list(_extract_databricks_dependencies_from_uc_function_toolkit(agent))
+    print(resources)
+    print(len(resources))
+    for resource in resources:
+        print(resource)
     assert resources == [
-        DatabricksSQLWarehouse(warehouse_id="testId1"),
         DatabricksUCFunction(function_name="rag.test.test_function"),
         DatabricksUCFunction(function_name="rag.test.test_function_2"),
-        DatabricksUCFunction(function_name="rag.test.test_function_3")
+        DatabricksUCFunction(function_name="rag.test.test_function_3"),
+        DatabricksSQLWarehouse(warehouse_id="testId1"),
     ]
+
 
 def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch):
     from langchain_community.chat_models import ChatDatabricks

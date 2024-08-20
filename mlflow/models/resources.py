@@ -96,7 +96,8 @@ class DatabricksVectorSearchIndex(DatabricksResource):
     @classmethod
     def from_dict(cls, data: Dict[str, str]):
         return cls(index_name=data["name"])
-    
+
+
 @dataclass
 class DatabricksSQLWarehouse(DatabricksResource):
     """
@@ -115,7 +116,8 @@ class DatabricksSQLWarehouse(DatabricksResource):
     @classmethod
     def from_dict(cls, data: Dict[str, str]):
         return cls(warehouse_id=data["name"])
-    
+
+
 @dataclass
 class DatabricksUCFunction(DatabricksResource):
     """
@@ -142,7 +144,7 @@ def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
             ResourceType.SERVING_ENDPOINT.value: DatabricksServingEndpoint,
             ResourceType.VECTOR_SEARCH_INDEX.value: DatabricksVectorSearchIndex,
             ResourceType.SQL_WAREHOUSE.value: DatabricksSQLWarehouse,
-            ResourceType.UC_FUNCTION.value: DatabricksUCFunction
+            ResourceType.UC_FUNCTION.value: DatabricksUCFunction,
         }
     }
     resource = resource_classes.get(target_uri)

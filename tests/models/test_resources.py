@@ -29,6 +29,7 @@ def test_index_name():
         "databricks": expected,
     }
 
+
 def test_sql_warehouse():
     sql_warehouse = DatabricksSQLWarehouse(warehouse_id="id1")
     expected = {"sql_warehouse": [{"name": "id1"}]}
@@ -37,6 +38,7 @@ def test_sql_warehouse():
         "api_version": DEFAULT_API_VERSION,
         "databricks": expected,
     }
+
 
 def test_uc_function():
     uc_function = DatabricksUCFunction(function_name="function")
@@ -55,7 +57,7 @@ def test_resources():
         DatabricksServingEndpoint(endpoint_name="databricks-llama-8x7b-instruct"),
         DatabricksSQLWarehouse(warehouse_id="id123"),
         DatabricksUCFunction(function_name="rag.studio.test_function_1"),
-        DatabricksUCFunction(function_name="rag.studio.test_function_2")
+        DatabricksUCFunction(function_name="rag.studio.test_function_2"),
     ]
     expected = {
         "api_version": DEFAULT_API_VERSION,
