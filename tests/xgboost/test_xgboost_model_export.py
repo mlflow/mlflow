@@ -16,7 +16,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.utils
 import mlflow.xgboost
 from mlflow import pyfunc
-from mlflow.models import Model, ModelSignature
+from mlflow.models import Model, ModelSignature, infer_signature
 from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -627,3 +627,23 @@ def test_get_raw_model(xgb_model):
         raw_model.predict(xgb_model.inference_dmatrix),
         xgb_model.model.predict(xgb_model.inference_dmatrix),
     )
+
+
+def test_predict_filter_invalid_params(xgb_model):
+    signature = infer_signature(
+        xgb_model.inference_dataframe.head(3), params={"invalid_param": 1, "approx_contribs": True}
+    )
+    with mlflow.start_run():
+        model_info = mlflow.xgboost.log_model(xgb_model.model, "model", signature=signature)
+    pyfunc_model = pyfunc.load_model(model_info.model_uri)
+    with mock.patch("mlflow.xgboost._logger.warning") as mock_warning:
+        np.testing.assert_array_almost_equal(
+            pyfunc_model.predict(
+                xgb_model.inference_dataframe, params={"invalid_param": 2, "approx_contribs": True}
+            ),
+            xgb_model.model.predict(xgb_model.inference_dmatrix, approx_contribs=True),
+        )
+        mock_warning.assert_called_once_with(
+            "Params {'invalid_param'} are not accepted by the xgboost model, "
+            "ignoring them during predict."
+        )
