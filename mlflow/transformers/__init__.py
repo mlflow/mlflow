@@ -1181,8 +1181,7 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
                 f"is incompatible with device_map, ignoring device param `{device}` passed."
             )
         device = None
-
-    if device is None:
+    elif device is None:
         if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
             try:
                 device = int(MLFLOW_DEFAULT_PREDICTION_DEVICE.get())
