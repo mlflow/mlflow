@@ -17,6 +17,7 @@ XGBoost (native) format
     https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 """
 import functools
+import inspect
 import json
 import logging
 import os
@@ -362,7 +363,9 @@ class _XGBModelWrapper:
             Model predictions.
         """
         predict_fn = _wrapped_xgboost_model_predict_fn(self.xgb_model)
-        return predict_fn(dataframe, **(params or {}))
+        known_args = inspect.signature(predict_fn).parameters.keys()
+        known_params = {k: v for k, v in (params or {}).items() if k in known_args}
+        return predict_fn(dataframe, **known_params)
 
 
 def _wrapped_xgboost_model_predict_fn(model, validate_features=True):
