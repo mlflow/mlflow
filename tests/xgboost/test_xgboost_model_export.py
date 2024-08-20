@@ -629,7 +629,7 @@ def test_get_raw_model(xgb_model):
     )
 
 
-def test_predict_filter_invalid_params(xgb_model):
+def test_xgbooster_predict_exclude_invalid_params(xgb_model):
     signature = infer_signature(
         xgb_model.inference_dataframe.head(3), params={"invalid_param": 1, "approx_contribs": True}
     )
@@ -642,6 +642,30 @@ def test_predict_filter_invalid_params(xgb_model):
                 xgb_model.inference_dataframe, params={"invalid_param": 2, "approx_contribs": True}
             ),
             xgb_model.model.predict(xgb_model.inference_dmatrix, approx_contribs=True),
+        )
+        mock_warning.assert_called_once_with(
+            "Params {'invalid_param'} are not accepted by the xgboost model, "
+            "ignoring them during predict."
+        )
+
+
+def test_xgbmodel_predict_exclude_invalid_params(xgb_sklearn_model):
+    signature = infer_signature(
+        xgb_sklearn_model.inference_dataframe.head(3),
+        params={"invalid_param": 1, "output_margin": True},
+    )
+    with mlflow.start_run():
+        model_info = mlflow.xgboost.log_model(xgb_sklearn_model.model, "model", signature=signature)
+    pyfunc_model = pyfunc.load_model(model_info.model_uri)
+    with mock.patch("mlflow.xgboost._logger.warning") as mock_warning:
+        np.testing.assert_array_almost_equal(
+            pyfunc_model.predict(
+                xgb_sklearn_model.inference_dataframe,
+                params={"invalid_param": 2, "output_margin": True},
+            ),
+            xgb_sklearn_model.model.predict(
+                xgb_sklearn_model.inference_dataframe, output_margin=True
+            ),
         )
         mock_warning.assert_called_once_with(
             "Params {'invalid_param'} are not accepted by the xgboost model, "
