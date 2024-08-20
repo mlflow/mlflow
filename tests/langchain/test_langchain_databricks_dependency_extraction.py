@@ -8,10 +8,10 @@ from packaging.version import Version
 
 from mlflow.langchain.databricks_dependencies import (
     _detect_databricks_dependencies,
+    _extract_databricks_dependencies_from_agent_tools,
     _extract_databricks_dependencies_from_chat_model,
     _extract_databricks_dependencies_from_llm,
     _extract_databricks_dependencies_from_retriever,
-    _extract_databricks_dependencies_from_uc_function_toolkit,
 )
 from mlflow.langchain.utils import IS_PICKLE_SERIALIZATION_RESTRICTED
 from mlflow.models.resources import (
@@ -256,10 +256,10 @@ def test_parsing_dependency_from_uc_function_toolkit(monkeypatch: pytest.MonkeyP
         param_dict = {
             "parameters": [
                 {
-                    "name": "request_id",
+                    "name": "param",
                     "parameter_type": "PARAM",
                     "position": 0,
-                    "type_json": '{"name":"request_id","type":"string","nullable":true,"metadata":{}}',
+                    "type_json": '{"name":"param","type":"string","nullable":true,"metadata":{}}',
                     "type_name": "STRING",
                     "type_precision": 0,
                     "type_scale": 0,
@@ -287,7 +287,7 @@ def test_parsing_dependency_from_uc_function_toolkit(monkeypatch: pytest.MonkeyP
         verbose=True,
     )
 
-    resources = list(_extract_databricks_dependencies_from_uc_function_toolkit(agent))
+    resources = list(_extract_databricks_dependencies_from_agent_tools(agent))
     assert resources == [
         DatabricksUCFunction(function_name="rag.test.test_function"),
         DatabricksSQLWarehouse(warehouse_id="testId1"),
@@ -307,10 +307,10 @@ def test_parsing_multiple_dependency_from_uc_function_toolkit(monkeypatch: pytes
         param_dict = {
             "parameters": [
                 {
-                    "name": "request_id",
+                    "name": "param",
                     "parameter_type": "PARAM",
                     "position": 0,
-                    "type_json": '{"name":"request_id","type":"string","nullable":true,"metadata":{}}',
+                    "type_json": '{"name":"param","type":"string","nullable":true,"metadata":{}}',
                     "type_name": "STRING",
                     "type_precision": 0,
                     "type_scale": 0,
@@ -348,7 +348,7 @@ def test_parsing_multiple_dependency_from_uc_function_toolkit(monkeypatch: pytes
         llm,
         verbose=True,
     )
-    resources = list(_extract_databricks_dependencies_from_uc_function_toolkit(agent))
+    resources = list(_extract_databricks_dependencies_from_agent_tools(agent))
 
     # Ensure all resources are added in
     assert resources == [

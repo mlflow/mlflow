@@ -1,3 +1,4 @@
+import inspect
 import logging
 from typing import Generator, List, Optional, Set
 
@@ -54,15 +55,13 @@ def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None
             yield DatabricksServingEndpoint(endpoint_name=embeddings.endpoint)
 
 
-def _extract_databricks_dependencies_from_uc_function_toolkit(
+def _extract_databricks_dependencies_from_agent_tools(
     agent,
 ) -> Generator[Resource, None, None]:
     # Tools are passed into a Langchain as Seq[BaseTool] part of an AgentExecutor
     # This function looks for an AgentExecutor, extracts all the tools generated from
     # UC Function Toolkit. From each of these tools it then extracts the Databricks
     # SQL Warehouse ID and UC Function Names and adds them to resources.
-    import inspect
-
     from langchain.agents import AgentExecutor
     from langchain_community.tools import BaseTool
     from langchain_community.tools.databricks import UCFunctionToolkit
@@ -175,7 +174,7 @@ def _extract_dependency_list_from_lc_model(lc_model) -> Generator[Resource, None
     yield from _extract_databricks_dependencies_from_chat_model(lc_model)
     yield from _extract_databricks_dependencies_from_retriever(lc_model)
     yield from _extract_databricks_dependencies_from_llm(lc_model)
-    yield from _extract_databricks_dependencies_from_uc_function_toolkit(lc_model)
+    yield from _extract_databricks_dependencies_from_agent_tools(lc_model)
 
     # recursively inspect legacy chain
     for attr_name in _LEGACY_MODEL_ATTR_SET:

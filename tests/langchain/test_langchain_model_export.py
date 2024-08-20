@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import sqlite3
+import sys
 import warnings
 from operator import itemgetter
 from typing import Any, Dict, Iterator, List, Mapping, Optional
@@ -1855,8 +1856,6 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
 
 
 def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
-    import sys
-
     from databricks.sdk.service.catalog import FunctionInfo
     from langchain_community.tools.databricks import UCFunctionToolkit
 
@@ -1875,10 +1874,10 @@ def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
         param_dict = {
             "parameters": [
                 {
-                    "name": "request_id",
+                    "name": "param",
                     "parameter_type": "PARAM",
                     "position": 0,
-                    "type_json": '{"name":"request_id","type":"string","nullable":true,"metadata":{}}',
+                    "type_json": '{"name":"param","type":"string","nullable":true,"metadata":{}}',
                     "type_name": "STRING",
                     "type_precision": 0,
                     "type_scale": 0,
