@@ -8,6 +8,14 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GenerateTemporaryModelVersionCredentialsResponse,
     StorageMode,
 )
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    MODEL_VERSION_OPERATION_READ as MODEL_VERSION_OPERATION_READ_OSS,
+    GenerateTemporaryModelVersionCredentialsRequest as GenerateTemporaryModelVersionCredentialsRequestOSS,
+    GenerateTemporaryModelVersionCredentialsResponse as GenerateTemporaryModelVersionCredentialsResponseOSS,
+    StorageMode as StorageModeOSS,
+)
+
+from mlflow.protos.unity_catalog_oss_service_pb2 import UnityCatalogService
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store._unity_catalog.lineage.constants import _DATABRICKS_LINEAGE_ID_HEADER
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -23,6 +31,7 @@ from mlflow.utils._unity_catalog_utils import (
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
+    _UC_OSS_REST_API_PATH_PREFIX,
     _REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
@@ -35,6 +44,7 @@ from mlflow.utils.uri import (
 )
 
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
+_METHOD_TO_INFO_OSS = extract_api_info_for_service(UnityCatalogService, _UC_OSS_REST_API_PATH_PREFIX)
 
 
 class UnityCatalogModelsArtifactRepository(ArtifactRepository):
@@ -90,30 +100,51 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         return self.client.get_model_version_download_uri(self.model_name, self.model_version)
 
     def _get_scoped_token(self, lineage_header_info=None):
+        testing = True
         extra_headers = {}
         if lineage_header_info:
             header_json = message_to_json(lineage_header_info)
             header_base64 = base64.b64encode(header_json.encode())
             extra_headers[_DATABRICKS_LINEAGE_ID_HEADER] = header_base64
 
-        db_creds = get_databricks_host_creds(self.registry_uri)
-        endpoint, method = _METHOD_TO_INFO[GenerateTemporaryModelVersionCredentialsRequest]
-        req_body = message_to_json(
-            GenerateTemporaryModelVersionCredentialsRequest(
-                name=self.model_name,
-                version=self.model_version,
-                operation=MODEL_VERSION_OPERATION_READ,
+        if testing or self.registry_uri.startswith("uc:"):
+            oss_creds = get_databricks_host_creds(self.registry_uri) # using db creds ONLY FOR TESTING
+            oss_endpoint, oss_method = _METHOD_TO_INFO_OSS[GenerateTemporaryModelVersionCredentialsRequestOSS]
+            oss_req_body = message_to_json(
+                GenerateTemporaryModelVersionCredentialsRequestOSS(
+                    name=self.model_name,
+                    version=self.model_version,
+                    operation=MODEL_VERSION_OPERATION_READ_OSS,
+                )
             )
-        )
-        response_proto = GenerateTemporaryModelVersionCredentialsResponse()
-        return call_endpoint(
-            host_creds=db_creds,
-            endpoint=endpoint,
-            method=method,
-            json_body=req_body,
-            response_proto=response_proto,
-            extra_headers=extra_headers,
-        ).credentials
+            oss_response_proto = GenerateTemporaryModelVersionCredentialsResponseOSS()
+            return call_endpoint(
+                host_creds=oss_creds,
+                endpoint=oss_endpoint,
+                method=oss_method,
+                json_body=oss_req_body,
+                response_proto=oss_response_proto,
+                extra_headers=extra_headers,
+            ).credentials
+        else:
+            db_creds = get_databricks_host_creds(self.registry_uri)
+            endpoint, method = _METHOD_TO_INFO[GenerateTemporaryModelVersionCredentialsRequest]
+            req_body = message_to_json(
+                GenerateTemporaryModelVersionCredentialsRequest(
+                    name=self.model_name,
+                    version=self.model_version,
+                    operation=MODEL_VERSION_OPERATION_READ,
+                )
+            )
+            response_proto = GenerateTemporaryModelVersionCredentialsResponse()
+            return call_endpoint(
+                host_creds=db_creds,
+                endpoint=endpoint,
+                method=method,
+                json_body=req_body,
+                response_proto=response_proto,
+                extra_headers=extra_headers,
+            ).credentials
 
     def _get_artifact_repo(self, lineage_header_info=None):
         """
