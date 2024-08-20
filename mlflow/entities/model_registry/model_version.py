@@ -1,3 +1,7 @@
+from typing import List, Optional
+
+from mlflow.entities.metric import Metric
+from mlflow.entities.model_param import ModelParam
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
@@ -26,6 +30,8 @@ class ModelVersion(_ModelRegistryEntity):
         tags=None,
         run_link=None,
         aliases=None,
+        params: Optional[List[ModelParam]] = None,
+        metrics: Optional[List[Metric]] = None,
     ):
         super().__init__()
         self._name = name
@@ -42,6 +48,8 @@ class ModelVersion(_ModelRegistryEntity):
         self._status_message = status_message
         self._tags = {tag.key: tag.value for tag in (tags or [])}
         self._aliases = aliases or []
+        self._params = params
+        self._metrics = metrics
 
     @property
     def name(self):
@@ -134,6 +142,16 @@ class ModelVersion(_ModelRegistryEntity):
     @aliases.setter
     def aliases(self, aliases):
         self._aliases = aliases
+
+    @property
+    def params(self) -> Optional[List[ModelParam]]:
+        """List of parameters associated with this model version."""
+        return self._params
+
+    @property
+    def metrics(self) -> Optional[List[Metric]]:
+        """List of metrics associated with this model version."""
+        return self._metrics
 
     @classmethod
     def _properties(cls):

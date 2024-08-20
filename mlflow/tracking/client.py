@@ -24,6 +24,7 @@ from mlflow.entities import (
     Experiment,
     FileInfo,
     Metric,
+    Model,
     Param,
     Run,
     RunTag,
@@ -4735,3 +4736,13 @@ class MlflowClient:
         """
         _validate_model_name(name)
         return self._get_registry_client().get_model_version_by_alias(name, alias)
+
+    def create_model(
+        self,
+        experiment_id: str,
+        name: str,
+        run_id: Optional[str] = None,
+        tags: Optional[Dict[str, str]] = None,
+        params: Optional[Dict[str, str]] = None,
+    ) -> Model:
+        return self._tracking_client.create_model(experiment_id, name, run_id, tags, params)

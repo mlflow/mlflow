@@ -14,6 +14,9 @@ from typing import Dict, List, Optional
 from mlflow.entities import (
     ExperimentTag,
     Metric,
+    Model,
+    ModelParam,
+    ModelTag,
     Param,
     RunStatus,
     RunTag,
@@ -975,4 +978,24 @@ class TrackingServiceClient:
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
+        )
+
+    def create_model(
+        self,
+        experiment_id: str,
+        name: str,
+        run_id: Optional[str] = None,
+        tags: Optional[Dict[str, str]] = None,
+        params: Optional[Dict[str, str]] = None,
+    ) -> Model:
+        return self.store.create_model(
+            experiment_id=experiment_id,
+            name=name,
+            run_id=run_id,
+            tags=[ModelTag(key, value) for key, value in tags.items()]
+            if tags is not None
+            else tags,
+            params=[ModelParam(key, value) for key, value in params.items()]
+            if params is not None
+            else params,
         )
