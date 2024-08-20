@@ -30,6 +30,9 @@ class ModelVersion(_ModelRegistryEntity):
         tags: Optional[List[ModelVersionTag]] = None,
         run_link: Optional[str] = None,
         aliases: Optional[List[str]] = None,
+        # TODO: Make model_id a required field
+        # (currently optional to minimize breakages during prototype development)
+        model_id: Optional[str] = None,
         params: Optional[List[ModelParam]] = None,
         metrics: Optional[List[Metric]] = None,
     ):
@@ -48,6 +51,7 @@ class ModelVersion(_ModelRegistryEntity):
         self._status_message: Optional[str] = status_message
         self._tags: Dict[str, str] = {tag.key: tag.value for tag in (tags or [])}
         self._aliases: List[str] = aliases or []
+        self._model_id: Optional[str] = model_id
         self._params: Optional[List[ModelParam]] = params
         self._metrics: Optional[List[Metric]] = metrics
 
@@ -144,6 +148,11 @@ class ModelVersion(_ModelRegistryEntity):
         self._aliases = aliases
 
     @property
+    def model_id(self) -> Optional[str]:
+        """String. ID of the model associated with this version."""
+        return self._model_id
+
+    @property
     def params(self) -> Optional[List[ModelParam]]:
         """List of parameters associated with this model version."""
         return self._params
@@ -183,6 +192,7 @@ class ModelVersion(_ModelRegistryEntity):
         )
         for tag in proto.tags:
             model_version._add_tag(ModelVersionTag.from_proto(tag))
+        # TODO: Include params, metrics, and model ID in proto
         return model_version
 
     def to_proto(self) -> ProtoModelVersion:
@@ -214,4 +224,5 @@ class ModelVersion(_ModelRegistryEntity):
             [ProtoModelVersionTag(key=key, value=value) for key, value in self._tags.items()]
         )
         model_version.aliases.extend(self.aliases)
+        # TODO: Include params, metrics, and model ID in proto
         return model_version
