@@ -221,6 +221,7 @@ class FakeChain(Chain):
         else:
             return {"baz": "bar"}
 
+
 class MockVectorSearchIndex:
     def __init__(self, endpoint_name, index_name, has_embedding_endpoint=False) -> None:
         self.endpoint_name = endpoint_name
@@ -1919,6 +1920,7 @@ def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
     from langchain_community.chat_models import ChatDatabricks
     from langchain_community.tools.databricks import UCFunctionToolkit
     from langchain_community.vectorstores import DatabricksVectorSearch
+
     # Return 2 functions from the function lis
     def mock_function_list(self, catalog_name, schema_name):
         assert catalog_name == "rag"
@@ -1963,11 +1965,11 @@ def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
 
     mock_module = mock.MagicMock()
     mock_module.VectorSearchIndex = MockVectorSearchIndex
-    mock_workspace_client = mock.MagicMock()
     mock_get_deploy_client = mock.MagicMock()
 
     monkeypatch.setitem(sys.modules, "databricks.vector_search.client", mock_module)
-    monkeypatch.setitem(sys.modules, "databricks.sdk.WorkspaceClient", mock_workspace_client)
+    monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
     monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
     monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.list", mock_function_list)
     monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
@@ -1983,11 +1985,7 @@ def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
 
     vectorstore = DatabricksVectorSearch(vs_index, text_column="content")
     retriever = vectorstore.as_retriever()
-    retriever_tool = create_retriever_tool(
-        retriever,
-        "vs_index_name",
-        "vs_index_desc"
-    )
+    retriever_tool = create_retriever_tool(retriever, "vs_index_name", "vs_index_desc")
     agent = initialize_agent(
         uc_function_tools + [retriever_tool],
         chat_model,
@@ -2006,16 +2004,14 @@ def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
     actual = reloaded_model.resources["databricks"]
     # Ensure both functions are outputted
     expected = {
-        'serving_endpoint': [
-            {'name': 'databricks-llama-2-70b-chat'},
-            {'name': 'embedding-model'}
+        "serving_endpoint": [{"name": "databricks-llama-2-70b-chat"}, {"name": "embedding-model"}],
+        "sql_warehouse": [{"name": "test_id_1"}],
+        "uc_function": [
+            {"name": "rag.studio.test_function_a"},
+            {"name": "rag.studio.test_function_b"},
         ],
-        'sql_warehouse': [{'name': 'test_id_1'}],
-        'uc_function': [
-            {'name': 'rag.studio.test_function_a'},
-            {'name': 'rag.studio.test_function_b'}
-        ],
-        'vector_search_index': [{'name': 'mlflow.rag.vs_index'}]}
+        "vector_search_index": [{"name": "mlflow.rag.vs_index"}],
+    }
 
     assert all(item in actual["serving_endpoint"] for item in expected["serving_endpoint"])
     assert all(item in expected["serving_endpoint"] for item in actual["serving_endpoint"])

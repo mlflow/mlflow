@@ -79,10 +79,9 @@ def _extract_databricks_dependencies_from_agent(
             for tool in tools:
                 if isinstance(tool, BaseTool):
                     # Handle Retriever tools
-                    if hasattr(tool.func, 'keywords') and 'retriever' in tool.func.keywords:
-                        retriever = tool.func.keywords.get('retriever')
-                        for dep in _get_vectorstore_from_retriever(retriever):
-                            yield dep
+                    if hasattr(tool.func, "keywords") and "retriever" in tool.func.keywords:
+                        retriever = tool.func.keywords.get("retriever")
+                        yield from _get_vectorstore_from_retriever(retriever)
                     else:
                         # Tools here are a part of the BaseTool and have no attribute of a
                         # WarehouseID Extract the global variables of the function defined
@@ -227,6 +226,7 @@ def _traverse_runnable(
 
 def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> List[Resource]:
     from langchain.agents import AgentExecutor
+
     """
     Detects the databricks dependencies of a langchain model and returns a list of
     detected endpoint names and index names.
@@ -248,8 +248,8 @@ def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> Li
     If a chat_model is found, it will be used to extract the databricks chat dependencies.
     """
     try:
-        if (isinstance(lc_model, AgentExecutor)):
-            dependency_list = _extract_databricks_dependencies_from_agent(lc_model)
+        if isinstance(lc_model, AgentExecutor):
+            dependency_list = list(_extract_databricks_dependencies_from_agent(lc_model))
         else:
             dependency_list = list(_traverse_runnable(lc_model))
         # Filter out duplicate dependencies so same dependencies are not added multiple times

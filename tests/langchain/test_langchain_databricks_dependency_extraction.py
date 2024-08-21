@@ -277,6 +277,8 @@ def test_parsing_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
             }
         )
 
+    monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
     monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
 
     toolkit = UCFunctionToolkit(warehouse_id="testId1").include("rag.test.test_function")
@@ -303,7 +305,6 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch)
     from langchain_community.vectorstores import DatabricksVectorSearch
 
     mock_get_deploy_client = MagicMock()
-    mock_workspace_client = MagicMock()
 
     def mock_function_get(self, function_name):
         components = function_name.split(".")
@@ -350,12 +351,12 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch)
     mock_module = MagicMock()
     mock_module.VectorSearchIndex = MockVectorSearchIndex
 
+    monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
     monkeypatch.setitem(sys.modules, "databricks.vector_search.client", mock_module)
-    monkeypatch.setitem(sys.modules, "databricks.sdk.WorkspaceClient", mock_workspace_client)
     monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
     monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
     monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.list", mock_function_list)
-
 
     toolkit = UCFunctionToolkit(warehouse_id="testId1").include("rag.test.*")
     chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
@@ -363,11 +364,7 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch)
     vectorstore = DatabricksVectorSearch(vs_index, text_column="content")
     retriever = vectorstore.as_retriever()
 
-    retriever_tool = create_retriever_tool(
-        retriever,
-        "vs_index_name",
-        "vs_index_desc"
-    )
+    retriever_tool = create_retriever_tool(retriever, "vs_index_name", "vs_index_desc")
 
     agent = initialize_agent(
         toolkit.get_tools() + [retriever_tool],
@@ -377,12 +374,12 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch)
     resources = list(_extract_databricks_dependencies_from_agent(agent))
     # Ensure all resources are added in
     assert resources == [
-        DatabricksServingEndpoint(endpoint_name='databricks-llama-2-70b-chat'),
+        DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat"),
         DatabricksUCFunction(function_name="rag.test.test_function"),
         DatabricksUCFunction(function_name="rag.test.test_function_2"),
         DatabricksUCFunction(function_name="rag.test.test_function_3"),
-        DatabricksVectorSearchIndex(index_name='mlflow.rag.vs_index'),
-        DatabricksServingEndpoint(endpoint_name='embedding-model'),
+        DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
+        DatabricksServingEndpoint(endpoint_name="embedding-model"),
         DatabricksSQLWarehouse(warehouse_id="testId1"),
     ]
 
