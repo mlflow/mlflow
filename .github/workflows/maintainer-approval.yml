@@ -2,6 +2,13 @@ name: Maintainer approval
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+  pull_request_review:
+    types:
+      - submitted
 
 permissions:
   pull-requests: read
@@ -9,6 +16,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    if: github.event.pull_request || (github.event.review && github.event.review.state == 'approved')
     steps:
       - uses: actions/checkout@v4
       - name: Fail without core maintainer approval
@@ -17,7 +25,6 @@ jobs:
           script: |
             const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/require-core-maintainer-approval.js`);
             const reason = (
-              "Please ensure that one of the MLflow Core Maintainers " +
-              "has a chance to review this PR, and rerun this workflow once approved."
+              "Please ensure that one of the MLflow Core Maintainers has a chance to review this PR."
             );
             await script({ context, github, core, reason });
