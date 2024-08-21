@@ -6,6 +6,7 @@ const CORE_MAINTAINERS = new Set([
   "harupy",
   "serena-ruan",
   "WeichenXu123",
+  "xq-yin",
 ]);
 
 module.exports = async ({ github, context, core }) => {
