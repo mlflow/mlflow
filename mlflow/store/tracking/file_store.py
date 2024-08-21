@@ -2045,11 +2045,11 @@ class FileStore(AbstractStore):
 
     def _find_model_root(self, model_id):
         self._check_root_dir()
-        all_experiments = self._get_active_experiments(True) + self._get_deleted_experiments(True)
-        print("ALL EXPERIMENTS", all_experiments)
+        all_experiments = self._get_active_experiments(False) + self._get_deleted_experiments(False)
         for experiment_dir in all_experiments:
-            models_dir_path = os.path.join(experiment_dir, FileStore.MODELS_FOLDER_NAME)
-            print("MODELS DIR PATH", models_dir_path)
+            models_dir_path = os.path.join(
+                self.root_directory, experiment_dir, FileStore.MODELS_FOLDER_NAME
+            )
             models = find(models_dir_path, model_id, full_path=True)
             if len(models) == 0:
                 continue
