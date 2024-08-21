@@ -62,9 +62,9 @@ def _extract_databricks_dependencies_from_agent(
     # This function looks for an AgentExecutor, extracts all the tools generated from
     # UC Function Toolkit. From each of these tools it then extracts the Databricks
     # SQL Warehouse ID and UC Function Names and adds them to resources.
+    from langchain.agents import AgentExecutor
     from langchain_community.tools import BaseTool
     from langchain_community.tools.databricks import UCFunctionToolkit
-    from langchain.agents import AgentExecutor
 
     if isinstance(agent_executor, AgentExecutor):
         agent = agent_executor.agent
@@ -80,25 +80,27 @@ def _extract_databricks_dependencies_from_agent(
                 if isinstance(tool, BaseTool):
                     # Handle Retriever tools
                     if hasattr(tool.func, 'keywords') and 'retriever' in tool.func.keywords:
-                        for dep in _get_vectorstore_from_retriever(tool.func.keywords.get('retriever')):
+                        retriever = tool.func.keywords.get('retriever')
+                        for dep in _get_vectorstore_from_retriever(retriever):
                             yield dep
                     else:
-                        # Tools here are a part of the BaseTool and have no attribute of a WarehouseID
-                        # Extract the global variables of the function defined in the tool to get
-                        # the UCFunctionToolkit Constants
+                        # Tools here are a part of the BaseTool and have no attribute of a
+                        # WarehouseID Extract the global variables of the function defined
+                        # in the tool to get the UCFunctionToolkit Constants
                         nonlocal_vars = inspect.getclosurevars(tool.func).nonlocals
                         if "self" in nonlocal_vars and isinstance(
                             nonlocal_vars.get("self"), UCFunctionToolkit
                         ):
                             uc_function_toolkit = nonlocal_vars.get("self")
-                            # As we are iterating through each tool, adding a warehouse id everytime is a
-                            # duplicative resouce. Use a set to dedup warehouse ids and add them in the end
+                            # As we are iterating through each tool, adding a warehouse id everytime
+                            # is a duplicative resouce. Use a set to dedup warehouse ids and add
+                            # them in the end
                             warehouse_ids.add(uc_function_toolkit.warehouse_id)
 
                             # In langchain the names of the tools are modified to have underscores:
                             # main.catalog.test_func -> main_catalog_test_func
-                            # The original name of the tool is stored as the key in the tools dictionary
-                            # This code finds the correct tool and extract the key
+                            # The original name of the tool is stored as the key in the tools
+                            # dictionary. This code finds the correct tool and extract the key
                             langchain_tool_name = tool.name
                             filtered_tool_names = [
                                 tool_name

@@ -297,10 +297,10 @@ def test_parsing_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
 def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
     from databricks.sdk.service.catalog import FunctionInfo
     from langchain.agents import initialize_agent
-    from langchain_community.tools.databricks import UCFunctionToolkit
-    from langchain_community.chat_models import ChatDatabricks
-    from langchain_community.vectorstores import DatabricksVectorSearch
     from langchain.tools.retriever import create_retriever_tool
+    from langchain_community.chat_models import ChatDatabricks
+    from langchain_community.tools.databricks import UCFunctionToolkit
+    from langchain_community.vectorstores import DatabricksVectorSearch
 
     mock_get_deploy_client = MagicMock()
     mock_workspace_client = MagicMock()
@@ -375,8 +375,6 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch)
         verbose=True,
     )
     resources = list(_extract_databricks_dependencies_from_agent(agent))
-    for resource in resources:
-        print(resource)
     # Ensure all resources are added in
     assert resources == [
         DatabricksServingEndpoint(endpoint_name='databricks-llama-2-70b-chat'),
