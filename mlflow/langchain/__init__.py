@@ -422,6 +422,10 @@ def log_model(
     run_id=None,
     model_config=None,
     streamable=None,
+    params: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
