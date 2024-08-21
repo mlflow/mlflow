@@ -1864,6 +1864,34 @@ def create_model(
     )
 
 
+def search_models(
+    experiment_ids: Optional[List[str]] = None,
+    filter_string: Optional[str] = None,
+    max_results: Optional[int] = None,
+    order_by: Optional[List[str]] = None,
+    output_format: str = "pandas",
+) -> Union[List[Model], "pandas.DataFrame"]:
+    experiment_ids = experiment_ids or [_get_experiment_id()]
+    models = MlflowClient().search_models(
+        experiment_ids=experiment_ids,
+        filter_string=filter_string,
+        max_results=max_results,
+        order_by=order_by,
+    )
+    if output_format == "pandas":
+        import pandas as pd
+
+        return pd.DataFrame([model.to_dictionary() for model in models])
+    elif output_format == "list":
+        return models
+    else:
+        raise MlflowException(
+            "Unsupported output format: %s. Supported string values are 'pandas' or 'list'"
+            % output_format,
+            INVALID_PARAMETER_VALUE,
+        )
+
+
 def delete_run(run_id: str) -> None:
     """
     Deletes a run with the given ID.
