@@ -17,6 +17,7 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import mkdir, relative_path_to_artifact_path
 
 
+
 class HdfsArtifactRepository(ArtifactRepository):
     """
     Stores artifacts on HDFS.
@@ -75,8 +76,18 @@ class HdfsArtifactRepository(ArtifactRepository):
                 for each_file in files:
                     source = os.path.join(subdir_path, each_file)
                     destination = posixpath.join(hdfs_subdir_path, each_file)
-                    with open(source, "rb") as f:
-                        hdfs.upload(destination, f)
+                    self.thread_pool.submit(
+                        HdfsArtifactRepository._upload_dir_files_to_hdfs,
+                        hdfs=hdfs, 
+                        source=source, 
+                        destination=destination,
+                    ).result()
+                    
+
+    @staticmethod
+    def _upload_dir_files_to_hdfs(hdfs, source, destination):
+        with open(source, "rb") as f:
+            hdfs.upload(destination, f)
 
     def list_artifacts(self, path=None):
         """
