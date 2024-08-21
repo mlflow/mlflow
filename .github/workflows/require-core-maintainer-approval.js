@@ -14,27 +14,15 @@ module.exports = async ({ github, context, core }) => {
     .map((maintainer) => `${maintainer}`)
     .join(", ");
   const message = `This PR requires an approval from at least one of core maintainers: ${maintainerList}.`;
-
-  if (!context.eventName === "pull_request") {
-    await github.rest.issues.createComment({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      issue_number: context.issue.number,
-      body: message,
-    });
-  } else if (context.eventName === "pull_request_review") {
-    const { data: reviews } = await github.rest.pulls.listReviews({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      pull_number: context.issue.number,
-    });
-    const maintainerApproved = reviews.some(
-      ({ state, user: { login } }) => state === "APPROVED" && CORE_MAINTAINERS.has(login)
-    );
-    if (!maintainerApproved) {
-      core.setFailed(message);
-    }
-  } else {
-    core.setFailed(`Unexpected event type: ${context.eventName}`);
+  const { data: reviews } = await github.rest.pulls.listReviews({
+    owner: context.repo.owner,
+    repo: context.repo.repo,
+    pull_number: context.issue.number,
+  });
+  const maintainerApproved = reviews.some(
+    ({ state, user: { login } }) => state === "APPROVED" && CORE_MAINTAINERS.has(login)
+  );
+  if (!maintainerApproved) {
+    core.setFailed(message);
   }
 };
