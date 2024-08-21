@@ -913,6 +913,7 @@ def log_metrics(
     synchronous: Optional[bool] = None,
     run_id: Optional[str] = None,
     timestamp: Optional[int] = None,
+    model_id: Optional[str] = None,
     dataset: Optional[Dataset] = None,
 ) -> Optional[RunOperations]:
     """
@@ -963,6 +964,7 @@ def log_metrics(
             value,
             timestamp,
             step or 0,
+            model_id=model_id,
             dataset_name=dataset_name,
             dataset_digest=dataset_digest,
         )
