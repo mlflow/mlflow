@@ -5,8 +5,27 @@ import mlflow
 from mlflow.metrics import latency
 
 
+@pytest.mark.parametrize(
+    "data",
+    [
+        # Single row
+        pd.DataFrame(
+            {
+                "inputs": ["What is MLflow?"],
+                "ground_truth": ["What is MLflow?"],
+            }
+        ),
+        # Multiple rows
+        pd.DataFrame(
+            {
+                "inputs": ["What is MLflow?", "What is Spark?"],
+                "ground_truth": ["What is MLflow?", "Not what is Spark?"],
+            }
+        ),
+    ],
+)
 @pytest.mark.parametrize("engine_type", ["query", "chat"])
-def test_llama_index_evaluate(engine_type, single_index):
+def test_llama_index_evaluate(data, engine_type, single_index):
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
             index=single_index,
@@ -15,16 +34,6 @@ def test_llama_index_evaluate(engine_type, single_index):
         )
 
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
-
-    data = pd.DataFrame(
-        {
-            "inputs": [
-                "What is MLflow?",
-                "What is Spark?",
-            ],
-            "ground_truth": ["What is MLflow?", "Not what is Spark?"],
-        }
-    )
     eval_dataset = mlflow.data.from_pandas(data, targets="ground_truth")
 
     with mlflow.start_run():
