@@ -8,7 +8,7 @@ const CORE_MAINTAINERS = new Set([
   "WeichenXu123",
 ]);
 
-module.exports = async ({ github, context, core, reason }) => {
+module.exports = async ({ github, context, core }) => {
   const { data: reviews } = await github.rest.pulls.listReviews({
     owner: context.repo.owner,
     repo: context.repo.repo,
@@ -20,6 +20,9 @@ module.exports = async ({ github, context, core, reason }) => {
   );
 
   if (maintainerApprovals.length === 0) {
-    core.setFailed(`This PR requires an approval from a core maintainer. Reason: ${reason}`);
+    const maintainerList = CORE_MAINTAINERS.join(", ");
+    core.setFailed(
+      `This PR requires an approval from one of core maintainers [${maintainerList}].`
+    );
   }
 };

@@ -24,7 +24,4 @@ jobs:
         with:
           script: |
             const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/require-core-maintainer-approval.js`);
-            const reason = (
-              "Please ensure that one of the MLflow Core Maintainers has a chance to review this PR."
-            );
-            await script({ context, github, core, reason });
+            await script({ context, github, core });
