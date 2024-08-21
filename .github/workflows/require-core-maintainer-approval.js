@@ -21,11 +21,10 @@ module.exports = async ({ github, context, core }) => {
   );
   if (!maintainerApproved) {
     const marker = "<!-- MAINTAINER_APPROVAL -->";
-    const { data: comments } = await github.rest.issues.listComments({
+    const comments = await github.paginate(github.rest.issues.listComments, {
       owner: context.repo.owner,
       repo: context.repo.repo,
       issue_number: context.issue.number,
-      per_page: 100,
     });
     if (!comments.some(({ body }) => body.includes(marker))) {
       const maintainerList = Array.from(CORE_MAINTAINERS)
