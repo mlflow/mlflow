@@ -881,8 +881,11 @@ def log_metric(
                 timestamp=timestamp or get_current_time_millis(),
                 step=step or 0,
                 model_id=model_id,
+                dataset_name=dataset.name if dataset is not None else None,
+                dataset_digest=dataset.digest if dataset is not None else None,
             ),
         ],
+        datasets=[dataset] if dataset is not None else None,
     )
     return MlflowClient().log_metric(
         run_id,
@@ -897,14 +900,34 @@ def log_metric(
     )
 
 
-def _log_inputs_for_metrics_if_necessary(run_id, metrics: List[Metric]) -> None:
+def _log_inputs_for_metrics_if_necessary(
+    run_id, metrics: List[Metric], datasets: Optional[List[Dataset]] = None
+) -> None:
     client = MlflowClient()
     run = client.get_run(run_id)
-    for metric in [metric for metric in metrics if metric.model_id is not None]:
-        if metric.model_id not in [inp.model_id for inp in run.inputs.model_inputs] + [
-            output.model_id for output in run.outputs.model_outputs
-        ]:
+    datasets = datasets or []
+    for metric in metrics:
+        if metric.model_id is not None and metric.model_id not in [
+            inp.model_id for inp in run.inputs.model_inputs
+        ] + [output.model_id for output in run.outputs.model_outputs]:
             client.log_inputs(run_id, models=[ModelInput(model_id=metric.model_id)])
+        if (metric.dataset_name, metric.dataset_digest) not in [
+            (inp.dataset.name, inp.dataset.digest) for inp in run.inputs.dataset_inputs
+        ]:
+            matching_dataset = next(
+                (
+                    dataset
+                    for dataset in datasets
+                    if dataset.name == metric.dataset_name
+                    and dataset.digest == metric.dataset_digest
+                ),
+                None,
+            )
+            if matching_dataset is not None:
+                client.log_inputs(
+                    run_id,
+                    datasets=[DatasetInput(matching_dataset._to_mlflow_entity(), tags=[])],
+                )
 
 
 def log_metrics(
@@ -970,7 +993,9 @@ def log_metrics(
         )
         for key, value in metrics.items()
     ]
-    _log_inputs_for_metrics_if_necessary(run_id, metrics_arr)
+    _log_inputs_for_metrics_if_necessary(
+        run_id, metrics_arr, [dataset] if dataset is not None else None
+    )
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_batch(
         run_id=run_id,
