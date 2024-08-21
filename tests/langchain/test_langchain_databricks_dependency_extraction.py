@@ -250,7 +250,7 @@ def test_parsing_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
 
     try:
         from langchain_community.tools.databricks import UCFunctionToolkit
-    except:
+    except Exception:
         return
 
     # When get is called return a function
@@ -366,7 +366,7 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch)
         from langchain_community.tools.databricks import UCFunctionToolkit
 
         include_uc_function_tools = True
-    except:
+    except Exception:
         include_uc_function_tools = False
 
     uc_function_tools = (

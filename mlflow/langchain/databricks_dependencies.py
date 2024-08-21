@@ -84,7 +84,7 @@ def _extract_databricks_dependencies_from_agent(
                     else:
                         try:
                             from langchain_community.tools.databricks import UCFunctionToolkit
-                        except:
+                        except Exception:
                             continue
                         # Tools here are a part of the BaseTool and have no attribute of a
                         # WarehouseID Extract the global variables of the function defined

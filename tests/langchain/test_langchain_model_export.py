@@ -1981,7 +1981,7 @@ def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
         from langchain_community.tools.databricks import UCFunctionToolkit
 
         include_uc_function_tools = True
-    except:
+    except Exception:
         include_uc_function_tools = False
 
     uc_function_tools = (
