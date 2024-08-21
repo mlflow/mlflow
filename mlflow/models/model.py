@@ -14,7 +14,7 @@ import yaml
 
 import mlflow
 from mlflow.artifacts import download_artifacts
-from mlflow.entities import ModelStatus
+from mlflow.entities import ModelOutput, ModelStatus
 from mlflow.exceptions import MlflowException
 from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
@@ -665,6 +665,7 @@ class Model:
         model_type: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
         tags: Optional[Dict[str, Any]] = None,
+        step: int = 0,
         **kwargs,
     ):
         """
@@ -712,6 +713,10 @@ class Model:
                 else None,
                 tags={key: str(value) for key, value in tags.items()} if tags is not None else None,
             )
+            if active_run is not None:
+                client.log_outputs(
+                    run_id=active_run.info.run_id, models=[ModelOutput(model.model_id, step=step)]
+                )
 
             # NO LONGER START A RUN!
             # if run_id is None:

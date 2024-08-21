@@ -15,6 +15,8 @@ from mlflow.entities import (
     ExperimentTag,
     Metric,
     Model,
+    ModelInput,
+    ModelOutput,
     ModelParam,
     ModelStatus,
     ModelTag,
@@ -757,12 +759,18 @@ class TrackingServiceClient:
             # Merge all the run operations into a single run operations object
             return get_combined_run_operations(run_operations_list)
 
-    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+    def log_inputs(
+        self,
+        run_id: str,
+        datasets: Optional[List[DatasetInput]] = None,
+        models: Optional[List[ModelInput]] = None,
+    ):
         """Log one or more dataset inputs to a run.
 
         Args:
             run_id: String ID of the run
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log.
+            models: List of :py:class:`mlflow.entities.ModelInput` instances to log.
 
         Raises:
             MlflowException: If any errors occur.
@@ -770,10 +778,10 @@ class TrackingServiceClient:
         Returns:
             None
         """
-        if datasets is None or len(datasets) == 0:
-            return
+        self.store.log_inputs(run_id=run_id, datasets=datasets, models=models)
 
-        self.store.log_inputs(run_id=run_id, datasets=datasets)
+    def log_outputs(self, run_id: str, models: List[ModelOutput]):
+        self.store.log_outputs(run_id=run_id, models=models)
 
     def _record_logged_model(self, run_id, mlflow_model):
         from mlflow.models import Model

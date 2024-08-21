@@ -25,6 +25,8 @@ from mlflow.entities import (
     FileInfo,
     Metric,
     Model,
+    ModelInput,
+    ModelOutput,
     ModelStatus,
     Param,
     Run,
@@ -1862,6 +1864,7 @@ class MlflowClient:
         self,
         run_id: str,
         datasets: Optional[Sequence[DatasetInput]] = None,
+        models: Optional[Sequence[ModelInput]] = None,
     ) -> None:
         """
         Log one or more dataset inputs to a run.
@@ -1869,11 +1872,15 @@ class MlflowClient:
         Args:
             run_id: String ID of the run.
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log.
+            models: List of :py:class:`mlflow.entities.ModelInput` instances to log.
 
         Raises:
             mlflow.MlflowException: If any errors occur.
         """
-        self._tracking_client.log_inputs(run_id, datasets)
+        self._tracking_client.log_inputs(run_id, datasets, models)
+
+    def log_outputs(self, run_id: str, models: Sequence[ModelOutput]):
+        self._tracking_client.log_outputs(run_id, models)
 
     def log_artifact(self, run_id, local_path, artifact_path=None) -> None:
         """Write a local file or directory to the remote ``artifact_uri``.

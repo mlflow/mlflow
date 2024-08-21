@@ -2656,6 +2656,7 @@ def log_model(
     params: Optional[Dict[str, Any]] = None,
     tags: Optional[Dict[str, Any]] = None,
     model_type: Optional[str] = None,
+    step: int = 0,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -2879,6 +2880,7 @@ def log_model(
         model_type=model_type,
         params=params,
         tags=tags,
+        step=step,
     )
 
 
