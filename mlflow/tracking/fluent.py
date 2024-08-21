@@ -870,7 +870,7 @@ def log_metric(
     """
     run_id = run_id or _get_or_start_run().info.run_id
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
-    _log_inputs_for_metrics(
+    _log_inputs_for_metrics_if_necessary(
         run_id,
         [
             Metric(
@@ -893,7 +893,7 @@ def log_metric(
     )
 
 
-def _log_inputs_for_metrics(run_id, metrics: List[Metric]) -> None:
+def _log_inputs_for_metrics_if_necessary(run_id, metrics: List[Metric]) -> None:
     client = MlflowClient()
     run = client.get_run(run_id)
     for metric in [metric for metric in metrics if metric.model_id is not None]:
@@ -951,6 +951,7 @@ def log_metrics(
     run_id = run_id or _get_or_start_run().info.run_id
     timestamp = timestamp or get_current_time_millis()
     metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
+    _log_inputs_for_metrics_if_necessary(run_id, metrics_arr)
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_batch(
         run_id=run_id, metrics=metrics_arr, params=[], tags=[], synchronous=synchronous
