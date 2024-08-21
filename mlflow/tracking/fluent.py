@@ -887,17 +887,25 @@ def log_metric(
         ],
         datasets=[dataset] if dataset is not None else None,
     )
-    return MlflowClient().log_metric(
-        run_id,
-        key,
-        value,
-        timestamp or get_current_time_millis(),
-        step or 0,
-        synchronous=synchronous,
-        model_id=model_id,
-        dataset_name=dataset.name if dataset is not None else None,
-        dataset_digest=dataset.digest if dataset is not None else None,
+    timestamp = timestamp or get_current_time_millis()
+    step = step or 0
+    model_ids = (
+        [model_id]
+        if model_id is not None
+        else (_get_model_ids_for_new_metric_if_exist(run_id, step) or [None])
     )
+    for model_id in model_ids:
+        return MlflowClient().log_metric(
+            run_id,
+            key,
+            value,
+            timestamp,
+            step,
+            synchronous=synchronous,
+            model_id=model_id,
+            dataset_name=dataset.name if dataset is not None else None,
+            dataset_digest=dataset.digest if dataset is not None else None,
+        )
 
 
 def _log_inputs_for_metrics_if_necessary(
@@ -928,6 +936,13 @@ def _log_inputs_for_metrics_if_necessary(
                     run_id,
                     datasets=[DatasetInput(matching_dataset._to_mlflow_entity(), tags=[])],
                 )
+
+
+def _get_model_ids_for_new_metric_if_exist(run_id: str, metric_step: str) -> List[str]:
+    client = MlflowClient()
+    run = client.get_run(run_id)
+    model_outputs_at_step = [mo for mo in run.outputs.model_outputs if mo.step == metric_step]
+    return [mo.model_id for mo in model_outputs_at_step]
 
 
 def log_metrics(
@@ -979,8 +994,14 @@ def log_metrics(
     """
     run_id = run_id or _get_or_start_run().info.run_id
     timestamp = timestamp or get_current_time_millis()
+    step = step or 0
     dataset_name = dataset.name if dataset is not None else None
     dataset_digest = dataset.digest if dataset is not None else None
+    model_ids = (
+        [model_id]
+        if model_id is not None
+        else (_get_model_ids_for_new_metric_if_exist(run_id, step) or [None])
+    )
     metrics_arr = [
         Metric(
             key,
@@ -992,6 +1013,7 @@ def log_metrics(
             dataset_digest=dataset_digest,
         )
         for key, value in metrics.items()
+        for model_id in model_ids
     ]
     _log_inputs_for_metrics_if_necessary(
         run_id, metrics_arr, [dataset] if dataset is not None else None
