@@ -1,11 +1,9 @@
 name: Maintainer approval
 
 on:
-  pull_request:
+  pull_request_target:
     types:
       - opened
-      - synchronize
-      - reopened
   pull_request_review:
     types:
       - submitted
@@ -16,7 +14,8 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    if: github.event.pull_request || (github.event.review && github.event.review.state == 'approved')
+    permissions:
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
