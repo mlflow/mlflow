@@ -29,7 +29,7 @@ module.exports = async ({ github, context, core }) => {
     const maintainers = Array.from(CORE_MAINTAINERS)
       .map((maintainer) => `\`${maintainer}\``)
       .join(", ");
-    const message = `This PR requires approval from at least one core maintainer (${maintainers}). Not sure who to request a review from? Assign \`mlflow-automation\`.`;
+    const message = `This PR requires approval from at least one core maintainer (${maintainers}). If you're not sure who to request a review from, assign \`mlflow-automation\`.`;
     if (!comments.some(({ body }) => body.includes(marker))) {
       await github.rest.issues.createComment({
         owner: context.repo.owner,
