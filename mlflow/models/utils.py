@@ -1652,6 +1652,10 @@ def _convert_llm_ndarray_to_list(data):
         return [_convert_llm_ndarray_to_list(d) for d in data]
     if isinstance(data, dict):
         return {k: _convert_llm_ndarray_to_list(v) for k, v in data.items()}
+    # scalar values are also converted to numpy types, but they are
+    # not acceptable by the model
+    if np.isscalar(data) and isinstance(data, np.generic):
+        return data.item()
     return data
 
 
