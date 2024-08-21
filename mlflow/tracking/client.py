@@ -1446,6 +1446,8 @@ class MlflowClient:
         timestamp: Optional[int] = None,
         step: Optional[int] = None,
         synchronous: Optional[bool] = None,
+        dataset_name: Optional[str] = None,
+        dataset_digest: Optional[str] = None,
         model_id: Optional[str] = None,
     ) -> Optional[RunOperations]:
         """
@@ -1528,6 +1530,8 @@ class MlflowClient:
             timestamp,
             step,
             synchronous=synchronous,
+            dataset_name=dataset_name,
+            dataset_digest=dataset_digest,
             model_id=model_id,
         )
 

@@ -559,6 +559,8 @@ class TrackingServiceClient:
         timestamp=None,
         step=None,
         synchronous=True,
+        dataset_name: Optional[str] = None,
+        dataset_digest: Optional[str] = None,
         model_id: Optional[str] = None,
     ) -> Optional[RunOperations]:
         """Log a metric against the run ID.
@@ -586,7 +588,15 @@ class TrackingServiceClient:
         timestamp = timestamp if timestamp is not None else get_current_time_millis()
         step = step if step is not None else 0
         metric_value = convert_metric_value_to_float_if_possible(value)
-        metric = Metric(key, metric_value, timestamp, step, model_id=model_id)
+        metric = Metric(
+            key,
+            metric_value,
+            timestamp,
+            step,
+            model_id=model_id,
+            dataset_name=dataset_name,
+            dataset_digest=dataset_digest,
+        )
         if synchronous:
             self.store.log_metric(run_id, metric)
         else:
