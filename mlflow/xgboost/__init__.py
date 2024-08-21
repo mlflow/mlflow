@@ -368,6 +368,9 @@ class _XGBModelWrapper:
         params = params or {}
         # filter is applied inside predict_fn wrapper for xgb.Booster
         if not isinstance(self.xgb_model, xgb.Booster):
+            # Exclude unrecognized parameters as feature store team has
+            # dependency on this behavior. They might pass additional parameters
+            # that cannot be passed to the model.
             params = _exclude_unrecognized_kwargs(predict_fn, params)
         return predict_fn(dataframe, **params)
 
