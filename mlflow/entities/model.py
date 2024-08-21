@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.metric import Metric
@@ -24,8 +24,8 @@ class Model(_MlflowObject):
         run_id: Optional[str] = None,
         status: ModelStatus = ModelStatus.READY,
         status_message: Optional[str] = None,
-        tags: Optional[List[ModelTag]] = None,
-        params: Optional[ModelParam] = None,
+        tags: Optional[Union[List[ModelTag], Dict[str, str]]] = None,
+        params: Optional[Union[List[ModelParam], Dict[str, str]]] = None,
         metrics: Optional[List[Metric]] = None,
     ):
         super().__init__()
@@ -39,8 +39,14 @@ class Model(_MlflowObject):
         self._run_id: Optional[str] = run_id
         self._status: ModelStatus = status
         self._status_message: Optional[str] = status_message
-        self._tags: Dict[str, str] = {tag.key: tag.value for tag in (tags or [])}
-        self._params: Optional[ModelParam] = params
+        self._tags: Dict[str, str] = (
+            {tag.key: tag.value for tag in (tags or [])} if isinstance(tags, list) else tags
+        )
+        self._params: Dict[str, str] = (
+            {param.key: param.value for param in (params or [])}
+            if isinstance(params, list)
+            else params
+        )
         self._metrics: Optional[List[Metric]] = metrics
 
     @property
@@ -129,7 +135,7 @@ class Model(_MlflowObject):
         return self._tags
 
     @property
-    def params(self) -> Optional[ModelParam]:
+    def params(self) -> Dict[str, str]:
         """Model parameters."""
         return self._params
 
