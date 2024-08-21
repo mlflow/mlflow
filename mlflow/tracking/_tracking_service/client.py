@@ -16,6 +16,7 @@ from mlflow.entities import (
     Metric,
     Model,
     ModelParam,
+    ModelStatus,
     ModelTag,
     Param,
     RunStatus,
@@ -999,6 +1000,9 @@ class TrackingServiceClient:
             if params is not None
             else params,
         )
+
+    def finalize_model(self, model_id: str, status: ModelStatus) -> Model:
+        return self.store.finalize_model(model_id, status)
 
     def get_model(self, model_id: str) -> Model:
         return self.store.get_model(model_id)
