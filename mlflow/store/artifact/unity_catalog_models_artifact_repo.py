@@ -9,8 +9,8 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     StorageMode,
 )
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
-    GenerateTemporaryModelVersionCredentialsRequest as GenerateTemporaryModelVersionCredentialsRequestOSS,
-    GenerateTemporaryModelVersionCredentialsResponse as GenerateTemporaryModelVersionCredentialsResponseOSS,
+    GenerateTemporaryModelVersionCredential as GenerateTemporaryModelVersionCredentialsRequestOSS,
+    TemporaryCredentials as GenerateTemporaryModelVersionCredentialsResponseOSS,
 )
 
 from mlflow.protos.unity_catalog_oss_service_pb2 import UnityCatalogService
