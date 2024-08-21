@@ -26,11 +26,11 @@ module.exports = async ({ github, context, core }) => {
       repo: context.repo.repo,
       issue_number: context.issue.number,
     });
+    const maintainerList = Array.from(CORE_MAINTAINERS)
+      .map((maintainer) => `\`${maintainer}\``)
+      .join(", ");
+    const message = `This PR needs to be approved by at least one of core maintainers: ${maintainerList}.`;
     if (!comments.some(({ body }) => body.includes(marker))) {
-      const maintainerList = Array.from(CORE_MAINTAINERS)
-        .map((maintainer) => `\`${maintainer}\``)
-        .join(", ");
-      const message = `This PR needs to be approved by at least one of core maintainers: ${maintainerList}.`;
       await github.rest.issues.createComment({
         owner: context.repo.owner,
         repo: context.repo.repo,
@@ -38,7 +38,6 @@ module.exports = async ({ github, context, core }) => {
         body: `${message}\n\n${marker}`,
       });
     }
-
     core.setFailed(message);
   }
 };
