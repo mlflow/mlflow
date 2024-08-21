@@ -20,10 +20,26 @@ module.exports = async ({ github, context, core }) => {
     ({ state, user: { login } }) => state === "APPROVED" && CORE_MAINTAINERS.has(login)
   );
   if (!maintainerApproved) {
-    const maintainerList = Array.from(CORE_MAINTAINERS)
-      .map((maintainer) => `${maintainer}`)
-      .join(", ");
-    const message = `This PR requires an approval from at least one of core maintainers: ${maintainerList}.`;
+    const marker = "<!-- MAINTAINER_APPROVAL -->";
+    const { data: comments } = await github.rest.issues.listComments({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      issue_number: context.issue.number,
+      per_page: 100,
+    });
+    if (!comments.some(({ body }) => body.includes(marker))) {
+      const maintainerList = Array.from(CORE_MAINTAINERS)
+        .map((maintainer) => `${maintainer}`)
+        .join(", ");
+      const message = `This PR needs to be approved by at least one of core maintainers: ${maintainerList}.`;
+      await github.rest.issues.createComment({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: context.issue.number,
+        body: `${message}\n\n${marker}`,
+      });
+    }
+
     core.setFailed(message);
   }
 };
