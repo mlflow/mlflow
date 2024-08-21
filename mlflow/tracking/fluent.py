@@ -828,6 +828,7 @@ def log_metric(
     timestamp: Optional[int] = None,
     run_id: Optional[str] = None,
     model_id: Optional[str] = None,
+    dataset: Optional[Dataset] = None,
 ) -> Optional[RunOperations]:
     """
     Log a metric under the current run. If no run is active, this method will create
@@ -891,6 +892,8 @@ def log_metric(
         step or 0,
         synchronous=synchronous,
         model_id=model_id,
+        dataset_name=dataset.name if dataset is not None else None,
+        dataset_digest=dataset.digest if dataset is not None else None,
     )
 
 
