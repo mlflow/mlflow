@@ -426,6 +426,7 @@ def log_model(
     tags: Optional[Dict[str, Any]] = None,
     model_type: Optional[str] = None,
     step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -573,6 +574,7 @@ def log_model(
         tags=tags,
         model_type=model_type,
         step=step,
+        model_id=model_id,
     )
 
 

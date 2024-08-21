@@ -666,6 +666,7 @@ class Model:
         params: Optional[Dict[str, Any]] = None,
         tags: Optional[Dict[str, Any]] = None,
         step: int = 0,
+        model_id: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -725,17 +726,23 @@ class Model:
             tracking_uri = _resolve_tracking_uri()
             client = mlflow.MlflowClient(tracking_uri)
             active_run = mlflow.tracking.fluent.active_run()
-            model = client.create_model(
-                experiment_id=mlflow.tracking.fluent._get_experiment_id(),
-                # TODO: Update model name
-                name=name,
-                run_id=active_run.info.run_id if active_run is not None else None,
-                model_type=model_type,
-                params={key: str(value) for key, value in params.items()}
-                if params is not None
-                else None,
-                tags={key: str(value) for key, value in tags.items()} if tags is not None else None,
-            )
+            if model_id is None:
+                model = client.get_model(model_id)
+            else:
+                model = client.create_model(
+                    experiment_id=mlflow.tracking.fluent._get_experiment_id(),
+                    # TODO: Update model name
+                    name=name,
+                    run_id=active_run.info.run_id if active_run is not None else None,
+                    model_type=model_type,
+                    params={key: str(value) for key, value in params.items()}
+                    if params is not None
+                    else None,
+                    tags={key: str(value) for key, value in tags.items()}
+                    if tags is not None
+                    else None,
+                )
+
             if active_run is not None:
                 run_id = active_run.info.run_id
                 client.log_outputs(run_id=run_id, models=[ModelOutput(model.model_id, step=step)])
