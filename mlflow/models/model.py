@@ -707,8 +707,10 @@ class Model:
                 name=name,
                 run_id=active_run.info.run_id if active_run is not None else None,
                 model_type=model_type,
-                params={key: str(value) for key, value in params.items()},
-                tags={key: str(value) for key, value in tags.items()},
+                params={key: str(value) for key, value in params.items()}
+                if params is not None
+                else None,
+                tags={key: str(value) for key, value in tags.items()} if tags is not None else None,
             )
 
             # NO LONGER START A RUN!
