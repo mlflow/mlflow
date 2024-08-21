@@ -406,7 +406,7 @@ def save_model(
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     lc_model,
-    artifact_path,
+    name: str,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -441,7 +441,7 @@ def log_model(
 
             .. Note:: Experimental: Using model as path may change or be removed in a future
                                     release without warning.
-        artifact_path: Run-relative artifact path.
+        name: The name of the model.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
@@ -551,7 +551,7 @@ def log_model(
         metadata of the logged model.
     """
     return Model.log(
-        artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.langchain,
         registered_model_name=registered_model_name,
         lc_model=lc_model,

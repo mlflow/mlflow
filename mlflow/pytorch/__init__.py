@@ -137,7 +137,7 @@ def get_default_conda_env():
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="torch"))
 def log_model(
     pytorch_model,
-    artifact_path,
+    name: str,
     conda_env=None,
     code_paths=None,
     pickle_module=None,
@@ -181,7 +181,7 @@ def log_model(
                   ``conda_env`` parameter.
                 - One or more of the files specified by the ``code_paths`` parameter.
 
-        artifact_path: Run-relative artifact path.
+        name: The name of the model.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         pickle_module: The module that PyTorch should use to serialize ("pickle") the specified
@@ -297,7 +297,7 @@ def log_model(
     """
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
     return Model.log(
-        artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.pytorch,
         pytorch_model=pytorch_model,
         conda_env=conda_env,
