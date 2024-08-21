@@ -20,6 +20,7 @@ def register_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
     tags: Optional[Dict[str, Any]] = None,
+    model_id: Optional[str] = None,
 ) -> ModelVersion:
     """Create a new model version in model registry for the model files specified by ``model_uri``.
 
@@ -40,6 +41,8 @@ def register_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         tags: A dictionary of key-value pairs that are converted into
             :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
+        model_id: The ID of the model (from an Experiment) that is being promoted to a registered
+                  model version, if applicable.
 
     Returns:
         Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
@@ -75,7 +78,11 @@ def register_model(
         Version: 1
     """
     return _register_model(
-        model_uri=model_uri, name=name, await_registration_for=await_registration_for, tags=tags
+        model_uri=model_uri,
+        name=name,
+        await_registration_for=await_registration_for,
+        tags=tags,
+        model_id=model_id,
     )
 
 
@@ -86,6 +93,7 @@ def _register_model(
     *,
     tags: Optional[Dict[str, Any]] = None,
     local_model_path=None,
+    model_id: Optional[str] = None,
 ) -> ModelVersion:
     client = MlflowClient()
     try:
@@ -116,6 +124,7 @@ def _register_model(
         tags=tags,
         await_creation_for=await_registration_for,
         local_model_path=local_model_path,
+        model_id=model_id,
     )
     eprint(
         f"Created version '{create_version_response.version}' of model "

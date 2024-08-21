@@ -820,10 +820,11 @@ class Model:
         if registered_model_name is not None:
             registered_model = mlflow.tracking._model_registry.fluent._register_model(
                 # TODO: Fix this!
-                f"runs:/{run_id}/{mlflow_model.artifact_path}",
+                f"models:/{model.model_id}",
                 registered_model_name,
                 await_registration_for=await_registration_for,
                 local_model_path=local_path,
+                model_id=model.model_id,
             )
             return client.get_model_version(registered_model_name, registered_model.version)
         else:

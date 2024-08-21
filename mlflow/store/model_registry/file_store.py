@@ -632,8 +632,8 @@ class FileStore(AbstractStore):
                 instances associated with this model version.
             run_link: Link to the run from an MLflow tracking server that generated this model.
             description: Description of the version.
-            model_id: The ID of the model (from an Experiment) that is being promoted to a model
-                      version, if applicable.
+            model_id: The ID of the model (from an Experiment) that is being promoted to a
+                      registered model version, if applicable.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`

@@ -3594,6 +3594,7 @@ class MlflowClient:
         description: Optional[str] = None,
         await_creation_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
         local_model_path: Optional[str] = None,
+        model_id: Optional[str] = None,
     ) -> ModelVersion:
         tracking_uri = self._tracking_client.tracking_uri
         if (
@@ -3636,6 +3637,7 @@ class MlflowClient:
             description=description,
             await_creation_for=await_creation_for,
             local_model_path=local_model_path,
+            model_id=model_id,
         )
 
     def create_model_version(
