@@ -10,6 +10,10 @@ const CORE_MAINTAINERS = new Set([
 ]);
 
 module.exports = async ({ github, context, core }) => {
+  if (CORE_MAINTAINERS.has(context.payload.pull_request.user.login)) {
+    return;
+  }
+
   const { data: reviews } = await github.rest.pulls.listReviews({
     owner: context.repo.owner,
     repo: context.repo.repo,
