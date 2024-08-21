@@ -2007,6 +2007,7 @@ class FileStore(AbstractStore):
     def _get_model_artifact_dir(self, experiment_id: str, model_id: str) -> str:
         return append_to_uri_path(
             self.get_experiment(experiment_id).artifact_location,
+            FileStore.MODELS_FOLDER_NAME,
             model_id,
             FileStore.ARTIFACTS_FOLDER_NAME,
         )

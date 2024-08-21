@@ -36,6 +36,7 @@ from mlflow.exceptions import (
     MlflowTraceDataNotFound,
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE, ErrorCode
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
@@ -1009,3 +1010,24 @@ class TrackingServiceClient:
 
     def set_model_tag(self, model_id: str, key: str, value: str):
         return self.store.set_model_tag(model_id, ModelTag(key, value))
+
+    def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
+        self._get_artifact_repo_for_model(model_id).log_artifacts(local_dir)
+
+    def _get_artifact_repo_for_model(self, model_id: str) -> ArtifactRepository:
+        # Attempt to fetch the artifact repo from a local cache
+        cached_repo = utils._artifact_repos_cache.get(model_id)
+        if cached_repo is not None:
+            return cached_repo
+        else:
+            model = self.get_model(model_id)
+            artifact_uri = add_databricks_profile_info_to_artifact_uri(
+                model.artifact_location, self.tracking_uri
+            )
+            artifact_repo = get_artifact_repository(artifact_uri)
+            # Cache the artifact repo to avoid a future network call, removing the oldest
+            # entry in the cache if there are too many elements
+            if len(utils._artifact_repos_cache) > 1024:
+                utils._artifact_repos_cache.popitem(last=False)
+            utils._artifact_repos_cache[model_id] = artifact_repo
+            return artifact_repo

@@ -4756,3 +4756,6 @@ class MlflowClient:
 
     def set_model_tag(self, model_id: str, key: str, value: str):
         return self._tracking_client.set_model_tag(model_id, key, value)
+
+    def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
+        self._tracking_client.log_model_artifacts(model_id, local_dir)

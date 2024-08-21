@@ -14,6 +14,7 @@ import yaml
 
 import mlflow
 from mlflow.artifacts import download_artifacts
+from mlflow.entities import ModelStatus
 from mlflow.exceptions import MlflowException
 from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
@@ -689,13 +690,14 @@ class Model:
             A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
             metadata of the logged model.
         """
-        from mlflow.utils.model_utils import _validate_and_get_model_config_from_file
 
         registered_model = None
         with TempDir() as tmp:
             local_path = tmp.path("model")
-            if run_id is None:
-                run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
+
+            # NO LONGER START A RUN!
+            # if run_id is None:
+            #    run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(
                 artifact_path=artifact_path, run_id=run_id, metadata=metadata, resources=resources
             )
@@ -717,66 +719,71 @@ class Model:
                     _logger.warning(_LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING)
                 elif tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks":
                     _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
-            mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
-            # if the model_config kwarg is passed in, then log the model config as an params
-            if model_config := kwargs.get("model_config"):
-                if isinstance(model_config, str):
-                    try:
-                        file_extension = os.path.splitext(model_config)[1].lower()
-                        if file_extension == ".json":
-                            with open(model_config) as f:
-                                model_config = json.load(f)
-                        elif file_extension in [".yaml", ".yml"]:
-                            model_config = _validate_and_get_model_config_from_file(model_config)
-                        else:
-                            _logger.warning(
-                                "Unsupported file format for model config: %s. "
-                                "Failed to load model config.",
-                                model_config,
-                            )
-                    except Exception as e:
-                        _logger.warning("Failed to load model config from %s: %s", model_config, e)
+            # NO LONGER LOG ARTIFACTS. CREATE A MODEL AND FINALIZE IT INSTEAD!
+            client = mlflow.MlflowClient(tracking_uri)
+            active_run = mlflow.tracking.fluent.active_run()
+            model = client.create_model(
+                experiment_id=mlflow.tracking.fluent._get_experiment_id(),
+                # TODO: Update model name
+                name=artifact_path,
+                run_id=active_run.info.run_id if active_run is not None else None,
+            )
+            client.log_model_artifacts(model.model_id, local_path)
+            client.finalize_model(model.model_id, status=ModelStatus.READY)
 
-                try:
-                    from mlflow.models.utils import _flatten_nested_params
+            # mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
-                    # We are using the `/` separator to flatten the nested params
-                    # since we are using the same separator to log nested metrics.
-                    params_to_log = _flatten_nested_params(model_config, sep="/")
-                except Exception as e:
-                    _logger.warning("Failed to flatten nested params: %s", str(e))
-                    params_to_log = model_config
-
-                try:
-                    mlflow.tracking.fluent.log_params(params_to_log or {}, run_id=run_id)
-                except Exception as e:
-                    _logger.warning("Failed to log model config as params: %s", str(e))
-
-            try:
-                mlflow.tracking.fluent._record_logged_model(mlflow_model, run_id)
-            except MlflowException:
-                # We need to swallow all mlflow exceptions to maintain backwards compatibility with
-                # older tracking servers. Only print out a warning for now.
-                _logger.warning(_LOG_MODEL_METADATA_WARNING_TEMPLATE, mlflow.get_artifact_uri())
-                _logger.debug("", exc_info=True)
-
-            if registered_model_name is not None:
-                registered_model = mlflow.tracking._model_registry.fluent._register_model(
-                    f"runs:/{run_id}/{mlflow_model.artifact_path}",
-                    registered_model_name,
-                    await_registration_for=await_registration_for,
-                    local_model_path=local_path,
-                )
-            model_info = mlflow_model.get_model_info()
-            if registered_model is not None:
-                model_info.registered_model_version = registered_model.version
+            # # if the model_config kwarg is passed in, then log the model config as an params
+            # if model_config := kwargs.get("model_config"):
+            #     if isinstance(model_config, str):
+            #         try:
+            #             file_extension = os.path.splitext(model_config)[1].lower()
+            #             if file_extension == ".json":
+            #                 with open(model_config) as f:
+            #                     model_config = json.load(f)
+            #             elif file_extension in [".yaml", ".yml"]:
+            #                 model_config = _validate_and_get_model_config_from_file(model_config)
+            #             else:
+            #                 _logger.warning(
+            #                     "Unsupported file format for model config: %s. "
+            #                     "Failed to load model config.",
+            #                     model_config,
+            #                 )
+            #        except Exception as e:
+            #            _logger.warning(
+            #                "Failed to load model config from %s: %s", model_config, e
+            #            )
+            #
+            #     try:
+            #         from mlflow.models.utils import _flatten_nested_params
+            #
+            #         # We are using the `/` separator to flatten the nested params
+            #         # since we are using the same separator to log nested metrics.
+            #         params_to_log = _flatten_nested_params(model_config, sep="/")
+            #     except Exception as e:
+            #         _logger.warning("Failed to flatten nested params: %s", str(e))
+            #         params_to_log = model_config
+            #
+            #     try:
+            #         mlflow.tracking.fluent.log_params(params_to_log or {}, run_id=run_id)
+            #     except Exception as e:
+            #         _logger.warning("Failed to log model config as params: %s", str(e))
+            #
+            # try:
+            #     mlflow.tracking.fluent._record_logged_model(mlflow_model, run_id)
+            # except MlflowException:
+            #     # We need to swallow all mlflow exceptions to maintain backwards compatibility
+            #     # with older tracking servers. Only print out a warning for now.
+            #     _logger.warning(_LOG_MODEL_METADATA_WARNING_TEMPLATE, mlflow.get_artifact_uri())
+            #     _logger.debug("", exc_info=True)
 
             # validate input example works for serving when logging the model
             if serving_input:
                 from mlflow.models import validate_serving_input
 
                 try:
+                    model_info = mlflow_model.get_model_info()
                     validate_serving_input(model_info.model_uri, serving_input)
                 except Exception as e:
                     _logger.warning(
@@ -792,7 +799,21 @@ class Model:
                         exc_info=_logger.isEnabledFor(logging.DEBUG),
                     )
 
-        return model_info
+        if registered_model_name is not None:
+            registered_model = mlflow.tracking._model_registry.fluent._register_model(
+                f"runs:/{run_id}/{mlflow_model.artifact_path}",
+                registered_model_name,
+                await_registration_for=await_registration_for,
+                local_model_path=local_path,
+            )
+            return client.get_model_version(registered_model_name, registered_model.version)
+        else:
+            return client.get_model(model.model_id)
+        # model_info = mlflow_model.get_model_info()
+        # if registered_model is not None:
+        #     model_info.registered_model_version = registered_model.version
+
+        # return model_info
 
 
 def _copy_model_metadata_for_uc_sharing(local_path, flavor):
