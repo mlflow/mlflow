@@ -2000,7 +2000,6 @@ class FileStore(AbstractStore):
         make_containing_dirs(tag_path)
         # Don't add trailing newline
         write_to(tag_path, self._writeable_value(tag.value))
-        return
 
     def get_model(self, model_id: str) -> Model:
         return Model.from_dictionary(self._get_model_dict(model_id))

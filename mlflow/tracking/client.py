@@ -4753,3 +4753,6 @@ class MlflowClient:
 
     def get_model(self, model_id: str) -> Model:
         return self._tracking_client.get_model(model_id)
+
+    def set_model_tag(self, model_id: str, key: str, value: str):
+        return self._tracking_client.set_model_tag(model_id, key, value)

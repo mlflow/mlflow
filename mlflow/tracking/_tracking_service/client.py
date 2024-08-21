@@ -1006,3 +1006,6 @@ class TrackingServiceClient:
 
     def get_model(self, model_id: str) -> Model:
         return self.store.get_model(model_id)
+
+    def set_model_tag(self, model_id: str, key: str, value: str):
+        return self.store.set_model_tag(model_id, ModelTag(key, value))
