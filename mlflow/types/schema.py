@@ -1385,7 +1385,7 @@ class ParamSchema:
 def _map_field_type(field):
     field_type_mapping = {
         bool: "boolean",
-        int: "integer",
+        int: "long",  # int is mapped to long to support 64-bit integers
         builtins.float: "float",
         str: "string",
         bytes: "binary",
