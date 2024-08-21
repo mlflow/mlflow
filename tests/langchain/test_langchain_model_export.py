@@ -1918,7 +1918,6 @@ def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
     from databricks.sdk.service.catalog import FunctionInfo
     from langchain.tools.retriever import create_retriever_tool
     from langchain_community.chat_models import ChatDatabricks
-    from langchain_community.tools.databricks import UCFunctionToolkit
     from langchain_community.vectorstores import DatabricksVectorSearch
 
     # Return 2 functions from the function lis
@@ -1977,8 +1976,18 @@ def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
     monkeypatch.setattr("cloudpickle.dump", mock.MagicMock())
 
     # Create an toolkit with the '*' syntax
+    include_uc_function_tools = False
+    try:
+        from langchain_community.tools.databricks import UCFunctionToolkit
+
+        include_uc_function_tools = True
+    except:
+        include_uc_function_tools = False
+
     uc_function_tools = (
-        UCFunctionToolkit(warehouse_id="test_id_1").include("rag.studio.*").get_tools()
+        (UCFunctionToolkit(warehouse_id="test_id_1").include("rag.studio.*").get_tools())
+        if include_uc_function_tools
+        else []
     )
 
     chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
@@ -2005,20 +2014,26 @@ def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
     # Ensure both functions are outputted
     expected = {
         "serving_endpoint": [{"name": "databricks-llama-2-70b-chat"}, {"name": "embedding-model"}],
-        "sql_warehouse": [{"name": "test_id_1"}],
-        "uc_function": [
-            {"name": "rag.studio.test_function_a"},
-            {"name": "rag.studio.test_function_b"},
-        ],
         "vector_search_index": [{"name": "mlflow.rag.vs_index"}],
     }
+
+    if uc_function_tools:
+        uc_expected = {
+            "sql_warehouse": [{"name": "test_id_1"}],
+            "uc_function": [
+                {"name": "rag.studio.test_function_a"},
+                {"name": "rag.studio.test_function_b"},
+            ],
+        }
+        expected.update(uc_expected)
 
     assert all(item in actual["serving_endpoint"] for item in expected["serving_endpoint"])
     assert all(item in expected["serving_endpoint"] for item in actual["serving_endpoint"])
     assert actual["vector_search_index"] == expected["vector_search_index"]
-    assert actual["sql_warehouse"] == expected["sql_warehouse"]
-    assert all(item in actual["uc_function"] for item in expected["uc_function"])
-    assert all(item in expected["uc_function"] for item in actual["uc_function"])
+    if uc_function_tools:
+        assert actual["sql_warehouse"] == expected["sql_warehouse"]
+        assert all(item in actual["uc_function"] for item in expected["uc_function"])
+        assert all(item in expected["uc_function"] for item in actual["uc_function"])
 
 
 def _error_func(*args, **kwargs):

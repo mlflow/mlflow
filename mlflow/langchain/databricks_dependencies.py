@@ -64,7 +64,6 @@ def _extract_databricks_dependencies_from_agent(
     # SQL Warehouse ID and UC Function Names and adds them to resources.
     from langchain.agents import AgentExecutor
     from langchain_community.tools import BaseTool
-    from langchain_community.tools.databricks import UCFunctionToolkit
 
     if isinstance(agent_executor, AgentExecutor):
         agent = agent_executor.agent
@@ -83,6 +82,10 @@ def _extract_databricks_dependencies_from_agent(
                         retriever = tool.func.keywords.get("retriever")
                         yield from _get_vectorstore_from_retriever(retriever)
                     else:
+                        try:
+                            from langchain_community.tools.databricks import UCFunctionToolkit
+                        except:
+                            continue
                         # Tools here are a part of the BaseTool and have no attribute of a
                         # WarehouseID Extract the global variables of the function defined
                         # in the tool to get the UCFunctionToolkit Constants

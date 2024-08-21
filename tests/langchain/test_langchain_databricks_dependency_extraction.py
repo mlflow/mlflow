@@ -247,7 +247,11 @@ def test_parsing_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
     from databricks.sdk.service.catalog import FunctionInfo
     from langchain.agents import initialize_agent
     from langchain.llms import OpenAI
-    from langchain_community.tools.databricks import UCFunctionToolkit
+
+    try:
+        from langchain_community.tools.databricks import UCFunctionToolkit
+    except:
+        return
 
     # When get is called return a function
     def mock_function_get(self, function_name):
@@ -301,7 +305,6 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch)
     from langchain.agents import initialize_agent
     from langchain.tools.retriever import create_retriever_tool
     from langchain_community.chat_models import ChatDatabricks
-    from langchain_community.tools.databricks import UCFunctionToolkit
     from langchain_community.vectorstores import DatabricksVectorSearch
 
     mock_get_deploy_client = MagicMock()
@@ -358,7 +361,19 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
     monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.list", mock_function_list)
 
-    toolkit = UCFunctionToolkit(warehouse_id="testId1").include("rag.test.*")
+    include_uc_function_tools = False
+    try:
+        from langchain_community.tools.databricks import UCFunctionToolkit
+
+        include_uc_function_tools = True
+    except:
+        include_uc_function_tools = False
+
+    uc_function_tools = (
+        (UCFunctionToolkit(warehouse_id="testId1").include("rag.test.*").get_tools())
+        if include_uc_function_tools
+        else []
+    )
     chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
 
     vectorstore = DatabricksVectorSearch(vs_index, text_column="content")
@@ -367,21 +382,26 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch)
     retriever_tool = create_retriever_tool(retriever, "vs_index_name", "vs_index_desc")
 
     agent = initialize_agent(
-        toolkit.get_tools() + [retriever_tool],
+        uc_function_tools + [retriever_tool],
         chat_model,
         verbose=True,
     )
     resources = list(_extract_databricks_dependencies_from_agent(agent))
     # Ensure all resources are added in
-    assert resources == [
+    expected = [
         DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat"),
-        DatabricksUCFunction(function_name="rag.test.test_function"),
-        DatabricksUCFunction(function_name="rag.test.test_function_2"),
-        DatabricksUCFunction(function_name="rag.test.test_function_3"),
         DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
         DatabricksServingEndpoint(endpoint_name="embedding-model"),
-        DatabricksSQLWarehouse(warehouse_id="testId1"),
     ]
+
+    if include_uc_function_tools:
+        expected = expected + [
+            DatabricksUCFunction(function_name="rag.test.test_function"),
+            DatabricksUCFunction(function_name="rag.test.test_function_2"),
+            DatabricksUCFunction(function_name="rag.test.test_function_3"),
+            DatabricksSQLWarehouse(warehouse_id="testId1"),
+        ]
+    assert resources == expected
 
 
 def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch):
