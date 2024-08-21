@@ -664,6 +664,7 @@ class FileStore(AbstractStore):
                     # URIs)
                     model = MlflowClient().get_model(parsed_model_uri.model_id)
                     storage_location = model.artifact_location
+                    run_id = run_id or model.run_id
                 else:
                     storage_location = self.get_model_version_download_uri(
                         parsed_model_uri.name, parsed_model_uri.version
