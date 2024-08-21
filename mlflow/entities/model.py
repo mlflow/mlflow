@@ -40,12 +40,12 @@ class Model(_MlflowObject):
         self._status: ModelStatus = status
         self._status_message: Optional[str] = status_message
         self._tags: Dict[str, str] = (
-            {tag.key: tag.value for tag in (tags or [])} if isinstance(tags, list) else tags
+            {tag.key: tag.value for tag in (tags or [])} if isinstance(tags, list) else (tags or {})
         )
         self._params: Dict[str, str] = (
             {param.key: param.value for param in (params or [])}
             if isinstance(params, list)
-            else params
+            else (params or {})
         )
         self._metrics: Optional[List[Metric]] = metrics
 

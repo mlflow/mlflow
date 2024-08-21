@@ -1027,10 +1027,10 @@ class TrackingServiceClient:
             experiment_id=experiment_id,
             name=name,
             run_id=run_id,
-            tags=[ModelTag(key, value) for key, value in tags.items()]
+            tags=[ModelTag(str(key), str(value)) for key, value in tags.items()]
             if tags is not None
             else tags,
-            params=[ModelParam(key, value) for key, value in params.items()]
+            params=[ModelParam(str(key), str(value)) for key, value in params.items()]
             if params is not None
             else params,
             model_type=model_type,

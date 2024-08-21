@@ -2137,10 +2137,8 @@ class FileStore(AbstractStore):
         for experiment_id in experiment_ids:
             models = self._list_models(experiment_id)
             all_models.extend(models)
-        # filtered = SearchUtils.filter(runs, filter_string)
-        # sorted_runs = SearchUtils.sort(filtered, order_by)
-        # runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
-        return all_models
+        filtered = SearchUtils.filter_models(models, filter_string)
+        return SearchUtils.sort_models(filtered, order_by)[:max_results]
 
     def _list_models(self, experiment_id: str) -> List[Model]:
         self._check_root_dir()

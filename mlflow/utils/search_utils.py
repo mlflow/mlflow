@@ -5,7 +5,7 @@ import math
 import operator
 import re
 import shlex
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 import sqlparse
 from packaging.version import Version
@@ -20,7 +20,7 @@ from sqlparse.sql import (
 )
 from sqlparse.tokens import Token as TokenType
 
-from mlflow.entities import RunInfo
+from mlflow.entities import Model, RunInfo
 from mlflow.entities.model_registry.model_version_stages import STAGE_DELETED_INTERNAL
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -636,6 +636,38 @@ class SearchUtils:
         return SearchUtils.get_comparison_func(comparator)(lhs, value)
 
     @classmethod
+    def _does_model_match_clause(cls, model, sed):
+        key_type = sed.get("type")
+        key = sed.get("key")
+        value = sed.get("value")
+        comparator = sed.get("comparator").upper()
+
+        key = SearchUtils.translate_key_alias(key)
+
+        if cls.is_metric(key_type, comparator):
+            matching_metrics = [metric for metric in model.metrics if metric.key == key]
+            lhs = matching_metrics[0].value if matching_metrics else None
+            value = float(value)
+        elif cls.is_param(key_type, comparator):
+            lhs = model.params.get(key, None)
+        elif cls.is_tag(key_type, comparator):
+            lhs = model.tags.get(key, None)
+        elif cls.is_string_attribute(key_type, key, comparator):
+            lhs = getattr(model.info, key)
+        elif cls.is_numeric_attribute(key_type, key, comparator):
+            lhs = getattr(model.info, key)
+            value = int(value)
+        else:
+            raise MlflowException(
+                f"Invalid model search expression type '{key_type}'",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if lhs is None:
+            return False
+
+        return SearchUtils.get_comparison_func(comparator)(lhs, value)
+
+    @classmethod
     def filter(cls, runs, filter_string):
         """Filters a set of runs based on a search filter string."""
         if not filter_string:
@@ -646,6 +678,20 @@ class SearchUtils:
             return all(cls._does_run_match_clause(run, s) for s in parsed)
 
         return [run for run in runs if run_matches(run)]
+
+    @classmethod
+    def filter_models(cls, models: List[Model], filter_string: Optional[str] = None):
+        """Filters a set of runs based on a search filter string."""
+        if not filter_string:
+            return models
+
+        # TODO: Update parsing function to handle model-specific filter clauses
+        parsed = cls.parse_search_filter(filter_string)
+
+        def model_matches(model):
+            return all(cls._does_model_match_clause(model, s) for s in parsed)
+
+        return [model for model in models if model_matches(model)]
 
     @classmethod
     def _validate_order_by_and_generate_token(cls, order_by):
@@ -761,6 +807,40 @@ class SearchUtils:
         return (is_none_or_nan, sort_value) if ascending else (not is_none_or_nan, sort_value)
 
     @classmethod
+    def _get_model_value_for_sort(cls, model, key_type, key, ascending):
+        """Returns a tuple suitable to be used as a sort key for models."""
+        sort_value = None
+        key = SearchUtils.translate_key_alias(key)
+        if key_type == cls._METRIC_IDENTIFIER:
+            matching_metrics = [metric for metric in model.metrics if metric.key == key]
+            sort_value = float(matching_metrics[0].value) if matching_metrics else None
+        elif key_type == cls._PARAM_IDENTIFIER:
+            sort_value = model.params.get(key)
+        elif key_type == cls._TAG_IDENTIFIER:
+            sort_value = model.tags.get(key)
+        elif key_type == cls._ATTRIBUTE_IDENTIFIER:
+            sort_value = getattr(model, key)
+        else:
+            raise MlflowException(
+                f"Invalid models order_by entity type '{key_type}'",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        # Return a key such that None values are always at the end.
+        is_none = sort_value is None
+        is_nan = isinstance(sort_value, float) and math.isnan(sort_value)
+        fill_value = (1 if ascending else -1) * math.inf
+
+        if is_none:
+            sort_value = fill_value
+        elif is_nan:
+            sort_value = -fill_value
+
+        is_none_or_nan = is_none or is_nan
+
+        return (is_none_or_nan, sort_value) if ascending else (not is_none_or_nan, sort_value)
+
+    @classmethod
     def sort(cls, runs, order_by_list):
         """Sorts a set of runs based on their natural ordering and an overriding set of order_bys.
         Runs are naturally ordered first by start time descending, then by run id for tie-breaking.
@@ -779,6 +859,24 @@ class SearchUtils:
                 reverse=not ascending,
             )
         return runs
+
+    @classmethod
+    def sort_models(cls, models, order_by_list):
+        models = sorted(models, key=lambda model: (-model.creation_timestamp, model.model_id))
+        if not order_by_list:
+            return models
+        # NB: We rely on the stability of Python's sort function, so that we can apply
+        # the ordering conditions in reverse order.
+        for order_by_clause in reversed(order_by_list):
+            # TODO: Update parsing function to handle model-specific order-by keys
+            (key_type, key, ascending) = cls.parse_order_by_for_search_runs(order_by_clause)
+
+            models = sorted(
+                models,
+                key=lambda model: cls._get_model_value_for_sort(model, key_type, key, ascending),
+                reverse=not ascending,
+            )
+        return models
 
     @classmethod
     def parse_start_offset_from_page_token(cls, page_token):
