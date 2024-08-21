@@ -158,7 +158,6 @@ def _get_file_store(store_uri, **_):
 def _get_store_registry():
     global _model_registry_store_registry
     from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
-    from mlflow.store._unity_catalog.registry_oss.rest_store_oss import UnityCatalogOssStore
 
     if _model_registry_store_registry is not None:
         return _model_registry_store_registry

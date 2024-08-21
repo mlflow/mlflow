@@ -25,10 +25,15 @@ def store(mock_databricks_uc_oss_host_creds):
     with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"):
         yield UnityCatalogOssStore(store_uri="databricks-uc")
 
+
 @pytest.fixture
 def creds():
-    with mock.patch("mlflow.store._unity_catalog.registry_oss.rest_store_oss.get_databricks_host_creds", return_value= _REGISTRY_HOST_CREDS):
+    with mock.patch(
+        "mlflow.store._unity_catalog.registry_oss.rest_store_oss.get_databricks_host_creds",
+        return_value=_REGISTRY_HOST_CREDS,
+    ):
         yield
+
 
 def _args(endpoint, method, json_body, host_creds, extra_headers):
     res = {
@@ -62,9 +67,7 @@ def _verify_requests(
 @mock_http_200
 def test_create_registered_model(mock_http, store):
     description = "best model ever"
-    store.create_registered_model(
-        name="catalog_1.schema_1.model_1", description=description
-    )
+    store.create_registered_model(name="catalog_1.schema_1.model_1", description=description)
     _verify_requests(
         mock_http,
         "models",
@@ -77,6 +80,7 @@ def test_create_registered_model(mock_http, store):
         ),
     )
 
+
 @mock_http_200
 def test_update_registered_model(mock_http, store, creds):
     description = "best model ever"
@@ -88,9 +92,15 @@ def test_update_registered_model(mock_http, store, creds):
         UpdateRegisteredModel(
             full_name="catalog_1.schema_1.model_1",
             new_name="model_1",
-            registered_model_info=RegisteredModelInfo(name="model_1",catalog_name="catalog_1",schema_name="schema_1",comment=description)
+            registered_model_info=RegisteredModelInfo(
+                name="model_1",
+                catalog_name="catalog_1",
+                schema_name="schema_1",
+                comment=description,
+            ),
         ),
     )
+
 
 @mock_http_200
 def test_get_registered_model(mock_http, store, creds):
@@ -102,6 +112,7 @@ def test_get_registered_model(mock_http, store, creds):
         "GET",
         GetRegisteredModel(full_name="catalog_1.schema_1.model_1"),
     )
+
 
 @mock_http_200
 def test_delete_registered_model(mock_http, store, creds):
@@ -116,16 +127,20 @@ def test_delete_registered_model(mock_http, store, creds):
         ),
     )
 
+
 @mock_http_200
 def test_create_model_version(mock_http, store, creds):
     model_name = "catalog_1.schema_1.model_1"
-    store.create_model_version(name=model_name, source="source", run_id="run_id", description="description")
+    store.create_model_version(
+        name=model_name, source="source", run_id="run_id", description="description"
+    )
     _verify_requests(
         mock_http,
         "models/catalog_1.schema_1.model_1/versions/0/finalize",
         "PATCH",
         FinalizeModelVersion(full_name=model_name, version_arg=0),
     )
+
 
 @mock_http_200
 def test_get_model_version(mock_http, store, creds):
@@ -138,6 +153,7 @@ def test_get_model_version(mock_http, store, creds):
         "GET",
         GetModelVersion(full_name=model_name, version_arg=version),
     )
+
 
 @mock_http_200
 def test_update_model_version(mock_http, store, creds):
@@ -152,6 +168,7 @@ def test_update_model_version(mock_http, store, creds):
             comment="new description",
         ),
     )
+
 
 @mock_http_200
 def test_delete_model_version(mock_http, store, creds):
