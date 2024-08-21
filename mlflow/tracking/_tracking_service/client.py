@@ -303,7 +303,18 @@ class TrackingServiceClient:
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
+        model_id: Optional[str] = None,
     ):
+        if model_id is not None:
+            if filter_string:
+                raise MlflowException(
+                    message=(
+                        "Cannot specify both `model_id` and `experiment_ids` or `filter_string`"
+                        " in the search_traces call."
+                    ),
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            filter_string = f"request_metadata.`mlflow.modelId` = '{model_id}'"
         return self.store.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
@@ -319,6 +330,7 @@ class TrackingServiceClient:
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
+        model_id: Optional[str] = None,
     ) -> PagedList[Trace]:
         def download_trace_data(trace_info: TraceInfo) -> Optional[Trace]:
             """
@@ -350,6 +362,7 @@ class TrackingServiceClient:
                     max_results=next_max_results,
                     order_by=order_by,
                     page_token=next_token,
+                    model_id=model_id,
                 )
                 traces.extend(t for t in executor.map(download_trace_data, trace_infos) if t)
 

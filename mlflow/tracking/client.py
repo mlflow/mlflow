@@ -489,6 +489,7 @@ class MlflowClient:
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
+        model_id: Optional[str] = None,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -515,6 +516,7 @@ class MlflowClient:
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
+            model_id=model_id,
         )
 
         get_display_handler().display_traces(traces)

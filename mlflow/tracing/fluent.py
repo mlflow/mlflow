@@ -338,6 +338,7 @@ def search_traces(
     max_results: Optional[int] = None,
     order_by: Optional[List[str]] = None,
     extract_fields: Optional[List[str]] = None,
+    model_id: Optional[str] = None,
 ) -> "pandas.DataFrame":
     """
     Return traces that match the given list of search expressions within the experiments.
@@ -436,6 +437,7 @@ def search_traces(
             filter_string=filter_string,
             order_by=order_by,
             page_token=next_page_token,
+            model_id=model_id,
         )
 
     results = get_results_from_paginated_fn(
