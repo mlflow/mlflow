@@ -5,6 +5,7 @@ import shutil
 import sys
 import time
 import uuid
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
@@ -2077,15 +2078,17 @@ class FileStore(AbstractStore):
         )
         metrics = []
         for metric_file in metric_files:
-            metrics.append(
-                FileStore._get_model_metric_from_file(
+            metrics.extend(
+                FileStore._get_model_metrics_from_file(
                     model_id=model_id, parent_path=parent_path, metric_name=metric_file
                 )
             )
         return metrics
 
     @staticmethod
-    def _get_model_metric_from_file(model_id: str, parent_path: str, metric_name: str) -> Metric:
+    def _get_model_metrics_from_file(
+        model_id: str, parent_path: str, metric_name: str
+    ) -> List[Metric]:
         _validate_metric_name(metric_name)
         metric_objs = [
             FileStore._get_model_metric_from_line(model_id, metric_name, line)
@@ -2093,11 +2096,18 @@ class FileStore(AbstractStore):
         ]
         if len(metric_objs) == 0:
             raise ValueError(f"Metric '{metric_name}' is malformed. No data found.")
-        # Python performs element-wise comparison of equal-length tuples, ordering them
-        # based on their first differing element. Therefore, we use max() operator to find the
-        # largest value at the largest timestamp. For more information, see
-        # https://docs.python.org/3/reference/expressions.html#value-comparisons
-        return max(metric_objs, key=lambda m: (m.step, m.timestamp, m.value))
+
+        # Group metrics by (dataset_name, dataset_digest)
+        grouped_metrics = defaultdict(list)
+        for metric in metric_objs:
+            key = (metric.dataset_name, metric.dataset_digest)
+            grouped_metrics[key].append(metric)
+
+        # Compute the max for each group
+        return [
+            max(group, key=lambda m: (m.step, m.timestamp, m.value))
+            for group in grouped_metrics.values()
+        ]
 
     @staticmethod
     def _get_model_metric_from_line(model_id: str, metric_name: str, metric_line: str) -> Metric:
