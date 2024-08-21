@@ -18,6 +18,7 @@ from mlflow.entities import (
     Experiment,
     InputTag,
     Metric,
+    ModelInput,
     Param,
     Run,
     RunStatus,
@@ -825,6 +826,7 @@ def log_metric(
     synchronous: Optional[bool] = None,
     timestamp: Optional[int] = None,
     run_id: Optional[str] = None,
+    model_id: Optional[str] = None,
 ) -> Optional[RunOperations]:
     """
     Log a metric under the current run. If no run is active, this method will create
@@ -868,13 +870,21 @@ def log_metric(
     """
     run_id = run_id or _get_or_start_run().info.run_id
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
-    return MlflowClient().log_metric(
+    client = MlflowClient()
+    if model_id is not None:
+        run = client.get_run(run_id)
+        if model_id not in [inp.model_id for inp in run.inputs.model_inputs] + [
+            output.model_id for output in run.outputs.model_outputs
+        ]:
+            client.log_inputs(run_id, models=[ModelInput(model_id=model_id)])
+    return client.log_metric(
         run_id,
         key,
         value,
         timestamp or get_current_time_millis(),
         step or 0,
         synchronous=synchronous,
+        model_id=model_id,
     )
 
 

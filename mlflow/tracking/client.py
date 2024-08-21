@@ -1444,6 +1444,7 @@ class MlflowClient:
         timestamp: Optional[int] = None,
         step: Optional[int] = None,
         synchronous: Optional[bool] = None,
+        model_id: Optional[str] = None,
     ) -> Optional[RunOperations]:
         """
         Log a metric against the run ID.
@@ -1519,7 +1520,13 @@ class MlflowClient:
             synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
         )
         return self._tracking_client.log_metric(
-            run_id, key, value, timestamp, step, synchronous=synchronous
+            run_id,
+            key,
+            value,
+            timestamp,
+            step,
+            synchronous=synchronous,
+            model_id=model_id,
         )
 
     def log_param(

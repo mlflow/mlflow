@@ -539,7 +539,14 @@ class TrackingServiceClient:
         self.store.rename_experiment(experiment_id, new_name)
 
     def log_metric(
-        self, run_id, key, value, timestamp=None, step=None, synchronous=True
+        self,
+        run_id,
+        key,
+        value,
+        timestamp=None,
+        step=None,
+        synchronous=True,
+        model_id: Optional[str] = None,
     ) -> Optional[RunOperations]:
         """Log a metric against the run ID.
 
@@ -566,7 +573,7 @@ class TrackingServiceClient:
         timestamp = timestamp if timestamp is not None else get_current_time_millis()
         step = step if step is not None else 0
         metric_value = convert_metric_value_to_float_if_possible(value)
-        metric = Metric(key, metric_value, timestamp, step)
+        metric = Metric(key, metric_value, timestamp, step, model_id=model_id)
         if synchronous:
             self.store.log_metric(run_id, metric)
         else:
