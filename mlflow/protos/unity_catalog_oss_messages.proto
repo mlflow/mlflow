@@ -90,3 +90,55 @@ message RegisteredModelAliasInfo {
   // Numeric model version that alias will reference.
   optional int64 version_num = 2;
 }
+
+// Credentials Related Protos 
+
+message TemporaryCredentials {
+
+  oneof credentials {
+    AwsCredentials aws_temp_credentials = 2;
+  }
+  // Server time when the credential will expire, in epoch milliseconds.
+  // The API client is advised to cache the credential given this expiration time.
+  optional int64 expiration_time = 1;
+}
+
+// AWS temporary credentials for API authentication.
+// Read more at https://docs.aws.amazon.com/STS/latest/APIReference/API_Credentials.html.
+message AwsCredentials {
+  // The access key ID that identifies the temporary credentials.
+  optional string access_key_id = 1;
+
+  // The secret access key that can be used to sign AWS API requests.
+  optional string secret_access_key = 2;
+
+  // The token that users must pass to AWS API to use the temporary credentials.
+  optional string session_token = 3;
+}
+
+message GenerateTemporaryModelVersionCredential {
+
+  // Required. Name of parent catalog for model version of interest.
+  optional string catalog_name = 1;
+  // Required. Name of parent schema of model version.
+  optional string schema_name = 2;
+  // Required. Name of parent registered model of model version.
+  optional string model_name = 3;
+  // Required. Numeric model version Id
+  optional int64 version = 4;
+
+  // Required. Type of operation (read or write) to perform on the model version
+  // Note that model version files can only be written at creation time
+  optional ModelVersionOperation operation = 5;
+
+  message Response {
+    // Temporary credentials for model version read/write
+    optional TemporaryCredentials credentials = 1 [(json_inline) = true];
+  }
+}
+
+enum ModelVersionOperation {
+  UNKNOWN_MODEL_VERSION_OPERATION = 0;
+  READ_MODEL_VERSION = 1;
+  READ_WRITE_MODEL_VERSION = 2;
+}

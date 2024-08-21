@@ -26,4 +26,15 @@ service UnityCatalogService {
       visibility: PUBLIC,
     };
   }
+
+  rpc generateTemporaryModelVersionCredential(GenerateTemporaryModelVersionCredential) returns (GenerateTemporaryModelVersionCredential.Response) {
+    option (rpc) = {
+      endpoints: {
+        method: "POST",
+        path: "/unity-catalog/temporary-model-version-credentials",
+        since {major: 2, minor: 1},
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
 }

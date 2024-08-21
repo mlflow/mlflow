@@ -8,11 +8,10 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GenerateTemporaryModelVersionCredentialsResponse,
     StorageMode,
 )
-from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     MODEL_VERSION_OPERATION_READ as MODEL_VERSION_OPERATION_READ_OSS,
     GenerateTemporaryModelVersionCredentialsRequest as GenerateTemporaryModelVersionCredentialsRequestOSS,
     GenerateTemporaryModelVersionCredentialsResponse as GenerateTemporaryModelVersionCredentialsResponseOSS,
-    StorageMode as StorageModeOSS,
 )
 
 from mlflow.protos.unity_catalog_oss_service_pb2 import UnityCatalogService
@@ -110,9 +109,12 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         if testing or self.registry_uri.startswith("uc:"):
             oss_creds = get_databricks_host_creds(self.registry_uri) # using db creds ONLY FOR TESTING
             oss_endpoint, oss_method = _METHOD_TO_INFO_OSS[GenerateTemporaryModelVersionCredentialsRequestOSS]
+            [catalog_name, schema_name, model_name] = self.model_name.split(".") # self.model_name is actually the full name
             oss_req_body = message_to_json(
                 GenerateTemporaryModelVersionCredentialsRequestOSS(
-                    name=self.model_name,
+                    catalog_name=catalog_name,
+                    schema_name=schema_name,
+                    model_name=model_name,
                     version=self.model_version,
                     operation=MODEL_VERSION_OPERATION_READ_OSS,
                 )
