@@ -1176,9 +1176,11 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         accelerate_model_conf["device_map"] = device_map_strategy
         # Cannot use device with device_map
         if device is not None:
-            _logger.warning(
-                "MLFLOW_HUGGINGFACE_USE_DEVICE_MAP is set to True, device "
-                f"is incompatible with device_map, ignoring device param `{device}` passed."
+            raise MlflowException.invalid_parameter_value(
+                f"MLFLOW_HUGGINGFACE_USE_DEVICE_MAP is True, but device is set to {device}, "
+                f"device_map and device cannot be used together. Set "
+                "MLFLOW_HUGGINGFACE_USE_DEVICE_MAP to False to use device, or set "
+                "device to None to use device_map."
             )
         device = None
     elif device is None:

@@ -3642,5 +3642,12 @@ def test_device_param_on_load_model(device, small_qa_pipeline, model_path, monke
     assert conf.get("device") == device
 
     monkeypatch.setenv("MLFLOW_HUGGINGFACE_USE_DEVICE_MAP", "true")
-    conf = mlflow.transformers.load_model(model_path, return_type="components", device=device)
-    assert conf.get("device") is None
+    if device is None:
+        conf = mlflow.transformers.load_model(model_path, return_type="components", device=device)
+        assert conf.get("device") is None
+    else:
+        with pytest.raises(
+            MlflowException,
+            match=rf"MLFLOW_HUGGINGFACE_USE_DEVICE_MAP is True, but device is set to {device}",
+        ):
+            mlflow.transformers.load_model(model_path, return_type="components", device=device)
