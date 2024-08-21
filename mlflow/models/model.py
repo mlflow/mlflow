@@ -735,15 +735,21 @@ class Model:
             if model_id is not None:
                 model = client.get_model(model_id)
             else:
+                params = {
+                    **(params or {}),
+                    **(
+                        client.get_run(active_run.info.run_id).data.params
+                        if active_run is not None
+                        else {}
+                    ),
+                }
                 model = client.create_model(
                     experiment_id=mlflow.tracking.fluent._get_experiment_id(),
                     # TODO: Update model name
                     name=name,
                     run_id=active_run.info.run_id if active_run is not None else None,
                     model_type=model_type,
-                    params={key: str(value) for key, value in params.items()}
-                    if params is not None
-                    else None,
+                    params={key: str(value) for key, value in params.items()},
                     tags={key: str(value) for key, value in tags.items()}
                     if tags is not None
                     else None,
