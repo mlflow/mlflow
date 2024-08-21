@@ -2877,9 +2877,9 @@ def log_model(
         streamable=streamable,
         resources=resources,
         infer_code_paths=infer_code_paths,
-        model_type=model_type,
         params=params,
         tags=tags,
+        model_type=model_type,
         step=step,
     )
 

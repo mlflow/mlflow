@@ -150,6 +150,10 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    params: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
     **kwargs,
 ):
     """
@@ -308,6 +312,10 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
         **kwargs,
     )
 

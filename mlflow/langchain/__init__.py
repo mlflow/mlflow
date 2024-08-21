@@ -569,6 +569,10 @@ def log_model(
         run_id=run_id,
         model_config=model_config,
         streamable=streamable,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
     )
 
 
