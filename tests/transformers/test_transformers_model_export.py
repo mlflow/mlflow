@@ -3648,6 +3648,7 @@ def test_device_param_on_load_model(device, small_qa_pipeline, model_path, monke
     else:
         with pytest.raises(
             MlflowException,
-            match=rf"MLFLOW_HUGGINGFACE_USE_DEVICE_MAP is True, but device is set to {device}",
+            match=r"The environment variable MLFLOW_HUGGINGFACE_USE_DEVICE_MAP is set to True, "
+            rf"but the `device` argument is provided with value {device}.",
         ):
             mlflow.transformers.load_model(model_path, return_type="components", device=device)
