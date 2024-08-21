@@ -743,9 +743,6 @@ class Model:
                     client=client, model_id=model.model_id, run_id=run_id, step=step
                 )
 
-            # NO LONGER START A RUN!
-            # if run_id is None:
-            #    run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(
                 artifact_path=model.artifact_location,
                 model_uuid=model.model_id,
@@ -771,11 +768,8 @@ class Model:
                 elif tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks":
                     _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
 
-            # NO LONGER LOG ARTIFACTS TO A RUN. CREATE A MODEL AND FINALIZE IT INSTEAD!
             client.log_model_artifacts(model.model_id, local_path)
             client.finalize_model(model.model_id, status=ModelStatus.READY)
-
-            # mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
             # # if the model_config kwarg is passed in, then log the model config as an params
             # if model_config := kwargs.get("model_config"):
@@ -844,7 +838,6 @@ class Model:
 
         if registered_model_name is not None:
             registered_model = mlflow.tracking._model_registry.fluent._register_model(
-                # TODO: Fix this!
                 f"models:/{model.model_id}",
                 registered_model_name,
                 await_registration_for=await_registration_for,
