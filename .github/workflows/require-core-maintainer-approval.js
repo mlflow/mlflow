@@ -22,7 +22,7 @@ module.exports = async ({ github, context, core }) => {
   if (maintainerApprovals.length === 0) {
     const maintainerList = Array.from(CORE_MAINTAINERS).join(", ");
     core.setFailed(
-      `This PR requires an approval from at least one of core maintainers [${maintainerList}].`
+      `This PR requires an approval from at least one of core maintainers: [${maintainerList}].`
     );
   }
 };
