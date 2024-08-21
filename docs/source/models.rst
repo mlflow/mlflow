@@ -1860,8 +1860,7 @@ ds            y
 
 
     def extract_params(pr_model):
-        simple_params = serialize.SIMPLE_ATTRIBUTES
-        params = {attr: getattr(pr_model, attr) for attr in simple_params}
+        params = {attr: getattr(pr_model, attr) for attr in serialize.SIMPLE_ATTRIBUTES}
         return {k: v for k, v in params.items() if isinstance(v, (int, float, str, bool))}
 
 
