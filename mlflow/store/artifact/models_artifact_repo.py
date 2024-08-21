@@ -90,8 +90,15 @@ class ModelsArtifactRepository(ArtifactRepository):
             get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
         )
         client = MlflowClient(registry_uri=databricks_profile_uri)
-        name, version = get_model_name_and_version(client, uri)
-        download_uri = client.get_model_version_download_uri(name, version)
+        name_and_version_or_id = get_model_name_and_version(client, uri)
+        if len(name_and_version_or_id) == 1:
+            name = None
+            version = None
+            model_id = name_and_version_or_id[0]
+            download_uri = client.get_model(model_id).artifact_location
+        else:
+            name, version = name_and_version_or_id
+            download_uri = client.get_model_version_download_uri(name, version)
 
         return (
             name,
