@@ -13,11 +13,30 @@ SUPPORTED_ENGINES = {CHAT_ENGINE_NAME, QUERY_ENGINE_NAME, RETRIEVER_ENGINE_NAME}
 _CHAT_MESSAGE_HISTORY_PARAMETER_NAME = "chat_history"
 
 
+def _convert_llm_input_data_with_unwrapping(data):
+    """
+    Transforms the input data to the format expected by the LlamaIndex engine.
+
+    TODO: Migrate the unwrapping logic to mlflow.evaluate() function or _convert_llm_input_data,
+    # because it is not specific to LlamaIndex.
+    """
+    data = _convert_llm_input_data(data)
+
+    # For mlflow.evaluate() call, the input dataset will be a pandas DataFrame. The DF should have
+    # a column named "inputs" which contains the actual query data. After the preprocessing, the
+    # each row will be passed here as a dictionary with the key "inputs". Therefore, we need to
+    # extract the actual query data from the dictionary.
+    if isinstance(data, dict) and ("inputs" in data):
+        data = data["inputs"]
+
+    return data
+
+
 def _format_predict_input_query_engine_and_retriever(data) -> "QueryBundle":
     """Convert pyfunc input to a QueryBundle."""
     from llama_index.core import QueryBundle
 
-    data = _convert_llm_input_data(data)
+    data = _convert_llm_input_data_with_unwrapping(data)
 
     if isinstance(data, str):
         return QueryBundle(query_str=data)
@@ -100,7 +119,7 @@ class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
         return data
 
     def _format_predict_input(self, data) -> Union[str, Dict, List]:
-        data = _convert_llm_input_data(data)
+        data = _convert_llm_input_data_with_unwrapping(data)
 
         if isinstance(data, str):
             return data
