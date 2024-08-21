@@ -656,9 +656,18 @@ class FileStore(AbstractStore):
         if urllib.parse.urlparse(source).scheme == "models":
             parsed_model_uri = _parse_model_uri(source)
             try:
-                storage_location = self.get_model_version_download_uri(
-                    parsed_model_uri.name, parsed_model_uri.version
-                )
+                from mlflow.tracking.client import MlflowClient
+
+                if parsed_model_uri.model_id is not None:
+                    # TODO: Propagate tracking URI to file store directly, rather than relying on
+                    # global URI (individual MlflowClient instances may have different tracking
+                    # URIs)
+                    model = MlflowClient().get_model(parsed_model_uri.model_id)
+                    storage_location = model.artifact_location
+                else:
+                    storage_location = self.get_model_version_download_uri(
+                        parsed_model_uri.name, parsed_model_uri.version
+                    )
             except Exception as e:
                 raise MlflowException(
                     f"Unable to fetch model from model URI source artifact location '{source}'."
