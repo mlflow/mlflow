@@ -705,7 +705,7 @@ class FileStore(AbstractStore):
                 if tags is not None:
                     for tag in tags:
                         self.set_model_version_tag(name, version, tag)
-                return model_version.to_mlflow_entity()
+                return self.get_model_version(name, version)
             except Exception as e:
                 more_retries = self.CREATE_MODEL_VERSION_RETRIES - attempt - 1
                 logging.warning(
