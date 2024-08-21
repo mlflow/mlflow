@@ -28,7 +28,7 @@ module.exports = async ({ github, context, core }) => {
     });
     if (!comments.some(({ body }) => body.includes(marker))) {
       const maintainerList = Array.from(CORE_MAINTAINERS)
-        .map((maintainer) => `${maintainer}`)
+        .map((maintainer) => `\`${maintainer}\``)
         .join(", ");
       const message = `This PR needs to be approved by at least one of core maintainers: ${maintainerList}.`;
       await github.rest.issues.createComment({
