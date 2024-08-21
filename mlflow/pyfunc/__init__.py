@@ -2653,6 +2653,7 @@ def log_model(
     example_no_conversion=None,
     streamable=None,
     resources: Optional[Union[str, List[Resource]]] = None,
+    model_type: Optional[str] = None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -2873,6 +2874,7 @@ def log_model(
         streamable=streamable,
         resources=resources,
         infer_code_paths=infer_code_paths,
+        model_type=model_type,
     )
 
 

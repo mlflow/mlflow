@@ -662,6 +662,7 @@ class Model:
         metadata=None,
         run_id=None,
         resources=None,
+        model_type: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -703,6 +704,7 @@ class Model:
                 # TODO: Update model name
                 name=name,
                 run_id=active_run.info.run_id if active_run is not None else None,
+                model_type=model_type,
             )
 
             # NO LONGER START A RUN!

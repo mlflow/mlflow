@@ -4745,8 +4745,11 @@ class MlflowClient:
         run_id: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
         params: Optional[Dict[str, str]] = None,
+        model_type: Optional[str] = None,
     ) -> Model:
-        return self._tracking_client.create_model(experiment_id, name, run_id, tags, params)
+        return self._tracking_client.create_model(
+            experiment_id, name, run_id, tags, params, model_type
+        )
 
     def finalize_model(self, model_id: str, status: ModelStatus) -> Model:
         return self._tracking_client.finalize_model(model_id, status)

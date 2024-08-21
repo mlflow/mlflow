@@ -989,6 +989,7 @@ class TrackingServiceClient:
         run_id: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
         params: Optional[Dict[str, str]] = None,
+        model_type: Optional[str] = None,
     ) -> Model:
         return self.store.create_model(
             experiment_id=experiment_id,
@@ -1000,6 +1001,7 @@ class TrackingServiceClient:
             params=[ModelParam(key, value) for key, value in params.items()]
             if params is not None
             else params,
+            model_type=model_type,
         )
 
     def finalize_model(self, model_id: str, status: ModelStatus) -> Model:

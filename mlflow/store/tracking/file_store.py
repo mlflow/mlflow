@@ -1907,6 +1907,7 @@ class FileStore(AbstractStore):
         run_id: Optional[str] = None,
         tags: Optional[List[ModelTag]] = None,
         params: Optional[List[ModelParam]] = None,
+        model_type: Optional[str] = None,
     ) -> Model:
         """
         Create a new model.
@@ -1951,6 +1952,7 @@ class FileStore(AbstractStore):
             status=ModelStatus.PENDING,
             tags=tags,
             params=params,
+            model_type=model_type,
         )
 
         # Persist model metadata and create directories for logging metrics, tags
