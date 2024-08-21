@@ -26,6 +26,7 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.proto_json_utils import dataframe_from_parsed_json
+from mlflow.xgboost import _exclude_unrecognized_kwargs
 
 from tests.helper_functions import (
     _assert_pip_requirements,
@@ -671,3 +672,19 @@ def test_xgbmodel_predict_exclude_invalid_params(xgb_sklearn_model):
             "Params {'invalid_param'} are not accepted by the xgboost model, "
             "ignoring them during predict."
         )
+
+
+def test_exclude_unrecognized_kwargs():
+    def custom_func(*args, **kwargs):
+        return [1, 2, 3]
+
+    def custom_func2(data, **kwargs):
+        return [2, 3, 4]
+
+    def custom_func3(x, y):
+        return x + y
+
+    params = {"data": 1, "x": 1, "y": 2, "z": 3}
+    assert _exclude_unrecognized_kwargs(custom_func, params) == params
+    assert _exclude_unrecognized_kwargs(custom_func2, params) == params
+    assert _exclude_unrecognized_kwargs(custom_func3, params) == {"x": 1, "y": 2}
