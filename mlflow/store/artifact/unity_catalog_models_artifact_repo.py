@@ -9,7 +9,6 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     StorageMode,
 )
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
-    MODEL_VERSION_OPERATION_READ as MODEL_VERSION_OPERATION_READ_OSS,
     GenerateTemporaryModelVersionCredentialsRequest as GenerateTemporaryModelVersionCredentialsRequestOSS,
     GenerateTemporaryModelVersionCredentialsResponse as GenerateTemporaryModelVersionCredentialsResponseOSS,
 )
@@ -116,7 +115,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
                     schema_name=schema_name,
                     model_name=model_name,
                     version=self.model_version,
-                    operation=MODEL_VERSION_OPERATION_READ_OSS,
+                    operation=MODEL_VERSION_OPERATION_READ,
                 )
             )
             oss_response_proto = GenerateTemporaryModelVersionCredentialsResponseOSS()
