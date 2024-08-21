@@ -1048,6 +1048,15 @@ class TrackingServiceClient:
     def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
         self._get_artifact_repo_for_model(model_id).log_artifacts(local_dir)
 
+    def search_models(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[List[str]] = None,
+    ):
+        return self.store.search_models(experiment_ids, filter_string, max_results, order_by)
+
     def _get_artifact_repo_for_model(self, model_id: str) -> ArtifactRepository:
         # Attempt to fetch the artifact repo from a local cache
         cached_repo = utils._artifact_repos_cache.get(model_id)

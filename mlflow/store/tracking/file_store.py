@@ -2031,8 +2031,6 @@ class FileStore(AbstractStore):
             raise MlflowException(
                 f"Model '{model_id}' metadata is in invalid state.", databricks_pb2.INVALID_STATE
             )
-        model_dict["tags"] = self._get_all_model_tags(model_dir)
-        model_dict["metrics"] = self._get_all_model_metrics(model_id=model_id, model_dir=model_dir)
         return model_dict
 
     def _get_model_dir(self, experiment_id: str, model_id: str) -> str:
@@ -2055,8 +2053,16 @@ class FileStore(AbstractStore):
             return os.path.basename(os.path.dirname(os.path.abspath(models_dir_path))), models[0]
         return None, None
 
+    def _get_model_from_dir(self, model_dir: str) -> Model:
+        return Model.from_dictionary(self._get_model_info_from_dir(model_dir))
+
     def _get_model_info_from_dir(self, model_dir: str) -> Dict[str, Any]:
-        return FileStore._read_yaml(model_dir, FileStore.META_DATA_FILE_NAME)
+        model_dict = FileStore._read_yaml(model_dir, FileStore.META_DATA_FILE_NAME)
+        model_dict["tags"] = self._get_all_model_tags(model_dir)
+        model_dict["metrics"] = self._get_all_model_metrics(
+            model_id=model_dict["model_id"], model_dir=model_dir
+        )
+        return model_dict
 
     def _get_all_model_tags(self, model_dir: str) -> List[ModelTag]:
         parent_path, tag_files = self._get_resource_files(model_dir, FileStore.TAGS_FOLDER_NAME)
@@ -2119,3 +2125,59 @@ class FileStore(AbstractStore):
             dataset_digest=dataset_digest,
             run_id=run_id,
         )
+
+    def search_models(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[List[str]] = None,
+    ) -> List[Model]:
+        all_models = []
+        for experiment_id in experiment_ids:
+            models = self._list_models(experiment_id)
+            all_models.extend(models)
+        # filtered = SearchUtils.filter(runs, filter_string)
+        # sorted_runs = SearchUtils.sort(filtered, order_by)
+        # runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
+        return all_models
+
+    def _list_models(self, experiment_id: str) -> List[Model]:
+        self._check_root_dir()
+        if not self._has_experiment(experiment_id):
+            return []
+        experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
+        model_dirs = list_all(
+            os.path.join(experiment_dir, FileStore.MODELS_FOLDER_NAME),
+            filter_func=lambda x: all(
+                os.path.basename(os.path.normpath(x)) != reservedFolderName
+                for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
+            )
+            and os.path.isdir(x),
+            full_path=True,
+        )
+        models = []
+        for m_dir in model_dirs:
+            try:
+                # trap and warn known issues, will raise unexpected exceptions to caller
+                model = self._get_model_from_dir(m_dir)
+                if model.experiment_id != experiment_id:
+                    logging.warning(
+                        "Wrong experiment ID (%s) recorded for model '%s'. "
+                        "It should be %s. Model will be ignored.",
+                        str(model.experiment_id),
+                        str(model.model_id),
+                        str(experiment_id),
+                        exc_info=True,
+                    )
+                    continue
+                models.append(model)
+            except MissingConfigException as exc:
+                # trap malformed model exception and log
+                # this is at debug level because if the same store is used for
+                # artifact storage, it's common the folder is not a run folder
+                m_id = os.path.basename(m_dir)
+                logging.debug(
+                    "Malformed model '%s'. Detailed error %s", m_id, str(exc), exc_info=True
+                )
+        return models

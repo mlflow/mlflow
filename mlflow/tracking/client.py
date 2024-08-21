@@ -4779,4 +4779,15 @@ class MlflowClient:
         return self._tracking_client.set_model_tag(model_id, key, value)
 
     def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
-        self._tracking_client.log_model_artifacts(model_id, local_dir)
+        return self._tracking_client.log_model_artifacts(model_id, local_dir)
+
+    def search_models(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[List[str]] = None,
+    ):
+        return self._tracking_client.search_models(
+            experiment_ids, filter_string, max_results, order_by
+        )
