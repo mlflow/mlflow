@@ -655,7 +655,7 @@ class Model:
     @classmethod
     def log(
         cls,
-        artifact_path,
+        name,
         flavor,
         registered_model_name=None,
         await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
@@ -669,7 +669,7 @@ class Model:
         active run.
 
         Args:
-            artifact_path: Run relative path identifying the model.
+            name: The name of the model.
             flavor: Flavor module to save the model with. The module must have
                 the ``save_model`` function that will persist the model as a valid
                 MLflow model.
@@ -695,11 +695,25 @@ class Model:
         with TempDir() as tmp:
             local_path = tmp.path("model")
 
+            tracking_uri = _resolve_tracking_uri()
+            client = mlflow.MlflowClient(tracking_uri)
+            active_run = mlflow.tracking.fluent.active_run()
+            model = client.create_model(
+                experiment_id=mlflow.tracking.fluent._get_experiment_id(),
+                # TODO: Update model name
+                name=name,
+                run_id=active_run.info.run_id if active_run is not None else None,
+            )
+
             # NO LONGER START A RUN!
             # if run_id is None:
             #    run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(
-                artifact_path=artifact_path, run_id=run_id, metadata=metadata, resources=resources
+                artifact_path=model.artifact_location,
+                model_uuid=model.model_id,
+                run_id=active_run.info.run_id if active_run is not None else None,
+                metadata=metadata,
+                resources=resources,
             )
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             # `save_model` calls `load_model` to infer the model requirements, which may result in
@@ -710,7 +724,6 @@ class Model:
             if is_in_databricks_runtime():
                 _copy_model_metadata_for_uc_sharing(local_path, flavor)
 
-            tracking_uri = _resolve_tracking_uri()
             serving_input = mlflow_model.get_serving_input(local_path)
             # We check signature presence here as some flavors have a default signature as a
             # fallback when not provided by user, which is set during flavor's save_model() call.
@@ -720,15 +733,7 @@ class Model:
                 elif tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks":
                     _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
 
-            # NO LONGER LOG ARTIFACTS. CREATE A MODEL AND FINALIZE IT INSTEAD!
-            client = mlflow.MlflowClient(tracking_uri)
-            active_run = mlflow.tracking.fluent.active_run()
-            model = client.create_model(
-                experiment_id=mlflow.tracking.fluent._get_experiment_id(),
-                # TODO: Update model name
-                name=artifact_path,
-                run_id=active_run.info.run_id if active_run is not None else None,
-            )
+            # NO LONGER LOG ARTIFACTS TO A RUN. CREATE A MODEL AND FINALIZE IT INSTEAD!
             client.log_model_artifacts(model.model_id, local_path)
             client.finalize_model(model.model_id, status=ModelStatus.READY)
 
@@ -801,6 +806,7 @@ class Model:
 
         if registered_model_name is not None:
             registered_model = mlflow.tracking._model_registry.fluent._register_model(
+                # TODO: Fix this!
                 f"runs:/{run_id}/{mlflow_model.artifact_path}",
                 registered_model_name,
                 await_registration_for=await_registration_for,
