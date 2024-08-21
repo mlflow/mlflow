@@ -345,9 +345,9 @@ def test_requestor():
             artifact_path="model/path", run_id="run_id", flavors=flavors_with_config
         )
         store.record_logged_model("run_id", m_with_config)
-        model_dict = m_with_config.to_dict()
-        del model_dict["flavors"]["python_function"]["config"]
-        expected_message = LogModel(run_id=run_id, model_json=json.dumps(model_dict))
+        expected_message = LogModel(
+            run_id=run_id, model_json=m_with_config.to_json(with_config=False)
+        )
         _verify_requests(
             mock_http,
             creds,

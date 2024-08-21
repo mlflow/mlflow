@@ -518,6 +518,26 @@ def test_record_logged_model(store):
         metrics=[],
         tags=[RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.to_dict(), m2.to_dict(), m3.to_dict()]))],
     )
+    m4 = Model(
+        artifact_path="some/other/path3",
+        run_id=run_id,
+        flavors={"python_function": {"config": {"a": 1}, "code": "code"}},
+    )
+    store.record_logged_model(run_id, m4)
+    _verify_logged(
+        store,
+        run_id,
+        params=[],
+        metrics=[],
+        tags=[
+            RunTag(
+                MLFLOW_LOGGED_MODELS,
+                json.dumps(
+                    [m.to_dict(), m2.to_dict(), m3.to_dict(), m4.to_dict(with_config=False)]
+                ),
+            )
+        ],
+    )
     with pytest.raises(
         TypeError,
         match="Argument 'mlflow_model' should be mlflow.models.Model, got '<class 'dict'>'",

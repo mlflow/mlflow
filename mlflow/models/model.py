@@ -555,9 +555,13 @@ class Model:
             metadata=self.metadata,
         )
 
-    def to_dict(self):
+    def to_dict(self, with_config: bool = True):
         """Serialize the model to a dictionary."""
         res = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
+        if not with_config:
+            for k, v in res.get("flavors", {}).items():
+                if "config" in v:
+                    v.pop("config")
         databricks_runtime = get_databricks_runtime_version()
         if databricks_runtime:
             res["databricks_runtime"] = databricks_runtime
@@ -581,16 +585,18 @@ class Model:
             res.pop("run_id", None)
         return res
 
-    def to_yaml(self, stream=None):
+    def to_yaml(self, with_config: bool = True, stream=None):
         """Write the model as yaml string."""
-        return yaml.safe_dump(self.to_dict(), stream=stream, default_flow_style=False)
+        return yaml.safe_dump(
+            self.to_dict(with_config=with_config), stream=stream, default_flow_style=False
+        )
 
     def __str__(self):
         return self.to_yaml()
 
-    def to_json(self):
+    def to_json(self, with_config: bool = True):
         """Write the model as json."""
-        return json.dumps(self.to_dict())
+        return json.dumps(self.to_dict(with_config=with_config))
 
     def save(self, path):
         """Write the model as a local YAML file."""
