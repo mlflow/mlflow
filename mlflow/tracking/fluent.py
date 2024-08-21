@@ -913,6 +913,7 @@ def log_metrics(
     synchronous: Optional[bool] = None,
     run_id: Optional[str] = None,
     timestamp: Optional[int] = None,
+    dataset: Optional[Dataset] = None,
 ) -> Optional[RunOperations]:
     """
     Log multiple metrics for the current run. If no run is active, this method will create a new
@@ -958,7 +959,13 @@ def log_metrics(
     _log_inputs_for_metrics_if_necessary(run_id, metrics_arr)
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_batch(
-        run_id=run_id, metrics=metrics_arr, params=[], tags=[], synchronous=synchronous
+        run_id=run_id,
+        metrics=metrics_arr,
+        params=[],
+        tags=[],
+        synchronous=synchronous,
+        dataset_name=dataset.name if dataset is not None else None,
+        dataset_digest=dataset.digest if dataset is not None else None,
     )
 
 
