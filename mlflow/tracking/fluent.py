@@ -955,7 +955,19 @@ def log_metrics(
     """
     run_id = run_id or _get_or_start_run().info.run_id
     timestamp = timestamp or get_current_time_millis()
-    metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
+    dataset_name = dataset.name if dataset is not None else None
+    dataset_digest = dataset.digest if dataset is not None else None
+    metrics_arr = [
+        Metric(
+            key,
+            value,
+            timestamp,
+            step or 0,
+            dataset_name=dataset_name,
+            dataset_digest=dataset_digest,
+        )
+        for key, value in metrics.items()
+    ]
     _log_inputs_for_metrics_if_necessary(run_id, metrics_arr)
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_batch(
@@ -964,8 +976,6 @@ def log_metrics(
         params=[],
         tags=[],
         synchronous=synchronous,
-        dataset_name=dataset.name if dataset is not None else None,
-        dataset_digest=dataset.digest if dataset is not None else None,
     )
 
 
