@@ -712,10 +712,14 @@ class TrackingServiceClient:
 
         metrics = [
             Metric(
-                metric.key,
-                convert_metric_value_to_float_if_possible(metric.value),
-                metric.timestamp,
-                metric.step,
+                key=metric.key,
+                value=convert_metric_value_to_float_if_possible(metric.value),
+                timestamp=metric.timestamp,
+                step=metric.step,
+                dataset_name=metric.dataset_name,
+                dataset_digest=metric.dataset_digest,
+                model_id=metric.model_id,
+                run_id=metric.run_id,
             )
             for metric in metrics
         ]

@@ -14,7 +14,7 @@ import yaml
 
 import mlflow
 from mlflow.artifacts import download_artifacts
-from mlflow.entities import ModelOutput, ModelStatus
+from mlflow.entities import Metric, ModelOutput, ModelStatus
 from mlflow.exceptions import MlflowException
 from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
@@ -695,6 +695,29 @@ class Model:
             metadata of the logged model.
         """
 
+        def log_model_metrics_for_step(client, model_id, run_id, step):
+            metric_names = client.get_run(run_id).data.metrics.keys()
+            metrics_for_step = []
+            for metric_name in metric_names:
+                history = client.get_metric_history(run_id, metric_name)
+                metrics_for_step.extend(
+                    [
+                        Metric(
+                            key=metric.key,
+                            value=metric.value,
+                            timestamp=metric.timestamp,
+                            step=metric.step,
+                            dataset_name=metric.dataset_name,
+                            dataset_digest=metric.dataset_digest,
+                            run_id=metric.run_id,
+                            model_id=model_id,
+                        )
+                        for metric in history
+                        if metric.step == step and metric.model_id is None
+                    ]
+                )
+            client.log_batch(run_id=run_id, metrics=metrics_for_step)
+
         registered_model = None
         with TempDir() as tmp:
             local_path = tmp.path("model")
@@ -714,8 +737,10 @@ class Model:
                 tags={key: str(value) for key, value in tags.items()} if tags is not None else None,
             )
             if active_run is not None:
-                client.log_outputs(
-                    run_id=active_run.info.run_id, models=[ModelOutput(model.model_id, step=step)]
+                run_id = active_run.info.run_id
+                client.log_outputs(run_id=run_id, models=[ModelOutput(model.model_id, step=step)])
+                log_model_metrics_for_step(
+                    client=client, model_id=model.model_id, run_id=run_id, step=step
                 )
 
             # NO LONGER START A RUN!

@@ -2017,6 +2017,7 @@ class FileStore(AbstractStore):
     def _make_persisted_model_dict(self, model: Model) -> Dict[str, Any]:
         model_dict = model.to_dictionary()
         model_dict.pop("tags", None)
+        model_dict.pop("metrics", None)
         return model_dict
 
     def _get_model_dict(self, model_id: str) -> Dict[str, Any]:
