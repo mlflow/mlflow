@@ -14,7 +14,7 @@ from scipy.sparse import csc_matrix
 
 import mlflow
 from mlflow.models import Model, ModelSignature, infer_signature, set_model, validate_schema
-from mlflow.models.model import METADATA_FILES
+from mlflow.models.model import METADATA_FILES, SET_MODEL_ERROR
 from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
 from mlflow.models.utils import _read_example, _save_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -579,10 +579,7 @@ def test_langchain_set_model():
 
 
 def test_error_set_model(sklearn_knn_model):
-    with pytest.raises(
-        mlflow.MlflowException,
-        match="Model should either be an instance of PyFuncModel or Langchain type.",
-    ):
+    with pytest.raises(mlflow.MlflowException, match=SET_MODEL_ERROR):
         set_model(sklearn_knn_model)
 
 

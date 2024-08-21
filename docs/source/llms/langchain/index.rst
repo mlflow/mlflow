@@ -278,13 +278,27 @@ How can I log my chain from code?
             input_variables=["question", "answer"],
         )
 
+
+        def get_question(input):
+            default = "What is your name?"
+            if isinstance(input_data[0], dict):
+                return input_data[0].get("content").get("question", default)
+            return default
+
+
+        def get_answer(input):
+            default = "My name is Bobo"
+            if isinstance(input_data[0], dict):
+                return input_data[0].get("content").get("answer", default)
+            return default
+
+
         model = OpenAI(temperature=0.95)
 
         chain = (
             {
                 "question": itemgetter("messages") | RunnableLambda(get_question),
                 "answer": itemgetter("messages") | RunnableLambda(get_answer),
-                "chat_history": itemgetter("messages") | RunnableLambda(extract_chat_history),
             }
             | prompt
             | model

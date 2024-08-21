@@ -1640,12 +1640,10 @@ def _validate_model_code_from_notebook(code):
     return output_code.encode("utf-8")
 
 
-# Convert llm input data:
-# numpy array is not json serializable, so we convert it to list
-# then send it to the model
 def _convert_llm_ndarray_to_list(data):
-    import numpy as np
-
+    """
+    Convert numpy array in the input data to list, because numpy array is not json serializable.
+    """
     if isinstance(data, np.ndarray):
         return data.tolist()
     if isinstance(data, list):
@@ -1655,10 +1653,18 @@ def _convert_llm_ndarray_to_list(data):
     return data
 
 
-def _convert_llm_input_data(data):
-    import pandas as pd
+def _convert_llm_input_data(data: Any) -> Union[List, Dict]:
+    """
+    Convert input data to a format that can be passed to the model with GenAI flavors such as
+    LangChain and LLamaIndex.
 
-    # This handles spark_udf inputs and input_example inputs
+    Args
+        data: Input data to be converted. We assume it is a single request payload, but it can be
+            in any format such as a single scalar value, a dictionary, list (with one element),
+            Pandas DataFrame, etc.
+    """
+    # This handles pyfunc / spark_udf inputs with model signature. Schema enforcement convert
+    # the input data to pandas DataFrame, so we convert it back.
     if isinstance(data, pd.DataFrame):
         # if the data only contains a single key as 0, we assume the input
         # is either a string or list of strings

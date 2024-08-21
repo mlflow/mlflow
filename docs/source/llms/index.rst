@@ -235,6 +235,7 @@ Harnessing the power of LLMs becomes effortless with flavors designed specifical
 
   - Load models as PyFuncs for broad compatibility across serving infrastructures.
   - Strengthens the MLOps process for LLMs, ensuring smooth deployments.
+  - Utilize the `Models From Code feature <../model/models-from-code.html>`_ for simplified GenAI application development.
 
 - **Cohesive Ecosystem**: 
 

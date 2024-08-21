@@ -46,6 +46,7 @@ from mlflow.utils.lazy_load import LazyLoader
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 
 # Lazily load mlflow flavors to avoid excessive dependencies.
+autogen = LazyLoader("mlflow.autogen", globals(), "mlflow.autogen")
 catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
 diviner = LazyLoader("mlflow.diviner", globals(), "mlflow.diviner")
 fastai = LazyLoader("mlflow.fastai", globals(), "mlflow.fastai")
@@ -131,6 +132,7 @@ from mlflow.tracking.fluent import (
     end_run,
     flush_artifact_async_logging,
     flush_async_logging,
+    flush_trace_async_logging,
     get_artifact_uri,
     get_experiment,
     get_experiment_by_name,
@@ -181,6 +183,7 @@ __all__ = [
     "evaluate",
     "flush_async_logging",
     "flush_artifact_async_logging",
+    "flush_trace_async_logging",
     "get_artifact_uri",
     "get_experiment",
     "get_experiment_by_name",

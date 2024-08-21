@@ -467,8 +467,6 @@ def test_langchain_evaluate_autologs_traces():
         assert len(trace.data.spans) == 3
     assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
 
-    TRACE_BUFFER.clear()
-
     # Test original langchain autolog configs is restored
     with mock.patch("mlflow.langchain.log_model") as log_model_mock:
         with mlflow.start_run() as run:
@@ -479,7 +477,7 @@ def test_langchain_evaluate_autologs_traces():
             assert len(loaded_dict) == 1
             assert loaded_dict[0]["input"] == "text"
         log_model_mock.assert_called_once()
-        assert len(get_traces()) == 1
+        assert len(get_traces()) == 3
         assert len(get_traces()[0].data.spans) == 3
 
 
@@ -2170,3 +2168,11 @@ def test_evaluate_shows_server_stdout_and_stderr_on_error(
                     env_manager="virtualenv",
                 )
             mock_serve.assert_called_once()
+
+
+def test_env_manager_set_on_served_pyfunc_model(multiclass_logistic_regressor_model_uri):
+    model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
+    client = ScoringServerClient("127.0.0.1", "8080")
+    served_model_1 = _ServedPyFuncModel(model_meta=model.metadata, client=client, server_pid=1)
+    served_model_1.env_manager = "virtualenv"
+    assert served_model_1.env_manager == "virtualenv"

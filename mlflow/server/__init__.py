@@ -24,7 +24,8 @@ from mlflow.server.handlers import (
     search_datasets_handler,
     upload_artifact_handler,
 )
-from mlflow.utils.os import get_entry_points, is_windows
+from mlflow.utils.os import is_windows
+from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import _exec_cmd
 from mlflow.version import VERSION
 

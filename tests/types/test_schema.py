@@ -1767,7 +1767,7 @@ def test_convert_dataclass_to_schema_for_rag():
                 "type": "object",
                 "properties": {
                     "finish_reason": {"type": "string", "required": True},
-                    "index": {"type": "integer", "required": True},
+                    "index": {"type": "long", "required": True},
                     "message": {
                         "type": "object",
                         "properties": {
@@ -1808,7 +1808,7 @@ def test_convert_dataclass_to_schema_complex():
             "items": {
                 "type": "object",
                 "properties": {
-                    "bar": {"type": "integer", "required": True},
+                    "bar": {"type": "long", "required": True},
                     "config_settings": {
                         "type": "object",
                         "properties": {"baz": {"type": "boolean", "required": False}},
