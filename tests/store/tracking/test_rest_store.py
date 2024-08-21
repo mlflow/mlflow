@@ -329,7 +329,7 @@ def test_requestor():
         run_id = "run_id"
         m = Model(artifact_path="model/path", run_id="run_id", flavors={"tf": "flavor body"})
         store.record_logged_model("run_id", m)
-        expected_message = LogModel(run_id=run_id, model_json=m.to_json())
+        expected_message = LogModel(run_id=run_id, model_json=json.dumps(m.get_tags_dict()))
         _verify_requests(
             mock_http, creds, "runs/log-model", "POST", message_to_json(expected_message)
         )
@@ -346,7 +346,7 @@ def test_requestor():
         )
         store.record_logged_model("run_id", m_with_config)
         expected_message = LogModel(
-            run_id=run_id, model_json=m_with_config.to_json(with_config=False)
+            run_id=run_id, model_json=json.dumps(m_with_config.get_tags_dict())
         )
         _verify_requests(
             mock_http,

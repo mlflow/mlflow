@@ -532,9 +532,7 @@ def test_record_logged_model(store):
         tags=[
             RunTag(
                 MLFLOW_LOGGED_MODELS,
-                json.dumps(
-                    [m.to_dict(), m2.to_dict(), m3.to_dict(), m4.to_dict(with_config=False)]
-                ),
+                json.dumps([m.to_dict(), m2.to_dict(), m3.to_dict(), m4.get_tags_dict()]),
             )
         ],
     )
