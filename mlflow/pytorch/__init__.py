@@ -137,7 +137,7 @@ def get_default_conda_env():
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="torch"))
 def log_model(
     pytorch_model,
-    name: str,
+    name: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     pickle_module=None,

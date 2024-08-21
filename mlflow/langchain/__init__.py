@@ -406,7 +406,7 @@ def save_model(
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     lc_model,
-    name: str,
+    name: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,

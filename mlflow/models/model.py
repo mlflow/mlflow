@@ -695,6 +695,12 @@ class Model:
             A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
             metadata of the logged model.
         """
+        if (model_id, name).count(None) == 2:
+            raise MlflowException(
+                "Either `model_id` or `name` must be specified when logging a model. "
+                "Both are None.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
         def log_model_metrics_for_step(client, model_id, run_id, step):
             metric_names = client.get_run(run_id).data.metrics.keys()
@@ -726,7 +732,7 @@ class Model:
             tracking_uri = _resolve_tracking_uri()
             client = mlflow.MlflowClient(tracking_uri)
             active_run = mlflow.tracking.fluent.active_run()
-            if model_id is None:
+            if model_id is not None:
                 model = client.get_model(model_id)
             else:
                 model = client.create_model(

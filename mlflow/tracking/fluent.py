@@ -18,6 +18,7 @@ from mlflow.entities import (
     Experiment,
     InputTag,
     Metric,
+    Model,
     ModelInput,
     Param,
     Run,
@@ -1839,6 +1840,28 @@ def delete_experiment(experiment_id: str) -> None:
 
     """
     MlflowClient().delete_experiment(experiment_id)
+
+
+def create_model(
+    name: str,
+    run_id: Optional[str] = None,
+    tags: Optional[Dict[str, str]] = None,
+    params: Optional[Dict[str, str]] = None,
+    model_type: Optional[str] = None,
+    experiment_id: Optional[str] = None,
+) -> Model:
+    run = active_run()
+    if run_id is None and run is not None:
+        run_id = run.info.run_id
+    experiment_id = experiment_id if experiment_id is not None else _get_experiment_id()
+    return MlflowClient().create_model(
+        experiment_id=experiment_id,
+        name=name,
+        run_id=run_id,
+        tags=tags,
+        params=params,
+        model_type=model_type,
+    )
 
 
 def delete_run(run_id: str) -> None:
