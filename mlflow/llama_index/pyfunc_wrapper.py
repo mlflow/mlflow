@@ -56,11 +56,15 @@ def _format_predict_input_query_engine_and_retriever(data) -> "QueryBundle":
 class _LlamaIndexModelWrapperBase:
     def __init__(
         self,
-        index,
+        engine,
         model_config: Optional[Dict[str, Any]] = None,
     ):
-        self.index = index
+        self.engine = engine
         self.model_config = model_config or {}
+
+    @property
+    def index(self):
+        return self.engine.index
 
     def get_raw_model(self):
         return self.engine
@@ -92,10 +96,9 @@ class _LlamaIndexModelWrapperBase:
 
 
 class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.engine_type = CHAT_ENGINE_NAME
-        self.engine = self.index.as_chat_engine(**self.model_config)
+    @property
+    def engine_type(self):
+        return CHAT_ENGINE_NAME
 
     def _predict_single(self, *args, **kwargs) -> str:
         return self.engine.chat(*args, **kwargs).response
@@ -137,10 +140,9 @@ class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
 
 
 class QueryEngineWrapper(_LlamaIndexModelWrapperBase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.engine_type = QUERY_ENGINE_NAME
-        self.engine = self.index.as_query_engine(**self.model_config)
+    @property
+    def engine_type(self):
+        return QUERY_ENGINE_NAME
 
     def _predict_single(self, *args, **kwargs) -> str:
         return self.engine.query(*args, **kwargs).response
@@ -150,10 +152,9 @@ class QueryEngineWrapper(_LlamaIndexModelWrapperBase):
 
 
 class RetrieverEngineWrapper(_LlamaIndexModelWrapperBase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.engine_type = RETRIEVER_ENGINE_NAME
-        self.engine = self.index.as_retriever(**self.model_config)
+    @property
+    def engine_type(self):
+        return RETRIEVER_ENGINE_NAME
 
     def _predict_single(self, *args, **kwargs) -> List[Dict]:
         response = self.engine.retrieve(*args, **kwargs)
@@ -163,14 +164,53 @@ class RetrieverEngineWrapper(_LlamaIndexModelWrapperBase):
         return _format_predict_input_query_engine_and_retriever(data)
 
 
-def create_engine_wrapper(index, engine_type: str, model_config: Optional[Dict[str, Any]] = None):
+def create_engine_wrapper(
+    index_or_engine: Any,
+    engine_type: Optional[str] = None,
+    model_config: Optional[Dict[str, Any]] = None,
+):
+    """
+    A factory function that creates a Pyfunc wrapper around a LlamaIndex index or engine.
+    """
+    from llama_index.core.indices.base import BaseIndex
+
+    if isinstance(index_or_engine, BaseIndex):
+        return _create_wrapper_from_index(index_or_engine, engine_type, model_config)
+    else:
+        return _create_wrapper_from_engine(index_or_engine, model_config)
+
+
+def _create_wrapper_from_index(
+    index, engine_type: str, model_config: Optional[Dict[str, Any]] = None
+):
+    model_config = model_config or {}
     if engine_type == QUERY_ENGINE_NAME:
-        return QueryEngineWrapper(index, model_config)
+        engine = index.as_query_engine(**model_config)
+        return QueryEngineWrapper(engine, model_config)
     elif engine_type == CHAT_ENGINE_NAME:
-        return ChatEngineWrapper(index, model_config)
+        engine = index.as_chat_engine(**model_config)
+        return ChatEngineWrapper(engine, model_config)
     elif engine_type == RETRIEVER_ENGINE_NAME:
-        return RetrieverEngineWrapper(index, model_config)
+        engine = index.as_retriever(**model_config)
+        return RetrieverEngineWrapper(engine, model_config)
     else:
         raise ValueError(
             f"Unsupported engine type: {engine_type}. It must be one of {SUPPORTED_ENGINES}"
+        )
+
+
+def _create_wrapper_from_engine(engine: Any, model_config: Optional[Dict[str, Any]] = None):
+    from llama_index.core.base.base_query_engine import BaseQueryEngine
+    from llama_index.core.chat_engine.types import BaseChatEngine
+    from llama_index.core.retrievers import BaseRetriever
+
+    if isinstance(engine, BaseChatEngine):
+        return ChatEngineWrapper(engine, model_config)
+    elif isinstance(engine, BaseQueryEngine):
+        return QueryEngineWrapper(engine, model_config)
+    elif isinstance(engine, BaseRetriever):
+        return RetrieverEngineWrapper(engine, model_config)
+    else:
+        raise ValueError(
+            f"Unsupported engine type: {type(engine)}. It must be one of {SUPPORTED_ENGINES}"
         )
