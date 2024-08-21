@@ -170,7 +170,7 @@ def create_engine_wrapper(
     model_config: Optional[Dict[str, Any]] = None,
 ):
     """
-    A factory function that creates a Pyfunc wrapper around a Llama index or engine.
+    A factory function that creates a Pyfunc wrapper around a LlamaIndex index or engine.
     """
     from llama_index.core.indices.base import BaseIndex
 
