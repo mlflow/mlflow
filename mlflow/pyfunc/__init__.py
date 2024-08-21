@@ -2653,6 +2653,8 @@ def log_model(
     example_no_conversion=None,
     streamable=None,
     resources: Optional[Union[str, List[Resource]]] = None,
+    params: Optional[Dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
     model_type: Optional[str] = None,
 ):
     """
@@ -2875,6 +2877,8 @@ def log_model(
         resources=resources,
         infer_code_paths=infer_code_paths,
         model_type=model_type,
+        params=params,
+        tags=tags,
     )
 
 
