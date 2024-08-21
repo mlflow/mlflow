@@ -126,7 +126,7 @@ def test_trace_llm_chat(is_async):
         "raw": ANY,
         "delta": None,
         "logprobs": None,
-        "additional_kwargs": {},
+        "additional_kwargs": {"completion_tokens": 12, "prompt_tokens": 9, "total_tokens": 21},
     }
 
     attr = spans[0].attributes
@@ -169,7 +169,7 @@ def test_trace_llm_chat_stream():
         "raw": ANY,
         "delta": " world",
         "logprobs": None,
-        "additional_kwargs": {},
+        "additional_kwargs": {"completion_tokens": 12, "prompt_tokens": 9, "total_tokens": 21},
     }
 
     attr = spans[0].attributes
