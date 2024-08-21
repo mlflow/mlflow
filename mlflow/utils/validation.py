@@ -274,7 +274,7 @@ def _validate_param_name(name):
         )
     if not validate_param_and_metric_name(name):
         raise MlflowException(
-            f"Invalid parameter name: '{name}'. {bad_path_message()}",
+            f"Invalid parameter name: '{name}'. {bad_character_message()}",
             INVALID_PARAMETER_VALUE,
         )
     if path_not_unique(name):
@@ -294,7 +294,7 @@ def _validate_tag_name(name):
         )
     if not validate_param_and_metric_name(name):
         raise MlflowException(
-            f"Invalid tag name: '{name}'. {bad_path_message()}",
+            f"Invalid tag name: '{name}'. {bad_character_message()}",
             INVALID_PARAMETER_VALUE,
         )
     if path_not_unique(name):
