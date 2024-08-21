@@ -1886,6 +1886,10 @@ def create_model(
     )
 
 
+def get_model(model_id: str) -> Model:
+    return MlflowClient().get_model(model_id)
+
+
 def search_models(
     experiment_ids: Optional[List[str]] = None,
     filter_string: Optional[str] = None,
