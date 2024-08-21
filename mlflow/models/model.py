@@ -824,7 +824,6 @@ class Model:
                 registered_model_name,
                 await_registration_for=await_registration_for,
                 local_model_path=local_path,
-                model_id=model.model_id,
             )
             return client.get_model_version(registered_model_name, registered_model.version)
         else:
