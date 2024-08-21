@@ -17,6 +17,7 @@ XGBoost (native) format
     https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 """
 import functools
+import inspect
 import json
 import logging
 import os
@@ -361,8 +362,37 @@ class _XGBModelWrapper:
         Returns:
             Model predictions.
         """
+        import xgboost as xgb
+
         predict_fn = _wrapped_xgboost_model_predict_fn(self.xgb_model)
-        return predict_fn(dataframe, **(params or {}))
+        params = params or {}
+        # filter is applied inside predict_fn wrapper for xgb.Booster
+        if not isinstance(self.xgb_model, xgb.Booster):
+            # Exclude unrecognized parameters as feature store team has
+            # dependency on this behavior. They might pass additional parameters
+            # that cannot be passed to the model.
+            params = _exclude_unrecognized_kwargs(predict_fn, params)
+        return predict_fn(dataframe, **params)
+
+
+def _exclude_unrecognized_kwargs(predict_fn, kwargs):
+    filtered_kwargs = {}
+    allowed_params = inspect.signature(predict_fn).parameters
+    # avoid excluding kwargs when predict function uses args or kwargs
+    if any(p.kind == p.VAR_POSITIONAL or p.kind == p.VAR_KEYWORD for p in allowed_params.values()):
+        return kwargs
+    invalid_params = set()
+    for key, value in kwargs.items():
+        if key in allowed_params:
+            filtered_kwargs[key] = value
+        else:
+            invalid_params.add(key)
+    if invalid_params:
+        _logger.warning(
+            f"Params {invalid_params} are not accepted by the xgboost model, "
+            "ignoring them during predict."
+        )
+    return filtered_kwargs
 
 
 def _wrapped_xgboost_model_predict_fn(model, validate_features=True):
@@ -374,8 +404,9 @@ def _wrapped_xgboost_model_predict_fn(model, validate_features=True):
     if isinstance(model, xgb.Booster):
         # we need to wrap the predict function to accept data in pandas format
         def wrapped_predict_fn(data, *args, **kwargs):
+            filtered_kwargs = _exclude_unrecognized_kwargs(model.predict, kwargs)
             return model.predict(
-                xgb.DMatrix(data), *args, validate_features=validate_features, **kwargs
+                xgb.DMatrix(data), *args, validate_features=validate_features, **filtered_kwargs
             )
 
         return wrapped_predict_fn
