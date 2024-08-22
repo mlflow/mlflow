@@ -299,6 +299,7 @@ def test_parsing_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
         DatabricksSQLWarehouse(warehouse_id="testId1"),
     ]
 
+
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.1.0"),
     reason="Tools are not supported the way we want in earlier versions",

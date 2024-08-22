@@ -1914,6 +1914,7 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
     assert all(item in expected["serving_endpoint"] for item in actual["serving_endpoint"])
     assert actual["vector_search_index"] == expected["vector_search_index"]
 
+
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.1.0"),
     reason="Tools are not supported the way we want in earlier versions",
