@@ -299,7 +299,10 @@ def test_parsing_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
         DatabricksSQLWarehouse(warehouse_id="testId1"),
     ]
 
-
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.1.0"),
+    reason="Tools are not supported the way we want in earlier versions",
+)
 def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
     from databricks.sdk.service.catalog import FunctionInfo
     from langchain.agents import initialize_agent
@@ -395,10 +398,13 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch)
     ]
 
     if include_uc_function_tools:
-        expected = expected + [
+        expected = [
+            DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat"),
             DatabricksUCFunction(function_name="rag.test.test_function"),
             DatabricksUCFunction(function_name="rag.test.test_function_2"),
             DatabricksUCFunction(function_name="rag.test.test_function_3"),
+            DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
+            DatabricksServingEndpoint(endpoint_name="embedding-model"),
             DatabricksSQLWarehouse(warehouse_id="testId1"),
         ]
     assert resources == expected

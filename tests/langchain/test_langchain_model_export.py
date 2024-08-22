@@ -5,6 +5,7 @@ import shutil
 import sqlite3
 import sys
 import warnings
+from importlib.metadata import version
 from operator import itemgetter
 from typing import Any, Dict, Iterator, List, Mapping, Optional
 from unittest import mock
@@ -1913,7 +1914,10 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
     assert all(item in expected["serving_endpoint"] for item in actual["serving_endpoint"])
     assert actual["vector_search_index"] == expected["vector_search_index"]
 
-
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.1.0"),
+    reason="Tools are not supported the way we want in earlier versions",
+)
 def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
     from databricks.sdk.service.catalog import FunctionInfo
     from langchain.tools.retriever import create_retriever_tool
