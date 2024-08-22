@@ -31,7 +31,7 @@ module.exports = async ({ github, context, core }) => {
       .join(", ");
     const message = `This PR requires approval from at least one core maintainer (${maintainers}). If you're not sure who to request a review from, assign \`mlflow-automation\`.`;
 
-    const reviewComments = await github.paginate(octokit.rest.pulls.listReviewComments, {
+    const reviewComments = await github.paginate(github.rest.pulls.listReviewComments, {
       owner: context.repo.owner,
       repo: context.repo.repo,
       issue_number: context.issue.number,
