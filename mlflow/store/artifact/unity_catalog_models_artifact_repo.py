@@ -8,7 +8,6 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GenerateTemporaryModelVersionCredentialsResponse,
     StorageMode,
 )
-
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store._unity_catalog.lineage.constants import _DATABRICKS_LINEAGE_ID_HEADER
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -24,7 +23,6 @@ from mlflow.utils._unity_catalog_utils import (
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
-    _UC_OSS_REST_API_PATH_PREFIX,
     _REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
@@ -133,7 +131,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         return get_artifact_repo_from_storage_info(
             storage_location=blob_storage_path,
             scoped_token=scoped_token,
-            base_credential_refresh_def=self._get_scoped_token
+            base_credential_refresh_def=self._get_scoped_token,
         )
 
     def list_artifacts(self, path=None):

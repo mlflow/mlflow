@@ -27,9 +27,9 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     SseEncryptionAlgorithm,
     TemporaryCredentials,
 )
-
-from mlflow.protos.unity_catalog_oss_messages_pb2 import TemporaryCredentials as TemporaryCredentialsOSS
-
+from mlflow.protos.unity_catalog_oss_messages_pb2 import (
+    TemporaryCredentials as TemporaryCredentialsOSS,
+)
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 
 _STRING_TO_STATUS = {k: ProtoModelVersionStatus.Value(k) for k in ProtoModelVersionStatus.keys()}
@@ -141,7 +141,7 @@ def get_artifact_repo_from_storage_info(
                 scoped_token=scoped_token,
                 base_credential_refresh_def=base_credential_refresh_def,
             )
-        else: 
+        else:
             return _get_artifact_repo_from_storage_info(
                 storage_location=storage_location,
                 scoped_token=scoped_token,
@@ -154,6 +154,7 @@ def get_artifact_repo_from_storage_info(
             "e.g. by running 'pip install mlflow[databricks]' or "
             "'pip install mlflow-skinny[databricks]'"
         ) from e
+
 
 def _get_artifact_repo_from_storage_info(
     storage_location: str,
@@ -247,7 +248,8 @@ def _get_artifact_repo_from_storage_info(
             "access model version files in Unity Catalog. Try upgrading to the latest "
             "version of the MLflow Python client."
         )
-    
+
+
 def _get_artifact_repo_from_storage_info_oss(
     storage_location: str,
     scoped_token: TemporaryCredentialsOSS,
@@ -278,18 +280,12 @@ def _get_artifact_repo_from_storage_info_oss(
             session_token=aws_creds.session_token,
             credential_refresh_def=aws_credential_refresh,
         )
-    elif credential_type == "azure_user_delegation_sas":
-        raise MlflowException(
-            f"{credential_type} is not supported in OSS Unity Catalog yet."
-        )
-    elif credential_type == "gcp_oauth_token":
-        raise MlflowException(
-            f"{credential_type} is not supported in OSS Unity Catalog yet."
-        )
-    elif credential_type == "r2_temp_credentials":
-        raise MlflowException(
-            f"{credential_type} is not supported in OSS Unity Catalog yet."
-        )
+    elif (
+        credential_type == "azure_user_delegation_sas"
+        or credential_type == "gcp_oauth_token"
+        or credential_type == "r2_temp_credentials"
+    ):
+        raise MlflowException(f"{credential_type} is not supported in OSS Unity Catalog yet.")
     else:
         raise MlflowException(
             f"Got unexpected credential type {credential_type} when attempting to "
