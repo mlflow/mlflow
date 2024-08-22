@@ -449,6 +449,23 @@ def test_log_params_duplicate_keys_raises():
     assert finished_run.data.params == params
 
 
+@pytest.mark.skipif(is_windows(), reason="Windows do not support colon in params and metrics")
+def test_param_metric_with_colon():
+    with start_run() as active_run:
+        run_id = active_run.info.run_id
+        mlflow.log_param("a:b", 3)
+        mlflow.log_metric("c:d", 4)
+    finished_run = tracking.MlflowClient().get_run(run_id)
+
+    # Validate param
+    assert len(finished_run.data.params) == 1
+    assert finished_run.data.params == {"a:b": "3"}
+
+    # Validate metric
+    assert len(finished_run.data.metrics) == 1
+    assert finished_run.data.metrics["c:d"] == 4
+
+
 def test_log_batch_duplicate_entries_raises():
     with start_run() as active_run:
         run_id = active_run.info.run_id
