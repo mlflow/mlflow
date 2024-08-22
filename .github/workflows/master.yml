@@ -341,6 +341,9 @@ jobs:
           pip install datasets
           # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
           pip install tensorflow
+          # This is required until Transformers supports Keras 3.0.
+          # ERROR: Your currently installed version of Keras is Keras 3, but this is not yet supported in Transformers. Please install the backwards-compatible tf-keras package with `pip install tf-keras`.
+          pip install tf-keras
           # Install torch and transformers to test metrics
           pip install torch transformers
           pip install -r requirements/test-requirements.txt
