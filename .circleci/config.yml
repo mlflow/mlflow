@@ -102,7 +102,7 @@ jobs:
             # TODO: Remove this once recipe-example package is updated to work on newer scikit-learn:
             # https://github.com/mlflow/recipes-examples/blob/aecc4bb83ae46681ecfc11a2bee6a54d2825a4a1/regression/steps/transform.py#L55
             # The old `sparse` argument was deprecated in scikit-learn 1.4.0
-            pip install scikit-learn<1.4.0
+            pip install 'scikit-learn<1.4.0'
       - run:
           name: Run CLI
           working_directory: examples/recipes/regression
