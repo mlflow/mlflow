@@ -733,7 +733,7 @@ class Model:
             client = mlflow.MlflowClient(tracking_uri)
             active_run = mlflow.tracking.fluent.active_run()
             if model_id is not None:
-                model = client.get_model(model_id)
+                model = client.get_logged_model(model_id)
             else:
                 params = {
                     **(params or {}),
@@ -743,7 +743,7 @@ class Model:
                         else {}
                     ),
                 }
-                model = client.create_model(
+                model = client.create_logged_model(
                     experiment_id=mlflow.tracking.fluent._get_experiment_id(),
                     # TODO: Update model name
                     name=name,
@@ -788,7 +788,7 @@ class Model:
                     _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
 
             client.log_model_artifacts(model.model_id, local_path)
-            client.finalize_model(model.model_id, status=ModelStatus.READY)
+            client.finalize_logged_model(model.model_id, status=ModelStatus.READY)
 
             # # if the model_config kwarg is passed in, then log the model config as an params
             # if model_config := kwargs.get("model_config"):
@@ -864,7 +864,7 @@ class Model:
             )
             return client.get_model_version(registered_model_name, registered_model.version)
         else:
-            return client.get_model(model.model_id)
+            return client.get_logged_model(model.model_id)
         # model_info = mlflow_model.get_model_info()
         # if registered_model is not None:
         #     model_info.registered_model_version = registered_model.version

@@ -11,8 +11,8 @@ from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.input_tag import InputTag
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.metric import Metric
-from mlflow.entities.model import Model
 from mlflow.entities.model_input import ModelInput
 from mlflow.entities.model_output import ModelOutput
 from mlflow.entities.model_param import ModelParam
@@ -65,7 +65,7 @@ __all__ = [
     "TraceInfo",
     "SpanStatusCode",
     "_DatasetSummary",
-    "Model",
+    "LoggedModel",
     "ModelInput",
     "ModelOutput",
     "ModelStatus",

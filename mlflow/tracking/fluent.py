@@ -17,8 +17,8 @@ from mlflow.entities import (
     DatasetInput,
     Experiment,
     InputTag,
+    LoggedModel,
     Metric,
-    Model,
     ModelInput,
     Param,
     Run,
@@ -1911,19 +1911,19 @@ def delete_experiment(experiment_id: str) -> None:
     MlflowClient().delete_experiment(experiment_id)
 
 
-def create_model(
+def create_logged_model(
     name: str,
     run_id: Optional[str] = None,
     tags: Optional[Dict[str, str]] = None,
     params: Optional[Dict[str, str]] = None,
     model_type: Optional[str] = None,
     experiment_id: Optional[str] = None,
-) -> Model:
+) -> LoggedModel:
     run = active_run()
     if run_id is None and run is not None:
         run_id = run.info.run_id
     experiment_id = experiment_id if experiment_id is not None else _get_experiment_id()
-    return MlflowClient().create_model(
+    return MlflowClient().create_logged_model(
         experiment_id=experiment_id,
         name=name,
         run_id=run_id,
@@ -1933,17 +1933,17 @@ def create_model(
     )
 
 
-def get_model(model_id: str) -> Model:
-    return MlflowClient().get_model(model_id)
+def get_logged_model(model_id: str) -> LoggedModel:
+    return MlflowClient().get_logged_model(model_id)
 
 
-def search_models(
+def search_logged_models(
     experiment_ids: Optional[List[str]] = None,
     filter_string: Optional[str] = None,
     max_results: Optional[int] = None,
     order_by: Optional[List[str]] = None,
     output_format: str = "pandas",
-) -> Union[List[Model], "pandas.DataFrame"]:
+) -> Union[List[LoggedModel], "pandas.DataFrame"]:
     experiment_ids = experiment_ids or [_get_experiment_id()]
     models = MlflowClient().search_models(
         experiment_ids=experiment_ids,

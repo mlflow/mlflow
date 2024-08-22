@@ -20,7 +20,7 @@ from sqlparse.sql import (
 )
 from sqlparse.tokens import Token as TokenType
 
-from mlflow.entities import Model, RunInfo
+from mlflow.entities import LoggedModel, RunInfo
 from mlflow.entities.model_registry.model_version_stages import STAGE_DELETED_INTERNAL
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -680,7 +680,7 @@ class SearchUtils:
         return [run for run in runs if run_matches(run)]
 
     @classmethod
-    def filter_models(cls, models: List[Model], filter_string: Optional[str] = None):
+    def filter_logged_models(cls, models: List[LoggedModel], filter_string: Optional[str] = None):
         """Filters a set of runs based on a search filter string."""
         if not filter_string:
             return models
@@ -861,7 +861,7 @@ class SearchUtils:
         return runs
 
     @classmethod
-    def sort_models(cls, models, order_by_list):
+    def sort_logged_models(cls, models, order_by_list):
         models = sorted(models, key=lambda model: (-model.creation_timestamp, model.model_id))
         if not order_by_list:
             return models

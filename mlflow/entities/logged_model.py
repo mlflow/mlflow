@@ -7,9 +7,9 @@ from mlflow.entities.model_status import ModelStatus
 from mlflow.entities.model_tag import ModelTag
 
 
-class Model(_MlflowObject):
+class LoggedModel(_MlflowObject):
     """
-    MLflow entity representing a Model.
+    MLflow entity representing a Model logged to an MLflow Experiment.
     """
 
     def __init__(

@@ -15,8 +15,8 @@ from mlflow.entities import (
     Experiment,
     ExperimentTag,
     InputTag,
+    LoggedModel,
     Metric,
-    Model,
     ModelInput,
     ModelOutput,
     ModelParam,
@@ -1901,7 +1901,7 @@ class FileStore(AbstractStore):
                 )
         return trace_infos
 
-    def create_model(
+    def create_logged_model(
         self,
         experiment_id: str,
         name: str,
@@ -1909,7 +1909,7 @@ class FileStore(AbstractStore):
         tags: Optional[List[ModelTag]] = None,
         params: Optional[List[ModelParam]] = None,
         model_type: Optional[str] = None,
-    ) -> Model:
+    ) -> LoggedModel:
         """
         Create a new model.
 
@@ -1942,7 +1942,7 @@ class FileStore(AbstractStore):
         model_id = str(uuid.uuid4())
         artifact_location = self._get_model_artifact_dir(experiment_id, model_id)
         creation_timestamp = int(time.time() * 1000)
-        model = Model(
+        model = LoggedModel(
             experiment_id=experiment_id,
             model_id=model_id,
             name=name,
@@ -1965,9 +1965,9 @@ class FileStore(AbstractStore):
         for tag in tags or []:
             self.set_model_tag(model_id=model_id, tag=tag)
 
-        return self.get_model(model_id=model_id)
+        return self.get_logged_model(model_id=model_id)
 
-    def finalize_model(self, model_id: str, status: ModelStatus) -> Model:
+    def finalize_logged_model(self, model_id: str, status: ModelStatus) -> LoggedModel:
         """
         Finalize a model by updating its status.
 
@@ -1984,17 +1984,17 @@ class FileStore(AbstractStore):
                 databricks_pb2.INVALID_PARAMETER_VALUE,
             )
         model_dict = self._get_model_dict(model_id)
-        model = Model.from_dictionary(model_dict)
+        model = LoggedModel.from_dictionary(model_dict)
         model.status = status
         model.last_updated_timestamp = int(time.time() * 1000)
         model_dir = self._get_model_dir(model.experiment_id, model.model_id)
         model_info_dict = self._make_persisted_model_dict(model)
         write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict, overwrite=True)
-        return self.get_model(model_id)
+        return self.get_logged_model(model_id)
 
-    def set_model_tag(self, model_id: str, tag: ModelTag):
+    def set_logged_model_tag(self, model_id: str, tag: ModelTag):
         _validate_tag_name(tag.key)
-        model = self.get_model(model_id)
+        model = self.get_logged_model(model_id)
         tag_path = os.path.join(
             self._get_model_dir(model.experiment_id, model.model_id),
             FileStore.TAGS_FOLDER_NAME,
@@ -2004,8 +2004,8 @@ class FileStore(AbstractStore):
         # Don't add trailing newline
         write_to(tag_path, self._writeable_value(tag.value))
 
-    def get_model(self, model_id: str) -> Model:
-        return Model.from_dictionary(self._get_model_dict(model_id))
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        return LoggedModel.from_dictionary(self._get_model_dict(model_id))
 
     def _get_model_artifact_dir(self, experiment_id: str, model_id: str) -> str:
         return append_to_uri_path(
@@ -2015,7 +2015,7 @@ class FileStore(AbstractStore):
             FileStore.ARTIFACTS_FOLDER_NAME,
         )
 
-    def _make_persisted_model_dict(self, model: Model) -> Dict[str, Any]:
+    def _make_persisted_model_dict(self, model: LoggedModel) -> Dict[str, Any]:
         model_dict = model.to_dictionary()
         model_dict.pop("tags", None)
         model_dict.pop("metrics", None)
@@ -2056,8 +2056,8 @@ class FileStore(AbstractStore):
             return os.path.basename(os.path.dirname(os.path.abspath(models_dir_path))), models[0]
         return None, None
 
-    def _get_model_from_dir(self, model_dir: str) -> Model:
-        return Model.from_dictionary(self._get_model_info_from_dir(model_dir))
+    def _get_model_from_dir(self, model_dir: str) -> LoggedModel:
+        return LoggedModel.from_dictionary(self._get_model_info_from_dir(model_dir))
 
     def _get_model_info_from_dir(self, model_dir: str) -> Dict[str, Any]:
         model_dict = FileStore._read_yaml(model_dir, FileStore.META_DATA_FILE_NAME)
@@ -2138,21 +2138,21 @@ class FileStore(AbstractStore):
             run_id=run_id,
         )
 
-    def search_models(
+    def search_logged_models(
         self,
         experiment_ids: List[str],
         filter_string: Optional[str] = None,
         max_results: Optional[int] = None,
         order_by: Optional[List[str]] = None,
-    ) -> List[Model]:
+    ) -> List[LoggedModel]:
         all_models = []
         for experiment_id in experiment_ids:
             models = self._list_models(experiment_id)
             all_models.extend(models)
-        filtered = SearchUtils.filter_models(models, filter_string)
-        return SearchUtils.sort_models(filtered, order_by)[:max_results]
+        filtered = SearchUtils.filter_logged_models(models, filter_string)
+        return SearchUtils.sort_logged_models(filtered, order_by)[:max_results]
 
-    def _list_models(self, experiment_id: str) -> List[Model]:
+    def _list_models(self, experiment_id: str) -> List[LoggedModel]:
         self._check_root_dir()
         if not self._has_experiment(experiment_id):
             return []

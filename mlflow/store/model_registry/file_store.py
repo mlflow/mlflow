@@ -581,7 +581,7 @@ class FileStore(AbstractStore):
         # URI (individual MlflowClient instances may have different tracking URIs)
         if "model_id" in meta:
             try:
-                model = MlflowClient().get_model(meta["model_id"])
+                model = MlflowClient().get_logged_model(meta["model_id"])
                 meta["metrics"] = model.metrics
                 meta["params"] = model.params
             except Exception:
@@ -662,7 +662,7 @@ class FileStore(AbstractStore):
                     # TODO: Propagate tracking URI to file store directly, rather than relying on
                     # global URI (individual MlflowClient instances may have different tracking
                     # URIs)
-                    model = MlflowClient().get_model(parsed_model_uri.model_id)
+                    model = MlflowClient().get_logged_model(parsed_model_uri.model_id)
                     storage_location = model.artifact_location
                     run_id = run_id or model.run_id
                 else:

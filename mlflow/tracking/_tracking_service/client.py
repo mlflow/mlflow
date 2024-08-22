@@ -13,8 +13,8 @@ from typing import Dict, List, Optional
 
 from mlflow.entities import (
     ExperimentTag,
+    LoggedModel,
     Metric,
-    Model,
     ModelInput,
     ModelOutput,
     ModelParam,
@@ -1024,7 +1024,7 @@ class TrackingServiceClient:
             page_token=page_token,
         )
 
-    def create_model(
+    def create_logged_model(
         self,
         experiment_id: str,
         name: str,
@@ -1032,8 +1032,8 @@ class TrackingServiceClient:
         tags: Optional[Dict[str, str]] = None,
         params: Optional[Dict[str, str]] = None,
         model_type: Optional[str] = None,
-    ) -> Model:
-        return self.store.create_model(
+    ) -> LoggedModel:
+        return self.store.create_logged_model(
             experiment_id=experiment_id,
             name=name,
             run_id=run_id,
@@ -1046,34 +1046,34 @@ class TrackingServiceClient:
             model_type=model_type,
         )
 
-    def finalize_model(self, model_id: str, status: ModelStatus) -> Model:
-        return self.store.finalize_model(model_id, status)
+    def finalize_logged_model(self, model_id: str, status: ModelStatus) -> LoggedModel:
+        return self.store.finalize_logged_model(model_id, status)
 
-    def get_model(self, model_id: str) -> Model:
-        return self.store.get_model(model_id)
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        return self.store.get_logged_model(model_id)
 
-    def set_model_tag(self, model_id: str, key: str, value: str):
-        return self.store.set_model_tag(model_id, ModelTag(key, value))
+    def set_logged_model_tag(self, model_id: str, key: str, value: str):
+        return self.store.set_logged_model_tag(model_id, ModelTag(key, value))
 
     def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
-        self._get_artifact_repo_for_model(model_id).log_artifacts(local_dir)
+        self._get_artifact_repo_for_logged_model(model_id).log_artifacts(local_dir)
 
-    def search_models(
+    def search_logged_models(
         self,
         experiment_ids: List[str],
         filter_string: Optional[str] = None,
         max_results: Optional[int] = None,
         order_by: Optional[List[str]] = None,
     ):
-        return self.store.search_models(experiment_ids, filter_string, max_results, order_by)
+        return self.store.search_logged_models(experiment_ids, filter_string, max_results, order_by)
 
-    def _get_artifact_repo_for_model(self, model_id: str) -> ArtifactRepository:
+    def _get_artifact_repo_for_logged_model(self, model_id: str) -> ArtifactRepository:
         # Attempt to fetch the artifact repo from a local cache
         cached_repo = utils._artifact_repos_cache.get(model_id)
         if cached_repo is not None:
             return cached_repo
         else:
-            model = self.get_model(model_id)
+            model = self.get_logged_model(model_id)
             artifact_uri = add_databricks_profile_info_to_artifact_uri(
                 model.artifact_location, self.tracking_uri
             )

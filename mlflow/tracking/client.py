@@ -23,8 +23,8 @@ from mlflow.entities import (
     DatasetInput,
     Experiment,
     FileInfo,
+    LoggedModel,
     Metric,
-    Model,
     ModelInput,
     ModelOutput,
     ModelStatus,
@@ -4760,7 +4760,7 @@ class MlflowClient:
         _validate_model_name(name)
         return self._get_registry_client().get_model_version_by_alias(name, alias)
 
-    def create_model(
+    def create_logged_model(
         self,
         experiment_id: str,
         name: str,
@@ -4768,30 +4768,30 @@ class MlflowClient:
         tags: Optional[Dict[str, str]] = None,
         params: Optional[Dict[str, str]] = None,
         model_type: Optional[str] = None,
-    ) -> Model:
-        return self._tracking_client.create_model(
+    ) -> LoggedModel:
+        return self._tracking_client.create_logged_model(
             experiment_id, name, run_id, tags, params, model_type
         )
 
-    def finalize_model(self, model_id: str, status: ModelStatus) -> Model:
-        return self._tracking_client.finalize_model(model_id, status)
+    def finalize_logged_model(self, model_id: str, status: ModelStatus) -> LoggedModel:
+        return self._tracking_client.finalize_logged_model(model_id, status)
 
-    def get_model(self, model_id: str) -> Model:
-        return self._tracking_client.get_model(model_id)
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        return self._tracking_client.get_logged_model(model_id)
 
-    def set_model_tag(self, model_id: str, key: str, value: str):
-        return self._tracking_client.set_model_tag(model_id, key, value)
+    def set_logged_model_tag(self, model_id: str, key: str, value: str):
+        return self._tracking_client.set_logged_model_tag(model_id, key, value)
 
     def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
         return self._tracking_client.log_model_artifacts(model_id, local_dir)
 
-    def search_models(
+    def search_logged_models(
         self,
         experiment_ids: List[str],
         filter_string: Optional[str] = None,
         max_results: Optional[int] = None,
         order_by: Optional[List[str]] = None,
     ):
-        return self._tracking_client.search_models(
+        return self._tracking_client.search_logged_models(
             experiment_ids, filter_string, max_results, order_by
         )
