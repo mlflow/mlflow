@@ -227,7 +227,7 @@ class UnityCatalogOssStore(BaseRestStore):
         final_endpoint = endpoint.replace("{full_name_arg}", full_name).replace(
             "{version_arg}", str(version)
         )
-        registered_model_info = call_endpoint(
+        call_endpoint(
             get_databricks_host_creds(),
             endpoint=final_endpoint,
             method=method,
