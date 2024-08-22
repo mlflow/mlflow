@@ -3,6 +3,7 @@ const CORE_MAINTAINERS = new Set([
   "BenWilson2",
   "daniellok-db",
   "dbczumar",
+  "gabrielfu",
   "harupy",
   "serena-ruan",
   "WeichenXu123",
