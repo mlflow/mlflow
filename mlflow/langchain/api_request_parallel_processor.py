@@ -149,7 +149,7 @@ class APIRequest:
     def single_call_api(self, callback_handlers: Optional[List[BaseCallbackHandler]]):
         from langchain.schema import BaseRetriever
 
-        from mlflow.langchain.utils import lc_runnables_types
+        from mlflow.langchain.utils import langgraph_types, lc_runnables_types
 
         if isinstance(self.lc_model, BaseRetriever):
             # Retrievers are invoked differently than Chains
@@ -159,7 +159,7 @@ class APIRequest:
             response = [
                 {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
             ]
-        elif isinstance(self.lc_model, lc_runnables_types()):
+        elif isinstance(self.lc_model, lc_runnables_types() + langgraph_types()):
             if isinstance(self.request_json, dict):
                 # This is a temporary fix for the case when spark_udf converts
                 # input into pandas dataframe with column name, while the model

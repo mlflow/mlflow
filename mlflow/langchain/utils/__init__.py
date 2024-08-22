@@ -45,16 +45,6 @@ _BASE_LOAD_KEY = "base_load"
 _CONFIG_LOAD_KEY = "config_load"
 _PICKLE_LOAD_KEY = "pickle_load"
 _MODEL_LOAD_KEY = "model_load"
-_UNSUPPORTED_MODEL_ERROR_MESSAGE = (
-    "MLflow langchain flavor only supports subclasses of "
-    "langchain.chains.base.Chain, langchain.agents.agent.AgentExecutor, "
-    "langchain.schema.BaseRetriever, langchain.schema.runnable.RunnableSequence, "
-    "langchain.schema.runnable.RunnableLambda, "
-    "langchain.schema.runnable.RunnableParallel, "
-    "langchain.schema.runnable.RunnablePassthrough, "
-    "langchain.schema.runnable.passthrough.RunnableAssign instances, "
-    "found {instance_type}"
-)
 _UNSUPPORTED_MODEL_WARNING_MESSAGE = (
     "MLflow does not guarantee support for Chains outside of the subclasses of LLMChain, found %s"
 )
@@ -145,8 +135,23 @@ def lc_runnables_types():
     )
 
 
+def langgraph_types():
+    try:
+        from langgraph.graph.graph import CompiledGraph
+
+        return (CompiledGraph,)
+    except ImportError:
+        return ()
+
+
 def supported_lc_types():
-    return base_lc_types() + lc_runnables_types()
+    return base_lc_types() + lc_runnables_types() + langgraph_types()
+
+
+_UNSUPPORTED_MODEL_ERROR_MESSAGE = (
+    f"MLflow langchain flavor only supports subclasses of {supported_lc_types()}, "
+    "found {instance_type}."
+)
 
 
 @lru_cache

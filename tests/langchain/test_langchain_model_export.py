@@ -1083,7 +1083,7 @@ def test_unsupported_class():
     with pytest.raises(
         MlflowException,
         match="MLflow langchain flavor only supports subclasses of "
-        + "langchain.chains.base.Chain",
+        + "\\(<class 'langchain.chains.base.Chain'>",
     ):
         with mlflow.start_run():
             mlflow.langchain.log_model(llm, "fake_llm")
