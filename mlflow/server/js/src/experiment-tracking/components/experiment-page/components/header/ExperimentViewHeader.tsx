@@ -191,7 +191,8 @@ export const ExperimentViewHeader = React.memo(
           componentId="create-experiment-button"
           size="middle"
           onClick={() => {
-            window.parent.postMessage({ type: 'CREATE_EXPERIMENT', payload: 'create_new_experiment' }, '*');
+            // window.parent.postMessage({ type: 'CREATE_EXPERIMENT', payload: 'create_new_experiment' }, '*');
+            window.parent.postMessage({ type: 'BACK', payload: 'back_to_experiment' }, '*');
           }}
           css={{
             marginLeft: theme.spacing.sm,
@@ -205,7 +206,7 @@ export const ExperimentViewHeader = React.memo(
           }}
         >
           <Typography.Text css={{ color: '#FFF !important' }} size="md">
-            Add Experiments
+            Go Back
           </Typography.Text>
         </Button>
       </PageHeader>

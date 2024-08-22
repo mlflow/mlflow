@@ -253,7 +253,7 @@ export class ExperimentListView extends Component<Props, State> {
     const filteredExperiments = this.filterExperiments(searchInput);
 
     return (
-      <div id="experiment-list-outer-container" css={classNames.experimentListOuterContainer}>
+      <div id="experiment-list-outer-container" css={classNames.experimentListOuterContainer} style={{display : "none"}}>
         <CreateExperimentModal
           isOpen={this.state.showCreateExperimentModal}
           onClose={this.handleCloseCreateExperimentModal}
