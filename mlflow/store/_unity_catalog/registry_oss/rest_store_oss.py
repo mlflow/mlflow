@@ -89,7 +89,6 @@ class UnityCatalogOssStore(BaseRestStore):
         req_body = message_to_json(
             UpdateRegisteredModel(
                 full_name=full_name,
-                new_name=model_name,
                 registered_model_info=RegisteredModelInfo(
                     name=model_name,
                     catalog_name=catalog_name,

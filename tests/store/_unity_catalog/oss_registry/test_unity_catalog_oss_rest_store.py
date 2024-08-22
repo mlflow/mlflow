@@ -91,7 +91,6 @@ def test_update_registered_model(mock_http, store, creds):
         "PATCH",
         UpdateRegisteredModel(
             full_name="catalog_1.schema_1.model_1",
-            new_name="model_1",
             registered_model_info=RegisteredModelInfo(
                 name="model_1",
                 catalog_name="catalog_1",
