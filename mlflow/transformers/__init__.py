@@ -1191,7 +1191,7 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
             except ValueError:
                 _logger.warning(
                     f"Invalid value for {MLFLOW_DEFAULT_PREDICTION_DEVICE}: {device_value}. "
-                    f"{MLFLOW_DEFAULT_PREDICTION_DEVICE} argument must be an integer.. "
+                    f"{MLFLOW_DEFAULT_PREDICTION_DEVICE} value must be an integer. "
                     f"Setting to: {_TRANSFORMERS_DEFAULT_CPU_DEVICE_ID}."
                 )
                 device = _TRANSFORMERS_DEFAULT_CPU_DEVICE_ID
