@@ -4,7 +4,16 @@ sphinx==3.5.4
 jinja2==3.0.3
 # to be compatible with jinja2==3.0.3
 flask<=2.2.5
-sphinx-autobuild
+# the newer sphinx-autobuild versions does not work on Python 3.9
+# https://github.com/sphinx-doc/sphinx-autobuild/issues/155
+sphinx-autobuild<=2024.2.4
+# the following sphinx extensions are pinned as newer versions
+# require Sphinx >= 5.0.0
+sphinxcontrib-applehelp<=1.0.7
+sphinxcontrib-devhelp<=1.0.5
+sphinxcontrib-htmlhelp<=2.0.4
+sphinxcontrib-qthelp<=1.0.6
+sphinxcontrib-serializinghtml<=1.1.9
 sphinx-click
 # to be compatible with docutils==0.16
 sphinx-tabs==3.2.0
