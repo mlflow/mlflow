@@ -1185,10 +1185,15 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
             )
         device = None
     elif device is None:
-        if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
+        if device_value := MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
             try:
-                device = int(MLFLOW_DEFAULT_PREDICTION_DEVICE.get())
+                device = int(device_value)
             except ValueError:
+                _logger.warning(
+                    f"Invalid value for {MLFLOW_DEFAULT_PREDICTION_DEVICE}: {device_value}. "
+                    f"{MLFLOW_DEFAULT_PREDICTION_DEVICE} value must be an integer. "
+                    f"Setting to: {_TRANSFORMERS_DEFAULT_CPU_DEVICE_ID}."
+                )
                 device = _TRANSFORMERS_DEFAULT_CPU_DEVICE_ID
         elif is_gpu_available():
             device = _TRANSFORMERS_DEFAULT_GPU_DEVICE_ID
