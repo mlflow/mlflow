@@ -667,6 +667,7 @@ langchain:
           "numexpr",
           "hf_transfer",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
+          "langchain_openai",
           "langgraph",
         ]
       ">= 0.2": ["langchain-huggingface"]
