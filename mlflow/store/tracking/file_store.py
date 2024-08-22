@@ -1963,7 +1963,7 @@ class FileStore(AbstractStore):
         write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict)
         mkdir(model_dir, FileStore.METRICS_FOLDER_NAME)
         for tag in tags or []:
-            self.set_model_tag(model_id=model_id, tag=tag)
+            self.set_logged_model_tag(model_id=model_id, tag=tag)
 
         return self.get_logged_model(model_id=model_id)
 

@@ -1945,7 +1945,7 @@ def search_logged_models(
     output_format: str = "pandas",
 ) -> Union[List[LoggedModel], "pandas.DataFrame"]:
     experiment_ids = experiment_ids or [_get_experiment_id()]
-    models = MlflowClient().search_models(
+    models = MlflowClient().search_logged_models(
         experiment_ids=experiment_ids,
         filter_string=filter_string,
         max_results=max_results,

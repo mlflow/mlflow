@@ -95,7 +95,7 @@ class ModelsArtifactRepository(ArtifactRepository):
             name = None
             version = None
             model_id = name_and_version_or_id[0]
-            download_uri = client.get_model(model_id).artifact_location
+            download_uri = client.get_logged_model(model_id).artifact_location
         else:
             name, version = name_and_version_or_id
             download_uri = client.get_model_version_download_uri(name, version)
