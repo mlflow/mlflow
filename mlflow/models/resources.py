@@ -16,6 +16,8 @@ class ResourceType(Enum):
 
     VECTOR_SEARCH_INDEX = "vector_search_index"
     SERVING_ENDPOINT = "serving_endpoint"
+    SQL_WAREHOUSE = "sql_warehouse"
+    UC_FUNCTION = "uc_function"
 
 
 @dataclass
@@ -96,11 +98,53 @@ class DatabricksVectorSearchIndex(DatabricksResource):
         return cls(index_name=data["name"])
 
 
+@dataclass
+class DatabricksSQLWarehouse(DatabricksResource):
+    """
+    Define Databricks sql warehouse resource to serve a model.
+
+    Args:
+        warehouse_id (str): The id of the sql warehouse used by the model
+    """
+
+    type: ResourceType = ResourceType.SQL_WAREHOUSE
+    warehouse_id: str = None
+
+    def to_dict(self):
+        return {self.type.value: [{"name": self.warehouse_id}]} if self.warehouse_id else {}
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, str]):
+        return cls(warehouse_id=data["name"])
+
+
+@dataclass
+class DatabricksUCFunction(DatabricksResource):
+    """
+    Define Databricks UC Function to serve a model.
+
+    Args:
+        function_name (str): The name of the function used by the model
+    """
+
+    type: ResourceType = ResourceType.UC_FUNCTION
+    function_name: str = None
+
+    def to_dict(self):
+        return {self.type.value: [{"name": self.function_name}]} if self.function_name else {}
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, str]):
+        return cls(function_name=data["name"])
+
+
 def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
     resource_classes = {
         "databricks": {
             ResourceType.SERVING_ENDPOINT.value: DatabricksServingEndpoint,
             ResourceType.VECTOR_SEARCH_INDEX.value: DatabricksVectorSearchIndex,
+            ResourceType.SQL_WAREHOUSE.value: DatabricksSQLWarehouse,
+            ResourceType.UC_FUNCTION.value: DatabricksUCFunction,
         }
     }
     resource = resource_classes.get(target_uri)
