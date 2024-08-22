@@ -27,6 +27,9 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     SseEncryptionAlgorithm,
     TemporaryCredentials,
 )
+
+from mlflow.protos.unity_catalog_oss_messages_pb2 import TemporaryCredentials as TemporaryCredentialsOSS
+
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 
 _STRING_TO_STATUS = {k: ProtoModelVersionStatus.Value(k) for k in ProtoModelVersionStatus.keys()}
@@ -118,6 +121,7 @@ def get_artifact_repo_from_storage_info(
     storage_location: str,
     scoped_token: TemporaryCredentials,
     base_credential_refresh_def: Callable[[], TemporaryCredentials],
+    is_oss: bool = False,
 ) -> ArtifactRepository:
     """
     Get an ArtifactRepository instance capable of reading/writing to a UC model version's
@@ -130,23 +134,26 @@ def get_artifact_repo_from_storage_info(
         storage. It is first used to determine the type of blob storage and to access it. It is then
         passed to the relevant ArtifactRepository implementation to refresh credentials as needed.
     """
-    # try:
-    #     return _get_artifact_repo_from_storage_info(
-    #         storage_location=storage_location,
-    #         scoped_token=scoped_token,
-    #         base_credential_refresh_def=base_credential_refresh_def,
-    #     )
-    # except ImportError as e:
-    #     raise MlflowException(
-    #         "Unable to import necessary dependencies to access model version files in "
-    #         "Unity Catalog. Please ensure you have the necessary dependencies installed, "
-    #         "e.g. by running 'pip install mlflow[databricks]' or "
-    #         "'pip install mlflow-skinny[databricks]'"
-    #     ) from e
-    return _get_artifact_repo_from_storage_info(
-            storage_location=storage_location,
-            scoped_token=scoped_token,
-            base_credential_refresh_def=base_credential_refresh_def)
+    try:
+        if is_oss:
+            return _get_artifact_repo_from_storage_info_oss(
+                storage_location=storage_location,
+                scoped_token=scoped_token,
+                base_credential_refresh_def=base_credential_refresh_def,
+            )
+        else: 
+            return _get_artifact_repo_from_storage_info(
+                storage_location=storage_location,
+                scoped_token=scoped_token,
+                base_credential_refresh_def=base_credential_refresh_def,
+            )
+    except ImportError as e:
+        raise MlflowException(
+            "Unable to import necessary dependencies to access model version files in "
+            "Unity Catalog. Please ensure you have the necessary dependencies installed, "
+            "e.g. by running 'pip install mlflow[databricks]' or "
+            "'pip install mlflow-skinny[databricks]'"
+        ) from e
 
 def _get_artifact_repo_from_storage_info(
     storage_location: str,
@@ -233,6 +240,55 @@ def _get_artifact_repo_from_storage_info(
             secret_access_key=r2_creds.secret_access_key,
             session_token=r2_creds.session_token,
             credential_refresh_def=r2_credential_refresh,
+        )
+    else:
+        raise MlflowException(
+            f"Got unexpected credential type {credential_type} when attempting to "
+            "access model version files in Unity Catalog. Try upgrading to the latest "
+            "version of the MLflow Python client."
+        )
+    
+def _get_artifact_repo_from_storage_info_oss(
+    storage_location: str,
+    scoped_token: TemporaryCredentialsOSS,
+    base_credential_refresh_def: Callable[[], TemporaryCredentialsOSS],
+) -> ArtifactRepository:
+    credential_type = scoped_token.WhichOneof("credentials")
+    if credential_type == "aws_temp_credentials":
+        # Verify upfront that boto3 is importable
+        import boto3  # noqa: F401
+
+        from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
+
+        aws_creds = scoped_token.aws_temp_credentials
+
+        def aws_credential_refresh():
+            new_scoped_token = base_credential_refresh_def()
+            new_aws_creds = new_scoped_token.aws_temp_credentials
+            return {
+                "access_key_id": new_aws_creds.access_key_id,
+                "secret_access_key": new_aws_creds.secret_access_key,
+                "session_token": new_aws_creds.session_token,
+            }
+
+        return OptimizedS3ArtifactRepository(
+            artifact_uri=storage_location,
+            access_key_id=aws_creds.access_key_id,
+            secret_access_key=aws_creds.secret_access_key,
+            session_token=aws_creds.session_token,
+            credential_refresh_def=aws_credential_refresh,
+        )
+    elif credential_type == "azure_user_delegation_sas":
+        raise MlflowException(
+            f"{credential_type} is not supported in OSS Unity Catalog yet."
+        )
+    elif credential_type == "gcp_oauth_token":
+        raise MlflowException(
+            f"{credential_type} is not supported in OSS Unity Catalog yet."
+        )
+    elif credential_type == "r2_temp_credentials":
+        raise MlflowException(
+            f"{credential_type} is not supported in OSS Unity Catalog yet."
         )
     else:
         raise MlflowException(

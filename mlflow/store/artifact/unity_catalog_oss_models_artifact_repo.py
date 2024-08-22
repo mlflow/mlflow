@@ -2,17 +2,15 @@ import base64
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.protos.databricks_uc_registry_messages_pb2 import (
-    MODEL_VERSION_OPERATION_READ,
-    GenerateTemporaryModelVersionCredentialsRequest,
-    GenerateTemporaryModelVersionCredentialsResponse,
-    StorageMode,
+from mlflow.protos.unity_catalog_oss_messages_pb2 import (
+    READ_MODEL_VERSION as MODEL_VERSION_OPERATION_READ_OSS,
+    GenerateTemporaryModelVersionCredential as GenerateTemporaryModelVersionCredentialsOSS
 )
 
+from mlflow.protos.unity_catalog_oss_service_pb2 import UnityCatalogService
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store._unity_catalog.lineage.constants import _DATABRICKS_LINEAGE_ID_HEADER
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.store.artifact.presigned_url_artifact_repo import PresignedUrlArtifactRepository
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
 )
@@ -22,6 +20,7 @@ from mlflow.utils._unity_catalog_utils import (
     get_full_name_from_sc,
 )
 from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.oss_utils import get_oss_host_creds
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _UC_OSS_REST_API_PATH_PREFIX,
@@ -30,16 +29,17 @@ from mlflow.utils.rest_utils import (
     extract_api_info_for_service,
 )
 from mlflow.utils.uri import (
-    _DATABRICKS_UNITY_CATALOG_SCHEME,
+    _OSS_UNITY_CATALOG_SCHEME,
     get_databricks_profile_uri_from_artifact_uri,
     get_db_info_from_uri,
-    is_databricks_unity_catalog_uri,
+    is_oss_unity_catalog_uri,
 )
 
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
+_METHOD_TO_INFO_OSS = extract_api_info_for_service(UnityCatalogService, _UC_OSS_REST_API_PATH_PREFIX)
 
 
-class UnityCatalogModelsArtifactRepository(ArtifactRepository):
+class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
     """
     Performs storage operations on artifacts controlled by a Unity Catalog model registry
 
@@ -53,13 +53,13 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri, registry_uri):
-        if not is_databricks_unity_catalog_uri(registry_uri):
+        if not is_oss_unity_catalog_uri(registry_uri):
             raise MlflowException(
                 message="Attempted to instantiate an artifact repo to access models in the "
-                f"Unity Catalog with non-Unity Catalog registry URI '{registry_uri}'. "
+                f"OSSS Unity Catalog with non-Unity Catalog registry URI '{registry_uri}'. "
                 f"Please specify a Unity Catalog registry URI of the "
-                f"form '{_DATABRICKS_UNITY_CATALOG_SCHEME}[://profile]', e.g. by calling "
-                f"mlflow.set_registry_uri('{_DATABRICKS_UNITY_CATALOG_SCHEME}') if using the "
+                f"form '{_OSS_UNITY_CATALOG_SCHEME}[://profile]', e.g. by calling "
+                f"mlflow.set_registry_uri('{_OSS_UNITY_CATALOG_SCHEME}') if using the "
                 f"MLflow Python client",
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -67,11 +67,11 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         from mlflow.tracking.client import MlflowClient
 
         registry_uri_from_artifact_uri = get_databricks_profile_uri_from_artifact_uri(
-            artifact_uri, result_scheme=_DATABRICKS_UNITY_CATALOG_SCHEME
+            artifact_uri, result_scheme=_OSS_UNITY_CATALOG_SCHEME
         )
         if registry_uri_from_artifact_uri is not None:
             registry_uri = registry_uri_from_artifact_uri
-        _, key_prefix = get_db_info_from_uri(registry_uri)
+        _, key_prefix = get_db_info_from_uri(registry_uri) # TODO: Ask Kris what to do here
         if key_prefix is not None:
             raise MlflowException(
                 "Remote model registry access via model URIs of the form "
@@ -98,22 +98,25 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
             header_base64 = base64.b64encode(header_json.encode())
             extra_headers[_DATABRICKS_LINEAGE_ID_HEADER] = header_base64
 
-        db_creds = get_databricks_host_creds(self.registry_uri)
-        endpoint, method = _METHOD_TO_INFO[GenerateTemporaryModelVersionCredentialsRequest]
-        req_body = message_to_json(
-            GenerateTemporaryModelVersionCredentialsRequest(
-                name=self.model_name,
-                version=self.model_version,
-                operation=MODEL_VERSION_OPERATION_READ,
+        oss_creds = get_databricks_host_creds(self.registry_uri) # using db creds ONLY FOR TESTING
+        oss_endpoint, oss_method = _METHOD_TO_INFO_OSS[GenerateTemporaryModelVersionCredentialsOSS]
+        [catalog_name, schema_name, model_name] = self.model_name.split(".") # self.model_name is actually the full name
+        oss_req_body = message_to_json(
+            GenerateTemporaryModelVersionCredentialsOSS(
+                catalog_name=catalog_name,
+                schema_name=schema_name,
+                model_name=model_name,
+                version=int(self.model_version),
+                operation=MODEL_VERSION_OPERATION_READ_OSS,
             )
         )
-        response_proto = GenerateTemporaryModelVersionCredentialsResponse()
+        oss_response_proto = GenerateTemporaryModelVersionCredentialsOSS.Response()
         return call_endpoint(
-            host_creds=db_creds,
-            endpoint=endpoint,
-            method=method,
-            json_body=req_body,
-            response_proto=response_proto,
+            host_creds=oss_creds,
+            endpoint=oss_endpoint,
+            method=oss_method,
+            json_body=oss_req_body,
+            response_proto=oss_response_proto,
             extra_headers=extra_headers,
         ).credentials
 
@@ -123,17 +126,12 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         storage
         """
         scoped_token = self._get_scoped_token(lineage_header_info=lineage_header_info)
-        print(scoped_token)
-        if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:
-            return PresignedUrlArtifactRepository(
-                get_databricks_host_creds(self.registry_uri), self.model_name, self.model_version
-            )
-
         blob_storage_path = self._get_blob_storage_path()
         return get_artifact_repo_from_storage_info(
             storage_location=blob_storage_path,
             scoped_token=scoped_token,
-            base_credential_refresh_def=self._get_scoped_token
+            base_credential_refresh_def=self._get_scoped_token,
+            is_oss=True,
         )
 
     def list_artifacts(self, path=None):
