@@ -2,6 +2,8 @@ import inspect
 import logging
 from typing import Generator, List, Optional, Set
 
+from packaging.version import Version
+
 from mlflow.models.resources import (
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
@@ -228,6 +230,7 @@ def _traverse_runnable(
 
 
 def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> List[Resource]:
+    import langchain
     from langchain.agents import AgentExecutor
 
     """
@@ -251,7 +254,9 @@ def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> Li
     If a chat_model is found, it will be used to extract the databricks chat dependencies.
     """
     try:
-        if isinstance(lc_model, AgentExecutor):
+        if isinstance(lc_model, AgentExecutor) and Version(langchain.__version__) >= Version(
+            "0.1.0"
+        ):
             dependency_list = list(_extract_databricks_dependencies_from_agent(lc_model))
         else:
             dependency_list = list(_traverse_runnable(lc_model))
