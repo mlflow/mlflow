@@ -115,20 +115,13 @@ def validate_param_and_metric_name(name):
 
 
 def bad_character_message():
-    # In windows system valid param and metric names: may only contain slashes, alphanumerics,
-    # underscores, periods, dashes, and spaces.
-    if is_windows():
-        return (
-            "Names may only contain alphanumerics, underscores (_), dashes (-), periods (.),"
-            " spaces ( ) and slashes (/)."
-        )
-
-    # For other system valid param and metric names: may only contain slashes, alphanumerics,
-    # underscores, periods, dashes, colons, and spaces.
-    return (
+    # Valid param and metric names may only contain slashes, alphanumerics, underscores,
+    # periods, dashes, colons, and spaces. For windows param and metric names can not contain colon
+    msg = (
         "Names may only contain alphanumerics, underscores (_), dashes (-), periods (.),"
-        " spaces ( ), colon(:) and slashes (/)."
+        " spaces ( ){} and slashes (/)."
     )
+    return msg.format(", colon(:)") if is_windows() else msg.format("")
 
 
 def path_not_unique(name):
