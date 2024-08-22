@@ -24,7 +24,7 @@ runs:
           python_version=$(cat requirements/python-version.txt)
         fi
         if [[ "$python_version" == "3.9" ]]; then
-          python_version="3.9.18"
+          python_version="3.9.19"
         elif [[ "$python_version" == "3.10" ]]; then
           python_version="3.10.14"
         else

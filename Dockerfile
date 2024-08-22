@@ -1,4 +1,4 @@
-FROM python:3.8-bullseye
+FROM python:3.9-bullseye
 
 WORKDIR /home/mlflow
 
