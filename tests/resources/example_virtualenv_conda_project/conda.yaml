@@ -2,7 +2,7 @@ name: virtualenv-conda
 channels:
   - conda-forge
 dependencies:
-  - python=3.8.13
+  - python=3.9.19
   - numpy
   - pip
   - pip:

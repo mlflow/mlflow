@@ -55,6 +55,11 @@ diviner
 datasets
 # Required by mlflow.transformers
 transformers
+# Required resolve transformers compatibility issue with tensorflow.
+# ERROR: Your currently installed version of Keras is Keras 3, but this is not yet
+# supported in Transformers. Please install the backwards-compatible tf-keras
+# package with `pip install tf-keras`.
+tf-keras
 sentencepiece
 setfit
 librosa
