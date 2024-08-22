@@ -72,7 +72,7 @@ class UnityCatalogOssStore(BaseRestStore):
         # RegisteredModelInfo is inlined in the request and the response.
         # https://docs.databricks.com/api/workspace/registeredmodels/create
         req_body = message_to_json(
-            RegisteredModelInfo(
+            CreateRegisteredModel(
                 name=model_name,
                 catalog_name=catalog_name,
                 schema_name=schema_name,
@@ -84,21 +84,15 @@ class UnityCatalogOssStore(BaseRestStore):
 
     def update_registered_model(self, name, description):
         full_name = get_full_name_from_sc(name, None)
-        [catalog_name, schema_name, model_name] = full_name.split(".")
         comment = description if description else ""
         req_body = message_to_json(
             UpdateRegisteredModel(
                 full_name=full_name,
-                registered_model_info=RegisteredModelInfo(
-                    name=model_name,
-                    catalog_name=catalog_name,
-                    schema_name=schema_name,
-                    comment=comment,
-                ),
+                comment = comment,
             )
         )
         endpoint, method = _METHOD_TO_INFO[UpdateRegisteredModel]
-        final_endpoint = endpoint.replace("{full_name_arg}", full_name)
+        final_endpoint = endpoint.replace("{full_name}", full_name)
         registered_model_info = call_endpoint(
             get_databricks_host_creds(),
             endpoint=final_endpoint,
@@ -119,7 +113,7 @@ class UnityCatalogOssStore(BaseRestStore):
             )
         )
         endpoint, method = _METHOD_TO_INFO[DeleteRegisteredModel]
-        final_endpoint = endpoint.replace("{full_name_arg}", full_name)
+        final_endpoint = endpoint.replace("{full_name}", full_name)
         call_endpoint(
             get_databricks_host_creds(),
             endpoint=final_endpoint,
@@ -137,7 +131,7 @@ class UnityCatalogOssStore(BaseRestStore):
         full_name = get_full_name_from_sc(name, None)
         req_body = message_to_json(GetRegisteredModel(full_name=full_name))
         endpoint, method = _METHOD_TO_INFO[GetRegisteredModel]
-        final_endpoint = endpoint.replace("{full_name_arg}", full_name)
+        final_endpoint = endpoint.replace("{full_name}", full_name)
         registered_model_info = call_endpoint(
             get_databricks_host_creds(),
             endpoint=final_endpoint,
@@ -169,7 +163,7 @@ class UnityCatalogOssStore(BaseRestStore):
         full_name = get_full_name_from_sc(name, None)
         [catalog_name, schema_name, model_name] = full_name.split(".")
         req_body = message_to_json(
-            ModelVersionInfo(
+            CreateModelVersion(
                 model_name=model_name,
                 catalog_name=catalog_name,
                 schema_name=schema_name,
@@ -180,11 +174,11 @@ class UnityCatalogOssStore(BaseRestStore):
         )
         model_version = self._call_endpoint(CreateModelVersion, req_body)
         endpoint, method = _METHOD_TO_INFO[FinalizeModelVersion]
-        final_endpoint = endpoint.replace("{full_name_arg}", full_name).replace(
-            "{version_arg}", str(model_version.version)
+        final_endpoint = endpoint.replace("{full_name}", full_name).replace(
+            "{version}", str(model_version.version)
         )
         finalize_req_body = message_to_json(
-            FinalizeModelVersion(full_name=full_name, version_arg=model_version.version)
+            FinalizeModelVersion(full_name=full_name, version=model_version.version)
         )
         registered_model_version = call_endpoint(
             get_databricks_host_creds(),
@@ -199,13 +193,15 @@ class UnityCatalogOssStore(BaseRestStore):
         full_name = get_full_name_from_sc(name, None)
         [catalog_name, schema_name, model_name] = full_name.split(".")
         req_body = message_to_json(
-            ModelVersionInfo(
+            UpdateModelVersion(
+                full_name=full_name,
+                version=version,
                 comment=description,
             )
         )
         endpoint, method = _METHOD_TO_INFO[UpdateModelVersion]
-        final_endpoint = endpoint.replace("{full_name_arg}", full_name).replace(
-            "{version_arg}", str(version)
+        final_endpoint = endpoint.replace("{full_name}", full_name).replace(
+            "{version}", str(version)
         )
         registered_model_version = call_endpoint(
             get_databricks_host_creds(),
@@ -221,10 +217,10 @@ class UnityCatalogOssStore(BaseRestStore):
 
     def delete_model_version(self, name, version):
         full_name = get_full_name_from_sc(name, None)
-        req_body = message_to_json(DeleteModelVersion(full_name=full_name, version_arg=version))
+        req_body = message_to_json(DeleteModelVersion(full_name=full_name, version=version))
         endpoint, method = _METHOD_TO_INFO[DeleteModelVersion]
-        final_endpoint = endpoint.replace("{full_name_arg}", full_name).replace(
-            "{version_arg}", str(version)
+        final_endpoint = endpoint.replace("{full_name}", full_name).replace(
+            "{version}", str(version)
         )
         call_endpoint(
             get_databricks_host_creds(),
@@ -236,10 +232,10 @@ class UnityCatalogOssStore(BaseRestStore):
 
     def get_model_version(self, name, version):
         full_name = get_full_name_from_sc(name, None)
-        req_body = message_to_json(GetModelVersion(full_name=full_name, version_arg=version))
+        req_body = message_to_json(GetModelVersion(full_name=full_name, version=version))
         endpoint, method = _METHOD_TO_INFO[GetModelVersion]
-        final_endpoint = endpoint.replace("{full_name_arg}", full_name).replace(
-            "{version_arg}", str(version)
+        final_endpoint = endpoint.replace("{full_name}", full_name).replace(
+            "{version}", str(version)
         )
         registered_model_version = call_endpoint(
             get_databricks_host_creds(),

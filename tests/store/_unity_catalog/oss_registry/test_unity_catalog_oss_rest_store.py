@@ -4,6 +4,8 @@ from unittest import mock
 import pytest
 
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
+    CreateModelVersion,
+    CreateRegisteredModel,
     DeleteModelVersion,
     DeleteRegisteredModel,
     FinalizeModelVersion,
@@ -11,6 +13,7 @@ from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     GetRegisteredModel,
     ModelVersionInfo,
     RegisteredModelInfo,
+    UpdateModelVersion,
     UpdateRegisteredModel,
 )
 from mlflow.store._unity_catalog.registry_oss.rest_store_oss import UnityCatalogOssStore
@@ -72,7 +75,7 @@ def test_create_registered_model(mock_http, store):
         mock_http,
         "models",
         "POST",
-        RegisteredModelInfo(
+        CreateRegisteredModel(
             name="model_1",
             catalog_name="catalog_1",
             schema_name="schema_1",
@@ -91,12 +94,7 @@ def test_update_registered_model(mock_http, store, creds):
         "PATCH",
         UpdateRegisteredModel(
             full_name="catalog_1.schema_1.model_1",
-            registered_model_info=RegisteredModelInfo(
-                name="model_1",
-                catalog_name="catalog_1",
-                schema_name="schema_1",
-                comment=description,
-            ),
+            comment=description,
         ),
     )
 
@@ -137,7 +135,7 @@ def test_create_model_version(mock_http, store, creds):
         mock_http,
         "models/catalog_1.schema_1.model_1/versions/0/finalize",
         "PATCH",
-        FinalizeModelVersion(full_name=model_name, version_arg=0),
+        FinalizeModelVersion(full_name=model_name, version=0),
     )
 
 
@@ -150,7 +148,7 @@ def test_get_model_version(mock_http, store, creds):
         mock_http,
         "models/catalog_1.schema_1.model_1/versions/0",
         "GET",
-        GetModelVersion(full_name=model_name, version_arg=version),
+        GetModelVersion(full_name=model_name, version=version),
     )
 
 
@@ -163,7 +161,9 @@ def test_update_model_version(mock_http, store, creds):
         mock_http,
         "models/catalog_1.schema_1.model_1/versions/0",
         "PATCH",
-        ModelVersionInfo(
+        UpdateModelVersion(
+            full_name=model_name,
+            version=0,
             comment="new description",
         ),
     )
@@ -178,5 +178,5 @@ def test_delete_model_version(mock_http, store, creds):
         mock_http,
         "models/catalog_1.schema_1.model_1/versions/0",
         "DELETE",
-        DeleteModelVersion(full_name=model_name, version_arg=version),
+        DeleteModelVersion(full_name=model_name, version=version),
     )

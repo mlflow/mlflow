@@ -12,82 +12,6 @@ option (scalapb.options) = {
 };
 
 // Registered Model Management API
-
-message CreateRegisteredModel {
-  optional RegisteredModelInfo registered_model_info = 1;
-
-  message Response {
-    optional RegisteredModelInfo registered_model_info = 1;
-  }
-}
-
-message DeleteRegisteredModel {
-  // Required. Full name of the model.
-  optional string full_name = 1 [(validate_required) = true];
-  // Optional. Force deletion even if the registered model is not empty. Default is false.
-  optional bool force = 2;
-
-  message Response {}
-}
-
-message GetRegisteredModel {
-
-  // Required. Full name of the Model.
-  optional string full_name = 1 [(validate_required) = true];
-
-  message Response {
-    optional RegisteredModelInfo registered_model_info = 1 [(json_inline) = true];
-  }
-}
-
-message CreateModelVersion {
-  optional ModelVersionInfo model_version_info = 1 [(json_inline) = true];
-
-  message Response {
-    optional ModelVersionInfo model_version_info = 1 [(json_inline) = true];
-  }
-}
-
-message UpdateRegisteredModel {
-
-  // Required. Full name of the Model.
-  optional string full_name = 1;
-
-  // Optional. New name of registered model (replaces registered_model_info.name for specifying new name).
-  optional string new_name = 3;
-
-  // Optional. Partial RegisteredModelInfo with fields to change.
-  optional RegisteredModelInfo registered_model_info = 2 [(json_inline) = true];
-
-  message Response {
-    optional RegisteredModelInfo registered_model_info = 1 [(json_inline) = true];
-  }
-}
-
-message DeleteModelVersion {
-  
-  // Required. Full name of the parent registered model (from URL).
-  optional string full_name = 1;
-
-  // Required. Integer model version number (from URL).
-  optional int64 version_arg = 2;
-
-  message Response {}
-}
-
-message FinalizeModelVersion {
-
-  // Required. Full name of the parent registered model (from URL).
-  optional string full_name = 1;
-
-  // Required. Integer model version number (from URL).
-  optional int64 version_arg = 2;
-
-  message Response {
-    optional ModelVersionInfo model_version_info = 1 [(json_inline) = true];
-  }
-}
-
 message RegisteredModelInfo {
   // Input fields:
 
@@ -122,32 +46,55 @@ message RegisteredModelInfo {
   //  optional EncryptionDetails encryption_details = 22;
 }
 
-message GetModelVersion {
-
-  // Required. Full name of the parent registered model (from URL)..
-  optional string full_name = 1;
-
-  // Required. Integer model version number (from URL).
-  optional int64 version_arg = 2;
+message CreateRegisteredModel {
+  // [Create:REQ Update:OPT] Name of Model, relative to parent Schema.
+  optional string name = 1;
+  // [Create:REQ Update:IGN] Name of parent Catalog.
+  optional string catalog_name = 2;
+  // [Create:REQ Update:IGN] Name of parent Schema relative to its parent Catalog.
+  optional string schema_name = 3;
+  // [Create,Update:OPT] User-provided free-form text description.
+  optional string comment = 5;
+  // [Create,Update:IGN] Storage root URL for model
+  optional string storage_location = 6;
 
   message Response {
-    optional ModelVersionInfo model_version_info = 1 [(json_inline) = true];
+    optional RegisteredModelInfo registered_model_info = 1;
   }
 }
 
-message UpdateModelVersion {
+message DeleteRegisteredModel {
+  // Required. Full name of the model.
+  optional string full_name = 1 [(validate_required) = true];
+  // Optional. Force deletion even if the registered model is not empty. Default is false.
+  optional bool force = 2;
 
-  // Required. Full name of the parent registered model (from URL).
-  optional string full_name = 1;
+  message Response {}
+}
 
-  // Required. Integer model version number (from URL).
-  optional int64 version_arg = 2;
+message GetRegisteredModel {
 
-  // Required. Partial ModelVersionInfo with fields to change.
-  optional ModelVersionInfo model_version_info = 3 [(json_inline) = true];
+  // Required. Full name of the Model.
+  optional string full_name = 1 [(validate_required) = true];
 
   message Response {
-    optional ModelVersionInfo model_version_info = 1 [(json_inline) = true];
+    optional RegisteredModelInfo registered_model_info = 1 [(json_inline) = true];
+  }
+}
+
+message UpdateRegisteredModel {
+
+  // Required. Full name of the Model.
+  optional string full_name = 1;
+
+  // Optional. New name of registered model (replaces registered_model_info.name for specifying new name).
+  optional string new_name = 3;
+
+  // Optional. New comment for registered model. (replaces registered_model_info.comment).
+  optional string comment = 2;
+
+  message Response {
+    optional RegisteredModelInfo registered_model_info = 1;
   }
 }
 
@@ -191,6 +138,81 @@ message ModelVersionInfo {
   optional string updated_by = 15;
   // [Create,Update:IGN] Unique identifier of model version.
   optional string id = 16;
+}
+
+message CreateModelVersion {
+
+  // Name of Model, relative to parent Schema.
+  optional string model_name = 1;
+  // Name of parent Catalog.
+  optional string catalog_name = 2;
+  // Name of parent Schema relative to its parent Catalog.
+  optional string schema_name = 3;
+  // URI indicating the location of the source model artifacts, used
+  // when creating ``model_version``
+  optional string source = 4;
+  // MLflow run ID used when creating ``model_version``, if ``source``
+  // was generated by an experiment run stored in MLflow tracking server.
+  optional string run_id = 5;
+  // User-provided free-form text description.
+  optional string comment = 6;
+
+  message Response {
+    optional ModelVersionInfo model_version_info = 1;
+  }
+}
+
+message DeleteModelVersion {
+  
+  // Required. Full name of the parent registered model (from URL).
+  optional string full_name = 1;
+
+  // Required. Integer model version number (from URL).
+  optional int64 version = 2;
+
+  message Response {}
+}
+
+message FinalizeModelVersion {
+
+  // Required. Full name of the parent registered model (from URL).
+  optional string full_name = 1;
+
+  // Required. Integer model version number (from URL).
+  optional int64 version = 2;
+
+  message Response {
+    optional ModelVersionInfo model_version_info = 1 [(json_inline) = true];
+  }
+}
+
+message GetModelVersion {
+
+  // Required. Full name of the parent registered model (from URL)..
+  optional string full_name = 1;
+
+  // Required. Integer model version number (from URL).
+  optional int64 version = 2;
+
+  message Response {
+    optional ModelVersionInfo model_version_info = 1 [(json_inline) = true];
+  }
+}
+
+message UpdateModelVersion {
+
+  // Required. Full name of the parent registered model (from URL).
+  optional string full_name = 1;
+
+  // Required. Integer model version number (from URL).
+  optional int64 version = 2;
+
+  // Required. Partial ModelVersionInfo with fields to change.
+  optional string comment = 3;
+
+  message Response {
+    optional ModelVersionInfo model_version_info = 1;
+  }
 }
 
 enum ModelVersionStatus {
