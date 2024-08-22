@@ -98,7 +98,7 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
             header_base64 = base64.b64encode(header_json.encode())
             extra_headers[_DATABRICKS_LINEAGE_ID_HEADER] = header_base64
 
-        oss_creds = get_databricks_host_creds(self.registry_uri) # using db creds ONLY FOR TESTING
+        oss_creds = get_oss_host_creds(self.registry_uri) # TODO: Discuss & Implement OSS Host Creds properly
         oss_endpoint, oss_method = _METHOD_TO_INFO_OSS[GenerateTemporaryModelVersionCredentialsOSS]
         [catalog_name, schema_name, model_name] = self.model_name.split(".") # self.model_name is actually the full name
         oss_req_body = message_to_json(
