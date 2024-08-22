@@ -2166,7 +2166,7 @@ def test_make_metric_name_inference():
         make_metric(eval_fn=Callable(), greater_is_better=True)
 
 
-def language_model(inputs: list[str]) -> list[str]:
+def language_model(inputs: List[str]) -> List[str]:
     return inputs
 
 
