@@ -13,7 +13,7 @@ from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     UpdateModelVersion,
     UpdateRegisteredModel,
 )
-from mlflow.store._unity_catalog.registry_oss.rest_store_oss import UnityCatalogOssStore
+from mlflow.store._unity_catalog.registry.uc_oss_rest_store import UnityCatalogOssStore
 from mlflow.utils.proto_json_utils import message_to_json
 
 from tests.helper_functions import mock_http_200
@@ -29,7 +29,7 @@ def store(mock_databricks_uc_oss_host_creds):
 @pytest.fixture
 def creds():
     with mock.patch(
-        "mlflow.store._unity_catalog.registry_oss.rest_store_oss.get_databricks_host_creds",
+        "mlflow.store._unity_catalog.registry.uc_oss_rest_store.get_databricks_host_creds",
         return_value=_REGISTRY_HOST_CREDS,
     ):
         yield

@@ -31,7 +31,7 @@ def mock_databricks_uc_host_creds():
 @pytest.fixture
 def mock_databricks_uc_oss_host_creds():
     with mock.patch(
-        "mlflow.store._unity_catalog.registry_oss.rest_store_oss.get_databricks_host_creds",
+        "mlflow.store._unity_catalog.registry.uc_oss_rest_store.get_databricks_host_creds",
         side_effect=mock_host_creds,
     ):
         yield
