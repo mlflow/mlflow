@@ -711,7 +711,7 @@ def start_mock_openai_server():
             "localhost",
             "--port",
             str(port),
-        ],
+        ]
     ) as proc:
         try:
             base_url = f"http://localhost:{port}"
