@@ -4,15 +4,12 @@ from unittest import mock
 import pytest
 
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
-    CreateModelVersion,
     CreateRegisteredModel,
     DeleteModelVersion,
     DeleteRegisteredModel,
     FinalizeModelVersion,
     GetModelVersion,
     GetRegisteredModel,
-    ModelVersionInfo,
-    RegisteredModelInfo,
     UpdateModelVersion,
     UpdateRegisteredModel,
 )
