@@ -1,4 +1,4 @@
-from langgraph.graph.graph import CompiledGraph
+import json
 
 import mlflow
 
@@ -13,24 +13,38 @@ def test_langgraph_save_as_code():
             input_example=input_example,
         )
 
-    loaded_graph = mlflow.langchain.load_model(model_info.model_uri)
-    assert isinstance(loaded_graph, CompiledGraph)
-    response = loaded_graph.invoke(input_example)
-    # The OpenAI mock should return the same response as input
-    assert response["messages"][0].content == "what is the weather in sf?"
+    # (role, content)
+    expected_messages = [
+        ("human", "what is the weather in sf?"),
+        ("agent", ""),  # tool message does not have content
+        ("tools", "It's always sunny in sf"),
+        ("agent", "The weather in San Francisco is always sunny!"),
+    ]
 
-    for chunk in loaded_graph.stream(input_example):
-        assert (
-            chunk["agent"]["messages"][0].content
-            == '[{"role": "user", "content": "what is the weather in sf?"}]'
-        )
+    loaded_graph = mlflow.langchain.load_model(model_info.model_uri)
+    response = loaded_graph.invoke(input_example)
+    messages = response["messages"]
+    assert len(messages) == 4
+    for msg, (role, expected_content) in zip(messages, expected_messages):
+        assert msg.content == expected_content
+
+    # Need to reload to reset the iterator in FakeOpenAI
+    loaded_graph = mlflow.langchain.load_model(model_info.model_uri)
+    response = loaded_graph.stream(input_example)
+    # .stream() response does not includes the first Human message
+    for chunk, (role, expected_content) in zip(response, expected_messages[1:]):
+        assert chunk[role]["messages"][0].content == expected_content
 
     loaded_pyfunc = mlflow.pyfunc.load_model(model_info.model_uri)
     response = loaded_pyfunc.predict(input_example)[0]
-    assert response["messages"][0].content == "what is the weather in sf?"
+    messages = response["messages"]
+    assert len(messages) == 4
+    for msg, (role, expected_content) in zip(messages, expected_messages):
+        assert msg["content"] == expected_content
+    # response should be json serializable
+    assert json.dumps(response) is not None
 
-    for chunk in loaded_pyfunc.predict_stream(input_example, params={"stream_mode": "values"}):
-        assert (
-            chunk["agent"]["messages"][0].content
-            == '[{"role": "user", "content": "what is the weather in sf?"}]'
-        )
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_info.model_uri)
+    response = loaded_pyfunc.predict_stream(input_example)
+    for chunk, (role, expected_content) in zip(response, expected_messages[1:]):
+        assert chunk[role]["messages"][0]["content"] == expected_content
