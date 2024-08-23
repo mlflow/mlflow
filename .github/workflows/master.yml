@@ -368,3 +368,23 @@ jobs:
           # MLeap is incompatible on Windows with PySpark3.4 release.
           # Reinstate tests when MLeap has released a fix. [ML-30491]
           # pytest tests/mleap
+
+  uc:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-java
+      - name: Install dependencies
+        run: |
+          git clone https://github.com/unitycatalog/unitycatalog
+          cd unitycatalog
+          build/sbt package
+      - name: Run tests
+        run: |
+          python example.py
