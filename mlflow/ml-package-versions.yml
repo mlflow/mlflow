@@ -655,11 +655,7 @@ langchain:
           "transformers",
           "torch",
           "torchvision",
-          # TODO: The LLM saving/loading logic does not handle partner packages such as langchain-openai
-          # and always load llms from the legacy community package. Particularly for OpenAI LLM,
-          # the legacy version is not comptible with OpenAI SDK >= 1.8.0, so we need to pin the
-          # version here until resolving the loading issue.
-          "openai<1.8.0",
+          "openai",
           "google-search-results",
           "psutil",
           "faiss-cpu",
@@ -667,12 +663,13 @@ langchain:
           "numexpr",
           "hf_transfer",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
-          "langchain_openai",
+          "langchain-openai",
           "langgraph",
         ]
-      ">= 0.2": ["langchain-huggingface"]
-      # We cannot use install langchain-openai with langchain >= 0.2.0, while pinning openai to <1.8.0
-      "< 0.2.0": ["langchain-openai"]
+      # langchain-openai 0.1.22 is imcomptible with earlier langchain-core due to
+      # https://github.com/langchain-ai/langchain/commit/b83f1eb0d56dbf99605a1fce93953ee09d77aabf
+      "< 0.2": ["langchain-openai<=0.1.22"]
+      ">= 0.2": ["langchain-openai", "langchain-huggingface"]
     run: |
       # Run all langchain tests except autologging
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py

@@ -484,10 +484,6 @@ def test_save_and_load_azure_chat_openai(model_path, monkeypatch):
     assert loaded_model == chain
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) >= Version("0.2.0"),
-    reason="There is no langchain-openai version satisfies both langchain>=0.2.0 and openai<1.8.0",
-)
 def test_save_model_with_partner_package(tmp_path):
     from langchain_community.chat_models import ChatOpenAI as ChatOpenAICommunity
     from langchain_openai import ChatOpenAI as ChatOpenAIPartner
@@ -568,6 +564,10 @@ def test_langchain_log_huggingface_hub_model_metadata(model_path):
     assert loaded_model.prompt.template == "What is a good name for a company that makes {product}?"
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Agent behavior is not stable across minor versions",
+)
 @pytest.mark.parametrize("return_intermediate_steps", [False, True])
 def test_langchain_agent_model_predict(return_intermediate_steps, monkeypatch):
     input_example = {"input": "What is 2 * 3?"}
@@ -633,6 +633,10 @@ def test_langchain_agent_model_predict(return_intermediate_steps, monkeypatch):
     assert response == expected_output
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Agent behavior is not stable across minor versions",
+)
 def test_langchain_agent_model_predict_stream():
     input_example = {"input": "What is 2 * 3?"}
     with mlflow.start_run():
@@ -921,11 +925,13 @@ def test_log_and_load_retriever_chain(tmp_path):
         {
             "page_content": doc.page_content,
             "metadata": doc.metadata,
-            "id": None,
             "type": "Document",
         }
         for doc in db.as_retriever().get_relevant_documents(query)
     ]
+    # "id" field was added to Document model in langchain 0.2.7
+    if Version(langchain.__version__) >= Version("0.2.7"):
+        expected_result = [{**d, "id": None} for d in expected_result]
     assert result == [expected_result]
 
     # Serve the retriever

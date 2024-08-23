@@ -50,7 +50,7 @@ def multiply(a: int, b: int) -> int:
 
 llm = FakeOpenAI()
 tools = [add, multiply]
-prompt = ChatPromptTemplate(
+prompt = ChatPromptTemplate.from_messages(
     [
         ("system", "You are a helpful assistant"),
         MessagesPlaceholder("chat_history", optional=True),

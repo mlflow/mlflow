@@ -1798,7 +1798,7 @@ def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, 
         except Exception as e:
             raise MlflowException(
                 f"Failed to run user code from {code_path}. "
-                f"Error: {e!s}."
+                f"Error: {e!s}. "
                 "Review the stack trace for more information."
             ) from e
 

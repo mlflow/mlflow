@@ -1,8 +1,16 @@
 import json
 
+import langchain
+import pytest
+from packaging.version import Version
+
 import mlflow
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Agent behavior is not stable across minor versions",
+)
 def test_langgraph_save_as_code():
     input_example = {"messages": [{"role": "user", "content": "what is the weather in sf?"}]}
 
