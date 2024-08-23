@@ -380,6 +380,8 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
+        with:
+          java-version: 17
       - name: Install dependencies
         run: |
           git clone https://github.com/unitycatalog/unitycatalog
