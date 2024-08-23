@@ -273,9 +273,9 @@ MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES = _BooleanEnvironmentVariable(
 
 #: Specifies to Huggingface whether to use the automatic device placement logic of
 # HuggingFace accelerate. If it's set to false, the low_cpu_mem_usage flag will not be
-# set to True and device_map will not be set to "auto".
+# set to True and device_map will not be set to "auto". Default to False.
 MLFLOW_HUGGINGFACE_USE_DEVICE_MAP = _BooleanEnvironmentVariable(
-    "MLFLOW_HUGGINGFACE_USE_DEVICE_MAP", True
+    "MLFLOW_HUGGINGFACE_USE_DEVICE_MAP", False
 )
 
 #: Specifies to Huggingface to use the automatic device placement logic of HuggingFace accelerate.

@@ -12,13 +12,10 @@ from mlflow.environment_variables import MLFLOW_TRUNCATE_LONG_VALUES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.utils.os import is_windows
 from mlflow.utils.string_utils import is_string_type
 
 _logger = logging.getLogger(__name__)
-
-# Regex for valid param and metric names: may only contain slashes, alphanumerics,
-# underscores, periods, dashes, and spaces.
-_VALID_PARAM_AND_METRIC_NAMES = re.compile(r"^[/\w.\- ]*$")
 
 # Regex for valid run IDs: must be an alphanumeric string of length 1 to 256.
 _RUN_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,255}$")
@@ -33,11 +30,6 @@ _REGISTERED_MODEL_ALIAS_REGEX = re.compile(r"^[\w\-]*$")
 
 # Regex for valid registered model alias to prevent conflict with version aliases.
 _REGISTERED_MODEL_ALIAS_VERSION_REGEX = re.compile(r"^[vV]\d+$")
-
-_BAD_CHARACTERS_MESSAGE = (
-    "Names may only contain alphanumerics, underscores (_), dashes (-), periods (.),"
-    " spaces ( ), and slashes (/)."
-)
 
 _BAD_ALIAS_CHARACTERS_MESSAGE = (
     "Names may only contain alphanumerics, underscores (_), and dashes (-)."
@@ -111,6 +103,27 @@ def bad_path_message(name):
     ) % posixpath.normpath(name)
 
 
+def validate_param_and_metric_name(name):
+    # In windows system valid param and metric names: may only contain slashes, alphanumerics,
+    # underscores, periods, dashes, and spaces.
+    if is_windows():
+        return re.match(r"^[/\w.\- ]*$", name)
+
+    # For other system valid param and metric names: may only contain slashes, alphanumerics,
+    # underscores, periods, dashes, colons, and spaces.
+    return re.match(r"^[/\w.\- :]*$", name)
+
+
+def bad_character_message():
+    # Valid param and metric names may only contain slashes, alphanumerics, underscores,
+    # periods, dashes, colons, and spaces. For windows param and metric names can not contain colon
+    msg = (
+        "Names may only contain alphanumerics, underscores (_), dashes (-), periods (.),"
+        " spaces ( ){} and slashes (/)."
+    )
+    return msg.format(", colon(:)") if is_windows() else msg.format("")
+
+
 def path_not_unique(name):
     norm = posixpath.normpath(name)
     return norm != name or norm == "." or norm.startswith("..") or norm.startswith("/")
@@ -123,9 +136,9 @@ def _validate_metric_name(name):
             f"Metric name cannot be None. {_MISSING_KEY_NAME_MESSAGE}",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+    if not validate_param_and_metric_name(name):
         raise MlflowException(
-            f"Invalid metric name: '{name}'. {_BAD_CHARACTERS_MESSAGE}",
+            f"Invalid metric name: '{name}'. {bad_character_message()}",
             INVALID_PARAMETER_VALUE,
         )
     if path_not_unique(name):
@@ -252,9 +265,9 @@ def _validate_param_name(name):
             f"Parameter name cannot be None. {_MISSING_KEY_NAME_MESSAGE}",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+    if not validate_param_and_metric_name(name):
         raise MlflowException(
-            f"Invalid parameter name: '{name}'. {_BAD_CHARACTERS_MESSAGE}",
+            f"Invalid parameter name: '{name}'. {bad_character_message()}",
             INVALID_PARAMETER_VALUE,
         )
     if path_not_unique(name):
@@ -272,9 +285,9 @@ def _validate_tag_name(name):
             f"Tag name cannot be None. {_MISSING_KEY_NAME_MESSAGE}",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+    if not validate_param_and_metric_name(name):
         raise MlflowException(
-            f"Invalid tag name: '{name}'. {_BAD_CHARACTERS_MESSAGE}",
+            f"Invalid tag name: '{name}'. {bad_character_message()}",
             INVALID_PARAMETER_VALUE,
         )
     if path_not_unique(name):
