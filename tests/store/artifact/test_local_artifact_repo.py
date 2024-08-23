@@ -181,7 +181,7 @@ def test_hidden_files_are_logged_correctly(local_artifact_repo):
             assert f.read() == "42"
 
 
-def test_delete_artifacts(local_artifact_repo):
+def test_delete_artifacts_folder(local_artifact_repo):
     with TempDir() as local_dir:
         os.mkdir(local_dir.path("subdir"))
         os.mkdir(local_dir.path("subdir", "nested"))
@@ -197,6 +197,31 @@ def test_delete_artifacts(local_artifact_repo):
         assert os.path.exists(os.path.join(local_artifact_repo._artifact_dir, "b.txt"))
         local_artifact_repo.delete_artifacts()
         assert not os.path.exists(os.path.join(local_artifact_repo._artifact_dir))
+
+
+def test_delete_artifacts_files(local_artifact_repo):
+    with TempDir() as local_dir:
+        os.mkdir(local_dir.path("subdir"))
+        os.mkdir(local_dir.path("subdir", "nested"))
+        with open(local_dir.path("subdir", "a.txt"), "w") as f:
+            f.write("A")
+        with open(local_dir.path("subdir", "b.txt"), "w") as f:
+            f.write("B")
+        with open(local_dir.path("subdir", "nested", "c.txt"), "w") as f:
+            f.write("C")
+        local_artifact_repo.log_artifacts(local_dir.path("subdir"))
+        assert os.path.exists(os.path.join(local_artifact_repo._artifact_dir, "nested"))
+        assert os.path.exists(os.path.join(local_artifact_repo._artifact_dir, "a.txt"))
+        assert os.path.exists(os.path.join(local_artifact_repo._artifact_dir, "b.txt"))
+        local_artifact_repo.delete_artifacts(artifact_path="nested/c.txt")
+        local_artifact_repo.delete_artifacts(artifact_path="b.txt")
+        assert not os.path.exists(
+            os.path.join(local_artifact_repo._artifact_dir, "nested", "c.txt")
+        )
+        assert not os.path.exists(
+            os.path.join(local_artifact_repo._artifact_dir, "b.txt")
+        )
+        assert os.path.exists(os.path.join(local_artifact_repo._artifact_dir, "a.txt"))
 
 
 def test_delete_artifacts_with_nonexistent_path_succeeds(local_artifact_repo):
