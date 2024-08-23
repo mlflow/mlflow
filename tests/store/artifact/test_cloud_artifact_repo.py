@@ -91,11 +91,11 @@ def test__parallelized_download_from_cloud(monkeypatch, future_result, expected_
                 assert cloud_artifact_instance._get_read_credential_infos.call_count == expected_call_count
 
                 
-                # assert cloud_artifact_instance.chunk_thread_pool.submit.assert_called_with(
-                #         cloud_artifact_instance._download_chunk,
-                #         fake_chunk_1.start,
-                #         fake_chunk_1.end,
-                #         ArtifactCredentialInfo.HttpHeader(name="fake_header_name", value="fake_header_value"),
-                #         "fake_local_path",
-                #         "fake_signed_uri",
-                #     )
+                assert cloud_artifact_instance.chunk_thread_pool.submit.assert_called_with(
+                        mock.ANY,
+                        range_start = fake_chunk_1.start,
+                        range_end = fake_chunk_1.end,
+                        headers = mock.ANY,
+                        download_path = "fake_local_path",
+                        http_uri = "fake_signed_uri",
+                    )
