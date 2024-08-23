@@ -712,11 +712,9 @@ def start_mock_openai_server():
             "--port",
             str(port),
         ],
-        stdout=subprocess.PIPE,  # Pipe the stdout
-        stderr=subprocess.PIPE,  # Optional: pipe stderr as well
+        stdout=sys.stdout,  # Pipe the stdout
+        stderr=sys.stderr,  # Optional: pipe stderr as well
     ) as proc:
-        print("@@@ STDO", proc.stdout)
-        print("@@@ STDE", proc.stderr)
         try:
             base_url = f"http://localhost:{port}"
             for _ in range(10):
