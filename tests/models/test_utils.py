@@ -575,16 +575,17 @@ def test_flatten_nested_params():
 
 
 @pytest.mark.parametrize(
-    ("data", "target"),
+    ("data", "target", "target_type"),
     [
-        (pd.DataFrame([{"a": [1, 2, 3]}]), [{"a": [1, 2, 3]}]),
-        (pd.DataFrame([{"a": np.array([1, 2, 3])}]), [{"a": [1, 2, 3]}]),
-        (pd.DataFrame([{0: np.array(["abc"])[0]}]), ["abc"]),
-        (np.array([1, 2, 3]), [1, 2, 3]),
-        (np.array([123])[0], 123),
+        (pd.DataFrame([{"a": [1, 2, 3]}]), [{"a": [1, 2, 3]}], list),
+        (pd.DataFrame([{"a": np.array([1, 2, 3])}]), [{"a": [1, 2, 3]}], list),
+        (pd.DataFrame([{0: np.array(["abc"])[0]}]), ["abc"], list),
+        (np.array([1, 2, 3]), [1, 2, 3], list),
+        (np.array([123])[0], 123, int),
+        (np.array(["abc"])[0], "abc", str),
     ],
 )
-def test_convert_llm_input_data(data, target):
+def test_convert_llm_input_data(data, target, target_type):
     result = _convert_llm_input_data(data)
     assert result == target
-    assert not isinstance(result, np.generic)
+    assert type(result) == target_type
