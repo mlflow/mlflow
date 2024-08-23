@@ -147,8 +147,7 @@ class ArtifactRepository:
 
     def _is_directory(self, artifact_path):
         listing = self.list_artifacts(artifact_path)
-        is_file = len(listing) == 0 or (len(listing) == 1 and not listing[0].is_dir)
-        return not is_file
+        return len(listing) > 0
 
     def _create_download_destination(self, src_artifact_path, dst_local_dir_path=None):
         """

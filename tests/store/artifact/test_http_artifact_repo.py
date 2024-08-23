@@ -1,5 +1,6 @@
 import os
 import posixpath
+import shutil
 from unittest import mock
 
 import pytest
@@ -245,6 +246,34 @@ def test_list_artifacts(http_artifact_repo):
         with pytest.raises(Exception, match="request failed"):
             http_artifact_repo.list_artifacts()
 
+    # Tests below test listing a single file, note that the list_artifacts API should
+    # return an empty list if the the path references a single file.
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse(
+            {
+                "files": [
+                    {"path": "1.txt", "is_dir": False, "file_size": 1},
+                ]
+            },
+            200,
+        ),
+    ):
+        assert [a.path for a in http_artifact_repo.list_artifacts(path="1.txt")] == []
+
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse(
+            {
+                "files": [
+                    {"path": "1.txt", "is_dir": False, "file_size": 1},
+                ]
+            },
+            200,
+        ),
+    ):
+        assert [a.path for a in http_artifact_repo.list_artifacts(path="path/1.txt/1.txt")] == []
+
 
 @pytest.mark.parametrize("path", ["/tmp/path", "../../path", "%2E%2E%2Fpath"])
 def test_list_artifacts_malicious_path(http_artifact_repo, path):
@@ -322,6 +351,11 @@ def test_download_artifacts(http_artifact_repo, tmp_path):
                     },
                     200,
                 )
+            elif params.get("path") == "dir/b.txt":
+                return MockResponse(
+                    {"files": []},
+                    200,
+                )
             else:
                 Exception("Unreachable")
 
@@ -334,6 +368,7 @@ def test_download_artifacts(http_artifact_repo, tmp_path):
             raise Exception("Unreachable")
 
     with mock.patch("mlflow.store.artifact.http_artifact_repo.http_request", http_request):
+        # Download a directory
         http_artifact_repo.download_artifacts("", tmp_path)
         paths = [os.path.join(root, f) for root, _, files in os.walk(tmp_path) for f in files]
         assert [os.path.relpath(p, tmp_path) for p in paths] == [
@@ -342,6 +377,16 @@ def test_download_artifacts(http_artifact_repo, tmp_path):
         ]
         assert read_file(paths[0]) == "data_a"
         assert read_file(paths[1]) == "data_b"
+
+        # Download a single file
+        shutil.rmtree(tmp_path)
+        os.makedirs(tmp_path)
+        http_artifact_repo.download_artifacts("dir/b.txt", tmp_path)
+        paths = [os.path.join(root, f) for root, _, files in os.walk(tmp_path) for f in files]
+        assert [os.path.relpath(p, tmp_path) for p in paths] == [
+            os.path.join("dir", "b.txt"),
+        ]
+        assert read_file(paths[0]) == "data_b"
 
 
 def test_default_host_creds(monkeypatch):
