@@ -562,7 +562,7 @@ class Model:
         for key, value in result.items():
             if key == "flavors":
                 tags["flavors"] = {k: v for k, v in value.items() if k != "config"}
-            elif key in ["utc_time_created", "artifact_path"]:
+            elif key in ["run_id", "utc_time_created", "artifact_path"]:
                 tags[key] = value
 
         return tags
