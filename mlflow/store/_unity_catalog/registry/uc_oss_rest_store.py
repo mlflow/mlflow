@@ -88,7 +88,7 @@ class UnityCatalogOssStore(BaseRestStore):
         req_body = message_to_json(
             UpdateRegisteredModel(
                 full_name=full_name,
-                comment = comment,
+                comment=comment,
             )
         )
         endpoint, method = _METHOD_TO_INFO[UpdateRegisteredModel]
