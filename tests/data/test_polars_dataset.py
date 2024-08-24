@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -13,7 +14,7 @@ from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 from mlflow.data.polars_dataset import PolarsDataset, from_polars, infer_schema
 from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
 from mlflow.exceptions import MlflowException
-from mlflow.types.schema import Schema
+from mlflow.types.schema import Array, ColSpec, DataType, Object, Property, Schema
 
 from tests.resources.data.dataset_source import SampleDatasetSource
 
@@ -22,6 +23,81 @@ from tests.resources.data.dataset_source import SampleDatasetSource
 def sample_source() -> SampleDatasetSource:
     source_uri = "test:/my/test/uri"
     return SampleDatasetSource._resolve(source_uri)
+
+
+def test_infer_schema() -> None:
+    data = [
+        [
+            b"asd",
+            True,
+            datetime(2024, 1, 1, 12, 34, 56, 789),
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+            "asd",
+            "😆",
+            "category",
+            "val2",
+            date(2024, 1, 1),
+            10,
+            10,
+            10,
+            [1, 2, 3],
+            [1, 2, 3],
+            {"col1": 1},
+        ]
+    ]
+    schema = {
+        "Binary": pl.Binary,
+        "Boolean": pl.Boolean,
+        "Datetime": pl.Datetime,
+        "Float32": pl.Float32,
+        "Float64": pl.Float64,
+        "Int8": pl.Int8,
+        "Int16": pl.Int16,
+        "Int32": pl.Int32,
+        "Int64": pl.Int64,
+        "String": pl.String,
+        "Utf8": pl.Utf8,
+        "Categorical": pl.Categorical,
+        "Enum": pl.Enum(["val1", "val2"]),
+        "Date": pl.Date,
+        "UInt8": pl.UInt8,
+        "UInt16": pl.UInt16,
+        "UInt32": pl.UInt32,
+        "List": pl.List(pl.Int8),
+        "Array": pl.Array(pl.Int8, 3),
+        "Struct": pl.Struct({"col1": pl.Int8}),
+    }
+    df = pl.DataFrame(data=data, schema=schema)
+
+    assert infer_schema(df) == Schema(
+        [
+            ColSpec(name="Binary", type=DataType.binary),
+            ColSpec(name="Boolean", type=DataType.boolean),
+            ColSpec(name="Datetime", type=DataType.datetime),
+            ColSpec(name="Float32", type=DataType.float),
+            ColSpec(name="Float64", type=DataType.double),
+            ColSpec(name="Int8", type=DataType.integer),
+            ColSpec(name="Int16", type=DataType.integer),
+            ColSpec(name="Int32", type=DataType.integer),
+            ColSpec(name="Int64", type=DataType.long),
+            ColSpec(name="String", type=DataType.string),
+            ColSpec(name="Utf8", type=DataType.string),
+            ColSpec(name="Categorical", type=DataType.string),
+            ColSpec(name="Enum", type=DataType.string),
+            ColSpec(name="Date", type=DataType.datetime),
+            ColSpec(name="UInt8", type=DataType.integer),
+            ColSpec(name="UInt16", type=DataType.integer),
+            ColSpec(name="UInt32", type=DataType.long),
+            ColSpec(name="List", type=Array(DataType.integer)),
+            ColSpec(name="Array", type=Array(DataType.integer)),
+            ColSpec(name="Struct", type=Object([Property(name="col1", dtype=DataType.integer)])),
+        ]
+    )
 
 
 def test_conversion_to_json(source: SampleDatasetSource) -> None:
