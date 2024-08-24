@@ -5,12 +5,8 @@ from inspect import isclass
 from typing import Any, Dict, Final, Optional, TypedDict, Union
 
 import polars as pl
-from polars.datatypes.classes import (
-    DataType as PolarsDataType,
-)
-from polars.datatypes.classes import (
-    DataTypeClass as PolarsDataTypeClass,
-)
+from polars.datatypes.classes import DataType as PolarsDataType
+from polars.datatypes.classes import DataTypeClass as PolarsDataTypeClass
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
