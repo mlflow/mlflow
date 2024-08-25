@@ -243,3 +243,37 @@ def test_create_app_from_env_fails_if_MLFLOW_DEPLOYMENTS_CONFIG_is_not_set(monke
     monkeypatch.delenv("MLFLOW_DEPLOYMENTS_CONFIG", raising=False)
     with pytest.raises(MlflowException, match="'MLFLOW_DEPLOYMENTS_CONFIG' is not set"):
         create_app_from_env()
+
+
+def test_create_endpoing(client: TestClient):
+    new_endpoint_config = {
+        "name": "new-endpoint",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "name": "gpt-4",
+            "provider": "openai",
+        },
+        "limit": {"calls": 10, "key": None, "renewal_period": "minute"},
+    }
+    response = client.post("/v1/add_model", json=new_endpoint_config)
+    assert response.status_code == 200
+    assert response.json() == {"message": "Model added successfully"}
+
+    # verify new endpoint is created
+    response = client.get(f"{MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE}new-endpoint")
+    assert response.status_code == 200
+    assert response.json() == {
+        "name": "new-endpoint",
+        "endpoint_type": "llm/v1/chat",
+        "endpoint_url": "/gateway/new-endpoint/invocations",
+        "model": {
+            "name": "gpt-4",
+            "provider": "openai",
+        },
+        "limit": {"calls": 10, "key": None, "renewal_period": "minute"},
+    }
+
+    # try to create endpoint with same name
+    response = client.post("/v1/add_model", json=new_endpoint_config)
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Model new-endpoint already exists."}

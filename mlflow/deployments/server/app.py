@@ -146,6 +146,13 @@ class HealthResponse(BaseModel):
     status: str
 
 
+class ModelConfig(BaseModel):
+    name: str
+    endpoint_type: str
+    model: Dict[str, Any]
+    limit: Optional[Dict[str, Any]] = None
+
+
 class ListEndpointsResponse(BaseModel):
     endpoints: List[Endpoint]
     next_page_token: Optional[str] = None
@@ -391,6 +398,36 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         prov = get_provider(route.model.provider)(route)
         payload.model = None  # provider rejects a request with model field, must be set to None
         return await prov.embeddings(payload)
+
+    @app.post("/v1/add_model")
+    async def add_model(config: ModelConfig):
+        if config.name in app.dynamic_routes:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Model {config.name} already exists.",
+            )
+
+        # Convert ModelConfig to RouteConfig
+        route_config = RouteConfig(
+            name=config.name,
+            route_type=config.endpoint_type,
+            model=config.model,
+            limit=LimitsConfig(**config.limit) if config.limit else None,
+        )
+
+        # Add the new route to dynamic_routes
+        app.dynamic_routes[config.name] = route_config
+
+        # Add the new API route
+        app.add_api_route(
+            path=(
+                MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE + config.name + MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
+            ),
+            endpoint=_route_type_to_endpoint(route_config, app.state.limiter, "deployments"),
+            methods=["POST"],
+        )
+
+        return {"messages": f"Model {config.name} added successfully"}
 
     return app
 
