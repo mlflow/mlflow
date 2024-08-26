@@ -210,22 +210,13 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
       this.state.onlyShowParamDiff,
       true,
       (key: any, data: any) => key,
-      (value: any) => {
+      (value) => {
         try {
           const jsonValue = parsePythonDictString(value);
 
+          // Render JSON as a nested table if the parsed value is an object or array
           if (typeof jsonValue === 'object' && jsonValue !== null) {
-            // Render JSON as a nested table
-            return (
-              <table className="json-table">
-                {Object.keys(jsonValue).map((key) => (
-                  <tr key={key}>
-                    <td>{key}</td>
-                    <td>{JSON.stringify(jsonValue[key], null, 2)}</td>
-                  </tr>
-                ))}
-              </table>
-            );
+            return this.renderJsonTable(jsonValue);
           } else {
             // If it's a simple value (e.g. a number), return the original string
             return value;
@@ -253,6 +244,35 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
         onScroll={this.onCompareRunTableScrollHandler}
       >
         <tbody>{dataRows}</tbody>
+      </table>
+    );
+  }
+
+  renderJsonTable(jsonValue: any) {
+    return (
+      <table className="json-table">
+        <tbody>
+          {Object.keys(jsonValue).map((key) => {
+            const value = jsonValue[key];
+            if (typeof value === 'object' && value !== null) {
+              // Recursive call for nested objects/arrays
+              return (
+                <tr key={key}>
+                  <td>{key}</td>
+                  <td>{this.renderJsonTable(value)}</td>
+                </tr>
+              );
+            } else {
+              // Render simple values
+              return (
+                <tr key={key}>
+                  <td>{key}</td>
+                  <td>{JSON.stringify(value, null, 2)}</td>
+                </tr>
+              );
+            }
+          })}
+        </tbody>
       </table>
     );
   }
