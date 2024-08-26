@@ -1477,6 +1477,8 @@ class DefaultEvaluator(ModelEvaluator):
                 return sum(y_pred_list, [])
             elif isinstance(sample_pred, pd.Series):
                 return pd.concat(y_pred_list, ignore_index=True)
+            elif isinstance(sample_pred, str):
+                return y_pred_list
             else:
                 raise MlflowException(
                     message=f"Unsupported prediction type {type(sample_pred)} for model type "

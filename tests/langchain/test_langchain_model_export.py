@@ -3,7 +3,9 @@ import json
 import os
 import shutil
 import sqlite3
+import sys
 import warnings
+from importlib.metadata import version
 from operator import itemgetter
 from typing import Any, Dict, Iterator, List, Mapping, Optional
 from unittest import mock
@@ -219,6 +221,65 @@ class FakeChain(Chain):
             return {"bar": "baz"}
         else:
             return {"baz": "bar"}
+
+
+class MockVectorSearchIndex:
+    def __init__(self, endpoint_name, index_name, has_embedding_endpoint=False) -> None:
+        self.endpoint_name = endpoint_name
+        self.name = index_name
+        self.has_embedding_endpoint = has_embedding_endpoint
+
+    def describe(self):
+        if self.has_embedding_endpoint:
+            return {
+                "name": self.name,
+                "endpoint_name": self.endpoint_name,
+                "primary_key": "id",
+                "index_type": "DELTA_SYNC",
+                "delta_sync_index_spec": {
+                    "source_table": "ml.schema.databricks_documentation",
+                    "embedding_source_columns": [
+                        {"name": "content", "embedding_model_endpoint_name": "embedding-model"}
+                    ],
+                    "pipeline_type": "TRIGGERED",
+                    "pipeline_id": "79a76fcc-67ad-4ac6-8d8e-20f7d485ffa6",
+                },
+                "status": {
+                    "detailed_state": "OFFLINE_FAILED",
+                    "message": "Index creation failed.",
+                    "indexed_row_count": 0,
+                    "failed_status": {"error_message": ""},
+                    "ready": False,
+                    "index_url": "e2-dogfood.staging.cloud.databricks.com/rest_of_url",
+                },
+                "creator": "first.last@databricks.com",
+            }
+        else:
+            return {
+                "name": self.name,
+                "endpoint_name": self.endpoint_name,
+                "primary_key": "id",
+                "index_type": "DELTA_SYNC",
+                "delta_sync_index_spec": {
+                    "source_table": "ml.schema.databricks_documentation",
+                    "embedding_vector_columns": [],
+                    "pipeline_type": "TRIGGERED",
+                    "pipeline_id": "fbbd5bf1-2b9b-4a7e-8c8d-c0f6cc1030de",
+                },
+                "status": {
+                    "detailed_state": "ONLINE",
+                    "message": "Index is currently online",
+                    "indexed_row_count": 17183,
+                    "ready": True,
+                    "index_url": "e2-dogfood.staging.cloud.databricks.com/rest_of_url",
+                },
+                "creator": "first.last@databricks.com",
+            }
+
+
+class MockVectorSearchClient:
+    def get_index(self, endpoint_name, index_name, has_embedding_endpoint=False):
+        return MockVectorSearchIndex(endpoint_name, index_name, has_embedding_endpoint)
 
 
 def get_fake_chat_model(endpoint_name="fake-endpoint"):
@@ -1852,6 +1913,132 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
     assert all(item in actual["serving_endpoint"] for item in expected["serving_endpoint"])
     assert all(item in expected["serving_endpoint"] for item in actual["serving_endpoint"])
     assert actual["vector_search_index"] == expected["vector_search_index"]
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.1.0"),
+    reason="Tools are not supported the way we want in earlier versions",
+)
+def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
+    from databricks.sdk.service.catalog import FunctionInfo
+    from langchain.tools.retriever import create_retriever_tool
+    from langchain_community.chat_models import ChatDatabricks
+    from langchain_community.vectorstores import DatabricksVectorSearch
+
+    # Return 2 functions from the function lis
+    def mock_function_list(self, catalog_name, schema_name):
+        assert catalog_name == "rag"
+        assert schema_name == "studio"
+        return [
+            FunctionInfo(full_name="rag.studio.test_function_a"),
+            FunctionInfo(full_name="rag.studio.test_function_b"),
+        ]
+
+    # For each function ensure that it returns a tool which takes one input
+    def mock_function_get(self, function_name):
+        components = function_name.split(".")
+        param_dict = {
+            "parameters": [
+                {
+                    "name": "param",
+                    "parameter_type": "PARAM",
+                    "position": 0,
+                    "type_json": '{"name":"param","type":"string","nullable":true,"metadata":{}}',
+                    "type_name": "STRING",
+                    "type_precision": 0,
+                    "type_scale": 0,
+                    "type_text": "string",
+                }
+            ]
+        }
+        return FunctionInfo.from_dict(
+            {
+                "catalog_name": components[0],
+                "schema_name": components[1],
+                "name": components[2],
+                "input_params": param_dict,
+            }
+        )
+
+    vsc = MockVectorSearchClient()
+    vs_index = vsc.get_index(
+        endpoint_name="dbdemos_vs_endpoint",
+        index_name="mlflow.rag.vs_index",
+        has_embedding_endpoint=True,
+    )
+
+    mock_module = mock.MagicMock()
+    mock_module.VectorSearchIndex = MockVectorSearchIndex
+    mock_get_deploy_client = mock.MagicMock()
+
+    monkeypatch.setitem(sys.modules, "databricks.vector_search.client", mock_module)
+    monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
+    monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
+    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.list", mock_function_list)
+    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
+    # Mocking Cloudpickle because serialization in this setup is failing
+    monkeypatch.setattr("cloudpickle.dump", mock.MagicMock())
+
+    # Create an toolkit with the '*' syntax
+    include_uc_function_tools = False
+    try:
+        from langchain_community.tools.databricks import UCFunctionToolkit
+
+        include_uc_function_tools = True
+    except Exception:
+        include_uc_function_tools = False
+
+    uc_function_tools = (
+        (UCFunctionToolkit(warehouse_id="test_id_1").include("rag.studio.*").get_tools())
+        if include_uc_function_tools
+        else []
+    )
+
+    chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
+
+    vectorstore = DatabricksVectorSearch(vs_index, text_column="content")
+    retriever = vectorstore.as_retriever()
+    retriever_tool = create_retriever_tool(retriever, "vs_index_name", "vs_index_desc")
+    agent = initialize_agent(
+        uc_function_tools + [retriever_tool],
+        chat_model,
+        verbose=True,
+    )
+
+    pyfunc_artifact_path = "retrieval_qa_chain"
+    with mlflow.start_run() as run:
+        mlflow.langchain.log_model(
+            agent,
+            pyfunc_artifact_path,
+        )
+    pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
+    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    actual = reloaded_model.resources["databricks"]
+    # Ensure both functions are outputted
+    expected = {
+        "serving_endpoint": [{"name": "databricks-llama-2-70b-chat"}, {"name": "embedding-model"}],
+        "vector_search_index": [{"name": "mlflow.rag.vs_index"}],
+    }
+
+    if uc_function_tools:
+        uc_expected = {
+            "sql_warehouse": [{"name": "test_id_1"}],
+            "uc_function": [
+                {"name": "rag.studio.test_function_a"},
+                {"name": "rag.studio.test_function_b"},
+            ],
+        }
+        expected.update(uc_expected)
+
+    assert all(item in actual["serving_endpoint"] for item in expected["serving_endpoint"])
+    assert all(item in expected["serving_endpoint"] for item in actual["serving_endpoint"])
+    assert actual["vector_search_index"] == expected["vector_search_index"]
+    if uc_function_tools:
+        assert actual["sql_warehouse"] == expected["sql_warehouse"]
+        assert all(item in actual["uc_function"] for item in expected["uc_function"])
+        assert all(item in expected["uc_function"] for item in actual["uc_function"])
 
 
 def _error_func(*args, **kwargs):

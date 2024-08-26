@@ -334,11 +334,23 @@ def test_search_experiments_max_results(store):
 
 
 def test_search_experiments_max_results_validation(store):
-    with pytest.raises(MlflowException, match=r"It must be a positive integer, but got None"):
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid value None for parameter 'max_results' supplied. "
+        r"It must be a positive integer",
+    ):
         store.search_experiments(max_results=None)
-    with pytest.raises(MlflowException, match=r"It must be a positive integer, but got 0"):
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid value 0 for parameter 'max_results' supplied. "
+        r"It must be a positive integer",
+    ):
         store.search_experiments(max_results=0)
-    with pytest.raises(MlflowException, match=r"It must be at most \d+, but got 1000000"):
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid value 1000000 for parameter 'max_results' supplied. "
+        r"It must be at most 50000",
+    ):
         store.search_experiments(max_results=1_000_000)
 
 

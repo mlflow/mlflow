@@ -2,13 +2,14 @@ import base64
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     READ_MODEL_VERSION as MODEL_VERSION_OPERATION_READ_OSS,
-    GenerateTemporaryModelVersionCredential as GenerateTemporaryModelVersionCredentialsOSS
 )
-
+from mlflow.protos.unity_catalog_oss_messages_pb2 import (
+    GenerateTemporaryModelVersionCredential as GenerateTemporaryModelVersionCredentialsOSS,
+)
 from mlflow.protos.unity_catalog_oss_service_pb2 import UnityCatalogService
-from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store._unity_catalog.lineage.constants import _DATABRICKS_LINEAGE_ID_HEADER
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.utils.models import (
@@ -19,12 +20,11 @@ from mlflow.utils._unity_catalog_utils import (
     get_artifact_repo_from_storage_info,
     get_full_name_from_sc,
 )
-from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.oss_utils import get_oss_host_creds
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
-    _UC_OSS_REST_API_PATH_PREFIX,
     _REST_API_PATH_PREFIX,
+    _UC_OSS_REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
 )
@@ -36,7 +36,9 @@ from mlflow.utils.uri import (
 )
 
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
-_METHOD_TO_INFO_OSS = extract_api_info_for_service(UnityCatalogService, _UC_OSS_REST_API_PATH_PREFIX)
+_METHOD_TO_INFO_OSS = extract_api_info_for_service(
+    UnityCatalogService, _UC_OSS_REST_API_PATH_PREFIX
+)
 
 
 class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
@@ -71,7 +73,7 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
         )
         if registry_uri_from_artifact_uri is not None:
             registry_uri = registry_uri_from_artifact_uri
-        _, key_prefix = get_db_info_from_uri(registry_uri) # TODO: Ask Kris what to do here
+        _, key_prefix = get_db_info_from_uri(registry_uri)  # TODO: Ask Kris what to do here
         if key_prefix is not None:
             raise MlflowException(
                 "Remote model registry access via model URIs of the form "
@@ -98,9 +100,13 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
             header_base64 = base64.b64encode(header_json.encode())
             extra_headers[_DATABRICKS_LINEAGE_ID_HEADER] = header_base64
 
-        oss_creds = get_oss_host_creds(self.registry_uri) # TODO: Discuss & Implement OSS Host Creds properly
+        oss_creds = get_oss_host_creds(
+            self.registry_uri
+        )  # TODO: Discuss & Implement OSS Host Creds properly
         oss_endpoint, oss_method = _METHOD_TO_INFO_OSS[GenerateTemporaryModelVersionCredentialsOSS]
-        [catalog_name, schema_name, model_name] = self.model_name.split(".") # self.model_name is actually the full name
+        [catalog_name, schema_name, model_name] = self.model_name.split(
+            "."
+        )  # self.model_name is actually the full name
         oss_req_body = message_to_json(
             GenerateTemporaryModelVersionCredentialsOSS(
                 catalog_name=catalog_name,

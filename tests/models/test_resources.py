@@ -3,6 +3,8 @@ import pytest
 from mlflow.models.resources import (
     DEFAULT_API_VERSION,
     DatabricksServingEndpoint,
+    DatabricksSQLWarehouse,
+    DatabricksUCFunction,
     DatabricksVectorSearchIndex,
     _ResourceBuilder,
 )
@@ -28,11 +30,34 @@ def test_index_name():
     }
 
 
+def test_sql_warehouse():
+    sql_warehouse = DatabricksSQLWarehouse(warehouse_id="id1")
+    expected = {"sql_warehouse": [{"name": "id1"}]}
+    assert sql_warehouse.to_dict() == expected
+    assert _ResourceBuilder.from_resources([sql_warehouse]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+
+def test_uc_function():
+    uc_function = DatabricksUCFunction(function_name="function")
+    expected = {"uc_function": [{"name": "function"}]}
+    assert uc_function.to_dict() == expected
+    assert _ResourceBuilder.from_resources([uc_function]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+
 def test_resources():
     resources = [
         DatabricksVectorSearchIndex(index_name="rag.studio_bugbash.databricks_docs_index"),
         DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct"),
         DatabricksServingEndpoint(endpoint_name="databricks-llama-8x7b-instruct"),
+        DatabricksSQLWarehouse(warehouse_id="id123"),
+        DatabricksUCFunction(function_name="rag.studio.test_function_1"),
+        DatabricksUCFunction(function_name="rag.studio.test_function_2"),
     ]
     expected = {
         "api_version": DEFAULT_API_VERSION,
@@ -41,6 +66,11 @@ def test_resources():
             "serving_endpoint": [
                 {"name": "databricks-mixtral-8x7b-instruct"},
                 {"name": "databricks-llama-8x7b-instruct"},
+            ],
+            "sql_warehouse": [{"name": "id123"}],
+            "uc_function": [
+                {"name": "rag.studio.test_function_1"},
+                {"name": "rag.studio.test_function_2"},
             ],
         },
     }
@@ -60,6 +90,11 @@ def test_resources_from_yaml(tmp_path):
                 serving_endpoint:
                 - name: databricks-mixtral-8x7b-instruct
                 - name: databricks-llama-8x7b-instruct
+                sql_warehouse:
+                - name: id123
+                uc_function:
+                - name: rag.studio.test_function_1
+                - name: rag.studio.test_function_2
             """
         )
 
@@ -70,6 +105,11 @@ def test_resources_from_yaml(tmp_path):
             "serving_endpoint": [
                 {"name": "databricks-mixtral-8x7b-instruct"},
                 {"name": "databricks-llama-8x7b-instruct"},
+            ],
+            "sql_warehouse": [{"name": "id123"}],
+            "uc_function": [
+                {"name": "rag.studio.test_function_1"},
+                {"name": "rag.studio.test_function_2"},
             ],
         },
     }
