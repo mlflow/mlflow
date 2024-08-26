@@ -70,21 +70,23 @@
 .json-table {
   width: 100%;
   border-collapse: collapse;
+  margin: 4px 0;
 }
 .json-table td {
-  padding: 4px 0px;
-  word-break: break-word; /* To handle long strings */
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  vertical-align: top;
 }
-/* Remove the border for the last row on the json table */
-.json-table tr:last-child td {
-  border-bottom: none;
-}
-
 .json-table td:first-child {
-  width: 30%; /* Sets the width for the key column */
+  width: 20%; /* Fixed width for key cells */
+  white-space: nowrap;
 }
 
+.json-table td:nth-child(2) {
+  width: 80%; /* Value cells take up the rest of the space */
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
 .truncate-text.single-line {
-  display: inline-block; /* Keeps the table layout inline */
-  /* white-space: nowrap; */
+  display: inline-block;
 }
