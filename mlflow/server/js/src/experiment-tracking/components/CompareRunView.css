@@ -67,3 +67,24 @@
 .compare-table > tbody > tr:hover:not(.diff-row) > td:not(.highlight-data) {
   background-color: rgb(250, 250, 250);
 }
+.json-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.json-table td {
+  padding: 4px 0px;
+  word-break: break-word; /* To handle long strings */
+}
+/* Remove the border for the last row on the json table */
+.json-table tr:last-child td {
+  border-bottom: none;
+}
+
+.json-table td:first-child {
+  width: 30%; /* Sets the width for the key column */
+}
+
+.truncate-text.single-line {
+  display: inline-block; /* Keeps the table layout inline */
+  /* white-space: nowrap; */
+}
