@@ -34,7 +34,7 @@ def test__parallelized_download_from_cloud(monkeypatch, future_result, expected_
     monkeypatch.setenv("_MLFLOW_MPD_NUM_RETRIES", 3)
     monkeypatch.setenv("_MLFLOW_MPD_RETRY_INTERVAL_SECONDS", 0)
 
-    with mock.patch("mlflow.store.artifact.cloud_artifact_repo.CloudArtifactRepository") as cloud_artifact_mock:
+    with (mock.patch("mlflow.store.artifact.cloud_artifact_repo.CloudArtifactRepository") as cloud_artifact_mock):
         cloud_artifact_instance = cloud_artifact_mock.return_value
 
         # Mock all methods except 'method_to_test'
@@ -78,6 +78,7 @@ def test__parallelized_download_from_cloud(monkeypatch, future_result, expected_
                 # Mocks
                 cloud_artifact_instance._get_read_credential_infos.return_value = [fake_credential]
                 cloud_artifact_instance._get_uri_for_path.return_value = "fake_uri_path"
+
                 cloud_artifact_instance.chunk_thread_pool.submit.return_value = future
 
                 #  Method Call
@@ -90,12 +91,12 @@ def test__parallelized_download_from_cloud(monkeypatch, future_result, expected_
                 #Assert
                 assert cloud_artifact_instance._get_read_credential_infos.call_count == expected_call_count
 
-                
-                assert cloud_artifact_instance.chunk_thread_pool.submit.assert_called_with(
+                for call in cloud_artifact_instance.chunk_thread_pool.submit.call_args_list:
+                    assert call == mock.call(
                         mock.ANY,
-                        range_start = fake_chunk_1.start,
-                        range_end = fake_chunk_1.end,
-                        headers = mock.ANY,
-                        download_path = "fake_local_path",
-                        http_uri = "fake_signed_uri",
+                        range_start=fake_chunk_1.start,
+                        range_end=fake_chunk_1.end,
+                        headers=mock.ANY,
+                        download_path="fake_local_path",
+                        http_uri="fake_signed_uri",
                     )
