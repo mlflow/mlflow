@@ -698,5 +698,20 @@ const mapStateToProps = (state: any, ownProps: any) => {
   };
 };
 
+/**
+ * Parse a Python dictionary in string format into a JSON object.
+ * @param value The Python dictionary string to parse
+ * @returns The parsed JSON object, or null if parsing fails
+ */
+const parsePythonDictString = (value: string) => {
+  try {
+    const jsonString = value.replace(/'/g, '"');
+    return JSON.parse(jsonString);
+  } catch (e) {
+    console.error('Failed to parse string to JSON:', e);
+    return null;
+  }
+};
+
 // @ts-expect-error TS(2769): No overload matches this call.
 export default connect(mapStateToProps)(injectIntl(CompareRunView));
