@@ -307,7 +307,7 @@ def from_polars(
             :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`.
             If unspecified, the source is assumed to be the code location
             (e.g. notebook cell, script, etc.) where
-            :py:func:`from_polars <mlflow.data.polars_dataset.from_polars>` is being called.
+            :py:func:`from_polars <mlflow.data.from_polars>` is being called.
         targets: An optional target column name for supervised training. This column
             must be present in ``df``.
         name: Name of the dataset. If unspecified, a name is generated.
