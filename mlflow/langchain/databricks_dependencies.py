@@ -58,49 +58,50 @@ def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None
 
 
 def _extract_databricks_dependencies_from_tools(tools) -> Generator[Resource, None, None]:
-    from langchain_community.tools import BaseTool
+    if isinstance(tools, list):
+        from langchain_community.tools import BaseTool
 
-    warehouse_ids = set()
-    for tool in tools:
-        if isinstance(tool, BaseTool):
-            # Handle Retriever tools
-            if hasattr(tool.func, "keywords") and "retriever" in tool.func.keywords:
-                retriever = tool.func.keywords.get("retriever")
-                yield from _get_vectorstore_from_retriever(retriever)
-            else:
-                try:
-                    from langchain_community.tools.databricks import UCFunctionToolkit
-                except Exception:
-                    continue
-                # Tools here are a part of the BaseTool and have no attribute of a
-                # WarehouseID Extract the global variables of the function defined
-                # in the tool to get the UCFunctionToolkit Constants
-                nonlocal_vars = inspect.getclosurevars(tool.func).nonlocals
-                if "self" in nonlocal_vars and isinstance(
-                    nonlocal_vars.get("self"), UCFunctionToolkit
-                ):
-                    uc_function_toolkit = nonlocal_vars.get("self")
-                    # As we are iterating through each tool, adding a warehouse id everytime
-                    # is a duplicative resouce. Use a set to dedup warehouse ids and add
-                    # them in the end
-                    warehouse_ids.add(uc_function_toolkit.warehouse_id)
+        warehouse_ids = set()
+        for tool in tools:
+            if isinstance(tool, BaseTool):
+                # Handle Retriever tools
+                if hasattr(tool.func, "keywords") and "retriever" in tool.func.keywords:
+                    retriever = tool.func.keywords.get("retriever")
+                    yield from _get_vectorstore_from_retriever(retriever)
+                else:
+                    try:
+                        from langchain_community.tools.databricks import UCFunctionToolkit
+                    except Exception:
+                        continue
+                    # Tools here are a part of the BaseTool and have no attribute of a
+                    # WarehouseID Extract the global variables of the function defined
+                    # in the tool to get the UCFunctionToolkit Constants
+                    nonlocal_vars = inspect.getclosurevars(tool.func).nonlocals
+                    if "self" in nonlocal_vars and isinstance(
+                        nonlocal_vars.get("self"), UCFunctionToolkit
+                    ):
+                        uc_function_toolkit = nonlocal_vars.get("self")
+                        # As we are iterating through each tool, adding a warehouse id everytime
+                        # is a duplicative resouce. Use a set to dedup warehouse ids and add
+                        # them in the end
+                        warehouse_ids.add(uc_function_toolkit.warehouse_id)
 
-                    # In langchain the names of the tools are modified to have underscores:
-                    # main.catalog.test_func -> main_catalog_test_func
-                    # The original name of the tool is stored as the key in the tools
-                    # dictionary. This code finds the correct tool and extract the key
-                    langchain_tool_name = tool.name
-                    filtered_tool_names = [
-                        tool_name
-                        for tool_name, uc_tool in uc_function_toolkit.tools.items()
-                        if uc_tool.name == langchain_tool_name
-                    ]
-                    # This should always have the length 1
-                    for tool_name in filtered_tool_names:
-                        yield DatabricksUCFunction(function_name=tool_name)
-    # Add the deduped warehouse ids
-    for warehouse_id in warehouse_ids:
-        yield DatabricksSQLWarehouse(warehouse_id=warehouse_id)
+                        # In langchain the names of the tools are modified to have underscores:
+                        # main.catalog.test_func -> main_catalog_test_func
+                        # The original name of the tool is stored as the key in the tools
+                        # dictionary. This code finds the correct tool and extract the key
+                        langchain_tool_name = tool.name
+                        filtered_tool_names = [
+                            tool_name
+                            for tool_name, uc_tool in uc_function_toolkit.tools.items()
+                            if uc_tool.name == langchain_tool_name
+                        ]
+                        # This should always have the length 1
+                        for tool_name in filtered_tool_names:
+                            yield DatabricksUCFunction(function_name=tool_name)
+        # Add the deduped warehouse ids
+        for warehouse_id in warehouse_ids:
+            yield DatabricksSQLWarehouse(warehouse_id=warehouse_id)
 
 
 def _extract_databricks_dependencies_from_retriever(retriever) -> Generator[Resource, None, None]:
@@ -159,27 +160,6 @@ def _extract_databricks_dependencies_from_tool_nodes(tool_node) -> Generator[Res
         )
 
 
-def _extract_databricks_dependencies_from_agent(
-    agent_executor,
-) -> Generator[Resource, None, None]:
-    # Tools are passed into a Langchain as Seq[BaseTool] part of an AgentExecutor
-    # This function looks for an AgentExecutor, extracts all the tools generated from
-    # UC Function Toolkit. From each of these tools it then extracts the Databricks
-    # SQL Warehouse ID and UC Function Names and adds them to resources.
-    from langchain.agents import AgentExecutor
-
-    if isinstance(agent_executor, AgentExecutor):
-        agent = agent_executor.agent
-
-        # Get the Dependencies for the LLM
-        if agent.llm_chain is not None:
-            yield from _extract_databricks_dependencies_from_chat_model(agent.llm_chain.llm)
-            yield from _extract_databricks_dependencies_from_llm(agent.llm_chain.llm)
-
-            tools = agent_executor.tools
-            yield from _extract_databricks_dependencies_from_tools(tools)
-
-
 _LEGACY_MODEL_ATTR_SET = {
     "llm",  # LLMChain
     "retriever",  # RetrievalQA
@@ -189,7 +169,9 @@ _LEGACY_MODEL_ATTR_SET = {
     "refine_llm_chain",  # RefineDocumentsChain
     "combine_documents_chain",  # RetrievalQA, ReduceDocumentsChain
     "combine_docs_chain",  # BaseConversationalRetrievalChain
-    "collapse_documents_chain",  # ReduceDocumentsChain
+    "collapse_documents_chain",  # ReduceDocumentsChain,
+    "agent",  # Agent,
+    "tools",  # Tools
 }
 
 
@@ -208,7 +190,11 @@ def _extract_dependency_list_from_lc_model(lc_model) -> Generator[Resource, None
     yield from _extract_databricks_dependencies_from_chat_model(lc_model)
     yield from _extract_databricks_dependencies_from_retriever(lc_model)
     yield from _extract_databricks_dependencies_from_llm(lc_model)
+
     if Version(langchain.__version__) >= Version("0.1.0"):
+        yield from _extract_databricks_dependencies_from_tools(lc_model)
+    # Langgraph needs langcahin version 0.2.0 or higher
+    if Version(langchain.__version__) >= Version("0.2.0"):
         yield from _extract_databricks_dependencies_from_tool_nodes(lc_model)
 
     # recursively inspect legacy chain
@@ -233,6 +219,7 @@ def _traverse_runnable(
     current_object_id = id(lc_model)
     if current_object_id in visited:
         return
+
     # Visit the current object
     visited.add(current_object_id)
     yield from _extract_dependency_list_from_lc_model(lc_model)
@@ -247,9 +234,6 @@ def _traverse_runnable(
 
 
 def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> List[Resource]:
-    import langchain
-    from langchain.agents import AgentExecutor
-
     """
     Detects the databricks dependencies of a langchain model and returns a list of
     detected endpoint names and index names.
@@ -271,12 +255,7 @@ def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> Li
     If a chat_model is found, it will be used to extract the databricks chat dependencies.
     """
     try:
-        if isinstance(lc_model, AgentExecutor) and Version(langchain.__version__) >= Version(
-            "0.1.0"
-        ):
-            dependency_list = list(_extract_databricks_dependencies_from_agent(lc_model))
-        else:
-            dependency_list = list(_traverse_runnable(lc_model))
+        dependency_list = list(_traverse_runnable(lc_model))
         # Filter out duplicate dependencies so same dependencies are not added multiple times
         # We can't use set here as the object is not hashable so we need to filter it out manually.
         unique_dependencies = []

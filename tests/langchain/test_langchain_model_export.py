@@ -1991,8 +1991,8 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.1.0"),
-    reason="Tools are not supported the way we want in earlier versions",
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Langgraph are not supported the way we want in earlier versions",
 )
 def test_databricks_dependency_extraction_from_langgraph_agent(monkeypatch):
     from langchain_community.chat_models import ChatDatabricks
