@@ -35,7 +35,6 @@ dependencies = [
   "numpy<2",
   "pandas<3",
   "pyarrow<16,>=4.0.0",
-  "querystring_parser<2",
   "scikit-learn<2",
   "scipy<2",
   "sqlalchemy<3,>=1.4.0",

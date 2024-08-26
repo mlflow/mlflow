@@ -1,14 +1,13 @@
 import logging
 import warnings
 
-import entrypoints
-
 from mlflow.tracking.request_header.databricks_request_header_provider import (
     DatabricksRequestHeaderProvider,
 )
 from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
 )
+from mlflow.utils.plugins import get_entry_points
 
 _logger = logging.getLogger(__name__)
 
@@ -22,7 +21,7 @@ class RequestHeaderProviderRegistry:
 
     def register_entrypoints(self):
         """Register tracking stores provided by other packages"""
-        for entrypoint in entrypoints.get_group_all("mlflow.request_header_provider"):
+        for entrypoint in get_entry_points("mlflow.request_header_provider"):
             try:
                 self.register(entrypoint.load())
             except (AttributeError, ImportError) as exc:

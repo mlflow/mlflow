@@ -1,10 +1,9 @@
 import warnings
 from abc import ABCMeta, abstractmethod
 
-import entrypoints
-
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.uri import get_uri_scheme
 
 
@@ -50,7 +49,7 @@ class StoreRegistry:
 
     def register_entrypoints(self):
         """Register tracking stores provided by other packages"""
-        for entrypoint in entrypoints.get_group_all(self.group_name):
+        for entrypoint in get_entry_points(self.group_name):
             try:
                 self.register(entrypoint.name, entrypoint.load())
             except (AttributeError, ImportError) as exc:

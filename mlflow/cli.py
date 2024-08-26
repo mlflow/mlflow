@@ -26,7 +26,8 @@ from mlflow.store.tracking import DEFAULT_ARTIFACTS_URI, DEFAULT_LOCAL_FILE_AND_
 from mlflow.tracking import _get_store
 from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.os import get_entry_points, is_windows
+from mlflow.utils.os import is_windows
+from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.server_cli_utils import (
     artifacts_only_config_validation,

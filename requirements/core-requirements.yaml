@@ -31,10 +31,6 @@ pandas:
   pip_release: pandas
   max_major_version: 2
 
-querystring_parser:
-  pip_release: querystring_parser
-  max_major_version: 1
-
 sqlalchemy:
   pip_release: sqlalchemy
   minimum: "1.4.0"

@@ -71,6 +71,9 @@ METADATA_FILES = [
 ]
 MODEL_CONFIG = "config"
 MODEL_CODE_PATH = "model_code_path"
+SET_MODEL_ERROR = (
+    "Model should either be an instance of PyFuncModel, Langchain type, or LlamaIndex index."
+)
 
 
 class ModelInfo:
@@ -1001,6 +1004,18 @@ def update_model_requirements(
 __mlflow_model__ = None
 
 
+def _validate_langchain_model(model):
+    from mlflow.langchain import _validate_and_prepare_lc_model_or_path
+
+    return _validate_and_prepare_lc_model_or_path(model, None)
+
+
+def _validate_llama_index_model(model):
+    from mlflow.llama_index import _validate_and_prepare_llama_index_model_or_path
+
+    return _validate_and_prepare_llama_index_model_or_path(model, None)
+
+
 @experimental
 def set_model(model):
     """
@@ -1008,24 +1023,26 @@ def set_model(model):
     to be logged.
 
     Args:
-        model: The model object to be logged.
+        model: The model object to be logged. Supported model types are:
+
+                - A Python function or callable object.
+                - A Langchain model or path to a Langchain model.
+                - A Llama Index model or path to a Llama Index model.
     """
     from mlflow.pyfunc import PythonModel
 
-    if not (isinstance(model, PythonModel) or callable(model)):
+    if isinstance(model, str):
+        raise mlflow.MlflowException(SET_MODEL_ERROR)
+
+    if isinstance(model, PythonModel) or callable(model):
+        globals()["__mlflow_model__"] = model
+        return
+
+    for validate_function in [_validate_langchain_model, _validate_llama_index_model]:
         try:
-            from mlflow.langchain import _validate_and_prepare_lc_model_or_path
+            globals()["__mlflow_model__"] = validate_function(model)
+            return
+        except Exception:
+            pass
 
-            # If its not a PyFuncModel, then it should be a Langchain model (not a path)
-            # Check this since the validation function does not
-            if isinstance(model, str):
-                raise mlflow.MlflowException(
-                    "Model should either be an instance of PyFuncModel or Langchain type."
-                )
-            model = _validate_and_prepare_lc_model_or_path(model, None)
-        except Exception as e:
-            raise mlflow.MlflowException(
-                "Model should either be an instance of PyFuncModel or Langchain type."
-            ) from e
-
-    globals()["__mlflow_model__"] = model
+    raise mlflow.MlflowException(SET_MODEL_ERROR)

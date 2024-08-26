@@ -3,23 +3,27 @@ const CORE_MAINTAINERS = new Set([
   "BenWilson2",
   "daniellok-db",
   "dbczumar",
+  "gabrielfu",
   "harupy",
   "serena-ruan",
   "WeichenXu123",
+  "xq-yin",
 ]);
 
-module.exports = async ({ github, context, core, reason }) => {
+module.exports = async ({ github, context, core }) => {
   const { data: reviews } = await github.rest.pulls.listReviews({
     owner: context.repo.owner,
     repo: context.repo.repo,
     pull_number: context.issue.number,
   });
-
-  const maintainerApprovals = reviews.filter(
-    (review) => review.state === "APPROVED" && CORE_MAINTAINERS.has(review.user.login)
+  const maintainerApproved = reviews.some(
+    ({ state, user: { login } }) => state === "APPROVED" && CORE_MAINTAINERS.has(login)
   );
-
-  if (maintainerApprovals.length === 0) {
-    core.setFailed(`This PR requires an approval from a core maintainer. Reason: ${reason}`);
+  if (!maintainerApproved) {
+    const maintainerList = Array.from(CORE_MAINTAINERS)
+      .map((maintainer) => `${maintainer}`)
+      .join(", ");
+    const message = `This PR requires an approval from at least one of core maintainers: ${maintainerList}.`;
+    core.setFailed(message);
   }
 };

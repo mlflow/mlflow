@@ -3633,3 +3633,22 @@ def test_peft_pipeline_copy_metadata_in_databricks(mock_is_in_databricks, peft_p
     else:
         assert not os.path.exists(metadata_path)
     mock_is_in_databricks.assert_called_once()
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda", 0, -1, None])
+def test_device_param_on_load_model(device, small_qa_pipeline, model_path, monkeypatch):
+    mlflow.transformers.save_model(small_qa_pipeline, path=model_path)
+    conf = mlflow.transformers.load_model(model_path, return_type="components", device=device)
+    assert conf.get("device") == device
+
+    monkeypatch.setenv("MLFLOW_HUGGINGFACE_USE_DEVICE_MAP", "true")
+    if device is None:
+        conf = mlflow.transformers.load_model(model_path, return_type="components", device=device)
+        assert conf.get("device") is None
+    else:
+        with pytest.raises(
+            MlflowException,
+            match=r"The environment variable MLFLOW_HUGGINGFACE_USE_DEVICE_MAP is set to True, "
+            rf"but the `device` argument is provided with value {device}.",
+        ):
+            mlflow.transformers.load_model(model_path, return_type="components", device=device)

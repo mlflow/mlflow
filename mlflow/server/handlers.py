@@ -477,31 +477,22 @@ def _get_request_json(flask_request=request):
 
 
 def _get_request_message(request_message, flask_request=request, schema=None):
-    from querystring_parser import parser
-
-    if flask_request.method == "GET" and len(flask_request.query_string) > 0:
-        # This is a hack to make arrays of length 1 work with the parser.
-        # for example experiment_ids%5B%5D=0 should be parsed to {experiment_ids: [0]}
-        # but it gets parsed to {experiment_ids: 0}
-        # but it doesn't. However, experiment_ids%5B0%5D=0 will get parsed to the right
-        # result.
-        query_string = re.sub("%5B%5D", "%5B0%5D", flask_request.query_string.decode("utf-8"))
-        request_dict = parser.parse(query_string, normalized=True)
+    if flask_request.method == "GET" and flask_request.args:
         # Convert atomic values of repeated fields to lists before calling protobuf deserialization.
         # Context: We parse the parameter string into a dictionary outside of protobuf since
         # protobuf does not know how to read the query parameters directly. The query parser above
         # has no type information and hence any parameter that occurs exactly once is parsed as an
         # atomic value. Since protobuf requires that the values of repeated fields are lists,
         # deserialization will fail unless we do the fix below.
+        request_json = {}
         for field in request_message.DESCRIPTOR.fields:
-            if (
-                field.label == descriptor.FieldDescriptor.LABEL_REPEATED
-                and field.name in request_dict
-            ):
-                if not isinstance(request_dict[field.name], list):
-                    request_dict[field.name] = [request_dict[field.name]]
-        request_json = request_dict
+            if field.name not in flask_request.args:
+                continue
 
+            if field.label == descriptor.FieldDescriptor.LABEL_REPEATED:
+                request_json[field.name] = flask_request.args.getlist(field.name)
+            else:
+                request_json[field.name] = flask_request.args.get(field.name)
     else:
         request_json = _get_request_json(flask_request)
 
@@ -611,12 +602,8 @@ def _disable_if_artifacts_only(func):
 
 @catch_mlflow_exception
 def get_artifact_handler():
-    from querystring_parser import parser
-
-    query_string = request.query_string.decode("utf-8")
-    request_dict = parser.parse(query_string, normalized=True)
-    run_id = request_dict.get("run_id") or request_dict.get("run_uuid")
-    path = request_dict["path"]
+    run_id = request.args.get("run_id") or request.args.get("run_uuid")
+    path = request.args["path"]
     path = validate_path_is_safe(path)
     run = _get_tracking_store().get_run(run_id)
 
@@ -1881,13 +1868,9 @@ def _create_model_version():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def get_model_version_artifact_handler():
-    from querystring_parser import parser
-
-    query_string = request.query_string.decode("utf-8")
-    request_dict = parser.parse(query_string, normalized=True)
-    name = request_dict.get("name")
-    version = request_dict.get("version")
-    path = request_dict["path"]
+    name = request.args.get("name")
+    version = request.args.get("version")
+    path = request.args["path"]
     path = validate_path_is_safe(path)
     artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
     if _is_servable_proxied_run_artifact_root(artifact_uri):
@@ -2502,11 +2485,7 @@ def _delete_trace_tag(request_id):
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def get_trace_artifact_handler():
-    from querystring_parser import parser
-
-    query_string = request.query_string.decode("utf-8")
-    request_dict = parser.parse(query_string, normalized=True)
-    request_id = request_dict.get("request_id")
+    request_id = request.args.get("request_id")
 
     if not request_id:
         raise MlflowException(
