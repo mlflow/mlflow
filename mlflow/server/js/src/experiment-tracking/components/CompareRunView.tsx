@@ -209,6 +209,32 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
       // @ts-expect-error TS(4111): Property 'onlyShowParamDiff' comes from an index s... Remove this comment to see the full error message
       this.state.onlyShowParamDiff,
       true,
+      (key: any, data: any) => key,
+      (value: any) => {
+        try {
+          const jsonValue = parsePythonDictString(value);
+
+          if (typeof jsonValue === 'object' && jsonValue !== null) {
+            // Render JSON as a nested table
+            return (
+              <table className="json-table">
+                {Object.keys(jsonValue).map((key) => (
+                  <tr key={key}>
+                    <td>{key}</td>
+                    <td>{JSON.stringify(jsonValue[key], null, 2)}</td>
+                  </tr>
+                ))}
+              </table>
+            );
+          } else {
+            // If it's a simple value (e.g. a number), return the original string
+            return value;
+          }
+        } catch (e) {
+          // If parsing fails, return the original string
+          return value;
+        }
+      },
     );
     if (dataRows.length === 0) {
       return (
