@@ -123,7 +123,6 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         storage
         """
         scoped_token = self._get_scoped_token(lineage_header_info=lineage_header_info)
-        print(scoped_token)
         if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:
             return PresignedUrlArtifactRepository(
                 get_databricks_host_creds(self.registry_uri), self.model_name, self.model_version

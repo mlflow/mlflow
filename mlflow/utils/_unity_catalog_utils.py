@@ -133,6 +133,7 @@ def get_artifact_repo_from_storage_info(
         base_credential_refresh_def: Function that returns temporary credentials for accessing blob
         storage. It is first used to determine the type of blob storage and to access it. It is then
         passed to the relevant ArtifactRepository implementation to refresh credentials as needed.
+        is_oss: Whether the user is using the OSS version of Unity Catalog
     """
     try:
         if is_oss:
