@@ -8,10 +8,10 @@ from packaging.version import Version
 
 from mlflow.langchain.databricks_dependencies import (
     _detect_databricks_dependencies,
-    _extract_databricks_dependencies_from_agent,
     _extract_databricks_dependencies_from_chat_model,
     _extract_databricks_dependencies_from_llm,
     _extract_databricks_dependencies_from_retriever,
+    _extract_dependency_list_from_lc_model,
 )
 from mlflow.langchain.utils import IS_PICKLE_SERIALIZATION_RESTRICTED
 from mlflow.models.resources import (
@@ -293,7 +293,7 @@ def test_parsing_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
         verbose=True,
     )
 
-    resources = list(_extract_databricks_dependencies_from_agent(agent))
+    resources = list(_extract_dependency_list_from_lc_model(agent))
     assert resources == [
         DatabricksUCFunction(function_name="rag.test.test_function"),
         DatabricksSQLWarehouse(warehouse_id="testId1"),
@@ -390,7 +390,7 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch)
         chat_model,
         verbose=True,
     )
-    resources = list(_extract_databricks_dependencies_from_agent(agent))
+    resources = list(_extract_dependency_list_from_lc_model(agent))
     # Ensure all resources are added in
     expected = [
         DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat"),
