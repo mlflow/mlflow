@@ -65,7 +65,7 @@ message CreateRegisteredModel {
 
 message DeleteRegisteredModel {
   // Required. Full name of the model.
-  optional string full_name = 1 [(validate_required) = true];
+  optional string full_name = 1;
   // Optional. Force deletion even if the registered model is not empty. Default is false.
   optional bool force = 2;
 
@@ -78,7 +78,7 @@ message GetRegisteredModel {
   optional string full_name = 1 [(validate_required) = true];
 
   message Response {
-    optional RegisteredModelInfo registered_model_info = 1 [(json_inline) = true];
+    optional RegisteredModelInfo registered_model_info = 1;
   }
 }
 
@@ -182,7 +182,7 @@ message FinalizeModelVersion {
   optional int64 version = 2;
 
   message Response {
-    optional ModelVersionInfo model_version_info = 1 [(json_inline) = true];
+    optional ModelVersionInfo model_version_info = 1;
   }
 }
 
@@ -195,7 +195,7 @@ message GetModelVersion {
   optional int64 version = 2;
 
   message Response {
-    optional ModelVersionInfo model_version_info = 1 [(json_inline) = true];
+    optional ModelVersionInfo model_version_info = 1;
   }
 }
 
