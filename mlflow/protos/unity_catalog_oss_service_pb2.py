@@ -49,6 +49,10 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_UNITYCATALOGSERVICE'].methods_by_name['updateModelVersion']._serialized_options = b'\362\206\031G\nC\n\005PATCH\0224/unity-catalog/models/{full_name}/versions/{version}\032\004\010\002\020\001\020\003'
     _globals['_UNITYCATALOGSERVICE']._serialized_start=132
     _globals['_UNITYCATALOGSERVICE']._serialized_end=1797
+    _globals['_UNITYCATALOGSERVICE'].methods_by_name['generateTemporaryModelVersionCredential']._loaded_options = None
+    _globals['_UNITYCATALOGSERVICE'].methods_by_name['generateTemporaryModelVersionCredential']._serialized_options = b'\362\206\031D\n@\n\004POST\0222/unity-catalog/temporary-model-version-credentials\032\004\010\002\020\001\020\003'
+    _globals['_UNITYCATALOGSERVICE']._serialized_start=132
+    _globals['_UNITYCATALOGSERVICE']._serialized_end=572
   _builder.BuildServices(DESCRIPTOR, 'unity_catalog_oss_service_pb2', _globals)
   # @@protoc_insertion_point(module_scope)
 
@@ -103,6 +107,10 @@ else:
     _UNITYCATALOGSERVICE.methods_by_name['updateModelVersion']._serialized_options = b'\362\206\031G\nC\n\005PATCH\0224/unity-catalog/models/{full_name}/versions/{version}\032\004\010\002\020\001\020\003'
     _UNITYCATALOGSERVICE._serialized_start=132
     _UNITYCATALOGSERVICE._serialized_end=1797
+    _UNITYCATALOGSERVICE.methods_by_name['generateTemporaryModelVersionCredential']._options = None
+    _UNITYCATALOGSERVICE.methods_by_name['generateTemporaryModelVersionCredential']._serialized_options = b'\362\206\031D\n@\n\004POST\0222/unity-catalog/temporary-model-version-credentials\032\004\010\002\020\001\020\003'
+    _UNITYCATALOGSERVICE._serialized_start=132
+    _UNITYCATALOGSERVICE._serialized_end=572
   UnityCatalogService = service_reflection.GeneratedServiceType('UnityCatalogService', (_service.Service,), dict(
     DESCRIPTOR = _UNITYCATALOGSERVICE,
     __module__ = 'unity_catalog_oss_service_pb2'
