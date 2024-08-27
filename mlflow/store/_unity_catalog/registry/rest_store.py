@@ -194,6 +194,11 @@ def get_model_version_dependencies(model_dir):
         )
         for endpoint_name in endpoint_names:
             dependencies.append({"type": "DATABRICKS_MODEL_ENDPOINT", **endpoint_name})
+        function_names = _fetch_langchain_dependency_from_model_info(
+            databricks_dependencies, ResourceType.UC_FUNCTION.value
+        )
+        for function_name in function_names:
+            dependencies.append({"type": "DATABRICKS_UC_FUNCTION", **function_name})
     else:
         # These types of dependencies are required for old models that didn't use
         # resources so they can be registered correctly to UC
