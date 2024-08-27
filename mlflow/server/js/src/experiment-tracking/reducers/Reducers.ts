@@ -25,7 +25,7 @@ import { Param, RunTag, ExperimentTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { metricsByRunUuid, latestMetricsByRunUuid, minMetricsByRunUuid, maxMetricsByRunUuid } from './MetricReducer';
 import modelRegistryReducers from '../../model-registry/reducers';
-import _, { isArray, merge, update } from 'lodash';
+import _, { isArray, isEqual, merge, update } from 'lodash';
 import { fulfilled, isFulfilledApi, isPendingApi, isRejectedApi, rejected } from '../../common/utils/ActionUtils';
 import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';
 import { getProtoField } from '../../model-registry/utils';
@@ -189,6 +189,40 @@ export const runInfosByUuid = (state = {}, action: any) => {
         });
       }
       return newState;
+    }
+    default:
+      return state;
+  }
+};
+
+export const runInfoOrderByUuid = (state: string[] = [], action: any) => {
+  switch (action.type) {
+    case fulfilled(SEARCH_RUNS_API): {
+      const newState: Set<string> = new Set();
+      if (action.payload && action.payload.runs) {
+        action.payload.runs.forEach((rJson: any) => {
+          const runInfo: RunInfoEntity = rJson.info;
+          newState.add(runInfo.runUuid);
+        });
+      }
+      const newStateArray = Array.from(newState);
+      if (isEqual(state, newStateArray)) {
+        return state;
+      }
+      return newStateArray;
+    }
+    case fulfilled(LOAD_MORE_RUNS_API): {
+      const newState: Set<string> = new Set(state);
+      if (action.payload && action.payload.runs) {
+        action.payload.runs.forEach((rJson: any) => {
+          const runInfo: RunInfoEntity = rJson.info;
+          newState.add(runInfo.runUuid);
+        });
+      }
+      return Array.from(newState);
+    }
+    case rejected(SEARCH_RUNS_API): {
+      return [];
     }
     default:
       return state;
@@ -510,6 +544,7 @@ export const datasetsByExperimentId = (state = {}, action: any) => {
 export const entities = combineReducers({
   experimentsById,
   runInfosByUuid,
+  runInfoOrderByUuid,
   runDatasetsByUuid,
   runUuidsMatchingFilter,
   metricsByRunUuid,

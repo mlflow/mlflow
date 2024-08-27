@@ -1,13 +1,14 @@
 import { openDropdownMenu } from '@databricks/design-system/test-utils/rtl';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
-import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
+import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import Utils from '../../../common/utils/Utils';
 import { ReduxState } from '../../../redux-types';
 import { RunViewHeaderRegisterModelButton } from './RunViewHeaderRegisterModelButton';
 import { DesignSystemProvider, DesignSystemThemeProvider } from '@databricks/design-system';
-import userEvent from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event-14';
 import { createModelVersionApi, createRegisteredModelApi } from '../../../model-registry/actions';
+import { KeyValueEntity } from '../../types';
 
 jest.mock('../../../model-registry/actions', () => ({
   searchRegisteredModelsApi: jest.fn(() => ({ type: 'MOCKED_ACTION', payload: Promise.resolve() })),
@@ -19,16 +20,18 @@ jest.mock('../../../model-registry/actions', () => ({
 const runUuid = 'testRunUuid';
 const experimentId = 'testExperimentId';
 
-const testArtifactRootUriByRunUuid = { [runUuid]: 'file://some/artifact/path' };
-
-jest.setTimeout(30000); // Larget timeout for integration testing
+jest.setTimeout(30000); // Larger timeout for integration testing
 
 describe('RunViewHeaderRegisterModelButton integration', () => {
-  const mountComponent = (
-    entities: Partial<
-      Pick<ReduxState['entities'], 'modelVersionsByRunUuid' | 'tagsByRunUuid' | 'artifactRootUriByRunUuid'>
-    > = {},
-  ) => {
+  const mountComponent = ({
+    entities = {},
+    tags = {},
+    artifactRootUri,
+  }: {
+    artifactRootUri?: string;
+    tags?: Record<string, KeyValueEntity>;
+    entities?: Partial<Pick<ReduxState['entities'], 'modelVersionsByRunUuid'>>;
+  } = {}) => {
     renderWithIntl(
       <MemoryRouter>
         <DesignSystemProvider>
@@ -36,15 +39,18 @@ describe('RunViewHeaderRegisterModelButton integration', () => {
             state={{
               entities: {
                 modelVersionsByRunUuid: {},
-                tagsByRunUuid: {},
-                artifactRootUriByRunUuid: testArtifactRootUriByRunUuid,
                 modelByName: { 'existing-model': { name: 'existing-model', version: '1' } },
                 ...entities,
               },
             }}
           >
             <div data-testid="container">
-              <RunViewHeaderRegisterModelButton runUuid={runUuid} experimentId={experimentId} />
+              <RunViewHeaderRegisterModelButton
+                runTags={tags}
+                artifactRootUri={artifactRootUri}
+                runUuid={runUuid}
+                experimentId={experimentId}
+              />
             </div>
           </MockedReduxStoreProvider>
         </DesignSystemProvider>
@@ -54,65 +60,59 @@ describe('RunViewHeaderRegisterModelButton integration', () => {
 
   test('should render button and dropdown for multiple models, at least one unregistered and attempt to register a model', async () => {
     mountComponent({
-      modelVersionsByRunUuid: {
-        [runUuid]: [
-          {
-            source: `${testArtifactRootUriByRunUuid[runUuid]}/artifact_path`,
-            version: '7',
-            name: 'test-model',
-          },
-        ] as any,
+      artifactRootUri: 'file://some/artifact/path',
+      entities: {
+        modelVersionsByRunUuid: {
+          [runUuid]: [
+            {
+              source: `file://some/artifact/path/artifact_path`,
+              version: '7',
+              name: 'test-model',
+            },
+          ] as any,
+        },
       },
-      tagsByRunUuid: {
-        [runUuid]: {
-          [Utils.loggedModelsTag]: {
-            key: Utils.loggedModelsTag,
-            value: JSON.stringify([
-              {
-                artifact_path: 'artifact_path',
-                signature: {
-                  inputs: '[]',
-                  outputs: '[]',
-                  params: null,
-                },
-                flavors: {},
-                run_id: runUuid,
-                model_uuid: 12345,
+      tags: {
+        [Utils.loggedModelsTag]: {
+          key: Utils.loggedModelsTag,
+          value: JSON.stringify([
+            {
+              artifact_path: 'artifact_path',
+              signature: {
+                inputs: '[]',
+                outputs: '[]',
+                params: null,
               },
-              {
-                artifact_path: 'another_artifact_path',
-                signature: {
-                  inputs: '[]',
-                  outputs: '[]',
-                  params: null,
-                },
-                flavors: {},
-                run_id: runUuid,
-                model_uuid: 12345,
+              flavors: {},
+              run_id: runUuid,
+              model_uuid: 12345,
+            },
+            {
+              artifact_path: 'another_artifact_path',
+              signature: {
+                inputs: '[]',
+                outputs: '[]',
+                params: null,
               },
-            ]),
-          } as any,
+              flavors: {},
+              run_id: runUuid,
+              model_uuid: 12345,
+            },
+          ]),
         },
       },
     });
 
-    await act(async () => {
-      await openDropdownMenu(screen.getByRole('button', { name: 'Register model' }));
-    });
+    await userEvent.type(screen.getByRole('button', { name: 'Register model' }), '{arrowdown}');
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('menuitem', { name: /^another_artifact_path/ }));
-      userEvent.click(screen.getByText('Select a model'));
-    });
+    await userEvent.click(screen.getByRole('menuitem', { name: /^another_artifact_path/ }));
+    await userEvent.click(screen.getByText('Select a model'));
 
-    await act(async () => {
-      userEvent.click(screen.getByText('Create New Model'));
-    });
+    await userEvent.click(screen.getByText('Create New Model'));
 
-    await act(async () => {
-      userEvent.paste(screen.getByPlaceholderText('Input a model name'), 'a-new-model');
-      userEvent.click(screen.getByRole('button', { name: 'Register' }));
-    });
+    await userEvent.click(screen.getByPlaceholderText('Input a model name'));
+    await userEvent.paste('a-new-model');
+    await userEvent.click(screen.getByRole('button', { name: 'Register' }));
 
     expect(createRegisteredModelApi).toBeCalledWith('a-new-model', expect.anything());
     expect(createModelVersionApi).toBeCalledWith(

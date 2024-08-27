@@ -10,6 +10,7 @@ import { FormattedMessage } from 'react-intl';
 import { Empty } from '@databricks/design-system';
 import { RunsChartsCard } from './cards/RunsChartsCard';
 import type { RunsGroupByConfig } from '../../experiment-page/utils/experimentPage.group-row-utils';
+import type { RunsChartsGlobalLineChartConfig } from '../../experiment-page/models/ExperimentPageUIState';
 
 export interface RunsChartsProps {
   sectionId: string;
@@ -25,6 +26,7 @@ export interface RunsChartsProps {
   setFullScreenChart: RunsChartCardSetFullscreenFn;
   autoRefreshEnabled?: boolean;
   hideEmptyCharts?: boolean;
+  globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
 }
 
 export const RunsCharts = ({
@@ -41,6 +43,7 @@ export const RunsCharts = ({
   setFullScreenChart,
   autoRefreshEnabled,
   hideEmptyCharts,
+  globalLineChartConfig,
 }: RunsChartsProps) => {
   const { theme } = useDesignSystemTheme();
 
@@ -159,7 +162,6 @@ export const RunsCharts = ({
                     onStartEditChart={onStartEditChart}
                     onRemoveChart={onRemoveChart}
                     setFullScreenChart={setFullScreenChart}
-                    onReorderCharts={onReorderCharts}
                     index={index}
                     sectionIndex={sectionIndex}
                     groupBy={groupBy}
@@ -192,13 +194,13 @@ export const RunsCharts = ({
               onStartEditChart={onStartEditChart}
               onRemoveChart={onRemoveChart}
               setFullScreenChart={setFullScreenChart}
-              onReorderCharts={onReorderCharts}
               index={index}
               sectionIndex={sectionIndex}
               groupBy={groupBy}
               autoRefreshEnabled={autoRefreshEnabled}
               hideEmptyCharts={hideEmptyCharts}
               key={`${cardConfig.uuid}-${index}-${sectionIndex}`}
+              globalLineChartConfig={globalLineChartConfig}
               {...reorderProps}
             />
           );

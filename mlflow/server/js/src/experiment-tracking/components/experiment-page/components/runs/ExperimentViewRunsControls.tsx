@@ -172,7 +172,10 @@ export const ExperimentViewRunsControls = React.memo(
                 )}
 
                 {!isComparingRuns && multipleDatasetsArePresent && (
-                  <ToggleButton onClick={toggleExpandedRows}>
+                  <ToggleButton
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrols.tsx_175"
+                    onClick={toggleExpandedRows}
+                  >
                     <FormattedMessage
                       defaultMessage="Expand rows"
                       description="Label for the expand rows button above the experiment runs table"

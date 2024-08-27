@@ -13,7 +13,7 @@ export const RunsChartsConfigureField = ({
   compact = false,
   children,
 }: PropsWithChildren<{
-  title: string;
+  title: React.ReactNode;
   compact?: boolean;
 }>) => {
   const { theme } = useDesignSystemTheme();

@@ -12,6 +12,7 @@ export const TracesViewTableHeaderCheckbox = ({ table }: TracesViewTableCheckbox
 
   return (
     <Checkbox
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_traces_tracesviewtableheadercheckbox.tsx_14"
       data-testid="trace-table-header-checkbox"
       isChecked={isChecked}
       wrapperStyle={{ padding: 0, margin: 0 }}

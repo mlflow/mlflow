@@ -228,7 +228,11 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
         description="Tooltip content for the disabled stage metadata in model version page"
         values={{
           link: (chunks: any) => (
-            <Typography.Link href={modelStagesMigrationGuideLink} openInNewTab>
+            <Typography.Link
+              componentId="codegen_mlflow_app_src_model-registry_components_modelversionview.tsx_301"
+              href={modelStagesMigrationGuideLink}
+              openInNewTab
+            >
               {chunks}
             </Typography.Link>
           ),

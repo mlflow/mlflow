@@ -1,12 +1,14 @@
 import { IntlProvider } from 'react-intl';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
-import { render, screen, cleanup } from '../../../common/utils/TestUtils.react18';
+import { render, screen, cleanup, act } from '../../../common/utils/TestUtils.react18';
 import { RunViewMetricChartsV2 } from './RunViewMetricChartsV2';
 import { DeepPartial } from 'redux';
 import { ReduxState } from '../../../redux-types';
 import { type RunsChartsBarChartCardProps } from '../runs-charts/components/cards/RunsChartsBarChartCard';
 import { RunsChartsLineChartCardProps } from '../runs-charts/components/cards/RunsChartsLineChartCard';
 import userEvent from '@testing-library/user-event-14';
+import { shouldUseRegexpBasedChartFiltering } from '../../../common/utils/FeatureUtils';
+import type { MetricEntitiesByName } from '../../types';
 
 // Mock plot components, as they are not relevant to this test and would hog a lot of resources
 jest.mock('../runs-charts/components/cards/RunsChartsBarChartCard', () => ({
@@ -20,43 +22,38 @@ jest.mock('../runs-charts/components/cards/RunsChartsLineChartCard', () => ({
   },
 }));
 
+jest.mock('../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual('../../../common/utils/FeatureUtils'),
+  shouldUseRegexpBasedChartFiltering: jest.fn().mockReturnValue(false),
+}));
+
 const testRunUuid = 'test_run_uuid';
 const testMetricKeys = ['metric_1', 'metric_2', 'system/gpu_1', 'system/gpu_2'];
 
-const testReduxStore: DeepPartial<ReduxState> = {
-  entities: {
-    sampledMetricsByRunUuid: {},
-    latestMetricsByRunUuid: {
-      test_run_uuid: {
-        metric_1: {
-          key: 'metric_1',
-          step: 0,
-          timestamp: 0,
-          value: 1000,
-        },
-        metric_2: {
-          key: 'metric_2',
-          step: 5,
-          timestamp: 0,
-          value: 2000,
-        },
-        'system/gpu_1': {
-          key: 'system/gpu_1',
-          step: 10,
-          timestamp: 10,
-          value: 2000,
-        },
-        'system/gpu_2': {
-          key: 'system/gpu_1',
-          step: 10,
-          timestamp: 10,
-          value: 2000,
-        },
-      },
-    },
-    paramsByRunUuid: {},
-    tagsByRunUuid: {},
-    imagesByRunUuid: {},
+const testMetrics: MetricEntitiesByName = {
+  metric_1: {
+    key: 'metric_1',
+    step: 0,
+    timestamp: 0,
+    value: 1000,
+  },
+  metric_2: {
+    key: 'metric_2',
+    step: 5,
+    timestamp: 0,
+    value: 2000,
+  },
+  'system/gpu_1': {
+    key: 'system/gpu_1',
+    step: 10,
+    timestamp: 10,
+    value: 2000,
+  },
+  'system/gpu_2': {
+    key: 'system/gpu_1',
+    step: 10,
+    timestamp: 10,
+    value: 2000,
   },
 };
 
@@ -67,22 +64,25 @@ describe('RunViewMetricChartsV2', () => {
   const renderComponent = ({
     mode = 'model',
     metricKeys = testMetricKeys,
-    store = testReduxStore,
+    metrics = testMetrics,
   }: {
     mode?: 'model' | 'system';
     metricKeys?: string[];
-    store?: DeepPartial<ReduxState>;
+    metrics?: MetricEntitiesByName;
   } = {}) => {
     const runInfo = {
       runUuid: testRunUuid,
     } as any;
-    return render(<RunViewMetricChartsV2 runInfo={runInfo} metricKeys={metricKeys} mode={mode} />, {
-      wrapper: ({ children }) => (
-        <MockedReduxStoreProvider state={store}>
-          <IntlProvider locale="en">{children}</IntlProvider>
-        </MockedReduxStoreProvider>
-      ),
-    });
+    return render(
+      <RunViewMetricChartsV2 runInfo={runInfo} metricKeys={metricKeys} mode={mode} latestMetrics={metrics} />,
+      {
+        wrapper: ({ children }) => (
+          <MockedReduxStoreProvider state={{ entities: { sampledMetricsByRunUuid: {}, imagesByRunUuid: {} } }}>
+            <IntlProvider locale="en">{children}</IntlProvider>
+          </MockedReduxStoreProvider>
+        ),
+      },
+    );
   };
 
   it('renders bar charts for two model metrics', async () => {
@@ -107,10 +107,7 @@ describe('RunViewMetricChartsV2', () => {
     renderComponent({
       mode: 'system',
       metricKeys: [],
-      store: {
-        ...testReduxStore,
-        entities: { ...testReduxStore.entities, latestMetricsByRunUuid: { test_run_uuid: {} } },
-      },
+      metrics: {},
     });
 
     expect(screen.queryAllByTestId('test-bar-plot')).toHaveLength(0);
@@ -119,7 +116,7 @@ describe('RunViewMetricChartsV2', () => {
     expect(screen.getByText('No charts in this section')).toBeInTheDocument();
   });
 
-  it('filters metric charts by name', async () => {
+  it('filters metric charts by name (simple)', async () => {
     renderComponent();
     expect(screen.getByText('Bar plot for metric_1')).toBeInTheDocument();
     expect(screen.getByText('Line plot for metric_2')).toBeInTheDocument();
@@ -131,6 +128,30 @@ describe('RunViewMetricChartsV2', () => {
     // Filter out all charts
     await userEvent.type(screen.getByRole('searchbox'), 'some_metric');
     expect(screen.getByText(/All charts are filtered/)).toBeInTheDocument();
+  });
+
+  it('filters metric charts by name (regexp)', async () => {
+    jest.mocked(shouldUseRegexpBasedChartFiltering).mockReturnValue(true);
+    jest.useFakeTimers();
+    const userEventWithTimers = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+
+    renderComponent();
+    expect(screen.getByText('Bar plot for metric_1')).toBeInTheDocument();
+    expect(screen.getByText('Line plot for metric_2')).toBeInTheDocument();
+
+    // Filter out one particular chart using regexp
+    // Note: in RTL, we need to use [[ to represent [
+    await userEventWithTimers.type(screen.getByRole('searchbox'), 'm.tric_[[2]$');
+
+    // Wait for filter input debounce
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+
+    expect(screen.queryByText('Line plot for metric_2')).toBeInTheDocument();
+    expect(screen.queryByText('Bar plot for metric_1')).not.toBeInTheDocument();
+
+    jest.useRealTimers();
   });
 
   it('adds new charts and sections when new metrics are detected', async () => {
@@ -145,7 +166,7 @@ describe('RunViewMetricChartsV2', () => {
     cleanup();
 
     const newMetrics = {
-      ...(testReduxStore.entities?.latestMetricsByRunUuid?.[testRunUuid] || {}),
+      ...testMetrics,
       metric_3: {
         key: 'metric_3',
         step: 5,
@@ -167,10 +188,7 @@ describe('RunViewMetricChartsV2', () => {
     };
 
     renderComponent({
-      store: {
-        ...testReduxStore,
-        entities: { ...testReduxStore.entities, latestMetricsByRunUuid: { test_run_uuid: newMetrics } },
-      },
+      metrics: newMetrics,
     });
 
     // Assert new charts

@@ -67,6 +67,7 @@ class RenameFormComponent extends Component<Props> {
           label={`New ${this.props.type} name`}
         >
           <Input
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_modals_renameform.tsx_69"
             placeholder={`Input a ${this.props.type} name`}
             ref={this.autoFocusInputRef}
             data-testid="rename-modal-input"

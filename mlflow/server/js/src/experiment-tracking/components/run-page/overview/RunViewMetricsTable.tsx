@@ -59,34 +59,39 @@ const RunViewMetricsTableSection = ({
           </TableCell>
         </TableRow>
       )}
-      {metricsList.map(({ key, value }) => (
-        <TableRow key={key}>
-          <TableCell
-            style={{
-              flexGrow: 0,
-              flexBasis: keyColumn.getSize(),
-            }}
-          >
-            <Link to={Routes.getMetricPageRoute([runInfo.runUuid ?? ''], key, [runInfo.experimentId ?? ''])}>
-              {key}
-            </Link>
-          </TableCell>
-          <TableCell
-            css={{
-              flexGrow: 1,
-            }}
-          >
-            {value.toString()}
-          </TableCell>
-        </TableRow>
-      ))}
+      {metricsList.map(
+        ({
+          // Get metric key and value to display in table
+          key,
+          value,
+        }) => (
+          <TableRow key={key}>
+            <TableCell
+              style={{
+                flexGrow: 0,
+                flexBasis: keyColumn.getSize(),
+              }}
+            >
+              <Link to={Routes.getMetricPageRoute([runInfo.runUuid ?? ''], key, [runInfo.experimentId ?? ''])}>
+                {key}
+              </Link>
+            </TableCell>
+            <TableCell
+              css={{
+                flexGrow: 1,
+              }}
+            >
+              {value.toString()}
+            </TableCell>
+          </TableRow>
+        ),
+      )}
     </>
   ) : null;
 };
 
 /**
  * Displays table with metrics key/values in run detail overview.
- * TODO: implement min/max/last values after backend discussion is settled.
  */
 export const RunViewMetricsTable = ({
   latestMetrics,
@@ -182,6 +187,7 @@ export const RunViewMetricsTable = ({
       <>
         <div css={{ marginBottom: theme.spacing.sm }}>
           <Input
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewmetricstable.tsx_186"
             prefix={<SearchIcon />}
             placeholder={intl.formatMessage({
               defaultMessage: 'Search metrics',

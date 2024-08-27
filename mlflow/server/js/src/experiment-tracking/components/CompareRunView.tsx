@@ -7,7 +7,7 @@
 
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { injectIntl, FormattedMessage } from 'react-intl';
+import { injectIntl, FormattedMessage, type IntlShape } from 'react-intl';
 import { Spacer, Switch, Tabs, LegacyTooltip } from '@databricks/design-system';
 
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
@@ -40,9 +40,7 @@ type CompareRunViewProps = {
   tagLists: any[][];
   runNames: string[];
   runDisplayNames: string[];
-  intl: {
-    formatMessage: (...args: any[]) => any;
-  };
+  intl: IntlShape;
 };
 
 type CompareRunViewState = any;
@@ -557,6 +555,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
         </CollapsibleSection>
         <CollapsibleSection title={paramsLabel}>
           <Switch
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunview.tsx_570"
             label={diffOnlyLabel}
             aria-label={[paramsLabel, diffOnlyLabel].join(' - ')}
             // @ts-expect-error TS(4111): Property 'onlyShowParamDiff' comes from an index s... Remove this comment to see the full error message
@@ -568,6 +567,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
         </CollapsibleSection>
         <CollapsibleSection title={metricsLabel}>
           <Switch
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunview.tsx_581"
             label={diffOnlyLabel}
             aria-label={[metricsLabel, diffOnlyLabel].join(' - ')}
             // @ts-expect-error TS(4111): Property 'onlyShowMetricDiff' comes from an index ... Remove this comment to see the full error message
@@ -579,6 +579,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
         </CollapsibleSection>
         <CollapsibleSection title={tagsLabel}>
           <Switch
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunview.tsx_592"
             label={diffOnlyLabel}
             aria-label={[tagsLabel, diffOnlyLabel].join(' - ')}
             // @ts-expect-error TS(4111): Property 'onlyShowTagDiff' comes from an index sig... Remove this comment to see the full error message
@@ -673,6 +674,10 @@ const mapStateToProps = (state: any, ownProps: any) => {
   const experiments = experimentIds.map((experimentId: any) => getExperiment(experimentId, state));
   runUuids.forEach((runUuid: any) => {
     const runInfo = getRunInfo(runUuid, state);
+    // Skip processing data if run info is not available yet
+    if (!runInfo) {
+      return;
+    }
     runInfos.push(runInfo);
     metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
     paramLists.push(Object.values(getParams(runUuid, state)));
@@ -698,5 +703,4 @@ const mapStateToProps = (state: any, ownProps: any) => {
   };
 };
 
-// @ts-expect-error TS(2769): No overload matches this call.
 export default connect(mapStateToProps)(injectIntl(CompareRunView));

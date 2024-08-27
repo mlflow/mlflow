@@ -28,7 +28,7 @@ export class DirectTransitionFormImpl extends React.Component<Props> {
         {/* prettier-ignore */}
         {toStage && ACTIVE_STAGES.includes(toStage) && (
           <Form.Item name="archiveExistingVersions" initialValue="true" valuePropName="checked" preserve={false}>
-            <Checkbox>
+            <Checkbox componentId="codegen_mlflow_app_src_model-registry_components_directtransitionform.tsx_56">
               <LegacyTooltip title={archiveExistingVersionToolTipText(toStage)}>
                 <FormattedMessage
                   defaultMessage="Transition existing {currentStage} model versions to

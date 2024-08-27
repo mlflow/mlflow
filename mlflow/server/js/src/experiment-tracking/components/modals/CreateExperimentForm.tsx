@@ -49,6 +49,7 @@ class CreateExperimentFormComponent extends Component<Props> {
           ]}
         >
           <Input
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_modals_createexperimentform.tsx_51"
             placeholder={this.props.intl.formatMessage({
               defaultMessage: 'Input an experiment name',
               description: 'Input placeholder to enter experiment name for create experiment',
@@ -69,6 +70,7 @@ class CreateExperimentFormComponent extends Component<Props> {
           ]}
         >
           <Input
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_modals_createexperimentform.tsx_71"
             placeholder={this.props.intl.formatMessage({
               defaultMessage: 'Input an artifact location (optional)',
               description: 'Input placeholder to enter artifact location for create experiment',
