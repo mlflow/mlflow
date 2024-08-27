@@ -118,7 +118,7 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
         )
         oss_response_proto = GenerateTemporaryModelVersionCredentialsOSS.Response()
         return call_endpoint(
-            host_creds=oss_creds,
+            host_creds=None,
             endpoint=oss_endpoint,
             method=oss_method,
             json_body=oss_req_body,
