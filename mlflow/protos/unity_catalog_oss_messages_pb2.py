@@ -20,7 +20,7 @@ if Version(google.protobuf.__version__).major >= 5:
   from . import databricks_pb2 as databricks__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n unity_catalog_oss_messages.proto\x12\x13mlflow.unitycatalog\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\xb5\x01\n\x15\x43reateRegisteredModel\x12G\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfo\x1aS\n\x08Response\x12G\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfo\"\x8a\x04\n\x13RegisteredModelInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\r\n\x05owner\x18\x04 \x01(\t\x12\x0f\n\x07\x63omment\x18\x05 \x01(\t\x12.\n\x04tags\x18\x14 \x03(\x0b\x32 .mlflow.unitycatalog.TagKeyValue\x12\x18\n\x10storage_location\x18\x06 \x01(\t\x12\x14\n\x0cmetastore_id\x18\x07 \x01(\t\x12\x11\n\tfull_name\x18\t \x01(\t\x12\x12\n\ncreated_at\x18\x0b \x01(\x03\x12\x12\n\ncreated_by\x18\x0c \x01(\t\x12\x12\n\nupdated_at\x18\r \x01(\x03\x12\x12\n\nupdated_by\x18\x0e \x01(\t\x12:\n\x0esecurable_type\x18\x0f \x01(\x0e\x32\".mlflow.unitycatalog.SecurableType\x12:\n\x0esecurable_kind\x18\x10 \x01(\x0e\x32\".mlflow.unitycatalog.SecurableKind\x12\n\n\x02id\x18\x12 \x01(\t\x12>\n\x07\x61liases\x18\x13 \x03(\x0b\x32-.mlflow.unitycatalog.RegisteredModelAliasInfo\x12\x13\n\x0b\x62rowse_only\x18\x15 \x01(\x08\")\n\x0bTagKeyValue\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"C\n\x18RegisteredModelAliasInfo\x12\x12\n\nalias_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_num\x18\x02 \x01(\x03\"\x83\x01\n\x14TemporaryCredentials\x12\x43\n\x14\x61ws_temp_credentials\x18\x02 \x01(\x0b\x32#.mlflow.unitycatalog.AwsCredentialsH\x00\x12\x17\n\x0f\x65xpiration_time\x18\x01 \x01(\x03\x42\r\n\x0b\x63redentials\"Y\n\x0e\x41wsCredentials\x12\x15\n\raccess_key_id\x18\x01 \x01(\t\x12\x19\n\x11secret_access_key\x18\x02 \x01(\t\x12\x15\n\rsession_token\x18\x03 \x01(\t\"\x8a\x02\n\'GenerateTemporaryModelVersionCredential\x12\x14\n\x0c\x63\x61talog_name\x18\x01 \x01(\t\x12\x13\n\x0bschema_name\x18\x02 \x01(\t\x12\x12\n\nmodel_name\x18\x03 \x01(\t\x12\x0f\n\x07version\x18\x04 \x01(\x03\x12=\n\toperation\x18\x05 \x01(\x0e\x32*.mlflow.unitycatalog.ModelVersionOperation\x1aP\n\x08Response\x12\x44\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32).mlflow.unitycatalog.TemporaryCredentialsB\x04\x80\x87\x19\x01*9\n\rSecurableType\x12\x1a\n\x16UNKNOWN_SECURABLE_TYPE\x10\x00\x12\x0c\n\x08\x46UNCTION\x10\x06*J\n\rSecurableKind\x12\x1a\n\x16UNKNOWN_SECURABLE_KIND\x10\x00\x12\x1d\n\x19\x46UNCTION_REGISTERED_MODEL\x10G*r\n\x15ModelVersionOperation\x12#\n\x1fUNKNOWN_MODEL_VERSION_OPERATION\x10\x00\x12\x16\n\x12READ_MODEL_VERSION\x10\x01\x12\x1c\n\x18READ_WRITE_MODEL_VERSION\x10\x02\x42\x31\n\'com.databricks.api.proto.managedcatalog\xa0\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n unity_catalog_oss_messages.proto\x12\x13mlflow.unitycatalog\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\xb5\x01\n\x15\x43reateRegisteredModel\x12G\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfo\x1aS\n\x08Response\x12G\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfo\"\x8a\x04\n\x13RegisteredModelInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\r\n\x05owner\x18\x04 \x01(\t\x12\x0f\n\x07\x63omment\x18\x05 \x01(\t\x12.\n\x04tags\x18\x14 \x03(\x0b\x32 .mlflow.unitycatalog.TagKeyValue\x12\x18\n\x10storage_location\x18\x06 \x01(\t\x12\x14\n\x0cmetastore_id\x18\x07 \x01(\t\x12\x11\n\tfull_name\x18\t \x01(\t\x12\x12\n\ncreated_at\x18\x0b \x01(\x03\x12\x12\n\ncreated_by\x18\x0c \x01(\t\x12\x12\n\nupdated_at\x18\r \x01(\x03\x12\x12\n\nupdated_by\x18\x0e \x01(\t\x12:\n\x0esecurable_type\x18\x0f \x01(\x0e\x32\".mlflow.unitycatalog.SecurableType\x12:\n\x0esecurable_kind\x18\x10 \x01(\x0e\x32\".mlflow.unitycatalog.SecurableKind\x12\n\n\x02id\x18\x12 \x01(\t\x12>\n\x07\x61liases\x18\x13 \x03(\x0b\x32-.mlflow.unitycatalog.RegisteredModelAliasInfo\x12\x13\n\x0b\x62rowse_only\x18\x15 \x01(\x08\")\n\x0bTagKeyValue\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"C\n\x18RegisteredModelAliasInfo\x12\x12\n\nalias_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_num\x18\x02 \x01(\x03\"\x83\x01\n\x14TemporaryCredentials\x12\x43\n\x14\x61ws_temp_credentials\x18\x02 \x01(\x0b\x32#.mlflow.unitycatalog.AwsCredentialsH\x00\x12\x17\n\x0f\x65xpiration_time\x18\x01 \x01(\x03\x42\r\n\x0b\x63redentials\"Y\n\x0e\x41wsCredentials\x12\x15\n\raccess_key_id\x18\x01 \x01(\t\x12\x19\n\x11secret_access_key\x18\x02 \x01(\t\x12\x15\n\rsession_token\x18\x03 \x01(\t\"\x84\x02\n\'GenerateTemporaryModelVersionCredential\x12\x14\n\x0c\x63\x61talog_name\x18\x01 \x01(\t\x12\x13\n\x0bschema_name\x18\x02 \x01(\t\x12\x12\n\nmodel_name\x18\x03 \x01(\t\x12\x0f\n\x07version\x18\x04 \x01(\x03\x12=\n\toperation\x18\x05 \x01(\x0e\x32*.mlflow.unitycatalog.ModelVersionOperation\x1aJ\n\x08Response\x12>\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32).mlflow.unitycatalog.TemporaryCredentials*9\n\rSecurableType\x12\x1a\n\x16UNKNOWN_SECURABLE_TYPE\x10\x00\x12\x0c\n\x08\x46UNCTION\x10\x06*J\n\rSecurableKind\x12\x1a\n\x16UNKNOWN_SECURABLE_KIND\x10\x00\x12\x1d\n\x19\x46UNCTION_REGISTERED_MODEL\x10G*r\n\x15ModelVersionOperation\x12#\n\x1fUNKNOWN_MODEL_VERSION_OPERATION\x10\x00\x12\x16\n\x12READ_MODEL_VERSION\x10\x01\x12\x1c\n\x18READ_WRITE_MODEL_VERSION\x10\x02\x42\x31\n\'com.databricks.api.proto.managedcatalog\xa0\x01\x01\xe2?\x02\x10\x01')
 
   _globals = globals()
   _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -28,14 +28,12 @@ if Version(google.protobuf.__version__).major >= 5:
   if not _descriptor._USE_C_DESCRIPTORS:
     _globals['DESCRIPTOR']._loaded_options = None
     _globals['DESCRIPTOR']._serialized_options = b'\n\'com.databricks.api.proto.managedcatalog\240\001\001\342?\002\020\001'
-    _globals['_GENERATETEMPORARYMODELVERSIONCREDENTIAL_RESPONSE'].fields_by_name['credentials']._loaded_options = None
-    _globals['_GENERATETEMPORARYMODELVERSIONCREDENTIAL_RESPONSE'].fields_by_name['credentials']._serialized_options = b'\200\207\031\001'
-    _globals['_SECURABLETYPE']._serialized_start=1413
-    _globals['_SECURABLETYPE']._serialized_end=1470
-    _globals['_SECURABLEKIND']._serialized_start=1472
-    _globals['_SECURABLEKIND']._serialized_end=1546
-    _globals['_MODELVERSIONOPERATION']._serialized_start=1548
-    _globals['_MODELVERSIONOPERATION']._serialized_end=1662
+    _globals['_SECURABLETYPE']._serialized_start=1407
+    _globals['_SECURABLETYPE']._serialized_end=1464
+    _globals['_SECURABLEKIND']._serialized_start=1466
+    _globals['_SECURABLEKIND']._serialized_end=1540
+    _globals['_MODELVERSIONOPERATION']._serialized_start=1542
+    _globals['_MODELVERSIONOPERATION']._serialized_end=1656
     _globals['_CREATEREGISTEREDMODEL']._serialized_start=99
     _globals['_CREATEREGISTEREDMODEL']._serialized_end=280
     _globals['_CREATEREGISTEREDMODEL_RESPONSE']._serialized_start=197
@@ -51,9 +49,9 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_AWSCREDENTIALS']._serialized_start=1053
     _globals['_AWSCREDENTIALS']._serialized_end=1142
     _globals['_GENERATETEMPORARYMODELVERSIONCREDENTIAL']._serialized_start=1145
-    _globals['_GENERATETEMPORARYMODELVERSIONCREDENTIAL']._serialized_end=1411
+    _globals['_GENERATETEMPORARYMODELVERSIONCREDENTIAL']._serialized_end=1405
     _globals['_GENERATETEMPORARYMODELVERSIONCREDENTIAL_RESPONSE']._serialized_start=1331
-    _globals['_GENERATETEMPORARYMODELVERSIONCREDENTIAL_RESPONSE']._serialized_end=1411
+    _globals['_GENERATETEMPORARYMODELVERSIONCREDENTIAL_RESPONSE']._serialized_end=1405
   # @@protoc_insertion_point(module_scope)
 
 else:
@@ -76,7 +74,7 @@ else:
   from . import databricks_pb2 as databricks__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n unity_catalog_oss_messages.proto\x12\x13mlflow.unitycatalog\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\xb5\x01\n\x15\x43reateRegisteredModel\x12G\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfo\x1aS\n\x08Response\x12G\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfo\"\x8a\x04\n\x13RegisteredModelInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\r\n\x05owner\x18\x04 \x01(\t\x12\x0f\n\x07\x63omment\x18\x05 \x01(\t\x12.\n\x04tags\x18\x14 \x03(\x0b\x32 .mlflow.unitycatalog.TagKeyValue\x12\x18\n\x10storage_location\x18\x06 \x01(\t\x12\x14\n\x0cmetastore_id\x18\x07 \x01(\t\x12\x11\n\tfull_name\x18\t \x01(\t\x12\x12\n\ncreated_at\x18\x0b \x01(\x03\x12\x12\n\ncreated_by\x18\x0c \x01(\t\x12\x12\n\nupdated_at\x18\r \x01(\x03\x12\x12\n\nupdated_by\x18\x0e \x01(\t\x12:\n\x0esecurable_type\x18\x0f \x01(\x0e\x32\".mlflow.unitycatalog.SecurableType\x12:\n\x0esecurable_kind\x18\x10 \x01(\x0e\x32\".mlflow.unitycatalog.SecurableKind\x12\n\n\x02id\x18\x12 \x01(\t\x12>\n\x07\x61liases\x18\x13 \x03(\x0b\x32-.mlflow.unitycatalog.RegisteredModelAliasInfo\x12\x13\n\x0b\x62rowse_only\x18\x15 \x01(\x08\")\n\x0bTagKeyValue\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"C\n\x18RegisteredModelAliasInfo\x12\x12\n\nalias_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_num\x18\x02 \x01(\x03\"\x83\x01\n\x14TemporaryCredentials\x12\x43\n\x14\x61ws_temp_credentials\x18\x02 \x01(\x0b\x32#.mlflow.unitycatalog.AwsCredentialsH\x00\x12\x17\n\x0f\x65xpiration_time\x18\x01 \x01(\x03\x42\r\n\x0b\x63redentials\"Y\n\x0e\x41wsCredentials\x12\x15\n\raccess_key_id\x18\x01 \x01(\t\x12\x19\n\x11secret_access_key\x18\x02 \x01(\t\x12\x15\n\rsession_token\x18\x03 \x01(\t\"\x8a\x02\n\'GenerateTemporaryModelVersionCredential\x12\x14\n\x0c\x63\x61talog_name\x18\x01 \x01(\t\x12\x13\n\x0bschema_name\x18\x02 \x01(\t\x12\x12\n\nmodel_name\x18\x03 \x01(\t\x12\x0f\n\x07version\x18\x04 \x01(\x03\x12=\n\toperation\x18\x05 \x01(\x0e\x32*.mlflow.unitycatalog.ModelVersionOperation\x1aP\n\x08Response\x12\x44\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32).mlflow.unitycatalog.TemporaryCredentialsB\x04\x80\x87\x19\x01*9\n\rSecurableType\x12\x1a\n\x16UNKNOWN_SECURABLE_TYPE\x10\x00\x12\x0c\n\x08\x46UNCTION\x10\x06*J\n\rSecurableKind\x12\x1a\n\x16UNKNOWN_SECURABLE_KIND\x10\x00\x12\x1d\n\x19\x46UNCTION_REGISTERED_MODEL\x10G*r\n\x15ModelVersionOperation\x12#\n\x1fUNKNOWN_MODEL_VERSION_OPERATION\x10\x00\x12\x16\n\x12READ_MODEL_VERSION\x10\x01\x12\x1c\n\x18READ_WRITE_MODEL_VERSION\x10\x02\x42\x31\n\'com.databricks.api.proto.managedcatalog\xa0\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n unity_catalog_oss_messages.proto\x12\x13mlflow.unitycatalog\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\xb5\x01\n\x15\x43reateRegisteredModel\x12G\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfo\x1aS\n\x08Response\x12G\n\x15registered_model_info\x18\x01 \x01(\x0b\x32(.mlflow.unitycatalog.RegisteredModelInfo\"\x8a\x04\n\x13RegisteredModelInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\r\n\x05owner\x18\x04 \x01(\t\x12\x0f\n\x07\x63omment\x18\x05 \x01(\t\x12.\n\x04tags\x18\x14 \x03(\x0b\x32 .mlflow.unitycatalog.TagKeyValue\x12\x18\n\x10storage_location\x18\x06 \x01(\t\x12\x14\n\x0cmetastore_id\x18\x07 \x01(\t\x12\x11\n\tfull_name\x18\t \x01(\t\x12\x12\n\ncreated_at\x18\x0b \x01(\x03\x12\x12\n\ncreated_by\x18\x0c \x01(\t\x12\x12\n\nupdated_at\x18\r \x01(\x03\x12\x12\n\nupdated_by\x18\x0e \x01(\t\x12:\n\x0esecurable_type\x18\x0f \x01(\x0e\x32\".mlflow.unitycatalog.SecurableType\x12:\n\x0esecurable_kind\x18\x10 \x01(\x0e\x32\".mlflow.unitycatalog.SecurableKind\x12\n\n\x02id\x18\x12 \x01(\t\x12>\n\x07\x61liases\x18\x13 \x03(\x0b\x32-.mlflow.unitycatalog.RegisteredModelAliasInfo\x12\x13\n\x0b\x62rowse_only\x18\x15 \x01(\x08\")\n\x0bTagKeyValue\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"C\n\x18RegisteredModelAliasInfo\x12\x12\n\nalias_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_num\x18\x02 \x01(\x03\"\x83\x01\n\x14TemporaryCredentials\x12\x43\n\x14\x61ws_temp_credentials\x18\x02 \x01(\x0b\x32#.mlflow.unitycatalog.AwsCredentialsH\x00\x12\x17\n\x0f\x65xpiration_time\x18\x01 \x01(\x03\x42\r\n\x0b\x63redentials\"Y\n\x0e\x41wsCredentials\x12\x15\n\raccess_key_id\x18\x01 \x01(\t\x12\x19\n\x11secret_access_key\x18\x02 \x01(\t\x12\x15\n\rsession_token\x18\x03 \x01(\t\"\x84\x02\n\'GenerateTemporaryModelVersionCredential\x12\x14\n\x0c\x63\x61talog_name\x18\x01 \x01(\t\x12\x13\n\x0bschema_name\x18\x02 \x01(\t\x12\x12\n\nmodel_name\x18\x03 \x01(\t\x12\x0f\n\x07version\x18\x04 \x01(\x03\x12=\n\toperation\x18\x05 \x01(\x0e\x32*.mlflow.unitycatalog.ModelVersionOperation\x1aJ\n\x08Response\x12>\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32).mlflow.unitycatalog.TemporaryCredentials*9\n\rSecurableType\x12\x1a\n\x16UNKNOWN_SECURABLE_TYPE\x10\x00\x12\x0c\n\x08\x46UNCTION\x10\x06*J\n\rSecurableKind\x12\x1a\n\x16UNKNOWN_SECURABLE_KIND\x10\x00\x12\x1d\n\x19\x46UNCTION_REGISTERED_MODEL\x10G*r\n\x15ModelVersionOperation\x12#\n\x1fUNKNOWN_MODEL_VERSION_OPERATION\x10\x00\x12\x16\n\x12READ_MODEL_VERSION\x10\x01\x12\x1c\n\x18READ_WRITE_MODEL_VERSION\x10\x02\x42\x31\n\'com.databricks.api.proto.managedcatalog\xa0\x01\x01\xe2?\x02\x10\x01')
 
   _SECURABLETYPE = DESCRIPTOR.enum_types_by_name['SecurableType']
   SecurableType = enum_type_wrapper.EnumTypeWrapper(_SECURABLETYPE)
@@ -171,14 +169,12 @@ else:
 
     DESCRIPTOR._options = None
     DESCRIPTOR._serialized_options = b'\n\'com.databricks.api.proto.managedcatalog\240\001\001\342?\002\020\001'
-    _GENERATETEMPORARYMODELVERSIONCREDENTIAL_RESPONSE.fields_by_name['credentials']._options = None
-    _GENERATETEMPORARYMODELVERSIONCREDENTIAL_RESPONSE.fields_by_name['credentials']._serialized_options = b'\200\207\031\001'
-    _SECURABLETYPE._serialized_start=1413
-    _SECURABLETYPE._serialized_end=1470
-    _SECURABLEKIND._serialized_start=1472
-    _SECURABLEKIND._serialized_end=1546
-    _MODELVERSIONOPERATION._serialized_start=1548
-    _MODELVERSIONOPERATION._serialized_end=1662
+    _SECURABLETYPE._serialized_start=1407
+    _SECURABLETYPE._serialized_end=1464
+    _SECURABLEKIND._serialized_start=1466
+    _SECURABLEKIND._serialized_end=1540
+    _MODELVERSIONOPERATION._serialized_start=1542
+    _MODELVERSIONOPERATION._serialized_end=1656
     _CREATEREGISTEREDMODEL._serialized_start=99
     _CREATEREGISTEREDMODEL._serialized_end=280
     _CREATEREGISTEREDMODEL_RESPONSE._serialized_start=197
@@ -194,8 +190,8 @@ else:
     _AWSCREDENTIALS._serialized_start=1053
     _AWSCREDENTIALS._serialized_end=1142
     _GENERATETEMPORARYMODELVERSIONCREDENTIAL._serialized_start=1145
-    _GENERATETEMPORARYMODELVERSIONCREDENTIAL._serialized_end=1411
+    _GENERATETEMPORARYMODELVERSIONCREDENTIAL._serialized_end=1405
     _GENERATETEMPORARYMODELVERSIONCREDENTIAL_RESPONSE._serialized_start=1331
-    _GENERATETEMPORARYMODELVERSIONCREDENTIAL_RESPONSE._serialized_end=1411
+    _GENERATETEMPORARYMODELVERSIONCREDENTIAL_RESPONSE._serialized_end=1405
   # @@protoc_insertion_point(module_scope)
 
