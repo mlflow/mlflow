@@ -135,7 +135,8 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 local_file_path = os.path.join(root, f)
                 with open(local_file_path, "rb") as file:
                     container_client.upload_blob(
-                        remote_file_path, file, overwrite=True, timeout=self.write_timeout, connection_timeout=self.write_timeout
+                        remote_file_path, file, overwrite=True, timeout=self.write_timeout, 
+                        connection_timeout=self.write_timeout
                     )
 
     def list_artifacts(self, path=None):
