@@ -211,7 +211,7 @@ def test_delete_artifacts_files(local_artifact_repo, tmp_path):
     (nested / "c.txt").write_text("C")
 
     local_artifact_repo.log_artifacts(str(subdir))
-    artifact_dir = pathlib.PosixPath(local_artifact_repo._artifact_dir)
+    artifact_dir = pathlib.Path(local_artifact_repo._artifact_dir)
     assert (artifact_dir / "nested").exists()
     assert (artifact_dir / "a.txt").exists()
     assert (artifact_dir / "b.txt").exists()
