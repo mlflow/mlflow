@@ -697,7 +697,7 @@ def test_log_model(mlflow_client):
 
                 history_model_meta = models[i].copy()
                 original_model_uuid = history_model_meta.pop("model_uuid")
-                model_meta = model.to_dict().copy()
+                model_meta = model.get_tags_dict().copy()
                 new_model_uuid = model_meta.pop("model_uuid")
                 assert history_model_meta == model_meta
                 assert original_model_uuid != new_model_uuid
