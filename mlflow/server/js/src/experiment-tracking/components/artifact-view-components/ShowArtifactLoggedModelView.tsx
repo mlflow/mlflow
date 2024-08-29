@@ -63,13 +63,11 @@ export class ShowArtifactLoggedModelViewImpl extends Component<Props, State> {
 
   componentDidMount() {
     this.fetchLoggedModelMetadata();
-    this.fetchServingInputExample();
   }
 
   componentDidUpdate(prevProps: Props) {
     if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
       this.fetchLoggedModelMetadata();
-      this.fetchServingInputExample();
     }
   }
   static getLearnModelRegistryLinkUrl = () => RegisteringModelDocUrl;
@@ -296,47 +294,6 @@ validate_serving_input(model_uri, serving_payload)`;
     }
   }
 
-  renderValidateServingInput(modelPath: any, servingInput?: string) {
-    return (
-      // @ts-expect-error TS(2322): Type '{ position: string; pre: { margin: number; }... Remove this comment to see the full error message
-      <div css={styles.item}>
-        <Text>
-          <FormattedMessage
-            defaultMessage="Run the following code to validate model inference works on the example payload, prior to deploying it to a serving endpoint" // eslint-disable-next-line max-len
-            description="Section heading to display the code block on how we can use validate an input against registered model prior to serving"
-          />
-        </Text>
-        <Paragraph
-          dangerouslySetAntdProps={{
-            copyable: { text: this.validateModelForServingText(modelPath, servingInput) },
-          }}
-        >
-          <pre style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
-            <div className="code">
-              <span className="code-keyword">from</span> mlflow.models <span className="code-keyword">import</span>{' '}
-              validate_serving_input{`\n\n`}
-              model_uri = <span className="code-string">{`'${modelPath}'\n\n`}</span>
-              {this.renderServingPayload(servingInput)}
-            </div>
-            <br />
-            <div className="code">
-              <span className="code-comment">
-                {'# '}
-                <FormattedMessage
-                  defaultMessage="Validate the serving payload works on the model"
-                  description="Code comment which states how to validate serving payload"
-                />
-              </span>
-              {`\n`}
-              validate_serving_input(model_uri, serving_payload)
-            </div>
-            <br />
-          </pre>
-        </Paragraph>
-      </div>
-    );
-  }
-
   renderValidateServingInputCodeSnippet() {
     const { runUuid, path } = this.props;
     const modelPath = `runs:/${runUuid}/${path}`;
@@ -417,25 +374,6 @@ validate_serving_input(model_uri, serving_payload)`;
         </Text>
         <ShowArtifactCodeSnippet code={this.validateModelForServingText(modelPath, servingInput)} />
       </div>
-    );
-  }
-
-  renderValidateServingInputCodeSnippet() {
-    const { runUuid, path } = this.props;
-    const modelPath = `runs:/${runUuid}/${path}`;
-    return (
-      <>
-        <Title level={3}>
-          <FormattedMessage
-            defaultMessage="Validate the model before deployment"
-            // eslint-disable-next-line max-len
-            description="Heading text for validating the model before deploying it for serving"
-          />
-        </Title>
-        <div className="artifact-logged-model-view-code-content">
-          {this.renderValidateServingInput(modelPath, this.state.serving_input)}
-        </div>
-      </>
     );
   }
 
