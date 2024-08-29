@@ -52,7 +52,7 @@ extras = [
   "google-cloud-storage>=1.30.0",
   "azureml-core>=1.2.0",
   "pysftp",
-  "kubernetes",
+  "kubernetes>=30.1.0",
   "mlserver>=1.4.0",
   "mlserver-mlflow>=1.4.0",
   "virtualenv",

@@ -129,7 +129,7 @@ def build(package_type: PackageType) -> None:
                     "pysftp",
                     # Required by the mlflow.projects module, when running projects against
                     # a remote Kubernetes cluster
-                    "kubernetes",
+                    "kubernetes>=30.1.0",
                     # Required to serve models through MLServer
                     "mlserver>=1.4.0",
                     "mlserver-mlflow>=1.4.0",
