@@ -16,7 +16,10 @@
     "prettier:fix": "prettier . --write",
     "prettier:check": "prettier . --check",
     "i18n:check": "yarn i18n --lint",
-    "i18n": "node scripts/extract-i18n.js"
+    "i18n": "node scripts/extract-i18n.js",
+    "graphql-codegen": "python ../../../dev/proto_to_graphql/code_generator.py && yarn graphql-codegen:clean && yarn graphql-codegen:base",
+    "graphql-codegen:base": "graphql-codegen --config ./src/graphql/graphql-codegen.ts",
+    "graphql-codegen:clean": "find . -path '**/__generated__/*.ts' | xargs rm"
   },
   "dependencies": {
     "@ag-grid-community/client-side-row-model": "^27.2.1",
