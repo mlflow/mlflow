@@ -2,8 +2,6 @@ import inspect
 import logging
 from typing import Generator, List, Optional, Set
 
-from packaging.version import Version
-
 from mlflow.models.resources import (
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
@@ -55,6 +53,24 @@ def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None
         embeddings = getattr(vectorstore, "embeddings", None)
         if isinstance(embeddings, (DatabricksEmbeddings, LegacyDatabricksEmbeddings)):
             yield DatabricksServingEndpoint(endpoint_name=embeddings.endpoint)
+
+
+def _is_langgraph_tool_node_supported() -> bool:
+    try:
+        from langgraph.prebuilt.tool_node import ToolNode  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+def _is_langchain_tools_supported() -> bool:
+    try:
+        from langchain_community.tools import BaseTool  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
 
 
 def _extract_databricks_dependencies_from_tools(tools) -> Generator[Resource, None, None]:
@@ -176,8 +192,6 @@ _LEGACY_MODEL_ATTR_SET = {
 
 
 def _extract_dependency_list_from_lc_model(lc_model) -> Generator[Resource, None, None]:
-    import langchain
-
     """
     This function contains the logic to examine a non-Runnable component of a langchain model.
     The logic here does not cover all legacy chains. If you need to support a custom chain,
@@ -191,10 +205,10 @@ def _extract_dependency_list_from_lc_model(lc_model) -> Generator[Resource, None
     yield from _extract_databricks_dependencies_from_retriever(lc_model)
     yield from _extract_databricks_dependencies_from_llm(lc_model)
 
-    if Version(langchain.__version__) >= Version("0.1.0"):
+    if _is_langchain_tools_supported():
         yield from _extract_databricks_dependencies_from_tools(lc_model)
-    # Langgraph needs langcahin version 0.2.0 or higher
-    if Version(langchain.__version__) >= Version("0.2.0"):
+
+    if _is_langgraph_tool_node_supported():
         yield from _extract_databricks_dependencies_from_tool_nodes(lc_model)
 
     # recursively inspect legacy chain

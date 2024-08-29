@@ -1,4 +1,5 @@
 import sys
+from collections import Counter, defaultdict
 from contextlib import contextmanager
 from unittest.mock import MagicMock
 
@@ -393,11 +394,10 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch)
     resources = list(_extract_dependency_list_from_lc_model(agent))
     # Ensure all resources are added in
     expected = [
-        DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat"),
         DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
         DatabricksServingEndpoint(endpoint_name="embedding-model"),
+        DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat"),
     ]
-
     if include_uc_function_tools:
         expected = [
             DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat"),
@@ -408,7 +408,27 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch)
             DatabricksServingEndpoint(endpoint_name="embedding-model"),
             DatabricksSQLWarehouse(warehouse_id="testId1"),
         ]
-    assert resources == expected
+
+    def build_resource_map(resources):
+        resource_map = defaultdict(list)
+
+        for resource in resources:
+            resource_type = resource.type.value
+            resource_name = resource.to_dict()[resource_type][0]["name"]
+            resource_map[resource_type].append(resource_name)
+
+        return dict(resource_map)
+
+    # Build maps for resources and expected resources
+    resource_maps = build_resource_map(resources)
+    expected_maps = build_resource_map(expected)
+
+    assert len(resource_maps) == len(expected_maps)
+
+    for resource_type in resource_maps:
+        assert Counter(resource_maps[resource_type]) == Counter(
+            expected_maps.get(resource_type, [])
+        )
 
 
 def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch):

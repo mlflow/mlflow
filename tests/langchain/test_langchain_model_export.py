@@ -2033,14 +2033,9 @@ def test_databricks_dependency_extraction_from_langgraph_agent(monkeypatch):
     expected = {
         "serving_endpoint": [{"name": "databricks-llama-2-70b-chat"}, {"name": "embedding-model"}],
         "vector_search_index": [{"name": "mlflow.rag.vs_index"}],
+        "sql_warehouse": [{"name": "test_id_1"}],
+        "uc_function": [{"name": function} for function in uc_functions],
     }
-
-    if len(uc_function_tools) > 0:
-        uc_expected = {
-            "sql_warehouse": [{"name": "test_id_1"}],
-            "uc_function": [{"name": function} for function in uc_functions],
-        }
-        expected.update(uc_expected)
 
     assert all(item in actual["serving_endpoint"] for item in expected["serving_endpoint"])
     assert all(item in expected["serving_endpoint"] for item in actual["serving_endpoint"])
