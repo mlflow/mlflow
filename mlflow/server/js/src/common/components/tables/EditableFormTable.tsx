@@ -47,7 +47,11 @@ class EditableCell extends React.Component<EditableCellProps> {
               <Form ref={formRef}>
                 {/* @ts-expect-error TS(2322): Type '{ children: Element; style: { margin: number... Remove this comment to see the full error message */}
                 <Form.Item style={{ margin: 0 }} name={dataIndex} initialValue={record[dataIndex]}>
-                  <Input onKeyDown={this.handleKeyPress} data-testid="editable-table-edited-input" />
+                  <Input
+                    componentId="codegen_mlflow_app_src_common_components_tables_editableformtable.tsx_50"
+                    onKeyDown={this.handleKeyPress}
+                    data-testid="editable-table-edited-input"
+                  />
                 </Form.Item>
               </Form>
             ) : (
@@ -222,6 +226,7 @@ export class EditableTable extends React.Component<EditableTableProps, EditableT
           scroll={{ y: 280 }}
         />
         <Modal
+          componentId="codegen_mlflow_app_src_common_components_tables_editableformtable.tsx_228"
           data-testid="editable-form-table-remove-modal"
           title={
             <FormattedMessage

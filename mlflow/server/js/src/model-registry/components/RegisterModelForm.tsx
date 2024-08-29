@@ -121,7 +121,10 @@ export class RegisterModelForm extends React.Component<Props, State> {
               { validator: this.modelNameValidator },
             ]}
           >
-            <Input placeholder="Input a model name" />
+            <Input
+              componentId="codegen_mlflow_app_src_model-registry_components_registermodelform.tsx_132"
+              placeholder="Input a model name"
+            />
           </Form.Item>
         ) : null}
 

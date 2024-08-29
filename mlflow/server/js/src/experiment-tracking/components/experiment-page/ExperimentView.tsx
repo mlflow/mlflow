@@ -32,7 +32,7 @@ import { ExperimentViewTraces } from './components/ExperimentViewTraces';
 export const ExperimentView = () => {
   const dispatch = useDispatch<ThunkDispatch>();
 
-  const [searchFacets, experimentIds] = useExperimentPageSearchFacets();
+  const [searchFacets, experimentIds, isPreview] = useExperimentPageSearchFacets();
   const [viewMode] = useExperimentPageViewMode();
 
   const experiments = useExperiments(experimentIds);
@@ -83,7 +83,7 @@ export const ExperimentView = () => {
 
   const isComparingExperiments = experimentIds.length > 1;
 
-  usePersistExperimentPageViewState(uiState, searchFacets, experimentIds, isViewStateShared);
+  usePersistExperimentPageViewState(uiState, searchFacets, experimentIds, isViewStateShared || isPreview);
 
   const isViewInitialized = Boolean(!isLoadingExperiment && experiments[0] && runsData && searchFacets);
 

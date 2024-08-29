@@ -66,6 +66,8 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
       } else if (this.props.isDirectory) {
         if (this.props.runTags && getLoggedModelPathsFromTags(this.props.runTags).includes(this.props.path)) {
           return (
+            // getArtifact has a default in the component
+            // @ts-expect-error TS(2741): Property 'getArtifact' is missing
             <ShowArtifactLoggedModelView
               runUuid={this.props.runUuid}
               path={this.props.path}
@@ -141,7 +143,7 @@ const getFileTooLargeView = () => {
         }
         description={
           <FormattedMessage
-            defaultMessage={`Maximum file size for preview: ${MAX_PREVIEW_ARTIFACT_SIZE_MB}MB`}
+            defaultMessage={`Maximum file size for preview: ${MAX_PREVIEW_ARTIFACT_SIZE_MB}MiB`}
             description="Text to notify users of the maximum file size for which artifact previews are displayed"
           />
         }

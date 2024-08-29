@@ -48,7 +48,7 @@ class CreateModelFormImpl extends Component<Props> {
             { validator: this.props.validator },
           ]}
         >
-          <Input autoFocus />
+          <Input componentId="codegen_mlflow_app_src_model-registry_components_createmodelform.tsx_62" autoFocus />
         </Form.Item>
         <p className="create-modal-explanatory-text">
           <FormattedMessage

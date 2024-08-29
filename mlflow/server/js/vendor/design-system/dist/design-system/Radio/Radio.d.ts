@@ -2,7 +2,7 @@ import type { SerializedStyles } from '@emotion/react';
 import type { RadioGroupProps as AntDRadioGroupProps, RadioProps as AntDRadioProps } from 'antd';
 import type { Theme } from '../../theme';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
-import type { AnalyticsEventValueChangeNoPiiFlagOptionalProps, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
+import type { AnalyticsEventValueChangeNoPiiFlagProps, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
 export type { RadioChangeEvent } from 'antd';
 export declare const getRadioStyles: ({ theme, clsPrefix }: {
     theme: Theme;
@@ -10,7 +10,7 @@ export declare const getRadioStyles: ({ theme, clsPrefix }: {
 }) => SerializedStyles;
 export interface RadioProps extends Omit<AntDRadioProps, 'prefixCls' | 'type' | 'skipGroup'>, DangerouslySetAntdProps<AntDRadioGroupProps>, HTMLDataAttributes {
 }
-export interface RadioGroupProps extends Omit<AntDRadioGroupProps, 'optionType' | 'buttonStyle' | 'size' | 'prefixCls' | 'skipGroup'>, DangerouslySetAntdProps<AntDRadioGroupProps>, HTMLDataAttributes, AnalyticsEventValueChangeNoPiiFlagOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export interface RadioGroupProps extends Omit<AntDRadioGroupProps, 'optionType' | 'buttonStyle' | 'size' | 'prefixCls' | 'skipGroup'>, DangerouslySetAntdProps<AntDRadioGroupProps>, HTMLDataAttributes, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     layout?: 'vertical' | 'horizontal';
     name: string;
 }

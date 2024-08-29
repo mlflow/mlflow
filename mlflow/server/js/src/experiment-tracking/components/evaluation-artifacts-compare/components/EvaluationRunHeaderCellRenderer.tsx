@@ -147,7 +147,10 @@ export const EvaluationRunHeaderCellRenderer = ({
               />
             </DropdownMenu.Trigger>
             <DropdownMenu.Content>
-              <DropdownMenu.Item onClick={() => onDuplicateRun(run)}>
+              <DropdownMenu.Item
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationrunheadercellrenderer.tsx_150"
+                onClick={() => onDuplicateRun(run)}
+              >
                 <FormattedMessage
                   defaultMessage="Duplicate run"
                   description='Experiment page > artifact compare view > run column header > "duplicate run" button label'

@@ -1,5 +1,6 @@
 import { isEqual } from 'lodash';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import {
   AutoComplete,
   Input,
@@ -9,6 +10,8 @@ import {
   Button,
   CloseIcon,
   useDesignSystemTheme,
+  Tooltip,
+  InfoFillIcon,
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
@@ -24,6 +27,8 @@ import {
   getOptionsFromEntityNames,
   OptionGroup,
 } from './RunsSearchAutoComplete.utils';
+import { createQuickRegexpSearchFilter, detectSqlSyntaxInSearchQuery } from '../../utils/experimentPage.fetch-utils';
+import { shouldUseRegexpBasedAutoRunsSearchFilter } from '../../../../../common/utils/FeatureUtils';
 
 // A default placeholder for the search box
 const SEARCH_BOX_PLACEHOLDER = 'metrics.rmse < 1 and params.model = "tree"';
@@ -43,7 +48,10 @@ export type RunsSearchAutoCompleteProps = {
  */
 export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
   const { runsData, searchFilter, requestError, onSearchFilterChange, onClear } = props;
-  const { theme } = useDesignSystemTheme();
+  const { theme, getPrefixedClassName } = useDesignSystemTheme();
+
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const intl = useIntl();
 
   const [text, setText] = useState<string>('');
   const [autocompleteEnabled, setAutocompleteEnabled] = useState<boolean | undefined>(undefined);
@@ -157,6 +165,13 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
   });
   const tooltipIcon = React.useRef<HTMLButtonElement>(null);
 
+  const quickRegexpFilter = useMemo(() => {
+    if (shouldUseRegexpBasedAutoRunsSearchFilter() && text.length > 0 && !detectSqlSyntaxInSearchQuery(text)) {
+      return createQuickRegexpSearchFilter(text);
+    }
+    return undefined;
+  }, [text]);
+
   // If requestError has changed and there is an error, pop up the tooltip
   useEffect(() => {
     if (requestError && showTooltipOnError) {
@@ -171,15 +186,20 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
   const noMatches = filteredOptions.flatMap((o) => o.options).length === 0;
   const open = autocompleteEnabled && focused && !noMatches;
 
-  // Callback fired when search filter is being used
+  // Callback fired when key is pressed on the input
   const triggerSearch: React.KeyboardEventHandler<HTMLInputElement> = useCallback(
     (e) => {
+      // Get the class name for the active item in the dropdown
+      const activeItemClass = getPrefixedClassName('select-item-option-active');
+      const dropdownContainsActiveItem = Boolean(dropdownRef.current?.querySelector(`.${activeItemClass}`));
+
       if (e.key === 'Enter') {
-        // If the autocomplete dialog is open, use the enter key to make a selection
-        // rather than initiate search.
+        // If the autocomplete dialog is open, close it
         if (open) {
           setAutocompleteEnabled(false);
-        } else {
+        }
+        // If the autocomplete dialog is closed or user didn't select any item, trigger search
+        if (!open || !dropdownContainsActiveItem) {
           onSearchFilterChange(text);
         }
       }
@@ -190,7 +210,7 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
         }
       }
     },
-    [open, text, onSearchFilterChange],
+    [open, text, onSearchFilterChange, getPrefixedClassName],
   );
 
   return (
@@ -213,7 +233,7 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
           },
         }}
         defaultOpen={false}
-        defaultActiveFirstOption
+        defaultActiveFirstOption={!shouldUseRegexpBasedAutoRunsSearchFilter()}
         open={open}
         options={filteredOptions}
         onSelect={onSelect}
@@ -227,17 +247,23 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
                 backgroundColor: '#e6f1f5',
               },
             }}
+            ref={dropdownRef}
           >
             {menu}
           </div>
         )}
       >
         <Input
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_runssearchautocomplete.tsx_236"
           value={text}
           prefix={
             <SearchIcon
               css={{
-                svg: { width: 16, height: 16, color: theme.colors.textSecondary },
+                svg: {
+                  width: theme.general.iconFontSize,
+                  height: theme.general.iconFontSize,
+                  color: theme.colors.textSecondary,
+                },
               }}
             />
           }
@@ -259,28 +285,73 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
                   <CloseIcon />
                 </Button>
               )}
-              <LegacyTooltip
-                title={<RunsSearchTooltipContent />}
-                placement="right"
-                dangerouslySetAntdProps={{
-                  overlayInnerStyle: { width: '150%' },
-                  trigger: ['focus', 'click'],
-                }}
-              >
-                <Button
-                  size="small"
-                  ref={tooltipIcon}
-                  componentId="mlflow.experiment_page.search_filter.tooltip"
-                  type="link"
-                  icon={
-                    <InfoIcon
-                      css={{
-                        svg: { width: 16, height: 16, color: theme.colors.textSecondary },
+              {quickRegexpFilter ? (
+                <Tooltip
+                  content={
+                    <FormattedMessage
+                      defaultMessage="Using regular expression quick filter. The following query will be used: {filterSample}"
+                      description="Experiment page > control bar > search filter > a label displayed when user has entered a simple query that will be automatically transformed into RLIKE SQL query before being sent to the API"
+                      values={{
+                        filterSample: (
+                          <div>
+                            <code>{quickRegexpFilter}</code>
+                          </div>
+                        ),
                       }}
                     />
                   }
-                />
-              </LegacyTooltip>
+                  delayDuration={0}
+                >
+                  <InfoFillIcon
+                    aria-label={intl.formatMessage(
+                      {
+                        defaultMessage:
+                          'Using regular expression quick filter. The following query will be used: {filterSample}',
+                        description:
+                          'Experiment page > control bar > search filter > a label displayed when user has entered a simple query that will be automatically transformed into RLIKE SQL query before being sent to the API',
+                      },
+                      {
+                        filterSample: quickRegexpFilter,
+                      },
+                    )}
+                    css={{
+                      svg: {
+                        width: theme.general.iconFontSize,
+                        height: theme.general.iconFontSize,
+                        color: theme.colors.actionPrimaryBackgroundDefault,
+                      },
+                    }}
+                  />
+                </Tooltip>
+              ) : (
+                <LegacyTooltip
+                  title={<RunsSearchTooltipContent />}
+                  placement="right"
+                  dangerouslySetAntdProps={{
+                    overlayInnerStyle: { width: '150%' },
+                    trigger: ['focus', 'click'],
+                  }}
+                >
+                  <Button
+                    size="small"
+                    ref={tooltipIcon}
+                    componentId="mlflow.experiment_page.search_filter.tooltip"
+                    type="link"
+                    css={{ marginLeft: -theme.spacing.xs, marginRight: -theme.spacing.xs }}
+                    icon={
+                      <InfoIcon
+                        css={{
+                          svg: {
+                            width: theme.general.iconFontSize,
+                            height: theme.general.iconFontSize,
+                            color: theme.colors.textSecondary,
+                          },
+                        }}
+                      />
+                    }
+                  />
+                </LegacyTooltip>
+              )}
             </div>
           }
         />

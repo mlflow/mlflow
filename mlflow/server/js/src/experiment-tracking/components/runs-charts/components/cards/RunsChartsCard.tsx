@@ -12,6 +12,7 @@ import type {
 } from '../../runs-charts.types';
 import { RunsChartsRunData } from '../RunsCharts.common';
 import {
+  shouldEnableDraggableChartsGridLayout,
   shouldEnableDifferenceViewCharts,
   shouldEnableImageGridCharts,
   shouldUseNewRunRowsVisibilityModel,
@@ -21,23 +22,33 @@ import { RunsChartsLineChartCard } from './RunsChartsLineChartCard';
 import { RunsChartsScatterChartCard } from './RunsChartsScatterChartCard';
 import { RunsChartsContourChartCard } from './RunsChartsContourChartCard';
 import { RunsChartsParallelChartCard } from './RunsChartsParallelChartCard';
-import { RunsChartCardFullScreenProps, RunsChartCardReorderProps } from './ChartCard.common';
+import type {
+  RunsChartCardFullScreenProps,
+  RunsChartCardReorderProps,
+  RunsChartCardSizeProps,
+  RunsChartCardVisibilityProps,
+} from './ChartCard.common';
 import { RunsChartsDifferenceChartCard } from './RunsChartsDifferenceChartCard';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import { RunsChartsImageChartCard } from './RunsChartsImageChartCard';
+import { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
 
-export interface RunsChartsCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
+export interface RunsChartsCardProps
+  extends RunsChartCardReorderProps,
+    RunsChartCardFullScreenProps,
+    RunsChartCardVisibilityProps,
+    RunsChartCardSizeProps {
   cardConfig: RunsChartsCardConfig;
   chartRunData: RunsChartsRunData[];
   onStartEditChart: (chart: RunsChartsCardConfig) => void;
   onRemoveChart: (chart: RunsChartsCardConfig) => void;
-  onReorderCharts: (sourceChartUuid: string, targetChartUuid: string) => void;
   onDownloadFullMetricHistoryCsv?: (runUuids: string[], metricKeys: string[]) => void;
   index: number;
-  sectionIndex: number;
+  sectionIndex?: number;
   autoRefreshEnabled?: boolean;
   hideEmptyCharts?: boolean;
   groupBy: RunsGroupByConfig | null;
+  globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
 }
 
 const RunsChartsCardRaw = ({
@@ -58,7 +69,12 @@ const RunsChartsCardRaw = ({
   autoRefreshEnabled,
   onDownloadFullMetricHistoryCsv,
   hideEmptyCharts,
+  globalLineChartConfig,
+  height,
+  isInViewport,
+  isInViewportDeferred,
 }: RunsChartsCardProps) => {
+  const usingGridLayout = shouldEnableDraggableChartsGridLayout();
   const chartElementKey = `${cardConfig.uuid}-${index}-${sectionIndex}`;
 
   const reorderProps = useMemo(
@@ -84,14 +100,29 @@ const RunsChartsCardRaw = ({
   const commonChartProps = useMemo(
     () => ({
       fullScreen,
-      key: chartElementKey,
+      key: usingGridLayout ? undefined : chartElementKey,
       autoRefreshEnabled,
       groupBy,
       hideEmptyCharts,
+      height,
+      isInViewport,
+      isInViewportDeferred,
       ...editProps,
       ...reorderProps,
     }),
-    [fullScreen, chartElementKey, autoRefreshEnabled, groupBy, editProps, reorderProps, hideEmptyCharts],
+    [
+      fullScreen,
+      usingGridLayout,
+      chartElementKey,
+      autoRefreshEnabled,
+      groupBy,
+      editProps,
+      reorderProps,
+      hideEmptyCharts,
+      height,
+      isInViewport,
+      isInViewportDeferred,
+    ],
   );
 
   const slicedRuns = useMemo(() => {
@@ -99,7 +130,7 @@ const RunsChartsCardRaw = ({
       return chartRunData.filter(({ hidden }) => !hidden).reverse();
     }
     return chartRunData.slice(0, cardConfig.runsCountToCompare || 10).reverse();
-  }, [chartRunData, cardConfig]);
+  }, [chartRunData, cardConfig.runsCountToCompare]);
 
   if (cardConfig.type === RunsChartType.PARALLEL) {
     return (
@@ -145,6 +176,8 @@ const RunsChartsCardRaw = ({
         config={cardConfig as RunsChartsLineCardConfig}
         chartRunData={slicedRuns}
         onDownloadFullMetricHistoryCsv={onDownloadFullMetricHistoryCsv}
+        globalLineChartConfig={globalLineChartConfig}
+        positionInSection={index}
         {...commonChartProps}
       />
     );

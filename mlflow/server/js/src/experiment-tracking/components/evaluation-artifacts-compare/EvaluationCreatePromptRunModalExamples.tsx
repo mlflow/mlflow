@@ -39,6 +39,7 @@ export const EvaluationCreatePromptRunModalExamples = ({
 
   return (
     <Modal
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodalexamples.tsx_42"
       verticalSizing="maxed_out"
       visible={isOpen}
       onCancel={closeModal}

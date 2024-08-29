@@ -51,7 +51,7 @@ export const RunsChartsContourChartCard = ({
 
   const slicedRuns = useMemo(() => {
     if (shouldUseNewRunRowsVisibilityModel()) {
-      return chartRunData.filter(({ hidden }) => !hidden).reverse();
+      return chartRunData.filter(({ hidden }) => !hidden);
     }
     return chartRunData.slice(0, config.runsCountToCompare || 10).reverse();
   }, [chartRunData, config]);
