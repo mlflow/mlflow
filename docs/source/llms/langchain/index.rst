@@ -404,3 +404,18 @@ this saved script directly when defining the model:
 
 When the agent is loaded from MLflow, the script will be executed and the defined agent will be
 made available for use for invocation.
+
+The agent can be loaded and used for inference as follows:
+
+.. code-block:: python
+
+    agent = mlflow.langchain.load_model(model_info.model_uri)
+    query = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "Should I bring an umbrella today when I go to work in San Francisco?",
+            }
+        ]
+    }
+    agent.invoke(query)
