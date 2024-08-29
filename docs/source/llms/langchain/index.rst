@@ -352,8 +352,8 @@ How can I log my chain from code?
 How can I log an agent built with LangGraph to MLflow?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The LangGraph integration with MLflow is designed to utilize the `Models From Code <../../model/models-from-code.html>`_
-feature in MLflow to broaden and simplify the support of agent serialization.
+The LangGraph integration with MLflow is designed to utilize the `Models From Code feature <../../model/models-from-code.html>`_
+in MLflow to broaden and simplify the support of agent serialization.
 
 To log a LangGraph agent, you can define your agent code within a script, as shown below, saved to a file ``langgraph.py``:
 
