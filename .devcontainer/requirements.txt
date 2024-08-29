@@ -335,11 +335,11 @@ matplotlib-inline==0.1.7
     #   ipython
 mlflow==2.14.1
     # via mlserver-mlflow
-mlserver==1.3.5
+mlserver==1.4.0
     # via
     #   -r test-requirements.txt
     #   mlserver-mlflow
-mlserver-mlflow==1.3.5
+mlserver-mlflow==1.4.0
     # via -r test-requirements.txt
 moto==4.2.14
     # via -r test-requirements.txt

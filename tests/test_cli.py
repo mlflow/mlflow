@@ -468,7 +468,6 @@ def test_mlflow_models_serve(enable_mlserver):
                 extra_pip_requirements=[
                     "mlserver>=1.4.0",
                     "mlserver-mlflow>=1.4.0",
-                    PROTOBUF_REQUIREMENT,
                 ],
             )
         else:
