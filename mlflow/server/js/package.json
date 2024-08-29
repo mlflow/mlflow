@@ -195,6 +195,7 @@
     "@floating-ui/dom@^0.5.3": "patch:@floating-ui/dom@npm%3A0.5.4#yarn/patches/@floating-ui-dom-0.5.4.diff",
     "@types/react": "^17.0.50",
     "@types/react-plotly.js/@types/plotly.js": "^1.54.6",
+    "d3-transition": "3.0.1",
     "react-dev-utils/fork-ts-checker-webpack-plugin": "6.5.3",
     "postcss-preset-env/autoprefixer": "10.4.5",
     "rc-virtual-list@^3.2.0": "patch:rc-virtual-list@npm%3A3.2.0#yarn/patches/rc-virtual-list-npm-3.2.0-5efaefc12e.patch",

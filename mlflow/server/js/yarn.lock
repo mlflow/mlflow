@@ -13764,7 +13764,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"d3-transition@npm:1, d3-transition@npm:^1.1.1":
+"d3-transition@npm:3.0.1":
   version: 3.0.1
   resolution: "d3-transition@npm:3.0.1"
   dependencies:
