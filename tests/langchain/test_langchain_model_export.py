@@ -174,6 +174,81 @@ def create_openai_llmagent(return_intermediate_steps=False):
     )
 
 
+def create_uc_tools(
+    monkeypatch, warehouse_id, expected_catalog_name, expected_schema_name, functions
+):
+    try:
+        from langchain_community.tools.databricks import UCFunctionToolkit
+    except Exception:
+        return []
+
+    from databricks.sdk.service.catalog import FunctionInfo
+
+    # Return 2 functions from the function lis
+    def mock_function_list(self, catalog_name, schema_name):
+        assert catalog_name == expected_catalog_name
+        assert schema_name == expected_schema_name
+        return [FunctionInfo(full_name=function) for function in functions]
+
+    # For each function ensure that it returns a tool which takes one input
+    def mock_function_get(self, function_name):
+        components = function_name.split(".")
+        param_dict = {
+            "parameters": [
+                {
+                    "name": "param",
+                    "parameter_type": "PARAM",
+                    "position": 0,
+                    "type_json": '{"name":"param","type":"string","nullable":true,"metadata":{}}',
+                    "type_name": "STRING",
+                    "type_precision": 0,
+                    "type_scale": 0,
+                    "type_text": "string",
+                }
+            ]
+        }
+        return FunctionInfo.from_dict(
+            {
+                "catalog_name": components[0],
+                "schema_name": components[1],
+                "name": components[2],
+                "input_params": param_dict,
+            }
+        )
+
+    monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
+    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.list", mock_function_list)
+    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
+
+    # Create an toolkit with the '*' syntax
+    return (
+        UCFunctionToolkit(warehouse_id=warehouse_id)
+        .include(f"{expected_catalog_name}.{expected_schema_name}.*")
+        .get_tools()
+    )
+
+
+def create_retriever_tool(monkeypatch):
+    from langchain.tools.retriever import create_retriever_tool
+    from langchain_community.vectorstores import DatabricksVectorSearch
+
+    vsc = MockVectorSearchClient()
+    vs_index = vsc.get_index(
+        endpoint_name="dbdemos_vs_endpoint",
+        index_name="mlflow.rag.vs_index",
+        has_embedding_endpoint=True,
+    )
+
+    mock_module = mock.MagicMock()
+    mock_module.VectorSearchIndex = MockVectorSearchIndex
+    monkeypatch.setitem(sys.modules, "databricks.vector_search.client", mock_module)
+
+    vectorstore = DatabricksVectorSearch(vs_index, text_column="content")
+    retriever = vectorstore.as_retriever()
+    return create_retriever_tool(retriever, "vs_index_name", "vs_index_desc")
+
+
 class FakeLLM(LLM):
     """Fake LLM wrapper for testing purposes."""
 
@@ -1916,90 +1991,82 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
 
 
 @pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Langgraph are not supported the way we want in earlier versions",
+)
+def test_databricks_dependency_extraction_from_langgraph_agent(monkeypatch):
+    from langchain_community.chat_models import ChatDatabricks
+    from langchain_core.runnables import RunnableLambda
+    from langgraph.prebuilt import create_react_agent
+
+    # Mocking Cloudpickle because serialization in this setup is failing
+    monkeypatch.setattr("cloudpickle.dump", mock.MagicMock())
+
+    uc_functions = ["rag.studio.test_function_a", "rag.studio.test_function_b"]
+    uc_function_tools = create_uc_tools(
+        monkeypatch,
+        warehouse_id="test_id_1",
+        expected_catalog_name="rag",
+        expected_schema_name="studio",
+        functions=uc_functions,
+    )
+    retriever_tool = create_retriever_tool(monkeypatch)
+    chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
+
+    agent = create_react_agent(chat_model, uc_function_tools + [retriever_tool])
+
+    def wrap_agent(input):
+        return agent.invoke(input)
+
+    pyfunc_artifact_path = "retrieval_qa_chain"
+    with mlflow.start_run() as run:
+        mlflow.langchain.log_model(
+            RunnableLambda(wrap_agent),
+            pyfunc_artifact_path,
+        )
+    pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
+    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    actual = reloaded_model.resources["databricks"]
+
+    # Ensure both functions are outputted
+    expected = {
+        "serving_endpoint": [{"name": "databricks-llama-2-70b-chat"}, {"name": "embedding-model"}],
+        "vector_search_index": [{"name": "mlflow.rag.vs_index"}],
+        "sql_warehouse": [{"name": "test_id_1"}],
+        "uc_function": [{"name": function} for function in uc_functions],
+    }
+
+    assert all(item in actual["serving_endpoint"] for item in expected["serving_endpoint"])
+    assert all(item in expected["serving_endpoint"] for item in actual["serving_endpoint"])
+    assert actual["vector_search_index"] == expected["vector_search_index"]
+    if uc_function_tools:
+        assert actual["sql_warehouse"] == expected["sql_warehouse"]
+        assert all(item in actual["uc_function"] for item in expected["uc_function"])
+        assert all(item in expected["uc_function"] for item in actual["uc_function"])
+
+
+@pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.1.0"),
     reason="Tools are not supported the way we want in earlier versions",
 )
 def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
-    from databricks.sdk.service.catalog import FunctionInfo
-    from langchain.tools.retriever import create_retriever_tool
     from langchain_community.chat_models import ChatDatabricks
-    from langchain_community.vectorstores import DatabricksVectorSearch
 
-    # Return 2 functions from the function lis
-    def mock_function_list(self, catalog_name, schema_name):
-        assert catalog_name == "rag"
-        assert schema_name == "studio"
-        return [
-            FunctionInfo(full_name="rag.studio.test_function_a"),
-            FunctionInfo(full_name="rag.studio.test_function_b"),
-        ]
-
-    # For each function ensure that it returns a tool which takes one input
-    def mock_function_get(self, function_name):
-        components = function_name.split(".")
-        param_dict = {
-            "parameters": [
-                {
-                    "name": "param",
-                    "parameter_type": "PARAM",
-                    "position": 0,
-                    "type_json": '{"name":"param","type":"string","nullable":true,"metadata":{}}',
-                    "type_name": "STRING",
-                    "type_precision": 0,
-                    "type_scale": 0,
-                    "type_text": "string",
-                }
-            ]
-        }
-        return FunctionInfo.from_dict(
-            {
-                "catalog_name": components[0],
-                "schema_name": components[1],
-                "name": components[2],
-                "input_params": param_dict,
-            }
-        )
-
-    vsc = MockVectorSearchClient()
-    vs_index = vsc.get_index(
-        endpoint_name="dbdemos_vs_endpoint",
-        index_name="mlflow.rag.vs_index",
-        has_embedding_endpoint=True,
-    )
-
-    mock_module = mock.MagicMock()
-    mock_module.VectorSearchIndex = MockVectorSearchIndex
-    mock_get_deploy_client = mock.MagicMock()
-
-    monkeypatch.setitem(sys.modules, "databricks.vector_search.client", mock_module)
-    monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
-    monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
-    monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
-    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.list", mock_function_list)
-    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
     # Mocking Cloudpickle because serialization in this setup is failing
     monkeypatch.setattr("cloudpickle.dump", mock.MagicMock())
 
-    # Create an toolkit with the '*' syntax
-    include_uc_function_tools = False
-    try:
-        from langchain_community.tools.databricks import UCFunctionToolkit
-
-        include_uc_function_tools = True
-    except Exception:
-        include_uc_function_tools = False
-
-    uc_function_tools = (
-        (UCFunctionToolkit(warehouse_id="test_id_1").include("rag.studio.*").get_tools())
-        if include_uc_function_tools
-        else []
+    uc_functions = ["rag.studio.test_function_a", "rag.studio.test_function_b"]
+    uc_function_tools = create_uc_tools(
+        monkeypatch,
+        warehouse_id="test_id_1",
+        expected_catalog_name="rag",
+        expected_schema_name="studio",
+        functions=uc_functions,
     )
-
+    retriever_tool = create_retriever_tool(monkeypatch)
     chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
 
-    vectorstore = DatabricksVectorSearch(vs_index, text_column="content")
-    retriever = vectorstore.as_retriever()
-    retriever_tool = create_retriever_tool(retriever, "vs_index_name", "vs_index_desc")
     agent = initialize_agent(
         uc_function_tools + [retriever_tool],
         chat_model,
@@ -2022,13 +2089,10 @@ def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
         "vector_search_index": [{"name": "mlflow.rag.vs_index"}],
     }
 
-    if uc_function_tools:
+    if len(uc_function_tools) > 0:
         uc_expected = {
             "sql_warehouse": [{"name": "test_id_1"}],
-            "uc_function": [
-                {"name": "rag.studio.test_function_a"},
-                {"name": "rag.studio.test_function_b"},
-            ],
+            "uc_function": [{"name": function} for function in uc_functions],
         }
         expected.update(uc_expected)
 
