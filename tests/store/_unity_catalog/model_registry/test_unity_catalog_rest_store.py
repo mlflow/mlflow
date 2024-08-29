@@ -243,7 +243,7 @@ def langchain_local_model_dir_with_resources(tmp_path):
                     {"name": "chat_endpoint"},
                 ],
                 "vector_search_index": [{"name": "index1"}, {"name": "index2"}],
-                "uc_function": [
+                "function": [
                     {"name": "test.schema.test_function"},
                     {"name": "test.schema.test_function_2"},
                 ],

@@ -200,7 +200,7 @@ def get_model_version_dependencies(model_dir):
         )
         dependencies.extend(
             _fetch_langchain_dependency_from_model_resources(
-                databricks_dependencies, ResourceType.UC_FUNCTION.value, "DATABRICKS_UC_FUNCTION"
+                databricks_dependencies, ResourceType.FUNCTION.value, "DATABRICKS_UC_FUNCTION"
             )
         )
     else:
