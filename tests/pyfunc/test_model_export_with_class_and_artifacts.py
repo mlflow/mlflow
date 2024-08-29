@@ -32,9 +32,9 @@ from mlflow.models import Model, infer_signature
 from mlflow.models.dependencies_schemas import DependenciesSchemasType
 from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE
 from mlflow.models.resources import (
+    DatabricksFunction,
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
-    DatabricksUCFunction,
     DatabricksVectorSearchIndex,
 )
 from mlflow.models.utils import _read_example
@@ -1618,7 +1618,7 @@ def test_model_save_load_with_resources(tmp_path):
             ],
             "vector_search_index": [{"name": "rag.studio_bugbash.databricks_docs_index"}],
             "sql_warehouse": [{"name": "testid"}],
-            "uc_function": [
+            "function": [
                 {"name": "rag.studio.test_function_a"},
                 {"name": "rag.studio.test_function_b"},
             ],
@@ -1634,8 +1634,8 @@ def test_model_save_load_with_resources(tmp_path):
             DatabricksServingEndpoint(endpoint_name="azure-eastus-model-serving-2_vs_endpoint"),
             DatabricksVectorSearchIndex(index_name="rag.studio_bugbash.databricks_docs_index"),
             DatabricksSQLWarehouse(warehouse_id="testid"),
-            DatabricksUCFunction(function_name="rag.studio.test_function_a"),
-            DatabricksUCFunction(function_name="rag.studio.test_function_b"),
+            DatabricksFunction(function_name="rag.studio.test_function_a"),
+            DatabricksFunction(function_name="rag.studio.test_function_b"),
         ],
     )
 
@@ -1656,7 +1656,7 @@ def test_model_save_load_with_resources(tmp_path):
                 - name: azure-eastus-model-serving-2_vs_endpoint
                 sql_warehouse:
                 - name: testid
-                uc_function:
+                function:
                 - name: rag.studio.test_function_a
                 - name: rag.studio.test_function_b
             """
@@ -1686,7 +1686,7 @@ def test_model_log_with_resources(tmp_path):
             ],
             "vector_search_index": [{"name": "rag.studio_bugbash.databricks_docs_index"}],
             "sql_warehouse": [{"name": "testid"}],
-            "uc_function": [
+            "function": [
                 {"name": "rag.studio.test_function_a"},
                 {"name": "rag.studio.test_function_b"},
             ],
@@ -1702,8 +1702,8 @@ def test_model_log_with_resources(tmp_path):
                 DatabricksServingEndpoint(endpoint_name="azure-eastus-model-serving-2_vs_endpoint"),
                 DatabricksVectorSearchIndex(index_name="rag.studio_bugbash.databricks_docs_index"),
                 DatabricksSQLWarehouse(warehouse_id="testid"),
-                DatabricksUCFunction(function_name="rag.studio.test_function_a"),
-                DatabricksUCFunction(function_name="rag.studio.test_function_b"),
+                DatabricksFunction(function_name="rag.studio.test_function_a"),
+                DatabricksFunction(function_name="rag.studio.test_function_b"),
             ],
         )
     pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
@@ -1725,7 +1725,7 @@ def test_model_log_with_resources(tmp_path):
                 - name: azure-eastus-model-serving-2_vs_endpoint
                 sql_warehouse:
                 - name: testid
-                uc_function:
+                function:
                 - name: rag.studio.test_function_a
                 - name: rag.studio.test_function_b
             """
