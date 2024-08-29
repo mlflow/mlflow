@@ -3,9 +3,9 @@ import logging
 from typing import Generator, List, Optional, Set
 
 from mlflow.models.resources import (
+    DatabricksFunction,
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
-    DatabricksUCFunction,
     DatabricksVectorSearchIndex,
     Resource,
 )
@@ -114,7 +114,7 @@ def _extract_databricks_dependencies_from_tools(tools) -> Generator[Resource, No
                         ]
                         # This should always have the length 1
                         for tool_name in filtered_tool_names:
-                            yield DatabricksUCFunction(function_name=tool_name)
+                            yield DatabricksFunction(function_name=tool_name)
         # Add the deduped warehouse ids
         for warehouse_id in warehouse_ids:
             yield DatabricksSQLWarehouse(warehouse_id=warehouse_id)
