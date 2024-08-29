@@ -30,10 +30,24 @@ export const StageLabels = {
 };
 
 export const StageTagComponents = {
-  [Stages.NONE]: <Tag>{StageLabels[Stages.NONE]}</Tag>,
-  [Stages.STAGING]: <Tag color="lemon">{StageLabels[Stages.STAGING]}</Tag>,
-  [Stages.PRODUCTION]: <Tag color="lime">{StageLabels[Stages.PRODUCTION]}</Tag>,
-  [Stages.ARCHIVED]: <Tag color="charcoal">{StageLabels[Stages.ARCHIVED]}</Tag>,
+  [Stages.NONE]: (
+    <Tag componentId="codegen_mlflow_app_src_model-registry_constants.tsx_37">{StageLabels[Stages.NONE]}</Tag>
+  ),
+  [Stages.STAGING]: (
+    <Tag componentId="codegen_mlflow_app_src_model-registry_constants.tsx_38" color="lemon">
+      {StageLabels[Stages.STAGING]}
+    </Tag>
+  ),
+  [Stages.PRODUCTION]: (
+    <Tag componentId="codegen_mlflow_app_src_model-registry_constants.tsx_39" color="lime">
+      {StageLabels[Stages.PRODUCTION]}
+    </Tag>
+  ),
+  [Stages.ARCHIVED]: (
+    <Tag componentId="codegen_mlflow_app_src_model-registry_constants.tsx_40" color="charcoal">
+      {StageLabels[Stages.ARCHIVED]}
+    </Tag>
+  ),
 };
 
 export const ActivityTypes = {

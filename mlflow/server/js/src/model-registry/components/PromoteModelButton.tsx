@@ -138,6 +138,7 @@ export const PromoteModelButton = (props: PromoteModelButtonImplProps) => {
             values={{
               link: (chunks) => (
                 <Typography.Link
+                  componentId="codegen_mlflow_app_src_model-registry_components_promotemodelbutton.tsx_140"
                   href={
                     'https://mlflow.org/docs/latest/model-registry.html' +
                     '#promoting-an-mlflow-model-across-environments'

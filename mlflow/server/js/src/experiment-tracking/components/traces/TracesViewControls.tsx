@@ -109,6 +109,7 @@ export const TracesViewControls = ({
   ) : (
     <TableFilterLayout css={{ marginBottom: 0 }}>
       <Input
+        componentId="codegen_mlflow_app_src_experiment-tracking_components_traces_tracesviewcontrols.tsx_111"
         placeholder={intl.formatMessage({
           defaultMessage: 'Search traces',
           description: 'Experiment page > traces view filters > filter string input placeholder',
@@ -132,6 +133,7 @@ export const TracesViewControls = ({
         }}
       />
       <DialogCombobox
+        componentId="codegen_mlflow_app_src_experiment-tracking_components_traces_tracesviewcontrols.tsx_135"
         label={
           <div css={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <ColumnsIcon />

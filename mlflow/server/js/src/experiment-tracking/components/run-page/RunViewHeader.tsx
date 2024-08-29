@@ -21,6 +21,7 @@ export const RunViewHeader = ({
   runUuid,
   handleRenameRunClick,
   handleDeleteRunClick,
+  artifactRootUri,
 }: {
   hasComparedExperimentsBefore?: boolean;
   comparedExperimentIds?: string[];
@@ -31,6 +32,7 @@ export const RunViewHeader = ({
   experiment: ExperimentEntity | UseGetRunQueryResponseExperiment;
   handleRenameRunClick: () => void;
   handleDeleteRunClick?: () => void;
+  artifactRootUri?: string;
 }) => {
   function getExperimentPageLink() {
     return hasComparedExperimentsBefore && comparedExperimentIds ? (
@@ -83,7 +85,12 @@ export const RunViewHeader = ({
           ]}
         />
 
-        <RunViewHeaderRegisterModelButton runUuid={runUuid} experimentId={experiment?.experimentId ?? ''} />
+        <RunViewHeaderRegisterModelButton
+          runUuid={runUuid}
+          experimentId={experiment?.experimentId ?? ''}
+          runTags={runTags}
+          artifactRootUri={artifactRootUri}
+        />
       </PageHeader>
       <RunViewModeSwitch />
     </div>

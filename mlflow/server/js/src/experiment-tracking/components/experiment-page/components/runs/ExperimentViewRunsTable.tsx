@@ -112,8 +112,14 @@ export const ExperimentViewRunsTable = React.memo(
 
     const { orderByKey, orderByAsc } = searchFacetsState;
 
-    // If using new view state model, get column and run info from `uiState` instead of `searchFacetsState`
-    const { selectedColumns, runsPinned, runsHidden, runListHidden } = uiState;
+    // If using new view state model, use `uiState` instead of `searchFacetsState`
+    const {
+      // Get relevant column and run info from persisted UI state
+      selectedColumns,
+      runsPinned,
+      runsHidden,
+      runListHidden,
+    } = uiState;
 
     const updateRunListHidden = useCallback(
       (value: boolean) => {
@@ -225,7 +231,12 @@ export const ExperimentViewRunsTable = React.memo(
     const gridSizeHandler = useCallback(
       (api: GridApi) => {
         if (api && isComparingRuns) {
-          api.sizeColumnsToFit();
+          try {
+            api.sizeColumnsToFit();
+          } catch {
+            // ag-grid occasionally throws an error when trying to size columns while its internal ref is lost
+            // We can't do much about it, so the exception is consumed
+          }
         }
       },
       [isComparingRuns],
@@ -328,7 +339,7 @@ export const ExperimentViewRunsTable = React.memo(
         if (shouldInvokePreviewSidebar) {
           setSidebarPreviewData({
             value,
-            header: `Run name: ${data.runName}, Column name: ${column.getColId()}`,
+            header: `Run name: ${data.runName}, Column name: ${column.getColDef().headerTooltip}`,
           });
           updateViewState({ previewPaneVisible: true });
         }
@@ -340,7 +351,7 @@ export const ExperimentViewRunsTable = React.memo(
     const displayPreviewSidebar = !isComparingRuns && viewState.previewPaneVisible;
     const displayRunsTable = !runListHidden || !isComparingRuns;
     const displayStatusBar = !runListHidden;
-    const displayEmptyState = rowsData.length < 1 && !isLoading && !runListHidden;
+    const displayEmptyState = rowsData.length < 1 && !isLoading && displayRunsTable;
 
     const tableContext = useMemo(() => ({ orderByAsc, orderByKey }), [orderByAsc, orderByKey]);
 
@@ -503,6 +514,12 @@ const styles = {
           border: '0',
           borderRadius: '4px',
           overflow: 'visible',
+        },
+
+        // When scrollbars are forced to be visible in the system, ag-grid will sometimes
+        // display a scrollbar that is not needed. We hide it here on compact mode.
+        '.is-table-comparing-runs-mode & .ag-body-horizontal-scroll.ag-scrollbar-invisible': {
+          display: 'none',
         },
 
         // Adds a static line between column group header row and column headers

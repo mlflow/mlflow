@@ -56,6 +56,10 @@ export const shouldEnableLargerColorSelection = () => false;
  */
 export const shouldEnableChartExpressions = () => false;
 /**
+ * Support tagging multiple runs
+ */
+export const shouldEnableTaggingMultipleRuns = () => false;
+/**
  * Should enable toggling aggregation of individual runs in run groups
  */
 export const shouldEnableToggleIndividualRunsInGroups = () => false;
@@ -66,15 +70,32 @@ export const shouldEnableToggleIndividualRunsInGroups = () => false;
 export const shouldEnableHidingChartsWithNoData = () => false;
 
 /**
+ * Enables draggable and resizable charts grid
+ */
+export const shouldEnableDraggableChartsGridLayout = () => false;
+
+/**
  * Update relative time axis to use date
  */
 export const shouldEnableRelativeTimeDateAxis = () => false;
+/**
+ * Should enable new difference view charts
+ */
+export const shouldEnableNewDifferenceViewCharts = () => false;
 
 export const shouldEnableTracingUI = () => true;
 export const shouldEnableRunDetailsPageTracesTab = () => false;
 export const shouldUseCompressedExperimentViewSharedState = () => true;
 export const shouldEnableUnifiedChartDataTraceHighlight = () => true;
 export const shouldDeferLineChartRendering = () => true;
+export const shouldEnableGlobalLineChartConfig = () => false;
+export const shouldUseRegexpBasedChartFiltering = () => false;
+export const shouldUseRegexpBasedAutoRunsSearchFilter = () => false;
+
+/**
+ * Flags enabling fetching data via GraphQL for particular views:
+ */
+export const shouldEnableGraphQLRunDetailsPage = () => false;
 
 /**
  * A flag determining if we should display the new models UI.

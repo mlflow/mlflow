@@ -306,6 +306,7 @@ export const ModelVersionTable = ({
 
   const paginationComponent = (
     <Pagination
+      componentId="codegen_mlflow_app_src_model-registry_components_modelversiontable.tsx_403"
       currentPageIndex={pagination.pageIndex + 1}
       numTotal={(versions || []).length}
       onChange={(page, pageSize) => {
@@ -327,7 +328,11 @@ export const ModelVersionTable = ({
           description="Message text when no model versions are registered"
           values={{
             link: (chunks) => (
-              <Typography.Link target="_blank" href={getLearnMoreLinkUrl()}>
+              <Typography.Link
+                componentId="codegen_mlflow_app_src_model-registry_components_modelversiontable.tsx_425"
+                target="_blank"
+                href={getLearnMoreLinkUrl()}
+              >
                 {chunks}
               </Typography.Link>
             ),
@@ -349,6 +354,7 @@ export const ModelVersionTable = ({
       >
         <TableRow isHeader>
           <TableRowSelectCell
+            componentId="codegen_mlflow_app_src_model-registry_components_modelversiontable.tsx_450"
             checked={table.getIsAllRowsSelected()}
             indeterminate={table.getIsSomeRowsSelected()}
             onChange={table.getToggleAllRowsSelectedHandler()}
@@ -375,7 +381,11 @@ export const ModelVersionTable = ({
               },
             }}
           >
-            <TableRowSelectCell checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} />
+            <TableRowSelectCell
+              componentId="codegen_mlflow_app_src_model-registry_components_modelversiontable.tsx_477"
+              checked={row.getIsSelected()}
+              onChange={row.getToggleSelectedHandler()}
+            />
             {row.getAllCells().map((cell) => (
               <TableCell
                 className={(cell.column.columnDef as ModelVersionColumnDef).meta?.className}

@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react-for-react-18';
+import { renderHook, waitFor } from '@testing-library/react';
 import { useSampledMetricHistory } from './useSampledMetricHistory';
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
 import { fetchEndpoint } from '../../../../common/utils/FetchUtils';

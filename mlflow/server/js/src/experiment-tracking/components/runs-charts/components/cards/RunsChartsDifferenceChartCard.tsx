@@ -16,12 +16,14 @@ import {
 } from './ChartCard.common';
 import {
   shouldEnableHidingChartsWithNoData,
+  shouldEnableNewDifferenceViewCharts,
   shouldUseNewRunRowsVisibilityModel,
 } from '../../../../../common/utils/FeatureUtils';
 import { DifferenceViewPlot } from '../charts/DifferenceViewPlot';
 import { useConfirmChartCardConfigurationFn } from '../../hooks/useRunsChartsUIConfiguration';
 import { useIntl, FormattedMessage } from 'react-intl';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
+import { DifferenceViewPlotV2 } from '../charts/DifferenceViewPlotV2';
 
 export interface RunsChartsDifferenceChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
   config: RunsChartsDifferenceCardConfig;
@@ -124,6 +126,13 @@ export const RunsChartsDifferenceChartCard = ({
     <>
       {!isConfigured ? (
         <NotConfiguredDifferenceChartPlaceholder onEdit={onEdit} />
+      ) : shouldEnableNewDifferenceViewCharts() ? (
+        <DifferenceViewPlotV2
+          previewData={slicedRuns}
+          groupBy={groupBy}
+          cardConfig={config}
+          setCardConfig={setCardConfig}
+        />
       ) : (
         <DifferenceViewPlot
           previewData={slicedRuns}

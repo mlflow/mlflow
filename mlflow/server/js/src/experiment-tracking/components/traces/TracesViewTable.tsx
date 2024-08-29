@@ -99,6 +99,7 @@ export const TracesViewTable = React.memo(
           cell({ row: { original } }) {
             return (
               <Typography.Link
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_traces_tracesviewtable.tsx_102"
                 ellipsis
                 css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
                 onClick={() => {
@@ -119,6 +120,7 @@ export const TracesViewTable = React.memo(
           cell({ row: { original } }) {
             return (
               <Typography.Link
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_traces_tracesviewtable.tsx_123"
                 ellipsis
                 css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
                 onClick={() => {
@@ -282,7 +284,14 @@ export const TracesViewTable = React.memo(
                 defaultMessage="No traces found with the current filter query. <button>Reset filters</button> to see all traces."
                 description="Experiment page > traces table > no traces recorded"
                 values={{
-                  button: (chunks: any) => <Typography.Link onClick={onResetFilters}>{chunks}</Typography.Link>,
+                  button: (chunks: any) => (
+                    <Typography.Link
+                      componentId="codegen_mlflow_app_src_experiment-tracking_components_traces_tracesviewtable.tsx_289"
+                      onClick={onResetFilters}
+                    >
+                      {chunks}
+                    </Typography.Link>
+                  ),
                 }}
               />
             }
@@ -332,6 +341,7 @@ export const TracesViewTable = React.memo(
         style={columnSizeVars}
         pagination={
           <CursorPagination
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_traces_tracesviewtable.tsx_347"
             hasNextPage={hasNextPage}
             hasPreviousPage={hasPreviousPage}
             onNextPage={onNextPage}

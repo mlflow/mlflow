@@ -1,4 +1,4 @@
-import userEvent from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event-14';
 import { renderWithIntl, act, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
 import { useNextModelsUIContext, withNextModelsUIContext } from '../hooks/useNextModelsUI';
 import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
@@ -54,9 +54,7 @@ describe('ModelsNextUIToggleSwitch', () => {
 
     expect(screen.getByText('enabled')).toBeInTheDocument();
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('switch'));
-    });
+    await userEvent.click(screen.getByRole('switch'));
 
     expect(within(screen.getByRole('dialog')).getByText(/your feedback is invaluable/)).toBeInTheDocument();
   });
@@ -73,19 +71,13 @@ describe('ModelsNextUIToggleSwitch', () => {
 
     expect(screen.getByText('enabled')).toBeInTheDocument();
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('switch'));
-    });
+    await userEvent.click(screen.getByRole('switch'));
 
-    await act(async () => {
-      userEvent.click(screen.getByText('Disable'));
-    });
+    await userEvent.click(screen.getByText('Disable'));
 
     expect(screen.getByText('disabled')).toBeInTheDocument();
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('switch'));
-    });
+    await userEvent.click(screen.getByRole('switch'));
 
     expect(screen.getByText('enabled')).toBeInTheDocument();
   });

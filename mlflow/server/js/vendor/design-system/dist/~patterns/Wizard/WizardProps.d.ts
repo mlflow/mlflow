@@ -33,6 +33,24 @@ export interface WizardProps {
      */
     verticalCompactButtonContent?: (currentStepIndex: number, totalSteps: number) => string;
     /**
+     * Configuration to render a DocumentationSidebar to the right of the vertical wizard's step content
+     *
+     * content: will be used as the `DocumentationSidebar.Content`. The Content child component takes in a `contentId: string` property; this is the contentId passed along from the
+  Trigger. This allows the client to display different help based on the contentId trigger clicked.
+      *
+      * title: is title displayed atop of the `DocumentationSidebar.Content`
+      *
+      * modalTitleWhenCompact: is the modal title for the compact version of the DocumentationSidebar
+      *
+      * closeLabel: is the aria label used for the sidebar close button
+     */
+    verticalDocumentationSidebarConfig?: {
+        content: React.ReactNode;
+        title: string;
+        modalTitleWhenCompact?: string;
+        closeLabel: string;
+    };
+    /**
      * Called when user clicks on cancel button in Wizard footer
      */
     onCancel: () => void;
@@ -90,9 +108,10 @@ export interface WizardProps {
     /**
      * Layout of the stepper.
      * A vertical wizard will have a vertical stepper on the left side of the step content
-     * A horizontal wizard will have a horizontal stepper atop of the step content
+     * A horizontal wizard will have a horizontal stepper atop of the step content.
+     * Note this is here for historical reasons; vertical layouts are highly recommended
      *
-     * @default 'horizontal'
+     * @default 'vertical'
      */
     layout?: 'horizontal' | 'vertical';
     /**

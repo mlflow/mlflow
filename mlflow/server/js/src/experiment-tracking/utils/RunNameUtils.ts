@@ -3,7 +3,7 @@
  * https://github.com/mlflow/mlflow/blob/master/mlflow/utils/name_utils.py
  */
 
-import { RUNS_COLOR_PALETTE, RUNS_COLOR_PALETTE_400 } from '../../common/color-palette';
+import { RUNS_COLOR_PALETTE, RUNS_COLOR_PALETTE_NEXT } from '../../common/color-palette';
 import { shouldEnableLargerColorSelection } from '../../common/utils/FeatureUtils';
 import { RunRowType } from '../components/experiment-page/utils/experimentPage.row-types';
 import { murmurhash } from './ColorHashUtils';
@@ -58,7 +58,7 @@ export const getDuplicatedRunName = (originalRunName = '', alreadyExistingRunNam
 export const getStableColorForRun = (runUuid: string) => {
   if (shouldEnableLargerColorSelection()) {
     const hash = murmurhash(runUuid, 42);
-    return RUNS_COLOR_PALETTE_400[hash % RUNS_COLOR_PALETTE_400.length];
+    return RUNS_COLOR_PALETTE_NEXT[hash % RUNS_COLOR_PALETTE_NEXT.length];
   }
   let a = 0,
     b = 0;
