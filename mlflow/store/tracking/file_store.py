@@ -236,7 +236,7 @@ class FileStore(AbstractStore):
 
     def _get_metric_path(self, experiment_id, run_uuid, metric_key):
         _validate_run_id(run_uuid)
-        _validate_metric_name(metric_key)
+        _validate_metric_name(metric_key, "name")
         return os.path.join(
             self._get_run_dir(experiment_id, run_uuid),
             FileStore.METRICS_FOLDER_NAME,

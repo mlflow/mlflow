@@ -95,6 +95,7 @@ from mlflow.utils.validation import (
     _validate_run_id,
     _validate_tag,
     _validate_trace_tag,
+    append_to_json_path,
 )
 
 _logger = logging.getLogger(__name__)
@@ -705,8 +706,8 @@ class SqlAlchemyStore(AbstractStore):
             )
             return [run.run_uuid for run in runs]
 
-    def _get_metric_value_details(self, metric):
-        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
+    def _get_metric_value_details(self, path, metric):
+        _validate_metric(path, metric.key, metric.value, metric.timestamp, metric.step)
         is_nan = math.isnan(metric.value)
         if is_nan:
             value = 0
@@ -721,7 +722,7 @@ class SqlAlchemyStore(AbstractStore):
         # simply call _log_metrics and let it handle the rest
         self._log_metrics(run_id, [metric])
 
-    def _log_metrics(self, run_id, metrics):
+    def _log_metrics(self, run_id, metrics, path=""):
         if not metrics:
             return
 
@@ -729,8 +730,10 @@ class SqlAlchemyStore(AbstractStore):
         # the same behavior in log_metric
         metric_instances = []
         seen = set()
-        for metric in metrics:
-            metric, value, is_nan = self._get_metric_value_details(metric)
+        for index, metric in enumerate(metrics):
+            metric, value, is_nan = self._get_metric_value_details(
+                append_to_json_path(path, f"[{index}]"), metric
+            )
             if metric not in seen:
                 metric_instances.append(
                     SqlMetric(
@@ -1381,7 +1384,7 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             try:
                 self._log_params(run_id, params)
-                self._log_metrics(run_id, metrics)
+                self._log_metrics("metrics", run_id, metrics)
                 self._set_tags(run_id, tags)
             except MlflowException as e:
                 raise e

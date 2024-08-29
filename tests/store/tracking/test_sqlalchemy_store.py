@@ -2762,7 +2762,7 @@ def test_log_batch_metrics(store: SqlAlchemyStore):
         metric,
         metric2,
     ]
-    store._log_metrics(run.info.run_id, metrics)
+    store._log_metrics("metrics", run.info.run_id, metrics)
 
     run = store.get_run(run.info.run_id)
     assert tkey in run.data.metrics

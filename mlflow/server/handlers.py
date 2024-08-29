@@ -130,7 +130,7 @@ from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import is_local_uri, validate_path_is_safe, validate_query_string
-from mlflow.utils.validation import _formatValue, _validate_batch_log_api_req
+from mlflow.utils.validation import _validate_batch_log_api_req, invalid_value
 
 _logger = logging.getLogger(__name__)
 _tracking_store = None
@@ -467,10 +467,8 @@ def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded
             elif f == _assert_required:
                 message = f"Missing value for required parameter '{param}'."
             else:
-                formattedValue = _formatValue(value)
-                message = (
-                    f"Invalid value {formattedValue} for parameter '{param}' supplied."
-                    f" Hint: Value was of type '{type(value).__name__}'."
+                message = invalid_value(
+                    param, value, f" Hint: Value was of type '{type(value).__name__}'."
                 )
             raise MlflowException(
                 message=(

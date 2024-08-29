@@ -98,8 +98,23 @@ model and prevent parameter key collisions within the
 tracking store."""
 
 
-def _formatValue(value):
-    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+def invalid_value(path, value, message):
+    """
+    Compose a standarized error message for invalid parameter values.
+    """
+    formattedValue = json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+    return f"Invalid value {formattedValue} for parameter '{path}' supplied: {message}"
+
+
+def append_to_json_path(currenPath, value):
+    if not currenPath:
+        return value
+
+    if value.startswith("["):
+        return f"{currenPath}{value}"
+
+    return f"{currenPath}.{value}"
 
 
 def bad_path_message(name):
@@ -135,22 +150,21 @@ def path_not_unique(name):
     return norm != name or norm == "." or norm.startswith("..") or norm.startswith("/")
 
 
-def _validate_metric_name(path, name):
+def _validate_metric_name(name, path="name"):
     """Check that `name` is a valid metric name and raise an exception if it isn't."""
     if name is None:
         raise MlflowException(
-            f"Invalid value {_formatValue(name)} for parameter '{path}' supplied: "
-            f"Metric name cannot be None. {_MISSING_KEY_NAME_MESSAGE}",
+            invalid_value(path, name, f"Metric name cannot be None. {_MISSING_KEY_NAME_MESSAGE}"),
             error_code=INVALID_PARAMETER_VALUE,
         )
     if not validate_param_and_metric_name(name):
         raise MlflowException(
-            f"Invalid metric name: '{name}'. {bad_character_message()}",
+            invalid_value(path, name, bad_character_message()),
             INVALID_PARAMETER_VALUE,
         )
     if path_not_unique(name):
         raise MlflowException(
-            f"Invalid metric name: '{name}'. {bad_path_message(name)}",
+            invalid_value(path, name, bad_path_message(name)),
             INVALID_PARAMETER_VALUE,
         )
 
@@ -164,32 +178,43 @@ def _is_numeric(value):
     return not isinstance(value, bool) and isinstance(value, numbers.Number)
 
 
-def _validate_metric(path, key, value, timestamp, step):
+def _validate_metric(key, value, timestamp, step, path=""):
     """
     Check that a metric with the specified key, value, timestamp, and step is valid and raise an
     exception if it isn't.
     """
-    _validate_metric_name(f"{path}.key", key)
+    _validate_metric_name(key, append_to_json_path(path, key))
     # value must be a Number
     # since bool is an instance of Number check for bool additionally
     if not _is_numeric(value):
         raise MlflowException(
-            f"Invalid value {value} for metric '{key}' (timestamp={timestamp}). "
-            "Please specify value as a valid double (64-bit floating point)",
+            invalid_value(
+                append_to_json_path(path, "value"),
+                value,
+                f"(timestamp={timestamp}). "
+                f"Please specify value as a valid double (64-bit floating point)",
+            ),
             INVALID_PARAMETER_VALUE,
         )
 
     if not isinstance(timestamp, numbers.Number) or timestamp < 0:
         raise MlflowException(
-            f"Got invalid timestamp {timestamp} for metric '{key}' (value={value}). "
-            "Timestamp must be a nonnegative long (64-bit integer) ",
+            invalid_value(
+                append_to_json_path(path, "timestamp"),
+                timestamp,
+                f"metric '{key}' (value={value}). "
+                f"Timestamp must be a nonnegative long (64-bit integer) ",
+            ),
             INVALID_PARAMETER_VALUE,
         )
 
     if not isinstance(step, numbers.Number):
         raise MlflowException(
-            f"Got invalid step {step} for metric '{key}' (value={value}). "
-            "Step must be a valid long (64-bit integer).",
+            invalid_value(
+                append_to_json_path(path, "step"),
+                step,
+                f"metric '{key}' (value={value}). Step must be a valid long (64-bit integer).",
+            ),
             INVALID_PARAMETER_VALUE,
         )
 
