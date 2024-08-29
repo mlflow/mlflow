@@ -120,8 +120,8 @@ def build(package_type: PackageType) -> None:
                     # Required to sign outgoing request with SigV4 signature
                     "requests-auth-aws-sigv4",
                     # Required to log artifacts and models to AWS S3 artifact locations
-                    "boto3",
-                    "botocore",
+                    "boto3>=1.34.155",
+                    "botocore>=1.34.155",
                     # Required to log artifacts and models to GCS artifact locations
                     "google-cloud-storage>=1.30.0",
                     "azureml-core>=1.2.0",
