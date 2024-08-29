@@ -18,7 +18,15 @@ from flask import Response, current_app, jsonify, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 
-from mlflow.entities import DatasetInput, ExperimentTag, FileInfo, Metric, Param, RunTag, ViewType
+from mlflow.entities import (
+    DatasetInput,
+    ExperimentTag,
+    FileInfo,
+    Metric,
+    Param,
+    RunTag,
+    ViewType,
+)
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.entities.trace_info import TraceInfo
@@ -107,7 +115,10 @@ from mlflow.server.validation import _validate_content_type
 from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.tracing.artifact_utils import TRACE_DATA_FILE_NAME, get_artifact_uri_for_trace
+from mlflow.tracing.artifact_utils import (
+    TRACE_DATA_FILE_NAME,
+    get_artifact_uri_for_trace,
+)
 from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service import utils
@@ -119,7 +130,7 @@ from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import is_local_uri, validate_path_is_safe, validate_query_string
-from mlflow.utils.validation import _validate_batch_log_api_req
+from mlflow.utils.validation import _formatValue, _validate_batch_log_api_req
 
 _logger = logging.getLogger(__name__)
 _tracking_store = None
@@ -456,7 +467,7 @@ def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded
             elif f == _assert_required:
                 message = f"Missing value for required parameter '{param}'."
             else:
-                formattedValue = json.dumps(value, sort_keys=True, separators=(",", ":"))
+                formattedValue = _formatValue(value)
                 message = (
                     f"Invalid value {formattedValue} for parameter '{param}' supplied."
                     f" Hint: Value was of type '{type(value).__name__}'."
@@ -684,7 +695,8 @@ def get_experiment_impl(request_message):
 @_disable_if_artifacts_only
 def _get_experiment_by_name():
     request_message = _get_request_message(
-        GetExperimentByName(), schema={"experiment_name": [_assert_required, _assert_string]}
+        GetExperimentByName(),
+        schema={"experiment_name": [_assert_required, _assert_string]},
     )
     response_message = GetExperimentByName.Response()
     store_exp = _get_tracking_store().get_experiment_by_name(request_message.experiment_name)
@@ -717,7 +729,8 @@ def _delete_experiment():
 @_disable_if_artifacts_only
 def _restore_experiment():
     request_message = _get_request_message(
-        RestoreExperiment(), schema={"experiment_id": [_assert_required, _assert_string]}
+        RestoreExperiment(),
+        schema={"experiment_id": [_assert_required, _assert_string]},
     )
     _get_tracking_store().restore_experiment(request_message.experiment_id)
     response_message = RestoreExperiment.Response()
@@ -837,7 +850,10 @@ def _log_metric():
         },
     )
     metric = Metric(
-        request_message.key, request_message.value, request_message.timestamp, request_message.step
+        request_message.key,
+        request_message.value,
+        request_message.timestamp,
+        request_message.step,
     )
     run_id = request_message.run_id or request_message.run_uuid
     _get_tracking_store().log_metric(run_id, metric)
@@ -973,7 +989,10 @@ def _search_runs():
         schema={
             "experiment_ids": [_assert_array],
             "filter": [_assert_string],
-            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(int(x), 50000)],
+            "max_results": [
+                _assert_intlike,
+                lambda x: _assert_less_than_or_equal(int(x), 50000),
+            ],
             "order_by": [_assert_array, _assert_item_type_string],
         },
     )
@@ -1657,7 +1676,10 @@ def _get_registered_model():
 def _update_registered_model():
     request_message = _get_request_message(
         UpdateRegisteredModel(),
-        schema={"name": [_assert_string, _assert_required], "description": [_assert_string]},
+        schema={
+            "name": [_assert_string, _assert_required],
+            "description": [_assert_string],
+        },
     )
     name = request_message.name
     new_description = request_message.description
@@ -1704,7 +1726,10 @@ def _search_registered_models():
         SearchRegisteredModels(),
         schema={
             "filter": [_assert_string],
-            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(int(x), 1000)],
+            "max_results": [
+                _assert_intlike,
+                lambda x: _assert_less_than_or_equal(int(x), 1000),
+            ],
             "order_by": [_assert_array, _assert_item_type_string],
             "page_token": [_assert_string],
         },
@@ -1919,7 +1944,9 @@ def _update_model_version():
     if request_message.HasField("description"):
         new_description = request_message.description
     model_version = _get_model_registry_store().update_model_version(
-        name=request_message.name, version=request_message.version, description=new_description
+        name=request_message.name,
+        version=request_message.version,
+        description=new_description,
     )
     return _wrap_response(UpdateModelVersion.Response(model_version=model_version.to_proto()))
 
@@ -1981,7 +2008,10 @@ def _search_model_versions():
         SearchModelVersions(),
         schema={
             "filter": [_assert_string],
-            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(int(x), 200_000)],
+            "max_results": [
+                _assert_intlike,
+                lambda x: _assert_less_than_or_equal(int(x), 200_000),
+            ],
             "order_by": [_assert_array, _assert_item_type_string],
             "page_token": [_assert_string],
         },
@@ -2036,7 +2066,9 @@ def _delete_model_version_tag():
         },
     )
     _get_model_registry_store().delete_model_version_tag(
-        name=request_message.name, version=request_message.version, key=request_message.key
+        name=request_message.name,
+        version=request_message.version,
+        key=request_message.key,
     )
     return _wrap_response(DeleteModelVersionTag.Response())
 
@@ -2053,7 +2085,9 @@ def _set_registered_model_alias():
         },
     )
     _get_model_registry_store().set_registered_model_alias(
-        name=request_message.name, alias=request_message.alias, version=request_message.version
+        name=request_message.name,
+        alias=request_message.alias,
+        version=request_message.version,
     )
     return _wrap_response(SetRegisteredModelAlias.Response())
 
@@ -2390,9 +2424,16 @@ def _search_traces():
     request_message = _get_request_message(
         SearchTraces(),
         schema={
-            "experiment_ids": [_assert_array, _assert_item_type_string, _assert_required],
+            "experiment_ids": [
+                _assert_array,
+                _assert_item_type_string,
+                _assert_required,
+            ],
             "filter": [_assert_string],
-            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(int(x), 500)],
+            "max_results": [
+                _assert_intlike,
+                lambda x: _assert_less_than_or_equal(int(x), 500),
+            ],
             "order_by": [_assert_array, _assert_item_type_string],
             "page_token": [_assert_string],
         },
@@ -2489,7 +2530,8 @@ def get_trace_artifact_handler():
 
     if not request_id:
         raise MlflowException(
-            'Request must include the "request_id" query parameter.', error_code=BAD_REQUEST
+            'Request must include the "request_id" query parameter.',
+            error_code=BAD_REQUEST,
         )
 
     trace_info = _get_tracking_store().get_trace_info(request_id)

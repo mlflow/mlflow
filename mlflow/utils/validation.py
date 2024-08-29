@@ -1,6 +1,8 @@
 """
 Utilities for validating user inputs such as metric names and parameter names.
 """
+
+import json
 import logging
 import numbers
 import posixpath
@@ -96,6 +98,10 @@ model and prevent parameter key collisions within the
 tracking store."""
 
 
+def _formatValue(value):
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
 def bad_path_message(name):
     return (
         "Names may be treated as files in certain cases, and must not resolve to other names"
@@ -129,10 +135,11 @@ def path_not_unique(name):
     return norm != name or norm == "." or norm.startswith("..") or norm.startswith("/")
 
 
-def _validate_metric_name(name):
+def _validate_metric_name(path, name):
     """Check that `name` is a valid metric name and raise an exception if it isn't."""
     if name is None:
         raise MlflowException(
+            f"Invalid value {_formatValue(name)} for parameter '{path}' supplied: "
             f"Metric name cannot be None. {_MISSING_KEY_NAME_MESSAGE}",
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -157,17 +164,17 @@ def _is_numeric(value):
     return not isinstance(value, bool) and isinstance(value, numbers.Number)
 
 
-def _validate_metric(key, value, timestamp, step):
+def _validate_metric(path, key, value, timestamp, step):
     """
     Check that a metric with the specified key, value, timestamp, and step is valid and raise an
     exception if it isn't.
     """
-    _validate_metric_name(key)
+    _validate_metric_name(f"{path}.key", key)
     # value must be a Number
     # since bool is an instance of Number check for bool additionally
     if not _is_numeric(value):
         raise MlflowException(
-            f"Got invalid value {value} for metric '{key}' (timestamp={timestamp}). "
+            f"Invalid value {value} for metric '{key}' (timestamp={timestamp}). "
             "Please specify value as a valid double (64-bit floating point)",
             INVALID_PARAMETER_VALUE,
         )
@@ -349,13 +356,16 @@ def _validate_batch_log_limits(metrics, params, tags):
     _validate_batch_limit(entity_name="tags", limit=MAX_PARAMS_TAGS_PER_BATCH, length=len(tags))
     total_length = len(metrics) + len(params) + len(tags)
     _validate_batch_limit(
-        entity_name="metrics, params, and tags", limit=MAX_ENTITIES_PER_BATCH, length=total_length
+        entity_name="metrics, params, and tags",
+        limit=MAX_ENTITIES_PER_BATCH,
+        length=total_length,
     )
 
 
 def _validate_batch_log_data(metrics, params, tags):
-    for metric in metrics:
-        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
+    for index, metric in enumerate(metrics):
+        path = f"metrics[{index}]"
+        _validate_metric(path, metric.key, metric.value, metric.timestamp, metric.step)
     return (
         metrics,
         [_validate_param(p.key, p.value) for p in params],
@@ -376,7 +386,8 @@ def _validate_experiment_name(experiment_name):
     """Check that `experiment_name` is a valid string and raise an exception if it isn't."""
     if experiment_name == "" or experiment_name is None:
         raise MlflowException(
-            f"Invalid experiment name: '{experiment_name}'", error_code=INVALID_PARAMETER_VALUE
+            f"Invalid experiment name: '{experiment_name}'",
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
     if not is_string_type(experiment_name):
@@ -430,15 +441,19 @@ def _validate_model_alias_name(model_alias_name):
             INVALID_PARAMETER_VALUE,
         )
     _validate_length_limit(
-        "Registered model alias name", MAX_REGISTERED_MODEL_ALIAS_LENGTH, model_alias_name
+        "Registered model alias name",
+        MAX_REGISTERED_MODEL_ALIAS_LENGTH,
+        model_alias_name,
     )
     if model_alias_name.lower() == "latest":
         raise MlflowException(
-            "'latest' alias name (case insensitive) is reserved.", INVALID_PARAMETER_VALUE
+            "'latest' alias name (case insensitive) is reserved.",
+            INVALID_PARAMETER_VALUE,
         )
     if _REGISTERED_MODEL_ALIAS_VERSION_REGEX.match(model_alias_name):
         raise MlflowException(
-            f"Version alias name '{model_alias_name}' is reserved.", INVALID_PARAMETER_VALUE
+            f"Version alias name '{model_alias_name}' is reserved.",
+            INVALID_PARAMETER_VALUE,
         )
 
 
