@@ -2034,7 +2034,7 @@ def test_databricks_dependency_extraction_from_langgraph_agent(monkeypatch):
         "serving_endpoint": [{"name": "databricks-llama-2-70b-chat"}, {"name": "embedding-model"}],
         "vector_search_index": [{"name": "mlflow.rag.vs_index"}],
         "sql_warehouse": [{"name": "test_id_1"}],
-        "uc_function": [{"name": function} for function in uc_functions],
+        "function": [{"name": function} for function in uc_functions],
     }
 
     assert all(item in actual["serving_endpoint"] for item in expected["serving_endpoint"])
@@ -2042,8 +2042,8 @@ def test_databricks_dependency_extraction_from_langgraph_agent(monkeypatch):
     assert actual["vector_search_index"] == expected["vector_search_index"]
     if uc_function_tools:
         assert actual["sql_warehouse"] == expected["sql_warehouse"]
-        assert all(item in actual["uc_function"] for item in expected["uc_function"])
-        assert all(item in expected["uc_function"] for item in actual["uc_function"])
+        assert all(item in actual["function"] for item in expected["function"])
+        assert all(item in expected["function"] for item in actual["function"])
 
 
 @pytest.mark.skipif(
@@ -2092,7 +2092,7 @@ def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
     if len(uc_function_tools) > 0:
         uc_expected = {
             "sql_warehouse": [{"name": "test_id_1"}],
-            "uc_function": [{"name": function} for function in uc_functions],
+            "function": [{"name": function} for function in uc_functions],
         }
         expected.update(uc_expected)
 
@@ -2101,8 +2101,8 @@ def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
     assert actual["vector_search_index"] == expected["vector_search_index"]
     if uc_function_tools:
         assert actual["sql_warehouse"] == expected["sql_warehouse"]
-        assert all(item in actual["uc_function"] for item in expected["uc_function"])
-        assert all(item in expected["uc_function"] for item in actual["uc_function"])
+        assert all(item in actual["function"] for item in expected["function"])
+        assert all(item in expected["function"] for item in actual["function"])
 
 
 def _error_func(*args, **kwargs):

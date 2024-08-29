@@ -2,9 +2,9 @@ import pytest
 
 from mlflow.models.resources import (
     DEFAULT_API_VERSION,
+    DatabricksFunction,
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
-    DatabricksUCFunction,
     DatabricksVectorSearchIndex,
     _ResourceBuilder,
 )
@@ -41,8 +41,8 @@ def test_sql_warehouse():
 
 
 def test_uc_function():
-    uc_function = DatabricksUCFunction(function_name="function")
-    expected = {"uc_function": [{"name": "function"}]}
+    uc_function = DatabricksFunction(function_name="function")
+    expected = {"function": [{"name": "function"}]}
     assert uc_function.to_dict() == expected
     assert _ResourceBuilder.from_resources([uc_function]) == {
         "api_version": DEFAULT_API_VERSION,
@@ -56,8 +56,8 @@ def test_resources():
         DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct"),
         DatabricksServingEndpoint(endpoint_name="databricks-llama-8x7b-instruct"),
         DatabricksSQLWarehouse(warehouse_id="id123"),
-        DatabricksUCFunction(function_name="rag.studio.test_function_1"),
-        DatabricksUCFunction(function_name="rag.studio.test_function_2"),
+        DatabricksFunction(function_name="rag.studio.test_function_1"),
+        DatabricksFunction(function_name="rag.studio.test_function_2"),
     ]
     expected = {
         "api_version": DEFAULT_API_VERSION,
@@ -68,7 +68,7 @@ def test_resources():
                 {"name": "databricks-llama-8x7b-instruct"},
             ],
             "sql_warehouse": [{"name": "id123"}],
-            "uc_function": [
+            "function": [
                 {"name": "rag.studio.test_function_1"},
                 {"name": "rag.studio.test_function_2"},
             ],
@@ -92,7 +92,7 @@ def test_resources_from_yaml(tmp_path):
                 - name: databricks-llama-8x7b-instruct
                 sql_warehouse:
                 - name: id123
-                uc_function:
+                function:
                 - name: rag.studio.test_function_1
                 - name: rag.studio.test_function_2
             """
@@ -107,7 +107,7 @@ def test_resources_from_yaml(tmp_path):
                 {"name": "databricks-llama-8x7b-instruct"},
             ],
             "sql_warehouse": [{"name": "id123"}],
-            "uc_function": [
+            "function": [
                 {"name": "rag.studio.test_function_1"},
                 {"name": "rag.studio.test_function_2"},
             ],
