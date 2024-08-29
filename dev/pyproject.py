@@ -121,7 +121,7 @@ def build(package_type: PackageType) -> None:
                     "requests-auth-aws-sigv4",
                     # Required to log artifacts and models to AWS S3 artifact locations
                     "boto3",
-                    "botocore5",
+                    "botocore",
                     # Required to log artifacts and models to GCS artifact locations
                     "google-cloud-storage>=1.30.0",
                     "azureml-core>=1.2.0",
@@ -129,7 +129,7 @@ def build(package_type: PackageType) -> None:
                     "pysftp",
                     # Required by the mlflow.projects module, when running projects against
                     # a remote Kubernetes cluster
-                    "kubernetes>=30.1.0",
+                    "kubernetes",
                     # Required to serve models through MLServer
                     # NOTE: remove the upper version pin once protobuf is no longer pinned in
                     # mlserver. Reference issue: https://github.com/SeldonIO/MLServer/issues/1089
