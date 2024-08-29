@@ -49,3 +49,4 @@ typing_extensions>=4.6.0
 # Required for importing boto3 ClientError directly for testing
 botocore>=1.34
 pyspark
+polars>=1

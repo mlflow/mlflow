@@ -18,3 +18,4 @@ scrapy
 ipywidgets>=8.1.1
 # incremental==24.7.0 requires setuptools>=61.0, which causes https://github.com/mlflow/mlflow/issues/8635
 incremental<24.7.0
+polars>=1

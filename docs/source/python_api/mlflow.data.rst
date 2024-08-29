@@ -133,6 +133,17 @@ TensorFlow
     :undoc-members:
 
 
+polars
+~~~~~~
+
+.. autofunction:: mlflow.data.from_polars
+
+.. autoclass:: mlflow.data.polars_dataset.PolarsDataset()
+    :members:
+    :undoc-members:
+    :exclude-members: to_pyfunc, to_evaluation_dataset
+
+
 Dataset Sources 
 ~~~~~~~~~~~~~~~~
 

@@ -154,3 +154,7 @@ with suppress(ImportError):
 
     _dataset_registry.register_constructor(load_delta)
     _dataset_registry.register_constructor(from_spark)
+with suppress(ImportError):
+    from mlflow.data.polars_dataset import from_polars
+
+    _dataset_registry.register_constructor(from_polars)
