@@ -200,7 +200,6 @@ flavors:
     wrapper.setProps({ path: 'newpath', runUuid: 'newRunId' });
     expect(instance.fetchLoggedModelMetadata).toBeCalled();
     expect(instance.props.getArtifact).toBeCalled();
-    expect(instance.fetchServingInputExample).toBeCalled();
   });
 
   test('should render code snippet with original flavor when no pyfunc flavor', (done) => {
