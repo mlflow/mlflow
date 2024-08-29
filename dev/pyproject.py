@@ -120,8 +120,8 @@ def build(package_type: PackageType) -> None:
                     # Required to sign outgoing request with SigV4 signature
                     "requests-auth-aws-sigv4",
                     # Required to log artifacts and models to AWS S3 artifact locations
-                    "boto3>=1.34.155",
-                    "botocore>=1.34.155",
+                    "boto3",
+                    "botocore5",
                     # Required to log artifacts and models to GCS artifact locations
                     "google-cloud-storage>=1.30.0",
                     "azureml-core>=1.2.0",
@@ -131,8 +131,10 @@ def build(package_type: PackageType) -> None:
                     # a remote Kubernetes cluster
                     "kubernetes>=30.1.0",
                     # Required to serve models through MLServer
-                    "mlserver>=1.4.0",
-                    "mlserver-mlflow>=1.4.0",
+                    # NOTE: remove the upper version pin once protobuf is no longer pinned in
+                    # mlserver. Reference issue: https://github.com/SeldonIO/MLServer/issues/1089
+                    "mlserver>=1.2.0,!=1.3.1,<1.4.0",
+                    "mlserver-mlflow>=1.2.0,!=1.3.1,<1.4.0",
                     "virtualenv",
                     # Required for exporting metrics from the MLflow server to Prometheus
                     # as part of the MLflow server monitoring add-on
