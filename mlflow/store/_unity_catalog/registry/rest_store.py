@@ -185,21 +185,21 @@ def get_model_version_dependencies(model_dir):
     if databricks_resources:
         databricks_dependencies = databricks_resources.get("databricks", {})
         dependencies.extend(
-            _fetch_langchain_dependency_from_model_info(
+            _fetch_langchain_dependency_from_model_resources(
                 databricks_dependencies,
                 ResourceType.VECTOR_SEARCH_INDEX.value,
                 "DATABRICKS_VECTOR_INDEX",
             )
         )
         dependencies.extend(
-            _fetch_langchain_dependency_from_model_info(
+            _fetch_langchain_dependency_from_model_resources(
                 databricks_dependencies,
                 ResourceType.SERVING_ENDPOINT.value,
                 "DATABRICKS_MODEL_ENDPOINT",
             )
         )
         dependencies.extend(
-            _fetch_langchain_dependency_from_model_info(
+            _fetch_langchain_dependency_from_model_resources(
                 databricks_dependencies, ResourceType.UC_FUNCTION.value, "DATABRICKS_UC_FUNCTION"
             )
         )
@@ -234,12 +234,16 @@ def get_model_version_dependencies(model_dir):
     return dependencies
 
 
-def _fetch_langchain_dependency_from_model_info(databricks_dependencies, key, resource_type):
+def _fetch_langchain_dependency_from_model_resources(databricks_dependencies, key, resource_type):
     dependencies = databricks_dependencies.get(key, [])
     deps = []
     for depndency in dependencies:
         deps.append({"type": resource_type, **depndency})
     return deps
+
+
+def _fetch_langchain_dependency_from_model_info(databricks_dependencies, key):
+    return databricks_dependencies.get(key, [])
 
 
 @experimental
