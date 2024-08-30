@@ -707,7 +707,7 @@ class SqlAlchemyStore(AbstractStore):
             return [run.run_uuid for run in runs]
 
     def _get_metric_value_details(self, path, metric):
-        _validate_metric(path, metric.key, metric.value, metric.timestamp, metric.step)
+        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step, path=path)
         is_nan = math.isnan(metric.value)
         if is_nan:
             value = 0
