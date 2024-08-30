@@ -55,6 +55,7 @@ class UnityCatalogOssStore(BaseRestStore):
     """
 
     def __init__(self, store_uri):
+        print("created unity catalog oss store")
         super().__init__(get_host_creds=functools.partial(get_oss_host_creds, store_uri))
         self.tracking_uri = None  # OSS has no tracking URI
 
