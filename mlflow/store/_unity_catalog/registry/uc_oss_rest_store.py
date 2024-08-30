@@ -334,6 +334,10 @@ class UnityCatalogOssStore(BaseRestStore):
         )
         cred_return = self._call_endpoint(GenerateTemporaryModelVersionCredential, req_body)
         return cred_return
+    
+    def get_model_version_download_uri(self, name, version):
+        response = self.get_model_version(name, version)
+        return response.storage_location
 
     @contextmanager
     def _local_model_dir(self, source, local_model_path):
