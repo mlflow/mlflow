@@ -265,9 +265,6 @@ class UnityCatalogOssStore(BaseRestStore):
         )
         return model_version_from_uc_oss_proto(registered_model_version)
 
-    def get_model_version_download_uri(self, name, version):
-        raise NotImplementedError("Method not implemented")
-
     def search_model_versions(
         self, filter_string=None, max_results=None, order_by=None, page_token=None
     ):
@@ -336,7 +333,7 @@ class UnityCatalogOssStore(BaseRestStore):
         return cred_return
     
     def get_model_version_download_uri(self, name, version):
-        response = self.get_model_version(name, version)
+        response = self.get_model_version(name, int(version))
         return response.storage_location
 
     @contextmanager
