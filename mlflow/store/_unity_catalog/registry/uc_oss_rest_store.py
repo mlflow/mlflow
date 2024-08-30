@@ -335,7 +335,7 @@ class UnityCatalogOssStore(BaseRestStore):
         print("req_body", req_body)
         cred_return = self._call_endpoint(GenerateTemporaryModelVersionCredential, req_body)
         print("cred_return", cred_return)
-        return cred_return.credentials
+        return cred_return
 
     @contextmanager
     def _local_model_dir(self, source, local_model_path):
