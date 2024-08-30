@@ -728,12 +728,14 @@ llama_index:
           # Required to test external vector stores
           "llama-index-vector-stores-qdrant",
         ]
+      ">= 0.11.0": ["fastapi>=0.100.0"]
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
     maximum: "0.10.58"
     requirements:
       ">= 0.0.0": ["openai"]
+      ">= 0.11.0": ["fastapi>=0.100.0"]
     run: pytest tests/llama_index/test_llama_index_autolog.py tests/llama_index/test_llama_index_tracer.py
 
 autogen:
