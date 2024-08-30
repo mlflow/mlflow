@@ -10,4 +10,4 @@ def get_oss_host_creds(server_uri=None):
         new_parsed_uri = urllib.parse.urlparse(new_uri)
         return MlflowHostCreds(
             host=f"{new_parsed_uri.scheme}://{new_parsed_uri.netloc}",
-        ) 
+        )
