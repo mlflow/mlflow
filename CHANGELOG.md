@@ -1,5 +1,51 @@
 # CHANGELOG
 
+## 2.16.0 (2024-08-30)
+
+MLflow 2.16.0 includes several major features and improvements
+
+Features:
+
+- [UI] MLflow UI Sync (#13024, @daniellok-db)
+- [Models] Support saving LangGraph object via model-from-code (#12996, @B-Step62)
+- [] Support Langgraph agents in Auto Auth (#13001, @aravind-segu)
+- [] Add UCFunctionToolkit Langchain dependency (#12966, @aravind-segu)
+- [Tracking] Support saving LlamaIndex engine directly via model-from-code (#12978, @B-Step62)
+- [Tracking] Support model-from-code in LlamaIndex flavor (#12944, @B-Step62)
+- [Tracking] Initial AutoGen Tracing Implementation (#12913, @B-Step62)
+- [Tracking] Tracing performance improvement (#12885, @B-Step62)
+- [Tracking] Async support for trace decorator (#12877, @MPKonst)
+- [Deployments] Support Gateway plugin LLM provider (#12611, @gabrielfu)
+- [Projects] Make MLflow project Databricks spark job supporting setting param-list and entry-point CLI argument (#12854, @WeichenXu123)
+- [Model Registry] Create rest store for UC OSS (#12888, @artjen)
+- [Models] Avoid converting input example (#12782, @serena-ruan)
+- [] Pyfunc get raw model (#12814, @serena-ruan)
+- [Models / Tracking] Make MLflow supports spark vector UDT type (#12758, @WeichenXu123)
+
+Bug fixes:
+
+- [Tracking] Add `mlflow.models.Model.get_tags_dict` to generate `model-history` tag (#12983, @harshilprajapati96)
+- [] Fix device when loading transformers model (#12977, @serena-ruan)
+- [Models] Fix evaluate for LlamaIndex flavor (#12976, @B-Step62)
+- [Tracking] Fix sftp get connection deadlock (#12938, @WeichenXu123)
+- [Tracking] langchain: load code from code_paths to system path (#12923, @harshilprajapati96)
+- [Tracking] [BUG] Fix mlflow.log_metrics value type error (#12876, @beomsun0829)
+- [Tracking] Catch NVML error when collecting GPU metrics (#12903, @chenmoneygithub)
+- [Deployments / Server-infra] Improve gateway schema support for OpenAI provider (#12781, @danilopeixoto)
+- [] Fix deletion of artifacts when downloading from a non-standard DBFS location during UC model registration (#12821, @smurching)
+- [] Replace `pkg_resources` with `importlib.metadata` (#12853, @harupy)
+- [Tracking] Fix error handling for OpenAI autolog tracing (#12841, @B-Step62)
+
+Documentation updates:
+
+- [Docs] Add docs updates for LangGraph support (#13025, @BenWilson2)
+- [Docs] Add additional documentation for models from code feature (#12936, @BenWilson2)
+- [] Serving input payload doc (#12848, @serena-ruan)
+
+Small bug fixes and documentation updates:
+
+#12987, #12991, #12974, #12975, #12932, #12893, #12851, #12793, @serena-ruan; #13019, #13013, @aravind-segu; #12943, @piyushdaftary; #12906, #12898, #12757, #12750, #12727, @daniellok-db; #12995, #12985, #12964, #12962, #12960, #12953, #12951, #12937, #12914, #12929, #12907, #12897, #12880, #12865, #12864, #12862, #12850, #12847, #12833, #12835, #12826, #12824, #12795, #12796, @harupy; #12592, @antbbn; #12993, #12984, #12899, #12745, @BenWilson2; #12965, @nojaf; #12968, @bbqiu; #12956, @mickvangelderen; #12939, #12950, #12915, #12931, #12919, #12889, #12849, #12794, #12779, #12836, #12823, #12737, @B-Step62; #12903, @chenmoneygithub; #12905, @Atry; #12884, #12858, #12807, #12800, #10874, @WeichenXu123; #12342, @kriscon-db; #12742, @edwardfeng-db
+
 ## 2.15.1 (2024-08-06)
 
 MLflow 2.15.1 is a patch release that addresses several bug fixes.
