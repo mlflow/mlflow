@@ -161,7 +161,7 @@ class MlflowClient:
         registry_client = getattr(self, registry_client_attr, None)
         if registry_client is None:
             try:
-                print("tracking.client.py log:", self._registry_uri, self.tracking_uri)
+                raise Exception("tracking.client.py log:", self._registry_uri, self.tracking_uri)
                 registry_client = ModelRegistryClient(self._registry_uri, self.tracking_uri)
                 # Define an instance variable on this `MlflowClient` instance to reference the
                 # `ModelRegistryClient` that was just constructed. `setattr()` is used to ensure
