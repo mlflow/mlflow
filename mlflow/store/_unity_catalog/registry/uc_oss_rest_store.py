@@ -109,7 +109,7 @@ class UnityCatalogOssStore(BaseRestStore):
         endpoint, method = _METHOD_TO_INFO[UpdateRegisteredModel]
         final_endpoint = endpoint.replace("{full_name}", full_name)
         registered_model_info = call_endpoint(
-            get_oss_host_creds(),
+            self.get_host_creds(),
             endpoint=final_endpoint,
             method=method,
             json_body=req_body,

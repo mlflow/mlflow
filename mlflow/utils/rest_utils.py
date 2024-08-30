@@ -361,7 +361,12 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
         response = http_request(**call_kwargs)
 
     response = verify_rest_response(response, endpoint)
-    js_dict = json.loads(response.text)
+    response_to_parse = response.text
+    if response.text == "200 OK":
+        # Armeria servers that respond with an empty message have a OK appended to the normal 200 status code.
+        # Updating response_to_parse to be an empty string json dictionary
+        response_to_parse = "{}"
+    js_dict = json.loads(response_to_parse)
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
 
