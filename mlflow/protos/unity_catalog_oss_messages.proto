@@ -231,7 +231,8 @@ message TemporaryCredentials {
 
   oneof credentials {
     AwsCredentials aws_temp_credentials = 2;
-    // TODO: Add support for other credential types
+    AzureUserDelegationSAS azure_user_delegation_sas = 3;
+    GcpOauthToken gcp_oauth_token = 4;
   }
   // Server time when the credential will expire, in epoch milliseconds.
   // The API client is advised to cache the credential given this expiration time.
@@ -249,6 +250,19 @@ message AwsCredentials {
 
   // The token that users must pass to AWS API to use the temporary credentials.
   optional string session_token = 3;
+}
+
+// Azure temporary credentials for API authentication.
+// Read more at https://docs.microsoft.com/en-us/rest/api/storageservices/create-user-delegation-sas
+message AzureUserDelegationSAS {
+  // The signed URI (SAS Token) used to access blob services for a given path
+  optional string sas_token = 1;
+}
+
+// GCP temporary credentials for API authentication.
+// Read more at https://developers.google.com/identity/protocols/oauth2/service-account
+message GcpOauthToken {
+  optional string oauth_token = 1;
 }
 
 message GenerateTemporaryModelVersionCredential {

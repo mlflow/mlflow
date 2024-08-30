@@ -8,7 +8,6 @@ from mlflow.protos.unity_catalog_oss_messages_pb2 import (
 )
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     GenerateTemporaryModelVersionCredential as GenerateTemporaryModelVersionCredentialsOSS,
-    TemporaryCredentials,
 )
 from mlflow.protos.unity_catalog_oss_service_pb2 import UnityCatalogService
 from mlflow.store._unity_catalog.lineage.constants import _DATABRICKS_LINEAGE_ID_HEADER
@@ -118,7 +117,7 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
                 operation=MODEL_VERSION_OPERATION_READ_OSS,
             )
         )
-        oss_response_proto = TemporaryCredentials
+        oss_response_proto = GenerateTemporaryModelVersionCredentialsOSS.Response
         return call_endpoint(
             host_creds=oss_creds,
             endpoint=oss_endpoint,
