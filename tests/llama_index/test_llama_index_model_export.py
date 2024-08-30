@@ -117,7 +117,7 @@ def test_format_predict_input_incorrect_schema(single_index, engine_type):
 
     exception_error = (
         r"__init__\(\) got an unexpected keyword argument 'incorrect'"
-        if Version(llama_index.core.__version__) >= Version("0.10.68")
+        if Version(llama_index.core.__version__) > Version("0.10.68")
         else "missing 1 required positional argument"
     )
 
