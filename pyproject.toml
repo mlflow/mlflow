@@ -33,17 +33,17 @@ dependencies = [
   "docker<8,>=4.0.0",
   "gitpython<4,>=3.1.9",
   "graphene<4",
-  "gunicorn<23; platform_system != 'Windows'",
-  "importlib_metadata<8,>=3.7.0,!=4.7.0",
+  "gunicorn<24; platform_system != 'Windows'",
+  "importlib_metadata<9,>=3.7.0,!=4.7.0",
   "markdown<4,>=3.3",
   "matplotlib<4",
-  "numpy<2",
+  "numpy<3",
   "opentelemetry-api<3,>=1.9.0",
   "opentelemetry-sdk<3,>=1.9.0",
   "packaging<25",
   "pandas<3",
   "protobuf<6,>=3.12.0",
-  "pyarrow<16,>=4.0.0",
+  "pyarrow<18,>=4.0.0",
   "pyyaml<7,>=5.1",
   "requests<3,>=2.17.3",
   "scikit-learn<2",
@@ -104,7 +104,7 @@ sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 xethub = ["mlflow-xethub"]
 jfrog = ["mlflow-jfrog-plugin"]
-langchain = ["langchain>=0.1.0,<=0.2.11"]
+langchain = ["langchain>=0.1.0,<=0.2.15"]
 
 [project.urls]
 homepage = "https://mlflow.org"

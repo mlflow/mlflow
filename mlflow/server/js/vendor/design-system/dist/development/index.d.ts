@@ -1,5 +1,6 @@
 export * from './Banner';
 export * from './DatePicker';
+export * from './NavigationMenu';
 export * from './PillControl';
 export * from './PreviewCard';
 export * from './Progress';

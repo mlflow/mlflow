@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { MlflowService } from '../../sdk/MlflowService';
 import { Modal, Typography } from '@databricks/design-system';
-import { useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 
 export const TracesViewDeleteTraceModal = ({
   experimentIds,
@@ -55,6 +54,7 @@ export const TracesViewDeleteTraceModal = ({
 
   return (
     <Modal
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_traces_tracesviewdeletetracemodal.tsx_62"
       title={
         <FormattedMessage
           defaultMessage="{count, plural, one {Delete Trace} other {Delete Traces}}"

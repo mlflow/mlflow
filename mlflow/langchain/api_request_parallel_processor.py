@@ -35,6 +35,7 @@ from mlflow.langchain.utils.chat import (
     try_transform_response_iter_to_chat_format,
     try_transform_response_to_chat_format,
 )
+from mlflow.langchain.utils.serialization import convert_to_serializable
 from mlflow.pyfunc.context import (
     Context,
     get_prediction_context,
@@ -105,28 +106,6 @@ class APIRequest:
     stream: bool
     prediction_context: Optional[Context] = None
 
-    def _prepare_to_serialize(self, response: dict):
-        """
-        Converts LangChain objects to JSON-serializable formats.
-        """
-        from langchain.load.dump import dumps
-
-        if "intermediate_steps" in response:
-            steps = response["intermediate_steps"]
-            try:
-                # `AgentAction` objects are not JSON serializable
-                # https://github.com/langchain-ai/langchain/issues/8815#issuecomment-1666763710
-                response["intermediate_steps"] = dumps(steps)
-            except Exception as e:
-                _logger.warning(f"Failed to serialize intermediate steps: {e!r}")
-
-        # The `dumps` format for `Document` objects is noisy, so we will still have custom logic
-        if "source_documents" in response:
-            response["source_documents"] = [
-                {"page_content": doc.page_content, "metadata": doc.metadata}
-                for doc in response["source_documents"]
-            ]
-
     def _predict_single_input(self, single_input, callback_handlers, **kwargs):
         if self.stream:
             return self.lc_model.stream(
@@ -149,17 +128,14 @@ class APIRequest:
     def single_call_api(self, callback_handlers: Optional[List[BaseCallbackHandler]]):
         from langchain.schema import BaseRetriever
 
-        from mlflow.langchain.utils import lc_runnables_types
+        from mlflow.langchain.utils import langgraph_types, lc_runnables_types
 
         if isinstance(self.lc_model, BaseRetriever):
             # Retrievers are invoked differently than Chains
-            docs = self.lc_model.get_relevant_documents(
+            response = self.lc_model.get_relevant_documents(
                 **self.request_json, callbacks=callback_handlers
             )
-            response = [
-                {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
-            ]
-        elif isinstance(self.lc_model, lc_runnables_types()):
+        elif isinstance(self.lc_model, lc_runnables_types() + langgraph_types()):
             if isinstance(self.request_json, dict):
                 # This is a temporary fix for the case when spark_udf converts
                 # input into pandas dataframe with column name, while the model
@@ -202,12 +178,8 @@ class APIRequest:
                 # to maintain existing code, single output chains will still return
                 # only the result
                 response = response.popitem()[1]
-            elif not self.stream:
-                # DO NOT call _prepare_to_serialize for stream output. It will consume the generator
-                # until the end and the iterator will be empty when the user tries to consume it.
-                self._prepare_to_serialize(response)
 
-        return response
+        return convert_to_serializable(response)
 
     def call_api(
         self, status_tracker: StatusTracker, callback_handlers: Optional[List[BaseCallbackHandler]]

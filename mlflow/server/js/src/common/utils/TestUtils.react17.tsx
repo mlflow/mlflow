@@ -8,7 +8,7 @@
 import { fireEvent, within, render, type RenderResult, screen, act } from '@testing-library/react';
 import React from 'react';
 import { IntlProvider } from 'react-intl';
-import userEvent from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event-14';
 
 import { DEFAULT_LOCALE } from '../../i18n/loadMessages';
 
@@ -32,9 +32,17 @@ export function renderWithIntl(ui: React.ReactElement, renderOptions = {}, provi
 /**
  * userEvent.type() can be quite slow, let's use userEvent.paste()
  * to improve testing performance
+ *
+ * @param user Pass this in when the test is using fake timers and the userEvent
+ * instance needs to be setup with `advanceTimers` to work properly.
  */
-export async function fastFillInput(element: HTMLInputElement, text: string) {
-  return userEvent.paste(element, text, { clipboardData: { getData: jest.fn() } } as any);
+export async function fastFillInput(
+  element: HTMLInputElement,
+  text: string,
+  user?: ReturnType<typeof userEvent.setup>,
+) {
+  act(() => element.focus());
+  return await (user ?? userEvent).paste(text);
 }
 
 export const selectAntdOption = async (container: HTMLElement, optionText: string) => {

@@ -49,7 +49,11 @@ export const RowActionsHeaderCellRendererV2 = React.memo(
         </DropdownMenu.Trigger>
 
         <DropdownMenu.Content>
-          <DropdownMenu.RadioGroup value={runsHiddenMode} onValueChange={(e) => onToggleVisibility(e)}>
+          <DropdownMenu.RadioGroup
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_rowactionsheadercellrenderer.tsx_52"
+            value={runsHiddenMode}
+            onValueChange={(e) => onToggleVisibility(e)}
+          >
             <DropdownMenu.RadioItem value={RUNS_VISIBILITY_MODE.FIRST_10_RUNS}>
               <DropdownMenu.ItemIndicator />
               <FormattedMessage
@@ -123,6 +127,7 @@ export const RowActionsHeaderCellRenderer = React.memo(
 
         <DropdownMenu.Content>
           <DropdownMenu.Item
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_rowactionsheadercellrenderer.tsx_125"
             onClick={() => props.onToggleVisibility(RUNS_VISIBILITY_MODE.HIDEALL)}
             data-testid="experiment-view-runs-visibility-hide-all"
           >
@@ -135,6 +140,7 @@ export const RowActionsHeaderCellRenderer = React.memo(
             />
           </DropdownMenu.Item>
           <DropdownMenu.Item
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_rowactionsheadercellrenderer.tsx_137"
             onClick={() => props.onToggleVisibility(RUNS_VISIBILITY_MODE.SHOWALL)}
             data-testid="experiment-view-runs-visibility-show-all"
           >

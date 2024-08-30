@@ -29,7 +29,6 @@ src/experiment-tracking/components/ArtifactView.enzyme.test.tsx
 src/experiment-tracking/components/CompareRunContour.enzyme.test.tsx
 src/experiment-tracking/components/CompareRunPage.enzyme.test.tsx
 src/experiment-tracking/components/CompareRunScatter.enzyme.test.tsx
-src/experiment-tracking/components/CompareRunView.enzyme.test.tsx
 src/experiment-tracking/components/HtmlTableView.enzyme.test.tsx
 src/experiment-tracking/components/LazyPlot.enzyme.test.tsx
 src/experiment-tracking/components/LineSmoothSlider.enzyme.test.tsx
@@ -57,7 +56,6 @@ src/experiment-tracking/components/artifact-view-components/ShowArtifactTableVie
 src/experiment-tracking/components/artifact-view-components/ShowArtifactTextView.enzyme.test.tsx
 src/experiment-tracking/components/evaluation-artifacts-compare/hooks/useEvaluationArtifactColumns.enzyme.test.tsx
 src/experiment-tracking/components/evaluation-artifacts-compare/hooks/useEvaluationArtifactTables.enzyme.test.tsx
-src/experiment-tracking/components/experiment-page/components/ExperimentViewArtifactLocation.enzyme.test.tsx
 src/experiment-tracking/components/experiment-page/components/ExperimentViewAutoML.enzyme.test.tsx
 src/experiment-tracking/components/experiment-page/components/runs/ExperimentViewDownloadRunsOverlay.enzyme.test.tsx
 src/experiment-tracking/components/experiment-page/components/runs/ExperimentViewRefreshButton.enzyme.test.tsx
@@ -80,7 +78,6 @@ src/experiment-tracking/components/modals/DeleteRunModal.enzyme.test.tsx
 src/experiment-tracking/components/modals/ErrorModal.enzyme.test.tsx
 src/experiment-tracking/components/modals/GenericInputModal.enzyme.test.tsx
 src/experiment-tracking/components/modals/GetLinkModal.enzyme.test.tsx
-src/experiment-tracking/components/modals/RenameExperimentModal.enzyme.test.tsx
 src/experiment-tracking/components/modals/RenameForm.enzyme.test.tsx
 src/experiment-tracking/components/modals/RenameRunModal.enzyme.test.tsx
 src/experiment-tracking/components/modals/RestoreRunModal.enzyme.test.tsx

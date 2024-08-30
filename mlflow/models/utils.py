@@ -1650,6 +1650,10 @@ def _convert_llm_ndarray_to_list(data):
         return [_convert_llm_ndarray_to_list(d) for d in data]
     if isinstance(data, dict):
         return {k: _convert_llm_ndarray_to_list(v) for k, v in data.items()}
+    # scalar values are also converted to numpy types, but they are
+    # not acceptable by the model
+    if np.isscalar(data) and isinstance(data, np.generic):
+        return data.item()
     return data
 
 
@@ -1798,7 +1802,7 @@ def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, 
         except Exception as e:
             raise MlflowException(
                 f"Failed to run user code from {code_path}. "
-                f"Error: {e!s}."
+                f"Error: {e!s}. "
                 "Review the stack trace for more information."
             ) from e
 

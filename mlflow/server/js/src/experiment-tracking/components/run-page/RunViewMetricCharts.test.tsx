@@ -7,7 +7,7 @@ import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
 import { RunsMetricsLinePlot } from '../runs-charts/components/RunsMetricsLinePlot';
 import { RunsMetricsBarPlot } from '../runs-charts/components/RunsMetricsBarPlot';
-import userEvent from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event-14';
 import { RunsChartsLineChartXAxisType, createChartAxisRangeKey } from '../runs-charts/components/RunsCharts.common';
 import { getSampledMetricHistoryBulkAction } from '../../sdk/SampledMetricHistoryService';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
@@ -72,9 +72,8 @@ describe('RunViewMetricCharts', () => {
     expect(screen.getByRole('heading', { name: 'met1' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'met2' })).toBeInTheDocument();
 
-    await act(async () => {
-      userEvent.paste(screen.getByRole('searchbox'), 'met1');
-    });
+    act(() => screen.getByRole('searchbox').focus());
+    await userEvent.paste('met1');
 
     expect(screen.queryByRole('heading', { name: 'met1' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'met2' })).not.toBeInTheDocument();
@@ -89,19 +88,17 @@ describe('RunViewMetricCharts', () => {
       expect(screen.getByRole('heading', { name: key })).toBeInTheDocument();
     });
 
-    await act(async () => {
-      userEvent.paste(screen.getByRole('searchbox'), 'metric_2');
-    });
+    act(() => screen.getByRole('searchbox').focus());
+    await userEvent.paste('metric_2');
 
     ['system/metric_1', 'system/metric_3', 'system/alpha', 'system/beta'].forEach((key) => {
       expect(screen.queryByRole('heading', { name: key })).not.toBeInTheDocument();
     });
     expect(screen.queryByRole('heading', { name: 'system/metric_2' })).toBeInTheDocument();
 
-    await act(async () => {
-      userEvent.clear(screen.getByRole('searchbox'));
-      userEvent.paste(screen.getByRole('searchbox'), 'metric');
-    });
+    await userEvent.clear(screen.getByRole('searchbox'));
+    act(() => screen.getByRole('searchbox').focus());
+    await userEvent.paste('metric');
 
     ['system/alpha', 'system/beta'].forEach((key) => {
       expect(screen.queryByRole('heading', { name: key })).not.toBeInTheDocument();
@@ -274,9 +271,7 @@ describe('RunViewMetricCharts', () => {
 
     expect(screen.getByText('Move up')).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByText('Move down')).not.toHaveAttribute('aria-disabled');
-    await act(async () => {
-      userEvent.click(screen.getByText('Move down'));
-    });
+    await userEvent.click(screen.getByText('Move down'));
 
     const chartHeadings = screen
       .getAllByRole('figure')
@@ -305,7 +300,7 @@ describe('RunViewMetricCharts', () => {
 
     expect(getSampledMetricHistoryBulkAction).toHaveBeenCalledTimes(3);
 
-    userEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh' }));
 
     expect(getSampledMetricHistoryBulkAction).toHaveBeenCalledTimes(6);
   });

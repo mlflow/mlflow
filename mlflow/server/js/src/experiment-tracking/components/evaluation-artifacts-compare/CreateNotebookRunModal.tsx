@@ -106,6 +106,7 @@ mlflow.end_run()
 
   return (
     <Modal
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_createnotebookrunmodal.tsx_111"
       visible={isOpen}
       onCancel={closeModal}
       onOk={closeModal}

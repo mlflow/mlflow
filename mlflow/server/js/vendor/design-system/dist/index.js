@@ -1,35 +1,35 @@
-import { u as useDesignSystemContext, a as useDesignSystemTheme, I as Icon, D as DesignSystemAntDConfigProvider, R as RestoreAntDDefaultClsPrefix, b as addDebugOutlineStylesIfEnabled, g as getAnimationCss, c as useDesignSystemEventComponentCallbacks, d as DesignSystemEventProviderComponentTypes, e as DesignSystemEventProviderAnalyticsEventTypes, f as useNotifyOnFirstView, h as addDebugOutlineIfEnabled, C as CloseIcon, i as getDarkModePortalStyles, j as useUniqueId, k as Root$5, T as Trigger$3, l as Content$5, A as Arrow$2, B as Button, L as LoadingState, v as visuallyHidden, m as DesignSystemEventSuppressInteractionProviderContext, n as DesignSystemEventSuppressInteractionTrueContextValue, o as Typography, p as importantify, s as safex, q as CheckIcon, S as Spinner, r as getValidationStateColor, t as ApplyDesignSystemContextOverrides, w as getShadowScrollStyles, x as DangerIcon, W as WarningIcon, y as LoadingIcon, z as Title$2, E as AccessibleContainer, F as DU_BOIS_ENABLE_ANIMATION_CLASSNAME, G as lightColorList, H as getDefaultStyles, J as getPrimaryStyles, K as getDisabledSplitButtonStyles } from './Typography-c0049677.js';
-export { X as ApplyDesignSystemFlags, a3 as ColorVars, Q as DesignSystemContext, N as DesignSystemEventProvider, V as DesignSystemProvider, P as DesignSystemThemeContext, U as DesignSystemThemeProvider, $ as LoadingStateContext, _ as NewWindowIcon, a0 as Popover, Z as WithDesignSystemThemeHoc, a2 as getBottomOnlyShadowScrollStyles, M as getButtonEmotionStyles, a1 as getTypographyColor, Y as useAntDConfigProviderContext, O as useDesignSystemEventSuppressInteractionContext } from './Typography-c0049677.js';
+import { u as useDesignSystemContext, a as useDesignSystemTheme, I as Icon, D as DesignSystemAntDConfigProvider, R as RestoreAntDDefaultClsPrefix, b as useDesignSystemEventComponentCallbacks, c as DesignSystemEventProviderComponentTypes, d as DesignSystemEventProviderAnalyticsEventTypes, e as addDebugOutlineStylesIfEnabled, g as getAnimationCss, f as useNotifyOnFirstView, h as addDebugOutlineIfEnabled, C as CloseIcon, i as getDarkModePortalStyles, j as useUniqueId, k as Root$5, T as Trigger$3, l as Content$4, A as Arrow$2, B as Button, m as ChevronRightIcon, L as LoadingState, v as visuallyHidden, n as DesignSystemEventSuppressInteractionProviderContext, o as DesignSystemEventSuppressInteractionTrueContextValue, p as Typography, q as importantify, s as safex, r as CheckIcon, S as Spinner, t as getValidationStateColor, w as ApplyDesignSystemContextOverrides, x as getShadowScrollStyles, y as DangerIcon, W as WarningIcon, z as LoadingIcon, E as Title$2, F as AccessibleContainer, G as ChevronLeftIcon, H as DU_BOIS_ENABLE_ANIMATION_CLASSNAME, J as lightColorList, K as getDefaultStyles, M as getPrimaryStyles, N as getDisabledSplitButtonStyles } from './Typography-a18b0186.js';
+export { Z as ApplyDesignSystemFlags, a5 as ColorVars, V as DesignSystemContext, P as DesignSystemEventProvider, Y as DesignSystemProvider, U as DesignSystemThemeContext, X as DesignSystemThemeProvider, a1 as LoadingStateContext, a0 as NewWindowIcon, a2 as Popover, $ as WithDesignSystemThemeHoc, a4 as getBottomOnlyShadowScrollStyles, O as getButtonEmotionStyles, a3 as getTypographyColor, _ as useAntDConfigProviderContext, Q as useDesignSystemEventSuppressInteractionContext } from './Typography-a18b0186.js';
 import { css, Global, keyframes, ClassNames, createElement } from '@emotion/react';
-import { Collapse, Alert as Alert$1, AutoComplete as AutoComplete$1, Tooltip as Tooltip$1, Breadcrumb as Breadcrumb$1, Checkbox as Checkbox$1, DatePicker, Dropdown as Dropdown$1, Form as Form$1, Select as Select$1, Radio as Radio$1, Switch as Switch$1, Col as Col$1, Row as Row$1, Space as Space$1, Layout as Layout$1, notification, Popover as Popover$1, Skeleton, Pagination as Pagination$1, Table as Table$1, Menu as Menu$1, Button as Button$1, Steps as Steps$1, Tabs as Tabs$1, Tree as Tree$1 } from 'antd';
-import { jsx, jsxs, Fragment } from '@emotion/react/jsx-runtime';
+import { Collapse, Alert as Alert$1, AutoComplete as AutoComplete$1, Tooltip, Breadcrumb as Breadcrumb$1, Checkbox as Checkbox$1, DatePicker, Dropdown as Dropdown$1, Form as Form$1, Select as Select$1, Radio as Radio$1, Switch as Switch$1, Col as Col$1, Row as Row$1, Space as Space$1, Layout as Layout$1, notification, Popover as Popover$1, Skeleton, Pagination as Pagination$1, Table as Table$1, Menu as Menu$1, Button as Button$1, Steps as Steps$1, Tabs as Tabs$1, Tree as Tree$1 } from 'antd';
 import * as React from 'react';
-import React__default, { useRef, useMemo, forwardRef, useEffect, useState, createContext, useImperativeHandle, useContext, Children, useCallback, Fragment as Fragment$1, useLayoutEffect } from 'react';
+import React__default, { useRef, useMemo, forwardRef, useCallback, useEffect, useState, createContext, useImperativeHandle, useContext, Children, Fragment as Fragment$1, useLayoutEffect } from 'react';
+import { jsx, jsxs, Fragment } from '@emotion/react/jsx-runtime';
 import classnames from 'classnames';
 import _isNil from 'lodash/isNil';
 import _isUndefined from 'lodash/isUndefined';
-import { ContextMenuTrigger, ContextMenuItemIndicator, ContextMenuGroup, ContextMenuRadioGroup, ContextMenuArrow, ContextMenuSub, ContextMenu as ContextMenu$2, ContextMenuSubTrigger, ContextMenuPortal, ContextMenuContent, ContextMenuSubContent, ContextMenuItem, ContextMenuCheckboxItem, ContextMenuRadioItem, ContextMenuLabel, ContextMenuSeparator } from '@radix-ui/react-context-menu';
+import { ContextMenuTrigger, ContextMenuItemIndicator, ContextMenuGroup, ContextMenuArrow, ContextMenuSub, ContextMenu as ContextMenu$2, ContextMenuSubTrigger, ContextMenuPortal, ContextMenuContent, ContextMenuSubContent, ContextMenuItem, ContextMenuCheckboxItem, ContextMenuRadioGroup, ContextMenuRadioItem, ContextMenuLabel, ContextMenuSeparator } from '@radix-ui/react-context-menu';
 import * as DropdownMenu$1 from '@radix-ui/react-dropdown-menu';
-import { u as useModalContext, S as Spacer, L as ListIcon, a as useMediaQuery } from './useMediaQuery-3b982e75.js';
-export { D as DangerModal, M as Modal } from './useMediaQuery-3b982e75.js';
+import { I as InfoIcon, u as useModalContext, S as Spacer, L as ListIcon, T as Tooltip$1 } from './Tooltip-cba3a3a6.js';
+export { C as Content, D as DangerModal, M as Modal, N as Nav, a as NavButton, P as Panel, e as PanelBody, b as PanelHeader, d as PanelHeaderButtons, c as PanelHeaderTitle, f as Sidebar } from './Tooltip-cba3a3a6.js';
 import * as Popover from '@radix-ui/react-popover';
-import { P as PlusIcon, I as Input } from './index-a2e493c0.js';
-export { A as ArrowRightIcon, C as CalendarEventIcon, a as CloseSmallIcon, M as MegaphoneIcon, g as getInputStyles } from './index-a2e493c0.js';
+import { P as PlusIcon, I as Input } from './index-9b7de1ae.js';
+export { C as ClockIcon, a as CloseSmallIcon, M as MegaphoneIcon, g as getInputStyles } from './index-9b7de1ae.js';
+import { useMergeRefs, useFloating, autoUpdate, offset, flip, shift } from '@floating-ui/react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { useController } from 'react-hook-form';
-import { useFloating, autoUpdate, offset, flip, shift, useMergeRefs } from '@floating-ui/react';
 import _uniqueId from 'lodash/uniqueId';
 import { useCombobox, useMultipleSelection } from 'downshift';
 import { createPortal } from 'react-dom';
 import AntDIcon, { InfoCircleOutlined } from '@ant-design/icons';
+import * as RadixHoverCard from '@radix-ui/react-hover-card';
 import * as Toast from '@radix-ui/react-toast';
-import { ResizableBox } from 'react-resizable';
 import _times from 'lodash/times';
 import _random from 'lodash/random';
 import * as Toggle from '@radix-ui/react-toggle';
-import * as RadixTooltip from '@radix-ui/react-tooltip';
 import chroma from 'chroma-js';
 import _isEqual from 'lodash/isEqual';
+import '@radix-ui/react-tooltip';
 import 'lodash/endsWith';
 import 'lodash/isBoolean';
 import 'lodash/isNumber';
@@ -37,6 +37,7 @@ import 'lodash/isString';
 import 'lodash/mapValues';
 import 'lodash/memoize';
 import '@emotion/unitless';
+import 'react-resizable';
 
 function useDesignSystemFlags() {
   const context = useDesignSystemContext();
@@ -90,7 +91,7 @@ function SvgAlignCenterIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M1 2.5h14V1H1v1.5ZM11.5 5.75h-7v-1.5h7v1.5ZM15 8.75H1v-1.5h14v1.5ZM15 15H1v-1.5h14V15ZM4.5 11.75h7v-1.5h-7v1.5Z"
+      d: "M1 2.5h14V1H1zM11.5 5.75h-7v-1.5h7zM15 8.75H1v-1.5h14zM15 15H1v-1.5h14zM4.5 11.75h7v-1.5h-7z"
     })
   });
 }
@@ -114,7 +115,7 @@ function SvgAlignLeftIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M1 2.5h14V1H1v1.5ZM8 5.75H1v-1.5h7v1.5ZM1 8.75v-1.5h14v1.5H1ZM1 15v-1.5h14V15H1ZM1 11.75h7v-1.5H1v1.5Z"
+      d: "M1 2.5h14V1H1zM8 5.75H1v-1.5h7zM1 8.75v-1.5h14v1.5zM1 15v-1.5h14V15zM1 11.75h7v-1.5H1z"
     })
   });
 }
@@ -138,7 +139,7 @@ function SvgAlignRightIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M1 2.5h14V1H1v1.5ZM15 5.75H8v-1.5h7v1.5ZM1 8.75v-1.5h14v1.5H1ZM1 15v-1.5h14V15H1ZM8 11.75h7v-1.5H8v1.5Z"
+      d: "M1 2.5h14V1H1zM15 5.75H8v-1.5h7zM1 8.75v-1.5h14v1.5zM1 15v-1.5h14V15zM8 11.75h7v-1.5H8z"
     })
   });
 }
@@ -163,7 +164,7 @@ function SvgAppIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2.75 1a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM8 1a1.75 1.75 0 1 0 0 3.5A1.75 1.75 0 0 0 8 1Zm5.25 0a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM2.75 6.25a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5Zm5.25 0a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5Zm5.25 0a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM2.75 11.5a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5Zm5.25 0A1.75 1.75 0 1 0 8 15a1.75 1.75 0 0 0 0-3.5Zm5.25 0a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5Z",
+      d: "M2.75 1a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5M8 1a1.75 1.75 0 1 0 0 3.5A1.75 1.75 0 0 0 8 1m5.25 0a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5M2.75 6.25a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5m5.25 0a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5m5.25 0a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5M2.75 11.5a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5m5.25 0A1.75 1.75 0 1 0 8 15a1.75 1.75 0 0 0 0-3.5m5.25 0a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5",
       clipRule: "evenodd"
     })
   });
@@ -188,7 +189,7 @@ function SvgArrowDownDotIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M8 15a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM3.47 6.53 8 11.06l4.53-4.53-1.06-1.06-2.72 2.72V1h-1.5v7.19L4.53 5.47 3.47 6.53Z"
+      d: "M8 15a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3M3.47 6.53 8 11.06l4.53-4.53-1.06-1.06-2.72 2.72V1h-1.5v7.19L4.53 5.47z"
     })
   });
 }
@@ -213,7 +214,7 @@ function SvgArrowDownIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8.03 15.06 1 8.03l1.06-1.06 5.22 5.22V1h1.5v11.19L14 6.97l1.06 1.06-7.03 7.03Z",
+      d: "M8.03 15.06 1 8.03l1.06-1.06 5.22 5.22V1h1.5v11.19L14 6.97l1.06 1.06z",
       clipRule: "evenodd"
     })
   });
@@ -238,10 +239,10 @@ function SvgArrowInIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M4.5 2.5h9v11h-9V11H3v3.25c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75H3.75a.75.75 0 0 0-.75.75V5h1.5V2.5Z"
+      d: "M4.5 2.5h9v11h-9V11H3v3.25c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75H3.75a.75.75 0 0 0-.75.75V5h1.5z"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M12.06 8 8.03 3.97 6.97 5.03l2.22 2.22H1v1.5h8.19l-2.22 2.22 1.06 1.06L12.06 8Z"
+      d: "M12.06 8 8.03 3.97 6.97 5.03l2.22 2.22H1v1.5h8.19l-2.22 2.22 1.06 1.06z"
     })]
   });
 }
@@ -266,7 +267,7 @@ function SvgArrowLeftIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1 8.03 8.03 1l1.061 1.06-5.22 5.22h11.19v1.5H3.87L9.091 14l-1.06 1.06L1 8.03Z",
+      d: "M1 8.03 8.03 1l1.061 1.06-5.22 5.22h11.19v1.5H3.87L9.091 14l-1.06 1.06z",
       clipRule: "evenodd"
     })
   });
@@ -291,7 +292,7 @@ function SvgArrowOverIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M8 2.5a5.48 5.48 0 0 1 3.817 1.54l.009.009.5.451H11V6h4V2h-1.5v1.539l-.651-.588A7.003 7.003 0 0 0 1.367 5.76l1.42.48A5.503 5.503 0 0 1 8 2.5ZM8 11a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"
+      d: "M8 2.5a5.48 5.48 0 0 1 3.817 1.54l.009.009.5.451H11V6h4V2h-1.5v1.539l-.651-.588A7.003 7.003 0 0 0 1.367 5.76l1.42.48A5.5 5.5 0 0 1 8 2.5M8 11a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3"
     })
   });
 }
@@ -305,6 +306,32 @@ const ArrowOverIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 ArrowOverIcon.displayName = 'ArrowOverIcon';
 var ArrowOverIcon$1 = ArrowOverIcon;
 
+function SvgArrowRightIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "m15.06 8.03-7.03 7.03L6.97 14l5.22-5.22H1v-1.5h11.19L6.97 2.06 8.03 1z",
+      clipRule: "evenodd"
+    })
+  });
+}
+const ArrowRightIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgArrowRightIcon
+  });
+});
+ArrowRightIcon.displayName = 'ArrowRightIcon';
+var ArrowRightIcon$1 = ArrowRightIcon;
+
 function SvgArrowUpDotIcon(props) {
   return jsx("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -315,7 +342,7 @@ function SvgArrowUpDotIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M8 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM12.53 9.47 8 4.94 3.47 9.47l1.06 1.06 2.72-2.72V15h1.5V7.81l2.72 2.72 1.06-1.06Z"
+      d: "M8 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M12.53 9.47 8 4.94 3.47 9.47l1.06 1.06 2.72-2.72V15h1.5V7.81l2.72 2.72z"
     })
   });
 }
@@ -340,7 +367,7 @@ function SvgArrowUpIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "m8.03 1 7.03 7.03L14 9.091l-5.22-5.22v11.19h-1.5V3.87l-5.22 5.22L1 8.031 8.03 1Z",
+      d: "m8.03 1 7.03 7.03L14 9.091l-5.22-5.22v11.19h-1.5V3.87l-5.22 5.22L1 8.031z",
       clipRule: "evenodd"
     })
   });
@@ -365,7 +392,7 @@ function SvgArrowsUpDownIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M5.03 1 1 5.03l1.06 1.061 2.22-2.22v6.19h1.5V3.87L8 6.091l1.06-1.06L5.03 1ZM11.03 15.121l4.03-4.03-1.06-1.06-2.22 2.219V6.06h-1.5v6.19l-2.22-2.22L7 11.091l4.03 4.03Z"
+      d: "M5.03 1 1 5.03l1.06 1.061 2.22-2.22v6.19h1.5V3.87L8 6.091l1.06-1.06zM11.03 15.121l4.03-4.03-1.06-1.06-2.22 2.219V6.06h-1.5v6.19l-2.22-2.22L7 11.091z"
     })
   });
 }
@@ -389,7 +416,7 @@ function SvgAssistantIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M11.28 11.03H4.73v-1.7h6.55v1.7Zm-2.8-4.7H4.73v1.7h3.75v-1.7ZM15.79 8h-1.7a6.09 6.09 0 0 1-6.08 6.08H3.12l.58-.58c.33-.33.33-.87 0-1.2A6.044 6.044 0 0 1 1.92 8 6.09 6.09 0 0 1 8 1.92V.22C3.71.22.22 3.71.22 8c0 1.79.6 3.49 1.71 4.87L.47 14.33c-.24.24-.32.61-.18.93.13.32.44.52.79.52h6.93c4.29 0 7.78-3.49 7.78-7.78Zm-.62-3.47c.4-.15.4-.72 0-.88l-1.02-.38c-.73-.28-1.31-.85-1.58-1.58L12.19.67c-.08-.2-.26-.3-.44-.3s-.36.1-.44.3l-.38 1.02c-.28.73-.85 1.31-1.58 1.58l-1.02.38c-.4.15-.4.72 0 .88l1.02.38c.73.28 1.31.85 1.58 1.58l.38 1.02c.08.2.26.3.44.3s.36-.1.44-.3l.38-1.02c.28-.73.85-1.31 1.58-1.58l1.02-.38Z"
+      d: "M11.28 11.03H4.73v-1.7h6.55zm-2.8-4.7H4.73v1.7h3.75zM15.79 8h-1.7a6.09 6.09 0 0 1-6.08 6.08H3.12l.58-.58c.33-.33.33-.87 0-1.2A6.04 6.04 0 0 1 1.92 8 6.09 6.09 0 0 1 8 1.92V.22C3.71.22.22 3.71.22 8c0 1.79.6 3.49 1.71 4.87L.47 14.33c-.24.24-.32.61-.18.93.13.32.44.52.79.52h6.93c4.29 0 7.78-3.49 7.78-7.78m-.62-3.47c.4-.15.4-.72 0-.88l-1.02-.38c-.73-.28-1.31-.85-1.58-1.58L12.19.67c-.08-.2-.26-.3-.44-.3s-.36.1-.44.3l-.38 1.02c-.28.73-.85 1.31-1.58 1.58l-1.02.38c-.4.15-.4.72 0 .88l1.02.38c.73.28 1.31.85 1.58 1.58l.38 1.02c.08.2.26.3.44.3s.36-.1.44-.3l.38-1.02c.28-.73.85-1.31 1.58-1.58z"
     })
   });
 }
@@ -413,11 +440,11 @@ function SvgBadgeCodeIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "m5.56 8.53 1.97 1.97-1.06 1.06-3.03-3.03L6.47 5.5l1.06 1.06-1.97 1.97ZM10.49 8.53 8.52 6.56 9.58 5.5l3.03 3.03-3.03 3.03-1.06-1.06 1.97-1.97Z"
+      d: "m5.56 8.53 1.97 1.97-1.06 1.06-3.03-3.03L6.47 5.5l1.06 1.06zM10.49 8.53 8.52 6.56 9.58 5.5l3.03 3.03-3.03 3.03-1.06-1.06z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 0a3.25 3.25 0 0 0-3 2H1.75a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V2.75a.75.75 0 0 0-.75-.75H11a3.25 3.25 0 0 0-3-2ZM6.285 2.9a1.75 1.75 0 0 1 3.43 0c.07.349.378.6.735.6h3.05v10h-11v-10h3.05a.75.75 0 0 0 .735-.6Z",
+      d: "M8 0a3.25 3.25 0 0 0-3 2H1.75a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V2.75a.75.75 0 0 0-.75-.75H11a3.25 3.25 0 0 0-3-2M6.285 2.9a1.75 1.75 0 0 1 3.43 0c.07.349.378.6.735.6h3.05v10h-11v-10h3.05a.75.75 0 0 0 .735-.6",
       clipRule: "evenodd"
     })]
   });
@@ -442,14 +469,14 @@ function SvgBadgeCodeOffIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M16 2.75v11.19l-1.5-1.5V3.5h-3.05a.75.75 0 0 1-.735-.6 1.75 1.75 0 0 0-3.43 0 .75.75 0 0 1-.735.6h-.99L4.06 2H6a3.25 3.25 0 0 1 6 0h3.25a.75.75 0 0 1 .75.75Z"
+      d: "M16 2.75v11.19l-1.5-1.5V3.5h-3.05a.75.75 0 0 1-.735-.6 1.75 1.75 0 0 0-3.43 0 .75.75 0 0 1-.735.6h-.99L4.06 2H6a3.25 3.25 0 0 1 6 0h3.25a.75.75 0 0 1 .75.75"
     }), jsx("path", {
       fill: "currentColor",
-      d: "m12.1 10.04-1.06-1.06.48-.48-1.97-1.97 1.06-1.06 3.031 3.03-1.54 1.54Z"
+      d: "m12.1 10.04-1.06-1.06.48-.48-1.97-1.97 1.06-1.06 3.031 3.03z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "m12.94 15 1.03 1.03 1.06-1.06-13-13L.97 3.03 2 4.06v10.19c0 .414.336.75.75.75h10.19Zm-4.455-4.454L7.47 11.56 4.44 8.53l1.014-1.016L3.5 5.561V13.5h7.94l-2.955-2.954Z",
+      d: "m12.94 15 1.03 1.03 1.06-1.06-13-13L.97 3.03 2 4.06v10.19c0 .414.336.75.75.75zm-4.455-4.454L7.47 11.56 4.44 8.53l1.015-1.016L3.5 5.561V13.5h7.94z",
       clipRule: "evenodd"
     })]
   });
@@ -474,10 +501,10 @@ function SvgBarChartIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M1 1v13.25c0 .414.336.75.75.75H15v-1.5H2.5V1H1Z"
+      d: "M1 1v13.25c0 .414.336.75.75.75H15v-1.5H2.5V1z"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M7 1v11h1.5V1H7ZM10 5v7h1.5V5H10ZM4 5v7h1.5V5H4ZM13 12V8h1.5v4H13Z"
+      d: "M7 1v11h1.5V1zM10 5v7h1.5V5zM4 5v7h1.5V5zM13 12V8h1.5v4z"
     })]
   });
 }
@@ -502,7 +529,7 @@ function SvgBarGroupedIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M12.25 2a.75.75 0 0 0-.75.75V7H9.25a.75.75 0 0 0-.75.75v5.5c0 .414.336.75.75.75h6a.75.75 0 0 0 .75-.75V2.75a.75.75 0 0 0-.75-.75h-3Zm-.75 10.5v-4H10v4h1.5Zm1.5 0h1.5v-9H13v9ZM3.75 5a.75.75 0 0 0-.75.75V9H.75a.75.75 0 0 0-.75.75v3.5c0 .414.336.75.75.75h6a.75.75 0 0 0 .75-.75v-7.5A.75.75 0 0 0 6.75 5h-3ZM3 12.5v-2H1.5v2H3Zm1.5 0H6v-6H4.5v6Z",
+      d: "M12.25 2a.75.75 0 0 0-.75.75V7H9.25a.75.75 0 0 0-.75.75v5.5c0 .414.336.75.75.75h6a.75.75 0 0 0 .75-.75V2.75a.75.75 0 0 0-.75-.75zm-.75 10.5v-4H10v4zm1.5 0h1.5v-9H13zM3.75 5a.75.75 0 0 0-.75.75V9H.75a.75.75 0 0 0-.75.75v3.5c0 .414.336.75.75.75h6a.75.75 0 0 0 .75-.75v-7.5A.75.75 0 0 0 6.75 5zM3 12.5v-2H1.5v2zm1.5 0H6v-6H4.5z",
       clipRule: "evenodd"
     })
   });
@@ -528,7 +555,7 @@ function SvgBarStackedIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M6.25 1a.75.75 0 0 0-.75.75V7H2.75a.75.75 0 0 0-.75.75v6.5c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75v-9.5a.75.75 0 0 0-.75-.75H10.5V1.75A.75.75 0 0 0 9.75 1h-3.5ZM9 8.5v5H7v-5h2ZM9 7V2.5H7V7h2Zm3.5 6.5h-2v-1.75h2v1.75Zm-2-8v4.75h2V5.5h-2Zm-5 4.75V8.5h-2v1.75h2Zm0 3.25v-1.75h-2v1.75h2Z",
+      d: "M6.25 1a.75.75 0 0 0-.75.75V7H2.75a.75.75 0 0 0-.75.75v6.5c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75v-9.5a.75.75 0 0 0-.75-.75H10.5V1.75A.75.75 0 0 0 9.75 1zM9 8.5v5H7v-5zM9 7V2.5H7V7zm3.5 6.5h-2v-1.75h2zm-2-8v4.75h2V5.5zm-5 4.75V8.5h-2v1.75zm0 3.25v-1.75h-2v1.75z",
       clipRule: "evenodd"
     })
   });
@@ -554,7 +581,7 @@ function SvgBarStackedPercentageIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75H2.75ZM9 8.5v5H7v-5h2ZM9 7V2.5H7V7h2Zm3.5 6.5h-2v-1.75h2v1.75Zm-2-11v7.75h2V2.5h-2Zm-5 0h-2v7.75h2V2.5Zm0 11v-1.75h-2v1.75h2Z",
+      d: "M2.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75zM9 8.5v5H7v-5zM9 7V2.5H7V7zm3.5 6.5h-2v-1.75h2zm-2-11v7.75h2V2.5zm-5 0h-2v7.75h2zm0 11v-1.75h-2v1.75z",
       clipRule: "evenodd"
     })
   });
@@ -580,7 +607,7 @@ function SvgBeakerIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M5.75 1a.75.75 0 0 0-.75.75v6.089c0 .38-.173.739-.47.976l-2.678 2.143A2.27 2.27 0 0 0 3.27 15h9.46a2.27 2.27 0 0 0 1.418-4.042L11.47 8.815A1.25 1.25 0 0 1 11 7.839V1.75a.75.75 0 0 0-.75-.75h-4.5Zm.75 6.839V2.5h3v5.339c0 .606.2 1.188.559 1.661H5.942A2.75 2.75 0 0 0 6.5 7.839ZM4.2 11 2.79 12.13a.77.77 0 0 0 .48 1.37h9.461a.77.77 0 0 0 .481-1.37L11.8 11H4.201Z",
+      d: "M5.75 1a.75.75 0 0 0-.75.75v6.089c0 .38-.173.739-.47.976l-2.678 2.143A2.27 2.27 0 0 0 3.27 15h9.46a2.27 2.27 0 0 0 1.418-4.042L11.47 8.815A1.25 1.25 0 0 1 11 7.839V1.75a.75.75 0 0 0-.75-.75zm.75 6.839V2.5h3v5.339c0 .606.2 1.188.559 1.661H5.942A2.75 2.75 0 0 0 6.5 7.839M4.2 11 2.79 12.13a.77.77 0 0 0 .48 1.37h9.461a.77.77 0 0 0 .481-1.37L11.8 11z",
       clipRule: "evenodd"
     })
   });
@@ -606,7 +633,7 @@ function SvgBinaryIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1 3a2 2 0 1 1 4 0v2a2 2 0 1 1-4 0V3Zm2-.5a.5.5 0 0 0-.5.5v2a.5.5 0 0 0 1 0V3a.5.5 0 0 0-.5-.5Zm3.378-.628c.482 0 .872-.39.872-.872h1.5v4.25H10v1.5H6v-1.5h1.25V3.206c-.27.107-.564.166-.872.166H6v-1.5h.378Zm5 0c.482 0 .872-.39.872-.872h1.5v4.25H15v1.5h-4v-1.5h1.25V3.206c-.27.107-.564.166-.872.166H11v-1.5h.378ZM6 11a2 2 0 1 1 4 0v2a2 2 0 1 1-4 0v-2Zm2-.5a.5.5 0 0 0-.5.5v2a.5.5 0 0 0 1 0v-2a.5.5 0 0 0-.5-.5Zm-6.622-.378c.482 0 .872-.39.872-.872h1.5v4.25H5V15H1v-1.5h1.25v-2.044c-.27.107-.564.166-.872.166H1v-1.5h.378Zm10 0c.482 0 .872-.39.872-.872h1.5v4.25H15V15h-4v-1.5h1.25v-2.044c-.27.107-.564.166-.872.166H11v-1.5h.378Z",
+      d: "M1 3a2 2 0 1 1 4 0v2a2 2 0 1 1-4 0zm2-.5a.5.5 0 0 0-.5.5v2a.5.5 0 0 0 1 0V3a.5.5 0 0 0-.5-.5m3.378-.628c.482 0 .872-.39.872-.872h1.5v4.25H10v1.5H6v-1.5h1.25V3.206c-.27.107-.564.166-.872.166H6v-1.5zm5 0c.482 0 .872-.39.872-.872h1.5v4.25H15v1.5h-4v-1.5h1.25V3.206c-.27.107-.564.166-.872.166H11v-1.5zM6 11a2 2 0 1 1 4 0v2a2 2 0 1 1-4 0zm2-.5a.5.5 0 0 0-.5.5v2a.5.5 0 0 0 1 0v-2a.5.5 0 0 0-.5-.5m-6.622-.378c.482 0 .872-.39.872-.872h1.5v4.25H5V15H1v-1.5h1.25v-2.044c-.27.107-.564.166-.872.166H1v-1.5zm10 0c.482 0 .872-.39.872-.872h1.5v4.25H15V15h-4v-1.5h1.25v-2.044c-.27.107-.564.166-.872.166H11v-1.5z",
       clipRule: "evenodd"
     })
   });
@@ -632,7 +659,7 @@ function SvgBlockQuoteIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.5 2H0v12h1.5V2ZM13 2H4v1.5h9V2Zm3 3.5H4V7h12V5.5ZM13 9H4v1.5h9V9Zm3 3.5H4V14h12v-1.5Z",
+      d: "M1.5 2H0v12h1.5zM13 2H4v1.5h9zm3 3.5H4V7h12zM13 9H4v1.5h9zm3 3.5H4V14h12z",
       clipRule: "evenodd"
     })
   });
@@ -658,7 +685,7 @@ function SvgBoldIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M4.75 3a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h4.375a2.875 2.875 0 0 0 1.496-5.33A2.875 2.875 0 0 0 8.375 3H4.75Zm.75 5.75v2.75h3.625a1.375 1.375 0 0 0 0-2.75H5.5Zm2.877-1.5a1.375 1.375 0 0 0-.002-2.75H5.5v2.75h2.877Z",
+      d: "M4.75 3a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h4.375a2.875 2.875 0 0 0 1.496-5.33A2.875 2.875 0 0 0 8.375 3zm.75 5.75v2.75h3.625a1.375 1.375 0 0 0 0-2.75zm2.877-1.5a1.375 1.375 0 0 0-.002-2.75H5.5v2.75z",
       clipRule: "evenodd"
     })
   });
@@ -684,7 +711,7 @@ function SvgBookIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2.75 1a.75.75 0 0 0-.75.75v13.5c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75H2.75ZM7.5 2.5h-4v6.055l1.495-1.36a.75.75 0 0 1 1.01 0L7.5 8.555V2.5Zm-4 8.082 2-1.818 2.245 2.041A.75.75 0 0 0 9 10.25V2.5h3.5v12h-9v-3.918Z",
+      d: "M2.75 1a.75.75 0 0 0-.75.75v13.5c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75zM7.5 2.5h-4v6.055l1.495-1.36a.75.75 0 0 1 1.01 0L7.5 8.555zm-4 8.082 2-1.818 2.246 2.041A.75.75 0 0 0 9 10.25V2.5h3.5v12h-9z",
       clipRule: "evenodd"
     })
   });
@@ -709,7 +736,7 @@ function SvgBookmarkFillIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M2.75 0A.75.75 0 0 0 2 .75v14.5a.75.75 0 0 0 1.28.53L8 11.06l4.72 4.72a.75.75 0 0 0 1.28-.53V.75a.75.75 0 0 0-.75-.75H2.75Z"
+      d: "M2.75 0A.75.75 0 0 0 2 .75v14.5a.75.75 0 0 0 1.28.53L8 11.06l4.72 4.72a.75.75 0 0 0 1.28-.53V.75a.75.75 0 0 0-.75-.75z"
     })
   });
 }
@@ -734,7 +761,7 @@ function SvgBookmarkIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2 .75A.75.75 0 0 1 2.75 0h10.5a.75.75 0 0 1 .75.75v14.5a.75.75 0 0 1-1.28.53L8 11.06l-4.72 4.72A.75.75 0 0 1 2 15.25V.75Zm1.5.75v11.94l3.97-3.97a.75.75 0 0 1 1.06 0l3.97 3.97V1.5h-9Z",
+      d: "M2 .75A.75.75 0 0 1 2.75 0h10.5a.75.75 0 0 1 .75.75v14.5a.75.75 0 0 1-1.28.53L8 11.06l-4.72 4.72A.75.75 0 0 1 2 15.25zm1.5.75v11.94l3.97-3.97a.75.75 0 0 1 1.06 0l3.97 3.97V1.5z",
       clipRule: "evenodd"
     })
   });
@@ -760,12 +787,12 @@ function SvgBooksIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.5 4.5v10h1v-10h-1ZM1 3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H1ZM6.5 1.5v13h2v-13h-2ZM6 0a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1V1a1 1 0 0 0-1-1H6Z",
+      d: "M1.5 4.5v10h1v-10zM1 3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1zM6.5 1.5v13h2v-13zM6 0a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1V1a1 1 0 0 0-1-1z",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "m11.63 7.74 1.773 6.773.967-.254-1.773-6.771-.967.253Zm-.864-1.324a1 1 0 0 0-.714 1.221l2.026 7.74a1 1 0 0 0 1.22.713l1.936-.506a1 1 0 0 0 .714-1.22l-2.026-7.74a1 1 0 0 0-1.22-.714l-1.936.506Z",
+      d: "m11.63 7.74 1.773 6.773.967-.254-1.773-6.771zm-.864-1.324a1 1 0 0 0-.714 1.221l2.026 7.74a1 1 0 0 0 1.22.713l1.936-.506a1 1 0 0 0 .714-1.22l-2.026-7.74a1 1 0 0 0-1.22-.714z",
       clipRule: "evenodd"
     })]
   });
@@ -790,7 +817,7 @@ function SvgBracketsCurlyIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M5.5 2a2.75 2.75 0 0 0-2.75 2.75v1C2.75 6.44 2.19 7 1.5 7H1v2h.5c.69 0 1.25.56 1.25 1.25v1A2.75 2.75 0 0 0 5.5 14H6v-1.5h-.5c-.69 0-1.25-.56-1.25-1.25v-1c0-.93-.462-1.752-1.168-2.25A2.747 2.747 0 0 0 4.25 5.75v-1c0-.69.56-1.25 1.25-1.25H6V2h-.5ZM13.25 4.75A2.75 2.75 0 0 0 10.5 2H10v1.5h.5c.69 0 1.25.56 1.25 1.25v1c0 .93.462 1.752 1.168 2.25a2.747 2.747 0 0 0-1.168 2.25v1c0 .69-.56 1.25-1.25 1.25H10V14h.5a2.75 2.75 0 0 0 2.75-2.75v-1c0-.69.56-1.25 1.25-1.25h.5V7h-.5c-.69 0-1.25-.56-1.25-1.25v-1Z"
+      d: "M5.5 2a2.75 2.75 0 0 0-2.75 2.75v1C2.75 6.44 2.19 7 1.5 7H1v2h.5c.69 0 1.25.56 1.25 1.25v1A2.75 2.75 0 0 0 5.5 14H6v-1.5h-.5c-.69 0-1.25-.56-1.25-1.25v-1c0-.93-.462-1.752-1.168-2.25A2.75 2.75 0 0 0 4.25 5.75v-1c0-.69.56-1.25 1.25-1.25H6V2zM13.25 4.75A2.75 2.75 0 0 0 10.5 2H10v1.5h.5c.69 0 1.25.56 1.25 1.25v1c0 .93.462 1.752 1.168 2.25a2.75 2.75 0 0 0-1.168 2.25v1c0 .69-.56 1.25-1.25 1.25H10V14h.5a2.75 2.75 0 0 0 2.75-2.75v-1c0-.69.56-1.25 1.25-1.25h.5V7h-.5c-.69 0-1.25-.56-1.25-1.25z"
     })
   });
 }
@@ -815,7 +842,7 @@ function SvgBracketsSquareIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1 1.75A.75.75 0 0 1 1.75 1H5v1.5H2.5v11H5V15H1.75a.75.75 0 0 1-.75-.75V1.75Zm12.5.75H11V1h3.25a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H11v-1.5h2.5v-11Z",
+      d: "M1 1.75A.75.75 0 0 1 1.75 1H5v1.5H2.5v11H5V15H1.75a.75.75 0 0 1-.75-.75zm12.5.75H11V1h3.25a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H11v-1.5h2.5z",
       clipRule: "evenodd"
     })
   });
@@ -842,9 +869,9 @@ function SvgBracketsXIcon(props) {
       fill: "currentColor",
       clipPath: "url(#BracketsXIcon_svg__a)",
       children: [jsx("path", {
-        d: "M1.75 4.75A2.75 2.75 0 0 1 4.5 2H5v1.5h-.5c-.69 0-1.25.56-1.25 1.25v1c0 .93-.462 1.752-1.168 2.25a2.747 2.747 0 0 1 1.168 2.25v1c0 .69.56 1.25 1.25 1.25H5V14h-.5a2.75 2.75 0 0 1-2.75-2.75v-1C1.75 9.56 1.19 9 .5 9H0V7h.5c.69 0 1.25-.56 1.25-1.25v-1ZM11.5 2a2.75 2.75 0 0 1 2.75 2.75v1c0 .69.56 1.25 1.25 1.25h.5v2h-.5c-.69 0-1.25.56-1.25 1.25v1A2.75 2.75 0 0 1 11.5 14H11v-1.5h.5c.69 0 1.25-.56 1.25-1.25v-1c0-.93.462-1.752 1.168-2.25a2.747 2.747 0 0 1-1.168-2.25v-1c0-.69-.56-1.25-1.25-1.25H11V2h.5Z"
+        d: "M1.75 4.75A2.75 2.75 0 0 1 4.5 2H5v1.5h-.5c-.69 0-1.25.56-1.25 1.25v1c0 .93-.462 1.752-1.168 2.25a2.75 2.75 0 0 1 1.168 2.25v1c0 .69.56 1.25 1.25 1.25H5V14h-.5a2.75 2.75 0 0 1-2.75-2.75v-1C1.75 9.56 1.19 9 .5 9H0V7h.5c.69 0 1.25-.56 1.25-1.25zM11.5 2a2.75 2.75 0 0 1 2.75 2.75v1c0 .69.56 1.25 1.25 1.25h.5v2h-.5c-.69 0-1.25.56-1.25 1.25v1A2.75 2.75 0 0 1 11.5 14H11v-1.5h.5c.69 0 1.25-.56 1.25-1.25v-1c0-.93.462-1.752 1.168-2.25a2.75 2.75 0 0 1-1.168-2.25v-1c0-.69-.56-1.25-1.25-1.25H11V2z"
       }), jsx("path", {
-        d: "M4.97 6.03 6.94 8 4.97 9.97l1.06 1.06L8 9.06l1.97 1.97 1.06-1.06L9.06 8l1.97-1.97-1.06-1.06L8 6.94 6.03 4.97 4.97 6.03Z"
+        d: "M4.97 6.03 6.94 8 4.97 9.97l1.06 1.06L8 9.06l1.97 1.97 1.06-1.06L9.06 8l1.97-1.97-1.06-1.06L8 6.94 6.03 4.97z"
       })]
     }), jsx("defs", {
       children: jsx("clipPath", {
@@ -877,7 +904,7 @@ function SvgBranchIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1 4a3 3 0 1 1 5.186 2.055 3.229 3.229 0 0 0 2 1.155 3.001 3.001 0 1 1-.152 1.494A4.73 4.73 0 0 1 4.911 6.86a2.982 2.982 0 0 1-.161.046v2.19a3.001 3.001 0 1 1-1.5 0v-2.19A3.001 3.001 0 0 1 1 4Zm3-1.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM2.5 12a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm7-3.75a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z",
+      d: "M1 4a3 3 0 1 1 5.186 2.055 3.23 3.23 0 0 0 2 1.155 3.001 3.001 0 1 1-.152 1.494A4.73 4.73 0 0 1 4.911 6.86a3 3 0 0 1-.161.046v2.19a3.001 3.001 0 1 1-1.5 0v-2.19A3 3 0 0 1 1 4m3-1.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M2.5 12a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0m7-3.75a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0",
       clipRule: "evenodd"
     })
   });
@@ -903,7 +930,7 @@ function SvgBriefcaseFillIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M5 4V2.75C5 1.784 5.784 1 6.75 1h2.5c.966 0 1.75.784 1.75 1.75V4h3.25a.75.75 0 0 1 .75.75v9.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75v-9.5A.75.75 0 0 1 1.75 4H5Zm1.5-1.25a.25.25 0 0 1 .25-.25h2.5a.25.25 0 0 1 .25.25V4h-3V2.75Zm-4 5.423V6.195A7.724 7.724 0 0 0 8 8.485c2.15 0 4.095-.875 5.5-2.29v1.978A9.211 9.211 0 0 1 8 9.985a9.21 9.21 0 0 1-5.5-1.812Z",
+      d: "M5 4V2.75C5 1.784 5.784 1 6.75 1h2.5c.966 0 1.75.784 1.75 1.75V4h3.25a.75.75 0 0 1 .75.75v9.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75v-9.5A.75.75 0 0 1 1.75 4zm1.5-1.25a.25.25 0 0 1 .25-.25h2.5a.25.25 0 0 1 .25.25V4h-3zm-4 5.423V6.195A7.72 7.72 0 0 0 8 8.485c2.15 0 4.095-.875 5.5-2.29v1.978A9.2 9.2 0 0 1 8 9.985a9.2 9.2 0 0 1-5.5-1.812",
       clipRule: "evenodd"
     })
   });
@@ -929,7 +956,7 @@ function SvgBriefcaseIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 4H5V2.75C5 1.784 5.784 1 6.75 1h2.5c.966 0 1.75.784 1.75 1.75V4h3.25a.75.75 0 0 1 .75.75v9.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75v-9.5A.75.75 0 0 1 1.75 4Zm5-1.5a.25.25 0 0 0-.25.25V4h3V2.75a.25.25 0 0 0-.25-.25h-2.5ZM2.5 8.173V13.5h11V8.173A9.211 9.211 0 0 1 8 9.985a9.21 9.21 0 0 1-5.5-1.812Zm0-1.978A7.724 7.724 0 0 0 8 8.485c2.15 0 4.095-.875 5.5-2.29V5.5h-11v.695Z",
+      d: "M1.75 4H5V2.75C5 1.784 5.784 1 6.75 1h2.5c.966 0 1.75.784 1.75 1.75V4h3.25a.75.75 0 0 1 .75.75v9.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75v-9.5A.75.75 0 0 1 1.75 4m5-1.5a.25.25 0 0 0-.25.25V4h3V2.75a.25.25 0 0 0-.25-.25zM2.5 8.173V13.5h11V8.173A9.2 9.2 0 0 1 8 9.985a9.2 9.2 0 0 1-5.5-1.812m0-1.978A7.72 7.72 0 0 0 8 8.485c2.15 0 4.095-.875 5.5-2.29V5.5h-11z",
       clipRule: "evenodd"
     })
   });
@@ -953,9 +980,9 @@ function SvgBugIcon(props) {
     viewBox: "0 0 16 16",
     ...props,
     children: jsx("path", {
-      fill: "#445461",
+      fill: "currentColor",
       fillRule: "evenodd",
-      d: "M5.5 5a2.5 2.5 0 1 1 4.792 1H5.708A2.49 2.49 0 0 1 5.5 5ZM4.13 6.017a4 4 0 1 1 7.74 0l.047.065L14 4l1.06 1.06-2.41 2.412c.118.328.208.672.268 1.028H16V10h-3.02a5.921 5.921 0 0 1-.33 1.528l2.41 2.412L14 15l-2.082-2.082C11.002 14.187 9.588 15 8 15c-1.587 0-3.002-.813-3.918-2.082L2 15 .94 13.94l2.41-2.412A5.925 5.925 0 0 1 3.02 10H0V8.5h3.082c.06-.356.15-.7.269-1.028L.939 5.061 2 4l2.082 2.081.048-.065Zm.812 1.538A4.415 4.415 0 0 0 4.5 9.5c0 2.347 1.698 4 3.5 4s3.5-1.653 3.5-4c0-.713-.163-1.375-.442-1.945H4.942Z",
+      d: "M5.5 5a2.5 2.5 0 1 1 4.792 1H5.708A2.5 2.5 0 0 1 5.5 5M4.13 6.017a4 4 0 1 1 7.74 0l.047.065L14 4l1.06 1.06-2.41 2.412q.178.493.268 1.028H16V10h-3.02a6 6 0 0 1-.33 1.528l2.41 2.412L14 15l-2.082-2.082C11.002 14.187 9.588 15 8 15c-1.587 0-3.002-.813-3.918-2.082L2 15 .94 13.94l2.41-2.412A6 6 0 0 1 3.02 10H0V8.5h3.082q.09-.535.269-1.028L.939 5.061 2 4l2.082 2.081zm.812 1.538A4.4 4.4 0 0 0 4.5 9.5c0 2.347 1.698 4 3.5 4s3.5-1.653 3.5-4c0-.713-.163-1.375-.442-1.945z",
       clipRule: "evenodd"
     })
   });
@@ -981,15 +1008,15 @@ function SvgCalendarClockIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M4.5 0v2H1.75a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75H6v-1.5H2.5V7H15V2.75a.75.75 0 0 0-.75-.75H11.5V0H10v2H6V0H4.5Zm9 5.5v-2h-11v2h11Z",
+      d: "M4.5 0v2H1.75a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75H6v-1.5H2.5V7H15V2.75a.75.75 0 0 0-.75-.75H11.5V0H10v2H6V0zm9 5.5v-2h-11v2z",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M10.25 10.5V12c0 .199.079.39.22.53l1 1 1.06-1.06-.78-.78V10.5h-1.5Z"
+      d: "M10.25 10.5V12c0 .199.079.39.22.53l1 1 1.06-1.06-.78-.78V10.5z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M7 12a4 4 0 1 1 8 0 4 4 0 0 1-8 0Zm4-2.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z",
+      d: "M7 12a4 4 0 1 1 8 0 4 4 0 0 1-8 0m4-2.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5",
       clipRule: "evenodd"
     })]
   });
@@ -1004,6 +1031,35 @@ const CalendarClockIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 CalendarClockIcon.displayName = 'CalendarClockIcon';
 var CalendarClockIcon$1 = CalendarClockIcon;
 
+function SvgCalendarEventIcon(props) {
+  return jsxs("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: [jsx("path", {
+      fill: "currentColor",
+      d: "M8.5 10.25a1.75 1.75 0 1 1 3.5 0 1.75 1.75 0 0 1-3.5 0"
+    }), jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M10 2H6V0H4.5v2H1.75a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V2.75a.75.75 0 0 0-.75-.75H11.5V0H10zM2.5 3.5v2h11v-2zm0 10V7h11v6.5z",
+      clipRule: "evenodd"
+    })]
+  });
+}
+const CalendarEventIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgCalendarEventIcon
+  });
+});
+CalendarEventIcon.displayName = 'CalendarEventIcon';
+var CalendarEventIcon$1 = CalendarEventIcon;
+
 function SvgCalendarIcon(props) {
   return jsx("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -1015,7 +1071,7 @@ function SvgCalendarIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M4.5 0v2H1.75a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V2.75a.75.75 0 0 0-.75-.75H11.5V0H10v2H6V0H4.5Zm9 3.5v2h-11v-2h11ZM2.5 7v6.5h11V7h-11Z",
+      d: "M4.5 0v2H1.75a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V2.75a.75.75 0 0 0-.75-.75H11.5V0H10v2H6V0zm9 3.5v2h-11v-2zM2.5 7v6.5h11V7z",
       clipRule: "evenodd"
     })
   });
@@ -1040,11 +1096,11 @@ function SvgCaretDownSquareIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M8 10a.75.75 0 0 1-.59-.286l-2.164-2.75a.75.75 0 0 1 .589-1.214h4.33a.75.75 0 0 1 .59 1.214l-2.166 2.75A.75.75 0 0 1 8 10Z"
+      d: "M8 10a.75.75 0 0 1-.59-.286l-2.164-2.75a.75.75 0 0 1 .589-1.214h4.33a.75.75 0 0 1 .59 1.214l-2.166 2.75A.75.75 0 0 1 8 10"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75H1.75Zm.75 12.5v-11h11v11h-11Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75zm.75 12.5v-11h11v11z",
       clipRule: "evenodd"
     })]
   });
@@ -1069,11 +1125,11 @@ function SvgCaretUpSquareIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M8 5.75a.75.75 0 0 1 .59.286l2.164 2.75A.75.75 0 0 1 10.165 10h-4.33a.75.75 0 0 1-.59-1.214l2.166-2.75A.75.75 0 0 1 8 5.75Z"
+      d: "M8 5.75a.75.75 0 0 1 .59.286l2.164 2.75A.75.75 0 0 1 10.165 10h-4.33a.75.75 0 0 1-.59-1.214l2.166-2.75A.75.75 0 0 1 8 5.75"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75H1.75Zm.75 12.5v-11h11v11h-11Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75zm.75 12.5v-11h11v11z",
       clipRule: "evenodd"
     })]
   });
@@ -1099,12 +1155,12 @@ function SvgCatalogCloudIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2.5 13.25V4.792c.306.134.644.208 1 .208h8v1H13V.75a.75.75 0 0 0-.75-.75H3.5A2.5 2.5 0 0 0 1 2.5v10.75A2.75 2.75 0 0 0 3.75 16H4v-1.5h-.25c-.69 0-1.25-.56-1.25-1.25Zm9-9.75h-8a1 1 0 0 1 0-2h8v2Z",
+      d: "M2.5 13.25V4.792c.306.134.644.208 1 .208h8v1H13V.75a.75.75 0 0 0-.75-.75H3.5A2.5 2.5 0 0 0 1 2.5v10.75A2.75 2.75 0 0 0 3.75 16H4v-1.5h-.25c-.69 0-1.25-.56-1.25-1.25m9-9.75h-8a1 1 0 0 1 0-2h8z",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M10.179 7a3.608 3.608 0 0 0-3.464 2.595 3.251 3.251 0 0 0 .443 6.387.756.756 0 0 0 .163.018h5.821C14.758 16 16 14.688 16 13.107c0-1.368-.931-2.535-2.229-2.824A3.608 3.608 0 0 0 10.18 7Zm-2.805 7.496c.015 0 .03.002.044.004H12.973a.736.736 0 0 1 .1-.002l.07.002c.753 0 1.357-.607 1.357-1.393s-.604-1.393-1.357-1.393h-.107a.75.75 0 0 1-.75-.75v-.357a2.107 2.107 0 0 0-4.199-.26.75.75 0 0 1-.698.656 1.75 1.75 0 0 0-.015 3.493Z",
+      d: "M10.179 7a3.61 3.61 0 0 0-3.464 2.595 3.251 3.251 0 0 0 .443 6.387.8.8 0 0 0 .163.018h5.821C14.758 16 16 14.688 16 13.107c0-1.368-.931-2.535-2.229-2.824A3.61 3.61 0 0 0 10.18 7m-2.805 7.496q.023 0 .044.004h5.555a1 1 0 0 1 .1-.002l.07.002c.753 0 1.357-.607 1.357-1.393s-.604-1.393-1.357-1.393h-.107a.75.75 0 0 1-.75-.75v-.357a2.107 2.107 0 0 0-4.199-.26.75.75 0 0 1-.698.656 1.75 1.75 0 0 0-.015 3.493",
       clipRule: "evenodd"
     })]
   });
@@ -1125,26 +1181,23 @@ function SvgCatalogGearIcon(props) {
     width: "1em",
     height: "1em",
     fill: "none",
-    viewBox: "0 0 17 16",
+    viewBox: "0 0 16 16",
     ...props,
-    children: [jsx("path", {
+    children: [jsxs("g", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2.617 4.792v8.458c0 .69.56 1.25 1.25 1.25h.25V16h-.25a2.75 2.75 0 0 1-2.75-2.75V2.5a2.5 2.5 0 0 1 2.5-2.5h8.75a.75.75 0 0 1 .75.75V6h-1.5V5h-8c-.356 0-.694-.074-1-.208Zm9-1.292v-2h-8a1 1 0 1 0 0 2h8Z",
-      clipRule: "evenodd"
-    }), jsx("g", {
       clipPath: "url(#CatalogGearIcon_svg__a)",
-      children: jsx("path", {
-        fill: "currentColor",
-        fillRule: "evenodd",
-        d: "m9.501 8.08.374-1.137a4.13 4.13 0 0 1 .44 0l.374 1.137c.046.14.155.25.295.298.215.073.418.171.606.292.124.08.279.097.417.045l1.122-.417c.098.11.19.225.275.345l-.656 1a.468.468 0 0 0-.049.417c.075.208.127.428.15.656a.469.469 0 0 0 .224.354l1.027.618c-.025.146-.058.29-.098.43l-1.193.11a.469.469 0 0 0-.355.222c-.119.192-.26.369-.42.526a.469.469 0 0 0-.137.396l.157 1.188c-.128.07-.26.135-.397.191l-.83-.863a.469.469 0 0 0-.395-.14 2.798 2.798 0 0 1-.674 0 .469.469 0 0 0-.394.14l-.831.863a4.054 4.054 0 0 1-.397-.191l.157-1.188a.469.469 0 0 0-.136-.396 2.785 2.785 0 0 1-.42-.527.468.468 0 0 0-.356-.22l-1.193-.111a4.03 4.03 0 0 1-.097-.43l1.026-.618a.469.469 0 0 0 .225-.354c.023-.228.074-.448.149-.656a.469.469 0 0 0-.049-.416l-.656-1.001c.085-.12.177-.235.275-.345l1.122.417A.469.469 0 0 0 8.6 8.67c.188-.12.391-.22.606-.292a.469.469 0 0 0 .295-.298ZM10.095 6c-.212 0-.422.013-.628.04a.469.469 0 0 0-.387.318l-.4 1.216a3.69 3.69 0 0 0-.381.184l-1.2-.446a.469.469 0 0 0-.49.104 5.02 5.02 0 0 0-.784.982.469.469 0 0 0 .008.501l.702 1.071c-.039.135-.07.273-.094.413l-1.097.66a.469.469 0 0 0-.225.447c.041.427.137.838.279 1.227.062.17.216.289.397.305l1.276.12c.082.115.17.225.264.33l-.168 1.27a.469.469 0 0 0 .209.455c.35.227.73.411 1.132.546.172.057.361.01.487-.12l.889-.924a3.797 3.797 0 0 0 .422 0l.89.924c.125.13.314.177.486.12.403-.135.783-.32 1.132-.546a.469.469 0 0 0 .21-.455l-.168-1.27c.094-.105.182-.215.263-.33l1.277-.12a.469.469 0 0 0 .396-.305c.143-.389.238-.8.28-1.227a.469.469 0 0 0-.225-.447l-1.098-.66a3.676 3.676 0 0 0-.094-.413l.702-1.07a.469.469 0 0 0 .008-.502c-.22-.36-.483-.69-.784-.982a.469.469 0 0 0-.49-.104l-1.2.446a3.698 3.698 0 0 0-.381-.184l-.4-1.216a.469.469 0 0 0-.387-.319A5.044 5.044 0 0 0 10.095 6Zm-.926 5a.937.937 0 1 1 1.875 0 .937.937 0 0 1-1.875 0Zm.938-1.875a1.875 1.875 0 1 0 0 3.75 1.875 1.875 0 0 0 0-3.75Z",
-        clipRule: "evenodd"
-      })
+      clipRule: "evenodd",
+      children: [jsx("path", {
+        d: "M12.5 7V5h-8c-.356 0-.694-.074-1-.208v8.458c0 .69.56 1.25 1.25 1.25H7.5V16H4.75A2.75 2.75 0 0 1 2 13.25V2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75V7zm-8-3.5a1 1 0 0 1 0-2h8v2z"
+      }), jsx("path", {
+        d: "M12.75 9.31c.328.09.632.24.9.434l.959-.764.935 1.172-.958.765c.129.301.207.63.222.974l1.195.273-.333 1.463-1.195-.273c-.16.296-.372.56-.624.781l.532 1.105-1.35.651-.533-1.104a2.8 2.8 0 0 1-1 0l-.531 1.104-1.352-.65.532-1.105a2.8 2.8 0 0 1-.624-.782l-1.195.273-.334-1.462 1.196-.273c.015-.345.093-.674.222-.975l-.958-.764.935-1.173.958.765a2.8 2.8 0 0 1 .901-.435V8.085h1.5zm.374 2.71a1.124 1.124 0 1 1-2.248 0 1.124 1.124 0 0 1 2.248 0"
+      })]
     }), jsx("defs", {
       children: jsx("clipPath", {
         children: jsx("path", {
           fill: "#fff",
-          d: "M5.117 6h10v10h-10z"
+          d: "M0 0h16v16H0z"
         })
       })
     })]
@@ -1166,25 +1219,16 @@ function SvgCatalogHIcon(props) {
     width: "1em",
     height: "1em",
     fill: "none",
-    viewBox: "0 0 17 16",
+    viewBox: "0 0 16 16",
     ...props,
-    children: [jsxs("g", {
+    children: [jsx("path", {
       fill: "currentColor",
-      clipPath: "url(#CatalogHIcon_svg__a)",
-      children: [jsx("path", {
-        fillRule: "evenodd",
-        d: "M2.617 4.792v8.458c0 .69.56 1.25 1.25 1.25h3.49V16h-3.49a2.75 2.75 0 0 1-2.75-2.75V2.5a2.5 2.5 0 0 1 2.5-2.5h8.75a.75.75 0 0 1 .75.75V6h-1.5V5h-8c-.356 0-.694-.074-1-.208Zm9-1.292v-2h-8a1 1 0 1 0 0 2h8Z",
-        clipRule: "evenodd"
-      }), jsx("path", {
-        d: "M9.347 16V7.637h1.518v3.176h1.818V7.637h1.518V16h-1.518v-3.24h-1.818V16H9.347Z"
-      })]
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        children: jsx("path", {
-          fill: "#fff",
-          d: "M0 0h17v16H0z"
-        })
-      })
+      fillRule: "evenodd",
+      d: "M3.5 13.25V4.792c.306.134.644.208 1 .208h8v2H14V.75a.75.75 0 0 0-.75-.75H4.5A2.5 2.5 0 0 0 2 2.5v10.75A2.75 2.75 0 0 0 4.75 16H8v-1.5H4.75c-.69 0-1.25-.56-1.25-1.25m9-9.75h-8a1 1 0 0 1 0-2h8z",
+      clipRule: "evenodd"
+    }), jsx("path", {
+      fill: "currentColor",
+      d: "M9 8v8h1.5v-3.25h3V16H15V8h-1.5v3.25h-3V8z"
     })]
   });
 }
@@ -1198,6 +1242,37 @@ const CatalogHIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 CatalogHIcon.displayName = 'CatalogHIcon';
 var CatalogHIcon$1 = CatalogHIcon;
 
+function SvgCatalogHomeIcon(props) {
+  return jsxs("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: [jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M14 .75v7.143l-.285-.247A2.64 2.64 0 0 0 12.5 7.05V5h-8c-.356 0-.694-.074-1-.208v8.458c0 .69.56 1.25 1.25 1.25H7V16H4.75A2.75 2.75 0 0 1 2 13.25V2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75M3.5 2.5a1 1 0 0 0 1 1h8v-2h-8a1 1 0 0 0-1 1",
+      clipRule: "evenodd"
+    }), jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M12.475 8.67a.75.75 0 0 0-.95 0l-2.75 2.25a.75.75 0 0 0-.275.58v3.75c0 .414.336.75.75.75h5.5a.75.75 0 0 0 .75-.75V11.5a.75.75 0 0 0-.275-.58zM10 14.5v-2.645l2-1.636 2 1.636V14.5h-1.25v-2h-1.5v2z",
+      clipRule: "evenodd"
+    })]
+  });
+}
+const CatalogHomeIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgCatalogHomeIcon
+  });
+});
+CatalogHomeIcon.displayName = 'CatalogHomeIcon';
+var CatalogHomeIcon$1 = CatalogHomeIcon;
+
 function SvgCatalogIcon(props) {
   return jsx("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -1209,7 +1284,7 @@ function SvgCatalogIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M4.75 0A2.75 2.75 0 0 0 2 2.75V13.5A2.5 2.5 0 0 0 4.5 16h8.75a.75.75 0 0 0 .75-.75V.75a.75.75 0 0 0-.75-.75h-8.5Zm7.75 11V1.5H4.75c-.69 0-1.25.56-1.25 1.25v8.458a2.492 2.492 0 0 1 1-.208h8Zm-9 2.5a1 1 0 0 0 1 1h8v-2h-8a1 1 0 0 0-1 1Z",
+      d: "M14 .75a.75.75 0 0 0-.75-.75H4.5A2.5 2.5 0 0 0 2 2.5v10.75A2.75 2.75 0 0 0 4.75 16h8.5a.75.75 0 0 0 .75-.75zM3.5 4.792v8.458c0 .69.56 1.25 1.25 1.25h7.75V5h-8c-.356 0-.694-.074-1-.208m9-1.292v-2h-8a1 1 0 0 0 0 2z",
       clipRule: "evenodd"
     })
   });
@@ -1234,11 +1309,11 @@ function SvgCatalogOffIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M14.03.75v10.69l-1.5-1.5V1.5H4.78c-.2 0-.39.047-.558.131L3.136.545A2.738 2.738 0 0 1 4.78 0h8.5a.75.75 0 0 1 .75.75Z"
+      d: "M14.03.75v10.69l-1.5-1.5V1.5H4.78c-.2 0-.39.047-.558.131L3.136.545A2.74 2.74 0 0 1 4.78 0h8.5a.75.75 0 0 1 .75.75"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2.03 3.56 1 2.53l1.06-1.06 13 13L14 15.53l-.017-.017a.75.75 0 0 1-.703.487H4.53a2.5 2.5 0 0 1-2.5-2.5V3.56Zm8.94 8.94 1.56 1.56v.44h-8a1 1 0 1 1 0-2h6.44ZM9.47 11H4.53c-.355 0-.693.074-1 .208V5.061L9.47 11Z",
+      d: "M2.03 3.56 1 2.53l1.06-1.06 13 13L14 15.53l-.017-.017a.75.75 0 0 1-.703.487H4.53a2.5 2.5 0 0 1-2.5-2.5zm8.94 8.94 1.56 1.56v.44h-8a1 1 0 1 1 0-2zM9.47 11H4.53c-.355 0-.693.074-1 .208V5.061z",
       clipRule: "evenodd"
     })]
   });
@@ -1259,22 +1334,16 @@ function SvgCatalogSharedIcon(props) {
     width: "1em",
     height: "1em",
     fill: "none",
-    viewBox: "0 0 17 16",
+    viewBox: "0 0 16 16",
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2.617 4.792v8.458c0 .69.56 1.25 1.25 1.25h.25V16h-.25a2.75 2.75 0 0 1-2.75-2.75V2.5a2.5 2.5 0 0 1 2.5-2.5h8.75a.75.75 0 0 1 .75.75V6h-1.5V5h-8c-.356 0-.694-.074-1-.208Zm9-1.292v-2h-8a1 1 0 1 0 0 2h8Z",
+      d: "M14 6.76a3 3 0 0 0-1.5.553V5h-8c-.356 0-.694-.074-1-.208v8.458c0 .69.56 1.25 1.25 1.25H8V16H4.75A2.75 2.75 0 0 1 2 13.25V2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75zM3.5 2.5a1 1 0 0 0 1 1h8v-2h-8a1 1 0 0 0-1 1",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M7.117 13a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM12.617 15.203a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM12.617 10.546a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"
-    }), jsx("path", {
-      fill: "currentColor",
-      d: "M12.042 12.854 8.564 11.34l-.52 1.191 3.479 1.516.519-1.192Z"
-    }), jsx("path", {
-      fill: "currentColor",
-      d: "m7.926 10.508 3.5-1.462.502 1.2-3.501 1.461-.501-1.2Z"
+      d: "M14.25 11.5c-.407 0-.782-.139-1.079-.372l-1.671.836v.072l1.671.836a1.75 1.75 0 1 1-.67 1.342l-1.672-.836a1.75 1.75 0 1 1 0-2.756l1.671-.836V9.75a1.75 1.75 0 1 1 1.75 1.75"
     })]
   });
 }
@@ -1303,7 +1372,7 @@ function SvgChainIcon(props) {
       strokeWidth: 2.5,
       clipPath: "url(#ChainIcon_svg__a)",
       children: [jsx("path", {
-        d: "M10 13a5.001 5.001 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+        d: "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
       }), jsx("path", {
         d: "M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
       })]
@@ -1337,10 +1406,10 @@ function SvgChartLineIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M1 1v13.25c0 .414.336.75.75.75H15v-1.5H2.5V1H1Z"
+      d: "M1 1v13.25c0 .414.336.75.75.75H15v-1.5H2.5V1z"
     }), jsx("path", {
       fill: "currentColor",
-      d: "m15.03 5.03-1.06-1.06L9.5 8.44 7 5.94 3.47 9.47l1.06 1.06L7 8.06l2.5 2.5 5.53-5.53Z"
+      d: "m15.03 5.03-1.06-1.06L9.5 8.44 7 5.94 3.47 9.47l1.06 1.06L7 8.06l2.5 2.5z"
     })]
   });
 }
@@ -1364,10 +1433,10 @@ function SvgCheckCircleBadgeIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "m10.47 5.47 1.06 1.06L7 11.06 4.47 8.53l1.06-1.06L7 8.94l3.47-3.47ZM16 12.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"
+      d: "m10.47 5.47 1.06 1.06L7 11.06 4.47 8.53l1.06-1.06L7 8.94zM16 12.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M1.5 8a6.5 6.5 0 0 1 13-.084c.54.236 1.031.565 1.452.967a8 8 0 1 0-7.07 7.07 5.008 5.008 0 0 1-.966-1.454A6.5 6.5 0 0 1 1.5 8Z"
+      d: "M1.5 8a6.5 6.5 0 0 1 13-.084c.54.236 1.031.565 1.452.967Q16 8.448 16 8a8 8 0 1 0-7.117 7.952 5 5 0 0 1-.967-1.453A6.5 6.5 0 0 1 1.5 8"
     })]
   });
 }
@@ -1392,7 +1461,7 @@ function SvgCheckCircleFillIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm11.53-1.47-1.06-1.06L7 8.94 5.53 7.47 4.47 8.53l2 2 .53.53.53-.53 4-4Z",
+      d: "M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m11.53-1.47-1.06-1.06L7 8.94 5.53 7.47 4.47 8.53l2 2 .53.53.53-.53z",
       clipRule: "evenodd"
     })
   });
@@ -1417,11 +1486,11 @@ function SvgCheckCircleIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M11.53 6.53 7 11.06 4.47 8.53l1.06-1.06L7 8.94l3.47-3.47 1.06 1.06Z"
+      d: "M11.53 6.53 7 11.06 4.47 8.53l1.06-1.06L7 8.94l3.47-3.47z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Z",
+      d: "M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13",
       clipRule: "evenodd"
     })]
   });
@@ -1447,7 +1516,7 @@ function SvgCheckLineIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M15.06 2.06 14 1 5.53 9.47 2.06 6 1 7.06l4.53 4.531 9.53-9.53ZM1.03 15.03h14v-1.5h-14v1.5Z",
+      d: "M15.06 2.06 14 1 5.53 9.47 2.06 6 1 7.06l4.53 4.531zM1.03 15.03h14v-1.5h-14z",
       clipRule: "evenodd"
     })
   });
@@ -1473,7 +1542,7 @@ function SvgCheckSmallIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M12.03 6.03 7 11.06 3.97 8.03l1.06-1.06L7 8.94l3.97-3.97 1.06 1.06Z",
+      d: "M12.03 6.03 7 11.06 3.97 8.03l1.06-1.06L7 8.94l3.97-3.97z",
       clipRule: "evenodd"
     })
   });
@@ -1498,10 +1567,10 @@ function SvgCheckboxIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M1.75 2a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75h11.5a.75.75 0 0 0 .75-.75V9h-1.5v4.5h-10v-10H10V2H1.75Z"
+      d: "M1.75 2a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75h11.5a.75.75 0 0 0 .75-.75V9h-1.5v4.5h-10v-10H10V2z"
     }), jsx("path", {
       fill: "currentColor",
-      d: "m15.03 4.03-1.06-1.06L7.5 9.44 5.53 7.47 4.47 8.53l3.03 3.03 7.53-7.53Z"
+      d: "m15.03 4.03-1.06-1.06L7.5 9.44 5.53 7.47 4.47 8.53l3.03 3.03z"
     })]
   });
 }
@@ -1525,7 +1594,7 @@ function SvgChecklistIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "m5.5 2 1.06 1.06-3.53 3.531L1 4.561 2.06 3.5l.97.97L5.5 2ZM15.03 4.53h-7v-1.5h7v1.5ZM1.03 14.53v-1.5h14v1.5h-14ZM8.03 9.53h7v-1.5h-7v1.5ZM6.56 8.06 5.5 7 3.03 9.47l-.97-.97L1 9.56l2.03 2.031 3.53-3.53Z"
+      d: "m5.5 2 1.06 1.06-3.53 3.531L1 4.561 2.06 3.5l.97.97zM15.03 4.53h-7v-1.5h7zM1.03 14.53v-1.5h14v1.5zM8.03 9.53h7v-1.5h-7zM6.56 8.06 5.5 7 3.03 9.47l-.97-.97L1 9.56l2.03 2.031z"
     })
   });
 }
@@ -1549,10 +1618,10 @@ function SvgChevronDoubleDownIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M10.947 7.954 8 10.891 5.056 7.954 3.997 9.016l4.004 3.993 4.005-3.993-1.06-1.062Z"
+      d: "M10.947 7.954 8 10.891 5.056 7.954 3.997 9.016l4.004 3.993 4.005-3.993z"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M10.947 3.994 8 6.931 5.056 3.994 3.997 5.056 8.001 9.05l4.005-3.993-1.06-1.062Z"
+      d: "M10.947 3.994 8 6.931 5.056 3.994 3.997 5.056 8.001 9.05l4.005-3.993z"
     })]
   });
 }
@@ -1576,10 +1645,10 @@ function SvgChevronDoubleLeftIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M8.047 10.944 5.11 8l2.937-2.944-1.062-1.06L2.991 8l3.994 4.003 1.062-1.06Z"
+      d: "M8.047 10.944 5.11 8l2.937-2.944-1.062-1.06L2.991 8l3.994 4.003z"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M12.008 10.944 9.07 8l2.938-2.944-1.062-1.06L6.952 8l3.994 4.003 1.062-1.06Z"
+      d: "M12.008 10.944 9.07 8l2.938-2.944-1.062-1.06L6.952 8l3.994 4.003z"
     })]
   });
 }
@@ -1603,10 +1672,10 @@ function SvgChevronDoubleRightIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "m7.954 5.056 2.937 2.946-2.937 2.945 1.062 1.059L13.01 8 9.016 3.998l-1.062 1.06Z"
+      d: "m7.954 5.056 2.937 2.946-2.937 2.945 1.062 1.059 3.993-4.004-3.993-4.005z"
     }), jsx("path", {
       fill: "currentColor",
-      d: "m3.994 5.056 2.937 2.946-2.937 2.945 1.062 1.059L9.05 8 5.056 3.998l-1.062 1.06Z"
+      d: "m3.994 5.056 2.937 2.946-2.937 2.945 1.062 1.059L9.05 8.002 5.056 3.997z"
     })]
   });
 }
@@ -1630,10 +1699,10 @@ function SvgChevronDoubleUpIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M5.056 8.047 8 5.11l2.944 2.937 1.06-1.062L8 2.991 3.997 6.985l1.059 1.062Z"
+      d: "M5.056 8.047 8 5.11l2.944 2.937 1.06-1.062L8 2.991 3.997 6.985z"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M5.056 12.008 8 9.07l2.944 2.937 1.06-1.062L8 6.952l-4.003 3.994 1.059 1.062Z"
+      d: "M5.056 12.008 8 9.07l2.944 2.937 1.06-1.062L8 6.952l-4.003 3.994z"
     })]
   });
 }
@@ -1658,7 +1727,7 @@ function SvgChevronDownIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 8.917 10.947 6 12 7.042 8 11 4 7.042 5.053 6 8 8.917Z",
+      d: "M8 8.917 10.947 6 12 7.042 8 11 4 7.042 5.053 6z",
       clipRule: "evenodd"
     })
   });
@@ -1673,58 +1742,6 @@ const ChevronDownIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 ChevronDownIcon.displayName = 'ChevronDownIcon';
 var ChevronDownIcon$1 = ChevronDownIcon;
 
-function SvgChevronLeftIcon(props) {
-  return jsx("svg", {
-    xmlns: "http://www.w3.org/2000/svg",
-    width: "1em",
-    height: "1em",
-    fill: "none",
-    viewBox: "0 0 16 16",
-    ...props,
-    children: jsx("path", {
-      fill: "currentColor",
-      fillRule: "evenodd",
-      d: "M7.083 8 10 10.947 8.958 12 5 8l3.958-4L10 5.053 7.083 8Z",
-      clipRule: "evenodd"
-    })
-  });
-}
-const ChevronLeftIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
-  return jsx(Icon, {
-    ref: forwardedRef,
-    ...props,
-    component: SvgChevronLeftIcon
-  });
-});
-ChevronLeftIcon.displayName = 'ChevronLeftIcon';
-var ChevronLeftIcon$1 = ChevronLeftIcon;
-
-function SvgChevronRightIcon(props) {
-  return jsx("svg", {
-    xmlns: "http://www.w3.org/2000/svg",
-    width: "1em",
-    height: "1em",
-    fill: "none",
-    viewBox: "0 0 16 16",
-    ...props,
-    children: jsx("path", {
-      fill: "currentColor",
-      fillRule: "evenodd",
-      d: "M8.917 8 6 5.053 7.042 4 11 8l-3.958 4L6 10.947 8.917 8Z",
-      clipRule: "evenodd"
-    })
-  });
-}
-const ChevronRightIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
-  return jsx(Icon, {
-    ref: forwardedRef,
-    ...props,
-    component: SvgChevronRightIcon
-  });
-});
-ChevronRightIcon.displayName = 'ChevronRightIcon';
-var ChevronRightIcon$1 = ChevronRightIcon;
-
 function SvgChevronUpIcon(props) {
   return jsx("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -1736,7 +1753,7 @@ function SvgChevronUpIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 7.083 5.053 10 4 8.958 8 5l4 3.958L10.947 10 8 7.083Z",
+      d: "M8 7.083 5.053 10 4 8.958 8 5l4 3.958L10.947 10z",
       clipRule: "evenodd"
     })
   });
@@ -1761,7 +1778,7 @@ function SvgCircleIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M12.5 8a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"
+      d: "M12.5 8a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0"
     })
   });
 }
@@ -1775,6 +1792,58 @@ const CircleIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 CircleIcon.displayName = 'CircleIcon';
 var CircleIcon$1 = CircleIcon;
 
+function SvgCircleOfflineIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "m11.667 5.392 1.362-1.363-1.06-1.06-9 9 1.06 1.06 1.363-1.362a4.5 4.5 0 0 0 6.276-6.276m-1.083 1.083-4.11 4.109a3 3 0 0 0 4.11-4.11M8 3.5q.606.002 1.164.152L7.811 5.006A3 3 0 0 0 5.006 7.81L3.652 9.164A4.5 4.5 0 0 1 8 3.5",
+      clipRule: "evenodd"
+    })
+  });
+}
+const CircleOfflineIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgCircleOfflineIcon
+  });
+});
+CircleOfflineIcon.displayName = 'CircleOfflineIcon';
+var CircleOfflineIcon$1 = CircleOfflineIcon;
+
+function SvgCircleOutlineIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M5 8a3 3 0 1 0 6 0 3 3 0 0 0-6 0m3-4.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9",
+      clipRule: "evenodd"
+    })
+  });
+}
+const CircleOutlineIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgCircleOutlineIcon
+  });
+});
+CircleOutlineIcon.displayName = 'CircleOutlineIcon';
+var CircleOutlineIcon$1 = CircleOutlineIcon;
+
 function SvgClipboardIcon(props) {
   return jsx("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -1786,7 +1855,7 @@ function SvgClipboardIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M5.5 0a.75.75 0 0 0-.75.75V1h-2a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75h-2V.75A.75.75 0 0 0 10.5 0h-5Zm5.75 2.5v.75a.75.75 0 0 1-.75.75h-5a.75.75 0 0 1-.75-.75V2.5H3.5v11h9v-11h-1.25Zm-5 0v-1h3.5v1h-3.5Z",
+      d: "M5.5 0a.75.75 0 0 0-.75.75V1h-2a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75h-2V.75A.75.75 0 0 0 10.5 0zm5.75 2.5v.75a.75.75 0 0 1-.75.75h-5a.75.75 0 0 1-.75-.75V2.5H3.5v11h9v-11zm-5 0v-1h3.5v1z",
       clipRule: "evenodd"
     })
   });
@@ -1801,35 +1870,6 @@ const ClipboardIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 ClipboardIcon.displayName = 'ClipboardIcon';
 var ClipboardIcon$1 = ClipboardIcon;
 
-function SvgClockIcon(props) {
-  return jsxs("svg", {
-    xmlns: "http://www.w3.org/2000/svg",
-    width: "1em",
-    height: "1em",
-    fill: "none",
-    viewBox: "0 0 16 16",
-    ...props,
-    children: [jsx("path", {
-      fill: "currentColor",
-      d: "M7.25 4v4c0 .199.079.39.22.53l2 2 1.06-1.06-1.78-1.78V4h-1.5Z"
-    }), jsx("path", {
-      fill: "currentColor",
-      fillRule: "evenodd",
-      d: "M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0ZM1.5 8a6.5 6.5 0 1 1 13 0 6.5 6.5 0 0 1-13 0Z",
-      clipRule: "evenodd"
-    })]
-  });
-}
-const ClockIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
-  return jsx(Icon, {
-    ref: forwardedRef,
-    ...props,
-    component: SvgClockIcon
-  });
-});
-ClockIcon.displayName = 'ClockIcon';
-var ClockIcon$1 = ClockIcon;
-
 function SvgClockKeyIcon(props) {
   return jsxs("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -1840,14 +1880,14 @@ function SvgClockKeyIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M8 1.5a6.5 6.5 0 0 0-5.07 10.57l-1.065 1.065A8 8 0 1 1 15.418 11h-1.65A6.5 6.5 0 0 0 8 1.5Z"
+      d: "M8 1.5a6.5 6.5 0 0 0-5.07 10.57l-1.065 1.065A8 8 0 1 1 15.418 11h-1.65A6.5 6.5 0 0 0 8 1.5"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M7.25 8V4h1.5v3.25H11v1.5H8A.75.75 0 0 1 7.25 8Z"
+      d: "M7.25 8V4h1.5v3.25H11v1.5H8A.75.75 0 0 1 7.25 8"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M4 13a3 3 0 0 1 5.959-.5h4.291a.75.75 0 0 1 .75.75V16h-1.5v-2h-1v2H11v-2H9.83A3.001 3.001 0 0 1 4 13Zm3-1.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z",
+      d: "M4 13a3 3 0 0 1 5.959-.5h4.291a.75.75 0 0 1 .75.75V16h-1.5v-2h-1v2H11v-2H9.83A3.001 3.001 0 0 1 4 13m3-1.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3",
       clipRule: "evenodd"
     })]
   });
@@ -1871,12 +1911,12 @@ function SvgCloudDatabaseIcon(props) {
     viewBox: "0 0 16 16",
     ...props,
     children: [jsx("path", {
-      fill: "#7F8F9A",
-      d: "M3.394 4.586a4.752 4.752 0 0 1 9.351.946A3.754 3.754 0 0 1 15.787 8H14.12a2.248 2.248 0 0 0-1.871-1H12a.75.75 0 0 1-.75-.75v-.5a3.25 3.25 0 0 0-6.476-.402.75.75 0 0 1-.697.657A2.75 2.75 0 0 0 4 11.49V13a.75.75 0 0 1-.179-.021 4.25 4.25 0 0 1-.427-8.393Z"
+      fill: "currentColor",
+      d: "M3.394 4.586a4.752 4.752 0 0 1 9.351.946A3.75 3.75 0 0 1 15.787 8H14.12a2.25 2.25 0 0 0-1.871-1H12a.75.75 0 0 1-.75-.75v-.5a3.25 3.25 0 0 0-6.475-.402.75.75 0 0 1-.698.657A2.75 2.75 0 0 0 4 11.49V13a.8.8 0 0 1-.179-.021 4.25 4.25 0 0 1-.427-8.393"
     }), jsx("path", {
-      fill: "#7F8F9A",
+      fill: "currentColor",
       fillRule: "evenodd",
-      d: "M6.25 10.5c0-.851.67-1.42 1.293-1.731C8.211 8.435 9.08 8.25 10 8.25c.92 0 1.79.185 2.457.519.622.31 1.293.88 1.293 1.731v2.277c-.014.836-.677 1.397-1.293 1.705-.668.333-1.537.518-2.457.518-.92 0-1.79-.185-2.457-.518-.616-.308-1.279-.869-1.293-1.705V10.5Zm1.964 2.64c.418.209 1.049.36 1.786.36.737 0 1.368-.151 1.786-.36.209-.105.337-.21.406-.29a.316.316 0 0 0 .057-.096l.001-.004v-.423c-.636.273-1.423.423-2.25.423s-1.614-.15-2.25-.423v.427a.32.32 0 0 0 .058.095c.069.081.197.186.406.29ZM7.75 10.5v-.004a.32.32 0 0 1 .058-.095c.069-.081.197-.186.406-.29C8.632 9.9 9.263 9.75 10 9.75c.737 0 1.368.151 1.786.36.209.105.337.21.406.29a.316.316 0 0 1 .057.096l.001.004v.004a.316.316 0 0 1-.058.095c-.069.081-.197.186-.406.29-.418.21-1.049.361-1.786.361-.737 0-1.368-.151-1.786-.36a1.288 1.288 0 0 1-.406-.29.32.32 0 0 1-.058-.096.02.02 0 0 1 0-.004Z",
+      d: "M6.25 10.5c0-.851.67-1.42 1.293-1.731C8.211 8.435 9.08 8.25 10 8.25s1.79.185 2.457.519c.622.31 1.293.88 1.293 1.731v2.277c-.014.836-.677 1.397-1.293 1.705-.668.333-1.537.518-2.457.518s-1.79-.185-2.457-.518c-.616-.308-1.279-.869-1.293-1.705V10.5m1.964 2.64c.418.209 1.049.36 1.786.36s1.368-.151 1.786-.36c.209-.105.337-.21.406-.29a.3.3 0 0 0 .057-.096l.001-.004v-.423c-.636.273-1.423.423-2.25.423s-1.614-.15-2.25-.423v.427l.005.014a.3.3 0 0 0 .053.082c.069.08.197.185.406.29M7.75 10.5v-.004l.005-.014a.3.3 0 0 1 .053-.082c.069-.08.197-.185.406-.29.418-.209 1.049-.36 1.786-.36s1.368.151 1.786.36c.209.105.337.21.406.29a.3.3 0 0 1 .057.096l.001.004v.004l-.005.014a.3.3 0 0 1-.053.082c-.069.08-.197.185-.406.29-.418.209-1.049.36-1.786.36s-1.368-.151-1.786-.36a1.3 1.3 0 0 1-.406-.29.3.3 0 0 1-.058-.096z",
       clipRule: "evenodd"
     })]
   });
@@ -1901,10 +1941,10 @@ function SvgCloudDownloadIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M8 2a4.752 4.752 0 0 0-4.606 3.586 4.251 4.251 0 0 0 .427 8.393A.75.75 0 0 0 4 14v-1.511a2.75 2.75 0 0 1 .077-5.484.75.75 0 0 0 .697-.657 3.25 3.25 0 0 1 6.476.402v.5c0 .414.336.75.75.75h.25a2.25 2.25 0 1 1-.188 4.492.75.75 0 0 0-.062-.002V14a.757.757 0 0 0 .077-.004 3.75 3.75 0 0 0 .668-7.464A4.75 4.75 0 0 0 8 2Z"
+      d: "M8 2a4.75 4.75 0 0 0-4.606 3.586 4.251 4.251 0 0 0 .427 8.393A.8.8 0 0 0 4 14v-1.511a2.75 2.75 0 0 1 .077-5.484.75.75 0 0 0 .697-.657 3.25 3.25 0 0 1 6.476.402v.5c0 .414.336.75.75.75h.25a2.25 2.25 0 1 1-.188 4.492L12 12.49V14l.077-.004q.086.004.173.004a3.75 3.75 0 0 0 .495-7.468A4.75 4.75 0 0 0 8 2"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M7.25 11.19 5.03 8.97l-1.06 1.06L8 14.06l4.03-4.03-1.06-1.06-2.22 2.22V6h-1.5v5.19Z"
+      d: "M7.25 11.19 5.03 8.97l-1.06 1.06L8 14.06l4.03-4.03-1.06-1.06-2.22 2.22V6h-1.5z"
     })]
   });
 }
@@ -1929,7 +1969,7 @@ function SvgCloudIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M3.394 5.586a4.752 4.752 0 0 1 9.351.946 3.75 3.75 0 0 1-.668 7.464A.757.757 0 0 1 12 14H4a.75.75 0 0 1-.179-.021 4.25 4.25 0 0 1-.427-8.393Zm.72 6.914h7.762a.745.745 0 0 1 .186-.008A2.25 2.25 0 1 0 12.25 8H12a.75.75 0 0 1-.75-.75v-.5a3.25 3.25 0 0 0-6.476-.402.75.75 0 0 1-.697.657 2.75 2.75 0 0 0-.024 5.488.74.74 0 0 1 .062.007Z",
+      d: "M3.394 5.586a4.752 4.752 0 0 1 9.351.946 3.75 3.75 0 0 1-.668 7.464L12 14H4a.8.8 0 0 1-.179-.021 4.25 4.25 0 0 1-.427-8.393m.72 6.914h7.762a.8.8 0 0 1 .186-.008q.092.008.188.008a2.25 2.25 0 0 0 0-4.5H12a.75.75 0 0 1-.75-.75v-.5a3.25 3.25 0 0 0-6.475-.402.75.75 0 0 1-.698.657 2.75 2.75 0 0 0-.024 5.488z",
       clipRule: "evenodd"
     })
   });
@@ -1955,7 +1995,7 @@ function SvgCloudKeyIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M3.394 5.586a4.752 4.752 0 0 1 9.351.946A3.754 3.754 0 0 1 15.787 9H14.12a2.248 2.248 0 0 0-1.871-1H12a.75.75 0 0 1-.75-.75v-.5a3.25 3.25 0 0 0-6.476-.402.75.75 0 0 1-.697.657A2.75 2.75 0 0 0 4 12.49V14a.75.75 0 0 1-.179-.021 4.25 4.25 0 0 1-.427-8.393ZM15.25 10.5h-4.291a3 3 0 1 0-.13 1.5H12v2h1.5v-2h1v2H16v-2.75a.75.75 0 0 0-.75-.75ZM8 9.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z",
+      d: "M3.394 5.586a4.752 4.752 0 0 1 9.351.946A3.75 3.75 0 0 1 15.787 9H14.12a2.25 2.25 0 0 0-1.871-1H12a.75.75 0 0 1-.75-.75v-.5a3.25 3.25 0 0 0-6.475-.402.75.75 0 0 1-.698.657A2.75 2.75 0 0 0 4 12.49V14a.8.8 0 0 1-.179-.021 4.25 4.25 0 0 1-.427-8.393M15.25 10.5h-4.291a3 3 0 1 0-.13 1.5H12v2h1.5v-2h1v2H16v-2.75a.75.75 0 0 0-.75-.75M8 9.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3",
       clipRule: "evenodd"
     })
   });
@@ -1980,11 +2020,11 @@ function SvgCloudModelIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M3.394 5.586a4.752 4.752 0 0 1 9.351.946A3.754 3.754 0 0 1 15.787 9H14.12a2.248 2.248 0 0 0-1.871-1H12a.75.75 0 0 1-.75-.75v-.5a3.25 3.25 0 0 0-6.476-.402.75.75 0 0 1-.697.657A2.75 2.75 0 0 0 4 12.49V14a.75.75 0 0 1-.179-.021 4.25 4.25 0 0 1-.427-8.393Z"
+      d: "M3.394 5.586a4.752 4.752 0 0 1 9.351.946A3.75 3.75 0 0 1 15.787 9H14.12a2.25 2.25 0 0 0-1.871-1H12a.75.75 0 0 1-.75-.75v-.5a3.25 3.25 0 0 0-6.475-.402.75.75 0 0 1-.698.657A2.75 2.75 0 0 0 4 12.49V14a.8.8 0 0 1-.179-.021 4.25 4.25 0 0 1-.427-8.393"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 7a2.25 2.25 0 0 1 2.03 3.22l.5.5a2.25 2.25 0 1 1-1.06 1.06l-.5-.5A2.25 2.25 0 1 1 8 7Zm.75 2.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm3.5 3.5a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z",
+      d: "M8 7a2.25 2.25 0 0 1 2.03 3.22l.5.5a2.25 2.25 0 1 1-1.06 1.06l-.5-.5A2.25 2.25 0 1 1 8 7m.75 2.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0m3.5 3.5a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0",
       clipRule: "evenodd"
     })]
   });
@@ -2010,11 +2050,11 @@ function SvgCloudOffIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M13.97 14.53 2.47 3.03l-1 1 1.628 1.628a4.252 4.252 0 0 0 .723 8.32A.75.75 0 0 0 4 14h7.44l1.53 1.53 1-1ZM4.077 7.005a.748.748 0 0 0 .29-.078L9.939 12.5H4.115a.74.74 0 0 0-.062-.007 2.75 2.75 0 0 1 .024-5.488Z",
+      d: "M13.97 14.53 2.47 3.03l-1 1 1.628 1.628a4.252 4.252 0 0 0 .723 8.32A.8.8 0 0 0 4 14h7.44l1.53 1.53zM4.077 7.005a.75.75 0 0 0 .29-.078L9.939 12.5H4.115l-.062-.007a2.75 2.75 0 0 1 .024-5.488",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M4.8 3.24a4.75 4.75 0 0 1 7.945 3.293 3.75 3.75 0 0 1 1.928 6.58l-1.067-1.067A2.25 2.25 0 0 0 12.25 8H12a.75.75 0 0 1-.75-.75v-.5a3.25 3.25 0 0 0-5.388-2.448L4.8 3.239Z"
+      d: "M4.8 3.24a4.75 4.75 0 0 1 7.945 3.293 3.75 3.75 0 0 1 1.928 6.58l-1.067-1.067A2.25 2.25 0 0 0 12.25 8H12a.75.75 0 0 1-.75-.75v-.5a3.25 3.25 0 0 0-5.388-2.448z"
     })]
   });
 }
@@ -2038,10 +2078,10 @@ function SvgCloudUploadIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M8 2a4.752 4.752 0 0 0-4.606 3.586 4.251 4.251 0 0 0 .427 8.393A.75.75 0 0 0 4 14v-1.511a2.75 2.75 0 0 1 .077-5.484.75.75 0 0 0 .697-.657 3.25 3.25 0 0 1 6.476.402v.5c0 .414.336.75.75.75h.25a2.25 2.25 0 1 1-.188 4.492.75.75 0 0 0-.062-.002V14a.757.757 0 0 0 .077-.004 3.75 3.75 0 0 0 .668-7.464A4.75 4.75 0 0 0 8 2Z"
+      d: "M8 2a4.75 4.75 0 0 0-4.606 3.586 4.251 4.251 0 0 0 .427 8.393A.8.8 0 0 0 4 14v-1.511a2.75 2.75 0 0 1 .077-5.484.75.75 0 0 0 .697-.657 3.25 3.25 0 0 1 6.476.402v.5c0 .414.336.75.75.75h.25a2.25 2.25 0 1 1-.188 4.492L12 12.49V14l.077-.004q.086.004.173.004a3.75 3.75 0 0 0 .495-7.468A4.75 4.75 0 0 0 8 2"
     }), jsx("path", {
       fill: "currentColor",
-      d: "m8.75 8.81 2.22 2.22 1.06-1.06L8 5.94 3.97 9.97l1.06 1.06 2.22-2.22V14h1.5V8.81Z"
+      d: "m8.75 8.81 2.22 2.22 1.06-1.06L8 5.94 3.97 9.97l1.06 1.06 2.22-2.22V14h1.5z"
     })]
   });
 }
@@ -2065,7 +2105,7 @@ function SvgCodeIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M4.03 12.06 5.091 11l-2.97-2.97 2.97-2.97L4.031 4 0 8.03l4.03 4.03ZM12.091 4l4.03 4.03-4.03 4.03-1.06-1.06L14 8.03l-2.97-2.97L12.091 4Z"
+      d: "M4.03 12.06 5.091 11l-2.97-2.97 2.97-2.97L4.031 4 0 8.03zM12.091 4l4.03 4.03-4.03 4.03-1.06-1.06L14 8.03l-2.97-2.97z"
     })
   });
 }
@@ -2090,7 +2130,7 @@ function SvgColorFillIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M7.5 1v1.59l4.88 4.88a.75.75 0 0 1 0 1.06l-4.242 4.243a2.75 2.75 0 0 1-3.89 0l-2.421-2.422a2.75 2.75 0 0 1 0-3.889L6 2.29V1h1.5ZM6 8V4.41L2.888 7.524a1.25 1.25 0 0 0 0 1.768l2.421 2.421a1.25 1.25 0 0 0 1.768 0L10.789 8 7.5 4.71V8H6Zm7.27 1.51a.76.76 0 0 0-1.092.001 8.53 8.53 0 0 0-1.216 1.636c-.236.428-.46.953-.51 1.501-.054.576.083 1.197.587 1.701a2.385 2.385 0 0 0 3.372 0c.505-.504.644-1.126.59-1.703-.05-.55-.274-1.075-.511-1.503a8.482 8.482 0 0 0-1.22-1.633Zm-.995 2.363c.138-.25.3-.487.451-.689.152.201.313.437.452.687.19.342.306.657.33.913.02.228-.03.377-.158.505a.885.885 0 0 1-1.25 0c-.125-.125-.176-.272-.155-.501.024-.256.14-.572.33-.915Z",
+      d: "M7.5 1v1.59l4.88 4.88a.75.75 0 0 1 0 1.06l-4.242 4.243a2.75 2.75 0 0 1-3.89 0l-2.421-2.422a2.75 2.75 0 0 1 0-3.889L6 2.29V1zM6 8V4.41L2.888 7.524a1.25 1.25 0 0 0 0 1.768l2.421 2.421a1.25 1.25 0 0 0 1.768 0L10.789 8 7.5 4.71V8zm7.27 1.51a.76.76 0 0 0-1.092.001 8.5 8.5 0 0 0-1.216 1.636c-.236.428-.46.953-.51 1.501-.054.576.083 1.197.587 1.701a2.385 2.385 0 0 0 3.372 0c.505-.504.644-1.126.59-1.703-.05-.55-.274-1.075-.511-1.503a8.5 8.5 0 0 0-1.22-1.633m-.995 2.363c.138-.25.3-.487.451-.689.152.201.313.437.452.687.19.342.306.657.33.913.02.228-.03.377-.158.505a.885.885 0 0 1-1.25 0c-.125-.125-.176-.272-.155-.501.024-.256.14-.572.33-.915",
       clipRule: "evenodd"
     })
   });
@@ -2116,7 +2156,7 @@ function SvgColumnIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M6.5 9V6h3v3h-3Zm3 1.5v3h-3v-3h3Zm1.5-.75v-9a.75.75 0 0 0-.75-.75h-4.5A.75.75 0 0 0 5 .75v13.5c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-4.5ZM6.5 4.5v-3h3v3h-3Z",
+      d: "M6.5 9V6h3v3zm3 1.5v3h-3v-3zm1.5-.75v-9a.75.75 0 0 0-.75-.75h-4.5A.75.75 0 0 0 5 .75v13.5c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75zM6.5 4.5v-3h3v3z",
       clipRule: "evenodd"
     })
   });
@@ -2142,7 +2182,7 @@ function SvgColumnsIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75V1.75ZM2.5 13.5v-11H5v11H2.5Zm4 0h3v-11h-3v11Zm4.5-11v11h2.5v-11H11Z",
+      d: "M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75zM2.5 13.5v-11H5v11zm4 0h3v-11h-3zm4.5-11v11h2.5v-11z",
       clipRule: "evenodd"
     })
   });
@@ -2169,7 +2209,7 @@ function SvgCommandPaletteIcon(props) {
       fill: "currentColor",
       stroke: "currentColor",
       strokeWidth: 0.25,
-      d: "M4.316 6.737H5.38v2.526H4.316c-1.346 0-2.441 1.057-2.441 2.415a2.441 2.441 0 1 0 4.882 0V10.62h2.486v1.057a2.441 2.441 0 1 0 4.882 0c0-1.358-1.095-2.415-2.44-2.415h-1.058V6.737h1.057c1.347 0 2.441-1.057 2.441-2.415a2.441 2.441 0 1 0-4.882 0V5.38H6.757V4.322a2.441 2.441 0 1 0-4.882 0c0 1.358 1.095 2.415 2.44 2.415ZM5.38 4.322v1.073H4.316A1.08 1.08 0 0 1 3.25 4.322c0-.585.485-1.064 1.065-1.064s1.065.479 1.065 1.064Zm7.368 0a1.08 1.08 0 0 1-1.065 1.073h-1.057V4.322c0-.587.479-1.064 1.057-1.064.58 0 1.066.479 1.066 1.064Zm-3.506 2.4v2.557H6.757V6.72h2.486ZM3.251 11.67a1.08 1.08 0 0 1 1.065-1.073H5.38v1.073c0 .585-.486 1.064-1.065 1.064-.58 0-1.065-.479-1.065-1.064Zm7.376 0v-1.073h1.057a1.08 1.08 0 0 1 1.066 1.073c0 .585-.486 1.064-1.066 1.064a1.065 1.065 0 0 1-1.057-1.064Z"
+      d: "M4.316 6.737H5.38v2.526H4.316c-1.346 0-2.441 1.057-2.441 2.415a2.441 2.441 0 1 0 4.882 0V10.62h2.486v1.057a2.441 2.441 0 1 0 4.882 0c0-1.358-1.094-2.415-2.44-2.415h-1.058V6.737h1.057c1.347 0 2.441-1.057 2.441-2.415a2.441 2.441 0 1 0-4.882 0V5.38H6.757V4.322a2.441 2.441 0 1 0-4.882 0c0 1.358 1.095 2.415 2.44 2.415ZM5.38 4.322v1.073H4.316A1.08 1.08 0 0 1 3.25 4.322c0-.585.485-1.064 1.065-1.064s1.065.479 1.065 1.064Zm7.368 0a1.08 1.08 0 0 1-1.065 1.073h-1.057V4.322c0-.587.479-1.064 1.057-1.064.58 0 1.066.479 1.066 1.064Zm-3.506 2.4v2.557H6.757V6.72zM3.251 11.67a1.08 1.08 0 0 1 1.065-1.073H5.38v1.073c0 .585-.486 1.064-1.065 1.064-.58 0-1.065-.479-1.065-1.064Zm7.376 0v-1.073h1.057a1.08 1.08 0 0 1 1.066 1.073c0 .585-.486 1.064-1.066 1.064a1.065 1.065 0 0 1-1.057-1.064Z"
     })
   });
 }
@@ -2194,11 +2234,11 @@ function SvgConnectIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M7.78 3.97 5.03 1.22a.75.75 0 0 0-1.06 0L1.22 3.97a.75.75 0 0 0 0 1.06l2.75 2.75a.75.75 0 0 0 1.06 0l2.75-2.75a.75.75 0 0 0 0-1.06Zm-1.59.53L4.5 6.19 2.81 4.5 4.5 2.81 6.19 4.5ZM15 11.75a3.25 3.25 0 1 0-6.5 0 3.25 3.25 0 0 0 6.5 0ZM11.75 10a1.75 1.75 0 1 1 0 3.5 1.75 1.75 0 0 1 0-3.5Z",
+      d: "M7.78 3.97 5.03 1.22a.75.75 0 0 0-1.06 0L1.22 3.97a.75.75 0 0 0 0 1.06l2.75 2.75a.75.75 0 0 0 1.06 0l2.75-2.75a.75.75 0 0 0 0-1.06m-1.59.53L4.5 6.19 2.81 4.5 4.5 2.81zM15 11.75a3.25 3.25 0 1 0-6.5 0 3.25 3.25 0 0 0 6.5 0M11.75 10a1.75 1.75 0 1 1 0 3.5 1.75 1.75 0 0 1 0-3.5",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M14.25 1H9v1.5h4.5V7H15V1.75a.75.75 0 0 0-.75-.75ZM1 9v5.25c0 .414.336.75.75.75H7v-1.5H2.5V9H1Z"
+      d: "M14.25 1H9v1.5h4.5V7H15V1.75a.75.75 0 0 0-.75-.75M1 9v5.25c0 .414.336.75.75.75H7v-1.5H2.5V9z"
     })]
   });
 }
@@ -2223,7 +2263,7 @@ function SvgCopyIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75H5v3.25c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-8.5a.75.75 0 0 0-.75-.75H11V1.75a.75.75 0 0 0-.75-.75h-8.5ZM9.5 5V2.5h-7v7H5V5.75A.75.75 0 0 1 5.75 5H9.5Zm-3 8.5v-7h7v7h-7Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75H5v3.25c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-8.5a.75.75 0 0 0-.75-.75H11V1.75a.75.75 0 0 0-.75-.75zM9.5 5V2.5h-7v7H5V5.75A.75.75 0 0 1 5.75 5zm-3 8.5v-7h7v7z",
       clipRule: "evenodd"
     })
   });
@@ -2251,7 +2291,7 @@ function SvgCursorIcon(props) {
       children: jsx("path", {
         fill: "currentColor",
         fillRule: "evenodd",
-        d: "M1.22 1.22a.75.75 0 0 1 .802-.169l13.5 5.25a.75.75 0 0 1-.043 1.413L9.597 9.597l-1.883 5.882a.75.75 0 0 1-1.413.043l-5.25-13.5a.75.75 0 0 1 .169-.802Zm1.847 1.847 3.864 9.937 1.355-4.233a.75.75 0 0 1 .485-.485l4.233-1.355-9.937-3.864Z",
+        d: "M1.22 1.22a.75.75 0 0 1 .802-.169l13.5 5.25a.75.75 0 0 1-.043 1.413L9.597 9.597l-1.883 5.882a.75.75 0 0 1-1.413.043l-5.25-13.5a.75.75 0 0 1 .169-.802m1.847 1.847 3.864 9.937 1.355-4.233a.75.75 0 0 1 .485-.485l4.233-1.355z",
         clipRule: "evenodd"
       })
     }), jsx("defs", {
@@ -2284,10 +2324,10 @@ function SvgCursorTypeIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M8 3.75h1c.69 0 1.25.56 1.25 1.25v6c0 .69-.56 1.25-1.25 1.25H8v1.5h1c.788 0 1.499-.331 2-.863a2.742 2.742 0 0 0 2 .863h1v-1.5h-1c-.69 0-1.25-.56-1.25-1.25V5c0-.69.56-1.25 1.25-1.25h1v-1.5h-1c-.788 0-1.499.331-2 .863a2.742 2.742 0 0 0-2-.863H8v1.5Z"
+      d: "M8 3.75h1c.69 0 1.25.56 1.25 1.25v6c0 .69-.56 1.25-1.25 1.25H8v1.5h1c.788 0 1.499-.331 2-.863a2.74 2.74 0 0 0 2 .863h1v-1.5h-1c-.69 0-1.25-.56-1.25-1.25V5c0-.69.56-1.25 1.25-1.25h1v-1.5h-1c-.788 0-1.499.331-2 .863a2.74 2.74 0 0 0-2-.863H8z"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M5.936 8.003 3 5.058 4.062 4l3.993 4.004-3.993 4.005L3 10.948l2.936-2.945Z"
+      d: "M5.936 8.003 3 5.058 4.062 4l3.993 4.004-3.993 4.005L3 10.948z"
     })]
   });
 }
@@ -2312,7 +2352,7 @@ function SvgDagIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 1.75A.75.75 0 0 1 8.75 1h5.5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-.75.75h-5.5A.75.75 0 0 1 8 5.25v-1H5.5c-.69 0-1.25.56-1.25 1.25h2a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-.75.75h-2c0 .69.56 1.25 1.25 1.25H8v-1a.75.75 0 0 1 .75-.75h5.5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-.75.75h-5.5a.75.75 0 0 1-.75-.75v-1H5.5a2.75 2.75 0 0 1-2.75-2.75h-2A.75.75 0 0 1 0 9.75v-3.5a.75.75 0 0 1 .75-.75h2A2.75 2.75 0 0 1 5.5 2.75H8v-1Zm1.5.75v2h4v-2h-4ZM1.5 9V7h4v2h-4Zm8 4.5v-2h4v2h-4Z",
+      d: "M8 1.75A.75.75 0 0 1 8.75 1h5.5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-.75.75h-5.5A.75.75 0 0 1 8 5.25v-1H5.5c-.69 0-1.25.56-1.25 1.25h2a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-.75.75h-2c0 .69.56 1.25 1.25 1.25H8v-1a.75.75 0 0 1 .75-.75h5.5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-.75.75h-5.5a.75.75 0 0 1-.75-.75v-1H5.5a2.75 2.75 0 0 1-2.75-2.75h-2A.75.75 0 0 1 0 9.75v-3.5a.75.75 0 0 1 .75-.75h2A2.75 2.75 0 0 1 5.5 2.75H8zm1.5.75v2h4v-2zM1.5 9V7h4v2zm8 4.5v-2h4v2z",
       clipRule: "evenodd"
     })
   });
@@ -2338,12 +2378,12 @@ function SvgDIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M5.75 4.5a.75.75 0 0 0-.75.75v5.5c0 .414.336.75.75.75h2a3.5 3.5 0 1 0 0-7h-2ZM6.5 10V6h1.25a2 2 0 1 1 0 4H6.5Z",
+      d: "M5.75 4.5a.75.75 0 0 0-.75.75v5.5c0 .414.336.75.75.75h2a3.5 3.5 0 1 0 0-7zM6.5 10V6h1.25a2 2 0 1 1 0 4z",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75H1.75Zm.75 12.5v-11h11v11h-11Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75zm.75 12.5v-11h11v11z",
       clipRule: "evenodd"
     })]
   });
@@ -2369,7 +2409,7 @@ function SvgDangerFillIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "m15.78 11.533-4.242 4.243a.75.75 0 0 1-.53.22H4.996a.75.75 0 0 1-.53-.22L.224 11.533a.75.75 0 0 1-.22-.53v-6.01a.75.75 0 0 1 .22-.53L4.467.22a.75.75 0 0 1 .53-.22h6.01a.75.75 0 0 1 .53.22l4.243 4.242c.141.141.22.332.22.53v6.011a.75.75 0 0 1-.22.53Zm-8.528-.785a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm1.5-5.75v4h-1.5v-4h1.5Z",
+      d: "m15.78 11.533-4.242 4.243a.75.75 0 0 1-.53.22H4.996a.75.75 0 0 1-.53-.22L.224 11.533a.75.75 0 0 1-.22-.53v-6.01a.75.75 0 0 1 .22-.53L4.467.22a.75.75 0 0 1 .53-.22h6.01a.75.75 0 0 1 .53.22l4.243 4.242c.141.141.22.332.22.53v6.011a.75.75 0 0 1-.22.53m-8.528-.785a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0m1.5-5.75v4h-1.5v-4z",
       clipRule: "evenodd"
     })
   });
@@ -2395,7 +2435,7 @@ function SvgDashIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M15 8.75H1v-1.5h14v1.5Z",
+      d: "M15 8.75H1v-1.5h14z",
       clipRule: "evenodd"
     })
   });
@@ -2421,7 +2461,7 @@ function SvgDashboardIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75V1.75Zm1.5 8.75v3h4.75v-3H2.5Zm0-1.5h4.75V2.5H2.5V9Zm6.25-6.5v3h4.75v-3H8.75Zm0 11V7h4.75v6.5H8.75Z",
+      d: "M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75zm1.5 8.75v3h4.75v-3zm0-1.5h4.75V2.5H2.5zm6.25-6.5v3h4.75v-3zm0 11V7h4.75v6.5z",
       clipRule: "evenodd"
     })
   });
@@ -2447,7 +2487,7 @@ function SvgDataIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8.646.368a.75.75 0 0 0-1.292 0l-3.25 5.5A.75.75 0 0 0 4.75 7h6.5a.75.75 0 0 0 .646-1.132l-3.25-5.5ZM8 2.224 9.936 5.5H6.064L8 2.224ZM8.5 9.25a.75.75 0 0 1 .75-.75h5a.75.75 0 0 1 .75.75v5a.75.75 0 0 1-.75.75h-5a.75.75 0 0 1-.75-.75v-5ZM10 10v3.5h3.5V10H10ZM1 11.75a3.25 3.25 0 1 1 6.5 0 3.25 3.25 0 0 1-6.5 0ZM4.25 10a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5Z",
+      d: "M8.646.368a.75.75 0 0 0-1.292 0l-3.25 5.5A.75.75 0 0 0 4.75 7h6.5a.75.75 0 0 0 .646-1.132zM8 2.224 9.936 5.5H6.064zM8.5 9.25a.75.75 0 0 1 .75-.75h5a.75.75 0 0 1 .75.75v5a.75.75 0 0 1-.75.75h-5a.75.75 0 0 1-.75-.75zM10 10v3.5h3.5V10zM1 11.75a3.25 3.25 0 1 1 6.5 0 3.25 3.25 0 0 1-6.5 0M4.25 10a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5",
       clipRule: "evenodd"
     })
   });
@@ -2473,7 +2513,7 @@ function SvgDatabaseIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2.727 3.695c-.225.192-.227.298-.227.305 0 .007.002.113.227.305.223.19.59.394 1.108.58C4.865 5.256 6.337 5.5 8 5.5c1.663 0 3.135-.244 4.165-.615.519-.186.885-.39 1.108-.58.225-.192.227-.298.227-.305 0-.007-.002-.113-.227-.305-.223-.19-.59-.394-1.108-.58C11.135 2.744 9.663 2.5 8 2.5c-1.663 0-3.135.244-4.165.615-.519.186-.885.39-1.108.58ZM13.5 5.94a6.646 6.646 0 0 1-.826.358C11.442 6.74 9.789 7 8 7c-1.79 0-3.442-.26-4.673-.703a6.641 6.641 0 0 1-.827-.358V8c0 .007.002.113.227.305.223.19.59.394 1.108.58C4.865 9.256 6.337 9.5 8 9.5c1.663 0 3.135-.244 4.165-.615.519-.186.885-.39 1.108-.58.225-.192.227-.298.227-.305V5.939ZM15 8V4c0-.615-.348-1.1-.755-1.447-.41-.349-.959-.63-1.571-.85C11.442 1.26 9.789 1 8 1c-1.79 0-3.442.26-4.673.703-.613.22-1.162.501-1.572.85C1.348 2.9 1 3.385 1 4v8c0 .615.348 1.1.755 1.447.41.349.959.63 1.572.85C4.558 14.74 6.21 15 8 15c1.79 0 3.441-.26 4.674-.703.612-.22 1.161-.501 1.571-.85.407-.346.755-.832.755-1.447V8Zm-1.5 1.939a6.654 6.654 0 0 1-.826.358C11.442 10.74 9.789 11 8 11c-1.79 0-3.442-.26-4.673-.703a6.649 6.649 0 0 1-.827-.358V12c0 .007.002.113.227.305.223.19.59.394 1.108.58 1.03.371 2.502.615 4.165.615 1.663 0 3.135-.244 4.165-.615.519-.186.885-.39 1.108-.58.225-.192.227-.298.227-.305V9.939Z",
+      d: "M2.727 3.695c-.225.192-.227.298-.227.305s.002.113.227.305c.223.19.59.394 1.108.58C4.865 5.256 6.337 5.5 8 5.5s3.135-.244 4.165-.615c.519-.186.885-.39 1.108-.58.225-.192.227-.298.227-.305s-.002-.113-.227-.305c-.223-.19-.59-.394-1.108-.58C11.135 2.744 9.663 2.5 8 2.5s-3.135.244-4.165.615c-.519.186-.885.39-1.108.58M13.5 5.94a7 7 0 0 1-.826.358C11.442 6.74 9.789 7 8 7s-3.442-.26-4.673-.703a7 7 0 0 1-.827-.358V8c0 .007.002.113.227.305.223.19.59.394 1.108.58C4.865 9.256 6.337 9.5 8 9.5s3.135-.244 4.165-.615c.519-.186.885-.39 1.108-.58.225-.192.227-.298.227-.305zM15 8V4c0-.615-.348-1.1-.755-1.447-.41-.349-.959-.63-1.571-.85C11.442 1.26 9.789 1 8 1s-3.442.26-4.673.703c-.613.22-1.162.501-1.572.85C1.348 2.9 1 3.385 1 4v8c0 .615.348 1.1.755 1.447.41.349.959.63 1.572.85C4.558 14.74 6.21 15 8 15s3.441-.26 4.674-.703c.612-.22 1.161-.501 1.571-.85.407-.346.755-.832.755-1.447zm-1.5 1.939a7 7 0 0 1-.826.358C11.442 10.74 9.789 11 8 11s-3.442-.26-4.673-.703a7 7 0 0 1-.827-.358V12c0 .007.002.113.227.305.223.19.59.394 1.108.58 1.03.371 2.502.615 4.165.615s3.135-.244 4.165-.615c.519-.186.885-.39 1.108-.58.225-.192.227-.298.227-.305z",
       clipRule: "evenodd"
     })
   });
@@ -2499,11 +2539,11 @@ function SvgDecimalIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M3 10a3 3 0 1 0 6 0V6a3 3 0 0 0-6 0v4Zm3 1.5A1.5 1.5 0 0 1 4.5 10V6a1.5 1.5 0 1 1 3 0v4A1.5 1.5 0 0 1 6 11.5ZM10 10a3 3 0 1 0 6 0V6a3 3 0 1 0-6 0v4Zm3 1.5a1.5 1.5 0 0 1-1.5-1.5V6a1.5 1.5 0 0 1 3 0v4a1.5 1.5 0 0 1-1.5 1.5Z",
+      d: "M3 10a3 3 0 1 0 6 0V6a3 3 0 0 0-6 0zm3 1.5A1.5 1.5 0 0 1 4.5 10V6a1.5 1.5 0 1 1 3 0v4A1.5 1.5 0 0 1 6 11.5M10 10a3 3 0 1 0 6 0V6a3 3 0 1 0-6 0zm3 1.5a1.5 1.5 0 0 1-1.5-1.5V6a1.5 1.5 0 0 1 3 0v4a1.5 1.5 0 0 1-1.5 1.5",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M1 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
+      d: "M1 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2"
     })]
   });
 }
@@ -2529,10 +2569,10 @@ function SvgDotsCircleIcon(props) {
       fill: "currentColor",
       clipPath: "url(#DotsCircleIcon_svg__a)",
       children: [jsx("path", {
-        d: "M6 8a.75.75 0 1 1-1.5 0A.75.75 0 0 1 6 8ZM8 8.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM10.75 8.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z"
+        d: "M6 8a.75.75 0 1 1-1.5 0A.75.75 0 0 1 6 8M8 8.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M10.75 8.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5"
       }), jsx("path", {
         fillRule: "evenodd",
-        d: "M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0ZM1.5 8a6.5 6.5 0 1 1 13 0 6.5 6.5 0 0 1-13 0Z",
+        d: "M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0M1.5 8a6.5 6.5 0 1 1 13 0 6.5 6.5 0 0 1-13 0",
         clipRule: "evenodd"
       })]
     }), jsx("defs", {
@@ -2565,7 +2605,7 @@ function SvgDownloadIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M1 13.5h14V15H1v-1.5ZM12.53 6.53l-1.06-1.06-2.72 2.72V1h-1.5v7.19L4.53 5.47 3.47 6.53 8 11.06l4.53-4.53Z"
+      d: "M1 13.5h14V15H1zM12.53 6.53l-1.06-1.06-2.72 2.72V1h-1.5v7.19L4.53 5.47 3.47 6.53 8 11.06z"
     })
   });
 }
@@ -2589,7 +2629,7 @@ function SvgDragIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M5.25 1a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM10.75 1a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM5.25 6.25a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM10.75 6.25a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM5.25 11.5a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM10.75 11.5a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5Z"
+      d: "M5.25 1a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5M10.75 1a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5M5.25 6.25a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5M10.75 6.25a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5M5.25 11.5a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5M10.75 11.5a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5"
     })
   });
 }
@@ -2614,7 +2654,7 @@ function SvgErdIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M10 1.75a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3.063l-.691.922a.773.773 0 0 1 .004.078v3a.773.773 0 0 1-.004.078l.691.922h3.063a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3.5a.75.75 0 0 1-.75-.75v-2.833l-.875-1.167h-2.25L6 11.417v2.833a.75.75 0 0 1-.75.75h-3.5a.75.75 0 0 1-.75-.75v-3a.75.75 0 0 1 .75-.75h3.063l.691-.922A.758.758 0 0 1 5.5 9.5v-3c0-.026.001-.052.004-.078L4.813 5.5H1.75A.75.75 0 0 1 1 4.75v-3A.75.75 0 0 1 1.75 1h3.5a.75.75 0 0 1 .75.75v2.833l.875 1.167h2.25L10 4.583V1.75Zm1.5.75V4h2V2.5h-2Zm0 11V12h2v1.5h-2ZM2.5 4V2.5h2V4h-2Zm0 8v1.5h2V12h-2ZM7 8.75v-1.5h2v1.5H7Z",
+      d: "M10 1.75a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3.062l-.692.922.004.078v3l-.004.078.691.922h3.063a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3.5a.75.75 0 0 1-.75-.75v-2.833l-.875-1.167h-2.25L6 11.417v2.833a.75.75 0 0 1-.75.75h-3.5a.75.75 0 0 1-.75-.75v-3a.75.75 0 0 1 .75-.75h3.063l.691-.922A1 1 0 0 1 5.5 9.5v-3q0-.039.004-.078L4.813 5.5H1.75A.75.75 0 0 1 1 4.75v-3A.75.75 0 0 1 1.75 1h3.5a.75.75 0 0 1 .75.75v2.833l.875 1.167h2.25L10 4.583zm1.5.75V4h2V2.5zm0 11V12h2v1.5zM2.5 4V2.5h2V4zm0 8v1.5h2V12zM7 8.75v-1.5h2v1.5z",
       clipRule: "evenodd"
     })
   });
@@ -2639,7 +2679,7 @@ function SvgExpandLessIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M12.06 1.06 11 0 8.03 2.97 5.06 0 4 1.06l4.03 4.031 4.03-4.03ZM4 15l4.03-4.03L12.06 15 11 16.06l-2.97-2.969-2.97 2.97L4 15Z"
+      d: "M12.06 1.06 11 0 8.03 2.97 5.06 0 4 1.06l4.03 4.031zM4 15l4.03-4.03L12.06 15 11 16.06l-2.97-2.969-2.97 2.97z"
     })
   });
 }
@@ -2663,7 +2703,7 @@ function SvgExpandMoreIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "m4 4.03 1.06 1.061 2.97-2.97L11 5.091l1.06-1.06L8.03 0 4 4.03ZM12.06 12.091l-4.03 4.03L4 12.091l1.06-1.06L8.03 14 11 11.03l1.06 1.061Z"
+      d: "m4 4.03 1.06 1.061 2.97-2.97L11 5.091l1.06-1.06L8.03 0zM12.06 12.091l-4.03 4.03L4 12.091l1.06-1.06L8.03 14 11 11.03z"
     })
   });
 }
@@ -2689,10 +2729,10 @@ function SvgFaceFrownIcon(props) {
       fill: "currentColor",
       clipPath: "url(#FaceFrownIcon_svg__a)",
       children: [jsx("path", {
-        d: "M6 5.25a.75.75 0 0 0 0 1.5h.007a.75.75 0 0 0 0-1.5H6ZM9.25 6a.75.75 0 0 1 .75-.75h.007a.75.75 0 0 1 0 1.5H10A.75.75 0 0 1 9.25 6ZM10.07 11.12a.75.75 0 0 0 1.197-.903l-.001-.001v-.001l-.003-.003-.005-.006-.015-.02a2.95 2.95 0 0 0-.217-.246 4.717 4.717 0 0 0-.627-.546C9.86 9 9.04 8.584 8 8.584s-1.858.416-2.4.81a4.716 4.716 0 0 0-.795.733 2.87 2.87 0 0 0-.048.06l-.015.019-.005.006-.002.003-.031.044.03-.042a.75.75 0 1 0 1.22.875 3.219 3.219 0 0 1 .529-.485c.375-.273.89-.523 1.517-.523.627 0 1.142.25 1.517.523a3.219 3.219 0 0 1 .529.485l.021.025.002.003Z"
+        d: "M6 5.25a.75.75 0 0 0 0 1.5h.007a.75.75 0 0 0 0-1.5zM9.25 6a.75.75 0 0 1 .75-.75h.007a.75.75 0 0 1 0 1.5H10A.75.75 0 0 1 9.25 6M10.07 11.12a.75.75 0 0 0 1.197-.903l-.001-.001v-.001l-.003-.003-.005-.006-.015-.02a3 3 0 0 0-.217-.246 4.7 4.7 0 0 0-.626-.546C9.858 9 9.04 8.584 8 8.584s-1.858.416-2.4.81a4.7 4.7 0 0 0-.795.733l-.048.06-.015.019-.005.006-.002.003-.031.044.03-.042a.75.75 0 1 0 1.22.875q.032-.039.103-.115c.096-.1.24-.235.426-.37.375-.273.89-.523 1.517-.523s1.142.25 1.517.523a3.2 3.2 0 0 1 .529.485l.021.025z"
       }), jsx("path", {
         fillRule: "evenodd",
-        d: "M8 .583a7.417 7.417 0 1 0 0 14.834A7.417 7.417 0 0 0 8 .583ZM2.083 8a5.917 5.917 0 1 1 11.834 0A5.917 5.917 0 0 1 2.083 8Z",
+        d: "M8 .583a7.417 7.417 0 1 0 0 14.834A7.417 7.417 0 0 0 8 .583M2.083 8a5.917 5.917 0 1 1 11.834 0A5.917 5.917 0 0 1 2.083 8",
         clipRule: "evenodd"
       })]
     }), jsx("defs", {
@@ -2729,9 +2769,9 @@ function SvgFaceNeutralIcon(props) {
       clipPath: "url(#FaceNeutralIcon_svg__a)",
       clipRule: "evenodd",
       children: [jsx("path", {
-        d: "M8 2.083a5.917 5.917 0 1 0 0 11.834A5.917 5.917 0 0 0 8 2.084ZM.583 8a7.417 7.417 0 1 1 14.834 0A7.417 7.417 0 0 1 .583 8Z"
+        d: "M8 2.084a5.917 5.917 0 1 0 0 11.833A5.917 5.917 0 0 0 8 2.084M.583 8a7.417 7.417 0 1 1 14.834 0A7.417 7.417 0 0 1 .583 8"
       }), jsx("path", {
-        d: "M4.583 10a.75.75 0 0 1 .75-.75h5.334a.75.75 0 1 1 0 1.5H5.333a.75.75 0 0 1-.75-.75ZM5.25 6A.75.75 0 0 1 6 5.25h.007a.75.75 0 0 1 0 1.5H6A.75.75 0 0 1 5.25 6ZM9.25 6a.75.75 0 0 1 .75-.75h.007a.75.75 0 1 1 0 1.5H10A.75.75 0 0 1 9.25 6Z"
+        d: "M4.583 10a.75.75 0 0 1 .75-.75h5.334a.75.75 0 1 1 0 1.5H5.333a.75.75 0 0 1-.75-.75M5.25 6A.75.75 0 0 1 6 5.25h.007a.75.75 0 0 1 0 1.5H6A.75.75 0 0 1 5.25 6M9.25 6a.75.75 0 0 1 .75-.75h.007a.75.75 0 1 1 0 1.5H10A.75.75 0 0 1 9.25 6"
       })]
     }), jsx("defs", {
       children: jsx("clipPath", {
@@ -2766,13 +2806,13 @@ function SvgFaceSmileIcon(props) {
       clipPath: "url(#FaceSmileIcon_svg__a)",
       children: [jsx("path", {
         fillRule: "evenodd",
-        d: "M8 2.083a5.917 5.917 0 1 0 0 11.834A5.917 5.917 0 0 0 8 2.084ZM.583 8a7.417 7.417 0 1 1 14.834 0A7.417 7.417 0 0 1 .583 8Z",
+        d: "M8 2.084a5.917 5.917 0 1 0 0 11.833A5.917 5.917 0 0 0 8 2.084M.583 8a7.417 7.417 0 1 1 14.834 0A7.417 7.417 0 0 1 .583 8",
         clipRule: "evenodd"
       }), jsx("path", {
-        d: "M4.883 8.733a.75.75 0 0 1 1.048.147l.002.003.021.026a3.216 3.216 0 0 0 .529.485c.375.273.89.523 1.517.523.627 0 1.142-.25 1.517-.523a3.215 3.215 0 0 0 .55-.511.75.75 0 0 1 1.2.9l.029-.042-.03.043-.001.002-.002.002-.005.007-.015.019a3.878 3.878 0 0 1-.217.247c-.144.15-.354.348-.627.546-.54.393-1.359.81-2.399.81s-1.858-.417-2.4-.81a4.716 4.716 0 0 1-.795-.734 2.643 2.643 0 0 1-.048-.059l-.015-.02-.005-.006-.002-.002v-.002h-.002a.75.75 0 0 1 .15-1.05Z"
+        d: "M4.883 8.734a.75.75 0 0 1 1.048.146l.002.003.021.026q.032.038.103.114c.096.1.24.235.426.37.375.274.89.524 1.517.524s1.142-.25 1.517-.523a3.2 3.2 0 0 0 .55-.511.75.75 0 0 1 1.2.9l.029-.042-.03.043-.001.002-.002.002-.005.007-.015.019-.048.059q-.06.073-.17.188c-.143.15-.354.348-.626.546-.54.393-1.359.81-2.399.81s-1.858-.417-2.4-.81a4.7 4.7 0 0 1-.795-.734l-.048-.059-.015-.02-.005-.006-.002-.002v-.002h-.002a.75.75 0 0 1 .15-1.05"
       }), jsx("path", {
         fillRule: "evenodd",
-        d: "M5.25 6A.75.75 0 0 1 6 5.25h.007a.75.75 0 0 1 0 1.5H6A.75.75 0 0 1 5.25 6ZM9.25 6a.75.75 0 0 1 .75-.75h.007a.75.75 0 1 1 0 1.5H10A.75.75 0 0 1 9.25 6Z",
+        d: "M5.25 6A.75.75 0 0 1 6 5.25h.007a.75.75 0 0 1 0 1.5H6A.75.75 0 0 1 5.25 6M9.25 6a.75.75 0 0 1 .75-.75h.007a.75.75 0 1 1 0 1.5H10A.75.75 0 0 1 9.25 6",
         clipRule: "evenodd"
       })]
     }), jsx("defs", {
@@ -2806,11 +2846,11 @@ function SvgFileCodeIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2 1.75A.75.75 0 0 1 2.75 1h6a.75.75 0 0 1 .53.22l4.5 4.5c.141.14.22.331.22.53V10h-1.5V7H8.75A.75.75 0 0 1 8 6.25V2.5H3.5V16H2V1.75Zm7.5 1.81 1.94 1.94H9.5V3.56Z",
+      d: "M2 1.75A.75.75 0 0 1 2.75 1h6a.75.75 0 0 1 .53.22l4.5 4.5c.141.14.22.331.22.53V10h-1.5V7H8.75A.75.75 0 0 1 8 6.25V2.5H3.5V16H2zm7.5 1.81 1.94 1.94H9.5z",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M7.47 9.97 4.44 13l3.03 3.03 1.06-1.06L6.56 13l1.97-1.97-1.06-1.06ZM11.03 9.97l-1.06 1.06L11.94 13l-1.97 1.97 1.06 1.06L14.06 13l-3.03-3.03Z"
+      d: "M7.47 9.97 4.44 13l3.03 3.03 1.06-1.06L6.56 13l1.97-1.97zM11.03 9.97l-1.06 1.06L11.94 13l-1.97 1.97 1.06 1.06L14.06 13z"
     })]
   });
 }
@@ -2835,11 +2875,11 @@ function SvgFileDocumentIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2 1.75A.75.75 0 0 1 2.75 1h6a.75.75 0 0 1 .53.22l4.5 4.5c.141.14.22.331.22.53V10h-1.5V7H8.75A.75.75 0 0 1 8 6.25V2.5H3.5V16H2V1.75Zm7.5 1.81 1.94 1.94H9.5V3.56Z",
+      d: "M2 1.75A.75.75 0 0 1 2.75 1h6a.75.75 0 0 1 .53.22l4.5 4.5c.141.14.22.331.22.53V10h-1.5V7H8.75A.75.75 0 0 1 8 6.25V2.5H3.5V16H2zm7.5 1.81 1.94 1.94H9.5z",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M5 11.5V13h9v-1.5H5ZM14 16H5v-1.5h9V16Z"
+      d: "M5 11.5V13h9v-1.5zM14 16H5v-1.5h9z"
     })]
   });
 }
@@ -2864,7 +2904,7 @@ function SvgFileIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2 1.75A.75.75 0 0 1 2.75 1h6a.75.75 0 0 1 .53.22l4.5 4.5c.141.14.22.331.22.53v9a.75.75 0 0 1-.75.75H2.75a.75.75 0 0 1-.75-.75V1.75Zm1.5.75v12h9V7H8.75A.75.75 0 0 1 8 6.25V2.5H3.5Zm6 1.06 1.94 1.94H9.5V3.56Z",
+      d: "M2 1.75A.75.75 0 0 1 2.75 1h6a.75.75 0 0 1 .53.22l4.5 4.5c.141.14.22.331.22.53v9a.75.75 0 0 1-.75.75H2.75a.75.75 0 0 1-.75-.75zm1.5.75v12h9V7H8.75A.75.75 0 0 1 8 6.25V2.5zm6 1.06 1.94 1.94H9.5z",
       clipRule: "evenodd"
     })
   });
@@ -2890,12 +2930,12 @@ function SvgFileImageIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2 1.75A.75.75 0 0 1 2.75 1h6a.75.75 0 0 1 .53.22l4.5 4.5c.141.14.22.331.22.53V10h-1.5V7H8.75A.75.75 0 0 1 8 6.25V2.5H3.5V16H2V1.75Zm7.5 1.81 1.94 1.94H9.5V3.56Z",
+      d: "M2 1.75A.75.75 0 0 1 2.75 1h6a.75.75 0 0 1 .53.22l4.5 4.5c.141.14.22.331.22.53V10h-1.5V7H8.75A.75.75 0 0 1 8 6.25V2.5H3.5V16H2zm7.5 1.81 1.94 1.94H9.5z",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M10.466 10a.75.75 0 0 0-.542.27l-3.75 4.5A.75.75 0 0 0 6.75 16h6.5a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.22-.53l-2.75-2.75a.75.75 0 0 0-.564-.22Zm2.034 3.81v.69H8.351l2.2-2.639 1.949 1.95ZM6.5 7.25a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5ZM5.75 9.5a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0Z",
+      d: "M10.466 10a.75.75 0 0 0-.542.27l-3.75 4.5A.75.75 0 0 0 6.75 16h6.5a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.22-.53l-2.75-2.75a.75.75 0 0 0-.564-.22m2.034 3.81v.69H8.351l2.2-2.639zM6.5 7.25a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5M5.75 9.5a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0",
       clipRule: "evenodd"
     })]
   });
@@ -2921,12 +2961,12 @@ function SvgFileModelIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2.75 1a.75.75 0 0 0-.75.75V16h1.5V2.5H8v3.75c0 .414.336.75.75.75h3.75v3H14V6.25a.75.75 0 0 0-.22-.53l-4.5-4.5A.75.75 0 0 0 8.75 1h-6Zm8.69 4.5L9.5 3.56V5.5h1.94Z",
+      d: "M2.75 1a.75.75 0 0 0-.75.75V16h1.5V2.5H8v3.75c0 .414.336.75.75.75h3.75v3H14V6.25a.75.75 0 0 0-.22-.53l-4.5-4.5A.75.75 0 0 0 8.75 1zm8.69 4.5L9.5 3.56V5.5z",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M11.75 11.5a2.25 2.25 0 1 1-2.03 1.28l-.5-.5a2.25 2.25 0 1 1 1.06-1.06l.5.5c.294-.141.623-.22.97-.22Zm.75 2.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0ZM8.25 9.5a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5Z",
+      d: "M11.75 11.5a2.25 2.25 0 1 1-2.03 1.28l-.5-.5a2.25 2.25 0 1 1 1.06-1.06l.5.5c.294-.141.623-.22.97-.22m.75 2.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0M8.25 9.5a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5",
       clipRule: "evenodd"
     })]
   });
@@ -2952,7 +2992,7 @@ function SvgFilterIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75V4a.75.75 0 0 1-.22.53L10 9.31v4.94a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1-.75-.75V9.31L1.22 4.53A.75.75 0 0 1 1 4V1.75Zm1.5.75v1.19l4.78 4.78c.141.14.22.331.22.53v4.5h1V9a.75.75 0 0 1 .22-.53l4.78-4.78V2.5h-11Z",
+      d: "M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75V4a.75.75 0 0 1-.22.53L10 9.31v4.94a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1-.75-.75V9.31L1.22 4.53A.75.75 0 0 1 1 4zm1.5.75v1.19l4.78 4.78c.141.14.22.331.22.53v4.5h1V9a.75.75 0 0 1 .22-.53l4.78-4.78V2.5z",
       clipRule: "evenodd"
     })
   });
@@ -2976,9 +3016,9 @@ function SvgFlagPointerIcon(props) {
     viewBox: "0 0 16 16",
     ...props,
     children: jsx("path", {
-      fill: "#445461",
+      fill: "currentColor",
       fillRule: "evenodd",
-      d: "M3 2.5h5.439a.5.5 0 0 1 .39.188l4 5a.5.5 0 0 1 0 .624l-4 5a.5.5 0 0 1-.39.188H3a.5.5 0 0 1-.5-.5V3a.5.5 0 0 1 .5-.5ZM1 3a2 2 0 0 1 2-2h5.439A2 2 0 0 1 10 1.75l4 5a2 2 0 0 1 0 2.5l-4 5a2 2 0 0 1-1.562.75H3a2 2 0 0 1-2-2V3Zm6 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",
+      d: "M3 2.5h5.439a.5.5 0 0 1 .39.188l4 5a.5.5 0 0 1 0 .624l-4 5a.5.5 0 0 1-.39.188H3a.5.5 0 0 1-.5-.5V3a.5.5 0 0 1 .5-.5M1 3a2 2 0 0 1 2-2h5.439A2 2 0 0 1 10 1.75l4 5a2 2 0 0 1 0 2.5l-4 5a2 2 0 0 1-1.562.75H3a2 2 0 0 1-2-2zm6 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4",
       clipRule: "evenodd"
     })
   });
@@ -3003,7 +3043,7 @@ function SvgFloatIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M0 5.25A2.25 2.25 0 0 0 2.25 3h1.5v8.5H6V13H0v-1.5h2.25V6c-.627.471-1.406.75-2.25.75v-1.5ZM10 5.75A2.75 2.75 0 0 1 12.75 3h.39a2.86 2.86 0 0 1 1.57 5.252l-2.195 1.44a2.25 2.25 0 0 0-1.014 1.808H16V13h-6v-1.426a3.75 3.75 0 0 1 1.692-3.135l2.194-1.44A1.36 1.36 0 0 0 13.14 4.5h-.389c-.69 0-1.25.56-1.25 1.25V6H10v-.25ZM8 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
+      d: "M0 5.25A2.25 2.25 0 0 0 2.25 3h1.5v8.5H6V13H0v-1.5h2.25V6c-.627.471-1.406.75-2.25.75zM10 5.75A2.75 2.75 0 0 1 12.75 3h.39a2.86 2.86 0 0 1 1.57 5.252l-2.195 1.44a2.25 2.25 0 0 0-1.014 1.808H16V13h-6v-1.426a3.75 3.75 0 0 1 1.692-3.135l2.194-1.44A1.36 1.36 0 0 0 13.14 4.5h-.389c-.69 0-1.25.56-1.25 1.25V6H10zM8 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2"
     })
   });
 }
@@ -3018,19 +3058,22 @@ FloatIcon.displayName = 'FloatIcon';
 var FloatIcon$1 = FloatIcon;
 
 function SvgFolderBranchFillIcon(props) {
-  return jsx("svg", {
+  return jsxs("svg", {
     xmlns: "http://www.w3.org/2000/svg",
     width: "1em",
     height: "1em",
     fill: "none",
     viewBox: "0 0 16 16",
     ...props,
-    children: jsx("path", {
+    children: [jsx("path", {
+      fill: "currentColor",
+      d: "M.75 2a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75H5.5c0-.98.403-1.866 1.05-2.5a3.5 3.5 0 1 1 5.945-2.661 3.5 3.5 0 0 1 1.505-.339c.744 0 1.433.232 2 .627V4.75a.75.75 0 0 0-.75-.75H7.81L6.617 2.805A2.75 2.75 0 0 0 4.672 2z"
+    }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M.75 2a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75H6c0-1.005.494-1.893 1.25-2.437v-.126a3 3 0 1 1 4.656-1.69l.053.055A2.989 2.989 0 0 1 14 9c.768 0 1.47.289 2 .764V4.75a.75.75 0 0 0-.75-.75H7.81L6.617 2.805A2.75 2.75 0 0 0 4.672 2H.75ZM8.5 9a.5.5 0 1 1 1 0 .5.5 0 0 1-1 0ZM9 7a2 2 0 0 0-.75 3.855v1.29a2 2 0 1 0 1.5 0v-1.087c.575.754 1.393 1.419 2.37 1.626a2.001 2.001 0 1 0 .072-1.54c-.526-.196-1.038-.646-1.414-1.227A2 2 0 0 0 9 7Zm4.5 5a.5.5 0 1 1 1 0 .5.5 0 0 1-1 0Zm-5 2a.5.5 0 1 1 1 0 .5.5 0 0 1-1 0Z",
+      d: "M9.75 12.145a2 2 0 1 1-1.5 0v-1.29a2 2 0 1 1 2.538-.957c.3.585.812 1.017 1.416 1.221a2 2 0 1 1-.096 1.53 4 4 0 0 1-2.358-1.577zM8.5 14a.5.5 0 1 1 1 0 .5.5 0 0 1-1 0m5.5-2.5a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1M8.5 9a.5.5 0 1 1 1 0 .5.5 0 0 1-1 0",
       clipRule: "evenodd"
-    })
+    })]
   });
 }
 const FolderBranchFillIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
@@ -3054,7 +3097,7 @@ function SvgFolderBranchIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M0 2.75A.75.75 0 0 1 .75 2h3.922c.729 0 1.428.29 1.944.805L7.811 4h7.439a.75.75 0 0 1 .75.75V8h-1.5V5.5h-7a.75.75 0 0 1-.53-.22L5.555 3.866a1.25 1.25 0 0 0-.883-.366H1.5v9H5V14H.75a.75.75 0 0 1-.75-.75V2.75ZM9 8.5a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1ZM7 9a2 2 0 1 1 3.778.917c.376.58.888 1.031 1.414 1.227a2 2 0 1 1-.072 1.54c-.977-.207-1.795-.872-2.37-1.626v1.087a2 2 0 1 1-1.5 0v-1.29A2 2 0 0 1 7 9Zm7 2.5a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm-5 2a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Z",
+      d: "M0 2.75A.75.75 0 0 1 .75 2h3.922c.729 0 1.428.29 1.944.805L7.811 4h7.439a.75.75 0 0 1 .75.75V8h-1.5V5.5h-7a.75.75 0 0 1-.53-.22L5.555 3.866a1.25 1.25 0 0 0-.883-.366H1.5v9H5V14H.75a.75.75 0 0 1-.75-.75zM9 8.5a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1M7 9a2 2 0 1 1 3.778.917c.376.58.888 1.031 1.414 1.227a2 2 0 1 1-.072 1.54c-.977-.207-1.795-.872-2.37-1.626v1.087a2 2 0 1 1-1.5 0v-1.29A2 2 0 0 1 7 9m7 2.5a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1m-5 2a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1",
       clipRule: "evenodd"
     })
   });
@@ -3081,10 +3124,10 @@ function SvgFolderCloudFilledIcon(props) {
       fill: "currentColor",
       clipPath: "url(#FolderCloudFilledIcon_svg__a)",
       children: [jsx("path", {
-        d: "M0 2.75A.75.75 0 0 1 .75 2h3.922c.729 0 1.428.29 1.944.805L7.811 4h7.439a.75.75 0 0 1 .75.75v5.02a4.4 4.4 0 0 0-.921-.607 5.11 5.11 0 0 0-9.512-.753A4.75 4.75 0 0 0 2.917 14H.75a.75.75 0 0 1-.75-.75V2.75Z"
+        d: "M0 2.75A.75.75 0 0 1 .75 2h3.922c.729 0 1.428.29 1.944.805L7.811 4h7.439a.75.75 0 0 1 .75.75v5.02a4.4 4.4 0 0 0-.921-.607 5.11 5.11 0 0 0-9.512-.753A4.75 4.75 0 0 0 2.917 14H.75a.75.75 0 0 1-.75-.75z"
       }), jsx("path", {
         fillRule: "evenodd",
-        d: "M6.715 9.595a3.608 3.608 0 0 1 7.056.688C15.07 10.572 16 11.739 16 13.107 16 14.688 14.757 16 13.143 16a2.795 2.795 0 0 1-.107 0H7.32a.757.757 0 0 1-.163-.018 3.25 3.25 0 0 1-.443-6.387Zm.703 4.905a1.75 1.75 0 0 1-.03-3.497.75.75 0 0 0 .7-.657 2.108 2.108 0 0 1 4.198.261v.357c0 .415.335.75.75.75h.107c.753 0 1.357.607 1.357 1.393s-.604 1.393-1.357 1.393c-.024 0-.047 0-.07-.002a.736.736 0 0 0-.1.002H7.418Z",
+        d: "M6.715 9.595a3.608 3.608 0 0 1 7.056.688C15.07 10.572 16 11.739 16 13.107 16 14.688 14.757 16 13.143 16H7.32a.8.8 0 0 1-.163-.018 3.25 3.25 0 0 1-.443-6.387m.703 4.905-.044-.004a1.75 1.75 0 0 1 .015-3.493.75.75 0 0 0 .698-.657 2.108 2.108 0 0 1 4.199.261v.357c0 .415.335.75.75.75h.107c.753 0 1.357.607 1.357 1.393s-.604 1.393-1.357 1.393q-.036 0-.07-.002a1 1 0 0 0-.1.002z",
         clipRule: "evenodd"
       })]
     }), jsx("defs", {
@@ -3119,10 +3162,10 @@ function SvgFolderCloudIcon(props) {
       fill: "currentColor",
       clipPath: "url(#FolderCloudIcon_svg__a)",
       children: [jsx("path", {
-        d: "M.75 2a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75H3v-1.5H1.5v-9h3.172c.331 0 .649.132.883.366L6.97 5.28c.14.141.331.22.53.22h7V8H16V4.75a.75.75 0 0 0-.75-.75H7.81L6.617 2.805A2.75 2.75 0 0 0 4.672 2H.75Z"
+        d: "M.75 2a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75H3v-1.5H1.5v-9h3.172c.331 0 .649.132.883.366L6.97 5.28c.14.141.331.22.53.22h7V8H16V4.75a.75.75 0 0 0-.75-.75H7.81L6.617 2.805A2.75 2.75 0 0 0 4.672 2z"
       }), jsx("path", {
         fillRule: "evenodd",
-        d: "M10.179 7a3.608 3.608 0 0 0-3.464 2.595 3.251 3.251 0 0 0 .443 6.387.757.757 0 0 0 .163.018h5.821C14.758 16 16 14.688 16 13.107c0-1.368-.931-2.535-2.229-2.824A3.608 3.608 0 0 0 10.18 7Zm-2.805 7.496c.015 0 .03.002.044.004h5.555a.736.736 0 0 1 .1-.002l.07.002c.753 0 1.357-.607 1.357-1.393s-.604-1.393-1.357-1.393h-.107a.75.75 0 0 1-.75-.75v-.357a2.107 2.107 0 0 0-4.199-.26.75.75 0 0 1-.698.656 1.75 1.75 0 0 0-.015 3.493Z",
+        d: "M10.179 7a3.61 3.61 0 0 0-3.464 2.595 3.251 3.251 0 0 0 .443 6.387.8.8 0 0 0 .163.018h5.821C14.758 16 16 14.688 16 13.107c0-1.368-.931-2.535-2.229-2.824A3.61 3.61 0 0 0 10.18 7m-2.805 7.496q.023 0 .044.004h5.555a1 1 0 0 1 .1-.002l.07.002c.753 0 1.357-.607 1.357-1.393s-.604-1.393-1.357-1.393h-.107a.75.75 0 0 1-.75-.75v-.357a2.107 2.107 0 0 0-4.199-.26.75.75 0 0 1-.698.656 1.75 1.75 0 0 0-.015 3.493",
         clipRule: "evenodd"
       })]
     }), jsx("defs", {
@@ -3155,7 +3198,7 @@ function SvgFolderFillIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M.75 2a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75h14.5a.75.75 0 0 0 .75-.75v-8.5a.75.75 0 0 0-.75-.75H7.81L6.617 2.805A2.75 2.75 0 0 0 4.672 2H.75Z"
+      d: "M.75 2a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75h14.5a.75.75 0 0 0 .75-.75v-8.5a.75.75 0 0 0-.75-.75H7.81L6.617 2.805A2.75 2.75 0 0 0 4.672 2z"
     })
   });
 }
@@ -3180,7 +3223,7 @@ function SvgFolderIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M0 2.75A.75.75 0 0 1 .75 2h3.922c.729 0 1.428.29 1.944.805L7.811 4h7.439a.75.75 0 0 1 .75.75v8.5a.75.75 0 0 1-.75.75H.75a.75.75 0 0 1-.75-.75V2.75Zm1.5.75v9h13v-7h-7a.75.75 0 0 1-.53-.22L5.555 3.866a1.25 1.25 0 0 0-.883-.366H1.5Z",
+      d: "M0 2.75A.75.75 0 0 1 .75 2h3.922c.729 0 1.428.29 1.944.805L7.811 4h7.439a.75.75 0 0 1 .75.75v8.5a.75.75 0 0 1-.75.75H.75a.75.75 0 0 1-.75-.75zm1.5.75v9h13v-7h-7a.75.75 0 0 1-.53-.22L5.555 3.866a1.25 1.25 0 0 0-.883-.366z",
       clipRule: "evenodd"
     })
   });
@@ -3208,7 +3251,7 @@ function SvgFontIcon(props) {
       children: jsx("path", {
         fill: "currentColor",
         fillRule: "evenodd",
-        d: "M5.197 3.473a.75.75 0 0 0-1.393-.001L-.006 13H1.61l.6-1.5h4.562l.596 1.5h1.614L5.197 3.473ZM6.176 10 4.498 5.776 2.809 10h3.367Zm4.07-2.385c.593-.205 1.173-.365 1.754-.365a1.5 1.5 0 0 1 1.42 1.014A3.764 3.764 0 0 0 12 8c-.741 0-1.47.191-2.035.607A2.301 2.301 0 0 0 9 10.5c0 .81.381 1.464.965 1.893.565.416 1.294.607 2.035.607.524 0 1.042-.096 1.5-.298V13H15V8.75a3 3 0 0 0-3-3c-.84 0-1.614.23-2.245.448l.49 1.417ZM13.5 10.5a.804.804 0 0 0-.353-.685C12.897 9.631 12.5 9.5 12 9.5c-.5 0-.897.131-1.146.315a.804.804 0 0 0-.354.685c0 .295.123.515.354.685.25.184.645.315 1.146.315.502 0 .897-.131 1.147-.315.23-.17.353-.39.353-.685Z",
+        d: "M5.197 3.473a.75.75 0 0 0-1.393-.001L-.006 13H1.61l.6-1.5h4.562l.596 1.5h1.614zM6.176 10 4.498 5.776 2.809 10zm4.07-2.385c.593-.205 1.173-.365 1.754-.365a1.5 1.5 0 0 1 1.42 1.014A3.8 3.8 0 0 0 12 8c-.741 0-1.47.191-2.035.607A2.3 2.3 0 0 0 9 10.5c0 .81.381 1.464.965 1.893.565.416 1.294.607 2.035.607.524 0 1.042-.096 1.5-.298V13H15V8.75a3 3 0 0 0-3-3c-.84 0-1.614.23-2.245.448zM13.5 10.5a.8.8 0 0 0-.353-.685C12.897 9.631 12.5 9.5 12 9.5c-.5 0-.897.131-1.146.315a.8.8 0 0 0-.354.685c0 .295.123.515.354.685.25.184.645.315 1.146.315.502 0 .897-.131 1.147-.315.23-.17.353-.39.353-.685",
         clipRule: "evenodd"
       })
     }), jsx("defs", {
@@ -3242,7 +3285,7 @@ function SvgForkIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2 2.75a2.75 2.75 0 1 1 3.5 2.646V6.75h3.75A2.75 2.75 0 0 1 12 9.5v.104a2.751 2.751 0 1 1-1.5 0V9.5c0-.69-.56-1.25-1.25-1.25H5.5v1.354a2.751 2.751 0 1 1-1.5 0V5.396A2.751 2.751 0 0 1 2 2.75ZM4.75 1.5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5ZM3.5 12.25a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0Zm6.5 0a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0Z",
+      d: "M2 2.75a2.75 2.75 0 1 1 3.5 2.646V6.75h3.75A2.75 2.75 0 0 1 12 9.5v.104a2.751 2.751 0 1 1-1.5 0V9.5c0-.69-.56-1.25-1.25-1.25H5.5v1.354a2.751 2.751 0 1 1-1.5 0V5.396A2.75 2.75 0 0 1 2 2.75M4.75 1.5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5M3.5 12.25a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0m6.5 0a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0",
       clipRule: "evenodd"
     })
   });
@@ -3267,7 +3310,7 @@ function SvgFullscreenExitIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M6 1v4.25a.75.75 0 0 1-.75.75H1V4.5h3.5V1H6ZM10 15v-4.25a.75.75 0 0 1 .75-.75H15v1.5h-3.5V15H10ZM10.75 6H15V4.5h-3.5V1H10v4.25c0 .414.336.75.75.75ZM1 10h4.25a.75.75 0 0 1 .75.75V15H4.5v-3.5H1V10Z"
+      d: "M6 1v4.25a.75.75 0 0 1-.75.75H1V4.5h3.5V1zM10 15v-4.25a.75.75 0 0 1 .75-.75H15v1.5h-3.5V15zM10.75 6H15V4.5h-3.5V1H10v4.25c0 .414.336.75.75.75M1 10h4.25a.75.75 0 0 1 .75.75V15H4.5v-3.5H1z"
     })
   });
 }
@@ -3291,7 +3334,7 @@ function SvgFullscreenIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M6 1H1.75a.75.75 0 0 0-.75.75V6h1.5V2.5H6V1ZM10 2.5V1h4.25a.75.75 0 0 1 .75.75V6h-1.5V2.5H10ZM10 13.5h3.5V10H15v4.25a.75.75 0 0 1-.75.75H10v-1.5ZM2.5 10v3.5H6V15H1.75a.75.75 0 0 1-.75-.75V10h1.5Z"
+      d: "M6 1H1.75a.75.75 0 0 0-.75.75V6h1.5V2.5H6zM10 2.5V1h4.25a.75.75 0 0 1 .75.75V6h-1.5V2.5zM10 13.5h3.5V10H15v4.25a.75.75 0 0 1-.75.75H10zM2.5 10v3.5H6V15H1.75a.75.75 0 0 1-.75-.75V10z"
     })
   });
 }
@@ -3318,7 +3361,7 @@ function SvgFunctionIcon(props) {
       children: jsx("path", {
         fill: "currentColor",
         fillRule: "evenodd",
-        d: "M9.93 2.988c-.774-.904-2.252-.492-2.448.682L7.094 6h2.005a2.75 2.75 0 0 1 2.585 1.81l.073.202 2.234-2.063 1.018 1.102-2.696 2.489.413 1.137c.18.494.65.823 1.175.823H15V13h-1.1a2.75 2.75 0 0 1-2.585-1.81l-.198-.547-2.61 2.408-1.017-1.102 3.07-2.834-.287-.792A1.25 1.25 0 0 0 9.099 7.5H6.844l-.846 5.076c-.405 2.43-3.464 3.283-5.067 1.412l1.139-.976c.774.904 2.252.492 2.448-.682l.805-4.83H3V6h2.573l.43-2.576C6.407.994 9.465.14 11.068 2.012l-1.138.976Z",
+        d: "M9.93 2.988c-.774-.904-2.252-.492-2.448.682L7.094 6h2.005a2.75 2.75 0 0 1 2.585 1.81l.073.202 2.234-2.063 1.018 1.102-2.696 2.489.413 1.137c.18.494.65.823 1.175.823H15V13h-1.1a2.75 2.75 0 0 1-2.585-1.81l-.198-.547-2.61 2.408-1.017-1.102 3.07-2.834-.287-.792A1.25 1.25 0 0 0 9.099 7.5H6.844l-.846 5.076c-.405 2.43-3.464 3.283-5.067 1.412l1.139-.976c.774.904 2.252.492 2.448-.682l.805-4.83H3V6h2.573l.43-2.576C6.407.994 9.465.14 11.07 2.012z",
         clipRule: "evenodd"
       })
     }), jsx("defs", {
@@ -3352,7 +3395,7 @@ function SvgGearFillIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M7.965 0c-.34 0-.675.021-1.004.063a.75.75 0 0 0-.62.51l-.639 1.946c-.21.087-.413.185-.61.294L3.172 2.1a.75.75 0 0 0-.784.165c-.481.468-.903.996-1.255 1.572a.75.75 0 0 0 .013.802l1.123 1.713a5.898 5.898 0 0 0-.15.66L.363 8.07a.75.75 0 0 0-.36.716c.067.682.22 1.34.447 1.962a.75.75 0 0 0 .635.489l2.042.19c.13.184.271.36.422.529l-.27 2.032a.75.75 0 0 0 .336.728 7.97 7.97 0 0 0 1.812.874.75.75 0 0 0 .778-.192l1.422-1.478a5.924 5.924 0 0 0 .677 0l1.422 1.478a.75.75 0 0 0 .778.192 7.972 7.972 0 0 0 1.812-.874.75.75 0 0 0 .335-.728l-.269-2.032a5.94 5.94 0 0 0 .422-.529l2.043-.19a.75.75 0 0 0 .634-.49c.228-.621.38-1.279.447-1.961a.75.75 0 0 0-.36-.716l-1.756-1.056a5.89 5.89 0 0 0-.15-.661l1.123-1.713a.75.75 0 0 0 .013-.802 8.034 8.034 0 0 0-1.255-1.572.75.75 0 0 0-.784-.165l-1.92.713c-.197-.109-.4-.207-.61-.294L9.589.573a.75.75 0 0 0-.619-.51A8.07 8.07 0 0 0 7.965 0Zm.02 10.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5Z",
+      d: "M7.966 0q-.51 0-1.005.063a.75.75 0 0 0-.62.51l-.639 1.946q-.315.13-.61.294L3.172 2.1a.75.75 0 0 0-.784.165c-.481.468-.903.996-1.255 1.572a.75.75 0 0 0 .013.802l1.123 1.713a6 6 0 0 0-.15.66L.363 8.07a.75.75 0 0 0-.36.716c.067.682.22 1.34.447 1.962a.75.75 0 0 0 .635.489l2.042.19q.195.276.422.529l-.27 2.032a.75.75 0 0 0 .336.728 8 8 0 0 0 1.812.874.75.75 0 0 0 .778-.192l1.422-1.478a6 6 0 0 0 .677 0l1.422 1.478a.75.75 0 0 0 .778.192 8 8 0 0 0 1.812-.874.75.75 0 0 0 .335-.728l-.269-2.032a6 6 0 0 0 .422-.529l2.043-.19a.75.75 0 0 0 .634-.49c.228-.621.38-1.279.447-1.961a.75.75 0 0 0-.36-.716l-1.756-1.056a6 6 0 0 0-.15-.661l1.123-1.713a.75.75 0 0 0 .013-.802 8 8 0 0 0-1.255-1.572.75.75 0 0 0-.784-.165l-1.92.713q-.295-.163-.61-.294L9.589.573a.75.75 0 0 0-.619-.51A8 8 0 0 0 7.965 0m.018 10.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5",
       clipRule: "evenodd"
     })
   });
@@ -3381,9 +3424,9 @@ function SvgGearIcon(props) {
       clipPath: "url(#GearIcon_svg__a)",
       clipRule: "evenodd",
       children: [jsx("path", {
-        d: "M7.984 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm-1.5 3a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z"
+        d: "M7.984 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6m-1.5 3a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0"
       }), jsx("path", {
-        d: "M7.965 0c-.34 0-.675.021-1.004.063a.75.75 0 0 0-.62.51l-.639 1.946c-.21.087-.413.185-.61.294L3.172 2.1a.75.75 0 0 0-.784.165c-.481.468-.903.996-1.255 1.572a.75.75 0 0 0 .013.802l1.123 1.713a5.898 5.898 0 0 0-.15.66L.363 8.07a.75.75 0 0 0-.36.716c.067.682.22 1.34.447 1.962a.75.75 0 0 0 .635.489l2.042.19c.13.184.271.36.422.529l-.27 2.032a.75.75 0 0 0 .336.728 7.97 7.97 0 0 0 1.812.874.75.75 0 0 0 .778-.192l1.422-1.478a5.924 5.924 0 0 0 .677 0l1.422 1.478a.75.75 0 0 0 .778.192 7.972 7.972 0 0 0 1.812-.874.75.75 0 0 0 .335-.728l-.269-2.032a5.94 5.94 0 0 0 .422-.529l2.043-.19a.75.75 0 0 0 .634-.49c.228-.621.38-1.279.447-1.961a.75.75 0 0 0-.36-.716l-1.756-1.056a5.89 5.89 0 0 0-.15-.661l1.123-1.713a.75.75 0 0 0 .013-.802 8.034 8.034 0 0 0-1.255-1.572.75.75 0 0 0-.784-.165l-1.92.713c-.197-.109-.4-.207-.61-.294L9.589.573a.75.75 0 0 0-.619-.51A8.071 8.071 0 0 0 7.965 0Zm-.95 3.328.598-1.819a6.62 6.62 0 0 1 .705 0l.597 1.819a.75.75 0 0 0 .472.476c.345.117.67.275.97.468a.75.75 0 0 0 .668.073l1.795-.668c.156.176.303.36.44.552l-1.05 1.6a.75.75 0 0 0-.078.667c.12.333.202.685.24 1.05a.75.75 0 0 0 .359.567l1.642.988c-.04.234-.092.463-.156.687l-1.909.178a.75.75 0 0 0-.569.353c-.19.308-.416.59-.672.843a.75.75 0 0 0-.219.633l.252 1.901a6.48 6.48 0 0 1-.635.306l-1.33-1.381a.75.75 0 0 0-.63-.225 4.483 4.483 0 0 1-1.08 0 .75.75 0 0 0-.63.225l-1.33 1.381a6.473 6.473 0 0 1-.634-.306l.252-1.9a.75.75 0 0 0-.219-.634 4.449 4.449 0 0 1-.672-.843.75.75 0 0 0-.569-.353l-1.909-.178a6.456 6.456 0 0 1-.156-.687L3.2 8.113a.75.75 0 0 0 .36-.567c.037-.365.118-.717.239-1.05a.75.75 0 0 0-.078-.666L2.67 4.229c.137-.192.284-.376.44-.552l1.795.668a.75.75 0 0 0 .667-.073c.3-.193.626-.351.97-.468a.75.75 0 0 0 .472-.476Z"
+        d: "M7.966 0q-.51 0-1.005.063a.75.75 0 0 0-.62.51l-.639 1.946q-.315.13-.61.294L3.172 2.1a.75.75 0 0 0-.784.165c-.481.468-.903.996-1.255 1.572a.75.75 0 0 0 .013.802l1.123 1.713a6 6 0 0 0-.15.66L.363 8.07a.75.75 0 0 0-.36.716c.067.682.22 1.34.447 1.962a.75.75 0 0 0 .635.489l2.042.19q.195.276.422.529l-.27 2.032a.75.75 0 0 0 .336.728 8 8 0 0 0 1.812.874.75.75 0 0 0 .778-.192l1.422-1.478a6 6 0 0 0 .677 0l1.422 1.478a.75.75 0 0 0 .778.192 8 8 0 0 0 1.812-.874.75.75 0 0 0 .335-.728l-.269-2.032a6 6 0 0 0 .422-.529l2.043-.19a.75.75 0 0 0 .634-.49c.228-.621.38-1.279.447-1.961a.75.75 0 0 0-.36-.716l-1.756-1.056a6 6 0 0 0-.15-.661l1.123-1.713a.75.75 0 0 0 .013-.802 8 8 0 0 0-1.255-1.572.75.75 0 0 0-.784-.165l-1.92.713q-.295-.163-.61-.294L9.589.573a.75.75 0 0 0-.619-.51A8 8 0 0 0 7.965 0m-.95 3.328.597-1.819a7 7 0 0 1 .705 0l.597 1.819a.75.75 0 0 0 .472.476q.519.177.97.468a.75.75 0 0 0 .668.073l1.795-.668q.234.264.44.552l-1.05 1.6a.75.75 0 0 0-.078.667q.181.501.24 1.05a.75.75 0 0 0 .359.567l1.642.988q-.06.351-.156.687l-1.909.178a.75.75 0 0 0-.569.353q-.287.463-.672.843a.75.75 0 0 0-.219.633l.252 1.901a7 7 0 0 1-.635.306l-1.33-1.381a.75.75 0 0 0-.63-.225 4.5 4.5 0 0 1-1.08 0 .75.75 0 0 0-.63.225l-1.33 1.381a7 7 0 0 1-.634-.306l.252-1.9a.75.75 0 0 0-.219-.634 4.5 4.5 0 0 1-.672-.843.75.75 0 0 0-.569-.353l-1.909-.178a7 7 0 0 1-.156-.687L3.2 8.113a.75.75 0 0 0 .36-.567q.056-.549.239-1.05a.75.75 0 0 0-.078-.666L2.67 4.229q.206-.288.44-.552l1.795.668a.75.75 0 0 0 .667-.073c.3-.193.626-.351.97-.468a.75.75 0 0 0 .472-.476"
       })]
     }), jsx("defs", {
       children: jsx("clipPath", {
@@ -3416,7 +3459,7 @@ function SvgGiftIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M3 3.25A2.25 2.25 0 0 1 5.25 1C6.365 1 7.36 1.522 8 2.335A3.494 3.494 0 0 1 10.75 1a2.25 2.25 0 0 1 2.122 3h1.378a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75H14v5.75a.75.75 0 0 1-.75.75H2.75a.75.75 0 0 1-.75-.75V8.5h-.25A.75.75 0 0 1 1 7.75v-3A.75.75 0 0 1 1.75 4h1.378A2.246 2.246 0 0 1 3 3.25ZM5.25 4h1.937A2 2 0 0 0 5.25 2.5a.75.75 0 0 0 0 1.5Zm2 1.5H2.5V7h4.75V5.5Zm0 3H3.5v5h3.75v-5Zm1.5 5v-5h3.75v5H8.75Zm0-6.5V5.5h4.75V7H8.75Zm.063-3h1.937a.75.75 0 0 0 0-1.5A2 2 0 0 0 8.813 4Z",
+      d: "M3 3.25A2.25 2.25 0 0 1 5.25 1C6.365 1 7.36 1.522 8 2.335A3.5 3.5 0 0 1 10.75 1a2.25 2.25 0 0 1 2.122 3h1.378a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75H14v5.75a.75.75 0 0 1-.75.75H2.75a.75.75 0 0 1-.75-.75V8.5h-.25A.75.75 0 0 1 1 7.75v-3A.75.75 0 0 1 1.75 4h1.378A2.3 2.3 0 0 1 3 3.25M5.25 4h1.937A2 2 0 0 0 5.25 2.5a.75.75 0 0 0 0 1.5m2 1.5H2.5V7h4.75zm0 3H3.5v5h3.75zm1.5 5v-5h3.75v5zm0-6.5V5.5h4.75V7zm.063-3h1.937a.75.75 0 0 0 0-1.5A2 2 0 0 0 8.813 4",
       clipRule: "evenodd"
     })
   });
@@ -3442,7 +3485,7 @@ function SvgGitCommitIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM4.07 7.25a4.001 4.001 0 0 1 7.86 0H16v1.5h-4.07a4.001 4.001 0 0 1-7.86 0H0v-1.5h4.07Z",
+      d: "M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.07 7.25a4.001 4.001 0 0 1 7.86 0H16v1.5h-4.07a4.001 4.001 0 0 1-7.86 0H0v-1.5z",
       clipRule: "evenodd"
     })
   });
@@ -3470,7 +3513,7 @@ function SvgGlobeIcon(props) {
       children: jsx("path", {
         fill: "currentColor",
         fillRule: "evenodd",
-        d: "M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm5.354-5.393c.088-.231.184-.454.287-.666A6.506 6.506 0 0 0 1.543 7.25h2.971c.067-1.777.368-3.399.84-4.643Zm.661 4.643c.066-1.627.344-3.062.742-4.11.23-.607.485-1.046.73-1.32.247-.274.421-.32.513-.32.092 0 .266.046.512.32s.501.713.731 1.32c.398 1.048.676 2.483.742 4.11h-3.97Zm3.97 1.5h-3.97c.066 1.627.344 3.062.742 4.11.23.607.485 1.046.73 1.32.247.274.421.32.513.32.092 0 .266-.046.512-.32s.501-.713.731-1.32c.398-1.048.676-2.483.742-4.11Zm1.501-1.5c-.067-1.777-.368-3.399-.84-4.643a7.912 7.912 0 0 0-.287-.666 6.506 6.506 0 0 1 4.098 5.309h-2.971Zm2.971 1.5h-2.971c-.067 1.777-.368 3.399-.84 4.643a7.918 7.918 0 0 1-.287.666 6.506 6.506 0 0 0 4.098-5.309Zm-9.943 0H1.543a6.506 6.506 0 0 0 4.098 5.309 7.921 7.921 0 0 1-.287-.666c-.472-1.244-.773-2.866-.84-4.643Z",
+        d: "M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m5.354-5.393q.132-.347.287-.666A6.51 6.51 0 0 0 1.543 7.25h2.971c.067-1.777.368-3.399.84-4.643m.661 4.643c.066-1.627.344-3.062.742-4.11.23-.607.485-1.046.73-1.32.247-.274.421-.32.513-.32s.266.046.512.32.501.713.731 1.32c.398 1.048.676 2.483.742 4.11zm3.97 1.5h-3.97c.066 1.627.344 3.062.742 4.11.23.607.485 1.046.73 1.32.247.274.421.32.513.32s.266-.046.512-.32.501-.713.731-1.32c.398-1.048.676-2.483.742-4.11m1.501-1.5c-.067-1.777-.368-3.399-.84-4.643a8 8 0 0 0-.287-.666 6.51 6.51 0 0 1 4.098 5.309zm2.971 1.5h-2.971c-.067 1.777-.368 3.399-.84 4.643a8 8 0 0 1-.287.666 6.51 6.51 0 0 0 4.098-5.309m-9.943 0H1.543a6.51 6.51 0 0 0 4.098 5.309 8 8 0 0 1-.287-.666c-.472-1.244-.773-2.866-.84-4.643",
         clipRule: "evenodd"
       })
     }), jsx("defs", {
@@ -3503,7 +3546,7 @@ function SvgGridDashIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M1 1.75V4h1.5V2.5H4V1H1.75a.75.75 0 0 0-.75.75ZM15 14.25V12h-1.5v1.5H12V15h2.25a.75.75 0 0 0 .75-.75ZM12 1h2.25a.75.75 0 0 1 .75.75V4h-1.5V2.5H12V1ZM1.75 15H4v-1.5H2.5V12H1v2.25a.75.75 0 0 0 .75.75ZM10 2.5H6V1h4v1.5ZM6 15h4v-1.5H6V15ZM13.5 10V6H15v4h-1.5ZM1 6v4h1.5V6H1Z"
+      d: "M1 1.75V4h1.5V2.5H4V1H1.75a.75.75 0 0 0-.75.75M15 14.25V12h-1.5v1.5H12V15h2.25a.75.75 0 0 0 .75-.75M12 1h2.25a.75.75 0 0 1 .75.75V4h-1.5V2.5H12zM1.75 15H4v-1.5H2.5V12H1v2.25a.75.75 0 0 0 .75.75M10 2.5H6V1h4zM6 15h4v-1.5H6zM13.5 10V6H15v4zM1 6v4h1.5V6z"
     })
   });
 }
@@ -3528,7 +3571,7 @@ function SvgGridIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v4.5c0 .414.336.75.75.75h4.5A.75.75 0 0 0 7 6.25v-4.5A.75.75 0 0 0 6.25 1h-4.5Zm.75 4.5v-3h3v3h-3ZM1.75 9a.75.75 0 0 0-.75.75v4.5c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-4.5A.75.75 0 0 0 6.25 9h-4.5Zm.75 4.5v-3h3v3h-3ZM9 1.75A.75.75 0 0 1 9.75 1h4.5a.75.75 0 0 1 .75.75v4.49a.75.75 0 0 1-.75.75h-4.5A.75.75 0 0 1 9 6.24V1.75Zm1.5.75v2.99h3V2.5h-3ZM9.75 9a.75.75 0 0 0-.75.75v4.5c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-4.5a.75.75 0 0 0-.75-.75h-4.5Zm.75 4.5v-3h3v3h-3Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v4.5c0 .414.336.75.75.75h4.5A.75.75 0 0 0 7 6.25v-4.5A.75.75 0 0 0 6.25 1zm.75 4.5v-3h3v3zM1.75 9a.75.75 0 0 0-.75.75v4.5c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-4.5A.75.75 0 0 0 6.25 9zm.75 4.5v-3h3v3zM9 1.75A.75.75 0 0 1 9.75 1h4.5a.75.75 0 0 1 .75.75v4.49a.75.75 0 0 1-.75.75h-4.5A.75.75 0 0 1 9 6.24zm1.5.75v2.99h3V2.5zM9.75 9a.75.75 0 0 0-.75.75v4.5c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-4.5a.75.75 0 0 0-.75-.75zm.75 4.5v-3h3v3z",
       clipRule: "evenodd"
     })
   });
@@ -3553,7 +3596,7 @@ function SvgH1Icon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M1 3v10h1.5V8.75H6V13h1.5V3H6v4.25H2.5V3H1ZM11.25 3A2.25 2.25 0 0 1 9 5.25v1.5c.844 0 1.623-.279 2.25-.75v5.5H9V13h6v-1.5h-2.25V3h-1.5Z"
+      d: "M1 3v10h1.5V8.75H6V13h1.5V3H6v4.25H2.5V3zM11.25 3A2.25 2.25 0 0 1 9 5.25v1.5c.844 0 1.623-.279 2.25-.75v5.5H9V13h6v-1.5h-2.25V3z"
     })
   });
 }
@@ -3577,7 +3620,7 @@ function SvgH2Icon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M1 3v10h1.5V8.75H6V13h1.5V3H6v4.25H2.5V3H1ZM11.75 3A2.75 2.75 0 0 0 9 5.75V6h1.5v-.25c0-.69.56-1.25 1.25-1.25h.39a1.36 1.36 0 0 1 .746 2.498L10.692 8.44A3.75 3.75 0 0 0 9 11.574V13h6v-1.5h-4.499a2.25 2.25 0 0 1 1.014-1.807l2.194-1.44A2.86 2.86 0 0 0 12.14 3h-.389Z"
+      d: "M1 3v10h1.5V8.75H6V13h1.5V3H6v4.25H2.5V3zM11.75 3A2.75 2.75 0 0 0 9 5.75V6h1.5v-.25c0-.69.56-1.25 1.25-1.25h.39a1.36 1.36 0 0 1 .746 2.498L10.692 8.44A3.75 3.75 0 0 0 9 11.574V13h6v-1.5h-4.499a2.25 2.25 0 0 1 1.014-1.807l2.194-1.44A2.86 2.86 0 0 0 12.14 3z"
     })
   });
 }
@@ -3601,7 +3644,7 @@ function SvgH3Icon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M1 3h1.5v4.25H6V3h1.5v10H6V8.75H2.5V13H1V3ZM9 5.75A2.75 2.75 0 0 1 11.75 3h.375a2.875 2.875 0 0 1 1.937 5 2.875 2.875 0 0 1-1.937 5h-.375A2.75 2.75 0 0 1 9 10.25V10h1.5v.25c0 .69.56 1.25 1.25 1.25h.375a1.375 1.375 0 1 0 0-2.75H11v-1.5h1.125a1.375 1.375 0 1 0 0-2.75h-.375c-.69 0-1.25.56-1.25 1.25V6H9v-.25Z"
+      d: "M1 3h1.5v4.25H6V3h1.5v10H6V8.75H2.5V13H1zM9 5.75A2.75 2.75 0 0 1 11.75 3h.375a2.875 2.875 0 0 1 1.937 5 2.875 2.875 0 0 1-1.937 5h-.375A2.75 2.75 0 0 1 9 10.25V10h1.5v.25c0 .69.56 1.25 1.25 1.25h.375a1.375 1.375 0 1 0 0-2.75H11v-1.5h1.125a1.375 1.375 0 1 0 0-2.75h-.375c-.69 0-1.25.56-1.25 1.25V6H9z"
     })
   });
 }
@@ -3627,9 +3670,9 @@ function SvgHistoryIcon(props) {
       fill: "currentColor",
       clipPath: "url(#HistoryIcon_svg__a)",
       children: [jsx("path", {
-        d: "m3.507 7.73.963-.962 1.06 1.06-2.732 2.732L-.03 7.732l1.06-1.06.979.978a7 7 0 1 1 2.041 5.3l1.061-1.06a5.5 5.5 0 1 0-1.604-4.158Z"
+        d: "m3.507 7.73.963-.962 1.06 1.06-2.732 2.732L-.03 7.732l1.06-1.06.979.978a7 7 0 1 1 2.041 5.3l1.061-1.06a5.5 5.5 0 1 0-1.604-4.158"
       }), jsx("path", {
-        d: "M8.25 8V4h1.5v3.69l1.78 1.78-1.06 1.06-2-2A.75.75 0 0 1 8.25 8Z"
+        d: "M8.25 8V4h1.5v3.69l1.78 1.78-1.06 1.06-2-2A.75.75 0 0 1 8.25 8"
       })]
     }), jsx("defs", {
       children: jsx("clipPath", {
@@ -3662,7 +3705,7 @@ function SvgHomeIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M7.625 1.1a.75.75 0 0 1 .75 0l6.25 3.61a.75.75 0 0 1 .375.65v8.89a.75.75 0 0 1-.75.75h-4.5a.75.75 0 0 1-.75-.75V10H7v4.25a.75.75 0 0 1-.75.75h-4.5a.75.75 0 0 1-.75-.75V5.355a.75.75 0 0 1 .375-.65L7.625 1.1ZM2.5 5.79V13.5h3V9.25a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 .75.75v4.25h3V5.792L8 2.616 2.5 5.789Z",
+      d: "M7.625 1.1a.75.75 0 0 1 .75 0l6.25 3.61a.75.75 0 0 1 .375.65v8.89a.75.75 0 0 1-.75.75h-4.5a.75.75 0 0 1-.75-.75V10H7v4.25a.75.75 0 0 1-.75.75h-4.5a.75.75 0 0 1-.75-.75V5.355a.75.75 0 0 1 .375-.65zM2.5 5.79V13.5h3V9.25a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 .75.75v4.25h3V5.792L8 2.616z",
       clipRule: "evenodd"
     })
   });
@@ -3688,12 +3731,12 @@ function SvgImageIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M6.25 3.998a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5Zm-.75 2.25a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0Z",
+      d: "M6.25 3.998a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5m-.75 2.25a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75v12.492a.75.75 0 0 1-.75.75H5.038l-.009.009-.008-.009H1.75a.75.75 0 0 1-.75-.75V1.75Zm12.5 11.742H6.544l4.455-4.436 2.47 2.469.031-.03v1.997Zm0-10.992v6.934l-1.97-1.968a.75.75 0 0 0-1.06-.001l-6.052 6.027H2.5V2.5h11Z",
+      d: "M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75v12.492a.75.75 0 0 1-.75.75H5.038l-.009.009-.008-.009H1.75a.75.75 0 0 1-.75-.75zm12.5 11.742H6.544l4.455-4.436 2.47 2.469.031-.03zm0-10.992v6.934l-1.97-1.968a.75.75 0 0 0-1.06-.001l-6.052 6.027H2.5V2.5z",
       clipRule: "evenodd"
     })]
   });
@@ -3718,7 +3761,7 @@ function SvgIndentDecreaseIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M16 2H0v1.5h16V2ZM16 5.5H7V7h9V5.5ZM16 9H7v1.5h9V9ZM16 12.5H0V14h16v-1.5ZM3.97 11.03.94 8l3.03-3.03 1.06 1.06L3.06 8l1.97 1.97-1.06 1.06Z"
+      d: "M16 2H0v1.5h16zM16 5.5H7V7h9zM16 9H7v1.5h9zM16 12.5H0V14h16zM3.97 11.03.94 8l3.03-3.03 1.06 1.06L3.06 8l1.97 1.97z"
     })
   });
 }
@@ -3742,7 +3785,7 @@ function SvgIndentIncreaseIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M16 2H0v1.5h16V2ZM16 5.5H7V7h9V5.5ZM16 9H7v1.5h9V9ZM16 12.5H0V14h16v-1.5ZM2.03 4.97 5.06 8l-3.03 3.03L.97 9.97 2.94 8 .97 6.03l1.06-1.06Z"
+      d: "M16 2H0v1.5h16zM16 5.5H7V7h9zM16 9H7v1.5h9zM16 12.5H0V14h16zM2.03 4.97 5.06 8l-3.03 3.03L.97 9.97 2.94 8 .97 6.03z"
     })
   });
 }
@@ -3767,7 +3810,7 @@ function SvgInfinityIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "m8 6.94 1.59-1.592a3.75 3.75 0 1 1 0 5.304L8 9.06l-1.591 1.59a3.75 3.75 0 1 1 0-5.303L8 6.94Zm2.652-.531a2.25 2.25 0 1 1 0 3.182L9.06 8l1.59-1.591ZM6.939 8 5.35 6.409a2.25 2.25 0 1 0 0 3.182l1.588-1.589L6.939 8Z",
+      d: "m8 6.94 1.59-1.592a3.75 3.75 0 1 1 0 5.304L8 9.06l-1.591 1.59a3.75 3.75 0 1 1 0-5.303zm2.652-.531a2.25 2.25 0 1 1 0 3.182L9.06 8zM6.939 8 5.35 6.409a2.25 2.25 0 1 0 0 3.182l1.588-1.589z",
       clipRule: "evenodd"
     })
   });
@@ -3783,17 +3826,22 @@ InfinityIcon.displayName = 'InfinityIcon';
 var InfinityIcon$1 = InfinityIcon;
 
 function SvgInfoBookIcon(props) {
-  return jsx("svg", {
+  return jsxs("svg", {
     xmlns: "http://www.w3.org/2000/svg",
     width: "1em",
     height: "1em",
     fill: "none",
     viewBox: "0 0 16 16",
     ...props,
-    children: jsx("path", {
+    children: [jsx("path", {
       fill: "currentColor",
-      d: "M1 2v9.882c0 .772.635 1.412 1.4 1.412h4.612c.148.423.544.705.988.706.444 0 .84-.283.988-.706H13.6c.765 0 1.4-.64 1.4-1.412V2h-4.9c-.848 0-1.585.407-2.1 1.013C7.485 2.407 6.748 2 5.9 2H1Zm1.4 1.412h3.5c.782 0 1.4.623 1.4 1.412h1.4c0-.789.618-1.412 1.4-1.412h3.5v8.47H2.4v-8.47Zm7.7 2.117v1.412h1.4V5.53h-1.4Zm0 2.118v2.824h1.4V7.647h-1.4Z"
-    })
+      d: "M11.75 4.5a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5M12.5 7.75a.75.75 0 0 0-.75-.75h-1.5v1.5H11V11h1.5z"
+    }), jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M0 2.75A.75.75 0 0 1 .75 2h4.396A3.75 3.75 0 0 1 8 3.317 3.75 3.75 0 0 1 10.854 2h4.396a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75h-4.396a2.25 2.25 0 0 0-2.012 1.244l-.171.341a.75.75 0 0 1-1.342 0l-.17-.341A2.25 2.25 0 0 0 5.145 14H.75a.75.75 0 0 1-.75-.75zm1.5.75v9h3.646c.765 0 1.494.233 2.104.646V4.927l-.092-.183A2.25 2.25 0 0 0 5.146 3.5zm7.25 1.427v8.219a3.75 3.75 0 0 1 2.104-.646H14.5v-9h-3.646a2.25 2.25 0 0 0-2.012 1.244z",
+      clipRule: "evenodd"
+    })]
   });
 }
 const InfoBookIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
@@ -3817,7 +3865,7 @@ function SvgInfoFillIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0Zm-8.75 3V7h1.5v4h-1.5ZM8 4.5A.75.75 0 1 1 8 6a.75.75 0 0 1 0-1.5Z",
+      d: "M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-8.75 3V7h1.5v4zM8 4.5A.75.75 0 1 1 8 6a.75.75 0 0 1 0-1.5",
       clipRule: "evenodd"
     })
   });
@@ -3832,35 +3880,6 @@ const InfoFillIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 InfoFillIcon.displayName = 'InfoFillIcon';
 var InfoFillIcon$1 = InfoFillIcon;
 
-function SvgInfoIcon(props) {
-  return jsxs("svg", {
-    xmlns: "http://www.w3.org/2000/svg",
-    width: "1em",
-    height: "1em",
-    fill: "none",
-    viewBox: "0 0 16 16",
-    ...props,
-    children: [jsx("path", {
-      fill: "currentColor",
-      d: "M7.25 11V7h1.5v4h-1.5ZM8 4.5A.75.75 0 1 1 8 6a.75.75 0 0 1 0-1.5Z"
-    }), jsx("path", {
-      fill: "currentColor",
-      fillRule: "evenodd",
-      d: "M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Z",
-      clipRule: "evenodd"
-    })]
-  });
-}
-const InfoIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
-  return jsx(Icon, {
-    ref: forwardedRef,
-    ...props,
-    component: SvgInfoIcon
-  });
-});
-InfoIcon.displayName = 'InfoIcon';
-var InfoIcon$1 = InfoIcon;
-
 function SvgIngestionIcon(props) {
   return jsxs("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -3871,11 +3890,11 @@ function SvgIngestionIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M15 2.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V6H12V3.25h1.5v9.5H12V10h-1.5v3.5c0 .414.336.75.75.75h3a.75.75 0 0 0 .75-.75v-11Z"
+      d: "M15 2.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V6H12V3.25h1.5v9.5H12V10h-1.5v3.5c0 .414.336.75.75.75h3a.75.75 0 0 0 .75-.75z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M3.75 0c1.26 0 2.322.848 2.648 2.004A2.75 2.75 0 0 1 9 4.75v2.5h3v1.5H9v2.5a2.75 2.75 0 0 1-2.602 2.746 2.751 2.751 0 1 1-3.47-3.371 2.751 2.751 0 0 1 0-5.25A2.751 2.751 0 0 1 3.75 0ZM5 2.75a1.25 1.25 0 1 0-2.5 0 1.25 1.25 0 0 0 2.5 0Zm-.428 2.625a2.756 2.756 0 0 0 1.822-1.867A1.25 1.25 0 0 1 7.5 4.75v2.5H6.396a2.756 2.756 0 0 0-1.824-1.875ZM6.396 8.75H7.5v2.5a1.25 1.25 0 0 1-1.106 1.242 2.756 2.756 0 0 0-1.822-1.867A2.756 2.756 0 0 0 6.396 8.75ZM3.75 12a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Zm0-5.25a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5Z",
+      d: "M3.75 0c1.26 0 2.322.848 2.648 2.004A2.75 2.75 0 0 1 9 4.75v2.5h3v1.5H9v2.5a2.75 2.75 0 0 1-2.602 2.746 2.751 2.751 0 1 1-3.47-3.371 2.751 2.751 0 0 1 0-5.25A2.751 2.751 0 0 1 3.75 0M5 2.75a1.25 1.25 0 1 0-2.5 0 1.25 1.25 0 0 0 2.5 0m-.428 2.625a2.76 2.76 0 0 0 1.822-1.867A1.25 1.25 0 0 1 7.5 4.75v2.5H6.396a2.76 2.76 0 0 0-1.824-1.875M6.396 8.75H7.5v2.5a1.25 1.25 0 0 1-1.106 1.242 2.76 2.76 0 0 0-1.822-1.867A2.76 2.76 0 0 0 6.396 8.75M3.75 12a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5m0-5.25a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5",
       clipRule: "evenodd"
     })]
   });
@@ -3901,7 +3920,7 @@ function SvgItalicIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M9.648 4.5H12V3H6v1.5h2.102l-1.75 7H4V13h6v-1.5H7.898l1.75-7Z",
+      d: "M9.648 4.5H12V3H6v1.5h2.102l-1.75 7H4V13h6v-1.5H7.898z",
       clipRule: "evenodd"
     })
   });
@@ -3927,7 +3946,7 @@ function SvgKeyIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M0 8a4 4 0 0 1 7.93-.75h7.32A.75.75 0 0 1 16 8v3h-1.5V8.75H13V11h-1.5V8.75H7.93A4.001 4.001 0 0 1 0 8Zm4-2.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z",
+      d: "M0 8a4 4 0 0 1 7.93-.75h7.32A.75.75 0 0 1 16 8v3h-1.5V8.75H13V11h-1.5V8.75H7.93A4.001 4.001 0 0 1 0 8m4-2.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5",
       clipRule: "evenodd"
     })
   });
@@ -3953,7 +3972,7 @@ function SvgKeyboardIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M.75 2a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75h14.5a.75.75 0 0 0 .75-.75V2.75a.75.75 0 0 0-.75-.75H.75Zm.75 10.5v-9h13v9h-13Zm2.75-8h-1.5V6h1.5V4.5Zm1.5 0V6h1.5V4.5h-1.5Zm3 0V6h1.5V4.5h-1.5Zm3 0V6h1.5V4.5h-1.5Zm-1.5 2.75h-1.5v1.5h1.5v-1.5Zm1.5 1.5v-1.5h1.5v1.5h-1.5Zm-4.5 0v-1.5h-1.5v1.5h1.5Zm-3 0v-1.5h-1.5v1.5h1.5ZM11 10H5v1.5h6V10Z",
+      d: "M.75 2a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75h14.5a.75.75 0 0 0 .75-.75V2.75a.75.75 0 0 0-.75-.75zm.75 10.5v-9h13v9zm2.75-8h-1.5V6h1.5zm1.5 0V6h1.5V4.5zm3 0V6h1.5V4.5zm3 0V6h1.5V4.5zm-1.5 2.75h-1.5v1.5h1.5zm1.5 1.5v-1.5h1.5v1.5zm-4.5 0v-1.5h-1.5v1.5zm-3 0v-1.5h-1.5v1.5zM11 10H5v1.5h6z",
       clipRule: "evenodd"
     })
   });
@@ -3979,15 +3998,15 @@ function SvgLayerGraphIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1 3.75a2.75 2.75 0 1 1 3.5 2.646v3.208c.916.259 1.637.98 1.896 1.896h3.208a2.751 2.751 0 1 1 0 1.5H6.396A2.751 2.751 0 1 1 3 9.604V6.396A2.751 2.751 0 0 1 1 3.75Zm11.25 9.75a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5Zm-8.5-11a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5Zm0 8.5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5Z",
+      d: "M1 3.75a2.75 2.75 0 1 1 3.5 2.646v3.208c.916.259 1.637.98 1.896 1.896h3.208a2.751 2.751 0 1 1 0 1.5H6.396A2.751 2.751 0 1 1 3 9.604V6.396A2.75 2.75 0 0 1 1 3.75m11.25 9.75a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5m-8.5-11a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5m0 8.5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M10 1.5h3.75a.75.75 0 0 1 .75.75V6H13V3h-3V1.5Z"
+      d: "M10 1.5h3.75a.75.75 0 0 1 .75.75V6H13V3h-3z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M7.75 4a.75.75 0 0 0-.75.75v3.5c0 .414.336.75.75.75h3.5a.75.75 0 0 0 .75-.75v-3.5a.75.75 0 0 0-.75-.75h-3.5Zm.75 3.5v-2h2v2h-2Z",
+      d: "M7.75 4a.75.75 0 0 0-.75.75v3.5c0 .414.336.75.75.75h3.5a.75.75 0 0 0 .75-.75v-3.5a.75.75 0 0 0-.75-.75zm.75 3.5v-2h2v2z",
       clipRule: "evenodd"
     })]
   });
@@ -4012,15 +4031,15 @@ function SvgLayerIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M13.5 2.5H7V1h7.25a.75.75 0 0 1 .75.75V9h-1.5V2.5Z"
+      d: "M13.5 2.5H7V1h7.25a.75.75 0 0 1 .75.75V9h-1.5z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1 7.75A.75.75 0 0 1 1.75 7h6.5a.75.75 0 0 1 .75.75v6.5a.75.75 0 0 1-.75.75h-6.5a.75.75 0 0 1-.75-.75v-6.5Zm1.5.75v5h5v-5h-5Z",
+      d: "M1 7.75A.75.75 0 0 1 1.75 7h6.5a.75.75 0 0 1 .75.75v6.5a.75.75 0 0 1-.75.75h-6.5a.75.75 0 0 1-.75-.75zm1.5.75v5h5v-5z",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M4 5.32h6.5V12H12V4.57a.75.75 0 0 0-.75-.75H4v1.5Z"
+      d: "M4 5.32h6.5V12H12V4.57a.75.75 0 0 0-.75-.75H4z"
     })]
   });
 }
@@ -4043,9 +4062,9 @@ function SvgLeafIcon(props) {
     viewBox: "0 0 16 16",
     ...props,
     children: jsx("path", {
-      fill: "#000",
+      fill: "currentColor",
       fillRule: "evenodd",
-      d: "M5.75 4h-1.5v6.75h3.895a2 2 0 1 0 0-1.5H5.75V4Zm4.75 6a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Z",
+      d: "M5 6a2.75 2.75 0 0 0 2.75 2.75h2.395a2 2 0 1 0 0-1.5H7.75C7.06 7.25 6.5 6.69 6.5 6V2H5zm6.5 2a.5.5 0 1 1 1 0 .5.5 0 0 1-1 0",
       clipRule: "evenodd"
     })
   });
@@ -4071,11 +4090,11 @@ function SvgLettersIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M6.25 1h2.174a2.126 2.126 0 0 1 1.81 3.243 2.126 2.126 0 0 1-1.36 3.761H6.25a.75.75 0 0 1-.75-.75V1.75A.75.75 0 0 1 6.25 1ZM7 6.504V5.252h1.874a.626.626 0 1 1 0 1.252H7Zm2.05-3.378c0 .345-.28.625-.625.626H7.001L7 2.5h1.424c.346 0 .626.28.626.626ZM3.307 6a.75.75 0 0 1 .697.473L6.596 13H4.982l-.238-.6H1.855l-.24.6H0l2.61-6.528A.75.75 0 0 1 3.307 6Zm-.003 2.776.844 2.124H2.455l.85-2.124Z",
+      d: "M6.25 1h2.174a2.126 2.126 0 0 1 1.81 3.243 2.126 2.126 0 0 1-1.36 3.761H6.25a.75.75 0 0 1-.75-.75V1.75A.75.75 0 0 1 6.25 1M7 6.504V5.252h1.874a.626.626 0 1 1 0 1.252zm2.05-3.378c0 .345-.28.625-.625.626H7.001L7 2.5h1.424c.346 0 .626.28.626.626M3.307 6a.75.75 0 0 1 .697.473L6.596 13H4.982l-.238-.6H1.855l-.24.6H0l2.61-6.528A.75.75 0 0 1 3.307 6m-.003 2.776.844 2.124H2.455z",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M12.5 15a2.5 2.5 0 0 0 2.5-2.5h-1.5a1 1 0 1 1-2 0v-1.947c0-.582.472-1.053 1.053-1.053.523 0 .947.424.947.947v.053H15v-.053A2.447 2.447 0 0 0 12.553 8 2.553 2.553 0 0 0 10 10.553V12.5a2.5 2.5 0 0 0 2.5 2.5Z"
+      d: "M12.5 15a2.5 2.5 0 0 0 2.5-2.5h-1.5a1 1 0 1 1-2 0v-1.947c0-.582.472-1.053 1.053-1.053.523 0 .947.424.947.947v.053H15v-.053A2.447 2.447 0 0 0 12.553 8 2.553 2.553 0 0 0 10 10.553V12.5a2.5 2.5 0 0 0 2.5 2.5"
     })]
   });
 }
@@ -4099,7 +4118,7 @@ function SvgLibrariesIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "m8.301 1.522 5.25 13.5 1.398-.544-5.25-13.5-1.398.544ZM1 15V1h1.5v14H1ZM5 15V1h1.5v14H5Z"
+      d: "m8.301 1.522 5.25 13.5 1.398-.544-5.25-13.5zM1 15V1h1.5v14zM5 15V1h1.5v14z"
     })
   });
 }
@@ -4124,7 +4143,7 @@ function SvgLightningIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M9.49.04a.75.75 0 0 1 .51.71V6h3.25a.75.75 0 0 1 .596 1.206l-6.5 8.5A.75.75 0 0 1 6 15.25V10H2.75a.75.75 0 0 1-.596-1.206l6.5-8.5A.75.75 0 0 1 9.491.04ZM4.269 8.5H6.75a.75.75 0 0 1 .75.75v3.785L11.732 7.5H9.25a.75.75 0 0 1-.75-.75V2.965L4.268 8.5Z",
+      d: "M9.49.04a.75.75 0 0 1 .51.71V6h3.25a.75.75 0 0 1 .596 1.206l-6.5 8.5A.75.75 0 0 1 6 15.25V10H2.75a.75.75 0 0 1-.596-1.206l6.5-8.5A.75.75 0 0 1 9.491.04M4.269 8.5H6.75a.75.75 0 0 1 .75.75v3.785L11.732 7.5H9.25a.75.75 0 0 1-.75-.75V2.965z",
       clipRule: "evenodd"
     })
   });
@@ -4149,10 +4168,10 @@ function SvgLinkIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M4 4h3v1.5H4a2.5 2.5 0 0 0 0 5h3V12H4a4 4 0 0 1 0-8ZM12 10.5H9V12h3a4 4 0 0 0 0-8H9v1.5h3a2.5 2.5 0 0 1 0 5Z"
+      d: "M4 4h3v1.5H4a2.5 2.5 0 0 0 0 5h3V12H4a4 4 0 0 1 0-8M12 10.5H9V12h3a4 4 0 0 0 0-8H9v1.5h3a2.5 2.5 0 0 1 0 5"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M4 8.75h8v-1.5H4v1.5Z"
+      d: "M4 8.75h8v-1.5H4z"
     })]
   });
 }
@@ -4176,10 +4195,10 @@ function SvgLinkOffIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M14.035 11.444A4 4 0 0 0 12 4H9v1.5h3a2.5 2.5 0 0 1 .917 4.826l1.118 1.118ZM14 13.53 2.47 2l-1 1 1.22 1.22A4.002 4.002 0 0 0 4 12h3v-1.5H4a2.5 2.5 0 0 1-.03-5l1.75 1.75H4v1.5h3.22L13 14.53l1-1Z"
+      d: "M14.035 11.444A4 4 0 0 0 12 4H9v1.5h3a2.5 2.5 0 0 1 .917 4.826zM14 13.53 2.47 2l-1 1 1.22 1.22A4.002 4.002 0 0 0 4 12h3v-1.5H4a2.5 2.5 0 0 1-.03-5l1.75 1.75H4v1.5h3.22L13 14.53z"
     }), jsx("path", {
       fill: "currentColor",
-      d: "m9.841 7.25 1.5 1.5H12v-1.5H9.841Z"
+      d: "m9.841 7.25 1.5 1.5H12v-1.5z"
     })]
   });
 }
@@ -4203,11 +4222,11 @@ function SvgListBorderIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M12 8.75H7v-1.5h5v1.5ZM7 5.5h5V4H7v1.5ZM12 12H7v-1.5h5V12ZM4.75 5.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM5.5 8A.75.75 0 1 1 4 8a.75.75 0 0 1 1.5 0ZM4.75 12a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z"
+      d: "M12 8.75H7v-1.5h5zM7 5.5h5V4H7zM12 12H7v-1.5h5zM4.75 5.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M5.5 8A.75.75 0 1 1 4 8a.75.75 0 0 1 1.5 0M4.75 12a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75V1.75Zm1.5.75v11h11v-11h-11Z",
+      d: "M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75zm1.5.75v11h11v-11z",
       clipRule: "evenodd"
     })]
   });
@@ -4234,7 +4253,7 @@ function SvgListClearIcon(props) {
       fill: "currentColor",
       clipPath: "url(#ListClearIcon_svg__a)",
       children: jsx("path", {
-        d: "M15.03 13.97 13.06 12l1.97-1.97-1.06-1.06L12 10.94l-1.97-1.97-1.06 1.06L10.94 12l-1.97 1.97 1.06 1.06L12 13.06l1.97 1.97 1.06-1.06ZM5 11.5H1V10h4v1.5ZM11 3.5H1V2h10v1.5ZM7 7.5H1V6h6v1.5Z"
+        d: "M15.03 13.97 13.06 12l1.97-1.97-1.06-1.06L12 10.94l-1.97-1.97-1.06 1.06L10.94 12l-1.97 1.97 1.06 1.06L12 13.06l1.97 1.97zM5 11.5H1V10h4zM11 3.5H1V2h10zM7 7.5H1V6h6z"
       })
     }), jsx("defs", {
       children: jsx("clipPath", {
@@ -4267,7 +4286,7 @@ function SvgLockFillIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M12 6V4a4 4 0 0 0-8 0v2H2.75a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75v-8.5a.75.75 0 0 0-.75-.75H12ZM5.5 6h5V4a2.5 2.5 0 0 0-5 0v2Zm1.75 7V9h1.5v4h-1.5Z",
+      d: "M12 6V4a4 4 0 0 0-8 0v2H2.75a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75v-8.5a.75.75 0 0 0-.75-.75zM5.5 6h5V4a2.5 2.5 0 0 0-5 0zm1.75 7V9h1.5v4z",
       clipRule: "evenodd"
     })
   });
@@ -4292,11 +4311,11 @@ function SvgLockIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M7.25 9v4h1.5V9h-1.5Z"
+      d: "M7.25 9v4h1.5V9z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M12 6V4a4 4 0 0 0-8 0v2H2.75a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75v-8.5a.75.75 0 0 0-.75-.75H12Zm.5 1.5v7h-9v-7h9ZM5.5 4v2h5V4a2.5 2.5 0 0 0-5 0Z",
+      d: "M12 6V4a4 4 0 0 0-8 0v2H2.75a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75v-8.5a.75.75 0 0 0-.75-.75zm.5 1.5v7h-9v-7zM5.5 4v2h5V4a2.5 2.5 0 0 0-5 0",
       clipRule: "evenodd"
     })]
   });
@@ -4321,11 +4340,11 @@ function SvgLockUnlockedIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M10 11.75v-1.5H6v1.5h4Z"
+      d: "M10 11.75v-1.5H6v1.5z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M13.25 6H5.5V4a2.5 2.5 0 0 1 5 0v.5H12V4a4 4 0 0 0-8 0v2H2.75a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75v-8.5a.75.75 0 0 0-.75-.75ZM3.5 7.5h9v7h-9v-7Z",
+      d: "M13.25 6H5.5V4a2.5 2.5 0 0 1 5 0v.5H12V4a4 4 0 0 0-8 0v2H2.75a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75v-8.5a.75.75 0 0 0-.75-.75M3.5 7.5h9v7h-9z",
       clipRule: "evenodd"
     })]
   });
@@ -4350,11 +4369,11 @@ function SvgMIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M6.42 5.415A.75.75 0 0 0 5 5.75V11h1.5V8.927l.83 1.658a.75.75 0 0 0 1.34 0l.83-1.658V11H11V5.75a.75.75 0 0 0-1.42-.335L8 8.573 6.42 5.415Z"
+      d: "M6.42 5.415A.75.75 0 0 0 5 5.75V11h1.5V8.927l.83 1.658a.75.75 0 0 0 1.34 0l.83-1.658V11H11V5.75a.75.75 0 0 0-1.42-.335L8 8.573z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75H1.75Zm.75 12.5v-11h11v11h-11Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75zm.75 12.5v-11h11v11z",
       clipRule: "evenodd"
     })]
   });
@@ -4380,7 +4399,7 @@ function SvgMailIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M.75 2a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75h14.5a.75.75 0 0 0 .75-.75V2.75a.75.75 0 0 0-.75-.75H.75Zm.75 2.347V12.5h13V4.347L9.081 8.604a1.75 1.75 0 0 1-2.162 0L1.5 4.347ZM13.15 3.5H2.85l4.996 3.925a.25.25 0 0 0 .308 0L13.15 3.5Z",
+      d: "M.75 2a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75h14.5a.75.75 0 0 0 .75-.75V2.75a.75.75 0 0 0-.75-.75zm.75 2.347V12.5h13V4.347L9.081 8.604a1.75 1.75 0 0 1-2.162 0zM13.15 3.5H2.85l4.996 3.925a.25.25 0 0 0 .308 0z",
       clipRule: "evenodd"
     })
   });
@@ -4406,7 +4425,7 @@ function SvgMenuIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M15 4H1V2.5h14V4Zm0 4.75H1v-1.5h14v1.5Zm0 4.75H1V12h14v1.5Z",
+      d: "M15 4H1V2.5h14zm0 4.75H1v-1.5h14zm0 4.75H1V12h14z",
       clipRule: "evenodd"
     })
   });
@@ -4431,11 +4450,11 @@ function SvgMinusBoxIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M11.5 8.75h-7v-1.5h7v1.5Z"
+      d: "M11.5 8.75h-7v-1.5h7z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75H1.75Zm.75 12.5v-11h11v11h-11Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75zm.75 12.5v-11h11v11z",
       clipRule: "evenodd"
     })]
   });
@@ -4461,7 +4480,7 @@ function SvgMinusCircleFillIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16Zm3.5-7.25h-7v-1.5h7v1.5Z",
+      d: "M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m3.5-7.25h-7v-1.5h7z",
       clipRule: "evenodd"
     })
   });
@@ -4486,11 +4505,11 @@ function SvgMinusCircleIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M4.5 8.75v-1.5h7v1.5h-7Z"
+      d: "M4.5 8.75v-1.5h7v1.5z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Z",
+      d: "M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13",
       clipRule: "evenodd"
     })]
   });
@@ -4518,7 +4537,7 @@ function SvgModelsIcon(props) {
       children: jsx("path", {
         fill: "currentColor",
         fillRule: "evenodd",
-        d: "M0 4.75a2.75 2.75 0 0 1 5.145-1.353l4.372-.95a2.75 2.75 0 1 1 3.835 2.823l.282 2.257a2.75 2.75 0 1 1-2.517 4.46l-2.62 1.145.003.118a2.75 2.75 0 1 1-4.415-2.19L3.013 7.489A2.75 2.75 0 0 1 0 4.75ZM2.75 3.5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5Zm2.715 1.688c.018-.11.029-.22.033-.333l4.266-.928a2.753 2.753 0 0 0 2.102 1.546l.282 2.257c-.377.165-.71.412-.976.719L5.465 5.188ZM4.828 6.55a2.767 2.767 0 0 1-.413.388l1.072 3.573a2.747 2.747 0 0 1 2.537 1.19l2.5-1.093a2.792 2.792 0 0 1 .01-.797l-5.706-3.26ZM12 10.25a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0ZM5.75 12a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5ZM11 2.75a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0Z",
+        d: "M0 4.75a2.75 2.75 0 0 1 5.145-1.353l4.372-.95a2.75 2.75 0 1 1 3.835 2.823l.282 2.257a2.75 2.75 0 1 1-2.517 4.46l-2.62 1.145.003.118a2.75 2.75 0 1 1-4.415-2.19L3.013 7.489A2.75 2.75 0 0 1 0 4.75M2.75 3.5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5m2.715 1.688q.027-.164.033-.333l4.266-.928a2.75 2.75 0 0 0 2.102 1.546l.282 2.257c-.377.165-.71.412-.976.719zM4.828 6.55a2.8 2.8 0 0 1-.413.388l1.072 3.573q.13-.012.263-.012c.945 0 1.778.476 2.273 1.202l2.5-1.093a2.8 2.8 0 0 1 .012-.797zM12 10.25a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0M5.75 12a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5M11 2.75a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0",
         clipRule: "evenodd"
       })
     }), jsx("defs", {
@@ -4552,7 +4571,7 @@ function SvgNoIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0ZM1.5 8a6.5 6.5 0 0 1 10.535-5.096l-9.131 9.131A6.472 6.472 0 0 1 1.5 8Zm2.465 5.096a6.5 6.5 0 0 0 9.131-9.131l-9.131 9.131Z",
+      d: "M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0M1.5 8a6.5 6.5 0 0 1 10.535-5.096l-9.131 9.131A6.47 6.47 0 0 1 1.5 8m2.465 5.096a6.5 6.5 0 0 0 9.131-9.131z",
       clipRule: "evenodd"
     })
   });
@@ -4578,7 +4597,7 @@ function SvgNotebookIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M3 1.75A.75.75 0 0 1 3.75 1h10.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H3.75a.75.75 0 0 1-.75-.75V12.5H1V11h2V8.75H1v-1.5h2V5H1V3.5h2V1.75Zm1.5.75v11H6v-11H4.5Zm3 0v11h6v-11h-6Z",
+      d: "M3 1.75A.75.75 0 0 1 3.75 1h10.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H3.75a.75.75 0 0 1-.75-.75V12.5H1V11h2V8.75H1v-1.5h2V5H1V3.5h2zm1.5.75v11H6v-11zm3 0v11h6v-11z",
       clipRule: "evenodd"
     })
   });
@@ -4604,7 +4623,7 @@ function SvgNotificationIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 1a5 5 0 0 0-5 5v1.99c0 .674-.2 1.332-.573 1.892l-1.301 1.952A.75.75 0 0 0 1.75 13h3.5v.25a2.75 2.75 0 1 0 5.5 0V13h3.5a.75.75 0 0 0 .624-1.166l-1.301-1.952A3.41 3.41 0 0 1 13 7.99V6a5 5 0 0 0-5-5Zm1.25 12h-2.5v.25a1.25 1.25 0 1 0 2.5 0V13ZM4.5 6a3.5 3.5 0 1 1 7 0v1.99c0 .97.287 1.918.825 2.724l.524.786H3.15l.524-.786A4.91 4.91 0 0 0 4.5 7.99V6Z",
+      d: "M8 1a5 5 0 0 0-5 5v1.99c0 .674-.2 1.332-.573 1.892l-1.301 1.952A.75.75 0 0 0 1.75 13h3.5v.25a2.75 2.75 0 1 0 5.5 0V13h3.5a.75.75 0 0 0 .624-1.166l-1.301-1.952A3.4 3.4 0 0 1 13 7.99V6a5 5 0 0 0-5-5m1.25 12h-2.5v.25a1.25 1.25 0 1 0 2.5 0zM4.5 6a3.5 3.5 0 1 1 7 0v1.99c0 .97.287 1.918.825 2.724l.524.786H3.15l.524-.786A4.9 4.9 0 0 0 4.5 7.99z",
       clipRule: "evenodd"
     })
   });
@@ -4630,7 +4649,7 @@ function SvgNotificationOffIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "m14.47 13.53-12-12-1 1L3.28 4.342A4.992 4.992 0 0 0 3 6v1.99c0 .674-.2 1.332-.573 1.892l-1.301 1.952A.75.75 0 0 0 1.75 13h3.5v.25a2.75 2.75 0 1 0 5.5 0V13h1.19l1.53 1.53 1-1ZM13.038 8.5A3.409 3.409 0 0 1 13 7.99V6a5 5 0 0 0-7.965-4.026l1.078 1.078A3.5 3.5 0 0 1 11.5 6v1.99c0 .158.008.316.023.472l.038.038h1.477ZM4.5 6c0-.14.008-.279.024-.415L10.44 11.5H3.151l.524-.786A4.91 4.91 0 0 0 4.5 7.99V6Zm2.25 7.25V13h2.5v.25a1.25 1.25 0 1 1-2.5 0Z",
+      d: "m14.47 13.53-12-12-1 1L3.28 4.342A5 5 0 0 0 3 6v1.99c0 .674-.2 1.332-.573 1.892l-1.301 1.952A.75.75 0 0 0 1.75 13h3.5v.25a2.75 2.75 0 1 0 5.5 0V13h1.19l1.53 1.53zM13.038 8.5A3.4 3.4 0 0 1 13 7.99V6a5 5 0 0 0-7.965-4.026l1.078 1.078A3.5 3.5 0 0 1 11.5 6v1.99q0 .238.023.472l.038.038zM4.5 6q0-.21.024-.415L10.44 11.5H3.151l.524-.786A4.9 4.9 0 0 0 4.5 7.99zm2.25 7.25V13h2.5v.25a1.25 1.25 0 1 1-2.5 0",
       clipRule: "evenodd"
     })
   });
@@ -4655,7 +4674,7 @@ function SvgNumbersIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M7.889 1A2.389 2.389 0 0 0 5.5 3.389H7c0-.491.398-.889.889-.889h.371a.74.74 0 0 1 .292 1.42l-1.43.613A2.675 2.675 0 0 0 5.5 6.992V8h5V6.5H7.108c.12-.26.331-.472.604-.588l1.43-.613A2.24 2.24 0 0 0 8.26 1H7.89ZM2.75 6a1.5 1.5 0 0 1-1.5 1.5H1V9h.25c.546 0 1.059-.146 1.5-.401V11.5H1V13h5v-1.5H4.25V6h-1.5ZM10 12.85A2.15 2.15 0 0 0 12.15 15h.725a2.125 2.125 0 0 0 1.617-3.504 2.138 2.138 0 0 0-1.656-3.521l-.713.008A2.15 2.15 0 0 0 10 10.133v.284h1.5v-.284a.65.65 0 0 1 .642-.65l.712-.009a.638.638 0 1 1 .008 1.276H12v1.5h.875a.625.625 0 1 1 0 1.25h-.725a.65.65 0 0 1-.65-.65v-.267H10v.267Z"
+      d: "M7.889 1A2.39 2.39 0 0 0 5.5 3.389H7c0-.491.398-.889.889-.889h.371a.74.74 0 0 1 .292 1.42l-1.43.613A2.68 2.68 0 0 0 5.5 6.992V8h5V6.5H7.108c.12-.26.331-.472.604-.588l1.43-.613A2.24 2.24 0 0 0 8.26 1zM2.75 6a1.5 1.5 0 0 1-1.5 1.5H1V9h.25c.546 0 1.059-.146 1.5-.401V11.5H1V13h5v-1.5H4.25V6zM10 12.85A2.15 2.15 0 0 0 12.15 15h.725a2.125 2.125 0 0 0 1.617-3.504 2.138 2.138 0 0 0-1.656-3.521l-.713.008A2.15 2.15 0 0 0 10 10.133v.284h1.5v-.284a.65.65 0 0 1 .642-.65l.712-.009a.638.638 0 1 1 .008 1.276H12v1.5h.875a.625.625 0 1 1 0 1.25h-.725a.65.65 0 0 1-.65-.65v-.267H10z"
     })
   });
 }
@@ -4679,11 +4698,11 @@ function SvgOfficeIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M4 8.75h8v-1.5H4v1.5ZM7 5.75H4v-1.5h3v1.5ZM4 11.75h8v-1.5H4v1.5Z"
+      d: "M4 8.75h8v-1.5H4zM7 5.75H4v-1.5h3zM4 11.75h8v-1.5H4z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V5a.75.75 0 0 0-.75-.75H10v-2.5A.75.75 0 0 0 9.25 1h-7.5Zm.75 1.5h6V5c0 .414.336.75.75.75h4.25v7.75h-11v-11Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V5a.75.75 0 0 0-.75-.75H10v-2.5A.75.75 0 0 0 9.25 1zm.75 1.5h6V5c0 .414.336.75.75.75h4.25v7.75h-11z",
       clipRule: "evenodd"
     })]
   });
@@ -4708,7 +4727,7 @@ function SvgOverflowIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M8 1a1.75 1.75 0 1 0 0 3.5A1.75 1.75 0 0 0 8 1ZM8 6.25a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM8 11.5A1.75 1.75 0 1 0 8 15a1.75 1.75 0 0 0 0-3.5Z"
+      d: "M8 1a1.75 1.75 0 1 0 0 3.5A1.75 1.75 0 0 0 8 1M8 6.25a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5M8 11.5A1.75 1.75 0 1 0 8 15a1.75 1.75 0 0 0 0-3.5"
     })
   });
 }
@@ -4733,7 +4752,7 @@ function SvgPageBottomIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1 3.06 2.06 2l5.97 5.97L14 2l1.06 1.06-7.03 7.031L1 3.061Zm14.03 10.47v1.5h-14v-1.5h14Z",
+      d: "M1 3.06 2.06 2l5.97 5.97L14 2l1.06 1.06-7.03 7.031zm14.03 10.47v1.5h-14v-1.5z",
       clipRule: "evenodd"
     })
   });
@@ -4759,7 +4778,7 @@ function SvgPageFirstIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "m12.97 1 1.06 1.06-5.97 5.97L14.03 14l-1.06 1.06-7.03-7.03L12.97 1ZM2.5 15.03H1v-14h1.5v14Z",
+      d: "m12.97 1 1.06 1.06-5.97 5.97L14.03 14l-1.06 1.06-7.03-7.03zM2.5 15.03H1v-14h1.5z",
       clipRule: "evenodd"
     })
   });
@@ -4785,7 +4804,7 @@ function SvgPageLastIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M3.06 1 2 2.06l5.97 5.97L2 14l1.06 1.06 7.031-7.03L3.061 1Zm10.47 14.03h1.5v-14h-1.5v14Z",
+      d: "M3.06 1 2 2.06l5.97 5.97L2 14l1.06 1.06 7.031-7.03zm10.47 14.03h1.5v-14h-1.5z",
       clipRule: "evenodd"
     })
   });
@@ -4811,7 +4830,7 @@ function SvgPageTopIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "m1 12.97 1.06 1.06 5.97-5.97L14 14.03l1.06-1.06-7.03-7.03L1 12.97ZM15.03 2.5V1h-14v1.5h14Z",
+      d: "m1 12.97 1.06 1.06 5.97-5.97L14 14.03l1.06-1.06-7.03-7.03zM15.03 2.5V1h-14v1.5z",
       clipRule: "evenodd"
     })
   });
@@ -4837,7 +4856,7 @@ function SvgPauseIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M10 12V4h1.5v8H10Zm-5.5 0V4H6v8H4.5Z",
+      d: "M10 12V4h1.5v8zm-5.5 0V4H6v8z",
       clipRule: "evenodd"
     })
   });
@@ -4863,7 +4882,7 @@ function SvgPencilIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M13.487 1.513a1.75 1.75 0 0 0-2.474 0L1.22 11.306a.75.75 0 0 0-.22.53v2.5c0 .414.336.75.75.75h2.5a.75.75 0 0 0 .53-.22l9.793-9.793a1.75 1.75 0 0 0 0-2.475l-1.086-1.085Zm-1.414 1.06a.25.25 0 0 1 .354 0l1.086 1.086a.25.25 0 0 1 0 .354L12 5.525l-1.44-1.44 1.513-1.512ZM9.5 5.146l-7 7v1.44h1.44l7-7-1.44-1.44Z",
+      d: "M13.487 1.513a1.75 1.75 0 0 0-2.474 0L1.22 11.306a.75.75 0 0 0-.22.53v2.5c0 .414.336.75.75.75h2.5a.75.75 0 0 0 .53-.22l9.793-9.793a1.75 1.75 0 0 0 0-2.475zm-1.414 1.06a.25.25 0 0 1 .354 0l1.086 1.086a.25.25 0 0 1 0 .354L12 5.525l-1.44-1.44zM9.5 5.146l-7 7v1.44h1.44l7-7z",
       clipRule: "evenodd"
     })
   });
@@ -4881,22 +4900,21 @@ var PencilIcon$1 = PencilIcon;
 function SvgPieChartIcon(props) {
   return jsxs("svg", {
     xmlns: "http://www.w3.org/2000/svg",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.5,
-    className: "PieChartIcon_svg__w-6 PieChartIcon_svg__h-6",
-    viewBox: "0 0 24 24",
     width: "1em",
     height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
     ...props,
     children: [jsx("path", {
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-      d: "M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z"
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M9.25 0a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75h6a.75.75 0 0 0 .75-.75A6.75 6.75 0 0 0 9.25 0M10 1.553A5.25 5.25 0 0 1 14.447 6H10z",
+      clipRule: "evenodd"
     }), jsx("path", {
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-      d: "M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z"
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M6.75 2.5a6.75 6.75 0 1 0 6.75 6.75.75.75 0 0 0-.75-.75H7.5V3.25a.75.75 0 0 0-.75-.75M1.5 9.25A5.25 5.25 0 0 1 6 4.053V9.25c0 .414.336.75.75.75h5.197A5.251 5.251 0 0 1 1.5 9.25",
+      clipRule: "evenodd"
     })]
   });
 }
@@ -4920,7 +4938,7 @@ function SvgPinCancelIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M5.75 0A.75.75 0 0 0 5 .75v1.19l9 9V9a.75.75 0 0 0-.22-.53l-2.12-2.122a2.25 2.25 0 0 1-.66-1.59V.75a.75.75 0 0 0-.75-.75h-4.5ZM10.94 12l2.53 2.53 1.06-1.06-11.5-11.5-1.06 1.06 2.772 2.773c-.104.2-.239.383-.4.545L2.22 8.47A.75.75 0 0 0 2 9v2.25c0 .414.336.75.75.75h4.5v4h1.5v-4h2.19Z"
+      d: "M5.75 0A.75.75 0 0 0 5 .75v1.19l9 9V9a.75.75 0 0 0-.22-.53l-2.12-2.122a2.25 2.25 0 0 1-.66-1.59V.75a.75.75 0 0 0-.75-.75zM10.94 12l2.53 2.53 1.06-1.06-11.5-11.5-1.06 1.06 2.772 2.773q-.157.301-.4.545L2.22 8.47A.75.75 0 0 0 2 9v2.25c0 .414.336.75.75.75h4.5v4h1.5v-4z"
     })
   });
 }
@@ -4944,7 +4962,7 @@ function SvgPinFillIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M5 .75A.75.75 0 0 1 5.75 0h4.5a.75.75 0 0 1 .75.75v4.007c0 .597.237 1.17.659 1.591L13.78 8.47c.141.14.22.331.22.53v2.25a.75.75 0 0 1-.75.75h-4.5v4h-1.5v-4h-4.5a.75.75 0 0 1-.75-.75V9a.75.75 0 0 1 .22-.53L4.34 6.348A2.25 2.25 0 0 0 5 4.758V.75Z"
+      d: "M5 .75A.75.75 0 0 1 5.75 0h4.5a.75.75 0 0 1 .75.75v4.007c0 .597.237 1.17.659 1.591L13.78 8.47c.141.14.22.331.22.53v2.25a.75.75 0 0 1-.75.75h-4.5v4h-1.5v-4h-4.5a.75.75 0 0 1-.75-.75V9a.75.75 0 0 1 .22-.53L4.34 6.348A2.25 2.25 0 0 0 5 4.758z"
     })
   });
 }
@@ -4969,7 +4987,7 @@ function SvgPinIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M5.75 0A.75.75 0 0 0 5 .75v4.007a2.25 2.25 0 0 1-.659 1.591L2.22 8.47A.75.75 0 0 0 2 9v2.25c0 .414.336.75.75.75h4.5v4h1.5v-4h4.5a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.22-.53L11.66 6.348A2.25 2.25 0 0 1 11 4.758V.75a.75.75 0 0 0-.75-.75h-4.5Zm.75 4.757V1.5h3v3.257a3.75 3.75 0 0 0 1.098 2.652L12.5 9.311V10.5h-9V9.31L5.402 7.41A3.75 3.75 0 0 0 6.5 4.757Z",
+      d: "M5.75 0A.75.75 0 0 0 5 .75v4.007a2.25 2.25 0 0 1-.659 1.591L2.22 8.47A.75.75 0 0 0 2 9v2.25c0 .414.336.75.75.75h4.5v4h1.5v-4h4.5a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.22-.53L11.66 6.348A2.25 2.25 0 0 1 11 4.758V.75a.75.75 0 0 0-.75-.75zm.75 4.757V1.5h3v3.257a3.75 3.75 0 0 0 1.098 2.652L12.5 9.311V10.5h-9V9.31L5.402 7.41A3.75 3.75 0 0 0 6.5 4.757",
       clipRule: "evenodd"
     })
   });
@@ -4995,7 +5013,7 @@ function SvgPipelineIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M10.75 6.75A5.75 5.75 0 0 0 5 1H1.75a.75.75 0 0 0-.75.75V6c0 .414.336.75.75.75H5a.25.25 0 0 1 .25.25v2.25A5.75 5.75 0 0 0 11 15h3.25a.75.75 0 0 0 .75-.75V10a.75.75 0 0 0-.75-.75H11a.25.25 0 0 1-.25-.25V6.75ZM5.5 2.53a4.25 4.25 0 0 1 3.75 4.22V9a1.75 1.75 0 0 0 1.25 1.678v2.793A4.25 4.25 0 0 1 6.75 9.25V7A1.75 1.75 0 0 0 5.5 5.322V2.53ZM4 2.5v2.75H2.5V2.5H4Zm9.5 8.25H12v2.75h1.5v-2.75Z",
+      d: "M10.75 6.75A5.75 5.75 0 0 0 5 1H1.75a.75.75 0 0 0-.75.75V6c0 .414.336.75.75.75H5a.25.25 0 0 1 .25.25v2.25A5.75 5.75 0 0 0 11 15h3.25a.75.75 0 0 0 .75-.75V10a.75.75 0 0 0-.75-.75H11a.25.25 0 0 1-.25-.25zM5.5 2.53a4.25 4.25 0 0 1 3.75 4.22V9a1.75 1.75 0 0 0 1.25 1.678v2.793A4.25 4.25 0 0 1 6.75 9.25V7A1.75 1.75 0 0 0 5.5 5.322zM4 2.5v2.75H2.5V2.5zm9.5 8.25H12v2.75h1.5z",
       clipRule: "evenodd"
     })
   });
@@ -5021,7 +5039,7 @@ function SvgPlayCircleFillIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm7.125-2.815A.75.75 0 0 0 6 5.835v4.33a.75.75 0 0 0 1.125.65l3.75-2.166a.75.75 0 0 0 0-1.299l-3.75-2.165Z",
+      d: "M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m7.125-2.815A.75.75 0 0 0 6 5.835v4.33a.75.75 0 0 0 1.125.65l3.75-2.166a.75.75 0 0 0 0-1.299z",
       clipRule: "evenodd"
     })
   });
@@ -5046,11 +5064,11 @@ function SvgPlayCircleIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M11.25 8a.75.75 0 0 1-.375.65l-3.75 2.165A.75.75 0 0 1 6 10.165v-4.33a.75.75 0 0 1 1.125-.65l3.75 2.165a.75.75 0 0 1 .375.65Z"
+      d: "M11.25 8a.75.75 0 0 1-.375.65l-3.75 2.165A.75.75 0 0 1 6 10.165v-4.33a.75.75 0 0 1 1.125-.65l3.75 2.165a.75.75 0 0 1 .375.65"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0ZM1.5 8a6.5 6.5 0 1 1 13 0 6.5 6.5 0 0 1-13 0Z",
+      d: "M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0M1.5 8a6.5 6.5 0 1 1 13 0 6.5 6.5 0 0 1-13 0",
       clipRule: "evenodd"
     })]
   });
@@ -5075,7 +5093,7 @@ function SvgPlayIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M12.125 8.864a.75.75 0 0 0 0-1.3l-6-3.464A.75.75 0 0 0 5 4.75v6.928a.75.75 0 0 0 1.125.65l6-3.464Z"
+      d: "M12.125 8.864a.75.75 0 0 0 0-1.3l-6-3.464A.75.75 0 0 0 5 4.75v6.928a.75.75 0 0 0 1.125.65z"
     })
   });
 }
@@ -5100,7 +5118,7 @@ function SvgPlugIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "m14.168 2.953.893-.892L14 1l-.893.893a4.001 4.001 0 0 0-5.077.48l-.884.884a.75.75 0 0 0 0 1.061l4.597 4.596a.75.75 0 0 0 1.06 0l.884-.884a4.001 4.001 0 0 0 .48-5.077ZM12.627 6.97l-.354.353-3.536-3.535.354-.354a2.5 2.5 0 1 1 3.536 3.536ZM7.323 10.152 5.91 8.737l1.414-1.414-1.06-1.06-1.415 1.414-.53-.53a.75.75 0 0 0-1.06 0l-.885.883a4.001 4.001 0 0 0-.48 5.077L1 14l1.06 1.06.893-.892a4.001 4.001 0 0 0 5.077-.48l.884-.885a.75.75 0 0 0 0-1.06l-.53-.53 1.414-1.415-1.06-1.06-1.415 1.414Zm-3.889 2.475a2.5 2.5 0 0 0 3.536 0l.353-.354-3.535-3.536-.354.354a2.5 2.5 0 0 0 0 3.536Z",
+      d: "m14.168 2.953.893-.892L14 1l-.893.893a4 4 0 0 0-5.077.48l-.884.884a.75.75 0 0 0 0 1.061l4.597 4.596a.75.75 0 0 0 1.06 0l.884-.884a4 4 0 0 0 .48-5.077M12.627 6.97l-.354.353-3.536-3.535.354-.354a2.5 2.5 0 1 1 3.536 3.536M7.323 10.152 5.91 8.737l1.414-1.414-1.06-1.06-1.415 1.414-.53-.53a.75.75 0 0 0-1.06 0l-.885.883a4 4 0 0 0-.48 5.077L1 14l1.06 1.06.893-.892a4 4 0 0 0 5.077-.48l.884-.885a.75.75 0 0 0 0-1.06l-.53-.53 1.414-1.415-1.06-1.06zm-3.889 2.475a2.5 2.5 0 0 0 3.536 0l.353-.354-3.535-3.536-.354.354a2.5 2.5 0 0 0 0 3.536",
       clipRule: "evenodd"
     })
   });
@@ -5126,7 +5144,7 @@ function SvgPlusCircleFillIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16Zm-.75-4.5V8.75H4.5v-1.5h2.75V4.5h1.5v2.75h2.75v1.5H8.75v2.75h-1.5Z",
+      d: "M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m-.75-4.5V8.75H4.5v-1.5h2.75V4.5h1.5v2.75h2.75v1.5H8.75v2.75z",
       clipRule: "evenodd"
     })
   });
@@ -5151,11 +5169,11 @@ function SvgPlusCircleIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M7.25 11.5V8.75H4.5v-1.5h2.75V4.5h1.5v2.75h2.75v1.5H8.75v2.75h-1.5Z"
+      d: "M7.25 11.5V8.75H4.5v-1.5h2.75V4.5h1.5v2.75h2.75v1.5H8.75v2.75z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0ZM1.5 8a6.5 6.5 0 1 1 13 0 6.5 6.5 0 0 1-13 0Z",
+      d: "M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0M1.5 8a6.5 6.5 0 1 1 13 0 6.5 6.5 0 0 1-13 0",
       clipRule: "evenodd"
     })]
   });
@@ -5180,11 +5198,11 @@ function SvgPlusSquareIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M7.25 7.25V4.5h1.5v2.75h2.75v1.5H8.75v2.75h-1.5V8.75H4.5v-1.5h2.75Z"
+      d: "M7.25 7.25V4.5h1.5v2.75h2.75v1.5H8.75v2.75h-1.5V8.75H4.5v-1.5z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75V1.75Zm1.5.75v11h11v-11h-11Z",
+      d: "M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75zm1.5.75v11h11v-11z",
       clipRule: "evenodd"
     })]
   });
@@ -5209,11 +5227,11 @@ function SvgQueryEditorIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M12 12H8v-1.5h4V12ZM5.53 11.53 7.56 9.5 5.53 7.47 4.47 8.53l.97.97-.97.97 1.06 1.06Z"
+      d: "M12 12H8v-1.5h4zM5.53 11.53 7.56 9.5 5.53 7.47 4.47 8.53l.97.97-.97.97z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75H1.75Zm.75 3V2.5h11V4h-11Zm0 1.5v8h11v-8h-11Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75zm.75 3V2.5h11V4zm0 1.5v8h11v-8z",
       clipRule: "evenodd"
     })]
   });
@@ -5241,10 +5259,10 @@ function SvgQueryIcon(props) {
       clipPath: "url(#QueryIcon_svg__a)",
       children: [jsx("path", {
         fillRule: "evenodd",
-        d: "M2 1.75A.75.75 0 0 1 2.75 1h6a.75.75 0 0 1 .53.22l4.5 4.5c.141.14.22.331.22.53V10h-1.5V7H8.75A.75.75 0 0 1 8 6.25V2.5H3.5V16h-.75a.75.75 0 0 1-.75-.75V1.75Zm7.5 1.81 1.94 1.94H9.5V3.56Z",
+        d: "M2 1.75A.75.75 0 0 1 2.75 1h6a.75.75 0 0 1 .53.22l4.5 4.5c.141.14.22.331.22.53V10h-1.5V7H8.75A.75.75 0 0 1 8 6.25V2.5H3.5V16h-.75a.75.75 0 0 1-.75-.75zm7.5 1.81 1.94 1.94H9.5z",
         clipRule: "evenodd"
       }), jsx("path", {
-        d: "M5.53 9.97 8.56 13l-3.03 3.03-1.06-1.06L6.44 13l-1.97-1.97 1.06-1.06ZM14 14.5H9V16h5v-1.5Z"
+        d: "M5.53 9.97 8.56 13l-3.03 3.03-1.06-1.06L6.44 13l-1.97-1.97zM14 14.5H9V16h5z"
       })]
     }), jsx("defs", {
       children: jsx("clipPath", {
@@ -5277,7 +5295,7 @@ function SvgQuestionMarkFillIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16Zm2.207-10.189a2.25 2.25 0 0 1-1.457 2.56V9h-1.5V7.75A.75.75 0 0 1 8 7a.75.75 0 1 0-.75-.75h-1.5a2.25 2.25 0 0 1 4.457-.439ZM7.25 10.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z",
+      d: "M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m2.207-10.189a2.25 2.25 0 0 1-1.457 2.56V9h-1.5V7.75A.75.75 0 0 1 8 7a.75.75 0 1 0-.75-.75h-1.5a2.25 2.25 0 0 1 4.457-.439M7.25 10.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0",
       clipRule: "evenodd"
     })
   });
@@ -5302,11 +5320,11 @@ function SvgQuestionMarkIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M7.25 10.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0ZM10.079 7.111A2.25 2.25 0 1 0 5.75 6.25h1.5A.75.75 0 1 1 8 7a.75.75 0 0 0-.75.75V9h1.5v-.629a2.25 2.25 0 0 0 1.329-1.26Z"
+      d: "M7.25 10.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0M10.079 7.111A2.25 2.25 0 1 0 5.75 6.25h1.5A.75.75 0 1 1 8 7a.75.75 0 0 0-.75.75V9h1.5v-.629a2.25 2.25 0 0 0 1.329-1.26"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Z",
+      d: "M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13",
       clipRule: "evenodd"
     })]
   });
@@ -5331,11 +5349,11 @@ function SvgReaderModeIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M13 4.5h-3V6h3V4.5ZM13 7.25h-3v1.5h3v-1.5ZM13 10h-3v1.5h3V10Z"
+      d: "M13 4.5h-3V6h3zM13 7.25h-3v1.5h3zM13 10h-3v1.5h3z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M.75 2a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75h14.5a.75.75 0 0 0 .75-.75V2.75a.75.75 0 0 0-.75-.75H.75Zm.75 10.5v-9h5.75v9H1.5Zm7.25 0h5.75v-9H8.75v9Z",
+      d: "M.75 2a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75h14.5a.75.75 0 0 0 .75-.75V2.75a.75.75 0 0 0-.75-.75zm.75 10.5v-9h5.75v9zm7.25 0h5.75v-9H8.75z",
       clipRule: "evenodd"
     })]
   });
@@ -5363,7 +5381,7 @@ function SvgRedoIcon(props) {
       children: jsx("path", {
         fill: "currentColor",
         fillRule: "evenodd",
-        d: "m13.19 5-2.72-2.72 1.06-1.06 4.53 4.53-4.53 4.53-1.06-1.06 2.72-2.72H4.5a3 3 0 1 0 0 6H9V14H4.5a4.5 4.5 0 0 1 0-9h8.69Z",
+        d: "m13.19 5-2.72-2.72 1.06-1.06 4.53 4.53-4.53 4.53-1.06-1.06 2.72-2.72H4.5a3 3 0 1 0 0 6H9V14H4.5a4.5 4.5 0 0 1 0-9z",
         clipRule: "evenodd"
       })
     }), jsx("defs", {
@@ -5397,7 +5415,7 @@ function SvgRefreshIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1 8a7 7 0 0 1 11.85-5.047l.65.594V2H15v4h-4V4.5h1.32l-.496-.453-.007-.007a5.5 5.5 0 1 0 .083 7.839l1.063 1.058A7 7 0 0 1 1 8Z",
+      d: "M1 8a7 7 0 0 1 11.85-5.047l.65.594V2H15v4h-4V4.5h1.32l-.496-.453-.007-.007a5.5 5.5 0 1 0 .083 7.839l1.063 1.058A7 7 0 0 1 1 8",
       clipRule: "evenodd"
     })
   });
@@ -5431,14 +5449,14 @@ function SvgReplyIcon(props) {
         maskType: 'alpha'
       },
       children: jsx("path", {
-        fill: "#D9D9D9",
+        fill: "currentColor",
         d: "M0 0h16v16H0z"
       })
     }), jsx("g", {
       mask: "url(#ReplyIcon_svg__a)",
       children: jsx("path", {
         fill: "currentColor",
-        d: "M3.333 3.333V6c0 .556.195 1.028.584 1.417.389.389.86.583 1.416.583h6.117l-2.4-2.4.95-.933 4 4-4 4-.95-.934 2.4-2.4H5.333a3.213 3.213 0 0 1-2.358-.975A3.213 3.213 0 0 1 2 6V3.333h1.333Z"
+        d: "M3.333 3.333V6q0 .834.584 1.417Q4.5 8 5.333 8h6.117l-2.4-2.4.95-.933 4 4-4 4-.95-.934 2.4-2.4H5.333a3.21 3.21 0 0 1-2.358-.975A3.21 3.21 0 0 1 2 6V3.333z"
       })
     })]
   });
@@ -5465,7 +5483,7 @@ function SvgRobot2Icon(props) {
       clipPath: "url(#Robot2Icon_svg__a)",
       children: jsx("path", {
         fill: "currentColor",
-        d: "M2.4 24v-6c0-.66.235-1.225.705-1.695A2.311 2.311 0 0 1 4.8 15.6h14.4c.66 0 1.225.235 1.695.705S21.6 17.34 21.6 18v6H2.4Zm6-9.6c-1.66 0-3.075-.585-4.245-1.755S2.4 10.06 2.4 8.4c0-1.66.585-3.075 1.755-4.245S6.74 2.4 8.4 2.4h7.2c1.66 0 3.075.585 4.245 1.755S21.6 6.74 21.6 8.4c0 1.66-.585 3.075-1.755 4.245S17.26 14.4 15.6 14.4H8.4Zm-3.6 7.2h14.4V18H4.8v3.6ZM8.4 12h7.2c1 0 1.85-.35 2.55-1.05.7-.7 1.05-1.55 1.05-2.55 0-1-.35-1.85-1.05-2.55-.7-.7-1.55-1.05-2.55-1.05H8.4c-1 0-1.85.35-2.55 1.05-.7.7-1.05 1.55-1.05 2.55 0 1 .35 1.85 1.05 2.55.7.7 1.55 1.05 2.55 1.05Zm0-2.4c.34 0 .625-.115.855-.345.23-.23.345-.515.345-.855 0-.34-.115-.625-.345-.855A1.161 1.161 0 0 0 8.4 7.2c-.34 0-.625.115-.855.345-.23.23-.345.515-.345.855 0 .34.115.625.345.855.23.23.515.345.855.345Zm7.2 0c.34 0 .625-.115.855-.345.23-.23.345-.515.345-.855 0-.34-.115-.625-.345-.855A1.161 1.161 0 0 0 15.6 7.2c-.34 0-.625.115-.855.345-.23.23-.345.515-.345.855 0 .34.115.625.345.855.23.23.515.345.855.345Z"
+        d: "M2.4 24v-6q0-.99.705-1.695A2.3 2.3 0 0 1 4.8 15.6h14.4q.99 0 1.695.705T21.6 18v6zm6-9.6q-2.49 0-4.245-1.755T2.4 8.4t1.755-4.245T8.4 2.4h7.2q2.49 0 4.245 1.755T21.6 8.4t-1.755 4.245T15.6 14.4zm-3.6 7.2h14.4V18H4.8zM8.4 12h7.2q1.5 0 2.55-1.05T19.2 8.4t-1.05-2.55T15.6 4.8H8.4q-1.5 0-2.55 1.05T4.8 8.4t1.05 2.55T8.4 12m0-2.4q.51 0 .855-.345T9.6 8.4t-.345-.855A1.16 1.16 0 0 0 8.4 7.2q-.51 0-.855.345T7.2 8.4t.345.855.855.345m7.2 0q.51 0 .855-.345T16.8 8.4t-.345-.855A1.16 1.16 0 0 0 15.6 7.2q-.51 0-.855.345T14.4 8.4t.345.855.855.345"
       })
     }), jsx("defs", {
       children: jsx("clipPath", {
@@ -5498,7 +5516,7 @@ function SvgRobotIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 0a.75.75 0 0 1 .75.75V3h5.5a.75.75 0 0 1 .75.75V6h.25a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-.75.75H15v2.25a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75V12H.75a.75.75 0 0 1-.75-.75v-4.5A.75.75 0 0 1 .75 6H1V3.75A.75.75 0 0 1 1.75 3h5.5V.75A.75.75 0 0 1 8 0ZM2.5 4.5v9h11v-9h-11ZM5 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm7-1a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm-6.25 2.25a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-4.5Z",
+      d: "M8 0a.75.75 0 0 1 .75.75V3h5.5a.75.75 0 0 1 .75.75V6h.25a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-.75.75H15v2.25a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75V12H.75a.75.75 0 0 1-.75-.75v-4.5A.75.75 0 0 1 .75 6H1V3.75A.75.75 0 0 1 1.75 3h5.5V.75A.75.75 0 0 1 8 0M2.5 4.5v9h11v-9zM5 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2m7-1a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-6.25 2.25a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5z",
       clipRule: "evenodd"
     })
   });
@@ -5513,6 +5531,30 @@ const RobotIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 RobotIcon.displayName = 'RobotIcon';
 var RobotIcon$1 = RobotIcon;
 
+function SvgRocketIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      d: "m2.873 6.374 1.557.658q.28-.558.578-1.077.3-.517.659-1.036L4.549 4.7zm2.834 1.654L7.98 10.28q.839-.319 1.796-.976a12.8 12.8 0 0 0 1.796-1.495q1.397-1.395 2.185-3.1.788-1.702.688-3.138-1.437-.1-3.152.687A10.7 10.7 0 0 0 8.18 4.441a12.8 12.8 0 0 0-1.497 1.793q-.659.957-.977 1.794m3.551-1.295A1.53 1.53 0 0 1 8.8 5.607q0-.667.46-1.126a1.55 1.55 0 0 1 1.137-.459q.678 0 1.137.459.459.457.459 1.126 0 .667-.459 1.126a1.55 1.55 0 0 1-1.137.458q-.68 0-1.138-.458m.38 6.397 1.675-1.674-.219-1.116q-.52.36-1.037.648-.52.288-1.078.568zM15.882.116a9.17 9.17 0 0 1-.47 4.693q-.847 2.282-2.922 4.355l.399 1.973q.08.399-.04.777-.12.38-.4.658L9.1 15.92l-1.676-3.926L4.01 8.586.08 6.912l3.332-3.348q.28-.279.668-.399.39-.12.789-.04l1.975.399q2.074-2.072 4.35-2.93a9.1 9.1 0 0 1 4.689-.478M1.496 11.117a2.36 2.36 0 0 1 1.706-.707 2.29 2.29 0 0 1 1.707.687q.698.697.688 1.704a2.35 2.35 0 0 1-.708 1.704q-.499.498-1.667.857Q2.055 15.722 0 16q.28-2.052.638-3.219.36-1.166.858-1.664m1.138 1.116q-.2.2-.4.728a5 5 0 0 0-.279 1.066q.54-.08 1.068-.27.528-.188.728-.388a.86.86 0 0 0 .26-.578.72.72 0 0 0-.22-.578.76.76 0 0 0-.579-.229.83.83 0 0 0-.578.25"
+    })
+  });
+}
+const RocketIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgRocketIcon
+  });
+});
+RocketIcon.displayName = 'RocketIcon';
+var RocketIcon$1 = RocketIcon;
+
 function SvgRunningIcon(props) {
   return jsxs("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -5526,7 +5568,7 @@ function SvgRunningIcon(props) {
       children: jsx("path", {
         fill: "currentColor",
         fillRule: "evenodd",
-        d: "M8 1.5A6.5 6.5 0 0 0 1.5 8H0a8 8 0 0 1 8-8v1.5Zm0 13A6.5 6.5 0 0 0 14.5 8H16a8 8 0 0 1-8 8v-1.5Z",
+        d: "M8 1.5A6.5 6.5 0 0 0 1.5 8H0a8 8 0 0 1 8-8zm0 13A6.5 6.5 0 0 0 14.5 8H16a8 8 0 0 1-8 8z",
         clipRule: "evenodd"
       })
     }), jsx("defs", {
@@ -5559,11 +5601,11 @@ function SvgSaveIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M10 9.25H6v1.5h4v-1.5Z"
+      d: "M10 9.25H6v1.5h4z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1 1.75A.75.75 0 0 1 1.75 1H11a.75.75 0 0 1 .53.22l3.25 3.25c.141.14.22.331.22.53v9.25a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75V1.75Zm1.5.75H5v3.75c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75V2.81l2.5 2.5v8.19h-11v-11Zm4 0h3v3h-3v-3Z",
+      d: "M1 1.75A.75.75 0 0 1 1.75 1H11a.75.75 0 0 1 .53.22l3.25 3.25c.141.14.22.331.22.53v9.25a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75zm1.5.75H5v3.75c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75V2.81l2.5 2.5v8.19h-11zm4 0h3v3h-3z",
       clipRule: "evenodd"
     })]
   });
@@ -5589,7 +5631,7 @@ function SvgSchemaIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2.75 0A.75.75 0 0 0 2 .75v3a.75.75 0 0 0 .75.75h1v7a2.75 2.75 0 0 0 2.75 2.75H7v1c0 .414.336.75.75.75h5.5a.75.75 0 0 0 .75-.75v-3a.75.75 0 0 0-.75-.75h-5.5a.75.75 0 0 0-.75.75v.5h-.5c-.69 0-1.25-.56-1.25-1.25V8.45c.375.192.8.3 1.25.3H7v.75c0 .414.336.75.75.75h5.5A.75.75 0 0 0 14 9.5v-3a.75.75 0 0 0-.75-.75h-5.5A.75.75 0 0 0 7 6.5v.75h-.5c-.69 0-1.25-.56-1.25-1.25V4.5h8a.75.75 0 0 0 .75-.75v-3a.75.75 0 0 0-.75-.75H2.75Zm.75 3V1.5h9V3h-9Zm5 10v1.5h4V13h-4Zm0-4.25v-1.5h4v1.5h-4Z",
+      d: "M2.75 0A.75.75 0 0 0 2 .75v3a.75.75 0 0 0 .75.75h1v7a2.75 2.75 0 0 0 2.75 2.75H7v1c0 .414.336.75.75.75h5.5a.75.75 0 0 0 .75-.75v-3a.75.75 0 0 0-.75-.75h-5.5a.75.75 0 0 0-.75.75v.5h-.5c-.69 0-1.25-.56-1.25-1.25V8.45c.375.192.8.3 1.25.3H7v.75c0 .414.336.75.75.75h5.5A.75.75 0 0 0 14 9.5v-3a.75.75 0 0 0-.75-.75h-5.5A.75.75 0 0 0 7 6.5v.75h-.5c-.69 0-1.25-.56-1.25-1.25V4.5h8a.75.75 0 0 0 .75-.75v-3a.75.75 0 0 0-.75-.75zm.75 3V1.5h9V3zm5 10v1.5h4V13zm0-4.25v-1.5h4v1.5z",
       clipRule: "evenodd"
     })
   });
@@ -5615,7 +5657,7 @@ function SvgSchoolIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M16 7a.75.75 0 0 0-.37-.647l-7.25-4.25a.75.75 0 0 0-.76 0L.37 6.353a.75.75 0 0 0 0 1.294L3 9.188V12a.75.75 0 0 0 .4.663l4.25 2.25a.75.75 0 0 0 .7 0l4.25-2.25A.75.75 0 0 0 13 12V9.188l1.5-.879V12H16V7Zm-7.62 4.897 3.12-1.83v1.481L8 13.401l-3.5-1.853v-1.48l3.12 1.829a.75.75 0 0 0 .76 0ZM8 3.619 2.233 7 8 10.38 13.767 7 8 3.62Z",
+      d: "M16 7a.75.75 0 0 0-.37-.647l-7.25-4.25a.75.75 0 0 0-.76 0L.37 6.353a.75.75 0 0 0 0 1.294L3 9.188V12a.75.75 0 0 0 .4.663l4.25 2.25a.75.75 0 0 0 .7 0l4.25-2.25A.75.75 0 0 0 13 12V9.188l1.5-.879V12H16zm-7.62 4.897 3.12-1.83v1.481L8 13.401l-3.5-1.853v-1.48l3.12 1.829a.75.75 0 0 0 .76 0M8 3.619 2.233 7 8 10.38 13.767 7z",
       clipRule: "evenodd"
     })
   });
@@ -5640,11 +5682,11 @@ function SvgSearchDataIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M7.651 3.128a.75.75 0 0 0-1.302 0l-1 1.75A.75.75 0 0 0 6 6h2a.75.75 0 0 0 .651-1.122l-1-1.75ZM4.75 6.5a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM7.5 7.25a.75.75 0 0 1 .75-.75h2a.75.75 0 0 1 .75.75v2a.75.75 0 0 1-.75.75h-2a.75.75 0 0 1-.75-.75v-2Z"
+      d: "M7.651 3.128a.75.75 0 0 0-1.302 0l-1 1.75A.75.75 0 0 0 6 6h2a.75.75 0 0 0 .651-1.122zM4.75 6.5a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5M7.5 7.25a.75.75 0 0 1 .75-.75h2a.75.75 0 0 1 .75.75v2a.75.75 0 0 1-.75.75h-2a.75.75 0 0 1-.75-.75z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M0 7a7 7 0 1 1 12.45 4.392l2.55 2.55-1.06 1.061-2.55-2.55A7 7 0 0 1 0 7Zm7-5.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Z",
+      d: "M0 7a7 7 0 1 1 12.45 4.392l2.55 2.55-1.06 1.061-2.55-2.55A7 7 0 0 1 0 7m7-5.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11",
       clipRule: "evenodd"
     })]
   });
@@ -5672,7 +5714,7 @@ function SvgSearchIcon(props) {
       children: jsx("path", {
         fill: "currentColor",
         fillRule: "evenodd",
-        d: "M8 1a7 7 0 1 0 4.39 12.453l2.55 2.55 1.06-1.06-2.55-2.55A7 7 0 0 0 8 1ZM2.5 8a5.5 5.5 0 1 1 11 0 5.5 5.5 0 0 1-11 0Z",
+        d: "M8 1a7 7 0 1 0 4.39 12.453l2.55 2.55 1.06-1.06-2.55-2.55A7 7 0 0 0 8 1M2.5 8a5.5 5.5 0 1 1 11 0 5.5 5.5 0 0 1-11 0",
         clipRule: "evenodd"
       })
     }), jsx("defs", {
@@ -5706,7 +5748,7 @@ function SvgSecurityIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2 1.75A.75.75 0 0 1 2.75 1h10.5a.75.75 0 0 1 .75.75v7.465a5.75 5.75 0 0 1-2.723 4.889l-2.882 1.784a.75.75 0 0 1-.79 0l-2.882-1.784A5.75 5.75 0 0 1 2 9.214V1.75Zm1.5.75V7h3.75V2.5H3.5Zm5.25 0V7h3.75V2.5H8.75Zm3.75 6H8.75v5.404l1.737-1.076A4.25 4.25 0 0 0 12.5 9.215V8.5Zm-5.25 5.404V8.5H3.5v.715a4.25 4.25 0 0 0 2.013 3.613l1.737 1.076Z",
+      d: "M2 1.75A.75.75 0 0 1 2.75 1h10.5a.75.75 0 0 1 .75.75v7.465a5.75 5.75 0 0 1-2.723 4.889l-2.882 1.784a.75.75 0 0 1-.79 0l-2.882-1.784A5.75 5.75 0 0 1 2 9.214zm1.5.75V7h3.75V2.5zm5.25 0V7h3.75V2.5zm3.75 6H8.75v5.404l1.737-1.076A4.25 4.25 0 0 0 12.5 9.215zm-5.25 5.404V8.5H3.5v.715a4.25 4.25 0 0 0 2.013 3.613z",
       clipRule: "evenodd"
     })
   });
@@ -5732,7 +5774,7 @@ function SvgSendIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M16 8a.75.75 0 0 1-.435.68l-13.5 6.25a.75.75 0 0 1-1.02-.934L3.202 8 1.044 2.004a.75.75 0 0 1 1.021-.935l13.5 6.25A.75.75 0 0 1 16 8Zm-11.473.75-1.463 4.065L13.464 8l-10.4-4.815L4.527 7.25H8v1.5H4.527Z",
+      d: "M16 8a.75.75 0 0 1-.435.68l-13.5 6.25a.75.75 0 0 1-1.02-.934L3.202 8 1.044 2.004a.75.75 0 0 1 1.021-.935l13.5 6.25A.75.75 0 0 1 16 8m-11.473.75-1.463 4.065L13.464 8l-10.4-4.815L4.527 7.25H8v1.5z",
       clipRule: "evenodd"
     })
   });
@@ -5757,10 +5799,10 @@ function SvgShareIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M3.97 5.03 8 1l4.03 4.03-1.06 1.061-2.22-2.22v7.19h-1.5V3.87l-2.22 2.22-1.06-1.06Z"
+      d: "M3.97 5.03 8 1l4.03 4.03-1.06 1.061-2.22-2.22v7.19h-1.5V3.87l-2.22 2.22z"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M2.5 13.56v-6.5H1v7.25c0 .415.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V7.06h-1.5v6.5h-11Z"
+      d: "M2.5 13.56v-6.5H1v7.25c0 .415.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V7.06h-1.5v6.5z"
     })]
   });
 }
@@ -5785,7 +5827,7 @@ function SvgShieldIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2 1.75A.75.75 0 0 1 2.75 1h10.5a.75.75 0 0 1 .75.75v7.465a5.75 5.75 0 0 1-2.723 4.889l-2.882 1.784a.75.75 0 0 1-.79 0l-2.882-1.784A5.75 5.75 0 0 1 2 9.214V1.75Zm1.5.75V7h3.75V2.5H3.5Zm5.25 0V7h3.75V2.5H8.75Zm3.75 6H8.75v5.404l1.737-1.076A4.25 4.25 0 0 0 12.5 9.215V8.5Zm-5.25 5.404V8.5H3.5v.715a4.25 4.25 0 0 0 2.013 3.613l1.737 1.076Z",
+      d: "M2 1.75A.75.75 0 0 1 2.75 1h10.5a.75.75 0 0 1 .75.75v7.465a5.75 5.75 0 0 1-2.723 4.889l-2.882 1.784a.75.75 0 0 1-.79 0l-2.882-1.784A5.75 5.75 0 0 1 2 9.214zm1.5.75V7h3.75V2.5zm5.25 0V7h3.75V2.5zm3.75 6H8.75v5.404l1.737-1.076A4.25 4.25 0 0 0 12.5 9.215zm-5.25 5.404V8.5H3.5v.715a4.25 4.25 0 0 0 2.013 3.613z",
       clipRule: "evenodd"
     })
   });
@@ -5801,17 +5843,20 @@ ShieldIcon.displayName = 'ShieldIcon';
 var ShieldIcon$1 = ShieldIcon;
 
 function SvgShortcutIcon(props) {
-  return jsx("svg", {
+  return jsxs("svg", {
     xmlns: "http://www.w3.org/2000/svg",
     width: "1em",
     height: "1em",
     fill: "none",
     viewBox: "0 0 16 16",
     ...props,
-    children: jsx("path", {
-      fill: "#44535F",
-      d: "M5.167 14.667a3.053 3.053 0 0 1-2.242-.925A3.053 3.053 0 0 1 2 11.5c0-.633.164-1.2.492-1.7.327-.5.758-.878 1.291-1.133h-1.7V7.333h4v4H4.75V9.717c-.411.089-.75.3-1.017.633-.266.333-.4.717-.4 1.15 0 .511.18.944.542 1.3.361.356.792.533 1.292.533v1.334ZM7.417 14v-1.333h6V3.333H4.083V6H2.75V3.333c0-.366.13-.68.392-.941.26-.261.575-.392.941-.392h9.334c.366 0 .68.13.941.392.261.26.392.575.392.941v9.334c0 .366-.13.68-.392.941a1.284 1.284 0 0 1-.941.392h-6Z"
-    })
+    children: [jsx("path", {
+      fill: "currentColor",
+      d: "M14.25 14H9v-1.5h4.5v-10h-10V6H2V1.75A.75.75 0 0 1 2.75 1h11.5a.75.75 0 0 1 .75.75v11.5a.75.75 0 0 1-.75.75"
+    }), jsx("path", {
+      fill: "currentColor",
+      d: "M2 8h5v5H5.5v-2.872a2.251 2.251 0 0 0 .75 4.372V16A3.75 3.75 0 0 1 3.7 9.5H2z"
+    })]
   });
 }
 const ShortcutIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
@@ -5835,11 +5880,11 @@ function SvgSidebarAutoIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H15v-1.5H5.5v-11H15V1H1.75ZM4 2.5H2.5v11H4v-11Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H15v-1.5H5.5v-11H15V1zM4 2.5H2.5v11H4z",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
-      d: "m9.06 8 1.97 1.97-1.06 1.06L6.94 8l3.03-3.03 1.06 1.06L9.06 8ZM11.97 6.03 13.94 8l-1.97 1.97 1.06 1.06L16.06 8l-3.03-3.03-1.06 1.06Z"
+      d: "m9.06 8 1.97 1.97-1.06 1.06L6.94 8l3.03-3.03 1.06 1.06zM11.97 6.03 13.94 8l-1.97 1.97 1.06 1.06L16.06 8l-3.03-3.03z"
     })]
   });
 }
@@ -5864,11 +5909,11 @@ function SvgSidebarCollapseIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H15v-1.5H5.5v-11H15V1H1.75ZM4 2.5H2.5v11H4v-11Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H15v-1.5H5.5v-11H15V1zM4 2.5H2.5v11H4z",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
-      d: "m9.81 8.75 1.22 1.22-1.06 1.06L6.94 8l3.03-3.03 1.06 1.06-1.22 1.22H14v1.5H9.81Z"
+      d: "m9.81 8.75 1.22 1.22-1.06 1.06L6.94 8l3.03-3.03 1.06 1.06-1.22 1.22H14v1.5z"
     })]
   });
 }
@@ -5893,11 +5938,11 @@ function SvgSidebarExpandIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H15v-1.5H5.5v-11H15V1H1.75ZM4 2.5H2.5v11H4v-11Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H15v-1.5H5.5v-11H15V1zM4 2.5H2.5v11H4z",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M11.19 8.75 9.97 9.97l1.06 1.06L14.06 8l-3.03-3.03-1.06 1.06 1.22 1.22H7v1.5h4.19Z"
+      d: "M11.19 8.75 9.97 9.97l1.06 1.06L14.06 8l-3.03-3.03-1.06 1.06 1.22 1.22H7v1.5z"
     })]
   });
 }
@@ -5922,7 +5967,7 @@ function SvgSidebarIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75H1.75Zm.75 12.5v-11H4v11H2.5Zm3 0h8v-11h-8v11Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75zm.75 12.5v-11H4v11zm3 0h8v-11h-8z",
       clipRule: "evenodd"
     })
   });
@@ -5948,7 +5993,7 @@ function SvgSlidersIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2 3.104V2h1.5v1.104a2.751 2.751 0 0 1 0 5.292V14H2V8.396a2.751 2.751 0 0 1 0-5.292ZM1.5 5.75a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0ZM12.5 2v1.104a2.751 2.751 0 0 0 0 5.292V14H14V8.396a2.751 2.751 0 0 0 0-5.292V2h-1.5Zm.75 2.5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5ZM7.25 14v-1.104a2.751 2.751 0 0 1 0-5.292V2h1.5v5.604a2.751 2.751 0 0 1 0 5.292V14h-1.5ZM8 11.5A1.25 1.25 0 1 1 8 9a1.25 1.25 0 0 1 0 2.5Z",
+      d: "M2 3.104V2h1.5v1.104a2.751 2.751 0 0 1 0 5.292V14H2V8.396a2.751 2.751 0 0 1 0-5.292M1.5 5.75a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0M12.5 2v1.104a2.751 2.751 0 0 0 0 5.292V14H14V8.396a2.751 2.751 0 0 0 0-5.292V2zm.75 2.5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5M7.25 14v-1.104a2.751 2.751 0 0 1 0-5.292V2h1.5v5.604a2.751 2.751 0 0 1 0 5.292V14zM8 11.5A1.25 1.25 0 1 1 8 9a1.25 1.25 0 0 1 0 2.5",
       clipRule: "evenodd"
     })
   });
@@ -5976,10 +6021,10 @@ function SvgSortAlphabeticalAscendingIcon(props) {
       clipPath: "url(#SortAlphabeticalAscendingIcon_svg__a)",
       children: [jsx("path", {
         fillRule: "evenodd",
-        d: "M4.307 0a.75.75 0 0 1 .697.473L7.596 7H5.982l-.238-.6H2.855l-.24.6H1L3.61.472A.75.75 0 0 1 4.307 0Zm-.852 4.9h1.693l-.844-2.124L3.455 4.9Z",
+        d: "M4.307 0a.75.75 0 0 1 .697.473L7.596 7H5.982l-.238-.6H2.855l-.24.6H1L3.61.472A.75.75 0 0 1 4.307 0m-.852 4.9h1.693l-.844-2.124z",
         clipRule: "evenodd"
       }), jsx("path", {
-        d: "M4.777 9.5H1.5V8h4.75a.75.75 0 0 1 .607 1.191L3.723 13.5H7V15H2.25a.75.75 0 0 1-.607-1.191L4.777 9.5ZM12 .94l4.03 4.03-1.06 1.06-2.22-2.22V10h-1.5V3.81L9.03 6.03 7.97 4.97 12 .94Z"
+        d: "M4.777 9.5H1.5V8h4.75a.75.75 0 0 1 .607 1.191L3.723 13.5H7V15H2.25a.75.75 0 0 1-.607-1.191zM12 .94l4.03 4.03-1.06 1.06-2.22-2.22V10h-1.5V3.81L9.03 6.03 7.97 4.97z"
       })]
     }), jsx("defs", {
       children: jsx("clipPath", {
@@ -6014,10 +6059,10 @@ function SvgSortAlphabeticalDescendingIcon(props) {
       clipPath: "url(#SortAlphabeticalDescendingIcon_svg__a)",
       children: [jsx("path", {
         fillRule: "evenodd",
-        d: "M4.307 0a.75.75 0 0 1 .697.473L7.596 7H5.982l-.238-.6H2.855l-.24.6H1L3.61.472A.75.75 0 0 1 4.307 0Zm-.852 4.9h1.693l-.844-2.124L3.455 4.9Z",
+        d: "M4.307 0a.75.75 0 0 1 .697.473L7.596 7H5.982l-.238-.6H2.855l-.24.6H1L3.61.472A.75.75 0 0 1 4.307 0m-.852 4.9h1.693l-.844-2.124z",
         clipRule: "evenodd"
       }), jsx("path", {
-        d: "M4.777 9.5H1.5V8h4.75a.75.75 0 0 1 .607 1.191L3.723 13.5H7V15H2.25a.75.75 0 0 1-.607-1.191L4.777 9.5ZM12 15.06l-4.03-4.03 1.06-1.06 2.22 2.22V6h1.5v6.19l2.22-2.22 1.06 1.06L12 15.06Z"
+        d: "M4.777 9.5H1.5V8h4.75a.75.75 0 0 1 .607 1.191L3.723 13.5H7V15H2.25a.75.75 0 0 1-.607-1.191zM12 15.06l-4.03-4.03 1.06-1.06 2.22 2.22V6h1.5v6.19l2.22-2.22 1.06 1.06z"
       })]
     }), jsx("defs", {
       children: jsx("clipPath", {
@@ -6051,13 +6096,13 @@ function SvgSortAlphabeticalLeftIcon(props) {
       fill: "currentColor",
       clipPath: "url(#SortAlphabeticalLeftIcon_svg__a)",
       children: [jsx("path", {
-        d: "M.94 4 4.97-.03l1.06 1.06-2.22 2.22H10v1.5H3.81l2.22 2.22-1.06 1.06L.94 4Z"
+        d: "M.94 4 4.97-.03l1.06 1.06-2.22 2.22H10v1.5H3.81l2.22 2.22-1.06 1.06z"
       }), jsx("path", {
         fillRule: "evenodd",
-        d: "M4.307 9a.75.75 0 0 1 .697.473L7.596 16H5.982l-.238-.6H2.855l-.24.6H1l2.61-6.528A.75.75 0 0 1 4.307 9Zm-.852 4.9h1.693l-.844-2.124-.849 2.124Z",
+        d: "M4.307 9a.75.75 0 0 1 .697.473L7.596 16H5.982l-.238-.6H2.855l-.24.6H1l2.61-6.528A.75.75 0 0 1 4.307 9m-.852 4.9h1.693l-.844-2.124z",
         clipRule: "evenodd"
       }), jsx("path", {
-        d: "M11.777 10.5H8.5V9h4.75a.75.75 0 0 1 .607 1.191L10.723 14.5H14V16H9.25a.75.75 0 0 1-.607-1.191l3.134-4.309Z"
+        d: "M11.777 10.5H8.5V9h4.75a.75.75 0 0 1 .607 1.191L10.723 14.5H14V16H9.25a.75.75 0 0 1-.607-1.191z"
       })]
     }), jsx("defs", {
       children: jsx("clipPath", {
@@ -6091,13 +6136,13 @@ function SvgSortAlphabeticalRightIcon(props) {
       fill: "currentColor",
       clipPath: "url(#SortAlphabeticalRightIcon_svg__a)",
       children: [jsx("path", {
-        d: "m14.06 4-4.03 4.03-1.06-1.06 2.22-2.22H5v-1.5h6.19L8.97 1.03l1.06-1.06L14.06 4Z"
+        d: "m14.06 4-4.03 4.03-1.06-1.06 2.22-2.22H5v-1.5h6.19L8.97 1.03l1.06-1.06z"
       }), jsx("path", {
         fillRule: "evenodd",
-        d: "M4.307 9a.75.75 0 0 1 .697.473L7.596 16H5.982l-.238-.6H2.855l-.24.6H1l2.61-6.528A.75.75 0 0 1 4.307 9Zm-.852 4.9h1.693l-.844-2.124-.849 2.124Z",
+        d: "M4.307 9a.75.75 0 0 1 .697.473L7.596 16H5.982l-.238-.6H2.855l-.24.6H1l2.61-6.528A.75.75 0 0 1 4.307 9m-.852 4.9h1.693l-.844-2.124z",
         clipRule: "evenodd"
       }), jsx("path", {
-        d: "M11.777 10.5H8.5V9h4.75a.75.75 0 0 1 .607 1.191l-3.134 4.31H14V16H9.25a.75.75 0 0 1-.607-1.192l3.134-4.309Z"
+        d: "M11.777 10.5H8.5V9h4.75a.75.75 0 0 1 .607 1.191l-3.134 4.31H14V16H9.25a.75.75 0 0 1-.607-1.192z"
       })]
     }), jsx("defs", {
       children: jsx("clipPath", {
@@ -6129,7 +6174,7 @@ function SvgSortAscendingIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "m11.5.94 4.03 4.03-1.06 1.06-2.22-2.22V10h-1.5V3.81L8.53 6.03 7.47 4.97 11.5.94ZM1 4.5h4V6H1V4.5ZM1 12.5h10V14H1v-1.5ZM8 8.5H1V10h7V8.5Z"
+      d: "m11.5.94 4.03 4.03-1.06 1.06-2.22-2.22V10h-1.5V3.81L8.53 6.03 7.47 4.97zM1 4.5h4V6H1zM1 12.5h10V14H1zM8 8.5H1V10h7z"
     })
   });
 }
@@ -6154,7 +6199,7 @@ function SvgSortDescendingIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1 3.5h10V2H1v1.5Zm0 8h4V10H1v1.5Zm7-4H1V6h7v1.5Zm3.5 7.56 4.03-4.03-1.06-1.06-2.22 2.22V6h-1.5v6.19L8.53 9.97l-1.06 1.06 4.03 4.03Z",
+      d: "M1 3.5h10V2H1zm0 8h4V10H1zm7-4H1V6h7zm3.5 7.56 4.03-4.03-1.06-1.06-2.22 2.22V6h-1.5v6.19L8.53 9.97l-1.06 1.06z",
       clipRule: "evenodd"
     })
   });
@@ -6179,7 +6224,7 @@ function SvgSortUnsortedIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M11.5.94 7.47 4.97l1.06 1.06 2.22-2.22v8.38L8.53 9.97l-1.06 1.06 4.03 4.03 4.03-4.03-1.06-1.06-2.22 2.22V3.81l2.22 2.22 1.06-1.06L11.5.94ZM6 3.5H1V5h5V3.5ZM6 11.5H1V13h5v-1.5ZM1 7.5h5V9H1V7.5Z"
+      d: "M11.5.94 7.47 4.97l1.06 1.06 2.22-2.22v8.38L8.53 9.97l-1.06 1.06 4.03 4.03 4.03-4.03-1.06-1.06-2.22 2.22V3.81l2.22 2.22 1.06-1.06zM6 3.5H1V5h5zM6 11.5H1V13h5zM1 7.5h5V9H1z"
     })
   });
 }
@@ -6204,7 +6249,7 @@ function SvgSparkleDoubleFillIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M4.739 9.621a.75.75 0 0 0-1.478 0l-.152.877a.75.75 0 0 1-.61.61l-.878.153a.75.75 0 0 0 0 1.478l.877.152a.75.75 0 0 1 .61.61l.153.878a.75.75 0 0 0 1.478 0l.152-.877a.75.75 0 0 1 .61-.61l.878-.153a.75.75 0 0 0 0-1.478l-.877-.152a.75.75 0 0 1-.61-.61l-.153-.878ZM10.737.611a.75.75 0 0 0-1.474 0l-.264 1.398A3.75 3.75 0 0 1 6.01 5l-1.398.264a.75.75 0 0 0 0 1.474l1.398.264A3.75 3.75 0 0 1 9 9.99l.264 1.398a.75.75 0 0 0 1.474 0l.264-1.398A3.75 3.75 0 0 1 13.99 7l1.398-.264a.75.75 0 0 0 0-1.474l-1.398-.264A3.75 3.75 0 0 1 11 2.01L10.737.611Z",
+      d: "M4.739 9.622a.75.75 0 0 0-1.478 0l-.152.876a.75.75 0 0 1-.61.61l-.878.153a.75.75 0 0 0 0 1.478l.877.152a.75.75 0 0 1 .61.61l.153.878a.75.75 0 0 0 1.478 0l.152-.877a.75.75 0 0 1 .61-.61l.878-.153a.75.75 0 0 0 0-1.478l-.877-.152a.75.75 0 0 1-.61-.61zM10.737.611a.75.75 0 0 0-1.474 0l-.264 1.398A3.75 3.75 0 0 1 6.01 5l-1.398.264a.75.75 0 0 0 0 1.474l1.398.264A3.75 3.75 0 0 1 9 9.99l.264 1.398a.75.75 0 0 0 1.474 0l.264-1.398A3.75 3.75 0 0 1 13.99 7l1.398-.264a.75.75 0 0 0 0-1.474l-1.398-.264A3.75 3.75 0 0 1 11 2.01z",
       clipRule: "evenodd"
     })
   });
@@ -6229,11 +6274,11 @@ function SvgSparkleDoubleIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M3.848 10.627 4 9.75l.152.877a1.5 1.5 0 0 0 1.221 1.22L6.25 12l-.877.152a1.5 1.5 0 0 0-1.22 1.221L4 14.25l-.152-.877a1.5 1.5 0 0 0-1.221-1.22L1.75 12l.877-.152a1.5 1.5 0 0 0 1.22-1.221Z"
+      d: "M3.848 10.627 4 9.75l.152.877a1.5 1.5 0 0 0 1.221 1.22L6.25 12l-.877.152a1.5 1.5 0 0 0-1.22 1.221L4 14.25l-.152-.877a1.5 1.5 0 0 0-1.221-1.22L1.75 12l.877-.152a1.5 1.5 0 0 0 1.22-1.221"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M4 9a.75.75 0 0 1 .739.621l.152.877a.75.75 0 0 0 .61.61l.878.153a.75.75 0 0 1 0 1.478l-.877.152a.75.75 0 0 0-.61.61l-.153.878a.75.75 0 0 1-1.478 0l-.152-.877a.75.75 0 0 0-.61-.61l-.878-.153a.75.75 0 0 1 0-1.478l.877-.152a.75.75 0 0 0 .61-.61l.153-.878A.75.75 0 0 1 4 9Zm0 2.92a2.289 2.289 0 0 1-.08.08c.028.026.054.052.08.08.026-.028.052-.054.08-.08a2.289 2.289 0 0 1-.08-.08ZM10 0c.36 0 .67.257.737.611l.264 1.398A3.75 3.75 0 0 0 13.99 5l1.398.264a.75.75 0 0 1 0 1.474l-1.398.264A3.75 3.75 0 0 0 11 9.99l-.264 1.398a.75.75 0 0 1-1.474 0l-.264-1.398A3.75 3.75 0 0 0 6.01 7l-1.398-.264a.75.75 0 0 1 0-1.474l1.398-.264A3.75 3.75 0 0 0 9 2.01L9.263.611A.75.75 0 0 1 10 0Zm0 3.682A5.256 5.256 0 0 1 7.682 6 5.256 5.256 0 0 1 10 8.318 5.256 5.256 0 0 1 12.318 6 5.256 5.256 0 0 1 10 3.682Z",
+      d: "M4 9a.75.75 0 0 1 .739.621l.152.877a.75.75 0 0 0 .61.61l.878.153a.75.75 0 0 1 0 1.478l-.877.152a.75.75 0 0 0-.61.61l-.153.878a.75.75 0 0 1-1.478 0l-.152-.877a.75.75 0 0 0-.61-.61l-.878-.153a.75.75 0 0 1 0-1.478l.877-.152a.75.75 0 0 0 .61-.61l.153-.878A.75.75 0 0 1 4 9m0 2.92-.08.08q.042.039.08.08.038-.042.08-.08zM10 0c.36 0 .67.257.737.611l.264 1.398A3.75 3.75 0 0 0 13.99 5l1.398.264a.75.75 0 0 1 0 1.474l-1.398.264A3.75 3.75 0 0 0 11 9.99l-.264 1.398a.75.75 0 0 1-1.474 0l-.264-1.398A3.75 3.75 0 0 0 6.01 7l-1.398-.264a.75.75 0 0 1 0-1.474l1.398-.264A3.75 3.75 0 0 0 9 2.01L9.263.611A.75.75 0 0 1 10 0m0 3.682A5.26 5.26 0 0 1 7.682 6 5.26 5.26 0 0 1 10 8.318 5.26 5.26 0 0 1 12.318 6 5.26 5.26 0 0 1 10 3.682",
       clipRule: "evenodd"
     })]
   });
@@ -6259,7 +6304,7 @@ function SvgSparkleFillIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M13.667 6.575c1.376.452 1.376 2.398 0 2.85l-2.473.813a1.5 1.5 0 0 0-.956.957l-.813 2.472c-.452 1.376-2.398 1.376-2.85 0l-.813-2.473a1.5 1.5 0 0 0-.956-.956l-2.473-.813c-1.376-.452-1.376-2.398 0-2.85l2.473-.813a1.5 1.5 0 0 0 .956-.956l.813-2.473c.452-1.376 2.398-1.376 2.85 0l.813 2.473a1.5 1.5 0 0 0 .957.956l2.472.813Z",
+      d: "M13.667 6.575c1.376.452 1.376 2.398 0 2.85l-2.472.813a1.5 1.5 0 0 0-.957.957l-.813 2.472c-.452 1.376-2.398 1.376-2.85 0l-.813-2.472a1.5 1.5 0 0 0-.956-.957l-2.473-.813c-1.376-.452-1.376-2.398 0-2.85l2.473-.813a1.5 1.5 0 0 0 .956-.956l.813-2.473c.452-1.376 2.398-1.376 2.85 0l.813 2.473a1.5 1.5 0 0 0 .957.956z",
       clipRule: "evenodd"
     })
   });
@@ -6285,7 +6330,7 @@ function SvgSparkleIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M10.726 8.813 13.199 8l-2.473-.813a3 3 0 0 1-1.913-1.913L8 2.801l-.813 2.473a3 3 0 0 1-1.913 1.913L2.801 8l2.473.813a3 3 0 0 1 1.913 1.913L8 13.199l.813-2.473a3 3 0 0 1 1.913-1.913Zm2.941.612c1.376-.452 1.376-2.398 0-2.85l-2.473-.813a1.5 1.5 0 0 1-.956-.956l-.813-2.473c-.452-1.376-2.398-1.376-2.85 0l-.813 2.473a1.5 1.5 0 0 1-.956.956l-2.473.813c-1.376.452-1.376 2.398 0 2.85l2.473.813a1.5 1.5 0 0 1 .956.957l.813 2.472c.452 1.376 2.398 1.376 2.85 0l.813-2.473a1.5 1.5 0 0 1 .957-.956l2.472-.813Z",
+      d: "M10.726 8.813 13.199 8l-2.473-.813a3 3 0 0 1-1.913-1.913L8 2.801l-.813 2.473a3 3 0 0 1-1.913 1.913L2.801 8l2.473.813a3 3 0 0 1 1.913 1.913L8 13.199l.813-2.473a3 3 0 0 1 1.913-1.913m2.941.612c1.376-.452 1.376-2.398 0-2.85l-2.472-.813a1.5 1.5 0 0 1-.957-.956l-.813-2.473c-.452-1.376-2.398-1.376-2.85 0l-.813 2.473a1.5 1.5 0 0 1-.956.956l-2.473.813c-1.376.452-1.376 2.398 0 2.85l2.473.813a1.5 1.5 0 0 1 .956.957l.813 2.472c.452 1.376 2.398 1.376 2.85 0l.813-2.472a1.5 1.5 0 0 1 .957-.957z",
       clipRule: "evenodd"
     })
   });
@@ -6311,7 +6356,7 @@ function SvgSparkleRectangleIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M0 2.75A.75.75 0 0 1 .75 2H8v1.5H1.5v9h13V10H16v3.25a.75.75 0 0 1-.75.75H.75a.75.75 0 0 1-.75-.75V2.75Zm12.987-.14a.75.75 0 0 0-1.474 0l-.137.728a1.929 1.929 0 0 1-1.538 1.538l-.727.137a.75.75 0 0 0 0 1.474l.727.137c.78.147 1.39.758 1.538 1.538l.137.727a.75.75 0 0 0 1.474 0l.137-.727c.147-.78.758-1.39 1.538-1.538l.727-.137a.75.75 0 0 0 0-1.474l-.727-.137a1.929 1.929 0 0 1-1.538-1.538l-.137-.727Z",
+      d: "M0 2.75A.75.75 0 0 1 .75 2H8v1.5H1.5v9h13V10H16v3.25a.75.75 0 0 1-.75.75H.75a.75.75 0 0 1-.75-.75zm12.987-.14a.75.75 0 0 0-1.474 0l-.137.728a1.93 1.93 0 0 1-1.538 1.538l-.727.137a.75.75 0 0 0 0 1.474l.727.137c.78.147 1.39.758 1.538 1.538l.137.727a.75.75 0 0 0 1.474 0l.137-.727c.147-.78.758-1.39 1.538-1.538l.727-.137a.75.75 0 0 0 0-1.474l-.727-.137a1.93 1.93 0 0 1-1.538-1.538z",
       clipRule: "evenodd"
     })
   });
@@ -6336,11 +6381,11 @@ function SvgSpeechBubbleIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M6 7a.75.75 0 1 1-1.5 0A.75.75 0 0 1 6 7ZM8 7.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM10.75 7.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z"
+      d: "M6 7a.75.75 0 1 1-1.5 0A.75.75 0 0 1 6 7M8 7.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M10.75 7.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M6 1a6 6 0 1 0 0 12v2.25a.75.75 0 0 0 1.28.53L10.061 13A6 6 0 0 0 10 1H6ZM1.5 7A4.5 4.5 0 0 1 6 2.5h4a4.5 4.5 0 1 1 0 9h-.25a.75.75 0 0 0-.53.22L7.5 13.44v-1.19a.75.75 0 0 0-.75-.75H6A4.5 4.5 0 0 1 1.5 7Z",
+      d: "M6 1a6 6 0 1 0 0 12v2.25a.75.75 0 0 0 1.28.53L10.061 13A6 6 0 0 0 10 1zM1.5 7A4.5 4.5 0 0 1 6 2.5h4a4.5 4.5 0 1 1 0 9h-.25a.75.75 0 0 0-.53.22L7.5 13.44v-1.19a.75.75 0 0 0-.75-.75H6A4.5 4.5 0 0 1 1.5 7",
       clipRule: "evenodd"
     })]
   });
@@ -6365,11 +6410,11 @@ function SvgSpeechBubblePlusIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M7.25 9.5V7.75H5.5v-1.5h1.75V4.5h1.5v1.75h1.75v1.5H8.75V9.5h-1.5Z"
+      d: "M7.25 9.5V7.75H5.5v-1.5h1.75V4.5h1.5v1.75h1.75v1.5H8.75V9.5z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M6 1a6 6 0 0 0-6 6v.25a5.751 5.751 0 0 0 5 5.701v2.299a.75.75 0 0 0 1.28.53L9.06 13H10a6 6 0 0 0 0-12H6ZM1.5 7A4.5 4.5 0 0 1 6 2.5h4a4.5 4.5 0 1 1 0 9H8.75a.75.75 0 0 0-.53.22L6.5 13.44v-1.19a.75.75 0 0 0-.75-.75A4.25 4.25 0 0 1 1.5 7.25V7Z",
+      d: "M6 1a6 6 0 0 0-6 6v.25a5.75 5.75 0 0 0 5 5.701v2.299a.75.75 0 0 0 1.28.53L9.06 13H10a6 6 0 0 0 0-12zM1.5 7A4.5 4.5 0 0 1 6 2.5h4a4.5 4.5 0 1 1 0 9H8.75a.75.75 0 0 0-.53.22L6.5 13.44v-1.19a.75.75 0 0 0-.75-.75A4.25 4.25 0 0 1 1.5 7.25z",
       clipRule: "evenodd"
     })]
   });
@@ -6395,7 +6440,7 @@ function SvgSpeechBubbleQuestionMarkIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M6 1a6 6 0 0 0-6 6v.25a5.751 5.751 0 0 0 5 5.701v2.299a.75.75 0 0 0 1.28.53L9.06 13H10a6 6 0 0 0 0-12H6ZM1.5 7A4.5 4.5 0 0 1 6 2.5h4a4.5 4.5 0 1 1 0 9H8.75a.75.75 0 0 0-.53.22L6.5 13.44v-1.19a.75.75 0 0 0-.75-.75A4.25 4.25 0 0 1 1.5 7.25V7Zm8.707-1.689A2.25 2.25 0 0 1 8 8h-.75V6.5H8a.75.75 0 1 0-.75-.75h-1.5a2.25 2.25 0 0 1 4.457-.439ZM7.25 9.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z",
+      d: "M6 1a6 6 0 0 0-6 6v.25a5.75 5.75 0 0 0 5 5.701v2.299a.75.75 0 0 0 1.28.53L9.06 13H10a6 6 0 0 0 0-12zM1.5 7A4.5 4.5 0 0 1 6 2.5h4a4.5 4.5 0 1 1 0 9H8.75a.75.75 0 0 0-.53.22L6.5 13.44v-1.19a.75.75 0 0 0-.75-.75A4.25 4.25 0 0 1 1.5 7.25zm8.707-1.689A2.25 2.25 0 0 1 8 8h-.75V6.5H8a.75.75 0 1 0-.75-.75h-1.5a2.25 2.25 0 0 1 4.457-.439M7.25 9.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0",
       clipRule: "evenodd"
     })
   });
@@ -6418,19 +6463,14 @@ function SvgSpeechBubbleStarIcon(props) {
     fill: "none",
     viewBox: "0 0 16 16",
     ...props,
-    children: [jsx("g", {
-      clipPath: "url(#SpeechBubbleStarIcon_svg__a)",
-      children: jsx("path", {
-        fill: "currentColor",
-        d: "M1.599 0C.719 0 .006.72.006 1.6L0 11.2c0 .884.716 1.601 1.6 1.601H3.2v3.2l3.2-3.2h8c.88 0 1.601-.72 1.601-1.6v-9.6C16 .72 15.28 0 14.4 0H1.599Zm0 1.6h12.8v9.601H1.6l-.001-9.6Zm6.4.85L6.937 4.965l-2.726.232 2.066 1.79-.62 2.664 2.342-1.413 2.343 1.413-.62-2.669 2.065-1.79-2.725-.232-1.063-2.51Z"
-      })
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        children: jsx("path", {
-          fill: "#fff",
-          d: "M0 0h16v16H0z"
-        })
-      })
+    children: [jsx("path", {
+      fill: "currentColor",
+      d: "M8 3.5a.5.5 0 0 1 .476.345l.56 1.728h1.817a.5.5 0 0 1 .294.904l-1.47 1.068.562 1.728a.5.5 0 0 1-.77.559L8 8.764 6.53 9.832a.5.5 0 0 1-.769-.56l.561-1.727-1.47-1.068a.5.5 0 0 1 .295-.904h1.816l.561-1.728A.5.5 0 0 1 8 3.5"
+    }), jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M6 1a6 6 0 1 0 0 12v2.25a.75.75 0 0 0 1.28.53L10.061 13A6 6 0 0 0 10 1zM1.5 7A4.5 4.5 0 0 1 6 2.5h4a4.5 4.5 0 1 1 0 9h-.25a.75.75 0 0 0-.53.22L7.5 13.44v-1.19a.75.75 0 0 0-.75-.75H6A4.5 4.5 0 0 1 1.5 7",
+      clipRule: "evenodd"
     })]
   });
 }
@@ -6454,7 +6494,7 @@ function SvgStarFillIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M7.995 0a.75.75 0 0 1 .714.518l1.459 4.492h4.723a.75.75 0 0 1 .44 1.356l-3.82 2.776 1.459 4.492a.75.75 0 0 1-1.154.838l-3.82-2.776-3.821 2.776a.75.75 0 0 1-1.154-.838L4.48 9.142.66 6.366A.75.75 0 0 1 1.1 5.01h4.723L7.282.518A.75.75 0 0 1 7.995 0Z"
+      d: "M7.995 0a.75.75 0 0 1 .714.518l1.459 4.492h4.723a.75.75 0 0 1 .44 1.356l-3.82 2.776 1.459 4.492a.75.75 0 0 1-1.154.838l-3.82-2.776-3.821 2.776a.75.75 0 0 1-1.154-.838L4.48 9.142.66 6.366A.75.75 0 0 1 1.1 5.01h4.723L7.282.518A.75.75 0 0 1 7.995 0"
     })
   });
 }
@@ -6479,7 +6519,7 @@ function SvgStarIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M7.995 0a.75.75 0 0 1 .714.518l1.459 4.492h4.723a.75.75 0 0 1 .44 1.356l-3.82 2.776 1.459 4.492a.75.75 0 0 1-1.154.838l-3.82-2.776-3.821 2.776a.75.75 0 0 1-1.154-.838L4.48 9.142.66 6.366A.75.75 0 0 1 1.1 5.01h4.723L7.282.518A.75.75 0 0 1 7.995 0Zm0 3.177-.914 2.814a.75.75 0 0 1-.713.519h-2.96l2.394 1.739a.75.75 0 0 1 .273.839l-.915 2.814 2.394-1.74a.75.75 0 0 1 .882 0l2.394 1.74-.914-2.814a.75.75 0 0 1 .272-.839l2.394-1.74H9.623a.75.75 0 0 1-.713-.518l-.915-2.814Z",
+      d: "M7.995 0a.75.75 0 0 1 .714.518l1.459 4.492h4.723a.75.75 0 0 1 .44 1.356l-3.82 2.776 1.459 4.492a.75.75 0 0 1-1.154.838l-3.82-2.776-3.821 2.776a.75.75 0 0 1-1.154-.838L4.48 9.142.66 6.366A.75.75 0 0 1 1.1 5.01h4.723L7.282.518A.75.75 0 0 1 7.995 0m0 3.177-.914 2.814a.75.75 0 0 1-.713.519h-2.96l2.394 1.739a.75.75 0 0 1 .273.839l-.915 2.814 2.394-1.74a.75.75 0 0 1 .882 0l2.394 1.74-.914-2.814a.75.75 0 0 1 .272-.839l2.394-1.74H9.623a.75.75 0 0 1-.713-.518z",
       clipRule: "evenodd"
     })
   });
@@ -6505,7 +6545,7 @@ function SvgStopCircleFillIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16ZM6.125 5.5a.625.625 0 0 0-.625.625v3.75c0 .345.28.625.625.625h3.75c.345 0 .625-.28.625-.625v-3.75a.625.625 0 0 0-.625-.625h-3.75Z",
+      d: "M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16M6.125 5.5a.625.625 0 0 0-.625.625v3.75c0 .345.28.625.625.625h3.75c.345 0 .625-.28.625-.625v-3.75a.625.625 0 0 0-.625-.625z",
       clipRule: "evenodd"
     })
   });
@@ -6531,7 +6571,7 @@ function SvgStopCircleIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.5 8a6.5 6.5 0 1 1 13 0 6.5 6.5 0 0 1-13 0ZM8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0ZM5.5 6a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5H6a.5.5 0 0 1-.5-.5V6Z",
+      d: "M1.5 8a6.5 6.5 0 1 1 13 0 6.5 6.5 0 0 1-13 0M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0M5.5 6a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5H6a.5.5 0 0 1-.5-.5z",
       clipRule: "evenodd"
     })
   });
@@ -6556,7 +6596,7 @@ function SvgStopIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M4.5 4a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5h7a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.5-.5h-7Z"
+      d: "M4.5 4a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5h7a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.5-.5z"
     })
   });
 }
@@ -6581,7 +6621,7 @@ function SvgStorefrontIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M3.52 2.3a.75.75 0 0 1 .6-.3h7.76a.75.75 0 0 1 .6.3l2.37 3.158a.75.75 0 0 1 .15.45v.842c0 .04-.003.077-.009.115A2.311 2.311 0 0 1 14 8.567v5.683a.75.75 0 0 1-.75.75H2.75a.75.75 0 0 1-.75-.75V8.567A2.311 2.311 0 0 1 1 6.75v-.841a.75.75 0 0 1 .15-.45l2.37-3.16Zm7.605 6.068c.368.337.847.557 1.375.6V13.5h-9V8.968a2.303 2.303 0 0 0 1.375-.6c.411.377.96.607 1.563.607.602 0 1.15-.23 1.562-.607.411.377.96.607 1.563.607.602 0 1.15-.23 1.562-.607Zm2.375-2.21v.532l-.001.019a.813.813 0 0 1-1.623 0 .754.754 0 0 0-.008-.076.756.756 0 0 0 .012-.133V4L13.5 6.16Zm-3.113.445a.762.762 0 0 0-.013.106.813.813 0 0 1-1.624-.019V3.5h1.63v3c0 .035.002.07.007.103ZM7.25 3.5v3.19a.813.813 0 0 1-1.624.019.757.757 0 0 0-.006-.064V3.5h1.63ZM4.12 4 2.5 6.16v.531l.001.019a.813.813 0 0 0 1.619.045V4Z",
+      d: "M3.52 2.3a.75.75 0 0 1 .6-.3h7.76a.75.75 0 0 1 .6.3l2.37 3.158a.75.75 0 0 1 .15.45v.842q0 .059-.009.115A2.31 2.31 0 0 1 14 8.567v5.683a.75.75 0 0 1-.75.75H2.75a.75.75 0 0 1-.75-.75V8.567A2.31 2.31 0 0 1 1 6.75v-.841a.75.75 0 0 1 .15-.45zm7.605 6.068c.368.337.847.557 1.375.6V13.5h-9V8.968a2.3 2.3 0 0 0 1.375-.6c.411.377.96.607 1.563.607.602 0 1.15-.23 1.562-.607.411.377.96.607 1.563.607.602 0 1.15-.23 1.562-.607m2.375-2.21v.532l-.001.019a.813.813 0 0 1-1.623 0l-.008-.076a1 1 0 0 0 .012-.133V4zm-3.113.445a1 1 0 0 0-.013.106.813.813 0 0 1-1.624-.019V3.5h1.63v3q0 .053.007.103M7.25 3.5v3.19l-.001.019a.813.813 0 0 1-1.623 0l-.006-.064V3.5zM4.12 4 2.5 6.16v.531l.001.019a.813.813 0 0 0 1.619.045z",
       clipRule: "evenodd"
     })
   });
@@ -6607,7 +6647,7 @@ function SvgStreamIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0ZM1.52 7.48a6.5 6.5 0 0 1 12.722-1.298l-.09-.091a3.75 3.75 0 0 0-5.304 0L6.091 8.848a2.25 2.25 0 0 1-3.182 0L1.53 7.47l-.01.01Zm.238 2.338A6.5 6.5 0 0 0 14.48 8.52l-.01.01-1.379-1.378a2.25 2.25 0 0 0-3.182 0L7.152 9.909a3.75 3.75 0 0 1-5.304 0l-.09-.09Z",
+      d: "M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0M1.52 7.48a6.5 6.5 0 0 1 12.722-1.298l-.09-.091a3.75 3.75 0 0 0-5.304 0L6.091 8.848a2.25 2.25 0 0 1-3.182 0L1.53 7.47zm.238 2.338A6.5 6.5 0 0 0 14.48 8.52l-.01.01-1.379-1.378a2.25 2.25 0 0 0-3.182 0L7.152 9.909a3.75 3.75 0 0 1-5.304 0z",
       clipRule: "evenodd"
     })
   });
@@ -6632,7 +6672,7 @@ function SvgSyncIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M8 2.5a5.48 5.48 0 0 1 3.817 1.54l.009.009.5.451H11V6h4V2h-1.5v1.539l-.651-.588A7 7 0 0 0 1 8h1.5A5.5 5.5 0 0 1 8 2.5ZM1 10h4v1.5H3.674l.5.451.01.01A5.5 5.5 0 0 0 13.5 8h1.499a7 7 0 0 1-11.849 5.048L2.5 12.46V14H1v-4Z"
+      d: "M8 2.5a5.48 5.48 0 0 1 3.817 1.54l.009.009.5.451H11V6h4V2h-1.5v1.539l-.651-.588A7 7 0 0 0 1 8h1.5A5.5 5.5 0 0 1 8 2.5M1 10h4v1.5H3.674l.5.451.01.01A5.5 5.5 0 0 0 13.5 8h1.499a7 7 0 0 1-11.849 5.048L2.5 12.46V14H1z"
     })
   });
 }
@@ -6657,12 +6697,12 @@ function SvgTableGlassesIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H4v-1.5H2.5V7H5v2h1.5V7h3v2H11V7h2.5v2H15V1.75a.75.75 0 0 0-.75-.75H1.75ZM13.5 5.5v-3h-11v3h11Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H4v-1.5H2.5V7H5v2h1.5V7h3v2H11V7h2.5v2H15V1.75a.75.75 0 0 0-.75-.75zM13.5 5.5v-3h-11v3z",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M11.75 10a.75.75 0 0 0-.707.5H9.957a.751.751 0 0 0-.708-.5H5.75a.75.75 0 0 0-.75.75v1.75a2.5 2.5 0 0 0 5 0V12h1v.5a2.5 2.5 0 0 0 5 0v-1.75a.75.75 0 0 0-.75-.75h-3.5Zm.75 2.5v-1h2v1a1 1 0 1 1-2 0Zm-6-1v1a1 1 0 1 0 2 0v-1h-2Z",
+      d: "M11.75 10a.75.75 0 0 0-.707.5H9.957a.75.75 0 0 0-.708-.5H5.75a.75.75 0 0 0-.75.75v1.75a2.5 2.5 0 0 0 5 0V12h1v.5a2.5 2.5 0 0 0 5 0v-1.75a.75.75 0 0 0-.75-.75zm.75 2.5v-1h2v1a1 1 0 1 1-2 0m-6-1v1a1 1 0 1 0 2 0v-1z",
       clipRule: "evenodd"
     })]
   });
@@ -6688,12 +6728,12 @@ function SvgTableGlobeIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H7v-1.5h-.5V7H15V1.75a.75.75 0 0 0-.75-.75H1.75ZM5 7v6.5H2.5V7H5Zm8.5-1.5v-3h-11v3h11Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H7v-1.5h-.5V7H15V1.75a.75.75 0 0 0-.75-.75zM5 7v6.5H2.5V7zm8.5-1.5v-3h-11v3z",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M11.625 7.25a4.375 4.375 0 1 0 0 8.75 4.375 4.375 0 0 0 0-8.75ZM9.952 9.287a10.476 10.476 0 0 0-.185 1.588H8.85a2.88 2.88 0 0 1 1.103-1.588Zm1.547-.02c-.116.41-.196.963-.23 1.608h.712c-.034-.646-.114-1.198-.23-1.608a2.482 2.482 0 0 0-.126-.353c-.04.088-.083.203-.126.353Zm0 4.716c-.116-.41-.196-.963-.23-1.608h.712c-.034.646-.114 1.198-.23 1.608-.043.15-.086.265-.126.353a2.483 2.483 0 0 1-.126-.353Zm1.799-4.696c.098.475.158 1.016.185 1.588h.918a2.88 2.88 0 0 0-1.103-1.588Zm.185 3.088h.918a2.88 2.88 0 0 1-1.103 1.588c.098-.475.158-1.016.185-1.588Zm-4.634 0h.918c.027.572.087 1.113.185 1.588a2.88 2.88 0 0 1-1.103-1.588Z",
+      d: "M11.625 7.25a4.375 4.375 0 1 0 0 8.75 4.375 4.375 0 0 0 0-8.75M9.952 9.287a10.5 10.5 0 0 0-.185 1.588H8.85a2.88 2.88 0 0 1 1.103-1.588m1.547-.02c-.116.41-.196.963-.23 1.608h.712c-.034-.646-.114-1.198-.23-1.608a2.5 2.5 0 0 0-.126-.353q-.06.13-.126.353m0 4.716c-.116-.41-.196-.963-.23-1.608h.712c-.034.646-.114 1.198-.23 1.608-.043.15-.086.265-.126.353a2.5 2.5 0 0 1-.126-.353m1.799-4.696c.098.475.158 1.016.185 1.588h.918a2.88 2.88 0 0 0-1.103-1.588m.185 3.088h.918a2.88 2.88 0 0 1-1.103 1.588c.098-.475.158-1.016.185-1.588m-4.634 0h.918c.027.572.087 1.113.185 1.588a2.88 2.88 0 0 1-1.103-1.588",
       clipRule: "evenodd"
     })]
   });
@@ -6719,7 +6759,7 @@ function SvgTableIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75V1.75Zm1.5.75v3h11v-3h-11Zm0 11V7H5v6.5H2.5Zm4 0h3V7h-3v6.5ZM11 7v6.5h2.5V7H11Z",
+      d: "M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75zm1.5.75v3h11v-3zm0 11V7H5v6.5zm4 0h3V7h-3zM11 7v6.5h2.5V7z",
       clipRule: "evenodd"
     })
   });
@@ -6745,11 +6785,11 @@ function SvgTableLightningIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H8v-1.5H6.5V7h7v2H15V1.75a.75.75 0 0 0-.75-.75H1.75ZM5 7H2.5v6.5H5V7Zm8.5-1.5v-3h-11v3h11Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H8v-1.5H6.5V7h7v2H15V1.75a.75.75 0 0 0-.75-.75zM5 7H2.5v6.5H5zm8.5-1.5v-3h-11v3z",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
-      d: "m8.43 11.512 3-3.5 1.14.976-1.94 2.262H14a.75.75 0 0 1 .57 1.238l-3 3.5-1.14-.976 1.94-2.262H9a.75.75 0 0 1-.57-1.238Z"
+      d: "m8.43 11.512 3-3.5 1.14.976-1.94 2.262H14a.75.75 0 0 1 .57 1.238l-3 3.5-1.14-.976 1.94-2.262H9a.75.75 0 0 1-.57-1.238"
     })]
   });
 }
@@ -6774,12 +6814,12 @@ function SvgTableModelIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H6.5V7H15V1.75a.75.75 0 0 0-.75-.75H1.75ZM5 7v6.5H2.5V7H5Zm8.5-1.5v-3h-11v3h11Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H6.5V7H15V1.75a.75.75 0 0 0-.75-.75zM5 7v6.5H2.5V7zm8.5-1.5v-3h-11v3z",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M7.25 8.5a1.25 1.25 0 1 1 2.488.177l1.48 1.481a1.994 1.994 0 0 1 1.563 0l.731-.731a1.25 1.25 0 1 1 1.06 1.06l-.73.732a1.995 1.995 0 0 1 0 1.562l.731.731a1.25 1.25 0 1 1-1.06 1.06l-.732-.73a2 2 0 0 1-2.636-1.092H9.5a1.25 1.25 0 1 1 0-1.5h.645l.013-.031-1.481-1.481A1.25 1.25 0 0 1 7.25 8.5ZM11.5 12a.5.5 0 1 1 1 0 .5.5 0 0 1-1 0Z",
+      d: "M7.25 8.5a1.25 1.25 0 1 1 2.488.177l1.48 1.481a2 2 0 0 1 1.563 0l.731-.731a1.25 1.25 0 1 1 1.06 1.06l-.73.732a2 2 0 0 1 0 1.562l.731.731a1.25 1.25 0 1 1-1.06 1.06l-.732-.73a2 2 0 0 1-2.636-1.092H9.5a1.25 1.25 0 1 1 0-1.5h.645l.013-.031-1.481-1.481A1.25 1.25 0 0 1 7.25 8.5M11.5 12a.5.5 0 1 1 1 0 .5.5 0 0 1-1 0",
       clipRule: "evenodd"
     })]
   });
@@ -6805,7 +6845,7 @@ function SvgTableOnlineViewIcon(props) {
     children: [jsx("path", {
       stroke: "currentColor",
       strokeWidth: 1.5,
-      d: "M.75 1A.25.25 0 0 1 1 .75h12a.25.25 0 0 1 .25.25v12a.25.25 0 0 1-.25.25H1A.25.25 0 0 1 .75 13V1ZM1 5.25h12M5.25 13V6"
+      d: "M.75 1A.25.25 0 0 1 1 .75h12a.25.25 0 0 1 .25.25v12a.25.25 0 0 1-.25.25H1A.25.25 0 0 1 .75 13zM1 5.25h12M5.25 13V6"
     }), jsx("path", {
       fill: "#fff",
       d: "M7 7h9v7.5H7z"
@@ -6836,14 +6876,14 @@ function SvgTableStreamIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H6.5V7h3v1H11V7h2.5v1H15V1.75a.75.75 0 0 0-.75-.75H1.75ZM5 7v6.5H2.5V7H5Zm8.5-1.5v-3h-11v3h11Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H6.5V7h3v1H11V7h2.5v1H15V1.75a.75.75 0 0 0-.75-.75zM5 7v6.5H2.5V7zm8.5-1.5v-3h-11v3z",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M9.024 10.92a1.187 1.187 0 0 1 1.876.03 2.687 2.687 0 0 0 4.247.066l.439-.548-1.172-.937-.438.548a1.187 1.187 0 0 1-1.876-.03 2.687 2.687 0 0 0-4.247-.066l-.439.548 1.172.937.438-.547Z"
+      d: "M9.024 10.92a1.187 1.187 0 0 1 1.876.03 2.687 2.687 0 0 0 4.247.066l.439-.548-1.172-.937-.438.548a1.187 1.187 0 0 1-1.876-.03 2.687 2.687 0 0 0-4.247-.066l-.439.548 1.172.937z"
     }), jsx("path", {
       fill: "currentColor",
-      d: "M9.024 13.92a1.187 1.187 0 0 1 1.876.03 2.687 2.687 0 0 0 4.247.066l.439-.548-1.172-.937-.438.548a1.187 1.187 0 0 1-1.876-.03 2.687 2.687 0 0 0-4.247-.066l-.439.548 1.172.937.438-.547Z"
+      d: "M9.024 13.92a1.187 1.187 0 0 1 1.876.03 2.687 2.687 0 0 0 4.247.066l.439-.548-1.172-.937-.438.548a1.187 1.187 0 0 1-1.876-.03 2.687 2.687 0 0 0-4.247-.066l-.439.548 1.172.937z"
     })]
   });
 }
@@ -6868,7 +6908,7 @@ function SvgTableVectorIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H8v-1.5H6.5V7h7v2H15V1.75a.75.75 0 0 0-.75-.75H1.75ZM5 7H2.5v6.5H5V7Zm8.5-1.5v-3h-11v3h11Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H8v-1.5H6.5V7h7v2H15V1.75a.75.75 0 0 0-.75-.75zM5 7H2.5v6.5H5zm8.5-1.5v-3h-11v3z",
       clipRule: "evenodd"
     }), jsx("circle", {
       cx: 12,
@@ -6926,9 +6966,9 @@ function SvgTableViewIcon(props) {
       clipPath: "url(#TableViewIcon_svg__a)",
       clipRule: "evenodd",
       children: [jsx("path", {
-        d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H4v-1.5H2.5V7H5v2h1.5V7h3v2H11V7h2.5v2H15V1.75a.75.75 0 0 0-.75-.75H1.75ZM13.5 5.5v-3h-11v3h11Z"
+        d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H4v-1.5H2.5V7H5v2h1.5V7h3v2H11V7h2.5v2H15V1.75a.75.75 0 0 0-.75-.75zM13.5 5.5v-3h-11v3z"
       }), jsx("path", {
-        d: "M11.75 10a.75.75 0 0 0-.707.5H9.957a.75.75 0 0 0-.707-.5h-3.5a.75.75 0 0 0-.75.75v1.75a2.5 2.5 0 0 0 5 0V12h1v.5a2.5 2.5 0 0 0 5 0v-1.75a.75.75 0 0 0-.75-.75h-3.5Zm.75 2.5v-1h2v1a1 1 0 1 1-2 0Zm-6-1v1a1 1 0 1 0 2 0v-1h-2Z"
+        d: "M11.75 10a.75.75 0 0 0-.707.5H9.957a.75.75 0 0 0-.707-.5h-3.5a.75.75 0 0 0-.75.75v1.75a2.5 2.5 0 0 0 5 0V12h1v.5a2.5 2.5 0 0 0 5 0v-1.75a.75.75 0 0 0-.75-.75zm.75 2.5v-1h2v1a1 1 0 1 1-2 0m-6-1v1a1 1 0 1 0 2 0v-1z"
       })]
     }), jsx("defs", {
       children: jsx("clipPath", {
@@ -6951,16 +6991,22 @@ TableViewIcon.displayName = 'TableViewIcon';
 var TableViewIcon$1 = TableViewIcon;
 
 function SvgTagIcon(props) {
-  return jsx("svg", {
+  return jsxs("svg", {
     xmlns: "http://www.w3.org/2000/svg",
     width: "1em",
     height: "1em",
-    viewBox: "0 -960 960 960",
+    fill: "none",
+    viewBox: "0 0 16 16",
     ...props,
-    children: jsx("path", {
+    children: [jsx("path", {
       fill: "currentColor",
-      d: "M570-104q-23 23-57 23t-57-23L104-456q-11-11-17.5-26T80-514v-286q0-33 23.5-56.5T160-880h286q17 0 32 6.5t26 17.5l352 353q23 23 23 56.5T856-390L570-104Zm-57-56 286-286-353-354H160v286l353 354ZM260-640q25 0 42.5-17.5T320-700q0-25-17.5-42.5T260-760q-25 0-42.5 17.5T200-700q0 25 17.5 42.5T260-640ZM160-800Z"
-    })
+      d: "M5 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2"
+    }), jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M1.768 1.018a.75.75 0 0 0-.75.75v6.1c0 .199.079.39.22.53l6.884 6.885a.75.75 0 0 0 1.06 0l6.101-6.1a.75.75 0 0 0 0-1.061L8.4 1.237a.75.75 0 0 0-.53-.22zm6.884 12.674L2.518 7.557v-5.04h5.04l6.134 6.135z",
+      clipRule: "evenodd"
+    })]
   });
 }
 const TagIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
@@ -6983,11 +7029,11 @@ function SvgTargetIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M1.75 1H6v1.5H2.5V6H1V1.75A.75.75 0 0 1 1.75 1ZM14.25 1H10v1.5h3.5V6H15V1.75a.75.75 0 0 0-.75-.75ZM10 13.5h3.5V10H15v4.25a.75.75 0 0 1-.75.75H10v-1.5ZM2.5 13.5V10H1v4.25c0 .414.336.75.75.75H6v-1.5H2.5Z"
+      d: "M1.75 1H6v1.5H2.5V6H1V1.75A.75.75 0 0 1 1.75 1M14.25 1H10v1.5h3.5V6H15V1.75a.75.75 0 0 0-.75-.75M10 13.5h3.5V10H15v4.25a.75.75 0 0 1-.75.75H10zM2.5 13.5V10H1v4.25c0 .414.336.75.75.75H6v-1.5z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM6.5 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z",
+      d: "M8 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6M6.5 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0",
       clipRule: "evenodd"
     })]
   });
@@ -7013,7 +7059,7 @@ function SvgTerminalIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2.5 13.5v-11h11v11h-11ZM1 1.7a.7.7 0 0 1 .7-.7h12.6a.7.7 0 0 1 .7.7v12.6a.7.7 0 0 1-.7.7H1.7a.7.7 0 0 1-.7-.7V1.7Zm7 8.83h4v-1.5H8v1.5Zm-.97-1.97-1.5 1.5L4.47 9l.97-.97-.97-.97L5.53 6l1.5 1.5.53.53-.53.53Z",
+      d: "M2.5 13.5v-11h11v11zM1 1.7a.7.7 0 0 1 .7-.7h12.6a.7.7 0 0 1 .7.7v12.6a.7.7 0 0 1-.7.7H1.7a.7.7 0 0 1-.7-.7zm7 8.83h4v-1.5H8zm-.97-1.97-1.5 1.5L4.47 9l.97-.97-.97-.97L5.53 6l1.5 1.5.53.53z",
       clipRule: "evenodd"
     })
   });
@@ -7039,7 +7085,7 @@ function SvgTextBoxIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75H1.75Zm.75 12.5v-11h11v11h-11ZM5 6h2.25v5.5h1.5V6H11V4.5H5V6Z",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V1.75a.75.75 0 0 0-.75-.75zm.75 12.5v-11h11v11zM5 6h2.25v5.5h1.5V6H11V4.5H5z",
       clipRule: "evenodd"
     })
   });
@@ -7054,6 +7100,32 @@ const TextBoxIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 TextBoxIcon.displayName = 'TextBoxIcon';
 var TextBoxIcon$1 = TextBoxIcon;
 
+function SvgTextUnderlineIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M9.83 2.004v2.309c.437-.18 1.005-.318 1.5-.318.74 0 1.668.284 2.03.647.363.363.97 1.474.97 2.858s-.382 2.46-.966 2.889c-.564.415-1.293.606-2.035.606a3.7 3.7 0 0 1-1.5-.298v.298h-1.5V2.004zm0 5.496c0-.988.211-1.444.483-1.69.271-.246.763-.315 1.016-.315s.69.017 1.046.279.543.606.543 1.726-.23 1.413-.543 1.684-.723.311-1.046.311-.725-.106-1.016-.363c-.215-.189-.484-.644-.484-1.632m-8.327 5H0v1.503h16V12.5H1.503M4.25 5.245c-.582 0-1.16.16-1.755.365l-.49-1.418c.63-.218 1.404-.447 2.245-.447a3 3 0 0 1 3 3v4.25h-1.5v-.299a3.7 3.7 0 0 1-1.5.299c-.741 0-1.47-.192-2.035-.607a2.3 2.3 0 0 1-.965-1.893c0-.81.381-1.465.965-1.894.564-.415 1.294-.606 2.035-.606.494 0 .982.084 1.42.263a1.5 1.5 0 0 0-1.42-1.013M5.397 7.81c.23.17.353.39.353.685a.8.8 0 0 1-.353.685c-.25.183-.646.315-1.147.315s-.897-.132-1.147-.315a.8.8 0 0 1-.353-.685c0-.295.123-.516.353-.685.25-.184.646-.315 1.147-.315s.897.13 1.147.315",
+      clipRule: "evenodd"
+    })
+  });
+}
+const TextUnderlineIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgTextUnderlineIcon
+  });
+});
+TextUnderlineIcon.displayName = 'TextUnderlineIcon';
+var TextUnderlineIcon$1 = TextUnderlineIcon;
+
 function SvgThumbsDownIcon(props) {
   return jsxs("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -7067,7 +7139,7 @@ function SvgThumbsDownIcon(props) {
       children: jsx("path", {
         fill: "currentColor",
         fillRule: "evenodd",
-        d: "M13.655 2.274a.79.79 0 0 0-.528-.19h-1.044v5.833h1.044a.79.79 0 0 0 .79-.643V2.725a.79.79 0 0 0-.262-.451Zm-3.072 6.233V2.083H3.805a.583.583 0 0 0-.583.496v.001l-.92 6a.585.585 0 0 0 .583.67h3.782a.75.75 0 0 1 .75.75v2.667a1.25 1.25 0 0 0 .8 1.166l2.366-5.326Zm1.238.91L9.352 14.97a.75.75 0 0 1-.685.446 2.75 2.75 0 0 1-2.75-2.75V10.75h-3.02A2.082 2.082 0 0 1 .82 8.354l.92-6A2.085 2.085 0 0 1 3.816.584h9.29a2.29 2.29 0 0 1 2.303 1.982.751.751 0 0 1 .007.1v4.667a.751.751 0 0 1-.007.1 2.29 2.29 0 0 1-2.303 1.984h-1.286Z",
+        d: "M13.655 2.274a.8.8 0 0 0-.528-.19h-1.044v5.833h1.044a.79.79 0 0 0 .79-.643V2.725a.8.8 0 0 0-.262-.451m-3.072 6.233V2.083H3.805a.58.58 0 0 0-.583.496v.001l-.92 6a.585.585 0 0 0 .583.67h3.782a.75.75 0 0 1 .75.75v2.667a1.25 1.25 0 0 0 .8 1.166zm1.238.91L9.352 14.97a.75.75 0 0 1-.685.446 2.75 2.75 0 0 1-2.75-2.75V10.75h-3.02A2.082 2.082 0 0 1 .82 8.354l.92-6A2.085 2.085 0 0 1 3.816.584h9.29a2.29 2.29 0 0 1 2.303 1.982 1 1 0 0 1 .007.1v4.667a1 1 0 0 1-.007.1 2.29 2.29 0 0 1-2.303 1.984z",
         clipRule: "evenodd"
       })
     }), jsx("defs", {
@@ -7103,7 +7175,7 @@ function SvgThumbsUpIcon(props) {
       children: jsx("path", {
         fill: "currentColor",
         fillRule: "evenodd",
-        d: "M6.648 1.029a.75.75 0 0 1 .685-.446 2.75 2.75 0 0 1 2.75 2.75V5.25h3.02a2.083 2.083 0 0 1 2.079 2.396l-.92 6a2.085 2.085 0 0 1-2.08 1.77H2.668a2.083 2.083 0 0 1-2.084-2.082V8.667a2.083 2.083 0 0 1 2.084-2.083h1.512l2.469-5.555ZM3.917 8.084h-1.25a.583.583 0 0 0-.584.583v4.667a.583.583 0 0 0 .584.583h1.25V8.084Zm1.5 5.833h6.778a.583.583 0 0 0 .583-.496l.92-6a.584.584 0 0 0-.583-.67H9.333a.75.75 0 0 1-.75-.75V3.332a1.25 1.25 0 0 0-.8-1.166L5.417 7.493v6.424Z",
+        d: "M6.648 1.029a.75.75 0 0 1 .685-.446 2.75 2.75 0 0 1 2.75 2.75V5.25h3.02a2.083 2.083 0 0 1 2.079 2.396l-.92 6a2.085 2.085 0 0 1-2.08 1.77H2.668a2.083 2.083 0 0 1-2.084-2.082V8.667a2.083 2.083 0 0 1 2.084-2.083h1.512zM3.917 8.084h-1.25a.583.583 0 0 0-.584.583v4.667a.583.583 0 0 0 .584.583h1.25zm1.5 5.833h6.778a.58.58 0 0 0 .583-.496l.92-6a.584.584 0 0 0-.583-.67H9.333a.75.75 0 0 1-.75-.75V3.332a1.25 1.25 0 0 0-.8-1.166L5.417 7.493z",
         clipRule: "evenodd"
       })
     }), jsx("defs", {
@@ -7137,7 +7209,7 @@ function SvgTrashIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M6 0a.75.75 0 0 0-.712.513L4.46 3H1v1.5h1.077l1.177 10.831A.75.75 0 0 0 4 16h8a.75.75 0 0 0 .746-.669L13.923 4.5H15V3h-3.46L10.712.513A.75.75 0 0 0 10 0H6Zm3.96 3-.5-1.5H6.54L6.04 3h3.92ZM3.585 4.5l1.087 10h6.654l1.087-10H3.586Z",
+      d: "M6 0a.75.75 0 0 0-.712.513L4.46 3H1v1.5h1.077l1.177 10.831A.75.75 0 0 0 4 16h8a.75.75 0 0 0 .746-.669L13.923 4.5H15V3h-3.46L10.713.513A.75.75 0 0 0 10 0zm3.96 3-.5-1.5H6.54L6.04 3zM3.585 4.5l1.087 10h6.654l1.087-10z",
       clipRule: "evenodd"
     })
   });
@@ -7163,7 +7235,7 @@ function SvgTreeIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2.004 9.602a2.751 2.751 0 1 0 3.371 3.47 2.751 2.751 0 0 0 5.25 0 2.751 2.751 0 1 0 3.371-3.47A2.75 2.75 0 0 0 11.25 7h-2.5v-.604a2.751 2.751 0 1 0-1.5 0V7h-2.5a2.75 2.75 0 0 0-2.746 2.602ZM2.75 11a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5Zm4.5-2.5h-2.5a1.25 1.25 0 0 0-1.242 1.106 2.756 2.756 0 0 1 1.867 1.822A2.756 2.756 0 0 1 7.25 9.604V8.5Zm1.5 0v1.104c.892.252 1.6.942 1.875 1.824a2.756 2.756 0 0 1 1.867-1.822A1.25 1.25 0 0 0 11.25 8.5h-2.5ZM12 12.25a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0Zm-5.25 0a1.25 1.25 0 1 0 2.5 0 1.25 1.25 0 0 0-2.5 0ZM8 5a1.25 1.25 0 1 1 0-2.5A1.25 1.25 0 0 1 8 5Z",
+      d: "M2.004 9.602a2.751 2.751 0 1 0 3.371 3.47 2.751 2.751 0 0 0 5.25 0 2.751 2.751 0 1 0 3.371-3.47A2.75 2.75 0 0 0 11.25 7h-2.5v-.604a2.751 2.751 0 1 0-1.5 0V7h-2.5a2.75 2.75 0 0 0-2.746 2.602M2.75 11a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5m4.5-2.5h-2.5a1.25 1.25 0 0 0-1.242 1.106 2.76 2.76 0 0 1 1.867 1.822A2.76 2.76 0 0 1 7.25 9.604zm1.5 0v1.104c.892.252 1.6.942 1.875 1.824a2.76 2.76 0 0 1 1.867-1.822A1.25 1.25 0 0 0 11.25 8.5zM12 12.25a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0m-5.25 0a1.25 1.25 0 1 0 2.5 0 1.25 1.25 0 0 0-2.5 0M8 5a1.25 1.25 0 1 1 0-2.5A1.25 1.25 0 0 1 8 5",
       clipRule: "evenodd"
     })
   });
@@ -7189,7 +7261,7 @@ function SvgUnderlineIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M4.544 6.466 4.6 2.988l1.5.024-.056 3.478A1.978 1.978 0 1 0 10 6.522V3h1.5v3.522a3.478 3.478 0 1 1-6.956-.056ZM12 13H4v-1.5h8V13Z",
+      d: "M4.544 6.466 4.6 2.988l1.5.024-.056 3.478A1.978 1.978 0 1 0 10 6.522V3h1.5v3.522a3.478 3.478 0 1 1-6.956-.056M12 13H4v-1.5h8z",
       clipRule: "evenodd"
     })
   });
@@ -7216,7 +7288,7 @@ function SvgUndoIcon(props) {
       clipPath: "url(#UndoIcon_svg__a)",
       children: jsx("path", {
         fill: "currentColor",
-        d: "M2.81 6.5h8.69a3 3 0 0 1 0 6H7V14h4.5a4.5 4.5 0 0 0 0-9H2.81l2.72-2.72-1.06-1.06-4.53 4.53 4.53 4.53 1.06-1.06L2.81 6.5Z"
+        d: "M2.81 6.5h8.69a3 3 0 0 1 0 6H7V14h4.5a4.5 4.5 0 0 0 0-9H2.81l2.72-2.72-1.06-1.06-4.53 4.53 4.53 4.53 1.06-1.06z"
       })
     }), jsx("defs", {
       children: jsx("clipPath", {
@@ -7248,7 +7320,7 @@ function SvgUploadIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M1 13.56h14v1.5H1v-1.5ZM12.53 5.53l-1.06 1.061-2.72-2.72v7.19h-1.5V3.87l-2.72 2.72-1.06-1.06L8 1l4.53 4.53Z"
+      d: "M1 13.56h14v1.5H1zM12.53 5.53l-1.06 1.061-2.72-2.72v7.19h-1.5V3.87l-2.72 2.72-1.06-1.06L8 1z"
     })
   });
 }
@@ -7272,7 +7344,7 @@ function SvgUsbIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "M8 0a.75.75 0 0 1 .65.375l1.299 2.25a.75.75 0 0 1-.65 1.125H8.75V9.5h2.75V8h-.25a.75.75 0 0 1-.75-.75v-2a.75.75 0 0 1 .75-.75h2a.75.75 0 0 1 .75.75v2a.75.75 0 0 1-.75.75H13v2.25a.75.75 0 0 1-.75.75h-3.5v1.668a1.75 1.75 0 1 1-1.5 0V11h-3.5a.75.75 0 0 1-.75-.75V7.832a1.75 1.75 0 1 1 1.5 0V9.5h2.75V3.75h-.549a.75.75 0 0 1-.65-1.125l1.3-2.25A.75.75 0 0 1 8 0Z"
+      d: "M8 0a.75.75 0 0 1 .65.375l1.299 2.25a.75.75 0 0 1-.65 1.125H8.75V9.5h2.75V8h-.25a.75.75 0 0 1-.75-.75v-2a.75.75 0 0 1 .75-.75h2a.75.75 0 0 1 .75.75v2a.75.75 0 0 1-.75.75H13v2.25a.75.75 0 0 1-.75.75h-3.5v1.668a1.75 1.75 0 1 1-1.5 0V11h-3.5a.75.75 0 0 1-.75-.75V7.832a1.75 1.75 0 1 1 1.5 0V9.5h2.75V3.75h-.549a.75.75 0 0 1-.65-1.125l1.3-2.25A.75.75 0 0 1 8 0"
     })
   });
 }
@@ -7297,12 +7369,12 @@ function SvgUserBadgeIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 5.25a2.75 2.75 0 1 0 0 5.5 2.75 2.75 0 0 0 0-5.5ZM6.75 8a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0Z",
+      d: "M8 5.25a2.75 2.75 0 1 0 0 5.5 2.75 2.75 0 0 0 0-5.5M6.75 8a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "m4.401 2.5.386-.867A2.75 2.75 0 0 1 7.3 0h1.4a2.75 2.75 0 0 1 2.513 1.633l.386.867h1.651a.75.75 0 0 1 .75.75v12a.75.75 0 0 1-.75.75H2.75a.75.75 0 0 1-.75-.75v-12a.75.75 0 0 1 .75-.75h1.651Zm1.756-.258A1.25 1.25 0 0 1 7.3 1.5h1.4c.494 0 .942.29 1.143.742l.114.258H6.043l.114-.258ZM8 12a8.71 8.71 0 0 0-4.5 1.244V4h9v9.244A8.71 8.71 0 0 0 8 12Zm0 1.5c1.342 0 2.599.364 3.677 1H4.323A7.216 7.216 0 0 1 8 13.5Z",
+      d: "m4.401 2.5.386-.867A2.75 2.75 0 0 1 7.3 0h1.4a2.75 2.75 0 0 1 2.513 1.633l.386.867h1.651a.75.75 0 0 1 .75.75v12a.75.75 0 0 1-.75.75H2.75a.75.75 0 0 1-.75-.75v-12a.75.75 0 0 1 .75-.75zm1.756-.258A1.25 1.25 0 0 1 7.3 1.5h1.4c.494 0 .942.29 1.143.742l.114.258H6.043zM8 12a8.7 8.7 0 0 0-4.5 1.244V4h9v9.244A8.7 8.7 0 0 0 8 12m0 1.5c1.342 0 2.599.364 3.677 1H4.323A7.2 7.2 0 0 1 8 13.5",
       clipRule: "evenodd"
     })]
   });
@@ -7328,12 +7400,12 @@ function SvgUserCircleIcon(props) {
     children: [jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M5.25 6.75a2.75 2.75 0 1 1 5.5 0 2.75 2.75 0 0 1-5.5 0ZM8 5.5A1.25 1.25 0 1 0 8 8a1.25 1.25 0 0 0 0-2.5Z",
+      d: "M5.25 6.75a2.75 2.75 0 1 1 5.5 0 2.75 2.75 0 0 1-5.5 0M8 5.5A1.25 1.25 0 1 0 8 8a1.25 1.25 0 0 0 0-2.5",
       clipRule: "evenodd"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 0 0-4.773 10.912A8.728 8.728 0 0 1 8 11c1.76 0 3.4.52 4.773 1.412A6.5 6.5 0 0 0 8 1.5Zm3.568 11.934A7.231 7.231 0 0 0 8 12.5a7.23 7.23 0 0 0-3.568.934A6.47 6.47 0 0 0 8 14.5a6.47 6.47 0 0 0 3.568-1.066Z",
+      d: "M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-6.5a6.5 6.5 0 0 0-4.773 10.912A8.73 8.73 0 0 1 8 11c1.76 0 3.4.52 4.773 1.412A6.5 6.5 0 0 0 8 1.5m3.568 11.934A7.23 7.23 0 0 0 8 12.5a7.23 7.23 0 0 0-3.568.934A6.47 6.47 0 0 0 8 14.5a6.47 6.47 0 0 0 3.568-1.066",
       clipRule: "evenodd"
     })]
   });
@@ -7359,7 +7431,7 @@ function SvgUserGroupIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2.25 3.75a2.75 2.75 0 1 1 5.5 0 2.75 2.75 0 0 1-5.5 0ZM5 2.5A1.25 1.25 0 1 0 5 5a1.25 1.25 0 0 0 0-2.5ZM9.502 14H.75a.75.75 0 0 1-.75-.75V11a.75.75 0 0 1 .164-.469C1.298 9.114 3.077 8 5.125 8c1.76 0 3.32.822 4.443 1.952A5.545 5.545 0 0 1 11.75 9.5c1.642 0 3.094.745 4.041 1.73a.75.75 0 0 1 .209.52v1.5a.75.75 0 0 1-.75.75H9.502ZM1.5 12.5v-1.228C2.414 10.228 3.72 9.5 5.125 9.5c1.406 0 2.71.728 3.625 1.772V12.5H1.5Zm8.75 0h4.25v-.432A4.168 4.168 0 0 0 11.75 11c-.53 0-1.037.108-1.5.293V12.5ZM11.75 3.5a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5ZM11 5.75a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0Z",
+      d: "M2.25 3.75a2.75 2.75 0 1 1 5.5 0 2.75 2.75 0 0 1-5.5 0M5 2.5A1.25 1.25 0 1 0 5 5a1.25 1.25 0 0 0 0-2.5M9.502 14H.75a.75.75 0 0 1-.75-.75V11a.75.75 0 0 1 .164-.469C1.298 9.115 3.077 8 5.125 8c1.76 0 3.32.822 4.443 1.952A5.55 5.55 0 0 1 11.75 9.5c1.642 0 3.094.745 4.041 1.73a.75.75 0 0 1 .209.52v1.5a.75.75 0 0 1-.75.75zM1.5 12.5v-1.228C2.414 10.228 3.72 9.5 5.125 9.5c1.406 0 2.71.728 3.625 1.772V12.5zm8.75 0h4.25v-.432A4.17 4.17 0 0 0 11.75 11c-.53 0-1.037.108-1.5.293zM11.75 3.5a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5M11 5.75a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0",
       clipRule: "evenodd"
     })
   });
@@ -7385,7 +7457,7 @@ function SvgUserIcon$1(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 1a3.25 3.25 0 1 0 0 6.5A3.25 3.25 0 0 0 8 1ZM6.25 4.25a1.75 1.75 0 1 1 3.5 0 1.75 1.75 0 0 1-3.5 0ZM8 9a8.735 8.735 0 0 0-6.836 3.287.75.75 0 0 0-.164.469v1.494c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75v-1.494a.75.75 0 0 0-.164-.469A8.735 8.735 0 0 0 8 9Zm-5.5 4.5v-.474A7.232 7.232 0 0 1 8 10.5c2.2 0 4.17.978 5.5 2.526v.474h-11Z",
+      d: "M8 1a3.25 3.25 0 1 0 0 6.5A3.25 3.25 0 0 0 8 1M6.25 4.25a1.75 1.75 0 1 1 3.5 0 1.75 1.75 0 0 1-3.5 0M8 9a8.74 8.74 0 0 0-6.836 3.287.75.75 0 0 0-.164.469v1.494c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75v-1.494a.75.75 0 0 0-.164-.469A8.74 8.74 0 0 0 8 9m-5.5 4.5v-.474A7.23 7.23 0 0 1 8 10.5c2.2 0 4.17.978 5.5 2.526v.474z",
       clipRule: "evenodd"
     })
   });
@@ -7414,9 +7486,9 @@ function SvgVisibleIcon(props) {
       clipPath: "url(#VisibleIcon_svg__a)",
       clipRule: "evenodd",
       children: [jsx("path", {
-        d: "M8 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM6.5 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z"
+        d: "M8 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6M6.5 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0"
       }), jsx("path", {
-        d: "M8 2A8.389 8.389 0 0 0 .028 7.777a.75.75 0 0 0 0 .466 8.389 8.389 0 0 0 15.944 0 .75.75 0 0 0 0-.466A8.389 8.389 0 0 0 8 2Zm0 10.52a6.888 6.888 0 0 1-6.465-4.51 6.888 6.888 0 0 1 12.93 0A6.888 6.888 0 0 1 8 12.52Z"
+        d: "M8 2A8.39 8.39 0 0 0 .028 7.777a.75.75 0 0 0 0 .466 8.389 8.389 0 0 0 15.944 0 .75.75 0 0 0 0-.466A8.39 8.39 0 0 0 8 2m0 10.52a6.89 6.89 0 0 1-6.465-4.51 6.888 6.888 0 0 1 12.93 0A6.89 6.89 0 0 1 8 12.52"
       })]
     }), jsx("defs", {
       children: jsx("clipPath", {
@@ -7451,12 +7523,12 @@ function SvgVisibleOffIcon(props) {
       clipPath: "url(#VisibleOffIcon_svg__a)",
       children: [jsx("path", {
         fillRule: "evenodd",
-        d: "m11.634 13.194 1.335 1.336 1.061-1.06-11.5-11.5-1.06 1.06 1.027 1.028a8.395 8.395 0 0 0-2.469 3.72.75.75 0 0 0 0 .465 8.389 8.389 0 0 0 11.606 4.951Zm-1.14-1.139-1.301-1.301a3 3 0 0 1-3.946-3.946L3.56 5.121A6.898 6.898 0 0 0 1.535 8.01a6.888 6.888 0 0 0 8.96 4.045Z",
+        d: "m11.634 13.195 1.335 1.335 1.061-1.06-11.5-11.5-1.06 1.06 1.027 1.028a8.4 8.4 0 0 0-2.469 3.72.75.75 0 0 0 0 .465 8.39 8.39 0 0 0 11.606 4.951m-1.14-1.14-1.301-1.301a3 3 0 0 1-3.946-3.946L3.56 5.121A6.9 6.9 0 0 0 1.535 8.01a6.89 6.89 0 0 0 8.96 4.045",
         clipRule: "evenodd"
       }), jsx("path", {
-        d: "M15.972 8.243a8.384 8.384 0 0 1-1.946 3.223l-1.06-1.06a6.887 6.887 0 0 0 1.499-2.396 6.888 6.888 0 0 0-8.187-4.293L5.082 2.522a8.389 8.389 0 0 1 10.89 5.256.75.75 0 0 1 0 .465Z"
+        d: "M15.972 8.243a8.4 8.4 0 0 1-1.946 3.223l-1.06-1.06a6.9 6.9 0 0 0 1.499-2.396 6.89 6.89 0 0 0-8.187-4.293L5.082 2.522a8.389 8.389 0 0 1 10.89 5.256.75.75 0 0 1 0 .465"
       }), jsx("path", {
-        d: "M11 8c0 .14-.01.277-.028.411L7.589 5.028A3 3 0 0 1 11 8Z"
+        d: "M11 8q0 .21-.028.411L7.589 5.028q.201-.027.41-.028a3 3 0 0 1 3 3"
       })]
     }), jsx("defs", {
       children: jsx("clipPath", {
@@ -7489,7 +7561,7 @@ function SvgWarningFillIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8.649 1.374a.75.75 0 0 0-1.298 0l-7.25 12.5A.75.75 0 0 0 .75 15h14.5a.75.75 0 0 0 .649-1.126l-7.25-12.5ZM7.25 10V6.5h1.5V10h-1.5Zm1.5 1.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z",
+      d: "M8.649 1.374a.75.75 0 0 0-1.298 0l-7.25 12.5A.75.75 0 0 0 .75 15h14.5a.75.75 0 0 0 .649-1.126zM7.25 10V6.5h1.5V10zm1.5 1.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0",
       clipRule: "evenodd"
     })
   });
@@ -7515,7 +7587,7 @@ function SvgWorkflowsIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M3.75 4a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5Zm2.646-.5a2.751 2.751 0 1 1 0-1.5h5.229a3.375 3.375 0 0 1 .118 6.748L8.436 11.11a.75.75 0 0 1-.872 0l-3.3-2.357a1.875 1.875 0 0 0 .111 3.747h5.229a2.751 2.751 0 1 1 0 1.5H4.375a3.375 3.375 0 0 1-.118-6.748L7.564 4.89a.75.75 0 0 1 .872 0l3.3 2.357a1.875 1.875 0 0 0-.111-3.747H6.396Zm7.104 9.75a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0ZM8 6.422 5.79 8 8 9.578 10.21 8 8 6.422Z",
+      d: "M3.75 4a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5m2.646-.5a2.751 2.751 0 1 1 0-1.5h5.229a3.375 3.375 0 0 1 .118 6.748L8.436 11.11a.75.75 0 0 1-.872 0l-3.3-2.357a1.875 1.875 0 0 0 .111 3.747h5.229a2.751 2.751 0 1 1 0 1.5H4.375a3.375 3.375 0 0 1-.118-6.748L7.564 4.89a.75.75 0 0 1 .872 0l3.3 2.357a1.875 1.875 0 0 0-.111-3.747zm7.104 9.75a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0M8 6.422 5.79 8 8 9.578 10.21 8z",
       clipRule: "evenodd"
     })
   });
@@ -7540,11 +7612,11 @@ function SvgWorkspacesIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M2.5 1a.75.75 0 0 0-.75.75v3c0 .414.336.75.75.75H6V4H3.25V2.5h9.5V4H10v1.5h3.5a.75.75 0 0 0 .75-.75v-3A.75.75 0 0 0 13.5 1h-11Z"
+      d: "M2.5 1a.75.75 0 0 0-.75.75v3c0 .414.336.75.75.75H6V4H3.25V2.5h9.5V4H10v1.5h3.5a.75.75 0 0 0 .75-.75v-3A.75.75 0 0 0 13.5 1z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M0 12.25c0-1.26.848-2.322 2.004-2.648A2.75 2.75 0 0 1 4.75 7h2.5V4h1.5v3h2.5a2.75 2.75 0 0 1 2.746 2.602 2.751 2.751 0 1 1-3.371 3.47 2.751 2.751 0 0 1-5.25 0A2.751 2.751 0 0 1 0 12.25ZM2.75 11a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5Zm2.625.428a2.756 2.756 0 0 0-1.867-1.822A1.25 1.25 0 0 1 4.75 8.5h2.5v1.104c-.892.252-1.6.942-1.875 1.824ZM8.75 9.604V8.5h2.5c.642 0 1.17.483 1.242 1.106a2.756 2.756 0 0 0-1.867 1.822A2.756 2.756 0 0 0 8.75 9.604ZM12 12.25a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0Zm-5.25 0a1.25 1.25 0 1 0 2.5 0 1.25 1.25 0 0 0-2.5 0Z",
+      d: "M0 12.25c0-1.26.848-2.322 2.004-2.648A2.75 2.75 0 0 1 4.75 7h2.5V4h1.5v3h2.5a2.75 2.75 0 0 1 2.746 2.602 2.751 2.751 0 1 1-3.371 3.47 2.751 2.751 0 0 1-5.25 0A2.751 2.751 0 0 1 0 12.25M2.75 11a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5m2.625.428a2.76 2.76 0 0 0-1.867-1.822A1.25 1.25 0 0 1 4.75 8.5h2.5v1.104c-.892.252-1.6.942-1.875 1.824M8.75 9.604V8.5h2.5c.642 0 1.17.483 1.242 1.106a2.76 2.76 0 0 0-1.867 1.822A2.76 2.76 0 0 0 8.75 9.604M12 12.25a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0m-5.25 0a1.25 1.25 0 1 0 2.5 0 1.25 1.25 0 0 0-2.5 0",
       clipRule: "evenodd"
     })]
   });
@@ -7574,7 +7646,7 @@ function SvgWrenchIcon(props) {
         strokeLinecap: "round",
         strokeLinejoin: "round",
         strokeWidth: 2,
-        d: "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.121 2.121 0 1 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76-.01.01Z"
+        d: "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.121 2.121 0 1 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
       })
     }), jsx("defs", {
       children: jsx("clipPath", {
@@ -7607,7 +7679,7 @@ function SvgXCircleFillIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16Zm1.97-4.97L8 9.06l-1.97 1.97-1.06-1.06L6.94 8 4.97 6.03l1.06-1.06L8 6.94l1.97-1.97 1.06 1.06L9.06 8l1.97 1.97-1.06 1.06Z",
+      d: "M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m1.97-4.97L8 9.06l-1.97 1.97-1.06-1.06L6.94 8 4.97 6.03l1.06-1.06L8 6.94l1.97-1.97 1.06 1.06L9.06 8l1.97 1.97z",
       clipRule: "evenodd"
     })
   });
@@ -7632,11 +7704,11 @@ function SvgXCircleIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M6.94 8 4.97 6.03l1.06-1.06L8 6.94l1.97-1.97 1.06 1.06L9.06 8l1.97 1.97-1.06 1.06L8 9.06l-1.97 1.97-1.06-1.06L6.94 8Z"
+      d: "M6.94 8 4.97 6.03l1.06-1.06L8 6.94l1.97-1.97 1.06 1.06L9.06 8l1.97 1.97-1.06 1.06L8 9.06l-1.97 1.97-1.06-1.06z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Z",
+      d: "M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13",
       clipRule: "evenodd"
     })]
   });
@@ -7661,11 +7733,11 @@ function SvgZoomInIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M8.75 7.25H11v1.5H8.75V11h-1.5V8.75H5v-1.5h2.25V5h1.5v2.25Z"
+      d: "M8.75 7.25H11v1.5H8.75V11h-1.5V8.75H5v-1.5h2.25V5h1.5z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M8 1a7 7 0 1 0 4.39 12.453l2.55 2.55 1.06-1.06-2.55-2.55A7 7 0 0 0 8 1ZM2.5 8a5.5 5.5 0 1 1 11 0 5.5 5.5 0 0 1-11 0Z",
+      d: "M8 1a7 7 0 1 0 4.39 12.453l2.55 2.55 1.06-1.06-2.55-2.55A7 7 0 0 0 8 1M2.5 8a5.5 5.5 0 1 1 11 0 5.5 5.5 0 0 1-11 0",
       clipRule: "evenodd"
     })]
   });
@@ -7690,11 +7762,11 @@ function SvgZoomMarqueeSelection(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M1 1.75V4h1.5V2.5H4V1H1.75a.75.75 0 0 0-.75.75ZM14.25 1H12v1.5h1.5V4H15V1.75a.75.75 0 0 0-.75-.75ZM4 15H1.75a.75.75 0 0 1-.75-.75V12h1.5v1.5H4V15ZM6 2.5h4V1H6v1.5ZM1 10V6h1.5v4H1Z"
+      d: "M1 1.75V4h1.5V2.5H4V1H1.75a.75.75 0 0 0-.75.75M14.25 1H12v1.5h1.5V4H15V1.75a.75.75 0 0 0-.75-.75M4 15H1.75a.75.75 0 0 1-.75-.75V12h1.5v1.5H4zM6 2.5h4V1H6zM1 10V6h1.5v4z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M4.053 9.27a5.217 5.217 0 1 1 9.397 3.122l1.69 1.69-1.062 1.06-1.688-1.69A5.217 5.217 0 0 1 4.053 9.27ZM9.27 5.555a3.717 3.717 0 1 0 0 7.434 3.717 3.717 0 0 0 0-7.434Z",
+      d: "M4.053 9.27a5.217 5.217 0 1 1 9.397 3.122l1.69 1.69-1.062 1.06-1.688-1.69A5.217 5.217 0 0 1 4.053 9.27M9.27 5.555a3.717 3.717 0 1 0 0 7.434 3.717 3.717 0 0 0 0-7.434",
       clipRule: "evenodd"
     })]
   });
@@ -7719,11 +7791,11 @@ function SvgZoomOutIcon(props) {
     ...props,
     children: [jsx("path", {
       fill: "currentColor",
-      d: "M11 7.25H5v1.5h6v-1.5Z"
+      d: "M11 7.25H5v1.5h6z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M1 8a7 7 0 1 1 12.45 4.392l2.55 2.55-1.06 1.061-2.55-2.55A7 7 0 0 1 1 8Zm7-5.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Z",
+      d: "M1 8a7 7 0 1 1 12.45 4.392l2.55 2.55-1.06 1.061-2.55-2.55A7 7 0 0 1 1 8m7-5.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11",
       clipRule: "evenodd"
     })]
   });
@@ -7824,6 +7896,10 @@ const Accordion = /* #__PURE__ */(() => {
       dangerouslySetAntdProps,
       dangerouslyAppendEmotionCSS,
       displayMode = 'multiple',
+      analyticsEvents,
+      componentId,
+      valueHasNoPii,
+      onChange,
       ...props
     } = _ref2;
     const {
@@ -7832,6 +7908,20 @@ const Accordion = /* #__PURE__ */(() => {
     } = useDesignSystemTheme();
     // While this component is called `Accordion` for correctness, in AntD it is called `Collapse`.
     const clsPrefix = getPrefixedClassName('collapse');
+    const eventContext = useDesignSystemEventComponentCallbacks({
+      componentType: DesignSystemEventProviderComponentTypes.Accordion,
+      componentId,
+      analyticsEvents: analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+      valueHasNoPii
+    });
+    const onChangeWrapper = useCallback(newValue => {
+      if (Array.isArray(newValue)) {
+        eventContext.onValueChange(JSON.stringify(newValue));
+      } else {
+        eventContext.onValueChange(newValue);
+      }
+      onChange === null || onChange === void 0 || onChange(newValue);
+    }, [eventContext, onChange]);
     return jsx(DesignSystemAntDConfigProvider, {
       children: jsx(Collapse
       // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
@@ -7841,7 +7931,8 @@ const Accordion = /* #__PURE__ */(() => {
         accordion: displayMode === 'single',
         ...props,
         ...dangerouslySetAntdProps,
-        css: [getAccordionEmotionStyles(clsPrefix, theme), dangerouslyAppendEmotionCSS, addDebugOutlineStylesIfEnabled(theme), process.env.NODE_ENV === "production" ? "" : ";label:Accordion;"]
+        css: [getAccordionEmotionStyles(clsPrefix, theme), dangerouslyAppendEmotionCSS, addDebugOutlineStylesIfEnabled(theme), process.env.NODE_ENV === "production" ? "" : ";label:Accordion;"],
+        onChange: onChangeWrapper
       })
     });
   };
@@ -8212,7 +8303,7 @@ const LegacyTooltip = _ref => {
     ...delegatedDangerouslySetAntdProps
   } = dangerouslySetAntdProps || {};
   return jsx(DesignSystemAntDConfigProvider, {
-    children: jsx(Tooltip$1, {
+    children: jsx(Tooltip, {
       id: id,
       ref: tooltipRef,
       title: liveTitle,
@@ -8326,7 +8417,7 @@ const InfoPopover = _ref => {
           ...iconProps
         })
       })
-    }), jsxs(Content$5, {
+    }), jsxs(Content$4, {
       align: "start",
       ...popoverProps,
       children: [children, jsx(Arrow$2, {})]
@@ -8334,14 +8425,14 @@ const InfoPopover = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$u() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-var _ref2$i = process.env.NODE_ENV === "production" ? {
+function _EMOTION_STRINGIFIED_CSS_ERROR__$s() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref2$h = process.env.NODE_ENV === "production" ? {
   name: "1amee4m",
   styles: "line-height:0"
 } : {
   name: "c77cjr-trigger",
   styles: "line-height:0;label:trigger;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$u
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$s
 };
 const OverflowPopover = _ref => {
   let {
@@ -8356,7 +8447,7 @@ const OverflowPopover = _ref => {
   const [showTooltip, setShowTooltip] = useState(true);
   const label = `+${items.length}`;
   let trigger = jsx("span", {
-    css: _ref2$i,
+    css: _ref2$h,
     ...addDebugOutlineIfEnabled(),
     children: jsx(Trigger$3, {
       asChild: true,
@@ -8375,7 +8466,7 @@ const OverflowPopover = _ref => {
   }
   return jsxs(Root$5, {
     onOpenChange: open => setShowTooltip(!open),
-    children: [trigger, jsx(Content$5, {
+    children: [trigger, jsx(Content$4, {
       align: "start",
       ...props,
       ...addDebugOutlineIfEnabled(),
@@ -8713,7 +8804,7 @@ const Breadcrumb = /* #__PURE__ */(() => {
     return jsx(DesignSystemAntDConfigProvider, {
       children: jsxs(Breadcrumb$1, {
         ...addDebugOutlineIfEnabled(),
-        separator: jsx(ChevronRightIcon$1, {}),
+        separator: jsx(ChevronRightIcon, {}),
         ...props,
         ...dangerouslySetAntdProps,
         css: /*#__PURE__*/css(getAnimationCss(theme.options.enableAnimation), styles, process.env.NODE_ENV === "production" ? "" : ";label:Breadcrumb;"),
@@ -8785,14 +8876,14 @@ const genSkeletonAnimatedColor = function (theme) {
   }, process.env.NODE_ENV === "production" ? "" : ";label:genSkeletonAnimatedColor;");
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$t() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$r() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const GenericContainerStyles = process.env.NODE_ENV === "production" ? {
   name: "12h7em6",
   styles: "cursor:progress;border-radius:var(--border-radius)"
 } : {
   name: "19fx6jo-GenericContainerStyles",
   styles: "cursor:progress;border-radius:var(--border-radius);label:GenericContainerStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$t
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$r
 };
 const GenericSkeleton = _ref => {
   let {
@@ -8823,14 +8914,14 @@ const GenericSkeleton = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$s() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$q() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const paragraphContainerStyles = process.env.NODE_ENV === "production" ? {
   name: "sj05g9",
   styles: "cursor:progress;width:100%;height:20px;display:flex;justify-content:flex-start;align-items:center"
 } : {
   name: "u3a3v7-paragraphContainerStyles",
   styles: "cursor:progress;width:100%;height:20px;display:flex;justify-content:flex-start;align-items:center;label:paragraphContainerStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$s
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
 };
 const paragraphFillStyles = process.env.NODE_ENV === "production" ? {
   name: "10nptxl",
@@ -8838,7 +8929,7 @@ const paragraphFillStyles = process.env.NODE_ENV === "production" ? {
 } : {
   name: "h6xifd-paragraphFillStyles",
   styles: "border-radius:var(--border-radius);height:8px;label:paragraphFillStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$s
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
 };
 const ParagraphSkeleton = _ref => {
   let {
@@ -8876,14 +8967,14 @@ const ParagraphSkeleton = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$r() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$p() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const titleContainerStyles = process.env.NODE_ENV === "production" ? {
   name: "116rc6i",
   styles: "cursor:progress;width:100%;height:28px;display:flex;justify-content:flex-start;align-items:center"
 } : {
   name: "1dar8xl-titleContainerStyles",
   styles: "cursor:progress;width:100%;height:28px;display:flex;justify-content:flex-start;align-items:center;label:titleContainerStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$r
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$p
 };
 const titleFillStyles = process.env.NODE_ENV === "production" ? {
   name: "9fmdbb",
@@ -8891,7 +8982,7 @@ const titleFillStyles = process.env.NODE_ENV === "production" ? {
 } : {
   name: "1vyd6dg-titleFillStyles",
   styles: "border-radius:var(--border-radius);height:12px;width:100%;label:titleFillStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$r
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$p
 };
 const TitleSkeleton = _ref => {
   let {
@@ -8925,7 +9016,7 @@ const TitleSkeleton = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$q() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$o() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 // Class names that can be used to reference children within
 // Should not be used outside of design system
 // TODO: PE-239 Maybe we could add "dangerous" into the names or make them completely random.
@@ -8948,7 +9039,7 @@ const repeatingElementsStyles = {
   } : {
     name: "10gwa9a-cell",
     styles: "display:inline-grid;position:relative;flex:1;box-sizing:border-box;padding-left:var(--table-spacing-sm);padding-right:var(--table-spacing-sm);word-break:break-word;overflow:hidden;& .anticon{vertical-align:text-bottom;};label:cell;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
   },
   header: process.env.NODE_ENV === "production" ? {
     name: "ik7qgz",
@@ -8956,7 +9047,7 @@ const repeatingElementsStyles = {
   } : {
     name: "1xg6jn4-header",
     styles: "font-weight:bold;align-items:flex-end;display:flex;overflow:hidden;&[aria-sort]{cursor:pointer;user-select:none;}.table-header-text{color:var(--table-header-text-color);}.table-header-icon-container{color:var(--table-header-sort-icon-color);display:none;}&[aria-sort]:hover{.table-header-icon-container, .table-header-text{color:var(--table-header-focus-color);}}&[aria-sort]:active{.table-header-icon-container, .table-header-text{color:var(--table-header-active-color);}}&:hover, &[aria-sort=\"ascending\"], &[aria-sort=\"descending\"]{.table-header-icon-container{display:inline;}};label:header;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
   },
   row: process.env.NODE_ENV === "production" ? {
     name: "ndcf6g",
@@ -8964,7 +9055,7 @@ const repeatingElementsStyles = {
   } : {
     name: "8dtpje-row",
     styles: "display:flex;&.table-isHeader{> *{background-color:var(--table-header-background-color);}.table-isScrollable &{position:sticky;top:0;z-index:1;}}.table-row-select-cell input[type=\"checkbox\"] ~ *{opacity:var(--row-checkbox-opacity, 0);}&:not(.table-row-isGrid)&:hover{&:not(.table-isHeader){background-color:var(--table-row-hover);}.table-row-select-cell input[type=\"checkbox\"] ~ *{opacity:1;}}.table-row-select-cell input[type=\"checkbox\"]:focus ~ *{opacity:1;}> *{padding-top:var(--table-row-vertical-padding);padding-bottom:var(--table-row-vertical-padding);border-bottom:1px solid;border-color:var(--table-separator-color);}&.table-row-isGrid > *{border-right:1px solid;border-color:var(--table-separator-color);}&.table-row-isGrid > :first-of-type{border-left:1px solid;border-color:var(--table-separator-color);}&.table-row-isGrid.table-isHeader:first-of-type > *{border-top:1px solid;border-color:var(--table-separator-color);};label:row;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
   }
 };
 
@@ -8989,7 +9080,7 @@ const tableStyles = {
   } : {
     name: "1csnd2v-table",
     styles: ".table-isScrollable &{flex:1;overflow:auto;};label:table;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
   },
   headerButtonTarget: process.env.NODE_ENV === "production" ? {
     name: "sezlox",
@@ -8997,7 +9088,7 @@ const tableStyles = {
   } : {
     name: "1iv4trp-headerButtonTarget",
     styles: "align-items:flex-end;display:flex;overflow:hidden;width:100%;justify-content:inherit;&:focus{.table-header-text{color:var(--table-header-focus-color);}.table-header-icon-container{color:var(--table-header-focus-color);display:inline;}}&:active{.table-header-icon-container, .table-header-text{color:var(--table-header-active-color);}};label:headerButtonTarget;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
   },
   sortHeaderIconOnRight: process.env.NODE_ENV === "production" ? {
     name: "1hdiaor",
@@ -9005,7 +9096,7 @@ const tableStyles = {
   } : {
     name: "evh3p3-sortHeaderIconOnRight",
     styles: "margin-left:var(--table-spacing-xs);label:sortHeaderIconOnRight;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
   },
   sortHeaderIconOnLeft: process.env.NODE_ENV === "production" ? {
     name: "d4plmt",
@@ -9013,7 +9104,7 @@ const tableStyles = {
   } : {
     name: "1gr7edl-sortHeaderIconOnLeft",
     styles: "margin-right:var(--table-spacing-xs);label:sortHeaderIconOnLeft;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
   },
   checkboxCell: process.env.NODE_ENV === "production" ? {
     name: "4cdr0s",
@@ -9021,7 +9112,7 @@ const tableStyles = {
   } : {
     name: "17au6u2-checkboxCell",
     styles: "display:flex;align-items:center;flex:0;padding-left:var(--table-spacing-sm);padding-top:0;padding-bottom:0;min-width:var(--table-spacing-md);max-width:var(--table-spacing-md);box-sizing:content-box;label:checkboxCell;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
   },
   resizeHandleContainer: /*#__PURE__*/css({
     position: 'absolute',
@@ -9042,7 +9133,7 @@ const tableStyles = {
   } : {
     name: "1ot7jju-resizeHandle",
     styles: "width:1px;background:var(--table-resize-handle-color);label:resizeHandle;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
   },
   paginationContainer: process.env.NODE_ENV === "production" ? {
     name: "ehlmid",
@@ -9050,7 +9141,7 @@ const tableStyles = {
   } : {
     name: "p324df-paginationContainer",
     styles: "display:flex;justify-content:flex-end;padding-top:var(--table-spacing-sm);padding-bottom:var(--table-spacing-sm);label:paginationContainer;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
   }
 };
 var tableStyles$1 = tableStyles;
@@ -9246,7 +9337,7 @@ const TableRow = /*#__PURE__*/forwardRef(function TableRow(_ref, ref) {
   });
 });
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$p() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$n() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const TableRowActionStyles = {
   container: process.env.NODE_ENV === "production" ? {
     name: "gk361n",
@@ -9254,7 +9345,7 @@ const TableRowActionStyles = {
   } : {
     name: "q9pljs-container",
     styles: "width:32px;padding-top:var(--vertical-padding);padding-bottom:var(--vertical-padding);display:flex;align-items:start;justify-content:center;label:container;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$p
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$n
   }
 };
 const TableRowAction = /*#__PURE__*/forwardRef(function TableRowAction(_ref, ref) {
@@ -9290,7 +9381,7 @@ const TableRowAction = /*#__PURE__*/forwardRef(function TableRowAction(_ref, ref
 /** @deprecated Use `TableRowAction` instead */
 const TableRowMenuContainer = TableRowAction;
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$o() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$m() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const TableSkeletonStyles = {
   container: process.env.NODE_ENV === "production" ? {
     name: "6kz1wu",
@@ -9298,7 +9389,7 @@ const TableSkeletonStyles = {
   } : {
     name: "1we0er9-container",
     styles: "display:flex;flex-direction:column;align-items:flex-start;label:container;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$m
   },
   cell: process.env.NODE_ENV === "production" ? {
     name: "1t820zr",
@@ -9306,7 +9397,7 @@ const TableSkeletonStyles = {
   } : {
     name: "1m8dl5b-cell",
     styles: "width:100%;height:8px;border-radius:4px;background:var(--table-skeleton-color);margin-top:var(--table-skeleton-row-vertical-margin);margin-bottom:var(--table-skeleton-row-vertical-margin);label:cell;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$o
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$m
   }
 };
 const TableSkeleton = _ref => {
@@ -9453,6 +9544,8 @@ const Card = _ref => {
     href,
     navigateFn,
     anchorProps,
+    componentId,
+    analyticsEvents,
     ...dataAndAttributes
   } = _ref;
   const {
@@ -9479,22 +9572,29 @@ const Card = _ref => {
     children: topBarContent
   }) : null;
   const contentPadding = hasTopBar || hasBottomBar ? theme.spacing.lg : 0;
-  const navigate = () => {
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Card,
+    componentId,
+    analyticsEvents: analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : [DesignSystemEventProviderAnalyticsEventTypes.OnClick]
+  });
+  const navigate = useCallback(() => {
     if (navigateFn) {
       navigateFn();
     }
-  };
-  const handleClick = e => {
+  }, [navigateFn]);
+  const handleClick = useCallback(e => {
     var _ref$current;
+    eventContext.onClick();
     navigate();
     onClick === null || onClick === void 0 || onClick(e);
     (_ref$current = ref.current) === null || _ref$current === void 0 || _ref$current.blur();
-  };
-  const handleSelection = e => {
+  }, [navigate, eventContext, onClick]);
+  const handleSelection = useCallback(e => {
+    eventContext.onClick();
     e.preventDefault();
     navigate();
     onClick === null || onClick === void 0 || onClick(e);
-  };
+  }, [navigate, eventContext, onClick]);
   const content = jsx("div", {
     ref: ref
     // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
@@ -9856,7 +9956,7 @@ const getNewChildren = (children, props, disabledReason, ref) => {
           e.stopPropagation();
         }
       },
-      children: jsx(InfoIcon$1, {
+      children: jsx(InfoIcon, {
         role: "presentation",
         alt: "Disabled state reason",
         "aria-hidden": "false"
@@ -9927,7 +10027,7 @@ const Root$4 = _ref => {
     })
   });
 };
-const Content$4 = /*#__PURE__*/forwardRef(function Content(_ref2, ref) {
+const Content$3 = /*#__PURE__*/forwardRef(function Content(_ref2, ref) {
   let {
     children,
     minWidth = 220,
@@ -9970,6 +10070,16 @@ const Content$4 = /*#__PURE__*/forwardRef(function Content(_ref2, ref) {
         onKeyDown === null || onKeyDown === void 0 || onKeyDown(e);
       },
       ...props,
+      onWheel: e => {
+        var _props$onWheel;
+        e.stopPropagation();
+        props === null || props === void 0 || (_props$onWheel = props.onWheel) === null || _props$onWheel === void 0 || _props$onWheel.call(props, e);
+      },
+      onTouchMove: e => {
+        var _props$onTouchMove;
+        e.stopPropagation();
+        props === null || props === void 0 || (_props$onTouchMove = props.onTouchMove) === null || _props$onTouchMove === void 0 || _props$onTouchMove.call(props, e);
+      },
       children: children
     })
   });
@@ -10147,14 +10257,14 @@ const SubTrigger$1 = /*#__PURE__*/forwardRef(function TriggerItem(_ref8, ref) {
     ...props,
     children: [getNewChildren(children, props, disabledReason, subTriggerRef), jsx(HintColumn, {
       css: theme => ({
-        margin: CONSTANTS.subMenuIconMargin(theme),
+        margin: CONSTANTS$1.subMenuIconMargin(theme),
         display: 'flex',
         alignSelf: 'stretch',
         alignItems: 'center'
       }),
-      children: jsx(ChevronRightIcon$1, {
+      children: jsx(ChevronRightIcon, {
         css: theme => ({
-          fontSize: CONSTANTS.subMenuIconSize(theme)
+          fontSize: CONSTANTS$1.subMenuIconSize(theme)
         })
       })
     })]
@@ -10231,7 +10341,7 @@ const ItemIndicator$1 = /*#__PURE__*/forwardRef(function ItemIndicator(_ref11, r
   return jsx(DropdownMenu$1.ItemIndicator, {
     ref: ref,
     css: theme => ({
-      marginLeft: -(CONSTANTS.checkboxIconWidth(theme) + CONSTANTS.checkboxPaddingRight(theme)),
+      marginLeft: -(CONSTANTS$1.checkboxIconWidth(theme) + CONSTANTS$1.checkboxPaddingRight(theme)),
       position: 'absolute',
       fontSize: theme.general.iconFontSize
     }),
@@ -10255,9 +10365,9 @@ const Arrow$1 = /*#__PURE__*/forwardRef(function Arrow(_ref12, ref) {
     css: /*#__PURE__*/css({
       fill: theme.colors.backgroundPrimary,
       stroke: theme.colors.borderDecorative,
-      strokeDashoffset: -CONSTANTS.arrowBottomLength(),
-      strokeDasharray: CONSTANTS.arrowBottomLength() + 2 * CONSTANTS.arrowSide(),
-      strokeWidth: CONSTANTS.arrowStrokeWidth(),
+      strokeDashoffset: -CONSTANTS$1.arrowBottomLength(),
+      strokeDasharray: CONSTANTS$1.arrowBottomLength() + 2 * CONSTANTS$1.arrowSide(),
+      strokeWidth: CONSTANTS$1.arrowStrokeWidth(),
       // TODO: This is a temporary fix for the alignment of the Arrow;
       // Radix has changed the implementation for v1.0.0 (uses floating-ui)
       // which has new behaviors for alignment that we don't want. Generally
@@ -10354,10 +10464,7 @@ const IconWrapper = /*#__PURE__*/forwardRef(function IconWrapper(_ref17, ref) {
     css: theme => ({
       fontSize: 16,
       color: theme.colors.textSecondary,
-      paddingRight: theme.spacing.sm,
-      '& .anticon': importantify({
-        color: theme.colors.textSecondary
-      })
+      paddingRight: theme.spacing.sm
     }),
     ...props,
     children: children
@@ -10365,7 +10472,7 @@ const IconWrapper = /*#__PURE__*/forwardRef(function IconWrapper(_ref17, ref) {
 });
 
 // CONSTANTS
-const CONSTANTS = {
+const CONSTANTS$1 = {
   itemPaddingVertical(theme) {
     // The number from the mocks is the midpoint between constants
     return 0.5 * theme.spacing.xs + 0.5 * theme.spacing.sm;
@@ -10435,7 +10542,7 @@ const contentStyles = theme => ({
   ...dropdownContentStyles(theme)
 });
 const dropdownItemStyles = theme => ({
-  padding: `${CONSTANTS.itemPaddingVertical(theme)}px ${CONSTANTS.itemPaddingHorizontal(theme)}px`,
+  padding: `${CONSTANTS$1.itemPaddingVertical(theme)}px ${CONSTANTS$1.itemPaddingHorizontal(theme)}px`,
   display: 'flex',
   flexWrap: 'wrap',
   alignItems: 'center',
@@ -10459,7 +10566,7 @@ const dangerItemStyles = theme => ({
 });
 const checkboxItemStyles = theme => ({
   position: 'relative',
-  paddingLeft: CONSTANTS.checkboxIconWidth(theme) + CONSTANTS.checkboxPaddingLeft(theme) + CONSTANTS.checkboxPaddingRight(theme)
+  paddingLeft: CONSTANTS$1.checkboxIconWidth(theme) + CONSTANTS$1.checkboxPaddingLeft(theme) + CONSTANTS$1.checkboxPaddingRight(theme)
 });
 const metaTextStyles = theme => ({
   color: theme.colors.textSecondary,
@@ -10478,7 +10585,7 @@ var DropdownMenu = /*#__PURE__*/Object.freeze({
   __proto__: null,
   Arrow: Arrow$1,
   CheckboxItem: CheckboxItem$1,
-  Content: Content$4,
+  Content: Content$3,
   Group: Group$2,
   HintColumn: HintColumn,
   HintRow: HintRow$1,
@@ -10503,7 +10610,6 @@ var DropdownMenu = /*#__PURE__*/Object.freeze({
 const Trigger$1 = ContextMenuTrigger;
 const ItemIndicator = ContextMenuItemIndicator;
 const Group$1 = ContextMenuGroup;
-const RadioGroup = ContextMenuRadioGroup;
 const Arrow = ContextMenuArrow;
 const Sub = ContextMenuSub;
 const ContextMenuProps = /*#__PURE__*/createContext({
@@ -10550,11 +10656,11 @@ const SubTrigger = _ref2 => {
     css: dropdownItemStyles(theme),
     ref: ref,
     children: [getNewChildren(children, props, disabledReason, ref), withChevron && jsx(ContextMenu.Hint, {
-      children: jsx(ChevronRightIcon$1, {})
+      children: jsx(ChevronRightIcon, {})
     })]
   });
 };
-const Content$3 = _ref3 => {
+const Content$2 = _ref3 => {
   let {
     children,
     minWidth,
@@ -10629,14 +10735,31 @@ const Item = _ref5 => {
   let {
     children,
     disabledReason,
+    onClick,
+    componentId,
+    analyticsEvents,
+    asChild,
     ...props
   } = _ref5;
   const {
     theme
   } = useDesignSystemTheme();
   const ref = useRef(null);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.ContextMenuItem,
+    componentId,
+    analyticsEvents: analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : [DesignSystemEventProviderAnalyticsEventTypes.OnClick]
+  });
+  const onClickWrapper = useCallback(e => {
+    if (!asChild) {
+      eventContext.onClick();
+    }
+    onClick === null || onClick === void 0 || onClick(e);
+  }, [asChild, eventContext, onClick]);
   return jsx(ContextMenuItem, {
     ...props,
+    asChild: asChild,
+    onClick: onClickWrapper,
     css: dropdownItemStyles(theme),
     ref: ref,
     children: getNewChildren(children, props, disabledReason, ref)
@@ -10646,14 +10769,28 @@ const CheckboxItem = _ref6 => {
   let {
     children,
     disabledReason,
+    onCheckedChange,
+    componentId,
+    analyticsEvents,
     ...props
   } = _ref6;
   const {
     theme
   } = useDesignSystemTheme();
   const ref = useRef(null);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.ContextMenuCheckboxItem,
+    componentId,
+    analyticsEvents: analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    valueHasNoPii: true
+  });
+  const onCheckedChangeWrapper = useCallback(checked => {
+    eventContext.onValueChange(checked);
+    onCheckedChange === null || onCheckedChange === void 0 || onCheckedChange(checked);
+  }, [eventContext, onCheckedChange]);
   return jsxs(ContextMenuCheckboxItem, {
     ...props,
+    onCheckedChange: onCheckedChangeWrapper,
     css: dropdownItemStyles(theme),
     ref: ref,
     children: [jsx(ContextMenuItemIndicator, {
@@ -10666,12 +10803,35 @@ const CheckboxItem = _ref6 => {
     }), getNewChildren(children, props, disabledReason, ref)]
   });
 };
-const RadioItem = _ref7 => {
+const RadioGroup = _ref7 => {
+  let {
+    onValueChange,
+    componentId,
+    analyticsEvents,
+    valueHasNoPii,
+    ...props
+  } = _ref7;
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.ContextMenuRadioGroup,
+    componentId,
+    analyticsEvents: analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    valueHasNoPii
+  });
+  const onValueChangeWrapper = useCallback(value => {
+    eventContext.onValueChange(value);
+    onValueChange === null || onValueChange === void 0 || onValueChange(value);
+  }, [eventContext, onValueChange]);
+  return jsx(ContextMenuRadioGroup, {
+    ...props,
+    onValueChange: onValueChangeWrapper
+  });
+};
+const RadioItem = _ref8 => {
   let {
     children,
     disabledReason,
     ...props
-  } = _ref7;
+  } = _ref8;
   const {
     theme
   } = useDesignSystemTheme();
@@ -10690,11 +10850,11 @@ const RadioItem = _ref7 => {
     }), getNewChildren(children, props, disabledReason, ref)]
   });
 };
-const Label$1 = _ref8 => {
+const Label$1 = _ref9 => {
   let {
     children,
     ...props
-  } = _ref8;
+  } = _ref9;
   const {
     theme
   } = useDesignSystemTheme();
@@ -10707,10 +10867,10 @@ const Label$1 = _ref8 => {
     children: children
   });
 };
-const Hint$1 = _ref9 => {
+const Hint$1 = _ref10 => {
   let {
     children
-  } = _ref9;
+  } = _ref10;
   const {
     theme
   } = useDesignSystemTheme();
@@ -10749,7 +10909,7 @@ const ContextMenu = {
   Sub,
   SubTrigger,
   SubContent,
-  Content: Content$3,
+  Content: Content$2,
   Hint: Hint$1
 };
 
@@ -10757,7 +10917,7 @@ var ContextMenu$1 = /*#__PURE__*/Object.freeze({
   __proto__: null,
   Arrow: Arrow,
   CheckboxItem: CheckboxItem,
-  Content: Content$3,
+  Content: Content$2,
   ContextMenu: ContextMenu,
   Group: Group$1,
   Hint: Hint$1,
@@ -11071,6 +11231,7 @@ const LegacyDatePicker = /* #__PURE__ */Object.assign(DuboisDatePicker, {
 });
 
 const dialogComboboxContextDefaults = {
+  componentId: 'codegen_design-system_src_design-system_dialogcombobox_providers_dialogcomboboxcontext.tsx_27',
   id: '',
   label: '',
   value: [],
@@ -11688,15 +11849,15 @@ const DialogComboboxAddButton = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$n() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$l() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const defaultMaxHeight = 'var(--radix-popover-content-available-height)';
-var _ref2$h = process.env.NODE_ENV === "production" ? {
+var _ref2$g = process.env.NODE_ENV === "production" ? {
   name: "1ij1o5n",
   styles: "display:flex;flex-direction:column;align-items:flex-start;justify-content:center"
 } : {
   name: "189loa6-DialogComboboxContent",
   styles: "display:flex;flex-direction:column;align-items:flex-start;justify-content:center;label:DialogComboboxContent;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$n
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$l
 };
 const DialogComboboxContent = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
   let {
@@ -11813,7 +11974,7 @@ const DialogComboboxContent = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
       ...restProps,
       ref: contentRef,
       children: jsx("div", {
-        css: _ref2$h,
+        css: _ref2$g,
         children: loading ? jsx(LoadingSpinner, {
           label: "Loading",
           alt: "Loading spinner",
@@ -11910,14 +12071,14 @@ const DialogComboboxOptionListContextProvider = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$m() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-var _ref2$g = process.env.NODE_ENV === "production" ? {
+function _EMOTION_STRINGIFIED_CSS_ERROR__$k() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref2$f = process.env.NODE_ENV === "production" ? {
   name: "1pgv7dg",
   styles: "display:flex;flex-direction:column;align-items:flex-start;width:100%"
 } : {
   name: "1dtf9pj-DialogComboboxOptionList",
   styles: "display:flex;flex-direction:column;align-items:flex-start;width:100%;label:DialogComboboxOptionList;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$m
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$k
 };
 const DialogComboboxOptionList = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
   let {
@@ -11980,7 +12141,7 @@ const DialogComboboxOptionList = /*#__PURE__*/forwardRef((_ref, forwardedRef) =>
     ref: ref,
     "aria-busy": loading,
     "data-combobox-option-list": "true",
-    css: _ref2$g,
+    css: _ref2$f,
     onMouseEnter: handleOnMouseEnter,
     ...restProps,
     children: jsx(DialogComboboxOptionListContextProvider, {
@@ -12008,14 +12169,22 @@ const useDialogComboboxOptionListContext = () => {
   return useContext(DialogComboboxOptionListContext);
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$l() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-var _ref2$f = process.env.NODE_ENV === "production" ? {
+function _EMOTION_STRINGIFIED_CSS_ERROR__$j() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref2$e = process.env.NODE_ENV === "production" ? {
   name: "zjik7",
   styles: "display:flex"
 } : {
   name: "tiu4as-content",
   styles: "display:flex;label:content;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$l
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$j
+};
+var _ref3$6 = process.env.NODE_ENV === "production" ? {
+  name: "qhxz92",
+  styles: "max-width:100%"
+} : {
+  name: "i7t2ch-DuboisDialogComboboxOptionListCheckboxItem",
+  styles: "max-width:100%;label:DuboisDialogComboboxOptionListCheckboxItem;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$j
 };
 const DuboisDialogComboboxOptionListCheckboxItem = /*#__PURE__*/forwardRef((_ref, ref) => {
   let {
@@ -12051,7 +12220,7 @@ const DuboisDialogComboboxOptionListCheckboxItem = /*#__PURE__*/forwardRef((_ref
   let content = children !== null && children !== void 0 ? children : value;
   if (props.disabled && disabledReason) {
     content = jsxs("div", {
-      css: _ref2$f,
+      css: _ref2$e,
       children: [jsx("div", {
         children: content
       }), jsx("div", {
@@ -12060,7 +12229,7 @@ const DuboisDialogComboboxOptionListCheckboxItem = /*#__PURE__*/forwardRef((_ref
           placement: "right",
           children: jsx("span", {
             css: getInfoIconStyles(theme),
-            children: jsx(InfoIcon$1, {
+            children: jsx(InfoIcon, {
               "aria-label": "Disabled status information",
               "aria-hidden": "false"
             })
@@ -12091,6 +12260,7 @@ const DuboisDialogComboboxOptionListCheckboxItem = /*#__PURE__*/forwardRef((_ref
       onDefaultKeyDown: e => dialogComboboxLookAheadKeyDown(e, setLookAhead, lookAhead)
     }),
     children: jsx(Checkbox, {
+      componentId: "codegen_design-system_src_design-system_dialogcombobox_dialogcomboboxoptionlistcheckboxitem.tsx_86",
       disabled: props.disabled,
       isChecked: indeterminate ? null : checked,
       css: [getCheckboxStyles(theme, textOverflowMode), contentWidth ? {
@@ -12106,6 +12276,7 @@ const DuboisDialogComboboxOptionListCheckboxItem = /*#__PURE__*/forwardRef((_ref
         handleSelect(e);
       },
       children: jsx("div", {
+        css: _ref3$6,
         children: content
       })
     })
@@ -12116,7 +12287,7 @@ DuboisDialogComboboxOptionListCheckboxItem.defaultProps = {
 };
 const DialogComboboxOptionListCheckboxItem = DuboisDialogComboboxOptionListCheckboxItem;
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$k() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$i() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const extractTextContent = node => {
   if (typeof node === 'string' || typeof node === 'number') {
     return node.toString();
@@ -12143,13 +12314,13 @@ const filterChildren = (children, searchValue) => {
     return child;
   })) === null || _React$Children$map === void 0 ? void 0 : _React$Children$map.filter(child => child);
 };
-var _ref2$e = process.env.NODE_ENV === "production" ? {
+var _ref2$d = process.env.NODE_ENV === "production" ? {
   name: "1d3w5wq",
   styles: "width:100%"
 } : {
   name: "csdki6-DialogComboboxOptionListSearch",
   styles: "width:100%;label:DialogComboboxOptionListSearch;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$k
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$i
 };
 const DialogComboboxOptionListSearch = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
   var _filteredChildren, _filteredChildren2;
@@ -12279,7 +12450,7 @@ const DialogComboboxOptionListSearch = /*#__PURE__*/forwardRef((_ref, forwardedR
       })
     }), virtualized ? children : (hasWrapper && (_filteredChildren = filteredChildren) !== null && _filteredChildren !== void 0 && (_filteredChildren = _filteredChildren.props.children) !== null && _filteredChildren !== void 0 && _filteredChildren.length || !hasWrapper && (_filteredChildren2 = filteredChildren) !== null && _filteredChildren2 !== void 0 && _filteredChildren2.length) && childrenIsNotEmpty ? jsx("div", {
       "aria-live": "polite",
-      css: _ref2$e,
+      css: _ref2$d,
       children: filteredChildren
     }) : jsx(EmptyResults, {})]
   });
@@ -12304,14 +12475,14 @@ const useSelectContext = () => {
   return useContext(SelectContext);
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$j() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-var _ref2$d = process.env.NODE_ENV === "production" ? {
+function _EMOTION_STRINGIFIED_CSS_ERROR__$h() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref2$c = process.env.NODE_ENV === "production" ? {
   name: "zjik7",
   styles: "display:flex"
 } : {
   name: "tiu4as-content",
   styles: "display:flex;label:content;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$j
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$h
 };
 var _ref3$5 = process.env.NODE_ENV === "production" ? {
   name: "kjj0ot",
@@ -12319,7 +12490,7 @@ var _ref3$5 = process.env.NODE_ENV === "production" ? {
 } : {
   name: "15osdio-DuboisDialogComboboxOptionListSelectItem",
   styles: "padding-top:2px;label:DuboisDialogComboboxOptionListSelectItem;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$j
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$h
 };
 const DuboisDialogComboboxOptionListSelectItem = /*#__PURE__*/forwardRef((_ref, ref) => {
   let {
@@ -12405,7 +12576,7 @@ const DuboisDialogComboboxOptionListSelectItem = /*#__PURE__*/forwardRef((_ref, 
   let content = children !== null && children !== void 0 ? children : value;
   if (props.disabled && disabledReason) {
     content = jsxs("div", {
-      css: _ref2$d,
+      css: _ref2$c,
       children: [jsx("div", {
         children: content
       }), jsx(LegacyTooltip, {
@@ -12413,7 +12584,7 @@ const DuboisDialogComboboxOptionListSelectItem = /*#__PURE__*/forwardRef((_ref, 
         placement: "right",
         children: jsx("span", {
           css: getInfoIconStyles(theme),
-          children: jsx(InfoIcon$1, {
+          children: jsx(InfoIcon, {
             "aria-label": "Disabled status information",
             "aria-hidden": "false"
           })
@@ -12483,14 +12654,14 @@ DuboisDialogComboboxOptionListSelectItem.defaultProps = {
 };
 const DialogComboboxOptionListSelectItem = DuboisDialogComboboxOptionListSelectItem;
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$i() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-var _ref2$c = process.env.NODE_ENV === "production" ? {
+function _EMOTION_STRINGIFIED_CSS_ERROR__$g() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref2$b = process.env.NODE_ENV === "production" ? {
   name: "1pgv7dg",
   styles: "display:flex;flex-direction:column;align-items:flex-start;width:100%"
 } : {
   name: "18t0chz-DialogComboboxOptionControlledList",
   styles: "display:flex;flex-direction:column;align-items:flex-start;width:100%;label:DialogComboboxOptionControlledList;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$i
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$g
 };
 const DialogComboboxOptionControlledList = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
   let {
@@ -12617,7 +12788,7 @@ const DialogComboboxOptionControlledList = /*#__PURE__*/forwardRef((_ref, forwar
   return jsx("div", {
     ref: ref,
     "aria-busy": loading,
-    css: _ref2$c,
+    css: _ref2$b,
     ...restProps,
     children: jsx(DialogComboboxOptionListContextProvider, {
       value: {
@@ -12719,6 +12890,7 @@ const getTriggerStyles = function (theme) {
     borderRadius: 4,
     color: theme.colors.textPrimary,
     lineHeight: theme.typography.lineHeightBase,
+    fontSize: theme.typography.fontSizeBase,
     cursor: 'pointer',
     ...(width && {
       width: width,
@@ -12893,6 +13065,7 @@ const DialogComboboxTrigger = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
     ref: forwardedRef,
     role: "combobox",
     "aria-haspopup": "listbox",
+    "aria-invalid": validationState === 'error',
     id: id,
     ...restProps,
     css: getTriggerStyles(theme, restProps.disabled, maxWidth, minWidth, removable, width, validationState, isBare, isSelect),
@@ -12927,6 +13100,7 @@ const DialogComboboxTrigger = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
     ref: forwardedRef,
     role: "combobox",
     "aria-haspopup": "listbox",
+    "aria-invalid": validationState === 'error',
     ...restProps,
     css: getTriggerStyles(theme, restProps.disabled, maxWidth, minWidth, removable, width, validationState, isBare, isSelect),
     children: [jsxs("span", {
@@ -13011,22 +13185,22 @@ const DialogComboboxCustomButtonTriggerWrapper = _ref3 => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$h() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-const DEFAULT_WIDTH$1 = 320;
+function _EMOTION_STRINGIFIED_CSS_ERROR__$f() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+const DEFAULT_WIDTH = 320;
 const MIN_WIDTH = 320;
 const MAX_WIDTH = '90vw';
 const DEFAULT_POSITION = 'right';
 const ZINDEX_OVERLAY = 1;
 const ZINDEX_CONTENT = ZINDEX_OVERLAY + 1;
-var _ref2$b = process.env.NODE_ENV === "production" ? {
+var _ref2$a = process.env.NODE_ENV === "production" ? {
   name: "zh83op",
   styles: "flex-grow:1;margin-bottom:0;margin-top:0;white-space:nowrap;overflow:hidden"
 } : {
   name: "h5yqvj-Content",
   styles: "flex-grow:1;margin-bottom:0;margin-top:0;white-space:nowrap;overflow:hidden;label:Content;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$h
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$f
 };
-const Content$2 = _ref => {
+const Content$1 = _ref => {
   let {
     children,
     footer,
@@ -13038,7 +13212,9 @@ const Content$2 = _ref => {
     disableOpenAutoFocus,
     onInteractOutside,
     seeThrough,
-    hideClose
+    hideClose,
+    componentId = 'design_system.drawer.content',
+    analyticsEvents
   } = _ref;
   const {
     getPopupContainer
@@ -13049,10 +13225,21 @@ const Content$2 = _ref => {
   const horizontalContentPadding = theme.spacing.lg;
   const [shouldContentBeFocusable, setShouldContentBeFocusable] = useState(false);
   const contentContainerRef = useRef(null);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Drawer,
+    componentId,
+    analyticsEvents: analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : []
+  });
+  const {
+    elementRef: onViewRef
+  } = useNotifyOnFirstView({
+    onView: eventContext.onView
+  });
   const contentRef = useCallback(node => {
     if (!node || !node.clientHeight) return;
     setShouldContentBeFocusable(node.scrollHeight > node.clientHeight);
   }, []);
+  const mergedContentRef = useMergeRefs([contentRef, onViewRef]);
   const position = positionOverride !== null && positionOverride !== void 0 ? positionOverride : DEFAULT_POSITION;
   const overlayShow = position === 'right' ? keyframes({
     '0%': {
@@ -13078,7 +13265,7 @@ const Content$2 = _ref => {
     left: position === 'left' ? 0 : undefined,
     right: position === 'right' ? 0 : undefined,
     boxSizing: 'border-box',
-    width: width !== null && width !== void 0 ? width : DEFAULT_WIDTH$1,
+    width: width !== null && width !== void 0 ? width : DEFAULT_WIDTH,
     minWidth: MIN_WIDTH,
     maxWidth: MAX_WIDTH,
     zIndex: theme.options.zIndexBase + ZINDEX_CONTENT,
@@ -13147,7 +13334,7 @@ const Content$2 = _ref => {
           children: [jsx(DialogPrimitive.Title, {
             title: typeof title === 'string' ? title : undefined,
             asChild: typeof title === 'string',
-            css: _ref2$b,
+            css: _ref2$a,
             children: typeof title === 'string' ? jsx(Typography.Title, {
               level: 2,
               withoutMargins: true,
@@ -13161,13 +13348,13 @@ const Content$2 = _ref => {
               marginLeft: theme.spacing.xs
             }, process.env.NODE_ENV === "production" ? "" : ";label:Content;"),
             children: jsx(Button, {
-              componentId: "codegen_design-system_src_design-system_drawer_drawer.tsx_219",
+              componentId: `${componentId}.close`,
               "aria-label": "Close",
               icon: jsx(CloseIcon, {})
             })
           })]
         }), jsxs("div", {
-          ref: contentRef
+          ref: mergedContentRef
           // Needed to make drawer content focusable when scrollable for keyboard-only users to be able to focus & scroll
           // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
           ,
@@ -13214,7 +13401,7 @@ function Trigger(props) {
 
 var Drawer = /*#__PURE__*/Object.freeze({
   __proto__: null,
-  Content: Content$2,
+  Content: Content$1,
   Root: Root$1,
   Trigger: Trigger
 });
@@ -13244,7 +13431,7 @@ const Dropdown = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$g() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$e() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const {
   Title: Title$1,
   Paragraph
@@ -13286,13 +13473,13 @@ function getEmptyDescriptionStyles(theme, clsPrefix) {
   };
   return /*#__PURE__*/css(styles, process.env.NODE_ENV === "production" ? "" : ";label:getEmptyDescriptionStyles;");
 }
-var _ref$7 = process.env.NODE_ENV === "production" ? {
+var _ref$6 = process.env.NODE_ENV === "production" ? {
   name: "zl1inp",
   styles: "display:flex;justify-content:center"
 } : {
   name: "11tid6c-Empty",
   styles: "display:flex;justify-content:center;label:Empty;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$g
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$e
 };
 const Empty = props => {
   const {
@@ -13310,7 +13497,7 @@ const Empty = props => {
   return jsx("div", {
     ...dataProps,
     ...addDebugOutlineIfEnabled(),
-    css: _ref$7,
+    css: _ref$6,
     children: jsxs("div", {
       css: [getEmptyStyles(theme), dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:Empty;"],
       children: [image, title && jsx(Title$1, {
@@ -13497,7 +13684,7 @@ const getHintStyles = (classNamePrefix, theme) => {
     color: theme.colors.textSecondary,
     lineHeight: theme.typography.lineHeightSm,
     fontSize: theme.typography.fontSizeSm,
-    [`&& + .${classNamePrefix}-input, && + .${classNamePrefix}-select, && + .${classNamePrefix}-selectv2, && + .${classNamePrefix}-dialogcombobox, && + .${classNamePrefix}-checkbox-group, && + .${classNamePrefix}-radio-group, && + .${classNamePrefix}-typeahead-combobox`]: {
+    [`&& + .${classNamePrefix}-input, && + .${classNamePrefix}-input-affix-wrapper, && + .${classNamePrefix}-select, && + .${classNamePrefix}-selectv2, && + .${classNamePrefix}-dialogcombobox, && + .${classNamePrefix}-checkbox-group, && + .${classNamePrefix}-radio-group, && + .${classNamePrefix}-typeahead-combobox`]: {
       marginTop: theme.spacing.sm
     }
   };
@@ -13520,7 +13707,7 @@ const Hint = props => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$f() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$d() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const getLabelStyles$1 = (theme, _ref) => {
   let {
     inline
@@ -13540,19 +13727,19 @@ const getLabelWrapperStyles = (classNamePrefix, theme) => {
     display: 'flex',
     gap: theme.spacing.xs,
     alignItems: 'center',
-    [`&& + .${classNamePrefix}-input, && + .${classNamePrefix}-select, && + .${classNamePrefix}-selectv2, && + .${classNamePrefix}-dialogcombobox, && + .${classNamePrefix}-checkbox-group, && + .${classNamePrefix}-radio-group, && + .${classNamePrefix}-typeahead-combobox`]: {
+    [`&& + .${classNamePrefix}-input, && + .${classNamePrefix}-input-affix-wrapper, && + .${classNamePrefix}-select, && + .${classNamePrefix}-selectv2, && + .${classNamePrefix}-dialogcombobox, && + .${classNamePrefix}-checkbox-group, && + .${classNamePrefix}-radio-group, && + .${classNamePrefix}-typeahead-combobox`]: {
       marginTop: theme.spacing.sm
     }
   };
   return /*#__PURE__*/css(styles, process.env.NODE_ENV === "production" ? "" : ";label:getLabelWrapperStyles;");
 };
-var _ref2$a = process.env.NODE_ENV === "production" ? {
+var _ref2$9 = process.env.NODE_ENV === "production" ? {
   name: "s5xdrg",
   styles: "display:flex;align-items:center"
 } : {
   name: "10kkfun-label",
   styles: "display:flex;align-items:center;label:label;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$f
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$d
 };
 const Label = props => {
   const {
@@ -13576,7 +13763,7 @@ const Label = props => {
     className: classnames(`${classNamePrefix}-label`, className),
     ...restProps,
     children: jsxs("span", {
-      css: _ref2$a,
+      css: _ref2$9,
       children: [children, required && jsx("span", {
         "aria-hidden": "true",
         children: "*"
@@ -14942,6 +15129,7 @@ const Switch = _ref2 => {
 };
 
 const typeaheadComboboxContextDefaults = {
+  componentId: 'codegen_design-system_src_design-system_typeaheadcombobox_providers_typeaheadcomboboxcontext.tsx_17',
   isInsideTypeaheadCombobox: false,
   multiSelect: false
 };
@@ -14962,14 +15150,14 @@ const TypeaheadComboboxContextProvider = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$e() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-var _ref2$9 = process.env.NODE_ENV === "production" ? {
+function _EMOTION_STRINGIFIED_CSS_ERROR__$c() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref2$8 = process.env.NODE_ENV === "production" ? {
   name: "18nns55",
   styles: "display:inline-block;width:100%"
 } : {
   name: "19m0398-TypeaheadComboboxRoot",
   styles: "display:inline-block;width:100%;label:TypeaheadComboboxRoot;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$e
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$c
 };
 const TypeaheadComboboxRoot = /*#__PURE__*/forwardRef((_ref, ref) => {
   let {
@@ -14991,6 +15179,7 @@ const TypeaheadComboboxRoot = /*#__PURE__*/forwardRef((_ref, ref) => {
   });
   return jsx(TypeaheadComboboxContextProvider, {
     value: {
+      componentId: props.componentId,
       multiSelect,
       isInsideTypeaheadCombobox: true,
       floatingUiRefs: refs,
@@ -15001,7 +15190,7 @@ const TypeaheadComboboxRoot = /*#__PURE__*/forwardRef((_ref, ref) => {
         suppressRefError: true
       }),
       className: `${classNamePrefix}-typeahead-combobox`,
-      css: _ref2$9,
+      css: _ref2$8,
       ...props,
       ref: ref,
       children: children
@@ -15009,6 +15198,8 @@ const TypeaheadComboboxRoot = /*#__PURE__*/forwardRef((_ref, ref) => {
   });
 });
 
+const TypeaheadComboboxStateChangeTypes = useCombobox.stateChangeTypes;
+const TypeaheadComboboxMultiSelectStateChangeTypes = useMultipleSelection.stateChangeTypes;
 function useComboboxState(_ref) {
   let {
     allItems,
@@ -15144,17 +15335,17 @@ const useTypeaheadComboboxContext = () => {
   return useContext(TypeaheadComboboxContext);
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$d() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-var _ref$6 = process.env.NODE_ENV === "production" ? {
+function _EMOTION_STRINGIFIED_CSS_ERROR__$b() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref$5 = process.env.NODE_ENV === "production" ? {
   name: "xv0ss6",
   styles: "padding:0;margin:0;display:flex;flex-direction:column;align-items:flex-start;position:absolute"
 } : {
   name: "1sd733r-getTypeaheadComboboxMenuStyles",
   styles: "padding:0;margin:0;display:flex;flex-direction:column;align-items:flex-start;position:absolute;label:getTypeaheadComboboxMenuStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$d
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$b
 };
 const getTypeaheadComboboxMenuStyles = () => {
-  return _ref$6;
+  return _ref$5;
 };
 const TypeaheadComboboxMenu = /*#__PURE__*/forwardRef((_ref2, ref) => {
   let {
@@ -15249,7 +15440,7 @@ const TypeaheadComboboxMenu = /*#__PURE__*/forwardRef((_ref2, ref) => {
   }), getPopupContainer ? getPopupContainer() : document.body);
 });
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$c() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$a() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const getMenuItemStyles = (theme, isHighlighted, disabled) => {
   return /*#__PURE__*/css({
     ...(disabled && {
@@ -15276,13 +15467,13 @@ const getLabelStyles = (theme, textOverflowMode) => {
     })
   }, process.env.NODE_ENV === "production" ? "" : ";label:getLabelStyles;");
 };
-var _ref2$8 = process.env.NODE_ENV === "production" ? {
+var _ref2$7 = process.env.NODE_ENV === "production" ? {
   name: "kjj0ot",
   styles: "padding-top:2px"
 } : {
   name: "1uez6s6-TypeaheadComboboxMenuItem",
   styles: "padding-top:2px;label:TypeaheadComboboxMenuItem;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$c
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$a
 };
 var _ref3$4 = process.env.NODE_ENV === "production" ? {
   name: "zjik7",
@@ -15290,7 +15481,7 @@ var _ref3$4 = process.env.NODE_ENV === "production" ? {
 } : {
   name: "1p9uv37-TypeaheadComboboxMenuItem",
   styles: "display:flex;label:TypeaheadComboboxMenuItem;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$c
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$a
 };
 const TypeaheadComboboxMenuItem = /*#__PURE__*/forwardRef((_ref, ref) => {
   let {
@@ -15334,7 +15525,7 @@ const TypeaheadComboboxMenuItem = /*#__PURE__*/forwardRef((_ref, ref) => {
   });
   const handleClick = e => {
     onClickProp === null || onClickProp === void 0 || onClickProp(e);
-    onClick(e);
+    onClick === null || onClick === void 0 || onClick(e);
   };
 
   // Scroll to the highlighted item if it is not in the viewport
@@ -15367,7 +15558,7 @@ const TypeaheadComboboxMenuItem = /*#__PURE__*/forwardRef((_ref, ref) => {
     ...downshiftItemProps,
     ...restProps,
     children: [isSelected ? jsx(CheckIcon, {
-      css: _ref2$8
+      css: _ref2$7
     }) : jsx("div", {
       style: {
         width: 16,
@@ -15396,14 +15587,14 @@ TypeaheadComboboxMenuItem.defaultProps = {
   _TYPE: 'TypeaheadComboboxMenuItem'
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$b() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-var _ref2$7 = process.env.NODE_ENV === "production" ? {
+function _EMOTION_STRINGIFIED_CSS_ERROR__$9() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref2$6 = process.env.NODE_ENV === "production" ? {
   name: "zjik7",
   styles: "display:flex"
 } : {
   name: "1pneh3l-TypeaheadComboboxCheckboxItem",
   styles: "display:flex;label:TypeaheadComboboxCheckboxItem;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$b
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$9
 };
 const TypeaheadComboboxCheckboxItem = /*#__PURE__*/forwardRef((_ref, ref) => {
   let {
@@ -15480,6 +15671,7 @@ const TypeaheadComboboxCheckboxItem = /*#__PURE__*/forwardRef((_ref, ref) => {
     ...downshiftItemProps,
     ...restProps,
     children: jsx(Checkbox, {
+      componentId: "codegen_design-system_src_design-system_typeaheadcombobox_typeaheadcomboboxcheckboxitem.tsx_92",
       disabled: isDisabled,
       isChecked: isSelected,
       css: getCheckboxStyles(theme, textOverflowMode),
@@ -15491,7 +15683,7 @@ const TypeaheadComboboxCheckboxItem = /*#__PURE__*/forwardRef((_ref, ref) => {
       },
       children: jsxs("label", {
         children: [isDisabled && disabledReason ? jsxs("div", {
-          css: _ref2$7,
+          css: _ref2$6,
           children: [jsx("div", {
             children: children
           }), jsx("div", {
@@ -15555,14 +15747,14 @@ const TypeaheadComboboxToggleButton = /*#__PURE__*/React__default.forwardRef((_r
   });
 });
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$a() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-var _ref2$6 = process.env.NODE_ENV === "production" ? {
+function _EMOTION_STRINGIFIED_CSS_ERROR__$8() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref2$5 = process.env.NODE_ENV === "production" ? {
   name: "l1fpjx",
   styles: "pointer-events:all;vertical-align:text-top"
 } : {
   name: "4edanz-TypeaheadComboboxControls",
   styles: "pointer-events:all;vertical-align:text-top;label:TypeaheadComboboxControls;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$a
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$8
 };
 const TypeaheadComboboxControls = _ref => {
   let {
@@ -15585,7 +15777,7 @@ const TypeaheadComboboxControls = _ref => {
     }, process.env.NODE_ENV === "production" ? "" : ";label:TypeaheadComboboxControls;"),
     children: [showClearSelectionButton && jsx(ClearSelectionButton, {
       onClick: handleClear,
-      css: _ref2$6
+      css: _ref2$5
     }), showComboboxToggleButton && jsx(TypeaheadComboboxToggleButton, {
       ...getDownshiftToggleButtonProps(),
       disabled: disabled
@@ -15593,17 +15785,17 @@ const TypeaheadComboboxControls = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$9() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-var _ref$5 = process.env.NODE_ENV === "production" ? {
+function _EMOTION_STRINGIFIED_CSS_ERROR__$7() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref$4 = process.env.NODE_ENV === "production" ? {
   name: "5ob2ly",
   styles: "display:flex;position:relative"
 } : {
   name: "9x5b62-getContainerStyles",
   styles: "display:flex;position:relative;label:getContainerStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$9
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$7
 };
 const getContainerStyles$1 = () => {
-  return _ref$5;
+  return _ref$4;
 };
 const getInputStyles$1 = (theme, showComboboxToggleButton) => /*#__PURE__*/css({
   paddingRight: showComboboxToggleButton ? 52 : 26,
@@ -15726,8 +15918,7 @@ const TypeaheadComboboxInput = /*#__PURE__*/forwardRef((_ref2, ref) => {
   });
 });
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$8() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-const getSelectedItemStyles = theme => {
+const getSelectedItemStyles = (theme, disabled) => {
   return /*#__PURE__*/css({
     backgroundColor: theme.colors.tagDefault,
     borderRadius: theme.general.borderRadiusBase,
@@ -15743,17 +15934,24 @@ const getSelectedItemStyles = theme => {
     paddingInlineStart: theme.spacing.xs,
     position: 'relative',
     flex: 'none',
-    maxWidth: '100%'
+    maxWidth: '100%',
+    ...(disabled && {
+      pointerEvents: 'none'
+    })
   }, process.env.NODE_ENV === "production" ? "" : ";label:getSelectedItemStyles;");
 };
-const getIconContainerStyles = theme => {
+const getIconContainerStyles = (theme, disabled) => {
   return /*#__PURE__*/css({
     width: 16,
     height: 16,
     ':hover': {
       color: theme.colors.actionTertiaryTextHover,
       backgroundColor: theme.colors.tagHover
-    }
+    },
+    ...(disabled && {
+      pointerEvents: 'none',
+      color: theme.colors.actionDisabledText
+    })
   }, process.env.NODE_ENV === "production" ? "" : ";label:getIconContainerStyles;");
 };
 const getXIconStyles = theme => {
@@ -15764,20 +15962,13 @@ const getXIconStyles = theme => {
     paddingRight: theme.spacing.xs / 2
   }, process.env.NODE_ENV === "production" ? "" : ";label:getXIconStyles;");
 };
-var _ref2$5 = process.env.NODE_ENV === "production" ? {
-  name: "2bhlo8",
-  styles: "margin-right:2px"
-} : {
-  name: "d61dng-TypeaheadComboboxSelectedItem",
-  styles: "margin-right:2px;label:TypeaheadComboboxSelectedItem;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$8
-};
 const TypeaheadComboboxSelectedItem = /*#__PURE__*/forwardRef((_ref, ref) => {
   let {
     label,
     item,
     getSelectedItemProps,
     removeSelectedItem,
+    disabled,
     ...restProps
   } = _ref;
   const {
@@ -15787,19 +15978,26 @@ const TypeaheadComboboxSelectedItem = /*#__PURE__*/forwardRef((_ref, ref) => {
     ...getSelectedItemProps({
       selectedItem: item
     }),
-    css: getSelectedItemStyles(theme),
+    css: getSelectedItemStyles(theme, disabled),
     ref: ref,
     ...restProps,
     children: [jsx("span", {
-      css: _ref2$5,
+      css: /*#__PURE__*/css({
+        marginRight: 2,
+        ...(disabled && {
+          color: theme.colors.actionDisabledText
+        })
+      }, process.env.NODE_ENV === "production" ? "" : ";label:TypeaheadComboboxSelectedItem;"),
       children: label
     }), jsx("span", {
-      css: getIconContainerStyles(theme),
+      css: getIconContainerStyles(theme, disabled),
       children: jsx(CloseIcon, {
         "aria-hidden": "false",
         onClick: e => {
-          e.stopPropagation();
-          removeSelectedItem(item);
+          if (!disabled) {
+            e.stopPropagation();
+            removeSelectedItem(item);
+          }
         },
         css: getXIconStyles(theme),
         role: "button",
@@ -15812,21 +16010,25 @@ const TypeaheadComboboxSelectedItem = /*#__PURE__*/forwardRef((_ref, ref) => {
 const CountBadge = _ref => {
   let {
     countStartAt,
-    totalCount
+    totalCount,
+    disabled
   } = _ref;
   const {
     theme
   } = useDesignSystemTheme();
   return jsx("div", {
     css: [getSelectedItemStyles(theme), {
-      paddingInlineEnd: theme.spacing.xs
+      paddingInlineEnd: theme.spacing.xs,
+      ...(disabled && {
+        color: theme.colors.actionDisabledText
+      })
     }, process.env.NODE_ENV === "production" ? "" : ";label:CountBadge;"],
     children: countStartAt ? `+${totalCount - countStartAt}` : totalCount
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$7() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-const getContainerStyles = (theme, validationState, width, maxHeight) => {
+function _EMOTION_STRINGIFIED_CSS_ERROR__$6() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+const getContainerStyles = (theme, validationState, width, maxHeight, disabled) => {
   const validationColor = getValidationStateColor(theme, validationState);
   return /*#__PURE__*/css({
     cursor: 'text',
@@ -15858,10 +16060,6 @@ const getContainerStyles = (theme, validationState, width, maxHeight) => {
       boxShadow: 'none',
       borderColor: 'transparent'
     },
-    '&:disabled': {
-      backgroundColor: theme.colors.actionDisabledBackground,
-      color: theme.colors.actionDisabledText
-    },
     '&&': {
       ...(validationState && {
         borderColor: validationColor
@@ -15876,7 +16074,20 @@ const getContainerStyles = (theme, validationState, width, maxHeight) => {
         outlineStyle: 'solid',
         boxShadow: 'none',
         borderColor: 'transparent'
-      }
+      },
+      ...(disabled && {
+        borderColor: theme.colors.actionDisabledBorder,
+        backgroundColor: theme.colors.actionDisabledBackground,
+        cursor: 'not-allowed',
+        outline: 'none',
+        '&:hover': {
+          border: `1px solid ${theme.colors.actionDisabledBorder}`
+        },
+        '&:focus-within': {
+          outline: 'none',
+          borderColor: theme.colors.actionDisabledBorder
+        }
+      })
     }
   }, process.env.NODE_ENV === "production" ? "" : ";label:getContainerStyles;");
 };
@@ -15886,21 +16097,21 @@ var _ref2$4 = process.env.NODE_ENV === "production" ? {
 } : {
   name: "azzs2i-getContentWrapperStyles",
   styles: "display:flex;flex:auto;flex-wrap:wrap;max-width:100%;position:relative;label:getContentWrapperStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$7
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
 };
 const getContentWrapperStyles = () => {
   return _ref2$4;
 };
-var _ref$4 = process.env.NODE_ENV === "production" ? {
+var _ref$3 = process.env.NODE_ENV === "production" ? {
   name: "qngrd1",
   styles: "display:inline-flex;position:relative;max-width:100%;align-self:auto;flex:none"
 } : {
   name: "10x8s5t-getInputWrapperStyles",
   styles: "display:inline-flex;position:relative;max-width:100%;align-self:auto;flex:none;label:getInputWrapperStyles;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$7
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
 };
 const getInputWrapperStyles = () => {
-  return _ref$4;
+  return _ref$3;
 };
 const getInputStyles = theme => {
   return /*#__PURE__*/css({
@@ -15928,7 +16139,7 @@ var _ref4$1 = process.env.NODE_ENV === "production" ? {
 } : {
   name: "1noplic-content",
   styles: "visibility:hidden;white-space:pre;position:absolute;label:content;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$7
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
 };
 const TypeaheadComboboxMultiSelectInput = /*#__PURE__*/forwardRef((_ref3, ref) => {
   var _measureRef$current, _itemsRef$current, _containerRef$current, _innerRef$current2;
@@ -15944,6 +16155,8 @@ const TypeaheadComboboxMultiSelectInput = /*#__PURE__*/forwardRef((_ref3, ref) =
     maxHeight,
     placeholder,
     validationState,
+    showComboboxToggleButton,
+    disableTooltip = false,
     ...restProps
   } = _ref3;
   const {
@@ -15989,9 +16202,11 @@ const TypeaheadComboboxMultiSelectInput = /*#__PURE__*/forwardRef((_ref3, ref) =
   const [showTooltip, setShowTooltip] = useState(shouldShowCountBadge);
   const selectedItemsToRender = selectedItems.slice(0, showTagAfterValueCount);
   const handleClick = () => {
-    var _innerRef$current;
-    (_innerRef$current = innerRef.current) === null || _innerRef$current === void 0 || _innerRef$current.focus();
-    toggleMenu();
+    if (!restProps.disabled) {
+      var _innerRef$current;
+      (_innerRef$current = innerRef.current) === null || _innerRef$current === void 0 || _innerRef$current.focus();
+      toggleMenu();
+    }
   };
   const handleClear = () => {
     setInputValue('');
@@ -16031,13 +16246,14 @@ const TypeaheadComboboxMultiSelectInput = /*#__PURE__*/forwardRef((_ref3, ref) =
       } = containerRef.current;
       isPartiallyHidden = innerHeight > outerHeight;
     }
-    setShowTooltip(shouldShowCountBadge || isPartiallyHidden);
-  }, [shouldShowCountBadge, (_itemsRef$current = itemsRef.current) === null || _itemsRef$current === void 0 ? void 0 : _itemsRef$current.clientHeight, (_containerRef$current = containerRef.current) === null || _containerRef$current === void 0 ? void 0 : _containerRef$current.clientHeight]);
+    setShowTooltip(!disableTooltip && (shouldShowCountBadge || isPartiallyHidden));
+  }, [shouldShowCountBadge, (_itemsRef$current = itemsRef.current) === null || _itemsRef$current === void 0 ? void 0 : _itemsRef$current.clientHeight, (_containerRef$current = containerRef.current) === null || _containerRef$current === void 0 ? void 0 : _containerRef$current.clientHeight, disableTooltip]);
   const content = jsxs("div", {
     ...addDebugOutlineIfEnabled(),
     onClick: handleClick,
     ref: mergedContainerRef,
-    css: getContainerStyles(theme, validationState, width, maxHeight),
+    css: getContainerStyles(theme, validationState, width, maxHeight, restProps.disabled),
+    tabIndex: restProps.disabled ? -1 : 0,
     children: [jsxs("div", {
       ref: itemsRef,
       css: getContentWrapperStyles(),
@@ -16045,12 +16261,14 @@ const TypeaheadComboboxMultiSelectInput = /*#__PURE__*/forwardRef((_ref3, ref) =
         label: getSelectedItemLabel(selectedItemForRender),
         item: selectedItemForRender,
         getSelectedItemProps: getSelectedItemProps,
-        removeSelectedItem: removeSelectedItem
+        removeSelectedItem: removeSelectedItem,
+        disabled: restProps.disabled
       }, `selected-item-${index}`)), shouldShowCountBadge && jsx(CountBadge, {
         countStartAt: showTagAfterValueCount,
         totalCount: selectedItems.length,
         role: "status",
-        "aria-label": "Selected options count"
+        "aria-label": "Selected options count",
+        disabled: restProps.disabled
       }), jsxs("div", {
         css: getInputWrapperStyles(),
         children: [jsx("input", {
@@ -16071,7 +16289,8 @@ const TypeaheadComboboxMultiSelectInput = /*#__PURE__*/forwardRef((_ref3, ref) =
       })]
     }), jsx(TypeaheadComboboxControls, {
       getDownshiftToggleButtonProps: getToggleButtonProps,
-      showClearSelectionButton: allowClear && (Boolean(inputValue) || selectedItems && selectedItems.length > 0),
+      showComboboxToggleButton: showComboboxToggleButton,
+      showClearSelectionButton: allowClear && (Boolean(inputValue) || selectedItems && selectedItems.length > 0) && !restProps.disabled,
       handleClear: handleClear,
       disabled: restProps.disabled
     })]
@@ -16764,7 +16983,7 @@ const Space = _ref => {
   });
 };
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$6() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$5() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const getHeaderStyles = (clsPrefix, theme) => {
   const breadcrumbClass = `.${clsPrefix}-breadcrumb`;
   const styles = {
@@ -16774,13 +16993,13 @@ const getHeaderStyles = (clsPrefix, theme) => {
   };
   return /*#__PURE__*/css(importantify(styles), process.env.NODE_ENV === "production" ? "" : ";label:getHeaderStyles;");
 };
-var _ref$3 = process.env.NODE_ENV === "production" ? {
+var _ref$2 = process.env.NODE_ENV === "production" ? {
   name: "4y41qd",
   styles: "display:inline-flex;vertical-align:middle;align-items:center;flex-wrap:wrap"
 } : {
   name: "aw04zu-titleAddOnsWrapper",
   styles: "display:inline-flex;vertical-align:middle;align-items:center;flex-wrap:wrap;label:titleAddOnsWrapper;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
 };
 var _ref2$3 = process.env.NODE_ENV === "production" ? {
   name: "1q4vxyr",
@@ -16788,7 +17007,7 @@ var _ref2$3 = process.env.NODE_ENV === "production" ? {
 } : {
   name: "ozrfom-buttonContainer",
   styles: "margin-left:8px;label:buttonContainer;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
 };
 var _ref3$3 = process.env.NODE_ENV === "production" ? {
   name: "s079uh",
@@ -16796,7 +17015,7 @@ var _ref3$3 = process.env.NODE_ENV === "production" ? {
 } : {
   name: "1ky5whb-titleIfOtherElementsPresent",
   styles: "margin-top:2px;label:titleIfOtherElementsPresent;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
 };
 var _ref4 = process.env.NODE_ENV === "production" ? {
   name: "fuxm9z",
@@ -16804,7 +17023,7 @@ var _ref4 = process.env.NODE_ENV === "production" ? {
 } : {
   name: "h5m2l9-title",
   styles: "margin-top:0;margin-bottom:0 !important;align-self:stretch;label:title;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$6
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
 };
 const Header$1 = _ref5 => {
   let {
@@ -16814,6 +17033,7 @@ const Header$1 = _ref5 => {
     dangerouslyAppendEmotionCSS,
     buttons,
     children,
+    titleElementLevel,
     ...rest
   } = _ref5;
   const {
@@ -16843,7 +17063,7 @@ const Header$1 = _ref5 => {
     // TODO: Look into a more emotion-idomatic way of doing this.
     titleIfOtherElementsPresent: _ref3$3,
     buttonContainer: _ref2$3,
-    titleAddOnsWrapper: _ref$3
+    titleAddOnsWrapper: _ref$2
   };
   return jsxs("div", {
     ...addDebugOutlineIfEnabled(),
@@ -16856,6 +17076,7 @@ const Header$1 = _ref5 => {
       css: styles.titleWrapper,
       children: [jsxs(Title$2, {
         level: 2,
+        elementLevel: titleElementLevel,
         css: [styles.title, (buttons || breadcrumbs) && styles.titleIfOtherElementsPresent, process.env.NODE_ENV === "production" ? "" : ";label:Header;"],
         children: [title, titleAddOns && jsxs(Fragment, {
           children: ["\u2002", jsx("span", {
@@ -16884,11 +17105,127 @@ const Header$1 = _ref5 => {
   });
 };
 
+/**
+ * The HoverCard component combines Radix's HoverCard primitives into a single, easy-to-use component.
+ * It handles the setup of the trigger, content, and arrow elements, as well as applying custom styles
+ * using Emotion CSS
+ */
+const HoverCard = _ref => {
+  let {
+    trigger,
+    content,
+    side = 'top',
+    sideOffset = 4,
+    align = 'center',
+    minWidth = 220,
+    maxWidth,
+    ...props
+  } = _ref;
+  const {
+    getPopupContainer
+  } = useDesignSystemContext();
+  const hoverCardStyles = useHoverCardStyles({
+    minWidth,
+    maxWidth
+  });
+  return jsxs(RadixHoverCard.Root, {
+    ...props,
+    children: [jsx(RadixHoverCard.Trigger, {
+      asChild: true,
+      children: trigger
+    }), jsx(RadixHoverCard.Portal, {
+      container: getPopupContainer && getPopupContainer(),
+      children: jsxs(RadixHoverCard.Content, {
+        side: side,
+        sideOffset: sideOffset,
+        align: align,
+        css: hoverCardStyles['content'],
+        children: [content, jsx(RadixHoverCard.Arrow, {
+          css: hoverCardStyles['arrow']
+        })]
+      })
+    })]
+  });
+};
+
+// CONSTANTS used for defining the Arrow's appearance and behavior
+const CONSTANTS = {
+  arrowWidth: 12,
+  arrowHeight: 6,
+  arrowBottomLength() {
+    // The built in arrow is a polygon: 0,0 30,0 15,10
+    return 30;
+  },
+  arrowSide() {
+    return 2 * (this.arrowHeight ** 2 * 2) ** 0.5;
+  },
+  arrowStrokeWidth() {
+    // This is eyeballed b/c relative to the svg viewbox coordinate system
+    return 2;
+  }
+};
+
+/**
+ * A custom hook to generate CSS styles for the HoverCard's content and arrow.
+ * These styles are dynamically generated based on the theme and optional min/max width props.
+ * The hook also applies necessary dark mode adjustments
+ */
+const useHoverCardStyles = _ref2 => {
+  let {
+    minWidth,
+    maxWidth
+  } = _ref2;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return {
+    content: {
+      backgroundColor: theme.colors.backgroundPrimary,
+      color: theme.colors.textPrimary,
+      lineHeight: theme.typography.lineHeightBase,
+      border: `1px solid ${theme.colors.borderDecorative}`,
+      borderRadius: theme.borders.borderRadiusMd,
+      padding: `${theme.spacing.sm}px`,
+      boxShadow: theme.general.shadowLow,
+      userSelect: 'none',
+      zIndex: theme.options.zIndexBase + 30,
+      minWidth,
+      maxWidth,
+      ...getDarkModePortalStyles(theme),
+      a: importantify({
+        color: theme.colors.actionTertiaryTextDefault,
+        cursor: 'default',
+        '&:hover, &:focus': {
+          color: theme.colors.actionTertiaryTextHover
+        }
+      }),
+      '&:focus-visible': {
+        outlineStyle: 'solid',
+        outlineWidth: '2px',
+        outlineOffset: '1px',
+        outlineColor: theme.colors.primary
+      }
+    },
+    arrow: {
+      fill: theme.colors.backgroundPrimary,
+      height: CONSTANTS.arrowHeight,
+      stroke: theme.colors.borderDecorative,
+      strokeDashoffset: -CONSTANTS.arrowBottomLength(),
+      strokeDasharray: CONSTANTS.arrowBottomLength() + 2 * CONSTANTS.arrowSide(),
+      strokeWidth: CONSTANTS.arrowStrokeWidth(),
+      width: CONSTANTS.arrowWidth,
+      position: 'relative',
+      top: -1,
+      zIndex: theme.options.zIndexBase + 30
+    }
+  };
+};
+
 const {
   Header,
   Footer,
   Sider,
-  Content: Content$1
+  Content
 } = Layout$1;
 /**
  * @deprecated Use PageWrapper instead
@@ -16963,7 +17300,7 @@ const Layout = /* #__PURE__ */(() => {
       ...props
     } = _ref5;
     return jsx(DesignSystemAntDConfigProvider, {
-      children: jsx(Content$1, {
+      children: jsx(Content, {
         ...addDebugOutlineIfEnabled(),
         ...props,
         children: jsx(RestoreAntDDefaultClsPrefix, {
@@ -17142,7 +17479,7 @@ const LegacySkeleton = /* #__PURE__ */(() => {
   return LegacySkeleton;
 })();
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$5() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+function _EMOTION_STRINGIFIED_CSS_ERROR__$4() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 function getPaginationEmotionStyles(clsPrefix, theme) {
   const classRoot = `.${clsPrefix}-pagination`;
   const classItem = `.${clsPrefix}-pagination-item`;
@@ -17262,7 +17599,9 @@ const Pagination = function Pagination(_ref) {
     onChange,
     style,
     hideOnSinglePage,
-    dangerouslySetAntdProps
+    dangerouslySetAntdProps,
+    componentId,
+    analyticsEvents
   } = _ref;
   const {
     classNamePrefix,
@@ -17274,6 +17613,16 @@ const Pagination = function Pagination(_ref) {
     ...restDangerouslySetAntdProps
   } = dangerouslySetAntdProps !== null && dangerouslySetAntdProps !== void 0 ? dangerouslySetAntdProps : {};
   const ref = useRef(null);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Pagination,
+    componentId,
+    analyticsEvents: analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    valueHasNoPii: true
+  });
+  const onChangeWrapper = useCallback((pageIndex, pageSize) => {
+    eventContext.onValueChange(pageIndex);
+    onChange(pageIndex, pageSize);
+  }, [eventContext, onChange]);
   useEffect(() => {
     if (ref && ref.current) {
       const selectDropdown = ref.current.querySelector(`.${classNamePrefix}-select-selection-search-input`);
@@ -17296,7 +17645,7 @@ const Pagination = function Pagination(_ref) {
         pageSize: pageSize,
         responsive: false,
         total: numTotal,
-        onChange: onChange,
+        onChange: onChangeWrapper,
         showSizeChanger: false,
         showQuickJumper: false,
         size: "small",
@@ -17313,7 +17662,7 @@ var _ref3$2 = process.env.NODE_ENV === "production" ? {
 } : {
   name: "1am9qog-CursorPagination",
   styles: "width:120px;label:CursorPagination;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$5
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
 };
 const CursorPagination = function CursorPagination(_ref2) {
   let {
@@ -17329,13 +17678,22 @@ const CursorPagination = function CursorPagination(_ref2) {
       getOptionText: getPageSizeOptionText,
       onChange: onPageSizeChange,
       ariaLabel = 'Select page size'
-    } = {}
+    } = {},
+    componentId = 'design_system.cursor_pagination',
+    analyticsEvents,
+    valueHasNoPii
   } = _ref2;
   const {
     theme,
     classNamePrefix
   } = useDesignSystemTheme();
   const [pageSizeValue, setPageSizeValue] = useState(defaultPageSize);
+  const pageSizeEventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.LegacySelect,
+    componentId: `${componentId}.page_size`,
+    analyticsEvents: analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    valueHasNoPii
+  });
   const getPageSizeOptionTextDefault = pageSize => `${pageSize} / page`;
   return jsxs("div", {
     css: /*#__PURE__*/css({
@@ -17347,15 +17705,15 @@ const CursorPagination = function CursorPagination(_ref2) {
       }
     }, process.env.NODE_ENV === "production" ? "" : ";label:CursorPagination;"),
     children: [jsx(Button, {
-      componentId: "codegen_design-system_src_design-system_pagination_index.tsx_237",
-      icon: jsx(ChevronLeftIcon$1, {}),
+      componentId: `${componentId}.previous_page`,
+      icon: jsx(ChevronLeftIcon, {}),
       disabled: !hasPreviousPage,
       onClick: onPreviousPage,
       type: "tertiary",
       children: previousPageText
     }), jsx(Button, {
-      componentId: "codegen_design-system_src_design-system_pagination_index.tsx_240",
-      endIcon: jsx(ChevronRightIcon$1, {}),
+      componentId: `${componentId}.next_page`,
+      endIcon: jsx(ChevronRightIcon, {}),
       disabled: !hasNextPage,
       onClick: onNextPage,
       type: "tertiary",
@@ -17368,6 +17726,9 @@ const CursorPagination = function CursorPagination(_ref2) {
         const updatedPageSize = Number(pageSize);
         onPageSizeChange === null || onPageSizeChange === void 0 || onPageSizeChange(updatedPageSize);
         setPageSizeValue(updatedPageSize);
+        // When this usage of LegacySelect is migrated to Select, this call
+        // can be removed in favor of passing a componentId to Select
+        pageSizeEventContext.onValueChange(pageSize);
       },
       children: pageSizeOptions.map(pageSize => jsx(LegacySelect.Option, {
         value: String(pageSize),
@@ -17862,7 +18223,7 @@ function getTagEmotionStyles(theme) {
     }
   };
 }
-function Tag(props) {
+const Tag = /*#__PURE__*/forwardRef((props, forwardedRef) => {
   const {
     theme
   } = useDesignSystemTheme();
@@ -17888,6 +18249,7 @@ function Tag(props) {
   } = useNotifyOnFirstView({
     onView: eventContext.onView
   });
+  const mergedRef = useMergeRefs([elementRef, forwardedRef]);
   const closeButtonEventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.Button,
     componentId: componentId ? `${componentId}.close` : undefined,
@@ -17902,7 +18264,7 @@ function Tag(props) {
   }, [closeButtonEventContext, onClose]);
   const styles = getTagEmotionStyles(theme, color, isClickable);
   return jsx("div", {
-    ref: elementRef,
+    ref: mergedRef,
     role: role,
     ...attributes,
     css: styles.tag,
@@ -17926,7 +18288,7 @@ function Tag(props) {
       })]
     })
   });
-}
+});
 
 const Overflow = _ref => {
   let {
@@ -17946,6 +18308,7 @@ const Overflow = _ref => {
   const firstItem = childrenList[0];
   const additionalItems = childrenList.splice(1);
   const renderOverflowLabel = label => jsx(Tag, {
+    componentId: "codegen_design-system_src_design-system_overflow_overflow.tsx_28",
     css: getTagStyles(theme),
     children: label
   });
@@ -17999,6 +18362,55 @@ const PageWrapper = _ref => {
     }, process.env.NODE_ENV === "production" ? "" : ";label:PageWrapper;"),
     ...props,
     children: children
+  });
+};
+
+const STATUS_TO_ICON = {
+  online: _ref => {
+    let {
+      theme,
+      ...props
+    } = _ref;
+    return jsx(CircleIcon$1, {
+      color: "success",
+      ...props
+    });
+  },
+  disconnected: _ref2 => {
+    let {
+      theme,
+      ...props
+    } = _ref2;
+    return jsx(CircleOutlineIcon$1, {
+      css: /*#__PURE__*/css({
+        color: theme.colors.grey500
+      }, process.env.NODE_ENV === "production" ? "" : ";label:disconnected;"),
+      ...props
+    });
+  },
+  offline: _ref3 => {
+    let {
+      theme,
+      ...props
+    } = _ref3;
+    return jsx(CircleOfflineIcon$1, {
+      css: /*#__PURE__*/css({
+        color: theme.colors.grey500
+      }, process.env.NODE_ENV === "production" ? "" : ";label:offline;"),
+      ...props
+    });
+  }
+};
+const ResourceStatusIndicator = props => {
+  const {
+    status
+  } = props;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  const StatusIcon = STATUS_TO_ICON[status];
+  return jsx(StatusIcon, {
+    theme: theme
   });
 };
 
@@ -18197,526 +18609,6 @@ const SegmentedControlGroup = /*#__PURE__*/forwardRef(function SegmentedControlG
     })
   });
 });
-
-function _EMOTION_STRINGIFIED_CSS_ERROR__$4() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-const DEFAULT_WIDTH = 200;
-const ContentContextDefaults = {
-  openPanelId: undefined,
-  closable: true,
-  destroyInactivePanels: false,
-  setIsClosed: () => {}
-};
-const SidebarContextDefaults = {
-  position: 'left'
-};
-const ContentContext = /*#__PURE__*/createContext(ContentContextDefaults);
-const SidebarContext = /*#__PURE__*/createContext(SidebarContextDefaults);
-function Nav(_ref2) {
-  let {
-    children,
-    dangerouslyAppendEmotionCSS
-  } = _ref2;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx("nav", {
-    css: [{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: theme.spacing.xs,
-      padding: theme.spacing.xs
-    }, dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:Nav;"],
-    children: children
-  });
-}
-const NavButton = /*#__PURE__*/React__default.forwardRef((_ref3, ref) => {
-  let {
-    active,
-    disabled,
-    icon,
-    onClick,
-    children,
-    dangerouslyAppendEmotionCSS,
-    'aria-label': ariaLabel,
-    ...restProps
-  } = _ref3;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx("div", {
-    css: [active ? importantify({
-      borderRadius: theme.borders.borderRadiusMd,
-      background: theme.colors.actionDefaultBackgroundPress,
-      button: {
-        '&:enabled:not(:hover):not(:active) > .anticon': {
-          color: theme.colors.actionTertiaryTextPress
-        }
-      }
-    }) : undefined, dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:NavButton;"],
-    children: jsx(Button, {
-      ref: ref,
-      icon: icon,
-      onClick: onClick,
-      disabled: disabled,
-      "aria-label": ariaLabel,
-      ...restProps,
-      children: children
-    })
-  });
-});
-const TOGGLE_BUTTON_Z_INDEX = 100;
-const COMPACT_CONTENT_Z_INDEX = 50;
-const ToggleButton$1 = _ref4 => {
-  let {
-    isExpanded,
-    position,
-    toggleIsExpanded
-  } = _ref4;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  const positionStyle = useMemo(() => {
-    if (position === 'right') {
-      return isExpanded ? {
-        right: DEFAULT_WIDTH,
-        transform: 'translateX(+50%)'
-      } : {
-        left: 0,
-        transform: 'translateX(-50%)'
-      };
-    } else {
-      return isExpanded ? {
-        left: DEFAULT_WIDTH,
-        transform: 'translateX(-50%)'
-      } : {
-        right: 0,
-        transform: 'translateX(+50%)'
-      };
-    }
-  }, [isExpanded, position]);
-  const ToggleIcon = useMemo(() => {
-    if (position === 'right') {
-      return isExpanded ? ChevronRightIcon$1 : ChevronLeftIcon$1;
-    } else {
-      return isExpanded ? ChevronLeftIcon$1 : ChevronRightIcon$1;
-    }
-  }, [isExpanded, position]);
-  return jsxs("div", {
-    css: /*#__PURE__*/css({
-      position: 'absolute',
-      top: 0,
-      height: 46,
-      display: 'flex',
-      alignItems: 'center',
-      zIndex: TOGGLE_BUTTON_Z_INDEX,
-      ...positionStyle
-    }, process.env.NODE_ENV === "production" ? "" : ";label:ToggleButton;"),
-    children: [jsx("div", {
-      css: /*#__PURE__*/css({
-        borderRadius: '100%',
-        width: theme.spacing.lg,
-        height: theme.spacing.lg,
-        backgroundColor: theme.colors.backgroundPrimary,
-        position: 'absolute'
-      }, process.env.NODE_ENV === "production" ? "" : ";label:ToggleButton;")
-    }), jsx(Button, {
-      componentId: "sidebar-toggle",
-      css: /*#__PURE__*/css({
-        borderRadius: '100%',
-        '&&': {
-          padding: '0px !important',
-          width: `${theme.spacing.lg}px !important`
-        }
-      }, process.env.NODE_ENV === "production" ? "" : ";label:ToggleButton;"),
-      onClick: toggleIsExpanded,
-      size: "small",
-      "aria-label": isExpanded ? 'hide sidebar' : 'expand sidebar',
-      "aria-expanded": isExpanded,
-      children: jsx(ToggleIcon, {})
-    })]
-  });
-};
-const getContentAnimation = width => {
-  const showAnimation = keyframes`
-  from { opacity: 0 }
-  80%  { opacity: 0 }
-  to   { opacity: 1 }`;
-  const openAnimation = keyframes`
-  from { width: 50px }
-  to   { width: ${width}px }`;
-  return {
-    open: `${openAnimation} .2s cubic-bezier(0, 0, 0.2, 1)`,
-    show: `${showAnimation} .25s linear`
-  };
-};
-var _ref$2 = process.env.NODE_ENV === "production" ? {
-  name: "1h0bf8r",
-  styles: "body, :host{user-select:none;}"
-} : {
-  name: "15c18a5-Content",
-  styles: "body, :host{user-select:none;};label:Content;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
-};
-function Content(_ref5) {
-  let {
-    disableResize,
-    openPanelId,
-    closable = true,
-    onClose,
-    onResizeStart,
-    onResizeStop,
-    width,
-    minWidth,
-    maxWidth,
-    destroyInactivePanels = false,
-    children,
-    dangerouslyAppendEmotionCSS,
-    enableCompact,
-    resizeBoxStyle
-  } = _ref5;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  const isCompact = useMediaQuery({
-    query: `not (min-width: ${theme.responsive.breakpoints.sm}px)`
-  }) && enableCompact;
-  const defaultAnimation = useMemo(() => getContentAnimation(isCompact ? DEFAULT_WIDTH : width || DEFAULT_WIDTH), [isCompact, width]);
-  // specifically for non closable panel in compact mode
-  const [isExpanded, setIsExpanded] = useState(true);
-  // hide the panel in compact mode when the panel is not closable and collapsed
-  const isNotExpandedStyle = /*#__PURE__*/css(isCompact && !closable && !isExpanded && {
-    display: 'none'
-  }, process.env.NODE_ENV === "production" ? "" : ";label:isNotExpandedStyle;");
-  const sidebarContext = useContext(SidebarContext);
-  const onCloseRef = useRef(onClose);
-  const resizeHandleStyle = sidebarContext.position === 'right' ? {
-    left: 0
-  } : {
-    right: 0
-  };
-  const [dragging, setDragging] = useState(false);
-  const isPanelClosed = openPanelId == null;
-  const [animation, setAnimation] = useState(isPanelClosed ? defaultAnimation : undefined);
-  const compactStyle = /*#__PURE__*/css(isCompact && {
-    position: 'absolute',
-    zIndex: COMPACT_CONTENT_Z_INDEX,
-    left: sidebarContext.position === 'left' && closable ? '100%' : undefined,
-    right: sidebarContext.position === 'right' && closable ? '100%' : undefined,
-    backgroundColor: theme.colors.backgroundPrimary,
-    borderRight: sidebarContext.position === 'left' ? `1px solid ${theme.colors.border}` : undefined,
-    borderLeft: sidebarContext.position === 'right' ? `1px solid ${theme.colors.border}` : undefined,
-    width: DEFAULT_WIDTH,
-    // shift to the top due to border
-    top: -1
-  }, process.env.NODE_ENV === "production" ? "" : ";label:compactStyle;");
-  const hiddenPanelStyle = /*#__PURE__*/css(isPanelClosed && {
-    display: 'none'
-  }, process.env.NODE_ENV === "production" ? "" : ";label:hiddenPanelStyle;");
-  const containerStyle = /*#__PURE__*/css({
-    animation: animation === null || animation === void 0 ? void 0 : animation.open,
-    direction: sidebarContext.position === 'right' ? 'rtl' : 'ltr',
-    marginLeft: -1,
-    position: 'relative',
-    borderWidth: sidebarContext.position === 'right' ? `0 ${theme.general.borderWidth}px 0 0 ` : `0 0 0 ${theme.general.borderWidth}px`,
-    borderStyle: 'inherit',
-    borderColor: 'inherit',
-    boxSizing: 'content-box'
-  }, process.env.NODE_ENV === "production" ? "" : ";label:containerStyle;");
-  const highlightedBorderStyle = sidebarContext.position === 'right' ? /*#__PURE__*/css({
-    borderLeft: `2px solid ${theme.colors.actionDefaultBorderHover}`
-  }, process.env.NODE_ENV === "production" ? "" : ";label:highlightedBorderStyle;") : /*#__PURE__*/css({
-    borderRight: `2px solid ${theme.colors.actionDefaultBorderHover}`
-  }, process.env.NODE_ENV === "production" ? "" : ";label:highlightedBorderStyle;");
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
-
-  // For non closable panel, reset expanded state to true so that the panel stays open
-  // the next time the screen goes into compact mode.
-  useEffect(() => {
-    if (!closable && enableCompact && !isCompact) {
-      setIsExpanded(true);
-    }
-  }, [isCompact, closable, defaultAnimation, enableCompact]);
-  const value = useMemo(() => ({
-    openPanelId,
-    closable,
-    destroyInactivePanels,
-    setIsClosed: () => {
-      var _onCloseRef$current;
-      (_onCloseRef$current = onCloseRef.current) === null || _onCloseRef$current === void 0 || _onCloseRef$current.call(onCloseRef);
-      if (!animation) {
-        setAnimation(defaultAnimation);
-      }
-    }
-  }), [openPanelId, closable, defaultAnimation, animation, destroyInactivePanels]);
-  return jsx(ContentContext.Provider, {
-    value: value,
-    children: disableResize || isCompact ? jsxs(Fragment, {
-      children: [jsx("div", {
-        css: [/*#__PURE__*/css({
-          width: width || '100%',
-          height: '100%',
-          overflow: 'hidden'
-        }, containerStyle, compactStyle, process.env.NODE_ENV === "production" ? "" : ";label:Content;"), dangerouslyAppendEmotionCSS, hiddenPanelStyle, isNotExpandedStyle, process.env.NODE_ENV === "production" ? "" : ";label:Content;"],
-        "aria-hidden": isPanelClosed,
-        children: jsx("div", {
-          css: /*#__PURE__*/css({
-            opacity: 1,
-            height: '100%',
-            animation: animation === null || animation === void 0 ? void 0 : animation.show,
-            direction: 'ltr'
-          }, process.env.NODE_ENV === "production" ? "" : ";label:Content;"),
-          children: children
-        })
-      }), !closable && isCompact && jsx("div", {
-        css: /*#__PURE__*/css({
-          width: !isExpanded ? theme.spacing.md : undefined,
-          marginRight: isExpanded ? theme.spacing.md : undefined,
-          position: 'relative'
-        }, process.env.NODE_ENV === "production" ? "" : ";label:Content;"),
-        children: jsx(ToggleButton$1, {
-          isExpanded: isExpanded,
-          position: sidebarContext.position || 'left',
-          toggleIsExpanded: () => setIsExpanded(prev => !prev)
-        })
-      })]
-    }) : jsxs(Fragment, {
-      children: [dragging && jsx(Global, {
-        styles: _ref$2
-      }), jsx(ResizableBox, {
-        style: resizeBoxStyle,
-        width: width || DEFAULT_WIDTH,
-        height: undefined,
-        axis: "x",
-        resizeHandles: sidebarContext.position === 'right' ? ['w'] : ['e'],
-        minConstraints: [minWidth !== null && minWidth !== void 0 ? minWidth : DEFAULT_WIDTH, 150],
-        maxConstraints: [maxWidth !== null && maxWidth !== void 0 ? maxWidth : 800, 150],
-        onResizeStart: (_, _ref6) => {
-          let {
-            size
-          } = _ref6;
-          onResizeStart === null || onResizeStart === void 0 || onResizeStart(size.width);
-          setDragging(true);
-        },
-        onResizeStop: (_, _ref7) => {
-          let {
-            size
-          } = _ref7;
-          onResizeStop === null || onResizeStop === void 0 || onResizeStop(size.width);
-          setDragging(false);
-        },
-        handle: jsx("div", {
-          css: /*#__PURE__*/css({
-            width: 10,
-            height: '100%',
-            position: 'absolute',
-            top: 0,
-            cursor: sidebarContext.position === 'right' ? 'w-resize' : 'e-resize',
-            '&:hover': highlightedBorderStyle,
-            ...resizeHandleStyle
-          }, dragging && highlightedBorderStyle, process.env.NODE_ENV === "production" ? "" : ";label:Content;")
-        }),
-        css: [containerStyle, hiddenPanelStyle, process.env.NODE_ENV === "production" ? "" : ";label:Content;"],
-        "aria-hidden": isPanelClosed,
-        children: jsx("div", {
-          css: [{
-            opacity: 1,
-            animation: animation === null || animation === void 0 ? void 0 : animation.show,
-            direction: 'ltr',
-            height: '100%'
-          }, dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:Content;"],
-          children: children
-        })
-      })]
-    })
-  });
-}
-function Panel(_ref8) {
-  let {
-    panelId,
-    children,
-    forceRender = false,
-    dangerouslyAppendEmotionCSS,
-    ...delegated
-  } = _ref8;
-  const {
-    openPanelId,
-    destroyInactivePanels
-  } = useContext(ContentContext);
-  const hasOpenedPanelRef = useRef(false);
-  const isPanelOpen = openPanelId === panelId;
-  if (isPanelOpen && !hasOpenedPanelRef.current) {
-    hasOpenedPanelRef.current = true;
-  }
-  if ((destroyInactivePanels || !hasOpenedPanelRef.current) && !isPanelOpen && !forceRender) return null;
-  return jsx("div", {
-    css: ["display:flex;height:100%;flex-direction:column;", dangerouslyAppendEmotionCSS, !isPanelOpen && {
-      display: 'none'
-    }, process.env.NODE_ENV === "production" ? "" : ";label:Panel;"],
-    "aria-hidden": !isPanelOpen,
-    ...delegated,
-    children: children
-  });
-}
-var _ref10 = process.env.NODE_ENV === "production" ? {
-  name: "1066lcq",
-  styles: "display:flex;justify-content:space-between;align-items:center"
-} : {
-  name: "fs19p8-PanelHeader",
-  styles: "display:flex;justify-content:space-between;align-items:center;label:PanelHeader;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
-};
-function PanelHeader(_ref9) {
-  let {
-    children,
-    dangerouslyAppendEmotionCSS
-  } = _ref9;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  const contentContext = useContext(ContentContext);
-  return jsxs("div", {
-    css: [{
-      display: 'flex',
-      paddingLeft: 8,
-      paddingRight: 4,
-      alignItems: 'center',
-      minHeight: theme.general.heightSm,
-      justifyContent: 'space-between',
-      fontWeight: theme.typography.typographyBoldFontWeight,
-      color: theme.colors.textPrimary
-    }, dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:PanelHeader;"],
-    children: [jsx("div", {
-      css: /*#__PURE__*/css({
-        width: contentContext.closable ? `calc(100% - ${theme.spacing.lg}px)` : '100%'
-      }, process.env.NODE_ENV === "production" ? "" : ";label:PanelHeader;"),
-      children: jsx("div", {
-        css: _ref10,
-        children: children
-      })
-    }), contentContext.closable ? jsx("div", {
-      children: jsx(Button, {
-        componentId: "codegen_design-system_src_design-system_sidebar_sidebar.tsx_427",
-        size: "small",
-        icon: jsx(CloseIcon, {}),
-        "aria-label": "Close",
-        onClick: () => {
-          contentContext.setIsClosed();
-        }
-      })
-    }) : null]
-  });
-}
-function PanelHeaderTitle(_ref11) {
-  let {
-    title,
-    dangerouslyAppendEmotionCSS
-  } = _ref11;
-  return jsx("div", {
-    title: title,
-    css: ["align-self:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;", dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:PanelHeaderTitle;"],
-    children: title
-  });
-}
-function PanelHeaderButtons(_ref12) {
-  let {
-    children,
-    dangerouslyAppendEmotionCSS
-  } = _ref12;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx("div", {
-    css: [{
-      display: 'flex',
-      alignItems: 'center',
-      gap: theme.spacing.xs,
-      paddingRight: theme.spacing.xs
-    }, dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:PanelHeaderButtons;"],
-    children: children
-  });
-}
-function PanelBody(_ref13) {
-  let {
-    children,
-    dangerouslyAppendEmotionCSS
-  } = _ref13;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  const [shouldBeFocusable, setShouldBeFocusable] = useState(false);
-  const bodyRef = useRef(null);
-  useEffect(() => {
-    const ref = bodyRef.current;
-    if (ref) {
-      if (ref.scrollHeight > ref.clientHeight) {
-        setShouldBeFocusable(true);
-      } else {
-        setShouldBeFocusable(false);
-      }
-    }
-  }, []);
-  return jsx("div", {
-    ref: bodyRef
-    // Needed to make panel body content focusable when scrollable for keyboard-only users to be able to focus & scroll
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
-    ,
-    tabIndex: shouldBeFocusable ? 0 : -1,
-    css: [{
-      height: '100%',
-      overflowX: 'hidden',
-      overflowY: 'auto',
-      padding: '0 8px',
-      colorScheme: theme.isDarkMode ? 'dark' : 'light'
-    }, dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:PanelBody;"],
-    children: children
-  });
-}
-const Sidebar = /* #__PURE__ */(() => {
-  function Sidebar(_ref14) {
-    let {
-      position,
-      children,
-      dangerouslyAppendEmotionCSS
-    } = _ref14;
-    const {
-      theme
-    } = useDesignSystemTheme();
-    const value = useMemo(() => {
-      return {
-        position: position || 'left'
-      };
-    }, [position]);
-    return jsx(SidebarContext.Provider, {
-      value: value,
-      children: jsx("div", {
-        ...addDebugOutlineIfEnabled(),
-        css: [{
-          display: 'flex',
-          height: '100%',
-          backgroundColor: theme.colors.backgroundPrimary,
-          flexDirection: position === 'right' ? 'row-reverse' : 'row',
-          borderStyle: 'solid',
-          borderColor: theme.colors.borderDecorative,
-          borderWidth: `0px ${theme.general.borderWidth}px`,
-          boxSizing: 'content-box',
-          position: 'relative'
-        }, dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:Sidebar;"],
-        children: children
-      })
-    });
-  }
-  Sidebar.Content = Content;
-  Sidebar.Nav = Nav;
-  Sidebar.NavButton = NavButton;
-  Sidebar.Panel = Panel;
-  Sidebar.PanelHeader = PanelHeader;
-  Sidebar.PanelHeaderTitle = PanelHeaderTitle;
-  Sidebar.PanelHeaderButtons = PanelHeaderButtons;
-  Sidebar.PanelBody = PanelBody;
-  return Sidebar;
-})();
 
 const ButtonGroup = Button$1.Group;
 const DropdownButton = props => {
@@ -19067,11 +18959,11 @@ const TableFilterInput = /*#__PURE__*/forwardRef(function SearchInput(_ref, ref)
 
 function _EMOTION_STRINGIFIED_CSS_ERROR__$1() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 var _ref = process.env.NODE_ENV === "production" ? {
-  name: "8shogu",
-  styles: "display:flex;flex-wrap:wrap;gap:var(--table-filter-layout-item-gap);margin-left:var(--table-filter-layout-group-margin)"
+  name: "12vohjb",
+  styles: "display:flex;flex-wrap:wrap;gap:var(--table-filter-layout-item-gap);align-self:flex-start"
 } : {
-  name: "v9qq7x-filterActions",
-  styles: "display:flex;flex-wrap:wrap;gap:var(--table-filter-layout-item-gap);margin-left:var(--table-filter-layout-group-margin);label:filterActions;",
+  name: "djfh3-filterActions",
+  styles: "display:flex;flex-wrap:wrap;gap:var(--table-filter-layout-item-gap);align-self:flex-start;label:filterActions;",
   toString: _EMOTION_STRINGIFIED_CSS_ERROR__$1
 };
 var _ref2$1 = process.env.NODE_ENV === "production" ? {
@@ -19166,6 +19058,8 @@ const TableHeader = /*#__PURE__*/forwardRef(function TableHeader(_ref2, ref) {
     isResizing = false,
     align = 'left',
     wrapContent = true,
+    componentId,
+    analyticsEvents,
     ...rest
   } = _ref2;
   const {
@@ -19175,6 +19069,13 @@ const TableHeader = /*#__PURE__*/forwardRef(function TableHeader(_ref2, ref) {
   const {
     isHeader
   } = useContext(TableRowContext);
+  const [currentSortDirection, setCurrentSortDirection] = useState(sortDirection);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.TableHeader,
+    componentId,
+    analyticsEvents: analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    valueHasNoPii: true
+  });
   if (!isHeader) {
     throw new Error('`TableHeader` must be used within a `TableRow` with `isHeader` set to true.');
   }
@@ -19194,6 +19095,12 @@ const TableHeader = /*#__PURE__*/forwardRef(function TableHeader(_ref2, ref) {
       ariaSort = 'none';
     }
   }
+  useEffect(() => {
+    if (sortDirection !== currentSortDirection) {
+      setCurrentSortDirection(sortDirection);
+      eventContext.onValueChange(sortDirection);
+    }
+  }, [sortDirection, currentSortDirection, eventContext]);
   const sortIconOnLeft = align === 'right';
   let typographySize = 'md';
   if (size === 'small') {
@@ -19271,6 +19178,8 @@ const TableRowSelectCell = /*#__PURE__*/forwardRef(function TableRowSelectCell(_
     children,
     isDisabled,
     checkboxLabel,
+    componentId,
+    analyticsEvents,
     ...rest
   } = _ref;
   const {
@@ -19298,6 +19207,8 @@ const TableRowSelectCell = /*#__PURE__*/forwardRef(function TableRowSelectCell(_
     ,
     className: "table-row-select-cell",
     children: !noCheckbox && jsx(Checkbox, {
+      componentId: componentId,
+      analyticsEvents: analyticsEvents,
       isChecked: checked || indeterminate && null,
       onChange: (_checked, event) => onChange === null || onChange === void 0 ? void 0 : onChange(event.nativeEvent),
       isDisabled: isDisabled,
@@ -19527,6 +19438,12 @@ const getStyles = (theme, size, onlyIcon) => {
     padding: '0 12px',
     fontSize: theme.typography.fontSizeBase,
     lineHeight: `${theme.typography.lineHeightBase}px`,
+    '&[data-state="off"] .togglebutton-icon-wrapper': {
+      color: theme.colors.textSecondary
+    },
+    '&[data-state="off"]:hover .togglebutton-icon-wrapper': {
+      color: theme.colors.actionDefaultTextHover
+    },
     '&[data-state="on"]': {
       backgroundColor: theme.colors.actionDefaultBackgroundPress,
       color: theme.colors.actionDefaultTextPress,
@@ -19627,7 +19544,7 @@ const ToggleButton = /*#__PURE__*/forwardRef((_ref, ref) => {
     setIsPressed(pressed);
   }, [pressed]);
   const iconOnly = !children && Boolean(icon);
-  const iconSyle = iconOnly ? {} : {
+  const iconStyle = iconOnly ? {} : {
     marginRight: theme.spacing.xs
   };
   const checkboxIcon = isPressed ? jsx(CheckIcon, {}) : jsx(RectangleIcon, {
@@ -19643,134 +19560,15 @@ const ToggleButton = /*#__PURE__*/forwardRef((_ref, ref) => {
     onPressedChange: handleOnPressedChange,
     ref: ref,
     children: [jsx("span", {
+      className: "togglebutton-icon-wrapper",
       style: {
         display: 'flex',
-        ...iconSyle
+        ...iconStyle
       },
       children: icon ? icon : checkboxIcon
     }), children]
   });
 });
-
-const useTooltipStyles = () => {
-  const {
-    theme
-  } = useDesignSystemTheme();
-  const slideUpAndFade = keyframes({
-    from: {
-      opacity: 0,
-      transform: 'translateY(2px)'
-    },
-    to: {
-      opacity: 1,
-      transform: 'translateY(0)'
-    }
-  });
-  const slideRightAndFade = keyframes({
-    from: {
-      opacity: 0,
-      transform: 'translateX(-2px)'
-    },
-    to: {
-      opacity: 1,
-      transform: 'translateX(0)'
-    }
-  });
-  const slideDownAndFade = keyframes({
-    from: {
-      opacity: 0,
-      transform: 'translateY(-2px)'
-    },
-    to: {
-      opacity: 1,
-      transform: 'translateY(0)'
-    }
-  });
-  const slideLeftAndFade = keyframes({
-    from: {
-      opacity: 0,
-      transform: 'translateX(2px)'
-    },
-    to: {
-      opacity: 1,
-      transform: 'translateX(0)'
-    }
-  });
-  return {
-    content: {
-      backgroundColor: theme.colors.tooltipBackgroundTooltip,
-      color: theme.colors.actionPrimaryTextDefault,
-      borderRadius: theme.borders.borderRadiusMd,
-      fontSize: theme.typography.fontSizeMd,
-      padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
-      lineHeight: theme.typography.lineHeightLg,
-      boxShadow: theme.general.shadowHigh,
-      maxWidth: '250px',
-      wordWrap: 'break-word',
-      whiteSpace: 'normal',
-      zIndex: theme.options.zIndexBase + 70,
-      willChange: 'transform, opacity',
-      "&[data-state='delayed-open'][data-side='top']": {
-        animation: `${slideDownAndFade} 400ms cubic-bezier(0.16, 1, 0.3, 1)`
-      },
-      "&[data-state='delayed-open'][data-side='right']": {
-        animation: `${slideLeftAndFade} 400ms cubic-bezier(0.16, 1, 0.3, 1)`
-      },
-      "&[data-state='delayed-open'][data-side='bottom']": {
-        animation: `${slideUpAndFade} 400ms cubic-bezier(0.16, 1, 0.3, 1)`
-      },
-      "&[data-state='delayed-open'][data-side='left']": {
-        animation: `${slideRightAndFade} 400ms cubic-bezier(0.16, 1, 0.3, 1)`
-      }
-    },
-    arrow: {
-      fill: theme.colors.tooltipBackgroundTooltip,
-      zIndex: theme.options.zIndexBase + 70,
-      visibility: 'visible'
-    }
-  };
-};
-
-/**
- * If the tooltip is not displaying for you, it might be because the child does not accept the onMouseEnter, onMouseLeave, onPointerEnter,
- * onPointerLeave, onFocus, and onClick props. You can add these props to your child component, or wrap it in a `<span>` tag.
- *
- * See go/dubois.
- */
-const Tooltip = _ref => {
-  let {
-    children,
-    content,
-    defaultOpen = false,
-    delayDuration = 700,
-    side = 'top',
-    sideOffset = 4,
-    align = 'center',
-    ...props
-  } = _ref;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  const tooltipStyles = useTooltipStyles();
-  return jsxs(RadixTooltip.Root, {
-    defaultOpen: defaultOpen,
-    delayDuration: delayDuration,
-    children: [jsx(RadixTooltip.Trigger, {
-      asChild: true,
-      children: children
-    }), content ? jsxs(RadixTooltip.Content, {
-      side: side,
-      align: align,
-      sideOffset: theme.spacing.sm,
-      arrowPadding: theme.spacing.md,
-      css: tooltipStyles['content'],
-      ...props,
-      children: [content, jsx(RadixTooltip.Arrow, {
-        css: tooltipStyles['arrow']
-      })]
-    }) : null]
-  });
-};
 
 const InfoTooltip = _ref => {
   let {
@@ -19781,7 +19579,7 @@ const InfoTooltip = _ref => {
   const {
     theme
   } = useDesignSystemTheme();
-  return jsx(Tooltip, {
+  return jsx(Tooltip$1, {
     content: content,
     ...props,
     children: jsx(InfoCircleOutlined, {
@@ -20144,5 +19942,5 @@ const Tree = /*#__PURE__*/forwardRef(function Tree(_ref, ref) {
   });
 });
 
-export { AccessibleContainer, Accordion, AccordionPanel, Alert, AlignCenterIcon$1 as AlignCenterIcon, AlignLeftIcon$1 as AlignLeftIcon, AlignRightIcon$1 as AlignRightIcon, AppIcon$1 as AppIcon, ApplyDesignSystemContextOverrides, ApplyGlobalStyles, ArrowDownDotIcon$1 as ArrowDownDotIcon, ArrowDownIcon$1 as ArrowDownIcon, ArrowInIcon$1 as ArrowInIcon, ArrowLeftIcon$1 as ArrowLeftIcon, ArrowOverIcon$1 as ArrowOverIcon, ArrowUpDotIcon$1 as ArrowUpDotIcon, ArrowUpIcon$1 as ArrowUpIcon, ArrowsUpDownIcon$1 as ArrowsUpDownIcon, AssistantAvatar, AssistantIcon$1 as AssistantIcon, AutoComplete, Avatar, AvatarGroup, BadgeCodeIcon$1 as BadgeCodeIcon, BadgeCodeOffIcon$1 as BadgeCodeOffIcon, BarChartIcon$1 as BarChartIcon, BarGroupedIcon$1 as BarGroupedIcon, BarStackedIcon$1 as BarStackedIcon, BarStackedPercentageIcon$1 as BarStackedPercentageIcon, BeakerIcon$1 as BeakerIcon, BinaryIcon$1 as BinaryIcon, BlockQuoteIcon$1 as BlockQuoteIcon, BoldIcon$1 as BoldIcon, BookIcon$1 as BookIcon, BookmarkFillIcon$1 as BookmarkFillIcon, BookmarkIcon$1 as BookmarkIcon, BooksIcon$1 as BooksIcon, BracketsCurlyIcon$1 as BracketsCurlyIcon, BracketsSquareIcon$1 as BracketsSquareIcon, BracketsXIcon$1 as BracketsXIcon, BranchIcon$1 as BranchIcon, Breadcrumb, BriefcaseFillIcon$1 as BriefcaseFillIcon, BriefcaseIcon$1 as BriefcaseIcon, BugIcon$1 as BugIcon, Button, CalendarClockIcon$1 as CalendarClockIcon, CalendarIcon$1 as CalendarIcon, Card, CaretDownSquareIcon$1 as CaretDownSquareIcon, CaretUpSquareIcon$1 as CaretUpSquareIcon, CatalogCloudIcon$1 as CatalogCloudIcon, CatalogGearIcon$1 as CatalogGearIcon, CatalogHIcon$1 as CatalogHIcon, CatalogIcon$1 as CatalogIcon, CatalogOffIcon$1 as CatalogOffIcon, CatalogSharedIcon$1 as CatalogSharedIcon, ChainIcon$1 as ChainIcon, ChartLineIcon$1 as ChartLineIcon, CheckCircleBadgeIcon$1 as CheckCircleBadgeIcon, CheckCircleFillIcon$1 as CheckCircleFillIcon, CheckCircleIcon$1 as CheckCircleIcon, CheckIcon, CheckLineIcon$1 as CheckLineIcon, CheckSmallIcon$1 as CheckSmallIcon, Checkbox, CheckboxIcon$1 as CheckboxIcon, ChecklistIcon$1 as ChecklistIcon, ChevronDoubleDownIcon$1 as ChevronDoubleDownIcon, ChevronDoubleLeftIcon$1 as ChevronDoubleLeftIcon, ChevronDoubleRightIcon$1 as ChevronDoubleRightIcon, ChevronDoubleUpIcon$1 as ChevronDoubleUpIcon, ChevronDownIcon$1 as ChevronDownIcon, ChevronLeftIcon$1 as ChevronLeftIcon, ChevronRightIcon$1 as ChevronRightIcon, ChevronUpIcon$1 as ChevronUpIcon, CircleIcon$1 as CircleIcon, ClipboardIcon$1 as ClipboardIcon, ClockIcon$1 as ClockIcon, ClockKeyIcon$1 as ClockKeyIcon, CloseIcon, CloudDatabaseIcon$1 as CloudDatabaseIcon, CloudDownloadIcon$1 as CloudDownloadIcon, CloudIcon$1 as CloudIcon, CloudKeyIcon$1 as CloudKeyIcon, CloudModelIcon$1 as CloudModelIcon, CloudOffIcon$1 as CloudOffIcon, CloudUploadIcon$1 as CloudUploadIcon, CodeIcon$1 as CodeIcon, Col, ColorFillIcon$1 as ColorFillIcon, ColumnIcon$1 as ColumnIcon, ColumnsIcon$1 as ColumnsIcon, CommandPaletteIcon$1 as CommandPaletteIcon, ConnectIcon$1 as ConnectIcon, Content, ContextMenu$1 as ContextMenu, CopyIcon$1 as CopyIcon, CursorIcon$1 as CursorIcon, CursorPagination, CursorTypeIcon$1 as CursorTypeIcon, DBAssistantAvatar, DIcon$1 as DIcon, DU_BOIS_ENABLE_ANIMATION_CLASSNAME, DagIcon$1 as DagIcon, DangerFillIcon$1 as DangerFillIcon, DangerIcon, DashIcon$1 as DashIcon, DashboardIcon$1 as DashboardIcon, DataIcon$1 as DataIcon, DatabaseIcon$1 as DatabaseIcon, DecimalIcon$1 as DecimalIcon, DesignSystemAntDConfigProvider, DesignSystemEventProviderAnalyticsEventTypes, DesignSystemEventProviderComponentTypes, DesignSystemEventSuppressInteractionProviderContext, DesignSystemEventSuppressInteractionTrueContextValue, DialogCombobox, DialogComboboxAddButton, DialogComboboxContent, DialogComboboxCountBadge, DialogComboboxCustomButtonTriggerWrapper, EmptyResults as DialogComboboxEmpty, DialogComboboxFooter, DialogComboboxHintRow, DialogComboboxOptionControlledList, DialogComboboxOptionList, DialogComboboxOptionListCheckboxItem, DialogComboboxOptionListSearch, DialogComboboxOptionListSelectItem, DialogComboboxSectionHeader, DialogComboboxSeparator, DialogComboboxTrigger, DotsCircleIcon$1 as DotsCircleIcon, DownloadIcon$1 as DownloadIcon, DragIcon$1 as DragIcon, Drawer, Dropdown, DropdownMenu, DuboisDatePicker, Empty, ErdIcon$1 as ErdIcon, ExpandLessIcon$1 as ExpandLessIcon, ExpandMoreIcon$1 as ExpandMoreIcon, FaceFrownIcon$1 as FaceFrownIcon, FaceNeutralIcon$1 as FaceNeutralIcon, FaceSmileIcon$1 as FaceSmileIcon, FileCodeIcon$1 as FileCodeIcon, FileDocumentIcon$1 as FileDocumentIcon, FileIcon$1 as FileIcon, FileImageIcon$1 as FileImageIcon, FileModelIcon$1 as FileModelIcon, FilterIcon$1 as FilterIcon, FlagPointerIcon$1 as FlagPointerIcon, FloatIcon$1 as FloatIcon, FolderBranchFillIcon$1 as FolderBranchFillIcon, FolderBranchIcon$1 as FolderBranchIcon, FolderCloudFilledIcon$1 as FolderCloudFilledIcon, FolderCloudIcon$1 as FolderCloudIcon, FolderFillIcon$1 as FolderFillIcon, FolderIcon$1 as FolderIcon, FontIcon$1 as FontIcon, ForkIcon$1 as ForkIcon, Form, FormDubois, FormUI, FullscreenExitIcon$1 as FullscreenExitIcon, FullscreenIcon$1 as FullscreenIcon, FunctionIcon$1 as FunctionIcon, GearFillIcon$1 as GearFillIcon, GearIcon$1 as GearIcon, GenericSkeleton, GiftIcon$1 as GiftIcon, GitCommitIcon$1 as GitCommitIcon, GlobeIcon$1 as GlobeIcon, GridDashIcon$1 as GridDashIcon, GridIcon$1 as GridIcon, H1Icon$1 as H1Icon, H2Icon$1 as H2Icon, H3Icon$1 as H3Icon, Header$1 as Header, HistoryIcon$1 as HistoryIcon, HomeIcon$1 as HomeIcon, Icon, ImageIcon$1 as ImageIcon, IndentDecreaseIcon$1 as IndentDecreaseIcon, IndentIncreaseIcon$1 as IndentIncreaseIcon, InfinityIcon$1 as InfinityIcon, InfoBookIcon$1 as InfoBookIcon, InfoFillIcon$1 as InfoFillIcon, InfoIcon$1 as InfoIcon, InfoPopover, InfoTooltip, IngestionIcon$1 as IngestionIcon, Input, ItalicIcon$1 as ItalicIcon, KeyIcon$1 as KeyIcon, KeyboardIcon$1 as KeyboardIcon, LayerGraphIcon$1 as LayerGraphIcon, LayerIcon$1 as LayerIcon, Layout, LeafIcon$1 as LeafIcon, LegacyDatePicker, LegacyInfoTooltip, LegacyOptGroup, LegacyOption, LegacyPopover, LegacySelect, LegacySelectOptGroup, LegacySelectOption, LegacySkeleton, LegacyTable, LegacyTooltip, LettersIcon$1 as LettersIcon, LibrariesIcon$1 as LibrariesIcon, LightningIcon$1 as LightningIcon, LinkIcon$1 as LinkIcon, LinkOffIcon$1 as LinkOffIcon, ListBorderIcon$1 as ListBorderIcon, ListClearIcon$1 as ListClearIcon, ListIcon, LoadingIcon, LoadingState, LockFillIcon$1 as LockFillIcon, LockIcon$1 as LockIcon, LockUnlockedIcon$1 as LockUnlockedIcon, MIcon$1 as MIcon, MailIcon$1 as MailIcon, Menu, MenuIcon$1 as MenuIcon, MinusBoxIcon$1 as MinusBoxIcon, MinusCircleFillIcon$1 as MinusCircleFillIcon, MinusCircleIcon$1 as MinusCircleIcon, ModelsIcon$1 as ModelsIcon, Nav, NavButton, NoIcon$1 as NoIcon, NotebookIcon$1 as NotebookIcon, Notification, NotificationIcon$1 as NotificationIcon, NotificationOffIcon$1 as NotificationOffIcon, NumbersIcon$1 as NumbersIcon, OfficeIcon$1 as OfficeIcon, Overflow, OverflowIcon$1 as OverflowIcon, PageBottomIcon$1 as PageBottomIcon, PageFirstIcon$1 as PageFirstIcon, PageLastIcon$1 as PageLastIcon, PageTopIcon$1 as PageTopIcon, PageWrapper, Pagination, Panel, PanelBody, PanelHeader, PanelHeaderButtons, PanelHeaderTitle, ParagraphSkeleton, PauseIcon$1 as PauseIcon, PencilIcon$1 as PencilIcon, PieChartIcon$1 as PieChartIcon, PinCancelIcon$1 as PinCancelIcon, PinFillIcon$1 as PinFillIcon, PinIcon$1 as PinIcon, PipelineIcon$1 as PipelineIcon, PlayCircleFillIcon$1 as PlayCircleFillIcon, PlayCircleIcon$1 as PlayCircleIcon, PlayIcon$1 as PlayIcon, PlugIcon$1 as PlugIcon, PlusCircleFillIcon$1 as PlusCircleFillIcon, PlusCircleIcon$1 as PlusCircleIcon, PlusIcon, PlusSquareIcon$1 as PlusSquareIcon, QueryEditorIcon$1 as QueryEditorIcon, QueryIcon$1 as QueryIcon, QuestionMarkFillIcon$1 as QuestionMarkFillIcon, QuestionMarkIcon$1 as QuestionMarkIcon, RHFControlledComponents, ROW_GUTTER_SIZE, Radio, ReaderModeIcon$1 as ReaderModeIcon, RedoIcon$1 as RedoIcon, RefreshIcon$1 as RefreshIcon, ReplyIcon$1 as ReplyIcon, RestoreAntDDefaultClsPrefix, Robot2Icon$1 as Robot2Icon, RobotIcon$1 as RobotIcon, Row, RunningIcon$1 as RunningIcon, SaveIcon$1 as SaveIcon, SchemaIcon$1 as SchemaIcon, SchoolIcon$1 as SchoolIcon, SearchDataIcon$1 as SearchDataIcon, SearchIcon$1 as SearchIcon, SecurityIcon$1 as SecurityIcon, SegmentedControlButton, SegmentedControlGroup, Select, SelectContent, SelectOption, SelectOptionGroup, SelectTrigger, SendIcon$1 as SendIcon, ShareIcon$1 as ShareIcon, ShieldIcon$1 as ShieldIcon, ShortcutIcon$1 as ShortcutIcon, Sidebar, SidebarAutoIcon$1 as SidebarAutoIcon, SidebarCollapseIcon$1 as SidebarCollapseIcon, SidebarExpandIcon$1 as SidebarExpandIcon, SidebarIcon$1 as SidebarIcon, SimpleSelect, SimpleSelectOption, SimpleSelectOptionGroup, SlidersIcon$1 as SlidersIcon, SortAlphabeticalAscendingIcon$1 as SortAlphabeticalAscendingIcon, SortAlphabeticalDescendingIcon$1 as SortAlphabeticalDescendingIcon, SortAlphabeticalLeftIcon$1 as SortAlphabeticalLeftIcon, SortAlphabeticalRightIcon$1 as SortAlphabeticalRightIcon, SortAscendingIcon$1 as SortAscendingIcon, SortDescendingIcon$1 as SortDescendingIcon, SortUnsortedIcon$1 as SortUnsortedIcon, Space, Spacer, SparkleDoubleFillIcon$1 as SparkleDoubleFillIcon, SparkleDoubleIcon$1 as SparkleDoubleIcon, SparkleFillIcon$1 as SparkleFillIcon, SparkleIcon$1 as SparkleIcon, SparkleRectangleIcon$1 as SparkleRectangleIcon, SpeechBubbleIcon$1 as SpeechBubbleIcon, SpeechBubblePlusIcon$1 as SpeechBubblePlusIcon, SpeechBubbleQuestionMarkIcon$1 as SpeechBubbleQuestionMarkIcon, SpeechBubbleStarIcon$1 as SpeechBubbleStarIcon, Spinner, SplitButton, StarFillIcon$1 as StarFillIcon, StarIcon$1 as StarIcon, Steps, StopCircleFillIcon$1 as StopCircleFillIcon, StopCircleIcon$1 as StopCircleIcon, StopIcon$1 as StopIcon, StorefrontIcon$1 as StorefrontIcon, StreamIcon$1 as StreamIcon, Switch, SyncIcon$1 as SyncIcon, TabPane, Table, TableCell, TableContext, TableFilterInput, TableFilterLayout, TableGlassesIcon$1 as TableGlassesIcon, TableGlobeIcon$1 as TableGlobeIcon, TableHeader, TableIcon$1 as TableIcon, TableLightningIcon$1 as TableLightningIcon, TableModelIcon$1 as TableModelIcon, TableOnlineViewIcon$1 as TableOnlineViewIcon, TableRow, TableRowAction, TableRowActionHeader, TableRowContext, TableRowMenuContainer, TableRowSelectCell, TableSkeleton, TableSkeletonRows, TableStreamIcon$1 as TableStreamIcon, TableVectorIcon$1 as TableVectorIcon, TableViewIcon$1 as TableViewIcon, Tabs, Tag, TagIcon$1 as TagIcon, TargetIcon$1 as TargetIcon, TerminalIcon$1 as TerminalIcon, TextBoxIcon$1 as TextBoxIcon, ThumbsDownIcon$1 as ThumbsDownIcon, ThumbsUpIcon$1 as ThumbsUpIcon, TitleSkeleton, ToggleButton, Tooltip, TrashIcon$1 as TrashIcon, Tree, TreeIcon$1 as TreeIcon, TypeaheadComboboxAddButton, TypeaheadComboboxCheckboxItem, TypeaheadComboboxFooter, TypeaheadComboboxInput, TypeaheadComboboxMenu, TypeaheadComboboxMenuItem, TypeaheadComboboxMultiSelectInput, TypeaheadComboboxRoot, TypeaheadComboboxSectionHeader, TypeaheadComboboxSelectedItem, TypeaheadComboboxSeparator, TypeaheadComboboxToggleButton, Typography, UnderlineIcon$1 as UnderlineIcon, UndoIcon$1 as UndoIcon, UploadIcon$1 as UploadIcon, UsbIcon$1 as UsbIcon, UserBadgeIcon$1 as UserBadgeIcon, UserCircleIcon$1 as UserCircleIcon, UserGroupIcon$1 as UserGroupIcon, UserIcon$1 as UserIcon, VisibleIcon$1 as VisibleIcon, VisibleOffIcon$1 as VisibleOffIcon, WarningFillIcon$1 as WarningFillIcon, WarningIcon, WorkflowsIcon$1 as WorkflowsIcon, WorkspacesIcon$1 as WorkspacesIcon, WrenchIcon$1 as WrenchIcon, XCircleFillIcon$1 as XCircleFillIcon, XCircleIcon$1 as XCircleIcon, ZoomInIcon$1 as ZoomInIcon, ZoomMarqueeSelection$1 as ZoomMarqueeSelection, ZoomOutIcon$1 as ZoomOutIcon, __INTERNAL_DO_NOT_USE__FormItem, __INTERNAL_DO_NOT_USE__Group, __INTERNAL_DO_NOT_USE__HorizontalGroup, __INTERNAL_DO_NOT_USE__VerticalGroup, dialogComboboxLookAheadKeyDown, findClosestOptionSibling, findHighlightedOption, getAnimationCss, getComboboxOptionItemWrapperStyles, getComboboxOptionLabelStyles, getContentOptions, getDarkModePortalStyles, getDialogComboboxOptionLabelWidth, getGlobalStyles, getKeyboardNavigationFunctions, getPaginationEmotionStyles, getRadioStyles, getShadowScrollStyles, getTabEmotionStyles, getValidationStateColor, getWrapperStyle, highlightFirstNonDisabledOption, highlightOption, importantify, isOptionDisabled, resetTabIndexToFocusedElement, useComboboxState, useDesignSystemEventComponentCallbacks, useDesignSystemFlags, useDesignSystemTheme, useLegacyNotification, useModalContext, useMultipleSelectionState, useNotifyOnFirstView, useThemedStyles, useTypeaheadComboboxContext, visuallyHidden, withNotifications };
+export { AccessibleContainer, Accordion, AccordionPanel, Alert, AlignCenterIcon$1 as AlignCenterIcon, AlignLeftIcon$1 as AlignLeftIcon, AlignRightIcon$1 as AlignRightIcon, AppIcon$1 as AppIcon, ApplyDesignSystemContextOverrides, ApplyGlobalStyles, ArrowDownDotIcon$1 as ArrowDownDotIcon, ArrowDownIcon$1 as ArrowDownIcon, ArrowInIcon$1 as ArrowInIcon, ArrowLeftIcon$1 as ArrowLeftIcon, ArrowOverIcon$1 as ArrowOverIcon, ArrowRightIcon$1 as ArrowRightIcon, ArrowUpDotIcon$1 as ArrowUpDotIcon, ArrowUpIcon$1 as ArrowUpIcon, ArrowsUpDownIcon$1 as ArrowsUpDownIcon, AssistantAvatar, AssistantIcon$1 as AssistantIcon, AutoComplete, Avatar, AvatarGroup, BadgeCodeIcon$1 as BadgeCodeIcon, BadgeCodeOffIcon$1 as BadgeCodeOffIcon, BarChartIcon$1 as BarChartIcon, BarGroupedIcon$1 as BarGroupedIcon, BarStackedIcon$1 as BarStackedIcon, BarStackedPercentageIcon$1 as BarStackedPercentageIcon, BeakerIcon$1 as BeakerIcon, BinaryIcon$1 as BinaryIcon, BlockQuoteIcon$1 as BlockQuoteIcon, BoldIcon$1 as BoldIcon, BookIcon$1 as BookIcon, BookmarkFillIcon$1 as BookmarkFillIcon, BookmarkIcon$1 as BookmarkIcon, BooksIcon$1 as BooksIcon, BracketsCurlyIcon$1 as BracketsCurlyIcon, BracketsSquareIcon$1 as BracketsSquareIcon, BracketsXIcon$1 as BracketsXIcon, BranchIcon$1 as BranchIcon, Breadcrumb, BriefcaseFillIcon$1 as BriefcaseFillIcon, BriefcaseIcon$1 as BriefcaseIcon, BugIcon$1 as BugIcon, Button, CalendarClockIcon$1 as CalendarClockIcon, CalendarEventIcon$1 as CalendarEventIcon, CalendarIcon$1 as CalendarIcon, Card, CaretDownSquareIcon$1 as CaretDownSquareIcon, CaretUpSquareIcon$1 as CaretUpSquareIcon, CatalogCloudIcon$1 as CatalogCloudIcon, CatalogGearIcon$1 as CatalogGearIcon, CatalogHIcon$1 as CatalogHIcon, CatalogHomeIcon$1 as CatalogHomeIcon, CatalogIcon$1 as CatalogIcon, CatalogOffIcon$1 as CatalogOffIcon, CatalogSharedIcon$1 as CatalogSharedIcon, ChainIcon$1 as ChainIcon, ChartLineIcon$1 as ChartLineIcon, CheckCircleBadgeIcon$1 as CheckCircleBadgeIcon, CheckCircleFillIcon$1 as CheckCircleFillIcon, CheckCircleIcon$1 as CheckCircleIcon, CheckIcon, CheckLineIcon$1 as CheckLineIcon, CheckSmallIcon$1 as CheckSmallIcon, Checkbox, CheckboxIcon$1 as CheckboxIcon, ChecklistIcon$1 as ChecklistIcon, ChevronDoubleDownIcon$1 as ChevronDoubleDownIcon, ChevronDoubleLeftIcon$1 as ChevronDoubleLeftIcon, ChevronDoubleRightIcon$1 as ChevronDoubleRightIcon, ChevronDoubleUpIcon$1 as ChevronDoubleUpIcon, ChevronDownIcon$1 as ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon$1 as ChevronUpIcon, CircleIcon$1 as CircleIcon, CircleOfflineIcon$1 as CircleOfflineIcon, CircleOutlineIcon$1 as CircleOutlineIcon, ClipboardIcon$1 as ClipboardIcon, ClockKeyIcon$1 as ClockKeyIcon, CloseIcon, CloudDatabaseIcon$1 as CloudDatabaseIcon, CloudDownloadIcon$1 as CloudDownloadIcon, CloudIcon$1 as CloudIcon, CloudKeyIcon$1 as CloudKeyIcon, CloudModelIcon$1 as CloudModelIcon, CloudOffIcon$1 as CloudOffIcon, CloudUploadIcon$1 as CloudUploadIcon, CodeIcon$1 as CodeIcon, Col, ColorFillIcon$1 as ColorFillIcon, ColumnIcon$1 as ColumnIcon, ColumnsIcon$1 as ColumnsIcon, CommandPaletteIcon$1 as CommandPaletteIcon, ConnectIcon$1 as ConnectIcon, ContextMenu$1 as ContextMenu, CopyIcon$1 as CopyIcon, CursorIcon$1 as CursorIcon, CursorPagination, CursorTypeIcon$1 as CursorTypeIcon, DBAssistantAvatar, DIcon$1 as DIcon, DU_BOIS_ENABLE_ANIMATION_CLASSNAME, DagIcon$1 as DagIcon, DangerFillIcon$1 as DangerFillIcon, DangerIcon, DashIcon$1 as DashIcon, DashboardIcon$1 as DashboardIcon, DataIcon$1 as DataIcon, DatabaseIcon$1 as DatabaseIcon, DecimalIcon$1 as DecimalIcon, DesignSystemAntDConfigProvider, DesignSystemEventProviderAnalyticsEventTypes, DesignSystemEventProviderComponentTypes, DesignSystemEventSuppressInteractionProviderContext, DesignSystemEventSuppressInteractionTrueContextValue, DialogCombobox, DialogComboboxAddButton, DialogComboboxContent, DialogComboboxCountBadge, DialogComboboxCustomButtonTriggerWrapper, EmptyResults as DialogComboboxEmpty, DialogComboboxFooter, DialogComboboxHintRow, DialogComboboxOptionControlledList, DialogComboboxOptionList, DialogComboboxOptionListCheckboxItem, DialogComboboxOptionListSearch, DialogComboboxOptionListSelectItem, DialogComboboxSectionHeader, DialogComboboxSeparator, DialogComboboxTrigger, DotsCircleIcon$1 as DotsCircleIcon, DownloadIcon$1 as DownloadIcon, DragIcon$1 as DragIcon, Drawer, Dropdown, DropdownMenu, DuboisDatePicker, Empty, ErdIcon$1 as ErdIcon, ExpandLessIcon$1 as ExpandLessIcon, ExpandMoreIcon$1 as ExpandMoreIcon, FaceFrownIcon$1 as FaceFrownIcon, FaceNeutralIcon$1 as FaceNeutralIcon, FaceSmileIcon$1 as FaceSmileIcon, FileCodeIcon$1 as FileCodeIcon, FileDocumentIcon$1 as FileDocumentIcon, FileIcon$1 as FileIcon, FileImageIcon$1 as FileImageIcon, FileModelIcon$1 as FileModelIcon, FilterIcon$1 as FilterIcon, FlagPointerIcon$1 as FlagPointerIcon, FloatIcon$1 as FloatIcon, FolderBranchFillIcon$1 as FolderBranchFillIcon, FolderBranchIcon$1 as FolderBranchIcon, FolderCloudFilledIcon$1 as FolderCloudFilledIcon, FolderCloudIcon$1 as FolderCloudIcon, FolderFillIcon$1 as FolderFillIcon, FolderIcon$1 as FolderIcon, FontIcon$1 as FontIcon, ForkIcon$1 as ForkIcon, Form, FormDubois, FormUI, FullscreenExitIcon$1 as FullscreenExitIcon, FullscreenIcon$1 as FullscreenIcon, FunctionIcon$1 as FunctionIcon, GearFillIcon$1 as GearFillIcon, GearIcon$1 as GearIcon, GenericSkeleton, GiftIcon$1 as GiftIcon, GitCommitIcon$1 as GitCommitIcon, GlobeIcon$1 as GlobeIcon, GridDashIcon$1 as GridDashIcon, GridIcon$1 as GridIcon, H1Icon$1 as H1Icon, H2Icon$1 as H2Icon, H3Icon$1 as H3Icon, Header$1 as Header, HistoryIcon$1 as HistoryIcon, HomeIcon$1 as HomeIcon, HoverCard, Icon, ImageIcon$1 as ImageIcon, IndentDecreaseIcon$1 as IndentDecreaseIcon, IndentIncreaseIcon$1 as IndentIncreaseIcon, InfinityIcon$1 as InfinityIcon, InfoBookIcon$1 as InfoBookIcon, InfoFillIcon$1 as InfoFillIcon, InfoIcon, InfoPopover, InfoTooltip, IngestionIcon$1 as IngestionIcon, Input, ItalicIcon$1 as ItalicIcon, KeyIcon$1 as KeyIcon, KeyboardIcon$1 as KeyboardIcon, LayerGraphIcon$1 as LayerGraphIcon, LayerIcon$1 as LayerIcon, Layout, LeafIcon$1 as LeafIcon, LegacyDatePicker, LegacyInfoTooltip, LegacyOptGroup, LegacyOption, LegacyPopover, LegacySelect, LegacySelectOptGroup, LegacySelectOption, LegacySkeleton, LegacyTable, LegacyTooltip, LettersIcon$1 as LettersIcon, LibrariesIcon$1 as LibrariesIcon, LightningIcon$1 as LightningIcon, LinkIcon$1 as LinkIcon, LinkOffIcon$1 as LinkOffIcon, ListBorderIcon$1 as ListBorderIcon, ListClearIcon$1 as ListClearIcon, ListIcon, LoadingIcon, LoadingState, LockFillIcon$1 as LockFillIcon, LockIcon$1 as LockIcon, LockUnlockedIcon$1 as LockUnlockedIcon, MIcon$1 as MIcon, MailIcon$1 as MailIcon, Menu, MenuIcon$1 as MenuIcon, MinusBoxIcon$1 as MinusBoxIcon, MinusCircleFillIcon$1 as MinusCircleFillIcon, MinusCircleIcon$1 as MinusCircleIcon, ModelsIcon$1 as ModelsIcon, NoIcon$1 as NoIcon, NotebookIcon$1 as NotebookIcon, Notification, NotificationIcon$1 as NotificationIcon, NotificationOffIcon$1 as NotificationOffIcon, NumbersIcon$1 as NumbersIcon, OfficeIcon$1 as OfficeIcon, Overflow, OverflowIcon$1 as OverflowIcon, PageBottomIcon$1 as PageBottomIcon, PageFirstIcon$1 as PageFirstIcon, PageLastIcon$1 as PageLastIcon, PageTopIcon$1 as PageTopIcon, PageWrapper, Pagination, ParagraphSkeleton, PauseIcon$1 as PauseIcon, PencilIcon$1 as PencilIcon, PieChartIcon$1 as PieChartIcon, PinCancelIcon$1 as PinCancelIcon, PinFillIcon$1 as PinFillIcon, PinIcon$1 as PinIcon, PipelineIcon$1 as PipelineIcon, PlayCircleFillIcon$1 as PlayCircleFillIcon, PlayCircleIcon$1 as PlayCircleIcon, PlayIcon$1 as PlayIcon, PlugIcon$1 as PlugIcon, PlusCircleFillIcon$1 as PlusCircleFillIcon, PlusCircleIcon$1 as PlusCircleIcon, PlusIcon, PlusSquareIcon$1 as PlusSquareIcon, QueryEditorIcon$1 as QueryEditorIcon, QueryIcon$1 as QueryIcon, QuestionMarkFillIcon$1 as QuestionMarkFillIcon, QuestionMarkIcon$1 as QuestionMarkIcon, RHFControlledComponents, ROW_GUTTER_SIZE, Radio, ReaderModeIcon$1 as ReaderModeIcon, RedoIcon$1 as RedoIcon, RefreshIcon$1 as RefreshIcon, ReplyIcon$1 as ReplyIcon, ResourceStatusIndicator, RestoreAntDDefaultClsPrefix, Robot2Icon$1 as Robot2Icon, RobotIcon$1 as RobotIcon, RocketIcon$1 as RocketIcon, Row, RunningIcon$1 as RunningIcon, SaveIcon$1 as SaveIcon, SchemaIcon$1 as SchemaIcon, SchoolIcon$1 as SchoolIcon, SearchDataIcon$1 as SearchDataIcon, SearchIcon$1 as SearchIcon, SecurityIcon$1 as SecurityIcon, SegmentedControlButton, SegmentedControlGroup, Select, SelectContent, SelectOption, SelectOptionGroup, SelectTrigger, SendIcon$1 as SendIcon, ShareIcon$1 as ShareIcon, ShieldIcon$1 as ShieldIcon, ShortcutIcon$1 as ShortcutIcon, SidebarAutoIcon$1 as SidebarAutoIcon, SidebarCollapseIcon$1 as SidebarCollapseIcon, SidebarExpandIcon$1 as SidebarExpandIcon, SidebarIcon$1 as SidebarIcon, SimpleSelect, SimpleSelectOption, SimpleSelectOptionGroup, SlidersIcon$1 as SlidersIcon, SortAlphabeticalAscendingIcon$1 as SortAlphabeticalAscendingIcon, SortAlphabeticalDescendingIcon$1 as SortAlphabeticalDescendingIcon, SortAlphabeticalLeftIcon$1 as SortAlphabeticalLeftIcon, SortAlphabeticalRightIcon$1 as SortAlphabeticalRightIcon, SortAscendingIcon$1 as SortAscendingIcon, SortDescendingIcon$1 as SortDescendingIcon, SortUnsortedIcon$1 as SortUnsortedIcon, Space, Spacer, SparkleDoubleFillIcon$1 as SparkleDoubleFillIcon, SparkleDoubleIcon$1 as SparkleDoubleIcon, SparkleFillIcon$1 as SparkleFillIcon, SparkleIcon$1 as SparkleIcon, SparkleRectangleIcon$1 as SparkleRectangleIcon, SpeechBubbleIcon$1 as SpeechBubbleIcon, SpeechBubblePlusIcon$1 as SpeechBubblePlusIcon, SpeechBubbleQuestionMarkIcon$1 as SpeechBubbleQuestionMarkIcon, SpeechBubbleStarIcon$1 as SpeechBubbleStarIcon, Spinner, SplitButton, StarFillIcon$1 as StarFillIcon, StarIcon$1 as StarIcon, Steps, StopCircleFillIcon$1 as StopCircleFillIcon, StopCircleIcon$1 as StopCircleIcon, StopIcon$1 as StopIcon, StorefrontIcon$1 as StorefrontIcon, StreamIcon$1 as StreamIcon, Switch, SyncIcon$1 as SyncIcon, TabPane, Table, TableCell, TableContext, TableFilterInput, TableFilterLayout, TableGlassesIcon$1 as TableGlassesIcon, TableGlobeIcon$1 as TableGlobeIcon, TableHeader, TableIcon$1 as TableIcon, TableLightningIcon$1 as TableLightningIcon, TableModelIcon$1 as TableModelIcon, TableOnlineViewIcon$1 as TableOnlineViewIcon, TableRow, TableRowAction, TableRowActionHeader, TableRowContext, TableRowMenuContainer, TableRowSelectCell, TableSkeleton, TableSkeletonRows, TableStreamIcon$1 as TableStreamIcon, TableVectorIcon$1 as TableVectorIcon, TableViewIcon$1 as TableViewIcon, Tabs, Tag, TagIcon$1 as TagIcon, TargetIcon$1 as TargetIcon, TerminalIcon$1 as TerminalIcon, TextBoxIcon$1 as TextBoxIcon, TextUnderlineIcon$1 as TextUnderlineIcon, ThumbsDownIcon$1 as ThumbsDownIcon, ThumbsUpIcon$1 as ThumbsUpIcon, TitleSkeleton, ToggleButton, Tooltip$1 as Tooltip, TrashIcon$1 as TrashIcon, Tree, TreeIcon$1 as TreeIcon, TypeaheadComboboxAddButton, TypeaheadComboboxCheckboxItem, TypeaheadComboboxFooter, TypeaheadComboboxInput, TypeaheadComboboxMenu, TypeaheadComboboxMenuItem, TypeaheadComboboxMultiSelectInput, TypeaheadComboboxMultiSelectStateChangeTypes, TypeaheadComboboxRoot, TypeaheadComboboxSectionHeader, TypeaheadComboboxSelectedItem, TypeaheadComboboxSeparator, TypeaheadComboboxStateChangeTypes, TypeaheadComboboxToggleButton, Typography, UnderlineIcon$1 as UnderlineIcon, UndoIcon$1 as UndoIcon, UploadIcon$1 as UploadIcon, UsbIcon$1 as UsbIcon, UserBadgeIcon$1 as UserBadgeIcon, UserCircleIcon$1 as UserCircleIcon, UserGroupIcon$1 as UserGroupIcon, UserIcon$1 as UserIcon, VisibleIcon$1 as VisibleIcon, VisibleOffIcon$1 as VisibleOffIcon, WarningFillIcon$1 as WarningFillIcon, WarningIcon, WorkflowsIcon$1 as WorkflowsIcon, WorkspacesIcon$1 as WorkspacesIcon, WrenchIcon$1 as WrenchIcon, XCircleFillIcon$1 as XCircleFillIcon, XCircleIcon$1 as XCircleIcon, ZoomInIcon$1 as ZoomInIcon, ZoomMarqueeSelection$1 as ZoomMarqueeSelection, ZoomOutIcon$1 as ZoomOutIcon, __INTERNAL_DO_NOT_USE__FormItem, __INTERNAL_DO_NOT_USE__Group, __INTERNAL_DO_NOT_USE__HorizontalGroup, __INTERNAL_DO_NOT_USE__VerticalGroup, dialogComboboxLookAheadKeyDown, findClosestOptionSibling, findHighlightedOption, getAnimationCss, getComboboxOptionItemWrapperStyles, getComboboxOptionLabelStyles, getContentOptions, getDarkModePortalStyles, getDialogComboboxOptionLabelWidth, getGlobalStyles, getKeyboardNavigationFunctions, getPaginationEmotionStyles, getRadioStyles, getShadowScrollStyles, getTabEmotionStyles, getValidationStateColor, getWrapperStyle, highlightFirstNonDisabledOption, highlightOption, importantify, isOptionDisabled, resetTabIndexToFocusedElement, useComboboxState, useDesignSystemEventComponentCallbacks, useDesignSystemFlags, useDesignSystemTheme, useLegacyNotification, useModalContext, useMultipleSelectionState, useNotifyOnFirstView, useThemedStyles, useTypeaheadComboboxContext, visuallyHidden, withNotifications };
 //# sourceMappingURL=index.js.map

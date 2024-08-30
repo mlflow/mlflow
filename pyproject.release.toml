@@ -29,12 +29,12 @@ dependencies = [
   "alembic<2,!=1.10.0",
   "docker<8,>=4.0.0",
   "graphene<4",
-  "gunicorn<23; platform_system != 'Windows'",
+  "gunicorn<24; platform_system != 'Windows'",
   "markdown<4,>=3.3",
   "matplotlib<4",
-  "numpy<2",
+  "numpy<3",
   "pandas<3",
-  "pyarrow<16,>=4.0.0",
+  "pyarrow<18,>=4.0.0",
   "scikit-learn<2",
   "scipy<2",
   "sqlalchemy<3,>=1.4.0",
@@ -92,7 +92,7 @@ sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 xethub = ["mlflow-xethub"]
 jfrog = ["mlflow-jfrog-plugin"]
-langchain = ["langchain>=0.1.0,<=0.2.11"]
+langchain = ["langchain>=0.1.0,<=0.2.15"]
 
 [project.urls]
 homepage = "https://mlflow.org"

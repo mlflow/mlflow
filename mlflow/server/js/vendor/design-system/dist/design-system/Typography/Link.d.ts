@@ -1,9 +1,9 @@
 import { Typography as AntDTypography } from 'antd';
 import type { ComponentProps } from 'react';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
-import type { AnalyticsEventOptionalProps, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
+import type { AnalyticsEventProps, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
 type AntDLinkProps = ComponentProps<typeof AntDTypography['Link']>;
-export interface TypographyLinkProps extends AntDLinkProps, DangerouslySetAntdProps<AntDLinkProps>, HTMLDataAttributes, AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
+export interface TypographyLinkProps extends AntDLinkProps, DangerouslySetAntdProps<AntDLinkProps>, HTMLDataAttributes, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
     /**
      * Configures a link to be opened in a new tab by setting `target` to `'_blank'`
      * and `rel` to `'noopener noreferrer'`, which is necessary for security, and

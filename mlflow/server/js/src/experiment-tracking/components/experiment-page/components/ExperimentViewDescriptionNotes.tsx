@@ -139,6 +139,7 @@ export const ExperimentViewDescriptionNotes = ({
         </div>
       )}
       <Modal
+        componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_experimentviewdescriptionnotes.tsx_141"
         title={
           <FormattedMessage
             defaultMessage="Add description"

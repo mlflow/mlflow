@@ -177,6 +177,13 @@ describe('ExperimentViewRuns row utils, nested and flat run hierarchies', () => 
     expect(runsGridData[4]['$$$metric$$$-met1']).toEqual('-');
     expect(runsGridData[4]['$$$metric$$$-met2']).toEqual('-');
     expect(runsGridData[4]['$$$tag$$$-testtag1']).toEqual('-');
+
+    // Assert run #6 KV data
+    expect(runsGridData[5]['$$$param$$$-p1']).toEqual('-');
+    expect(runsGridData[5]['$$$param$$$-p2']).toEqual('-');
+    expect(runsGridData[5]['$$$metric$$$-met1']).toEqual('-');
+    expect(runsGridData[5]['$$$metric$$$-met2']).toEqual('-');
+    expect(runsGridData[5]['$$$tag$$$-testtag1']).toEqual('-');
   });
 
   test('it creates proper row dataset for a nested and unexpanded run list', () => {
