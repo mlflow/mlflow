@@ -5,14 +5,14 @@
 alembic<2,!=1.10.0
 docker<8,>=4.0.0
 Flask<4
-numpy<2
+numpy<3
 scipy<2
 pandas<3
 sqlalchemy<3,>=1.4.0
-gunicorn<23; platform_system != 'Windows'
+gunicorn<24; platform_system != 'Windows'
 waitress<4; platform_system == 'Windows'
 scikit-learn<2
-pyarrow<16,>=4.0.0
+pyarrow<18,>=4.0.0
 markdown<4,>=3.3
 Jinja2<4,>=2.11; platform_system != 'Windows'
 Jinja2<4,>=3.0; platform_system == 'Windows'
