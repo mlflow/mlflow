@@ -180,6 +180,7 @@ def _get_store_registry():
         _model_registry_store_registry.register(scheme, _get_file_store)
 
     _model_registry_store_registry.register_entrypoints()
+    print(_model_registry_store_registry)
     return _model_registry_store_registry
 
 
