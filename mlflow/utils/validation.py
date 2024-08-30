@@ -107,14 +107,14 @@ def invalid_value(path, value, message):
     return f"Invalid value {formattedValue} for parameter '{path}' supplied: {message}"
 
 
-def append_to_json_path(currentPath, value):
-    if not currentPath:
+def append_to_json_path(currenPath, value):
+    if not currenPath:
         return value
 
     if value.startswith("["):
-        return f"{currentPath}{value}"
+        return f"{currenPath}{value}"
 
-    return f"{currentPath}.{value}"
+    return f"{currenPath}.{value}"
 
 
 def bad_path_message(name):
@@ -390,7 +390,7 @@ def _validate_batch_log_limits(metrics, params, tags):
 def _validate_batch_log_data(metrics, params, tags):
     for index, metric in enumerate(metrics):
         path = f"metrics[{index}]"
-        _validate_metric(path, metric.key, metric.value, metric.timestamp, metric.step)
+        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step, path=path)
     return (
         metrics,
         [_validate_param(p.key, p.value) for p in params],
