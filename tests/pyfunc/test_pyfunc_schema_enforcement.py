@@ -2976,7 +2976,9 @@ def test_pyfunc_model_schema_enforcement_complex(data, schema, format_key):
 
 
 def test_zero_longs_convert_to_floats():
-    zeros = pd.Series([0, 0, 0])
-    schema = Schema([ColSpec(DataType.long)])
+    zeros = pd.DataFrame([{"temperature": 0}, {"temperature": 0.9}, {}])
+    schema = Schema([ColSpec(DataType.double, name="temperature", required=False)])
     data = _enforce_schema(zeros, schema)
-    assert all(x == 0.0 for x in data)
+    pd.testing.assert_series_equal(
+        data["temperature"], pd.Series([0.0, 0.9, np.nan], dtype=np.float64), check_names=False
+    )
