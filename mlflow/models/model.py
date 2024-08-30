@@ -555,6 +555,18 @@ class Model:
             metadata=self.metadata,
         )
 
+    def get_tags_dict(self):
+        tags = {}
+        result = self.to_dict()
+
+        for key, value in result.items():
+            if key == "flavors":
+                tags["flavors"] = {k: v for k, v in value.items() if k != "config"}
+            elif key in ["run_id", "utc_time_created", "artifact_path", "model_uuid"]:
+                tags[key] = value
+
+        return tags
+
     def to_dict(self):
         """Serialize the model to a dictionary."""
         res = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}

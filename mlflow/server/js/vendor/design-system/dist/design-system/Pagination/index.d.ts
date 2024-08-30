@@ -1,12 +1,13 @@
 import type { SerializedStyles } from '@emotion/react';
 import type { PaginationProps as AntdPaginationProps } from 'antd';
 import type { Theme } from '../../theme';
-import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
+import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
+import type { AnalyticsEventProps, AnalyticsEventValueChangeNoPiiFlagProps, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
 interface AntdExtraPaginationProps extends AntdPaginationProps {
     pageSizeSelectAriaLabel?: string;
     pageQuickJumperAriaLabel?: string;
 }
-export interface PaginationProps extends HTMLDataAttributes, DangerouslySetAntdProps<AntdExtraPaginationProps> {
+export interface PaginationProps extends HTMLDataAttributes, DangerouslySetAntdProps<AntdExtraPaginationProps>, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     /**
      * The index of the current page. Starts at 1.
      */
@@ -29,7 +30,7 @@ export interface PaginationProps extends HTMLDataAttributes, DangerouslySetAntdP
 }
 export declare function getPaginationEmotionStyles(clsPrefix: string, theme: Theme): SerializedStyles;
 export declare const Pagination: React.FC<PaginationProps>;
-export interface CursorPaginationProps extends HTMLDataAttributes {
+export interface CursorPaginationProps extends HTMLDataAttributes, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     /** Callback for when the user clicks the next page button. */
     onNextPage: () => void;
     /** Callback for when the user clicks the previous page button. */

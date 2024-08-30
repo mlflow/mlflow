@@ -36,6 +36,7 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
+from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
@@ -1075,6 +1076,22 @@ def test_log_metric_concurrent_logging_succeeds(store: SqlAlchemyStore):
             assert (
                 len(store.get_metric_history(run.info.run_id, f"metric_batch_{batch_idx}")) >= 100
             )
+
+
+def test_record_logged_model(
+    store: SqlAlchemyStore,
+):
+    run = _run_factory(store)
+    flavors_with_config = {
+        "tf": "flavor body",
+        "python_function": {"config": {"a": 1}, "code": "code"},
+    }
+    m_with_config = Model(artifact_path="model/path", run_id="run_id", flavors=flavors_with_config)
+    store.record_logged_model(run.info.run_id, m_with_config)
+    with store.ManagedSessionMaker() as session:
+        run = store._get_run(run_uuid=run.info.run_id, session=session)
+        tags = [t.value for t in run.tags if t.key == mlflow_tags.MLFLOW_LOGGED_MODELS]
+        assert tags[0] == json.dumps([m_with_config.get_tags_dict()])
 
 
 def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(

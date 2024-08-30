@@ -221,6 +221,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
         <div style={{ display: 'inline-flex', alignItems: 'center' }}>
           {this.shouldShowViewAsTableCheckbox && (
             <Checkbox
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_artifactview.tsx_288"
               isChecked={this.state.viewAsTable}
               onChange={() =>
                 this.setState({
@@ -503,7 +504,7 @@ const mapStateToProps = (state: any, ownProps: any) => {
   const { runUuid } = ownProps;
   const { apis } = state;
   const artifactNode = getArtifacts(runUuid, state);
-  const artifactRootUri = getArtifactRootUri(runUuid, state);
+  const artifactRootUri = ownProps?.artifactRootUri ?? getArtifactRootUri(runUuid, state);
   const modelVersions = getAllModelVersions(state);
   const modelVersionsWithNormalizedSource = _.flatMap(modelVersions, (version) => {
     // @ts-expect-error TS(2698): Spread types may only be created from object types... Remove this comment to see the full error message

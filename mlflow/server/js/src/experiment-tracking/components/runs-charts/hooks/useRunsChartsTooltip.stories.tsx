@@ -104,8 +104,7 @@ const withChartMenuContext =
   <
     T,
     P extends EmotionJSX.IntrinsicAttributes &
-      WithConditionalCSSProp<PropsWithChildren<T>> &
-      T & { children?: ReactNode },
+      EmotionJSX.LibraryManagedAttributes<React.ComponentType<T>, React.PropsWithChildren<T>>,
   >(
     Component: React.ComponentType<T>,
   ) =>

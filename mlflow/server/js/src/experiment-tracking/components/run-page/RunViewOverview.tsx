@@ -25,29 +25,33 @@ import { RunViewMetadataTable } from '@mlflow/mlflow/src/experiment-tracking/com
 import { RunViewCopyableIdBox } from './overview/RunViewCopyableIdBox';
 import type { RunInfoEntity } from '../../types';
 import type { UseGetRunQueryResponseRunInfo } from './hooks/useGetRunQuery';
+import type { KeyValueEntity, MetricEntitiesByName, RunDatasetWithTags } from '../../types';
 
 const EmptyValue = () => <Typography.Hint>—</Typography.Hint>;
 
 export const RunViewOverview = ({
   runUuid,
   onRunDataUpdated,
+  tags,
+  runInfo,
+  datasets,
+  params,
+  latestMetrics,
 }: {
   runUuid: string;
   onRunDataUpdated: () => void | Promise<any>;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
+  tags: Record<string, KeyValueEntity>;
+  latestMetrics: MetricEntitiesByName;
+  datasets?: RunDatasetWithTags[];
+  params: Record<string, KeyValueEntity>;
 }) => {
   const { theme } = useDesignSystemTheme();
   const { search } = useLocation();
 
-  const { tags, runInfo, datasets, params, registeredModels, latestMetrics } = useSelector(
-    ({ entities }: ReduxState) => ({
-      tags: entities.tagsByRunUuid[runUuid],
-      runInfo: entities.runInfosByUuid[runUuid] as RunInfoEntity | UseGetRunQueryResponseRunInfo,
-      datasets: entities.runDatasetsByUuid[runUuid],
-      params: entities.paramsByRunUuid[runUuid],
-      latestMetrics: entities.latestMetricsByRunUuid[runUuid],
-      registeredModels: entities.modelVersionsByRunUuid[runUuid],
-    }),
-  );
+  const { registeredModels } = useSelector(({ entities }: ReduxState) => ({
+    registeredModels: entities.modelVersionsByRunUuid[runUuid],
+  }));
 
   const loggedModels = useMemo(() => Utils.getLoggedModelsFromTags(tags), [tags]);
   const parentRunIdTag = tags[EXPERIMENT_PARENT_ID_TAG];

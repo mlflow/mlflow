@@ -63,7 +63,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.9.0"
-    maximum: "2.3.3"
+    maximum: "2.4.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
       # torchmetrics==0.8.0 released a breaking change for versions 1.3 and 1.4 where
@@ -87,7 +87,7 @@ keras:
 
   models:
     minimum: "3.0.2"
-    maximum: "3.4.1"
+    maximum: "3.5.0"
     python:
       "== dev": "3.9"
     requirements:
@@ -98,7 +98,7 @@ keras:
 
   autologging:
     minimum: "3.0.2"
-    maximum: "3.4.1"
+    maximum: "3.5.0"
     python:
       "== dev": "3.9"
     requirements:
@@ -156,7 +156,7 @@ xgboost:
 
   models:
     minimum: "1.4.2"
-    maximum: "2.1.0"
+    maximum: "2.1.1"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
       "< 1.6": ["pandas<2"]
@@ -167,7 +167,7 @@ xgboost:
 
   autologging:
     minimum: "1.4.2"
-    maximum: "2.1.0"
+    maximum: "2.1.1"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
       "< 1.6": ["pandas<2"]
@@ -254,7 +254,7 @@ fastai:
 
   models:
     minimum: "2.4.1"
-    maximum: "2.7.15"
+    maximum: "2.7.17"
     requirements:
       "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
       ">= 2.8.0": ["torch", "torchvision"]
@@ -263,7 +263,7 @@ fastai:
 
   autologging:
     minimum: "2.4.1"
-    maximum: "2.7.15"
+    maximum: "2.7.17"
     requirements:
       "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
       ">= 2.8.0": ["torch", "torchvision"]
@@ -294,7 +294,7 @@ onnx:
 
   models:
     minimum: "1.13.1"
-    maximum: "1.16.1"
+    maximum: "1.16.2"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
       "< 1.11.0": ["numpy<1.24.0"]
@@ -309,7 +309,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.7.5"
+    maximum: "3.7.6"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0", "werkzeug<3"]
@@ -359,7 +359,7 @@ spark:
 
   models:
     minimum: "3.1.2"
-    maximum: "3.5.1"
+    maximum: "3.5.2"
     python:
       "== dev": "3.9"
     java:
@@ -390,7 +390,7 @@ spark:
 
   autologging:
     minimum: "3.1.2"
-    maximum: "3.5.1"
+    maximum: "3.5.2"
     python:
       "== dev": "3.9"
     java:
@@ -507,7 +507,7 @@ h2o:
     pip_release: "h2o"
   models:
     minimum: "3.40.0.1"
-    maximum: "3.46.0.4"
+    maximum: "3.46.0.5"
     run: |
       pytest tests/h2o
 
@@ -545,7 +545,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.25.1"
-    maximum: "4.43.3"
+    maximum: "4.44.2"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -586,7 +586,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.25.1"
-    maximum: "4.43.3"
+    maximum: "4.44.2"
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         "4.38.0",
@@ -627,14 +627,14 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "0.27.2"
-    maximum: "1.37.1"
+    maximum: "1.43.0"
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
     run: |
       pytest tests/openai --ignore tests/openai/test_openai_autolog.py
   autologging:
     minimum: "1.17.0"
-    maximum: "1.37.1"
+    maximum: "1.43.0"
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
     run: |
@@ -648,18 +648,14 @@ langchain:
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.0.354"
-    maximum: "0.2.11"
+    maximum: "0.2.15"
     requirements:
       ">= 0.0.0": [
           "pyspark",
           "transformers",
           "torch",
           "torchvision",
-          # TODO: The LLM saving/loading logic does not handle partner packages such as langchain-openai
-          # and always load llms from the legacy community package. Particularly for OpenAI LLM,
-          # the legacy version is not comptible with OpenAI SDK >= 1.8.0, so we need to pin the
-          # version here until resolving the loading issue.
-          "openai<1.8.0",
+          "openai",
           "google-search-results",
           "psutil",
           "faiss-cpu",
@@ -667,10 +663,13 @@ langchain:
           "numexpr",
           "hf_transfer",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
+          "langchain-openai",
+          "langgraph",
         ]
-      ">= 0.2": ["langchain-huggingface"]
-      # We cannot use install langchain-openai with langchain >= 0.2.0, while pinning openai to <1.8.0
-      "< 0.2.0": ["langchain-openai"]
+      # langchain-openai 0.1.22 is imcomptible with earlier langchain-core due to
+      # https://github.com/langchain-ai/langchain/commit/b83f1eb0d56dbf99605a1fce93953ee09d77aabf
+      "< 0.2": ["langchain-openai<=0.1.22"]
+      ">= 0.2": ["langchain-openai", "langchain-huggingface"]
     run: |
       # Run all langchain tests except autologging
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
@@ -683,7 +682,7 @@ langchain:
       fi
   autologging:
     minimum: "0.1.0"
-    maximum: "0.2.11"
+    maximum: "0.2.15"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -718,7 +717,7 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
-    maximum: "0.10.58"
+    maximum: "0.11.2"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -731,7 +730,7 @@ llama_index:
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
-    maximum: "0.10.58"
+    maximum: "0.11.2"
     requirements:
       ">= 0.0.0": ["openai"]
     run: pytest tests/llama_index/test_llama_index_autolog.py tests/llama_index/test_llama_index_tracer.py
@@ -744,7 +743,7 @@ autogen:
   autologging:
     # Tool call logging is implemented in autogen 0.2.29
     minimum: "0.2.29"
-    maximum: "0.2.34"
+    maximum: "0.2.35"
     run: pytest tests/autogen
 
 sentence_transformers:
@@ -772,7 +771,7 @@ johnsnowlabs:
     pip_release: "johnsnowlabs"
   models:
     minimum: "4.4.6"
-    maximum: "5.4.1"
+    maximum: "5.4.3"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
       "< 5.2.8": ["pyspark<3.4"]
@@ -791,7 +790,7 @@ promptflow:
       pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow
   models:
     minimum: "1.3.0"
-    maximum: "1.14.0"
+    maximum: "1.15.0"
     requirements:
       # Requirements to run sparkudf predict test
       ">= 0.0.0": ["pyspark", "jinja2"]

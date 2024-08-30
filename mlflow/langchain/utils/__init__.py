@@ -45,16 +45,6 @@ _BASE_LOAD_KEY = "base_load"
 _CONFIG_LOAD_KEY = "config_load"
 _PICKLE_LOAD_KEY = "pickle_load"
 _MODEL_LOAD_KEY = "model_load"
-_UNSUPPORTED_MODEL_ERROR_MESSAGE = (
-    "MLflow langchain flavor only supports subclasses of "
-    "langchain.chains.base.Chain, langchain.agents.agent.AgentExecutor, "
-    "langchain.schema.BaseRetriever, langchain.schema.runnable.RunnableSequence, "
-    "langchain.schema.runnable.RunnableLambda, "
-    "langchain.schema.runnable.RunnableParallel, "
-    "langchain.schema.runnable.RunnablePassthrough, "
-    "langchain.schema.runnable.passthrough.RunnableAssign instances, "
-    "found {instance_type}"
-)
 _UNSUPPORTED_MODEL_WARNING_MESSAGE = (
     "MLflow does not guarantee support for Chains outside of the subclasses of LLMChain, found %s"
 )
@@ -145,8 +135,25 @@ def lc_runnables_types():
     )
 
 
+def langgraph_types():
+    try:
+        from langgraph.graph.graph import CompiledGraph
+
+        return (CompiledGraph,)
+    except ImportError:
+        return ()
+
+
 def supported_lc_types():
-    return base_lc_types() + lc_runnables_types()
+    return base_lc_types() + lc_runnables_types() + langgraph_types()
+
+
+# Wrapping as a function to avoid callign supported_lc_types() at import time
+def get_unsupported_model_message(model_type):
+    return (
+        "MLflow langchain flavor only supports subclasses of "
+        f"{supported_lc_types()}, found {model_type}."
+    )
 
 
 @lru_cache
@@ -283,7 +290,7 @@ def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn, temp_dir=None):
 
     if not isinstance(lc_model, supported_lc_types()):
         raise mlflow.MlflowException.invalid_parameter_value(
-            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(lc_model).__name__)
+            get_unsupported_model_message(type(lc_model).__name__)
         )
 
     _SUPPORTED_LLMS = _get_supported_llms()
@@ -400,14 +407,11 @@ def _save_base_lcs(model, path, loader_fn=None, persist_dir=None):
         # Save model
         model.save(model_data_path)
     elif isinstance(model, Chain):
-        logger.warning(
-            _UNSUPPORTED_MODEL_WARNING_MESSAGE,
-            type(model).__name__,
-        )
+        logger.warning(get_unsupported_model_message(type(model).__name__))
         model.save(model_data_path)
     else:
         raise mlflow.MlflowException.invalid_parameter_value(
-            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(model).__name__)
+            get_unsupported_model_message(type(model).__name__)
         )
 
     return model_data_kwargs

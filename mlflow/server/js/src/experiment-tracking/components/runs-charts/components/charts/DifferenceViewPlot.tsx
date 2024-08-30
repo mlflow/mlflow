@@ -22,7 +22,11 @@ import {
 import { RunColorPill } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/components/RunColorPill';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { MetricEntitiesByName } from '@mlflow/mlflow/src/experiment-tracking/types';
-import { differenceView, getDifferenceViewDataGroups, getFixedPointValue } from '../../utils/differenceView';
+import {
+  differenceView,
+  getDifferenceViewDataGroups,
+  getDifferenceChartDisplayedValue,
+} from '../../utils/differenceView';
 import { OverflowIcon, Button, DropdownMenu } from '@databricks/design-system';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { TableSkeletonRows } from '@databricks/design-system';
@@ -108,7 +112,7 @@ export const DifferenceViewPlot = ({
       const accessorFn = (row: Record<string, string | number>) => {
         return {
           text: row[runData.uuid],
-          difference: baselineColumn ? differenceView(row[runData.uuid], row[baselineColumn.uuid]) : null,
+          difference: baselineColumn ? differenceView(row[runData.uuid], row[baselineColumn.uuid])?.label : null,
         };
       };
 
@@ -124,7 +128,10 @@ export const DifferenceViewPlot = ({
                 <span css={{ display: 'inline-flex', gap: theme.spacing.sm, alignItems: 'center' }}>
                   <RunColorPill color={runData.color} />
                   {runData.displayName}
-                  <Tag css={{ margin: 0 }}>
+                  <Tag
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_charts_differenceviewplot.tsx_132"
+                    css={{ margin: 0 }}
+                  >
                     <FormattedMessage
                       defaultMessage="baseline"
                       description="Runs charts > components > charts > DifferenceViewPlot > baseline tag"
@@ -136,7 +143,7 @@ export const DifferenceViewPlot = ({
           },
           size: COLUMN_WIDTH,
           accessorFn: baselineAccessorFn,
-          cell: (row: any) => <span>{getFixedPointValue(row.getValue())}</span>,
+          cell: (row: any) => <span>{getDifferenceChartDisplayedValue(row.getValue())}</span>,
         };
       }
       return {
@@ -155,7 +162,7 @@ export const DifferenceViewPlot = ({
         accessorFn: accessorFn,
         cell: (row: any) => (
           <span css={{ display: 'inline-flex', gap: theme.spacing.md, verticalAlign: 'middle' }}>
-            <Typography.Text>{getFixedPointValue(row.getValue().text)}</Typography.Text>
+            <Typography.Text>{getDifferenceChartDisplayedValue(row.getValue().text)}</Typography.Text>
             {baselineColumn &&
               cardConfig.showChangeFromBaseline &&
               row.getValue().difference &&
@@ -260,7 +267,10 @@ export const DifferenceViewPlot = ({
                               <Button componentId="set_as_baseline_button" icon={<OverflowIcon />} />
                             </DropdownMenu.Trigger>
                             <DropdownMenu.Content>
-                              <DropdownMenu.Item onClick={() => updateBaselineColumnUuid(header.id)}>
+                              <DropdownMenu.Item
+                                componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_charts_differenceviewplot.tsx_271"
+                                onClick={() => updateBaselineColumnUuid(header.id)}
+                              >
                                 <FormattedMessage
                                   defaultMessage="Set as baseline"
                                   description="Runs charts > components > charts > DifferenceViewPlot > Set as baseline dropdown option"
