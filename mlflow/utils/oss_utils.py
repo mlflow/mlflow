@@ -15,7 +15,7 @@ def get_oss_host_creds(server_uri=None):
     if parsed_uri.scheme == "uc":
         if new_parsed_uri.scheme == _DATABRICKS_UNITY_CATALOG_SCHEME:
             db_host = get_databricks_host_creds(parsed_uri.path)
-            print(db_host)
+            print("HOST:", db_host.host)
             return db_host
         else:
             return MlflowHostCreds(
