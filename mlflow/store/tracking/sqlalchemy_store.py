@@ -1384,7 +1384,7 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             try:
                 self._log_params(run_id, params)
-                self._log_metrics("metrics", run_id, metrics)
+                self._log_metrics(run_id, metrics, path="metrics")
                 self._set_tags(run_id, tags)
             except MlflowException as e:
                 raise e
