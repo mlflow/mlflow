@@ -1,5 +1,62 @@
 # CHANGELOG
 
+## 2.16.0 (2024-08-30)
+
+We are excited to announce the release of MLflow 2.16.0. This release includes many major features and improvements!
+
+### Major features:
+
+- **LlamaIndex Enhancements**🦙 - to provide additional flexibility to the [LlamaIndex integration](https://mlflow.org/docs/latest/llms/llama-index/index.html), we now have support for the [models-from-code](https://mlflow.org/docs/latest/models.html#models-from-code) functionality for logging, extended engine-based logging, and broadened support for external vector stores.
+
+- **LangGraph Support** - We've expanded the LangChain integration to support the agent framework [LangGraph](https://langchain-ai.github.io/langgraph/). With tracing and support for logging using the models-from-code feature, creating and storing agent applications has never been easier!
+
+- **AutoGen Tracing** - Full automatic support for tracing multi-turn agent applications built with [Microsoft's AutoGen](https://microsoft.github.io/autogen/) framework is now available in MLflow. Enabling autologging via `mlflow.autogen.autolog()` will instrument your agents built with AutoGen.
+
+- **Plugin support for AI Gateway** - You can now define your own provider interfaces that will work with MLflow's AI Gateway (also known as the MLflow Deployments Server). Creating an installable provider definition will allow you to connect the Gateway server to any GenAI service of your choosing. 
+
+Features:
+
+- [UI] Add updated deployment usage examples to the MLflow artifact viewer (#13024, @serena-ruan, @daniellok-db)
+- [Models] Support logging LangGraph applications via the models-from-code feature (#12996, @B-Step62)
+- [Models] Extend automatic authorization pass-through support for Langgraph agents (#13001, @aravind-segu)
+- [Models] Expand the support for LangChain application logging to include UCFunctionToolkit dependencies (#12966, @aravind-segu)
+- [Models] Support saving LlamaIndex engine directly via the models-from-code feature (#12978, @B-Step62)
+- [Models] Support models-from-code within the LlamaIndex flavor (#12944, @B-Step62)
+- [Models] Remove the data structure conversion of input examples to ensure enhanced compatibility with inference signatures (#12782, @serena-ruan)
+- [Models] Add the ability to retrieve the underlying model object from within `pyfunc` model wrappers (#12814, @serena-ruan)
+- [Models] Add spark vector UDT type support for model signatures (#12758, @WeichenXu123)
+- [Tracing] Add tracing support for AutoGen (#12913, @B-Step62)
+- [Tracing] Reduce the latency overhead for tracing (#12885, @B-Step62)
+- [Tracing] Add Async support for the trace decorator (#12877, @MPKonst)
+- [Deployments] Introduce a plugin provider system to the AI Gateway (Deployments Server) (#12611, @gabrielfu)
+- [Projects] Add support for parameter submission to MLflow Projects run in Databricks (#12854, @WeichenXu123)
+- [Model Registry] Introduce support for Open Source Unity Catalog as a model registry service (#12888, @artjen)
+
+
+Bug fixes:
+
+- [Tracking] Reduce the contents of the `model-history` tag to only essential fields (#12983, @harshilprajapati96)
+- [Models] Fix the behavior of defining the device to utilize when loading transformers models (#12977, @serena-ruan)
+- [Models] Fix evaluate behavior for LlamaIndex (#12976, @B-Step62)
+- [Models] Replace `pkg_resources` with `importlib.metadata` due to package deprecation (#12853, @harupy)
+- [Tracking] Fix error handling for OpenAI autolog tracing (#12841, @B-Step62)
+- [Tracking] Fix a condition where a deadlock can occur when connecting to an SFTP artifact store (#12938, @WeichenXu123)
+- [Tracking] Fix an issue where code_paths dependencies were not properly initialized within the system path for LangChain models (#12923, @harshilprajapati96)
+- [Tracking] Fix a type error for metrics value logging (#12876, @beomsun0829)
+- [Tracking] Properly catch NVML errors when collecting GPU metrics (#12903, @chenmoneygithub)
+- [Deployments] Improve Gateway schema support for the OpenAI provider (#12781, @danilopeixoto)
+- [Model Registry] Fix deletion of artifacts when downloading from a non-standard DBFS location during UC model registration (#12821, @smurching)
+
+Documentation updates:
+
+- [Docs] Add documentation guides for LangGraph support (#13025, @BenWilson2)
+- [Docs] Add additional documentation for models from code feature (#12936, @BenWilson2)
+- [Docs] Add documentation for model serving input payloads (#12848, @serena-ruan)
+
+Small bug fixes and documentation updates:
+
+#12987, #12991, #12974, #12975, #12932, #12893, #12851, #12793, @serena-ruan; #13019, #13013, @aravind-segu; #12943, @piyushdaftary; #12906, #12898, #12757, #12750, #12727, @daniellok-db; #12995, #12985, #12964, #12962, #12960, #12953, #12951, #12937, #12914, #12929, #12907, #12897, #12880, #12865, #12864, #12862, #12850, #12847, #12833, #12835, #12826, #12824, #12795, #12796, @harupy; #12592, @antbbn; #12993, #12984, #12899, #12745, @BenWilson2; #12965, @nojaf; #12968, @bbqiu; #12956, @mickvangelderen; #12939, #12950, #12915, #12931, #12919, #12889, #12849, #12794, #12779, #12836, #12823, #12737, @B-Step62; #12903, @chenmoneygithub; #12905, @Atry; #12884, #12858, #12807, #12800, #10874, @WeichenXu123; #12342, @kriscon-db; #12742, @edwardfeng-db
+
 ## 2.15.1 (2024-08-06)
 
 MLflow 2.15.1 is a patch release that addresses several bug fixes.
