@@ -2973,3 +2973,10 @@ def test_pyfunc_model_schema_enforcement_complex(data, schema, format_key):
     result = json.loads(response.content.decode("utf-8"))["predictions"]
     expected_result = df.to_dict(orient="records")
     np.testing.assert_equal(result, expected_result)
+
+
+def test_zero_longs_convert_to_floats():
+    zeros = pd.Series([0, 0, 0])
+    schema = Schema([ColSpec(DataType.long)])
+    data = _enforce_schema(zeros, schema)
+    assert all(x == 0.0 for x in data)
