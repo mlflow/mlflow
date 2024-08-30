@@ -160,6 +160,7 @@ def _get_store_registry():
     from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
     from mlflow.store._unity_catalog.registry.uc_oss_rest_store import UnityCatalogOssStore
 
+    print("in get store registry", "global _model_registry_store_registry", _model_registry_store_registry)
     if _model_registry_store_registry is not None:
         return _model_registry_store_registry
 
