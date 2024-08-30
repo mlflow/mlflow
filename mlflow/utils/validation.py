@@ -107,14 +107,14 @@ def invalid_value(path, value, message):
     return f"Invalid value {formattedValue} for parameter '{path}' supplied: {message}"
 
 
-def append_to_json_path(currenPath, value):
-    if not currenPath:
+def append_to_json_path(currentPath, value):
+    if not currentPath:
         return value
 
     if value.startswith("["):
-        return f"{currenPath}{value}"
+        return f"{currentPath}{value}"
 
-    return f"{currenPath}.{value}"
+    return f"{currentPath}.{value}"
 
 
 def bad_path_message(name):
