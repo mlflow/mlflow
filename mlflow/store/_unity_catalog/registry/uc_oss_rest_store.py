@@ -19,6 +19,7 @@ from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     RegisteredModelInfo,
     UpdateModelVersion,
     UpdateRegisteredModel,
+    TemporaryCredentials,
 )
 from mlflow.protos.unity_catalog_oss_service_pb2 import UnityCatalogService
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
@@ -70,7 +71,7 @@ class UnityCatalogOssStore(BaseRestStore):
             GetModelVersion: ModelVersionInfo,
             FinalizeModelVersion: ModelVersionInfo,
             UpdateModelVersion: ModelVersionInfo,
-            GenerateTemporaryModelVersionCredential: GenerateTemporaryModelVersionCredential.Response,
+            GenerateTemporaryModelVersionCredential: TemporaryCredentials,
         }
         return method_to_response[method]()
 
