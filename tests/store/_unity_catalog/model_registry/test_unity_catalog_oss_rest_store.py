@@ -29,14 +29,14 @@ from tests.store._unity_catalog.conftest import _REGISTRY_HOST_CREDS
 
 @pytest.fixture
 def store(mock_databricks_uc_oss_host_creds):
-    with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"):
-        yield UnityCatalogOssStore(store_uri="databricks-uc")
+    with mock.patch("mlflow.utils.oss_utils.get_oss_host_creds"):
+        yield UnityCatalogOssStore(store_uri="uc")
 
 
 @pytest.fixture
 def creds():
     with mock.patch(
-        "mlflow.store._unity_catalog.registry.uc_oss_rest_store.get_databricks_host_creds",
+        "mlflow.store._unity_catalog.registry.uc_oss_rest_store.get_oss_host_creds",
         return_value=_REGISTRY_HOST_CREDS,
     ):
         yield
@@ -85,7 +85,6 @@ def test_create_registered_model(mock_http, store):
             schema_name="schema_1",
             comment=description,
         ),
-        host_creds=None,
     )
 
 
@@ -101,7 +100,6 @@ def test_update_registered_model(mock_http, store, creds):
             full_name="catalog_1.schema_1.model_1",
             comment=description,
         ),
-        host_creds=None,
     )
 
 
@@ -114,7 +112,6 @@ def test_get_registered_model(mock_http, store, creds):
         "models/catalog_1.schema_1.model_1",
         "GET",
         GetRegisteredModel(full_name="catalog_1.schema_1.model_1"),
-        host_creds=None,
     )
 
 
@@ -129,7 +126,6 @@ def test_delete_registered_model(mock_http, store, creds):
         DeleteRegisteredModel(
             full_name="catalog_1.schema_1.model_1",
         ),
-        host_creds=None,
     )
 
 
@@ -155,7 +151,6 @@ def test_create_model_version(mock_http, store, creds):
                 "models/catalog_1.schema_1.model_1/versions/0/finalize",
                 "PATCH",
                 FinalizeModelVersion(full_name=model_name, version=0),
-                host_creds=None,
             )
 
 
@@ -169,7 +164,6 @@ def test_get_model_version(mock_http, store, creds):
         "models/catalog_1.schema_1.model_1/versions/0",
         "GET",
         GetModelVersion(full_name=model_name, version=version),
-        host_creds=None,
     )
 
 
@@ -187,7 +181,6 @@ def test_update_model_version(mock_http, store, creds):
             version=0,
             comment="new description",
         ),
-        host_creds=None,
     )
 
 
@@ -201,7 +194,6 @@ def test_delete_model_version(mock_http, store, creds):
         "models/catalog_1.schema_1.model_1/versions/0",
         "DELETE",
         DeleteModelVersion(full_name=model_name, version=version),
-        host_creds=None,
     )
 
 
@@ -228,7 +220,6 @@ def test_get_temporary_model_version_write_credentials_oss(mock_http, store, cre
             version=version,
             operation=READ_WRITE_MODEL_VERSION,
         ),
-        host_creds=None,
     )
 
 
