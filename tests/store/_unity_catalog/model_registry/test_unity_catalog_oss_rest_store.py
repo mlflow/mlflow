@@ -1,5 +1,6 @@
 import json
 from unittest import mock
+from requests import Response
 
 import pytest
 
@@ -12,12 +13,20 @@ from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     GetRegisteredModel,
     UpdateModelVersion,
     UpdateRegisteredModel,
+    ModelVersionInfo,
 )
 from mlflow.store._unity_catalog.registry.uc_oss_rest_store import UnityCatalogOssStore
 from mlflow.utils.proto_json_utils import message_to_json
 
 from tests.helper_functions import mock_http_200
 from tests.store._unity_catalog.conftest import _REGISTRY_HOST_CREDS
+from mlflow.protos.unity_catalog_oss_messages_pb2 import GenerateTemporaryModelVersionCredential
+from mlflow.protos.unity_catalog_oss_messages_pb2 import (
+    READ_WRITE_MODEL_VERSION
+)
+from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
+from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
+from mlflow.protos.unity_catalog_oss_messages_pb2 import TemporaryCredentials, AwsCredentials
 
 
 @pytest.fixture
@@ -78,6 +87,7 @@ def test_create_registered_model(mock_http, store):
             schema_name="schema_1",
             comment=description,
         ),
+        host_creds=None
     )
 
 
@@ -93,6 +103,7 @@ def test_update_registered_model(mock_http, store, creds):
             full_name="catalog_1.schema_1.model_1",
             comment=description,
         ),
+        host_creds=None
     )
 
 
@@ -105,6 +116,7 @@ def test_get_registered_model(mock_http, store, creds):
         "models/catalog_1.schema_1.model_1",
         "GET",
         GetRegisteredModel(full_name="catalog_1.schema_1.model_1"),
+        host_creds=None
     )
 
 
@@ -119,21 +131,32 @@ def test_delete_registered_model(mock_http, store, creds):
         DeleteRegisteredModel(
             full_name="catalog_1.schema_1.model_1",
         ),
+        host_creds=None
     )
 
 
 @mock_http_200
 def test_create_model_version(mock_http, store, creds):
-    model_name = "catalog_1.schema_1.model_1"
-    store.create_model_version(
-        name=model_name, source="source", run_id="run_id", description="description"
-    )
-    _verify_requests(
-        mock_http,
-        "models/catalog_1.schema_1.model_1/versions/0/finalize",
-        "PATCH",
-        FinalizeModelVersion(full_name=model_name, version=0),
-    )
+    # Mock the context manager for _local_model_dir
+    mock_local_model_dir = mock.Mock()
+    mock_local_model_dir.__enter__ = mock.Mock(return_value="/mock/local/model/dir")
+    mock_local_model_dir.__exit__ = mock.Mock(return_value=None)
+
+    with mock.patch.object(store, '_local_model_dir', return_value=mock_local_model_dir):
+        with mock.patch.object(store, '_get_artifact_repo', return_value=mock.Mock()) as mock_artifact_repo:
+            mock_artifact_repo.log_artifacts.return_value = None
+
+            model_name = "catalog_1.schema_1.model_1"
+            store.create_model_version(
+                name=model_name, source="source", run_id="run_id", description="description"
+            )
+            _verify_requests(
+                mock_http,
+                "models/catalog_1.schema_1.model_1/versions/0/finalize",
+                "PATCH",
+                FinalizeModelVersion(full_name=model_name, version=0),
+                host_creds=None
+            )
 
 
 @mock_http_200
@@ -146,6 +169,7 @@ def test_get_model_version(mock_http, store, creds):
         "models/catalog_1.schema_1.model_1/versions/0",
         "GET",
         GetModelVersion(full_name=model_name, version=version),
+        host_creds=None
     )
 
 
@@ -163,6 +187,7 @@ def test_update_model_version(mock_http, store, creds):
             version=0,
             comment="new description",
         ),
+        host_creds=None
     )
 
 
@@ -176,4 +201,65 @@ def test_delete_model_version(mock_http, store, creds):
         "models/catalog_1.schema_1.model_1/versions/0",
         "DELETE",
         DeleteModelVersion(full_name=model_name, version=version),
+        host_creds=None
     )
+
+@mock_http_200
+def test_get_temporary_model_version_write_credentials_oss(mock_http, store, creds):
+    model_name = "model_1"
+    catalog_name = "catalog_1"
+    schema_name = "schema_1"
+    version = 0
+    store._get_temporary_model_version_write_credentials_oss(
+        model_name=model_name,
+        catalog_name=catalog_name,
+        schema_name=schema_name,
+        version=version,
+    )
+    _verify_requests(
+        mock_http,
+        "temporary-model-version-credentials",
+        "POST",
+        GenerateTemporaryModelVersionCredential(
+            catalog_name=catalog_name,
+            schema_name=schema_name,
+            model_name=model_name,
+            version=version,
+            operation=READ_WRITE_MODEL_VERSION,
+        ),
+        host_creds=None
+    )
+
+def test_get_artifact_repo_file_uri(store, creds):
+    model_version_response = ModelVersionInfo(
+        model_name="model_1",
+        catalog_name="catalog_1",
+        schema_name="schema_1",
+        version=0,
+        source="models:/catalog_1.schema_1.model_1/0",
+        storage_location="file:/mock/local/model/dir",
+    )
+    result = store._get_artifact_repo(model_version_response)
+    assert isinstance(result, LocalArtifactRepository)
+
+def test_get_artifact_repo_s3(store, creds):
+    model_version_response = ModelVersionInfo(
+        model_name="model_1",
+        catalog_name="catalog_1",
+        schema_name="schema_1",
+        version=0,
+        source="models:/catalog_1.schema_1.model_1/0",
+        storage_location="s3://my_bucket/my/file.txt",
+    )
+    temporary_creds = TemporaryCredentials(
+        aws_temp_credentials= AwsCredentials(
+            access_key_id="fake_key_id",
+            secret_access_key="fake_secret_access_key",
+            session_token="fake_session_token",
+        )
+    )
+    with mock.patch.object(store, '_get_temporary_model_version_write_credentials_oss', return_value=temporary_creds):
+        result = store._get_artifact_repo(model_version_response)
+        assert isinstance(result, OptimizedS3ArtifactRepository)
+
+

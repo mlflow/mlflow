@@ -583,7 +583,6 @@ def get_databricks_host_creds(server_uri=None):
 
     .. Warning:: This API is deprecated. In the future it might be removed.
     """
-
     if MLFLOW_ENABLE_DB_SDK.get():
         from databricks.sdk import WorkspaceClient
 

@@ -231,6 +231,7 @@ message TemporaryCredentials {
 
   oneof credentials {
     AwsCredentials aws_temp_credentials = 2;
+    // TODO: Add support for other credential types
   }
   // Server time when the credential will expire, in epoch milliseconds.
   // The API client is advised to cache the credential given this expiration time.
