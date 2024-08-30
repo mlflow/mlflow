@@ -38,7 +38,8 @@ def object_to_dict(o: object):
     if isinstance(o, BaseComponent):
         # we can't serialize callables in the model fields
         callable_fields = set()
-        for k, v in o.model_fields.items():
+        fields = o.model_fields if hasattr(o, "model_fields") else o.__fields__
+        for k, v in fields.items():
             field_val = getattr(o, k, None)
             if field_val != v.default and callable(field_val):
                 callable_fields.add(k)
