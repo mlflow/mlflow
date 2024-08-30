@@ -334,7 +334,7 @@ class UnityCatalogOssStore(BaseRestStore):
     
     def get_model_version_download_uri(self, name, version):
         response = self.get_model_version(name, int(version))
-        return response.storage_location
+        return response.model_version_info.storage_location
 
     @contextmanager
     def _local_model_dir(self, source, local_model_path):
