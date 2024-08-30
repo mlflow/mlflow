@@ -583,10 +583,8 @@ def get_databricks_host_creds(server_uri=None):
 
     .. Warning:: This API is deprecated. In the future it might be removed.
     """
-    print("entered db host creds")
     if MLFLOW_ENABLE_DB_SDK.get():
         from databricks.sdk import WorkspaceClient
-        print("enable db sdk was true")
         profile, key_prefix = get_db_info_from_uri(server_uri)
         if key_prefix is not None:
             try:
@@ -631,7 +629,6 @@ def get_databricks_host_creds(server_uri=None):
             use_databricks_sdk = False
             databricks_auth_profile = None
     else:
-        print("enable db sdk was false")
         use_databricks_sdk = False
         databricks_auth_profile = None
 
