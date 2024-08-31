@@ -125,7 +125,7 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
             json_body=oss_req_body,
             response_proto=oss_response_proto,
             extra_headers=extra_headers,
-        )
+        ).credentials
 
     def _get_artifact_repo(self, lineage_header_info=None):
         """
