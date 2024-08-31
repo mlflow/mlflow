@@ -249,7 +249,7 @@ class UnityCatalogOssStore(BaseRestStore):
             response_proto=self._get_response_from_method(DeleteModelVersion),
         )
 
-    def get_model_version(self, name, version):
+    def _get_model_version_endpoint_response(self, name, version):
         full_name = get_full_name_from_sc(name, None)
         req_body = message_to_json(GetModelVersion(full_name=full_name, version=version))
         endpoint, method = _METHOD_TO_INFO[GetModelVersion]
@@ -263,7 +263,10 @@ class UnityCatalogOssStore(BaseRestStore):
             json_body=req_body,
             response_proto=self._get_response_from_method(GetModelVersion),
         )
-        return model_version_from_uc_oss_proto(registered_model_version)
+        return registered_model_version
+
+    def get_model_version(self, name, version):
+        return model_version_from_uc_oss_proto(self._get_model_version_endpoint_response(name, version))
 
     def search_model_versions(
         self, filter_string=None, max_results=None, order_by=None, page_token=None
@@ -333,8 +336,8 @@ class UnityCatalogOssStore(BaseRestStore):
         return cred_return
     
     def get_model_version_download_uri(self, name, version):
-        response = self.get_model_version(name, int(version))
-        return response.model_version_info.storage_location
+        response = self._get_model_version_endpoint_response(name, int(version))
+        return response.storage_location
 
     @contextmanager
     def _local_model_dir(self, source, local_model_path):
