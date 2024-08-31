@@ -1,6 +1,7 @@
 from unittest import mock
 from unittest.mock import ANY
 import requests
+import json
 
 from mlflow import MlflowClient
 from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
@@ -8,16 +9,18 @@ from mlflow.store.artifact.unity_catalog_oss_models_artifact_repo import (
     UnityCatalogOSSModelsArtifactRepository,
 )
 from mlflow.utils.uri import _OSS_UNITY_CATALOG_SCHEME
-
-from tests.store.artifact.test_unity_catalog_models_artifact_repo import (
-    _mock_temporary_creds_response,
-)
+from requests import Response
 
 MODELS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.unity_catalog_models_artifact_repo"
 MODELS_ARTIFACT_REPOSITORY = (
     MODELS_ARTIFACT_REPOSITORY_PACKAGE + ".UnityCatalogModelsArtifactRepository"
 )
 
+def _mock_temporary_creds_response(temporary_creds):
+    mock_response = mock.MagicMock(autospec=Response)
+    mock_response.status_code = 200
+    mock_response.text = json.dumps(temporary_creds)
+    return mock_response
 
 def test_uc_models_artifact_repo_init_with_uri_containing_profile():
     uri_with_profile = "models://profile@uc/MyModel/12"
