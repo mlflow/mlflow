@@ -131,10 +131,8 @@ def build(package_type: PackageType) -> None:
                     # a remote Kubernetes cluster
                     "kubernetes",
                     # Required to serve models through MLServer
-                    # NOTE: remove the upper version pin once protobuf is no longer pinned in
-                    # mlserver. Reference issue: https://github.com/SeldonIO/MLServer/issues/1089
-                    "mlserver>=1.2.0,!=1.3.1,<1.4.0",
-                    "mlserver-mlflow>=1.2.0,!=1.3.1,<1.4.0",
+                    "mlserver>=1.2.0,!=1.3.1",
+                    "mlserver-mlflow>=1.2.0,!=1.3.1",
                     "virtualenv",
                     # Required for exporting metrics from the MLflow server to Prometheus
                     # as part of the MLflow server monitoring add-on
