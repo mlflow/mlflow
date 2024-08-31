@@ -229,11 +229,10 @@ enum ModelVersionStatus {
 
 message TemporaryCredentials {
 
-  oneof credentials {
-    AwsCredentials aws_temp_credentials = 2;
-    AzureUserDelegationSAS azure_user_delegation_sas = 3;
-    GcpOauthToken gcp_oauth_token = 4;
-  }
+  optional AwsCredentials aws_temp_credentials = 2;
+  optional AzureUserDelegationSAS azure_user_delegation_sas = 3;
+  optional GcpOauthToken gcp_oauth_token = 4;
+
   // Server time when the credential will expire, in epoch milliseconds.
   // The API client is advised to cache the credential given this expiration time.
   optional int64 expiration_time = 1;
