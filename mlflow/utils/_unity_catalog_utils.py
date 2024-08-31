@@ -256,6 +256,7 @@ def _get_artifact_repo_from_storage_info_oss(
     scoped_token: TemporaryCredentialsOSS,
     base_credential_refresh_def: Callable[[], TemporaryCredentialsOSS],
 ) -> ArtifactRepository:
+    
     # OSS Temp Credential does not have a one of credential field, so we need to check for the individual cloud credentials
     if scoped_token.aws_temp_credentials:
         # Verify upfront that boto3 is importable

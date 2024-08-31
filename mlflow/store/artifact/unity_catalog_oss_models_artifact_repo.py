@@ -118,7 +118,7 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
                 operation=MODEL_VERSION_OPERATION_READ_OSS,
             )
         )
-        oss_response_proto = TemporaryCredentials
+        oss_response_proto = GenerateTemporaryModelVersionCredentialsOSS.Response
         return call_endpoint(
             host_creds=oss_creds,
             endpoint=oss_endpoint,
@@ -137,7 +137,7 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
         blob_storage_path = self._get_blob_storage_path()
         return get_artifact_repo_from_storage_info(
             storage_location=blob_storage_path,
-            scoped_token=scoped_token,
+            scoped_token=scoped_token.credentials,
             base_credential_refresh_def=self._get_scoped_token,
             is_oss=True,
         )
