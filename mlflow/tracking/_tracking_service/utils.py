@@ -154,7 +154,7 @@ def _get_databricks_uc_rest_store(store_uri, **_):
     supported_schemes = [
         scheme
         for scheme in _tracking_store_registry._registry
-        if scheme != _DATABRICKS_UNITY_CATALOG_SCHEME and scheme != _OSS_UNITY_CATALOG_SCHEME 
+        if scheme != _DATABRICKS_UNITY_CATALOG_SCHEME and scheme != _OSS_UNITY_CATALOG_SCHEME
     ]
     raise MlflowException(
         f"Detected Unity Catalog tracking URI '{store_uri}'. "
@@ -170,9 +170,7 @@ def _get_databricks_uc_rest_store(store_uri, **_):
         "'profile_name' is the name of the Databricks CLI profile to use for "
         "authentication. A OSS Unity Catalog model registry URI can also be specified via "
         f"mlflow.set_registry_uri('{_OSS_UNITY_CATALOG_SCHEME}:http://localhost:8080')."
-        "Be sure to leave the tracking URI configured to use one of the supported schemes listed above." 
-
-
+        "Be sure to leave the tracking URI configured to use one of the supported schemes listed above."
     )
 
 
@@ -187,9 +185,7 @@ def _register_tracking_stores():
     _tracking_store_registry.register(
         _DATABRICKS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store
     )
-    _tracking_store_registry.register(
-        _OSS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store
-    )
+    _tracking_store_registry.register(_OSS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store)
 
     for scheme in ["http", "https"]:
         _tracking_store_registry.register(scheme, _get_rest_store)

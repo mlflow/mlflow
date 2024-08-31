@@ -17,9 +17,9 @@ from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     GetRegisteredModel,
     ModelVersionInfo,
     RegisteredModelInfo,
+    TemporaryCredentials,
     UpdateModelVersion,
     UpdateRegisteredModel,
-    TemporaryCredentials,
 )
 from mlflow.protos.unity_catalog_oss_service_pb2 import UnityCatalogService
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
@@ -266,7 +266,9 @@ class UnityCatalogOssStore(BaseRestStore):
         return registered_model_version
 
     def get_model_version(self, name, version):
-        return model_version_from_uc_oss_proto(self._get_model_version_endpoint_response(name, version))
+        return model_version_from_uc_oss_proto(
+            self._get_model_version_endpoint_response(name, version)
+        )
 
     def search_model_versions(
         self, filter_string=None, max_results=None, order_by=None, page_token=None
@@ -334,7 +336,7 @@ class UnityCatalogOssStore(BaseRestStore):
         )
         cred_return = self._call_endpoint(GenerateTemporaryModelVersionCredential, req_body)
         return cred_return
-    
+
     def get_model_version_download_uri(self, name, version):
         response = self._get_model_version_endpoint_response(name, int(version))
         return response.storage_location

@@ -8,6 +8,8 @@ from mlflow.protos.unity_catalog_oss_messages_pb2 import (
 )
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     GenerateTemporaryModelVersionCredential as GenerateTemporaryModelVersionCredentialsOSS,
+)
+from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     TemporaryCredentials,
 )
 from mlflow.protos.unity_catalog_oss_service_pb2 import UnityCatalogService

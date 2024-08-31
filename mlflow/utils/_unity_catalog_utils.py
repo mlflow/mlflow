@@ -256,7 +256,6 @@ def _get_artifact_repo_from_storage_info_oss(
     scoped_token: TemporaryCredentialsOSS,
     base_credential_refresh_def: Callable[[], TemporaryCredentialsOSS],
 ) -> ArtifactRepository:
-    
     # OSS Temp Credential does not have a one of credential field, so we need to check for the individual cloud credentials
     if scoped_token.aws_temp_credentials:
         # Verify upfront that boto3 is importable
@@ -282,14 +281,11 @@ def _get_artifact_repo_from_storage_info_oss(
             session_token=aws_creds.session_token,
             credential_refresh_def=aws_credential_refresh,
         )
-    elif (
-        scoped_token.azure_user_delegation_sas
-        or scoped_token.gcp_oauth_token 
-    ):
-        raise MlflowException(f"Credential chosen is not supported in OSS Unity Catalog yet.")
+    elif scoped_token.azure_user_delegation_sas or scoped_token.gcp_oauth_token:
+        raise MlflowException("Credential chosen is not supported in OSS Unity Catalog yet.")
     else:
         raise MlflowException(
-            f"Got no credential type when attempting to "
+            "Got no credential type when attempting to "
             "access model version files in Unity Catalog. Try upgrading to the latest "
             "version of the MLflow Python client."
         )

@@ -585,6 +585,7 @@ def get_databricks_host_creds(server_uri=None):
     """
     if MLFLOW_ENABLE_DB_SDK.get():
         from databricks.sdk import WorkspaceClient
+
         profile, key_prefix = get_db_info_from_uri(server_uri)
         if key_prefix is not None:
             try:
