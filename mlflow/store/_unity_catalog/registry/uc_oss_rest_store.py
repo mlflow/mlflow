@@ -249,6 +249,7 @@ class UnityCatalogOssStore(BaseRestStore):
             response_proto=self._get_response_from_method(DeleteModelVersion),
         )
 
+    # This method exists to return the actual UC response object, which contains the storage location
     def _get_model_version_endpoint_response(self, name, version):
         full_name = get_full_name_from_sc(name, None)
         req_body = message_to_json(GetModelVersion(full_name=full_name, version=version))

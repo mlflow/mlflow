@@ -256,8 +256,8 @@ def _get_artifact_repo_from_storage_info_oss(
     scoped_token: TemporaryCredentialsOSS,
     base_credential_refresh_def: Callable[[], TemporaryCredentialsOSS],
 ) -> ArtifactRepository:
+    print("Scoped_Token", scoped_token)
     credential_type = scoped_token.WhichOneof("credentials")
-    print(credential_type)
     if credential_type == "aws_temp_credentials":
         # Verify upfront that boto3 is importable
         import boto3  # noqa: F401
