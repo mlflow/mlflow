@@ -369,6 +369,7 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
         # Updating response_to_parse to be an empty string json dictionary
         response_to_parse = "{}"
     js_dict = json.loads(response_to_parse)
+    print("response_proto", response_proto)
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
 
