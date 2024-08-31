@@ -134,6 +134,7 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
         """
         scoped_token = self._get_scoped_token(lineage_header_info=lineage_header_info)
         blob_storage_path = self._get_blob_storage_path()
+        print("scoped token dump", message_to_json(scoped_token))
         return get_artifact_repo_from_storage_info(
             storage_location=blob_storage_path,
             scoped_token=scoped_token,
