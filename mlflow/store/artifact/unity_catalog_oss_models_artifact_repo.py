@@ -66,7 +66,6 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
                 f"MLflow Python client",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        print("REGISTRY URI", registry_uri)
         super().__init__(artifact_uri)
         from mlflow.tracking.client import MlflowClient
 

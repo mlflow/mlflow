@@ -38,6 +38,7 @@ RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
 _UC_OSS_REST_API_PATH_PREFIX = "/api/2.1"
 _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
+_ARMERIA_OK = "200 OK"
 
 
 def http_request(
@@ -362,14 +363,11 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
 
     response = verify_rest_response(response, endpoint)
     response_to_parse = response.text
-    print("method:", method)
-    print("text in response", response.text)
-    if response.text == "200 OK":
+    if response.text == _ARMERIA_OK:
         # Armeria servers that respond with an empty message have a OK appended to the normal 200 status code.
         # Updating response_to_parse to be an empty string json dictionary
         response_to_parse = "{}"
     js_dict = json.loads(response_to_parse)
-    print("response_proto", response_proto)
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
 
