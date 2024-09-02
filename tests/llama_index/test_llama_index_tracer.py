@@ -5,6 +5,7 @@ from typing import List
 from unittest.mock import ANY
 
 import importlib_metadata
+import llama_index.core
 import openai
 import pytest
 from llama_index.agent.openai import OpenAIAgent
@@ -287,6 +288,8 @@ def test_trace_query_engine(multi_index, is_stream, is_async):
         response = asyncio.run(engine.aquery("Hello")) if is_async else engine.query("Hello")
         assert response.response.startswith('[{"role": "system", "content": "You are an')
         response = asdict(response)
+        if Version(llama_index.core.__version__) > Version("0.10.68"):
+            response["source_nodes"] = [n.dict() for n in response["source_nodes"]]
 
     traces = _get_all_traces()
     assert len(traces) == 1

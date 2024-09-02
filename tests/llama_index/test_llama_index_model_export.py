@@ -118,7 +118,7 @@ def test_format_predict_input_incorrect_schema(single_index, engine_type):
     exception_error = (
         r"__init__\(\) got an unexpected keyword argument 'incorrect'"
         if Version(llama_index.core.__version__) > Version("0.10.68")
-        else "missing 1 required positional argument"
+        else r"missing 1 required positional argument"
     )
 
     with pytest.raises(TypeError, match=exception_error):
