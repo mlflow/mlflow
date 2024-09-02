@@ -649,6 +649,8 @@ langchain:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.0.354"
     maximum: "0.2.15"
+    python:
+      "== dev": "3.9"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -683,6 +685,8 @@ langchain:
   autologging:
     minimum: "0.1.0"
     maximum: "0.2.15"
+    python:
+      "== dev": "3.9"
     requirements:
       ">= 0.0.0": [
           "pyspark",
