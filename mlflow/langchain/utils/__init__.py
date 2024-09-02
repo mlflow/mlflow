@@ -569,12 +569,18 @@ def patch_langchain_type_to_cls_dict():
 
         return AzureChatOpenAI
 
+    def _load_chat_databricks():
+        from langchain_databricks import ChatDatabricks
+
+        return ChatDatabricks
+
     def _patched_get_type_to_cls_dict(original):
         def _wrapped():
             return {
                 **original(),
                 "openai-chat": _load_chat_openai,
                 "azure-openai-chat": _load_azure_chat_openai,
+                "chat-databricks": _load_chat_databricks,
             }
 
         return _wrapped
