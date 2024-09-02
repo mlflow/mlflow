@@ -98,13 +98,16 @@ model and prevent parameter key collisions within the
 tracking store."""
 
 
-def invalid_value(path, value, message):
+def invalid_value(path, value, message=None):
     """
     Compose a standarized error message for invalid parameter values.
     """
     formattedValue = json.dumps(value, sort_keys=True, separators=(",", ":"))
 
-    return f"Invalid value {formattedValue} for parameter '{path}' supplied: {message}"
+    if message:
+        return f"Invalid value {formattedValue} for parameter '{path}' supplied: {message}"
+    else:
+        return f"Invalid value {formattedValue} for parameter '{path}' supplied."
 
 
 def append_to_json_path(currenPath, value):
@@ -221,23 +224,23 @@ def _validate_metric(key, value, timestamp, step, path=""):
     _validate_length_limit("Metric name", MAX_ENTITY_KEY_LENGTH, key)
 
 
-def _validate_param(key, value):
+def _validate_param(key, value, path=""):
     """
     Check that a param with the specified key & value is valid and raise an exception if it
     isn't.
     """
-    _validate_param_name(key)
+    _validate_param_name(key, append_to_json_path(path, "key"))
     return Param(
         _validate_length_limit("Param key", MAX_ENTITY_KEY_LENGTH, key),
         _validate_length_limit("Param value", MAX_PARAM_VAL_LENGTH, value, truncate=True),
     )
 
 
-def _validate_tag(key, value):
+def _validate_tag(key, value, path=""):
     """
     Check that a tag with the specified key & value is valid and raise an exception if it isn't.
     """
-    _validate_tag_name(key)
+    _validate_tag_name(key, append_to_json_path(path, "key"))
     return RunTag(
         _validate_length_limit("Tag key", MAX_ENTITY_KEY_LENGTH, key),
         _validate_length_limit("Tag value", MAX_TAG_VAL_LENGTH, value, truncate=True),
@@ -290,41 +293,41 @@ def _validate_param_keys_unique(params):
         )
 
 
-def _validate_param_name(name):
+def _validate_param_name(name, path="key"):
     """Check that `name` is a valid parameter name and raise an exception if it isn't."""
     if name is None:
         raise MlflowException(
-            f"Parameter name cannot be None. {_MISSING_KEY_NAME_MESSAGE}",
+            invalid_value(path, "", _MISSING_KEY_NAME_MESSAGE),
             error_code=INVALID_PARAMETER_VALUE,
         )
     if not validate_param_and_metric_name(name):
         raise MlflowException(
-            f"Invalid parameter name: '{name}'. {bad_character_message()}",
+            invalid_value(path, name, bad_character_message()),
             INVALID_PARAMETER_VALUE,
         )
     if path_not_unique(name):
         raise MlflowException(
-            f"Invalid parameter name: '{name}'. {bad_path_message(name)}",
+            invalid_value(path, name, bad_path_message(name)),
             INVALID_PARAMETER_VALUE,
         )
 
 
-def _validate_tag_name(name):
+def _validate_tag_name(name, path="key"):
     """Check that `name` is a valid tag name and raise an exception if it isn't."""
     # Reuse param & metric check.
     if name is None:
         raise MlflowException(
-            f"Tag name cannot be None. {_MISSING_KEY_NAME_MESSAGE}",
+            invalid_value(path, "", _MISSING_KEY_NAME_MESSAGE),
             error_code=INVALID_PARAMETER_VALUE,
         )
     if not validate_param_and_metric_name(name):
         raise MlflowException(
-            f"Invalid tag name: '{name}'. {bad_character_message()}",
+            invalid_value(path, name, bad_character_message()),
             INVALID_PARAMETER_VALUE,
         )
     if path_not_unique(name):
         raise MlflowException(
-            f"Invalid tag name: '{name}'. {bad_path_message(name)}",
+            invalid_value(path, name, bad_path_message(name)),
             INVALID_PARAMETER_VALUE,
         )
 
@@ -350,10 +353,10 @@ def _validate_length_limit(entity_name, limit, value, *, truncate=False):
     )
 
 
-def _validate_run_id(run_id):
+def _validate_run_id(run_id, path="run_id"):
     """Check that `run_id` is a valid run ID and raise an exception if it isn't."""
     if _RUN_ID_REGEX.match(run_id) is None:
-        raise MlflowException(f"Invalid run ID: '{run_id}'", error_code=INVALID_PARAMETER_VALUE)
+        raise MlflowException(invalid_value(path, run_id), error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_experiment_id(exp_id):
@@ -393,8 +396,8 @@ def _validate_batch_log_data(metrics, params, tags):
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step, path=path)
     return (
         metrics,
-        [_validate_param(p.key, p.value) for p in params],
-        [_validate_tag(t.key, t.value) for t in tags],
+        [_validate_param(p.key, p.value, path=f"params[{idx}]") for (idx, p) in enumerate(params)],
+        [_validate_tag(t.key, t.value, path=f"tags[{idx}]") for (idx, t) in enumerate(tags)],
     )
 
 
