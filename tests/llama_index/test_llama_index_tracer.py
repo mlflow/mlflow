@@ -73,7 +73,7 @@ def test_trace_llm_complete(is_async):
 
 
 def test_trace_llm_complete_stream():
-    model_name = "gpt-3.5-turbo-instruct"
+    model_name = "gpt-3.5-turbo"
     llm = OpenAI(model=model_name)
 
     response_gen = llm.stream_complete("Hello")
@@ -96,7 +96,7 @@ def test_trace_llm_complete_stream():
     assert spans[0].outputs["text"] == "Hello world"
 
     attr = spans[0].attributes
-    assert attr["usage"] == {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12}
+    assert attr["usage"] == {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21}
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
