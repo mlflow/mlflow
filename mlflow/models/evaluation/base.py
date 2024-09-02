@@ -12,7 +12,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from decimal import Decimal
 from types import FunctionType
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -854,38 +854,45 @@ def _get_model_from_deployment_endpoint_uri(
             self.endpoint = endpoint
             self.params = params
 
-        def predict(self, context, model_input: pd.DataFrame):
-            if len(model_input.columns) != 1:
-                raise MlflowException(
-                    f"The number of input columns must be 1, but got {model_input.columns}. "
-                    "Multi-column input is not supported for evaluating an MLflow Deployments "
-                    "endpoint. Please include the input text or payload in a single column.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            input_column = model_input.columns[0]
-
-            predictions = []
-            for data in model_input[input_column]:
-                if isinstance(data, str):
-                    # If the input data is a string, we will construct the request payload from it.
-                    prediction = _call_deployments_api(self.endpoint, data, self.params)
-                elif isinstance(data, dict):
-                    # If the input data is a dictionary, we will directly use it as the request
-                    # payload, with adding the inference parameters if provided.
-                    prediction = _call_deployments_api(
-                        self.endpoint, data, self.params, wrap_payload=False
-                    )
-                else:
+        def predict(self, context, model_input: Union[Dict, pd.DataFrame]):
+            # The model input is typically a Pandas DataFrame that contains the
+            # request payloads in a single column.
+            # However, if the model_type is "databricks-agents" and the Databricks
+            # evaluator is used, this PythonModel is invoked with a dictionary
+            # corresponding to the ChatCompletionsRequest schema.
+            if isinstance(model_input, dict):
+                return self._predict_single(model_input)
+            elif isinstance(model_input, pd.DataFrame):
+                if len(model_input.columns) != 1:
                     raise MlflowException(
-                        f"Invalid input column type: {type(data)}. The input data must be either "
-                        "a string or a dictionary contains the request payload for evaluating an "
-                        "MLflow Deployments endpoint.",
+                        f"The number of input columns must be 1, but got {model_input.columns}. "
+                        "Multi-column input is not supported for evaluating an MLflow Deployments "
+                        "endpoint. Please include the input text or payload in a single column.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
+                input_column = model_input.columns[0]
 
-                predictions.append(prediction)
+                predictions = [self._predict_single(data) for data in model_input[input_column]]
+                return pd.Series(predictions)
 
-            return pd.Series(predictions)
+        def _predict_single(self, data: Union[str, Dict]) -> Dict:
+            if isinstance(data, str):
+                # If the input data is a string, we will construct the request payload from it.
+                prediction = _call_deployments_api(self.endpoint, data, self.params)
+            elif isinstance(data, dict):
+                # If the input data is a dictionary, we will directly use it as the request
+                # payload, with adding the inference parameters if provided.
+                prediction = _call_deployments_api(
+                    self.endpoint, data, self.params, wrap_payload=False
+                )
+            else:
+                raise MlflowException(
+                    f"Invalid input data type: {type(data)}. The input data must be either "
+                    "a string or a dictionary contains the request payload for evaluating an "
+                    "MLflow Deployments endpoint.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            return prediction
 
     prefix, endpoint = _parse_model_uri(endpoint_uri)
     params = params or {}
