@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
-import llama_index
+import llama_index.core
 import numpy as np
 import pandas as pd
 import pytest
@@ -117,7 +117,7 @@ def test_format_predict_input_incorrect_schema(single_index, engine_type):
 
     exception_error = (
         r"__init__\(\) got an unexpected keyword argument 'incorrect'"
-        if Version(llama_index.__version__) >= Version("0.11.0")
+        if Version(llama_index.core.__version__) >= Version("0.11.0")
         else r"missing 1 required positional argument"
     )
 
