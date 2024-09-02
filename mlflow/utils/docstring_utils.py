@@ -281,7 +281,7 @@ limitations, see the
 `code_paths usage guide <https://mlflow.org/docs/latest/model/dependencies.html?highlight=code_paths#saving-extra-code-with-an-mlflow-model>`_.
 """
         ),
-        # pyfunc flavor supports `infer_code_paths`, but other flavors do not.
+        # Only pyfunc flavor supports `infer_code_paths`.
         "code_paths_pyfunc": (
             """A list of local filesystem paths to Python file dependencies (or directories
 containing file dependencies). These files are *prepended* to the system path when the model
