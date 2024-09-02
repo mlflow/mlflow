@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
+import llama_index.core
 import numpy as np
 import pandas as pd
 import pytest
@@ -16,6 +17,7 @@ from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.databricks import Databricks
 from llama_index.llms.openai import OpenAI
 from llama_index.vector_stores.qdrant import QdrantVectorStore
+from packaging.version import Version
 
 import mlflow
 import mlflow.llama_index
@@ -113,9 +115,15 @@ def test_format_predict_input_correct(single_index, engine_type):
 def test_format_predict_input_incorrect_schema(single_index, engine_type):
     wrapped_model = create_engine_wrapper(single_index, engine_type)
 
-    with pytest.raises(TypeError, match="missing 1 required positional argument"):
+    exception_error = (
+        r"__init__\(\) got an unexpected keyword argument 'incorrect'"
+        if Version(llama_index.core.__version__) >= Version("0.11.0")
+        else r"missing 1 required positional argument"
+    )
+
+    with pytest.raises(TypeError, match=exception_error):
         wrapped_model._format_predict_input(pd.DataFrame({"incorrect": ["hi"]}))
-    with pytest.raises(TypeError, match="missing 1 required positional argument"):
+    with pytest.raises(TypeError, match=exception_error):
         wrapped_model._format_predict_input({"incorrect": ["hi"]})
 
 

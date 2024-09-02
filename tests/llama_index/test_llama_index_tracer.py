@@ -5,6 +5,7 @@ from typing import List
 from unittest.mock import ANY
 
 import importlib_metadata
+import llama_index.core
 import openai
 import pytest
 from llama_index.agent.openai import OpenAIAgent
@@ -72,7 +73,7 @@ def test_trace_llm_complete(is_async):
 
 
 def test_trace_llm_complete_stream():
-    model_name = "gpt-3.5-turbo-instruct"
+    model_name = "gpt-3.5-turbo"
     llm = OpenAI(model=model_name)
 
     response_gen = llm.stream_complete("Hello")
@@ -95,7 +96,7 @@ def test_trace_llm_complete_stream():
     assert spans[0].outputs["text"] == "Hello world"
 
     attr = spans[0].attributes
-    assert attr["usage"] == {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12}
+    assert attr["usage"] == {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21}
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
@@ -287,6 +288,8 @@ def test_trace_query_engine(multi_index, is_stream, is_async):
         response = asyncio.run(engine.aquery("Hello")) if is_async else engine.query("Hello")
         assert response.response.startswith('[{"role": "system", "content": "You are an')
         response = asdict(response)
+        if Version(llama_index.core.__version__) > Version("0.10.68"):
+            response["source_nodes"] = [n.dict() for n in response["source_nodes"]]
 
     traces = _get_all_traces()
     assert len(traces) == 1
