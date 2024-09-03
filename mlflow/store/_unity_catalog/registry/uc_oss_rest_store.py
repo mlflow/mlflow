@@ -102,8 +102,20 @@ class UnityCatalogOssStore(BaseRestStore):
         return _METHOD_TO_ALL_INFO[method]
 
     def create_registered_model(self, name, tags=None, description=None):
-        full_name = get_full_name_from_sc(name, None)
-        [catalog_name, schema_name, model_name] = full_name.split(".")
+        """
+        Create a new registered model in backend store.
+
+        Args:
+            name: Name of the new model. This is expected to be unique in the backend store.
+            tags: Not supported for Unity Catalog OSS yet.
+            description: Description of the model.
+
+        Returns:
+            A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
+            created in the backend.
+
+        """
+        [catalog_name, schema_name, model_name] = name.split(".")
         comment = description if description else ""
         # RegisteredModelInfo is inlined in the request and the response.
         # https://docs.databricks.com/api/workspace/registeredmodels/create
@@ -119,6 +131,16 @@ class UnityCatalogOssStore(BaseRestStore):
         return registered_model_from_uc_oss_proto(registered_model_info)
 
     def update_registered_model(self, name, description):
+        """
+        Update description of the registered model.
+
+        Args:
+            name: Registered model name.
+            description: New description.
+
+        Returns:
+            A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        """
         full_name = get_full_name_from_sc(name, None)
         comment = description if description else ""
         req_body = message_to_json(
@@ -128,20 +150,23 @@ class UnityCatalogOssStore(BaseRestStore):
             )
         )
         endpoint, method = _METHOD_TO_INFO[UpdateRegisteredModel]
-        final_endpoint = endpoint.replace("{full_name}", full_name)
-        registered_model_info = call_endpoint(
-            self.get_host_creds(),
-            endpoint=final_endpoint,
-            method=method,
-            json_body=req_body,
-            response_proto=self._get_response_from_method(UpdateRegisteredModel),
-        )
+        registered_model_info = self._edit_endpoint_and_call(endpoint=endpoint, method=method, req_body=req_body, full_name=full_name, proto_name=UpdateRegisteredModel)
         return registered_model_from_uc_oss_proto(registered_model_info)
 
     def rename_registered_model(self, name, new_name):
         raise NotImplementedError("Method not implemented")
 
     def delete_registered_model(self, name):
+        """
+        Delete the registered model.
+        Backend raises exception if a registered model with given name does not exist.
+
+        Args:
+            name: Registered model name.
+
+        Returns:
+            None
+        """
         full_name = get_full_name_from_sc(name, None)
         req_body = message_to_json(
             DeleteRegisteredModel(
@@ -149,14 +174,7 @@ class UnityCatalogOssStore(BaseRestStore):
             )
         )
         endpoint, method = _METHOD_TO_INFO[DeleteRegisteredModel]
-        final_endpoint = endpoint.replace("{full_name}", full_name)
-        call_endpoint(
-            self.get_host_creds(),
-            endpoint=final_endpoint,
-            method=method,
-            json_body=req_body,
-            response_proto=self._get_response_from_method(DeleteRegisteredModel),
-        )
+        self._edit_endpoint_and_call(endpoint=endpoint, method=method, req_body=req_body, full_name=full_name, proto_name=DeleteRegisteredModel)
 
     def search_registered_models(
         self, filter_string=None, max_results=None, order_by=None, page_token=None
@@ -203,14 +221,7 @@ class UnityCatalogOssStore(BaseRestStore):
         full_name = get_full_name_from_sc(name, None)
         req_body = message_to_json(GetRegisteredModel(full_name=full_name))
         endpoint, method = _METHOD_TO_INFO[GetRegisteredModel]
-        final_endpoint = endpoint.replace("{full_name}", full_name)
-        registered_model_info = call_endpoint(
-            self.get_host_creds(),
-            endpoint=final_endpoint,
-            method=method,
-            json_body=req_body,
-            response_proto=self._get_response_from_method(GetRegisteredModel),
-        )
+        registered_model_info = self._edit_endpoint_and_call(endpoint=endpoint, method=method, req_body=req_body, full_name=full_name, proto_name=GetRegisteredModel, version=None)
         return registered_model_from_uc_oss_proto(registered_model_info)
 
     def get_latest_versions(self, name, stages=None):
@@ -233,8 +244,7 @@ class UnityCatalogOssStore(BaseRestStore):
         local_model_path=None,
     ):
         with self._local_model_dir(source, local_model_path) as local_model_dir:
-            full_name = get_full_name_from_sc(name, None)
-            [catalog_name, schema_name, model_name] = full_name.split(".")
+            [catalog_name, schema_name, model_name] = name.split(".")
             req_body = message_to_json(
                 CreateModelVersion(
                     model_name=model_name,
@@ -249,24 +259,14 @@ class UnityCatalogOssStore(BaseRestStore):
             store = self._get_artifact_repo(model_version)
             store.log_artifacts(local_dir=local_model_dir, artifact_path="")
             endpoint, method = _METHOD_TO_INFO[FinalizeModelVersion]
-            final_endpoint = endpoint.replace("{full_name}", full_name).replace(
-                "{version}", str(model_version.version)
-            )
             finalize_req_body = message_to_json(
-                FinalizeModelVersion(full_name=full_name, version=model_version.version)
+                FinalizeModelVersion(full_name=name, version=model_version.version)
             )
-            registered_model_version = call_endpoint(
-                self.get_host_creds(),
-                endpoint=final_endpoint,
-                method=method,
-                json_body=finalize_req_body,
-                response_proto=self._get_response_from_method(FinalizeModelVersion),
-            )
+            registered_model_version = self._edit_endpoint_and_call(endpoint=endpoint, method=method, req_body=finalize_req_body, full_name=name, proto_name=FinalizeModelVersion, version=model_version.version)
             return model_version_from_uc_oss_proto(registered_model_version)
 
     def update_model_version(self, name, version, description):
         full_name = get_full_name_from_sc(name, None)
-        [catalog_name, schema_name, model_name] = full_name.split(".")
         req_body = message_to_json(
             UpdateModelVersion(
                 full_name=full_name,
@@ -275,16 +275,7 @@ class UnityCatalogOssStore(BaseRestStore):
             )
         )
         endpoint, method = _METHOD_TO_INFO[UpdateModelVersion]
-        final_endpoint = endpoint.replace("{full_name}", full_name).replace(
-            "{version}", str(version)
-        )
-        registered_model_version = call_endpoint(
-            self.get_host_creds(),
-            endpoint=final_endpoint,
-            method=method,
-            json_body=req_body,
-            response_proto=self._get_response_from_method(UpdateModelVersion),
-        )
+        registered_model_version = self._edit_endpoint_and_call(endpoint=endpoint, method=method, req_body=req_body, full_name=full_name, proto_name=UpdateModelVersion, version=version)
         return model_version_from_uc_oss_proto(registered_model_version)
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
@@ -294,32 +285,15 @@ class UnityCatalogOssStore(BaseRestStore):
         full_name = get_full_name_from_sc(name, None)
         req_body = message_to_json(DeleteModelVersion(full_name=full_name, version=version))
         endpoint, method = _METHOD_TO_INFO[DeleteModelVersion]
-        final_endpoint = endpoint.replace("{full_name}", full_name).replace(
-            "{version}", str(version)
-        )
-        call_endpoint(
-            self.get_host_creds(),
-            endpoint=final_endpoint,
-            method=method,
-            json_body=req_body,
-            response_proto=self._get_response_from_method(DeleteModelVersion),
-        )
+        return self._edit_endpoint_and_call(endpoint=endpoint, method=method, req_body=req_body, full_name=full_name, proto_name=FinalizeModelVersion, version=version)
+        
 
     # This method exists to return the actual UC response object, which contains the storage location
     def _get_model_version_endpoint_response(self, name, version):
         full_name = get_full_name_from_sc(name, None)
         req_body = message_to_json(GetModelVersion(full_name=full_name, version=version))
         endpoint, method = _METHOD_TO_INFO[GetModelVersion]
-        final_endpoint = endpoint.replace("{full_name}", full_name).replace(
-            "{version}", str(version)
-        )
-        registered_model_version = call_endpoint(
-            self.get_host_creds(),
-            endpoint=final_endpoint,
-            method=method,
-            json_body=req_body,
-            response_proto=self._get_response_from_method(GetModelVersion),
-        )
+        registered_model_version = self._edit_endpoint_and_call(endpoint=endpoint, method=method, req_body=req_body, full_name=full_name, proto_name=GetModelVersion, version=version)
         return registered_model_version
 
     def get_model_version(self, name, version):
@@ -356,14 +330,7 @@ class UnityCatalogOssStore(BaseRestStore):
             )
         )
         endpoint, method = _METHOD_TO_INFO[ListModelVersions]
-        final_endpoint = endpoint.replace("{full_name}", full_name)
-        response_proto = call_endpoint(
-            self.get_host_creds(),
-            endpoint=final_endpoint,
-            method=method,
-            json_body=req_body,
-            response_proto=self._get_response_from_method(ListModelVersions),
-        )
+        response_proto = self._edit_endpoint_and_call(endpoint=endpoint, method=method, req_body=req_body, full_name=full_name, proto_name=ListModelVersions)
         model_versions = [
             model_version_search_from_uc_oss_proto(mvd) for mvd in response_proto.model_versions
         ]
@@ -446,10 +413,10 @@ class UnityCatalogOssStore(BaseRestStore):
                 )
             except Exception as e:
                 raise MlflowException(
-                    f"Unable to download model artifacts from source artifact location "
-                    f"'{source}' in order to upload them to Unity Catalog. Please ensure "
-                    f"the source artifact location exists and that you can download from "
-                    f"it via mlflow.artifacts.download_artifacts()"
+                     "Unable to download model artifacts from source artifact location "  
+                    f"'{source}' in order to upload them to Unity Catalog. Please ensure "  
+                    "the source artifact location exists and that you can download from "  
+                    "it via mlflow.artifacts.download_artifacts()"  
                 ) from e
             try:
                 yield local_model_dir
@@ -463,3 +430,16 @@ class UnityCatalogOssStore(BaseRestStore):
                 # e.g. return /dbfs/some/path for source dbfs:/some/path.
                 if not os.path.exists(source) and not is_fuse_or_uc_volumes_uri(local_model_dir):
                     shutil.rmtree(local_model_dir)
+
+    def _edit_endpoint_and_call(self, endpoint, method, req_body, full_name, proto_name, version=None):
+        if version is not None:
+            endpoint = endpoint.replace("{full_name}", full_name).replace("{version}", str(version))
+        else:
+            endpoint = endpoint.replace("{full_name}", full_name)
+        return call_endpoint(
+            self.get_host_creds(),
+            endpoint=endpoint,
+            method=method,
+            json_body=req_body,
+            response_proto=self._get_response_from_method(proto_name),
+        )

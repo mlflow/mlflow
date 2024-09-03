@@ -56,7 +56,6 @@ def model_version_search_from_uc_oss_proto(uc_oss_proto: ModelVersionInfo) -> Mo
 def uc_oss_model_version_status_to_string(status):
     return _STATUS_TO_STRING[status]
 
-# filter_pattern = re.compile(r"^name\s*=\\s*'([^']+)'")
 filter_pattern = re.compile(r"^name\s*=\s*'([^']+)'")
 
 def parse_model_name(filter):
@@ -74,12 +73,11 @@ def parse_model_name(filter):
             "the format `name = 'model_name'`."
         )
     parts = model_name_str.split('.')
-    if len(parts) != 3:
-        raise MlflowException("Full name must have three parts separated by '.'")
+    if len(parts) != 3 or not all(parts):  
+        raise MlflowException(  
+            "Bad model name: please specify all three levels of the model in the"  
+            "form `catalog_name.schema_name.model_name`"  
+        )  
     catalog, schema, model = parts
-    if not model or not catalog or not schema:
-        raise MlflowException(
-            "Bad model name: please specify all three levels of the model in the form `catalog_name.schema_name.model_name`",
-        )
     return f"{catalog}.{schema}.{model}"
 
