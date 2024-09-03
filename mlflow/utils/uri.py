@@ -130,7 +130,7 @@ def is_databricks_unity_catalog_uri(uri):
 # Update scheme parsing if changes are made to the OSS URI (this is an initial proof of concept)
 def is_oss_unity_catalog_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == "uc" or uri == "uc"
+    return scheme == "uc"
 
 
 def construct_db_uri_from_profile(profile):
