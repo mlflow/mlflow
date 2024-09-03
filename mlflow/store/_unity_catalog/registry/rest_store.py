@@ -407,6 +407,7 @@ class UcModelRegistryStore(BaseRestStore):
             )
         )
         response_proto = self._call_endpoint(SearchRegisteredModelsRequest, req_body)
+        print(response_proto)
         registered_models = [
             registered_model_search_from_uc_proto(registered_model)
             for registered_model in response_proto.registered_models
