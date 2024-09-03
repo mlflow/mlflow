@@ -4,21 +4,19 @@ from unittest import mock
 import pytest
 
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
-    READ_WRITE_MODEL_VERSION,
     AwsCredentials,
     CreateRegisteredModel,
     DeleteModelVersion,
     DeleteRegisteredModel,
     FinalizeModelVersion,
-    GenerateTemporaryModelVersionCredential,
     GetModelVersion,
     GetRegisteredModel,
+    ListModelVersions,
+    ListRegisteredModels,
     ModelVersionInfo,
     TemporaryCredentials,
     UpdateModelVersion,
     UpdateRegisteredModel,
-    ListRegisteredModels,
-    ListModelVersions,
 )
 from mlflow.store._unity_catalog.registry.uc_oss_rest_store import UnityCatalogOssStore
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
@@ -198,6 +196,7 @@ def test_delete_model_version(mock_http, store, creds):
         DeleteModelVersion(full_name=model_name, version=version),
     )
 
+
 @mock_http_200
 def test_search_registered_models(mock_http, store, creds):
     max_results = 10
@@ -216,6 +215,7 @@ def test_search_registered_models(mock_http, store, creds):
         ),
     )
 
+
 @mock_http_200
 def test_search_model_versions(mock_http, store, creds):
     filter_string = "name = 'catalog_1.schema_1.model_1'"
@@ -230,12 +230,13 @@ def test_search_model_versions(mock_http, store, creds):
 
     _verify_requests(
         mock_http,
-        f"models/catalog_1.schema_1.model_1/versions",
+        "models/catalog_1.schema_1.model_1/versions",
         "GET",
-       ListModelVersions(
+        ListModelVersions(
             full_name="catalog_1.schema_1.model_1", page_token=page_token, max_results=max_results
         ),
     )
+
 
 def test_get_artifact_repo_file_uri(store, creds):
     model_version_response = ModelVersionInfo(
