@@ -843,8 +843,9 @@ def get_experiment_permission():
 @catch_mlflow_exception
 def list_experiment_permissions():
     experiment_id = _get_request_param("experiment_id")
-    eps = store.list_experiment_permissions(experiment_id)
-    return make_response([{"experiment_permission": ep.to_json()} for ep in eps])
+    eps = store.list_permissions_experiment(experiment_id)
+    permissions = [{"experiment_permission": ep.to_json()} for ep in eps]
+    return make_response({"permissions": permissions})
 
 
 @catch_mlflow_exception
@@ -960,7 +961,7 @@ def create_app(app: Flask = app):
     )
     app.add_url_rule(
         rule=LIST_EXPERIMENT_PERMISSIONS,
-        view_func=get_experiment_permission,
+        view_func=list_experiment_permissions,
         methods=["GET"],
     )
     app.add_url_rule(
