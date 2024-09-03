@@ -5,6 +5,7 @@ from contextlib import contextmanager
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     READ_WRITE_MODEL_VERSION,
     CreateModelVersion,
@@ -20,6 +21,8 @@ from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     TemporaryCredentials,
     UpdateModelVersion,
     UpdateRegisteredModel,
+    ListRegisteredModels,
+    ListModelVersions,
 )
 from mlflow.protos.unity_catalog_oss_service_pb2 import UnityCatalogService
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
@@ -27,6 +30,9 @@ from mlflow.store.model_registry.base_rest_store import BaseRestStore
 from mlflow.utils._unity_catalog_oss_utils import (
     model_version_from_uc_oss_proto,
     registered_model_from_uc_oss_proto,
+    registered_model_search_from_uc_oss_proto,
+    model_version_search_from_uc_oss_proto,
+    parse_model_name,
 )
 from mlflow.utils._unity_catalog_utils import (
     get_artifact_repo_from_storage_info,
@@ -47,6 +53,19 @@ _METHOD_TO_INFO = extract_api_info_for_service(UnityCatalogService, _UC_OSS_REST
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
     UnityCatalogService, _UC_OSS_REST_API_PATH_PREFIX
 )
+
+def _raise_unsupported_arg(arg_name, message=None):
+        messages = [
+            f"Argument '{arg_name}' is unsupported for models in the Unity Catalog.",
+        ]
+        if message is not None:
+            messages.append(message)
+        raise MlflowException(" ".join(messages))
+    
+def _require_arg_unspecified(arg_name, arg_value, default_values=None, message=None):
+    default_values = [None] if default_values is None else default_values
+    if arg_value not in default_values:
+        _raise_unsupported_arg(arg_name, message)
 
 
 @experimental
@@ -71,6 +90,8 @@ class UnityCatalogOssStore(BaseRestStore):
             FinalizeModelVersion: ModelVersionInfo,
             UpdateModelVersion: ModelVersionInfo,
             GenerateTemporaryModelVersionCredential: TemporaryCredentials,
+            ListRegisteredModels: ListRegisteredModels.Response,
+            ListModelVersions: ListModelVersions.Response,
         }
         return method_to_response[method]()
 
@@ -140,7 +161,43 @@ class UnityCatalogOssStore(BaseRestStore):
     def search_registered_models(
         self, filter_string=None, max_results=None, order_by=None, page_token=None
     ):
-        raise NotImplementedError("Method not implemented")
+        """
+        Search for registered models in backend that satisfy the filter criteria.
+
+        Args:
+            filter_string: Filter query string, defaults to searching all registered models.
+            max_results: Maximum number of registered models desired.
+            order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                matching search results.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_registered_models`` call.
+
+        Returns:
+            A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
+            that satisfy the search expressions. The pagination token for the next page can be
+            obtained via the ``token`` attribute of the object.
+
+        """
+        _require_arg_unspecified("filter_string", filter_string)
+        _require_arg_unspecified("order_by", order_by)
+        req_body = message_to_json(
+            ListRegisteredModels(
+                max_results=max_results,
+                page_token=page_token,
+            )
+        )
+        endpoint, method = _METHOD_TO_INFO[ListRegisteredModels]
+        response_proto = call_endpoint(self.get_host_creds(),
+            endpoint=endpoint,
+            method=method,
+            json_body=req_body,
+            response_proto=self._get_response_from_method(ListRegisteredModels),
+        )
+        registered_models = [
+            registered_model_search_from_uc_oss_proto(registered_model)
+            for registered_model in response_proto.registered_models
+        ]
+        return PagedList(registered_models, response_proto.next_page_token)
 
     def get_registered_model(self, name):
         full_name = get_full_name_from_sc(name, None)
@@ -273,7 +330,45 @@ class UnityCatalogOssStore(BaseRestStore):
     def search_model_versions(
         self, filter_string=None, max_results=None, order_by=None, page_token=None
     ):
-        raise NotImplementedError("Method not implemented")
+        """
+        Search for model versions in backend that satisfy the filter criteria.
+
+        Args:
+            filter_string: A filter string expression. Currently supports a single filter
+                condition either name of model like ``name = 'model_name'``
+            max_results: Maximum number of model versions desired.
+            order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                matching search results.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_model_versions`` call.
+
+        Returns:
+            A PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
+            objects that satisfy the search expressions. The pagination token for the next
+            page can be obtained via the ``token`` attribute of the object.
+
+        """
+        _require_arg_unspecified(arg_name="order_by", arg_value=order_by)
+        full_name = parse_model_name(filter_string)
+        req_body = message_to_json(
+            ListModelVersions(
+                full_name=full_name, page_token=page_token, max_results=max_results
+            )
+        )
+        response_proto = self._call_endpoint(ListModelVersions, req_body)
+        endpoint, method = _METHOD_TO_INFO[ListModelVersions]
+        final_endpoint = endpoint.replace("{full_name}", full_name)
+        response_proto = call_endpoint(
+            self.get_host_creds(),
+            endpoint=final_endpoint,
+            method=method,
+            json_body=req_body,
+            response_proto=self._get_response_from_method(ListModelVersions),
+        )
+        model_versions = [
+            model_version_search_from_uc_oss_proto(mvd) for mvd in response_proto.model_versions
+        ]
+        return PagedList(model_versions, response_proto.next_page_token)
 
     def set_model_version_tag(self, name, version, tag):
         raise NotImplementedError("Method not implemented")

@@ -98,6 +98,29 @@ message UpdateRegisteredModel {
   }
 }
 
+message ListRegisteredModels {
+
+  // Optional. Name of parent catalog for models of interest.
+  optional string catalog_name = 1;
+  // Optional. Parent schema of models.
+  optional string schema_name = 2;
+
+  // If catalog and schema are unspecified, max_results must be specified.
+  // If max_results is unspecified, we return all results, starting from the page specified by page_token
+  // Maximum number of models to return (page length).
+  optional int64 max_results = 5;
+
+  // If page_token is unspecified, results begin from the first page of db results
+  // Optional. Opaque token to send for the next page of results (pagination).
+  optional string page_token = 6;
+
+  message Response {
+    repeated RegisteredModelInfo registered_models = 1;
+    // Optional. Opaque token for pagination.
+    optional string next_page_token = 2;
+  }
+}
+
 message ModelVersionInfo {
 
   // [Create:REQ Update:IGN] Name of parent model, relative to parent Schema.
@@ -212,6 +235,25 @@ message UpdateModelVersion {
 
   message Response {
     optional ModelVersionInfo model_version_info = 1;
+  }
+}
+
+message ListModelVersions {
+
+  // Required. Full name of the parent registered model (from URL).
+  optional string full_name = 1;
+
+  // Maximum number of model versions to return (i.e., the page length). Defaults to 100.
+  // Maximum allowed value is 1000.
+  optional int64 max_results = 4;
+
+  // Optional. Opaque token to send for the next page of results (pagination).
+  optional string page_token = 5;
+
+  message Response {
+    repeated ModelVersionInfo model_versions = 1;
+    // Opaque token for pagination.
+    optional string next_page_token = 2;
   }
 }
 

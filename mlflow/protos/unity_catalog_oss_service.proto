@@ -127,4 +127,28 @@ service UnityCatalogService {
     };
   }
 
+  rpc listRegisteredModels(ListRegisteredModels) returns (ListRegisteredModels.Response) {
+    option idempotency_level = IDEMPOTENT;
+    option (rpc) = {
+      endpoints: {
+        method: "GET",
+        path: "/unity-catalog/models",
+        since { major: 2, minor: 1 },
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  rpc listModelVersions(ListModelVersions) returns (ListModelVersions.Response) {
+    option idempotency_level = IDEMPOTENT;
+    option (rpc) = {
+      endpoints: {
+        method: "GET",
+        path: "/unity-catalog/models/{full_name}/versions",
+        since { major: 2, minor: 1 },
+      },
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
 }
