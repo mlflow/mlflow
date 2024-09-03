@@ -821,7 +821,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
     if is_upcast:
         return values.astype(numpy_type, errors="raise")
     else:
-        # support converting long -> float/double for 0 values
+        # support converting long -> float/double for 0 and 1 values
         def all_zero_or_ones(xs):
             return all(pd.isnull(x) or x in [0, 1] for x in xs)
 
