@@ -276,6 +276,19 @@ is loaded. Files declared as dependencies for a given model should have relative
 imports declared from a common root path if multiple files are defined with import dependencies
 between them to avoid import errors when loading the model.
 
+For a detailed explanation of ``code_paths`` functionality, recommended usage patterns and
+limitations, see the
+`code_paths usage guide <https://mlflow.org/docs/latest/model/dependencies.html?highlight=code_paths#saving-extra-code-with-an-mlflow-model>`_.
+"""
+        ),
+        # Only pyfunc flavor supports `infer_code_paths`.
+        "code_paths_pyfunc": (
+            """A list of local filesystem paths to Python file dependencies (or directories
+containing file dependencies). These files are *prepended* to the system path when the model
+is loaded. Files declared as dependencies for a given model should have relative
+imports declared from a common root path if multiple files are defined with import dependencies
+between them to avoid import errors when loading the model.
+
 You can leave ``code_paths`` argument unset but set ``infer_code_paths`` to ``True`` to let MLflow
 infer the model code paths. See ``infer_code_paths`` argument doc for details.
 
