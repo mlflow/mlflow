@@ -163,14 +163,17 @@ def _get_instance_type(obj):
     return obj.__class__.__name__
 
 
-def build_flavor_config_from_repo_info(
-    hf_repo_info: Dict, processor=None, torch_dtype=None
+def build_flavor_config_from_repo_id(
+    repo_id: str, processor=None, torch_dtype=None
 ) -> Dict[str, Any]:
     """
     Generates the flavor metadata from a Hugging Face model repository ID
     e.g. "meta-llama/Meta-Llama-3.1-405B, instead of the pipeline instance in-memory.
     """
+    import huggingface_hub
     from transformers import AutoTokenizer, pipelines
+
+    hf_repo_info = huggingface_hub.model_info(repo_id)
 
     task = hf_repo_info.pipeline_tag
     task_metadata = pipelines.check_task(task)
@@ -178,7 +181,7 @@ def build_flavor_config_from_repo_info(
     flavor_conf = {
         FlavorKey.TASK: task,
         FlavorKey.INSTANCE_TYPE: pipeline_class,
-        FlavorKey.FRAMEWORK: infer_framework_from_repo(hf_repo_info.id),
+        FlavorKey.FRAMEWORK: infer_framework_from_repo(repo_id),
         FlavorKey.TORCH_DTYPE: str(torch_dtype) if torch_dtype else None,
         FlavorKey.MODEL_TYPE: hf_repo_info.config["architectures"][0],
         FlavorKey.MODEL_NAME: hf_repo_info.id,
@@ -186,7 +189,7 @@ def build_flavor_config_from_repo_info(
     }
 
     components = {FlavorKey.TOKENIZER}
-    tokenizer = AutoTokenizer.from_pretrained(hf_repo_info.id)
+    tokenizer = AutoTokenizer.from_pretrained(repo_id)
     tokenizer_conf = _get_component_config(
         tokenizer, FlavorKey.TOKENIZER, save_pretrained=False, commit_sha=hf_repo_info.sha
     )

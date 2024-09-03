@@ -18,7 +18,7 @@ import shutil
 import string
 import sys
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
 import numpy as np
@@ -53,7 +53,7 @@ from mlflow.tracking.artifact_utils import _get_root_uri_and_artifact_path
 from mlflow.transformers.flavor_config import (
     FlavorKey,
     build_flavor_config,
-    build_flavor_config_from_repo_info,
+    build_flavor_config_from_repo_id,
     update_flavor_conf_to_persist_pretrained_model,
 )
 from mlflow.transformers.hub_utils import download_model_weights_from_hub, is_valid_hf_repo_id
@@ -495,8 +495,7 @@ def save_model(
         # Save with repo name e.g. "meta-llama/Meta-Llama-3.1-405B"
         built_pipeline = None
         hf_repo_id = transformers_model
-        hf_repo_info = huggingface_hub.model_info(transformers_model)
-        pipeline_task = hf_repo_info.transformers_info.pipeline_tag
+        pipeline_task = huggingface_hub.model_info(hf_repo_id).transformers_info.pipeline_tag
 
         if save_pretrained:
             _logger.info(
@@ -521,7 +520,7 @@ def save_model(
     # invalid state of the model's weights in this scenario. Hence, we raise.
     # We might be able to remove this check once this PR is merged to transformers:
     # https://github.com/huggingface/transformers/issues/20072
-    if _is_model_distributed_in_memory(built_pipeline):
+    if _is_model_distributed_in_memory(transformers_model):
         raise MlflowException(
             "The model that is attempting to be saved has been loaded into memory "
             "with an incompatible configuration. If you are using the accelerate "
@@ -535,18 +534,15 @@ def save_model(
 
     if task and task.startswith(_LLM_INFERENCE_TASK_PREFIX):
         llm_inference_task = task
-        _validate_llm_inference_task_type(llm_inference_task, pipeline_task)
-
-        mlflow_model.signature = infer_signature_from_llm_inference_task(
-            llm_inference_task, signature
-        )
-        # The model with LLM inference task should accept a standard dictionary format
-        # alone so the example should not be converted to pandas DataFrame
-        example_no_conversion = True
+        _validate_llm_inference_task_type(llm_inference_task, built_pipeline)
     else:
         llm_inference_task = None
 
-    if signature is not None:
+    if llm_inference_task:
+        mlflow_model.signature = infer_signature_from_llm_inference_task(
+            llm_inference_task, signature
+        )
+    elif signature is not None:
         mlflow_model.signature = signature
 
     if input_example is not None:
@@ -612,7 +608,7 @@ def save_model(
     if built_pipeline is not None:
         flavor_conf = build_flavor_config(built_pipeline, processor, torch_dtype, save_pretrained)
     else:
-        flavor_conf = build_flavor_config_from_repo_info(hf_repo_info, processor, torch_dtype)
+        flavor_conf = build_flavor_config_from_repo_id(hf_repo_id, processor, torch_dtype)
 
     if llm_inference_task:
         flavor_conf.update({_LLM_INFERENCE_TASK_KEY: llm_inference_task})
@@ -663,9 +659,8 @@ def save_model(
     # Currently supported types are NLP-based language tasks which have a pipeline definition
     # consisting exclusively of a Model and a Tokenizer.
     if (
-        built_pipeline
-        is None  # TODO: we should check if the mode in the repo is eligible for pyfunc
-        or _should_add_pyfunc_to_model(built_pipeline)
+        # TODO: we should check if the mode in the repo is eligible for pyfunc
+        built_pipeline is None or _should_add_pyfunc_to_model(built_pipeline)
     ):
         if mlflow_model.signature is None:
             mlflow_model.signature = infer_or_get_default_signature(
@@ -1078,7 +1073,6 @@ def load_model(
 
 def persist_pretrained_model(
     model_uri: str,
-    framework: Optional[Literal["pt", "tf"]] = None,
 ) -> None:
     """
     Persist Transformers pretrained model weights to the artifacts directory of the specified
@@ -1137,42 +1131,27 @@ def persist_pretrained_model(
         model_conf = Model.load(mlmodel_path)
         flavor_conf = model_conf.flavors.get(FLAVOR_NAME)
 
-        # First, try persisting model weight without loading the pipeline into memory
-        try:
-            _logger.info("Downloading the pretrained model weights from the HuggingFace Hub.")
-            download_model_weights_from_hub(
-                flavor_conf, os.path.join(local_model_path, _MODEL_BINARY_FILE_NAME)
+        # Persisting model weight without loading the pipeline into memory.
+        # This is done by downloading the model weight files directly from the
+        # HuggingFace Hub and uploading them to the artifact location.
+        download_model_weights_from_hub(
+            flavor_conf, os.path.join(local_model_path, _MODEL_BINARY_FILE_NAME)
+        )
+
+        # Load other components from the hub and persist them
+        for name, component in load_components(flavor_conf).items():
+            save_path = (
+                os.path.join(local_model_path, _PROCESSOR_BINARY_DIR_NAME)
+                if name == "processor"
+                else os.path.join(local_model_path, _COMPONENTS_BINARY_DIR_NAME, name)
             )
+            component.save_pretrained(save_path)
 
-            # Load other components from the hub and persist them
-            for name, component in load_components(flavor_conf).items():
-                _logger.info(f"Persisting parameters and configurations for {name}")
-                save_path = (
-                    os.path.join(local_model_path, _PROCESSOR_BINARY_DIR_NAME)
-                    if name == "processor"
-                    else os.path.join(local_model_path, _COMPONENTS_BINARY_DIR_NAME, name)
-                )
-                component.save_pretrained(save_path)
-
-        except Exception:
-            # As a fallback, load it to memory
-            _logger.warning(
-                "Failed to persist the pretrained model weights directly from the HuggingFace "
-                "Hub repository. Falling back to save the weights by loading the pipeline into "
-                "memory. This may cause OOM errors if the model is large."
-            )
-            pipeline = load_model(local_model_path, return_type="pipeline")
-            # Save pretrained weights
-            save_pipeline_pretrained_weights(pathlib.Path(local_model_path), pipeline, flavor_conf)
-
-        # Update MLModel flavor config
+        # Update MLModel configs
         updated_flavor_conf = update_flavor_conf_to_persist_pretrained_model(flavor_conf)
         model_conf.add_flavor(FLAVOR_NAME, **updated_flavor_conf)
-
-        # Re-compute model file size
         if size := get_total_file_size(local_model_path):
             model_conf.model_size_bytes = size
-
         model_conf.save(mlmodel_path)
 
         # Upload updated local artifacts to MLflow
@@ -1197,18 +1176,19 @@ def persist_pretrained_model(
     _logger.info(f"The pretrained model has been successfully persisted in {model_uri}.")
 
 
-def _is_model_distributed_in_memory(pipeline):
+def _is_model_distributed_in_memory(transformers_model):
     """Check if the model is distributed across multiple devices in memory."""
-    if pipeline is None:
+    if isinstance(transformers_model, str):
+        # Repo ID is passed as the model, we don't need to check device map
         return False
 
     # Check if the model attribute exists. If not, accelerate was not used and the model can
     # be safely saved
-    if not hasattr(pipeline.model, "hf_device_map"):
+    if not hasattr(transformers_model, "hf_device_map"):
         return False
     # If the device map has more than one unique value entry, then the weights are not within
     # a contiguous memory system (VRAM, SYS, or DISK) and thus cannot be safely saved.
-    return len(set(pipeline.model.hf_device_map.values())) > 1
+    return len(set(transformers_model.hf_device_map.values())) > 1
 
 
 # This function attempts to determine if a GPU is available for the PyTorch and TensorFlow libraries
@@ -1533,10 +1513,10 @@ def _get_engine_type(model):
     from transformers import FlaxPreTrainedModel, PreTrainedModel, TFPreTrainedModel
 
     if isinstance(model, str):
-        from mlflow.transformers.hub_utils import infer_framework_from_repo
-
         # Model is repo_id in the Hugging Face Hub. We infer the engine type based on
         # the current environment.
+        from mlflow.transformers.hub_utils import infer_framework_from_repo
+
         framework = infer_framework_from_repo(model)
         return "torch" if framework == "pt" else "tensorflow"
 
