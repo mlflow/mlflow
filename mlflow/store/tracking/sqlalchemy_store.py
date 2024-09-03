@@ -720,9 +720,9 @@ class SqlAlchemyStore(AbstractStore):
 
     def log_metric(self, run_id, metric):
         # simply call _log_metrics and let it handle the rest
-        self._log_metrics(run_id, [metric])
+        self._log_metrics(run_id, [metric], isSingleMetric=True)
 
-    def _log_metrics(self, run_id, metrics, path=""):
+    def _log_metrics(self, run_id, metrics, path="", isSingleMetric=False):
         if not metrics:
             return
 
@@ -731,9 +731,8 @@ class SqlAlchemyStore(AbstractStore):
         metric_instances = []
         seen = set()
         for index, metric in enumerate(metrics):
-            metric, value, is_nan = self._get_metric_value_details(
-                append_to_json_path(path, f"[{index}]"), metric
-            )
+            path = path if isSingleMetric else append_to_json_path(path, f"[{index}]")
+            metric, value, is_nan = self._get_metric_value_details(path, metric)
             if metric not in seen:
                 metric_instances.append(
                     SqlMetric(
