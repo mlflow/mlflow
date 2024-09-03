@@ -191,6 +191,8 @@ def get_default_pip_requirements(model) -> List[str]:
         model: The model instance to be saved in order to provide the required underlying
             deep learning execution framework dependency requirements. Note that this must
             be the actual model instance and not a Pipeline.
+            This can be the HuggingFace Hub repository ID. In this case, the requirements are
+            inferred based on the current environment.
 
     Returns:
         A list of default pip requirements for MLflow Models that have been produced with the
@@ -530,7 +532,7 @@ def save_model(
 
     if task and task.startswith(_LLM_INFERENCE_TASK_PREFIX):
         llm_inference_task = task
-        _validate_llm_inference_task_type(llm_inference_task, built_pipeline)
+        _validate_llm_inference_task_type(llm_inference_task, built_pipeline.task)
     else:
         llm_inference_task = None
 
@@ -705,20 +707,17 @@ def save_model(
 
     if conda_env is None:
         if pip_requirements is None:
-            if built_pipeline is None:
-                raise MlflowException(
-                    "A repository ID is provided as the `transformers_model`. We cannot infer the "
-                    "required pip libraries for the model. Please provide the `pip_requirements` "
-                    "argument to save_model() to manually specify the pip requirements.",
-                    error_code=INVALID_PARAMETER_VALUE,
+            model = built_pipeline.model if built_pipeline else transformers_model
+            default_reqs = get_default_pip_requirements(model)
+            if isinstance(model, str) or is_peft_model(model):
+                _logger.info(
+                    "A repository ID or PEFT model is provided as the `transformers_model`. "
+                    "To avoid loading the full model into memory, we don't infer the pip "
+                    "requirement for the model. Instead, we will use the default requirements, "
+                    "but it may not capture all required pip libraries for the model. Consider "
+                    "providing the pip requirements explicitly."
                 )
-
-            default_reqs = get_default_pip_requirements(built_pipeline.model)
-            # NB: Skip inferring requirements for PEFT models to avoid loading the full pretrained
-            # model into memory. PEFT is mainly designed for fine-tuning large models under limited
-            # computational resources, so loading the full model is not preferred and can even crash
-            # the process due to OOM.
-            if not is_peft_model(built_pipeline.model):
+            else:
                 # Infer the pip requirements with a timeout to avoid hanging at prediction
                 inferred_reqs = infer_pip_requirements(
                     model_uri=str(path),

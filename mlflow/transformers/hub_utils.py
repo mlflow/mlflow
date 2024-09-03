@@ -53,3 +53,25 @@ def is_valid_hf_repo_id(maybe_repo_id: Optional[str]) -> bool:
     except HFValidationError as e:
         _logger.warning(f"The repository identified {maybe_repo_id} is invalid: {e}")
         return False
+
+
+def infer_framework_from_repo(repo_id: str) -> str:
+    """
+    Infer framework mimicing Transformers implementation, but without loading
+    the model into memory
+    https://github.com/huggingface/transformers/blob/44f6fdd74f84744b159fa919474fd3108311a906/src/transformers/pipelines/base.py#L215C28-L215C37
+    """
+    import huggingface_hub
+    from transformers.utils import is_torch_available
+
+    if not is_torch_available():
+        return "tf"
+
+    # Check repo tag
+    repo_tag = huggingface_hub.model_info(repo_id).tags
+    is_torch_supported = "pytorch" in repo_tag
+    if not is_torch_supported:
+        return "tf"
+
+    # Default to Pytorch if both are available, probably we should do a better check
+    return "pt"

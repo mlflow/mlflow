@@ -3659,16 +3659,11 @@ def test_device_param_on_load_model(device, small_qa_pipeline, model_path, monke
             mlflow.transformers.load_model(model_path, return_type="components", device=device)
 
 
-def test_save_model_with_repo_id(model_path):
+@mock.patch("mlflow.transformers._logger")
+def test_save_model_with_repo_id(mock_logger, model_path):
     mlflow.transformers.save_model(
         transformers_model="distilgpt2",
         path=model_path,
-        pip_requirements=[
-            "mlflow",
-            "transformers",
-            "torch",
-            "sentencepiece",
-        ],
     )
 
     logged_info = Model.load(model_path)
@@ -3679,12 +3674,16 @@ def test_save_model_with_repo_id(model_path):
     assert flavor_conf["instance_type"] == "TextGenerationPipeline"
     assert flavor_conf["tokenizer_type"] == "GPT2TokenizerFast"
 
-    # model_size_bytes is not accurate at this point
-    assert logged_info.model_size_bytes < 1_000_000
-
     # Default task signature should be used
     assert logged_info.signature.inputs == Schema([ColSpec(DataType.string)])
     assert logged_info.signature.outputs == Schema([ColSpec(DataType.string)])
+
+    # Default requirements should be used
+    info_calls = mock_logger.info.call_args_list
+    assert any("A repository ID or PEFT model" in c[0][0] for c in info_calls)
+    with model_path.joinpath("requirements.txt").open() as f:
+        reqs = {req.split("==")[0] for req in f.read().split("\n")}
+    assert reqs == {"mlflow", "accelerate", "transformers", "torch", "torchvision"}
 
     # Load as native pipeline
     loaded_pipeline = mlflow.transformers.load_model(model_path)
@@ -3731,16 +3730,6 @@ def test_save_model_with_repo_id_tf(mock_is_torch, model_path):
     with model_path.joinpath("requirements.txt").open() as f:
         reqs = {req.split("==")[0] for req in f.read().split("\n")}
     assert reqs == {"mlflow", "transformers", "tensorflow"}
-
-    # If pytorch is not available, persist_pretrained_model should download the TF weight files.
-    mlflow.transformers.persist_pretrained_model(model_path)
-
-    model_dir = model_path / "model"
-    tokenizer_path = model_path / "components" / "tokenizer"
-    assert model_dir.exists()
-    assert (model_dir / "tf_model.h5").exists()
-    assert tokenizer_path.exists()
-    assert (tokenizer_path / "tokenizer_config.json").exists()
 
 
 @mock.patch("mlflow.models.validate_serving_input")

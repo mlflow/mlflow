@@ -29,7 +29,11 @@ _DEFAULT_SIGNATURE_FOR_TASK = {
     "token-classification": _TEXT2TEXT_SIGNATURE,
     "translation": _TEXT2TEXT_SIGNATURE,
     "text-generation": _TEXT2TEXT_SIGNATURE,
+    "text2text-generation": _TEXT2TEXT_SIGNATURE,
     "text-classification": _CLASSIFICATION_SIGNATURE,
+    "conversational": _TEXT2TEXT_SIGNATURE,
+    "fill-mask": _TEXT2TEXT_SIGNATURE,
+    "summarization": _TEXT2TEXT_SIGNATURE,
     "image-classification": _CLASSIFICATION_SIGNATURE,
     "zero-shot-classification": ModelSignature(
         inputs=Schema(
@@ -78,7 +82,7 @@ _DEFAULT_SIGNATURE_FOR_TASK = {
 
 def infer_or_get_default_signature(
     pipeline: Optional[Any],
-    task: Optional[str],
+    task: Optional[str] = None,
     example=None,
     model_config=None,
     flavor_config=None,
@@ -118,6 +122,9 @@ def infer_or_get_default_signature(
                 )
             _logger.warning(msg)
 
+    task = task or getattr(pipeline, "task", None)
+    if task.startswith("translation_"):
+        task = "translation"
     if signature := _DEFAULT_SIGNATURE_FOR_TASK.get(task):
         return signature
 
