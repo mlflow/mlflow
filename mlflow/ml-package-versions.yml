@@ -518,7 +518,7 @@ shap:
     minimum: "0.41.0"
     maximum: "0.46.0"
     requirements:
-      "<= 0.41.0": ["numpy<1.24.0"]
+      "< 0.46.0": ["numpy<1.24.0"]
     run: |
       pytest tests/shap
 
@@ -649,6 +649,8 @@ langchain:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.0.354"
     maximum: "0.2.15"
+    python:
+      "== dev": "3.9"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -683,6 +685,8 @@ langchain:
   autologging:
     minimum: "0.1.0"
     maximum: "0.2.15"
+    python:
+      "== dev": "3.9"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -714,6 +718,7 @@ llama_index:
     module_name: "llama_index.core"
     install_dev: |
       pip install git+https://github.com/run-llama/llama_index.git
+      pip install git+https://github.com/run-llama/llama_index.git#egg=llama-index-llms-openai-like\&subdirectory=llama-index-integrations/llms/llama-index-llms-openai-like
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
@@ -727,12 +732,14 @@ llama_index:
           # Required to test external vector stores
           "llama-index-vector-stores-qdrant",
         ]
+      ">= 0.11.0": ["fastapi>=0.100.0"]
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
     maximum: "0.11.2"
     requirements:
       ">= 0.0.0": ["openai"]
+      ">= 0.11.0": ["fastapi>=0.100.0"]
     run: pytest tests/llama_index/test_llama_index_autolog.py tests/llama_index/test_llama_index_tracer.py
 
 autogen:

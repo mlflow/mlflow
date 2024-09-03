@@ -36,7 +36,21 @@ def object_to_dict(o: object):
         return [object_to_dict(v) for v in o]
 
     if isinstance(o, BaseComponent):
-        o_state_as_dict = o.to_dict()
+        # we can't serialize callables in the model fields
+        callable_fields = set()
+        fields = o.model_fields if hasattr(o, "model_fields") else o.__fields__
+        for k, v in fields.items():
+            field_val = getattr(o, k, None)
+            if field_val != v.default and callable(field_val):
+                callable_fields.add(k)
+        if callable_fields:
+            _logger.warning(
+                f"Object {o} contains callable fields that are not serializable: {callable_fields},"
+                f" removing these fields and saving the object."
+            )
+        # exclude default values from serialization to avoid
+        # unnecessary clutter in the serialized object
+        o_state_as_dict = o.to_dict(exclude=callable_fields)
 
         if o_state_as_dict != {}:
             o_state_as_dict = _sanitize_api_key(o_state_as_dict)

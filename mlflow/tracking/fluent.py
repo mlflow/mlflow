@@ -377,12 +377,12 @@ def start_run(
             _validate_run_id(parent_run_id)
             # Make sure parent_run_id matches the current run id, if there is an active run
             if len(_active_run_stack) > 0 and parent_run_id != _active_run_stack[-1].info.run_id:
-                raise Exception(
-                    (
-                        "Current run with UUID {} does not match the specified parent_run_id {}"
-                        + " To start a new nested run under the parent run with UUID {}, "
-                        + "first end the current run with mlflow.end_run()."
-                    ).format(_active_run_stack[-1].info.run_id, parent_run_id)
+                current_run_id = _active_run_stack[-1].info.run_id
+                raise MlflowException(
+                    f"Current run with UUID {current_run_id} does not match the specified "
+                    f"parent_run_id {parent_run_id}. To start a new nested run under "
+                    f"the parent run with UUID {current_run_id}, first end the current run "
+                    "with mlflow.end_run()."
                 )
             parent_run_obj = client.get_run(parent_run_id)
             # Check if the specified parent_run has been deleted.
