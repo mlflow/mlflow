@@ -1,7 +1,7 @@
 import functools
 import logging
 import os
-import shutil
+from pathlib import Path
 from typing import Dict, Optional
 
 from mlflow.exceptions import MlflowException
@@ -108,9 +108,11 @@ def download_model_weights_from_hub(flavor_conf: Dict, dst_path: str):
                     index_local_file,
                     revision=revision,
                 )
+                # Move the weight files in the HF cache directory to the destination.
+                # The filepath returned by above is a symlink, so we need to resolve it first.
                 for file in cached_files:
-                    # Copy files to the destination directory
-                    shutil.copy(file, os.path.join(dst_path, os.path.basename(file)))
+                    resolved_file = Path(file).resolve()
+                    os.rename(resolved_file, os.path.join(dst_path, os.path.basename(file)))
             else:
                 hf_hub_download(repo_id, weight_filename, revision=revision, local_dir=dst_path)
             return True
