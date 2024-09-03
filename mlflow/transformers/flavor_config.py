@@ -163,13 +163,16 @@ def _get_instance_type(obj):
     return obj.__class__.__name__
 
 
-def build_flavor_config_from_repo_info(
-    hf_repo_info: Dict, processor=None, torch_dtype=None
+def build_flavor_config_from_repo_id(
+    repo_id: str, processor=None, torch_dtype=None
 ) -> Dict[str, Any]:
     """
     Generates the flavor metadata from a Hugging Face model repository ID e.g. "meta-llama/Meta-Llama-3.1-405B, instead of the pipeline instance in-memory.
     """
+    import huggingface_hub
     from transformers import AutoTokenizer, pipelines
+
+    hf_repo_info = huggingface_hub.model_info(repo_id)
 
     task = hf_repo_info.pipeline_tag
     task_metadata = pipelines.check_task(task)
@@ -177,7 +180,7 @@ def build_flavor_config_from_repo_info(
     flavor_conf = {
         FlavorKey.TASK: task,
         FlavorKey.INSTANCE_TYPE: pipeline_class,
-        FlavorKey.FRAMEWORK: _infer_framework(hf_repo_info),
+        FlavorKey.FRAMEWORK: infer_framework_from_repo(repo_id),
         FlavorKey.TORCH_DTYPE: str(torch_dtype) if torch_dtype else None,
         FlavorKey.MODEL_TYPE: hf_repo_info.config["architectures"][0],
         FlavorKey.MODEL_NAME: hf_repo_info.id,
@@ -185,7 +188,7 @@ def build_flavor_config_from_repo_info(
     }
 
     components = {FlavorKey.TOKENIZER}
-    tokenizer = AutoTokenizer.from_pretrained(hf_repo_info.id)
+    tokenizer = AutoTokenizer.from_pretrained(repo_id)
     tokenizer_conf = _get_component_config(
         tokenizer, FlavorKey.TOKENIZER, save_pretrained=False, commit_sha=hf_repo_info.sha
     )
@@ -202,19 +205,20 @@ def build_flavor_config_from_repo_info(
     return flavor_conf
 
 
-def _infer_framework(hf_repo_info: Dict) -> str:
+def infer_framework_from_repo(repo_id: str) -> str:
     """
     Infer framework mimicing Transformers implementation, but without loading
     the model into memory
     https://github.com/huggingface/transformers/blob/44f6fdd74f84744b159fa919474fd3108311a906/src/transformers/pipelines/base.py#L215C28-L215C37
     """
+    import huggingface_hub
     from transformers.utils import is_torch_available
 
-    if not is_torch_available:
+    if not is_torch_available():
         return "tf"
 
     # Check repo tag
-    repo_tag = hf_repo_info.tags
+    repo_tag = huggingface_hub.model_info(repo_id).tags
     is_torch_supported = "pytorch" in repo_tag
     if not is_torch_supported:
         return "tf"
