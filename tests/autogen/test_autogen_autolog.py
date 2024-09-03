@@ -251,11 +251,21 @@ def test_tracing_agent_with_function_calling(llm_config):
     assert tool_span.end_time_ns - tool_span.start_time_ns >= 1e9  # 1 second
 
 
-def test_tracing_llm_completion_duration_timezone(llm_config, monkeypatch):
-    # Test if the duration calculation for LLM completion is robust to timezone changes.
+@pytest.fixture
+def tokyo_timezone(monkeypatch):
+    # Set the timezone to Tokyo
     monkeypatch.setenv("TZ", "Asia/Tokyo")
     time.tzset()
 
+    yield
+
+    # Reset the timezone
+    monkeypatch.delenv("TZ")
+    time.tzset()
+
+
+def test_tracing_llm_completion_duration_timezone(llm_config, tokyo_timezone):
+    # Test if the duration calculation for LLM completion is robust to timezone changes.
     mlflow.autogen.autolog()
 
     with mock_user_input(
