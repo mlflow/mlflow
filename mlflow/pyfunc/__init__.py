@@ -2278,7 +2278,7 @@ def save_model(
         data_path: Path to a file or directory containing model data.
         code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
             replaced by ``code_paths`` and will be removed in a future version of MLflow.
-        code_paths: {{ code_paths }}
+        code_paths: {{ code_paths_pyfunc }}
         infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
         mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
@@ -2683,7 +2683,7 @@ def log_model(
         data_path: Path to a file or directory containing model data.
         code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
             replaced by ``code_paths`` and will be removed in a future version of MLflow.
-        code_paths: {{ code_paths }}
+        code_paths: {{ code_paths_pyfunc }}
         infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
         python_model:
