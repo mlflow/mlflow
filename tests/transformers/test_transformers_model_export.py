@@ -3708,9 +3708,55 @@ def test_save_model_with_repo_id(model_path):
     assert pred_serve["predictions"][0].startswith("How are you?")
 
 
-def test_save_model_with_repo_id_raise_if_pip_requirements_not_provided(model_path):
-    with pytest.raises(MlflowException, match="A repository ID is provided"):
-        mlflow.transformers.save_model(
+@pytest.mark.skipif(
+    Version(transformers.__version__) >= Version("4.39.0"),
+    reason="Transformer has compatibility issue with non-torch environment",
+)
+@mock.patch("transformers.utils.is_torch_available", return_value=False)
+def test_save_model_with_repo_id_tf(mock_is_torch, model_path):
+    mlflow.transformers.save_model(
+        transformers_model="google/tapas-small-finetuned-wtq",
+        path=model_path,
+    )
+
+    logged_info = Model.load(model_path)
+    flavor_conf = logged_info.flavors["transformers"]
+    assert flavor_conf["source_model_name"] == "google/tapas-small-finetuned-wtq"
+    assert flavor_conf["task"] == "table-question-answering"
+    assert flavor_conf["framework"] == "tf"
+    assert flavor_conf["instance_type"] == "TableQuestionAnsweringPipeline"
+    assert flavor_conf["tokenizer_type"] == "TapasTokenizer"
+
+    # Default requirements should be used
+    with model_path.joinpath("requirements.txt").open() as f:
+        reqs = {req.split("==")[0] for req in f.read().split("\n")}
+    assert reqs == {"mlflow", "transformers", "tensorflow"}
+
+    # If pytorch is not available, persist_pretrained_model should download the TF weight files.
+    mlflow.transformers.persist_pretrained_model(model_path)
+
+    model_dir = model_path / "model"
+    tokenizer_path = model_path / "components" / "tokenizer"
+    assert model_dir.exists()
+    assert (model_dir / "tf_model.h5").exists()
+    assert tokenizer_path.exists()
+    assert (tokenizer_path / "tokenizer_config.json").exists()
+
+
+@mock.patch("mlflow.models.validate_serving_input")
+def test_log_model_skip_validating_serving_input(mock_validate_input, tmp_path):
+    # Ensure mlflow skips serving input validation to avoid expensive computation
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
             transformers_model="distilgpt2",
-            path=model_path,
+            artifact_path="model",
+            input_example=["How are you?"],
         )
+
+    # Serving input should exist but not validated
+    mlflow_model = Model.load(model_info.model_uri)
+    local_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
+    serving_input = mlflow_model.get_serving_input(local_path)
+    assert json.loads(serving_input) == {"inputs": ["How are you?"]}
+
+    mock_validate_input.assert_not_called()

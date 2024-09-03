@@ -981,6 +981,10 @@ def log_model(
         code_paths=code_paths,
         signature=signature,
         input_example=input_example,
+        # NB: We don't validate the serving input for Transformers flavor because
+        # it requires loading the model into memory and make prediction, which is
+        # expensive and can cause OOM errors.
+        validate_serving_input=False,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         model_config=model_config,
