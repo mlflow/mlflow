@@ -1,16 +1,19 @@
-from mlflow.transformers.flavor_config import FlavorKey
 import pytest
+
+from mlflow.transformers.flavor_config import FlavorKey
 
 
 @pytest.mark.parametrize(
     ("repo_id", "framework", "expected_files"),
     [
         (
-            "distilgpt2", "pt",
+            "distilgpt2",
+            "pt",
             ["model.safetensors", "config.json"],
         ),
         (
-            "hf-internal-testing/tiny-random-bert-sharded-safetensors", "pt",
+            "hf-internal-testing/tiny-random-bert-sharded-safetensors",
+            "pt",
             [
                 "config.json",
                 "model.safetensors.index.json",
@@ -22,14 +25,16 @@ import pytest
             ],
         ),
         (
-            "google/tapas-small-finetuned-wtq", "pt",
+            "google/tapas-small-finetuned-wtq",
+            "pt",
             ["pytorch_model.bin", "config.json"],
         ),
         (
-            "google/tapas-small-finetuned-wtq", "tf",
+            "google/tapas-small-finetuned-wtq",
+            "tf",
             ["tf_model.h5", "config.json"],
         ),
-    ]
+    ],
 )
 def test_download_model_weights_from_hub(tmp_path, repo_id, framework, expected_files):
     from mlflow.transformers.hub_utils import download_model_weights_from_hub
@@ -43,4 +48,3 @@ def test_download_model_weights_from_hub(tmp_path, repo_id, framework, expected_
 
     for file in expected_files:
         assert (tmp_path / file).exists()
-

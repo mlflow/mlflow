@@ -3565,18 +3565,18 @@ def test_persist_pretrained_model(repo_id):
         model_info = mlflow.transformers.log_model(
             transformers_model=repo_id,
             artifact_path="model",
-            pip_requirements=["mlflow", "transformers"],
         )
 
     artifact_path = Path(mlflow.artifacts.download_artifacts(model_info.model_uri))
     model_path = artifact_path / "model"
     tokenizer_path = artifact_path / "components" / "tokenizer"
 
-    original_config = Model.load(artifact_path).flavors["transformers"]
-    assert "model_binary" not in original_config
-    assert "source_model_revision" in original_config
+    original_config = Model.load(artifact_path)
+    assert "model_binary" not in original_config.flavors["transformers"]
+    assert "source_model_revision" in original_config.flavors["transformers"]
     assert not model_path.exists()
     assert not tokenizer_path.exists()
+    assert original_config.model_size_bytes < 1_000_000  # model_size_bytes is not set yet
 
     with mock.patch("mlflow.transformers.load_model") as mock_load_model:
         mlflow.transformers.persist_pretrained_model(model_info.model_uri)
@@ -3585,9 +3585,10 @@ def test_persist_pretrained_model(repo_id):
     # log them as artifacts. It should not load the pipeline to memory.
     mock_load_model.assert_not_called()
 
-    updated_config = Model.load(model_info.model_uri).flavors["transformers"]
-    assert "model_binary" in updated_config
-    assert "source_model_revision" not in updated_config
+    updated_config = Model.load(model_info.model_uri)
+    assert "model_binary" in updated_config.flavors["transformers"]
+    assert "source_model_revision" not in updated_config.flavors["transformers"]
+    assert updated_config.model_size_bytes > 1_000_000  # model_size_bytes is set now
 
     # Check if the correct weight files are persisted
     assert model_path.exists()
@@ -3600,53 +3601,20 @@ def test_persist_pretrained_model(repo_id):
     assert loaded_model("How are you?") is not None
 
 
-@pytest.mark.skipif(
-    Version(transformers.__version__) >= Version("4.39.0"),
-    reason="Transformer has compatibility issue with non-torch environment",
-)
-@mock.patch("transformers.utils.is_torch_available", return_value=False)
-def test_persist_pretrained_model_tf(mock_torch_available):
-    # reload transformers module to avoid torch dependency
-    importlib.reload(transformers)
-
-    with mlflow.start_run():
-        model_info = mlflow.transformers.log_model(
-            transformers_model="google/tapas-small-finetuned-wtq",
-            artifact_path="model",
-            pip_requirements=["mlflow", "transformers"],
-        )
-
-    mlflow.transformers.persist_pretrained_model(model_info.model_uri)
-
-    artifact_path = Path(mlflow.artifacts.download_artifacts(model_info.model_uri))
-    model_path = artifact_path / "model"
-    tokenizer_path = artifact_path / "components" / "tokenizer"
-
-    # If pytorch is not available, persist_pretrained_model should download the TF weight files.
-    assert model_path.exists()
-    assert (model_path / "tf_model.h5").exists()
-
-    assert tokenizer_path.exists()
-    assert (tokenizer_path / "tokenizer_config.json").exists()
-
-
 @mock.patch("mlflow.transformers.TempDir", side_effect=mlflow.utils.file_utils.TempDir)
 def test_persist_pretrained_model_non_idepotent(mock_tmpdir):
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             transformers_model="distilgpt2",
             artifact_path="model",
-            # Saving model with repo_id requires pip_requirements
-            # to be specified explicitly
-            pip_requirements=["mlflow", "transformers"],
         )
     mock_tmpdir.assert_not_called()
 
-    mlflow.persist_pretrained_model(model_info.model_uri)
+    mlflow.transformers.persist_pretrained_model(model_info.model_uri)
     mock_tmpdir.assert_called_once()
 
     mock_tmpdir.reset_mock()
-    mlflow.persist_pretrained_model(model_info.model_uri)
+    mlflow.transformers.persist_pretrained_model(model_info.model_uri)
     mock_tmpdir.assert_not_called()
 
 
@@ -3712,16 +3680,11 @@ def test_device_param_on_load_model(device, small_qa_pipeline, model_path, monke
             mlflow.transformers.load_model(model_path, return_type="components", device=device)
 
 
-def test_save_model_with_repo_id(model_path):
+@mock.patch("mlflow.transformers._logger")
+def test_save_model_with_repo_id(mock_logger, model_path):
     mlflow.transformers.save_model(
         transformers_model="distilgpt2",
         path=model_path,
-        pip_requirements=[
-            "mlflow",
-            "transformers",
-            "torch",
-            "sentencepiece",
-        ],
     )
 
     logged_info = Model.load(model_path)
@@ -3732,12 +3695,16 @@ def test_save_model_with_repo_id(model_path):
     assert flavor_conf["instance_type"] == "TextGenerationPipeline"
     assert flavor_conf["tokenizer_type"] == "GPT2TokenizerFast"
 
-    # model_size_bytes is not accurate at this point
-    assert logged_info.model_size_bytes < 1_000_000
-
     # Default task signature should be used
     assert logged_info.signature.inputs == Schema([ColSpec(DataType.string)])
     assert logged_info.signature.outputs == Schema([ColSpec(DataType.string)])
+
+    # Default requirements should be used
+    info_calls = mock_logger.info.call_args_list
+    assert any("A repository ID or PEFT model" in c[0][0] for c in info_calls)
+    with model_path.joinpath("requirements.txt").open() as f:
+        reqs = {req.split("==")[0] for req in f.read().split("\n")}
+    assert reqs == {"mlflow", "accelerate", "transformers", "torch", "torchvision"}
 
     # Load as native pipeline
     loaded_pipeline = mlflow.transformers.load_model(model_path)
@@ -3761,9 +3728,36 @@ def test_save_model_with_repo_id(model_path):
     assert pred_serve["predictions"][0].startswith("How are you?")
 
 
-def test_save_model_with_repo_id_raise_if_pip_requirements_not_provided(model_path):
-    with pytest.raises(MlflowException, match="A repository ID is provided"):
-        mlflow.transformers.save_model(
-            transformers_model="distilgpt2",
-            path=model_path,
-        )
+@pytest.mark.skipif(
+    Version(transformers.__version__) >= Version("4.39.0"),
+    reason="Transformer has compatibility issue with non-torch environment",
+)
+@mock.patch("transformers.utils.is_torch_available", return_value=False)
+def test_save_model_with_repo_id_tf(mock_is_torch, model_path):
+    mlflow.transformers.save_model(
+        transformers_model="google/tapas-small-finetuned-wtq",
+        path=model_path,
+    )
+
+    logged_info = Model.load(model_path)
+    flavor_conf = logged_info.flavors["transformers"]
+    assert flavor_conf["source_model_name"] == "google/tapas-small-finetuned-wtq"
+    assert flavor_conf["task"] == "table-question-answering"
+    assert flavor_conf["framework"] == "tf"
+    assert flavor_conf["instance_type"] == "TableQuestionAnsweringPipeline"
+    assert flavor_conf["tokenizer_type"] == "TapasTokenizer"
+
+    # Default requirements should be used
+    with model_path.joinpath("requirements.txt").open() as f:
+        reqs = {req.split("==")[0] for req in f.read().split("\n")}
+    assert reqs == {"mlflow", "transformers", "tensorflow"}
+
+    # If pytorch is not available, persist_pretrained_model should download the TF weight files.
+    mlflow.transformers.persist_pretrained_model(model_path)
+
+    model_dir = model_path / "model"
+    tokenizer_path = model_path / "components" / "tokenizer"
+    assert model_dir.exists()
+    assert (model_dir / "tf_model.h5").exists()
+    assert tokenizer_path.exists()
+    assert (tokenizer_path / "tokenizer_config.json").exists()

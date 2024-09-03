@@ -193,6 +193,8 @@ def get_default_pip_requirements(model) -> List[str]:
         model: The model instance to be saved in order to provide the required underlying
             deep learning execution framework dependency requirements. Note that this must
             be the actual model instance and not a Pipeline.
+            This can be the HuggingFace Hub repository ID. In this case, the requirements are
+            inferred based on the current environment.
 
     Returns:
         A list of default pip requirements for MLflow Models that have been produced with the
@@ -712,20 +714,17 @@ def save_model(
 
     if conda_env is None:
         if pip_requirements is None:
-            if built_pipeline is None:
-                raise MlflowException(
-                    "A repository ID is provided as the `transformers_model`. We cannot infer the "
-                    "required pip libraries for the model. Please provide the `pip_requirements` "
-                    "argument to save_model() to manually specify the pip requirements.",
-                    error_code=INVALID_PARAMETER_VALUE,
+            model = built_pipeline.model if built_pipeline else transformers_model
+            default_reqs = get_default_pip_requirements(model)
+            if isinstance(model, str) or is_peft_model(model):
+                _logger.info(
+                    "A repository ID or PEFT model is provided as the `transformers_model`. "
+                    "To avoid loading the full model into memory, we don't infer the pip "
+                    "requirement for the model. Instead, we will use the default requirements, "
+                    "but it may not capture all required pip libraries for the model. Consider "
+                    "providing the pip requirements explicitly."
                 )
-
-            default_reqs = get_default_pip_requirements(built_pipeline.model)
-            # NB: Skip inferring requirements for PEFT models to avoid loading the full pretrained
-            # model into memory. PEFT is mainly designed for fine-tuning large models under limited
-            # computational resources, so loading the full model is not preferred and can even crash
-            # the process due to OOM.
-            if not is_peft_model(built_pipeline.model):
+            else:
                 # Infer the pip requirements with a timeout to avoid hanging at prediction
                 inferred_reqs = infer_pip_requirements(
                     model_uri=str(path),
@@ -1136,12 +1135,14 @@ def persist_pretrained_model(
 
         # First, try persisting model weight without loading the pipeline into memory
         try:
+            _logger.info("Downloading the pretrained model weights from the HuggingFace Hub.")
             download_model_weights_from_hub(
                 flavor_conf, os.path.join(local_model_path, _MODEL_BINARY_FILE_NAME)
             )
 
             # Load other components from the hub and persist them
             for name, component in load_components(flavor_conf).items():
+                _logger.info(f"Persisting parameters and configurations for {name}")
                 save_path = (
                     os.path.join(local_model_path, _PROCESSOR_BINARY_DIR_NAME)
                     if name == "processor"
@@ -1163,10 +1164,15 @@ def persist_pretrained_model(
         # Update MLModel flavor config
         updated_flavor_conf = update_flavor_conf_to_persist_pretrained_model(flavor_conf)
         model_conf.add_flavor(FLAVOR_NAME, **updated_flavor_conf)
+
+        # Re-compute model file size
+        if size := get_total_file_size(local_model_path):
+            model_conf.model_size_bytes = size
+
         model_conf.save(mlmodel_path)
-        # TODO: Update model size, too
 
         # Upload updated local artifacts to MLflow
+        _logger.info("Uploading the pretrained model weights to the artifact location.")
         for dir_to_upload in (_MODEL_BINARY_FILE_NAME, _COMPONENTS_BINARY_DIR_NAME):
             local_dir = os.path.join(local_model_path, dir_to_upload)
             if not os.path.isdir(local_dir):
@@ -1521,6 +1527,14 @@ def _get_engine_type(model):
     deep learning framework backends: ``tensorflow``, ``torch``, or ``flax``.
     """
     from transformers import FlaxPreTrainedModel, PreTrainedModel, TFPreTrainedModel
+
+    if isinstance(model, str):
+        from mlflow.transformers.hub_utils import infer_framework_from_repo
+
+        # Model is repo_id in the Hugging Face Hub. We infer the engine type based on
+        # the current environment.
+        framework = infer_framework_from_repo(model)
+        return "torch" if framework == "pt" else "tensorflow"
 
     if is_peft_model(model):
         model = get_peft_base_model(model)

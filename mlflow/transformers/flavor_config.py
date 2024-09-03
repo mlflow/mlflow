@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ALREADY_EXISTS
-from mlflow.transformers.hub_utils import get_latest_commit_for_repo
+from mlflow.transformers.hub_utils import get_latest_commit_for_repo, infer_framework_from_repo
 from mlflow.transformers.peft import _PEFT_ADAPTOR_DIR_NAME, get_peft_base_model, is_peft_model
 from mlflow.transformers.torch_utils import _extract_torch_dtype_if_set
 
@@ -178,7 +178,7 @@ def build_flavor_config_from_repo_info(
     flavor_conf = {
         FlavorKey.TASK: task,
         FlavorKey.INSTANCE_TYPE: pipeline_class,
-        FlavorKey.FRAMEWORK: _infer_framework(hf_repo_info),
+        FlavorKey.FRAMEWORK: infer_framework_from_repo(hf_repo_info.id),
         FlavorKey.TORCH_DTYPE: str(torch_dtype) if torch_dtype else None,
         FlavorKey.MODEL_TYPE: hf_repo_info.config["architectures"][0],
         FlavorKey.MODEL_NAME: hf_repo_info.id,
@@ -201,27 +201,6 @@ def build_flavor_config_from_repo_info(
 
     flavor_conf[FlavorKey.COMPONENTS] = list(components)
     return flavor_conf
-
-
-def _infer_framework(hf_repo_info: Dict) -> str:
-    """
-    Infer framework mimicing Transformers implementation, but without loading
-    the model into memory
-    https://github.com/huggingface/transformers/blob/44f6fdd74f84744b159fa919474fd3108311a906/src/transformers/pipelines/base.py#L215C28-L215C37
-    """
-    from transformers.utils import is_torch_available
-
-    if not is_torch_available():
-        return "tf"
-
-    # Check repo tag
-    repo_tag = hf_repo_info.tags
-    is_torch_supported = "pytorch" in repo_tag
-    if not is_torch_supported:
-        return "tf"
-
-    # Default to Pytorch if both are available, probably we should do a better check
-    return "pt"
 
 
 def update_flavor_conf_to_persist_pretrained_model(
