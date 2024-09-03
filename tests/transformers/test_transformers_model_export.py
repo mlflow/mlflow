@@ -840,6 +840,7 @@ def test_huggingface_hub_not_installed(small_seq2seq_pipeline, model_path):
 
         assert result is None
 
+        # Normal model saving should pass (without model card)
         mlflow.transformers.save_model(transformers_model=small_seq2seq_pipeline, path=model_path)
 
         contents = {item.name for item in model_path.iterdir()}
@@ -847,6 +848,14 @@ def test_huggingface_hub_not_installed(small_seq2seq_pipeline, model_path):
 
         license_data = model_path.joinpath("LICENSE.txt").read_text()
         assert license_data.rstrip().endswith("mobilebert")
+
+        # Repo ID saving requires huggingface_hub
+        shutil.rmtree(model_path)
+        with pytest.raises(MlflowException, match="Saving a model with a HuggingFace Hub"):
+            mlflow.transformers.save_model(
+                transformers_model="lordtt13/emo-mobilebert",
+                path=model_path,
+            )
 
 
 @pytest.mark.skipif(

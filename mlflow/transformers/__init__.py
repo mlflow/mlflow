@@ -468,7 +468,6 @@ def save_model(
         kwargs: Optional additional configurations for transformers serialization.
 
     """
-    import huggingface_hub
     import transformers
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
@@ -490,6 +489,16 @@ def save_model(
         hf_repo_id = built_pipeline.model.name_or_path
         pipeline_task = built_pipeline.task
     elif isinstance(transformers_model, str):
+        try:
+            import huggingface_hub
+        except ImportError:
+            raise MlflowException(
+                "Saving a model with a HuggingFace Hub repository ID requires "
+                "the huggingface-hub package to be installed. Please install "
+                "the package by running `pip install huggingface-hub`.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+
         # Save with repo name e.g. "meta-llama/Meta-Llama-3.1-405B"
         built_pipeline = None
         hf_repo_id = transformers_model
@@ -518,7 +527,7 @@ def save_model(
     # invalid state of the model's weights in this scenario. Hence, we raise.
     # We might be able to remove this check once this PR is merged to transformers:
     # https://github.com/huggingface/transformers/issues/20072
-    if _is_model_distributed_in_memory(transformers_model):
+    if (built_pipeline is not None) and _is_model_distributed_in_memory(built_pipeline.model):
         raise MlflowException(
             "The model that is attempting to be saved has been loaded into memory "
             "with an incompatible configuration. If you are using the accelerate "
@@ -1165,9 +1174,6 @@ def persist_pretrained_model(model_uri: str) -> None:
 
 def _is_model_distributed_in_memory(transformers_model):
     """Check if the model is distributed across multiple devices in memory."""
-    if isinstance(transformers_model, str):
-        # Repo ID is passed as the model, we don't need to check device map
-        return False
 
     # Check if the model attribute exists. If not, accelerate was not used and the model can
     # be safely saved
