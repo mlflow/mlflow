@@ -27,7 +27,10 @@ module.exports = async ({ github, context }) => {
         repo,
         ref,
       })
-    ).filter(({ name }) => name !== "protect");
+    ).filter((run) => {
+      console.log(run);
+      return run.name !== "protect";
+    });
 
     const latestRuns = {};
     for (const run of checkRuns) {
