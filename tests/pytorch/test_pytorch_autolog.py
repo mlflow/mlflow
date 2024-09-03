@@ -627,6 +627,8 @@ def test_automatic_checkpoint_per_epoch_save_best_only_min_monitor_callback():
                 self.log("custom_metric", 0.8)
             elif self.current_epoch == 1:
                 self.log("custom_metric", 0.9)
+            elif self.current_epoch == 2:
+                self.log("custom_metric", 0.85)  # better than the previous epoch, but not the best
             else:
                 self.log("custom_metric", 0.7)
 
@@ -671,7 +673,18 @@ def test_automatic_checkpoint_per_epoch_save_best_only_min_monitor_callback():
         mlflow.artifacts.load_dict(f"runs:/{run_id}/checkpoints/latest_checkpoint_metrics.json")[
             "epoch"
         ]
-        == 2
+        == 0
+    )
+
+    trainer = pl.Trainer(max_epochs=4)
+    with mlflow.start_run() as run:
+        trainer.fit(model, dm)
+    run_id = run.info.run_id
+    assert (
+        mlflow.artifacts.load_dict(f"runs:/{run_id}/checkpoints/latest_checkpoint_metrics.json")[
+            "epoch"
+        ]
+        == 3
     )
 
 
