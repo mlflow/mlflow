@@ -73,6 +73,8 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
+        with:
+          python-version: 3.9
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/cache-pip
