@@ -251,6 +251,43 @@ def test_tracing_agent_with_function_calling(llm_config):
     assert tool_span.end_time_ns - tool_span.start_time_ns >= 1e9  # 1 second
 
 
+@pytest.fixture
+def tokyo_timezone(monkeypatch):
+    # Set the timezone to Tokyo
+    monkeypatch.setenv("TZ", "Asia/Tokyo")
+    time.tzset()
+
+    yield
+
+    # Reset the timezone
+    monkeypatch.delenv("TZ")
+    time.tzset()
+
+
+def test_tracing_llm_completion_duration_timezone(llm_config, tokyo_timezone):
+    # Test if the duration calculation for LLM completion is robust to timezone changes.
+    mlflow.autogen.autolog()
+
+    with mock_user_input(
+        ["What is the capital of Tokyo?", "How long is it take from San Francisco?", "exit"]
+    ):
+        assistant, user_proxy = get_simple_agent(llm_config)
+        assistant.initiate_chat(user_proxy, message="How can I help you today?")
+
+    # Check if the initiate_chat method is patched
+    traces = get_traces()
+    span_name_to_dict = {span.name: span for span in traces[0].data.spans}
+    llm_span = span_name_to_dict["chat_completion_1"]
+
+    # We mock OpenAI LLM call so it should not take too long e.g. > 10 seconds. If it does,
+    # it most likely a bug such as incorrect timezone handling.
+    assert 0 < llm_span.end_time_ns - llm_span.start_time_ns <= 10e9
+
+    # Check if the start time is in reasonable range
+    root_span = span_name_to_dict["initiate_chat"]
+    assert 0 < llm_span.start_time_ns - root_span.start_time_ns <= 1e9
+
+
 def test_tracing_composite_agent(llm_config):
     # Composite agent can call initiate_chat() or generate_reply() method of its sub-agents.
     # This test is to ensure that won't create a new trace for the sub-agent's method call.
