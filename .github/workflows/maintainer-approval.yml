@@ -1,7 +1,8 @@
 name: Maintainer approval
 
 on:
-  pull_request:
+  pull_request_review:
+    types: [submitted]
 
 permissions:
   pull-requests: read
