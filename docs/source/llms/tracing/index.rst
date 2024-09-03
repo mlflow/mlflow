@@ -7,7 +7,7 @@ Tracing in MLflow
 
 MLflow offers a number of different options to enable tracing of your GenAI applications. 
 
-- **Automated tracing**: MLflow provides a fully automated integration with integrated libraries such as LangChain, OpenAI, and LlamaIndex, that can activate by simply enabling ``mlflow.<library>.autolog()``.
+- **Automated tracing**: MLflow provides a fully automated integration with integrated libraries such as LangChain, OpenAI, LlamaIndex, and AutoGen, that can activate by simply enabling ``mlflow.<library>.autolog()``.
 - **Manual trace instrumentation with high-level fluent APIs**: Decorators, function wrappers and context managers via the fluent API allow you to add tracing functionality with minor code modifications.
 - **Low-level client APIs for tracing**: The MLflow client API provides a thread-safe way to handle trace implementations, even in aysnchronous modes of operation.
 
@@ -28,7 +28,7 @@ Automatic Tracing
 -----------------
 
 The easiest way to get started with MLflow Tracing is to leverage the built-in capabilities with MLflow's integrated libraries. MLflow provides automatic tracing capabilities for some of the integrated libraries such as
-LangChain, OpenAI, and LlamaIndex. For these libraries, you can instrument your code with
+LangChain, OpenAI, LlamaIndex, and AutoGen. For these libraries, you can instrument your code with
 just a single command ``mlflow.<library>.autolog()`` and MLflow will automatically log traces
 for model/API invocations to the active MLflow Experiment.
 
@@ -208,6 +208,29 @@ for model/API invocations to the active MLflow Experiment.
 
         .. figure:: ../../_static/images/llms/llama-index/llama-index-trace.png
             :alt: LlamaIndex Tracing
+            :width: 100%
+            :align: center
+
+    .. tab:: AutoGen
+
+        .. raw:: html
+
+            <h3>AutoGen Automatic Tracing</h3>
+
+        |
+
+        MLflow Tracing ensures observability for your AutoGen application that involves complex multi-agent interactions. You can enable auto-tracing by calling :py:func:`mlflow.autogen.autolog`, then the internal steps of the agents chat session will be logged to the active MLflow Experiment.
+
+
+        .. code-block:: python
+
+            import mlflow
+
+            mlflow.autogen.autolog()
+
+
+        .. figure:: ../../_static/images/llms/autogen/autogen-trace.png
+            :alt: AutoGen Tracing
             :width: 100%
             :align: center
 
