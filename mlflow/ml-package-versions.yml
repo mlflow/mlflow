@@ -518,7 +518,7 @@ shap:
     minimum: "0.41.0"
     maximum: "0.46.0"
     requirements:
-      "<= 0.41.0": ["numpy<1.24.0"]
+      "<= 0.45.1": ["numpy<1.24.0"]
     run: |
       pytest tests/shap
 
