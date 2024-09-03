@@ -80,3 +80,12 @@ def test_uc_models_artifact_repo_scoped_token_oss(monkeypatch):
             },
             extra_headers=ANY,
         )
+
+def test_protos_light():
+    import mlflow
+
+    mlflow.set_registry_uri("uc:http://localhost:8081/api/2.1/unity-catalog")
+    lol = mlflow.MlflowClient().get_model_version(name="artjen.rohit.test-model", version=1)
+    print(lol)
+    model = mlflow.MlflowClient().search_model_versions("name='artjen.rohit.random_model_1'", max_results=10)
+    print("Model Details", model)

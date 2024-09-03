@@ -193,11 +193,12 @@ class UnityCatalogOssStore(BaseRestStore):
             json_body=req_body,
             response_proto=self._get_response_from_method(ListRegisteredModels),
         )
-        registered_models = [
-            registered_model_search_from_uc_oss_proto(registered_model)
-            for registered_model in response_proto.registered_models
-        ]
-        return PagedList(registered_models, response_proto.next_page_token)
+        return response_proto
+        # registered_models = [
+        #     registered_model_search_from_uc_oss_proto(registered_model)
+        #     for registered_model in response_proto.registered_models
+        # ]
+        # return PagedList(registered_models, response_proto.next_page_token)
 
     def get_registered_model(self, name):
         full_name = get_full_name_from_sc(name, None)
@@ -364,10 +365,11 @@ class UnityCatalogOssStore(BaseRestStore):
             json_body=req_body,
             response_proto=self._get_response_from_method(ListModelVersions),
         )
-        model_versions = [
-            model_version_search_from_uc_oss_proto(mvd) for mvd in response_proto.model_versions
-        ]
-        return PagedList(model_versions, response_proto.next_page_token)
+        return response_proto
+        # model_versions = [
+        #     model_version_search_from_uc_oss_proto(mvd) for mvd in response_proto.model_versions
+        # ]
+        # return PagedList(model_versions, response_proto.next_page_token)
 
     def set_model_version_tag(self, name, version, tag):
         raise NotImplementedError("Method not implemented")
