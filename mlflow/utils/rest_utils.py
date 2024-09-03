@@ -229,6 +229,12 @@ def http_request_safe(host_creds, endpoint, method, **kwargs):
 
 def verify_rest_response(response, endpoint):
     """Verify the return code and format, raise exception if the request was not successful."""
+    # Handle Armeria-specific response case where response text is "200 OK"
+    if response.status_code == 200 and response.text.strip() == _ARMERIA_OK:
+        response._content = b'{}'  # Update response content to be an empty JSON dictionary
+        return response
+    
+    # Handle non-200 status codes
     if response.status_code != 200:
         if _can_parse_as_json_object(response.text):
             raise RestException(json.loads(response.text))
@@ -363,10 +369,6 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
 
     response = verify_rest_response(response, endpoint)
     response_to_parse = response.text
-    if response.text == _ARMERIA_OK:
-        # Armeria servers that respond with an empty message have a OK appended to the normal 200 status code.
-        # Updating response_to_parse to be an empty string json dictionary
-        response_to_parse = "{}"
     js_dict = json.loads(response_to_parse)
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
