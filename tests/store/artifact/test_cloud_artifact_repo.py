@@ -34,7 +34,7 @@ def test__parallelized_download_from_cloud(monkeypatch, future_result, expected_
     monkeypatch.setenv("_MLFLOW_MPD_NUM_RETRIES", 3)
     monkeypatch.setenv("_MLFLOW_MPD_RETRY_INTERVAL_SECONDS", 0)
 
-    with (mock.patch("mlflow.store.artifact.cloud_artifact_repo.CloudArtifactRepository") as cloud_artifact_mock):
+    with mock.patch("mlflow.store.artifact.cloud_artifact_repo.CloudArtifactRepository") as cloud_artifact_mock:
         cloud_artifact_instance = cloud_artifact_mock.return_value
 
         # Mock all methods except 'method_to_test'
