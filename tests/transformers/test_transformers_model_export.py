@@ -3761,3 +3761,22 @@ def test_save_model_with_repo_id_tf(mock_is_torch, model_path):
     assert (model_dir / "tf_model.h5").exists()
     assert tokenizer_path.exists()
     assert (tokenizer_path / "tokenizer_config.json").exists()
+
+
+@mock.patch("mlflow.models.validate_serving_input")
+def test_log_model_skip_validating_serving_input(mock_validate_input, tmp_path):
+    # Ensure mlflow skips serving input validation to avoid expensive computation
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model="distilgpt2",
+            artifact_path="model",
+            input_example=["How are you?"],
+        )
+
+    # Serving input should exist but not validated
+    mlflow_model = Model.load(model_info.model_uri)
+    local_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
+    serving_input = mlflow_model.get_serving_input(local_path)
+    assert json.loads(serving_input) == {"inputs": ["How are you?"]}
+
+    mock_validate_input.assert_not_called()
