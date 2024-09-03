@@ -556,7 +556,7 @@ class _AutologgingMetricsManager:
           then they will be assigned different name (via appending index to the
           eval_dataset_var_name) when autologging.
     (4) _evaluator_call_info, it is a double level map:
-       `_metric_api_call_info[run_id][metric_name]` wil get a list of tuples, each tuple is:
+       `_metric_api_call_info[run_id][metric_name]` will get a list of tuples, each tuple is:
          (logged_metric_key, evaluator_information)
         Evaluator information includes evaluator class name and params, these information
         will also be logged into "metric_info.json" artifacts.

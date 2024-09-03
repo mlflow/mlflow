@@ -296,7 +296,7 @@ When creating custom PyFunc models, you can choose between two different interfa
 a function-based model and a class-based model. In short, a function-based model is simply a
 python function that does not take additional params. The class-based model, on the other hand,
 is subclass of ``PythonModel`` that supports several required and optional
-methods. If your use case is simple and fits within a single predict function, a funcion-based
+methods. If your use case is simple and fits within a single predict function, a function-based
 approach is recommended. If you need more power, such as custom serialization, custom data
 processing, or to override additional methods, you should use the class-based implementation.
 
@@ -805,7 +805,7 @@ class PyFuncModel:
         self, data: PyFuncLLMSingleInput, params: Optional[Dict[str, Any]] = None
     ) -> Iterator[PyFuncLLMOutputChunk]:
         """
-        Generates streaming model predictions. Only LLM suports this method.
+        Generates streaming model predictions. Only LLM supports this method.
 
         If the model contains signature, enforce the input schema first before calling the model
         implementation with the sanitized input. If the pyfunc model does not include model schema,
@@ -1054,7 +1054,7 @@ def load_model(
         # "databricks.feature_store.mlflow_model". But depending on the environment, the offending
         # module might be "databricks", "databricks.feature_store" or full package. So we will
         # raise the error with the following note if "databricks" presents in the error. All non-
-        # databricks moduel errors will just be re-raised.
+        # databricks module errors will just be re-raised.
         if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE and e.name.startswith("databricks"):
             raise MlflowException(
                 f"{e.msg}; "

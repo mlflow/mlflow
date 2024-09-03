@@ -58,7 +58,7 @@ def _load_module(finder, name):
 # Pattern for each internal attribute name.
 _PATTERN = "_gorilla_%s"
 
-# Pattern for the name of the overidden attributes to be stored.
+# Pattern for the name of the overridden attributes to be stored.
 _ORIGINAL_NAME = _PATTERN % ("original_%s",)
 
 # Pattern for the name of the patch attributes to be stored.
@@ -366,7 +366,7 @@ def revert(patch):
             )
         # restore original method
         # during reverting patch, we need restore the raw attribute to the patch point
-        # so get original attribute bypassing descriptor protocal
+        # so get original attribute bypassing descriptor protocol
         original = object.__getattribute__(patch.destination, original_name)
         setattr(patch.destination, patch.name, original)
     else:

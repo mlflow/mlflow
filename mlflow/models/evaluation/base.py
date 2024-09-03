@@ -609,7 +609,7 @@ def _normalize_evaluators_and_evaluator_config_args(
 def _model_validation_contains_model_comparison(validation_thresholds):
     """
     Helper function for determining if validation_thresholds contains
-    thresholds for model comparsion: either min_relative_change or min_absolute_change
+    thresholds for model comparison: either min_relative_change or min_absolute_change
     """
     if not validation_thresholds:
         return False
@@ -671,7 +671,7 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
         )
 
         # If metric is higher is better, >= is used, otherwise <= is used
-        # for thresholding metric value and model comparsion
+        # for thresholding metric value and model comparison
         comparator_fn = operator.__ge__ if metric_threshold.greater_is_better else operator.__le__
         operator_fn = operator.add if metric_threshold.greater_is_better else operator.sub
 
@@ -690,7 +690,7 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
             continue
 
         if metric_threshold.min_absolute_change is not None:
-            # metric comparsion aboslute change fails
+            # metric comparison absolute change fails
             # - if not (metric_value >= baseline + min_absolute_change) for higher is better
             # - if not (metric_value <= baseline - min_absolute_change) for lower is better
             validation_result.min_absolute_change_failed = not comparator_fn(
@@ -711,7 +711,7 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
                     Decimal(operator_fn(baseline_metric_value, 1e-10)),
                 )
                 continue
-            # metric comparsion relative change fails
+            # metric comparison relative change fails
             # - if (metric_value - baseline) / baseline < min_relative_change for higher is better
             # - if (baseline - metric_value) / baseline < min_relative_change for lower is better
             if metric_threshold.greater_is_better:
@@ -1073,7 +1073,7 @@ def evaluate(
           Explainer based on the model.
         - **explainability_nsamples**: The number of sample rows to use for computing model
           explainability insights. Default value is 2000.
-        - **explainability_kernel_link**: The kernel link function used by shap kernal explainer.
+        - **explainability_kernel_link**: The kernel link function used by shap kernel explainer.
           Available values are "identity" and "logit". Default value is "identity".
         - **max_classes_for_multiclass_roc_pr**:
           For multiclass classification tasks, the maximum number of classes for which to log

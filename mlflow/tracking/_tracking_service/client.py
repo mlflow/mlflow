@@ -895,13 +895,13 @@ class TrackingServiceClient:
         experiment_id = run_info.experiment_id
         run_name = run_info.run_name
         if is_databricks_uri(self.tracking_uri):
-            experment_url = f"{host_url}/ml/experiments/{experiment_id}"
+            experiment_url = f"{host_url}/ml/experiments/{experiment_id}"
         else:
-            experment_url = f"{host_url}/#/experiments/{experiment_id}"
-        run_url = f"{experment_url}/runs/{run_id}"
+            experiment_url = f"{host_url}/#/experiments/{experiment_id}"
+        run_url = f"{experiment_url}/runs/{run_id}"
 
         _logger.info(f"🏃 View run {run_name} at: {run_url}.")
-        _logger.info(f"🧪 View experiment at: {experment_url}.")
+        _logger.info(f"🧪 View experiment at: {experiment_url}.")
 
     def set_terminated(self, run_id, status=None, end_time=None):
         """Set a run's status to terminated.

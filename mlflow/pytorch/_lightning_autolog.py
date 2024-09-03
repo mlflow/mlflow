@@ -46,7 +46,7 @@ else:
 
 def _get_optimizer_name(optimizer):
     """
-    In pytorch-lightining 1.1.0, `LightningOptimizer` was introduced:
+    In pytorch-lightning 1.1.0, `LightningOptimizer` was introduced:
     https://github.com/PyTorchLightning/pytorch-lightning/pull/4658
 
     If a user sets `enable_pl_optimizer` to True when instantiating a `Trainer` object,
