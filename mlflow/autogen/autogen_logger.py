@@ -3,7 +3,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Union
 
 from autogen import Agent, ConversableAgent
@@ -233,9 +233,10 @@ class MlflowAutogenLogger(BaseLogger):
         cost: float,
         start_time: str,
     ) -> None:
-        start_time_epoch = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S.%f").timestamp()
-        start_time_epoch_ns = int(start_time_epoch * 1e9)
-        end_time = time.time_ns()
+        # The start_time passed from AutoGen is in UTC timezone.
+        start_dt = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S.%f")
+        start_dt = start_dt.replace(tzinfo=timezone.utc)
+        start_time_ns = int(start_dt.timestamp() * 1e9)
         span = self._start_span_in_session(
             name="chat_completion",
             span_type=SpanType.LLM,
@@ -248,10 +249,13 @@ class MlflowAutogenLogger(BaseLogger):
                 "cost": cost,
                 "is_cached": is_cached,
             },
-            start_time_ns=start_time_epoch_ns,
+            start_time_ns=start_time_ns,
         )
         self._client.end_span(
-            request_id=span.request_id, span_id=span.span_id, outputs=response, end_time_ns=end_time
+            request_id=span.request_id,
+            span_id=span.span_id,
+            outputs=response,
+            end_time_ns=time.time_ns(),
         )
         self._chat_state.pending_spans.append(span)
 
