@@ -281,8 +281,37 @@ def _get_artifact_repo_from_storage_info_oss(
             session_token=aws_creds.session_token,
             credential_refresh_def=aws_credential_refresh,
         )
-    elif scoped_token.azure_user_delegation_sas or scoped_token.gcp_oauth_token:
-        raise MlflowException("Credential chosen is not supported in OSS Unity Catalog yet.")
+    elif scoped_token.azure_user_delegation_sas:
+        from azure.core.credentials import AzureSasCredential
+
+        from mlflow.store.artifact.azure_data_lake_artifact_repo import (
+            AzureDataLakeArtifactRepository,
+        )
+
+        sas_token = scoped_token.azure_user_delegation_sas.sas_token
+
+        def azure_credential_refresh():
+            new_scoped_token = base_credential_refresh_def()
+            new_sas_token = new_scoped_token.azure_user_delegation_sas.sas_token
+            return {
+                "credential": AzureSasCredential(new_sas_token),
+            }
+
+        return AzureDataLakeArtifactRepository(
+            artifact_uri=storage_location,
+            credential=AzureSasCredential(sas_token),
+            credential_refresh_def=azure_credential_refresh,
+        )
+
+    elif scoped_token.gcp_oauth_token:
+        from google.cloud.storage import Client
+        from google.oauth2.credentials import Credentials
+
+        from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
+
+        credentials = Credentials(scoped_token.gcp_oauth_token.oauth_token)
+        client = Client(project="mlflow", credentials=credentials)
+        return GCSArtifactRepository(artifact_uri=storage_location, client=client)
     else:
         raise MlflowException(
             "Got no credential type when attempting to "
