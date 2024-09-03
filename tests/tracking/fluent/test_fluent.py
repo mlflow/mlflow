@@ -759,6 +759,14 @@ def test_start_run_with_parent_id():
     assert mlflow.get_parent_run(nested_run_id).info.run_id == parent_run_id
 
 
+@pytest.mark.usefixtures(empty_active_run_stack.__name__)
+def test_start_run_with_invalid_parent_id():
+    with mlflow.start_run() as run:
+        with pytest.raises(MlflowException, match=f"Current run with UUID {run.info.run_id}"):
+            with mlflow.start_run(nested=True, parent_run_id="hello"):
+                pass
+
+
 def test_start_run_with_parent_non_nested():
     with mock.patch("mlflow.tracking.fluent._active_run_stack", [mock.Mock()]):
         with pytest.raises(Exception, match=r"Run with UUID .+ is already active"):
