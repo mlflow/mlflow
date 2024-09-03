@@ -193,12 +193,11 @@ class UnityCatalogOssStore(BaseRestStore):
             json_body=req_body,
             response_proto=self._get_response_from_method(ListRegisteredModels),
         )
-        return response_proto
-        # registered_models = [
-        #     registered_model_search_from_uc_oss_proto(registered_model)
-        #     for registered_model in response_proto.registered_models
-        # ]
-        # return PagedList(registered_models, response_proto.next_page_token)
+        registered_models = [
+            registered_model_search_from_uc_oss_proto(registered_model)
+            for registered_model in response_proto.registered_models
+        ]
+        return PagedList(registered_models, response_proto.next_page_token)
 
     def get_registered_model(self, name):
         full_name = get_full_name_from_sc(name, None)
