@@ -8,13 +8,13 @@ as from_pretrained(), save_pretrained().
 _PEFT_ADAPTOR_DIR_NAME = "peft"
 
 
-def is_peft_model(pipeline) -> bool:
+def is_peft_model(model) -> bool:
     try:
         from peft import PeftModel
     except ImportError:
         return False
 
-    return isinstance(pipeline.model, PeftModel)
+    return isinstance(model, PeftModel)
 
 
 def get_peft_base_model(model):

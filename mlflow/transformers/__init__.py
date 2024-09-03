@@ -584,7 +584,7 @@ def save_model(
         else:
             mlflow_model.metadata = {FlavorKey.PROMPT_TEMPLATE: prompt_template}
 
-    if is_peft_model(built_pipeline):
+    if (built_pipeline is not None) and is_peft_model(built_pipeline.model):
         _logger.info(
             "Overriding save_pretrained to False for PEFT models, following the Transformers "
             "behavior. The PEFT adaptor and config will be saved, but the base model weights "
