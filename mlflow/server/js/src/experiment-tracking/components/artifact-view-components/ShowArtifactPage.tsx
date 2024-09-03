@@ -94,7 +94,7 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
         } else if (PDF_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactPdfView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (AUDIO_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
-          return <LazyShowArtifactAudioView runUuid={this.props.runUuid} path={this.props.path}/>;
+          return <LazyShowArtifactAudioView runUuid={this.props.runUuid} path={this.props.path} />;
         }
       }
     }

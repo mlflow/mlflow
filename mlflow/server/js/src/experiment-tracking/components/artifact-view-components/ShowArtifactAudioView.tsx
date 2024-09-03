@@ -3,7 +3,6 @@ import WaveSurfer from 'wavesurfer.js';
 import { getArtifactBlob, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
-import './ShowArtifactAudioView.css';
 
 const waveSurferStyling = {
   waveColor: '#1890ff',
@@ -11,15 +10,13 @@ const waveSurferStyling = {
   height: 500,
 };
 
-const ShowArtifactAudioView = ({
-  runUuid,
-  path,
-  getArtifact = getArtifactBlob,
-}: {
+export type ShowArtifactAudioViewProps = {
   runUuid: string;
   path: string;
   getArtifact?: (...args: any[]) => any;
-}) => {
+};
+
+const ShowArtifactAudioView = ({ runUuid, path, getArtifact = getArtifactBlob }: ShowArtifactAudioViewProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [waveSurfer, setWaveSurfer] = useState<WaveSurfer | null>(null);
 
@@ -67,10 +64,15 @@ const ShowArtifactAudioView = ({
   const showLoading = loading && !error;
   return (
     <>
-      {showLoading && <ArtifactViewSkeleton className="artifact-audio-view-loading" />}
-      {error && <ArtifactViewErrorState className="artifact-audio-view-error" />}
+      {showLoading && <ArtifactViewSkeleton />}
+      {error && <ArtifactViewErrorState />}
       {/* This div is always rendered, but its visibility is controlled by the loading and error states */}
-      <div className="artifact-view-audio-outer-container" style={{ display: loading || error ? 'none' : 'block' }}>
+      <div
+        css={{
+          display: loading || error ? 'none' : 'block',
+          padding: 20,
+        }}
+      >
         <div ref={containerRef} />
       </div>
     </>

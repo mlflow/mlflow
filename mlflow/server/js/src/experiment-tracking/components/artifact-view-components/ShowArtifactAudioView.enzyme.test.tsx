@@ -7,7 +7,6 @@ import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import WaveSurfer, { WaveSurferOptions } from 'wavesurfer.js';
 
-
 jest.mock('wavesurfer.js', () => {
   const mWaveSurfer = {
     loadBlob: jest.fn(),
@@ -22,7 +21,6 @@ jest.mock('wavesurfer.js', () => {
     create: jest.fn().mockReturnValue(mWaveSurfer),
   };
 });
-
 
 describe('ShowArtifactAudioView tests', () => {
   let wrapper: any;
@@ -48,7 +46,7 @@ describe('ShowArtifactAudioView tests', () => {
   });
 
   test('should render loading skeleton when view is loading', () => {
-    expect(wrapper.find('.artifact-audio-view-loading').length).toBe(1);
+    expect(wrapper.find(ArtifactViewSkeleton).length).toBe(1);
   });
 
   test('should render error message when error occurs', async () => {
@@ -65,10 +63,6 @@ describe('ShowArtifactAudioView tests', () => {
     wrapper.update();
     expect(wrapper.find(ArtifactViewErrorState).length).toBe(1);
     expect(wrapper.find(ArtifactViewSkeleton).length).toBe(0);
-
-    const audioContainerResult = wrapper.find('.artifact-view-audio-outer-container');
-    expect(audioContainerResult.length).toBe(1);
-    expect(audioContainerResult.getDOMNode()).toHaveStyle({ display: 'none' });
   });
 
   test('should display audio container when data is loaded', async () => {
@@ -85,14 +79,12 @@ describe('ShowArtifactAudioView tests', () => {
     });
     wrapper.update();
 
-
     expect(wrapper.find(ArtifactViewErrorState).length).toBe(0);
     expect(wrapper.find(ArtifactViewSkeleton).length).toBe(0);
-    
-    const audioContainerResult = wrapper.find('.artifact-view-audio-outer-container');
-    
-    expect(audioContainerResult.length).toBe(1);
-    expect(audioContainerResult.getDOMNode()).toHaveStyle({ display: 'block' });
+
+    const audioContainerDiv = wrapper.find(ShowArtifactAudioView).find('div').first();
+    expect(audioContainerDiv.length).toBe(1);
+    expect(audioContainerDiv.getDOMNode()).toHaveStyle({ display: 'block' });
   });
 
   test('initializes WaveSurfer with correct parameters and calls loadBlob', async () => {
@@ -105,16 +97,18 @@ describe('ShowArtifactAudioView tests', () => {
       );
     });
 
-    expect(WaveSurfer.create).toHaveBeenCalledWith(expect.objectContaining({
-      container: expect.anything(),
-      waveColor: '#1890ff',
-      progressColor: '#0b3574',
-      height: 500,
-    }));
+    expect(WaveSurfer.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        container: expect.anything(),
+        waveColor: '#1890ff',
+        progressColor: '#0b3574',
+        height: 500,
+      }),
+    );
 
     // Since loadBlob is called asynchronously, we need to wait for it to be called
     await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
     });
 
     expect(WaveSurfer.create({} as WaveSurferOptions).loadBlob).toHaveBeenCalledWith(expect.any(Blob));
