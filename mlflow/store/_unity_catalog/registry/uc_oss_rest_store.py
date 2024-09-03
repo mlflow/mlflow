@@ -355,9 +355,9 @@ class UnityCatalogOssStore(BaseRestStore):
                 full_name=full_name, page_token=page_token, max_results=max_results
             )
         )
-        response_proto = self._call_endpoint(ListModelVersions, req_body)
         endpoint, method = _METHOD_TO_INFO[ListModelVersions]
         final_endpoint = endpoint.replace("{full_name}", full_name)
+        print("final_endpoint", final_endpoint)
         response_proto = call_endpoint(
             self.get_host_creds(),
             endpoint=final_endpoint,
@@ -365,6 +365,8 @@ class UnityCatalogOssStore(BaseRestStore):
             json_body=req_body,
             response_proto=self._get_response_from_method(ListModelVersions),
         )
+        print("Request Body", req_body)
+        print("Response Proto", response_proto)
         model_versions = [
             model_version_search_from_uc_oss_proto(mvd) for mvd in response_proto.model_versions
         ]
