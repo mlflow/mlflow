@@ -295,6 +295,24 @@ def test_delete_experiment_permission(store):
         store.get_experiment_permission(experiment_id1, username1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
+def test_list_permissions_experiment(store):
+    usernames = [random_str() for _ in range(3)]
+    passwords = [random_str() for _ in range(3)]
+    for username, password in zip(usernames, passwords):
+        _user_maker(store, username, password)
+
+    experiment_id1 = "1" + random_str()
+    for username in usernames:
+        _ep_maker(store, experiment_id1, username, READ.name)
+
+    eps = store.list_permissions_experiment(experiment_id1)
+    eps.sort(key=lambda ep: ep.user_id)
+
+    assert len(eps) == 3
+    assert isinstance(eps[0], ExperimentPermission)
+    assert [ep.user_id for ep in eps] == [1, 2, 3]
+    assert all(ep.experiment_id == experiment_id1 for ep in eps)
+    assert all(ep.permission == READ.name for ep in eps)
 
 def test_create_registered_model_permission(store):
     username1 = random_str()
