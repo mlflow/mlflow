@@ -364,11 +364,10 @@ class UnityCatalogOssStore(BaseRestStore):
             json_body=req_body,
             response_proto=self._get_response_from_method(ListModelVersions),
         )
-        return response_proto
-        # model_versions = [
-        #     model_version_search_from_uc_oss_proto(mvd) for mvd in response_proto.model_versions
-        # ]
-        # return PagedList(model_versions, response_proto.next_page_token)
+        model_versions = [
+            model_version_search_from_uc_oss_proto(mvd) for mvd in response_proto.model_versions
+        ]
+        return PagedList(model_versions, response_proto.next_page_token)
 
     def set_model_version_tag(self, name, version, tag):
         raise NotImplementedError("Method not implemented")

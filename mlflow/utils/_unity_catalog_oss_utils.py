@@ -41,7 +41,6 @@ def registered_model_search_from_uc_oss_proto(uc_oss_proto: RegisteredModelInfo)
     )
 
 def model_version_search_from_uc_oss_proto(uc_oss_proto: ModelVersionInfo) -> ModelVersionSearch:
-    print(f"uc_oss_proto: {uc_oss_proto}")
     return ModelVersionSearch(
         name=f"{uc_oss_proto.catalog_name}.{uc_oss_proto.schema_name}.{uc_oss_proto.model_name}",
         version=uc_oss_proto.version,
