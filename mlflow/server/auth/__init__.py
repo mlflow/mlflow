@@ -85,6 +85,7 @@ from mlflow.server.auth.routes import (
     DELETE_REGISTERED_MODEL_PERMISSION,
     DELETE_USER,
     GET_EXPERIMENT_PERMISSION,
+    LIST_EXPERIMENT_PERMISSIONS,
     GET_REGISTERED_MODEL_PERMISSION,
     GET_USER,
     HOME,
@@ -396,6 +397,7 @@ BEFORE_REQUEST_VALIDATORS.update(
         (UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
         (DELETE_USER, "DELETE"): validate_can_delete_user,
         (GET_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
+        (LIST_EXPERIMENT_PERMISSIONS, "GET"): validate_can_manage_experiment,
         (CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
         (UPDATE_EXPERIMENT_PERMISSION, "PATCH"): validate_can_manage_experiment,
         (DELETE_EXPERIMENT_PERMISSION, "DELETE"): validate_can_manage_experiment,
@@ -839,6 +841,13 @@ def get_experiment_permission():
 
 
 @catch_mlflow_exception
+def list_experiment_permissions():
+    experiment_id = _get_request_param("experiment_id")
+    eps = store.list_experiment_permissions(experiment_id)
+    return make_response([{"experiment_permission": ep.to_json()} for ep in eps])
+
+
+@catch_mlflow_exception
 def update_experiment_permission():
     experiment_id = _get_request_param("experiment_id")
     username = _get_request_param("username")
@@ -946,6 +955,11 @@ def create_app(app: Flask = app):
     )
     app.add_url_rule(
         rule=GET_EXPERIMENT_PERMISSION,
+        view_func=get_experiment_permission,
+        methods=["GET"],
+    )
+    app.add_url_rule(
+        rule=LIST_EXPERIMENT_PERMISSIONS,
         view_func=get_experiment_permission,
         methods=["GET"],
     )
