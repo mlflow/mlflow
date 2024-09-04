@@ -3763,6 +3763,10 @@ def test_save_model_from_local_checkpoint_with_custom_tokenizer(model_path, loca
     assert tokenizer.special_tokens_map["additional_special_tokens"] == ["<sushi>"]
 
 
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.34.0"),
+    reason="Chat template is supported since 4.34.0",
+)
 def test_save_model_from_local_checkpoint_with_llm_inference_task(
     model_path, local_checkpoint_path
 ):
