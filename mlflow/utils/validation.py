@@ -331,7 +331,7 @@ def _validate_tag_name(name, path="key"):
     # Reuse param & metric check.
     if name is None:
         raise MlflowException(
-            invalid_value(path, "", _MISSING_KEY_NAME_MESSAGE),
+            missing_value(path),
             error_code=INVALID_PARAMETER_VALUE,
         )
     if not validate_param_and_metric_name(name):
