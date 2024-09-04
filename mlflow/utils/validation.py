@@ -112,6 +112,10 @@ def invalid_value(path, value, message=None):
         return f"Invalid value {formattedValue} for parameter '{path}' supplied."
 
 
+def missing_value(path):
+    return f"Missing value for required parameter '{path}'."
+
+
 def append_to_json_path(currenPath, value):
     if not currenPath:
         return value
@@ -189,6 +193,14 @@ def _validate_metric(key, value, timestamp, step, path=""):
     exception if it isn't.
     """
     _validate_metric_name(key, append_to_json_path(path, key))
+
+    # If invocated via log_metric, no prior validation of the presence of the value was done.
+    if value is None:
+        raise MlflowException(
+            missing_value(append_to_json_path(path, "value")),
+            INVALID_PARAMETER_VALUE,
+        )
+
     # value must be a Number
     # since bool is an instance of Number check for bool additionally
     if not _is_numeric(value):

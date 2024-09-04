@@ -1146,7 +1146,7 @@ def test_log_null_metric(store: SqlAlchemyStore):
     metric = entities.Metric(tkey, tval, get_current_time_millis(), 0)
 
     with pytest.raises(
-        MlflowException, match=r"Invalid value null for parameter 'value' supplied"
+        MlflowException, match=r"Missing value for required parameter 'value'."
     ) as exception_context:
         store.log_metric(run.info.run_id, metric)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

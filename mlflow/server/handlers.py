@@ -111,7 +111,7 @@ from mlflow.protos.service_pb2 import (
     UpdateExperiment,
     UpdateRun,
 )
-from mlflow.server.validation import _validate_content_type
+from mlflow.server.validation import _validate_content_type, missing_value
 from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -413,8 +413,8 @@ def _assert_required(x, path=None):
         # are expressed as empty strings
         assert x != ""
     else:
-        assert x is not None, f"Missing value for required parameter '{path}'."
-        assert x != "", f"Missing value for required parameter '{path}'."
+        assert x is not None, missing_value(path)
+        assert x != "", missing_value(path)
 
 
 def _assert_less_than_or_equal(x, max_value, message=None):
