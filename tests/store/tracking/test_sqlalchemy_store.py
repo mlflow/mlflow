@@ -2840,7 +2840,7 @@ def test_log_batch_null_metrics(store: SqlAlchemyStore):
 
     with pytest.raises(
         MlflowException,
-        match=r"Invalid value null for parameter 'metrics\[0\].value' supplied",
+        match=r"Missing value for required parameter 'metrics\[0\]\.value'",
     ) as exception_context:
         store.log_batch(run.info.run_id, metrics=metrics, params=[], tags=[])
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -4437,7 +4437,7 @@ def test_set_and_delete_tags(store: SqlAlchemyStore):
 @pytest.mark.parametrize(
     ("key", "value", "expected_error"),
     [
-        (None, "value", "Invalid value \"\" for parameter 'key' supplied"),
+        (None, "value", "Missing value for required parameter 'key'"),
         (
             "invalid?tag!name:(",
             "value",
