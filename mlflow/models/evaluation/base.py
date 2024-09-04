@@ -867,7 +867,8 @@ def _get_model_from_deployment_endpoint_uri(
             predictions = []
             for data in model_input[input_column]:
                 if isinstance(data, str):
-                    # If the input data is a string, we will construct the request payload from it.
+                    # If the input data is a string, we will construct the request
+                    # payload from it.
                     prediction = _call_deployments_api(self.endpoint, data, self.params)
                 elif isinstance(data, dict):
                     # If the input data is a dictionary, we will directly use it as the request
@@ -877,9 +878,9 @@ def _get_model_from_deployment_endpoint_uri(
                     )
                 else:
                     raise MlflowException(
-                        f"Invalid input column type: {type(data)}. The input data must be either "
-                        "a string or a dictionary contains the request payload for evaluating an "
-                        "MLflow Deployments endpoint.",
+                        f"Invalid input column type: {type(data)}. The input data "
+                        "must be either a string or a dictionary contains the request "
+                        "payload for evaluating an MLflow Deployments endpoint.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
 
@@ -1506,8 +1507,10 @@ def evaluate(
 
     if isinstance(model, str):
         if _is_model_deployment_endpoint_uri(model):
+            print("MODEL IS MODEL DEPLOYMENT URI")
             model = _get_model_from_deployment_endpoint_uri(model, inference_params)
         else:
+            print("MODEL IS SERVER URI")
             model = _load_model_or_server(model, env_manager, model_config)
     elif env_manager != _EnvManager.LOCAL:
         raise MlflowException(
@@ -1516,6 +1519,7 @@ def evaluate(
             error_code=INVALID_PARAMETER_VALUE,
         )
     elif isinstance(model, PyFuncModel):
+        print("MODEL IS PYFUNC")
         if model_config:
             raise MlflowException(
                 message="Indicating ``model_config`` when passing a `PyFuncModel`` object as "
@@ -1526,6 +1530,7 @@ def evaluate(
                 error_code=INVALID_PARAMETER_VALUE,
             )
     elif callable(model):
+        print("MODEL IS PYTHON FUNCTION")
         model = _get_model_from_function(model)
     elif model is not None:
         raise MlflowException(
