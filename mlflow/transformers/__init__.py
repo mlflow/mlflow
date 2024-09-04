@@ -299,12 +299,33 @@ def save_model(
 
     Args:
         transformers_model:
-            A trained transformers `Pipeline` or a dictionary that maps required components of a
-            pipeline to the named keys of ["model", "image_processor", "tokenizer",
-            "feature_extractor"]. The `model` key in the dictionary must map to a value that
-            inherits from `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
-            All other component entries in the dictionary must support the defined task type that is
-            associated with the base model type configuration.
+            The transformers model to save. This can be one of the following format:
+
+                1. A transformers `Pipeline` instance.
+                2. A dictionary that maps required components of a pipeline to the named keys
+                    of ["model", "image_processor", "tokenizer", "feature_extractor"].
+                    The `model` key in the dictionary must map to a value that inherits from
+                    `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
+                    All other component entries in the dictionary must support the defined task
+                    type that is associated with the base model type configuration.
+                3. A string that represents a path to a local/DBFS directory containing a model
+                    checkpoint. The directory must contain a `config.json` file that is required
+                    for loading the transformers model. This is particularly useful when logging
+                    a model that cannot be loaded into memory for serialization.
+
+            An example of submitting a `Pipeline` from a default pipeline instantiation:
+
+            .. code-block:: python
+
+                from transformers import pipeline
+
+                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
+
+                with mlflow.start_run():
+                    mlflow.transformers.save_model(
+                        transformers_model=qa_pipe,
+                        path="path/to/save/model",
+                    )
 
             An example of supplying component-level parts of a transformers model is shown below:
 
@@ -326,17 +347,13 @@ def save_model(
                         path="path/to/save/model",
                     )
 
-            An example of submitting a `Pipeline` from a default pipeline instantiation:
+            An example of specifying a local checkpoint path is shown below:
 
             .. code-block:: python
 
-                from transformers import pipeline
-
-                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
-
                 with mlflow.start_run():
                     mlflow.transformers.save_model(
-                        transformers_model=qa_pipe,
+                        transformers_model="path/to/local/checkpoint",
                         path="path/to/save/model",
                     )
 
@@ -491,13 +508,18 @@ def save_model(
         hf_repo_id = built_pipeline.model.name_or_path
         pipeline_task = built_pipeline.task
     elif isinstance(transformers_model, str):
-        # When a string is passed, it should be a path to a local model checkpoint
+        # When a string is passed, it should be a path to model checkpoint in local storage or DBFS
+        if transformers_model.startswith("dbfs:"):
+            # Replace the DBFS URI to the actual mount point
+            transformers_model = transformers_model.replace("dbfs:", "/dbfs", 1)
+
         if not os.path.isdir(transformers_model):
             raise MlflowException(
                 "The `transformers_model` must be a path to a local directory containing a "
                 "transformers model checkpoint.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
         config_path = os.path.join(transformers_model, "config.json")
         if not os.path.exists(config_path):
             raise MlflowException(
@@ -516,7 +538,7 @@ def save_model(
             "The `transformers_model` must be one of the following types: \n"
             " (1) a transformers Pipeline\n"
             " (2) a dictionary of components for a transformers Pipeline\n"
-            " (3) a path to a local directory containing a transformers model checkpoint.\n"
+            " (3) a path to a local/DBFS directory containing a transformers model checkpoint.\n"
             f"received: {type(transformers_model)}",
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -790,12 +812,33 @@ def log_model(
 
     Args:
         transformers_model:
-            A trained transformers `Pipeline` or a dictionary that maps required components of a
-            pipeline to the named keys of ["model", "image_processor", "tokenizer",
-            "feature_extractor"]. The `model` key in the dictionary must map to a value that
-            inherits from `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
-            All other component entries in the dictionary must support the defined task type that is
-            associated with the base model type configuration.
+            The transformers model to save. This can be one of the following format:
+
+                1. A transformers `Pipeline` instance.
+                2. A dictionary that maps required components of a pipeline to the named keys
+                    of ["model", "image_processor", "tokenizer", "feature_extractor"].
+                    The `model` key in the dictionary must map to a value that inherits from
+                    `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
+                    All other component entries in the dictionary must support the defined task
+                    type that is associated with the base model type configuration.
+                3. A string that represents a path to a local/DBFS directory containing a model
+                    checkpoint. The directory must contain a `config.json` file that is required
+                    for loading the transformers model. This is particularly useful when logging
+                    a model that cannot be loaded into memory for serialization.
+
+            An example of submitting a `Pipeline` from a default pipeline instantiation:
+
+            .. code-block:: python
+
+                from transformers import pipeline
+
+                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
+
+                with mlflow.start_run():
+                    mlflow.transformers.save_model(
+                        transformers_model=qa_pipe,
+                        path="path/to/save/model",
+                    )
 
             An example of supplying component-level parts of a transformers model is shown below:
 
@@ -812,23 +855,19 @@ def log_model(
                         "model": model,
                         "tokenizer": tokenizer,
                     }
-                    mlflow.transformers.log_model(
+                    mlflow.transformers.save_model(
                         transformers_model=components,
-                        artifact_path="my_model",
+                        path="path/to/save/model",
                     )
 
-            An example of submitting a `Pipeline` from a default pipeline instantiation:
+            An example of specifying a local checkpoint path is shown below:
 
             .. code-block:: python
 
-                from transformers import pipeline
-
-                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
-
                 with mlflow.start_run():
-                    mlflow.transformers.log_model(
-                        transformers_model=qa_pipe,
-                        artifact_path="my_pipeline",
+                    mlflow.transformers.save_model(
+                        transformers_model="path/to/local/checkpoint",
+                        path="path/to/save/model",
                     )
 
         artifact_path: Local path destination for the serialized model to be saved.
