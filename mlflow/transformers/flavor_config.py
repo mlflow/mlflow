@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
+import os
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import ALREADY_EXISTS
-from mlflow.transformers.hub_utils import get_latest_commit_for_repo, infer_framework_from_repo
+from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, INVALID_PARAMETER_VALUE
+from mlflow.transformers.hub_utils import get_latest_commit_for_repo
 from mlflow.transformers.peft import _PEFT_ADAPTOR_DIR_NAME, get_peft_base_model, is_peft_model
 from mlflow.transformers.torch_utils import _extract_torch_dtype_if_set
 
@@ -163,56 +165,60 @@ def _get_instance_type(obj):
     return obj.__class__.__name__
 
 
-def build_flavor_config_from_repo_id(
-    repo_id: str,
+def build_flavor_config_from_local_checkpoint(
+    local_checkpoint_dir: str,
+    task: str,
     processor=None,
     torch_dtype=None,
-    save_pretrained=True,
 ) -> Dict[str, Any]:
     """
     Generates the flavor metadata from a Hugging Face model repository ID
     e.g. "meta-llama/Meta-Llama-3.1-405B, instead of the pipeline instance in-memory.
     """
-    import huggingface_hub
     from transformers import AutoTokenizer, pipelines
+    from transformers.utils import is_torch_available
 
     from mlflow.transformers.model_io import _MODEL_BINARY_FILE_NAME
 
-    hf_repo_info = huggingface_hub.model_info(repo_id)
+    config_path = os.path.join(local_checkpoint_dir, "config.json")
+    if not os.path.exists(config_path):
+        raise MlflowException(
+            f"The provided directory {local_checkpoint_dir} does not contain the config.json file."
+            "Please ensure that the directory contains a valid transformers model checkpoint.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
-    task = hf_repo_info.pipeline_tag
+    with open(config_path) as f:
+        config = json.load(f)
+
     task_metadata = pipelines.check_task(task)
     pipeline_class = task_metadata[1]["impl"].__name__
     flavor_conf = {
         FlavorKey.TASK: task,
         FlavorKey.INSTANCE_TYPE: pipeline_class,
-        FlavorKey.FRAMEWORK: infer_framework_from_repo(repo_id),
+        FlavorKey.FRAMEWORK: "pt" if is_torch_available() else "tf",
         FlavorKey.TORCH_DTYPE: str(torch_dtype) if torch_dtype else None,
-        FlavorKey.MODEL_TYPE: hf_repo_info.config["architectures"][0],
-        FlavorKey.MODEL_NAME: hf_repo_info.id,
+        FlavorKey.MODEL_TYPE: config["architectures"][0],
+        FlavorKey.MODEL_NAME: local_checkpoint_dir,
+        FlavorKey.MODEL_BINARY: _MODEL_BINARY_FILE_NAME,
     }
 
-    if save_pretrained:
-        flavor_conf[FlavorKey.MODEL_BINARY] = _MODEL_BINARY_FILE_NAME
-    else:
-        flavor_conf[FlavorKey.MODEL_REVISION] = hf_repo_info.sha
-
     components = {FlavorKey.TOKENIZER}
-    tokenizer = AutoTokenizer.from_pretrained(repo_id)
-    tokenizer_conf = _get_component_config(
-        tokenizer, FlavorKey.TOKENIZER, save_pretrained=save_pretrained, commit_sha=hf_repo_info.sha
-    )
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(local_checkpoint_dir)
+    except OSError as e:
+        raise MlflowException(
+            f"Error loading tokenizer from {local_checkpoint_dir}. When logging a "
+            "Transformers model from a local checkpoint, please make sure that the "
+            "checkpoint directory contains a valid tokenizer configuration as well.",
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from e
+
+    tokenizer_conf = _get_component_config(tokenizer, FlavorKey.TOKENIZER)
     flavor_conf.update(tokenizer_conf)
 
     if processor:
-        flavor_conf.update(
-            _get_component_config(
-                processor,
-                FlavorKey.PROCESSOR,
-                save_pretrained=save_pretrained,
-                commit_sha=hf_repo_info.sha,
-            )
-        )
+        flavor_conf.update(_get_component_config(processor, FlavorKey.PROCESSOR))
 
     flavor_conf[FlavorKey.COMPONENTS] = list(components)
     return flavor_conf

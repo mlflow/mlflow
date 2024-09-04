@@ -3664,7 +3664,7 @@ def local_checkpoint_path(tmp_path):
     """
     Fixture to create a local model checkpoint for testing fine-tuning scenario.
     """
-    model = transformers.AutoModelForMaskedLM.from_pretrained("distilroberta-base")
+    model = transformers.AutoModelWithLMHead.from_pretrained("distilgpt2")
 
     class DummyDataset(torch.utils.data.Dataset):
         def __getitem__(self, idx):
@@ -3685,6 +3685,10 @@ def local_checkpoint_path(tmp_path):
     checkpoint_path = tmp_path / "checkpoint"
     trainer.save_model(checkpoint_path)
 
+    # The tokenizer should also be saved in the checkpoint
+    tokenizer = transformers.AutoTokenizer.from_pretrained("distilgpt2")
+    tokenizer.save_pretrained(checkpoint_path)
+
     return str(checkpoint_path)
 
 
@@ -3692,17 +3696,18 @@ def local_checkpoint_path(tmp_path):
 def test_save_model_from_local_checkpoint(mock_logger, model_path, local_checkpoint_path):
     mlflow.transformers.save_model(
         transformers_model=local_checkpoint_path,
+        task="text-generation",
         path=model_path,
-        input_example=["I love this product!"],
+        input_example=["What is MLflow?"],
     )
 
     logged_info = Model.load(model_path)
     flavor_conf = logged_info.flavors["transformers"]
-    assert flavor_conf["source_model_name"] == "distilbert/distilroberta-base"
-    assert flavor_conf["task"] == "fill-mask"
+    assert flavor_conf["source_model_name"] == local_checkpoint_path
+    assert flavor_conf["task"] == "text-generation"
     assert flavor_conf["framework"] == "pt"
-    assert flavor_conf["instance_type"] == "FillMaskPipeline"
-    assert flavor_conf["tokenizer_type"] == "RobertaTokenizerFast"
+    assert flavor_conf["instance_type"] == "TextGenerationPipeline"
+    assert flavor_conf["tokenizer_type"] == "GPT2TokenizerFast"
 
     # Default task signature should be used
     assert logged_info.signature.inputs == Schema([ColSpec(DataType.string)])
@@ -3717,16 +3722,16 @@ def test_save_model_from_local_checkpoint(mock_logger, model_path, local_checkpo
 
     # Load as native pipeline
     loaded_pipeline = mlflow.transformers.load_model(model_path)
-    assert isinstance(loaded_pipeline, transformers.FillMaskPipeline)
+    assert isinstance(loaded_pipeline, transformers.TextGenerationPipeline)
 
-    query = "Riding a <mask> on the beach is fun!"
+    query = "What is MLflow?"
     pred_native = loaded_pipeline(query)[0]
-    assert pred_native["sequence"] == "Riding a bike on the beach is fun!"
+    assert pred_native["generated_text"].startswith(query)
 
     # Load as pyfunc
     loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
     pred_pyfunc = loaded_pyfunc.predict(query)[0]
-    assert pred_pyfunc == "bike"
+    assert pred_pyfunc.startswith(query)
 
     # Serve
     response = pyfunc_serve_and_score_model(
@@ -3736,7 +3741,7 @@ def test_save_model_from_local_checkpoint(mock_logger, model_path, local_checkpo
         extra_args=["--env-manager", "local"],
     )
     pred_serve = json.loads(response.content.decode("utf-8"))
-    assert pred_serve["predictions"] == ["bike"]
+    assert pred_serve["predictions"][0].startswith(query)
 
 
 def test_save_model_from_local_checkpoint_with_custom_tokenizer(model_path, local_checkpoint_path):
@@ -3748,13 +3753,72 @@ def test_save_model_from_local_checkpoint_with_custom_tokenizer(model_path, loca
     mlflow.transformers.save_model(
         transformers_model=local_checkpoint_path,
         path=model_path,
-        input_example=["I love this product!"],
+        task="text-generation",
+        input_example=["What is MLflow?"],
     )
 
     # The custom tokenizer should be loaded
     loaded_pipeline = mlflow.transformers.load_model(model_path)
     tokenizer = loaded_pipeline.tokenizer
     assert tokenizer.special_tokens_map["additional_special_tokens"] == ["<sushi>"]
+
+
+def test_save_model_from_local_checkpoint_with_llm_inference_task(
+    model_path, local_checkpoint_path
+):
+    mlflow.transformers.save_model(
+        transformers_model=local_checkpoint_path,
+        path=model_path,
+        task="llm/v1/chat",
+        input_example=["What is MLflow?"],
+    )
+
+    logged_info = Model.load(model_path)
+    flavor_conf = logged_info.flavors["transformers"]
+    assert flavor_conf["source_model_name"] == local_checkpoint_path
+    assert flavor_conf["task"] == "text-generation"
+    assert flavor_conf["inference_task"] == "llm/v1/chat"
+
+    # Load as pyfunc
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
+    response = loaded_pyfunc.predict(
+        {
+            "messages": [
+                {"role": "system", "content": "Hello, how can I help you today?"},
+                {"role": "user", "content": "What is MLflow?"},
+            ],
+        }
+    )
+    assert response[0]["choices"][0]["message"]["role"] == "assistant"
+    assert response[0]["choices"][0]["message"]["content"] is not None
+
+
+def test_save_model_from_local_checkpoint_invalid_arguments(model_path, local_checkpoint_path):
+    with pytest.raises(MlflowException, match=r"The `task` argument must be specified"):
+        mlflow.transformers.save_model(
+            transformers_model=local_checkpoint_path,
+            path=model_path,
+        )
+
+    with pytest.raises(
+        MlflowException, match=r"The `save_pretrained` argument must be set to True"
+    ):
+        mlflow.transformers.save_model(
+            transformers_model=local_checkpoint_path,
+            path=model_path,
+            task="fill-mask",
+            save_pretrained=False,
+        )
+
+    with pytest.raises(
+        MlflowException,
+        match=r"The provided directory invalid path does not contain the config.json file.",
+    ):
+        mlflow.transformers.save_model(
+            transformers_model="invalid path",
+            path=model_path,
+            task="fill-mask",
+        )
 
 
 @mock.patch("mlflow.models.validate_serving_input")

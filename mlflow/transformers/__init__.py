@@ -17,6 +17,7 @@ import re
 import shutil
 import string
 import sys
+from collections import namedtuple
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
@@ -53,11 +54,10 @@ from mlflow.tracking.artifact_utils import _get_root_uri_and_artifact_path
 from mlflow.transformers.flavor_config import (
     FlavorKey,
     build_flavor_config,
-    build_flavor_config_from_repo_id,
+    build_flavor_config_from_local_checkpoint,
     update_flavor_conf_to_persist_pretrained_model,
 )
 from mlflow.transformers.hub_utils import (
-    get_hf_model_info_from_local_checkpoint,
     is_valid_hf_repo_id,
 )
 from mlflow.transformers.llm_inference_utils import (
@@ -500,39 +500,33 @@ def save_model(
     if isinstance(transformers_model, transformers.Pipeline):
         _validate_transformers_model_dict(transformers_model)
         built_pipeline = transformers_model
-        hf_repo_id = built_pipeline.model.name_or_path
-        pipeline_task = built_pipeline.task
     elif isinstance(transformers_model, dict):
         _validate_transformers_model_dict(transformers_model)
         built_pipeline = _build_pipeline_from_model_input(transformers_model, task=task)
-        hf_repo_id = built_pipeline.model.name_or_path
-        pipeline_task = built_pipeline.task
     elif isinstance(transformers_model, str):
         # When a string is passed, it should be a path to model checkpoint in local storage or DBFS
         if transformers_model.startswith("dbfs:"):
             # Replace the DBFS URI to the actual mount point
             transformers_model = transformers_model.replace("dbfs:", "/dbfs", 1)
 
-        if not os.path.isdir(transformers_model):
+        if task is None:
             raise MlflowException(
-                "The `transformers_model` must be a path to a local directory containing a "
-                "transformers model checkpoint.",
+                "The `task` argument must be specified when logging a model from a local "
+                "checkpoint. Please provide the task type of the pipeline.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        config_path = os.path.join(transformers_model, "config.json")
-        if not os.path.exists(config_path):
+        if not save_pretrained:
             raise MlflowException(
-                "The directory specified for `transformers_model` does not contain the "
-                "config.json file. Please ensure that the directory contains a valid "
-                "transformers model checkpoint.",
+                "The `save_pretrained` argument must be set to True when logging a model from a "
+                "local checkpoint. Please set `save_pretrained=True`.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        hf_model_info = get_hf_model_info_from_local_checkpoint(transformers_model)
-        built_pipeline = None
-        hf_repo_id = hf_model_info.id
-        pipeline_task = hf_model_info.transformers_info.pipeline_tag
+        # Create a dummy pipeline object to be used for saving the model
+        DummyModel = namedtuple("DummyModel", ["name_or_path"])
+        DummyPipeline = namedtuple("DummyPipeline", ["task", "model"])
+        built_pipeline = DummyPipeline(task=task, model=DummyModel(name_or_path=transformers_model))
     else:
         raise MlflowException(
             "The `transformers_model` must be one of the following types: \n"
@@ -550,7 +544,7 @@ def save_model(
     # invalid state of the model's weights in this scenario. Hence, we raise.
     # We might be able to remove this check once this PR is merged to transformers:
     # https://github.com/huggingface/transformers/issues/20072
-    if built_pipeline and _is_model_distributed_in_memory(built_pipeline.model):
+    if _is_model_distributed_in_memory(built_pipeline.model):
         raise MlflowException(
             "The model that is attempting to be saved has been loaded into memory "
             "with an incompatible configuration. If you are using the accelerate "
@@ -564,7 +558,15 @@ def save_model(
 
     if task and task.startswith(_LLM_INFERENCE_TASK_PREFIX):
         llm_inference_task = task
-        _validate_llm_inference_task_type(llm_inference_task, pipeline_task)
+
+        # For local checkpoint saving, we set built_pipeline.task to the original `task`
+        # argument value earlier, which is LLM v1 task. Thereby here we update it to the
+        # corresponding Transformers task type.
+        if isinstance(transformers_model, str):
+            default_task = _get_default_task_for_llm_inference_task(llm_inference_task)
+            built_pipeline = built_pipeline._replace(task=default_task)
+
+        _validate_llm_inference_task_type(llm_inference_task, built_pipeline.task)
     else:
         llm_inference_task = None
 
@@ -576,7 +578,7 @@ def save_model(
         mlflow_model.signature = signature
 
     if input_example is not None:
-        input_example = format_input_example_for_special_cases(input_example, pipeline_task)
+        input_example = format_input_example_for_special_cases(input_example, built_pipeline)
         _save_example(mlflow_model, input_example, str(path), example_no_conversion)
 
     if metadata is not None:
@@ -602,7 +604,7 @@ def save_model(
 
     if prompt_template is not None:
         # prevent saving prompt templates for unsupported pipeline types
-        if pipeline_task not in _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES:
+        if built_pipeline.task not in _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES:
             raise MlflowException(
                 f"Prompt templating is not supported for the `{built_pipeline.task}` task type. "
                 f"Supported task types are: {_SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES}."
@@ -614,7 +616,7 @@ def save_model(
         else:
             mlflow_model.metadata = {FlavorKey.PROMPT_TEMPLATE: prompt_template}
 
-    if built_pipeline and is_peft_model(built_pipeline.model):
+    if is_peft_model(built_pipeline.model):
         _logger.info(
             "Overriding save_pretrained to False for PEFT models, following the Transformers "
             "behavior. The PEFT adaptor and config will be saved, but the base model weights "
@@ -624,7 +626,7 @@ def save_model(
         built_pipeline.model.save_pretrained(path.joinpath(_PEFT_ADAPTOR_DIR_NAME))
         save_pretrained = False
 
-    if not save_pretrained and not is_valid_hf_repo_id(hf_repo_id):
+    if not save_pretrained and not is_valid_hf_repo_id(built_pipeline.model.name_or_path):
         _logger.warning(
             "The save_pretrained parameter is set to False, but the specified model does not "
             "have a valid HuggingFace Hub repository identifier. Therefore, the weights will "
@@ -633,10 +635,12 @@ def save_model(
         save_pretrained = True
 
     # Create the flavor configuration
-    if built_pipeline is not None:
-        flavor_conf = build_flavor_config(built_pipeline, processor, torch_dtype, save_pretrained)
+    if isinstance(transformers_model, str):
+        flavor_conf = build_flavor_config_from_local_checkpoint(
+            transformers_model, built_pipeline.task, processor, torch_dtype
+        )
     else:
-        flavor_conf = build_flavor_config_from_repo_id(hf_repo_id, processor, torch_dtype)
+        flavor_conf = build_flavor_config(built_pipeline, processor, torch_dtype, save_pretrained)
 
     if llm_inference_task:
         flavor_conf.update({_LLM_INFERENCE_TASK_KEY: llm_inference_task})
@@ -657,14 +661,15 @@ def save_model(
 
     # Save pipeline model and components weights
     if save_pretrained:
-        if built_pipeline:
-            save_pipeline_pretrained_weights(path, built_pipeline, flavor_conf, processor)
-        else:
+        if isinstance(transformers_model, str):
             save_local_checkpoint(path, transformers_model, flavor_conf, processor)
+        else:
+            save_pipeline_pretrained_weights(path, built_pipeline, flavor_conf, processor)
     else:
+        repo = built_pipeline.model.name_or_path
         _logger.info(
             "Skipping saving pretrained model weights to disk as the save_pretrained "
-            f"is set to False. The reference to HuggingFace Hub repository {hf_repo_id} "
+            f"is set to False. The reference to HuggingFace Hub repository {repo} "
             "will be logged instead."
         )
 
@@ -677,26 +682,28 @@ def save_model(
             json.dumps(inference_config, indent=2)
         )
 
+    model_name = built_pipeline.model.name_or_path
+
     # Get the model card from either the argument or the HuggingFace marketplace
-    card_data = model_card or _fetch_model_card(hf_repo_id)
+    card_data = model_card or _fetch_model_card(model_name)
 
     # If the card data can be acquired, save the text and the data separately
     _write_card_data(card_data, path)
 
     # Write the license information (or guidance) along with the model
-    _write_license_information(hf_repo_id, card_data, path)
+    _write_license_information(model_name, card_data, path)
 
     # Only allow a subset of task types to have a pyfunc definition.
     # Currently supported types are NLP-based language tasks which have a pipeline definition
     # consisting exclusively of a Model and a Tokenizer.
     if (
-        # TODO: we should check if the mode in the repo is eligible for pyfunc
-        built_pipeline is None or _should_add_pyfunc_to_model(built_pipeline)
+        # TODO: when a local checkpoint path is provided as a model, we assume it is eligible
+        # for pyfunc prediction. This may not be true for all cases, so we should revisit this.
+        isinstance(transformers_model, str) or _should_add_pyfunc_to_model(built_pipeline)
     ):
         if mlflow_model.signature is None:
             mlflow_model.signature = infer_or_get_default_signature(
                 pipeline=built_pipeline,
-                task=pipeline_task,
                 example=input_example,
                 model_config=model_config or inference_config,
                 flavor_config=flavor_conf,
@@ -740,9 +747,8 @@ def save_model(
 
     if conda_env is None:
         if pip_requirements is None:
-            model = built_pipeline.model if built_pipeline else hf_repo_id
-            default_reqs = get_default_pip_requirements(model)
-            if isinstance(model, str) or is_peft_model(model):
+            default_reqs = get_default_pip_requirements(built_pipeline.model)
+            if isinstance(transformers_model, str) or is_peft_model(built_pipeline.model):
                 _logger.info(
                     "A local checkpoint path or PEFT model is given as the `transformers_model`. "
                     "To avoid loading the full model into memory, we don't infer the pip "
@@ -1542,14 +1548,7 @@ def _get_engine_type(model):
     deep learning framework backends: ``tensorflow``, ``torch``, or ``flax``.
     """
     from transformers import FlaxPreTrainedModel, PreTrainedModel, TFPreTrainedModel
-
-    if isinstance(model, str):
-        # Model is repo_id in the Hugging Face Hub. We infer the engine type based on
-        # the current environment.
-        from mlflow.transformers.hub_utils import infer_framework_from_repo
-
-        framework = infer_framework_from_repo(model)
-        return "torch" if framework == "pt" else "tensorflow"
+    from transformers.utils import is_torch_available
 
     if is_peft_model(model):
         model = get_peft_base_model(model)
@@ -1561,6 +1560,9 @@ def _get_engine_type(model):
             return "torch"
         elif issubclass(cls, FlaxPreTrainedModel):
             return "flax"
+
+    # As a fallback, we check current environment to determine the engine type
+    return "torch" if is_torch_available() else "tensorflow"
 
 
 def _should_add_pyfunc_to_model(pipeline) -> bool:

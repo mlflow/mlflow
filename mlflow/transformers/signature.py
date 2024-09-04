@@ -1,6 +1,5 @@
 import json
 import logging
-from typing import Optional
 
 import numpy as np
 
@@ -80,7 +79,7 @@ _DEFAULT_SIGNATURE_FOR_TASK = {
 
 
 def infer_or_get_default_signature(
-    pipeline, task: Optional[str] = None, example=None, model_config=None, flavor_config=None
+    pipeline, example=None, model_config=None, flavor_config=None
 ) -> ModelSignature:
     """
     Assigns a default ModelSignature for a given Pipeline type that has pyfunc support. These
@@ -89,7 +88,9 @@ def infer_or_get_default_signature(
     For signature inference in some Pipelines that support complex input types, an input example
     is needed.
     """
-    if example is not None:
+    import transformers
+
+    if example is not None and isinstance(pipeline, transformers.Pipeline):
         try:
             timeout = MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT.get()
             if timeout and is_windows():
@@ -117,7 +118,7 @@ def infer_or_get_default_signature(
                 )
             _logger.warning(msg)
 
-    task = task or getattr(pipeline, "task", None)
+    task = getattr(pipeline, "task", None)
     if task.startswith("translation_"):
         task = "translation"
     if signature := _DEFAULT_SIGNATURE_FOR_TASK.get(task):
@@ -155,7 +156,7 @@ def _infer_signature_with_example(
     return infer_signature(example, prediction, params)
 
 
-def format_input_example_for_special_cases(input_example, task):
+def format_input_example_for_special_cases(input_example, pipeline):
     """
     Handles special formatting for specific types of Pipelines so that the displayed example
     reflects the correct example input structure that mirrors the behavior of the input parsing
@@ -164,7 +165,7 @@ def format_input_example_for_special_cases(input_example, task):
     input_data = input_example[0] if isinstance(input_example, tuple) else input_example
 
     if (
-        task == "zero-shot-classification"
+        pipeline.task == "zero-shot-classification"
         and isinstance(input_data, dict)
         and isinstance(input_data["candidate_labels"], list)
     ):
