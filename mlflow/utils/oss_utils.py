@@ -13,8 +13,7 @@ def get_oss_host_creds(server_uri=None):
     new_parsed_uri = urllib.parse.urlparse(new_uri)
     if parsed_uri.scheme == "uc":
         if parsed_uri.path == _DATABRICKS_UNITY_CATALOG_SCHEME:
-            db_host = get_databricks_host_creds(parsed_uri.path)
-            return db_host
+            return get_databricks_host_creds(parsed_uri.path)
         else:
             return MlflowHostCreds(
                 host=f"{new_parsed_uri.scheme}://{new_parsed_uri.netloc}",
