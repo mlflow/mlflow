@@ -71,11 +71,9 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
         super().__init__(artifact_uri)
         from mlflow.tracking.client import MlflowClient
 
-        registry_uri_from_artifact_uri = get_databricks_profile_uri_from_artifact_uri(
+        registry_uri = get_databricks_profile_uri_from_artifact_uri(
             artifact_uri, result_scheme=_OSS_UNITY_CATALOG_SCHEME
-        )
-        if registry_uri_from_artifact_uri is not None:
-            registry_uri = registry_uri_from_artifact_uri
+        ) or registry_uri
         _, key_prefix = get_db_info_from_uri(registry_uri)  # TODO: Ask Kris what to do here
         if key_prefix is not None:
             raise MlflowException(
