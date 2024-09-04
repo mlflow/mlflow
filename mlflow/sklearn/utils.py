@@ -979,7 +979,7 @@ def _backported_all_estimators(type_filter=None):
                 "Parameter type_filter must be 'classifier', "
                 "'regressor', 'transformer', 'cluster' or "
                 "None, got"
-                " %s." % repr(type_filter)
+                f" {type_filter!r}"
             )
 
     # drop duplicates, sort for reproducibility

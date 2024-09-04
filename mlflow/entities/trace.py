@@ -41,7 +41,7 @@ class Trace(_MlflowObject):
         if info is None or data is None:
             raise MlflowException(
                 "Unable to parse Trace from dictionary. Expected keys: 'info' and 'data'. "
-                "Received keys: %s" % list(trace_dict.keys()),
+                f"Received keys: {list(trace_dict.keys())}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return cls(

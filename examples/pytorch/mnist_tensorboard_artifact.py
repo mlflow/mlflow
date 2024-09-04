@@ -215,15 +215,18 @@ with mlflow.start_run():
     print("Uploading TensorBoard events as a run artifact...")
     mlflow.log_artifacts(output_dir, artifact_path="events")
     print(
-        "\nLaunch TensorBoard with:\n\ntensorboard --logdir=%s"
-        % os.path.join(mlflow.get_artifact_uri(), "events")
+        "\nLaunch TensorBoard with:\n\ntensorboard --logdir={}".format(
+            os.path.join(mlflow.get_artifact_uri(), "events")
+        )
     )
 
     # Log the model as an artifact of the MLflow run.
     print("\nLogging the trained model as a run artifact...")
     mlflow.pytorch.log_model(model, artifact_path="pytorch-model", pickle_module=pickle)
     print(
-        "\nThe model is logged at:\n%s" % os.path.join(mlflow.get_artifact_uri(), "pytorch-model")
+        "\nThe model is logged at:\n{}".format(
+            os.path.join(mlflow.get_artifact_uri(), "pytorch-model")
+        )
     )
 
     # Since the model was logged as an artifact, it can be loaded to make predictions
