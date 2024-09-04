@@ -3,12 +3,10 @@ from unittest import mock
 
 import pytest
 
-from mlflow.entities.model_registry import RegisteredModelTag
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     RegisteredModelInfo,
 )
 from mlflow.store._unity_catalog.registry_oss.rest_store_oss import UnityCatalogOssStore
-from mlflow.utils._unity_catalog_oss_utils import uc_oss_registered_model_tag_from_mlflow_tags
 from mlflow.utils.proto_json_utils import message_to_json
 
 from tests.helper_functions import mock_http_200
@@ -53,12 +51,9 @@ def _verify_requests(
 @mock_http_200
 def test_create_registered_model(mock_http, store):
     description = "best model ever"
-    tags = [
-        RegisteredModelTag(key="key", value="value"),
-        RegisteredModelTag(key="anotherKey", value="some other value"),
-    ]
     store.create_registered_model(
-        name="catalog_1.schema_1.model_1", description=description, tags=tags
+        name="catalog_1.schema_1.model_1",
+        description=description,
     )
     _verify_requests(
         mock_http,
@@ -69,6 +64,5 @@ def test_create_registered_model(mock_http, store):
             catalog_name="catalog_1",
             schema_name="schema_1",
             comment=description,
-            tags=uc_oss_registered_model_tag_from_mlflow_tags(tags),
         ),
     )
