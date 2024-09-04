@@ -3,12 +3,10 @@ from unittest import mock
 
 import pytest
 
-from mlflow.entities.model_registry import RegisteredModelTag
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     RegisteredModelInfo,
 )
 from mlflow.store._unity_catalog.registry_oss.rest_store_oss import UnityCatalogOssStore
-from mlflow.utils._unity_catalog_oss_utils import uc_oss_registered_model_tag_from_mlflow_tags
 from mlflow.utils.proto_json_utils import message_to_json
 
 from tests.helper_functions import mock_http_200
