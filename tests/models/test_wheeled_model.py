@@ -383,6 +383,17 @@ def test_wheel_download_override_option_works(tmp_path):
     assert len(os.listdir(wheel_dir))  # Wheel dir is not empty
 
 
+def test_wheel_download_dependency_conflicts(tmp_path):
+    reqs_file = tmp_path / "requirements.txt"
+    reqs_file.write_text("mlflow==2.15.0\nmlflow==2.16.0")
+    with pytest.raises(
+        MlflowException,
+        # Ensure the error message contains conflict details
+        match=r"Cannot install mlflow==2\.15\.0 and mlflow==2\.16\.0.+The conflict is caused by",
+    ):
+        WheeledModel._download_wheels(reqs_file, tmp_path / "wheels")
+
+
 def test_copy_metadata(mock_is_in_databricks, sklearn_knn_model):
     with mlflow.start_run():
         mlflow.sklearn.log_model(
