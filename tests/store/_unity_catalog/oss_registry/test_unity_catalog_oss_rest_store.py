@@ -52,7 +52,8 @@ def _verify_requests(
 def test_create_registered_model(mock_http, store):
     description = "best model ever"
     store.create_registered_model(
-        name="catalog_1.schema_1.model_1", description=description,
+        name="catalog_1.schema_1.model_1",
+        description=description,
     )
     _verify_requests(
         mock_http,
