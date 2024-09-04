@@ -27,7 +27,7 @@ def _mock_temporary_creds_response(temporary_creds):
 def test_uc_models_artifact_repo_init_with_uri_containing_profile():
     uri_with_profile = "models://profile@uc/MyModel/12"
     models_repo = UnityCatalogOSSModelsArtifactRepository(
-        uri_with_profile, _OSS_UNITY_CATALOG_SCHEME
+        uri_with_profile, f"{_OSS_UNITY_CATALOG_SCHEME}:databricks"
     )
     assert models_repo.artifact_uri == uri_with_profile
     assert models_repo.client._registry_uri == f"{_OSS_UNITY_CATALOG_SCHEME}://profile"
@@ -63,7 +63,7 @@ def test_uc_models_artifact_repo_scoped_token_oss(monkeypatch):
         request_mock.return_value = _mock_temporary_creds_response(temporary_creds)
         models_repo = UnityCatalogOSSModelsArtifactRepository(
             artifact_uri="models:/test-catalog.test-schema.test-model/12",
-            registry_uri=_OSS_UNITY_CATALOG_SCHEME,
+            registry_uri=f"{_OSS_UNITY_CATALOG_SCHEME}:databricks",
         )
         models_repo._get_artifact_repo()
 
