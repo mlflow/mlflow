@@ -5,6 +5,7 @@ from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils.uri import (
     _DATABRICKS_UNITY_CATALOG_SCHEME,
 )
+from mlflow.exceptions import MlflowException
 
 
 def get_oss_host_creds(server_uri=None):
@@ -27,3 +28,5 @@ def get_oss_host_creds(server_uri=None):
             return MlflowHostCreds(
                 host=f"{new_parsed_uri.scheme}://{new_parsed_uri.netloc}",
             )
+    else:
+        raise MlflowException("The scheme of the server_uri is should be 'uc'")
