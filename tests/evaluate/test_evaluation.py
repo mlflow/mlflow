@@ -2145,13 +2145,20 @@ def test_evaluate_on_model_endpoint_invalid_input_data(input_data, error_message
 @pytest.mark.parametrize(
     "model_input",
     [
-        # Case 1: Single dictionary.
+        # Case 1: Single chat dictionary.
         # This is an expected input format from the Databricks RAG Evaluator.
         {
             "messages": [{"content": "What is MLflow?", "role": "user"}],
             "max_tokens": 10,
         },
-        # Case 2: DataFrame with a column of dictionaries
+        # Case 2: List of chat dictionaries.
+        # This is not a typical input format from either default or Databricks RAG evaluators,
+        # but we support it for compatibility with the normal Pyfunc models.
+        [
+            {"messages": [{"content": "What is MLflow?", "role": "user"}]},
+            {"messages": [{"content": "What is Spark?", "role": "user"}]},
+        ],
+        # Case 3: DataFrame with a column of dictionaries
         pd.DataFrame(
             {
                 "inputs": [
@@ -2165,7 +2172,7 @@ def test_evaluate_on_model_endpoint_invalid_input_data(input_data, error_message
                 ]
             }
         ),
-        # Case 3: DataFrame with a column of strings
+        # Case 4: DataFrame with a column of strings
         pd.DataFrame(
             {
                 "inputs": ["What is MLflow?", "What is Spark?"],
@@ -2188,7 +2195,7 @@ def test_model_from_deployment_endpoint(mock_deploy_client, model_input):
         assert response == "This is a response"
     else:
         assert mock_deploy_client.return_value.predict.call_count == 2
-        assert response.equals(pd.Series(["This is a response"] * 2))
+        assert pd.Series(response).equals(pd.Series(["This is a response"] * 2))
 
 
 def test_import_evaluation_dataset():

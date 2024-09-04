@@ -865,6 +865,9 @@ def _get_model_from_deployment_endpoint_uri(
                     - A dictionary: If the model_type is "databricks-agents" and the
                         Databricks RAG evaluator is used, this PythonModel can be invoked
                         with a single dict corresponding to the ChatCompletionsRequest schema.
+                    - A list of dictionaries: Currently we don't have any evaluator that
+                        gives this input format, but we keep this for future use cases and
+                        compatibility with normal pyfunc models.
 
             Return:
                 The prediction result. The return type will be consistent with the model input type,
@@ -872,6 +875,10 @@ def _get_model_from_deployment_endpoint_uri(
             """
             if isinstance(model_input, dict):
                 return self._predict_single(model_input)
+            elif isinstance(model_input, list) and all(
+                isinstance(data, dict) for data in model_input
+            ):
+                return [self._predict_single(data) for data in model_input]
             elif isinstance(model_input, pd.DataFrame):
                 if len(model_input.columns) != 1:
                     raise MlflowException(
