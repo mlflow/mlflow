@@ -821,6 +821,17 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
     if is_upcast:
         return values.astype(numpy_type, errors="raise")
     else:
+        # support converting long -> float/double for 0 and 1 values
+        def all_zero_or_ones(xs):
+            return all(pd.isnull(x) or x in [0, 1] for x in xs)
+
+        if (
+            values.dtype == np.int64
+            and numpy_type in (np.float32, np.float64)
+            and all_zero_or_ones(values)
+        ):
+            return values.astype(numpy_type, errors="raise")
+
         # NB: conversion between incompatible types (e.g. floats -> ints or
         # double -> float) are not allowed. While supported by pandas and numpy,
         # these conversions alter the values significantly.
@@ -1650,6 +1661,10 @@ def _convert_llm_ndarray_to_list(data):
         return [_convert_llm_ndarray_to_list(d) for d in data]
     if isinstance(data, dict):
         return {k: _convert_llm_ndarray_to_list(v) for k, v in data.items()}
+    # scalar values are also converted to numpy types, but they are
+    # not acceptable by the model
+    if np.isscalar(data) and isinstance(data, np.generic):
+        return data.item()
     return data
 
 
@@ -1798,7 +1813,7 @@ def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, 
         except Exception as e:
             raise MlflowException(
                 f"Failed to run user code from {code_path}. "
-                f"Error: {e!s}."
+                f"Error: {e!s}. "
                 "Review the stack trace for more information."
             ) from e
 

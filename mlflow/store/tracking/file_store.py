@@ -1123,7 +1123,7 @@ class FileStore(AbstractStore):
         _validate_run_id(run_id)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
-        model_dict = mlflow_model.to_dict()
+        model_dict = mlflow_model.get_tags_dict()
         run_info = self._get_run_info(run_id)
         path = self._get_tag_path(run_info.experiment_id, run_info.run_id, MLFLOW_LOGGED_MODELS)
         if os.path.exists(path):

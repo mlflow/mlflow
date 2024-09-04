@@ -118,6 +118,7 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
                 />
               </div>
               <Switch
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_metricsplotcontrols.tsx_120"
                 data-testid="show-point-toggle"
                 defaultChecked={showPoint}
                 onChange={this.props.handleShowPointChange}
@@ -152,6 +153,7 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
                 />
               </div>
               <RadioGroup
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_metricsplotcontrols.tsx_154"
                 name="metrics-plot-x-axis-radio-group"
                 css={styles.xAxisControls}
                 onChange={this.props.handleXAxisChange}
@@ -217,7 +219,11 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
               description="Label for the radio button to toggle the Log scale on the Y-axis of the metric graph for the experiment"
             />
           </div>
-          <Switch defaultChecked={yAxisLogScale} onChange={this.props.handleYAxisLogScaleChange} />
+          <Switch
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_metricsplotcontrols.tsx_220"
+            defaultChecked={yAxisLogScale}
+            onChange={this.props.handleYAxisLogScaleChange}
+          />
         </div>
         <div className="inline-control">
           <Button

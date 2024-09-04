@@ -35,7 +35,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.9.0",
-            "maximum": "2.3.3"
+            "maximum": "2.4.0"
         }
     },
     "keras": {
@@ -44,11 +44,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.0.2",
-            "maximum": "3.4.1"
+            "maximum": "3.5.0"
         },
         "autologging": {
             "minimum": "3.0.2",
-            "maximum": "3.4.1"
+            "maximum": "3.5.0"
         }
     },
     "tensorflow": {
@@ -70,11 +70,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.4.2",
-            "maximum": "2.1.0"
+            "maximum": "2.1.1"
         },
         "autologging": {
             "minimum": "1.4.2",
-            "maximum": "2.1.0"
+            "maximum": "2.1.1"
         }
     },
     "lightgbm": {
@@ -118,11 +118,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.4.1",
-            "maximum": "2.7.15"
+            "maximum": "2.7.17"
         },
         "autologging": {
             "minimum": "2.4.1",
-            "maximum": "2.7.15"
+            "maximum": "2.7.17"
         }
     },
     "onnx": {
@@ -131,7 +131,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.13.1",
-            "maximum": "1.16.1"
+            "maximum": "1.16.2"
         }
     },
     "spacy": {
@@ -140,7 +140,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.2.4",
-            "maximum": "3.7.5"
+            "maximum": "3.7.6"
         }
     },
     "statsmodels": {
@@ -163,11 +163,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.1.2",
-            "maximum": "3.5.1"
+            "maximum": "3.5.2"
         },
         "autologging": {
             "minimum": "3.1.2",
-            "maximum": "3.5.1"
+            "maximum": "3.5.2"
         }
     },
     "mleap": {
@@ -212,7 +212,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.40.0.1",
-            "maximum": "3.46.0.4"
+            "maximum": "3.46.0.5"
         }
     },
     "shap": {
@@ -243,11 +243,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.25.1",
-            "maximum": "4.43.3"
+            "maximum": "4.44.2"
         },
         "autologging": {
             "minimum": "4.25.1",
-            "maximum": "4.43.3"
+            "maximum": "4.44.2"
         }
     },
     "openai": {
@@ -256,11 +256,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.27.2",
-            "maximum": "1.37.1"
+            "maximum": "1.43.0"
         },
         "autologging": {
             "minimum": "1.17.0",
-            "maximum": "1.37.1"
+            "maximum": "1.43.0"
         }
     },
     "langchain": {
@@ -269,11 +269,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.0.354",
-            "maximum": "0.2.11"
+            "maximum": "0.2.15"
         },
         "autologging": {
             "minimum": "0.1.0",
-            "maximum": "0.2.11"
+            "maximum": "0.2.15"
         }
     },
     "llama_index": {
@@ -283,11 +283,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.10.44",
-            "maximum": "0.10.58"
+            "maximum": "0.11.2"
         },
         "autologging": {
             "minimum": "0.10.44",
-            "maximum": "0.10.58"
+            "maximum": "0.11.2"
         }
     },
     "autogen": {
@@ -296,7 +296,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.2.29",
-            "maximum": "0.2.34"
+            "maximum": "0.2.35"
         }
     },
     "sentence_transformers": {
@@ -314,7 +314,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.4.6",
-            "maximum": "5.4.1"
+            "maximum": "5.4.3"
         }
     },
     "promptflow": {
@@ -323,7 +323,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.3.0",
-            "maximum": "1.14.0"
+            "maximum": "1.15.0"
         }
     }
 }

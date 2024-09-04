@@ -118,17 +118,17 @@ export const TraceDataDrawer = ({
         <>
           <Spacer size="lg" />
           <Empty
-            image={<WarningIcon />}
+            image={<DangerIcon />}
             description={
               <FormattedMessage
-                defaultMessage="Trace data is not available for in-progress traces. Please wait for the trace to complete."
-                description="Experiment page > traces data drawer > in-progress description"
+                defaultMessage="An error occurred while attemptying to fetch the trace data. Please wait a moment and try again."
+                description="Experiment page > traces data drawer > error state description"
               />
             }
             title={
               <FormattedMessage
-                defaultMessage="Trace data not available"
-                description="Experiment page > traces data drawer > in-progress title"
+                defaultMessage="Error"
+                description="Experiment page > traces data drawer > error state title"
               />
             }
           />

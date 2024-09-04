@@ -178,6 +178,7 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
 
   const paginationComponent = (
     <Pagination
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_artifact-view-components_showartifactloggedtableview.tsx_181"
       currentPageIndex={pagination.pageIndex + 1}
       numTotal={rows.length}
       onChange={(page, pageSize) => {
@@ -311,7 +312,11 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
           </LegacyTooltip>
           <DropdownMenu.Content side="left">
             <DropdownMenu.Arrow />
-            <DropdownMenu.CheckboxItem checked={isCompactView} onCheckedChange={setIsCompactView}>
+            <DropdownMenu.CheckboxItem
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_artifact-view-components_showartifactloggedtableview.tsx_315"
+              checked={isCompactView}
+              onCheckedChange={setIsCompactView}
+            >
               <DropdownMenu.ItemIndicator />
               <FormattedMessage
                 defaultMessage="Compact view"
@@ -328,6 +333,7 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
               </DropdownMenu.Label>
               {columns.map((column) => (
                 <DropdownMenu.CheckboxItem
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_artifact-view-components_showartifactloggedtableview.tsx_331"
                   onSelect={(event) => event.preventDefault()}
                   checked={!hiddenColumns.includes(column)}
                   key={column}

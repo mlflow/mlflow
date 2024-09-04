@@ -1,8 +1,8 @@
 import type { ModalProps as AntDModalProps } from 'antd';
 import type { ButtonProps } from '../Button';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
-import type { AnalyticsEventOptionalPropsWithStartInteraction, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
-export interface ModalProps extends HTMLDataAttributes, DangerouslySetAntdProps<AntDModalProps>, AnalyticsEventOptionalPropsWithStartInteraction<DesignSystemEventProviderAnalyticsEventTypes.OnView> {
+import type { AnalyticsEventPropsWithStartInteraction, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
+export interface ModalProps extends HTMLDataAttributes, DangerouslySetAntdProps<AntDModalProps>, AnalyticsEventPropsWithStartInteraction<DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     /** Whether or not the modal is currently open. Use together with onOk and onCancel to control the modal state. */
     visible?: AntDModalProps['visible'];
     /** Function called when the primary button is clicked */

@@ -81,6 +81,8 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
+          # SQLAlchemy==2.0.33 has a regression: https://github.com/sqlalchemy/sqlalchemy/issues/11832
+          pip install SQLAlchemy!=2.0.33
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Import check
@@ -344,6 +346,8 @@ jobs:
           # Install torch and transformers to test metrics
           pip install torch transformers
           pip install -r requirements/test-requirements.txt
+          # SQLAlchemy==2.0.33 has a regression: https://github.com/sqlalchemy/sqlalchemy/issues/11832
+          pip install SQLAlchemy!=2.0.33
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark

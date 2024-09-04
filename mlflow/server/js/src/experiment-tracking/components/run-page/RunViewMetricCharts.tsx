@@ -163,6 +163,7 @@ export const RunViewMetricCharts = ({
           {showConfigArea && (
             <div css={{ display: 'flex', gap: theme.spacing.sm }}>
               <Input
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_runviewmetriccharts.tsx_165"
                 role="searchbox"
                 prefix={<SearchIcon />}
                 value={search}

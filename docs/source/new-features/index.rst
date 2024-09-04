@@ -12,6 +12,48 @@ Find out about the details of major features, changes, and deprecations below.
             <div class="grid-card">
                 <div class="content-container">
                     <div class="header" style="height: 4rem">
+                        LangGraph Support
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/langgraph-logo.png" style="max-height: 8rem" alt="LangGraph"></img>
+                    <div class="body">
+                        <a href="../llms/langchain/index.html">LangGraph</a>, the GenAI Agent authoring framework from LangChain, is now natively supported in MLflow using the <a href="../model/models-from-code.html">Models from Code</a> feature.
+                    </div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.16.0">released in 2.16.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header" style="height: 4rem">
+                        AutoGen Tracing Integration
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/autogen-logo.svg" style="max-height: 8rem" alt="AutoGen"></img>
+                    <div class="body">
+                        <a href="https://microsoft.github.io/autogen/">AutoGen</a>, a multi-turn agent framework from Microsoft, now has integrated automatic tracing integration with MLflow.
+                    </div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.16.0">released in 2.16.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header" style="height: 4rem">
+                        LlamaIndex Support
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/llamaindex-logo.svg" style="max-height: 8rem" alt="LlamaIndex"></img>
+                    <div class="body">
+                        <a href="../llms/llama-index/index.html">LlamaIndex</a>, the popular RAG and Agent authoring framework now has native support within MLflow for application logging and full support for tracing.
+                    </div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.15.0">released in 2.15.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header" style="height: 4rem">
                         MLflow Tracing
                     </div>
                     <img class="card-image" src="../_static/images/llms/tracing/trace-feature-card.png" style="max-height: 8rem" alt="MLflow Tracing"></img>

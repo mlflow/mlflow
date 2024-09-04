@@ -93,8 +93,7 @@ jobs:
       # ************************************************************************
       - run: |
           pip install -r requirements/lint-requirements.txt
-          # TODO: Use a precompiled binary once it's available: https://github.com/tamasfe/taplo/issues/542
-          cargo install taplo-cli@0.9.0 --locked
+          dev/install-taplo.sh
           pre-commit install
           pre-commit run --all-files --color=always || true
       # ************************************************************************

@@ -2685,7 +2685,12 @@ def test_audio_classification_pipeline(audio_classification_pipeline, with_input
 
 
 @pytest.mark.parametrize(
-    "model_name", ["tiiuae/falcon-7b", "databricks/dolly-v2-7b", "runwayml/stable-diffusion-v1-5"]
+    "model_name",
+    [
+        "tiiuae/falcon-7b",
+        "databricks/dolly-v2-7b",
+        "PrunaAI/runwayml-stable-diffusion-v1-5-turbo-tiny-green-smashed",
+    ],
 )
 def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
     # non-ascii unicode characters

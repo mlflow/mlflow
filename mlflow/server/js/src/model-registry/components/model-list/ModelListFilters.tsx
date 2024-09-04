@@ -44,7 +44,11 @@ const ModelSearchInputHelpTooltip = () => {
             description="Learn more tooltip link to learn more on how to search models"
             values={{
               link: (chunks) => (
-                <Typography.Link href={ExperimentSearchSyntaxDocUrl + '#syntax'} openInNewTab>
+                <Typography.Link
+                  componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellistfilters.tsx_61"
+                  href={ExperimentSearchSyntaxDocUrl + '#syntax'}
+                  openInNewTab
+                >
                   {chunks}
                 </Typography.Link>
               ),
@@ -87,6 +91,7 @@ export const ModelListFilters = ({
   return (
     <TableFilterLayout>
       <TableFilterInput
+        componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellistfilters.tsx_118"
         placeholder={intl.formatMessage({
           defaultMessage: 'Filter registered models by name or tags',
           description: 'Placeholder text inside model search bar',

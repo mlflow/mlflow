@@ -511,7 +511,7 @@ def test_record_logged_model(store):
         run_id=run_id,
         params=[],
         metrics=[],
-        tags=[RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.to_dict()]))],
+        tags=[RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.get_tags_dict()]))],
     )
     m2 = Model(
         artifact_path="some/other/path",
@@ -524,7 +524,7 @@ def test_record_logged_model(store):
         run_id,
         params=[],
         metrics=[],
-        tags=[RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.to_dict(), m2.to_dict()]))],
+        tags=[RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.get_tags_dict(), m2.get_tags_dict()]))],
     )
     m3 = Model(
         artifact_path="some/other/path2",
@@ -540,7 +540,27 @@ def test_record_logged_model(store):
         tags=[
             RunTag(
                 MLFLOW_LOGGED_MODELS,
-                json.dumps([m.to_dict(), m2.to_dict(), m3.to_dict()]),
+                json.dumps([m.get_tags_dict(), m2.get_tags_dict(), m3.get_tags_dict()]),
+            )
+        ],
+    )
+    m4 = Model(
+        artifact_path="some/other/path3",
+        run_id=run_id,
+        flavors={"python_function": {"config": {"a": 1}, "code": "code"}},
+    )
+    store.record_logged_model(run_id, m4)
+    _verify_logged(
+        store,
+        run_id,
+        params=[],
+        metrics=[],
+        tags=[
+            RunTag(
+                MLFLOW_LOGGED_MODELS,
+                json.dumps(
+                    [m.get_tags_dict(), m2.get_tags_dict(), m3.get_tags_dict(), m4.get_tags_dict()]
+                ),
             )
         ],
     )
@@ -548,7 +568,7 @@ def test_record_logged_model(store):
         TypeError,
         match="Argument 'mlflow_model' should be mlflow.models.Model, got '<class 'dict'>'",
     ):
-        store.record_logged_model(run_id, m.to_dict())
+        store.record_logged_model(run_id, m.get_tags_dict())
 
 
 def test_get_experiment(store):

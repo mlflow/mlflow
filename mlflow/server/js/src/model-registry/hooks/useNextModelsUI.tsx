@@ -1,3 +1,4 @@
+import type { EmotionJSX } from '@emotion/react/types/jsx-namespace';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
 
@@ -24,7 +25,15 @@ export const useNextModelsUIContext = () => useContext(NextModelsUIContext);
  * function components, use `useNextModelsUIContext()` hook.
  */
 export const withNextModelsUIContext =
-  <P,>(Component: React.ComponentType<P & { usingNextModelsUI?: boolean }>) =>
+  <
+    BaseProps,
+    P extends EmotionJSX.IntrinsicAttributes &
+      EmotionJSX.LibraryManagedAttributes<React.ComponentType<BaseProps>, React.PropsWithChildren<BaseProps>> & {
+        usingNextModelsUI?: boolean;
+      },
+  >(
+    Component: React.ComponentType<BaseProps>,
+  ) =>
   (props: P) => {
     const [usingNextModelsUI, setUsingNextModelsUI] = useState(
       localStorage.getItem(useOldModelsUIStorageKey) !== 'true',

@@ -16,9 +16,9 @@ from mlflow.langchain.databricks_dependencies import (
 )
 from mlflow.langchain.utils import IS_PICKLE_SERIALIZATION_RESTRICTED
 from mlflow.models.resources import (
+    DatabricksFunction,
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
-    DatabricksUCFunction,
     DatabricksVectorSearchIndex,
 )
 
@@ -296,7 +296,7 @@ def test_parsing_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
 
     resources = list(_extract_dependency_list_from_lc_model(agent))
     assert resources == [
-        DatabricksUCFunction(function_name="rag.test.test_function"),
+        DatabricksFunction(function_name="rag.test.test_function"),
         DatabricksSQLWarehouse(warehouse_id="testId1"),
     ]
 
@@ -401,9 +401,9 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch)
     if include_uc_function_tools:
         expected = [
             DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat"),
-            DatabricksUCFunction(function_name="rag.test.test_function"),
-            DatabricksUCFunction(function_name="rag.test.test_function_2"),
-            DatabricksUCFunction(function_name="rag.test.test_function_3"),
+            DatabricksFunction(function_name="rag.test.test_function"),
+            DatabricksFunction(function_name="rag.test.test_function_2"),
+            DatabricksFunction(function_name="rag.test.test_function_3"),
             DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
             DatabricksServingEndpoint(endpoint_name="embedding-model"),
             DatabricksSQLWarehouse(warehouse_id="testId1"),

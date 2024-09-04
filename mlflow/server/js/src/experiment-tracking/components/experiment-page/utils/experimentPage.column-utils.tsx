@@ -457,12 +457,15 @@ export const useRunsColumnDefinitions = ({
         children: metricKeys.map((metricKey) => {
           const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.METRICS, metricKey);
           const customMetricColumnDef = customMetricBehaviorDefs[metricKey];
+          const displayName = customMetricColumnDef?.displayName ?? metricKey;
+          const fieldName = createMetricFieldName(metricKey);
+          const tooltip = getQualifiedEntityName(COLUMN_TYPES.METRICS, metricKey);
           return {
-            headerName: customMetricColumnDef?.displayName ?? metricKey,
+            headerName: displayName,
             colId: canonicalSortKey,
-            headerTooltip: getQualifiedEntityName(COLUMN_TYPES.METRICS, metricKey),
-            field: createMetricFieldName(metricKey),
-            tooltipField: createMetricFieldName(metricKey),
+            headerTooltip: tooltip,
+            field: fieldName,
+            tooltipField: fieldName,
             initialWidth: customMetricColumnDef?.initialColumnWidth ?? 100,
             initialHide: true,
             sortable: true,

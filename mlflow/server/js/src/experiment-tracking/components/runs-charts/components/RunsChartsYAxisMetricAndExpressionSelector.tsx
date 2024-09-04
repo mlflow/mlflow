@@ -7,11 +7,18 @@ import {
   Radio,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { RunsChartsCardConfig, RunsChartsLineCardConfig, RunsChartsLineChartYAxisType } from '../runs-charts.types';
+import {
+  RunsChartsCardConfig,
+  RunsChartsLineCardConfig,
+  RunsChartsLineChartExpression,
+  RunsChartsLineChartYAxisType,
+} from '../runs-charts.types';
 import { RunsChartsConfigureField } from './config/RunsChartsConfigure.common';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { FormattedMessage } from 'react-intl';
 import { shouldEnableChartExpressions } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useChartExpressionParser } from '../hooks/useChartExpressionParser';
+import { RunsChartsLineChartXAxisType } from './RunsCharts.common';
 
 const renderMetricSelectorV1 = ({
   metricKeyList,
@@ -83,6 +90,50 @@ const renderMetricSelectorV2 = ({
   );
 };
 
+const ExpressionInput = ({
+  chartExpression,
+  index,
+  updateYAxisExpression,
+  removeYAxisExpression,
+  metricKeyList,
+}: {
+  chartExpression: RunsChartsLineChartExpression;
+  index: number;
+  updateYAxisExpression: (expression: RunsChartsLineChartExpression, index: number) => void;
+  removeYAxisExpression: (index: number) => void;
+  metricKeyList: string[];
+}) => {
+  const { theme } = useDesignSystemTheme();
+  const { compileExpression } = useChartExpressionParser();
+  const [isValidExpression, setIsValidExpression] = useState(true);
+  const validateAndUpdate = (expression: string) => {
+    const compiledExpression = compileExpression(expression, metricKeyList);
+    if (compiledExpression === undefined) {
+      setIsValidExpression(false);
+      updateYAxisExpression({ rpn: [], variables: [], expression }, index);
+    } else {
+      setIsValidExpression(true);
+      updateYAxisExpression(compiledExpression, index);
+    }
+  };
+
+  return (
+    <span css={{ display: 'flex', width: '100%', gap: theme.spacing.sm }}>
+      <Input
+        componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsyaxismetricandexpressionselector.tsx_122"
+        value={chartExpression.expression}
+        onChange={(e) => validateAndUpdate(e.target.value)}
+        validationState={isValidExpression ? undefined : 'error'}
+      />
+      <Button
+        componentId="mlflow.charts.line-chart-expressions-remove"
+        icon={<CloseIcon />}
+        onClick={() => removeYAxisExpression(index)}
+      />
+    </span>
+  );
+};
+
 export const RunsChartsYAxisMetricAndExpressionSelector = ({
   state,
   onStateChange,
@@ -95,42 +146,55 @@ export const RunsChartsYAxisMetricAndExpressionSelector = ({
   updateSelectedMetrics: (metricKeys: string[]) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const usingChartExpressions = shouldEnableChartExpressions();
+  const usingChartExpressions =
+    shouldEnableChartExpressions() && state.xAxisKey !== RunsChartsLineChartXAxisType.METRIC;
 
-  const updateYAxisExpression = (expression: string, index: number) => {
-    onStateChange((current) => {
-      const config = current as RunsChartsLineCardConfig;
-      const yAxisExpressions = config.yAxisExpressions || [];
-      yAxisExpressions[index] = expression;
-      return {
-        ...config,
-        yAxisExpressions,
-      };
+  const DEBOUNCE_DELAY = 300; // in ms
+
+  const [temporaryChartExpressions, setTemporaryChartExpressions] = useState<RunsChartsLineChartExpression[]>(
+    state.yAxisExpressions || [],
+  );
+
+  const updateYAxisExpressionTemporary = (expression: RunsChartsLineChartExpression, index: number) => {
+    setTemporaryChartExpressions((current) => {
+      const newExpressions = [...current];
+      newExpressions[index] = expression;
+      return newExpressions;
     });
   };
 
-  const addNewYAxisExpression = () => {
-    onStateChange((current) => {
-      const config = current as RunsChartsLineCardConfig;
-      const yAxisExpressions = config.yAxisExpressions || [];
-      return {
-        ...config,
-        yAxisExpressions: [...yAxisExpressions, ''],
-      };
+  const addNewYAxisExpressionTemporary = () => {
+    setTemporaryChartExpressions((current) => {
+      return [...current, { rpn: [], variables: [], expression: '' } as RunsChartsLineChartExpression];
     });
   };
 
-  const removeYAxisExpression = (index: number) => {
-    onStateChange((current) => {
-      const config = current as RunsChartsLineCardConfig;
-      const yAxisExpressions = config.yAxisExpressions || [];
-      yAxisExpressions.splice(index, 1);
-      return {
-        ...config,
-        yAxisExpressions,
-      };
+  const removeYAxisExpressionTemporary = (index: number) => {
+    setTemporaryChartExpressions((current) => {
+      const newExpressions = [...current];
+      newExpressions.splice(index, 1);
+      return newExpressions;
     });
   };
+
+  useEffect(() => {
+    const updateYAxisExpression = (yAxisExpressions: RunsChartsLineChartExpression[]) => {
+      onStateChange((current) => {
+        const config = current as RunsChartsLineCardConfig;
+        return {
+          ...config,
+          yAxisExpressions,
+        };
+      });
+    };
+    const handler = setTimeout(() => {
+      updateYAxisExpression(temporaryChartExpressions);
+    }, DEBOUNCE_DELAY);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [temporaryChartExpressions, onStateChange]);
 
   const updateYAxisKey = useCallback(
     (yAxisKey: RunsChartsLineCardConfig['yAxisKey']) => {
@@ -155,6 +219,7 @@ export const RunsChartsYAxisMetricAndExpressionSelector = ({
       {usingChartExpressions && (
         <RunsChartsConfigureField title="Metric type" compact>
           <Radio.Group
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsyaxismetricandexpressionselector.tsx_221"
             name="runs-charts-field-group-metric-type-y-axis"
             value={state.yAxisKey || RunsChartsLineChartYAxisType.METRIC}
             onChange={({ target: { value } }) => updateYAxisKey(value)}
@@ -177,31 +242,24 @@ export const RunsChartsYAxisMetricAndExpressionSelector = ({
       {usingChartExpressions && state.yAxisKey === RunsChartsLineChartYAxisType.EXPRESSION ? (
         <RunsChartsConfigureField title="Expression" compact>
           <div css={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: theme.spacing.sm }}>
-            {state.yAxisExpressions?.map((expression, index) => {
+            {temporaryChartExpressions.map((chartExpression, index) => {
               return (
-                <span css={{ display: 'flex', width: '100%', gap: theme.spacing.sm }}>
-                  <Input
-                    style={{ fontFamily: 'monospace' }}
-                    value={expression}
-                    onChange={(e) => updateYAxisExpression(e.target.value, index)}
-                  />
-                  <Button
-                    componentId="mlflow.charts.line_chart_configure.expressions_remove"
-                    icon={<CloseIcon />}
-                    onClick={() => removeYAxisExpression(index)}
-                  />
-                </span>
+                <ExpressionInput
+                  key={index}
+                  chartExpression={chartExpression}
+                  index={index}
+                  updateYAxisExpression={updateYAxisExpressionTemporary}
+                  removeYAxisExpression={removeYAxisExpressionTemporary}
+                  metricKeyList={metricKeyList}
+                />
               );
             })}
             <Button
-              componentId="mlflow.charts.line_chart_configure.expressions_add_new"
+              componentId="mlflow.charts.line-chart-expressions-add-new"
               icon={<PlusIcon />}
-              onClick={addNewYAxisExpression}
+              onClick={addNewYAxisExpressionTemporary}
             >
-              <FormattedMessage
-                defaultMessage="Add new"
-                description="Experiment tracking > runs charts > line chart configuration > add new expression button"
-              />
+              Add new
             </Button>
           </div>
         </RunsChartsConfigureField>

@@ -1,4 +1,3 @@
-from mlflow.autogen.autogen_logger import MlflowAutogenLogger
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration
 
@@ -23,6 +22,8 @@ def autolog(
             autologging. If ``False``, show all events and warnings.
     """
     from autogen import runtime_logging
+
+    from mlflow.autogen.autogen_logger import MlflowAutogenLogger
 
     # NB: The @autologging_integration annotation is used for adding shared logic. However, one
     # caveat is that the wrapped function is NOT executed when disable=True is passed. This prevents

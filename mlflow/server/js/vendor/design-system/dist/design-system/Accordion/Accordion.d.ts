@@ -1,8 +1,9 @@
 import type { Interpolation, Theme as EmotionTheme } from '@emotion/react';
 import type { CollapseProps as AntDCollapseProps, CollapsePanelProps as AntDCollapsePanelProps } from 'antd';
 import type { CollapsibleType } from 'antd/lib/collapse/CollapsePanel';
-import type { HTMLDataAttributes } from '../types';
-export interface AccordionProps extends HTMLDataAttributes {
+import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
+import type { AnalyticsEventValueChangeNoPiiFlagOptionalProps, HTMLDataAttributes } from '../types';
+export interface AccordionProps extends HTMLDataAttributes, AnalyticsEventValueChangeNoPiiFlagOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     /** How many sections can be displayed at once */
     displayMode?: 'single' | 'multiple';
     /** Key of the active panel */

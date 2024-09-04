@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react-for-react-18';
+import { renderHook, waitFor } from '@testing-library/react';
 import { useSearchParams, useNavigate } from '../../../../common/utils/RoutingUtils';
 
 import { useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';

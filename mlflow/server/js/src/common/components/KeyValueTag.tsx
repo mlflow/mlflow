@@ -57,7 +57,13 @@ export const KeyValueTag = ({
 
   return (
     <div>
-      <Tag closable={isClosable} onClose={onClose} title={tag.key} className={className}>
+      <Tag
+        componentId="codegen_mlflow_app_src_common_components_keyvaluetag.tsx_60"
+        closable={isClosable}
+        onClose={onClose}
+        title={tag.key}
+        className={className}
+      >
         <LegacyTooltip title={allowFullViewModal ? fullViewModalLabel : ''}>
           <span
             css={{ maxWidth, display: 'inline-flex' }}
