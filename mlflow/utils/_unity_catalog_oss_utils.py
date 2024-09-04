@@ -17,7 +17,7 @@ _STRING_TO_STATUS = {k: ModelVersionStatus.Value(k) for k in ModelVersionStatus.
 _STATUS_TO_STRING = {value: key for key, value in _STRING_TO_STATUS.items()}
 
 
-def registered_model_from_uc_oss_proto(uc_oss_proto: RegisteredModelInfo) -> RegisteredModel:
+def get_registered_model_from_uc_oss_proto(uc_oss_proto: RegisteredModelInfo) -> RegisteredModel:
     return RegisteredModel(
         name=f"{uc_oss_proto.catalog_name}.{uc_oss_proto.schema_name}.{uc_oss_proto.name}",
         creation_timestamp=uc_oss_proto.created_at,
@@ -26,7 +26,7 @@ def registered_model_from_uc_oss_proto(uc_oss_proto: RegisteredModelInfo) -> Reg
     )
 
 
-def model_version_from_uc_oss_proto(uc_oss_proto: ModelVersionInfo) -> ModelVersion:
+def get_model_version_from_uc_oss_proto(uc_oss_proto: ModelVersionInfo) -> ModelVersion:
     return ModelVersion(
         name=f"{uc_oss_proto.catalog_name}.{uc_oss_proto.schema_name}.{uc_oss_proto.model_name}",
         version=uc_oss_proto.version,
@@ -39,7 +39,7 @@ def model_version_from_uc_oss_proto(uc_oss_proto: ModelVersionInfo) -> ModelVers
     )
 
 
-def registered_model_search_from_uc_oss_proto(
+def get_registered_model_search_from_uc_oss_proto(
     uc_oss_proto: RegisteredModelInfo,
 ) -> RegisteredModelSearch:
     return RegisteredModelSearch(
@@ -50,7 +50,7 @@ def registered_model_search_from_uc_oss_proto(
     )
 
 
-def model_version_search_from_uc_oss_proto(uc_oss_proto: ModelVersionInfo) -> ModelVersionSearch:
+def get_model_version_search_from_uc_oss_proto(uc_oss_proto: ModelVersionInfo) -> ModelVersionSearch:
     return ModelVersionSearch(
         name=f"{uc_oss_proto.catalog_name}.{uc_oss_proto.schema_name}.{uc_oss_proto.model_name}",
         version=uc_oss_proto.version,

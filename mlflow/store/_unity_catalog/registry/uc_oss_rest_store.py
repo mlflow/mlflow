@@ -28,11 +28,11 @@ from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.base_rest_store import BaseRestStore
 from mlflow.utils._unity_catalog_oss_utils import (
-    model_version_from_uc_oss_proto,
-    model_version_search_from_uc_oss_proto,
+    get_model_version_from_uc_oss_proto,
+    get_model_version_search_from_uc_oss_proto,
     parse_model_name,
-    registered_model_from_uc_oss_proto,
-    registered_model_search_from_uc_oss_proto,
+    get_registered_model_from_uc_oss_proto,
+    get_registered_model_search_from_uc_oss_proto,
 )
 from mlflow.utils._unity_catalog_utils import (
     get_artifact_repo_from_storage_info,
@@ -130,7 +130,7 @@ class UnityCatalogOssStore(BaseRestStore):
             )
         )
         registered_model_info = self._call_endpoint(CreateRegisteredModel, req_body)
-        return registered_model_from_uc_oss_proto(registered_model_info)
+        return get_registered_model_from_uc_oss_proto(registered_model_info)
 
     def update_registered_model(self, name, description):
         """
@@ -159,7 +159,7 @@ class UnityCatalogOssStore(BaseRestStore):
             full_name=full_name,
             proto_name=UpdateRegisteredModel,
         )
-        return registered_model_from_uc_oss_proto(registered_model_info)
+        return get_registered_model_from_uc_oss_proto(registered_model_info)
 
     def rename_registered_model(self, name, new_name):
         raise NotImplementedError("Method not implemented")
@@ -227,7 +227,7 @@ class UnityCatalogOssStore(BaseRestStore):
             response_proto=self._get_response_from_method(ListRegisteredModels),
         )
         registered_models = [
-            registered_model_search_from_uc_oss_proto(registered_model)
+            get_registered_model_search_from_uc_oss_proto(registered_model)
             for registered_model in response_proto.registered_models
         ]
         return PagedList(registered_models, response_proto.next_page_token)
@@ -244,7 +244,7 @@ class UnityCatalogOssStore(BaseRestStore):
             proto_name=GetRegisteredModel,
             version=None,
         )
-        return registered_model_from_uc_oss_proto(registered_model_info)
+        return get_registered_model_from_uc_oss_proto(registered_model_info)
 
     def get_latest_versions(self, name, stages=None):
         raise NotImplementedError("Method not implemented")
@@ -292,7 +292,7 @@ class UnityCatalogOssStore(BaseRestStore):
                 proto_name=FinalizeModelVersion,
                 version=model_version.version,
             )
-            return model_version_from_uc_oss_proto(registered_model_version)
+            return get_model_version_from_uc_oss_proto(registered_model_version)
 
     def update_model_version(self, name, version, description):
         full_name = get_full_name_from_sc(name, None)
@@ -312,7 +312,7 @@ class UnityCatalogOssStore(BaseRestStore):
             proto_name=UpdateModelVersion,
             version=version,
         )
-        return model_version_from_uc_oss_proto(registered_model_version)
+        return get_model_version_from_uc_oss_proto(registered_model_version)
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
         raise NotImplementedError("Method not implemented")
@@ -346,7 +346,7 @@ class UnityCatalogOssStore(BaseRestStore):
         return registered_model_version
 
     def get_model_version(self, name, version):
-        return model_version_from_uc_oss_proto(
+        return get_model_version_from_uc_oss_proto(
             self._get_model_version_endpoint_response(name, version)
         )
 
@@ -385,7 +385,7 @@ class UnityCatalogOssStore(BaseRestStore):
             proto_name=ListModelVersions,
         )
         model_versions = [
-            model_version_search_from_uc_oss_proto(mvd) for mvd in response_proto.model_versions
+            get_model_version_search_from_uc_oss_proto(mvd) for mvd in response_proto.model_versions
         ]
         return PagedList(model_versions, response_proto.next_page_token)
 
