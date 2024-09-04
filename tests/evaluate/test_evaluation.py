@@ -47,6 +47,7 @@ from mlflow.models.evaluation import (
 )
 from mlflow.models.evaluation.artifacts import ImageEvaluationArtifact
 from mlflow.models.evaluation.base import (
+    _get_model_from_deployment_endpoint_uri,
     _is_model_deployment_endpoint_uri,
     _start_run_or_reuse_active_run,
 )
@@ -2125,7 +2126,7 @@ def test_evaluate_on_completion_model_endpoint(mock_deploy_client, input_data, f
         # Input column not str or dict
         (
             pd.DataFrame({"inputs": [1, 2], "ground_truth": _TEST_GT_LIST}),
-            "Invalid input column type",
+            "Invalid input data type",
         ),
     ],
 )
@@ -2139,6 +2140,62 @@ def test_evaluate_on_model_endpoint_invalid_input_data(input_data, error_message
                 targets="ground_truth",
                 inference_params={"max_tokens": 10, "temperature": 0.5},
             )
+
+
+@pytest.mark.parametrize(
+    "model_input",
+    [
+        # Case 1: Single chat dictionary.
+        # This is an expected input format from the Databricks RAG Evaluator.
+        {
+            "messages": [{"content": "What is MLflow?", "role": "user"}],
+            "max_tokens": 10,
+        },
+        # Case 2: List of chat dictionaries.
+        # This is not a typical input format from either default or Databricks RAG evaluators,
+        # but we support it for compatibility with the normal Pyfunc models.
+        [
+            {"messages": [{"content": "What is MLflow?", "role": "user"}]},
+            {"messages": [{"content": "What is Spark?", "role": "user"}]},
+        ],
+        # Case 3: DataFrame with a column of dictionaries
+        pd.DataFrame(
+            {
+                "inputs": [
+                    {
+                        "messages": [{"content": "What is MLflow?", "role": "user"}],
+                        "max_tokens": 10,
+                    },
+                    {
+                        "messages": [{"content": "What is Spark?", "role": "user"}],
+                    },
+                ]
+            }
+        ),
+        # Case 4: DataFrame with a column of strings
+        pd.DataFrame(
+            {
+                "inputs": ["What is MLflow?", "What is Spark?"],
+            }
+        ),
+    ],
+)
+@mock.patch("mlflow.deployments.get_deploy_client")
+def test_model_from_deployment_endpoint(mock_deploy_client, model_input):
+    mock_deploy_client.return_value.predict.return_value = _DUMMY_CHAT_RESPONSE
+    mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/chat"}
+
+    model = _get_model_from_deployment_endpoint_uri("endpoints:/chat")
+
+    response = model.predict(model_input)
+
+    if isinstance(model_input, dict):
+        assert mock_deploy_client.return_value.predict.call_count == 1
+        # Chat response should be unwrapped
+        assert response == "This is a response"
+    else:
+        assert mock_deploy_client.return_value.predict.call_count == 2
+        assert pd.Series(response).equals(pd.Series(["This is a response"] * 2))
 
 
 def test_import_evaluation_dataset():
