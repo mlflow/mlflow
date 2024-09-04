@@ -3,7 +3,7 @@ version: 2.1
 jobs:
   build_doc_r:
     machine:
-      image: ubuntu-2004:202111-01
+      image: ubuntu-2004:current
 
     steps:
       - checkout
