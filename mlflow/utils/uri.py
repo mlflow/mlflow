@@ -127,7 +127,6 @@ def is_databricks_unity_catalog_uri(uri):
     return scheme == _DATABRICKS_UNITY_CATALOG_SCHEME or uri == _DATABRICKS_UNITY_CATALOG_SCHEME
 
 
-# Update scheme parsing if changes are made to the OSS URI (this is an initial proof of concept)
 def is_oss_unity_catalog_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
     return scheme == "uc"
