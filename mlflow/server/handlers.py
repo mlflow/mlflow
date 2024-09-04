@@ -406,11 +406,15 @@ def _assert_map_key_present(x):
         _assert_required(entry.get("key"))
 
 
-def _assert_required(x):
-    assert x is not None
-    # When parsing JSON payloads via proto, absent string fields
-    # are expressed as empty strings
-    assert x != ""
+def _assert_required(x, path=None):
+    if path is None:
+        assert x is not None
+        # When parsing JSON payloads via proto, absent string fields
+        # are expressed as empty strings
+        assert x != ""
+    else:
+        assert x is not None, f"Missing value for required parameter '{path}'."
+        assert x != "", f"Missing value for required parameter '{path}'."
 
 
 def _assert_less_than_or_equal(x, max_value, message=None):
@@ -1564,14 +1568,18 @@ def _get_artifact_repo(run):
 @_disable_if_artifacts_only
 def _log_batch():
     def _assert_metrics_fields_present(metrics):
-        for m in metrics:
-            _assert_required(m.get("key"))
-            _assert_required(m.get("value"))
-            _assert_required(m.get("timestamp"))
+        for idx, m in enumerate(metrics):
+            _assert_required(m.get("key"), path=f"metrics[{idx}].key")
+            _assert_required(m.get("value"), path=f"metrics[{idx}].value")
+            _assert_required(m.get("timestamp"), path=f"metrics[{idx}].timestamp")
 
-    def _assert_params_tags_fields_present(params_or_tags):
-        for param_or_tag in params_or_tags:
-            _assert_required(param_or_tag.get("key"))
+    def _assert_params_fields_present(params):
+        for idx, param in enumerate(params):
+            _assert_required(param.get("key"), path=f"params[{idx}].key")
+
+    def _assert_tags_fields_present(tags):
+        for idx, tag in enumerate(tags):
+            _assert_required(tag.get("key"), path=f"tags[{idx}].key")
 
     _validate_batch_log_api_req(_get_request_json())
     request_message = _get_request_message(
@@ -1579,8 +1587,8 @@ def _log_batch():
         schema={
             "run_id": [_assert_string, _assert_required],
             "metrics": [_assert_array, _assert_metrics_fields_present],
-            "params": [_assert_array, _assert_params_tags_fields_present],
-            "tags": [_assert_array, _assert_params_tags_fields_present],
+            "params": [_assert_array, _assert_params_fields_present],
+            "tags": [_assert_array, _assert_tags_fields_present],
         },
     )
     metrics = [Metric.from_proto(proto_metric) for proto_metric in request_message.metrics]
