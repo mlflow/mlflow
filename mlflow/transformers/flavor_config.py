@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ALREADY_EXISTS
-from mlflow.transformers.hub_utils import get_latest_commit_for_repo
+from mlflow.transformers.hub_utils import get_latest_commit_for_repo, infer_framework_from_repo
 from mlflow.transformers.peft import _PEFT_ADAPTOR_DIR_NAME, get_peft_base_model, is_peft_model
 from mlflow.transformers.torch_utils import _extract_torch_dtype_if_set
 
@@ -118,13 +118,19 @@ def _get_model_config(model, save_pretrained=True):
     return conf
 
 
-def _get_component_config(component, key, save_pretrained=True, default_repo=None):
+def _get_component_config(
+    component: Any,
+    key: str,
+    save_pretrained: bool = True,
+    default_repo: Optional[str] = None,
+    commit_sha: Optional[str] = None,
+):
     conf = {FlavorKey.COMPONENT_TYPE.format(key): _get_instance_type(component)}
 
     # Log source repo name and commit sha for the component
     if not save_pretrained:
         repo = getattr(component, "name_or_path", default_repo)
-        revision = get_latest_commit_for_repo(repo)
+        revision = commit_sha or get_latest_commit_for_repo(repo)
         conf[FlavorKey.COMPONENT_NAME.format(key)] = repo
         conf[FlavorKey.COMPONENT_REVISION.format(key)] = revision
 
@@ -155,6 +161,61 @@ def _get_instance_type(obj):
     the base ABC type of the model.
     """
     return obj.__class__.__name__
+
+
+def build_flavor_config_from_repo_id(
+    repo_id: str,
+    processor=None,
+    torch_dtype=None,
+    save_pretrained=True,
+) -> Dict[str, Any]:
+    """
+    Generates the flavor metadata from a Hugging Face model repository ID
+    e.g. "meta-llama/Meta-Llama-3.1-405B, instead of the pipeline instance in-memory.
+    """
+    import huggingface_hub
+    from transformers import AutoTokenizer, pipelines
+
+    from mlflow.transformers.model_io import _MODEL_BINARY_FILE_NAME
+
+    hf_repo_info = huggingface_hub.model_info(repo_id)
+
+    task = hf_repo_info.pipeline_tag
+    task_metadata = pipelines.check_task(task)
+    pipeline_class = task_metadata[1]["impl"].__name__
+    flavor_conf = {
+        FlavorKey.TASK: task,
+        FlavorKey.INSTANCE_TYPE: pipeline_class,
+        FlavorKey.FRAMEWORK: infer_framework_from_repo(repo_id),
+        FlavorKey.TORCH_DTYPE: str(torch_dtype) if torch_dtype else None,
+        FlavorKey.MODEL_TYPE: hf_repo_info.config["architectures"][0],
+        FlavorKey.MODEL_NAME: hf_repo_info.id,
+    }
+
+    if save_pretrained:
+        flavor_conf[FlavorKey.MODEL_BINARY] = _MODEL_BINARY_FILE_NAME
+    else:
+        flavor_conf[FlavorKey.MODEL_REVISION] = hf_repo_info.sha
+
+    components = {FlavorKey.TOKENIZER}
+    tokenizer = AutoTokenizer.from_pretrained(repo_id)
+    tokenizer_conf = _get_component_config(
+        tokenizer, FlavorKey.TOKENIZER, save_pretrained=save_pretrained, commit_sha=hf_repo_info.sha
+    )
+    flavor_conf.update(tokenizer_conf)
+
+    if processor:
+        flavor_conf.update(
+            _get_component_config(
+                processor,
+                FlavorKey.PROCESSOR,
+                save_pretrained=save_pretrained,
+                commit_sha=hf_repo_info.sha,
+            )
+        )
+
+    flavor_conf[FlavorKey.COMPONENTS] = list(components)
+    return flavor_conf
 
 
 def update_flavor_conf_to_persist_pretrained_model(
