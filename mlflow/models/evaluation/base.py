@@ -12,7 +12,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from decimal import Decimal
 from types import FunctionType
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -854,7 +854,9 @@ def _get_model_from_deployment_endpoint_uri(
             self.endpoint = endpoint
             self.params = params
 
-        def predict(self, context, model_input: Union[Dict[str, Any], pd.DataFrame]):
+        def predict(
+            self, context, model_input: Union[pd.DataFrame, Dict[str, Any], List[Dict[str, Any]]]
+        ):
             """
             Run prediction on the input data.
 
@@ -891,6 +893,13 @@ def _get_model_from_deployment_endpoint_uri(
 
                 predictions = [self._predict_single(data) for data in model_input[input_column]]
                 return pd.Series(predictions)
+            else:
+                raise MlflowException(
+                    f"Invalid input data type: {type(model_input)}. The input data must be either "
+                    "a Pandas DataFrame, a dictionary, or a list of dictionaries containing the "
+                    "request payloads for evaluating an MLflow Deployments endpoint.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
         def _predict_single(self, data: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
             """
@@ -912,9 +921,9 @@ def _get_model_from_deployment_endpoint_uri(
                 )
             else:
                 raise MlflowException(
-                    f"Invalid input data type: {type(data)}. The input data must be either "
-                    "a string or a dictionary containing the request payload for evaluating an "
-                    "MLflow Deployments endpoint.",
+                    f"Invalid input data type: {type(data)}. The feature column of the evaluation "
+                    "dataset must contain only strings or dictionaries containing the request "
+                    "payload for evaluating an MLflow Deployments endpoint.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return prediction
