@@ -67,7 +67,9 @@ MAX_REGISTERED_MODEL_ALIAS_LENGTH = 255
 MAX_TRACE_TAG_KEY_LENGTH = 250
 MAX_TRACE_TAG_VAL_LENGTH = 8000
 
-_UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ", ".join(DATABASE_ENGINES)
+_UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {{{}}}".format(
+    ", ".join(DATABASE_ENGINES)
+)
 
 PARAM_VALIDATION_MSG = """
 
@@ -123,8 +125,8 @@ def append_to_json_path(currenPath, value):
 def bad_path_message(name):
     return (
         "Names may be treated as files in certain cases, and must not resolve to other names"
-        " when treated as such. This name would resolve to '%s'"
-    ) % posixpath.normpath(name)
+        f" when treated as such. This name would resolve to {posixpath.normpath(name)!r}"
+    )
 
 
 def validate_param_and_metric_name(name):
