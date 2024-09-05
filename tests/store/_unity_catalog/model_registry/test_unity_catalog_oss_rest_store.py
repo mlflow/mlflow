@@ -29,7 +29,7 @@ from tests.store._unity_catalog.conftest import _REGISTRY_HOST_CREDS
 
 @pytest.fixture
 def store(mock_databricks_uc_oss_host_creds):
-    with mock.patch("mlflow.utils.oss_utils.get_oss_host_creds"):
+    with mock.patch("mlflow.utils.oss_registry_utils.get_oss_host_creds"):
         yield UnityCatalogOssStore(store_uri="uc")
 
 
