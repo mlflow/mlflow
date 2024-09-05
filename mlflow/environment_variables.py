@@ -245,6 +245,13 @@ MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT", int, None
 )
 
+# default value to connection_timeout is 20 seconds from azure blob-storage which may not be 
+# always enough, here it will be set as 60 seconds
+# https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/storage/azure-storage-blob#other-client--per-operation-configuration
+MLFLOW_AZURE_BLOB_CONNECTION_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_AZURE_BLOB_CONNECTION_TIMEOUT", int, 60
+)
+
 #: Specifies the timeout for model inference with input example(s) when logging/saving a model.
 #: MLflow runs a few inference requests against the model to infer model signature and pip
 #: requirements. Sometimes the prediction hangs for a long time, especially for a large model.
