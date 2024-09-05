@@ -520,8 +520,6 @@ def test_prioritize_env_var_config_provider(monkeypatch):
     assert hc.token == "token1"
 
 
-import pytest
-
 @pytest.mark.parametrize("input_url,expected_result", [
     # Test with a valid URL without https:// prefix
     ("example.com", "https://example.com"),
