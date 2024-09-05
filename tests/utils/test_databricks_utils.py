@@ -521,7 +521,7 @@ def test_prioritize_env_var_config_provider(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "input_url,expected_result",
+    ("input_url", "expected_result"),
     [
         # Test with a valid URL without https:// prefix
         ("example.com", "https://example.com"),
