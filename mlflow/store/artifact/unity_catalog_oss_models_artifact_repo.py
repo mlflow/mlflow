@@ -43,6 +43,8 @@ _METHOD_TO_INFO_OSS = extract_api_info_for_service(
     UnityCatalogService, _UC_OSS_REST_API_PATH_PREFIX
 )
 
+from mlflow.utils.uri import is_file_uri
+from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 
 class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
     """
@@ -71,10 +73,12 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
         super().__init__(artifact_uri)
         from mlflow.tracking.client import MlflowClient
 
-        registry_uri = get_databricks_profile_uri_from_artifact_uri(
+        registry_uri_from_artifact_uri = get_databricks_profile_uri_from_artifact_uri(
             artifact_uri, result_scheme=_OSS_UNITY_CATALOG_SCHEME
-        ) or registry_uri
-        _, key_prefix = get_db_info_from_uri(registry_uri)  # TODO: Ask Kris what to do here
+        )
+        if registry_uri_from_artifact_uri is not None:
+            registry_uri = registry_uri_from_artifact_uri
+        _, key_prefix = get_db_info_from_uri(registry_uri)
         if key_prefix is not None:
             raise MlflowException(
                 "Remote model registry access via model URIs of the form "
@@ -100,10 +104,9 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
             header_json = message_to_json(lineage_header_info)
             header_base64 = base64.b64encode(header_json.encode())
             extra_headers[_DATABRICKS_LINEAGE_ID_HEADER] = header_base64
-
         oss_creds = get_oss_host_creds(
             self.registry_uri
-        )  # TODO: Discuss & Implement OSS Host Creds properly
+        ) # Implement ENV variable the same way the databricks user/token is specified
         oss_endpoint, oss_method = _METHOD_TO_INFO_OSS[GenerateTemporaryModelVersionCredentialsOSS]
         [catalog_name, schema_name, model_name] = self.model_name.split(
             "."
@@ -127,11 +130,17 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
             extra_headers=extra_headers,
         )
 
-    def _get_artifact_repo(self, lineage_header_info=None):
+    def _get_artifact_repo(self, lineage_header_info=None, artifact_path=None):
         """
         Get underlying ArtifactRepository instance for model version blob
         storage
         """
+        if is_file_uri(artifact_path):
+            print("Blob Storage Path", self._get_blob_storage_path())
+            print("artifact_path", artifact_path)
+            print("hello")
+            return LocalArtifactRepository(artifact_uri=artifact_path)
+
         scoped_token = self._get_scoped_token(lineage_header_info=lineage_header_info)
         blob_storage_path = self._get_blob_storage_path()
         return get_artifact_repo_from_storage_info(
@@ -145,7 +154,7 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
         return self._get_artifact_repo().list_artifacts(path=path)
 
     def download_artifacts(self, artifact_path, dst_path=None, lineage_header_info=None):
-        return self._get_artifact_repo(lineage_header_info=lineage_header_info).download_artifacts(
+        return self._get_artifact_repo(lineage_header_info=lineage_header_info, artifact_path=artifact_path).download_artifacts(
             artifact_path, dst_path
         )
 
