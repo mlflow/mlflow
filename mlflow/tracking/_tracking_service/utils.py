@@ -154,7 +154,7 @@ def _get_databricks_uc_rest_store(store_uri, **_):
     supported_schemes = [
         scheme
         for scheme in _tracking_store_registry._registry
-        if scheme != _DATABRICKS_UNITY_CATALOG_SCHEME and scheme != _OSS_UNITY_CATALOG_SCHEME
+        if scheme not in {_DATABRICKS_UNITY_CATALOG_SCHEME, _OSS_UNITY_CATALOG_SCHEME}
     ]
     raise MlflowException(
         f"Detected Unity Catalog tracking URI '{store_uri}'. "
