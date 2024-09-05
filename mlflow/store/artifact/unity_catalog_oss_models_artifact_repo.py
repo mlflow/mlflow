@@ -63,7 +63,7 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
         if not is_oss_unity_catalog_uri(registry_uri):
             raise MlflowException(
                 message="Attempted to instantiate an artifact repo to access models in the "
-                f"OSSS Unity Catalog with non-Unity Catalog registry URI '{registry_uri}'. "
+                f"OSS Unity Catalog with non-Unity Catalog registry URI '{registry_uri}'. "
                 f"Please specify a Unity Catalog registry URI of the "
                 f"form '{_OSS_UNITY_CATALOG_SCHEME}[://profile]', e.g. by calling "
                 f"mlflow.set_registry_uri('{_OSS_UNITY_CATALOG_SCHEME}') if using the "
