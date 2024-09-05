@@ -15,6 +15,7 @@ from mlflow.exceptions import MlflowException
         ("uc:databricks-uc", MlflowHostCreds(host="databricks-uc")),
         ("uc:http://localhost:8081", MlflowHostCreds(host="http://localhost:8081")),
         ("invalid_scheme:http://localhost:8081", MlflowException),
+        ("databricks-uc", MlflowException),
     ],
 )
 def test_get_oss_host_creds(server_uri, expected_creds):
