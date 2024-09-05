@@ -130,19 +130,16 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
             extra_headers=extra_headers,
         )
 
-    def _get_artifact_repo(self, lineage_header_info=None, artifact_path=None):
+    def _get_artifact_repo(self, lineage_header_info=None):
         """
         Get underlying ArtifactRepository instance for model version blob
         storage
         """
-        if is_file_uri(artifact_path):
-            print("Blob Storage Path", self._get_blob_storage_path())
-            print("artifact_path", artifact_path)
-            print("hello")
-            return LocalArtifactRepository(artifact_uri=artifact_path)
-
-        scoped_token = self._get_scoped_token(lineage_header_info=lineage_header_info)
         blob_storage_path = self._get_blob_storage_path()
+        if is_file_uri(blob_storage_path):
+            return LocalArtifactRepository(artifact_uri=blob_storage_path)
+        
+        scoped_token = self._get_scoped_token(lineage_header_info=lineage_header_info)
         return get_artifact_repo_from_storage_info(
             storage_location=blob_storage_path,
             scoped_token=scoped_token,
@@ -154,7 +151,7 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
         return self._get_artifact_repo().list_artifacts(path=path)
 
     def download_artifacts(self, artifact_path, dst_path=None, lineage_header_info=None):
-        return self._get_artifact_repo(lineage_header_info=lineage_header_info, artifact_path=artifact_path).download_artifacts(
+        return self._get_artifact_repo(lineage_header_info=lineage_header_info).download_artifacts(
             artifact_path, dst_path
         )
 
