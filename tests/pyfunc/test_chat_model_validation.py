@@ -92,15 +92,45 @@ MOCK_OPENAI_CHAT_COMPLETION_RESPONSE = {
 }
 
 
+MOCK_OPENAI_CHAT_REFUSAL_RESPONSE = {
+    "id": "chatcmpl-123",
+    "object": "chat.completion",
+    "created": 1721596428,
+    "model": "gpt-4o-mini",
+    "choices": [
+        {
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "refusal": "I'm sorry, I cannot assist with that request.",
+            },
+            "logprobs": None,
+            "finish_reason": "stop",
+        }
+    ],
+    "usage": {"prompt_tokens": 81, "completion_tokens": 11, "total_tokens": 92},
+}
+
+
 @pytest.mark.parametrize(
     ("data", "error", "match"),
     [
-        ({"role": "user"}, TypeError, "required positional argument"),  # missing required field
+        ({"content": "hello"}, TypeError, "required positional argument"),  # missing required field
         (
             {"role": "user", "content": "hello", "name": 1},
             ValueError,
             "`name` must be of type str",
         ),  # field of wrong type
+        (
+            {"role": "user", "refusal": "I can't answer that.", "content": "hi"},
+            ValueError,
+            "Both `content` and `refusal` cannot be set",
+        ),  # conflicting schema
+        (
+            {"role": "user", "name": "name"},
+            ValueError,
+            "`content` is required",
+        ),  # missing one-of required field
         (
             {"role": "user", "content": "hello", "extra": "field"},
             TypeError,
@@ -149,7 +179,10 @@ def test_list_validation_throws_on_invalid_lists(data, match):
         ChatRequest(**data)
 
 
-@pytest.mark.parametrize("sample_output", [MOCK_RESPONSE, MOCK_OPENAI_CHAT_COMPLETION_RESPONSE])
+@pytest.mark.parametrize(
+    "sample_output",
+    [MOCK_RESPONSE, MOCK_OPENAI_CHAT_COMPLETION_RESPONSE, MOCK_OPENAI_CHAT_REFUSAL_RESPONSE],
+)
 def test_dataclass_constructs_nested_types_from_dict(sample_output):
     response = ChatResponse(**sample_output)
     assert isinstance(response.usage, TokenUsageStats)
@@ -157,7 +190,10 @@ def test_dataclass_constructs_nested_types_from_dict(sample_output):
     assert isinstance(response.choices[0].message, ChatMessage)
 
 
-@pytest.mark.parametrize("sample_output", [MOCK_RESPONSE, MOCK_OPENAI_CHAT_COMPLETION_RESPONSE])
+@pytest.mark.parametrize(
+    "sample_output",
+    [MOCK_RESPONSE, MOCK_OPENAI_CHAT_COMPLETION_RESPONSE, MOCK_OPENAI_CHAT_REFUSAL_RESPONSE],
+)
 def test_to_dict_converts_nested_dataclasses(sample_output):
     response = ChatResponse(**sample_output).to_dict()
     assert isinstance(response["choices"][0], dict)

@@ -43,8 +43,9 @@ _METHOD_TO_INFO_OSS = extract_api_info_for_service(
     UnityCatalogService, _UC_OSS_REST_API_PATH_PREFIX
 )
 
-from mlflow.utils.uri import is_file_uri
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
+from mlflow.utils.uri import is_file_uri
+
 
 class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
     """
@@ -63,7 +64,7 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
         if not is_oss_unity_catalog_uri(registry_uri):
             raise MlflowException(
                 message="Attempted to instantiate an artifact repo to access models in the "
-                f"OSSS Unity Catalog with non-Unity Catalog registry URI '{registry_uri}'. "
+                f"OSS Unity Catalog with non-Unity Catalog registry URI '{registry_uri}'. "
                 f"Please specify a Unity Catalog registry URI of the "
                 f"form '{_OSS_UNITY_CATALOG_SCHEME}[://profile]', e.g. by calling "
                 f"mlflow.set_registry_uri('{_OSS_UNITY_CATALOG_SCHEME}') if using the "
@@ -106,7 +107,7 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
             extra_headers[_DATABRICKS_LINEAGE_ID_HEADER] = header_base64
         oss_creds = get_oss_host_creds(
             self.registry_uri
-        ) # Implement ENV variable the same way the databricks user/token is specified
+        )  # Implement ENV variable the same way the databricks user/token is specified
         oss_endpoint, oss_method = _METHOD_TO_INFO_OSS[GenerateTemporaryModelVersionCredentialsOSS]
         [catalog_name, schema_name, model_name] = self.model_name.split(
             "."
@@ -138,7 +139,6 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
         blob_storage_path = self._get_blob_storage_path()
         if is_file_uri(blob_storage_path):
             return LocalArtifactRepository(artifact_uri=blob_storage_path)
-        
         scoped_token = self._get_scoped_token(lineage_header_info=lineage_header_info)
         return get_artifact_repo_from_storage_info(
             storage_location=blob_storage_path,
