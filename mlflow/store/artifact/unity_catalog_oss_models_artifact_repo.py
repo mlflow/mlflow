@@ -23,7 +23,7 @@ from mlflow.utils._unity_catalog_utils import (
     get_artifact_repo_from_storage_info,
     get_full_name_from_sc,
 )
-from mlflow.utils.oss_utils import get_oss_host_creds
+from mlflow.utils.oss_registry_utils import get_oss_host_creds
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,

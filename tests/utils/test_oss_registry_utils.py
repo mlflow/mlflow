@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.utils.oss_utils import get_oss_host_creds
+from mlflow.utils.oss_registry_utils import get_oss_host_creds
 from mlflow.utils.rest_utils import MlflowHostCreds
 
 
