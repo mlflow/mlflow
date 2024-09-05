@@ -330,7 +330,7 @@ class UnityCatalogOssStore(BaseRestStore):
             version=version,
         )
 
-    # This method exists to return the actual UC response object, 
+    # This method exists to return the actual UC response object,
     # which contains the storage location
     def _get_model_version_endpoint_response(self, name, version):
         full_name = get_full_name_from_sc(name, None)

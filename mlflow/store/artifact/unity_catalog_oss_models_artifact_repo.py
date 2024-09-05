@@ -43,9 +43,11 @@ _METHOD_TO_INFO_OSS = extract_api_info_for_service(
     UnityCatalogService, _UC_OSS_REST_API_PATH_PREFIX
 )
 
+import urllib.parse
+
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.utils.uri import is_file_uri
-import urllib.parse
+
 
 class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
     """
@@ -79,7 +81,7 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
         )
         if registry_uri_from_artifact_uri is not None:
             registry_uri = registry_uri_from_artifact_uri
-        
+
         _, key_prefix = get_db_info_from_uri(urllib.parse.urlparse(artifact_uri).path)
         if key_prefix is not None:
             raise MlflowException(
