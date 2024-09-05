@@ -171,7 +171,8 @@ def _get_databricks_uc_rest_store(store_uri, **_):
         "'profile_name' is the name of the Databricks CLI profile to use for "
         "authentication. A OSS Unity Catalog model registry URI can also be specified via "
         f"mlflow.set_registry_uri('{_OSS_UNITY_CATALOG_SCHEME}:http://localhost:8080')."
-        "Be sure to leave the tracking URI configured to use one of the supported schemes listed above."
+        "Be sure to leave the tracking URI configured to use one of the supported"
+        "schemes listed above."
     )
 
 
