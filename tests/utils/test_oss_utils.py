@@ -8,7 +8,7 @@ from mlflow.utils.rest_utils import MlflowHostCreds
 
 
 @pytest.mark.parametrize(
-    ("server_uri, expected_creds"),
+    ("server_uri", "expected_creds"),
     [
         ("uc:databricks-uc", MlflowHostCreds(host="databricks-uc")),
         ("uc:http://localhost:8081", MlflowHostCreds(host="http://localhost:8081")),
