@@ -22,6 +22,7 @@ _DBFS_HDFS_URI_PREFIX = "dbfs:/"
 _uc_volume_URI_PREFIX = "/Volumes/"
 _UC_DBFS_SYMLINK_PREFIX = "/.fuse-mounts/"
 _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
+_OSS_UNITY_CATALOG_SCHEME = "uc"
 
 
 def is_local_uri(uri, is_tracking_or_registry_uri=True):
@@ -124,6 +125,11 @@ def is_valid_uc_volumes_uri(uri: str) -> bool:
 def is_databricks_unity_catalog_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
     return scheme == _DATABRICKS_UNITY_CATALOG_SCHEME or uri == _DATABRICKS_UNITY_CATALOG_SCHEME
+
+
+def is_oss_unity_catalog_uri(uri):
+    scheme = urllib.parse.urlparse(uri).scheme
+    return scheme == "uc"
 
 
 def construct_db_uri_from_profile(profile):
