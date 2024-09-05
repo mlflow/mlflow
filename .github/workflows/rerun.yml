@@ -18,7 +18,7 @@ jobs:
     permissions:
       pull-requests: write # to create a reaction to the comment
       actions: write # to rerun github action workflows
-    if: ${{ github.event.issue.pull_request }} && (github.event.comment.body == '/rerun' || github.event.comment.body == '/rr')
+    if: github.event.issue.pull_request && (github.event.comment.body == '/rerun' || github.event.comment.body == '/rr')
     steps:
       - uses: actions/checkout@v4
         with:
