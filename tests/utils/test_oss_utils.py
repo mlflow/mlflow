@@ -18,10 +18,12 @@ from mlflow.utils.rest_utils import MlflowHostCreds
 )
 def test_get_oss_host_creds(server_uri, expected_creds):
     with mock.patch(
-        "mlflow.utils.oss_utils.get_databricks_host_creds", return_value=MlflowHostCreds(host="databricks-uc")
+        "mlflow.utils.oss_utils.get_databricks_host_creds", 
+        return_value=MlflowHostCreds(host="databricks-uc")
     ):
         if expected_creds == MlflowException:
-            with pytest.raises(MlflowException, match="The scheme of the server_uri should be 'uc'"):
+            with pytest.raises(MlflowException, 
+                               match="The scheme of the server_uri should be 'uc'"):
                 get_oss_host_creds(server_uri)
         else:
             actual_creds = get_oss_host_creds(server_uri)
