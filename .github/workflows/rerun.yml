@@ -1,0 +1,31 @@
+name: rerun
+
+on:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  rerun:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write # to create a reaction to the comment
+      actions: write # to rerun github action workflows
+    if: github.event.issue.pull_request && (github.event.comment.body == '/rerun' || github.event.comment.body == '/rr')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const rerun = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/rerun.js`);
+            await rerun({ context, github });
