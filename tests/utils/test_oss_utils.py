@@ -10,7 +10,7 @@ from mlflow.exceptions import MlflowException
 
 
 @pytest.mark.parametrize(
-    "server_uri, expected_creds",
+    ("server_uri, expected_creds"),
     [
         ("uc:databricks-uc", MlflowHostCreds(host="databricks-uc")),
         ("uc:http://localhost:8081", MlflowHostCreds(host="http://localhost:8081")),
@@ -21,9 +21,9 @@ from mlflow.exceptions import MlflowException
 def test_get_oss_host_creds(server_uri, expected_creds):
     with mock.patch(
         "mlflow.utils.oss_utils.get_databricks_host_creds", return_value=MlflowHostCreds(host="databricks-uc")
-    ) as mock_get_databricks_host_creds:
+    ):
         if expected_creds == MlflowException:
-            with pytest.raises(MlflowException):
+            with pytest.raises(MlflowException, match="The scheme of the server_uri should be 'uc'"):
                 get_oss_host_creds(server_uri)
         else:
             actual_creds = get_oss_host_creds(server_uri)
@@ -36,5 +36,5 @@ def test_get_databricks_host_creds():
     with mock.patch(
         "mlflow.utils.oss_utils.get_databricks_host_creds", return_value=mock.MagicMock()
     ) as mock_get_databricks_host_creds:
-        expected_creds = get_oss_host_creds(server_uri)
+        get_oss_host_creds(server_uri)
         assert mock_get_databricks_host_creds.call_args_list == [mock.call("databricks-uc")]
