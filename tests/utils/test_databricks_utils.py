@@ -520,24 +520,17 @@ def test_prioritize_env_var_config_provider(monkeypatch):
     assert hc.token == "token1"
 
 
-def test_get_workspace_url_with_valid_url():
-    # Mock _get_workspace_url to return a valid URL without https:// prefix
-    with mock.patch("mlflow.utils.databricks_utils._get_workspace_url", return_value="example.com"):
+import pytest
+
+@pytest.mark.parametrize("input_url,expected_result", [
+    # Test with a valid URL without https:// prefix
+    ("example.com", "https://example.com"),
+    # Test with a valid URL with https:// prefix
+    ("https://example.com", "https://example.com"),
+    # Test with None URL
+    (None, None)
+])
+def test_get_workspace_url(input_url, expected_result):
+    with mock.patch("mlflow.utils.databricks_utils._get_workspace_url", return_value=input_url):
         result = get_workspace_url()
-        assert result == "https://example.com"
-
-
-def test_get_workspace_url_with_https_prefix():
-    # Mock _get_workspace_url to return a valid URL with https:// prefix
-    with mock.patch(
-        "mlflow.utils.databricks_utils._get_workspace_url", return_value="https://example.com"
-    ):
-        result = get_workspace_url()
-        assert result == "https://example.com"
-
-
-def test_get_workspace_url_with_none():
-    # Mock _get_workspace_url to return None
-    with mock.patch("mlflow.utils.databricks_utils._get_workspace_url", return_value=None):
-        result = get_workspace_url()
-        assert result is None
+        assert result == expected_result
