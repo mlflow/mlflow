@@ -50,7 +50,9 @@ def get_registered_model_search_from_uc_oss_proto(
     )
 
 
-def get_model_version_search_from_uc_oss_proto(uc_oss_proto: ModelVersionInfo) -> ModelVersionSearch:
+def get_model_version_search_from_uc_oss_proto(
+        uc_oss_proto: ModelVersionInfo
+) -> ModelVersionSearch:
     return ModelVersionSearch(
         name=f"{uc_oss_proto.catalog_name}.{uc_oss_proto.schema_name}.{uc_oss_proto.model_name}",
         version=uc_oss_proto.version,
@@ -81,7 +83,8 @@ def parse_model_name(filter):
         )
     else:
         raise MlflowException(
-            f"Unsupported filter query : `{trimmed_filter}`. Please specify your filter parameter in "
+            f"Unsupported filter query : `{trimmed_filter}`."
+            + " Please specify your filter parameter in "
             + "the format `name = 'model_name'`."
         )
     parts = model_name_str.split(".")

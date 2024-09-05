@@ -335,7 +335,7 @@ class UnityCatalogOssStore(BaseRestStore):
         full_name = get_full_name_from_sc(name, None)
         req_body = message_to_json(GetModelVersion(full_name=full_name, version=version))
         endpoint, method = _METHOD_TO_INFO[GetModelVersion]
-        registered_model_version = self._edit_endpoint_and_call(
+        return self._edit_endpoint_and_call(
             endpoint=endpoint,
             method=method,
             req_body=req_body,
@@ -343,7 +343,6 @@ class UnityCatalogOssStore(BaseRestStore):
             proto_name=GetModelVersion,
             version=version,
         )
-        return registered_model_version
 
     def get_model_version(self, name, version):
         return get_model_version_from_uc_oss_proto(
@@ -419,7 +418,7 @@ class UnityCatalogOssStore(BaseRestStore):
         scoped_token = base_credential_refresh_def()
 
         return get_artifact_repo_from_storage_info(
-            storage_location=model_version.storage_location,  # assuming source is the storage location for OSS
+            storage_location=model_version.storage_location,
             scoped_token=scoped_token,
             base_credential_refresh_def=base_credential_refresh_def,
             is_oss=True,
@@ -448,8 +447,7 @@ class UnityCatalogOssStore(BaseRestStore):
                 operation=READ_WRITE_MODEL_VERSION,
             )
         )
-        cred_return = self._call_endpoint(GenerateTemporaryModelVersionCredential, req_body)
-        return cred_return
+        return self._call_endpoint(GenerateTemporaryModelVersionCredential, req_body)
 
     def get_model_version_download_uri(self, name, version):
         response = self._get_model_version_endpoint_response(name, int(version))
