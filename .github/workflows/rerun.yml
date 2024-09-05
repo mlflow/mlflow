@@ -28,4 +28,4 @@ jobs:
         with:
           script: |
             const rerun = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/rerun.js`);
-            await rerun({ context, github, workflow_id: "cross-version-tests.yml" });
+            await rerun({ context, github });
