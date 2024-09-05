@@ -231,9 +231,9 @@ def verify_rest_response(response, endpoint):
     """Verify the return code and format, raise exception if the request was not successful."""
     # Handle Armeria-specific response case where response text is "200 OK"
     if response.status_code == 200 and response.text.strip() == _ARMERIA_OK:
-        response._content = b'{}'  # Update response content to be an empty JSON dictionary
+        response._content = b"{}"  # Update response content to be an empty JSON dictionary
         return response
-    
+
     # Handle non-200 status codes
     if response.status_code != 200:
         if _can_parse_as_json_object(response.text):

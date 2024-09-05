@@ -51,7 +51,7 @@ def get_registered_model_search_from_uc_oss_proto(
 
 
 def get_model_version_search_from_uc_oss_proto(
-        uc_oss_proto: ModelVersionInfo
+    uc_oss_proto: ModelVersionInfo,
 ) -> ModelVersionSearch:
     return ModelVersionSearch(
         name=f"{uc_oss_proto.catalog_name}.{uc_oss_proto.schema_name}.{uc_oss_proto.model_name}",
