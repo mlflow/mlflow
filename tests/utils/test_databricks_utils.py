@@ -21,6 +21,7 @@ from mlflow.utils.databricks_utils import (
     get_mlflow_credential_context_by_run_id,
     get_workspace_info_from_databricks_secrets,
     get_workspace_info_from_dbutils,
+    get_workspace_url,
     is_databricks_default_tracking_uri,
     is_running_in_ipython_environment,
 )
@@ -517,3 +518,20 @@ def test_prioritize_env_var_config_provider(monkeypatch):
     hc = get_databricks_host_creds("databricks")
     assert hc.host == "my_host1"
     assert hc.token == "token1"
+
+
+@pytest.mark.parametrize(
+    ("input_url", "expected_result"),
+    [
+        # Test with a valid URL without https:// prefix
+        ("example.com", "https://example.com"),
+        # Test with a valid URL with https:// prefix
+        ("https://example.com", "https://example.com"),
+        # Test with None URL
+        (None, None),
+    ],
+)
+def test_get_workspace_url(input_url, expected_result):
+    with mock.patch("mlflow.utils.databricks_utils._get_workspace_url", return_value=input_url):
+        result = get_workspace_url()
+        assert result == expected_result

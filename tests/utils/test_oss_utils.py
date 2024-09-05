@@ -1,12 +1,10 @@
 from unittest import mock
 
-from mlflow.utils.oss_utils import get_oss_host_creds
-from mlflow.utils.rest_utils import MlflowHostCreds
 import pytest
-from unittest import mock
+
+from mlflow.exceptions import MlflowException
 from mlflow.utils.oss_utils import get_oss_host_creds
 from mlflow.utils.rest_utils import MlflowHostCreds
-from mlflow.exceptions import MlflowException
 
 
 @pytest.mark.parametrize(
