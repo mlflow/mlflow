@@ -520,14 +520,17 @@ def test_prioritize_env_var_config_provider(monkeypatch):
     assert hc.token == "token1"
 
 
-@pytest.mark.parametrize("input_url,expected_result", [
-    # Test with a valid URL without https:// prefix
-    ("example.com", "https://example.com"),
-    # Test with a valid URL with https:// prefix
-    ("https://example.com", "https://example.com"),
-    # Test with None URL
-    (None, None)
-])
+@pytest.mark.parametrize(
+    "input_url,expected_result",
+    [
+        # Test with a valid URL without https:// prefix
+        ("example.com", "https://example.com"),
+        # Test with a valid URL with https:// prefix
+        ("https://example.com", "https://example.com"),
+        # Test with None URL
+        (None, None),
+    ],
+)
 def test_get_workspace_url(input_url, expected_result):
     with mock.patch("mlflow.utils.databricks_utils._get_workspace_url", return_value=input_url):
         result = get_workspace_url()
