@@ -30,9 +30,9 @@ from mlflow.store.model_registry.base_rest_store import BaseRestStore
 from mlflow.utils._unity_catalog_oss_utils import (
     get_model_version_from_uc_oss_proto,
     get_model_version_search_from_uc_oss_proto,
-    parse_model_name,
     get_registered_model_from_uc_oss_proto,
     get_registered_model_search_from_uc_oss_proto,
+    parse_model_name,
 )
 from mlflow.utils._unity_catalog_utils import (
     get_artifact_repo_from_storage_info,
