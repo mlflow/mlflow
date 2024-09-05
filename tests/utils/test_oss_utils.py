@@ -1,12 +1,10 @@
 from unittest import mock
 
-from mlflow.utils.oss_utils import get_oss_host_creds
-from mlflow.utils.rest_utils import MlflowHostCreds
 import pytest
-from unittest import mock
+
+from mlflow.exceptions import MlflowException
 from mlflow.utils.oss_utils import get_oss_host_creds
 from mlflow.utils.rest_utils import MlflowHostCreds
-from mlflow.exceptions import MlflowException
 
 
 @pytest.mark.parametrize(
@@ -20,7 +18,8 @@ from mlflow.exceptions import MlflowException
 )
 def test_get_oss_host_creds(server_uri, expected_creds):
     with mock.patch(
-        "mlflow.utils.oss_utils.get_databricks_host_creds", return_value=MlflowHostCreds(host="databricks-uc")
+        "mlflow.utils.oss_utils.get_databricks_host_creds",
+        return_value=MlflowHostCreds(host="databricks-uc"),
     ) as mock_get_databricks_host_creds:
         if expected_creds == MlflowException:
             with pytest.raises(MlflowException):
