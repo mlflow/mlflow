@@ -313,7 +313,7 @@ def save_model(
                     for loading the transformers model. This is particularly useful when logging
                     a model that cannot be loaded into memory for serialization.
 
-            An example of submitting a `Pipeline` from a default pipeline instantiation:
+            An example of specifying a `Pipeline` from a default pipeline instantiation:
 
             .. code-block:: python
 
@@ -327,7 +327,7 @@ def save_model(
                         path="path/to/save/model",
                     )
 
-            An example of supplying component-level parts of a transformers model is shown below:
+            An example of specifying component-level parts of a transformers model is shown below:
 
             .. code-block:: python
 
@@ -668,8 +668,8 @@ def save_model(
     else:
         repo = built_pipeline.model.name_or_path
         _logger.info(
-            "Skipping saving pretrained model weights to disk as the save_pretrained "
-            f"is set to False. The reference to HuggingFace Hub repository {repo} "
+            "Skipping saving pretrained model weights to disk as the save_pretrained argument"
+            f"is set to False. The reference to the HuggingFace Hub repository {repo} "
             "will be logged instead."
         )
 
@@ -832,7 +832,7 @@ def log_model(
                     for loading the transformers model. This is particularly useful when logging
                     a model that cannot be loaded into memory for serialization.
 
-            An example of submitting a `Pipeline` from a default pipeline instantiation:
+            An example of specifying a `Pipeline` from a default pipeline instantiation:
 
             .. code-block:: python
 
@@ -841,12 +841,12 @@ def log_model(
                 qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
 
                 with mlflow.start_run():
-                    mlflow.transformers.save_model(
+                    mlflow.transformers.log_model(
                         transformers_model=qa_pipe,
-                        path="path/to/save/model",
+                        artifact_path="model",
                     )
 
-            An example of supplying component-level parts of a transformers model is shown below:
+            An example of specifying component-level parts of a transformers model is shown below:
 
             .. code-block:: python
 
@@ -861,9 +861,9 @@ def log_model(
                         "model": model,
                         "tokenizer": tokenizer,
                     }
-                    mlflow.transformers.save_model(
+                    mlflow.transformers.log_model(
                         transformers_model=components,
-                        path="path/to/save/model",
+                        artifact_path="model",
                     )
 
             An example of specifying a local checkpoint path is shown below:
@@ -871,9 +871,9 @@ def log_model(
             .. code-block:: python
 
                 with mlflow.start_run():
-                    mlflow.transformers.save_model(
+                    mlflow.transformers.log_model(
                         transformers_model="path/to/local/checkpoint",
-                        path="path/to/save/model",
+                        artifact_path="model",
                     )
 
         artifact_path: Local path destination for the serialized model to be saved.
@@ -1031,10 +1031,12 @@ def log_model(
         code_paths=code_paths,
         signature=signature,
         input_example=input_example,
-        # NB: We don't validate the serving input for Transformers flavor because
-        # it requires loading the model into memory and make prediction, which is
+        # NB: We don't validate the serving input if the provided model is a path
+        # to a local checkpoint. This is because the purpose of supporting that
+        # input format is to avoid loading large model into memory. Serving input
+        # validation loads the model into memory and make prediction, which is
         # expensive and can cause OOM errors.
-        validate_serving_input=False,
+        validate_serving_input=not isinstance(transformers_model, str),
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         model_config=model_config,

@@ -3826,19 +3826,39 @@ def test_save_model_from_local_checkpoint_invalid_arguments(model_path, local_ch
 
 
 @mock.patch("mlflow.models.validate_serving_input")
-def test_log_model_skip_validating_serving_input(mock_validate_input, tmp_path, small_qa_pipeline):
-    # Ensure mlflow skips serving input validation to avoid expensive computation
+@pytest.mark.parametrize(
+    ("model_fixture", "should_skip_validation"),
+    [
+        ("local_checkpoint_path", True),
+        ("fill_mask_pipeline", False),
+    ],
+)
+def test_log_model_skip_validating_serving_input_for_local_checkpoint(
+    mock_validate_input,
+    model_fixture,
+    should_skip_validation,
+    tmp_path,
+    request,
+):
+    # Ensure mlflow skips serving input validation for local checkpoint
+    # input to avoid expensive computation
+    model = request.getfixturevalue(model_fixture)
+
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
-            transformers_model=small_qa_pipeline,
+            transformers_model=model,
             artifact_path="model",
+            task="fill-mask",
             input_example=["How are you?"],
         )
 
-    # Serving input should exist but not validated
+    # Serving input should exist regardless of the skip validation
     mlflow_model = Model.load(model_info.model_uri)
     local_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
     serving_input = mlflow_model.get_serving_input(local_path)
     assert json.loads(serving_input) == {"inputs": ["How are you?"]}
 
-    mock_validate_input.assert_not_called()
+    if should_skip_validation:
+        mock_validate_input.assert_not_called()
+    else:
+        mock_validate_input.assert_called_once()

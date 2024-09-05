@@ -183,7 +183,7 @@ def build_flavor_config_from_local_checkpoint(
     config_path = os.path.join(local_checkpoint_dir, "config.json")
     if not os.path.exists(config_path):
         raise MlflowException(
-            f"The provided directory {local_checkpoint_dir} does not contain the config.json file."
+            f"The provided directory {local_checkpoint_dir} does not contain a config.json file."
             "Please ensure that the directory contains a valid transformers model checkpoint.",
             error_code=INVALID_PARAMETER_VALUE,
         )
