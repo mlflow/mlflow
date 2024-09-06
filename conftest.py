@@ -187,6 +187,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/prophet",
             "tests/pyfunc",
             "tests/pytorch",
+            "tests/pytorch-lightning",
             "tests/sagemaker",
             "tests/sentence_transformers",
             "tests/shap",
