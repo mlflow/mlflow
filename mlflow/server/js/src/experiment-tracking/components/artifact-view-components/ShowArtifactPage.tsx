@@ -14,6 +14,7 @@ import {
   HTML_EXTENSIONS,
   PDF_EXTENSIONS,
   DATA_EXTENSIONS,
+  AUDIO_EXTENSIONS,
 } from '../../../common/utils/FileUtils';
 import { getLoggedModelPathsFromTags, getLoggedTablesFromTags } from '../../../common/utils/TagUtils';
 import { ONE_MB } from '../../constants';
@@ -31,6 +32,7 @@ import Utils from '../../../common/utils/Utils';
 import { FormattedMessage } from 'react-intl';
 import { ShowArtifactLoggedTableView } from './ShowArtifactLoggedTableView';
 import { Empty, Spacer, useDesignSystemTheme } from '@databricks/design-system';
+import { LazyShowArtifactAudioView } from './LazyShowArtifactAudioView';
 
 const MAX_PREVIEW_ARTIFACT_SIZE_MB = 50;
 
@@ -91,6 +93,8 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
           return <ShowArtifactHtmlView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (PDF_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactPdfView runUuid={this.props.runUuid} path={this.props.path} />;
+        } else if (AUDIO_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
+          return <LazyShowArtifactAudioView runUuid={this.props.runUuid} path={this.props.path} />;
         }
       }
     }
@@ -116,7 +120,7 @@ const getSelectFileView = () => {
         }
         description={
           <FormattedMessage
-            defaultMessage="Supported formats: image, text, html, pdf, geojson files"
+            defaultMessage="Supported formats: image, text, html, pdf, audio, geojson files"
             description="Text to explain users which formats are supported to display the artifacts"
           />
         }
