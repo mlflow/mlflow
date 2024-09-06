@@ -3,6 +3,7 @@ build_dependencies:
   - pip
 dependencies:
   - mlflow
+  - numpy<2
   - lightning==2.0.0
   - jsonargparse[signatures]>=4.17.0
   # typeguard is used for type validation in the ax-platform code base. 3.0.0 release has

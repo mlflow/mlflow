@@ -5,6 +5,7 @@ dependencies:
   - mlflow
   - scikit-learn
   - cloudpickle==1.6.0
+  - numpy<2
   - boto3
   - transformers>=4.0.0
   - pandas

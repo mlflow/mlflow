@@ -5,6 +5,7 @@ dependencies:
   - pip
   - pip:
       - mlflow
+      - numpy<2
       - torchvision>=0.15.1
       - torch>=2.0
       - lightning==2.0.0
