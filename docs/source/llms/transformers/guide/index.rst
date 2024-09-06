@@ -198,7 +198,7 @@ template will be used to format user inputs before passing them into the pipelin
     set to ``False`` by default. This is to prevent the template from being shown to the users,
     which could potentially cause confusion as it was not part of their original input. To
     override this behaviour, either set ``return_full_text`` to ``True`` via ``params``, or by 
-    including it in a ``model_config`` dict in ``log_model()``. See `this section <#using-model-config-and-model-signature-params-for-transformers-inference>`_ 
+    including it in a ``model_config`` dict in ``log_model()``. See `this section <#using-model-config-and-model-signature-params-for-inference>`_ 
     for more details on how to do this.
 
 For a more in-depth guide, check out the `Prompt Templating notebook <../tutorials/prompt-templating/prompt-templating.ipynb>`_!

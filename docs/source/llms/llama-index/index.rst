@@ -145,7 +145,7 @@ The following code is an example of logging an index to MLflow with the ``chat``
     The above code snippet passes the index object directly to the ``log_model`` function.
     This method only works with the default ``SimpleVectorStore`` vector store, which
     simply keeps the embedded documents in memory. If your index uses **external vector stores** such as ``QdrantVectorStore`` or ``DatabricksVectorSearch``, you can use the Model-from-Code
-    logging method. See the `How to log an index with external vector stores <#how-to-log-an-index-with-external-vector-stores>`_ for more details.
+    logging method. See the `How to log an index with external vector stores <#how-to-log-and-load-an-index-with-external-vector-stores>`_ for more details.
 
 .. figure:: ../../_static/images/llms/llama-index/llama-index-artifacts.png
     :alt: MLflow artifacts for the LlamaIndex index
