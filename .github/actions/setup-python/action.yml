@@ -31,7 +31,9 @@ runs:
             python_version="3.8.18"
           fi
         elif [[ "$python_version" == "3.9" ]]; then
-          python_version="3.9.18"
+          # The latest windows-compatible version of Python 3.9 available on github actions
+          # https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json
+          python_version="3.9.13"
         elif [[ "$python_version" == "3.10" ]]; then
           python_version="3.10.14"
         else
