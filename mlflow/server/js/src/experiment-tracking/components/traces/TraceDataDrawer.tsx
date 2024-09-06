@@ -155,9 +155,11 @@ export const TraceDataDrawer = ({
       return (
         <div
           css={{
-            height: `calc(100% - ${theme.spacing.lg}px)`,
+            height: '100%',
             marginLeft: -theme.spacing.lg,
             marginRight: -theme.spacing.lg,
+            marginBottom: -theme.spacing.lg,
+            overflow: 'hidden',
           }}
           onWheel={(e) => e.stopPropagation()}
         >
