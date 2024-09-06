@@ -192,7 +192,7 @@ def _validate_metric(key, value, timestamp, step, path=""):
     Check that a metric with the specified key, value, timestamp, and step is valid and raise an
     exception if it isn't.
     """
-    _validate_metric_name(key, append_to_json_path(path, key))
+    _validate_metric_name(key, append_to_json_path(path, "name"))
 
     # If invocated via log_metric, no prior validation of the presence of the value was done.
     if value is None:
