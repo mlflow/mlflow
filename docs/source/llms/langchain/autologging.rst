@@ -22,7 +22,7 @@ MLflow LangChain flavor supports autologging, a powerful feature that allows you
 Quickstart
 ----------
 
-To enable autologging for LangChain models, call :py:func:`mlflow.langchain.autolog()` at the beginning of your script or notebook. This will automatically log the traces by default as well as other artifacts such as models, input examples, and model signatures if you explicitly enable them. For more information about the configuration, please refer to the `Configure Autologging <#configure-autologging>`_ section.
+To enable autologging for LangChain models, call :py:func:`mlflow.langchain.autolog()` at the beginning of your script or notebook. This will automatically log the traces by default as well as other artifacts such as models, input examples, and model signatures if you explicitly enable them. For more information about the configuration, please refer to the :ref:`Configure Autologging <configure-lc-autologging>` section.
 
 .. code-block::
 
@@ -43,6 +43,7 @@ Once you have invoked the chain, you can view the logged traces and artifacts in
     :width: 100%
     :align: center
 
+.. _configure-lc-autologging:
 
 Configure Autologging
 ---------------------
