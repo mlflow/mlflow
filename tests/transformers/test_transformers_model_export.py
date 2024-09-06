@@ -3686,7 +3686,11 @@ def local_checkpoint_path(tmp_path):
     trainer.save_model(checkpoint_path)
 
     # The tokenizer should also be saved in the checkpoint
-    tokenizer = transformers.AutoTokenizer.from_pretrained("distilgpt2")
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        # Chat template is required to test with llm/v1/chat task
+        "distilgpt2",
+        chat_template=CHAT_TEMPLATE,
+    )
     tokenizer.save_pretrained(checkpoint_path)
 
     return str(checkpoint_path)
@@ -3816,7 +3820,7 @@ def test_save_model_from_local_checkpoint_invalid_arguments(model_path, local_ch
 
     with pytest.raises(
         MlflowException,
-        match=r"The provided directory invalid path does not contain the config.json file.",
+        match=r"The provided directory invalid path does not contain a config.json file.",
     ):
         mlflow.transformers.save_model(
             transformers_model="invalid path",
