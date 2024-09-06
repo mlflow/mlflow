@@ -263,6 +263,7 @@ def _get_artifact_repo_from_storage_info_oss(
         import boto3  # noqa: F401
 
         from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
+
         aws_creds = scoped_token.aws_temp_credentials
 
         def aws_credential_refresh():
