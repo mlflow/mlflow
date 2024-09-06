@@ -121,6 +121,7 @@ class UnityCatalogOssStore(BaseRestStore):
         comment = description if description else ""
         # RegisteredModelInfo is inlined in the request and the response.
         # https://docs.databricks.com/api/workspace/registeredmodels/create
+        # TODO: Update the above reference to UC OSS documentation when it's available
         req_body = message_to_json(
             CreateRegisteredModel(
                 name=model_name,

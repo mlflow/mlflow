@@ -80,7 +80,7 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
         if registry_uri_from_artifact_uri is not None:
             registry_uri = registry_uri_from_artifact_uri
         
-        _, key_prefix = get_db_info_from_uri(urllib.parse.urlparse(artifact_uri).path)
+        _, key_prefix = get_db_info_from_uri(urllib.parse.urlparse(registry_uri).path)
         if key_prefix is not None:
             raise MlflowException(
                 "Remote model registry access via model URIs of the form "
