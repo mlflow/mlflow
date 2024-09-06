@@ -1,8 +1,10 @@
 # Test integration with the `langchain-databricks` package.
+from packaging.version import Version
 from typing import Generator
 from unittest import mock
 
 import pytest
+import langchain
 from langchain.prompts import PromptTemplate
 from langchain.schema.output_parser import StrOutputParser
 
@@ -41,6 +43,10 @@ def model_path(tmp_path):
     return tmp_path / "model"
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="langchain-databricks requires langchain >= 0.2.0",
+)
 def test_save_and_load_chat_databricks(model_path):
     from langchain_databricks import ChatDatabricks
 
@@ -62,6 +68,10 @@ def test_save_and_load_chat_databricks(model_path):
     assert prediction == ["What is MLflow?"]
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="langchain-databricks requires langchain >= 0.2.0",
+)
 def test_save_and_load_chat_databricks_legacy(model_path):
     # Test saving and loading the community version of ChatDatabricks
     from langchain.chat_models import ChatDatabricks
