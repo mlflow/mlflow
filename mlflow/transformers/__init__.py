@@ -17,6 +17,7 @@ import re
 import shutil
 import string
 import sys
+from collections import namedtuple
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
@@ -53,9 +54,12 @@ from mlflow.tracking.artifact_utils import _get_root_uri_and_artifact_path
 from mlflow.transformers.flavor_config import (
     FlavorKey,
     build_flavor_config,
+    build_flavor_config_from_local_checkpoint,
     update_flavor_conf_to_persist_pretrained_model,
 )
-from mlflow.transformers.hub_utils import is_valid_hf_repo_id
+from mlflow.transformers.hub_utils import (
+    is_valid_hf_repo_id,
+)
 from mlflow.transformers.llm_inference_utils import (
     _LLM_INFERENCE_TASK_CHAT,
     _LLM_INFERENCE_TASK_COMPLETIONS,
@@ -77,6 +81,7 @@ from mlflow.transformers.model_io import (
     _MODEL_BINARY_FILE_NAME,
     load_model_and_components_from_huggingface_hub,
     load_model_and_components_from_local,
+    save_local_checkpoint,
     save_pipeline_pretrained_weights,
 )
 from mlflow.transformers.peft import (
@@ -294,14 +299,35 @@ def save_model(
 
     Args:
         transformers_model:
-            A trained transformers `Pipeline` or a dictionary that maps required components of a
-            pipeline to the named keys of ["model", "image_processor", "tokenizer",
-            "feature_extractor"]. The `model` key in the dictionary must map to a value that
-            inherits from `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
-            All other component entries in the dictionary must support the defined task type that is
-            associated with the base model type configuration.
+            The transformers model to save. This can be one of the following format:
 
-            An example of supplying component-level parts of a transformers model is shown below:
+                1. A transformers `Pipeline` instance.
+                2. A dictionary that maps required components of a pipeline to the named keys
+                    of ["model", "image_processor", "tokenizer", "feature_extractor"].
+                    The `model` key in the dictionary must map to a value that inherits from
+                    `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
+                    All other component entries in the dictionary must support the defined task
+                    type that is associated with the base model type configuration.
+                3. A string that represents a path to a local/DBFS directory containing a model
+                    checkpoint. The directory must contain a `config.json` file that is required
+                    for loading the transformers model. This is particularly useful when logging
+                    a model that cannot be loaded into memory for serialization.
+
+            An example of specifying a `Pipeline` from a default pipeline instantiation:
+
+            .. code-block:: python
+
+                from transformers import pipeline
+
+                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
+
+                with mlflow.start_run():
+                    mlflow.transformers.save_model(
+                        transformers_model=qa_pipe,
+                        path="path/to/save/model",
+                    )
+
+            An example of specifying component-level parts of a transformers model is shown below:
 
             .. code-block:: python
 
@@ -321,17 +347,13 @@ def save_model(
                         path="path/to/save/model",
                     )
 
-            An example of submitting a `Pipeline` from a default pipeline instantiation:
+            An example of specifying a local checkpoint path is shown below:
 
             .. code-block:: python
 
-                from transformers import pipeline
-
-                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
-
                 with mlflow.start_run():
                     mlflow.transformers.save_model(
-                        transformers_model=qa_pipe,
+                        transformers_model="path/to/local/checkpoint",
                         path="path/to/save/model",
                     )
 
@@ -475,15 +497,42 @@ def save_model(
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, str(path))
 
-    _validate_transformers_model_dict(transformers_model)
-
     if isinstance(transformers_model, transformers.Pipeline):
+        _validate_transformers_model_dict(transformers_model)
         built_pipeline = transformers_model
     elif isinstance(transformers_model, dict):
+        _validate_transformers_model_dict(transformers_model)
         built_pipeline = _build_pipeline_from_model_input(transformers_model, task=task)
+    elif isinstance(transformers_model, str):
+        # When a string is passed, it should be a path to model checkpoint in local storage or DBFS
+        if transformers_model.startswith("dbfs:"):
+            # Replace the DBFS URI to the actual mount point
+            transformers_model = transformers_model.replace("dbfs:", "/dbfs", 1)
+
+        if task is None:
+            raise MlflowException(
+                "The `task` argument must be specified when logging a model from a local "
+                "checkpoint. Please provide the task type of the pipeline.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if not save_pretrained:
+            raise MlflowException(
+                "The `save_pretrained` argument must be set to True when logging a model from a "
+                "local checkpoint. Please set `save_pretrained=True`.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        # Create a dummy pipeline object to be used for saving the model
+        DummyModel = namedtuple("DummyModel", ["name_or_path"])
+        DummyPipeline = namedtuple("DummyPipeline", ["task", "model"])
+        built_pipeline = DummyPipeline(task=task, model=DummyModel(name_or_path=transformers_model))
     else:
         raise MlflowException(
-            "The `transformers_model` must be a Transformers Pipeline or a dictionary, "
+            "The `transformers_model` must be one of the following types: \n"
+            " (1) a transformers Pipeline\n"
+            " (2) a dictionary of components for a transformers Pipeline\n"
+            " (3) a path to a local/DBFS directory containing a transformers model checkpoint.\n"
             f"received: {type(transformers_model)}",
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -509,7 +558,15 @@ def save_model(
 
     if task and task.startswith(_LLM_INFERENCE_TASK_PREFIX):
         llm_inference_task = task
-        _validate_llm_inference_task_type(llm_inference_task, built_pipeline)
+
+        # For local checkpoint saving, we set built_pipeline.task to the original `task`
+        # argument value earlier, which is LLM v1 task. Thereby here we update it to the
+        # corresponding Transformers task type.
+        if isinstance(transformers_model, str):
+            default_task = _get_default_task_for_llm_inference_task(llm_inference_task)
+            built_pipeline = built_pipeline._replace(task=default_task)
+
+        _validate_llm_inference_task_type(llm_inference_task, built_pipeline.task)
     else:
         llm_inference_task = None
 
@@ -578,7 +635,12 @@ def save_model(
         save_pretrained = True
 
     # Create the flavor configuration
-    flavor_conf = build_flavor_config(built_pipeline, processor, torch_dtype, save_pretrained)
+    if isinstance(transformers_model, str):
+        flavor_conf = build_flavor_config_from_local_checkpoint(
+            transformers_model, built_pipeline.task, processor, torch_dtype
+        )
+    else:
+        flavor_conf = build_flavor_config(built_pipeline, processor, torch_dtype, save_pretrained)
 
     if llm_inference_task:
         flavor_conf.update({_LLM_INFERENCE_TASK_KEY: llm_inference_task})
@@ -599,12 +661,16 @@ def save_model(
 
     # Save pipeline model and components weights
     if save_pretrained:
-        save_pipeline_pretrained_weights(path, built_pipeline, flavor_conf, processor)
+        if isinstance(transformers_model, str):
+            save_local_checkpoint(path, transformers_model, flavor_conf, processor)
+        else:
+            save_pipeline_pretrained_weights(path, built_pipeline, flavor_conf, processor)
     else:
         repo = built_pipeline.model.name_or_path
         _logger.info(
-            "Skipping saving pretrained model weights to disk as the save_pretrained is set to "
-            f"False. The reference to HuggingFace Hub repository {repo} will be logged instead."
+            "Skipping saving pretrained model weights to disk as the save_pretrained argument"
+            f"is set to False. The reference to the HuggingFace Hub repository {repo} "
+            "will be logged instead."
         )
 
     if inference_config:
@@ -630,7 +696,11 @@ def save_model(
     # Only allow a subset of task types to have a pyfunc definition.
     # Currently supported types are NLP-based language tasks which have a pipeline definition
     # consisting exclusively of a Model and a Tokenizer.
-    if _should_add_pyfunc_to_model(built_pipeline):
+    if (
+        # TODO: when a local checkpoint path is provided as a model, we assume it is eligible
+        # for pyfunc prediction. This may not be true for all cases, so we should revisit this.
+        isinstance(transformers_model, str) or _should_add_pyfunc_to_model(built_pipeline)
+    ):
         if mlflow_model.signature is None:
             mlflow_model.signature = infer_or_get_default_signature(
                 pipeline=built_pipeline,
@@ -678,11 +748,15 @@ def save_model(
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements(built_pipeline.model)
-            # NB: Skip inferring requirements for PEFT models to avoid loading the full pretrained
-            # model into memory. PEFT is mainly designed for fine-tuning large models under limited
-            # computational resources, so loading the full model is not preferred and can even crash
-            # the process due to OOM.
-            if not is_peft_model(built_pipeline.model):
+            if isinstance(transformers_model, str) or is_peft_model(built_pipeline.model):
+                _logger.info(
+                    "A local checkpoint path or PEFT model is given as the `transformers_model`. "
+                    "To avoid loading the full model into memory, we don't infer the pip "
+                    "requirement for the model. Instead, we will use the default requirements, "
+                    "but it may not capture all required pip libraries for the model. Consider "
+                    "providing the pip requirements explicitly."
+                )
+            else:
                 # Infer the pip requirements with a timeout to avoid hanging at prediction
                 inferred_reqs = infer_pip_requirements(
                     model_uri=str(path),
@@ -744,14 +818,35 @@ def log_model(
 
     Args:
         transformers_model:
-            A trained transformers `Pipeline` or a dictionary that maps required components of a
-            pipeline to the named keys of ["model", "image_processor", "tokenizer",
-            "feature_extractor"]. The `model` key in the dictionary must map to a value that
-            inherits from `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
-            All other component entries in the dictionary must support the defined task type that is
-            associated with the base model type configuration.
+            The transformers model to save. This can be one of the following format:
 
-            An example of supplying component-level parts of a transformers model is shown below:
+                1. A transformers `Pipeline` instance.
+                2. A dictionary that maps required components of a pipeline to the named keys
+                    of ["model", "image_processor", "tokenizer", "feature_extractor"].
+                    The `model` key in the dictionary must map to a value that inherits from
+                    `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
+                    All other component entries in the dictionary must support the defined task
+                    type that is associated with the base model type configuration.
+                3. A string that represents a path to a local/DBFS directory containing a model
+                    checkpoint. The directory must contain a `config.json` file that is required
+                    for loading the transformers model. This is particularly useful when logging
+                    a model that cannot be loaded into memory for serialization.
+
+            An example of specifying a `Pipeline` from a default pipeline instantiation:
+
+            .. code-block:: python
+
+                from transformers import pipeline
+
+                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
+
+                with mlflow.start_run():
+                    mlflow.transformers.log_model(
+                        transformers_model=qa_pipe,
+                        artifact_path="model",
+                    )
+
+            An example of specifying component-level parts of a transformers model is shown below:
 
             .. code-block:: python
 
@@ -768,21 +863,17 @@ def log_model(
                     }
                     mlflow.transformers.log_model(
                         transformers_model=components,
-                        artifact_path="my_model",
+                        artifact_path="model",
                     )
 
-            An example of submitting a `Pipeline` from a default pipeline instantiation:
+            An example of specifying a local checkpoint path is shown below:
 
             .. code-block:: python
 
-                from transformers import pipeline
-
-                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
-
                 with mlflow.start_run():
                     mlflow.transformers.log_model(
-                        transformers_model=qa_pipe,
-                        artifact_path="my_pipeline",
+                        transformers_model="path/to/local/checkpoint",
+                        artifact_path="model",
                     )
 
         artifact_path: Local path destination for the serialized model to be saved.
@@ -940,6 +1031,12 @@ def log_model(
         code_paths=code_paths,
         signature=signature,
         input_example=input_example,
+        # NB: We don't validate the serving input if the provided model is a path
+        # to a local checkpoint. This is because the purpose of supporting that
+        # input format is to avoid loading large model into memory. Serving input
+        # validation loads the model into memory and make prediction, which is
+        # expensive and can cause OOM errors.
+        validate_serving_input=not isinstance(transformers_model, str),
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         model_config=model_config,
@@ -1431,18 +1528,18 @@ def _get_task_for_model(model_name_or_path: str, default_task=None) -> str:
         ) from e
 
 
-def _validate_llm_inference_task_type(llm_inference_task: str, pipeline: Pipeline) -> None:
+def _validate_llm_inference_task_type(llm_inference_task: str, pipeline_task: str) -> None:
     """
     Validates that an ``inference_task`` type is supported by ``transformers`` pipeline type.
     """
     supported_llm_inference_tasks = _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK.get(
-        pipeline.task, []
+        pipeline_task, []
     )
 
     if llm_inference_task not in supported_llm_inference_tasks:
         raise MlflowException(
             f"The task provided is invalid. '{llm_inference_task}' is not a supported task for "
-            f"the {pipeline.task} pipeline. Must be one of {supported_llm_inference_tasks}",
+            f"the {pipeline_task} pipeline. Must be one of {supported_llm_inference_tasks}",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -1453,6 +1550,7 @@ def _get_engine_type(model):
     deep learning framework backends: ``tensorflow``, ``torch``, or ``flax``.
     """
     from transformers import FlaxPreTrainedModel, PreTrainedModel, TFPreTrainedModel
+    from transformers.utils import is_torch_available
 
     if is_peft_model(model):
         model = get_peft_base_model(model)
@@ -1464,6 +1562,9 @@ def _get_engine_type(model):
             return "torch"
         elif issubclass(cls, FlaxPreTrainedModel):
             return "flax"
+
+    # As a fallback, we check current environment to determine the engine type
+    return "torch" if is_torch_available() else "tensorflow"
 
 
 def _should_add_pyfunc_to_model(pipeline) -> bool:

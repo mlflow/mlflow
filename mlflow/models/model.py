@@ -788,7 +788,7 @@ class Model:
                 model_info.registered_model_version = registered_model.version
 
             # validate input example works for serving when logging the model
-            if serving_input:
+            if serving_input and kwargs.get("validate_serving_input", True):
                 from mlflow.models import validate_serving_input
 
                 try:
