@@ -1445,7 +1445,7 @@ def test_evaluate_restores_env(tmp_path, env_manager, iris_dataset):
             pass
 
         def predict(self, context, model_input, params=None):
-            pred_value = 1 if sklearn.__version__ == "1.0" else 0
+            pred_value = 1 if sklearn.__version__ == "1.4.0" else 0
 
             return model_input.apply(lambda row: pred_value, axis=1)
 
