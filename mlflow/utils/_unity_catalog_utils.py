@@ -258,12 +258,13 @@ def _get_artifact_repo_from_storage_info_oss(
 ) -> ArtifactRepository:
     # OSS Temp Credential doesn't have a oneof credential field
     # So, we must check for the individual cloud credentials
+    print("Scoped Token: ", scoped_token)
+    print("AWS Cred Info: ", scoped_token.aws_temp_credentials, scoped_token.aws_temp_credentials is not None)
     if scoped_token.aws_temp_credentials:
         # Verify upfront that boto3 is importable
         import boto3  # noqa: F401
 
         from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
-        print("Scoped Token: ", scoped_token)
         aws_creds = scoped_token.aws_temp_credentials
 
         def aws_credential_refresh():
