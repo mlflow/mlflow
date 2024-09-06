@@ -43,9 +43,11 @@ _METHOD_TO_INFO_OSS = extract_api_info_for_service(
     UnityCatalogService, _UC_OSS_REST_API_PATH_PREFIX
 )
 
+import urllib.parse
+
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.utils.uri import is_file_uri
-import urllib.parse
+
 
 class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
     """
