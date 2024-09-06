@@ -345,6 +345,8 @@ def test_requestor():
             artifact_path="model/path", run_id="run_id", flavors=flavors_with_config
         )
         store.record_logged_model("run_id", m_with_config)
+        flavors = m_with_config.get_tags_dict().get("flavors", {})
+        assert all("config" not in v for v in flavors.values())
         expected_message = LogModel(
             run_id=run_id, model_json=json.dumps(m_with_config.get_tags_dict())
         )

@@ -556,14 +556,22 @@ class Model:
         )
 
     def get_tags_dict(self):
-        tags = {}
         result = self.to_dict()
 
-        for key, value in result.items():
-            if key == "flavors":
-                tags["flavors"] = {k: v for k, v in value.items() if k != "config"}
-            elif key in ["run_id", "utc_time_created", "artifact_path", "model_uuid"]:
-                tags[key] = value
+        tags = {
+            key: value
+            for key, value in result.items()
+            if key in ["run_id", "utc_time_created", "artifact_path", "model_uuid"]
+        }
+
+        tags["flavors"] = {
+            flavor: (
+                {k: v for k, v in config.items() if k != "config"}
+                if isinstance(config, dict)
+                else config
+            )
+            for flavor, config in result.get("flavors", {}).items()
+        }
 
         return tags
 
