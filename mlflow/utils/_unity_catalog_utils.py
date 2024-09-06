@@ -259,7 +259,8 @@ def _get_artifact_repo_from_storage_info_oss(
     # OSS Temp Credential doesn't have a oneof credential field
     # So, we must check for the individual cloud credentials
     print("Scoped Token: ", scoped_token)
-    print("AWS Cred Info: ", scoped_token.aws_temp_credentials, scoped_token.aws_temp_credentials is not None)
+    print("AWS Cred Info: ", scoped_token.aws_temp_credentials, scoped_token.aws_temp_credentials is not None, "Scoped token empty?", scoped_token.aws_temp_credentials != "")
+    print(scoped_token.aws_temp_credentials.access_key_id, scoped_token.aws_temp_credentials.access_key_id is not None)
     if scoped_token.aws_temp_credentials:
         # Verify upfront that boto3 is importable
         import boto3  # noqa: F401
