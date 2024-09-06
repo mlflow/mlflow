@@ -149,6 +149,7 @@ def get_artifact_repo_from_storage_info(
                 base_credential_refresh_def=base_credential_refresh_def,
             )
     except ImportError as e:
+        print(e)
         raise MlflowException(
             "Unable to import necessary dependencies to access model version files in "
             "Unity Catalog. Please ensure you have the necessary dependencies installed, "
