@@ -1463,7 +1463,7 @@ def test_evaluate_restores_env(tmp_path, env_manager, iris_dataset):
         path=model_path,
         python_model=EnvRestoringTestModel(),
         pip_requirements=[
-            "scikit-learn==1.0",
+            "scikit-learn==1.4.0",
         ],
     )
 

@@ -224,7 +224,9 @@ def test_spark_udf_env_manager_can_restore_env(spark, model_path, env_manager):
         python_model=EnvRestoringTestModel(),
         pip_requirements=[
             "pyspark==3.2.0",
+            "numpy==1.26.4",
             "pandas==1.3.0",
+            "pyarrow==6.0.0",
             "scikit-learn==0.24.0",
             "pytest==6.2.5",
         ],

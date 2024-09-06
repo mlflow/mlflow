@@ -44,6 +44,9 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+        with:
+          # TODO: Using Python 3.8 because some libraries used in recipe example is not compatible with Python 3.9
+          python-version: "3.8"
       - uses: ./.github/actions/setup-pyenv
       - name: Install dependencies
         run: |
