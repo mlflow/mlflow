@@ -20,7 +20,7 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3.9",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.8"
 dependencies = [
   "cachetools<6,>=5.0.0",
   "click<9,>=7.0",

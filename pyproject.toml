@@ -20,7 +20,7 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3.9",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.8"
 dependencies = [
   "Flask<4",
   "Jinja2<4,>=2.11; platform_system != 'Windows'",

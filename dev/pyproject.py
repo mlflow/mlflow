@@ -111,7 +111,8 @@ def build(package_type: PackageType) -> None:
                 "Operating System :: OS Independent",
                 f"Programming Language :: Python :: {python_version}",
             ],
-            "requires-python": f">={python_version}",
+            # TODO: update this to 3.9 once all CI tests are migrated to Python 3.9
+            "requires-python": ">=3.8",
             "dependencies": dependencies,
             "optional-dependencies": {
                 "extras": [

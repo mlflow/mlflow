@@ -20,7 +20,7 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3.9",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.8"
 dependencies = [
   "mlflow-skinny==2.16.1.dev0",
   "Flask<4",
