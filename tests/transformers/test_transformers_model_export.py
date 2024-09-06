@@ -148,16 +148,16 @@ def test_default_requirements(pipeline, expected_requirements, request):
     assert _strip_requirements(conda_requirements) == (expected_requirements | {"mlflow"})
 
 
-def test_inference_task_validation(small_seq2seq_pipeline, text_generation_pipeline):
+def test_inference_task_validation(small_seq2seq_pipeline):
     with pytest.raises(
         MlflowException, match="The task provided is invalid. 'llm/v1/invalid' is not"
     ):
-        _validate_llm_inference_task_type("llm/v1/invalid", text_generation_pipeline)
+        _validate_llm_inference_task_type("llm/v1/invalid", "text-generation")
     with pytest.raises(
         MlflowException, match="The task provided is invalid. 'llm/v1/completions' is not"
     ):
         _validate_llm_inference_task_type("llm/v1/completions", small_seq2seq_pipeline)
-    _validate_llm_inference_task_type("llm/v1/completions", text_generation_pipeline)
+    _validate_llm_inference_task_type("llm/v1/completions", "text-generation")
 
 
 @pytest.mark.parametrize(
@@ -3657,3 +3657,212 @@ def test_device_param_on_load_model(device, small_qa_pipeline, model_path, monke
             rf"but the `device` argument is provided with value {device}.",
         ):
             mlflow.transformers.load_model(model_path, return_type="components", device=device)
+
+
+@pytest.fixture
+def local_checkpoint_path(tmp_path):
+    """
+    Fixture to create a local model checkpoint for testing fine-tuning scenario.
+    """
+    model = transformers.AutoModelWithLMHead.from_pretrained("distilgpt2")
+
+    class DummyDataset(torch.utils.data.Dataset):
+        def __getitem__(self, idx):
+            pass
+
+        def __len__(self):
+            return 1
+
+    # Create a trainer and save model, but not running the actual training
+    training_args = transformers.TrainingArguments(
+        output_dir=tmp_path / "result",
+        num_train_epochs=1,
+        per_device_train_batch_size=4,
+        report_to="none",
+    )
+    trainer = transformers.Trainer(model=model, args=training_args, train_dataset=DummyDataset())
+
+    checkpoint_path = tmp_path / "checkpoint"
+    trainer.save_model(checkpoint_path)
+
+    # The tokenizer should also be saved in the checkpoint
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        # Chat template is required to test with llm/v1/chat task
+        "distilgpt2",
+        chat_template=CHAT_TEMPLATE,
+    )
+    tokenizer.save_pretrained(checkpoint_path)
+
+    return str(checkpoint_path)
+
+
+@mock.patch("mlflow.transformers._logger")
+def test_save_model_from_local_checkpoint(mock_logger, model_path, local_checkpoint_path):
+    mlflow.transformers.save_model(
+        transformers_model=local_checkpoint_path,
+        task="text-generation",
+        path=model_path,
+        input_example=["What is MLflow?"],
+    )
+
+    logged_info = Model.load(model_path)
+    flavor_conf = logged_info.flavors["transformers"]
+    assert flavor_conf["source_model_name"] == local_checkpoint_path
+    assert flavor_conf["task"] == "text-generation"
+    assert flavor_conf["framework"] == "pt"
+    assert flavor_conf["instance_type"] == "TextGenerationPipeline"
+    assert flavor_conf["tokenizer_type"] == "GPT2TokenizerFast"
+
+    # Default task signature should be used
+    assert logged_info.signature.inputs == Schema([ColSpec(DataType.string)])
+    assert logged_info.signature.outputs == Schema([ColSpec(DataType.string)])
+
+    # Default requirements should be used
+    info_calls = mock_logger.info.call_args_list
+    assert any("A local checkpoint path or PEFT model" in c[0][0] for c in info_calls)
+    with model_path.joinpath("requirements.txt").open() as f:
+        reqs = {req.split("==")[0] for req in f.read().split("\n")}
+    assert reqs == {"mlflow", "accelerate", "transformers", "torch", "torchvision"}
+
+    # Load as native pipeline
+    loaded_pipeline = mlflow.transformers.load_model(model_path)
+    assert isinstance(loaded_pipeline, transformers.TextGenerationPipeline)
+
+    query = "What is MLflow?"
+    pred_native = loaded_pipeline(query)[0]
+    assert pred_native["generated_text"].startswith(query)
+
+    # Load as pyfunc
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
+    pred_pyfunc = loaded_pyfunc.predict(query)[0]
+    assert pred_pyfunc.startswith(query)
+
+    # Serve
+    response = pyfunc_serve_and_score_model(
+        model_path,
+        data=json.dumps({"inputs": [query]}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    pred_serve = json.loads(response.content.decode("utf-8"))
+    assert pred_serve["predictions"][0].startswith(query)
+
+
+def test_save_model_from_local_checkpoint_with_custom_tokenizer(model_path, local_checkpoint_path):
+    # When a custom tokenizer is also saved in the checkpoint, MLflow should save and load it.
+    tokenizer = transformers.AutoTokenizer.from_pretrained("distilroberta-base")
+    tokenizer.add_special_tokens({"additional_special_tokens": ["<sushi>"]})
+    tokenizer.save_pretrained(local_checkpoint_path)
+
+    mlflow.transformers.save_model(
+        transformers_model=local_checkpoint_path,
+        path=model_path,
+        task="text-generation",
+        input_example=["What is MLflow?"],
+    )
+
+    # The custom tokenizer should be loaded
+    loaded_pipeline = mlflow.transformers.load_model(model_path)
+    tokenizer = loaded_pipeline.tokenizer
+    assert tokenizer.special_tokens_map["additional_special_tokens"] == ["<sushi>"]
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.34.0"),
+    reason="Chat template is supported since 4.34.0",
+)
+def test_save_model_from_local_checkpoint_with_llm_inference_task(
+    model_path, local_checkpoint_path
+):
+    mlflow.transformers.save_model(
+        transformers_model=local_checkpoint_path,
+        path=model_path,
+        task="llm/v1/chat",
+        input_example=["What is MLflow?"],
+    )
+
+    logged_info = Model.load(model_path)
+    flavor_conf = logged_info.flavors["transformers"]
+    assert flavor_conf["source_model_name"] == local_checkpoint_path
+    assert flavor_conf["task"] == "text-generation"
+    assert flavor_conf["inference_task"] == "llm/v1/chat"
+
+    # Load as pyfunc
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
+    response = loaded_pyfunc.predict(
+        {
+            "messages": [
+                {"role": "system", "content": "Hello, how can I help you today?"},
+                {"role": "user", "content": "What is MLflow?"},
+            ],
+        }
+    )
+    assert response[0]["choices"][0]["message"]["role"] == "assistant"
+    assert response[0]["choices"][0]["message"]["content"] is not None
+
+
+def test_save_model_from_local_checkpoint_invalid_arguments(model_path, local_checkpoint_path):
+    with pytest.raises(MlflowException, match=r"The `task` argument must be specified"):
+        mlflow.transformers.save_model(
+            transformers_model=local_checkpoint_path,
+            path=model_path,
+        )
+
+    with pytest.raises(
+        MlflowException, match=r"The `save_pretrained` argument must be set to True"
+    ):
+        mlflow.transformers.save_model(
+            transformers_model=local_checkpoint_path,
+            path=model_path,
+            task="fill-mask",
+            save_pretrained=False,
+        )
+
+    with pytest.raises(
+        MlflowException,
+        match=r"The provided directory invalid path does not contain a config.json file.",
+    ):
+        mlflow.transformers.save_model(
+            transformers_model="invalid path",
+            path=model_path,
+            task="fill-mask",
+        )
+
+
+@mock.patch("mlflow.models.validate_serving_input")
+@pytest.mark.parametrize(
+    ("model_fixture", "should_skip_validation"),
+    [
+        ("local_checkpoint_path", True),
+        ("fill_mask_pipeline", False),
+    ],
+)
+def test_log_model_skip_validating_serving_input_for_local_checkpoint(
+    mock_validate_input,
+    model_fixture,
+    should_skip_validation,
+    tmp_path,
+    request,
+):
+    # Ensure mlflow skips serving input validation for local checkpoint
+    # input to avoid expensive computation
+    model = request.getfixturevalue(model_fixture)
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=model,
+            artifact_path="model",
+            task="fill-mask",
+            input_example=["How are you?"],
+        )
+
+    # Serving input should exist regardless of the skip validation
+    mlflow_model = Model.load(model_info.model_uri)
+    local_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
+    serving_input = mlflow_model.get_serving_input(local_path)
+    assert json.loads(serving_input) == {"inputs": ["How are you?"]}
+
+    if should_skip_validation:
+        mock_validate_input.assert_not_called()
+    else:
+        mock_validate_input.assert_called_once()
