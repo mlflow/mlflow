@@ -524,7 +524,12 @@ def test_record_logged_model(store):
         run_id,
         params=[],
         metrics=[],
-        tags=[RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.get_tags_dict(), m2.get_tags_dict()]))],
+        tags=[
+            RunTag(
+                MLFLOW_LOGGED_MODELS,
+                json.dumps([m.get_tags_dict(), m2.get_tags_dict()]),
+            )
+        ],
     )
     m3 = Model(
         artifact_path="some/other/path2",
@@ -559,7 +564,12 @@ def test_record_logged_model(store):
             RunTag(
                 MLFLOW_LOGGED_MODELS,
                 json.dumps(
-                    [m.get_tags_dict(), m2.get_tags_dict(), m3.get_tags_dict(), m4.get_tags_dict()]
+                    [
+                        m.get_tags_dict(),
+                        m2.get_tags_dict(),
+                        m3.get_tags_dict(),
+                        m4.get_tags_dict(),
+                    ]
                 ),
             )
         ],
@@ -2938,7 +2948,7 @@ def test_set_trace_tag(store_and_trace_info):
     trace_info = store.get_trace_info(trace.request_id)
     assert trace_info.tags["int_key"] == "1234"
 
-    with pytest.raises(MlflowException, match=r"Invalid value \"\" for parameter \'key\' supplied"):
+    with pytest.raises(MlflowException, match=r"Missing value for required parameter \'key\'"):
         store.set_trace_tag(trace.request_id, None, "test")
 
 
