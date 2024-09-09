@@ -367,7 +367,7 @@ endpoints:
 Now that both endpoints (or all 3, if adding in the optional MPT-7B-instruct model endpoint) are defined within the configuration YAML file and the Model Serving servers are ready to receive queries, we can start the MLflow Deployments server.
 
 ```sh
-mlflow deployments start-server --config-path examples/deployments/deployments_server/mlflow_serving/config.yaml --port 7000
+mlflow gateway start --config-path examples/gateway/mlflow_serving/config.yaml --port 7000
 ```
 
 If adding the mpt-7b-instruct model, start the MLflow Deployments server by directing the `--config-path` argument to the location of the `config.yaml` file that you've created with the endpoint's addition.
