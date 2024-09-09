@@ -6,6 +6,7 @@ from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils.uri import (
     _DATABRICKS_UNITY_CATALOG_SCHEME,
 )
+from mlflow.environment_variables import MLFLOW_UC_OSS_TOKEN
 
 
 def get_oss_host_creds(server_uri=None):
@@ -25,5 +26,4 @@ def get_oss_host_creds(server_uri=None):
 
     if parsed_uri.path == _DATABRICKS_UNITY_CATALOG_SCHEME:
         return get_databricks_host_creds(parsed_uri.path)
-
-    return MlflowHostCreds(host=parsed_uri.path)
+    return MlflowHostCreds(host=parsed_uri.path, token=MLFLOW_UC_OSS_TOKEN.get())
