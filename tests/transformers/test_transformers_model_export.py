@@ -846,7 +846,7 @@ def test_huggingface_hub_not_installed(small_qa_pipeline, model_path):
         assert not contents.intersection({"model_card.txt", "model_card_data.yaml"})
 
         license_data = model_path.joinpath("LICENSE.txt").read_text()
-        assert license_data.rstrip().endswith("mobilebert")
+        assert license_data.rstrip().endswith("mobilebert-uncased-squad-v2")
 
 
 @pytest.mark.skipif(
