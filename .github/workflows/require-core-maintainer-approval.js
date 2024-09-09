@@ -11,7 +11,7 @@ const CORE_MAINTAINERS = new Set([
 ]);
 
 module.exports = async ({ github, context, core }) => {
-  const { data: reviews } = await github.rest.pulls.listReviews({
+  const reviews = await github.paginate(github.rest.pulls.listReviews, {
     owner: context.repo.owner,
     repo: context.repo.repo,
     pull_number: context.issue.number,
