@@ -164,7 +164,7 @@ def test_validate_param_name_bad(param_name):
     ],
 )
 def test_validate_colon_name_bad_windows(param_name):
-    with pytest.raises(MlflowException, match="Invalid parameter name") as e:
+    with pytest.raises(MlflowException, match=_bad_parameter_pattern(param_name)) as e:
         _validate_param_name(param_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
