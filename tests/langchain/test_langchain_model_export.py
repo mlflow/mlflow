@@ -14,7 +14,6 @@ import langchain
 import numpy as np
 import pytest
 import yaml
-from langchain import SQLDatabase
 from langchain.agents import AgentType, initialize_agent
 from langchain.chains import (
     APIChain,
@@ -25,9 +24,7 @@ from langchain.chains import (
 from langchain.chains.api import open_meteo_docs
 from langchain.chains.base import Chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
-from langchain.document_loaders import TextLoader
 from langchain.embeddings.base import Embeddings
-from langchain.embeddings.fake import FakeEmbeddings
 from langchain.evaluation.qa import QAEvalChain
 
 from mlflow.tracing.export.inference_table import pop_trace
@@ -38,18 +35,12 @@ from tests.tracing.helper import get_traces
 try:
     from langchain_huggingface import HuggingFacePipeline
 except ImportError:
-    from langchain.llms import HuggingFacePipeline
+    from langchain_community.llms import HuggingFacePipeline
 from langchain.callbacks.base import BaseCallbackHandler
-
-# TODO: We should use langchain_openai instead of the community models
-# once the partner package loading issue is resolved
-from langchain.chat_models import AzureChatOpenAI, ChatOpenAI
 from langchain.chat_models.base import SimpleChatModel
-from langchain.llms import OpenAI
 from langchain.llms.base import LLM
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
-from langchain.requests import TextRequestsWrapper
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from langchain.schema.output_parser import StrOutputParser
 from langchain.schema.runnable import (
@@ -63,7 +54,15 @@ from langchain.schema.runnable import (
 from langchain.schema.runnable.passthrough import RunnableAssign
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.tools import Tool
-from langchain.vectorstores import FAISS
+
+# TODO: We should use langchain_openai instead of the community models
+# once the partner package loading issue is resolved
+from langchain_community.chat_models import AzureChatOpenAI, ChatOpenAI
+from langchain_community.document_loaders import TextLoader
+from langchain_community.embeddings.fake import FakeEmbeddings
+from langchain_community.llms import OpenAI
+from langchain_community.utilities import SQLDatabase, TextRequestsWrapper
+from langchain_community.vectorstores import FAISS
 from langchain_core.callbacks.base import BaseCallbackHandler
 from langchain_experimental.sql import SQLDatabaseChain
 from packaging import version
@@ -404,9 +403,9 @@ def test_langchain_native_save_and_load_model(model_path):
     mlflow.langchain.save_model(model, model_path)
 
     loaded_model = mlflow.langchain.load_model(model_path)
-    assert type(loaded_model) == langchain.chains.llm.LLMChain
-    assert type(loaded_model.llm) == langchain.llms.openai.OpenAI
-    assert type(loaded_model.prompt) == langchain.prompts.PromptTemplate
+    assert type(loaded_model) == LLMChain
+    assert type(loaded_model.llm) == OpenAI
+    assert type(loaded_model.prompt) == PromptTemplate
     assert loaded_model.prompt.template == "What is {product}?"
 
 
@@ -421,9 +420,9 @@ def test_langchain_native_log_and_load_model():
     assert str(logged_model.signature.inputs) == "['product': string (required)]"
     assert str(logged_model.signature.outputs) == "['text': string (required)]"
 
-    assert type(loaded_model) == langchain.chains.llm.LLMChain
-    assert type(loaded_model.llm) == langchain.llms.openai.OpenAI
-    assert type(loaded_model.prompt) == langchain.prompts.PromptTemplate
+    assert type(loaded_model) == LLMChain
+    assert type(loaded_model.llm) == OpenAI
+    assert type(loaded_model.prompt) == PromptTemplate
     assert loaded_model.prompt.template == "What is {product}?"
 
 
