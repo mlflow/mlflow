@@ -661,8 +661,7 @@ def test_log_batch_validation(mlflow_client):
     ## Should 400 if missing timestamp
     assert_bad_request(
         {"run_id": run_id, "metrics": [{"key": "mae", "value": 2.5}]},
-        """Invalid value [{\\"key\\":\\"mae\\",\\"value\\":2.5}] """
-        + "for parameter 'metrics' supplied",
+        "Missing value for required parameter 'metrics[0].timestamp'",
     )
 
     ## Should 200 if timestamp provided but step is not
