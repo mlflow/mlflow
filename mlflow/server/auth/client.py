@@ -496,14 +496,14 @@ class AuthServiceClient:
             rmp = client.get_registered_model_permission("myregisteredmodel", "newuser")
 
             print(f"name: {rmp.name}")
-            print(f"user_id: {rmp.user_id}")
+            print(f"username: {rmp.username}")
             print(f"permission: {rmp.permission}")
 
         .. code-block:: text
             :caption: Output
 
             name: myregisteredmodel
-            user_id: 3
+            username: newuser
             permission: READ
         """
         resp = self._request(

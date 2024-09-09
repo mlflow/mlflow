@@ -62,6 +62,6 @@ class SqlRegisteredModelPermission(Base):
     def to_mlflow_entity(self):
         return RegisteredModelPermission(
             name=self.name,
-            user_id=self.user_id,
+            username=self.users.username,
             permission=self.permission,
         )

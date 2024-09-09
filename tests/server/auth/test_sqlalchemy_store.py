@@ -315,14 +315,13 @@ def test_list_permissions_experiment(store):
 def test_create_registered_model_permission(store):
     username1 = random_str()
     password1 = random_str()
-    user1 = _user_maker(store, username1, password1)
+    _user1 = _user_maker(store, username1, password1)
 
     name1 = random_str()
-    user_id1 = user1.id
     permission1 = READ.name
     rmp1 = _rmp_maker(store, name1, username1, permission1)
     assert rmp1.name == name1
-    assert rmp1.user_id == user_id1
+    assert rmp1.username == username1
     assert rmp1.permission == permission1
 
     # error on duplicate
@@ -337,7 +336,7 @@ def test_create_registered_model_permission(store):
     name2 = random_str()
     rmp2 = _rmp_maker(store, name2, username1, permission1)
     assert rmp2.name == name2
-    assert rmp2.user_id == user_id1
+    assert rmp2.username == username1
     assert rmp2.permission == permission1
 
     # all permissions are ok
@@ -345,7 +344,7 @@ def test_create_registered_model_permission(store):
         name3 = random_str()
         rmp3 = _rmp_maker(store, name3, username1, perm)
         assert rmp3.name == name3
-        assert rmp3.user_id == user_id1
+        assert rmp3.username == username1
         assert rmp3.permission == perm
 
     # invalid permission will fail
@@ -358,16 +357,15 @@ def test_create_registered_model_permission(store):
 def test_get_registered_model_permission(store):
     username1 = random_str()
     password1 = random_str()
-    user1 = _user_maker(store, username1, password1)
+    _user1 = _user_maker(store, username1, password1)
 
     name1 = random_str()
-    user_id1 = user1.id
     permission1 = READ.name
     _rmp_maker(store, name1, username1, permission1)
     rmp1 = store.get_registered_model_permission(name1, username1)
     assert isinstance(rmp1, RegisteredModelPermission)
     assert rmp1.name == name1
-    assert rmp1.user_id == user_id1
+    assert rmp1.username == username1
     assert rmp1.permission == permission1
 
     # error on non-existent row
