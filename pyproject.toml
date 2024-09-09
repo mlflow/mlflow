@@ -207,7 +207,6 @@ select = [
   "S307",    # suspicious-eval-usage
   "S324",    # hashlib-insecure-hash-function
   "SIM101",  # duplicate-isinstance-call
-  "SIM103",  # needless-bool
   "SIM108",  # if-else-block-instead-of-if-exp
   "SIM114",  # if-with-same-arms
   "SIM115",  # open-file-with-context-handler
@@ -224,7 +223,6 @@ select = [
   "UP015",   # redundant-open-modes
   "UP030",   # format-literals
   "UP031",   # printf-string-format
-  "UP032",   # f-string
   "UP034",   # extraneous-parenthesis
   "W",       # warning
 ]
