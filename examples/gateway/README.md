@@ -60,10 +60,10 @@ With the MLflow configuration file in place and access key(s) set, you can now s
 Replace `<provider>` with the actual path to the MLflow configuration file for the provider of your choice:
 
 ```sh
-mlflow gateway start --config-path examples/deployments/deployments_server/<provider>/config.yaml --port 7000
+mlflow gateway start --config-path examples/gateway/<provider>/config.yaml --port 7000
 
 # For example:
-mlflow gateway start --config-path examples/deployments/deployments_server/openai/config.yaml --port 7000
+mlflow gateway start --config-path examples/gateway/openai/config.yaml --port 7000
 ```
 
 ## Step 5: Accessing the Interactive API Documentation
@@ -78,5 +78,5 @@ After successfully setting up the MLflow AI Gateway, you can send a test request
 Replace <provider> with the name of the provider example test script that you'd like to use:
 
 ```sh
-python examples/deployments/deployments_server/<provider>/example.py
+python examples/gateway/<provider>/example.py
 ```
