@@ -560,12 +560,12 @@ def patch_langchain_type_to_cls_dict():
     """
 
     def _load_chat_openai():
-        from langchain.chat_models import ChatOpenAI
+        from langchain_community.chat_models import ChatOpenAI
 
         return ChatOpenAI
 
     def _load_azure_chat_openai():
-        from langchain.chat_models import AzureChatOpenAI
+        from langchain_community.chat_models import AzureChatOpenAI
 
         return AzureChatOpenAI
 

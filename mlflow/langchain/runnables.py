@@ -80,7 +80,7 @@ def _load_model_from_config(path, model_config):
 
         return load_prompt(config_path)
     elif _type in llms_get_type_to_cls_dict():
-        from langchain.llms.loading import load_llm
+        from langchain_community.llms.loading import load_llm
 
         return _patch_loader(load_llm)(config_path)
     elif _type in custom_type_to_loader_dict():
