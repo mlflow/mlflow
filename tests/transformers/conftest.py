@@ -14,7 +14,7 @@ from tests.transformers.helper import (
     load_small_conversational_model,
     load_small_multi_modal_pipeline,
     load_small_qa_pipeline,
-    load_small_seq2seq_pipeline,
+    load_small_qa_tf_pipeline,
     load_small_vision_model,
     load_summarizer_pipeline,
     load_table_question_answering_pipeline,
@@ -28,13 +28,13 @@ from tests.transformers.helper import (
 
 
 @pytest.fixture
-def small_seq2seq_pipeline():
-    return load_small_seq2seq_pipeline()
+def small_qa_pipeline():
+    return load_small_qa_pipeline()
 
 
 @pytest.fixture
-def small_qa_pipeline():
-    return load_small_qa_pipeline()
+def small_qa_tf_pipeline():
+    return load_small_qa_tf_pipeline()
 
 
 @pytest.fixture
