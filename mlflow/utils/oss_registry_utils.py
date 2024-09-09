@@ -1,12 +1,12 @@
 import urllib.parse
 
+from mlflow.environment_variables import MLFLOW_UC_OSS_TOKEN
 from mlflow.exceptions import MlflowException
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils.uri import (
     _DATABRICKS_UNITY_CATALOG_SCHEME,
 )
-from mlflow.environment_variables import MLFLOW_UC_OSS_TOKEN
 
 
 def get_oss_host_creds(server_uri=None):
