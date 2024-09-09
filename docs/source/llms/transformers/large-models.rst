@@ -115,7 +115,7 @@ Please be aware of the following requirements and limitations when using this fe
 
 1. The checkpoint directory **must** contain a valid config.json file and the model weight files. If a tokenizer is required, its state file must also be present in the checkpoint directory. You can save the tokenizer state in your checkpoint directory by calling ``tokenizer.save_pretrained("path/to/local/checkpoint")`` method.
 2. You **must** specify the ``task`` argument with the appropriate task name that the model is designed for.
-3. MLflow may not accurately infer model dependencies in this mode. Please refer to `Managing Dependencies in MLflow Models <model/dependencies.html>`_ for more information on managing dependencies for your model.
+3. MLflow may not accurately infer model dependencies in this mode. Please refer to `Managing Dependencies in MLflow Models <../../model/dependencies.html>`_ for more information on managing dependencies for your model.
 
 .. warning::
 
