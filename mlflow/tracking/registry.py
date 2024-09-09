@@ -74,7 +74,9 @@ class StoreRegistry:
             URI requirements.
         """
         scheme = (
-            store_uri if store_uri in {"databricks", "databricks-uc"} else get_uri_scheme(store_uri)
+            store_uri
+            if store_uri in {"databricks", "databricks-uc", "uc"}
+            else get_uri_scheme(store_uri)
         )
         try:
             store_builder = self._registry[scheme]

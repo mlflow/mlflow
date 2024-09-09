@@ -23,7 +23,7 @@ from mlflow.utils._unity_catalog_utils import (
     get_artifact_repo_from_storage_info,
     get_full_name_from_sc,
 )
-from mlflow.utils.oss_utils import get_oss_host_creds
+from mlflow.utils.oss_registry_utils import get_oss_host_creds
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
@@ -42,6 +42,8 @@ _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API
 _METHOD_TO_INFO_OSS = extract_api_info_for_service(
     UnityCatalogService, _UC_OSS_REST_API_PATH_PREFIX
 )
+
+import urllib.parse
 
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.utils.uri import is_file_uri
@@ -79,7 +81,8 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
         )
         if registry_uri_from_artifact_uri is not None:
             registry_uri = registry_uri_from_artifact_uri
-        _, key_prefix = get_db_info_from_uri(registry_uri)
+
+        _, key_prefix = get_db_info_from_uri(urllib.parse.urlparse(registry_uri).path)
         if key_prefix is not None:
             raise MlflowException(
                 "Remote model registry access via model URIs of the form "
@@ -139,7 +142,6 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
         blob_storage_path = self._get_blob_storage_path()
         if is_file_uri(blob_storage_path):
             return LocalArtifactRepository(artifact_uri=blob_storage_path)
-
         scoped_token = self._get_scoped_token(lineage_header_info=lineage_header_info)
         return get_artifact_repo_from_storage_info(
             storage_location=blob_storage_path,
