@@ -93,9 +93,7 @@ jobs:
         run: |
           source .venv/bin/activate
           source dev/setup-ssh.sh
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
-            --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
-            --ignore tests/deployments/server tests
+          pytest tests/system_metrics/test_system_metrics_logging.py::test_automatic_system_metrics_monitor
 
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

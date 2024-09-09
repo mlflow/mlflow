@@ -59,7 +59,8 @@ def test_manual_system_metrics_monitor():
     assert metrics_history[-1].step > 0
 
 
-def test_automatic_system_metrics_monitor():
+@pytest.mark.parametrize("x", range(100))
+def test_automatic_system_metrics_monitor(x):
     mlflow.enable_system_metrics_logging()
     mlflow.set_system_metrics_sampling_interval(0.2)
     mlflow.set_system_metrics_samples_before_logging(2)
