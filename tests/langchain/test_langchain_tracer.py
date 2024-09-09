@@ -8,12 +8,11 @@ from unittest.mock import MagicMock
 
 import langchain
 import pytest
-from langchain.agents import AgentType, initialize_agent
+from langchain.agents import AgentType, initialize_agent, load_tools
 from langchain.chains.llm import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.prompts.chat import SystemMessagePromptTemplate
 from langchain.text_splitter import CharacterTextSplitter
-from langchain_community.agent_toolkits.load_tools import load_tools
 from langchain_community.document_loaders import TextLoader
 from langchain_community.embeddings import FakeEmbeddings
 from langchain_community.llms.openai import OpenAI
