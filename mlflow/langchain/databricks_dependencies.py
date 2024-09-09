@@ -32,9 +32,6 @@ def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None
             DatabricksVectorSearch as LegacyDatabricksVectorSearch,
         )
     except ImportError:
-        from langchain_community.embeddings import (
-            DatabricksEmbeddings as LegacyDatabricksEmbeddings,
-        )
         from langchain_community.vectorstores import (
             DatabricksVectorSearch as LegacyDatabricksVectorSearch,
         )

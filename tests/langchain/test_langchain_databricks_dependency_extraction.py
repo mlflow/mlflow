@@ -5,6 +5,9 @@ from unittest.mock import MagicMock
 
 import langchain
 import pytest
+from langchain_community.chat_models import ChatDatabricks
+from langchain_community.embeddings import DatabricksEmbeddings
+from langchain_community.vectorstores import DatabricksVectorSearch
 from packaging.version import Version
 
 from mlflow.langchain.databricks_dependencies import (
@@ -40,7 +43,7 @@ class MockDatabricksServingEndpointClient:
 
 
 def test_parsing_dependency_from_databricks_llm(monkeypatch: pytest.MonkeyPatch):
-    from langchain.llms import Databricks
+    from langchain_community.llms import Databricks
 
     monkeypatch.setattr(
         "langchain_community.llms.databricks._DatabricksServingEndpointClient",
@@ -119,15 +122,7 @@ class MockVectorSearchClient:
         return MockVectorSearchIndex(endpoint_name, index_name, has_embedding_endpoint)
 
 
-@pytest.mark.parametrize("module_name", ["langchain", "langchain_community"])
-def test_parsing_dependency_from_databricks_retriever(module_name, monkeypatch: pytest.MonkeyPatch):
-    if module_name == "langchain":
-        from langchain.embeddings import DatabricksEmbeddings
-        from langchain.vectorstores import DatabricksVectorSearch
-    elif module_name == "langchain_community":
-        from langchain_community.embeddings import DatabricksEmbeddings
-        from langchain_community.vectorstores import DatabricksVectorSearch
-
+def test_parsing_dependency_from_databricks_retriever(monkeypatch: pytest.MonkeyPatch):
     vsc = MockVectorSearchClient()
     vs_index_1 = vsc.get_index(endpoint_name="vs_endpoint", index_name="mlflow.rag.vs_index_1")
     vs_index_2 = vsc.get_index(
@@ -153,7 +148,7 @@ def test_parsing_dependency_from_databricks_retriever(module_name, monkeypatch: 
     vectorstore_2 = DatabricksVectorSearch(vs_index_2, text_column="content")
     retriever_2 = vectorstore_2.as_retriever()
 
-    from langchain.chat_models import ChatOpenAI
+    from langchain_community.chat_models import ChatOpenAI
 
     llm = ChatOpenAI(temperature=0)
 
@@ -210,16 +205,9 @@ def test_parsing_dependency_from_databricks_retriever(module_name, monkeypatch: 
     ]
 
 
-@pytest.mark.parametrize("module_name", ["langchain", "langchain_community"])
 def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in_index(
-    module_name,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    if module_name == "langchain":
-        from langchain.vectorstores import DatabricksVectorSearch
-    elif module_name == "langchain_community":
-        from langchain_community.vectorstores import DatabricksVectorSearch
-
     vsc = MockVectorSearchClient()
     vs_index = vsc.get_index(
         endpoint_name="dbdemos_vs_endpoint",
@@ -247,7 +235,7 @@ def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in
 def test_parsing_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
     from databricks.sdk.service.catalog import FunctionInfo
     from langchain.agents import initialize_agent
-    from langchain.llms import OpenAI
+    from langchain_community.llms import OpenAI
 
     try:
         from langchain_community.tools.databricks import UCFunctionToolkit
@@ -309,8 +297,6 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch)
     from databricks.sdk.service.catalog import FunctionInfo
     from langchain.agents import initialize_agent
     from langchain.tools.retriever import create_retriever_tool
-    from langchain_community.chat_models import ChatDatabricks
-    from langchain_community.vectorstores import DatabricksVectorSearch
 
     mock_get_deploy_client = MagicMock()
 
@@ -432,8 +418,6 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch):
-    from langchain_community.chat_models import ChatDatabricks
-
     mock_get_deploy_client = MagicMock()
 
     monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
@@ -444,9 +428,6 @@ def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch
 
 
 def test_parsing_dependency_from_databricks(monkeypatch: pytest.MonkeyPatch):
-    from langchain_community.chat_models import ChatDatabricks
-    from langchain_community.vectorstores import DatabricksVectorSearch
-
     mock_get_deploy_client = MagicMock()
 
     monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
