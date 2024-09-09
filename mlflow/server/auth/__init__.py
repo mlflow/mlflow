@@ -844,8 +844,8 @@ def get_experiment_permission():
 def list_experiment_permissions():
     experiment_id = _get_request_param("experiment_id")
     eps = store.list_permissions_experiment(experiment_id)
-    permissions = [{"experiment_permission": ep.to_json()} for ep in eps]
-    return make_response({"permissions": permissions})
+    permissions = [ep.to_json() for ep in eps]
+    return make_response({"experiment_permissions": permissions})
 
 
 @catch_mlflow_exception
