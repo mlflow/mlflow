@@ -46,7 +46,7 @@ class SqlExperimentPermission(Base):
     def to_mlflow_entity(self):
         return ExperimentPermission(
             experiment_id=self.experiment_id,
-            user_id=self.user_id,
+            username=self.users.username,
             permission=self.permission,
         )
 

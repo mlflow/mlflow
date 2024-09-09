@@ -83,11 +83,11 @@ class ExperimentPermission:
     def __init__(
         self,
         experiment_id,
-        user_id,
+        username,
         permission,
     ):
         self._experiment_id = experiment_id
-        self._user_id = user_id
+        self._username = username
         self._permission = permission
 
     @property
@@ -95,8 +95,8 @@ class ExperimentPermission:
         return self._experiment_id
 
     @property
-    def user_id(self):
-        return self._user_id
+    def username(self):
+        return self._username
 
     @property
     def permission(self):
@@ -109,7 +109,7 @@ class ExperimentPermission:
     def to_json(self):
         return {
             "experiment_id": self.experiment_id,
-            "user_id": self.user_id,
+            "username": self.username,
             "permission": self.permission,
         }
 
@@ -117,7 +117,7 @@ class ExperimentPermission:
     def from_json(cls, dictionary):
         return cls(
             experiment_id=dictionary["experiment_id"],
-            user_id=dictionary["user_id"],
+            username=dictionary["username"],
             permission=dictionary["permission"],
         )
 

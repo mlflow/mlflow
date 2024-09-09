@@ -365,10 +365,7 @@ class AuthServiceClient:
             "GET",
             params={"experiment_id": experiment_id},
         )
-        return [
-            ExperimentPermission.from_json(x) 
-            for x in resp.get("experiment_permissions", [])
-        ]
+        return [ExperimentPermission.from_json(x) for x in resp.get("experiment_permissions", [])]
 
     def update_experiment_permission(self, experiment_id: str, username: str, permission: str):
         """
