@@ -403,9 +403,9 @@ def test_langchain_native_save_and_load_model(model_path):
     mlflow.langchain.save_model(model, model_path)
 
     loaded_model = mlflow.langchain.load_model(model_path)
-    assert type(loaded_model) == langchain.chains.llm.LLMChain
-    assert type(loaded_model.llm) == langchain.llms.openai.OpenAI
-    assert type(loaded_model.prompt) == langchain.prompts.PromptTemplate
+    assert type(loaded_model) == LLMChain
+    assert type(loaded_model.llm) == OpenAI
+    assert type(loaded_model.prompt) == PromptTemplate
     assert loaded_model.prompt.template == "What is {product}?"
 
 
@@ -420,9 +420,9 @@ def test_langchain_native_log_and_load_model():
     assert str(logged_model.signature.inputs) == "['product': string (required)]"
     assert str(logged_model.signature.outputs) == "['text': string (required)]"
 
-    assert type(loaded_model) == langchain.chains.llm.LLMChain
-    assert type(loaded_model.llm) == langchain.llms.openai.OpenAI
-    assert type(loaded_model.prompt) == langchain.prompts.PromptTemplate
+    assert type(loaded_model) == LLMChain
+    assert type(loaded_model.llm) == OpenAI
+    assert type(loaded_model.prompt) == PromptTemplate
     assert loaded_model.prompt.template == "What is {product}?"
 
 
