@@ -1,5 +1,6 @@
 import json
 import sys
+import warnings
 from inspect import signature
 
 import click
@@ -496,6 +497,11 @@ def validate_config_path(_ctx, _param, value):
     help="The number of workers.",
 )
 def start_server(config_path: str, host: str, port: str, workers: int):
+    warnings.warn(
+        "`mlflow deployments start-server` is deprecated and will be removed in a future release. "
+        "Use `mlflow gateway start` instead.",
+        FutureWarning,
+    )
     if is_windows():
         raise click.ClickException("MLflow Deployments Server does not support Windows.")
 
