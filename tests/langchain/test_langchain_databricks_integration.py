@@ -1,12 +1,12 @@
 # Test integration with the `langchain-databricks` package.
-from packaging.version import Version
 from typing import Generator
 from unittest import mock
 
-import pytest
 import langchain
+import pytest
 from langchain.prompts import PromptTemplate
 from langchain.schema.output_parser import StrOutputParser
+from packaging.version import Version
 
 import mlflow
 
