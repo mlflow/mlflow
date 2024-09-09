@@ -254,14 +254,14 @@ class AuthServiceClient:
             ep = client.create_experiment_permission("myexperiment", "newuser", "READ")
 
             print(f"experiment_id: {ep.experiment_id}")
-            print(f"user_id: {ep.user_id}")
+            print(f"username: {ep.username}")
             print(f"permission: {ep.permission}")
 
         .. code-block:: text
             :caption: Output
 
             experiment_id: myexperiment
-            user_id: 3
+            user_id: newuser
             permission: READ
         """
         resp = self._request(
@@ -303,14 +303,14 @@ class AuthServiceClient:
             client.create_experiment_permission("myexperiment", "newuser", "READ")
             ep = client.get_experiment_permission("myexperiment", "newuser")
             print(f"experiment_id: {ep.experiment_id}")
-            print(f"user_id: {ep.user_id}")
+            print(f"username: {ep.username}")
             print(f"permission: {ep.permission}")
 
         .. code-block:: text
             :caption: Output
 
             experiment_id: myexperiment
-            user_id: 3
+            username: newuser
             permission: READ
         """
         resp = self._request(
@@ -350,15 +350,15 @@ class AuthServiceClient:
             client.create_experiment_permission("myexperiment", "newuser", "READ")
             eps = client.list_experiment_permissions("myexperiment")
             print(f"experiment_id: {eps[0].experiment_id}")
-            print(f"users_ids: {[ep.user_id for ep in eps]}")
+            print(f"usernames: {[ep.username for ep in eps]}")
             print(f"permissions: {[ep.permission for ep in eps]}")
 
         .. code-block:: text
             :caption: Output
 
             experiment_id: myexperiment
-            users_ids: [1, 2, 3]
-            permission: [READ, READ, READ]
+            usernames: ["newuser"]
+            permission: [READ]
         """
         resp = self._request(
             LIST_EXPERIMENT_PERMISSIONS,
