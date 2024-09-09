@@ -2,6 +2,7 @@
 Utilities for validating user inputs such as metric names and parameter names.
 """
 
+import json
 import logging
 import numbers
 import posixpath
@@ -99,6 +100,32 @@ model and prevent parameter key collisions within the
 tracking store."""
 
 
+def invalid_value(path, value, message=None):
+    """
+    Compose a standarized error message for invalid parameter values.
+    """
+    formattedValue = json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+    if message:
+        return f"Invalid value {formattedValue} for parameter '{path}' supplied: {message}"
+    else:
+        return f"Invalid value {formattedValue} for parameter '{path}' supplied."
+
+
+def missing_value(path):
+    return f"Missing value for required parameter '{path}'."
+
+
+def append_to_json_path(currenPath, value):
+    if not currenPath:
+        return value
+
+    if value.startswith("["):
+        return f"{currenPath}{value}"
+
+    return f"{currenPath}.{value}"
+
+
 def bad_path_message(name):
     return (
         "Names may be treated as files in certain cases, and must not resolve to other names"
@@ -132,21 +159,21 @@ def path_not_unique(name):
     return norm != name or norm == "." or norm.startswith("..") or norm.startswith("/")
 
 
-def _validate_metric_name(name):
+def _validate_metric_name(name, path="name"):
     """Check that `name` is a valid metric name and raise an exception if it isn't."""
     if name is None:
         raise MlflowException(
-            f"Metric name cannot be None. {_MISSING_KEY_NAME_MESSAGE}",
+            invalid_value(path, name, f"Metric name cannot be None. {_MISSING_KEY_NAME_MESSAGE}"),
             error_code=INVALID_PARAMETER_VALUE,
         )
     if not validate_param_and_metric_name(name):
         raise MlflowException(
-            f"Invalid metric name: '{name}'. {bad_character_message()}",
+            invalid_value(path, name, bad_character_message()),
             INVALID_PARAMETER_VALUE,
         )
     if path_not_unique(name):
         raise MlflowException(
-            f"Invalid metric name: '{name}'. {bad_path_message(name)}",
+            invalid_value(path, name, bad_path_message(name)),
             INVALID_PARAMETER_VALUE,
         )
 
@@ -160,55 +187,74 @@ def _is_numeric(value):
     return not isinstance(value, bool) and isinstance(value, numbers.Number)
 
 
-def _validate_metric(key, value, timestamp, step):
+def _validate_metric(key, value, timestamp, step, path=""):
     """
     Check that a metric with the specified key, value, timestamp, and step is valid and raise an
     exception if it isn't.
     """
-    _validate_metric_name(key)
+    _validate_metric_name(key, append_to_json_path(path, "name"))
+
+    # If invocated via log_metric, no prior validation of the presence of the value was done.
+    if value is None:
+        raise MlflowException(
+            missing_value(append_to_json_path(path, "value")),
+            INVALID_PARAMETER_VALUE,
+        )
+
     # value must be a Number
     # since bool is an instance of Number check for bool additionally
     if not _is_numeric(value):
         raise MlflowException(
-            f"Got invalid value {value} for metric '{key}' (timestamp={timestamp}). "
-            "Please specify value as a valid double (64-bit floating point)",
+            invalid_value(
+                append_to_json_path(path, "value"),
+                value,
+                f"(timestamp={timestamp}). "
+                f"Please specify value as a valid double (64-bit floating point)",
+            ),
             INVALID_PARAMETER_VALUE,
         )
 
     if not isinstance(timestamp, numbers.Number) or timestamp < 0:
         raise MlflowException(
-            f"Got invalid timestamp {timestamp} for metric '{key}' (value={value}). "
-            "Timestamp must be a nonnegative long (64-bit integer) ",
+            invalid_value(
+                append_to_json_path(path, "timestamp"),
+                timestamp,
+                f"metric '{key}' (value={value}). "
+                f"Timestamp must be a nonnegative long (64-bit integer) ",
+            ),
             INVALID_PARAMETER_VALUE,
         )
 
     if not isinstance(step, numbers.Number):
         raise MlflowException(
-            f"Got invalid step {step} for metric '{key}' (value={value}). "
-            "Step must be a valid long (64-bit integer).",
+            invalid_value(
+                append_to_json_path(path, "step"),
+                step,
+                f"metric '{key}' (value={value}). Step must be a valid long (64-bit integer).",
+            ),
             INVALID_PARAMETER_VALUE,
         )
 
     _validate_length_limit("Metric name", MAX_ENTITY_KEY_LENGTH, key)
 
 
-def _validate_param(key, value):
+def _validate_param(key, value, path=""):
     """
     Check that a param with the specified key & value is valid and raise an exception if it
     isn't.
     """
-    _validate_param_name(key)
+    _validate_param_name(key, append_to_json_path(path, "key"))
     return Param(
         _validate_length_limit("Param key", MAX_ENTITY_KEY_LENGTH, key),
         _validate_length_limit("Param value", MAX_PARAM_VAL_LENGTH, value, truncate=True),
     )
 
 
-def _validate_tag(key, value):
+def _validate_tag(key, value, path=""):
     """
     Check that a tag with the specified key & value is valid and raise an exception if it isn't.
     """
-    _validate_tag_name(key)
+    _validate_tag_name(key, append_to_json_path(path, "key"))
     return RunTag(
         _validate_length_limit("Tag key", MAX_ENTITY_KEY_LENGTH, key),
         _validate_length_limit("Tag value", MAX_TAG_VAL_LENGTH, value, truncate=True),
@@ -261,41 +307,41 @@ def _validate_param_keys_unique(params):
         )
 
 
-def _validate_param_name(name):
+def _validate_param_name(name, path="key"):
     """Check that `name` is a valid parameter name and raise an exception if it isn't."""
     if name is None:
         raise MlflowException(
-            f"Parameter name cannot be None. {_MISSING_KEY_NAME_MESSAGE}",
+            invalid_value(path, "", _MISSING_KEY_NAME_MESSAGE),
             error_code=INVALID_PARAMETER_VALUE,
         )
     if not validate_param_and_metric_name(name):
         raise MlflowException(
-            f"Invalid parameter name: '{name}'. {bad_character_message()}",
+            invalid_value(path, name, bad_character_message()),
             INVALID_PARAMETER_VALUE,
         )
     if path_not_unique(name):
         raise MlflowException(
-            f"Invalid parameter name: '{name}'. {bad_path_message(name)}",
+            invalid_value(path, name, bad_path_message(name)),
             INVALID_PARAMETER_VALUE,
         )
 
 
-def _validate_tag_name(name):
+def _validate_tag_name(name, path="key"):
     """Check that `name` is a valid tag name and raise an exception if it isn't."""
     # Reuse param & metric check.
     if name is None:
         raise MlflowException(
-            f"Tag name cannot be None. {_MISSING_KEY_NAME_MESSAGE}",
+            missing_value(path),
             error_code=INVALID_PARAMETER_VALUE,
         )
     if not validate_param_and_metric_name(name):
         raise MlflowException(
-            f"Invalid tag name: '{name}'. {bad_character_message()}",
+            invalid_value(path, name, bad_character_message()),
             INVALID_PARAMETER_VALUE,
         )
     if path_not_unique(name):
         raise MlflowException(
-            f"Invalid tag name: '{name}'. {bad_path_message(name)}",
+            invalid_value(path, name, bad_path_message(name)),
             INVALID_PARAMETER_VALUE,
         )
 
@@ -321,10 +367,10 @@ def _validate_length_limit(entity_name, limit, value, *, truncate=False):
     )
 
 
-def _validate_run_id(run_id):
+def _validate_run_id(run_id, path="run_id"):
     """Check that `run_id` is a valid run ID and raise an exception if it isn't."""
     if _RUN_ID_REGEX.match(run_id) is None:
-        raise MlflowException(f"Invalid run ID: '{run_id}'", error_code=INVALID_PARAMETER_VALUE)
+        raise MlflowException(invalid_value(path, run_id), error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_experiment_id(exp_id):
@@ -352,17 +398,20 @@ def _validate_batch_log_limits(metrics, params, tags):
     _validate_batch_limit(entity_name="tags", limit=MAX_PARAMS_TAGS_PER_BATCH, length=len(tags))
     total_length = len(metrics) + len(params) + len(tags)
     _validate_batch_limit(
-        entity_name="metrics, params, and tags", limit=MAX_ENTITIES_PER_BATCH, length=total_length
+        entity_name="metrics, params, and tags",
+        limit=MAX_ENTITIES_PER_BATCH,
+        length=total_length,
     )
 
 
 def _validate_batch_log_data(metrics, params, tags):
-    for metric in metrics:
-        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
+    for index, metric in enumerate(metrics):
+        path = f"metrics[{index}]"
+        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step, path=path)
     return (
         metrics,
-        [_validate_param(p.key, p.value) for p in params],
-        [_validate_tag(t.key, t.value) for t in tags],
+        [_validate_param(p.key, p.value, path=f"params[{idx}]") for (idx, p) in enumerate(params)],
+        [_validate_tag(t.key, t.value, path=f"tags[{idx}]") for (idx, t) in enumerate(tags)],
     )
 
 
@@ -379,7 +428,8 @@ def _validate_experiment_name(experiment_name):
     """Check that `experiment_name` is a valid string and raise an exception if it isn't."""
     if experiment_name == "" or experiment_name is None:
         raise MlflowException(
-            f"Invalid experiment name: '{experiment_name}'", error_code=INVALID_PARAMETER_VALUE
+            f"Invalid experiment name: '{experiment_name}'",
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
     if not is_string_type(experiment_name):
@@ -433,15 +483,19 @@ def _validate_model_alias_name(model_alias_name):
             INVALID_PARAMETER_VALUE,
         )
     _validate_length_limit(
-        "Registered model alias name", MAX_REGISTERED_MODEL_ALIAS_LENGTH, model_alias_name
+        "Registered model alias name",
+        MAX_REGISTERED_MODEL_ALIAS_LENGTH,
+        model_alias_name,
     )
     if model_alias_name.lower() == "latest":
         raise MlflowException(
-            "'latest' alias name (case insensitive) is reserved.", INVALID_PARAMETER_VALUE
+            "'latest' alias name (case insensitive) is reserved.",
+            INVALID_PARAMETER_VALUE,
         )
     if _REGISTERED_MODEL_ALIAS_VERSION_REGEX.match(model_alias_name):
         raise MlflowException(
-            f"Version alias name '{model_alias_name}' is reserved.", INVALID_PARAMETER_VALUE
+            f"Version alias name '{model_alias_name}' is reserved.",
+            INVALID_PARAMETER_VALUE,
         )
 
 
