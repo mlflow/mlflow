@@ -258,7 +258,7 @@ def _get_artifact_repo_from_storage_info_oss(
 ) -> ArtifactRepository:
     # OSS Temp Credential doesn't have a oneof credential field
     # So, we must check for the individual cloud credentials
-    if scoped_token.aws_temp_credentials:
+    if len(scoped_token.aws_temp_credentials.access_key_id) > 0:
         # Verify upfront that boto3 is importable
         import boto3  # noqa: F401
 
@@ -282,7 +282,7 @@ def _get_artifact_repo_from_storage_info_oss(
             session_token=aws_creds.session_token,
             credential_refresh_def=aws_credential_refresh,
         )
-    elif scoped_token.azure_user_delegation_sas:
+    elif len(scoped_token.azure_user_delegation_sas.sas_token) > 0:
         from azure.core.credentials import AzureSasCredential
 
         from mlflow.store.artifact.azure_data_lake_artifact_repo import (
@@ -304,7 +304,7 @@ def _get_artifact_repo_from_storage_info_oss(
             credential_refresh_def=azure_credential_refresh,
         )
 
-    elif scoped_token.gcp_oauth_token:
+    elif len(scoped_token.gcp_oauth_token.oauth_token) > 0:
         from google.cloud.storage import Client
         from google.oauth2.credentials import Credentials
 
