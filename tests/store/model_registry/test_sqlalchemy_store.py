@@ -190,7 +190,8 @@ def test_rename_registered_model(store):
     _rm_maker(store, original_name)
     # cannot rename model to conflict with an existing model
     with pytest.raises(
-        MlflowException, match=rf"Registered Model \(name={original_name}\) already exists"
+        MlflowException,
+        match=rf"Registered Model \(name={original_name}\) already exists",
     ) as exception_context:
         store.rename_registered_model(new_name, original_name)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
@@ -263,18 +264,27 @@ def test_get_latest_versions(store):
     mv2 = _mv_maker(store, name)
     assert mv2.version == 2
     store.transition_model_version_stage(
-        name=mv2.name, version=mv2.version, stage="Production", archive_existing_versions=False
+        name=mv2.name,
+        version=mv2.version,
+        stage="Production",
+        archive_existing_versions=False,
     )
 
     mv3 = _mv_maker(store, name)
     assert mv3.version == 3
     store.transition_model_version_stage(
-        name=mv3.name, version=mv3.version, stage="Production", archive_existing_versions=False
+        name=mv3.name,
+        version=mv3.version,
+        stage="Production",
+        archive_existing_versions=False,
     )
     mv4 = _mv_maker(store, name)
     assert mv4.version == 4
     store.transition_model_version_stage(
-        name=mv4.name, version=mv4.version, stage="Staging", archive_existing_versions=False
+        name=mv4.name,
+        version=mv4.version,
+        stage="Staging",
+        archive_existing_versions=False,
     )
 
     # test that correct latest versions are returned for each stage
@@ -369,7 +379,9 @@ def test_set_registered_model_tag(store):
     long_tag = RegisteredModelTag("longTagKey", "a" * 4999)
     store.set_registered_model_tag(name2, long_tag)
     # can not set invalid tag
-    with pytest.raises(MlflowException, match=r"Tag name cannot be None") as exception_context:
+    with pytest.raises(
+        MlflowException, match=r"Missing value for required parameter 'key'"
+    ) as exception_context:
         store.set_registered_model_tag(name2, RegisteredModelTag(key=None, value=""))
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name
@@ -415,7 +427,9 @@ def test_delete_registered_model_tag(store):
         store.delete_registered_model_tag(name1, "anotherKey")
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
     # can not delete tag with invalid key
-    with pytest.raises(MlflowException, match=r"Tag name cannot be None") as exception_context:
+    with pytest.raises(
+        MlflowException, match=r"Missing value for required parameter 'key'"
+    ) as exception_context:
         store.delete_registered_model_tag(name2, None)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name
@@ -455,7 +469,10 @@ def test_create_model_version(store):
     assert mvd2.version == 2
 
     # create model version with tags return model version entity with tags
-    tags = [ModelVersionTag("key", "value"), ModelVersionTag("anotherKey", "some other value")]
+    tags = [
+        ModelVersionTag("key", "value"),
+        ModelVersionTag("anotherKey", "some other value"),
+    ]
     mv3 = _mv_maker(store, name, tags=tags)
     mvd3 = store.get_model_version(name=mv3.name, version=mv3.version)
     assert mv3.version == 3
@@ -501,7 +518,10 @@ def test_update_model_version(store):
 
     # update stage
     store.transition_model_version_stage(
-        name=mv1.name, version=mv1.version, stage="Production", archive_existing_versions=False
+        name=mv1.name,
+        version=mv1.version,
+        stage="Production",
+        archive_existing_versions=False,
     )
     mvd2 = store.get_model_version(name=mv1.name, version=mv1.version)
     assert mvd2.name == name
@@ -704,7 +724,10 @@ def test_get_model_version_download_uri(store):
 
     # download URI does not change even if model version is updated
     store.transition_model_version_stage(
-        name=mv.name, version=mv.version, stage="Production", archive_existing_versions=False
+        name=mv.name,
+        version=mv.version,
+        stage="Production",
+        archive_existing_versions=False,
     )
     store.update_model_version(name=mv.name, version=mv.version, description="Test for Path")
     mvd2 = store.get_model_version(name=mv.name, version=mv.version)
@@ -760,7 +783,10 @@ def test_search_model_versions(store):
     assert set(search_versions(f"run_id IN ('{run_id_1}','{run_id_2}')")) == {1, 2, 3}
 
     # search IN operator is case sensitive
-    assert set(search_versions(f"run_id IN ('{run_id_1.upper()}','{run_id_2}')")) == {2, 3}
+    assert set(search_versions(f"run_id IN ('{run_id_1.upper()}','{run_id_2}')")) == {
+        2,
+        3,
+    }
 
     # search IN operator with other conditions
     assert set(
@@ -858,7 +884,10 @@ def test_search_model_versions(store):
     assert set(search_versions("source_path = 'A/D'")) == {3}
 
     store.transition_model_version_stage(
-        name=mv1.name, version=mv1.version, stage="production", archive_existing_versions=False
+        name=mv1.name,
+        version=mv1.version,
+        stage="production",
+        archive_existing_versions=False,
     )
 
     store.update_model_version(
@@ -1152,7 +1181,10 @@ def test_search_registered_models(store):
 
     # delete last registered model. search should not return the first 5
     store.delete_registered_model(name=names[-1])
-    assert _search_registered_models(store, None, max_results=1000) == (names[:-1], None)
+    assert _search_registered_models(store, None, max_results=1000) == (
+        names[:-1],
+        None,
+    )
 
     # equality search using name should return no names
     assert _search_registered_models(store, f"name='{names[-1]}'") == ([], None)
@@ -1322,7 +1354,11 @@ def test_search_registered_model_order_by(store):
     assert rms[::-1] == returned_rms
     # last_updated_timestamp descending should have the newest RMs first
     result, _ = _search_registered_models(
-        store, query, page_token=None, order_by=["last_updated_timestamp DESC"], max_results=100
+        store,
+        query,
+        page_token=None,
+        order_by=["last_updated_timestamp DESC"],
+        max_results=100,
     )
     assert rms[::-1] == result
     # timestamp returns same result as last_updated_timestamp
@@ -1332,7 +1368,11 @@ def test_search_registered_model_order_by(store):
     assert rms[::-1] == result
     # last_updated_timestamp ascending should have the oldest RMs first
     result, _ = _search_registered_models(
-        store, query, page_token=None, order_by=["last_updated_timestamp ASC"], max_results=100
+        store,
+        query,
+        page_token=None,
+        order_by=["last_updated_timestamp ASC"],
+        max_results=100,
     )
     assert rms == result
     # timestamp returns same result as last_updated_timestamp
@@ -1352,16 +1392,22 @@ def test_search_registered_model_order_by(store):
     assert rms == result
     # test that no ASC/DESC defaults to ASC
     result, _ = _search_registered_models(
-        store, query, page_token=None, order_by=["last_updated_timestamp"], max_results=100
+        store,
+        query,
+        page_token=None,
+        order_by=["last_updated_timestamp"],
+        max_results=100,
     )
     assert rms == result
     with mock.patch(
-        "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis", return_value=1
+        "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis",
+        return_value=1,
     ):
         rm1 = _rm_maker(store, "MR1").name
         rm2 = _rm_maker(store, "MR2").name
     with mock.patch(
-        "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis", return_value=2
+        "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis",
+        return_value=2,
     ):
         rm3 = _rm_maker(store, "MR3").name
         rm4 = _rm_maker(store, "MR4").name
@@ -1376,7 +1422,11 @@ def test_search_registered_model_order_by(store):
     )
     assert result == [rm2, rm1, rm4, rm3]
     result, _ = _search_registered_models(
-        store, query, page_token=None, order_by=["timestamp ASC", "name   DESC"], max_results=100
+        store,
+        query,
+        page_token=None,
+        order_by=["timestamp ASC", "name   DESC"],
+        max_results=100,
     )
     assert result == [rm2, rm1, rm4, rm3]
     # confirm that name ascending is the default, even if ties exist on other fields
@@ -1386,7 +1436,11 @@ def test_search_registered_model_order_by(store):
     assert result == [rm1, rm2, rm3, rm4]
     # test default tiebreak with descending timestamps
     result, _ = _search_registered_models(
-        store, query, page_token=None, order_by=["last_updated_timestamp DESC"], max_results=100
+        store,
+        query,
+        page_token=None,
+        order_by=["last_updated_timestamp DESC"],
+        max_results=100,
     )
     assert result == [rm3, rm4, rm1, rm2]
     # test timestamp parsing
@@ -1416,11 +1470,19 @@ def test_search_registered_model_order_by(store):
     )
     assert result == [rm1, rm2, rm3, rm4]
     result, _ = _search_registered_models(
-        store, query, page_token=None, order_by=["timestamp  desc", "name desc"], max_results=100
+        store,
+        query,
+        page_token=None,
+        order_by=["timestamp  desc", "name desc"],
+        max_results=100,
     )
     assert result == [rm4, rm3, rm2, rm1]
     result, _ = _search_registered_models(
-        store, query, page_token=None, order_by=["timestamp  deSc", "name deSc"], max_results=100
+        store,
+        query,
+        page_token=None,
+        order_by=["timestamp  deSc", "name deSc"],
+        max_results=100,
     )
     assert result == [rm4, rm3, rm2, rm1]
 
@@ -1503,7 +1565,9 @@ def test_set_model_version_tag(store):
     long_tag = ModelVersionTag("longTagKey", "a" * 4999)
     store.set_model_version_tag(name1, 1, long_tag)
     # can not set invalid tag
-    with pytest.raises(MlflowException, match=r"Tag name cannot be None") as exception_context:
+    with pytest.raises(
+        MlflowException, match=r"Missing value for required parameter 'key'"
+    ) as exception_context:
         store.set_model_version_tag(name2, 1, ModelVersionTag(key=None, value=""))
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name or version
@@ -1564,7 +1628,9 @@ def test_delete_model_version_tag(store):
         store.delete_model_version_tag(name2, 1, "key")
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
     # can not delete tag with invalid key
-    with pytest.raises(MlflowException, match=r"Tag name cannot be None") as exception_context:
+    with pytest.raises(
+        MlflowException, match=r"Missing value for required parameter 'key'"
+    ) as exception_context:
         store.delete_model_version_tag(name1, 2, None)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name or version
@@ -1646,7 +1712,11 @@ def test_copy_model_version(store, copy_to_same_model):
         ModelVersionTag("anotherKey", "some other value"),
     ]
     src_mv = _mv_maker(
-        store, name1, tags=src_tags, run_link="dummylink", description="test description"
+        store,
+        name1,
+        tags=src_tags,
+        run_link="dummylink",
+        description="test description",
     )
 
     # Make some changes to the src MV that won't be copied over
