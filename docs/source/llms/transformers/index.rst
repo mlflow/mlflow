@@ -232,6 +232,16 @@ When working with the transformers flavor in MLflow, there are several important
 - **Audio and Vision Models**: Audio and text-based large language models are supported for use with pyfunc, while other types like computer vision and multi-modal models are only supported for native type loading.
 - **Prompt Templates**: Prompt templating is currently supported for a few pipeline types. For a full list of supported pipelines, and more information about the feature, see `this link <guide/index.html#saving-prompt-templates-with-transformer-pipelines>`_.
 
+Logging Large Models
+--------------------
+
+By default, MLflow consumes certain memory footprint and storage space for logging models. This can be a concern when working with large foundational models with billions of parameters. To address this, MLflow provides a few optimization techniques to reduce resource consumption during logging and speed up the logging process. Please refer to the `Working with Large Models in MLflow Transformers flavor <./large-models.html>`_ guide to learn more about these tips.
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    large-models
 
 Working with ``tasks`` for Transformer Pipelines
 ------------------------------------------------
@@ -265,8 +275,6 @@ To learn more about the nuances of the `transformers` flavor in MLflow, delve in
 - `Overriding Pytorch dtype <guide/index.html#scale-inference-with-overriding-pytorch-dtype>`_ : Gain insights into optimizing ``transformers`` models for inference, focusing on memory optimization and data type configurations.
 
 - `Input Data Types for Audio Pipelines <guide/index.html#input-data-types-for-audio-pipelines>`_: Understand the specific requirements for handling audio data in transformers pipelines, including the handling of different input types like str, bytes, and np.ndarray.
-
-- `Storage-Efficient Model Logging with save_pretrained Option <guide/index.html#storage-efficient-model-logging-with-save-pretrained-option>`_: Learn how to leverage the new ``save_pretrained`` option to speed up model saving and loading for large foundational models without consuming excessive storage space.
 
 - `PEFT Models in MLflow Transformers flavor <guide/index.html#peft-models-in-mlflow-transformers-flavor>`_: PEFT (Parameter-Efficient Fine-Tuning) is natively supported in MLflow, enabling various optimization techniques like LoRA, QLoRA, and more for reducing fine-tuning cost significantly. Check out the guide and tutorials to learn more about how to leverage PEFT with MLflow.
 
