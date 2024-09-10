@@ -20,7 +20,8 @@ def get_oss_host_creds(server_uri=None):
         MlflowHostCreds: The host credentials for the OSS server.
     """
     parsed_uri = urllib.parse.urlparse(server_uri)
-
+    print("host = " + parsed_uri.path)
+    print("token = " + MLFLOW_UC_OSS_TOKEN.get())
     if parsed_uri.scheme != "uc":
         raise MlflowException("The scheme of the server_uri should be 'uc'")
 
