@@ -3008,6 +3008,11 @@ def test_basic_model_with_accelerate_device_mapping_fails_save(tmp_path, model_p
         mlflow.transformers.save_model(transformers_model=pipeline, path=model_path)
 
 
+@pytest.mark.skipif(
+    Version(transformers.__version__) > Version("4.44.2"),
+    reason="Multi-task pipeline (t5) has a loading issue with Transformers 4.45.x. "
+    "See https://github.com/huggingface/transformers/issues/33398 for more details.",
+)
 def test_basic_model_with_accelerate_homogeneous_mapping_works(model_path):
     task = "translation_en_to_de"
     architecture = "t5-small"

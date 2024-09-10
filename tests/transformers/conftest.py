@@ -89,7 +89,7 @@ def translation_pipeline():
 
     if Version(transformers.__version__) > Version("4.44.2"):
         pytest.skip(
-            reason="T5 translation pipeline has a loading issue with Transformers 4.45.x. "
+            reason="This multi-task pipeline has a loading issue with Transformers 4.45.x. "
             "See https://github.com/huggingface/transformers/issues/33398 for more details."
         )
 
@@ -103,6 +103,14 @@ def text_classification_pipeline():
 
 @pytest.fixture
 def summarizer_pipeline():
+    import transformers
+
+    if Version(transformers.__version__) > Version("4.44.2"):
+        pytest.skip(
+            reason="This multi-task pipeline has a loading issue with Transformers 4.45.x. "
+            "See https://github.com/huggingface/transformers/issues/33398 for more details."
+        )
+
     return load_summarizer_pipeline()
 
 
