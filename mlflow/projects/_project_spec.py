@@ -141,8 +141,8 @@ def load_project(directory):
         python_env_path = os.path.join(directory, python_env)
         if not os.path.exists(python_env_path):
             raise ExecutionException(
-                "Project specified python_env file %s, but no such "
-                "file was found." % python_env_path
+                f"Project specified python_env file {python_env_path}, but no such "
+                "file was found."
             )
         return Project(
             env_type=env_type.PYTHON,
@@ -157,8 +157,8 @@ def load_project(directory):
         conda_env_path = os.path.join(directory, conda_path)
         if not os.path.exists(conda_env_path):
             raise ExecutionException(
-                "Project specified conda environment file %s, but no such "
-                "file was found." % conda_env_path
+                f"Project specified conda environment file {conda_env_path}, but no such "
+                "file was found."
             )
         return Project(
             env_type=env_type.CONDA,
@@ -264,8 +264,9 @@ class EntryPoint:
                 missing_params.append(name)
         if missing_params:
             raise ExecutionException(
-                "No value given for missing parameters: %s"
-                % ", ".join([f"'{name}'" for name in missing_params])
+                "No value given for missing parameters: {}".format(
+                    ", ".join([f"'{name}'" for name in missing_params])
+                )
             )
 
     def compute_parameters(self, user_parameters, storage_dir):

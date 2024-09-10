@@ -122,7 +122,7 @@ Remote artifacts store
 Using the Tracking Server for proxied artifact access
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 By default, the tracking server stores artifacts in its local filesystem under ``./mlartifacts`` directory. To configure 
-the tracking server to connect to remote storgate and serve artifacts, start the server with ``--artifacts-destination`` flag.
+the tracking server to connect to remote storage and serve artifacts, start the server with ``--artifacts-destination`` flag.
 
 .. code-block:: bash
 

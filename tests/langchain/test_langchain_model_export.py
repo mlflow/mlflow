@@ -12,10 +12,8 @@ from unittest import mock
 
 import langchain
 import numpy as np
-import openai
 import pytest
 import yaml
-from langchain import SQLDatabase
 from langchain.agents import AgentType, initialize_agent
 from langchain.chains import (
     APIChain,
@@ -26,9 +24,7 @@ from langchain.chains import (
 from langchain.chains.api import open_meteo_docs
 from langchain.chains.base import Chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
-from langchain.document_loaders import TextLoader
 from langchain.embeddings.base import Embeddings
-from langchain.embeddings.fake import FakeEmbeddings
 from langchain.evaluation.qa import QAEvalChain
 
 from mlflow.tracing.export.inference_table import pop_trace
@@ -39,18 +35,12 @@ from tests.tracing.helper import get_traces
 try:
     from langchain_huggingface import HuggingFacePipeline
 except ImportError:
-    from langchain.llms import HuggingFacePipeline
+    from langchain_community.llms import HuggingFacePipeline
 from langchain.callbacks.base import BaseCallbackHandler
-
-# TODO: We should use langchain_openai instead of the community models
-# once the partner package loading issue is resolved
-from langchain.chat_models import AzureChatOpenAI, ChatOpenAI
 from langchain.chat_models.base import SimpleChatModel
-from langchain.llms import OpenAI
 from langchain.llms.base import LLM
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
-from langchain.requests import TextRequestsWrapper
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from langchain.schema.output_parser import StrOutputParser
 from langchain.schema.runnable import (
@@ -64,7 +54,15 @@ from langchain.schema.runnable import (
 from langchain.schema.runnable.passthrough import RunnableAssign
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.tools import Tool
-from langchain.vectorstores import FAISS
+
+# TODO: We should use langchain_openai instead of the community models
+# once the partner package loading issue is resolved
+from langchain_community.chat_models import AzureChatOpenAI, ChatOpenAI
+from langchain_community.document_loaders import TextLoader
+from langchain_community.embeddings.fake import FakeEmbeddings
+from langchain_community.llms import OpenAI
+from langchain_community.utilities import SQLDatabase, TextRequestsWrapper
+from langchain_community.vectorstores import FAISS
 from langchain_core.callbacks.base import BaseCallbackHandler
 from langchain_experimental.sql import SQLDatabaseChain
 from packaging import version
@@ -157,21 +155,79 @@ def create_qa_with_sources_chain():
     return load_qa_with_sources_chain(OpenAI(temperature=0), chain_type="stuff")
 
 
-def create_openai_llmagent(return_intermediate_steps=False):
-    from langchain.agents import AgentType, initialize_agent, load_tools
+def create_uc_tools(
+    monkeypatch, warehouse_id, expected_catalog_name, expected_schema_name, functions
+):
+    try:
+        from langchain_community.tools.databricks import UCFunctionToolkit
+    except Exception:
+        return []
 
-    # TODO: The new OpenAI LLM from langchain-openai package does not support pickle
-    # serialization and make AgentExecutor saving to fail. We need to fix this issue
-    # and update this test to use the new OpenAI LLM.
-    llm = OpenAI(temperature=0)
-    tools = load_tools(["serpapi", "llm-math"], llm=llm)
-    return initialize_agent(
-        tools,
-        llm,
-        agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-        verbose=True,
-        return_intermediate_steps=return_intermediate_steps,
+    from databricks.sdk.service.catalog import FunctionInfo
+
+    # Return 2 functions from the function lis
+    def mock_function_list(self, catalog_name, schema_name):
+        assert catalog_name == expected_catalog_name
+        assert schema_name == expected_schema_name
+        return [FunctionInfo(full_name=function) for function in functions]
+
+    # For each function ensure that it returns a tool which takes one input
+    def mock_function_get(self, function_name):
+        components = function_name.split(".")
+        param_dict = {
+            "parameters": [
+                {
+                    "name": "param",
+                    "parameter_type": "PARAM",
+                    "position": 0,
+                    "type_json": '{"name":"param","type":"string","nullable":true,"metadata":{}}',
+                    "type_name": "STRING",
+                    "type_precision": 0,
+                    "type_scale": 0,
+                    "type_text": "string",
+                }
+            ]
+        }
+        return FunctionInfo.from_dict(
+            {
+                "catalog_name": components[0],
+                "schema_name": components[1],
+                "name": components[2],
+                "input_params": param_dict,
+            }
+        )
+
+    monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
+    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.list", mock_function_list)
+    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
+
+    # Create an toolkit with the '*' syntax
+    return (
+        UCFunctionToolkit(warehouse_id=warehouse_id)
+        .include(f"{expected_catalog_name}.{expected_schema_name}.*")
+        .get_tools()
     )
+
+
+def create_retriever_tool(monkeypatch):
+    from langchain.tools.retriever import create_retriever_tool
+    from langchain_community.vectorstores import DatabricksVectorSearch
+
+    vsc = MockVectorSearchClient()
+    vs_index = vsc.get_index(
+        endpoint_name="dbdemos_vs_endpoint",
+        index_name="mlflow.rag.vs_index",
+        has_embedding_endpoint=True,
+    )
+
+    mock_module = mock.MagicMock()
+    mock_module.VectorSearchIndex = MockVectorSearchIndex
+    monkeypatch.setitem(sys.modules, "databricks.vector_search.client", mock_module)
+
+    vectorstore = DatabricksVectorSearch(vs_index, text_column="content")
+    retriever = vectorstore.as_retriever()
+    return create_retriever_tool(retriever, "vs_index_name", "vs_index_desc")
 
 
 class FakeLLM(LLM):
@@ -347,9 +403,9 @@ def test_langchain_native_save_and_load_model(model_path):
     mlflow.langchain.save_model(model, model_path)
 
     loaded_model = mlflow.langchain.load_model(model_path)
-    assert type(loaded_model) == langchain.chains.llm.LLMChain
-    assert type(loaded_model.llm) == langchain.llms.openai.OpenAI
-    assert type(loaded_model.prompt) == langchain.prompts.PromptTemplate
+    assert type(loaded_model) == LLMChain
+    assert type(loaded_model.llm) == OpenAI
+    assert type(loaded_model.prompt) == PromptTemplate
     assert loaded_model.prompt.template == "What is {product}?"
 
 
@@ -364,9 +420,9 @@ def test_langchain_native_log_and_load_model():
     assert str(logged_model.signature.inputs) == "['product': string (required)]"
     assert str(logged_model.signature.outputs) == "['text': string (required)]"
 
-    assert type(loaded_model) == langchain.chains.llm.LLMChain
-    assert type(loaded_model.llm) == langchain.llms.openai.OpenAI
-    assert type(loaded_model.prompt) == langchain.prompts.PromptTemplate
+    assert type(loaded_model) == LLMChain
+    assert type(loaded_model.llm) == OpenAI
+    assert type(loaded_model.prompt) == PromptTemplate
     assert loaded_model.prompt.template == "What is {product}?"
 
 
@@ -427,10 +483,6 @@ def test_save_and_load_azure_chat_openai(model_path, monkeypatch):
     assert loaded_model == chain
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) >= Version("0.2.0"),
-    reason="There is no langchain-openai version satisfies both langchain>=0.2.0 and openai<1.8.0",
-)
 def test_save_model_with_partner_package(tmp_path):
     from langchain_community.chat_models import ChatOpenAI as ChatOpenAICommunity
     from langchain_openai import ChatOpenAI as ChatOpenAIPartner
@@ -511,108 +563,129 @@ def test_langchain_log_huggingface_hub_model_metadata(model_path):
     assert loaded_model.prompt.template == "What is a good name for a company that makes {product}?"
 
 
-# TODO: Fix the AgentExecutor saving issue and remove the skip
 @pytest.mark.skipif(
-    Version(openai.__version__) >= Version("1.0"),
-    reason="OpenAI Client since 1.0 contains thread lock object that cannot be pickled.",
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Agent behavior is not stable across minor versions",
 )
 @pytest.mark.parametrize("return_intermediate_steps", [False, True])
-def test_langchain_agent_model_predict(return_intermediate_steps):
-    langchain_agent_output = {
-        "id": "chatcmpl-123",
-        "object": "chat.completion",
-        "created": 1677652288,
-        "choices": [
-            {
-                "index": 0,
-                "finish_reason": "stop",
-                "text": "Final Answer: test",
-            }
-        ],
-        "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
-    }
-    model = create_openai_llmagent(return_intermediate_steps=return_intermediate_steps)
-    langchain_input = {
-        "input": "What was the high temperature in SF yesterday in Fahrenheit?"
-        "What is that number raised to the .023 power?"
-    }
+def test_langchain_agent_model_predict(return_intermediate_steps, monkeypatch):
+    input_example = {"input": "What is 2 * 3?"}
+
+    # Use env var to control the return_intermediate_steps without modifying the code
+    monkeypatch.setenv("RETURN_INTERMEDIATE_STEPS", str(return_intermediate_steps))
+
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(
-            model, "langchain_model", input_example=langchain_input
+            # OpenAI Client since 1.0 contains thread lock object that cannot be
+            # pickled. Therefore, AgentExecutor cannot be saved with the legacy
+            # object-based logging and we need to use Model-from-Code logging.
+            lc_model="tests/langchain/sample_code/openai_agent.py",
+            artifact_path="langchain_model",
+            input_example=input_example,
         )
+
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+    response = loaded_model.predict([input_example])
 
     if return_intermediate_steps:
-        langchain_output = [
+        expected_output = [
             {
-                "output": "test",
-                "intermediate_steps": {
-                    "tool": "Search",
-                    "tool_input": "High temperature in SF yesterday",
-                    "log": " I need to find the temperature first...",
-                    "result": "San Francisco...",
-                },
+                "output": "The result of 2 * 3 is 6.",
+                "intermediate_steps": [
+                    # tuple of (action, observation)
+                    (
+                        {
+                            "log": mock.ANY,
+                            "message_log": [mock.ANY],
+                            "tool": "multiply",
+                            "tool_call_id": "123",
+                            "tool_input": {"a": 2, "b": 3},
+                            "type": "AgentActionMessageLog",
+                        },
+                        6,
+                    )
+                ],
             }
         ]
         # hardcoded output key because that is the default for an agent
         # but it is not an attribute of the agent or anything that we log
     else:
-        langchain_output = ["test"]
+        expected_output = ["The result of 2 * 3 is 6."]
 
-    with mock.patch("openai.OpenAI.completions.create", return_value=langchain_agent_output):
-        result = loaded_model.predict([langchain_input])
-        assert result == langchain_output
+    assert response == expected_output
 
     inference_payload = load_serving_example(logged_model.model_uri)
-    langchain_agent_output_serving = {"predictions": langchain_agent_output}
-    with mock.patch("openai.OpenAI.completions.create", return_value=langchain_agent_output):
-        response = pyfunc_serve_and_score_model(
-            logged_model.model_uri,
-            data=inference_payload,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-            extra_args=["--env-manager", "local"],
-        )
+    response = pyfunc_serve_and_score_model(
+        logged_model.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    # TODO: The response is not wrapped by the "predictions" key. This is a bug in
+    # output handling. Often the user input contains a key "input" because it is
+    # used in popular agent prompts in the hub. However, this confuses the scoring
+    # server to treat it as a llm/v1/completion request.
+    response = json.loads(response.content.decode("utf-8"))
+    if return_intermediate_steps:
+        # Tuples are converted to lists during JSON serialization
+        response[0]["intermediate_steps"] = [tuple(r) for r in response[0]["intermediate_steps"]]
+    assert response == expected_output
 
-        assert (
-            PredictionsResponse.from_json(response.content.decode("utf-8"))
-            == langchain_agent_output_serving
-        )
 
-
-# TODO: Fix the AgentExecutor saving issue and remove the skip
 @pytest.mark.skipif(
-    Version(openai.__version__) >= Version("1.0"),
-    reason="OpenAI Client since 1.0 contains thread lock object that cannot be pickled.",
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Agent behavior is not stable across minor versions",
 )
 def test_langchain_agent_model_predict_stream():
-    langchain_agent_output = {
-        "id": "chatcmpl-123",
-        "object": "chat.completion",
-        "created": 1677652288,
-        "choices": [
-            {
-                "index": 0,
-                "finish_reason": "stop",
-                "text": "Final Answer: test",
-            }
-        ],
-        "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
-    }
-    model = create_openai_llmagent()
-
+    input_example = {"input": "What is 2 * 3?"}
     with mlflow.start_run():
-        logged_model = mlflow.langchain.log_model(model, "langchain_model")
+        logged_model = mlflow.langchain.log_model(
+            # OpenAI Client since 1.0 contains thread lock object that cannot be
+            # pickled. Therefore, AgentExecutor cannot be saved with the legacy
+            # object-based logging and we need to use Model-from-Code logging.
+            lc_model="tests/langchain/sample_code/openai_agent.py",
+            artifact_path="langchain_model",
+            input_example=input_example,
+        )
+
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-    langchain_input = {"input": "foo"}
-    with mock.patch("openai.OpenAI.completions.create", return_value=langchain_agent_output):
-        response = loaded_model.predict_stream([langchain_input])
-        assert inspect.isgenerator(response)
-        assert list(response) == [
-            {
-                "output": "test",
-                "messages": [AIMessage(content="Final Answer: test")],
-            }
-        ]
+    response = loaded_model.predict_stream([input_example])
+    assert inspect.isgenerator(response)
+    assert list(response) == [
+        {
+            "actions": [
+                {
+                    "log": mock.ANY,
+                    "message_log": [mock.ANY],
+                    "tool": "multiply",
+                    "tool_call_id": "123",
+                    "tool_input": {"a": 2, "b": 3},
+                    "type": "AgentActionMessageLog",
+                }
+            ],
+            "messages": [mock.ANY],
+        },
+        {
+            "steps": [
+                {
+                    "action": {
+                        "log": mock.ANY,
+                        "message_log": [mock.ANY],
+                        "tool": "multiply",
+                        "tool_call_id": "123",
+                        "tool_input": {"a": 2, "b": 3},
+                        "type": mock.ANY,
+                    },
+                    "observation": 6,
+                }
+            ],
+            "messages": [mock.ANY],
+        },
+        {
+            "output": "The result of 2 * 3 is 6.",
+            "messages": [mock.ANY],
+        },
+    ]
 
 
 def test_langchain_native_log_and_load_qaevalchain():
@@ -787,7 +860,7 @@ def test_log_and_load_retriever_chain(tmp_path):
     # Create the vector db, persist the db to a local fs folder
     loader = TextLoader("tests/langchain/state_of_the_union.txt")
     documents = loader.load()
-    text_splitter = CharacterTextSplitter(chunk_size=10, chunk_overlap=0)
+    text_splitter = CharacterTextSplitter(chunk_size=256, chunk_overlap=0)
     docs = text_splitter.split_documents(documents)
     embeddings = DeterministicDummyEmbeddings(size=5)
     db = FAISS.from_documents(docs, embeddings)
@@ -848,9 +921,16 @@ def test_log_and_load_retriever_chain(tmp_path):
     loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     result = loaded_pyfunc_model.predict([langchain_input])
     expected_result = [
-        {"page_content": doc.page_content, "metadata": doc.metadata}
+        {
+            "page_content": doc.page_content,
+            "metadata": doc.metadata,
+            "type": "Document",
+        }
         for doc in db.as_retriever().get_relevant_documents(query)
     ]
+    # "id" field was added to Document model in langchain 0.2.7
+    if Version(langchain.__version__) >= Version("0.2.7"):
+        expected_result = [{**d, "id": None} for d in expected_result]
     assert result == [expected_result]
 
     # Serve the retriever
@@ -1008,7 +1088,7 @@ def test_unsupported_class():
     with pytest.raises(
         MlflowException,
         match="MLflow langchain flavor only supports subclasses of "
-        + "langchain.chains.base.Chain",
+        + "\\(<class 'langchain.chains.base.Chain'>",
     ):
         with mlflow.start_run():
             mlflow.langchain.log_model(llm, "fake_llm")
@@ -1916,90 +1996,82 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
 
 
 @pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Langgraph are not supported the way we want in earlier versions",
+)
+def test_databricks_dependency_extraction_from_langgraph_agent(monkeypatch):
+    from langchain_community.chat_models import ChatDatabricks
+    from langchain_core.runnables import RunnableLambda
+    from langgraph.prebuilt import create_react_agent
+
+    # Mocking Cloudpickle because serialization in this setup is failing
+    monkeypatch.setattr("cloudpickle.dump", mock.MagicMock())
+
+    uc_functions = ["rag.studio.test_function_a", "rag.studio.test_function_b"]
+    uc_function_tools = create_uc_tools(
+        monkeypatch,
+        warehouse_id="test_id_1",
+        expected_catalog_name="rag",
+        expected_schema_name="studio",
+        functions=uc_functions,
+    )
+    retriever_tool = create_retriever_tool(monkeypatch)
+    chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
+
+    agent = create_react_agent(chat_model, uc_function_tools + [retriever_tool])
+
+    def wrap_agent(input):
+        return agent.invoke(input)
+
+    pyfunc_artifact_path = "retrieval_qa_chain"
+    with mlflow.start_run() as run:
+        mlflow.langchain.log_model(
+            RunnableLambda(wrap_agent),
+            pyfunc_artifact_path,
+        )
+    pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
+    pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_uri)
+    reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    actual = reloaded_model.resources["databricks"]
+
+    # Ensure both functions are outputted
+    expected = {
+        "serving_endpoint": [{"name": "databricks-llama-2-70b-chat"}, {"name": "embedding-model"}],
+        "vector_search_index": [{"name": "mlflow.rag.vs_index"}],
+        "sql_warehouse": [{"name": "test_id_1"}],
+        "function": [{"name": function} for function in uc_functions],
+    }
+
+    assert all(item in actual["serving_endpoint"] for item in expected["serving_endpoint"])
+    assert all(item in expected["serving_endpoint"] for item in actual["serving_endpoint"])
+    assert actual["vector_search_index"] == expected["vector_search_index"]
+    if uc_function_tools:
+        assert actual["sql_warehouse"] == expected["sql_warehouse"]
+        assert all(item in actual["function"] for item in expected["function"])
+        assert all(item in expected["function"] for item in actual["function"])
+
+
+@pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.1.0"),
     reason="Tools are not supported the way we want in earlier versions",
 )
 def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
-    from databricks.sdk.service.catalog import FunctionInfo
-    from langchain.tools.retriever import create_retriever_tool
     from langchain_community.chat_models import ChatDatabricks
-    from langchain_community.vectorstores import DatabricksVectorSearch
 
-    # Return 2 functions from the function lis
-    def mock_function_list(self, catalog_name, schema_name):
-        assert catalog_name == "rag"
-        assert schema_name == "studio"
-        return [
-            FunctionInfo(full_name="rag.studio.test_function_a"),
-            FunctionInfo(full_name="rag.studio.test_function_b"),
-        ]
-
-    # For each function ensure that it returns a tool which takes one input
-    def mock_function_get(self, function_name):
-        components = function_name.split(".")
-        param_dict = {
-            "parameters": [
-                {
-                    "name": "param",
-                    "parameter_type": "PARAM",
-                    "position": 0,
-                    "type_json": '{"name":"param","type":"string","nullable":true,"metadata":{}}',
-                    "type_name": "STRING",
-                    "type_precision": 0,
-                    "type_scale": 0,
-                    "type_text": "string",
-                }
-            ]
-        }
-        return FunctionInfo.from_dict(
-            {
-                "catalog_name": components[0],
-                "schema_name": components[1],
-                "name": components[2],
-                "input_params": param_dict,
-            }
-        )
-
-    vsc = MockVectorSearchClient()
-    vs_index = vsc.get_index(
-        endpoint_name="dbdemos_vs_endpoint",
-        index_name="mlflow.rag.vs_index",
-        has_embedding_endpoint=True,
-    )
-
-    mock_module = mock.MagicMock()
-    mock_module.VectorSearchIndex = MockVectorSearchIndex
-    mock_get_deploy_client = mock.MagicMock()
-
-    monkeypatch.setitem(sys.modules, "databricks.vector_search.client", mock_module)
-    monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
-    monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
-    monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
-    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.list", mock_function_list)
-    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
     # Mocking Cloudpickle because serialization in this setup is failing
     monkeypatch.setattr("cloudpickle.dump", mock.MagicMock())
 
-    # Create an toolkit with the '*' syntax
-    include_uc_function_tools = False
-    try:
-        from langchain_community.tools.databricks import UCFunctionToolkit
-
-        include_uc_function_tools = True
-    except Exception:
-        include_uc_function_tools = False
-
-    uc_function_tools = (
-        (UCFunctionToolkit(warehouse_id="test_id_1").include("rag.studio.*").get_tools())
-        if include_uc_function_tools
-        else []
+    uc_functions = ["rag.studio.test_function_a", "rag.studio.test_function_b"]
+    uc_function_tools = create_uc_tools(
+        monkeypatch,
+        warehouse_id="test_id_1",
+        expected_catalog_name="rag",
+        expected_schema_name="studio",
+        functions=uc_functions,
     )
-
+    retriever_tool = create_retriever_tool(monkeypatch)
     chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
 
-    vectorstore = DatabricksVectorSearch(vs_index, text_column="content")
-    retriever = vectorstore.as_retriever()
-    retriever_tool = create_retriever_tool(retriever, "vs_index_name", "vs_index_desc")
     agent = initialize_agent(
         uc_function_tools + [retriever_tool],
         chat_model,
@@ -2022,13 +2094,10 @@ def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
         "vector_search_index": [{"name": "mlflow.rag.vs_index"}],
     }
 
-    if uc_function_tools:
+    if len(uc_function_tools) > 0:
         uc_expected = {
             "sql_warehouse": [{"name": "test_id_1"}],
-            "uc_function": [
-                {"name": "rag.studio.test_function_a"},
-                {"name": "rag.studio.test_function_b"},
-            ],
+            "function": [{"name": function} for function in uc_functions],
         }
         expected.update(uc_expected)
 
@@ -2037,8 +2106,8 @@ def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
     assert actual["vector_search_index"] == expected["vector_search_index"]
     if uc_function_tools:
         assert actual["sql_warehouse"] == expected["sql_warehouse"]
-        assert all(item in actual["uc_function"] for item in expected["uc_function"])
-        assert all(item in expected["uc_function"] for item in actual["uc_function"])
+        assert all(item in actual["function"] for item in expected["function"])
+        assert all(item in expected["function"] for item in actual["function"])
 
 
 def _error_func(*args, **kwargs):

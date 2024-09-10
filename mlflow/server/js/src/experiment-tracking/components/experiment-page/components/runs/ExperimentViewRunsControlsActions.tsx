@@ -1,6 +1,6 @@
 import { Button } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useNavigate } from '../../../../../common/utils/RoutingUtils';
 import { LegacyTooltip } from '@databricks/design-system';
@@ -11,6 +11,9 @@ import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selecto
 import { ExperimentViewRunModals } from './ExperimentViewRunModals';
 import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { RunInfoEntity } from '../../../../types';
+import { useDesignSystemTheme } from '@databricks/design-system';
+import { shouldEnableTaggingMultipleRuns } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { ExperimentViewRunsControlsActionsSelectTags } from './ExperimentViewRunsControlsActionsSelectTags';
 
 export type ExperimentViewRunsControlsActionsProps = {
   viewState: ExperimentPageViewState;
@@ -23,11 +26,14 @@ const CompareRunsButtonWrapper: React.FC = ({ children }) => <>{children}</>;
 
 export const ExperimentViewRunsControlsActions = React.memo(
   ({ viewState, runsData, searchFacetsState, refreshRuns }: ExperimentViewRunsControlsActionsProps) => {
+    const usingTaggingMultipleRuns = shouldEnableTaggingMultipleRuns();
+
     const { runsSelected } = viewState;
-    const { runInfos } = runsData;
+    const { runInfos, tagsList } = runsData;
     const { lifecycleFilter } = searchFacetsState;
 
     const navigate = useNavigate();
+    const { theme } = useDesignSystemTheme();
 
     const [showDeleteRunModal, setShowDeleteRunModal] = useState(false);
     const [showRestoreRunModal, setShowRestoreRunModal] = useState(false);
@@ -122,6 +128,17 @@ export const ExperimentViewRunsControlsActions = React.memo(
               />
             </Button>
           </CompareRunsButtonWrapper>
+          {usingTaggingMultipleRuns && (
+            <>
+              <div css={styles.buttonSeparator} />
+              <ExperimentViewRunsControlsActionsSelectTags
+                runsSelected={runsSelected}
+                runInfos={runInfos}
+                tagsList={tagsList}
+                refreshRuns={refreshRuns}
+              />
+            </>
+          )}
         </div>
         <ExperimentViewRunModals
           runsSelected={runsSelected}

@@ -1,9 +1,10 @@
 import { shouldEnableExperimentPageAutoRefresh } from '../../../../common/utils/FeatureUtils';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../constants';
-import { SerializedRunsChartsCardConfigCard } from '../../runs-charts/runs-charts.types';
+import type { RunsChartsLineCardConfig, SerializedRunsChartsCardConfigCard } from '../../runs-charts/runs-charts.types';
 import { makeCanonicalSortKey } from '../utils/experimentPage.common-utils';
-import { ChartSectionConfig } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { ChartSectionConfig } from '@mlflow/mlflow/src/experiment-tracking/types';
 import type { RunsGroupByConfig } from '../utils/experimentPage.group-row-utils';
+import { RunsChartsLineChartXAxisType } from '../../runs-charts/components/RunsCharts.common';
 
 export const EXPERIMENT_PAGE_UI_STATE_FIELDS = [
   'selectedColumns',
@@ -21,6 +22,8 @@ export const EXPERIMENT_PAGE_UI_STATE_FIELDS = [
   'autoRefreshEnabled',
   'useGroupedValuesInCharts',
   'hideEmptyCharts',
+  'globalLineChartConfig',
+  'chartsSearchFilter',
 ];
 
 const getDefaultSelectedColumns = () => {
@@ -41,6 +44,10 @@ export enum RUNS_VISIBILITY_MODE {
   FIRST_20_RUNS = 'FIRST_20_RUNS',
   CUSTOM = 'CUSTOM',
 }
+
+export type RunsChartsGlobalLineChartConfig = Partial<
+  Pick<RunsChartsLineCardConfig, 'selectedXAxisMetricKey' | 'xAxisKey' | 'lineSmoothness'>
+>;
 
 /**
  * An interface describing serializable, persistable configuration for charts displaying
@@ -66,6 +73,16 @@ export interface ExperimentRunsChartsUIConfiguration {
    * Determines if the auto refresh of the chart data is enabled
    */
   autoRefreshEnabled: boolean;
+
+  /**
+   * Global line chart settings that are applied to all line charts
+   */
+  globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
+
+  /**
+   * Regex string used to filter visible charts
+   */
+  chartsSearchFilter?: string;
 }
 
 /**
@@ -146,4 +163,9 @@ export const createExperimentPageUIState = (): ExperimentPageUIState => ({
   groupsExpanded: {},
   // Auto-refresh is enabled by default only if the flag is set
   autoRefreshEnabled: shouldEnableExperimentPageAutoRefresh(),
+  globalLineChartConfig: {
+    xAxisKey: RunsChartsLineChartXAxisType.STEP,
+    lineSmoothness: 0,
+    selectedXAxisMetricKey: '',
+  },
 });

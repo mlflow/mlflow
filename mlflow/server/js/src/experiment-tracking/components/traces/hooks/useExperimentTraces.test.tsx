@@ -1,4 +1,4 @@
-import { renderHook, cleanup, waitFor, act } from '@testing-library/react-for-react-18';
+import { renderHook, cleanup, waitFor, act } from '@testing-library/react';
 import { useExperimentTraces } from './useExperimentTraces';
 import { MlflowService } from '../../../sdk/MlflowService';
 import { type ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';

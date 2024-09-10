@@ -236,7 +236,7 @@ class FileStore(AbstractStore):
 
     def _get_metric_path(self, experiment_id, run_uuid, metric_key):
         _validate_run_id(run_uuid)
-        _validate_metric_name(metric_key)
+        _validate_metric_name(metric_key, "name")
         return os.path.join(
             self._get_run_dir(experiment_id, run_uuid),
             FileStore.METRICS_FOLDER_NAME,
@@ -387,10 +387,10 @@ class FileStore(AbstractStore):
         if experiment is not None:
             if experiment.lifecycle_stage == LifecycleStage.DELETED:
                 raise MlflowException(
-                    "Experiment '%s' already exists in deleted state. "
+                    f"Experiment {experiment.name!r} already exists in deleted state. "
                     "You can restore the experiment, or permanently delete the experiment "
                     "from the .trash folder (under tracking server's root folder) in order to "
-                    "use this experiment name again." % experiment.name,
+                    "use this experiment name again.",
                     databricks_pb2.RESOURCE_ALREADY_EXISTS,
                 )
             else:
@@ -540,7 +540,7 @@ class FileStore(AbstractStore):
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise Exception(
                 "Cannot rename experiment in non-active lifecycle stage."
-                " Current stage: %s" % experiment.lifecycle_stage
+                f" Current stage: {experiment.lifecycle_stage}"
             )
         overwrite_yaml(
             root=meta_dir,
@@ -638,8 +638,8 @@ class FileStore(AbstractStore):
         experiment = self.get_experiment(experiment_id)
         if experiment is None:
             raise MlflowException(
-                "Could not create run under experiment with ID %s - no such experiment "
-                "exists." % experiment_id,
+                f"Could not create run under experiment with ID {experiment_id} - no such "
+                "experiment exists.",
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
@@ -1123,7 +1123,7 @@ class FileStore(AbstractStore):
         _validate_run_id(run_id)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
-        model_dict = mlflow_model.to_dict()
+        model_dict = mlflow_model.get_tags_dict()
         run_info = self._get_run_info(run_id)
         path = self._get_tag_path(run_info.experiment_id, run_info.run_id, MLFLOW_LOGGED_MODELS)
         if os.path.exists(path):

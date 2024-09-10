@@ -1,7 +1,7 @@
 import type { ExtendedRefs } from '@floating-ui/react';
 import type { DesignSystemEventProviderAnalyticsEventTypes } from '../../DesignSystemEventProvider/DesignSystemEventProvider';
-import type { AnalyticsEventOptionalProps } from '../../types';
-export interface TypeaheadComboboxContextType extends AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+import type { AnalyticsEventProps } from '../../types';
+export interface TypeaheadComboboxContextType extends AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     isInsideTypeaheadCombobox: boolean;
     multiSelect?: boolean;
     floatingUiRefs?: ExtendedRefs<Element>;

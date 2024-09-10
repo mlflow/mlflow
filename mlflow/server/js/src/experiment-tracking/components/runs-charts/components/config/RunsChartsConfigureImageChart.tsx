@@ -80,7 +80,12 @@ export const RunsChartsConfigureImageChart = ({
           description: 'Runs charts > components > config > RunsChartsConfigureImageGrid > Images section',
         })}
       >
-        <DialogCombobox value={state.imageKeys} label="Images" multiSelect>
+        <DialogCombobox
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_config_runschartsconfigureimagechart.tsx_84"
+          value={state.imageKeys}
+          label="Images"
+          multiSelect
+        >
           <DialogComboboxTrigger onClear={handleClear} minWidth={IMAGE_CONFIG_WIDTH} />
           <DialogComboboxContent matchTriggerWidth>
             <DialogComboboxOptionList>

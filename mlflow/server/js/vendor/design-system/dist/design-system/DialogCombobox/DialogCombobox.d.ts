@@ -1,6 +1,6 @@
 import * as Popover from '@radix-ui/react-popover';
 import type { ReactNode } from 'react';
-import type { AnalyticsEventValueChangeNoPiiFlagOptionalProps, HTMLDataAttributes } from '../../design-system/types';
+import type { AnalyticsEventValueChangeNoPiiFlagProps, HTMLDataAttributes } from '../../design-system/types';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
 export type ConditionalOptionalLabel = {
     id?: string;
@@ -9,7 +9,7 @@ export type ConditionalOptionalLabel = {
     id: string;
     label?: ReactNode;
 };
-export interface DialogComboboxProps extends Popover.PopoverProps, HTMLDataAttributes, AnalyticsEventValueChangeNoPiiFlagOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export interface DialogComboboxProps extends Popover.PopoverProps, HTMLDataAttributes, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     value?: string[];
     stayOpenOnSelection?: boolean;
     multiSelect?: boolean;

@@ -1,5 +1,5 @@
 import { type ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
-import { screen } from '@testing-library/react-for-react-18';
+import { screen } from '@testing-library/react';
 import { TracesViewTable, TracesViewTableProps } from './TracesViewTable';
 import { renderWithIntl } from '../../../common/utils/TestUtils.react18';
 import { KeyValueEntity } from '../../types';

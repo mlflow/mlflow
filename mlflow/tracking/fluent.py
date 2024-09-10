@@ -2,6 +2,7 @@
 Internal module implementing the fluent API, allowing management of an active
 MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
 """
+
 import atexit
 import contextlib
 import importlib
@@ -163,9 +164,9 @@ def set_experiment(
     if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
         raise MlflowException(
             message=(
-                "Cannot set a deleted experiment '%s' as the active experiment. "
+                f"Cannot set a deleted experiment {experiment.name!r} as the active experiment. "
                 "You can restore the experiment, or permanently delete the "
-                "experiment to create a new one." % experiment.name
+                "experiment to create a new one."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -377,12 +378,12 @@ def start_run(
             _validate_run_id(parent_run_id)
             # Make sure parent_run_id matches the current run id, if there is an active run
             if len(_active_run_stack) > 0 and parent_run_id != _active_run_stack[-1].info.run_id:
-                raise Exception(
-                    (
-                        "Current run with UUID {} does not match the specified parent_run_id {}"
-                        + " To start a new nested run under the parent run with UUID {}, "
-                        + "first end the current run with mlflow.end_run()."
-                    ).format(_active_run_stack[-1].info.run_id, parent_run_id)
+                current_run_id = _active_run_stack[-1].info.run_id
+                raise MlflowException(
+                    f"Current run with UUID {current_run_id} does not match the specified "
+                    f"parent_run_id {parent_run_id}. To start a new nested run under "
+                    f"the parent run with UUID {current_run_id}, first end the current run "
+                    "with mlflow.end_run()."
                 )
             parent_run_obj = client.get_run(parent_run_id)
             # Check if the specified parent_run has been deleted.
@@ -2109,8 +2110,8 @@ def search_runs(
         return pd.DataFrame(data)
     else:
         raise ValueError(
-            "Unsupported output format: %s. Supported string values are 'pandas' or 'list'"
-            % output_format
+            f"Unsupported output format: {output_format}. Supported string values are 'pandas' "
+            "or 'list'"
         )
 
 

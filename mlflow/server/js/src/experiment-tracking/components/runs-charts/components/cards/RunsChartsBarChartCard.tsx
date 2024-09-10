@@ -5,6 +5,7 @@ import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import type { RunsChartsBarCardConfig } from '../../runs-charts.types';
 import { useIsInViewport } from '../../hooks/useIsInViewport';
 import {
+  shouldEnableDraggableChartsGridLayout,
   shouldEnableHidingChartsWithNoData,
   shouldUseNewRunRowsVisibilityModel,
 } from '../../../../../common/utils/FeatureUtils';
@@ -14,13 +15,17 @@ import {
   RunsChartsChartsDragGroup,
   ChartRunsCountIndicator,
   RunsChartCardFullScreenProps,
+  RunsChartCardVisibilityProps,
 } from './ChartCard.common';
 import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
 import { downloadChartDataCsv } from '../../../experiment-page/utils/experimentPage.common-utils';
 import { customMetricBehaviorDefs } from '../../../experiment-page/utils/customMetricBehaviorUtils';
 import { RunsChartsNoDataFoundIndicator } from '../RunsChartsNoDataFoundIndicator';
 
-export interface RunsChartsBarChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
+export interface RunsChartsBarChartCardProps
+  extends RunsChartCardReorderProps,
+    RunsChartCardFullScreenProps,
+    RunsChartCardVisibilityProps {
   config: RunsChartsBarCardConfig;
   chartRunData: RunsChartsRunData[];
 
@@ -46,8 +51,11 @@ export const RunsChartsBarChartCard = ({
   fullScreen,
   setFullScreenChart,
   hideEmptyCharts,
+  isInViewport: isInViewportProp,
   ...reorderProps
 }: RunsChartsBarChartCardProps) => {
+  const usingDraggableChartsGridLayout = shouldEnableDraggableChartsGridLayout();
+
   const toggleFullScreenChart = () => {
     setFullScreenChart?.({
       config,
@@ -77,7 +85,14 @@ export const RunsChartsBarChartCard = ({
 
   const { setTooltip, resetTooltip, selectedRunUuid } = useRunsChartsTooltip(config);
 
-  const { elementRef, isInViewport } = useIsInViewport();
+  const { elementRef, isInViewport: isInViewportInternal } = useIsInViewport({
+    enabled: !usingDraggableChartsGridLayout,
+  });
+
+  // If the chart is in fullscreen mode, we always render its body.
+  // Otherwise, we only render the chart if it is in the viewport.
+  // Viewport flag is either consumed from the prop (new approach) or calculated internally (legacy).
+  const isInViewport = fullScreen || (isInViewportProp ?? isInViewportInternal);
 
   const [imageDownloadHandler, setImageDownloadHandler] = useChartImageDownloadHandler();
 

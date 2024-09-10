@@ -184,16 +184,25 @@ def get_model_version_dependencies(model_dir):
 
     if databricks_resources:
         databricks_dependencies = databricks_resources.get("databricks", {})
-        index_names = _fetch_langchain_dependency_from_model_info(
-            databricks_dependencies, ResourceType.VECTOR_SEARCH_INDEX.value
+        dependencies.extend(
+            _fetch_langchain_dependency_from_model_resources(
+                databricks_dependencies,
+                ResourceType.VECTOR_SEARCH_INDEX.value,
+                "DATABRICKS_VECTOR_INDEX",
+            )
         )
-        for index_name in index_names:
-            dependencies.append({"type": "DATABRICKS_VECTOR_INDEX", **index_name})
-        endpoint_names = _fetch_langchain_dependency_from_model_info(
-            databricks_dependencies, ResourceType.SERVING_ENDPOINT.value
+        dependencies.extend(
+            _fetch_langchain_dependency_from_model_resources(
+                databricks_dependencies,
+                ResourceType.SERVING_ENDPOINT.value,
+                "DATABRICKS_MODEL_ENDPOINT",
+            )
         )
-        for endpoint_name in endpoint_names:
-            dependencies.append({"type": "DATABRICKS_MODEL_ENDPOINT", **endpoint_name})
+        dependencies.extend(
+            _fetch_langchain_dependency_from_model_resources(
+                databricks_dependencies, ResourceType.FUNCTION.value, "DATABRICKS_UC_FUNCTION"
+            )
+        )
     else:
         # These types of dependencies are required for old models that didn't use
         # resources so they can be registered correctly to UC
@@ -223,6 +232,14 @@ def get_model_version_dependencies(model_dir):
             for endpoint_name in endpoint_names:
                 dependencies.append({"type": "DATABRICKS_MODEL_ENDPOINT", "name": endpoint_name})
     return dependencies
+
+
+def _fetch_langchain_dependency_from_model_resources(databricks_dependencies, key, resource_type):
+    dependencies = databricks_dependencies.get(key, [])
+    deps = []
+    for depndency in dependencies:
+        deps.append({"type": resource_type, **depndency})
+    return deps
 
 
 def _fetch_langchain_dependency_from_model_info(databricks_dependencies, key):

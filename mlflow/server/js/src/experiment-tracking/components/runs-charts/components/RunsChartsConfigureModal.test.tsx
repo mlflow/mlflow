@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react-for-react-18';
+import { render, screen, waitFor } from '@testing-library/react';
 import { RunsChartsConfigureModal } from './RunsChartsConfigureModal';
 import { RunsChartType, RunsChartsLineCardConfig } from '../runs-charts.types';
 import { IntlProvider } from 'react-intl';

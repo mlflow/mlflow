@@ -36,6 +36,7 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
+from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
@@ -1077,6 +1078,22 @@ def test_log_metric_concurrent_logging_succeeds(store: SqlAlchemyStore):
             )
 
 
+def test_record_logged_model(
+    store: SqlAlchemyStore,
+):
+    run = _run_factory(store)
+    flavors_with_config = {
+        "tf": "flavor body",
+        "python_function": {"config": {"a": 1}, "code": "code"},
+    }
+    m_with_config = Model(artifact_path="model/path", run_id="run_id", flavors=flavors_with_config)
+    store.record_logged_model(run.info.run_id, m_with_config)
+    with store.ManagedSessionMaker() as session:
+        run = store._get_run(run_uuid=run.info.run_id, session=session)
+        tags = [t.value for t in run.tags if t.key == mlflow_tags.MLFLOW_LOGGED_MODELS]
+        assert tags[0] == json.dumps([m_with_config.get_tags_dict()])
+
+
 def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(
     store: SqlAlchemyStore,
 ):
@@ -1129,7 +1146,7 @@ def test_log_null_metric(store: SqlAlchemyStore):
     metric = entities.Metric(tkey, tval, get_current_time_millis(), 0)
 
     with pytest.raises(
-        MlflowException, match=r"Got invalid value None for metric"
+        MlflowException, match=r"Missing value for required parameter 'value'"
     ) as exception_context:
         store.log_metric(run.info.run_id, metric)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -2762,7 +2779,7 @@ def test_log_batch_metrics(store: SqlAlchemyStore):
         metric,
         metric2,
     ]
-    store._log_metrics(run.info.run_id, metrics)
+    store._log_metrics(run.info.run_id, metrics, path="metrics")
 
     run = store.get_run(run.info.run_id)
     assert tkey in run.data.metrics
@@ -2822,7 +2839,8 @@ def test_log_batch_null_metrics(store: SqlAlchemyStore):
     metrics = [metric_1, metric_2]
 
     with pytest.raises(
-        MlflowException, match=r"Got invalid value None for metric"
+        MlflowException,
+        match=r"Missing value for required parameter 'metrics\[0\]\.value'",
     ) as exception_context:
         store.log_batch(run.info.run_id, metrics=metrics, params=[], tags=[])
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -4419,10 +4437,18 @@ def test_set_and_delete_tags(store: SqlAlchemyStore):
 @pytest.mark.parametrize(
     ("key", "value", "expected_error"),
     [
-        (None, "value", "Tag name cannot be None."),
-        ("invalid?tag!name:(", "value", "Invalid tag name:"),
-        ("/.:\\.", "value", "Invalid tag name:"),
-        ("../", "value", "Invalid tag name:"),
+        (None, "value", "Missing value for required parameter 'key'"),
+        (
+            "invalid?tag!name:(",
+            "value",
+            "Invalid value \"invalid\\?tag!name:\\(\" for parameter 'key' supplied",
+        ),
+        (
+            "/.:\\.",
+            "value",
+            "Invalid value \"/\\.:\\\\\\\\.\" for parameter 'key' supplied",
+        ),
+        ("../", "value", "Invalid value \"\\.\\./\" for parameter 'key' supplied"),
         ("a" * 251, "value", "Trace tag key 'aaa"),
     ],
     # Name each test case too avoid including the long string arguments in the test name

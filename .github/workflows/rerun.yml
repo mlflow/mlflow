@@ -1,10 +1,8 @@
-# Cross version tests sometimes fail due to transient errors. This workflow reruns failed tests.
-name: rerun-cross-version-tests
+name: rerun
 
 on:
-  schedule:
-    # Run this workflow daily at 17:00 UTC (4 hours after cross-version-tests.yml workflow)
-    - cron: "0 17 * * *"
+  issue_comment:
+    types: [created]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -14,12 +12,13 @@ permissions:
   contents: read
 
 jobs:
-  set-matrix:
+  rerun:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    if: github.repository == 'mlflow-automation/mlflow'
+    timeout-minutes: 5
     permissions:
-      actions: write # to rerun workflows
+      pull-requests: write # to create a reaction to the comment
+      actions: write # to rerun github action workflows
+    if: github.event.issue.pull_request && (github.event.comment.body == '/rerun' || github.event.comment.body == '/rr')
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,4 +28,4 @@ jobs:
         with:
           script: |
             const rerun = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/rerun.js`);
-            await rerun({ context, github, workflow_id: "cross-version-tests.yml" });
+            await rerun({ context, github });

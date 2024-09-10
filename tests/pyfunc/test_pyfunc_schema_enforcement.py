@@ -2973,3 +2973,12 @@ def test_pyfunc_model_schema_enforcement_complex(data, schema, format_key):
     result = json.loads(response.content.decode("utf-8"))["predictions"]
     expected_result = df.to_dict(orient="records")
     np.testing.assert_equal(result, expected_result)
+
+
+def test_zero_or_one_longs_convert_to_floats():
+    zeros = pd.DataFrame([{"temperature": 0}, {"temperature": 0.9}, {"temperature": 1}, {}])
+    schema = Schema([ColSpec(DataType.double, name="temperature", required=False)])
+    data = _enforce_schema(zeros, schema)
+    pd.testing.assert_series_equal(
+        data["temperature"], pd.Series([0.0, 0.9, 1.0, np.nan], dtype=np.float64), check_names=False
+    )

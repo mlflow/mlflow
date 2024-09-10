@@ -11,6 +11,8 @@ import { KeyValueEntity, RunLoggedArtifactType } from '@mlflow/mlflow/src/experi
 
 export const MLFLOW_INTERNAL_PREFIX = 'mlflow.';
 
+export const isUserFacingTag = (tagKey: string) => !tagKey.startsWith(MLFLOW_INTERNAL_PREFIX);
+
 export const getLoggedModelPathsFromTags = (runTags: Record<string, KeyValueEntity>) => {
   const models = Utils.getLoggedModelsFromTags(runTags);
   return models ? models.map((model) => (model as any).artifactPath) : [];
