@@ -6,12 +6,13 @@ import importlib
 import inspect
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Literal, Optional
 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
 from mlflow import MlflowClient
+import mlflow
 from mlflow.entities import NoOpSpan, SpanType, Trace
 from mlflow.entities.span import LiveSpan, create_mlflow_span
 from mlflow.environment_variables import (
@@ -19,7 +20,7 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
 from mlflow.tracing.constant import SpanAttributeKey
@@ -549,3 +550,73 @@ def get_last_active_trace() -> Optional[Trace]:
         return TRACE_BUFFER.get(last_active_request_id)
     else:
         return None
+
+
+
+def set_trace_exporter(
+    type: Literal["mlflow", "otel"],
+    target_url: Optional[str] = None
+):
+    """
+    Configure the trace export target. Currently, MLflow supports two types of destinations for exporting traces.
+
+    1. MLflow Tracking Server: Traces will be logged to the current MLflow Experiment and can be viewed via
+        the "Traces" tab in the MLflow UI. This is the standard destination for storing traces.
+    2. OpenTelemetry Collector: You can also export the traces to your self-hosted
+        `OpenTelemetry Collector <https://opentelemetry.io/docs/collector/>`. MLflow Traces are compatible
+        with the OpenTelemetry specification.
+
+    Example of using MLflow Tracking Server as a trace export destination:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+        mlflow.set_trace_exporter("mlflow")
+
+    Example of using MLflow Tracking Server as a trace export destination:
+
+    .. code-block:: python
+
+        import mlflow
+
+        mlflow.set_trace_exporter("otel", "https://YOUR-OTEL-CORRECTOR-ENDPOINT:PORT/v1/traces")
+
+    Args:
+        type: The type of the target collector. Supported values are `"mlflow"` and `"otel"`.
+            - `"mlflow"`: The trace will be exported to MLflow Tracking Server.
+            - `"otel"`: The trace will be exported to an OpenTelemetry collector.
+        target_url: The URL of the target collector.
+            - For `"mlflow"` type, this should be the tracking URI of the MLflow Tracking Server.
+              If not provided, the default tracking URI will be used.
+            - For `"otel"` type, this should be the endpoint of the OpenTelemetry collector.
+    """
+    if not provider._is_enabled():
+        raise MlflowException("Tracing is not enabled. Please enable tracing first by calling "
+                              "`mlflow.tracing.enable()`.",
+                              error_code=INVALID_PARAMETER_VALUE)
+
+    if type not in ["mlflow", "otel"]:
+        raise MlflowException(f"Unsupported target type: {type}. Supported values are "
+                              "[\"mlflow\", \"otel\"]",
+                                error_code=INVALID_PARAMETER_VALUE)
+
+    if not target_url:
+        if type == "otel":
+            raise MlflowException("The target URL must be provided for OpenTelemetry collector. "
+                                "Please specify ``target_url`` parameter with your endpoint URL.",
+                                error_code=INVALID_PARAMETER_VALUE)
+        else:
+            _logger.info("The target URL is not provided. The current MLflow tracking URI will be "
+                         "used as a trace export target.")
+            target_url = mlflow.get_tracking_uri()
+
+
+    provider._setup_tracer_provider(
+        disabled=False,
+        type=type,
+        target_url=target_url,
+    )
+
+    _logger.info(f"Tracing exporter is set to target '{type}' with URL: {target_url}")

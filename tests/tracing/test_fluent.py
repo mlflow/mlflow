@@ -29,8 +29,10 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
     TraceTagKey,
 )
+from mlflow.tracing.export.mlflow import MlflowSpanExporter
 from mlflow.tracing.fluent import TRACE_BUFFER
-from mlflow.tracing.provider import _get_tracer
+from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
+from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
 from mlflow.utils.file_utils import local_file_uri_to_path
 
 from tests.tracing.helper import create_test_trace_info, create_trace, get_traces
@@ -1104,3 +1106,38 @@ def test_non_ascii_characters_not_encoded_as_unicode():
     assert "👍" in data
     assert json.dumps("あ").strip('"') not in data
     assert json.dumps("👍").strip('"') not in data
+
+
+def test_set_trace_exporter_mlflow():
+    mlflow.set_trace_exporter("mlflow")
+
+    exporter = _get_trace_exporter()
+    assert exporter._client._tracking_client.tracking_uri == mlflow.get_tracking_uri()
+
+    # Change Tracking URI
+    mlflow.set_trace_exporter("mlflow", target_url="http://some-other-uri")
+    exporter = _get_trace_exporter()
+    assert exporter._client._tracking_client.tracking_uri == "http://some-other-uri"
+
+
+def test_set_trace_exporter_otel():
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+
+    mlflow.set_trace_exporter("otel", "https://localhost:6000/v1/traces")
+    exporter = _get_trace_exporter()
+    assert isinstance(exporter, OTLPSpanExporter)
+    assert exporter._endpoint == "https://localhost:6000/v1/traces"
+
+
+def test_set_trace_exporter_invalid_target():
+    with pytest.raises(MlflowException, match="Unsupported target type"):
+        mlflow.set_trace_exporter("invalid")
+
+    # Setting Otel collector without URL should fail
+    with pytest.raises(MlflowException, match="The target URL must be provided"):
+        mlflow.set_trace_exporter("otel")
+
+    # Exporter can be set only when tracing is enabled
+    mlflow.tracing.disable()
+    with pytest.raises(MlflowException, match="Tracing is not enabled."):
+        mlflow.set_trace_exporter("mlflow")

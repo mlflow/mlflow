@@ -10,7 +10,7 @@ use OpenTelemetry e.g. PromptFlow, Snowpark.
 import functools
 import json
 import logging
-from typing import Optional, Tuple
+from typing import Literal, Optional, Tuple
 
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -104,7 +104,11 @@ def _get_trace_exporter():
         return processor.span_exporter
 
 
-def _setup_tracer_provider(disabled=False):
+def _setup_tracer_provider(
+    disabled=False,
+    type: Literal["mlflow", "otel"] = "mlflow",
+    target_url: Optional[str] = None,
+):
     """
     Instantiate a tracer provider and set it as the global tracer provider.
 
@@ -128,12 +132,25 @@ def _setup_tracer_provider(disabled=False):
 
         exporter = InferenceTableSpanExporter()
         processor = InferenceTableSpanProcessor(exporter)
-    else:
+
+    elif type == "mlflow":
         from mlflow.tracing.export.mlflow import MlflowSpanExporter
         from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
+        from mlflow.tracking.client import MlflowClient
 
-        exporter = MlflowSpanExporter()
+        client = MlflowClient(tracking_uri=target_url)
+        exporter = MlflowSpanExporter(client)
         processor = MlflowSpanProcessor(exporter)
+
+    elif type == "otel":
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+
+        exporter = OTLPSpanExporter(endpoint=target_url)
+        processor = BatchSpanProcessor(exporter)
+
+    else:
+        raise ValueError(f"Unsupported tracing type: {type}")
 
     tracer_provider = TracerProvider()
     tracer_provider.add_span_processor(processor)
