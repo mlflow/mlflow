@@ -181,7 +181,7 @@ def load_zero_shot_pipeline():
 @flaky()
 def load_table_question_answering_pipeline():
     return transformers.pipeline(
-        task="table-question-answering", model="google/tapas-tiny-finetuned-wtq"
+        task="table-question-answering", model="google/tapas-tiny-finetuned-sqa"
     )
 
 
