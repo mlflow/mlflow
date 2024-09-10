@@ -162,7 +162,7 @@ def http_request(
             f"'{MLFLOW_ENABLE_DB_SDK.name}' to true",
             error_code=CUSTOMER_UNAUTHORIZED,
         )
-
+    print("IN HTTP_REQUEST: auth_str =|" + auth_str + "|")
     from mlflow.tracking.request_header.registry import resolve_request_headers
 
     headers = dict(**resolve_request_headers())
