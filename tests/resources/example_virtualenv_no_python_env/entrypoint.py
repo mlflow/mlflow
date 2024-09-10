@@ -20,6 +20,7 @@ parser.add_argument(
 args = parser.parse_args()
 if args.test:
     assert "VIRTUAL_ENV" in os.environ
+    print("VIRTUAL_ENV:", os.environ["VIRTUAL_ENV"])  # noqa: T201
     assert sys.version_info[:3] == (3, 8, 18), sys.version_info
     assert sklearn.__version__ == "1.0.2", sklearn.__version__
 
