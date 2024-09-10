@@ -4,6 +4,7 @@ Initialize the environment and start model serving in a Docker container.
 To be executed only during the model deployment.
 
 """
+
 import logging
 import multiprocessing
 import os

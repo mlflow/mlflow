@@ -1,6 +1,7 @@
 """
 python examples/databricks/dbconnect.py --cluster-id <cluster-id>
 """
+
 import argparse
 
 from databricks.connect import DatabricksSession

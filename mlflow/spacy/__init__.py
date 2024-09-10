@@ -9,6 +9,7 @@ spaCy (native) format
     flavor is created only if spaCy's model pipeline has at least one
     `TextCategorizer <https://spacy.io/api/textcategorizer>`_.
 """
+
 import logging
 import os
 from typing import Any, Dict, Optional

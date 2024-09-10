@@ -4,6 +4,7 @@
     MLflow AI gateway is deprecated and has been replaced by the deployments API for generative AI.
     See :ref:`gateway-migration` for migration.
 """
+
 from mlflow.gateway.client import MlflowGatewayClient
 from mlflow.gateway.fluent import (
     create_route,

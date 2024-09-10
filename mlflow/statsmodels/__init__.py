@@ -12,6 +12,7 @@ statsmodels (native) format
     https://www.statsmodels.org/stable/_modules/statsmodels/base/model.html#Results
 
 """
+
 import inspect
 import itertools
 import logging

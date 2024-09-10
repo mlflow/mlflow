@@ -18,6 +18,7 @@ Spark MLlib (native) format
     ``mlflow/java`` package. This flavor is produced only if you specify
     MLeap-compatible arguments.
 """
+
 import logging
 import os
 import posixpath

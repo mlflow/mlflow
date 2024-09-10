@@ -996,18 +996,18 @@ def autolog(
             )
             artifact_dict[param_search_estimator_name] = {}
 
-            artifact_dict[param_search_estimator_name][
-                "tuning_parameter_map_list"
-            ] = _get_tuning_param_maps(
-                param_search_estimator, autologging_metadata.uid_to_indexed_name_map
+            artifact_dict[param_search_estimator_name]["tuning_parameter_map_list"] = (
+                _get_tuning_param_maps(
+                    param_search_estimator, autologging_metadata.uid_to_indexed_name_map
+                )
             )
 
-            artifact_dict[param_search_estimator_name][
-                "tuned_estimator_parameter_map"
-            ] = _get_instance_param_map_recursively(
-                param_search_estimator.getEstimator(),
-                1,
-                autologging_metadata.uid_to_indexed_name_map,
+            artifact_dict[param_search_estimator_name]["tuned_estimator_parameter_map"] = (
+                _get_instance_param_map_recursively(
+                    param_search_estimator.getEstimator(),
+                    1,
+                    autologging_metadata.uid_to_indexed_name_map,
+                )
             )
 
         if artifact_dict:

@@ -10,6 +10,7 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
     NOTE: The `mlflow.pyfunc` flavor is only added for scikit-learn models that define `predict()`,
     since `predict()` is required for pyfunc model inference.
 """
+
 import functools
 import inspect
 import logging
