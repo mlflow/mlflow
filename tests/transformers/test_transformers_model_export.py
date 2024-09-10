@@ -767,11 +767,11 @@ def test_transformers_pt_model_save_without_conda_env_uses_default_env_with_expe
     importlib.util.find_spec("accelerate") is not None, reason="fails when accelerate is installed"
 )
 def test_transformers_pt_model_save_dependencies_without_accelerate(
-    translation_pipeline, model_path
+    text_generation_pipeline, model_path
 ):
-    mlflow.transformers.save_model(translation_pipeline, model_path)
+    mlflow.transformers.save_model(text_generation_pipeline, model_path)
     _assert_pip_requirements(
-        model_path, mlflow.transformers.get_default_pip_requirements(translation_pipeline.model)
+        model_path, mlflow.transformers.get_default_pip_requirements(text_generation_pipeline.model)
     )
     pip_requirements = _get_deps_from_requirement_file(model_path)
     assert "tensorflow" not in pip_requirements

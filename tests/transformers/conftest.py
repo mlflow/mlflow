@@ -1,4 +1,5 @@
 import pytest
+from packaging.version import Version
 
 from tests.transformers.helper import (
     load_audio_classification_pipeline,
@@ -84,6 +85,14 @@ def text_generation_pipeline():
 
 @pytest.fixture
 def translation_pipeline():
+    import transformers
+
+    if Version(transformers.__version__) > Version("4.44.2"):
+        pytest.skip(
+            reason="T5 translation pipeline has a loading issue with Transformers 4.45.x. "
+            "See https://github.com/huggingface/transformers/issues/33398 for more details."
+        )
+
     return load_translation_pipeline()
 
 
