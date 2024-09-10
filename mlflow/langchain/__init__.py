@@ -568,6 +568,9 @@ def log_model(
     )
 
 
+# patch_langchain_type_to_cls_dict here as we attempt to load model
+# if it's saved by `dict` method
+@patch_langchain_type_to_cls_dict
 def _save_model(model, path, loader_fn, persist_dir):
     if Version(cloudpickle.__version__) < Version("2.1.0"):
         warnings.warn(
@@ -576,15 +579,15 @@ def _save_model(model, path, loader_fn, persist_dir):
             "using `pip install cloudpickle>=2.1.0` "
             "to ensure the model can be loaded correctly."
         )
-    # patch_langchain_type_to_cls_dict here as we attempt to load model
-    # if it's saved by `dict` method
-    with register_pydantic_v1_serializer_cm(), patch_langchain_type_to_cls_dict():
+
+    with register_pydantic_v1_serializer_cm():
         if isinstance(model, lc_runnables_types()):
             return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)
         else:
             return _save_base_lcs(model, path, loader_fn, persist_dir)
 
 
+@patch_langchain_type_to_cls_dict
 def _load_model(local_model_path, flavor_conf):
     from mlflow.langchain._langchain_autolog import _update_langchain_model_config
 
@@ -856,8 +859,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
             _clear_dependencies_schemas()
         return model
     else:
-        with patch_langchain_type_to_cls_dict():
-            return _load_model(local_model_path, flavor_conf)
+        return _load_model(local_model_path, flavor_conf)
 
 
 @experimental

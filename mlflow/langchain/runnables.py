@@ -36,6 +36,7 @@ from mlflow.langchain.utils import (
     lc_runnable_branch_types,
     lc_runnable_with_steps_types,
     lc_runnables_types,
+    patch_langchain_type_to_cls_dict,
     picklable_runnable_types,
 )
 
@@ -51,6 +52,7 @@ _DEFAULT_BRANCH_NAME = "default"
 _RUNNABLE_BINDING_CONF_FILE_NAME = "binding_conf.yaml"
 
 
+@patch_langchain_type_to_cls_dict
 def _load_model_from_config(path, model_config):
     from langchain.chains.loading import type_to_loader_dict as chains_type_to_loader_dict
     from langchain.llms import get_type_to_cls_dict as llms_get_type_to_cls_dict
