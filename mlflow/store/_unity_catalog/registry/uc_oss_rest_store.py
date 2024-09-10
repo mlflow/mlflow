@@ -237,6 +237,7 @@ class UnityCatalogOssStore(BaseRestStore):
         full_name = get_full_name_from_sc(name, None)
         req_body = message_to_json(GetRegisteredModel(full_name=full_name))
         endpoint, method = _METHOD_TO_INFO[GetRegisteredModel]
+        print("KJC9!! YOW!")
         registered_model_info = self._edit_endpoint_and_call(
             endpoint=endpoint,
             method=method,
