@@ -60,7 +60,10 @@ if _MLFLOW_RUN_SLOW_TESTS.get():
     )
     from tests.statsmodels.model_fixtures import ols_model
     from tests.tensorflow.test_tensorflow2_core_model_export import tf2_toy_model  # noqa: F401
-    from tests.transformers.helper import load_small_qa_pipeline, load_small_seq2seq_pipeline
+    from tests.transformers.helper import (
+        load_small_qa_tf_pipeline,
+        load_text_classification_pipeline,
+    )
 
 
 pytestmark = pytest.mark.skipif(
@@ -426,7 +429,7 @@ def tensorflow_model(model_path, tf2_toy_model):
 
 @pytest.fixture
 def transformers_pt_model(model_path):
-    pipeline = load_small_seq2seq_pipeline()
+    pipeline = load_text_classification_pipeline()
     save_model_with_latest_mlflow_version(
         flavor="transformers",
         transformers_model=pipeline,
@@ -438,7 +441,7 @@ def transformers_pt_model(model_path):
 
 @pytest.fixture
 def transformers_tf_model(model_path):
-    pipeline = load_small_qa_pipeline()
+    pipeline = load_small_qa_tf_pipeline()
     save_model_with_latest_mlflow_version(
         flavor="transformers",
         transformers_model=pipeline,
