@@ -408,7 +408,7 @@ def get_workload_id():
         return _get_command_context().workloadId().get()
     except Exception:
         return _get_context_tag("workloadId")
-    
+
 
 @_use_repl_context_if_available("workloadClass")
 def get_workload_class():
