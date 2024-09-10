@@ -457,6 +457,8 @@ prophet:
     minimum: "1.1.1"
     maximum: "1.1.5"
     requirements:
+      # Prophet does not handle numpy 2 yet. https://github.com/facebook/prophet/issues/2595
+      ">= 0.0.0": ["numpy<2"]
       # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200 on
       # older version of prophet. Compatibility updates have been released as part of the 1.1.4
       # release of prophet.
