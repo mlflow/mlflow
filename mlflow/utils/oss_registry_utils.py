@@ -26,4 +26,6 @@ def get_oss_host_creds(server_uri=None):
 
     if parsed_uri.path == _DATABRICKS_UNITY_CATALOG_SCHEME:
         return get_databricks_host_creds(parsed_uri.path)
+    print("host = " + parsed_uri.path)
+    print("token = " + MLFLOW_UC_OSS_TOKEN.get())
     return MlflowHostCreds(host=parsed_uri.path, token=MLFLOW_UC_OSS_TOKEN.get())
