@@ -402,6 +402,22 @@ def get_command_run_id():
         return None
 
 
+@_use_repl_context_if_available("workloadId")
+def get_workload_id():
+    try:
+        return _get_command_context().workloadId().get()
+    except Exception:
+        return _get_context_tag("workloadId")
+
+
+@_use_repl_context_if_available("workloadClass")
+def get_workload_class():
+    try:
+        return _get_command_context().workloadClass().get()
+    except Exception:
+        return _get_context_tag("workloadClass")
+
+
 @_use_repl_context_if_available("apiUrl")
 def get_webapp_url():
     """Should only be called if is_in_databricks_notebook or is_in_databricks_jobs is true"""
