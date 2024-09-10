@@ -4,6 +4,38 @@ Introduction to MLflow Tracing
 .. note::
     MLflow Tracing is currently in **Experimental Status** and is subject to change without deprecation warning or notification. 
 
+.. raw:: html
+
+    <section>
+        <div class="logo-grid">
+            <a href="../langchain/autologging.html">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/langchain-logo.png" alt="LangChain Logo"/>
+                </div>
+            </a>
+            <a href="../langchain/autologging.html">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/langgraph-logo.png" alt="LangGraph Logo"/>
+                </div>
+            </a>
+            <a href="../llama-index/index.html##enable-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/llamaindex-logo.svg" alt="LlamaIndex Logo"/>
+                </div>
+            </a>
+            <a href="../openai/autologging.html">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/openai-logo.png" alt="OpenAI Logo"/>
+                </div>
+            </a>
+            <a href="#automatic-tracing">
+                <div class="logo-card">
+                    <img src="../../_static/images/logos/autogen-logo.svg" alt="AutoGen Logo"/>
+                </div>
+            </a>
+    </section>
+
+
 MLflow Tracing is a feature that enhances LLM observability in your Generative AI (GenAI) applications by capturing detailed information about the execution of your application's services.
 Tracing provides a way to record the inputs, outputs, and metadata associated with each intermediate step of a request, enabling you to easily pinpoint the source of bugs and unexpected behaviors.
 
@@ -37,7 +69,7 @@ for model/API invocations to the active MLflow Experiment.
 
 .. tabs::
 
-    .. tab::  LangChain
+    .. tab::  LangChain / LangGraph
 
         .. raw:: html
 
@@ -230,6 +262,7 @@ for model/API invocations to the active MLflow Experiment.
 
             mlflow.autogen.autolog()
 
+        To see the full example of tracing AutoGen, please refer to the `AutoGen Tracing example <https://github.com/mlflow/mlflow/tree/master/examples/autogen/tracing.py>`_.
 
         .. figure:: ../../_static/images/llms/autogen/autogen-trace.png
             :alt: AutoGen Tracing
