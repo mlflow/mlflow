@@ -1,7 +1,6 @@
 """
 This module defines environment variables used in MLflow.
 """
-
 import os
 from pathlib import Path
 
