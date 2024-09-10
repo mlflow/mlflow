@@ -473,7 +473,7 @@ def validate_config_path(_ctx, _param, value):
 
 
 @experimental
-@commands.command("start-server", help="Start the MLflow Deployments server")
+@commands.command("start-server", help="Start MLflow AI Gateway")
 @click.option(
     "--config-path",
     envvar=MLFLOW_DEPLOYMENTS_CONFIG.name,
@@ -503,7 +503,7 @@ def start_server(config_path: str, host: str, port: str, workers: int):
         FutureWarning,
     )
     if is_windows():
-        raise click.ClickException("MLflow Deployments Server does not support Windows.")
+        raise click.ClickException("MLflow AI Gateway does not support Windows.")
 
     from mlflow.deployments.server.runner import run_app
 
