@@ -673,7 +673,11 @@ langchain:
       # langchain-openai 0.1.22 is imcomptible with earlier langchain-core due to
       # https://github.com/langchain-ai/langchain/commit/b83f1eb0d56dbf99605a1fce93953ee09d77aabf
       "< 0.2": ["langchain-openai<=0.1.22"]
-      ">= 0.2": ["langchain-openai", "langchain-huggingface"]
+      ">= 0.2": [
+          "langchain-huggingface",
+          # Install langchain-databricks from the main branch
+          "git+https://github.com/langchain-ai/langchain-databricks.git@main#egg=langchain-databricks&subdirectory=libs/databricks",
+        ]
     run: |
       # Run all langchain tests except autologging
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
