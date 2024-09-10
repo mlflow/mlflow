@@ -679,11 +679,6 @@ langchain:
           "git+https://github.com/langchain-ai/langchain-databricks.git@main#egg=langchain-databricks&subdirectory=libs/databricks",
         ]
     run: |
-      # Langchain-databricks include databricks-vectorsearch as a dependency,
-      # which falsely installs mlflow-skinny and cause weird behavior in the tests.
-      pip uninstall mlflow-skinny -y
-      # Re-install MLflow to avoid weird side effect from uninstall skinny
-      pip install . -e .
       # Run all langchain tests except autologging
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
       # test both pydantic v1 and v2
