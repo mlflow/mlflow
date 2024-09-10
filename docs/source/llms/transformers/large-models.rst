@@ -165,6 +165,7 @@ By navigating to the MLflow UI, you can see the model logged with the repository
             source_model_revision: 33101ce6ccc08fa6249c10a543ebfcac65173393
             ...
 
+Before production deployments, you may want to persist the model weight instead of the repository reference. To do so, you can use the :py:func:`mlflow.transformers.persist_pretrained_model()` API to download the model weight from the HuggingFace Hub and save it to the artifact location. Please refer to the :ref:`persist-pretrained-guide` section for more information.
 
 Registering Reference-Only Models for Production
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
